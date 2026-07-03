@@ -16,14 +16,18 @@ function sqlAsText(): Plugin {
   };
 }
 
-// The fitness scan tests (timekeeping-wip-ledger-fitness, timekeeping-freeze-fitness) need to scan
-// packages/timekeeping/src/**/*.ts, but import.meta.glob cannot resolve outside the Vite root
-// (apps/worker). This plugin provides a virtual module that inlines those sources at build time so
-// the scans cover the package where the SQL statement strings actually live.
-function timekeepingPackageSources(): Plugin {
-  const virtualModuleId = "virtual:timekeeping-package-sources";
+// The fitness scan tests (billing-wip-ledger-fitness, billing-freeze-fitness) need to scan the
+// package sources where the SQL statement strings actually live — packages/timekeeping/src,
+// packages/costs/src, and packages/billing-core/src — but import.meta.glob cannot resolve outside
+// the Vite root (apps/worker). This plugin provides a virtual module that inlines those sources at
+// build time, each file keyed under its own package prefix, so the scans cover all three packages
+// and each can be floored for non-vacuity independently.
+function billingPackageSources(): Plugin {
+  const virtualModuleId = "virtual:billing-package-sources";
   const resolvedVirtualModuleId = "\0" + virtualModuleId;
-  const packageSrcDir = path.resolve(import.meta.dirname, "../../packages/timekeeping/src");
+  const timekeepingSrcDir = path.resolve(import.meta.dirname, "../../packages/timekeeping/src");
+  const costsSrcDir = path.resolve(import.meta.dirname, "../../packages/costs/src");
+  const billingCoreSrcDir = path.resolve(import.meta.dirname, "../../packages/billing-core/src");
 
   function collectSources(dir: string, prefix: string): Record<string, string> {
     const result: Record<string, string> = {};
@@ -40,14 +44,17 @@ function timekeepingPackageSources(): Plugin {
   }
 
   return {
-    name: "magna-carta:timekeeping-package-sources",
+    name: "magna-carta:billing-package-sources",
     resolveId(id) {
       if (id === virtualModuleId) return resolvedVirtualModuleId;
       return undefined;
     },
     load(id) {
       if (id !== resolvedVirtualModuleId) return undefined;
-      const sources = collectSources(packageSrcDir, "packages/timekeeping/src");
+      const sources: Record<string, string> = {};
+      Object.assign(sources, collectSources(timekeepingSrcDir, "packages/timekeeping/src"));
+      Object.assign(sources, collectSources(costsSrcDir, "packages/costs/src"));
+      Object.assign(sources, collectSources(billingCoreSrcDir, "packages/billing-core/src"));
       return `export default ${JSON.stringify(sources)};`;
     },
   };
@@ -55,13 +62,66 @@ function timekeepingPackageSources(): Plugin {
 
 // Stub for the magna-carta-scan service binding in tests — no real scan worker runs under the
 // local pool, so the service binding must resolve to something or workerd refuses to boot.
-// Returning the no-engine ScanResult matches what production returns before the engine is wired,
-// so scan-path code exercised in tests sees an honest unscanned verdict rather than a fake clean.
+// The stub branches on the request path so both the scan route and the file-type identify route
+// receive honest responses. /scan returns the no-engine RawScanResult (an honest unscanned, never a
+// fake clean); /identify returns a fixed Magika jpeg result so the file-type tests can assert on the
+// report shape without running the real Container.
 const SCAN_SERVICE_STUB_SCRIPT = `
 export default {
-  fetch() {
+  fetch(request) {
+    const url = new URL(request.url);
+    // GET /rules/score-histogram returns the no-engine histogram shape — the engine-less equivalent of
+    // the real container endpoint, matching what production returns before the scan engine is wired.
+    if (url.pathname === "/rules/score-histogram") {
+      return new Response(
+        JSON.stringify({ engineVersion: null, minScoreGate: null, total: 0, buckets: [] }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      );
+    }
+    if (url.pathname === "/identify") {
+      return new Response(
+        JSON.stringify({ label: "jpeg", score: 0.99, group: "image",
+          magikaVersion: "test", modelVersion: "test" }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      );
+    }
+    // The default (/scan): the no-engine RawScanResult, an honest unscanned verdict (not a fake clean).
     return new Response(
-      JSON.stringify({ verdict: "unscanned", reason: "no-engine", engineVersion: null }),
+      JSON.stringify({
+        engineVersion: null,
+        clam: { state: "unavailable" },
+        heuristic: { kind: "none" },
+        matches: [],
+        timings: { clamdMs: 0, yaraMs: 0 },
+      }),
+      { status: 200, headers: { "content-type": "application/json" } }
+    );
+  }
+};
+`;
+
+// Stub for the magna-carta-bundle service binding in tests — no real bundle worker runs under
+// the local pool, so the service binding must resolve to something or workerd refuses to boot.
+// POST /build (non-streaming) returns a minimal canned BuildResponse (ok, one zero-byte volume
+// key) so bundle-coordinator tests can exercise the coordinator's happy path without a live worker.
+// POST /build?stream=1 (encrypted-stream lane) returns a small fixed body so the encrypted-stream
+// route tests can assert the 200 + content-type without a real container.
+const BUNDLE_SERVICE_STUB_SCRIPT = `
+export default {
+  fetch(request) {
+    const url = new URL(request.url);
+    if (url.searchParams.has("stream")) {
+      return new Response("stub-archive-bytes", {
+        status: 200,
+        headers: { "content-type": "application/zip" },
+      });
+    }
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        volumes: [{ key: "bundles/stub/bundle.zip", sizeBytes: 0 }],
+        error: null,
+      }),
       { status: 200, headers: { "content-type": "application/json" } }
     );
   }
@@ -77,15 +137,17 @@ export default defineConfig({
   root: import.meta.dirname,
   plugins: [
     sqlAsText(),
-    timekeepingPackageSources(),
+    billingPackageSources(),
     cloudflareTest({
       wrangler: { configPath: `${import.meta.dirname}/wrangler.jsonc` },
       remoteBindings: false,
-      // Two service bindings in wrangler.jsonc reference dedicated workers that do not run under the
-      // local pool — magna-carta-scan (SCAN_SERVICE) and magna-carta-convert (CONVERT). Miniflare
-      // requires both to exist, so register minimal stubs. The scan stub returns the no-engine
-      // ScanResult (an honest unscanned, never a fake clean); the convert stub only satisfies startup
-      // validation (conversion-engine tests inject fake CONVERT fetchers directly, never call it).
+      // Three service bindings in wrangler.jsonc reference dedicated workers that do not run under
+      // the local pool — magna-carta-scan (SCAN_SERVICE), magna-carta-convert (CONVERT), and
+      // magna-carta-bundle (BUNDLE_SERVICE). Miniflare requires all to exist, so register minimal
+      // stubs. The scan stub returns the no-engine RawScanResult (an honest unscanned, never a fake
+      // clean); the convert stub only satisfies startup validation (conversion-engine tests inject
+      // fake CONVERT fetchers directly, never call it); the bundle stub returns a canned BuildResponse
+      // so coordinator tests can exercise the happy path without a live bundle worker.
       miniflare: {
         workers: [
           {
@@ -98,8 +160,22 @@ export default defineConfig({
             modules: true,
             script: `export default { fetch() { return new Response("stub", { status: 501 }); } };`,
           },
+          {
+            name: "magna-carta-bundle",
+            modules: true,
+            script: BUNDLE_SERVICE_STUB_SCRIPT,
+          },
         ],
       },
     }),
   ],
+  test: {
+    // 16 CPUs but a RAM-constrained dev box (~3 GB free under normal load): each test file boots a
+    // Miniflare/workerd VM holding the full app + bindings + the three stub service workers, so the
+    // default CPU-wide file parallelism OOMs the box (exit 137). Cap the concurrent VMs to fit
+    // memory — peak ≈ maxWorkers × per-VM, independent of file count. CI (more RAM) raises it via the
+    // env. Mirrors the fileParallelism guard packages/conversion uses for its wasm heaps.
+    maxWorkers: Number(process.env.MC_WORKER_TEST_MAX_WORKERS ?? 4),
+    minWorkers: 1,
+  },
 });

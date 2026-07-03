@@ -41,6 +41,8 @@ describe("tool catalog", () => {
       "metadata-scrubber",
       "file-hash-integrity",
       "file-decryption",
+      "file-type-verifier",
+      "ai-text-detection",
     ]);
   });
 
@@ -51,5 +53,13 @@ describe("tool catalog", () => {
     expect(tool?.backing).toEqual({ kind: "library" });
     expect(tool?.matterContext).toBe("none");
     expect(tool?.contextTags).toEqual(["none"]);
+  });
+
+  it("includes the AI-text detection tool backed by the ai-detection integration", () => {
+    const tool = CATALOG.find((entry) => entry.id === "ai-text-detection");
+    expect(tool).toBeDefined();
+    expect(tool?.subjectGroup).toBe("documents");
+    expect(tool?.backing).toEqual({ kind: "integration", category: "ai-detection" });
+    expect(tool?.matterContext).toBe("optional");
   });
 });

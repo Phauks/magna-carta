@@ -166,8 +166,92 @@
     {
       "idx": 23,
       "version": "6",
-      "when": 1782300300000,
-      "tag": "0023_seed-tools-decryption",
+      "when": 1782500000000,
+      "tag": "0023_raw_scan_cache",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1782600000000,
+      "tag": "0024_seed-release-channel-permission",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1782600000001,
+      "tag": "0025_amusing_robbie_robertson",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "6",
+      "when": 1782600000002,
+      "tag": "0026_needy_rage",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "6",
+      "when": 1782600000003,
+      "tag": "0027_smart_stellaris",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "6",
+      "when": 1782600000004,
+      "tag": "0028_burly_piledriver",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "6",
+      "when": 1782600000005,
+      "tag": "0029_scan_verdict_flagged",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "6",
+      "when": 1782600000006,
+      "tag": "0030_seed-scan-policy-permission",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "6",
+      "when": 1782600000007,
+      "tag": "0031_support-access-permissions",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "6",
+      "when": 1782600000008,
+      "tag": "0032_seed-tools-file-type-verifier",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "6",
+      "when": 1782950000000,
+      "tag": "0033_ai-detection-usage",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "6",
+      "when": 1782950100000,
+      "tag": "0034_seed-tools-ai-text-detection",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "6",
+      "when": 1782950200000,
+      "tag": "0035_seed-tools-decryption",
       "breakpoints": true
     }
   ]

@@ -2,6 +2,8 @@ import { type OpenAPIHono, z } from "@hono/zod-openapi";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import { insertAuditLogStatement } from "@magna-carta/data-access/audit-statements";
 import { readInspectableSizeCap } from "@magna-carta/file-manager/upload-policy";
+import { computeVerdict } from "@magna-carta/file-manager/verdict";
+import { readFirmScanPolicy } from "@magna-carta/file-manager/scan-policy-settings";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
@@ -14,9 +16,12 @@ import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { Problem, problemJson } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 
-// The diagnostic-scan response — the engine's ScanResult union flattened into one stable shape so a
-// caller reads the verdict + the relevant detail without a discriminated union. The verdict is an
-// honest `unscanned` until the scan Container is activated (the engine-less adapter never claims clean).
+// The diagnostic-scan response — the engine's raw facts collapsed (via the app-side verdict layer)
+// into one stable shape so a caller reads the verdict + the relevant detail without a discriminated
+// union. A flagged file (clamd signature, a counting YARA match, or a structural heuristic) reports as
+// `infected` when clamd named a signature, otherwise `suspicious` with the triggering reason. The
+// verdict is an honest `unscanned` until the scan Container is activated (the engine-less adapter never
+// claims clean).
 const ScanDiagnosis = z
   .object({
     verdict: z.enum(["clean", "infected", "unscanned", "suspicious"]),
@@ -107,10 +112,48 @@ export function registerScanDiagnoseRoute(app: ScanApp, chokepoint: Chokepoint):
       // OpenAPI-emit script cannot resolve at module-load time. Deferring it to request time keeps it
       // out of app.ts's static module graph (cached after the first call; no per-request cost).
       const { resolveScanPort } = await import("../files/scan-port-binding.ts");
-      const result = await resolveScanPort(c.env).scan(body, {
+      const raw = await resolveScanPort(c.env).scan(body, {
         sizeBytes,
         sniffedContentType: c.req.header("content-type") ?? null,
       });
+
+      // Decide the verdict app-side from the raw facts, using the firm's own scan policy so the
+      // diagnostic reflects exactly what ingest would decide for this firm (tier + suspicious-score
+      // floor), not a fixed default. A deployed engine reporting unavailable is a transient fault, never
+      // a verdict: computeVerdict throws ScanFaultError, which propagates to the route error boundary (a
+      // redacted error with an Error ID) rather than reporting a fabricated clean.
+      const fileVerdict = computeVerdict(raw, await readFirmScanPolicy(firm.firmDatabase));
+
+      // Collapse the verdict into the stable diagnosis enum: a flagged file reports `infected` when
+      // clamd named a signature, otherwise `suspicious` with the triggering reason.
+      const diagnosis =
+        fileVerdict.verdict === "clean"
+          ? {
+              verdict: "clean" as const,
+              signature: null,
+              reason: null,
+              activeContent: fileVerdict.activeContent,
+            }
+          : fileVerdict.verdict === "unscanned"
+            ? {
+                verdict: "unscanned" as const,
+                signature: null,
+                reason: fileVerdict.reason,
+                activeContent: false,
+              }
+            : raw.clam.state === "infected"
+              ? {
+                  verdict: "infected" as const,
+                  signature: raw.clam.signature,
+                  reason: null,
+                  activeContent: false,
+                }
+              : {
+                  verdict: "suspicious" as const,
+                  signature: null,
+                  reason: fileVerdict.reason,
+                  activeContent: false,
+                };
 
       // The diagnostic stores nothing, so this audit row is the record of who ran a scan and the
       // outcome. Redacted by construction: the verdict only — never the file's bytes or name.
@@ -124,7 +167,7 @@ export function registerScanDiagnoseRoute(app: ScanApp, chokepoint: Chokepoint):
               event: "file.scan_diagnosed",
               actorUserId: userId,
               subjectId: userId, // a stateless diagnostic — the member's own activity is the subject
-              metadata: { verdict: result.verdict },
+              metadata: { verdict: diagnosis.verdict },
               now,
             }),
           ],
@@ -133,20 +176,7 @@ export function registerScanDiagnoseRoute(app: ScanApp, chokepoint: Chokepoint):
         { now: () => now },
       );
 
-      // Flatten the ScanResult union into the stable diagnosis shape.
-      return c.json(
-        {
-          verdict: result.verdict,
-          engineVersion: result.engineVersion ?? null,
-          signature: result.verdict === "infected" ? result.signature : null,
-          reason:
-            result.verdict === "unscanned" || result.verdict === "suspicious"
-              ? result.reason
-              : null,
-          activeContent: result.verdict === "clean" ? (result.activeContent ?? false) : false,
-        },
-        200,
-      );
+      return c.json({ engineVersion: raw.engineVersion ?? null, ...diagnosis }, 200);
     },
   );
 }

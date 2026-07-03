@@ -8,6 +8,7 @@
     "./folder-statements": "./src/folder-statements.ts",
     "./folder-service": "./src/folder-service.ts",
     "./file-statements": "./src/file-statements.ts",
+    "./checkout-statements": "./src/checkout-statements.ts",
     "./file-service": "./src/file-service.ts",
     "./document-type-statements": "./src/document-type-statements.ts",
     "./document-type-service": "./src/document-type-service.ts",
@@ -15,6 +16,7 @@
     "./usage": "./src/usage.ts",
     "./ingest-core": "./src/ingest-core.ts",
     "./scan-port": "./src/scan-port.ts",
+    "./verdict": "./src/verdict.ts",
     "./safe-rendition-port": "./src/safe-rendition-port.ts",
     "./upload-policy": "./src/upload-policy.ts",
     "./queries": "./src/queries.ts",
@@ -22,12 +24,15 @@
     "./preview-policy": "./src/preview-policy.ts",
     "./bundle-paths": "./src/bundle-paths.ts",
     "./zip-composition": "./src/zip-composition.ts",
+    "./zip-entries-from-r2": "./src/zip-entries-from-r2.ts",
     "./audit": "./src/audit.ts",
     "./bundle-layout": "./src/bundle-layout.ts",
     "./bundle-options": "./src/bundle-options.ts",
     "./bundle-formats": "./src/bundle-formats.ts",
     "./validation": "./src/validation.ts",
-    "./contents-manifest": "./src/contents-manifest.ts"
+    "./contents-manifest": "./src/contents-manifest.ts",
+    "./bundle-manifest": "./src/bundle-manifest.ts",
+    "./scan-policy-settings": "./src/scan-policy-settings.ts"
   },
   "scripts": {
     "test": "vp test run"

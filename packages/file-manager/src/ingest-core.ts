@@ -1,5 +1,7 @@
 import { fileTypeFromBuffer } from "file-type";
-import type { MalwareScanPort } from "./scan-port.ts";
+import type { MalwareScanPort, RawScanResult } from "./scan-port.ts";
+import { computeVerdict, ScanFaultError, type FileVerdict, type ScanPolicy } from "./verdict.ts";
+import type { FlaggedTreatment } from "./scan-policy-settings.ts";
 import { checkUploadPolicy, type UploadPolicy } from "./upload-policy.ts";
 import { FileManagerValidationError } from "./validation.ts";
 
@@ -38,6 +40,11 @@ export interface IngestInput {
   // a multi-GiB object to a scanner is wasteful and a large legitimate file is not suspicious for
   // being big. A later task wires this from the firm setting; consumers pass a default until then.
   readonly inspectableSizeCap: number;
+  // Firm-level scan policy: controls which YARA tiers and suspicious score floors trigger a flag.
+  readonly scanPolicy: ScanPolicy;
+  // How a flagged file is handled at ingest: quarantine it ("block"), or commit it marked flagged
+  // so downstream access logic can gate or display it ("informed-access" | "allow-and-flag").
+  readonly flaggedTreatment: FlaggedTreatment;
 }
 
 export type QuarantineReason =
@@ -45,8 +52,7 @@ export type QuarantineReason =
   | "size-mismatch"
   | "policy-size"
   | "policy-type"
-  | "scan-infected"
-  | "scan-suspicious";
+  | "scan-flagged";
 
 export type IngestOutcome =
   | {
@@ -54,9 +60,14 @@ export type IngestOutcome =
       sizeBytes: number;
       sniffedContentType: string | null;
       contentSha256: string;
-      scanVerdict: "unscanned" | "clean";
+      scanVerdict: "unscanned" | "clean" | "flagged";
       scanEngineVersion: string | null;
       scanDetail: string | null;
+      // The full raw scan result behind this commit, threaded to the commit so the content-dedup cache
+      // is populated atomically on a clean commit (the "scan-once" dedup). null when no engine ran (the
+      // oversize short-circuit); the cache is only written for a real-engine clean verdict, and the
+      // cache key + the stamped engine version both derive from this result's `engineVersion`.
+      rawScanResult: RawScanResult | null;
     }
   | { kind: "quarantine"; reason: QuarantineReason; scanDetail: string | null };
 
@@ -124,11 +135,12 @@ export async function runIngest(input: IngestInput): Promise<IngestOutcome> {
       scanVerdict: "unscanned",
       scanEngineVersion: null,
       scanDetail: "oversize",
+      rawScanResult: null, // the engine never ran — nothing to cache
     };
   }
 
   const [hashStream, scanStream] = bodyStream.tee();
-  const [scan, hashed] = await Promise.all([
+  const [raw, hashed] = await Promise.all([
     input.scanPort.scan(scanStream, {
       sizeBytes: input.objectSize,
       sniffedContentType,
@@ -168,18 +180,46 @@ export async function runIngest(input: IngestInput): Promise<IngestOutcome> {
     }
     throw error;
   }
-  if (scan.verdict === "infected")
-    return { kind: "quarantine", reason: "scan-infected", scanDetail: scan.signature };
-  if (scan.verdict === "suspicious")
-    return { kind: "quarantine", reason: "scan-suspicious", scanDetail: scan.reason };
+  let fileVerdict: FileVerdict;
+  try {
+    fileVerdict = computeVerdict(raw, input.scanPolicy);
+  } catch (error) {
+    if (error instanceof ScanFaultError) throw error; // retryable — never commit
+    throw error;
+  }
+  if (fileVerdict.verdict === "flagged") {
+    if (input.flaggedTreatment === "block")
+      return { kind: "quarantine", reason: "scan-flagged", scanDetail: fileVerdict.reason };
+    // informed-access | allow-and-flag — commit the version marked flagged so downstream access
+    // logic can gate or display it. The raw result carries through so the scan-once dedup cache
+    // is still populated (same as the clean-commit path).
+    return {
+      kind: "commit",
+      sizeBytes: input.objectSize,
+      sniffedContentType,
+      contentSha256: hashed.hash,
+      scanVerdict: "flagged",
+      scanEngineVersion: raw.engineVersion,
+      scanDetail: fileVerdict.reason,
+      rawScanResult: raw,
+    };
+  }
   return {
     kind: "commit",
     sizeBytes: input.objectSize,
     sniffedContentType,
     contentSha256: hashed.hash,
-    scanVerdict: scan.verdict === "clean" ? "clean" : "unscanned",
-    scanEngineVersion: scan.engineVersion,
+    scanVerdict: fileVerdict.verdict === "clean" ? "clean" : "unscanned",
+    // Both the committed `scan_engine_version` and the dedup-cache key derive from the SAME honest
+    // source — the raw result's `engineVersion` — so a clean commit always repopulates the cache under
+    // the exact engine version it stamps (the scan-once dedup the re-scan path reuses).
+    scanEngineVersion: raw.engineVersion,
     scanDetail:
-      scan.verdict === "clean" ? (scan.activeContent ? "active-content" : null) : scan.reason,
+      fileVerdict.verdict === "clean"
+        ? fileVerdict.activeContent
+          ? "active-content"
+          : null
+        : fileVerdict.reason,
+    rawScanResult: raw,
   };
 }

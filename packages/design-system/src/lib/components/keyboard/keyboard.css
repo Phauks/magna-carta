@@ -1,0 +1,21 @@
+@layer components {
+  /*
+   * Keyboard (Tier 1). A keyboard-key hint: a sunken, mono, hairline-bordered chip. Flat (no key
+   * shadow) per design language §6. The mono face keeps multi-key chords aligned.
+   */
+  .mc-keyboard {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding-inline: var(--mc-space-4);
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: var(--mc-border-default);
+    border-radius: var(--mc-radius-sm);
+    background-color: var(--mc-surface-sunken);
+    color: var(--mc-text-muted);
+    font-family: var(--mc-font-mono);
+    font-size: var(--mc-font-size-xs);
+    line-height: var(--mc-leading-tight);
+  }
+}

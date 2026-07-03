@@ -11,7 +11,8 @@ import { FileManagerValidationError } from "./validation.ts";
 // bytes (the sniffed type) — a declared lie cannot smuggle a blocked type past the gate.
 export interface UploadPolicy {
   readonly maxSizeBytes: number;
-  readonly allowedContentTypes: readonly string[]; // exact, or "type/*" prefix wildcard
+  readonly allowedContentTypes: readonly string[]; // exact, or a trailing-`*` prefix wildcard
+  // (e.g. "text/*", or "application/vnd.openxmlformats-officedocument.*" for all OOXML types)
   readonly blockedExtensions: readonly string[]; // lowercase, dot-prefixed (".exe")
 }
 
@@ -177,7 +178,11 @@ export function readLiveMaxTotalBytes(database: SqlDatabase): Promise<number> {
 function contentTypeAllowed(allowed: readonly string[], contentType: string): boolean {
   const normalized = contentType.toLowerCase().split(";")[0]?.trim() ?? "";
   return allowed.some((pattern) => {
-    if (pattern.endsWith("/*")) return normalized.startsWith(pattern.slice(0, -1));
+    // A trailing `*` is a prefix wildcard. Supports both the MIME `type/*` form ("text/*") AND the
+    // longer dotted prefixes the OOXML/OpenDocument families need
+    // ("application/vnd.openxmlformats-officedocument.*"), which `/*`-only matching silently dropped —
+    // so Word/Excel/PowerPoint/OpenDocument uploads were rejected despite being in the default policy.
+    if (pattern.endsWith("*")) return normalized.startsWith(pattern.slice(0, -1));
     return normalized === pattern;
   });
 }

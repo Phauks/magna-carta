@@ -1,8 +1,14 @@
 import { runIngest, type IngestInput } from "@magna-carta/file-manager/ingest-core";
-import type { MalwareScanPort, ScanResult } from "@magna-carta/file-manager/scan-port";
+import type {
+  MalwareScanPort,
+  RawScanResult,
+  RuleMatch,
+} from "@magna-carta/file-manager/scan-port";
 import { unscannedAdapter } from "@magna-carta/file-manager/scan-port";
 import type { UploadPolicy } from "@magna-carta/file-manager/upload-policy";
 import { DEFAULT_UPLOAD_POLICY } from "@magna-carta/file-manager/upload-policy";
+import { DEFAULT_SCAN_POLICY, type ScanPolicy } from "@magna-carta/file-manager/verdict";
+import type { FlaggedTreatment } from "@magna-carta/file-manager/scan-policy-settings";
 import { describe, expect, it } from "vitest";
 
 // The ingest core uses crypto.DigestStream (a Workers-runtime API), so it is exercised here in the
@@ -42,6 +48,8 @@ function input(bytes: Uint8Array, overrides: Partial<IngestInput> = {}): IngestI
     policy: POLICY,
     scanPort: unscannedAdapter,
     inspectableSizeCap: 2 * 1024 * 1024 * 1024,
+    scanPolicy: DEFAULT_SCAN_POLICY,
+    flaggedTreatment: "block",
     ...overrides,
   };
 }
@@ -66,6 +74,15 @@ describe("runIngest", () => {
       scanVerdict: "unscanned",
       scanEngineVersion: null,
       scanDetail: "no-engine",
+      // The engine-less launch adapter's raw facts ride along on the commit outcome; with a null
+      // engineVersion the commit never writes the dedup cache.
+      rawScanResult: {
+        engineVersion: null,
+        clam: { state: "unavailable" },
+        heuristic: { kind: "none" },
+        matches: [],
+        timings: { clamdMs: 0, yaraMs: 0 },
+      },
     });
   });
 
@@ -127,23 +144,29 @@ describe("runIngest", () => {
     expect(outcome).toEqual({ kind: "quarantine", reason: "policy-type", scanDetail: null });
   });
 
-  it("quarantines an infected verdict from the scan port", async () => {
+  it("quarantines a flagged upload with the reason text (infected raw)", async () => {
     const infectedPort: MalwareScanPort = {
       async scan(body) {
         await body.cancel();
-        return { verdict: "infected", engineVersion: "test-engine-1", signature: null };
+        return {
+          engineVersion: "test-engine-1",
+          clam: { state: "infected", signature: "Eicar-Test-Signature" },
+          heuristic: { kind: "none" },
+          matches: [],
+          timings: { clamdMs: 1, yaraMs: 1 },
+        };
       },
     };
     const outcome = await runIngest(input(PDF_BYTES, { scanPort: infectedPort }));
     expect(outcome).toEqual({
       kind: "quarantine",
-      reason: "scan-infected",
-      scanDetail: null,
+      reason: "scan-flagged",
+      scanDetail: "Eicar-Test-Signature",
     });
   });
 });
 
-const fixedScan = (result: ScanResult): MalwareScanPort => ({
+const fixedScan = (result: RawScanResult): MalwareScanPort => ({
   async scan() {
     return result;
   },
@@ -160,16 +183,24 @@ const baseInput = (bytes: Uint8Array) => ({
   },
   policy: DEFAULT_UPLOAD_POLICY,
   inspectableSizeCap: 2 * 1024 * 1024 * 1024,
+  scanPolicy: DEFAULT_SCAN_POLICY,
+  flaggedTreatment: "block" as FlaggedTreatment,
 });
 
-describe("runIngest uninspectable + suspicious policy", () => {
+describe("runIngest uninspectable + raw scan verdict", () => {
   it("commits an oversize file as unscanned/oversize without calling the engine", async () => {
     const bytes = new Uint8Array([1, 2, 3, 4]);
     let scanCalled = false;
     const port: MalwareScanPort = {
       async scan() {
         scanCalled = true;
-        return { verdict: "clean", engineVersion: "e1" };
+        return {
+          engineVersion: "e1",
+          clam: { state: "clean" },
+          heuristic: { kind: "none" },
+          matches: [],
+          timings: { clamdMs: 1, yaraMs: 1 },
+        };
       },
     };
     const outcome = await runIngest({ ...baseInput(bytes), inspectableSizeCap: 3, scanPort: port });
@@ -185,7 +216,13 @@ describe("runIngest uninspectable + suspicious policy", () => {
     const bytes = new Uint8Array([1, 2, 3, 4]);
     const outcome = await runIngest({
       ...baseInput(bytes),
-      scanPort: fixedScan({ verdict: "unscanned", reason: "encrypted", engineVersion: "e1" }),
+      scanPort: fixedScan({
+        engineVersion: "e1",
+        clam: { state: "clean" },
+        heuristic: { kind: "encrypted" },
+        matches: [],
+        timings: { clamdMs: 1, yaraMs: 1 },
+      }),
     });
     expect(outcome).toMatchObject({
       kind: "commit",
@@ -194,19 +231,21 @@ describe("runIngest uninspectable + suspicious policy", () => {
     });
   });
 
-  it("quarantines a suspicious archive as scan-suspicious with the sub-reason", async () => {
+  it("quarantines a structural heuristic (decompression bomb) as scan-flagged with the sub-reason", async () => {
     const bytes = new Uint8Array([1, 2, 3, 4]);
     const outcome = await runIngest({
       ...baseInput(bytes),
       scanPort: fixedScan({
-        verdict: "suspicious",
-        reason: "decompression-bomb",
         engineVersion: "e1",
+        clam: { state: "clean" },
+        heuristic: { kind: "structural", reason: "decompression-bomb" },
+        matches: [],
+        timings: { clamdMs: 1, yaraMs: 1 },
       }),
     });
     expect(outcome).toEqual({
       kind: "quarantine",
-      reason: "scan-suspicious",
+      reason: "scan-flagged",
       scanDetail: "decompression-bomb",
     });
   });
@@ -215,8 +254,118 @@ describe("runIngest uninspectable + suspicious policy", () => {
     const bytes = new Uint8Array([1, 2, 3, 4]);
     const outcome = await runIngest({
       ...baseInput(bytes),
-      scanPort: fixedScan({ verdict: "clean", engineVersion: "e1" }),
+      scanPort: fixedScan({
+        engineVersion: "e1",
+        clam: { state: "clean" },
+        heuristic: { kind: "none" },
+        matches: [],
+        timings: { clamdMs: 1, yaraMs: 1 },
+      }),
     });
     expect(outcome).toMatchObject({ kind: "commit", scanVerdict: "clean", scanDetail: null });
+  });
+
+  it("throws (retryable) when a deployed engine reports unavailable", async () => {
+    const bytes = new Uint8Array([1, 2, 3, 4]);
+    // A non-null engineVersion + unavailable clam = deployed engine fault → must throw, never commit.
+    await expect(
+      runIngest({
+        ...baseInput(bytes),
+        scanPort: fixedScan({
+          engineVersion: "e1", // non-null = a real engine was expected
+          clam: { state: "unavailable" },
+          heuristic: { kind: "none" },
+          matches: [],
+          timings: { clamdMs: 0, yaraMs: 0 },
+        }),
+      }),
+    ).rejects.toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Treatment-aware flagged branch
+// ---------------------------------------------------------------------------
+
+function infectedRaw(signature: string): RawScanResult {
+  return {
+    engineVersion: "test-engine-1",
+    clam: { state: "infected", signature },
+    heuristic: { kind: "none" },
+    matches: [],
+    timings: { clamdMs: 1, yaraMs: 1 },
+  };
+}
+
+function matchRaw(match: RuleMatch): RawScanResult {
+  return {
+    engineVersion: "test-engine-1",
+    clam: { state: "clean" },
+    heuristic: { kind: "none" },
+    matches: [match],
+    timings: { clamdMs: 1, yaraMs: 1 },
+  };
+}
+
+function deployedUnavailableRaw(): RawScanResult {
+  return {
+    engineVersion: "test-engine-1",
+    clam: { state: "unavailable" },
+    heuristic: { kind: "none" },
+    matches: [],
+    timings: { clamdMs: 0, yaraMs: 0 },
+  };
+}
+
+async function runIngestWithPolicyTreatment(
+  raw: RawScanResult,
+  policy: ScanPolicy,
+  treatment: FlaggedTreatment,
+) {
+  const bytes = new Uint8Array([1, 2, 3, 4]);
+  return runIngest({
+    ...baseInput(bytes),
+    scanPort: fixedScan(raw),
+    scanPolicy: policy,
+    flaggedTreatment: treatment,
+  });
+}
+
+describe("runIngest treatment-aware flagged branch", () => {
+  it("flagged upload with treatment=block quarantines (scan-flagged)", async () => {
+    const raw = infectedRaw("Eicar");
+    const outcome = await runIngestWithPolicyTreatment(raw, DEFAULT_SCAN_POLICY, "block");
+    expect(outcome).toMatchObject({
+      kind: "quarantine",
+      reason: "scan-flagged",
+      scanDetail: "Eicar",
+    });
+  });
+
+  it("flagged upload with treatment=informed-access commits as flagged", async () => {
+    const raw = infectedRaw("Eicar");
+    const outcome = await runIngestWithPolicyTreatment(raw, DEFAULT_SCAN_POLICY, "informed-access");
+    expect(outcome).toMatchObject({ kind: "commit", scanVerdict: "flagged", scanDetail: "Eicar" });
+  });
+
+  it("flagged upload with treatment=allow-and-flag commits as flagged", async () => {
+    const outcome = await runIngestWithPolicyTreatment(
+      infectedRaw("Eicar"),
+      DEFAULT_SCAN_POLICY,
+      "allow-and-flag",
+    );
+    expect(outcome).toMatchObject({ kind: "commit", scanVerdict: "flagged" });
+  });
+
+  it("a full-tier match under an extended policy commits clean", async () => {
+    const raw = matchRaw({ ruleId: "R", tier: "full", score: 90, isSuspicious: false });
+    const outcome = await runIngestWithPolicyTreatment(raw, DEFAULT_SCAN_POLICY, "block");
+    expect(outcome).toMatchObject({ kind: "commit", scanVerdict: "clean" });
+  });
+
+  it("a deployed-engine fault throws (never commits) under any treatment", async () => {
+    await expect(
+      runIngestWithPolicyTreatment(deployedUnavailableRaw(), DEFAULT_SCAN_POLICY, "allow-and-flag"),
+    ).rejects.toThrow();
   });
 });

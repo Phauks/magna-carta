@@ -547,6 +547,8 @@ pub struct DetectionReport {
 #[derive(Debug)]
 pub enum DetectError {
     Parse,
+    /// The input exceeds the size cap or contains a decompression bomb.
+    Rejected,
 }
 
 fn severity_rank(s: Severity) -> u8 {
@@ -560,6 +562,8 @@ fn severity_rank(s: Severity) -> u8 {
 }
 
 pub fn detect(bytes: Vec<u8>) -> Result<DetectionReport, DetectError> {
+    crate::guard::guard_input(&bytes, &crate::guard::GuardLimits::default())
+        .map_err(|_| DetectError::Rejected)?;
     let pdf = hayro::hayro_syntax::Pdf::new(bytes.clone()).map_err(|_| DetectError::Parse)?;
     let page_count = pdf.pages().len();
 
@@ -632,6 +636,12 @@ pub fn detect(bytes: Vec<u8>) -> Result<DetectionReport, DetectError> {
 mod tests {
     use super::*;
     use crate::textpos::{CoverMark, GlyphMark, PageObservation};
+
+    #[test]
+    fn detect_rejects_oversize_input() {
+        let big = vec![0u8; crate::guard::GuardLimits::default().max_input_bytes + 1];
+        assert!(matches!(detect(big), Err(DetectError::Rejected)));
+    }
 
     #[test]
     fn detect_flags_a_bad_redaction_and_recovers_text() {

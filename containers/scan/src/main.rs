@@ -23,6 +23,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // by Arc.
     let (rules, yara_tag) = load_yara_rules_at_startup();
 
+    // The per-rule side-map (tier / score / suspicious flag, keyed by rule id) is baked beside the rule
+    // blob by the same build stage and restored here. The runtime enriches each bare yara match with it
+    // so the app can gate the match against a firm's policy. When unset (the rule-free dev/test build)
+    // it is empty, matching the rule-free corpus.
+    let side_map = load_yara_side_map_at_startup();
+
+    // Coupling gate: a non-empty rule corpus must be accompanied by a non-empty side-map.
+    // Without the side-map every match falls through to the Core-tier fallback in enrich_matches,
+    // which means the YARA layer still flags but every match carries no metadata — a build error,
+    // not a graceful degradation. A rule-free dev/test build (rulesets_version == 0) is allowed
+    // to have an empty map; only a loaded corpus with a missing map is fatal.
+    if yara::rulesets_version(&rules) > 0 && side_map.is_empty() {
+        eprintln!(
+            "FATAL: a non-empty YARA rule corpus is loaded but the side-map is empty. \
+             Every match would be unenrichable — tier, score, and suspicious flag lost for all \
+             matches. The rule blob and side-map must be built and baked together. Fix: ensure \
+             YARA_SIDEMAP_PATH is set and points at the side-map produced by build-yara-rules."
+        );
+        std::process::exit(1);
+    }
+
     // Read the clamd signature-database version once at startup. clamd is baked into the same image
     // with `enableInternet = false`, so the DB is fixed for this instance's lifetime — a single read
     // is correct. We must have it before serving: the composite engine version drives re-scan
@@ -53,11 +74,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let engine_version =
         compose_engine_version(yara::ENGINE_CODE_VERSION, &yara_tag, &clamav_db_version);
 
+    // The Magika identification engine ships its model embedded in the binary, so a failure here is an
+    // inference-backend init fault, not a missing file — fatal at boot, the same posture as the rule
+    // blob: refuse to serve rather than answer `/identify` with no engine.
+    let magika = magna_carta_scan::identify::IdentifyEngine::new().unwrap_or_else(|error| {
+        eprintln!(
+            "FATAL: could not initialize the Magika identification engine: {error}. The standard model \
+             is embedded in the binary (no external file), so this is a runtime/backend fault. Refusing \
+             to start rather than serve /identify with no engine."
+        );
+        std::process::exit(1);
+    });
+
     let state = AppState {
         rules: Arc::new(rules),
+        side_map: Arc::new(side_map),
         clamd_address: clamav::DEFAULT_CLAMD_ADDRESS.into(),
         caps: ArchiveCaps::default(),
         engine_version: engine_version.into(),
+        magika: Arc::new(magika),
     };
 
     let listener = TcpListener::bind("0.0.0.0:8080").await?;
@@ -121,6 +156,36 @@ fn load_yara_rules_at_startup() -> (yara_x::Rules, String) {
             std::process::exit(1);
         });
     (rules, tag)
+}
+
+/// Loads the baked YARA side-map (per-rule tier / score / suspicious flag, keyed by rule id) at boot.
+/// `YARA_SIDEMAP_PATH` points at the JSON blob the same build stage produced beside the rule blob; the
+/// runtime restores it here to enrich bare matches into policy facts. When the path is unset (the
+/// rule-free dev/test build) the map is empty — the rule-free corpus produces no matches to enrich.
+///
+/// A configured-but-unreadable or corrupt side-map is FATAL: a rule blob is loaded but its metadata is
+/// missing, so every match would fall back to the flag-everything default — a silent policy degradation.
+/// Fail loud rather than mislabel matches, mirroring the rule-blob load path.
+fn load_yara_side_map_at_startup() -> yara::SideMap {
+    let Ok(path) = std::env::var("YARA_SIDEMAP_PATH") else {
+        return std::collections::HashMap::new();
+    };
+    let bytes = std::fs::read(&path).unwrap_or_else(|error| {
+        eprintln!(
+            "FATAL: cannot read the baked YARA side map at {path}: {error}. Refusing to start — \
+             without it every yara match falls back to the flag-everything default, silently degrading \
+             the firm policy gate. Fix: ensure the image build baked the side map at that path."
+        );
+        std::process::exit(1);
+    });
+    yara::deserialize_side_map(&bytes).unwrap_or_else(|error| {
+        eprintln!(
+            "FATAL: cannot deserialize the baked YARA side map at {path}: {error}. A corrupt or \
+             version-mismatched side map must fail loud, never degrade to unenriched matches. Fix: \
+             rebuild the image so the build stage re-serializes the side map."
+        );
+        std::process::exit(1);
+    })
 }
 
 /// Queries the clamd DB version with a bounded retry loop. Retries on connect or parse failure

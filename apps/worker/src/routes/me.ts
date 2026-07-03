@@ -11,12 +11,18 @@ import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { Problem } from "../contracts/problem.ts";
 import { loadEffectivePermissions } from "../session-context.ts";
+import { readFirmReleaseChannelStatement } from "@magna-carta/data-access/firm-release-channel-statements";
+import { evaluateCatalog, isReleaseChannel, type ReleaseChannel } from "@magna-carta/feature-flags";
+import { resolveFlagEvaluator } from "../flags/flag-evaluator.ts";
+import type { FirmId } from "@magna-carta/identifiers/types";
 
 const MeResponse = z
   .object({
     user: z.object({ id: z.string(), name: z.string(), email: z.string() }),
     firm: z.object({ id: z.string(), name: z.string() }),
     permissions: z.array(z.string()),
+    channel: z.enum(["stable", "beta", "alpha"]),
+    flags: z.record(z.string(), z.boolean()),
   })
   .openapi("MeResponse");
 
@@ -64,6 +70,35 @@ export const meRoute = defineOpenAPIRoute(meMeta, {
   },
 });
 
+export async function resolveChannelAndFlags(
+  env: Bindings,
+  userId: string,
+  firmId: FirmId,
+): Promise<{ channel: ReleaseChannel; flags: Record<string, boolean> }> {
+  let channel: ReleaseChannel = "stable";
+  try {
+    const channelRow = await readFirmReleaseChannelStatement(env.DB_CONTROL, firmId).first<{
+      release_channel: string;
+    }>();
+    const rawChannel = channelRow?.release_channel ?? "stable";
+    channel = isReleaseChannel(rawChannel) ? rawChannel : "stable";
+  } catch {
+    // The additive release_channel column can be briefly absent right after a deploy, before the
+    // scheduled applier lands it (src/control-plane-migrations.ts). That is an expected transient,
+    // not a bug, so we degrade to the stable channel without error-reporting (which would spam the
+    // pipeline on every migration-bearing deploy); it self-heals on the next scheduled pass. Flag
+    // evaluation below is intentionally OUTSIDE this catch: the flag provider already fail-safes per
+    // flag, so a throw there is a genuine bug that must surface rather than be silently swallowed.
+    channel = "stable";
+  }
+  const flags = await evaluateCatalog(resolveFlagEvaluator(env), {
+    targetingKey: userId,
+    firmId,
+    channel,
+  });
+  return { channel, flags };
+}
+
 // Registers GET /api/v1/me through the chokepoint. The handler runs ONLY after the chokepoint
 // passed it (session resolved, firm present, member not deactivated). The inline
 // session/firm/member-active checks an earlier version of this handler carried are GONE — the
@@ -93,12 +128,16 @@ export function registerMeRoute(
 
     const permissions = await loadEffectivePermissions(firmContext.firmDatabase, userId);
 
+    const { channel, flags } = await resolveChannelAndFlags(c.env, userId, firmId);
+
     return c.json(
       {
         user: { id: userId, name: userRow.name, email: userRow.email },
         firm: { id: firmId, name: firmContext.firmName },
         // Sorted for a deterministic wire shape (a Set has insertion order, not a contract).
         permissions: [...permissions].sort(),
+        channel,
+        flags,
       },
       200,
     );

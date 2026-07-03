@@ -15,8 +15,11 @@ import {
 } from "../src/scheduled.ts";
 import { shredFirmKey } from "../src/firm-key-shred.ts";
 import { firmKeyProviderForEnv } from "../src/firm-key-provider-wiring.ts";
+import {
+  firmDatabaseFor,
+  type ProxyBatchDatabase,
+} from "../src/firm-database/firm-database-proxy.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
-import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
 import {
   mirrorMemberWithOwnerRole,
   seedCredentialedUser,
@@ -47,7 +50,7 @@ function backfillTelemetry() {
 
 function readContextFor(
   firmId: FirmId,
-  firmDatabase: D1Database,
+  firmDatabase: ProxyBatchDatabase,
   permissions: Permission[],
   actorUserId: UserId,
 ): ProtectedReadContext {
@@ -64,8 +67,6 @@ function readContextFor(
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_2);
   firmAId = (await seedFirm({ name: "Protected Firm A", databaseIdentifier: "DB_FIRM_POOL_1" }))
     .firmId;
   firmBId = (await seedFirm({ name: "Protected Firm B", databaseIdentifier: "DB_FIRM_POOL_2" }))
@@ -110,10 +111,11 @@ describe("slice 1·2 — incident-description encrypt backfill", () => {
     // A pre-slice incident in firm A: plaintext description, no ciphertext — the shape the sweep
     // encrypts.
     const incidentId = newIdentifier("incident");
-    await env.DB_FIRM_POOL_1.prepare(
-      "INSERT INTO incident (id, error_ids, breadcrumbs, description, context, reported_by, created_at) " +
-        "VALUES (?1, '[]', '[]', ?2, '{}', ?3, ?4)",
-    )
+    await firmDatabaseFor(env.FIRM_DATABASE, firmAId)
+      .prepare(
+        "INSERT INTO incident (id, error_ids, breadcrumbs, description, context, reported_by, created_at) " +
+          "VALUES (?1, '[]', '[]', ?2, '{}', ?3, ?4)",
+      )
       .bind(incidentId, "Legacy plaintext words.", newIdentifier("user"), new Date().toISOString())
       .run();
 
@@ -127,11 +129,11 @@ describe("slice 1·2 — incident-description encrypt backfill", () => {
     );
     expect(first.rowsAffected).toBe(1);
 
-    const sealed = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT description, description_ciphertext FROM incident WHERE id = ?1",
-    )
+    const sealedResult = await firmDatabaseFor(env.FIRM_DATABASE, firmAId)
+      .prepare("SELECT description, description_ciphertext FROM incident WHERE id = ?1")
       .bind(incidentId)
-      .first<{ description: string | null; description_ciphertext: string | null }>();
+      .all<{ description: string | null; description_ciphertext: string | null }>();
+    const sealed = sealedResult.results[0];
     // The backfill fills ciphertext and LEAVES the plaintext in place (the contract drop is a later
     // slice); the ciphertext never contains the plaintext words.
     expect(sealed?.description).toBe("Legacy plaintext words.");
@@ -148,11 +150,11 @@ describe("slice 1·2 — incident-description encrypt backfill", () => {
       t2.correlationId,
     );
     expect(second.rowsAffected).toBe(0);
-    const afterRerun = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT description_ciphertext FROM incident WHERE id = ?1",
-    )
+    const afterRerunResult = await firmDatabaseFor(env.FIRM_DATABASE, firmAId)
+      .prepare("SELECT description_ciphertext FROM incident WHERE id = ?1")
       .bind(incidentId)
-      .first<{ description_ciphertext: string | null }>();
+      .all<{ description_ciphertext: string | null }>();
+    const afterRerun = afterRerunResult.results[0];
     expect(afterRerun?.description_ciphertext).toBe(sealed?.description_ciphertext);
   });
 });
@@ -163,7 +165,7 @@ describe("slice 1·2 — incident intake writes ciphertext, readProtected gates 
       userName: "Reader",
       firmId: firmAId,
     });
-    await mirrorMemberWithOwnerRole(userId, "Reader");
+    await mirrorMemberWithOwnerRole(userId, "Reader", firmAId);
     const cookie = await signInForSessionCookie("incident-read@example.com");
 
     const response = await SELF.fetch("https://example.com/api/v1/incidents", {
@@ -179,16 +181,21 @@ describe("slice 1·2 — incident intake writes ciphertext, readProtected gates 
     expect(response.status).toBe(201);
     const { id } = (await response.json()) as { id: string };
 
-    const row = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT description, description_ciphertext FROM incident WHERE id = ?1",
-    )
+    const rowResult = await firmDatabaseFor(env.FIRM_DATABASE, firmAId)
+      .prepare("SELECT description, description_ciphertext FROM incident WHERE id = ?1")
       .bind(id)
-      .first<{ description: string | null; description_ciphertext: string | null }>();
+      .all<{ description: string | null; description_ciphertext: string | null }>();
+    const row = rowResult.results[0];
     expect(row?.description).toBeNull();
     expect(row?.description_ciphertext).toEqual(expect.any(String));
 
     // Without the permission: ProtectedReadForbiddenError, no decrypt, no audit row.
-    const forbidden = readContextFor(firmAId, env.DB_FIRM_POOL_1, [], userId);
+    const forbidden = readContextFor(
+      firmAId,
+      firmDatabaseFor(env.FIRM_DATABASE, firmAId),
+      [],
+      userId,
+    );
     await expect(
       readProtected(
         forbidden,
@@ -198,18 +205,20 @@ describe("slice 1·2 — incident intake writes ciphertext, readProtected gates 
       ),
     ).rejects.toThrow(/incidents:viewDescription/);
 
-    const auditAfterForbidden = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT COUNT(*) AS count FROM audit_log WHERE event = 'protected.decrypt' AND subject_id = ?1",
-    )
+    const auditAfterForbiddenResult = await firmDatabaseFor(env.FIRM_DATABASE, firmAId)
+      .prepare(
+        "SELECT COUNT(*) AS count FROM audit_log WHERE event = 'protected.decrypt' AND subject_id = ?1",
+      )
       .bind(id)
-      .first<{ count: number }>();
+      .all<{ count: number }>();
+    const auditAfterForbidden = auditAfterForbiddenResult.results[0];
     expect(auditAfterForbidden?.count).toBe(0);
 
     // With the permission: the plaintext comes back and a protected.decrypt audit row was committed
     // first (ids + field identity only — never the value).
     const allowed = readContextFor(
       firmAId,
-      env.DB_FIRM_POOL_1,
+      firmDatabaseFor(env.FIRM_DATABASE, firmAId),
       [assertPermission("incidents:viewDescription")],
       userId,
     );
@@ -221,11 +230,13 @@ describe("slice 1·2 — incident intake writes ciphertext, readProtected gates 
     );
     expect(plaintext).toBe("Sensitive incident wording.");
 
-    const auditRow = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT actor_user_id, subject_id, metadata FROM audit_log WHERE event = 'protected.decrypt' AND subject_id = ?1",
-    )
+    const auditRowResult = await firmDatabaseFor(env.FIRM_DATABASE, firmAId)
+      .prepare(
+        "SELECT actor_user_id, subject_id, metadata FROM audit_log WHERE event = 'protected.decrypt' AND subject_id = ?1",
+      )
       .bind(id)
-      .first<{ actor_user_id: string; subject_id: string; metadata: string }>();
+      .all<{ actor_user_id: string; subject_id: string; metadata: string }>();
+    const auditRow = auditRowResult.results[0];
     expect(auditRow?.actor_user_id).toBe(userId);
     expect(auditRow?.subject_id).toBe(id);
     expect(JSON.parse(auditRow?.metadata ?? "{}")).toEqual({
@@ -239,9 +250,9 @@ describe("slice 1·2 — incident intake writes ciphertext, readProtected gates 
 describe("slice 1·2 — crypto-shred", () => {
   it("makes firm A's incident description unreadable, writes the shred audit, leaves firm B intact", async () => {
     // One encrypted incident in each firm (plaintext row → backfill seals it).
-    const seedIncident = async (database: D1Database, words: string): Promise<string> => {
+    const seedIncident = async (targetFirmId: FirmId, words: string): Promise<string> => {
       const incidentId = newIdentifier("incident");
-      await database
+      await firmDatabaseFor(env.FIRM_DATABASE, targetFirmId)
         .prepare(
           "INSERT INTO incident (id, error_ids, breadcrumbs, description, context, reported_by, created_at) " +
             "VALUES (?1, '[]', '[]', ?2, '{}', ?3, ?4)",
@@ -250,8 +261,8 @@ describe("slice 1·2 — crypto-shred", () => {
         .run();
       return incidentId;
     };
-    const incidentAId = await seedIncident(env.DB_FIRM_POOL_1, "Firm A secret wording.");
-    const incidentBId = await seedIncident(env.DB_FIRM_POOL_2, "Firm B secret wording.");
+    const incidentAId = await seedIncident(firmAId, "Firm A secret wording.");
+    const incidentBId = await seedIncident(firmBId, "Firm B secret wording.");
 
     const allFirms = await listReachableActiveFirms(env);
     const t = backfillTelemetry();
@@ -262,15 +273,15 @@ describe("slice 1·2 — crypto-shred", () => {
       t.correlationId,
     );
 
-    const ciphertextOf = async (database: D1Database, incidentId: string): Promise<string> => {
-      const r = await database
+    const ciphertextOf = async (targetFirmId: FirmId, incidentId: string): Promise<string> => {
+      const result = await firmDatabaseFor(env.FIRM_DATABASE, targetFirmId)
         .prepare("SELECT description_ciphertext FROM incident WHERE id = ?1")
         .bind(incidentId)
-        .first<{ description_ciphertext: string }>();
-      return r?.description_ciphertext ?? "";
+        .all<{ description_ciphertext: string }>();
+      return result.results[0]?.description_ciphertext ?? "";
     };
-    const cipherA = await ciphertextOf(env.DB_FIRM_POOL_1, incidentAId);
-    const cipherB = await ciphertextOf(env.DB_FIRM_POOL_2, incidentBId);
+    const cipherA = await ciphertextOf(firmAId, incidentAId);
+    const cipherB = await ciphertextOf(firmBId, incidentBId);
 
     const actor = newIdentifier("user");
     // Pre-shred: firm A reads fine. (A fresh provider per read avoids reusing a cached pre-shred
@@ -278,7 +289,7 @@ describe("slice 1·2 — crypto-shred", () => {
     const preShred = await readProtected(
       readContextFor(
         firmAId,
-        env.DB_FIRM_POOL_1,
+        firmDatabaseFor(env.FIRM_DATABASE, firmAId),
         [assertPermission("incidents:viewDescription")],
         actor,
       ),
@@ -317,7 +328,7 @@ describe("slice 1·2 — crypto-shred", () => {
       readProtected(
         readContextFor(
           firmAId,
-          env.DB_FIRM_POOL_1,
+          firmDatabaseFor(env.FIRM_DATABASE, firmAId),
           [assertPermission("incidents:viewDescription")],
           actor,
         ),
@@ -331,7 +342,7 @@ describe("slice 1·2 — crypto-shred", () => {
     const firmBPlaintext = await readProtected(
       readContextFor(
         firmBId,
-        env.DB_FIRM_POOL_2,
+        firmDatabaseFor(env.FIRM_DATABASE, firmBId),
         [assertPermission("incidents:viewDescription")],
         actor,
       ),

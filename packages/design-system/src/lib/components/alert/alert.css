@@ -1,0 +1,65 @@
+@layer components {
+  /*
+   * Alert (Tier 1). A calm inline callout in the SUBTLE status register: a pale same-hue tint
+   * (status.<v>-subtle) with deep same-hue text (status.<v>-subtle-foreground) and a soft same-hue
+   * hairline (status.<v>-subtle-border) — a light touch on a work surface, not a saturated block.
+   * The tint+text pairing is the one the contrast gate guarantees AA in every theme x mode; the
+   * hairline is decorative. A leading status glyph (mc-alert-icon, set by the component from the
+   * variant) inherits the foreground colour, so it reads in the same hue. Title and description sit
+   * in the content column and inherit the foreground; the title is distinguished by weight, not
+   * colour. The ARIA role (assertive vs polite) is set by the component from the variant.
+   */
+  .mc-alert {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: var(--mc-space-12);
+    align-items: start;
+    padding-block: var(--mc-space-12);
+    padding-inline: var(--mc-space-16);
+    border-radius: var(--mc-radius-md);
+    border-width: var(--mc-border-width-default);
+    border-style: solid;
+  }
+  .mc-alert-icon {
+    flex: none;
+    inline-size: var(--mc-space-20);
+    block-size: var(--mc-space-20);
+  }
+  .mc-alert-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-4);
+    min-inline-size: var(--mc-space-0);
+  }
+  .mc-alert-info {
+    background-color: var(--mc-status-info-subtle);
+    border-color: var(--mc-status-info-subtle-border);
+    color: var(--mc-status-info-subtle-foreground);
+  }
+  .mc-alert-success {
+    background-color: var(--mc-status-success-subtle);
+    border-color: var(--mc-status-success-subtle-border);
+    color: var(--mc-status-success-subtle-foreground);
+  }
+  .mc-alert-warning {
+    background-color: var(--mc-status-warning-subtle);
+    border-color: var(--mc-status-warning-subtle-border);
+    color: var(--mc-status-warning-subtle-foreground);
+  }
+  .mc-alert-danger {
+    background-color: var(--mc-status-danger-subtle);
+    border-color: var(--mc-status-danger-subtle-border);
+    color: var(--mc-status-danger-subtle-foreground);
+  }
+  .mc-alert-title {
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    font-weight: var(--mc-weight-semibold);
+    line-height: var(--mc-leading-tight);
+  }
+  .mc-alert-description {
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    line-height: var(--mc-leading-normal);
+  }
+}

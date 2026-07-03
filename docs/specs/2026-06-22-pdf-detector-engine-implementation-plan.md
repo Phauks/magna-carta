@@ -31,11 +31,13 @@
 ### Task 1: `textpos.rs` — the observing Device
 
 **Files:**
+
 - Create: `crates/pdf-core/src/textpos.rs`
 - Modify: `crates/pdf-core/Cargo.toml` (add `kurbo = "0.13"`)
 - Modify: `crates/pdf-core/src/lib.rs` (`mod textpos;`)
 
 **Interfaces:**
+
 - Produces: `pub(crate) struct GlyphMark { pub text: String, pub bbox: kurbo::Rect, pub order: usize, pub invisible: bool, pub rgba: [u8;4] }`; `pub(crate) struct CoverMark { pub bbox: kurbo::Rect, pub order: usize, pub rgba: [u8;4] }`; `pub(crate) struct PageObservation { pub glyphs: Vec<GlyphMark>, pub covers: Vec<CoverMark>, pub width_pt: f32, pub height_pt: f32 }`; `pub(crate) fn observe_page(pdf: &hayro::hayro_syntax::Pdf, index: usize) -> Option<PageObservation>`.
 
 - [ ] **Step 1: Add the dependency** — in `crates/pdf-core/Cargo.toml` under `[dependencies]`:
@@ -232,10 +234,12 @@ git commit -m "feat(pdf-core): observing Device text-position primitive"
 ### Task 2: `detect.rs` — report types + the geometric detectors
 
 **Files:**
+
 - Create: `crates/pdf-core/src/detect.rs`
 - Modify: `crates/pdf-core/src/lib.rs` (`mod detect; pub use detect::*;`)
 
 **Interfaces:**
+
 - Consumes: `PageObservation`, `GlyphMark`, `CoverMark` (Task 1).
 - Produces: `pub enum Severity { Critical, High, Medium, Low, Info }`; `pub enum Category { CoveredText, InvisibleText, WhiteoutText, MetadataLeak, OrphanedText }`; `pub struct Finding { pub category, pub severity, pub page: Option<usize>, pub region: Option<Rect> /*display-point bottom-left*/, pub recovered_text: String, pub detail: String }`; `pub struct Rect { pub x0,y0,x1,y1: f32 }` (re-use the redaction `Rect` — see note); `pub(crate) fn page_geometric_findings(obs: &PageObservation, page: usize) -> Vec<Finding>`.
 
@@ -439,9 +443,11 @@ git commit -m "feat(pdf-core): geometric detectors (covered, invisible, whiteout
 ### Task 3: Structural detectors — metadata leaks + orphaned text
 
 **Files:**
+
 - Modify: `crates/pdf-core/src/detect.rs`
 
 **Interfaces:**
+
 - Consumes: `Finding`, `Category`, `Severity` (Task 2).
 - Produces: `pub(crate) fn structural_findings(doc: &mut lopdf::Document, needle_min_len: usize) -> Vec<Finding>` — document-level findings: `MetadataLeak` (Info dictionary string values, `/Outlines` titles, AcroForm field `/V`, the XMP `/Metadata` stream text) and `OrphanedText` (text in objects unreachable from the trailer).
 
@@ -587,9 +593,11 @@ git commit -m "feat(pdf-core): structural detectors (metadata leak, orphaned tex
 ### Task 4: `detect()` orchestration + ranking + the self-cross-check
 
 **Files:**
+
 - Modify: `crates/pdf-core/src/detect.rs`
 
 **Interfaces:**
+
 - Consumes: `page_geometric_findings`, `structural_findings`, `observe_page` (Tasks 1–3); `crate::Document` (slice 1); `crate::redact` (the self-cross-check test).
 - Produces: `pub struct SeveritySummary { pub critical, high, medium, low, info: usize }`; `pub struct DetectionReport { pub findings: Vec<Finding>, pub summary: SeveritySummary, pub pages_scanned: usize, pub glyphs_examined: usize }`; `pub enum DetectError { Parse }`; `pub fn detect(bytes: Vec<u8>) -> Result<DetectionReport, DetectError>`.
 
@@ -738,11 +746,13 @@ git commit -m "feat(pdf-core): detect orchestration, severity ranking, self-cros
 ### Task 5: WASM edge + `@magna-carta/pdf` wrapper
 
 **Files:**
+
 - Modify: `crates/pdf-core/src/wasm.rs`
 - Modify: `packages/pdf/src/index.ts`
 - Test: `packages/pdf/test/detect.test.ts`
 
 **Interfaces:**
+
 - Consumes: `detect`, the report types (Tasks 2–4).
 - Produces (JS): `detectDocument(bytes: Uint8Array): { findings: Finding[], summary, pagesScanned, glyphsExamined }`; `Finding = { category: string, severity: string, page: number | null, region: { x0,y0,x1,y1 } | null, recoveredText: string, detail: string }`.
 
@@ -833,12 +843,7 @@ Expected: compiles. (If the `wasm32-unknown-unknown` target is missing: `rustup 
 
 ```ts
 export interface DetectionFinding {
-  category:
-    | "coveredText"
-    | "invisibleText"
-    | "whiteoutText"
-    | "metadataLeak"
-    | "orphanedText";
+  category: "coveredText" | "invisibleText" | "whiteoutText" | "metadataLeak" | "orphanedText";
   severity: "critical" | "high" | "medium" | "low" | "info";
   page: number | null;
   region: { x0: number; y0: number; x1: number; y1: number } | null;
@@ -911,6 +916,7 @@ describe("detectDocument", () => {
 pnpm --filter @magna-carta/pdf run build:wasm
 pnpm --filter @magna-carta/pdf test
 ```
+
 Expected: PASS (slice-1 + redaction + scrub tests + the 2 new detect tests). If `pnpm` fails for an environment reason (not a code error), capture the exact error and report it — do not fake green.
 
 - [ ] **Step 6: Commit**
@@ -925,6 +931,7 @@ git commit -m "feat(pdf): detectDocument wasm edge and typed report wrapper"
 ### Task 6: `pdf-eval` detect mode + smoke + docs
 
 **Files:**
+
 - Modify: `crates/pdf-eval/src/main.rs`
 - Modify: `.github/workflows/ci.yml`
 - Modify: `packages/pdf/README.md` (append a Detection section)
@@ -933,6 +940,7 @@ git commit -m "feat(pdf): detectDocument wasm edge and typed report wrapper"
 - Modify: `ROADMAP.md`, `STATUS.md` (own row only)
 
 **Interfaces:**
+
 - Consumes: `pdf_core::{detect, Category, Severity}`.
 - Produces: a `pdf-eval detect <pdf>` mode (prints the ranked report) and a `detect-smoke <pdf>` that asserts a bad fixture is flagged.
 
@@ -1017,8 +1025,8 @@ Expected: `ok flagged N covered-text finding(s)`, exit 0. (If that corpus file i
 - [ ] **Step 3: Add a CI detect-smoke step** — in `.github/workflows/ci.yml`, after the existing `sanitize-smoke` step in the `rust-pdf-core` job (match its form, default features, with a `name:`):
 
 ```yaml
-      - name: pdf-eval detect-smoke (default features — no pdfium)
-        run: cargo run --manifest-path crates/Cargo.toml -p pdf-eval --release -- detect-smoke crates/pdf-eval/corpus-ci/basicapi.pdf
+- name: pdf-eval detect-smoke (default features — no pdfium)
+  run: cargo run --manifest-path crates/Cargo.toml -p pdf-eval --release -- detect-smoke crates/pdf-eval/corpus-ci/basicapi.pdf
 ```
 
 - [ ] **Step 4: Write the docs**

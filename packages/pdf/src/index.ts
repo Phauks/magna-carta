@@ -6,9 +6,7 @@ let ready: Promise<unknown> | undefined;
 
 export async function ensureReady(wasmInput?: BufferSource | WebAssembly.Module): Promise<void> {
   if (ready === undefined) {
-    ready = wasmInput !== undefined
-      ? init({ module_or_path: wasmInput })
-      : init();
+    ready = wasmInput !== undefined ? init({ module_or_path: wasmInput }) : init();
   }
   await ready;
 }
@@ -34,9 +32,16 @@ export interface RenderOptions {
 export class PdfDocument {
   private constructor(private readonly handle: WasmDocument) {}
 
-  static async load(bytes: Uint8Array, wasmInput?: BufferSource | WebAssembly.Module): Promise<PdfDocument> {
+  static async load(
+    bytes: Uint8Array,
+    wasmInput?: BufferSource | WebAssembly.Module,
+  ): Promise<PdfDocument> {
     await ensureReady(wasmInput);
-    return new PdfDocument(WasmDocument.load(bytes));
+    try {
+      return new PdfDocument(WasmDocument.load(bytes));
+    } catch (error) {
+      mapGuardError(error);
+    }
   }
 
   get pageCount(): number {
@@ -71,8 +76,15 @@ export class PdfDocument {
   }
 }
 
-export async function loadDocument(bytes: Uint8Array, wasmInput?: BufferSource | WebAssembly.Module): Promise<PdfDocument> {
-  return PdfDocument.load(bytes, wasmInput);
+export async function loadDocument(
+  bytes: Uint8Array,
+  wasmInput?: BufferSource | WebAssembly.Module,
+): Promise<PdfDocument> {
+  try {
+    return await PdfDocument.load(bytes, wasmInput);
+  } catch (error) {
+    mapGuardError(error);
+  }
 }
 
 export interface RedactionRect {
@@ -133,7 +145,11 @@ export async function redactDocument(
   opts: RedactionOptions = {},
 ): Promise<RedactionResult> {
   await ensureReady();
-  return wasmRedact(bytes, regions, opts) as RedactionResult;
+  try {
+    return wasmRedact(bytes, regions, opts) as RedactionResult;
+  } catch (error) {
+    mapGuardError(error);
+  }
 }
 
 export interface ScrubOptions {
@@ -170,7 +186,11 @@ export async function sanitizeDocument(
   opts: ScrubOptions = {},
 ): Promise<SanitizeResult> {
   await ensureReady();
-  return wasmSanitize(bytes, opts) as SanitizeResult;
+  try {
+    return wasmSanitize(bytes, opts) as SanitizeResult;
+  } catch (error) {
+    mapGuardError(error);
+  }
 }
 
 export interface DetectionFinding {
@@ -197,6 +217,11 @@ export interface DetectionReport {
   pagesUnreadable: number[];
 }
 
+import {
+  readForm as wasmReadForm,
+  fillForm as wasmFillForm,
+  flattenForm as wasmFlattenForm,
+} from "./pkg/pdf_core.js";
 import { stampBates as wasmStampBates } from "./pkg/pdf_core.js";
 import { detectDocument as wasmDetect } from "./pkg/pdf_core.js";
 
@@ -292,7 +317,11 @@ export async function stampBates(
   options: BatesStampOptions = {},
 ): Promise<BatesStampResult> {
   await ensureReady();
-  return wasmStampBates(bytes, options) as BatesStampResult;
+  try {
+    return wasmStampBates(bytes, options) as BatesStampResult;
+  } catch (error) {
+    mapGuardError(error);
+  }
 }
 
 /**
@@ -303,5 +332,380 @@ export async function stampBates(
  */
 export async function detectDocument(bytes: Uint8Array): Promise<DetectionReport> {
   await ensureReady();
-  return wasmDetect(bytes) as DetectionReport;
+  try {
+    return wasmDetect(bytes) as DetectionReport;
+  } catch (error) {
+    mapGuardError(error);
+  }
+}
+
+// ── Forms ─────────────────────────────────────────────────────────────────────
+//
+// NOTE: Forms are not redaction. readForm/fillForm/flattenForm read and write
+// visible field values. They do not remove hidden content, metadata, or any
+// other surface from the document. Use redactDocument/sanitizeDocument for that.
+
+/** The interactive role of a form field. */
+export type FieldKind =
+  | "text"
+  | "checkbox"
+  | "radio"
+  | "choice"
+  | "pushButton"
+  | "signature"
+  | "unknown";
+
+/** A resolved interactive form field with all inherited PDF attributes applied. */
+export interface FormField {
+  /** Fully-qualified dot-joined field name (ancestor /T values joined with "."). */
+  name: string;
+  /** Interactive role of the field. */
+  kind: FieldKind;
+  /** Current field value, or null when the field has no value set. */
+  value: string | boolean | null;
+  /** /Opt display entries for Choice fields; on-state export names for Radio groups. */
+  options: string[];
+  /** True when the field's read-only flag (/Ff bit 1) is set. */
+  readOnly: boolean;
+  /** 0-based page index of the first widget annotation, or null if unknown. */
+  page: number | null;
+  /** Bounding box of the first widget in display points [llx, lly, urx, ury], or null. */
+  rect: [number, number, number, number] | null;
+}
+
+/**
+ * Values to fill into form fields. Keys are fully-qualified field names.
+ * Use a string for text, choice, and radio fields; use a boolean for checkboxes.
+ */
+export type FormFillValues = Record<string, string | boolean>;
+
+/** Options for `fillForm`. */
+export interface FormFillOptions {
+  /**
+   * When `true`, widget appearances are baked into page content and the AcroForm
+   * dictionary is dropped. When `false` (the default), the form remains interactive.
+   */
+  flatten?: boolean;
+}
+
+/** The output of `fillForm` and `flattenForm`. */
+export interface FormFillResult {
+  /** The output PDF bytes. */
+  pdf: Uint8Array;
+}
+
+/**
+ * Enumerate all interactive form fields in a PDF.
+ *
+ * Returns an array of `FormField` objects with resolved names, kinds, current
+ * values, options, page locations, and bounding boxes. The four fillable kinds
+ * are `"text"`, `"checkbox"`, `"radio"`, and `"choice"`. `"pushButton"` and
+ * `"signature"` fields are enumerated but their values are read-only in this
+ * version.
+ *
+ * **Forms are not redaction.** This function reads field metadata only; it never
+ * modifies the input bytes. Use `redactDocument`/`sanitizeDocument` to remove
+ * content.
+ */
+export async function readForm(bytes: Uint8Array): Promise<FormField[]> {
+  await ensureReady();
+  try {
+    return wasmReadForm(bytes) as FormField[];
+  } catch (error) {
+    mapGuardError(error);
+  }
+}
+
+/**
+ * Fill interactive form fields by name and optionally flatten the form.
+ *
+ * `values` maps fully-qualified field names to fill values: pass a string for
+ * text, choice, and radio fields; pass a boolean for checkboxes. Extra keys that
+ * do not match any field are silently ignored.
+ *
+ * Text and choice fills generate a Helvetica appearance, so the value renders in
+ * any viewer. Checkbox and radio fills set only the field value and the widget's
+ * selected state (`/V` and `/AS`) and render through the field's existing on/off
+ * state appearances — a checkbox or radio widget that carries no state appearance
+ * streams is filled at the value level but is not given a generated appearance.
+ *
+ * When `options.flatten` is `true`, widget appearances are baked into page content
+ * and the AcroForm dictionary is dropped, producing a flat static PDF. When
+ * `false` (the default), the form remains interactive with the new values set.
+ *
+ * **Forms are not redaction.** Filling sets visible field values. Flattening makes
+ * those values permanent static content. Neither operation removes hidden content,
+ * metadata, or other surfaces — use `redactDocument`/`sanitizeDocument` for that.
+ */
+export async function fillForm(
+  bytes: Uint8Array,
+  values: FormFillValues,
+  options?: FormFillOptions,
+): Promise<FormFillResult> {
+  await ensureReady();
+  try {
+    return wasmFillForm(bytes, values, options ?? {}) as FormFillResult;
+  } catch (error) {
+    mapGuardError(error);
+  }
+}
+
+/**
+ * Flatten all interactive form fields into static page content.
+ *
+ * Each widget's current appearance is drawn into the page via a `Do` operator,
+ * page resources are merged non-destructively, widget annotations are removed,
+ * and the `/AcroForm` dictionary is dropped. The result is permanent static
+ * content renderable by any PDF viewer without form support.
+ *
+ * **Forms are not redaction.** Flattening bakes visible form values into page
+ * content. It does not remove hidden content, metadata, or other surfaces — use
+ * `redactDocument`/`sanitizeDocument` for that.
+ */
+export async function flattenForm(bytes: Uint8Array): Promise<FormFillResult> {
+  await ensureReady();
+  try {
+    return wasmFlattenForm(bytes) as FormFillResult;
+  } catch (error) {
+    mapGuardError(error);
+  }
+}
+
+// ── Security: inspect / unlock / protect ────────────────────────────────────────
+//
+// Runs entirely in this module (WebAssembly): the password and document bytes never
+// leave the caller's process. The password is never included in a thrown error.
+
+import {
+  inspectSecurity as wasmInspectSecurity,
+  decryptDocument as wasmDecryptDocument,
+  secureDocument as wasmSecureDocument,
+} from "./pkg/pdf_core.js";
+
+/**
+ * A document's advisory permission policy. PDF permission bits are honoured only by
+ * cooperating viewers and can be stripped by any tool that opens the document — the
+ * open password plus the cipher is the only real confidentiality control.
+ */
+export interface SecurityPermissions {
+  print: boolean;
+  printHighRes: boolean;
+  copy: boolean;
+  modify: boolean;
+  annotate: boolean;
+  fillForms: boolean;
+  assemble: boolean;
+  accessibilityCopy: boolean;
+}
+
+/** What a document's security looks like, read without opening it. */
+export interface SecurityInfo {
+  encrypted: boolean;
+  handler: "standard" | "publicKey" | "none";
+  algorithm: "rc4" | "aes128" | "aes256" | "unknown" | "none";
+  /** True when an open (user) password is required to view the document. */
+  hasUserPassword: boolean;
+  /** The permission policy, or `null` when it could not be read (an open-password-free doc). */
+  permissions: SecurityPermissions | null;
+}
+
+/** Options for {@link secureDocument}. */
+export interface SecureOptions {
+  /** Required. Governs permission changes. */
+  ownerPassword: string;
+  /** Optional open password. Omit (or empty) for a document that opens without a prompt. */
+  userPassword?: string;
+  /** Omitted bits default to allowed. */
+  permissions?: Partial<SecurityPermissions>;
+  /** Default true. */
+  encryptMetadata?: boolean;
+  /** Default `"aes256"`. `"aes128"` is for older readers only; never RC4. */
+  algorithm?: "aes256" | "aes128";
+}
+
+/** Thrown by {@link decryptDocument} when the password does not open the document. */
+export class WrongPasswordError extends Error {
+  readonly code = "wrong-password" as const;
+  constructor() {
+    super("The password did not unlock the document.");
+    this.name = "WrongPasswordError";
+  }
+}
+
+/** Thrown by any operation when the decompression-bomb guard rejects the input
+ * (oversize, or a stream that inflates past the engine's caps). */
+export class DecompressionBombError extends Error {
+  readonly code = "decompression-bomb" as const;
+  constructor() {
+    super("The document was rejected as a potential decompression bomb.");
+    this.name = "DecompressionBombError";
+  }
+}
+
+/** Re-throw the engine's guard token as a typed error; pass anything else through. */
+function mapGuardError(error: unknown): never {
+  if (error instanceof Error && error.message === "decompression-bomb") {
+    throw new DecompressionBombError();
+  }
+  throw error;
+}
+
+/**
+ * Classify a PDF's security without a password. Lets a caller prompt for a password
+ * only when one is needed and refuse an unsupported (public-key) handler.
+ */
+export async function inspectSecurity(bytes: Uint8Array): Promise<SecurityInfo> {
+  await ensureReady();
+  try {
+    return wasmInspectSecurity(bytes) as SecurityInfo;
+  } catch (error) {
+    mapGuardError(error);
+  }
+}
+
+/**
+ * Unlock a password-protected PDF, returning the plaintext bytes. An unencrypted input
+ * is returned unchanged. Throws {@link WrongPasswordError} for a bad password (distinct
+ * from a parse failure) so the caller can re-prompt. Unlocks with a *known* password
+ * only — it does not recover or guess passwords.
+ */
+export async function decryptDocument(
+  bytes: Uint8Array,
+  password: string,
+): Promise<{ pdf: Uint8Array }> {
+  await ensureReady();
+  try {
+    return wasmDecryptDocument(bytes, password) as { pdf: Uint8Array };
+  } catch (error) {
+    // The engine signals a bad password with this exact token and never echoes the
+    // password; re-throw as a typed error the UI can act on.
+    if (error instanceof Error && error.message === "wrong-password") {
+      throw new WrongPasswordError();
+    }
+    mapGuardError(error);
+  }
+}
+
+/**
+ * Protect a PDF, returning the encrypted bytes. Writes AES-256 by default and never
+ * RC4. `ownerPassword` is required; an omitted/empty `userPassword` produces a document
+ * that opens without a prompt but still carries the owner password and permissions.
+ */
+export async function secureDocument(
+  bytes: Uint8Array,
+  options: SecureOptions,
+): Promise<{ pdf: Uint8Array }> {
+  await ensureReady();
+  try {
+    return wasmSecureDocument(bytes, options) as { pdf: Uint8Array };
+  } catch (error) {
+    mapGuardError(error);
+  }
+}
+
+// ── Generate / assembly: merge, split, rotate, watermark ────────────────────────
+//
+// All run client-side in WebAssembly; the document bytes never leave the process.
+// merge / rotate / watermark are visible, reversible operations — they do not remove
+// hidden content or metadata (use redactDocument / sanitizeDocument for that).
+
+import {
+  mergeDocuments as wasmMergeDocuments,
+  splitDocument as wasmSplitDocument,
+  rotatePages as wasmRotatePages,
+  watermarkDocument as wasmWatermarkDocument,
+} from "./pkg/pdf_core.js";
+
+/** Combine the pages of several PDFs into one, in order, carrying each input's outlines,
+ * form fields, and named destinations across. */
+export async function mergeDocuments(documents: Uint8Array[]): Promise<{ pdf: Uint8Array }> {
+  await ensureReady();
+  try {
+    return wasmMergeDocuments(documents) as { pdf: Uint8Array };
+  } catch (error) {
+    mapGuardError(error);
+  }
+}
+
+/** An inclusive, 0-based page range. */
+export interface PageRange {
+  start: number;
+  end: number;
+}
+
+/** Split a PDF into one independent document per page range. */
+export async function splitDocument(
+  bytes: Uint8Array,
+  ranges: PageRange[],
+): Promise<{ pdfs: Uint8Array[] }> {
+  await ensureReady();
+  try {
+    return wasmSplitDocument(bytes, ranges) as { pdfs: Uint8Array[] };
+  } catch (error) {
+    mapGuardError(error);
+  }
+}
+
+/** Rotate pages clockwise by 90, 180, or 270 degrees, relative to each page's existing
+ * rotation. Omit `pages` to rotate every page; otherwise pass 0-based indices. */
+export async function rotatePages(
+  bytes: Uint8Array,
+  rotation: 90 | 180 | 270,
+  pages?: number[],
+): Promise<{ pdf: Uint8Array }> {
+  await ensureReady();
+  try {
+    return wasmRotatePages(bytes, rotation, pages) as { pdf: Uint8Array };
+  } catch (error) {
+    mapGuardError(error);
+  }
+}
+
+/** A text watermark drawn in one of the built-in standard fonts. */
+export interface WatermarkTextContent {
+  kind: "text";
+  text: string;
+  /** One of the twelve standard fonts; defaults to `"helvetica"`. */
+  font?: BatesFont;
+  /** Default 48. */
+  fontSizePt?: number;
+  /** RGB 0..1; default light grey. */
+  color?: [number, number, number];
+}
+
+/** An image/logo watermark (PNG or JPEG). */
+export interface WatermarkImageContent {
+  kind: "image";
+  bytes: Uint8Array;
+  /** Mark width as a fraction of the page width; default 0.3. */
+  scale?: number;
+}
+
+export type WatermarkContent = WatermarkTextContent | WatermarkImageContent;
+
+export interface WatermarkOptions {
+  content: WatermarkContent;
+  /** Fill/stroke alpha 0..1; default 0.3. */
+  opacity?: number;
+  /** Clockwise rotation of the mark in degrees; default 45 (diagonal). */
+  rotationDeg?: number;
+  /** A single centred mark or a tiled repeat; default `"center"`. */
+  placement?: "center" | "tiled";
+}
+
+/**
+ * Stamp an additive watermark — diagonal text ("CONFIDENTIAL"/"DRAFT") or an image/logo —
+ * onto every page. Additive: it draws on top and removes nothing (use redactDocument /
+ * sanitizeDocument to remove content).
+ */
+export async function watermarkDocument(
+  bytes: Uint8Array,
+  options: WatermarkOptions,
+): Promise<{ pdf: Uint8Array }> {
+  await ensureReady();
+  try {
+    return wasmWatermarkDocument(bytes, options) as { pdf: Uint8Array };
+  } catch (error) {
+    mapGuardError(error);
+  }
 }

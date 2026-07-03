@@ -24,6 +24,11 @@ pnpm run lint:process-refs || fail "lint:process-refs"
 step "governance — dependency license allowlist"
 pnpm run lint:licenses || fail "lint:licenses"
 
+# Runs first and fast (node:sqlite, no Miniflare) so migration corruption fail-fasts before the heavy
+# suite — and stays a reliable guard even on a host where the full Miniflare run is memory-starved.
+step "migration integrity (journal/chain/rebuild guards)"
+pnpm --filter @magna-carta/database exec vp test run test/migration-integrity.test.ts || fail "migration integrity"
+
 step "tests (Miniflare worker integration)"
 vp test || fail "vp test"
 
@@ -38,6 +43,12 @@ git diff --exit-code packages/api-client/src || fail "generated client drift —
 
 step "contract — Spectral hygiene lint"
 pnpm --filter @magna-carta/worker exec spectral lint openapi/openapi.json --fail-severity warn || fail "spectral"
+
+# Design tokens are the same code-as-contract shape: generated/ must byte-match a fresh tz build
+# (and the golden twins are asserted equal by the package's own test gate).
+step "contract — design-token drift"
+pnpm --filter @magna-carta/design-tokens run build || fail "design-tokens build"
+git diff --exit-code packages/design-tokens/generated || fail "design-token drift — regenerate + re-pin the goldens in the same commit"
 
 # --- scan engine acceptance: only when scan sources changed, and only if Docker is available. The
 # EICAR end-to-end gate needs a Docker daemon, so a missing daemon is a logged skip (run it by hand
@@ -60,6 +71,17 @@ if git diff --name-only origin/main...HEAD 2>/dev/null | grep -q '^containers/re
     sh "$root/containers/recovery/tests/recover_e2e.sh" || fail "recovery e2e"
   else
     echo "pre-push: WARNING — containers/recovery changed but Docker is unavailable; run containers/recovery/tests/recover_e2e.sh before the recovery Worker deploys"
+  fi
+fi
+
+# --- bundle engine acceptance: same model as the scan gate. The /build end-to-end gate needs a Docker
+# daemon (plus python3 + unzip), so a missing daemon is a logged skip, never a hard block.
+if git diff --name-only origin/main...HEAD 2>/dev/null | grep -q '^containers/bundle/'; then
+  if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+    step "bundle /build end-to-end (containers/bundle changed)"
+    bash "$root/containers/bundle/tests/acceptance.sh" || fail "bundle acceptance"
+  else
+    echo "pre-push: WARNING — containers/bundle changed but Docker is unavailable; run containers/bundle/tests/acceptance.sh before the bundle Worker deploys"
   fi
 fi
 

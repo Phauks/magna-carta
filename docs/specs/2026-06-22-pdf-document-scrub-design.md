@@ -6,7 +6,7 @@
 **ADRs to raise:** `pdf-document-scrub` (the sanitize-by-default model + the five-layer hard gate + the decompress-and-scan content guarantee).
 **Build gates:** the redaction slice landed on this branch (`pdf-core::redact` + the gate + `@magna-carta/pdf`). Backend-only, no UI. Executes on the existing `pdf-engine-roadmap` worktree.
 
-Page-scoped redaction removes content from the *pages* it touches, but a redacted string can still survive in **document-level surfaces** that no page-render reaches: the Info dictionary and XMP metadata, embedded-file attachments, an XFA form dataset, AcroForm field values, the Tagged-PDF structure tree (`ActualText`/`Alt`), bookmark titles, and content hidden in an optional-content (OCG) layer — and any of these can be **compressed**, so the redaction slice's raw-byte output scan would miss it. This design adds a configurable whole-document **scrub** that removes those surfaces, and extends the verification gate so a redacted string cannot survive *anywhere* in the output — compressed or not.
+Page-scoped redaction removes content from the _pages_ it touches, but a redacted string can still survive in **document-level surfaces** that no page-render reaches: the Info dictionary and XMP metadata, embedded-file attachments, an XFA form dataset, AcroForm field values, the Tagged-PDF structure tree (`ActualText`/`Alt`), bookmark titles, and content hidden in an optional-content (OCG) layer — and any of these can be **compressed**, so the redaction slice's raw-byte output scan would miss it. This design adds a configurable whole-document **scrub** that removes those surfaces, and extends the verification gate so a redacted string cannot survive _anywhere_ in the output — compressed or not.
 
 ---
 
@@ -18,7 +18,7 @@ lopdf 0.41 already provides the helpers this design leans on: `catalog_mut`, `ge
 
 ## 2. Architecture
 
-A new focused module `crates/pdf-core/src/scrub.rs`. Scrub is a **standalone** capability that `redact` **composes** — sanitize-by-default redaction *plus* a reusable "sanitize a production" seam (e.g. for the eventual Discovery pipeline) that does not require redacting any page.
+A new focused module `crates/pdf-core/src/scrub.rs`. Scrub is a **standalone** capability that `redact` **composes** — sanitize-by-default redaction _plus_ a reusable "sanitize a production" seam (e.g. for the eventual Discovery pipeline) that does not require redacting any page.
 
 ```
 crates/pdf-core/
@@ -63,17 +63,17 @@ pub fn sanitize_document(doc: &mut lopdf::Document, opts: &ScrubOptions) -> Resu
 
 Each runs only if its flag is true.
 
-| Flag | Operation (lopdf) |
-| --- | --- |
-| `metadata` | Remove the trailer `/Info` dictionary (Title/Author/Subject/Keywords/Creator/Producer/CreationDate/ModDate/custom) and the catalog `/Metadata` (XMP) stream. |
-| `attachments` | Remove `/Names/EmbeddedFiles`; remove `/FileAttachment` annotations from every page's `/Annots`; remove `/AF` associated-file arrays (catalog + pages); remove a catalog `/Collection` (portfolio). |
-| `xfa` | Remove `AcroForm /XFA` (the XML dataset that mirrors form data). Regular fields untouched. |
-| `form_field_values` | Walk `AcroForm /Fields` recursively (through `/Kids`); clear each terminal field's `/V` and `/DV` and each widget's `/AP`; set `AcroForm /NeedAppearances true`. Keeps a blank fillable form. |
-| `structure_tree` | Remove catalog `/StructTreeRoot` and `/MarkInfo`. Drops `ActualText`/`Alt` text mirrors. Trade-off: the output loses accessibility tagging — hence an opt-out, not forced. |
-| `outlines` | Remove catalog `/Outlines` (bookmark `/Title`s leak text) and `/Names/Dests` named destinations. |
-| `optional_content` | Remove catalog `/OCProperties` so no content can stay hidden in an "off" layer. |
+| Flag                | Operation (lopdf)                                                                                                                                                                                   |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `metadata`          | Remove the trailer `/Info` dictionary (Title/Author/Subject/Keywords/Creator/Producer/CreationDate/ModDate/custom) and the catalog `/Metadata` (XMP) stream.                                        |
+| `attachments`       | Remove `/Names/EmbeddedFiles`; remove `/FileAttachment` annotations from every page's `/Annots`; remove `/AF` associated-file arrays (catalog + pages); remove a catalog `/Collection` (portfolio). |
+| `xfa`               | Remove `AcroForm /XFA` (the XML dataset that mirrors form data). Regular fields untouched.                                                                                                          |
+| `form_field_values` | Walk `AcroForm /Fields` recursively (through `/Kids`); clear each terminal field's `/V` and `/DV` and each widget's `/AP`; set `AcroForm /NeedAppearances true`. Keeps a blank fillable form.       |
+| `structure_tree`    | Remove catalog `/StructTreeRoot` and `/MarkInfo`. Drops `ActualText`/`Alt` text mirrors. Trade-off: the output loses accessibility tagging — hence an opt-out, not forced.                          |
+| `outlines`          | Remove catalog `/Outlines` (bookmark `/Title`s leak text) and `/Names/Dests` named destinations.                                                                                                    |
+| `optional_content`  | Remove catalog `/OCProperties` so no content can stay hidden in an "off" layer.                                                                                                                     |
 
-**`optional_content` is config-level.** Removing `/OCProperties` un-hides everything but leaves the `/OC` marked-content operators in *unaffected* page content streams (their text is made visible, not removed). True content-level OCG excision is deferred; the decompress-and-scan gate (§4) still catches any *supplied* redacted string inside such content, so it cannot silently survive. The docs state this boundary plainly.
+**`optional_content` is config-level.** Removing `/OCProperties` un-hides everything but leaves the `/OC` marked-content operators in _unaffected_ page content streams (their text is made visible, not removed). True content-level OCG excision is deferred; the decompress-and-scan gate (§4) still catches any _supplied_ redacted string inside such content, so it cannot silently survive. The docs state this boundary plainly.
 
 After all enabled removals, the **caller** runs `prune_objects()` (see §2 — `sanitize_document` itself does not prune) so the now-orphaned metadata stream, attachment blobs, struct-tree nodes, and outline nodes are physically dropped — not merely unlinked — exactly as the page redaction prunes the original content streams.
 
@@ -83,7 +83,7 @@ The redaction gate already runs, after reassembly, three checks: per-affected-pa
 
 **(a) Structural-absence (always, per scrubbed surface).** For each surface the caller actually scrubbed (opted-out surfaces are skipped), assert the catalog/trailer no longer references it: no `/Info`, no `/Metadata`, no `/Names/EmbeddedFiles`, no `AcroForm /XFA`, no terminal field `/V`·`/DV`, no `/StructTreeRoot`, no `/Outlines`, no `/OCProperties`, as applicable. Any survivor → `GateFailed`, no emit.
 
-**(b) Logical-content decompress-and-scan (the compressed-survival closer).** Walk every object in `doc.objects` (the parsed, in-memory document) and, for each supplied `redactedText` string, scan every decoded `Object::String`/`Name` (recursively through arrays and dictionaries) **and** every stream's `decompressed_content()`. Because the scan operates on the *logical* objects — strings already decoded, streams decompressed — it is immune to how the bytes are stored (Flate, object streams, cross-reference streams). A redacted string anywhere in the document's content → `GateFailed`.
+**(b) Logical-content decompress-and-scan (the compressed-survival closer).** Walk every object in `doc.objects` (the parsed, in-memory document) and, for each supplied `redactedText` string, scan every decoded `Object::String`/`Name` (recursively through arrays and dictionaries) **and** every stream's `decompressed_content()`. Because the scan operates on the _logical_ objects — strings already decoded, streams decompressed — it is immune to how the bytes are stored (Flate, object streams, cross-reference streams). A redacted string anywhere in the document's content → `GateFailed`.
 
 The existing raw-byte scan of the final saved bytes is kept as a cheap belt. The full gate is therefore five layers: per-affected-page text (fail-closed) · whole-document text (tolerant) · structural-absence of scrubbed surfaces · logical-content decompress-scan · raw-output byte scan. On any failure: `Err`, **no bytes emitted**.
 
@@ -99,9 +99,9 @@ Cost is one extra decode pass over the document — negligible beside page rende
 
 TDD, per the slice discipline (failing test first, watch it fail, minimal implementation, watch it pass, commit).
 
-- **Per-surface scrub unit tests:** for each of the seven surfaces, a fixture carrying it → assert it is structurally gone after `sanitize_document`, and still *present* when that surface is opted out (the toggle works both ways).
-- **Logical-content scan tests (the security core):** a document with a known string embedded in (i) XMP metadata, (ii) a bookmark title, (iii) a *compressed* content stream, and (iv) an object-stream-packed dictionary → assert the decompress-scan returns `GateFailed` when that string is supplied and would otherwise survive, and passes once the surface is scrubbed.
-- **Negative gate test (mandatory):** the logical-content scan must be able to *fail* — a doc that still contains the supplied string must return `GateFailed`. A scan that cannot fail is a no-op.
+- **Per-surface scrub unit tests:** for each of the seven surfaces, a fixture carrying it → assert it is structurally gone after `sanitize_document`, and still _present_ when that surface is opted out (the toggle works both ways).
+- **Logical-content scan tests (the security core):** a document with a known string embedded in (i) XMP metadata, (ii) a bookmark title, (iii) a _compressed_ content stream, and (iv) an object-stream-packed dictionary → assert the decompress-scan returns `GateFailed` when that string is supplied and would otherwise survive, and passes once the surface is scrubbed.
+- **Negative gate test (mandatory):** the logical-content scan must be able to _fail_ — a doc that still contains the supplied string must return `GateFailed`. A scan that cannot fail is a no-op.
 - **Composition test:** `redact` a page on a document with leaky metadata + a bookmark mirroring the redacted text → the output has those surfaces gone and the gate passes.
 - **Harness:** a `sanitize` / `sanitize-smoke` mode in `pdf-eval` (sanitize a corpus file, assert the structural-absence gate passes), runnable in CI default features.
 
@@ -109,7 +109,7 @@ TDD, per the slice discipline (failing test first, watch it fail, minimal implem
 
 ## 7. Deferred / named seams
 
-- **Content-level OCG excision** (removing hidden marked-content from unaffected pages, not just the `/OCProperties` config) — the decompress-scan covers *supplied-string* survival in the interim.
+- **Content-level OCG excision** (removing hidden marked-content from unaffected pages, not just the `/OCProperties` config) — the decompress-scan covers _supplied-string_ survival in the interim.
 - **Selective metadata retention** (e.g. keep a sanitized Producer/CreationDate while stripping author/identifying fields) — v1 removes the whole Info dictionary when `metadata` is enabled.
 - **Page-content text in unaffected pages** — out of scope by definition; scrub targets document-level surfaces, redaction targets pages.
 

@@ -2,6 +2,7 @@ import { env, SELF } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import { assertIdentifier } from "@magna-carta/identifiers/validate";
 import { runScheduledSweep } from "../src/scheduled.ts";
+import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import {
   captureResetToken,
@@ -94,25 +95,29 @@ beforeAll(async () => {
   expect(ownerCookie).not.toBe("");
 
   // Seed a principal who IS a firm member (has a member row and a role assignment) but whose role
-  // does NOT include tools:decryption. All five default roles seeded by migration 0023 carry the
+  // does NOT include tools:decryption. All five default roles seeded by migration 0035 carry the
   // permission, so this test creates a custom role with no permissions and mirrors the user with
   // that role — the chokepoint finds a member row + role but no tools:decryption grant → 403.
   // This exercises the PERMISSION gate, not just the membership gate (no member row at all).
   const firmId = assertIdentifier(firm.id, "firm");
+  const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, firmId);
   const { userId: nopermUserId } = await seedCredentialedUser("decryption-e2e-noperm@example.com", {
     userName: "No Decryption Permission",
     firmId,
   });
   const nopermRoleId = "role_E2ENoDecryptionAccess0";
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO role (id, name, created_at) VALUES (?1, ?2, ?3)",
-  ).bind(nopermRoleId, "E2E No Decryption", new Date().toISOString()).run();
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO member (user_id, display_name, status, created_at) VALUES (?1, ?2, ?3, ?4)",
-  ).bind(nopermUserId, "No Decryption Permission", "active", new Date().toISOString()).run();
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO member_role (id, member_user_id, role_id) VALUES (?1, ?2, ?3)",
-  ).bind("memberRole_E2ENoDecryptAccess1", nopermUserId, nopermRoleId).run();
+  await firmDatabase
+    .prepare("INSERT INTO role (id, name, created_at) VALUES (?1, ?2, ?3)")
+    .bind(nopermRoleId, "E2E No Decryption", new Date().toISOString())
+    .run();
+  await firmDatabase
+    .prepare("INSERT INTO member (user_id, display_name, status, created_at) VALUES (?1, ?2, ?3, ?4)")
+    .bind(nopermUserId, "No Decryption Permission", "active", new Date().toISOString())
+    .run();
+  await firmDatabase
+    .prepare("INSERT INTO member_role (id, member_user_id, role_id) VALUES (?1, ?2, ?3)")
+    .bind("memberRole_E2ENoDecryptAccess1", nopermUserId, nopermRoleId)
+    .run();
   unpermissionedCookie = await signInForSessionCookie("decryption-e2e-noperm@example.com");
   expect(unpermissionedCookie).not.toBe("");
 });
@@ -182,20 +187,23 @@ describe("decryption end-to-end: provisioned firm → inspect → unlock → aud
   it("audit: exactly one row per call written; neither row leaks the password or decrypted content", async () => {
     // After the sequential inspect + unlock calls, the firm database must have exactly one row
     // per event — the combined cross-route count that only this e2e can assert.
-    const inspectedCount = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT COUNT(*) AS count FROM audit_log WHERE event = 'decryption.inspected'",
-    ).first<{ count: number }>();
+    const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, assertIdentifier(firm.id, "firm"));
+    const inspectedCount = await firmDatabase
+      .prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event = 'decryption.inspected'")
+      .first<{ count: number }>();
     expect(inspectedCount?.count).toBe(1);
 
-    const unlockedCount = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT COUNT(*) AS count FROM audit_log WHERE event = 'decryption.unlocked'",
-    ).first<{ count: number }>();
+    const unlockedCount = await firmDatabase
+      .prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event = 'decryption.unlocked'")
+      .first<{ count: number }>();
     expect(unlockedCount?.count).toBe(1);
 
     // Pull the metadata text from both rows for redaction checks.
-    const allRows = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT event, metadata FROM audit_log WHERE event IN ('decryption.inspected', 'decryption.unlocked')",
-    ).all<{ event: string; metadata: string }>();
+    const allRows = await firmDatabase
+      .prepare(
+        "SELECT event, metadata FROM audit_log WHERE event IN ('decryption.inspected', 'decryption.unlocked')",
+      )
+      .all<{ event: string; metadata: string }>();
     expect(allRows.results).toHaveLength(2);
 
     const combined = allRows.results.map((row) => row.metadata).join("\n");

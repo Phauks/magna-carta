@@ -23,10 +23,18 @@
     "not_found_handling": "single-page-application",
     "run_worker_first": ["/api/*"],
   },
-  // Public, non-secret config. FILES_ORIGIN is the cookieless preview host; bound here (not .dev.vars)
-  // because it is a hostname, not a credential. In production this becomes files.magnacarta.esq once
-  // the apex attaches; the placeholder value lets the Miniflare test pool exercise the host branch.
-  "vars": { "FILES_ORIGIN": "files.example.com" },
+  // Public, non-secret config. FILES_ORIGIN is the cookieless preview/download host; bound here (not
+  // .dev.vars) because it is a hostname, not a credential. In production this becomes
+  // files.magnacartausercontent.com — the SAME dedicated content domain the editor uses (a separate
+  // registrable domain from the app, so served bytes never carry an app cookie); the app worker takes a
+  // `files.magnacartausercontent.com/*` route, more specific than the editor's wildcard. The placeholder
+  // value lets the Miniflare test pool exercise the host branch. The editor half is USERCONTENT_DOMAIN
+  // (the bare content domain), which defaults to magnacartausercontent.com in code — no deploy var, prod
+  // can't forget it; only local dev overrides it.
+  "vars": {
+    "FILES_ORIGIN": "files.example.com",
+    "PANGRAM_BASE_URL": "https://text.api.pangram.com",
+  },
   // Real production resources (created 2026-06-09; naming convention in ADR-0075:
   // magna-carta-<environment>-<scope>[-<purpose-or-slug>]). Binding names are the code-facing
   // contract and never change; resource names are environment-scoped and permanent (D1/R2
@@ -37,31 +45,14 @@
       "database_name": "magna-carta-production-platform-control",
       "database_id": "a0982ab7-97d9-471b-8dd7-19f18aa53f04",
     },
-    // The firm-database pool (slice 0·4, decided #12): Miniflare cannot create D1 databases
-    // at runtime, so local dev and tests pre-declare a fixed pool the dev FirmResourceProvider
-    // claims from. A claimed firm's database_identifier IS the binding name, resolved through
-    // src/firm-binding-resolver.ts — the same seam deploy-time per-firm bindings use later.
-    // The databases are real account resources (created 2026-06-12) because deploys validate
-    // every database_id; locally Miniflare just keys its simulated SQLite off the ids. In
-    // production the same pool is the pre-REST-adapter starter fleet: until the Cloudflare
-    // REST adapter has credentials, provisioning claims these slots (the demo firm takes the
-    // first one). Per-firm databases beyond the pool are created and bound through the REST
-    // adapter, which requires the documented config-commit + deploy step.
-    {
-      "binding": "DB_FIRM_POOL_1",
-      "database_name": "magna-carta-production-firm-pool-1",
-      "database_id": "41cc8ea3-003d-4bbc-a236-7f35d63d03f7",
-    },
-    {
-      "binding": "DB_FIRM_POOL_2",
-      "database_name": "magna-carta-production-firm-pool-2",
-      "database_id": "eb1b184e-a181-42c7-9895-3ec6d8e8321a",
-    },
+    // Per-firm data lives in the firmId-addressed FirmDatabase Durable Object (the FIRM_DATABASE
+    // namespace below), which self-migrates on first access — there is no per-firm D1 pool to
+    // pre-declare here.
   ],
   // Runtime secrets this Worker requires — set in the Cloudflare dashboard (Worker → Settings →
   // Variables and Secrets) or with `wrangler secret put`. Declaring them here makes `wrangler deploy`
   // fail loudly with a missing-secret list rather than letting auth routes 500 by design at runtime.
-  // CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID are NOT listed: they are optional deploy-time
+  // CLOUDFLARE_API_TOKEN_FIRM_PROVISIONER / CLOUDFLARE_ACCOUNT_ID are NOT listed: they are optional deploy-time
   // credentials for the REST FirmResourceProvider (the dev pool-claiming adapter runs without them).
   // R2_S3_ACCESS_KEY_ID / R2_S3_SECRET_ACCESS_KEY: the account-scoped R2 S3 API token the upload
   // presigner signs direct-to-R2 URLs with (ADR-0081). Required so a deploy fails loudly rather than
@@ -80,6 +71,13 @@
   // Workers AI — the authenticated binding the inference foundation reaches the AI Gateway through.
   // No per-firm provider key at launch (Unified Billing, Cloudflare-managed credentials).
   "ai": { "binding": "AI" },
+  // Cloudflare Flagship feature-flag binding omitted here: Miniflare (the local test runtime)
+  // rejects the "flagship" key because it expects an array, not an object. The binding is a
+  // production-only wiring step — add it in the deploy runbook once the Flagship provider is
+  // provisioned. The optional FLAGS? type on Bindings and resolveFlagEvaluator already handle its
+  // absence everywhere: the resolver falls back to defaultOffEvaluator (stable behavior).
+  // Production wrangler.jsonc snippet (add manually at deploy time):
+  //   "flagship": { "binding": "FLAGS" },
   // FILES_INGEST carries one R2 event per uploaded object to the ingest consumer (single read:
   // magic-byte gates + streaming SHA-256 + scan port, then commit or quarantine). It is a distinct
   // queue from the platform job queue so upload bursts cannot starve the outbox relay, and so its
@@ -147,10 +145,17 @@
       },
     ],
   },
-  // The malware-scan Worker service binding. The app worker dispatches uploaded files to the
-  // scan worker for verdict. Absent in tests unless a stub resolves it (see vitest.config.ts);
-  // resolveScanPort falls back to the no-engine adapter when the service returns the unscanned verdict.
-  "services": [{ "binding": "SCAN_SERVICE", "service": "magna-carta-scan" }],
+  // Worker service bindings to dedicated sibling workers. JSONC keeps only the LAST duplicate top-level
+  // key, so ALL bindings must live in this one array. Absent in tests unless stubs resolve them (see
+  // vitest.config.ts); each optional binding has a graceful fallback in production code.
+  //   SCAN_SERVICE: the malware-scan worker (resolveScanPort falls back to the no-engine adapter).
+  //   BUNDLE_SERVICE: the bundle-build worker (POST /build); the bundle lanes 503 until it is bound.
+  //   CONVERT: the conversion engine worker (resolveEnginePort returns the deferred port while unbound).
+  "services": [
+    { "binding": "SCAN_SERVICE", "service": "magna-carta-scan" },
+    { "binding": "BUNDLE_SERVICE", "service": "magna-carta-bundle" },
+    { "binding": "CONVERT", "service": "magna-carta-convert" },
+  ],
   // Browser Rendering Workers binding — used by POST /api/v1/safe-browse to render suspect URLs
   // in Cloudflare's isolated remote browser. Requires compatibility_date >= 2026-03-24 for
   // quickAction(); the current compatibility_date (2026-06-05) already satisfies that requirement.
@@ -158,21 +163,41 @@
   // The async bulk-download coordinator — the codebase's first Durable Object. Keyed
   // firmId:manifestHash, it single-flights one ZIP build per content-addressed file selection. The
   // class is exported from src/index.ts (a binding to a class with no export fails the deploy).
+  // EVERY Durable Object binding MUST live in this one block: JSONC keeps only the last duplicate
+  // top-level key, so a second "durable_objects" (or "migrations") key silently drops every binding
+  // declared above it. DOCUMENT_SESSION (slice 2·2) coordinates one per-document editing session
+  // (participants + current working-object metadata + the WOPI session lock), SQLite-backed so its
+  // state survives the editing container sleeping. FIRM_DATABASE is the per-firm SQLite-backed DO (one
+  // instance per firm, idFromName(firmId), self-migrating on wake, the data-plane RPC target for all
+  // per-firm SQL). DURABLE_TIMER is the per-timekeeper live-timer coordinator — one instance per
+  // `${firmId}:${userId}` (firm-namespaced, so a timer never holds another firm's state), holding only
+  // transient live-timer state; a committed time entry flows through the data-access chokepoint into
+  // the per-firm database, never the DO.
   "durable_objects": {
     "bindings": [
       { "name": "BUNDLE_COORDINATOR", "class_name": "BundleBuildCoordinator" },
+      { "name": "DOCUMENT_SESSION", "class_name": "DocumentSession" },
       // The conversion-job coordinator: keyed firmId:jobId, single-flights one conversion per job.
       { "name": "CONVERSION_JOB", "class_name": "ConversionJob" },
+      { "name": "DURABLE_TIMER", "class_name": "LiveTimerDurableObject" },
+      // The per-firm SQLite-backed database: one instance per firm (idFromName(firmId)), self-migrating
+      // on wake, and the data-plane RPC target for all per-firm SQL.
+      { "name": "FIRM_DATABASE", "class_name": "FirmDatabase" },
     ],
   },
-  // SQLite-backed DO classes are introduced through a migration tag; this is the first one.
+  // SQLite-backed DO classes are introduced through a migration tag — ONE consolidated lineage (a
+  // second "migrations" key would override this one). The tag chain is append-only and MUST match the
+  // sequence already applied on the deployed worker (Cloudflare rejects a deploy that drops or renames
+  // an applied tag), so the names follow the order they actually landed in: v1 the bulk-download +
+  // conversion-job coordinators; v1-live-timer the live-timer coordinator; v1-editing-document-session
+  // the editing document-session DO; v2-firm-database the per-firm database DO (the most recent class,
+  // appended last). Never modify an applied tag — only append a new one.
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["BundleBuildCoordinator", "ConversionJob"] },
+    { "tag": "v1-live-timer", "new_sqlite_classes": ["LiveTimerDurableObject"] },
+    { "tag": "v1-editing-document-session", "new_sqlite_classes": ["DocumentSession"] },
+    { "tag": "v2-firm-database", "new_sqlite_classes": ["FirmDatabase"] },
   ],
-  // The dedicated conversion engine worker: the app worker reaches it over this service binding to
-  // call its POST /convert endpoint. Optional at deploy time — absent until the worker is deployed
-  // and wired; resolveEnginePort returns the deferred port while unbound.
-  "services": [{ "binding": "CONVERT", "service": "magna-carta-convert" }],
   // Workers Logs at full sampling (current volumes; the golden-rule-4 structured-JSON event lines
   // the telemetry Workers logger emits land here). Logpush → R2 is a deploy-time runbook step
   // (docs/conventions/operations.md), not code — it is account configuration (slice 0·6, ADR-0074).
@@ -183,15 +208,6 @@
   "analytics_engine_datasets": [
     { "binding": "TELEMETRY", "dataset": "magna-carta-production-telemetry" },
   ],
-  // The per-timekeeper live-timer coordinator (the first Durable Object). One instance per
-  // `${firmId}:${userId}` (firm-namespaced, so a timer never holds another firm's state), holding only
-  // transient live-timer state in DO storage — a committed time entry flows through the data-access
-  // chokepoint into per-firm D1, never the DO. new_sqlite_classes puts the instance on the
-  // SQLite-backed storage backend (the current default for new classes).
-  "durable_objects": {
-    "bindings": [{ "name": "DURABLE_TIMER", "class_name": "LiveTimerDurableObject" }],
-  },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["LiveTimerDurableObject"] }],
   // Cloudflare Email Service send binding (slice 0·6, ADR-0074). The adapter is SELECTED only when
   // EMAIL_FROM is also set — deliberately NOT committed as a var here: it is the activation switch
   // the deploy-time runbook flips once magnacarta.esq is onboarded for Email Sending (DKIM/SPF —

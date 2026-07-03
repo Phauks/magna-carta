@@ -10,6 +10,8 @@ export type FileManagerValidationCode =
   | "unknown-file"
   | "unknown-version"
   | "version-not-pending"
+  // Offline checkout / check-in
+  | "unknown-checkout"
   // Same-matter integrity: a file, folder, or move must not cross matter boundaries
   | "folder-cross-matter"
   | "file-cross-matter"

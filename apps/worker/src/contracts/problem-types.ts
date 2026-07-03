@@ -41,10 +41,22 @@ export const PROBLEM_TYPES = {
   // Generic — does not reveal whether the file or its format was otherwise valid; only that the
   // password was wrong. The client can retry with a different password without re-uploading.
   "wrong-password": "wrong-password",
+  // A beta-channel activation rejected because the required consent acknowledgment was absent.
+  // Distinct from `validation` (request-shape failures) — the request is well-formed; a business
+  // rule gates the channel transition on explicit opt-in.
+  "beta-consent-required": "beta-consent-required",
   // An unexpected, unhandled server error (HTTP 500). The telemetry middleware's final catch maps
   // any escaped exception to this — the one error type the client cannot have caused, carrying only
   // the Error ID to quote.
   internal: "internal",
+  // A feature that is known but not yet wired end-to-end (HTTP 501). Used for interim stubs where
+  // the route schema and lane routing are in place but the backing implementation lands in a later
+  // task. Clients should treat this like a transient error and retry after a deployment.
+  "not-implemented": "not-implemented",
+  // A required downstream service is absent or unreachable (HTTP 503): the worker cannot fulfil
+  // the request because a backing worker service binding is not configured. Callers should retry
+  // after a short delay; the condition resolves when the binding is activated at deploy time.
+  "service-unavailable": "service-unavailable",
 } as const;
 
 export type ProblemTypeKey = keyof typeof PROBLEM_TYPES;

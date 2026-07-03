@@ -1,0 +1,159 @@
+/*
+ * Motion keyframes for the design system.
+ *
+ * These live OUTSIDE components.css on purpose. A slide keyframe needs a structural transform
+ * offset — a panel's own size, i.e. 100% / -100% — which is NOT a design token (you cannot
+ * tokenize "the element's own extent"). components.css is token-only (the token-purity fitness
+ * gate forbids literals there), so the one place literals are unavoidable — keyframe frame offsets
+ * — is isolated here. Everything that CAN be a token still is: the recipes in components.css drive
+ * these animations with var(--mc-duration-*) / var(--mc-easing-*) and only reference the keyframes
+ * by name. Durations/easings, reduced-motion, and which side animates all stay token-driven there.
+ *
+ * Why keyframe animations and not CSS transitions: a transition has no value to animate FROM on
+ * first mount, so a transitioned panel "pops" into place on open (and only animates on close). A
+ * CSS animation with animation-fill-mode runs on mount — the panel slides in AND out. (Svelte's
+ * css-based transitions inject a <style> element, which the platform's strict style-src blocks —
+ * see test/csp-spike/VERDICT.md — so author-time keyframes are also the CSP-safe choice.)
+ *
+ * IN and OUT are SEPARATE keyframes (not one keyframe played in reverse). The exit fires when the
+ * recipe swaps animation-name on data-state=closed; a browser only (re)starts an animation when
+ * the NAME changes, so reusing one name with animation-direction:reverse would never replay on
+ * close — the panel would just vanish. Distinct names guarantee both directions animate.
+ */
+
+@keyframes mc-sheet-in-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@keyframes mc-sheet-out-right {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes mc-sheet-in-left {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@keyframes mc-sheet-out-left {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+@keyframes mc-sheet-in-top {
+  from {
+    transform: translateY(-100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes mc-sheet-out-top {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-100%);
+  }
+}
+
+@keyframes mc-sheet-in-bottom {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes mc-sheet-out-bottom {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(100%);
+  }
+}
+
+/*
+ * Shared float/overlay presence — companions to the sheet slide keyframes above. Fade is for
+ * low-emphasis surfaces (overlay scrims, tooltips); scale-fade is for popovers, menus, and dialogs.
+ * Same rationale as the slides: a keyframe animation (not a transition) so each surface animates IN
+ * on mount as well as OUT, and IN/OUT are SEPARATE names so both directions replay (the recipes in
+ * components.css swap animation-name on data-state).
+ */
+@keyframes mc-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes mc-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/*
+ * The gilt draw — the house motion signature for gold identity marks (tab underlines, edge bars):
+ * gold never fades in, it DRAWS, like leaf being laid — a scale from the mark's center along its
+ * axis. Same keyframe rationale as above (animations replay on mount; transitions have no from-value
+ * on first paint), and the 0/1 multipliers are structural motion values that cannot be tokens.
+ * Recipes drive duration/easing/color/size with tokens and reference these names only.
+ */
+@keyframes mc-draw-x {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+@keyframes mc-draw-y {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes mc-scale-fade-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes mc-scale-fade-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+}

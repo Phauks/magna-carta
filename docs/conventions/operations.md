@@ -46,7 +46,7 @@ The Worker declares the `send_email` binding (`SEND_EMAIL`) and the code selects
 
 > **`ROOT_KEK` is not freely rotatable.** It wraps every per-firm key; replacing it without a re-wrap migration makes all `protected()` data permanently unrecoverable. Generate it **once**, set it, and **back it up in ≥2 secure places** (a secrets manager + a sealed offline copy) before any firm stores protected data. Rotation machinery is not built — the ciphertext frame reserves `algo_version | key_version` as the seam, and the re-wrap sweep is a scheduled hardening build (see [`../../ROADMAP.md`](../../ROADMAP.md) → _Hardening_), gated to before the first real client or a compromise event.
 
-`CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` are **optional** deploy-time secrets for the REST `FirmResourceProvider`; absent them, the dev pool-claiming adapter runs. Secrets posture detail lives in [`security.md`](security.md).
+`CLOUDFLARE_API_TOKEN_FIRM_PROVISIONER` / `CLOUDFLARE_ACCOUNT_ID` are **optional** deploy-time secrets for the REST `FirmResourceProvider`; absent them, the dev pool-claiming adapter runs. Secrets posture detail lives in [`security.md`](security.md).
 
 > The gate covers **secrets** only. The Worker's declared **Queues** must also already exist in the target account — `wrangler deploy` aborts on the first missing one. The declared queues live in `apps/worker/wrangler.jsonc` (`…-platform-jobs`, `…-files-ingest` + `…-files-ingest-deadletter`, `…-inference` + `…-inference-deadletter`); create any that are absent with `wrangler queues create <name>` (or the dashboard) before deploying.
 
@@ -221,7 +221,7 @@ The Worker `wrangler.jsonc` binds both; Wrangler errors on deploy if they do not
 
 The scan engine lives in its own Worker (`apps/scan-worker`, service `magna-carta-scan`). It owns the `ScanContainer` — a `linux/amd64` Container (`containers/scan/`): a long-lived clamd daemon plus a Rust HTTP service that fans each file to clamd (signatures), yara-x (heuristic rules), and structural heuristics (PDF/Office/archive). The app Worker (`apps/worker`) reaches it exclusively over a `SCAN_SERVICE` service binding; `resolveScanPort` selects the remote engine when that binding is present, otherwise the engine-less `unscanned` adapter (an honest `unscanned`/no-engine verdict, never a false `clean`). The app Worker carries **no** container config of its own.
 
-The scan worker is **built and unit-tested, but not yet connected to Workers Builds and not yet deployed** — the `SCAN_SERVICE` service binding in the app Worker is absent until the scan service is live. Until activation, every firm runs the engine-less adapter.
+The scan worker is **built, connected to Workers Builds, and deployed** as of 2026-06-28 — the `SCAN_SERVICE` binding in the app Worker is wired and live, so production runs the real engine (local/test envs still use the engine-less adapter — no container pool). The first-activation steps below are retained as the record of what activation entailed; the **acceptance checks** are **deferred** until a prod firm/member is provisioned (none yet — the auth UI is slice 0·7b), since they need an authenticated principal to call `POST /api/v1/scan/diagnose`. The container required a `bookworm`→`trixie` base for onnxruntime's glibc-2.38 symbols (Magika `/identify`).
 
 ### First-activation steps
 
@@ -273,14 +273,15 @@ The scan worker is **built and unit-tested, but not yet connected to Workers Bui
 
 ## 12. Cloudflare Workers Builds — CI/CD pipeline + fast-build settings
 
-The build-and-deploy pipeline is **Cloudflare Workers Builds** (the deploy model; ADR-0075 as amended), not GitHub Actions. Each Worker (`magna-carta`, `magna-carta-scan`) is connected to the GitHub repository and builds + deploys on push to `main`. Build-time performance is a standing requirement — see [`build-performance.md`](build-performance.md).
+The build-and-deploy pipeline is **Cloudflare Workers Builds** (the deploy model; ADR-0075 as amended), not GitHub Actions. Each Worker (`magna-carta`, `magna-carta-scan`, `magna-carta-bundle`) is connected to the GitHub repository and builds + deploys on push to `main`. Build-time performance is a standing requirement — see [`build-performance.md`](build-performance.md).
 
 ### Per-Worker build configuration (dashboard: **Workers & Pages → _the Worker_ → Settings → Builds**)
 
 Build and deploy commands are already set (do not change without cause) — recorded here so the pipeline is documented:
 
-- `magna-carta` — build `pnpm install --frozen-lockfile && pnpm exec vp run build-all`; deploy `pnpm --filter @magna-carta/worker exec wrangler deploy`.
+- `magna-carta` — build `pnpm install --frozen-lockfile && pnpm exec vp run build-all`; deploy `pnpm --filter @magna-carta/worker exec wrangler deploy`. **The `@magna-carta/pdf` wasm builds inside a pinned Rust Docker image** (`crates/pdf-core/wasm.Dockerfile`, the `rust-wasm-build` task in `vite.config.ts`), exactly as the `scan`/`bundle`/`convert` container images build their Rust — so the runner needs only Docker (which it provides), never Rust/wasm-pack on the bare machine, and the build command stays the standard one. **History:** from the PDF engine merge (2026-06-23) until 2026-06-28 the wasm built with bare `wasm-pack` on the runner, which has no Rust toolchain, so every `magna-carta` build failed with `Failed to find executable wasm-pack` (no deploy succeeded in that window). Moving the wasm build into Docker fixed it without any build-command change.
 - `magna-carta-scan` — root directory `apps/scan-worker`; build `pnpm run build`; deploy `npx wrangler deploy`. Deploying the scan Worker builds and pushes the `containers/scan` image referenced by its Container binding.
+- `magna-carta-bundle` — root directory `apps/bundle-worker`; build `pnpm run build`; deploy `npx wrangler deploy`. Deploying the bundle Worker builds and pushes the `containers/bundle` image referenced by its Container binding. The image is a separate slice's deliverable (`containers/bundle/Dockerfile`); until it exists the bundle Worker cannot deploy, so the `BUNDLE_SERVICE` binding in the app Worker stays unbound and the encrypted/heavy bundle lanes return `503` (the plain ZIP fast lane is unaffected).
 
 Two settings to **enable/set** (the fast-build levers — see [`build-performance.md`](build-performance.md)):
 
@@ -288,6 +289,7 @@ Two settings to **enable/set** (the fast-build levers — see [`build-performanc
 - **Build Watch Paths — set per Worker** so an unrelated change does not rebuild every Worker. Patterns are repo-root-relative; a single `*` matches zero or more characters across directories; excludes are filtered first, then a build runs only if a changed path still matches an include. (Workers Builds always builds regardless of paths when a push has 0 changes, 3000+ changes, or 20+ commits.)
   - `magna-carta` (depends on most of the repo — scope by exclusion): **Include** `*` · **Exclude** `docs/*`, `containers/*`, `spikes/*`, `*.md`. So a docs- or scan-only change no longer rebuilds and redeploys the app Worker.
   - `magna-carta-scan` (depends only on its own package + the scan image — scope by inclusion): **Include** `apps/scan-worker/*`, `containers/scan/*`, `pnpm-lock.yaml`, `pnpm-workspace.yaml` · **Exclude** (none). So a change to `apps/web` or any `packages/*` no longer triggers a scan rebuild — the largest waste today.
+  - `magna-carta-bundle` (depends only on its own package + the bundle image — scope by inclusion): **Include** `apps/bundle-worker/*`, `containers/bundle/*`, `pnpm-lock.yaml`, `pnpm-workspace.yaml` · **Exclude** (none).
 
 ### Quality gates (no separate CI runner) — the `pre-push` hook
 
@@ -296,3 +298,48 @@ With GitHub Actions retired, Workers Builds builds and deploys but runs no check
 ### Container image cache (scan Worker)
 
 The scan image build uses BuildKit cache mounts (`containers/scan/Dockerfile`) so an unchanged Cargo dependency graph is not recompiled. Mounts are build-local; if cold Rust dependency compiles in the Workers Build become the bottleneck, a cache-mount export is the documented upgrade path ([`build-performance.md`](build-performance.md)).
+
+### Testing a container on Cloudflare (post-deploy self-test)
+
+A container is a Docker image that cannot run under the local Miniflare test pool, and Workers Builds builds the image **remotely** — so the most faithful test is to deploy and exercise the live container, which also covers what no local stub can: the real outbound-Workers `env.R2` mediation, the Container Durable Object lifecycle (cold start, `sleepAfter`, the warm cron), the real instance sizing, and the service-binding wiring. The bundle worker ships a **guarded self-test endpoint** for exactly this; it is the template other container subsystems should copy.
+
+`POST /self-test` on `magna-carta-bundle` runs the deployed container through `/ready`, a buffered ZIP build (R2 + inline entries, verified back in R2 — complete-ZIP + the seeded bytes actually present + reported size matches), the streaming encrypted lane (archive returned, must **not** contain the plaintext — proving encryption — and nothing persisted), and a 7z multi-volume split (volumes read back from R2 and reassembled into a real 7z) — then deletes every object it wrote and returns a JSON report (`{ ok, runId, checks[], elapsedMs }`, HTTP 200 when all checks pass, 500 otherwise). It is **disabled by default**: the route 404s unless `BUNDLE_SELF_TEST_KEY` is set on the worker **and** the request presents it as the `x-self-test-key` header (SHA-256 constant-time compare), so it is safe to ship on every environment including production.
+
+It runs against a **dedicated container instance** (`getContainer(..., "selftest")`), isolated from the `"bundle"` instance that serves live firm builds, so a self-test never contends with customer work (it cold-starts a separate instance, which counts against `max_instances`). All objects it writes live under a per-run `selftest/<uuid>/` prefix in the files bucket; if the caller disconnects mid-run before cleanup, those few small objects can be left behind (harmless; sweep `selftest/` if desired) — a cleanup leak or failed run is also logged (redacted: runId + count) in Workers Logs.
+
+To run it:
+
+1. **Set the secret** (only while testing; remove it after if you prefer the route fully dark):
+   `wrangler secret put BUNDLE_SELF_TEST_KEY` (or Dashboard → the Worker → Settings → Variables and Secrets). Generate a high-entropy value (e.g. `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`).
+2. **Reach the worker.** `magna-carta-bundle` is internal (`workers_dev: false`, no public routes), so pick one:
+   - **Through the app worker (preferred once `BUNDLE_SERVICE` is bound):** the app worker can relay a service-binding call to `http://bundle/self-test` with the header — no public exposure of the bundle worker.
+   - **Isolated (before the app worker is wired):** deploy a throwaway staging instance with `workers_dev: true` and the secret set, then `curl -X POST https://<worker>.<account>.workers.dev/self-test -H "x-self-test-key: <value>"`. Tear it down after. Keep the committed `wrangler.jsonc` at `workers_dev: false` — do not expose the production bundle worker publicly.
+3. **Read the report.** A 200 with every `checks[].ok === true` means the deployed image, both build lanes, the R2 mediation, and split all work end to end. A 500 lists the failing check and its detail.
+
+This makes the local Docker acceptance gate (`containers/bundle/tests/acceptance.sh`) optional — a fast pre-push smoke when Docker is present — rather than the only proof. The same pattern (a secret-gated `/self-test` that round-trips the container and cleans up) is the recommended post-deploy check for any future container subsystem.
+
+---
+
+## 13. Control-plane database migrations
+
+Control-plane D1 migrations apply **automatically** — no manual deploy step is required. The scheduled (Cron) handler (`apps/worker/src/scheduled.ts`) runs `runPendingMigrations` against `env.DB_CONTROL` as its **first action** on every cron tick, before the existing control-plane outbox sweep, so the schema is current before any other control-plane work in the same tick.
+
+**Why the cron is the sole runtime applier — single-flight by construction.** The migration runner is not safe to run concurrently against the same database for the same pending migration. Each migration applies as one atomic `batch()` call (see `packages/database/src/d1-migration-target.ts`), and the runner fails loud on the first error with no internal retry (`packages/database/src/migration-runner.ts`). The `_migrations` table uses `tag TEXT PRIMARY KEY`, so if N worker isolates raced the same pending migration, exactly one batch would commit and every other isolate's batch would fail with a `UNIQUE constraint failed: _migrations.tag` error — a burst of N−1 thrown errors per migration-bearing deploy. The cron fires as a single invocation per tick, so making it the sole applier eliminates that concurrency in the common case; a rare overlapping fire is made safe by the error isolation around the step (the loser throws and is caught, the next tick is a no-op at head).
+
+**Additive migrations + fail-safe reads — tolerating the deploy window.** Between a deploy and the cron tick that applies a new migration (at most one `*/5` cycle, typically under five minutes), request code may read a control-plane column that does not yet exist. The discipline that makes this safe:
+
+- Control-plane migrations are **additive only** (expand-contract; no destructive DDL while data exists).
+- Request code that reads a new additive column must **default safely** on absence rather than propagating an error. Example: `/me` reads `firm.release_channel` on every session bootstrap; if the column is briefly absent right after a deploy (or any transient read error), the handler yields `channel: "stable"` and the default flag set and returns a successful response — the bootstrap never fails fleet-wide while the schema window is open. The same pattern applies to any other endpoint that reads a new control-plane column. (Write endpoints that need the column cannot fail-safe this way; they return an error during the window and recover once the migration lands — see `docs/active-work/release-channels.md`.)
+
+**Deploy-time application — the future zero-window hardening.** Running `runPendingMigrations` in the Workers Builds command (before `wrangler deploy`) would be single-flight by construction: the build runs once, applies the migration, then the deploy follows. That approach eliminates the window entirely (true migrate-before-serve, mirroring how per-firm migrations apply at provision time). It requires a D1-over-HTTP `MigrationTarget` adapter and an API token as a build secret. Adopt this when production firms make a zero-width schema window matter — for now the cron + fail-safe discipline covers the gap.
+
+## 14. Placeholder service workers — REPLACE before activating slices 2·1 / 2·4
+
+The `magna-carta` app worker declares three sibling service bindings (`SCAN_SERVICE`, `BUNDLE_SERVICE`, `CONVERT`). Cloudflare rejects a deploy whose service binding points at a worker that does not exist, so to deploy the editing slice (2·2) without first standing up the bulk-download and conversion subsystems, two of those targets are currently **503 placeholder workers**, deployed 2026-06-27:
+
+- **`magna-carta-bundle`** — placeholder. The real worker (`apps/bundle-worker`, with its `BundleContainer` Rust archive builder) belongs to **slice 2·1 (async bulk-download)**. Until it deploys, the app worker's bundle download lanes return 503 (the code's graceful fallback).
+- **`magna-carta-convert`** — placeholder. The real worker (`apps/convert-worker`, with its `RasterEngineContainer`) belongs to **slice 2·4 (in-app conversion)**. Until it deploys, `resolveEnginePort` falls back to the deferred port.
+
+**To replace each placeholder with the real worker:** connect a Workers Build project for it (dashboard, exactly as §12 / the `magna-carta-edit` setup), since each carries a container image that must build on Cloudflare's runners. Deploying the real worker overwrites the placeholder and adds its container DO migration cleanly (the placeholder has no DO classes). No app-worker config change is needed — the bindings already point at the right names.
+
+**Also pending — the `magna-carta-edit` Workers Build project branch.** Its build project was pointed at the now-deleted `slice-2-2-editing` branch; repoint it to `main` (dashboard → the Worker → Settings → Builds) so future editor-worker changes redeploy on push. The currently deployed editor worker is unaffected.

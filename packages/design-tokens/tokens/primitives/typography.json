@@ -1,0 +1,75 @@
+{
+  "font": {
+    "$description": "Font family stacks. `sans` defaults to Atkinson Hyperlegible (the legibility-engineered default reading font, design language §4); the user-selectable typeface axis (data-typeface) overrides --mc-font-sans at runtime in a later step. Faces are self-hosted (OFL) by the design-system/app; the stack falls back to the system UI stack until the web fonts load.",
+    "sans": {
+      "$type": "fontFamily",
+      "$value": [
+        "Atkinson Hyperlegible Next Variable",
+        "Atkinson Hyperlegible Next",
+        "Atkinson Hyperlegible",
+        "system-ui",
+        "Segoe UI",
+        "Roboto",
+        "Helvetica Neue",
+        "Arial",
+        "sans-serif"
+      ]
+    },
+    "display": {
+      "$description": "The display serif for ceremonial edges only — page mastheads, matter-name captions, greeting headers. Never workflow cells or running text (the reading face governs those; the user typeface axis must not fight a decorative heading). Variable: opsz gives display sizes the optical cut.",
+      "$type": "fontFamily",
+      "$value": ["Fraunces Variable", "Fraunces", "Georgia", "Times New Roman", "serif"]
+    },
+    "blackletter": {
+      "$description": "The brand mark face (illuminated M / wordmark contexts) ONLY — a fixed glyph treated as artwork, never running text. A drawn SVG mark is the planned successor; this face is the launch stand-in the design language names.",
+      "$type": "fontFamily",
+      "$value": ["UnifrakturMaguntia", "serif"]
+    },
+    "mono": {
+      "$type": "fontFamily",
+      "$value": ["ui-monospace", "SFMono-Regular", "Consolas", "Menlo", "monospace"]
+    }
+  },
+  "font-size": {
+    "$description": "Type size scale, in rem so OS/browser text-size settings scale the whole UI (WCAG 1.4.4 Resize Text; design language §4). Root baseline 16px. Named font-size (not text) so the generated --mc-font-size-* variables cannot collide with the semantic text COLOR roles (--mc-text-default etc.) — a size var in a color slot used to pass the purity gate and fail silently. Tailwind's text-* utilities still map here (the utility namespace is the template's concern, not the variable's).",
+    "xs": { "$type": "dimension", "$value": { "value": 0.75, "unit": "rem" } },
+    "sm": { "$type": "dimension", "$value": { "value": 0.875, "unit": "rem" } },
+    "md": { "$type": "dimension", "$value": { "value": 1, "unit": "rem" } },
+    "lg": { "$type": "dimension", "$value": { "value": 1.125, "unit": "rem" } },
+    "xl": { "$type": "dimension", "$value": { "value": 1.25, "unit": "rem" } },
+    "2xl": { "$type": "dimension", "$value": { "value": 1.5, "unit": "rem" } },
+    "3xl": {
+      "$description": "Display size — page mastheads and ceremonial headings (the serif register). Deliberately a big jump from 2xl: the scale contrast between a masthead and its metadata is part of the register's voice.",
+      "$type": "dimension",
+      "$value": { "value": 2, "unit": "rem" }
+    }
+  },
+  "leading": {
+    "$description": "Line-height multipliers.",
+    "tight": { "$type": "number", "$value": 1.25 },
+    "normal": { "$type": "number", "$value": 1.5 },
+    "relaxed": { "$type": "number", "$value": 1.625 }
+  },
+  "weight": {
+    "$description": "Font weights. `display` is deliberately off-grid (a variable-axis value between regular and medium) — the display serif carries authority without heaviness, and the non-default number is part of what reads as typeset rather than templated. It requires a variable font (font.display is one); static fallbacks round it.",
+    "regular": { "$type": "fontWeight", "$value": 400 },
+    "medium": { "$type": "fontWeight", "$value": 500 },
+    "semibold": { "$type": "fontWeight", "$value": 600 },
+    "display": { "$type": "fontWeight", "$value": 460 }
+  },
+  "tracking": {
+    "$description": "Letter spacing, in rem so it scales WITH the rem type scale under OS/browser text-size settings (px tracking would visibly tighten as the glyphs grow — defeating the same WCAG 1.4.4 accommodation the rem type scale serves). DTCG dimensions offer px|rem only (no em), so each tracked VOICE gets its own token pinned to the size that voice is set in.",
+    "tight": { "$type": "dimension", "$value": { "value": -0.01, "unit": "rem" } },
+    "normal": { "$type": "dimension", "$value": { "value": 0, "unit": "rem" } },
+    "caps": {
+      "$description": "The letterspaced-caps label voice (structural labels: column headers, group labels, eyebrows, status text). ~0.09em at the xs size the voice is set in; uppercase needs the air that lowercase gets from ascenders/descenders.",
+      "$type": "dimension",
+      "$value": { "value": 0.0675, "unit": "rem" }
+    },
+    "wordmark": {
+      "$description": "The brand wordmark's wide tracking (MAGNA CARTA beside the illuminated M). Wider than the caps voice — the wordmark is engraved lettering, not a data label.",
+      "$type": "dimension",
+      "$value": { "value": 0.125, "unit": "rem" }
+    }
+  }
+}

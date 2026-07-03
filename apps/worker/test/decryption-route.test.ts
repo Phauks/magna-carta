@@ -3,7 +3,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import type { FirmId } from "@magna-carta/identifiers/types";
 import { createApp } from "../src/app.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
-import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
+import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import {
   mirrorMemberWithOwnerRole,
   seedCredentialedUser,
@@ -40,18 +40,17 @@ let poolFirmId: FirmId;
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
-  // tools:decryption is seeded onto roles in a later migration. Grant it here directly so the
-  // route tests can run before that migration lands.
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT OR IGNORE INTO role_permission (id, role_id, permission) VALUES (?1, ?2, ?3)",
-  )
-    .bind("rolePermission_DecryptionOwnerTest0001", OWNER_ADMIN_ROLE_ID, "tools:decryption")
-    .run();
-
+  // The firm's FirmDatabase Durable Object self-migrates on first access (resolved by firmId), so
+  // create the firm row first, then reach its database.
   poolFirmId = (
     await seedFirm({ name: "Decryption Route Test Firm", databaseIdentifier: "DB_FIRM_POOL_1" })
   ).firmId;
+  // tools:decryption is seeded onto roles in a later migration. Grant it here directly so the
+  // route tests can run before that migration lands.
+  await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+    .prepare("INSERT OR IGNORE INTO role_permission (id, role_id, permission) VALUES (?1, ?2, ?3)")
+    .bind("rolePermission_DecryptionOwnerTest0001", OWNER_ADMIN_ROLE_ID, "tools:decryption")
+    .run();
 });
 
 describe("POST /api/v1/decryption/inspect", () => {
@@ -60,7 +59,7 @@ describe("POST /api/v1/decryption/inspect", () => {
       userName: "Decryption OK",
       firmId: poolFirmId,
     });
-    await mirrorMemberWithOwnerRole(userId, "Decryption OK");
+    await mirrorMemberWithOwnerRole(userId, "Decryption OK", poolFirmId);
     const cookie = await signInForSessionCookie("decryption-ok@example.com");
 
     const response = await app.request(
@@ -91,9 +90,9 @@ describe("POST /api/v1/decryption/inspect", () => {
     expect(typeof body.hashcatMode).toBe("number");
 
     // Exactly one audit row must have been written for this ephemeral inspection.
-    const auditCount = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT COUNT(*) AS count FROM audit_log WHERE event = 'decryption.inspected'",
-    ).first<{ count: number }>();
+    const auditCount = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event = 'decryption.inspected'")
+      .first<{ count: number }>();
     expect(auditCount?.count).toBe(1);
   });
 
@@ -127,7 +126,7 @@ describe("POST /api/v1/decryption/inspect", () => {
       userName: "No Attestation",
       firmId: poolFirmId,
     });
-    await mirrorMemberWithOwnerRole(userId, "No Attestation");
+    await mirrorMemberWithOwnerRole(userId, "No Attestation", poolFirmId);
     const cookie = await signInForSessionCookie("decryption-noattest@example.com");
 
     const response = await app.request(
@@ -156,7 +155,7 @@ describe("POST /api/v1/decryption/inspect", () => {
       userName: "Bad Base64",
       firmId: poolFirmId,
     });
-    await mirrorMemberWithOwnerRole(userId, "Bad Base64");
+    await mirrorMemberWithOwnerRole(userId, "Bad Base64", poolFirmId);
     const cookie = await signInForSessionCookie("decryption-badb64@example.com");
 
     const malformedInput = "!!!not base64!!!";
@@ -208,7 +207,7 @@ describe("POST /api/v1/decryption/unlock", () => {
       userName: "Unlock OK",
       firmId: poolFirmId,
     });
-    await mirrorMemberWithOwnerRole(userId, "Unlock OK");
+    await mirrorMemberWithOwnerRole(userId, "Unlock OK", poolFirmId);
     const cookie = await signInForSessionCookie("unlock-ok@example.com");
 
     const response = await app.request(
@@ -239,9 +238,9 @@ describe("POST /api/v1/decryption/unlock", () => {
     expect(decryptedBytes[3]).toBe(0x46); // F
 
     // Exactly one audit row must have been written for this operation.
-    const auditRow = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT metadata FROM audit_log WHERE event = 'decryption.unlocked' LIMIT 1",
-    ).first<{ metadata: string }>();
+    const auditRow = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("SELECT metadata FROM audit_log WHERE event = 'decryption.unlocked' LIMIT 1")
+      .first<{ metadata: string }>();
     expect(auditRow).not.toBeNull();
 
     // The audit record must never contain the password or any decrypted file content.
@@ -260,7 +259,7 @@ describe("POST /api/v1/decryption/unlock", () => {
       userName: "Unlock Wrong PW",
       firmId: poolFirmId,
     });
-    await mirrorMemberWithOwnerRole(userId, "Unlock Wrong PW");
+    await mirrorMemberWithOwnerRole(userId, "Unlock Wrong PW", poolFirmId);
     const cookie = await signInForSessionCookie("unlock-wrongpw@example.com");
 
     const wrongPassword = "nope";
@@ -296,7 +295,7 @@ describe("POST /api/v1/decryption/unlock", () => {
       userName: "Unlock No Attestation",
       firmId: poolFirmId,
     });
-    await mirrorMemberWithOwnerRole(userId, "Unlock No Attestation");
+    await mirrorMemberWithOwnerRole(userId, "Unlock No Attestation", poolFirmId);
     const cookie = await signInForSessionCookie("unlock-noattest@example.com");
 
     const response = await app.request(
@@ -352,7 +351,7 @@ describe("POST /api/v1/decryption/unlock", () => {
       userName: "Unlock Bad Base64",
       firmId: poolFirmId,
     });
-    await mirrorMemberWithOwnerRole(userId, "Unlock Bad Base64");
+    await mirrorMemberWithOwnerRole(userId, "Unlock Bad Base64", poolFirmId);
     const cookie = await signInForSessionCookie("unlock-badb64@example.com");
 
     const response = await app.request(

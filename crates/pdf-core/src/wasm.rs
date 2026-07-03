@@ -11,6 +11,7 @@ impl From<PdfError> for JsError {
             PdfError::Parse => "failed to parse PDF",
             PdfError::PageOutOfRange => "page index out of range",
             PdfError::Render => "failed to render page",
+            PdfError::Rejected => "decompression-bomb",
         })
     }
 }
@@ -96,6 +97,7 @@ impl From<crate::RedactError> for JsError {
             crate::RedactError::GateFailed { detail } => {
                 JsError::new(&format!("redaction verification failed: {detail}"))
             }
+            crate::RedactError::Rejected => JsError::new("decompression-bomb"),
         }
     }
 }
@@ -204,6 +206,7 @@ impl From<crate::ScrubError> for JsError {
             crate::ScrubError::GateFailed { detail } => {
                 JsError::new(&format!("sanitize verification failed: {detail}"))
             }
+            crate::ScrubError::Rejected => JsError::new("decompression-bomb"),
         }
     }
 }
@@ -258,6 +261,7 @@ impl From<crate::bates::BatesError> for JsError {
             crate::bates::BatesError::RangeExceeded => {
                 "bates numbering exceeds the configured stop number"
             }
+            crate::bates::BatesError::Rejected => "decompression-bomb",
         })
     }
 }
@@ -280,6 +284,168 @@ struct JsBatesOpts {
     margin_pt: Option<f32>,
     #[serde(rename = "fontSizePt")]
     font_size_pt: Option<f32>,
+}
+
+impl From<crate::FormError> for JsError {
+    fn from(e: crate::FormError) -> Self {
+        JsError::new(match e {
+            crate::FormError::Parse(_) => "failed to parse PDF",
+            crate::FormError::Reassemble(_) => "failed to reassemble PDF",
+            crate::FormError::NoAcroForm => "document has no interactive form",
+            crate::FormError::Rejected => "decompression-bomb",
+        })
+    }
+}
+
+fn field_kind_str(k: crate::FieldKind) -> &'static str {
+    match k {
+        crate::FieldKind::Text => "text",
+        crate::FieldKind::Checkbox => "checkbox",
+        crate::FieldKind::Radio => "radio",
+        crate::FieldKind::Choice => "choice",
+        crate::FieldKind::PushButton => "pushButton",
+        crate::FieldKind::Signature => "signature",
+        crate::FieldKind::Unknown => "unknown",
+    }
+}
+
+/// Enumerate all interactive form fields in a PDF.
+///
+/// Returns an array of field objects, each with: `name` (string), `kind`
+/// (string — one of `"text"`, `"checkbox"`, `"radio"`, `"choice"`,
+/// `"pushButton"`, `"signature"`, `"unknown"`), `value` (string | boolean |
+/// null), `options` (string[]), `readOnly` (boolean), `page` (number | null),
+/// `rect` ([number,number,number,number] | null).
+///
+/// **Forms are not redaction.** This function reads field metadata only; no
+/// content is removed or modified. Use `redactDocument`/`sanitizeDocument` to
+/// remove content.
+#[wasm_bindgen(js_name = readForm)]
+pub fn read_form_edge(bytes: Vec<u8>) -> Result<JsValue, JsError> {
+    let fields = crate::read_form(&bytes)?;
+    let set = |o: &js_sys::Object, k: &str, v: &JsValue| {
+        let _ = js_sys::Reflect::set(o, &k.into(), v);
+    };
+    let arr = js_sys::Array::new();
+    for f in &fields {
+        let o = js_sys::Object::new();
+        set(&o, "name", &f.name.as_str().into());
+        set(&o, "kind", &field_kind_str(f.kind).into());
+        let value_js = match &f.value {
+            Some(crate::FieldValue::Text(s)) => JsValue::from_str(s),
+            Some(crate::FieldValue::Choice(s)) => JsValue::from_str(s),
+            Some(crate::FieldValue::Bool(b)) => JsValue::from(*b),
+            None => JsValue::NULL,
+        };
+        set(&o, "value", &value_js);
+        let options_arr = js_sys::Array::new();
+        for opt in &f.options {
+            options_arr.push(&JsValue::from_str(opt));
+        }
+        set(&o, "options", &options_arr);
+        set(&o, "readOnly", &JsValue::from(f.read_only));
+        set(
+            &o,
+            "page",
+            &f.page.map(|p| JsValue::from(p)).unwrap_or(JsValue::NULL),
+        );
+        let rect_js = match f.rect {
+            Some(r) => {
+                let ra = js_sys::Array::new();
+                for v in &r {
+                    ra.push(&JsValue::from(*v));
+                }
+                ra.into()
+            }
+            None => JsValue::NULL,
+        };
+        set(&o, "rect", &rect_js);
+        arr.push(&o);
+    }
+    Ok(arr.into())
+}
+
+/// Fill interactive form fields by name and optionally flatten the form.
+///
+/// `values` is a plain JS object mapping field names to fill values: pass a
+/// string for text, choice, and radio fields; pass a boolean for checkboxes.
+/// Extra keys that do not match a field are silently ignored.
+///
+/// `options.flatten` (default `false`): when `true`, widget appearances are
+/// baked into page content and the AcroForm dictionary is dropped, producing a
+/// flat static PDF. When `false`, the form remains interactive.
+///
+/// **Forms are not redaction.** Filling sets visible field values. Flattening
+/// makes those values permanent static content. Neither operation removes hidden
+/// content, metadata, or other surfaces — use `redactDocument`/`sanitizeDocument`
+/// for that.
+///
+/// Returns `{ pdf: Uint8Array }`.
+#[wasm_bindgen(js_name = fillForm)]
+pub fn fill_form_edge(
+    bytes: Vec<u8>,
+    values: JsValue,
+    options: JsValue,
+) -> Result<JsValue, JsError> {
+    let mut map = std::collections::BTreeMap::<String, crate::FieldValue>::new();
+    if !values.is_undefined() && !values.is_null() {
+        if let Some(obj) = values.dyn_ref::<js_sys::Object>() {
+            let entries = js_sys::Object::entries(obj);
+            for i in 0..entries.length() {
+                let pair = js_sys::Array::from(&entries.get(i));
+                let key = pair.get(0).as_string().unwrap_or_default();
+                let val = pair.get(1);
+                if let Some(s) = val.as_string() {
+                    // Every JS string is mapped to FieldValue::Choice so that
+                    // text fields, choice/list fields, and radio groups are all
+                    // filled uniformly from a bare string — the engine's fill
+                    // logic treats Text and Choice identically for appearance
+                    // generation, and Radio requires Choice(on_state).
+                    map.insert(key, crate::FieldValue::Choice(s));
+                } else if let Some(b) = val.as_bool() {
+                    map.insert(key, crate::FieldValue::Bool(b));
+                }
+            }
+        }
+    }
+    #[derive(serde::Deserialize, Default)]
+    struct JsFormFillOpts {
+        flatten: Option<bool>,
+    }
+    let js_opts: JsFormFillOpts = if options.is_undefined() || options.is_null() {
+        JsFormFillOpts::default()
+    } else {
+        serde_wasm_bindgen::from_value(options)?
+    };
+    let opts = crate::FormFillOptions {
+        flatten: js_opts.flatten.unwrap_or(false),
+    };
+    let pdf = crate::fill_form(&bytes, &map, &opts)?;
+    let result = js_sys::Object::new();
+    js_sys::Reflect::set(&result, &"pdf".into(), &js_sys::Uint8Array::from(&pdf[..]))
+        .map_err(|e| JsError::new(&format!("{e:?}")))?;
+    Ok(result.into())
+}
+
+/// Flatten all interactive form fields into static page content.
+///
+/// Each widget's current appearance is drawn into the page via a `Do` operator,
+/// page resources are merged non-destructively, widget annotations are removed,
+/// and the `/AcroForm` dictionary is dropped. The result is permanent static
+/// content renderable by any PDF viewer without form support.
+///
+/// **Forms are not redaction.** Flattening bakes visible form values into page
+/// content. It does not remove hidden content, metadata, or other surfaces — use
+/// `redactDocument`/`sanitizeDocument` for that.
+///
+/// Returns `{ pdf: Uint8Array }`.
+#[wasm_bindgen(js_name = flattenForm)]
+pub fn flatten_form_edge(bytes: Vec<u8>) -> Result<JsValue, JsError> {
+    let pdf = crate::flatten_form(&bytes)?;
+    let result = js_sys::Object::new();
+    js_sys::Reflect::set(&result, &"pdf".into(), &js_sys::Uint8Array::from(&pdf[..]))
+        .map_err(|e| JsError::new(&format!("{e:?}")))?;
+    Ok(result.into())
 }
 
 /// Stamps sequential Bates labels onto every page of a PDF.
@@ -368,6 +534,7 @@ impl From<crate::DetectError> for JsError {
     fn from(e: crate::DetectError) -> Self {
         match e {
             crate::DetectError::Parse => JsError::new("failed to parse PDF"),
+            crate::DetectError::Rejected => JsError::new("decompression-bomb"),
         }
     }
 }
@@ -463,4 +630,358 @@ pub fn detect_document(bytes: Vec<u8>) -> Result<JsValue, JsError> {
     }
     set(&result, "pagesUnreadable", &pages_unreadable);
     Ok(result.into())
+}
+
+// ── Security: inspect / decrypt / secure ────────────────────────────────────────
+//
+// A password NEVER appears in an error: every `SecureError` maps to a static token.
+// `decryptDocument` throws the token `"wrong-password"` so a caller can re-prompt
+// rather than treat a bad password as a corrupt file.
+
+impl From<crate::SecureError> for JsError {
+    fn from(e: crate::SecureError) -> Self {
+        JsError::new(match e {
+            crate::SecureError::Parse => "failed to parse PDF",
+            crate::SecureError::WrongPassword => "wrong-password",
+            crate::SecureError::UnsupportedHandler => "unsupported-encryption",
+            crate::SecureError::AlreadyEncrypted => "already-encrypted",
+            crate::SecureError::Reassemble => "failed to reassemble PDF",
+            crate::SecureError::Rejected => "decompression-bomb",
+        })
+    }
+}
+
+fn handler_str(h: crate::Handler) -> &'static str {
+    match h {
+        crate::Handler::Standard => "standard",
+        crate::Handler::PublicKey => "publicKey",
+        crate::Handler::None => "none",
+    }
+}
+
+fn algorithm_str(a: crate::Algorithm) -> &'static str {
+    match a {
+        crate::Algorithm::Rc4 => "rc4",
+        crate::Algorithm::Aes128 => "aes128",
+        crate::Algorithm::Aes256 => "aes256",
+        crate::Algorithm::Unknown => "unknown",
+        crate::Algorithm::None => "none",
+    }
+}
+
+/// Classify a PDF's security without a password.
+///
+/// Returns `{ encrypted: boolean, handler: "standard"|"publicKey"|"none",
+/// algorithm: "rc4"|"aes128"|"aes256"|"unknown"|"none", hasUserPassword: boolean,
+/// permissions: { print, printHighRes, copy, modify, annotate, fillForms, assemble,
+/// accessibilityCopy } | null }`. `permissions` is `null` when the policy cannot be
+/// read (a document opened by the empty password).
+#[wasm_bindgen(js_name = inspectSecurity)]
+pub fn inspect_security_edge(bytes: Vec<u8>) -> Result<JsValue, JsError> {
+    let info = crate::inspect_security(&bytes)?;
+    let set = |o: &js_sys::Object, k: &str, v: &JsValue| {
+        let _ = js_sys::Reflect::set(o, &k.into(), v);
+    };
+    let o = js_sys::Object::new();
+    set(&o, "encrypted", &JsValue::from(info.encrypted));
+    set(&o, "handler", &handler_str(info.handler).into());
+    set(&o, "algorithm", &algorithm_str(info.algorithm).into());
+    set(
+        &o,
+        "hasUserPassword",
+        &JsValue::from(info.has_user_password),
+    );
+    let permissions = match info.permissions {
+        Some(p) => {
+            let po = js_sys::Object::new();
+            set(&po, "print", &JsValue::from(p.print));
+            set(&po, "printHighRes", &JsValue::from(p.print_high_res));
+            set(&po, "copy", &JsValue::from(p.copy));
+            set(&po, "modify", &JsValue::from(p.modify));
+            set(&po, "annotate", &JsValue::from(p.annotate));
+            set(&po, "fillForms", &JsValue::from(p.fill_forms));
+            set(&po, "assemble", &JsValue::from(p.assemble));
+            set(
+                &po,
+                "accessibilityCopy",
+                &JsValue::from(p.accessibility_copy),
+            );
+            po.into()
+        }
+        None => JsValue::NULL,
+    };
+    set(&o, "permissions", &permissions);
+    Ok(o.into())
+}
+
+/// Unlock a password-protected PDF, returning `{ pdf: Uint8Array }` of plaintext.
+///
+/// Throws `"wrong-password"` for a bad password (distinct from a parse failure). An
+/// unencrypted input is returned unchanged. The password is never echoed in an error.
+#[wasm_bindgen(js_name = decryptDocument)]
+pub fn decrypt_document(bytes: Vec<u8>, password: String) -> Result<JsValue, JsError> {
+    let pdf = crate::decrypt(&bytes, &password)?;
+    let result = js_sys::Object::new();
+    js_sys::Reflect::set(&result, &"pdf".into(), &js_sys::Uint8Array::from(&pdf[..]))
+        .map_err(|e| JsError::new(&format!("{e:?}")))?;
+    Ok(result.into())
+}
+
+#[derive(serde::Deserialize, Default)]
+struct JsSecurePermissions {
+    print: Option<bool>,
+    #[serde(rename = "printHighRes")]
+    print_high_res: Option<bool>,
+    copy: Option<bool>,
+    modify: Option<bool>,
+    annotate: Option<bool>,
+    #[serde(rename = "fillForms")]
+    fill_forms: Option<bool>,
+    assemble: Option<bool>,
+    #[serde(rename = "accessibilityCopy")]
+    accessibility_copy: Option<bool>,
+}
+
+#[derive(serde::Deserialize, Default)]
+struct JsSecureOpts {
+    #[serde(rename = "ownerPassword")]
+    owner_password: Option<String>,
+    #[serde(rename = "userPassword")]
+    user_password: Option<String>,
+    permissions: Option<JsSecurePermissions>,
+    #[serde(rename = "encryptMetadata")]
+    encrypt_metadata: Option<bool>,
+    algorithm: Option<String>,
+}
+
+/// Protect a PDF, returning `{ pdf: Uint8Array }`.
+///
+/// `options`: `{ ownerPassword: string, userPassword?: string,
+/// permissions?: Partial<{...eight booleans...}>, encryptMetadata?: boolean,
+/// algorithm?: "aes256"|"aes128" }`. Writes AES-256 by default; never RC4. An omitted
+/// permission bit defaults to allowed; an empty `userPassword` means no open password.
+#[wasm_bindgen(js_name = secureDocument)]
+pub fn secure_document(bytes: Vec<u8>, options: JsValue) -> Result<JsValue, JsError> {
+    let js: JsSecureOpts = serde_wasm_bindgen::from_value(options)?;
+    let owner_password = js.owner_password.unwrap_or_default();
+    if owner_password.is_empty() {
+        return Err(JsError::new("owner-password-required"));
+    }
+    let permissions = match js.permissions {
+        Some(p) => crate::Permissions {
+            print: p.print.unwrap_or(true),
+            print_high_res: p.print_high_res.unwrap_or(true),
+            copy: p.copy.unwrap_or(true),
+            modify: p.modify.unwrap_or(true),
+            annotate: p.annotate.unwrap_or(true),
+            fill_forms: p.fill_forms.unwrap_or(true),
+            assemble: p.assemble.unwrap_or(true),
+            accessibility_copy: p.accessibility_copy.unwrap_or(true),
+        },
+        None => crate::Permissions::all_allowed(),
+    };
+    let algorithm = match js.algorithm.as_deref() {
+        Some("aes128") => crate::WriteAlgorithm::Aes128,
+        _ => crate::WriteAlgorithm::Aes256,
+    };
+    let options = crate::SecureOptions {
+        owner_password,
+        // An empty open password is treated as "no open password".
+        user_password: js.user_password.filter(|s| !s.is_empty()),
+        permissions,
+        encrypt_metadata: js.encrypt_metadata.unwrap_or(true),
+        algorithm,
+    };
+    let pdf = crate::secure(&bytes, &options)?;
+    let result = js_sys::Object::new();
+    js_sys::Reflect::set(&result, &"pdf".into(), &js_sys::Uint8Array::from(&pdf[..]))
+        .map_err(|e| JsError::new(&format!("{e:?}")))?;
+    Ok(result.into())
+}
+
+// ── Generate primitives: merge / split / rotate / watermark ─────────────────────
+
+impl From<crate::GenerateError> for JsError {
+    fn from(e: crate::GenerateError) -> Self {
+        JsError::new(match e {
+            crate::GenerateError::Parse => "failed to parse PDF",
+            crate::GenerateError::NoPages => "document has no pages",
+            crate::GenerateError::PageOutOfRange => "page index out of range",
+            crate::GenerateError::EmptyInput => "no documents provided",
+            crate::GenerateError::Reassemble => "failed to reassemble PDF",
+            crate::GenerateError::Image => "could not decode the watermark image",
+            crate::GenerateError::Rejected => "decompression-bomb",
+        })
+    }
+}
+
+/// Build the `{ pdf: Uint8Array }` result object.
+fn pdf_result(pdf: &[u8]) -> Result<JsValue, JsError> {
+    let result = js_sys::Object::new();
+    js_sys::Reflect::set(&result, &"pdf".into(), &js_sys::Uint8Array::from(pdf))
+        .map_err(|e| JsError::new(&format!("{e:?}")))?;
+    Ok(result.into())
+}
+
+/// Combine the pages of several PDFs into one. `documents` is an array of `Uint8Array`.
+/// Returns `{ pdf: Uint8Array }`. Carries each input's outlines, form fields, and named
+/// destinations across.
+#[wasm_bindgen(js_name = mergeDocuments)]
+pub fn merge_documents(documents: JsValue) -> Result<JsValue, JsError> {
+    let array = js_sys::Array::from(&documents);
+    let docs: Vec<Vec<u8>> = (0..array.length())
+        .map(|i| js_sys::Uint8Array::new(&array.get(i)).to_vec())
+        .collect();
+    let refs: Vec<&[u8]> = docs.iter().map(|d| d.as_slice()).collect();
+    let pdf = crate::merge(&refs)?;
+    pdf_result(&pdf)
+}
+
+/// Split a PDF into one document per page range. `ranges` is an array of
+/// `{ start, end }` (inclusive, 0-based). Returns `{ pdfs: Uint8Array[] }`.
+#[wasm_bindgen(js_name = splitDocument)]
+pub fn split_document(bytes: Vec<u8>, ranges: JsValue) -> Result<JsValue, JsError> {
+    #[derive(serde::Deserialize)]
+    struct JsRange {
+        start: usize,
+        end: usize,
+    }
+    let js_ranges: Vec<JsRange> = serde_wasm_bindgen::from_value(ranges)?;
+    let ranges: Vec<crate::PageRange> = js_ranges
+        .into_iter()
+        .map(|r| crate::PageRange {
+            start: r.start,
+            end: r.end,
+        })
+        .collect();
+    let pdfs = crate::split(&bytes, &ranges)?;
+    let array = js_sys::Array::new();
+    for pdf in pdfs {
+        array.push(&js_sys::Uint8Array::from(&pdf[..]));
+    }
+    let result = js_sys::Object::new();
+    js_sys::Reflect::set(&result, &"pdfs".into(), &array)
+        .map_err(|e| JsError::new(&format!("{e:?}")))?;
+    Ok(result.into())
+}
+
+/// Rotate pages clockwise by `rotation` (90/180/270) degrees, relative to each page's
+/// existing rotation. `pages` is an array of 0-based indices, or undefined for all pages.
+/// Returns `{ pdf: Uint8Array }`.
+#[wasm_bindgen(js_name = rotatePages)]
+pub fn rotate_pages(bytes: Vec<u8>, rotation: i32, pages: JsValue) -> Result<JsValue, JsError> {
+    let rot = match rotation {
+        90 => crate::Rotation::Cw90,
+        180 => crate::Rotation::Cw180,
+        270 => crate::Rotation::Cw270,
+        _ => return Err(JsError::new("rotation must be 90, 180, or 270")),
+    };
+    let selection = if pages.is_undefined() || pages.is_null() {
+        crate::PageSelection::All
+    } else {
+        let indices: Vec<usize> = serde_wasm_bindgen::from_value(pages)?;
+        crate::PageSelection::Pages(indices)
+    };
+    let pdf = crate::rotate(&bytes, rot, &selection)?;
+    pdf_result(&pdf)
+}
+
+fn watermark_font_from_str(name: Option<&str>) -> crate::bates::BatesFont {
+    use crate::bates::BatesFont;
+    match name {
+        Some("helvetica-bold") => BatesFont::HelveticaBold,
+        Some("helvetica-oblique") => BatesFont::HelveticaOblique,
+        Some("helvetica-boldoblique") => BatesFont::HelveticaBoldOblique,
+        Some("times-roman") => BatesFont::TimesRoman,
+        Some("times-bold") => BatesFont::TimesBold,
+        Some("times-italic") => BatesFont::TimesItalic,
+        Some("times-bolditalic") => BatesFont::TimesBoldItalic,
+        Some("courier") => BatesFont::Courier,
+        Some("courier-bold") => BatesFont::CourierBold,
+        Some("courier-oblique") => BatesFont::CourierOblique,
+        Some("courier-boldoblique") => BatesFont::CourierBoldOblique,
+        _ => BatesFont::Helvetica,
+    }
+}
+
+/// Stamp an additive watermark onto every page. `options`:
+/// `{ content: { kind: "text", text, font?, fontSizePt?, color? } |
+///    { kind: "image", bytes, scale? }, opacity?, rotationDeg?, placement? }`.
+/// Returns `{ pdf: Uint8Array }`.
+#[wasm_bindgen(js_name = watermarkDocument)]
+pub fn watermark_document(bytes: Vec<u8>, options: JsValue) -> Result<JsValue, JsError> {
+    let get = |target: &JsValue, key: &str| js_sys::Reflect::get(target, &key.into()).ok();
+    // Non-finite JS numbers (NaN/Infinity) would format as malformed PDF operators, so
+    // they fall back to the default.
+    let num = |target: &JsValue, key: &str, default: f32| {
+        get(target, key)
+            .and_then(|v| v.as_f64())
+            .filter(|v| v.is_finite())
+            .map(|v| v as f32)
+            .unwrap_or(default)
+    };
+
+    let opacity = num(&options, "opacity", 0.3);
+    let rotation_deg = num(&options, "rotationDeg", 45.0);
+    let placement = match get(&options, "placement")
+        .and_then(|v| v.as_string())
+        .as_deref()
+    {
+        Some("tiled") => crate::WatermarkPlacement::Tiled,
+        _ => crate::WatermarkPlacement::Center,
+    };
+
+    let content_val =
+        get(&options, "content").ok_or_else(|| JsError::new("watermark content is required"))?;
+    let kind = get(&content_val, "kind").and_then(|v| v.as_string());
+    let content = match kind.as_deref() {
+        Some("image") => {
+            let image_bytes = get(&content_val, "bytes")
+                .ok_or_else(|| JsError::new("image watermark requires bytes"))?;
+            let bytes = js_sys::Uint8Array::new(&image_bytes).to_vec();
+            crate::WatermarkContent::Image {
+                bytes,
+                scale: num(&content_val, "scale", 0.3),
+            }
+        }
+        _ => {
+            let text = get(&content_val, "text")
+                .and_then(|v| v.as_string())
+                .unwrap_or_default();
+            let font = watermark_font_from_str(
+                get(&content_val, "font")
+                    .and_then(|v| v.as_string())
+                    .as_deref(),
+            );
+            let color = match get(&content_val, "color") {
+                Some(v) if v.is_object() => {
+                    let arr = js_sys::Array::from(&v);
+                    let c = |i: u32, d: f32| {
+                        arr.get(i)
+                            .as_f64()
+                            .filter(|x| x.is_finite())
+                            .map(|x| x as f32)
+                            .unwrap_or(d)
+                    };
+                    [c(0, 0.5), c(1, 0.5), c(2, 0.5)]
+                }
+                _ => [0.5, 0.5, 0.5],
+            };
+            crate::WatermarkContent::Text {
+                text,
+                font,
+                font_size_pt: num(&content_val, "fontSizePt", 48.0),
+                color,
+            }
+        }
+    };
+
+    let opts = crate::WatermarkOptions {
+        content,
+        opacity,
+        rotation_deg,
+        placement,
+    };
+    let pdf = crate::watermark(&bytes, &opts)?;
+    pdf_result(&pdf)
 }

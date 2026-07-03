@@ -6,7 +6,6 @@ import { conversionQueue } from "../src/conversions/conversion-consumer.ts";
 import type { ConversionJob } from "../src/conversions/conversion-coordinator.ts";
 import type { ConversionMessage } from "../src/conversions/conversion-types.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
-import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
 import {
   mirrorMemberWithOwnerRole,
   seedCredentialedUser,
@@ -31,8 +30,6 @@ let ownerCookie2: string;
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_2);
 
   firmId = (
     await seedFirm({ name: "Conversion Routes Firm", databaseIdentifier: "DB_FIRM_POOL_1" })
@@ -44,7 +41,7 @@ beforeAll(async () => {
     userName: "Conversion Owner",
     firmId,
   });
-  await mirrorMemberWithOwnerRole(owner.userId, "Conversion Owner");
+  await mirrorMemberWithOwnerRole(owner.userId, "Conversion Owner", firmId);
   ownerCookie = await signInForSessionCookie("conversion-owner@example.com");
 
   firmId2 = (
@@ -57,7 +54,7 @@ beforeAll(async () => {
     userName: "Conversion Owner B",
     firmId: firmId2,
   });
-  await mirrorMemberWithOwnerRole(owner2.userId, "Conversion Owner B", env.DB_FIRM_POOL_2);
+  await mirrorMemberWithOwnerRole(owner2.userId, "Conversion Owner B", firmId2);
   ownerCookie2 = await signInForSessionCookie("conversion-owner-b@example.com");
 });
 

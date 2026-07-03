@@ -1,18 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { unscannedAdapter, type ScanResult } from "../src/scan-port.ts";
+import { unscannedAdapter } from "../src/scan-port.ts";
 
 describe("unscannedAdapter", () => {
-  it("drains its stream branch and reports an honest no-engine unscanned verdict", async () => {
+  it("returns a no-engine raw result", async () => {
     const body = new ReadableStream<Uint8Array>({
-      start(controller) {
-        controller.enqueue(new Uint8Array([1, 2, 3]));
-        controller.close();
+      start(c) {
+        c.close();
       },
     });
-    const result: ScanResult = await unscannedAdapter.scan(body, {
-      sizeBytes: 3,
-      sniffedContentType: null,
+    const raw = await unscannedAdapter.scan(body, { sizeBytes: 0, sniffedContentType: null });
+    expect(raw).toEqual({
+      engineVersion: null,
+      clam: { state: "unavailable" },
+      heuristic: { kind: "none" },
+      matches: [],
+      timings: { clamdMs: 0, yaraMs: 0 },
     });
-    expect(result).toEqual({ verdict: "unscanned", reason: "no-engine", engineVersion: null });
   });
 });

@@ -7,6 +7,8 @@ import {
   liveMaxTotalBytesDefinition,
   scanEngineVersionDefinition,
   readScanEngineVersion,
+  checkUploadPolicy,
+  DEFAULT_UPLOAD_POLICY,
 } from "../src/upload-policy.ts";
 import { freshDatabase } from "./support.ts";
 
@@ -47,5 +49,43 @@ describe("live-vs-async bulk-download thresholds", () => {
   });
   it("defaults the live max total bytes to 2 GiB", () => {
     expect(liveMaxTotalBytesDefinition.defaultValue).toBe(2 * 1024 * 1024 * 1024);
+  });
+});
+
+describe("content-type allow-list matching (DEFAULT_UPLOAD_POLICY)", () => {
+  const allow = (contentType: string, fileName: string) =>
+    checkUploadPolicy(DEFAULT_UPLOAD_POLICY, { sizeBytes: 1000, contentType, fileName });
+
+  // The regression guard: the dotted-prefix OOXML/OpenDocument wildcards must actually match. A
+  // `/*`-only matcher silently rejected every Word/Excel/PowerPoint/OpenDocument upload.
+  it("allows OOXML documents (docx / xlsx / pptx) via the dotted-prefix wildcard", () => {
+    expect(() =>
+      allow(
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "brief.docx",
+      ),
+    ).not.toThrow();
+    expect(() =>
+      allow("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "ledger.xlsx"),
+    ).not.toThrow();
+    expect(() =>
+      allow(
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "deck.pptx",
+      ),
+    ).not.toThrow();
+  });
+
+  it("allows OpenDocument types via the dotted-prefix wildcard", () => {
+    expect(() => allow("application/vnd.oasis.opendocument.text", "memo.odt")).not.toThrow();
+  });
+
+  it("allows exact and MIME type/* matches (pdf, text/plain)", () => {
+    expect(() => allow("application/pdf", "contract.pdf")).not.toThrow();
+    expect(() => allow("text/plain", "notes.txt")).not.toThrow();
+  });
+
+  it("rejects a content type outside the allow-list", () => {
+    expect(() => allow("application/x-msdownload", "evil.exe")).toThrow();
   });
 });

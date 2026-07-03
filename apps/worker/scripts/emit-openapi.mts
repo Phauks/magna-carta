@@ -48,6 +48,26 @@ function wasmAsStub(): Plugin {
   };
 }
 
+// `cloudflare:workers` is a workerd-provided virtual module (the Durable Object base classes the DO
+// modules extend). The route graph reaches a DO module for its request-time stub helper, but emission
+// needs only the static route metadata, never the DO runtime — so resolve the virtual to an inert stub
+// rather than fail to load it (plain Vite SSR, unlike the test/wrangler builds, has no workerd shim).
+function stubCloudflareWorkers(): Plugin {
+  const virtualId = "\0magna-carta:cloudflare-workers-stub";
+  return {
+    name: "magna-carta:stub-cloudflare-workers",
+    enforce: "pre",
+    resolveId(id) {
+      return id === "cloudflare:workers" ? virtualId : null;
+    },
+    load(id) {
+      return id === virtualId
+        ? "export class DurableObject {}\nexport class WorkerEntrypoint {}\n"
+        : null;
+    },
+  };
+}
+
 const workerRoot = fileURLToPath(new URL("..", import.meta.url));
 const outputPath = fileURLToPath(new URL("../openapi/openapi.json", import.meta.url));
 
@@ -56,7 +76,7 @@ const server = await createServer({
   root: workerRoot,
   logLevel: "warn",
   server: { middlewareMode: true, watch: null },
-  plugins: [sqlAsText(), wasmAsStub()],
+  plugins: [sqlAsText(), wasmAsStub(), stubCloudflareWorkers()],
 });
 
 try {

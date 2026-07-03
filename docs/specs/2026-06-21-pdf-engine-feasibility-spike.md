@@ -14,7 +14,7 @@ The spike is a **throwaway measurement instrument** — not shipped, not in the 
 
 **In:** a Rust harness that runs one corpus through `hayro` and `pdfium-render` (PDFium) and reports four measurements; a curated public corpus; a results note with a go/no-go recommendation and a list of fidelity gaps worth upstreaming.
 
-**Out:** any shipped engine code; the slice-1 design (follows only on a go); redaction/forms/sign (later slices); editing fidelity (render only here); real confidential firm PDFs (feasibility needs *representative*, not *privileged*, documents — see §3).
+**Out:** any shipped engine code; the slice-1 design (follows only on a go); redaction/forms/sign (later slices); editing fidelity (render only here); real confidential firm PDFs (feasibility needs _representative_, not _privileged_, documents — see §3).
 
 ---
 
@@ -42,22 +42,26 @@ Three tiers, staged under `spikes/pdf-engine-eval/corpus/` (gitignored; a `corpu
 2. **Legal-representative set (~10–15, weighted heaviest in the verdict)** — hand-picked from public sources: a court e-filing, an image-only scanned page, a fillable **AcroForm** court form, a Bates-stamped production page, an annotated PDF, a PDF/A, a multi-column brief with embedded fonts.
 3. **Pathological** — a few known-malformed PDFs (the long tail PDFium survives from years of hardening).
 
-Confidential firm PDFs are **deliberately excluded**: feasibility is about engine capability on document *shapes*, and using privileged material would violate the confidentiality principle for no measurement gain.
+Confidential firm PDFs are **deliberately excluded**: feasibility is about engine capability on document _shapes_, and using privileged material would violate the confidentiality principle for no measurement gain.
 
 ---
 
 ## 4. Measurements
 
 ### 4.1 Fidelity (primary)
-Render every page with both engines to RGBA at fixed DPI; score each page against PDFium with **SSIM** (and record raw pixel-diff %). For every page below threshold, classify the cause into buckets — **fonts** (non-embedded CID is a known `hayro` gap), **knockout groups** (known gap), **shading/gradients**, **transparency**, **other** — so a failure is *diagnosed*. Report: % pages ≥ threshold overall and per-tier, and the worst offenders with their bucket.
+
+Render every page with both engines to RGBA at fixed DPI; score each page against PDFium with **SSIM** (and record raw pixel-diff %). For every page below threshold, classify the cause into buckets — **fonts** (non-embedded CID is a known `hayro` gap), **knockout groups** (known gap), **shading/gradients**, **transparency**, **other** — so a failure is _diagnosed_. Report: % pages ≥ threshold overall and per-tier, and the worst offenders with their bucket.
 
 ### 4.2 Speed
+
 Per-page render wall-clock, `hayro` vs PDFium, median + p95, warmup iterations discarded. Reported per tier (the legal set matters most).
 
 ### 4.3 WASM size
+
 Gzipped `wasm32` artifact of a minimal `hayro` render entrypoint vs the PDFium WASM the current EmbedPDF/client stack ships. This is the client-bundle cost of the "client-side-by-default" principle and a real adoption gate.
 
 ### 4.4 Parse coverage
+
 `lopdf` and `pdf-rs` load success rate across the whole corpus — a proxy for model robustness before we build the redaction/forms layers on it.
 
 ---
@@ -66,14 +70,14 @@ Gzipped `wasm32` artifact of a minimal `hayro` render entrypoint vs the PDFium W
 
 **Go** if all hold on the **legal-representative set** (tier 2), with the regression suite as a secondary signal:
 
-- **Fidelity:** ≥ 95% of pages at **SSIM ≥ 0.98** vs PDFium, **and** the sub-threshold failures fall in *fixable/upstreamable* buckets (fonts, knockout, shading) — not fundamental interpreter gaps.
+- **Fidelity:** ≥ 95% of pages at **SSIM ≥ 0.98** vs PDFium, **and** the sub-threshold failures fall in _fixable/upstreamable_ buckets (fonts, knockout, shading) — not fundamental interpreter gaps.
 - **Speed:** `hayro` ≤ **3×** PDFium median per-page. (Generous on purpose — upstream perf is an acknowledged TODO and an area we can contribute; this gate is "not pathologically slow," not "already fast.")
 - **WASM size:** ≤ **~1.5×** the PDFium WASM, ideally smaller.
 - **Parse coverage:** ≥ **99%** of the corpus loads in `lopdf`/`pdf-rs`.
 
 **No-go / wait** if fidelity failures are fundamental, speed is > 3× with no clear optimization path, or parse coverage is low enough to threaten the gap-build layers. A no-go is **"wait for `hayro` to mature,"** not "abandon the strategy" — the roadmap's parallel-track posture means PDFium keeps shipping meanwhile (roadmap §8).
 
-**Conditional go** is an allowed verdict: go *for a specific capability* (e.g. preview rendering) while a weak area (e.g. complex forms) waits.
+**Conditional go** is an allowed verdict: go _for a specific capability_ (e.g. preview rendering) while a weak area (e.g. complex forms) waits.
 
 ---
 
@@ -85,7 +89,7 @@ A results note `docs/specs/2026-06-2x-pdf-engine-feasibility-results.md` contain
 
 ## 7. Risks & limitations (honest)
 
-- **PDFium as the fidelity *reference* is an assumption**, not ground truth — PDFium can itself be wrong on a page. Mitigation: spot-check the worst-diff pages by eye; a diff means "differs from PDFium," which the human read resolves.
+- **PDFium as the fidelity _reference_ is an assumption**, not ground truth — PDFium can itself be wrong on a page. Mitigation: spot-check the worst-diff pages by eye; a diff means "differs from PDFium," which the human read resolves.
 - **Toolchain friction on Windows** — `pdfium-render` needs a prebuilt PDFium library; the WASM build needs the `wasm32` target. The harness records exactly what it pulled; if a step can't run locally, the note says so rather than guessing.
 - **Corpus is representative, not exhaustive** — a green spike de-risks but does not guarantee the long tail; that is what the slice-1 parallel-evaluation track (PDFium stays live) is for.
 - **Throwaway, so under-engineered on purpose** — no broad error handling beyond "log and continue per file"; the goal is numbers, not a product.

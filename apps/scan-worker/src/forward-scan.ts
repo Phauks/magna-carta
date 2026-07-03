@@ -6,7 +6,7 @@ export interface ScanContainerFetcher {
 }
 
 // Forward an incoming scan request to the scan Container and return its response verbatim.
-// The route is `POST /scan?size=&contentType=` (returns JSON ScanResult).
+// The route is `POST /scan?size=&contentType=` (returns JSON RawScanResult).
 // The service binding from the app worker is the trust boundary — this worker has no public routes.
 // Any network failure is surfaced as a thrown error, not a silent unscanned result.
 export async function forwardScan(

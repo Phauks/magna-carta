@@ -5,7 +5,6 @@ import { beforeAll, describe, expect, it } from "vitest";
 import type { BundleBuildCoordinator } from "../src/downloads/bundle-coordinator.ts";
 import type { BundleBuildMessage } from "../src/downloads/bundle-types.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
-import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
 import {
   mirrorMemberWithOwnerRole,
   seedCredentialedUser,
@@ -23,7 +22,6 @@ let ownerCookie: string;
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
   firmId = (await seedFirm({ name: "Bundle Status Firm", databaseIdentifier: "DB_FIRM_POOL_1" }))
     .firmId;
   await env.DB_CONTROL.prepare("UPDATE firm SET bucket_name = 'R2' WHERE id = ?1")
@@ -33,7 +31,7 @@ beforeAll(async () => {
     userName: "Bundle Owner",
     firmId,
   });
-  await mirrorMemberWithOwnerRole(owner.userId, "Bundle Owner");
+  await mirrorMemberWithOwnerRole(owner.userId, "Bundle Owner", firmId);
   ownerCookie = await signInForSessionCookie("bundle-owner@example.com");
 });
 

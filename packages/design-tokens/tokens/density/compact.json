@@ -1,0 +1,11 @@
+{
+  "$description": "Density axis — COMPACT: tighter rows and controls for power users and dense data screens (design language §5). Shifts the control ladder one rung down and tightens the table/list row geometry. Re-points the density.* aliases only; type sizes and focus geometry never change with density.",
+  "density": {
+    "gutter": { "$type": "dimension", "$value": "{space.12}" },
+    "stack": { "$type": "dimension", "$value": "{space.8}" },
+    "control-height": { "$type": "dimension", "$value": "{control.sm}" },
+    "control-sm": { "$type": "dimension", "$value": "{control.xs}" },
+    "control-md": { "$type": "dimension", "$value": "{control.sm}" },
+    "control-lg": { "$type": "dimension", "$value": "{control.md}" }
+  }
+}

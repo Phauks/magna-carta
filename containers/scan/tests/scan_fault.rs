@@ -6,9 +6,14 @@ use std::sync::Arc;
 fn state_with_unreachable_clamd() -> AppState {
     AppState {
         rules: Arc::new(yara::build_rules(&[])),
+        side_map: Arc::new(std::collections::HashMap::new()),
         clamd_address: "127.0.0.1:1".into(),
         caps: ArchiveCaps::default(),
         engine_version: "test".into(),
+        magika: Arc::new(
+            magna_carta_scan::identify::IdentifyEngine::new()
+                .expect("magika session builds with the embedded model"),
+        ),
     }
 }
 
@@ -21,13 +26,12 @@ async fn serve(state: AppState) -> String {
     format!("http://{addr}")
 }
 
-// A clamd-unavailable, otherwise-clean body must NOT come back as a 200 verdict (which the ingest
-// consumer would commit) — it must be a 503 the consumer retries, so a transient signature-engine fault
-// never lets a never-virus-scanned file become usable. The verdict precedence that keeps a definitive
-// bad signal (infected / suspicious / encrypted) a 200 even while clamd is down is covered by the
-// combine unit tests in src/verdict.rs.
+// A clamd-unavailable, otherwise-clean body is now a FACT, not a container verdict: the response is a
+// 200 carrying `clam: { state: "unavailable" }`. The app — which holds the firm's policy — decides that
+// an unavailable clamd with no other signal is a retry (it never fabricates a clean). The container's
+// only 503 is an in-process engine panic (a true container fault), covered by the lib unit tests.
 #[tokio::test]
-async fn clean_body_with_unreachable_clamd_is_a_retryable_503() {
+async fn clean_body_with_unreachable_clamd_reports_clam_unavailable() {
     let base = serve(state_with_unreachable_clamd()).await;
     let client = reqwest::Client::new();
     let response = client
@@ -36,12 +40,22 @@ async fn clean_body_with_unreachable_clamd_is_a_retryable_503() {
         .send()
         .await
         .unwrap();
-    assert_eq!(response.status(), 503);
+    assert_eq!(response.status(), 200);
+    let body: serde_json::Value =
+        serde_json::from_str(&response.text().await.unwrap()).unwrap();
+    assert_eq!(
+        body["clam"],
+        serde_json::json!({ "state": "unavailable" }),
+        "an unreachable clamd must surface honestly as clam: unavailable, not a 503"
+    );
+    // No other signal: empty matches and a `none` heuristic — exactly the case the app treats as a retry.
+    assert_eq!(body["matches"], serde_json::json!([]));
+    assert_eq!(body["heuristic"], serde_json::json!({ "kind": "none" }));
 }
 
 // A real document is far larger than axum's stock 2 MiB extractor cap. A 3 MiB body must be accepted and
-// scanned (here it reaches the unreachable-clamd path -> 503), never 413-rejected — the handler streams
-// the raw body and enforces its own ceiling at the inspectable-size cap.
+// scanned (here it reaches the unreachable-clamd path -> 200 with clam: unavailable), never 413-rejected
+// — the handler streams the raw body and enforces its own ceiling at the inspectable-size cap.
 #[tokio::test]
 async fn a_body_over_the_stock_extractor_limit_is_accepted() {
     let base = serve(state_with_unreachable_clamd()).await;
@@ -57,5 +71,8 @@ async fn a_body_over_the_stock_extractor_limit_is_accepted() {
         413,
         "a >2 MiB body must not be rejected by the body limit"
     );
-    assert_eq!(response.status(), 503);
+    assert_eq!(response.status(), 200);
+    let body: serde_json::Value =
+        serde_json::from_str(&response.text().await.unwrap()).unwrap();
+    assert_eq!(body["clam"], serde_json::json!({ "state": "unavailable" }));
 }

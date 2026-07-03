@@ -5,7 +5,6 @@ import type { BrowserRenderer, RedirectProbe } from "@magna-carta/safe-browse/ty
 import { SsrfRejection } from "@magna-carta/integrations/safe-target";
 import { createApp } from "../src/app.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
-import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
 import {
   mirrorMemberWithOwnerRole,
   seedCredentialedUser,
@@ -77,7 +76,6 @@ let poolFirmId: FirmId;
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_1); // includes 0016 (all roles get tools:safeBrowse)
   poolFirmId = (
     await seedFirm({ name: "Safe Browse Test Firm", databaseIdentifier: "DB_FIRM_POOL_1" })
   ).firmId;
@@ -123,7 +121,7 @@ describe("POST /api/v1/safe-browse", () => {
       userName: "Safe Browse OK",
       firmId: poolFirmId,
     });
-    await mirrorMemberWithOwnerRole(userId, "Safe Browse OK"); // Owner carries tools:safeBrowse (0016)
+    await mirrorMemberWithOwnerRole(userId, "Safe Browse OK", poolFirmId); // Owner carries tools:safeBrowse (0016)
     const cookie = await signInForSessionCookie("safebrowse-ok@example.com");
     const response = await app.request(
       "https://example.com/api/v1/safe-browse",
@@ -155,7 +153,7 @@ describe("POST /api/v1/safe-browse", () => {
       userName: "SSRF User",
       firmId: poolFirmId,
     });
-    await mirrorMemberWithOwnerRole(userId, "SSRF User");
+    await mirrorMemberWithOwnerRole(userId, "SSRF User", poolFirmId);
     const cookie = await signInForSessionCookie("safebrowse-ssrf@example.com");
     const response = await ssrfApp.request(
       "https://example.com/api/v1/safe-browse",
@@ -196,7 +194,7 @@ describe("POST /api/v1/safe-browse", () => {
       userName: "Renderer Failure",
       firmId: poolFirmId,
     });
-    await mirrorMemberWithOwnerRole(userId, "Renderer Failure");
+    await mirrorMemberWithOwnerRole(userId, "Renderer Failure", poolFirmId);
     const cookie = await signInForSessionCookie("safebrowse-502@example.com");
     const targetUrl = "https://suspect.example.com/page";
     const response = await rendererFailureApp.request(

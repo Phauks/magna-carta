@@ -1,30 +1,50 @@
-// The malware-scan seam. The engine is a future slice's concern — this slice ships the PORT and an
-// engine-less launch adapter that records an honest `unscanned` verdict (nothing pretends to be
-// clean-by-scan). A real engine (its own design cycle) implements this same interface behind the gate.
+// The malware-scan seam. The engine (a separate Container worker) implements this interface and
+// returns raw facts; the app layer turns those facts into a verdict. An engine-less launch adapter
+// returns an honest unavailable result so the app records `unscanned` (nothing pretends clean).
 
-export type ScanResult =
-  | { verdict: "clean"; engineVersion: string; activeContent?: boolean }
-  | { verdict: "infected"; engineVersion: string; signature: string | null }
-  | { verdict: "unscanned"; reason: "no-engine" | "encrypted"; engineVersion: string | null }
-  | {
-      verdict: "suspicious";
-      reason: "decompression-bomb" | "archive-nesting" | "archive-entry-count";
-      engineVersion: string;
-    };
+export type Tier = "core" | "extended" | "full";
+
+export interface RuleMatch {
+  ruleId: string;
+  tier: Tier;
+  score: number;
+  isSuspicious: boolean;
+}
+
+export type RawScanResult = {
+  engineVersion: string | null;
+  clam: { state: "clean" } | { state: "infected"; signature: string } | { state: "unavailable" };
+  heuristic:
+    | { kind: "none" }
+    | {
+        kind: "structural";
+        reason: "decompression-bomb" | "archive-nesting" | "archive-entry-count";
+      }
+    | { kind: "encrypted" }
+    | { kind: "active-content" };
+  matches: RuleMatch[];
+  timings: { clamdMs: number; yaraMs: number };
+};
 
 export interface MalwareScanPort {
   scan(
     body: ReadableStream<Uint8Array>,
     meta: { sizeBytes: number; sniffedContentType: string | null },
-  ): Promise<ScanResult>;
+  ): Promise<RawScanResult>;
 }
 
-// Launch adapter: no engine yet. Drains its stream branch so it cannot backpressure the single read,
-// and returns `unscanned` — the explicit-unscanned policy commits such versions (quarantine is for
-// failed gates and `infected` only).
+// Launch adapter: no engine yet. Drains the stream so it cannot backpressure the single read,
+// then returns unavailable — the app's verdict layer turns null engineVersion + unavailable clam
+// into an `unscanned`/no-engine verdict. `clam: unavailable` is deliberate: nothing implies clean.
 export const unscannedAdapter: MalwareScanPort = {
   async scan(body) {
     await body.cancel();
-    return { verdict: "unscanned", reason: "no-engine", engineVersion: null };
+    return {
+      engineVersion: null,
+      clam: { state: "unavailable" },
+      heuristic: { kind: "none" },
+      matches: [],
+      timings: { clamdMs: 0, yaraMs: 0 },
+    };
   },
 };
