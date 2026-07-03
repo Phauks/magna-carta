@@ -22,14 +22,14 @@
       "fips": "44", "code": "RI", "name": "Rhode Island", "source": "US-RI",
       "resources": [
         {
-          "name": "Lawyers Helping Lawyers (Rhode Island Bar Association)", "operator": "Rhode Island Bar Association (EAP via SupportLinc / CuraLinc Healthcare, formerly CorpCare)",
+          "name": "Lawyers Helping Lawyers (Rhode Island Bar Association)", "operator": "Rhode Island Bar Association (EAP contractor: CorpCare)",
           "operatorType": "stateBar", "scope": "statewide",
           "url": "https://ribar.com/page.aspx?id=50",
-          "phones": [{"number": "866-482-8378", "label": "Confidential support line", "availability": "aroundTheClock", "hoursNote": "Page: 'confidential, round the clock support'; counselors answer 24/7 (ribar.com 403'd this session, so corroborated)"}],
-          "services": ["counseling", "substanceUse", "mentalHealth", "peerSupport", "crisisLine", "teletherapy", "familySupport"],
-          "confidential": "Confidential; Committee members hold statutory immunity/confidentiality (1991 RI Supreme Court rule)", "cost": "Free to RI Bar members and their dependents",
-          "description": "The RI Bar Association's lawyer assistance program: a volunteer Lawyers Helping Lawyers Committee of peer attorneys plus a contracted EAP (SupportLinc/CuraLinc, formerly CorpCare) providing confidential assessment, referral, counseling, and teletherapy. ribar.com 403'd this session, so corroborated.",
-          "confidence": "MEDIUM", "sourceUrl": "https://ribar.com/page.aspx?id=50", "sourceTier": "corroborated", "verifiedOn": "2026-07-02"
+          "phones": [{"number": "866-482-8378", "label": "Confidential 24/7 support line", "availability": "aroundTheClock", "hoursNote": "Official page: 'Counselors answer the phone 24/7 ... confidential, round the clock support'"}],
+          "services": ["counseling", "substanceUse", "mentalHealth", "peerSupport", "crisisLine", "familySupport"],
+          "confidential": "Confidential; Committee members hold statutory immunity/confidentiality (1991 RI Supreme Court rule)", "cost": "Free to RI Bar members and their dependents (up to eight counseling sessions)",
+          "description": "The RI Bar Association's lawyer assistance program: a volunteer Lawyers Helping Lawyers Committee of peer attorneys plus a contracted EAP (CorpCare) providing confidential 24/7 assessment, referral, and counseling. Verified via an archived snapshot of the official ribar.com page (which names CorpCare as the contractor).",
+          "confidence": "HIGH", "sourceUrl": "http://web.archive.org/web/20250119171711/https://ribar.com/page.aspx?id=50", "sourceTier": "primary-official", "verifiedOn": "2026-07-02"
         }
       ]
     },
@@ -95,13 +95,13 @@
       "fips": "50", "code": "VT", "name": "Vermont", "source": "US-VT",
       "resources": [
         {
-          "name": "Vermont Lawyers Assistance Program (VT LAP)", "operator": "Vermont Lawyers Assistance Program (lapvt.org)",
+          "name": "Vermont Lawyers Assistance Program (VT LAP)", "operator": "Vermont Lawyers Assistance Program (listed via the Vermont Bar Association)",
           "operatorType": "nonprofit", "scope": "statewide",
-          "url": "https://lapvt.org/",
-          "phones": [{"number": "802-355-4352", "label": "Vermont Lawyers Assistance Program", "availability": "unspecified", "hoursNote": "24/7 not confirmed; lapvt.org 403'd this session"}],
+          "url": "https://www.vtbar.org/attorney-well-being/",
+          "phones": [{"number": "802-355-4352", "label": "Vermont Lawyers Assistance Program", "availability": "unspecified", "hoursNote": "Number confirmed via the VBA wellness page; hours/cost not primary-verified"}],
           "services": ["counseling", "substanceUse", "mentalHealth", "peerSupport"],
-          "confidential": "Confidential support (per VBA wellness page)", "cost": "Free (not primary-verified; lapvt.org 403'd)",
-          "description": "Vermont's dedicated lawyer-assistance program for judges, lawyers, and law students facing substance use or mental-health issues, promoted via the Vermont Bar Association. lapvt.org 403'd this session, so corroborated from the loaded VBA attorney-wellness page.",
+          "confidential": "Confidential support (per VBA wellness page)", "cost": "Not primary-verified",
+          "description": "Vermont's dedicated lawyer-assistance program (802-355-4352) for judges, lawyers, and law students, listed on the Vermont Bar Association's attorney-well-being page. NOTE: the former lapvt.org domain is DEFUNCT/parked (do not link it); operator identity, cost, and hours could not be primary-verified.",
           "confidence": "MEDIUM", "sourceUrl": "https://www.vtbar.org/attorney-well-being/", "sourceTier": "corroborated", "verifiedOn": "2026-07-02"
         },
         {
@@ -123,11 +123,14 @@
           "name": "Virginia Judges and Lawyers Assistance Program (VJLAP)", "operator": "Virginia Judges and Lawyers Assistance Program (independent non-stock corporation)",
           "operatorType": "nonprofit", "scope": "statewide",
           "url": "https://vjlap.org/", "email": "info@vjlap.org",
-          "phones": [{"number": "1-877-545-4682", "label": "24-Hour Confidential HelpLine", "availability": "aroundTheClock", "hoursNote": "Official VA CLE page: '24-hour confidential help line' (vjlap.org 403'd, so corroborated)"}],
+          "phones": [
+            {"number": "1-877-545-4682", "label": "24-Hour Confidential HelpLine", "availability": "aroundTheClock", "hoursNote": "VJLAP's own (archived) site: 'Call Our 24-Hour Confidential Help Line'"},
+            {"number": "804-644-3212", "label": "Daytime office", "availability": "businessHours"}
+          ],
           "services": ["counseling", "substanceUse", "mentalHealth", "peerSupport", "crisisLine", "monitoring", "familySupport"],
           "confidential": "Confidential, non-disciplinary assistance", "cost": "Free (services provided 'without fee')",
-          "description": "Confidential, non-disciplinary help for lawyers, judges, law students, bar applicants, and families (substance use, chronic stress, mental health): information/referral, assessment, intervention, compliance monitoring, and family/staff support. Formerly Virginia Lawyers Helping Lawyers. vjlap.org 403'd; verified via the VA CLE page.",
-          "confidence": "MEDIUM", "sourceUrl": "https://www.vacle.org/lawyers-helping-lawyers/", "sourceTier": "corroborated", "verifiedOn": "2026-07-02"
+          "description": "Confidential, non-disciplinary help for lawyers, judges, law students, bar applicants, and families (substance use, chronic stress, mental health): information/referral, assessment, intervention, compliance monitoring, and family/staff support. Formerly Virginia Lawyers Helping Lawyers. Verified via an archived snapshot of vjlap.org.",
+          "confidence": "HIGH", "sourceUrl": "http://web.archive.org/web/20260108001834/https://vjlap.org/", "sourceTier": "primary-official", "verifiedOn": "2026-07-02"
         }
       ]
     },

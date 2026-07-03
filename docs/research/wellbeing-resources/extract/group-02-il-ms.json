@@ -45,19 +45,19 @@
             {"number": "515-277-3817", "label": "Local (Des Moines)", "availability": "unspecified"}
           ],
           "services": ["counseling", "substanceUse", "mentalHealth", "peerSupport", "monitoring"],
-          "confidential": "Free and confidential; no identifying information disclosed", "cost": "Free",
-          "description": "Private nonprofit helping Iowa judges, attorneys, and law students obtain treatment for substance use, addiction, and mental-health issues, with monitoring. iowalap.org served a TLS cert mismatch this session, so corroborated.",
-          "confidence": "MEDIUM", "sourceUrl": "http://www.iowalap.org/", "sourceTier": "corroborated", "verifiedOn": "2026-07-02"
+          "confidential": "Free and confidential; no identifying information disclosed; no reporting relationship", "cost": "Free",
+          "description": "Private nonprofit helping Iowa judges, attorneys, and law students obtain treatment for substance use, addiction, and mental-health issues, with monitoring. Verified via an archived snapshot of iowalap.org (live site has a TLS cert mismatch).",
+          "confidence": "HIGH", "sourceUrl": "http://web.archive.org/web/20260124165517/http://www.iowalap.org/", "sourceTier": "primary-official", "verifiedOn": "2026-07-02"
         },
         {
           "name": "Esquire Assistance Program (EAP)", "operator": "Iowa Judicial Branch, Office of Professional Regulation (third-party EAP vendor)",
           "operatorType": "vendor", "scope": "statewide",
           "url": "https://www.iowacourts.gov/opr/esquire-assistance-program",
-          "phones": [{"number": "1-800-327-4692", "label": "1-800-EAP-IOWA", "availability": "aroundTheClock", "hoursNote": "Reported 24/7/365 (corroborated from search; official page 403'd this session)"}],
+          "phones": [{"number": "1-800-327-4692", "label": "1-800-EAP-IOWA", "availability": "aroundTheClock", "hoursNote": "24/7/365 confirmed verbatim on the official (archived) page"}],
           "services": ["counseling", "mentalHealth", "teletherapy", "crisisLine", "familySupport"],
-          "confidential": "Confidential; not shared with the OPR or employer except as required by law", "cost": "Free (3 in-person/telehealth sessions + 24/7 phone counseling)",
-          "description": "License benefit for all Iowa-licensed lawyers, judges, and court reporters (and families): three free counseling/telehealth sessions plus 24/7 phone access, via a third-party EAP vendor. Official pages 403'd this session, so corroborated.",
-          "confidence": "MEDIUM", "sourceUrl": "https://www.iowacourts.gov/opr/esquire-assistance-program", "sourceTier": "corroborated", "verifiedOn": "2026-07-02"
+          "confidential": "Confidential; not shared with the OPR, employer, or judiciary except as required by law", "cost": "Free (up to 3 in-person/telehealth sessions per concern + 24/7 phone counseling)",
+          "description": "License benefit for all Iowa-licensed lawyers, judges, and court reporters (and families): three free counseling/telehealth sessions plus 24/7 phone access, via a third-party EAP vendor. Verified via an archived snapshot of the official iowacourts.gov page.",
+          "confidence": "HIGH", "sourceUrl": "http://web.archive.org/web/20251213225710/https://www.iowacourts.gov/opr/esquire-assistance-program", "sourceTier": "primary-official", "verifiedOn": "2026-07-02"
         }
       ]
     },
@@ -112,12 +112,12 @@
         {
           "name": "KYLAP Foundation", "operator": "KYLAP Foundation, Inc.",
           "operatorType": "nonprofit", "scope": "statewide",
-          "url": "https://www.kylap.org/foundation",
+          "url": "https://www.kylap.org/get-involved/",
           "phones": [{"number": "502-226-9373", "label": "via KYLAP", "availability": "unspecified"}],
           "services": ["financialAid"],
-          "confidential": "Part of the confidential KYLAP program", "cost": "Forgivable-loan financial aid for assessment/counseling/treatment",
-          "description": "Nonprofit funding arm of KYLAP offering a forgivable-loan program for lawyers who cannot afford care beyond the free EAP sessions. Own foundation page not loaded this session.",
-          "confidence": "MEDIUM", "sourceUrl": "https://kybar.org/For-Members/Member-Services/Employee-Assistance-Program", "sourceTier": "corroborated", "verifiedOn": "2026-07-02"
+          "confidential": "Part of the confidential KYLAP program", "cost": "Forgivable loans for mental-health/addiction treatment (incl. medications)",
+          "description": "501(c)(3) providing financial assistance to lawyers for mental-health treatment (incl. medications and addiction treatment) as forgivable loans; may also make loans for disciplinary/bar-dues costs. Verified on kylap.org/get-involved/ (the /foundation URL 404s).",
+          "confidence": "HIGH", "sourceUrl": "https://www.kylap.org/get-involved/", "sourceTier": "primary-official", "verifiedOn": "2026-07-02"
         }
       ]
     },
@@ -237,11 +237,15 @@
           "name": "Mississippi Lawyers and Judges Assistance Program (LJAP)", "operator": "The Mississippi Bar",
           "operatorType": "stateBar", "scope": "statewide",
           "url": "https://www.msbar.org/programs-affiliates/lawyers-judges-assistance-program/",
-          "phones": [{"number": "800-593-9777", "label": "Confidential hotline", "availability": "aroundTheClock", "hoursNote": "Described as a 24-hour confidential hotline (corroborated; msbar.org 403'd this session)"}],
-          "services": ["counseling", "substanceUse", "mentalHealth", "peerSupport", "crisisLine", "monitoring", "familySupport"],
-          "confidential": "Strictly confidential; not affiliated with any disciplinary authority", "cost": "Confidential assistance (no fee stated in available sources)",
-          "description": "Program authorized by the Mississippi Supreme Court: intervention, referral for evaluation/treatment, monitoring, and limited treatment for judges, lawyers, law students, staff, and families. msbar.org 403'd this session, so corroborated.",
-          "confidence": "MEDIUM", "sourceUrl": "https://www.msbar.org/programs-affiliates/lawyers-judges-assistance-program/", "sourceTier": "corroborated", "verifiedOn": "2026-07-02"
+          "phones": [
+            {"number": "800-593-9777", "label": "Office (toll-free)", "availability": "unspecified", "hoursNote": "Labeled 'Office (toll-free)' on the official page — no 24-hour claim"},
+            {"number": "601-948-0989", "label": "Office", "availability": "unspecified"},
+            {"number": "601-948-4475", "label": "Director's Direct Line", "availability": "unspecified"}
+          ],
+          "services": ["counseling", "substanceUse", "mentalHealth", "peerSupport", "monitoring", "familySupport"],
+          "confidential": "All communication held in the strictest confidence; not affiliated with any disciplinary authority", "cost": "Confidential assistance (no fee stated on the official page)",
+          "description": "Program authorized by the Mississippi Supreme Court: intervention, referral for evaluation/treatment, monitoring, and limited treatment for judges, lawyers, law students, staff, and families. Verified via an archived snapshot of the official msbar.org page, which labels the toll-free line an office line (not a 24-hour hotline).",
+          "confidence": "HIGH", "sourceUrl": "http://web.archive.org/web/20260415065923/https://www.msbar.org/programs-affiliates/lawyers-judges-assistance-program/", "sourceTier": "primary-official", "verifiedOn": "2026-07-02"
         }
       ]
     }

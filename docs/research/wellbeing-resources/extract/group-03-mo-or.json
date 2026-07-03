@@ -52,21 +52,21 @@
           "name": "Nevada Lawyer Assistance Program (NLAP)", "operator": "State Bar of Nevada",
           "operatorType": "stateBar", "scope": "statewide",
           "url": "https://nvbar.org/for-lawyers/resources/wellbeing/nlap/",
-          "phones": [{"number": "1-866-828-0022", "label": "Confidential hotline (answered by a fellow lawyer)", "availability": "unspecified", "hoursNote": "Secondary source claims 24/7; not confirmed on a loaded page (nvbar.org 403'd)"}],
-          "services": ["counseling", "substanceUse", "mentalHealth", "monitoring", "teletherapy"],
-          "confidential": "Confidential; voluntary self-report or Bar Counsel referral", "cost": "Free initial evaluation; first five therapy sessions free (expanded from three), statewide + secure video",
-          "description": "State Bar of Nevada clinical program for attorneys/judges: assessment, treatment referral, ongoing monitoring, and a member therapy benefit (five free vetted-therapist sessions, statewide/online). nvbar.org 403'd this session, so corroborated.",
-          "confidence": "MEDIUM", "sourceUrl": "https://nvbar.org/for-lawyers/resources/wellbeing/nlap/", "sourceTier": "corroborated", "verifiedOn": "2026-07-02"
+          "phones": [{"number": "866-828-0022", "label": "Confidential line (physician-led assessment via NLAP)", "availability": "unspecified", "hoursNote": "No 24/7 stated on the official page"}],
+          "services": ["counseling", "substanceUse", "mentalHealth", "monitoring"],
+          "confidential": "The program is confidential; voluntary self-report or Bar Counsel referral", "cost": "Initial physician-led assessment funded by NLAP at no charge",
+          "description": "State Bar of Nevada clinical program for attorneys/judges: a physician-led initial assessment (funded by NLAP, no charge), treatment referral to contracted providers, and ongoing monitoring. Verified via an archived snapshot of the official nvbar.org page (no fixed 'five free sessions' or 24/7 claim on the page).",
+          "confidence": "HIGH", "sourceUrl": "http://web.archive.org/web/20251204222843/https://nvbar.org/for-lawyers/resources/wellbeing/nlap/", "sourceTier": "primary-official", "verifiedOn": "2026-07-02"
         },
         {
           "name": "Lawyers Concerned for Lawyers (LCL) — Nevada", "operator": "State Bar of Nevada",
           "operatorType": "stateBar", "scope": "statewide",
           "url": "https://nvbar.org/for-lawyers/resources/wellbeing/lcl/",
-          "phones": [{"number": "1-866-828-0022", "label": "Confidential peer hotline", "availability": "unspecified", "hoursNote": "Leave only first name and phone number; nvbar.org 403'd"}],
+          "phones": [{"number": "866-828-0022", "label": "Confidential peer line (callback model)", "availability": "unspecified", "hoursNote": "Leave first name and phone number; a peer calls back — not a live 24/7 line"}],
           "services": ["peerSupport", "substanceUse", "counseling", "mentalHealth"],
-          "confidential": "Completely confidential; does not police or discipline", "cost": "Peer support and AA meetings free; first five therapy sessions free",
-          "description": "Peer-support program (est. mid-1980s) of attorneys in recovery: one-on-one peer help, statewide closed-door AA meetings, and therapist referrals. nvbar.org 403'd this session, so corroborated.",
-          "confidence": "MEDIUM", "sourceUrl": "https://nvbar.org/for-lawyers/resources/wellbeing/lcl/", "sourceTier": "corroborated", "verifiedOn": "2026-07-02"
+          "confidential": "Confidential under Nevada Supreme Court Rule 106.5; not reported outside LCL", "cost": "Free (no charge)",
+          "description": "Peer-support program (est. mid-1980s) of attorneys in recovery: one-on-one peer help (callback model), statewide closed-door AA meetings, and therapist referrals. Verified via an archived snapshot of the official nvbar.org page.",
+          "confidence": "HIGH", "sourceUrl": "http://web.archive.org/web/20251209062927/https://nvbar.org/for-lawyers/resources/wellbeing/lcl/", "sourceTier": "primary-official", "verifiedOn": "2026-07-02"
         }
       ]
     },
@@ -135,9 +135,9 @@
           "url": "https://www.sbnm.org/Member-Services/New-Mexico-Lawyer-Assistance-Program/In-This-Together-Fund-Donations",
           "phones": [],
           "services": ["financialAid"],
-          "confidential": "Associated with the confidential NM LAP", "cost": "Donation-supported grant/aid fund",
-          "description": "NM LAP donation-supported fund (Bar Foundation) helping cover treatment/assistance costs for members in need. Detailed eligibility text not extractable this session.",
-          "confidence": "MEDIUM", "sourceUrl": "https://www.sbnm.org/Member-Services/New-Mexico-Lawyer-Assistance-Program/In-This-Together-Fund-Donations", "sourceTier": "corroborated", "verifiedOn": "2026-07-02"
+          "confidential": "Associated with the confidential NM LAP", "cost": "Temporary financial assistance for NM LAP clients requiring treatment (donation-supported)",
+          "description": "Donation-supported fund operated by NM LAP providing TEMPORARY financial assistance to NM LAP clients requiring treatment, plus augmentation of program services and client-support events. Eligibility is limited to NM LAP clients (not an open grant). Verified via headless browser.",
+          "confidence": "HIGH", "sourceUrl": "https://www.sbnm.org/Member-Services/New-Mexico-Lawyer-Assistance-Program/In-This-Together-Fund-Donations", "sourceTier": "primary-official", "verifiedOn": "2026-07-02"
         }
       ]
     },
@@ -176,21 +176,11 @@
           "name": "North Dakota Lawyer Assistance Program (LAP)", "operator": "State Bar Association of North Dakota (ND Supreme Court Administrative Rule 49)",
           "operatorType": "stateBar", "scope": "statewide",
           "url": "https://www.sband.org/page/lawyer_assist_prog", "email": "NorthDakotaLAP@gmail.com",
-          "phones": [{"number": "701-255-1404", "label": "SBAND main line (route to LAP)", "availability": "unspecified", "hoursNote": "Brochure carries no phone; SBAND main number corroborated from search"}],
+          "phones": [{"number": "800-472-2685", "label": "ND LAP helpline", "availability": "unspecified", "hoursNote": "Per sband.org (corroborated); the official brochure carries no phone. Email NorthDakotaLAP@gmail.com is the primary contact."}],
           "services": ["counseling", "substanceUse", "mentalHealth", "peerSupport", "familySupport", "monitoring"],
           "confidential": "Confidential under N.D. Sup. Ct. Admin. R. 49 §4; not disclosed without consent", "cost": "Free",
           "description": "SBAND's confidential program (est. 2004 under Admin. Rule 49) for North Dakota attorneys, judges, UND law students, and families: referral and ongoing support for alcohol/drug abuse, stress, depression, and practice-management problems. Verified via the official SBAND LAP brochure PDF.",
           "confidence": "HIGH", "sourceUrl": "https://cdn.ymaws.com/www.sband.org/resource/resmgr/docs/for_lawyers/LAP_Brochure.pdf", "sourceTier": "primary-official", "verifiedOn": "2026-07-02"
-        },
-        {
-          "name": "The Village Business Institute — Employee Assistance Program (EAP)", "operator": "The Village Family Service Center / The Village Business Institute",
-          "operatorType": "vendor", "scope": "statewide",
-          "url": "https://www.thevillagebusinessinstitute.com/",
-          "phones": [{"number": "800-627-8220", "label": "The Village EAP", "availability": "unspecified"}],
-          "services": ["counseling", "mentalHealth", "familySupport"],
-          "confidential": "Professional and confidential assessment, counseling, and referral", "cost": "Free to covered members (EAP benefit)",
-          "description": "Fargo-based EAP vendor reported as the outsourced clinical resource associated with ND lawyer wellbeing. The ND-LAP-to-Village linkage is search-corroborated, not confirmed on a loaded official page (sband.org LAP page 403'd).",
-          "confidence": "MEDIUM", "sourceUrl": "https://www.sband.org/page/lawyer_assist_prog", "sourceTier": "corroborated", "verifiedOn": "2026-07-02"
         }
       ]
     },
@@ -214,8 +204,8 @@
           "phones": [{"number": "419-242-9363", "label": "Toledo Bar Association (to access MAP)", "availability": "unspecified"}],
           "services": ["counseling", "teletherapy", "mentalHealth", "substanceUse"],
           "confidential": "Confidential and completely voluntary", "cost": "TBA pays up to six one-hour appointments/year; member pays beyond six",
-          "description": "Metro member benefit for Toledo Bar Association members: confidential professional counseling via Lighthouse Telehealth for stress, marital problems, substance abuse, and job burnout. Official page 403'd this session, so corroborated.",
-          "confidence": "MEDIUM", "sourceUrl": "https://www.toledobar.org/?pg=Member-Assistance-Program", "sourceTier": "corroborated", "verifiedOn": "2026-07-02"
+          "description": "Metro member benefit for Toledo Bar Association members: confidential professional counseling via Lighthouse Telehealth for stress, marital problems, substance abuse, and job burnout (up to six one-hour sessions/year, TBA-paid). Verified via the search-index cache of the official page (live page 403'd).",
+          "confidence": "HIGH", "sourceUrl": "https://www.toledobar.org/?pg=Member-Assistance-Program", "sourceTier": "primary-official", "verifiedOn": "2026-07-02"
         }
       ]
     },

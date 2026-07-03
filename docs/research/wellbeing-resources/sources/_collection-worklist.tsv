@@ -9,6 +9,7 @@ US-DC-lap-dcbar-2026	US-DC	https://www.dcbar.org/for-lawyers/lawyer-assistance-p
 US-DE-delap-dsba-2026	US-DE	https://www.dsba.org/resources/delaware-lawyers-assistance-program/	web search + direct fetch (de-lap.org served a mismatched TLS cert; verified via DSBA-hosted page)	2026-07-02	
 US-FL-fla-and-helpline-2026	US-FL	https://www.fla-lap.org/what-we-do	web search + direct fetch	2026-07-02	
 US-GA-lap-gabar-2026	US-GA	https://www.gabar.org/programs/lawyer-wellbeing/mental-wellbeing/lawyer-assistance-program	web search + direct fetch	2026-07-02	
+US-GU-wellness-committee-2026	US-GU	https://guambar.org/about-us/laws	Playwright load of the Guam Bar bylaws page	2026-07-02	
 US-HI-aap-hawaiiaap-2026	US-HI	http://hawaiiaap.com/contactus.html	web search + direct fetch	2026-07-02	
 US-IA-ilap-eap-2026	US-IA	http://www.iowalap.org/	web search + corroborated (iowalap.org cert mismatch; iowacourts.gov/iowabar.org 403)	2026-07-02	
 US-ID-lap-isb-2026	US-ID	https://isb.idaho.gov/member-services/programs-resources/lap/	web search + direct fetch	2026-07-02	
@@ -41,6 +42,7 @@ US-SC-sclhl-2026	US-SC	https://www.scbar.org/for-lawyers/membership/member-benef
 US-TN-tlap-2026	US-TN	https://www.tncourts.gov/press/2020/03/23/tennessee-lawyers-assistance-program-ready-assist-attorneys-need	tncourts.gov official pages loaded (tlap.org rendered but truncated)	2026-07-02	
 US-UT-lhl-tava-2026	US-UT	https://www.utahbar.org/member-services/lawyers-helping-lawyers/	web search + direct fetch	2026-07-02	
 US-VA-vjlap-2026	US-VA	https://www.vacle.org/lawyers-helping-lawyers/	VA CLE official affiliated page loaded (vjlap.org 403 this session)	2026-07-02	
+US-VI-lap-committee-2026	US-VI	https://www.usvibar.org/page/Committees	direct fetch of the VIBA committees page	2026-07-02	
 US-VT-lap-2026	US-VT	https://www.vtbar.org/attorney-well-being/	VBA attorney-wellness page loaded (lapvt.org 403 this session)	2026-07-02	
 US-WA-wsba-wellness-2026	US-WA	https://www.wsba.org/for-legal-professionals/member-support/wellness	web search + direct fetch	2026-07-02	
 US-WI-wislap-2026	US-WI	https://www.wisbar.org/formembers/wislap/pages/lawyer-assistance-program.aspx	web search + direct fetch	2026-07-02	

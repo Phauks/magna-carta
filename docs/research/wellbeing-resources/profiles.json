@@ -154,11 +154,11 @@
           "verifiedOn": "2026-07-02"
         },
         {
-          "name": "Alabama Lawyer Assistance Foundation",
-          "operator": "Alabama Lawyer Assistance Foundation",
+          "name": "Alabama Lawyer Assistance Foundation (ALAF)",
+          "operator": "Alabama Lawyer Assistance Foundation (ALAF)",
           "operatorType": "nonprofit",
           "scope": "statewide",
-          "url": "https://www.alabar.org/programs/alabama-lawyer-assistance-program/",
+          "url": "https://www.alabar.org/programs/alabama-lawyer-assistance-program/alap-foundation/",
           "phones": [],
           "services": [
             "financialAid",
@@ -166,11 +166,11 @@
             "mentalHealth"
           ],
           "confidential": "Operates in support of the confidential ALAP program",
-          "cost": "Charitable funding for those unable to afford treatment",
-          "description": "Nonprofit funding foundation affiliated with ALAP, managed by an elected board; supports lawyers who need help accessing treatment. Details corroborated from the ALAP page; no standalone page loaded.",
-          "confidence": "MEDIUM",
-          "sourceUrl": "https://www.alabar.org/programs/alabama-lawyer-assistance-program/",
-          "sourceTier": "corroborated",
+          "cost": "Revolving loan fund — loans paid to treatment providers, repaid once the lawyer recovers",
+          "description": "501(c)(3) revolving loan fund (distinct from the Alabama Law Foundation) that funds addiction/mental-health treatment for AL lawyers, judges, and law students who cannot pay; works alongside ALAP. Verified on its dedicated alabar.org page.",
+          "confidence": "HIGH",
+          "sourceUrl": "https://www.alabar.org/programs/alabama-lawyer-assistance-program/alap-foundation/",
+          "sourceTier": "primary-official",
           "verifiedOn": "2026-07-02"
         }
       ]
@@ -208,6 +208,32 @@
           "description": "Statewide program (a committee of the Arkansas Supreme Court, est. 2000) providing free confidential mental-health, addiction, stress, and grief services to Arkansas judges, lawyers, law students/applicants, and their adult family members.",
           "confidence": "HIGH",
           "sourceUrl": "https://www.arjlap.org/",
+          "sourceTier": "primary-official",
+          "verifiedOn": "2026-07-02"
+        }
+      ]
+    },
+    "US-AS": {
+      "fips": "60",
+      "code": "AS",
+      "name": "American Samoa",
+      "source": "US-AS",
+      "resources": [
+        {
+          "name": "No dedicated lawyer-assistance program found",
+          "operator": "—",
+          "operatorType": "national",
+          "scope": "national",
+          "url": "https://www.americanbar.org/groups/lawyer_assistance/resources/lap_programs_by_state/",
+          "phones": [],
+          "services": [
+            "mentalHealth"
+          ],
+          "confidential": "Resolves to the national safety net",
+          "cost": "—",
+          "description": "No territory-specific lawyer-assistance program located (American Samoa has public Legal Aid, not an attorney wellness program); resolves to the national safety net (988, SAMHSA, ABA CoLAP).",
+          "confidence": "NA",
+          "sourceUrl": "https://www.americanbar.org/groups/lawyer_assistance/resources/lap_programs_by_state/",
           "sourceTier": "primary-official",
           "verifiedOn": "2026-07-02"
         }
@@ -653,10 +679,38 @@
           ],
           "confidential": "Confidential peer-to-peer program (disclosures held in an encrypted database)",
           "cost": "Free",
-          "description": "Confidential volunteer peer-support program of the State Bar of Georgia's Lawyer Assistance Committee, pairing a member with a fellow Bar member. The georgialhl.org site did not render for direct capture; corroborated from the gabar.org LAP page.",
-          "confidence": "MEDIUM",
-          "sourceUrl": "https://www.gabar.org/programs/lawyer-wellbeing/mental-wellbeing/lawyer-assistance-program",
-          "sourceTier": "corroborated",
+          "description": "Confidential volunteer peer-support program of the State Bar of Georgia's Lawyer Assistance Committee, pairing a member with a fellow Bar member via an online matching database. Verified on georgialhl.org.",
+          "confidence": "HIGH",
+          "sourceUrl": "https://georgialhl.org/about-us/",
+          "sourceTier": "primary-official",
+          "verifiedOn": "2026-07-02"
+        }
+      ]
+    },
+    "US-GU": {
+      "fips": "66",
+      "code": "GU",
+      "name": "Guam",
+      "source": "US-GU",
+      "resources": [
+        {
+          "name": "Alternative Disciplinary and Attorney Wellness Committee",
+          "operator": "Guam Bar Association",
+          "operatorType": "stateBar",
+          "scope": "statewide",
+          "url": "https://guambar.org/about-us/laws",
+          "phones": [],
+          "services": [
+            "peerSupport",
+            "mentalHealth",
+            "substanceUse"
+          ],
+          "confidential": "Not stated on the bylaws page",
+          "cost": "Not stated (bar-member committee)",
+          "description": "Standing committee of the Guam Bar Association (added 2024) that manages Rule 11 disability referrals and promotes attorney well-being through education, peer-to-peer support, and resources in mental health, emotional balance, stress management, and addiction. No dedicated hotline is published; access is via the bar.",
+          "confidence": "HIGH",
+          "sourceUrl": "https://guambar.org/about-us/laws",
+          "sourceTier": "primary-official",
           "verifiedOn": "2026-07-02"
         }
       ]
@@ -737,12 +791,12 @@
             "peerSupport",
             "monitoring"
           ],
-          "confidential": "Free and confidential; no identifying information disclosed",
+          "confidential": "Free and confidential; no identifying information disclosed; no reporting relationship",
           "cost": "Free",
-          "description": "Private nonprofit helping Iowa judges, attorneys, and law students obtain treatment for substance use, addiction, and mental-health issues, with monitoring. iowalap.org served a TLS cert mismatch this session, so corroborated.",
-          "confidence": "MEDIUM",
-          "sourceUrl": "http://www.iowalap.org/",
-          "sourceTier": "corroborated",
+          "description": "Private nonprofit helping Iowa judges, attorneys, and law students obtain treatment for substance use, addiction, and mental-health issues, with monitoring. Verified via an archived snapshot of iowalap.org (live site has a TLS cert mismatch).",
+          "confidence": "HIGH",
+          "sourceUrl": "http://web.archive.org/web/20260124165517/http://www.iowalap.org/",
+          "sourceTier": "primary-official",
           "verifiedOn": "2026-07-02"
         },
         {
@@ -756,7 +810,7 @@
               "number": "1-800-327-4692",
               "label": "1-800-EAP-IOWA",
               "availability": "aroundTheClock",
-              "hoursNote": "Reported 24/7/365 (corroborated from search; official page 403'd this session)"
+              "hoursNote": "24/7/365 confirmed verbatim on the official (archived) page"
             }
           ],
           "services": [
@@ -766,12 +820,12 @@
             "crisisLine",
             "familySupport"
           ],
-          "confidential": "Confidential; not shared with the OPR or employer except as required by law",
-          "cost": "Free (3 in-person/telehealth sessions + 24/7 phone counseling)",
-          "description": "License benefit for all Iowa-licensed lawyers, judges, and court reporters (and families): three free counseling/telehealth sessions plus 24/7 phone access, via a third-party EAP vendor. Official pages 403'd this session, so corroborated.",
-          "confidence": "MEDIUM",
-          "sourceUrl": "https://www.iowacourts.gov/opr/esquire-assistance-program",
-          "sourceTier": "corroborated",
+          "confidential": "Confidential; not shared with the OPR, employer, or judiciary except as required by law",
+          "cost": "Free (up to 3 in-person/telehealth sessions per concern + 24/7 phone counseling)",
+          "description": "License benefit for all Iowa-licensed lawyers, judges, and court reporters (and families): three free counseling/telehealth sessions plus 24/7 phone access, via a third-party EAP vendor. Verified via an archived snapshot of the official iowacourts.gov page.",
+          "confidence": "HIGH",
+          "sourceUrl": "http://web.archive.org/web/20251213225710/https://www.iowacourts.gov/opr/esquire-assistance-program",
+          "sourceTier": "primary-official",
           "verifiedOn": "2026-07-02"
         }
       ]
@@ -1036,7 +1090,7 @@
           "operator": "KYLAP Foundation, Inc.",
           "operatorType": "nonprofit",
           "scope": "statewide",
-          "url": "https://www.kylap.org/foundation",
+          "url": "https://www.kylap.org/get-involved/",
           "phones": [
             {
               "number": "502-226-9373",
@@ -1048,11 +1102,11 @@
             "financialAid"
           ],
           "confidential": "Part of the confidential KYLAP program",
-          "cost": "Forgivable-loan financial aid for assessment/counseling/treatment",
-          "description": "Nonprofit funding arm of KYLAP offering a forgivable-loan program for lawyers who cannot afford care beyond the free EAP sessions. Own foundation page not loaded this session.",
-          "confidence": "MEDIUM",
-          "sourceUrl": "https://kybar.org/For-Members/Member-Services/Employee-Assistance-Program",
-          "sourceTier": "corroborated",
+          "cost": "Forgivable loans for mental-health/addiction treatment (incl. medications)",
+          "description": "501(c)(3) providing financial assistance to lawyers for mental-health treatment (incl. medications and addiction treatment) as forgivable loans; may also make loans for disciplinary/bar-dues costs. Verified on kylap.org/get-involved/ (the /foundation URL 404s).",
+          "confidence": "HIGH",
+          "sourceUrl": "https://www.kylap.org/get-involved/",
+          "sourceTier": "primary-official",
           "verifiedOn": "2026-07-02"
         }
       ]
@@ -1364,6 +1418,32 @@
         }
       ]
     },
+    "US-MP": {
+      "fips": "69",
+      "code": "MP",
+      "name": "Northern Mariana Islands",
+      "source": "US-MP",
+      "resources": [
+        {
+          "name": "No dedicated lawyer-assistance program found",
+          "operator": "—",
+          "operatorType": "national",
+          "scope": "national",
+          "url": "https://www.americanbar.org/groups/lawyer_assistance/resources/lap_programs_by_state/",
+          "phones": [],
+          "services": [
+            "mentalHealth"
+          ],
+          "confidential": "Resolves to the national safety net",
+          "cost": "—",
+          "description": "No territory-specific lawyer-assistance program located (the CNMI Bar's charitable focus is funding Micronesian Legal Services); resolves to the national safety net (988, SAMHSA, ABA CoLAP).",
+          "confidence": "NA",
+          "sourceUrl": "https://www.americanbar.org/groups/lawyer_assistance/resources/lap_programs_by_state/",
+          "sourceTier": "primary-official",
+          "verifiedOn": "2026-07-02"
+        }
+      ]
+    },
     "US-MS": {
       "fips": "28",
       "code": "MS",
@@ -1379,9 +1459,19 @@
           "phones": [
             {
               "number": "800-593-9777",
-              "label": "Confidential hotline",
-              "availability": "aroundTheClock",
-              "hoursNote": "Described as a 24-hour confidential hotline (corroborated; msbar.org 403'd this session)"
+              "label": "Office (toll-free)",
+              "availability": "unspecified",
+              "hoursNote": "Labeled 'Office (toll-free)' on the official page — no 24-hour claim"
+            },
+            {
+              "number": "601-948-0989",
+              "label": "Office",
+              "availability": "unspecified"
+            },
+            {
+              "number": "601-948-4475",
+              "label": "Director's Direct Line",
+              "availability": "unspecified"
             }
           ],
           "services": [
@@ -1389,16 +1479,15 @@
             "substanceUse",
             "mentalHealth",
             "peerSupport",
-            "crisisLine",
             "monitoring",
             "familySupport"
           ],
-          "confidential": "Strictly confidential; not affiliated with any disciplinary authority",
-          "cost": "Confidential assistance (no fee stated in available sources)",
-          "description": "Program authorized by the Mississippi Supreme Court: intervention, referral for evaluation/treatment, monitoring, and limited treatment for judges, lawyers, law students, staff, and families. msbar.org 403'd this session, so corroborated.",
-          "confidence": "MEDIUM",
-          "sourceUrl": "https://www.msbar.org/programs-affiliates/lawyers-judges-assistance-program/",
-          "sourceTier": "corroborated",
+          "confidential": "All communication held in the strictest confidence; not affiliated with any disciplinary authority",
+          "cost": "Confidential assistance (no fee stated on the official page)",
+          "description": "Program authorized by the Mississippi Supreme Court: intervention, referral for evaluation/treatment, monitoring, and limited treatment for judges, lawyers, law students, staff, and families. Verified via an archived snapshot of the official msbar.org page, which labels the toll-free line an office line (not a 24-hour hotline).",
+          "confidence": "HIGH",
+          "sourceUrl": "http://web.archive.org/web/20260415065923/https://www.msbar.org/programs-affiliates/lawyers-judges-assistance-program/",
+          "sourceTier": "primary-official",
           "verifiedOn": "2026-07-02"
         }
       ]
@@ -1526,10 +1615,10 @@
           "email": "NorthDakotaLAP@gmail.com",
           "phones": [
             {
-              "number": "701-255-1404",
-              "label": "SBAND main line (route to LAP)",
+              "number": "800-472-2685",
+              "label": "ND LAP helpline",
               "availability": "unspecified",
-              "hoursNote": "Brochure carries no phone; SBAND main number corroborated from search"
+              "hoursNote": "Per sband.org (corroborated); the official brochure carries no phone. Email NorthDakotaLAP@gmail.com is the primary contact."
             }
           ],
           "services": [
@@ -1546,32 +1635,6 @@
           "confidence": "HIGH",
           "sourceUrl": "https://cdn.ymaws.com/www.sband.org/resource/resmgr/docs/for_lawyers/LAP_Brochure.pdf",
           "sourceTier": "primary-official",
-          "verifiedOn": "2026-07-02"
-        },
-        {
-          "name": "The Village Business Institute — Employee Assistance Program (EAP)",
-          "operator": "The Village Family Service Center / The Village Business Institute",
-          "operatorType": "vendor",
-          "scope": "statewide",
-          "url": "https://www.thevillagebusinessinstitute.com/",
-          "phones": [
-            {
-              "number": "800-627-8220",
-              "label": "The Village EAP",
-              "availability": "unspecified"
-            }
-          ],
-          "services": [
-            "counseling",
-            "mentalHealth",
-            "familySupport"
-          ],
-          "confidential": "Professional and confidential assessment, counseling, and referral",
-          "cost": "Free to covered members (EAP benefit)",
-          "description": "Fargo-based EAP vendor reported as the outsourced clinical resource associated with ND lawyer wellbeing. The ND-LAP-to-Village linkage is search-corroborated, not confirmed on a loaded official page (sband.org LAP page 403'd).",
-          "confidence": "MEDIUM",
-          "sourceUrl": "https://www.sband.org/page/lawyer_assist_prog",
-          "sourceTier": "corroborated",
           "verifiedOn": "2026-07-02"
         }
       ]
@@ -1773,11 +1836,11 @@
             "financialAid"
           ],
           "confidential": "Associated with the confidential NM LAP",
-          "cost": "Donation-supported grant/aid fund",
-          "description": "NM LAP donation-supported fund (Bar Foundation) helping cover treatment/assistance costs for members in need. Detailed eligibility text not extractable this session.",
-          "confidence": "MEDIUM",
+          "cost": "Temporary financial assistance for NM LAP clients requiring treatment (donation-supported)",
+          "description": "Donation-supported fund operated by NM LAP providing TEMPORARY financial assistance to NM LAP clients requiring treatment, plus augmentation of program services and client-support events. Eligibility is limited to NM LAP clients (not an open grant). Verified via headless browser.",
+          "confidence": "HIGH",
           "sourceUrl": "https://www.sbnm.org/Member-Services/New-Mexico-Lawyer-Assistance-Program/In-This-Together-Fund-Donations",
-          "sourceTier": "corroborated",
+          "sourceTier": "primary-official",
           "verifiedOn": "2026-07-02"
         }
       ]
@@ -1796,25 +1859,24 @@
           "url": "https://nvbar.org/for-lawyers/resources/wellbeing/nlap/",
           "phones": [
             {
-              "number": "1-866-828-0022",
-              "label": "Confidential hotline (answered by a fellow lawyer)",
+              "number": "866-828-0022",
+              "label": "Confidential line (physician-led assessment via NLAP)",
               "availability": "unspecified",
-              "hoursNote": "Secondary source claims 24/7; not confirmed on a loaded page (nvbar.org 403'd)"
+              "hoursNote": "No 24/7 stated on the official page"
             }
           ],
           "services": [
             "counseling",
             "substanceUse",
             "mentalHealth",
-            "monitoring",
-            "teletherapy"
+            "monitoring"
           ],
-          "confidential": "Confidential; voluntary self-report or Bar Counsel referral",
-          "cost": "Free initial evaluation; first five therapy sessions free (expanded from three), statewide + secure video",
-          "description": "State Bar of Nevada clinical program for attorneys/judges: assessment, treatment referral, ongoing monitoring, and a member therapy benefit (five free vetted-therapist sessions, statewide/online). nvbar.org 403'd this session, so corroborated.",
-          "confidence": "MEDIUM",
-          "sourceUrl": "https://nvbar.org/for-lawyers/resources/wellbeing/nlap/",
-          "sourceTier": "corroborated",
+          "confidential": "The program is confidential; voluntary self-report or Bar Counsel referral",
+          "cost": "Initial physician-led assessment funded by NLAP at no charge",
+          "description": "State Bar of Nevada clinical program for attorneys/judges: a physician-led initial assessment (funded by NLAP, no charge), treatment referral to contracted providers, and ongoing monitoring. Verified via an archived snapshot of the official nvbar.org page (no fixed 'five free sessions' or 24/7 claim on the page).",
+          "confidence": "HIGH",
+          "sourceUrl": "http://web.archive.org/web/20251204222843/https://nvbar.org/for-lawyers/resources/wellbeing/nlap/",
+          "sourceTier": "primary-official",
           "verifiedOn": "2026-07-02"
         },
         {
@@ -1825,10 +1887,10 @@
           "url": "https://nvbar.org/for-lawyers/resources/wellbeing/lcl/",
           "phones": [
             {
-              "number": "1-866-828-0022",
-              "label": "Confidential peer hotline",
+              "number": "866-828-0022",
+              "label": "Confidential peer line (callback model)",
               "availability": "unspecified",
-              "hoursNote": "Leave only first name and phone number; nvbar.org 403'd"
+              "hoursNote": "Leave first name and phone number; a peer calls back — not a live 24/7 line"
             }
           ],
           "services": [
@@ -1837,12 +1899,12 @@
             "counseling",
             "mentalHealth"
           ],
-          "confidential": "Completely confidential; does not police or discipline",
-          "cost": "Peer support and AA meetings free; first five therapy sessions free",
-          "description": "Peer-support program (est. mid-1980s) of attorneys in recovery: one-on-one peer help, statewide closed-door AA meetings, and therapist referrals. nvbar.org 403'd this session, so corroborated.",
-          "confidence": "MEDIUM",
-          "sourceUrl": "https://nvbar.org/for-lawyers/resources/wellbeing/lcl/",
-          "sourceTier": "corroborated",
+          "confidential": "Confidential under Nevada Supreme Court Rule 106.5; not reported outside LCL",
+          "cost": "Free (no charge)",
+          "description": "Peer-support program (est. mid-1980s) of attorneys in recovery: one-on-one peer help (callback model), statewide closed-door AA meetings, and therapist referrals. Verified via an archived snapshot of the official nvbar.org page.",
+          "confidence": "HIGH",
+          "sourceUrl": "http://web.archive.org/web/20251209062927/https://nvbar.org/for-lawyers/resources/wellbeing/lcl/",
+          "sourceTier": "primary-official",
           "verifiedOn": "2026-07-02"
         }
       ]
@@ -1977,10 +2039,10 @@
           ],
           "confidential": "Confidential and completely voluntary",
           "cost": "TBA pays up to six one-hour appointments/year; member pays beyond six",
-          "description": "Metro member benefit for Toledo Bar Association members: confidential professional counseling via Lighthouse Telehealth for stress, marital problems, substance abuse, and job burnout. Official page 403'd this session, so corroborated.",
-          "confidence": "MEDIUM",
+          "description": "Metro member benefit for Toledo Bar Association members: confidential professional counseling via Lighthouse Telehealth for stress, marital problems, substance abuse, and job burnout (up to six one-hour sessions/year, TBA-paid). Verified via the search-index cache of the official page (live page 403'd).",
+          "confidence": "HIGH",
           "sourceUrl": "https://www.toledobar.org/?pg=Member-Assistance-Program",
-          "sourceTier": "corroborated",
+          "sourceTier": "primary-official",
           "verifiedOn": "2026-07-02"
         }
       ]
@@ -2140,6 +2202,32 @@
         }
       ]
     },
+    "US-PR": {
+      "fips": "72",
+      "code": "PR",
+      "name": "Puerto Rico",
+      "source": "US-PR",
+      "resources": [
+        {
+          "name": "No dedicated lawyer-assistance program found",
+          "operator": "—",
+          "operatorType": "national",
+          "scope": "national",
+          "url": "https://www.americanbar.org/groups/lawyer_assistance/resources/lap_programs_by_state/",
+          "phones": [],
+          "services": [
+            "mentalHealth"
+          ],
+          "confidential": "Resolves to the national safety net",
+          "cost": "—",
+          "description": "No standing territory-specific lawyer-assistance program located; resolves to the national safety net (988, SAMHSA, ABA CoLAP). The Colegio de Abogados y Abogadas de Puerto Rico has emerging wellbeing initiatives (a 2025 wellness event, nascent commissions) but no dedicated program with counseling/hotline services.",
+          "confidence": "NA",
+          "sourceUrl": "https://www.americanbar.org/groups/lawyer_assistance/resources/lap_programs_by_state/",
+          "sourceTier": "primary-official",
+          "verifiedOn": "2026-07-02"
+        }
+      ]
+    },
     "US-RI": {
       "fips": "44",
       "code": "RI",
@@ -2148,16 +2236,16 @@
       "resources": [
         {
           "name": "Lawyers Helping Lawyers (Rhode Island Bar Association)",
-          "operator": "Rhode Island Bar Association (EAP via SupportLinc / CuraLinc Healthcare, formerly CorpCare)",
+          "operator": "Rhode Island Bar Association (EAP contractor: CorpCare)",
           "operatorType": "stateBar",
           "scope": "statewide",
           "url": "https://ribar.com/page.aspx?id=50",
           "phones": [
             {
               "number": "866-482-8378",
-              "label": "Confidential support line",
+              "label": "Confidential 24/7 support line",
               "availability": "aroundTheClock",
-              "hoursNote": "Page: 'confidential, round the clock support'; counselors answer 24/7 (ribar.com 403'd this session, so corroborated)"
+              "hoursNote": "Official page: 'Counselors answer the phone 24/7 ... confidential, round the clock support'"
             }
           ],
           "services": [
@@ -2166,15 +2254,14 @@
             "mentalHealth",
             "peerSupport",
             "crisisLine",
-            "teletherapy",
             "familySupport"
           ],
           "confidential": "Confidential; Committee members hold statutory immunity/confidentiality (1991 RI Supreme Court rule)",
-          "cost": "Free to RI Bar members and their dependents",
-          "description": "The RI Bar Association's lawyer assistance program: a volunteer Lawyers Helping Lawyers Committee of peer attorneys plus a contracted EAP (SupportLinc/CuraLinc, formerly CorpCare) providing confidential assessment, referral, counseling, and teletherapy. ribar.com 403'd this session, so corroborated.",
-          "confidence": "MEDIUM",
-          "sourceUrl": "https://ribar.com/page.aspx?id=50",
-          "sourceTier": "corroborated",
+          "cost": "Free to RI Bar members and their dependents (up to eight counseling sessions)",
+          "description": "The RI Bar Association's lawyer assistance program: a volunteer Lawyers Helping Lawyers Committee of peer attorneys plus a contracted EAP (CorpCare) providing confidential 24/7 assessment, referral, and counseling. Verified via an archived snapshot of the official ribar.com page (which names CorpCare as the contractor).",
+          "confidence": "HIGH",
+          "sourceUrl": "http://web.archive.org/web/20250119171711/https://ribar.com/page.aspx?id=50",
+          "sourceTier": "primary-official",
           "verifiedOn": "2026-07-02"
         }
       ]
@@ -2436,7 +2523,12 @@
               "number": "1-877-545-4682",
               "label": "24-Hour Confidential HelpLine",
               "availability": "aroundTheClock",
-              "hoursNote": "Official VA CLE page: '24-hour confidential help line' (vjlap.org 403'd, so corroborated)"
+              "hoursNote": "VJLAP's own (archived) site: 'Call Our 24-Hour Confidential Help Line'"
+            },
+            {
+              "number": "804-644-3212",
+              "label": "Daytime office",
+              "availability": "businessHours"
             }
           ],
           "services": [
@@ -2450,10 +2542,47 @@
           ],
           "confidential": "Confidential, non-disciplinary assistance",
           "cost": "Free (services provided 'without fee')",
-          "description": "Confidential, non-disciplinary help for lawyers, judges, law students, bar applicants, and families (substance use, chronic stress, mental health): information/referral, assessment, intervention, compliance monitoring, and family/staff support. Formerly Virginia Lawyers Helping Lawyers. vjlap.org 403'd; verified via the VA CLE page.",
-          "confidence": "MEDIUM",
-          "sourceUrl": "https://www.vacle.org/lawyers-helping-lawyers/",
-          "sourceTier": "corroborated",
+          "description": "Confidential, non-disciplinary help for lawyers, judges, law students, bar applicants, and families (substance use, chronic stress, mental health): information/referral, assessment, intervention, compliance monitoring, and family/staff support. Formerly Virginia Lawyers Helping Lawyers. Verified via an archived snapshot of vjlap.org.",
+          "confidence": "HIGH",
+          "sourceUrl": "http://web.archive.org/web/20260108001834/https://vjlap.org/",
+          "sourceTier": "primary-official",
+          "verifiedOn": "2026-07-02"
+        }
+      ]
+    },
+    "US-VI": {
+      "fips": "78",
+      "code": "VI",
+      "name": "U.S. Virgin Islands",
+      "source": "US-VI",
+      "resources": [
+        {
+          "name": "Lawyer's Assistance Program (Committee)",
+          "operator": "Virgin Islands Bar Association",
+          "operatorType": "stateBar",
+          "scope": "statewide",
+          "url": "https://www.usvibar.org/page/Committees",
+          "email": "info@usvibar.org",
+          "phones": [
+            {
+              "number": "340-778-7497",
+              "label": "Virgin Islands Bar Association (general)",
+              "availability": "businessHours",
+              "hoursNote": "General bar line; the LAP committee has no separately published number"
+            }
+          ],
+          "services": [
+            "substanceUse",
+            "mentalHealth",
+            "counseling",
+            "peerSupport"
+          ],
+          "confidential": "Not stated on the committees page",
+          "cost": "Not stated (bar-member benefit)",
+          "description": "Standing committee of the Virgin Islands Bar Association implementing a program to assist members with substance abuse and addiction; corroborating reports indicate partnerships with local providers (Insight Psychological Services, Island Therapy Solutions) for expedited referrals (partner detail not on the official page).",
+          "confidence": "HIGH",
+          "sourceUrl": "https://www.usvibar.org/page/Committees",
+          "sourceTier": "primary-official",
           "verifiedOn": "2026-07-02"
         }
       ]
@@ -2466,16 +2595,16 @@
       "resources": [
         {
           "name": "Vermont Lawyers Assistance Program (VT LAP)",
-          "operator": "Vermont Lawyers Assistance Program (lapvt.org)",
+          "operator": "Vermont Lawyers Assistance Program (listed via the Vermont Bar Association)",
           "operatorType": "nonprofit",
           "scope": "statewide",
-          "url": "https://lapvt.org/",
+          "url": "https://www.vtbar.org/attorney-well-being/",
           "phones": [
             {
               "number": "802-355-4352",
               "label": "Vermont Lawyers Assistance Program",
               "availability": "unspecified",
-              "hoursNote": "24/7 not confirmed; lapvt.org 403'd this session"
+              "hoursNote": "Number confirmed via the VBA wellness page; hours/cost not primary-verified"
             }
           ],
           "services": [
@@ -2485,8 +2614,8 @@
             "peerSupport"
           ],
           "confidential": "Confidential support (per VBA wellness page)",
-          "cost": "Free (not primary-verified; lapvt.org 403'd)",
-          "description": "Vermont's dedicated lawyer-assistance program for judges, lawyers, and law students facing substance use or mental-health issues, promoted via the Vermont Bar Association. lapvt.org 403'd this session, so corroborated from the loaded VBA attorney-wellness page.",
+          "cost": "Not primary-verified",
+          "description": "Vermont's dedicated lawyer-assistance program (802-355-4352) for judges, lawyers, and law students, listed on the Vermont Bar Association's attorney-well-being page. NOTE: the former lapvt.org domain is DEFUNCT/parked (do not link it); operator identity, cost, and hours could not be primary-verified.",
           "confidence": "MEDIUM",
           "sourceUrl": "https://www.vtbar.org/attorney-well-being/",
           "sourceTier": "corroborated",

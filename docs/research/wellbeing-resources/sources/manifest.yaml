@@ -72,6 +72,13 @@ sources:
     accessedOn: 2026-07-02
     accessGate: open
     sha256: 0f1c636982be267f48915b5e083836be2dc20fa84853c31dc31cd9c9724a7991
+  - jurisdiction: US-GU
+    path: US-GU/US-GU-wellness-committee-2026.txt
+    publisher: 'Guam Bar Association'
+    sourceUrl: https://guambar.org/about-us/laws
+    accessedOn: 2026-07-02
+    accessGate: open
+    sha256: f691b771f2c13456954a3ccae06733fbb16710ea9512c52656256f1a672db5a1
   - jurisdiction: US-HI
     path: US-HI/US-HI-aap-hawaiiaap-2026.txt
     publisher: 'Hawaii Supreme Court (Attorneys and Judges Assistance Program)'
@@ -296,6 +303,13 @@ sources:
     accessedOn: 2026-07-02
     accessGate: open
     sha256: 7d6be369402a37531f647692a8d2bd440c37083eb30eff598a729173d40ce5f9
+  - jurisdiction: US-VI
+    path: US-VI/US-VI-lap-committee-2026.txt
+    publisher: 'Virgin Islands Bar Association'
+    sourceUrl: https://www.usvibar.org/page/Committees
+    accessedOn: 2026-07-02
+    accessGate: open
+    sha256: 9c75abd78914dfab6c0669b7535108aa58a01e1ee26670a602de586e367f6c71
   - jurisdiction: US-VT
     path: US-VT/US-VT-lap-2026.txt
     publisher: 'Vermont Bar Association attorney-wellness page (VT LAP + Bar Counsel)'

@@ -18,14 +18,14 @@
           "confidence": "HIGH", "sourceUrl": "https://www.alabar.org/programs/alabama-lawyer-assistance-program/", "sourceTier": "primary-official", "verifiedOn": "2026-07-02"
         },
         {
-          "name": "Alabama Lawyer Assistance Foundation", "operator": "Alabama Lawyer Assistance Foundation",
+          "name": "Alabama Lawyer Assistance Foundation (ALAF)", "operator": "Alabama Lawyer Assistance Foundation (ALAF)",
           "operatorType": "nonprofit", "scope": "statewide",
-          "url": "https://www.alabar.org/programs/alabama-lawyer-assistance-program/",
+          "url": "https://www.alabar.org/programs/alabama-lawyer-assistance-program/alap-foundation/",
           "phones": [],
           "services": ["financialAid", "substanceUse", "mentalHealth"],
-          "confidential": "Operates in support of the confidential ALAP program", "cost": "Charitable funding for those unable to afford treatment",
-          "description": "Nonprofit funding foundation affiliated with ALAP, managed by an elected board; supports lawyers who need help accessing treatment. Details corroborated from the ALAP page; no standalone page loaded.",
-          "confidence": "MEDIUM", "sourceUrl": "https://www.alabar.org/programs/alabama-lawyer-assistance-program/", "sourceTier": "corroborated", "verifiedOn": "2026-07-02"
+          "confidential": "Operates in support of the confidential ALAP program", "cost": "Revolving loan fund — loans paid to treatment providers, repaid once the lawyer recovers",
+          "description": "501(c)(3) revolving loan fund (distinct from the Alabama Law Foundation) that funds addiction/mental-health treatment for AL lawyers, judges, and law students who cannot pay; works alongside ALAP. Verified on its dedicated alabar.org page.",
+          "confidence": "HIGH", "sourceUrl": "https://www.alabar.org/programs/alabama-lawyer-assistance-program/alap-foundation/", "sourceTier": "primary-official", "verifiedOn": "2026-07-02"
         }
       ]
     },
@@ -246,8 +246,8 @@
           ],
           "services": ["peerSupport", "mentalHealth"],
           "confidential": "Confidential peer-to-peer program (disclosures held in an encrypted database)", "cost": "Free",
-          "description": "Confidential volunteer peer-support program of the State Bar of Georgia's Lawyer Assistance Committee, pairing a member with a fellow Bar member. The georgialhl.org site did not render for direct capture; corroborated from the gabar.org LAP page.",
-          "confidence": "MEDIUM", "sourceUrl": "https://www.gabar.org/programs/lawyer-wellbeing/mental-wellbeing/lawyer-assistance-program", "sourceTier": "corroborated", "verifiedOn": "2026-07-02"
+          "description": "Confidential volunteer peer-support program of the State Bar of Georgia's Lawyer Assistance Committee, pairing a member with a fellow Bar member via an online matching database. Verified on georgialhl.org.",
+          "confidence": "HIGH", "sourceUrl": "https://georgialhl.org/about-us/", "sourceTier": "primary-official", "verifiedOn": "2026-07-02"
         }
       ]
     },
