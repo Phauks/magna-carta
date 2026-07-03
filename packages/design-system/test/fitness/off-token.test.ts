@@ -203,7 +203,7 @@ const sweptFiles: string[] = SWEEP_ROOTS.flatMap(({ root, extensions }) =>
 describe("off-token sweep surface (vacuity guard)", () => {
   it("finds the files the gate exists to police", () => {
     // An empty or misrooted sweep would pass every assertion below vacuously.
-    expect(sweptFiles).toContain("apps/web/src/routes/(app)/+page.svelte");
+    expect(sweptFiles).toContain("apps/web/src/lib/components/app-shell.svelte");
     expect(sweptFiles).toContain("apps/web/src/app.css");
     expect(sweptFiles).toContain("packages/design-system/src/lib/internal/floating.ts");
     expect(sweptFiles).toContain("packages/design-system/src/lib/styles/components.css");

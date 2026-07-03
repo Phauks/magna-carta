@@ -47,6 +47,7 @@
     "./internal/floating": "./src/lib/internal/floating.ts",
     "./internal/merge-classes": "./src/lib/internal/merge-classes.ts",
     "./internal/motion-preference": "./src/lib/internal/motion-preference.ts",
+    "./internal/platform": "./src/lib/internal/platform.ts",
     "./internal/signature-motion": "./src/lib/internal/signature-motion.ts",
     "./internal/theme-preference": "./src/lib/internal/theme-preference.ts",
     "./internal/types": "./src/lib/internal/types.ts",

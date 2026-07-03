@@ -10,9 +10,18 @@
   import * as Dialog from "@magna-carta/design-system/dialog";
   import { shippedDestinations } from "$lib/navigation/destinations.ts";
 
-  let { open = $bindable(false) }: { open?: boolean } = $props();
+  let {
+    open = $bindable(false),
+    sidebarCollapsed = false,
+  }: { open?: boolean; sidebarCollapsed?: boolean } = $props();
 
   const destinations = shippedDestinations();
+
+  // The dialog recipe centers via `inset: 0; margin: auto`; starting the inset past the rail
+  // centers the palette over the WORK CANVAS, not the screen (owner review 2026-07-02).
+  const insetStart = $derived(
+    sidebarCollapsed ? "var(--mc-size-sidebar-rail)" : "var(--mc-size-sidebar)",
+  );
 
   function navigateTo(href: string): void {
     open = false;
@@ -21,7 +30,11 @@
 </script>
 
 <Dialog.Root bind:open>
-  <Dialog.Content showClose={false} class="overflow-hidden p-0">
+  <Dialog.Content
+    showClose={false}
+    class="overflow-hidden p-0"
+    style={`inset-inline-start: ${insetStart}`}
+  >
     <Dialog.Title class="sr-only">Command menu</Dialog.Title>
     <Command.Root label="Command menu" class="border-0 bg-transparent">
       <Command.Input placeholder="Search or jump to anything…" />

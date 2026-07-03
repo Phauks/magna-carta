@@ -38,11 +38,11 @@
     display: flex;
     align-items: center;
     gap: var(--mc-space-8);
-    /* Pinned to the control-lg row height so the brand corner lines up with the app-shell top bar.
+    /* Pinned to size.top-bar so the brand corner and the TopBar read as ONE chrome band.
        NO bottom hairline (owner-directed 2026-07-02): the brand corner transitions smoothly into
        the nav below and the top bar beside it — the chrome is one unbroken ink surface. The brand
        mark aligns with the nav icons below via padding-inline (content 8 + button 8 = 16). */
-    min-block-size: var(--mc-control-lg);
+    min-block-size: var(--mc-size-top-bar);
     padding-inline: var(--mc-space-16);
     padding-block: var(--mc-space-8);
     color: var(--mc-chrome-text-strong);

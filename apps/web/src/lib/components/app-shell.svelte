@@ -14,6 +14,10 @@
   import * as Sidebar from "@magna-carta/design-system/sidebar";
   import * as Tooltip from "@magna-carta/design-system/tooltip";
   import * as TopBar from "@magna-carta/design-system/top-bar";
+  import {
+    isPaletteChord,
+    paletteShortcutLabel,
+  } from "@magna-carta/design-system/internal/platform";
   import Settings from "@lucide/svelte/icons/settings";
   import CommandPalette from "$lib/components/command-palette.svelte";
   import {
@@ -34,15 +38,12 @@
     destinations: destinations.filter((destination) => destination.group === group.id),
   })).filter((group) => group.destinations.length > 0);
 
-  // The palette chord, shown honestly per platform (the trigger's keycap).
-  const isApplePlatform =
-    typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
-  const paletteShortcut = isApplePlatform ? "⌘K" : "Ctrl K";
+  // The palette chord, detected from the OS (never hardcoded) — one shared module answers the
+  // Apple-vs-everyone question for the keycap label AND the listener, so they cannot disagree.
+  const paletteShortcut = paletteShortcutLabel();
 
   function onKeydown(event: KeyboardEvent): void {
-    if (event.key.toLowerCase() !== "k" || !(isApplePlatform ? event.metaKey : event.ctrlKey)) {
-      return;
-    }
+    if (!isPaletteChord(event)) return;
     const target = event.target as HTMLElement | null;
     if (target?.closest("input, textarea, [contenteditable='true']")) return;
     event.preventDefault();
@@ -127,4 +128,4 @@
   </div>
 </Tooltip.Provider>
 
-<CommandPalette bind:open={paletteOpen} />
+<CommandPalette bind:open={paletteOpen} sidebarCollapsed={collapsed} />

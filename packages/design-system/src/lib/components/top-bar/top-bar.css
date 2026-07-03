@@ -11,7 +11,10 @@
     display: flex;
     align-items: center;
     gap: var(--mc-space-12);
-    min-block-size: var(--mc-control-lg);
+    /* size.top-bar (56px), not a control row: the chrome band needs presence and the palette
+       trigger needs air above and below (owner review 2026-07-02). The sidebar brand corner pins
+       to the same token so the two read as one band. */
+    min-block-size: var(--mc-size-top-bar);
     padding-inline: var(--mc-space-16);
     background-color: var(--mc-chrome-surface);
     color: var(--mc-chrome-text);
@@ -48,15 +51,13 @@
   .mc-top-bar-search-label {
     flex: auto;
   }
-  /* The quiet chrome keycap — muted warm text + a hairline on the ink, NOT the light-ground
-     Keyboard keycap (which renders white and shouts on the dark register). */
-  .mc-top-bar-keycap {
-    padding-inline: var(--mc-space-4);
-    border: var(--mc-border-width-default) solid var(--mc-chrome-border);
-    border-radius: var(--mc-radius-sm);
+  /* The Keyboard component, re-registered for the ink: the light-ground keycap would shout on
+     the dark chrome, so the chrome context re-points its surface/border/text to the chrome
+     tokens — one component, register-aware (owner review 2026-07-02: reuse the keycap we made). */
+  .mc-top-bar .mc-keyboard {
+    border-color: var(--mc-chrome-border);
+    background-color: var(--mc-chrome-surface);
     color: var(--mc-chrome-text-muted);
-    font-family: var(--mc-font-sans);
-    font-size: var(--mc-font-size-xs);
   }
   /* Trailing region: +New, the timer/alerts seams, user/firm. Pushed to the inline end. */
   .mc-top-bar-actions {

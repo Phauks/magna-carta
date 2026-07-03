@@ -143,6 +143,8 @@
   --mc-size-prose: 480px;
   --mc-size-sidebar: 256px;
   --mc-size-sidebar-rail: 52px;
+  /* The chrome band's row height — the TopBar AND the sidebar's brand corner (their edges meet as one band). Taller than a control row: the chrome needs presence and the palette trigger needs air (owner review 2026-07-02). Density-invariant: the frame is layout identity. */
+  --mc-size-top-bar: 56px;
   --mc-space-0: 0px;
   --mc-space-4: 4px;
   --mc-space-8: 8px;
@@ -381,6 +383,8 @@
   --mc-size-prose: 480px;
   --mc-size-sidebar: 256px;
   --mc-size-sidebar-rail: 52px;
+  /* The chrome band's row height — the TopBar AND the sidebar's brand corner (their edges meet as one band). Taller than a control row: the chrome needs presence and the palette trigger needs air (owner review 2026-07-02). Density-invariant: the frame is layout identity. */
+  --mc-size-top-bar: 56px;
   --mc-space-0: 0px;
   --mc-space-4: 4px;
   --mc-space-8: 8px;
@@ -619,6 +623,8 @@
   --mc-size-prose: 480px;
   --mc-size-sidebar: 256px;
   --mc-size-sidebar-rail: 52px;
+  /* The chrome band's row height — the TopBar AND the sidebar's brand corner (their edges meet as one band). Taller than a control row: the chrome needs presence and the palette trigger needs air (owner review 2026-07-02). Density-invariant: the frame is layout identity. */
+  --mc-size-top-bar: 56px;
   --mc-space-0: 0px;
   --mc-space-4: 4px;
   --mc-space-8: 8px;
@@ -857,6 +863,8 @@
   --mc-size-prose: 480px;
   --mc-size-sidebar: 256px;
   --mc-size-sidebar-rail: 52px;
+  /* The chrome band's row height — the TopBar AND the sidebar's brand corner (their edges meet as one band). Taller than a control row: the chrome needs presence and the palette trigger needs air (owner review 2026-07-02). Density-invariant: the frame is layout identity. */
+  --mc-size-top-bar: 56px;
   --mc-space-0: 0px;
   --mc-space-4: 4px;
   --mc-space-8: 8px;
@@ -1095,6 +1103,8 @@
   --mc-size-prose: 480px;
   --mc-size-sidebar: 256px;
   --mc-size-sidebar-rail: 52px;
+  /* The chrome band's row height — the TopBar AND the sidebar's brand corner (their edges meet as one band). Taller than a control row: the chrome needs presence and the palette trigger needs air (owner review 2026-07-02). Density-invariant: the frame is layout identity. */
+  --mc-size-top-bar: 56px;
   --mc-space-0: 0px;
   --mc-space-4: 4px;
   --mc-space-8: 8px;
@@ -1333,6 +1343,8 @@
   --mc-size-prose: 480px;
   --mc-size-sidebar: 256px;
   --mc-size-sidebar-rail: 52px;
+  /* The chrome band's row height — the TopBar AND the sidebar's brand corner (their edges meet as one band). Taller than a control row: the chrome needs presence and the palette trigger needs air (owner review 2026-07-02). Density-invariant: the frame is layout identity. */
+  --mc-size-top-bar: 56px;
   --mc-space-0: 0px;
   --mc-space-4: 4px;
   --mc-space-8: 8px;
@@ -1571,6 +1583,8 @@
   --mc-size-prose: 480px;
   --mc-size-sidebar: 256px;
   --mc-size-sidebar-rail: 52px;
+  /* The chrome band's row height — the TopBar AND the sidebar's brand corner (their edges meet as one band). Taller than a control row: the chrome needs presence and the palette trigger needs air (owner review 2026-07-02). Density-invariant: the frame is layout identity. */
+  --mc-size-top-bar: 56px;
   --mc-space-0: 0px;
   --mc-space-4: 4px;
   --mc-space-8: 8px;
@@ -1809,6 +1823,8 @@
   --mc-size-prose: 480px;
   --mc-size-sidebar: 256px;
   --mc-size-sidebar-rail: 52px;
+  /* The chrome band's row height — the TopBar AND the sidebar's brand corner (their edges meet as one band). Taller than a control row: the chrome needs presence and the palette trigger needs air (owner review 2026-07-02). Density-invariant: the frame is layout identity. */
+  --mc-size-top-bar: 56px;
   --mc-space-0: 0px;
   --mc-space-4: 4px;
   --mc-space-8: 8px;
@@ -2047,6 +2063,8 @@
   --mc-size-prose: 480px;
   --mc-size-sidebar: 256px;
   --mc-size-sidebar-rail: 52px;
+  /* The chrome band's row height — the TopBar AND the sidebar's brand corner (their edges meet as one band). Taller than a control row: the chrome needs presence and the palette trigger needs air (owner review 2026-07-02). Density-invariant: the frame is layout identity. */
+  --mc-size-top-bar: 56px;
   --mc-space-0: 0px;
   --mc-space-4: 4px;
   --mc-space-8: 8px;
@@ -2285,6 +2303,8 @@
   --mc-size-prose: 480px;
   --mc-size-sidebar: 256px;
   --mc-size-sidebar-rail: 52px;
+  /* The chrome band's row height — the TopBar AND the sidebar's brand corner (their edges meet as one band). Taller than a control row: the chrome needs presence and the palette trigger needs air (owner review 2026-07-02). Density-invariant: the frame is layout identity. */
+  --mc-size-top-bar: 56px;
   --mc-space-0: 0px;
   --mc-space-4: 4px;
   --mc-space-8: 8px;
@@ -2523,6 +2543,8 @@
   --mc-size-prose: 480px;
   --mc-size-sidebar: 256px;
   --mc-size-sidebar-rail: 52px;
+  /* The chrome band's row height — the TopBar AND the sidebar's brand corner (their edges meet as one band). Taller than a control row: the chrome needs presence and the palette trigger needs air (owner review 2026-07-02). Density-invariant: the frame is layout identity. */
+  --mc-size-top-bar: 56px;
   --mc-space-0: 0px;
   --mc-space-4: 4px;
   --mc-space-8: 8px;
@@ -2761,6 +2783,8 @@
   --mc-size-prose: 480px;
   --mc-size-sidebar: 256px;
   --mc-size-sidebar-rail: 52px;
+  /* The chrome band's row height — the TopBar AND the sidebar's brand corner (their edges meet as one band). Taller than a control row: the chrome needs presence and the palette trigger needs air (owner review 2026-07-02). Density-invariant: the frame is layout identity. */
+  --mc-size-top-bar: 56px;
   --mc-space-0: 0px;
   --mc-space-4: 4px;
   --mc-space-8: 8px;

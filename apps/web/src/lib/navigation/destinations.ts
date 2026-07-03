@@ -52,7 +52,7 @@ export const DESTINATION_GROUPS: ReadonlyArray<{ id: DestinationGroup; label: st
 
 export const DESTINATIONS: readonly Destination[] = [
   // Top
-  { id: "home", label: "Home", href: "/", icon: House, group: "top", shipped: true },
+  { id: "home", label: "Home", href: "/home", icon: House, group: "top", shipped: true },
   {
     id: "matters",
     label: "Matters",
@@ -166,6 +166,5 @@ export function shippedDestinations(): readonly Destination[] {
 
 /** True when `pathname` lives under the destination (drives aria-current / the gilt bar). */
 export function isCurrentDestination(destination: Destination, pathname: string): boolean {
-  if (destination.href === "/") return pathname === "/";
   return pathname === destination.href || pathname.startsWith(`${destination.href}/`);
 }
