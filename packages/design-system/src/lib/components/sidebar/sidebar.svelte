@@ -24,19 +24,28 @@
   // Collapse runs through a View Transition so the rail↔canvas resize is composited (no per-frame
   // reflow, no sub-pixel seam tearing); it falls back to an instant change under reduced motion or
   // where the API is unavailable. See internal/view-transition.ts and the sidebar.css note.
+  // The direction marker lets animations.css stack the snapshots per direction: collapsing keeps
+  // the OLD wide rail on top (labels stay whole until the seam sweeps past them); expanding keeps
+  // the default new-on-top (labels arrive with the widening surface).
   setSidebarContext({
     get collapsed() {
       return collapsed;
     },
     toggle() {
-      runViewTransition(() => {
-        collapsed = !collapsed;
-      });
+      runViewTransition(
+        () => {
+          collapsed = !collapsed;
+        },
+        collapsed ? "sidebar-expand" : "sidebar-collapse",
+      );
     },
     setCollapsed(value) {
-      runViewTransition(() => {
-        collapsed = value;
-      });
+      runViewTransition(
+        () => {
+          collapsed = value;
+        },
+        value ? "sidebar-collapse" : "sidebar-expand",
+      );
     },
   });
 </script>

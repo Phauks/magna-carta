@@ -1,0 +1,1075 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Matter workspace — Pemberton v. Hale</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:ital,wght@0,200..800;1,200..800&family=Fraunces:ital,opsz,wght@0,9..144,100..900;1,9..144,100..900&family=UnifrakturMaguntia&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --chrome: #191813;
+        --chrome-raised: #23221b;
+        --chrome-hair: rgba(255, 255, 255, 0.08);
+        --chrome-text: #e9e7df;
+        --chrome-muted: #97937f;
+
+        --paper: #faf9f5;
+        --card: #ffffff;
+        --sunken: #f2f0ea;
+        --text: #22211c;
+        --muted: #5d5a50;
+        --subtle: #8b877a;
+
+        --gold: #c7a857;
+        --gold-bright: #e2c476;
+        --gold-deep: #8a7434;
+        --gold-wash: #fbf6e9;
+
+        --hair: rgba(35, 33, 26, 0.13);
+        --hair-strong: rgba(35, 33, 26, 0.26);
+
+        --open-fg: #3d6b4f;
+        --open-bg: #eaf2ec;
+        --pending-fg: #8a6a2f;
+        --pending-bg: #f7efdc;
+        --danger-fg: #8f3d33;
+        --danger-bg: #f7e7e3;
+
+        --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+      }
+      * {
+        margin: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        font-family: "Atkinson Hyperlegible Next", system-ui, sans-serif;
+        font-size: 14px;
+        color: var(--text);
+        background: var(--paper);
+        display: grid;
+        grid-template-columns: 232px 1fr;
+        grid-template-rows: 56px 1fr;
+        grid-template-areas: "side top" "side main";
+      }
+      button {
+        font: inherit;
+        color: inherit;
+        background: none;
+        border: 0;
+        cursor: pointer;
+      }
+      button:focus-visible,
+      a:focus-visible {
+        outline: 2px solid var(--gold-deep);
+        outline-offset: 1px;
+      }
+      .caps {
+        font-size: 11px;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        font-weight: 600;
+      }
+      .fig {
+        font-variant-numeric: tabular-nums;
+      }
+
+      /* ————— chrome (A register) ————— */
+      .side {
+        grid-area: side;
+        background: var(--chrome);
+        color: var(--chrome-text);
+        display: flex;
+        flex-direction: column;
+        position: relative;
+      }
+      .side::after,
+      .top::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        opacity: 0.05;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        height: 56px;
+        padding: 0 16px;
+      }
+      .brand .m {
+        font-family: "UnifrakturMaguntia";
+        font-size: 26px;
+        line-height: 1;
+        color: var(--gold-bright);
+        transform: translateY(-1px);
+      }
+      .brand .word {
+        font-size: 12.5px;
+        letter-spacing: 0.18em;
+        font-weight: 600;
+      }
+      nav.primary {
+        padding: 10px 8px;
+        flex: 1;
+        overflow-y: auto;
+        position: relative;
+      }
+      .navsec {
+        color: var(--chrome-muted);
+        padding: 16px 10px 6px;
+      }
+      .navitem {
+        display: grid;
+        grid-template-columns: 18px 1fr auto;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        padding: 7px 10px;
+        border-radius: 3px;
+        text-align: left;
+        color: var(--chrome-text);
+        position: relative;
+        transition: background-color 120ms var(--ease-out);
+      }
+      .navitem:hover {
+        background: var(--chrome-raised);
+      }
+      .navitem svg {
+        width: 16px;
+        height: 16px;
+        stroke: currentColor;
+        stroke-width: 1.75;
+        fill: none;
+        opacity: 0.85;
+      }
+      .navitem .count {
+        color: var(--chrome-muted);
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+      }
+      .navitem[aria-current] {
+        background: var(--chrome-raised);
+        color: var(--gold-bright);
+        font-weight: 600;
+      }
+      .navitem[aria-current]::before {
+        content: "";
+        position: absolute;
+        left: -8px;
+        top: 6px;
+        bottom: 6px;
+        width: 2px;
+        background: var(--gold);
+      }
+      .side .foot {
+        border-top: 1px solid var(--chrome-hair);
+        padding: 10px 8px;
+        position: relative;
+      }
+      .top {
+        grid-area: top;
+        background: var(--chrome);
+        color: var(--chrome-text);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 0 16px;
+        border-bottom: 1px solid var(--chrome-hair);
+        position: relative;
+      }
+      .search {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 380px;
+        height: 32px;
+        background: var(--chrome-raised);
+        border: 1px solid var(--chrome-hair);
+        border-radius: 3px;
+        padding: 0 10px;
+        color: var(--chrome-muted);
+        text-align: left;
+      }
+      .search svg {
+        width: 14px;
+        height: 14px;
+        stroke: currentColor;
+        stroke-width: 2;
+        fill: none;
+      }
+      .search .k {
+        margin-left: auto;
+        font-size: 10.5px;
+        padding: 2px 6px;
+        border: 1px solid var(--chrome-hair);
+        border-radius: 3px;
+      }
+      .top .right {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .btn-new {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        height: 32px;
+        padding: 0 14px;
+        background: var(--gold);
+        color: #1c1a12;
+        border-radius: 3px;
+        font-weight: 700;
+      }
+      .btn-new:hover {
+        background: var(--gold-bright);
+      }
+      .timer {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: 32px;
+        padding: 0 12px;
+        border: 1px solid rgba(226, 196, 118, 0.5);
+        border-radius: 3px;
+        background: var(--chrome-raised);
+        font-size: 13px;
+      }
+      .timer .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #6fae83;
+      }
+      .timer .t {
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+      }
+      .timer .on {
+        color: var(--chrome-muted);
+      }
+      .iconbtn {
+        display: grid;
+        place-items: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 3px;
+        color: var(--chrome-muted);
+      }
+      .iconbtn:hover {
+        color: var(--chrome-text);
+        background: var(--chrome-raised);
+      }
+      .iconbtn svg {
+        width: 17px;
+        height: 17px;
+        stroke: currentColor;
+        stroke-width: 1.75;
+        fill: none;
+      }
+      .avatar {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background: var(--chrome-raised);
+        border: 1px solid var(--chrome-hair);
+        color: var(--gold-bright);
+        font-size: 11.5px;
+        font-weight: 700;
+      }
+
+      /* ————— matter masthead — the ceremonial edge of this screen ————— */
+      .main {
+        grid-area: main;
+        overflow-y: auto;
+      }
+      .masthead {
+        padding: 26px 32px 0;
+        border-bottom: 1px solid var(--hair-strong);
+        background: var(--paper);
+      }
+      .crumb {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--subtle);
+        font-size: 12.5px;
+        margin-bottom: 12px;
+      }
+      .crumb a {
+        color: var(--subtle);
+        text-decoration: none;
+      }
+      .crumb a:hover {
+        color: var(--gold-deep);
+      }
+      .mast-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 18px;
+      }
+      .mast-title h1 {
+        font-family: "Fraunces", Georgia, serif;
+        font-weight: 460;
+        font-optical-sizing: auto;
+        font-size: 32px;
+        letter-spacing: -0.018em;
+        line-height: 1.1;
+      }
+      .mast-title .cite {
+        margin-top: 6px;
+        color: var(--muted);
+        font-size: 13.5px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .mast-title .cite .no {
+        font-variant-numeric: tabular-nums;
+      }
+      .mast-title .cite .sep {
+        color: var(--hair-strong);
+      }
+      .pill {
+        display: inline-block;
+        padding: 2.5px 9px;
+        border-radius: 999px;
+        font-size: 11px;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        font-weight: 600;
+      }
+      .pill.open {
+        color: var(--open-fg);
+        background: var(--open-bg);
+      }
+      .mast-actions {
+        margin-left: auto;
+        display: flex;
+        gap: 8px;
+        padding-top: 4px;
+      }
+      .btn {
+        height: 32px;
+        padding: 0 13px;
+        border-radius: 3px;
+        border: 1px solid var(--hair-strong);
+        background: var(--card);
+        font-weight: 600;
+        font-size: 13.5px;
+        transition: border-color 120ms var(--ease-out);
+      }
+      .btn:hover {
+        border-color: var(--text);
+      }
+      .btn.dark {
+        background: var(--text);
+        border-color: var(--text);
+        color: var(--paper);
+      }
+      .btn.dark:hover {
+        background: #000;
+      }
+
+      .tabs {
+        display: flex;
+        gap: 2px;
+        margin-top: 18px;
+      }
+      .tab {
+        padding: 9px 13px 11px;
+        color: var(--muted);
+        font-size: 13.5px;
+        font-weight: 600;
+        position: relative;
+        transition: color 120ms var(--ease-out);
+      }
+      .tab:hover {
+        color: var(--text);
+      }
+      .tab[aria-current] {
+        color: var(--text);
+      }
+      .tab[aria-current]::after {
+        content: "";
+        position: absolute;
+        left: 10px;
+        right: 10px;
+        bottom: -1px;
+        height: 2px;
+        background: var(--gold);
+        animation: drawX 180ms var(--ease-out);
+        transform-origin: center;
+      }
+      @keyframes drawX {
+        from {
+          transform: scaleX(0);
+        }
+        to {
+          transform: scaleX(1);
+        }
+      }
+      .tab .n {
+        color: var(--subtle);
+        font-size: 11.5px;
+        margin-left: 5px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      /* ————— overview canvas ————— */
+      .content {
+        display: grid;
+        grid-template-columns: 1fr 300px;
+        gap: 20px;
+        padding: 22px 32px 60px;
+        align-items: start;
+      }
+      .panel {
+        background: var(--card);
+        border: 1px solid var(--hair);
+        border-radius: 3px;
+      }
+      .panel + .panel {
+        margin-top: 20px;
+      }
+      .panel .ph {
+        display: flex;
+        align-items: baseline;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--hair);
+      }
+      .panel .ph .t {
+        color: var(--subtle);
+      }
+      .panel .ph .more {
+        margin-left: auto;
+        font-size: 12.5px;
+        color: var(--muted);
+        text-decoration: none;
+      }
+      .panel .ph .more:hover {
+        color: var(--gold-deep);
+      }
+
+      /* key facts — a ruled fact table, not a card grid */
+      .facts {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+      }
+      .fact {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 11px 16px;
+        border-bottom: 1px solid var(--hair);
+      }
+      .fact:nth-last-child(-n + 2) {
+        border-bottom: 0;
+      }
+      .fact:nth-child(odd) {
+        border-right: 1px solid var(--hair);
+      }
+      .fact .k {
+        color: var(--subtle);
+        font-size: 12.5px;
+      }
+      .fact .v {
+        font-weight: 600;
+        text-align: right;
+      }
+      .fact .v.n {
+        font-variant-numeric: tabular-nums;
+      }
+      .fact .v a {
+        color: var(--text);
+        text-decoration: none;
+        border-bottom: 1px solid var(--hair-strong);
+      }
+      .fact .v a:hover {
+        color: var(--gold-deep);
+        border-color: var(--gold-deep);
+      }
+
+      /* activity — a docket, not a feed */
+      .docket {
+        list-style: none;
+      }
+      .entry {
+        display: grid;
+        grid-template-columns: 84px 20px 1fr auto;
+        gap: 0 10px;
+        padding: 11px 16px;
+        border-bottom: 1px solid var(--hair);
+        align-items: baseline;
+      }
+      .entry:last-child {
+        border-bottom: 0;
+      }
+      .entry .when {
+        color: var(--subtle);
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+      .entry .glyph {
+        position: relative;
+        top: 2px;
+      }
+      .entry .glyph svg {
+        width: 14px;
+        height: 14px;
+        stroke: var(--subtle);
+        stroke-width: 1.75;
+        fill: none;
+      }
+      .entry .what b {
+        font-weight: 600;
+      }
+      .entry .what .by {
+        color: var(--subtle);
+        font-size: 12.5px;
+      }
+      .entry .amt {
+        font-variant-numeric: tabular-nums;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      /* ————— right rail: the ledger ————— */
+      .rail .panel {
+        margin: 0 0 20px;
+      }
+      .ledger {
+        padding: 6px 0;
+      }
+      .lrow {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        padding: 8px 16px;
+      }
+      .lrow .k {
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .lrow .v {
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+      }
+      .lrow .v .cents {
+        color: var(--subtle);
+        font-weight: 400;
+      }
+      .lrow.total {
+        margin-top: 4px;
+        padding-top: 10px;
+        border-top: 1px solid var(--hair-strong);
+      }
+      .lrow.total .k {
+        color: var(--subtle);
+      }
+      .lrow.total .v {
+        font-weight: 700;
+        font-size: 15px;
+        border-bottom: 3px double var(--hair-strong);
+        padding-bottom: 2px;
+      }
+      .lnote {
+        padding: 8px 16px 12px;
+        color: var(--subtle);
+        font-size: 12px;
+        border-top: 1px solid var(--hair);
+      }
+      .lnote b {
+        color: var(--pending-fg);
+        font-weight: 600;
+      }
+
+      .duelist {
+        list-style: none;
+      }
+      .due {
+        display: grid;
+        grid-template-columns: 44px 1fr;
+        gap: 12px;
+        padding: 10px 16px;
+        border-bottom: 1px solid var(--hair);
+        align-items: start;
+      }
+      .due:last-child {
+        border-bottom: 0;
+      }
+      .due .cal {
+        text-align: center;
+        border: 1px solid var(--hair-strong);
+        border-radius: 3px;
+        overflow: hidden;
+      }
+      .due .cal .mo {
+        display: block;
+        font-size: 9px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        font-weight: 700;
+        padding: 2px 0;
+        background: var(--sunken);
+        color: var(--muted);
+        border-bottom: 1px solid var(--hair);
+      }
+      .due .cal .d {
+        display: block;
+        font-size: 16px;
+        font-weight: 700;
+        padding: 2px 0 3px;
+        font-variant-numeric: tabular-nums;
+      }
+      .due.urgent .cal {
+        border-color: var(--pending-fg);
+      }
+      .due.urgent .cal .mo {
+        background: var(--pending-bg);
+        color: var(--pending-fg);
+        border-color: var(--pending-bg);
+      }
+      .due .t {
+        display: block;
+        font-weight: 600;
+        padding-top: 1px;
+      }
+      .due .s {
+        display: block;
+        color: var(--subtle);
+        font-size: 12.5px;
+        margin-top: 2px;
+      }
+
+      .people {
+        list-style: none;
+        padding: 6px 0;
+      }
+      .person {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 7px 16px;
+      }
+      .person .a {
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background: var(--sunken);
+        border: 1px solid var(--hair);
+        font-size: 10px;
+        font-weight: 700;
+        color: var(--muted);
+        flex: none;
+      }
+      .person .who b {
+        display: block;
+        font-weight: 600;
+        font-size: 13.5px;
+      }
+      .person .who span {
+        color: var(--subtle);
+        font-size: 12px;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          animation: none !important;
+          transition: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <aside class="side">
+      <div class="brand"><span class="m">M</span><span class="word">MAGNA CARTA</span></div>
+      <nav class="primary" aria-label="Primary">
+        <button class="navitem">
+          <svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5M5 9.5V21h14V9.5" /></svg>Home
+        </button>
+        <button class="navitem" aria-current="page">
+          <svg viewBox="0 0 24 24"><path d="M3 7h6l2 2h10v11H3zM3 7V5h6l2 2" /></svg>Matters<span
+            class="count"
+            >42</span
+          >
+        </button>
+        <button class="navitem">
+          <svg viewBox="0 0 24 24">
+            <rect x="3" y="5" width="18" height="16" rx="1" />
+            <path d="M3 10h18M8 3v4M16 3v4" /></svg
+          >Calendar
+        </button>
+        <button class="navitem">
+          <svg viewBox="0 0 24 24">
+            <circle cx="9" cy="8" r="3.5" />
+            <path
+              d="M3 20c0-3.5 2.5-5.5 6-5.5s6 2 6 5.5M16 4.5a3.5 3.5 0 0 1 0 7M18 14.8c2 .7 3 2.3 3 5.2"
+            /></svg
+          >Contacts
+        </button>
+        <button class="navitem">
+          <svg viewBox="0 0 24 24">
+            <rect x="4" y="4" width="16" height="16" rx="1" />
+            <path d="m8.5 12.5 2.5 2.5 5-5.5" /></svg
+          >Tasks<span class="count">7</span>
+        </button>
+        <div class="navsec caps">Money</div>
+        <button class="navitem">
+          <svg viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="8.5" />
+            <path d="M12 7.5V12l3 2" /></svg
+          >Time
+        </button>
+        <button class="navitem">
+          <svg viewBox="0 0 24 24">
+            <path
+              d="M12 4v3m0 0c-4 0-6 1.5-6 3.5S8.5 14 12 14s6 1.5 6 3.5S16 21 12 21m0-14c2.5 0 4.5.7 5.5 2M12 21c-2.5 0-4.5-.7-5.5-2m5.5 2v-3"
+            /></svg
+          >Trust
+        </button>
+        <button class="navitem">
+          <svg viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6" /></svg
+          >Billing
+        </button>
+        <div class="navsec caps">Firm</div>
+        <button class="navitem">
+          <svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6zM15 3v4h4" /></svg>Documents
+        </button>
+        <button class="navitem">
+          <svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-8M21 20H3" /></svg>Reports
+        </button>
+      </nav>
+      <div class="foot">
+        <button class="navitem">
+          <svg viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="8.5" />
+            <path d="M12 16v-4M12 8.5v.01" /></svg
+          >Resource center
+        </button>
+        <button class="navitem">
+          <svg viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="3" />
+            <path
+              d="M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.4-2.3 1a7 7 0 0 0-2-1.2L14.2 3h-4l-.4 2.7a7 7 0 0 0-2 1.2l-2.3-1-2 3.4 2 1.5A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.3-1a7 7 0 0 0 2 1.2l.4 2.7h4l.4-2.7a7 7 0 0 0 2-1.2l2.3 1 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"
+            /></svg
+          >Settings
+        </button>
+      </div>
+    </aside>
+
+    <header class="top">
+      <button class="search">
+        <svg viewBox="0 0 24 24">
+          <circle cx="11" cy="11" r="6.5" />
+          <path d="m20 20-4.4-4.4" />
+        </svg>
+        Search or jump to anything
+        <span class="k">Ctrl K</span>
+      </button>
+      <div class="right">
+        <button class="btn-new">+ New</button>
+        <button class="timer" title="Timer running on this matter">
+          <span class="dot"></span><span class="t">0:42:18</span
+          ><span class="on">· this matter</span>
+        </button>
+        <button class="iconbtn" aria-label="Notifications">
+          <svg viewBox="0 0 24 24">
+            <path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6M10.5 20a2 2 0 0 0 3 0" />
+          </svg>
+        </button>
+        <button class="avatar" aria-label="Account — Trevor Goldsmith">TG</button>
+      </div>
+    </header>
+
+    <main class="main">
+      <div class="masthead">
+        <div class="crumb">
+          <a href="/direction-a">Matters</a> <span>/</span> <span>Pemberton v. Hale</span>
+        </div>
+        <div class="mast-row">
+          <div class="mast-title">
+            <h1>Pemberton v. Hale</h1>
+            <div class="cite">
+              <span class="no">2026-0114</span><span class="sep">·</span> <span>Litigation</span
+              ><span class="sep">·</span> <span>Pemberton, J.</span><span class="sep">·</span>
+              <span>A. Reyes responsible</span>
+              <span class="pill open">Open</span>
+            </div>
+          </div>
+          <div class="mast-actions">
+            <button class="btn">Add time</button>
+            <button class="btn">Upload</button>
+            <button class="btn dark">New…</button>
+            <button class="btn" aria-label="More actions">…</button>
+          </div>
+        </div>
+        <nav class="tabs" aria-label="Matter sections">
+          <button class="tab" aria-current="page">Overview</button>
+          <button class="tab">Documents<span class="n">24</span></button>
+          <button class="tab">Time &amp; fees</button>
+          <button class="tab">Trust</button>
+          <button class="tab">Calendar<span class="n">3</span></button>
+          <button class="tab">Emails<span class="n">12</span></button>
+          <button class="tab">Notes<span class="n">8</span></button>
+          <button class="tab">Parties<span class="n">5</span></button>
+        </nav>
+      </div>
+
+      <div class="content">
+        <section>
+          <div class="panel">
+            <div class="ph">
+              <span class="t caps">Key facts</span><a class="more" href="#">Edit</a>
+            </div>
+            <div class="facts">
+              <div class="fact"><span class="k">Status</span><span class="v">Open</span></div>
+              <div class="fact">
+                <span class="k">Practice area</span><span class="v">Litigation</span>
+              </div>
+              <div class="fact">
+                <span class="k">Client</span><span class="v"><a href="#">Pemberton, J.</a></span>
+              </div>
+              <div class="fact">
+                <span class="k">Responsible</span><span class="v"><a href="#">A. Reyes</a></span>
+              </div>
+              <div class="fact">
+                <span class="k">Opened</span><span class="v n">Jun 2, 2026</span>
+              </div>
+              <div class="fact">
+                <span class="k">Court</span><span class="v">8th District, Clark County</span>
+              </div>
+              <div class="fact">
+                <span class="k">Opposing counsel</span
+                ><span class="v"><a href="#">Hale &amp; Marsh LLP</a></span>
+              </div>
+              <div class="fact">
+                <span class="k">Statute of limitations</span><span class="v n">Mar 14, 2027</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="ph">
+              <span class="t caps">Recent activity</span><a class="more" href="#">Full history</a>
+            </div>
+            <ol class="docket">
+              <li class="entry">
+                <span class="when">Today 2:14p</span>
+                <span class="glyph"
+                  ><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6zM15 3v4h4" /></svg
+                ></span>
+                <span class="what"
+                  ><b>Reply brief — draft 3.docx</b> uploaded
+                  <span class="by">· A. Reyes</span></span
+                >
+                <span class="amt"></span>
+              </li>
+              <li class="entry">
+                <span class="when">Today 11:02a</span>
+                <span class="glyph"
+                  ><svg viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="8.5" />
+                    <path d="M12 7.5V12l3 2" /></svg
+                ></span>
+                <span class="what"
+                  ><b>2.6h</b> — deposition preparation <span class="by">· A. Reyes</span></span
+                >
+                <span class="amt">$910.00</span>
+              </li>
+              <li class="entry">
+                <span class="when">Yesterday</span>
+                <span class="glyph"
+                  ><svg viewBox="0 0 24 24">
+                    <path
+                      d="M12 4v3m0 0c-4 0-6 1.5-6 3.5S8.5 14 12 14s6 1.5 6 3.5S16 21 12 21m0-14c2.5 0 4.5.7 5.5 2M12 21c-2.5 0-4.5-.7-5.5-2m5.5 2v-3"
+                    /></svg
+                ></span>
+                <span class="what"
+                  ><b>Trust disbursement</b> — court reporter, Veritext
+                  <span class="by">· approved M. Okafor</span></span
+                >
+                <span class="amt">−$620.00</span>
+              </li>
+              <li class="entry">
+                <span class="when">Jun 27</span>
+                <span class="glyph"
+                  ><svg viewBox="0 0 24 24"><path d="M4 6h16v12H4zM4 7l8 6 8-6" /></svg
+                ></span>
+                <span class="what"
+                  ><b>Email</b> — settlement posture, opposing counsel
+                  <span class="by">· filed to matter</span></span
+                >
+                <span class="amt"></span>
+              </li>
+              <li class="entry">
+                <span class="when">Jun 26</span>
+                <span class="glyph"
+                  ><svg viewBox="0 0 24 24">
+                    <rect x="4" y="4" width="16" height="16" rx="1" />
+                    <path d="m8.5 12.5 2.5 2.5 5-5.5" /></svg
+                ></span>
+                <span class="what"
+                  ><b>Task completed</b> — confirm abatement figure with bookkeeping
+                  <span class="by">· T. Goldsmith</span></span
+                >
+                <span class="amt"></span>
+              </li>
+            </ol>
+          </div>
+        </section>
+
+        <aside class="rail">
+          <div class="panel">
+            <div class="ph">
+              <span class="t caps">Financials</span><a class="more" href="#">Trust ledger</a>
+            </div>
+            <div class="ledger">
+              <div class="lrow">
+                <span class="k">Trust held</span
+                ><span class="v">$12,400<span class="cents">.00</span></span>
+              </div>
+              <div class="lrow">
+                <span class="k">Unbilled work</span
+                ><span class="v">$3,850<span class="cents">.00</span></span>
+              </div>
+              <div class="lrow">
+                <span class="k">WIP this month</span><span class="v">14.2h</span>
+              </div>
+              <div class="lrow">
+                <span class="k">Outstanding invoices</span
+                ><span class="v">$0<span class="cents">.00</span></span>
+              </div>
+              <div class="lrow total">
+                <span class="k caps">Client balance</span><span class="v">$12,400.00</span>
+              </div>
+            </div>
+            <div class="lnote">
+              Retainer floor $5,000.00 — <b>replenish at $6,200</b> per engagement letter.
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="ph">
+              <span class="t caps">Deadlines</span><a class="more" href="#">Calendar</a>
+            </div>
+            <ol class="duelist">
+              <li class="due urgent">
+                <span class="cal"><span class="mo">Jun</span><span class="d">18</span></span>
+                <span
+                  ><span class="t">Reply brief due</span
+                  ><span class="s">8th District — filing deadline</span></span
+                >
+              </li>
+              <li class="due">
+                <span class="cal"><span class="mo">Jun</span><span class="d">24</span></span>
+                <span
+                  ><span class="t">Deposition — R. Hale</span
+                  ><span class="s">9:30a · Veritext, downtown</span></span
+                >
+              </li>
+              <li class="due">
+                <span class="cal"><span class="mo">Jul</span><span class="d">02</span></span>
+                <span
+                  ><span class="t">Discovery cutoff</span
+                  ><span class="s">stipulated schedule</span></span
+                >
+              </li>
+            </ol>
+          </div>
+
+          <div class="panel">
+            <div class="ph">
+              <span class="t caps">Parties</span><a class="more" href="#">All 5</a>
+            </div>
+            <ul class="people">
+              <li class="person">
+                <span class="a">JP</span
+                ><span class="who"><b>Pemberton, J.</b><span>Client · plaintiff</span></span>
+              </li>
+              <li class="person">
+                <span class="a">RH</span
+                ><span class="who"><b>Hale, R.</b><span>Defendant</span></span>
+              </li>
+              <li class="person">
+                <span class="a">HM</span
+                ><span class="who"><b>Hale &amp; Marsh LLP</b><span>Opposing counsel</span></span>
+              </li>
+            </ul>
+          </div>
+        </aside>
+      </div>
+    </main>
+
+    <nav class="lab-switch" aria-label="Design lab switcher">
+      <a href="/">Lab</a><a href="/direction-a">A</a><a href="/direction-b">B</a
+      ><a href="/direction-c">C</a><a href="/home">Home</a
+      ><a href="/matter" aria-current="page">Matter</a>
+    </nav>
+    <style>
+      .lab-switch {
+        position: fixed;
+        right: 14px;
+        bottom: 48px;
+        z-index: 99;
+        display: flex;
+        gap: 2px;
+        padding: 4px;
+        border-radius: 999px;
+        background: #191813;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        box-shadow: 0 4px 16px rgba(20, 18, 10, 0.35);
+      }
+      .lab-switch a {
+        display: grid;
+        place-items: center;
+        min-width: 30px;
+        height: 30px;
+        padding: 0 10px;
+        border-radius: 999px;
+        color: #97937f;
+        text-decoration: none;
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .lab-switch a:hover {
+        color: #e9e7df;
+      }
+      .lab-switch a[aria-current] {
+        background: #23221b;
+        color: #e2c476;
+      }
+    </style>
+    <script>
+      document.addEventListener("keydown", (e) => {
+        if (e.target.tagName === "INPUT") return;
+        const map = {
+          0: "/",
+          1: "/direction-a",
+          2: "/direction-b",
+          3: "/direction-c",
+          4: "/home",
+          5: "/matter",
+        };
+        if (map[e.key]) location.href = map[e.key];
+      });
+    </script>
+  </body>
+</html>

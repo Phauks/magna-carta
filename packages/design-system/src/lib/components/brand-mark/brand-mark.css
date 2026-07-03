@@ -25,9 +25,10 @@
     letter-spacing: var(--mc-tracking-wordmark);
     text-transform: uppercase;
     color: var(--mc-chrome-text-strong);
-    transition-property: color;
-    transition-duration: var(--mc-duration-normal);
-    transition-timing-function: var(--mc-easing-standard);
+    /* The rail flip to transparent is INSTANT, like the nav labels: a colour transition here kept
+       fading after the sidebar view-transition finished, so the wordmark faded in while every
+       other label was revealed by the slide (owner review 2026-07-02). The snapshots carry the
+       reveal; nothing in the live DOM animates it a second time. */
   }
   .mc-sidebar[data-state="collapsed"] .mc-brand-mark-word {
     color: transparent;

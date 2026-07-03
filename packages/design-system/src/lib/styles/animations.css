@@ -66,6 +66,21 @@
   object-position: left top;
   animation: none;
 }
+/*
+ * Snapshot stacking is DIRECTIONAL. By default the new snapshot sits on top — right for
+ * expanding (the wide, labelled rail rides in with the widening surface), wrong for collapsing:
+ * the new 52px rail is a solid ink column pinned at the inline start, and it sat ON the old
+ * labels' first letters for the whole slide (owner review 2026-07-02: "the leftmost letter of
+ * every item is covered by the theme color"). While collapsing, the OLD wide snapshot goes on
+ * top instead: labels stay whole and the sweeping seam clips them; the icons beneath are at the
+ * identical position in both snapshots, so nothing visibly swaps. The direction comes from the
+ * data-mc-view-transition marker runViewTransition stamps on <html> (see the sidebar component).
+ * NO combinator before the pseudo-element: every view-transition pseudo originates on the root
+ * element itself, so a descendant selector (`:root[...] ::view-transition-old`) never matches.
+ */
+:root[data-mc-view-transition="sidebar-collapse"]::view-transition-old(mc-sidebar) {
+  z-index: 1;
+}
 
 @keyframes mc-sheet-in-right {
   from {

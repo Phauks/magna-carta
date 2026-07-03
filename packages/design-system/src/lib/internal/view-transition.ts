@@ -17,19 +17,40 @@
 import { prefersReducedMotion } from "./motion-preference.ts";
 
 /** The subset of the View Transitions API we depend on (not yet in every TS DOM lib). */
-type StartViewTransition = (callback: () => void | Promise<void>) => unknown;
+type StartViewTransition = (callback: () => void | Promise<void>) => {
+  finished: Promise<unknown>;
+};
 
 /**
  * Apply `update` (a reactive-state mutation) inside a View Transition when supported and motion is
  * allowed; otherwise apply it synchronously. The mutation is deferred to the transition's capture
  * step when animating, so callers should not rely on the change having taken effect synchronously.
+ *
+ * `marker` (optional) names the transition on <html> as `data-mc-view-transition` for its
+ * lifetime, so CSS can style the transition pseudo-elements PER DIRECTION — a width collapse and
+ * a width expand need opposite snapshot stacking (see the sidebar rules in styles/animations.css),
+ * and the pseudo-elements themselves carry no state to select on. Cleared when the transition
+ * finishes; a marker is only removed by the transition that set it, so back-to-back transitions
+ * (rapid toggling) cannot strip each other's marker.
  */
-export function runViewTransition(update: () => void): void {
+export function runViewTransition(update: () => void, marker?: string): void {
   const start = (document as Document & { startViewTransition?: StartViewTransition })
     .startViewTransition;
   if (typeof start !== "function" || prefersReducedMotion()) {
     update();
     return;
   }
-  start.call(document, update);
+  const root = document.documentElement;
+  if (marker !== undefined) {
+    root.dataset.mcViewTransition = marker;
+  }
+  const transition = start.call(document, update);
+  if (marker !== undefined) {
+    const clear = (): void => {
+      if (root.dataset.mcViewTransition === marker) {
+        delete root.dataset.mcViewTransition;
+      }
+    };
+    transition.finished.then(clear, clear);
+  }
 }

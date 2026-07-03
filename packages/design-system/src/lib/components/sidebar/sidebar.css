@@ -153,11 +153,10 @@
     padding-inline-start: var(--mc-space-8);
     color: inherit;
     text-overflow: ellipsis;
-    /* Colour follows the button on hover/active; the collapse (padding/colour to 0/transparent) is
-       instant and composited by the sidebar view-transition. */
-    transition-property: color;
-    transition-duration: var(--mc-duration-normal);
-    transition-timing-function: var(--mc-easing-standard);
+    /* NO transition of its own: hover/active colour rides the BUTTON's transition through
+       `inherit`, and the collapse flip to transparent must be INSTANT — a live colour transition
+       here would still be mid-fade when the view transition captures its snapshots, so the label
+       would fade a second time after the slide instead of being revealed by it. */
   }
   /* Collapsed icon rail: the label column goes to 0 (its width AND its leading padding to zero so it
      leaves the row) and its text fades. The icon does NOT recentre — it stays exactly where it is (the

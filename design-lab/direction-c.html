@@ -1,0 +1,878 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Direction C — Counsel's Terminal</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:ital,wght@0,200..800;1,200..800&family=UnifrakturMaguntia&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --chrome: #191813;
+        --chrome-raised: #23221b;
+        --chrome-hair: rgba(255, 255, 255, 0.08);
+        --chrome-text: #e9e7df;
+        --chrome-muted: #97937f;
+
+        --paper: #f7f6f1;
+        --card: #fdfcf9;
+        --sunken: #efede6;
+        --text: #22211c;
+        --muted: #5d5a50;
+        --subtle: #8b877a;
+
+        --gold: #c7a857;
+        --gold-bright: #e2c476;
+        --gold-deep: #8a7434;
+        --gold-wash: #fbf6e9;
+
+        --hair: rgba(35, 33, 26, 0.12);
+        --hair-strong: rgba(35, 33, 26, 0.32);
+
+        --open: #3d6b4f;
+        --pending: #8a6a2f;
+        --prospect: #8b877a;
+
+        --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+      }
+      * {
+        margin: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        font-family: "Atkinson Hyperlegible Next", system-ui, sans-serif;
+        font-size: 13px;
+        color: var(--text);
+        background: var(--paper);
+        display: grid;
+        grid-template-columns: 232px 1fr;
+        grid-template-rows: 56px 1fr;
+        grid-template-areas: "side top" "side main";
+      }
+      button {
+        font: inherit;
+        color: inherit;
+        background: none;
+        border: 0;
+        cursor: pointer;
+      }
+      button:focus-visible,
+      input:focus-visible {
+        outline: 2px solid var(--gold-deep);
+        outline-offset: 1px;
+      }
+      .caps {
+        font-size: 10.5px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        font-weight: 700;
+      }
+      .fig {
+        font-variant-numeric: tabular-nums;
+      }
+
+      /* ————— chrome (shared) ————— */
+      .side {
+        grid-area: side;
+        background: var(--chrome);
+        color: var(--chrome-text);
+        display: flex;
+        flex-direction: column;
+        position: relative;
+      }
+      .side::after,
+      .top::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        opacity: 0.05;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        height: 56px;
+        padding: 0 16px;
+      }
+      .brand .m {
+        font-family: "UnifrakturMaguntia";
+        font-size: 26px;
+        line-height: 1;
+        color: var(--gold-bright);
+        transform: translateY(-1px);
+      }
+      .brand .word {
+        font-size: 12.5px;
+        letter-spacing: 0.18em;
+        font-weight: 600;
+      }
+      nav {
+        padding: 10px 8px;
+        flex: 1;
+        overflow-y: auto;
+        position: relative;
+      }
+      .navsec {
+        color: var(--chrome-muted);
+        padding: 16px 10px 6px;
+      }
+      .navitem {
+        display: grid;
+        grid-template-columns: 18px 1fr auto;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        padding: 7px 10px;
+        border-radius: 3px;
+        text-align: left;
+        color: var(--chrome-text);
+        position: relative;
+        transition: background-color 120ms var(--ease-out);
+        font-size: 14px;
+      }
+      .navitem:hover {
+        background: var(--chrome-raised);
+      }
+      .navitem svg {
+        width: 16px;
+        height: 16px;
+        stroke: currentColor;
+        stroke-width: 1.75;
+        fill: none;
+        opacity: 0.85;
+      }
+      .navitem .count {
+        color: var(--chrome-muted);
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+      }
+      .navitem[aria-current] {
+        background: var(--chrome-raised);
+        color: var(--gold-bright);
+        font-weight: 600;
+      }
+      .navitem[aria-current]::before {
+        content: "";
+        position: absolute;
+        left: -8px;
+        top: 6px;
+        bottom: 6px;
+        width: 2px;
+        background: var(--gold);
+      }
+      .side .foot {
+        border-top: 1px solid var(--chrome-hair);
+        padding: 10px 8px;
+        position: relative;
+      }
+      .top {
+        grid-area: top;
+        background: var(--chrome);
+        color: var(--chrome-text);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 0 16px;
+        border-bottom: 1px solid var(--chrome-hair);
+        position: relative;
+      }
+      .search {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 380px;
+        height: 32px;
+        background: var(--chrome-raised);
+        border: 1px solid var(--chrome-hair);
+        border-radius: 3px;
+        padding: 0 10px;
+        color: var(--chrome-muted);
+        text-align: left;
+        font-size: 13px;
+      }
+      .search svg {
+        width: 14px;
+        height: 14px;
+        stroke: currentColor;
+        stroke-width: 2;
+        fill: none;
+      }
+      .search .k {
+        margin-left: auto;
+        font-size: 10.5px;
+        padding: 2px 6px;
+        border: 1px solid var(--chrome-hair);
+        border-radius: 3px;
+      }
+      .top .right {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .btn-new {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        height: 32px;
+        padding: 0 14px;
+        background: var(--gold);
+        color: #1c1a12;
+        border-radius: 3px;
+        font-weight: 700;
+      }
+      .btn-new:hover {
+        background: var(--gold-bright);
+      }
+      .timer {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: 32px;
+        padding: 0 12px;
+        border: 1px solid var(--chrome-hair);
+        border-radius: 3px;
+        background: var(--chrome-raised);
+      }
+      .timer .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #6fae83;
+      }
+      .timer .t {
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+      }
+      .timer .on {
+        color: var(--chrome-muted);
+      }
+      .iconbtn {
+        display: grid;
+        place-items: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 3px;
+        color: var(--chrome-muted);
+      }
+      .iconbtn:hover {
+        color: var(--chrome-text);
+        background: var(--chrome-raised);
+      }
+      .iconbtn svg {
+        width: 17px;
+        height: 17px;
+        stroke: currentColor;
+        stroke-width: 1.75;
+        fill: none;
+      }
+      .avatar {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background: var(--chrome-raised);
+        border: 1px solid var(--chrome-hair);
+        color: var(--gold-bright);
+        font-size: 11.5px;
+        font-weight: 700;
+      }
+
+      /* ————— the terminal canvas ————— */
+      .main {
+        grid-area: main;
+        overflow-y: auto;
+        padding: 18px 22px 60px;
+        display: flex;
+        flex-direction: column;
+      }
+      .pagehead {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+      .pagehead h1 {
+        font-size: 16px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+      }
+      .pagehead .meta {
+        color: var(--subtle);
+        font-variant-numeric: tabular-nums;
+      }
+      .pagehead .right {
+        margin-left: auto;
+        display: flex;
+        gap: 6px;
+      }
+      .tbtn {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        height: 28px;
+        padding: 0 10px;
+        background: var(--card);
+        border: 1px solid var(--hair-strong);
+        border-radius: 3px;
+        font-size: 12.5px;
+        font-weight: 600;
+        transition: border-color 120ms var(--ease-out);
+      }
+      .tbtn:hover {
+        border-color: var(--text);
+      }
+      .tbtn.primary {
+        background: var(--text);
+        border-color: var(--text);
+        color: var(--paper);
+      }
+      .tbtn svg {
+        width: 13px;
+        height: 13px;
+        stroke: currentColor;
+        stroke-width: 2;
+        fill: none;
+      }
+
+      .strip {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 10px;
+      }
+      .fchip {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        height: 26px;
+        padding: 0 9px;
+        border: 1px solid var(--hair-strong);
+        border-radius: 2px;
+        background: var(--card);
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .fchip b {
+        color: var(--text);
+        font-weight: 600;
+      }
+      .fchip.add {
+        border-style: dashed;
+        color: var(--subtle);
+      }
+      .strip .n {
+        margin-left: auto;
+        color: var(--subtle);
+        font-variant-numeric: tabular-nums;
+        font-size: 12px;
+      }
+
+      /* carved grid */
+      .grid {
+        border: 1px solid var(--hair-strong);
+        background: var(--card);
+        border-radius: 2px;
+        flex: none;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      thead th {
+        text-align: left;
+        padding: 7px 12px;
+        background: var(--sunken);
+        color: var(--text);
+        border-bottom: 1px solid var(--hair-strong);
+        white-space: nowrap;
+        border-right: 1px solid var(--hair);
+      }
+      thead th:last-child {
+        border-right: 0;
+      }
+      thead th.num {
+        text-align: right;
+      }
+      tbody td {
+        padding: 6px 12px;
+        border-bottom: 1px solid var(--hair);
+        border-right: 1px solid var(--hair);
+        white-space: nowrap;
+        vertical-align: middle;
+        height: 34px;
+      }
+      tbody td:last-child {
+        border-right: 0;
+      }
+      tbody tr:last-child td {
+        border-bottom: 0;
+      }
+      tbody tr {
+        cursor: pointer;
+      }
+      tbody tr:hover {
+        background: var(--paper);
+      }
+
+      td.ix {
+        width: 34px;
+        text-align: right;
+        color: var(--subtle);
+        font-variant-numeric: tabular-nums;
+        font-size: 11.5px;
+        padding-right: 8px;
+      }
+      .name b {
+        font-weight: 700;
+      }
+      .name .no {
+        color: var(--subtle);
+        font-variant-numeric: tabular-nums;
+        margin-left: 8px;
+        font-size: 12px;
+      }
+      td.dim {
+        color: var(--muted);
+      }
+      .st {
+        font-size: 10.5px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        font-weight: 700;
+      }
+      .st.open {
+        color: var(--open);
+      }
+      .st.pending {
+        color: var(--pending);
+      }
+      .st.prospect {
+        color: var(--prospect);
+      }
+      td.num {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      td.num .cents {
+        color: var(--subtle);
+      }
+      td.num.zero {
+        color: var(--subtle);
+      }
+      td.due.soon {
+        color: var(--pending);
+        font-weight: 700;
+      }
+
+      /* the cursor — gold is spent here and nowhere else on the canvas */
+      tr.cursor {
+        background: var(--gold-wash) !important;
+      }
+      tr.cursor td.ix {
+        color: var(--gold-deep);
+        font-weight: 700;
+      }
+      tr.cursor td:first-child {
+        box-shadow: inset 2px 0 0 var(--gold);
+      }
+      tr[data-checked] td.ix::before {
+        content: "•";
+        color: var(--gold-deep);
+        margin-right: 3px;
+      }
+
+      tfoot td {
+        padding: 7px 12px;
+        border-top: 1px solid var(--hair-strong);
+        background: var(--sunken);
+        color: var(--muted);
+        font-size: 12px;
+      }
+      tfoot td.num {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+        font-weight: 700;
+        color: var(--text);
+      }
+      tfoot td.num .u {
+        border-bottom: 3px double var(--hair-strong);
+        padding-bottom: 1px;
+      }
+
+      /* keyboard hint rail */
+      .keys {
+        position: fixed;
+        bottom: 0;
+        left: 232px;
+        right: 0;
+        height: 34px;
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        padding: 0 22px;
+        background: var(--paper);
+        border-top: 1px solid var(--hair);
+        color: var(--subtle);
+        font-size: 12px;
+      }
+      .keys .pair {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .keys kbd {
+        font-family: inherit;
+        font-size: 10.5px;
+        padding: 1.5px 5.5px;
+        border: 1px solid var(--hair-strong);
+        border-bottom-width: 2px;
+        border-radius: 3px;
+        background: var(--card);
+        color: var(--muted);
+      }
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          animation: none !important;
+          transition: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <aside class="side">
+      <div class="brand"><span class="m">M</span><span class="word">MAGNA CARTA</span></div>
+      <nav aria-label="Primary">
+        <button class="navitem">
+          <svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5M5 9.5V21h14V9.5" /></svg>Home
+        </button>
+        <button class="navitem" aria-current="page">
+          <svg viewBox="0 0 24 24"><path d="M3 7h6l2 2h10v11H3zM3 7V5h6l2 2" /></svg>Matters<span
+            class="count"
+            >42</span
+          >
+        </button>
+        <button class="navitem">
+          <svg viewBox="0 0 24 24">
+            <rect x="3" y="5" width="18" height="16" rx="1" />
+            <path d="M3 10h18M8 3v4M16 3v4" /></svg
+          >Calendar
+        </button>
+        <button class="navitem">
+          <svg viewBox="0 0 24 24">
+            <circle cx="9" cy="8" r="3.5" />
+            <path
+              d="M3 20c0-3.5 2.5-5.5 6-5.5s6 2 6 5.5M16 4.5a3.5 3.5 0 0 1 0 7M18 14.8c2 .7 3 2.3 3 5.2"
+            /></svg
+          >Contacts
+        </button>
+        <button class="navitem">
+          <svg viewBox="0 0 24 24">
+            <rect x="4" y="4" width="16" height="16" rx="1" />
+            <path d="m8.5 12.5 2.5 2.5 5-5.5" /></svg
+          >Tasks<span class="count">7</span>
+        </button>
+        <div class="navsec caps">Money</div>
+        <button class="navitem">
+          <svg viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="8.5" />
+            <path d="M12 7.5V12l3 2" /></svg
+          >Time
+        </button>
+        <button class="navitem">
+          <svg viewBox="0 0 24 24">
+            <path
+              d="M12 4v3m0 0c-4 0-6 1.5-6 3.5S8.5 14 12 14s6 1.5 6 3.5S16 21 12 21m0-14c2.5 0 4.5.7 5.5 2M12 21c-2.5 0-4.5-.7-5.5-2m5.5 2v-3"
+            /></svg
+          >Trust
+        </button>
+        <button class="navitem">
+          <svg viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6" /></svg
+          >Billing
+        </button>
+        <div class="navsec caps">Firm</div>
+        <button class="navitem">
+          <svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6zM15 3v4h4" /></svg>Documents
+        </button>
+        <button class="navitem">
+          <svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-8M21 20H3" /></svg>Reports
+        </button>
+      </nav>
+      <div class="foot">
+        <button class="navitem">
+          <svg viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="8.5" />
+            <path d="M12 16v-4M12 8.5v.01" /></svg
+          >Resource center
+        </button>
+        <button class="navitem">
+          <svg viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="3" />
+            <path
+              d="M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.4-2.3 1a7 7 0 0 0-2-1.2L14.2 3h-4l-.4 2.7a7 7 0 0 0-2 1.2l-2.3-1-2 3.4 2 1.5A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.3-1a7 7 0 0 0 2 1.2l.4 2.7h4l.4-2.7a7 7 0 0 0 2-1.2l2.3 1 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"
+            /></svg
+          >Settings
+        </button>
+      </div>
+    </aside>
+
+    <header class="top">
+      <button class="search">
+        <svg viewBox="0 0 24 24">
+          <circle cx="11" cy="11" r="6.5" />
+          <path d="m20 20-4.4-4.4" />
+        </svg>
+        Search or jump to anything
+        <span class="k">Ctrl K</span>
+      </button>
+      <div class="right">
+        <button class="btn-new">+ New</button>
+        <button class="timer" title="Running timer — Pemberton v. Hale">
+          <span class="dot"></span><span class="t">0:42:18</span><span class="on">· Pemberton</span>
+        </button>
+        <button class="iconbtn" aria-label="Notifications">
+          <svg viewBox="0 0 24 24">
+            <path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6M10.5 20a2 2 0 0 0 3 0" />
+          </svg>
+        </button>
+        <button class="avatar" aria-label="Account — Trevor Goldsmith">TG</button>
+      </div>
+    </header>
+
+    <main class="main">
+      <div class="pagehead">
+        <h1>Matters</h1>
+        <span class="meta">8 open · 318 total</span>
+        <div class="right">
+          <button class="tbtn">
+            <svg viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v4h16v-4" /></svg>Export
+          </button>
+          <button class="tbtn">
+            <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16" /></svg>View
+          </button>
+          <button class="tbtn primary">New matter</button>
+        </div>
+      </div>
+
+      <div class="strip">
+        <span class="fchip"><b>Status</b> Open ✕</span>
+        <span class="fchip"><b>Sort</b> Next deadline ↑</span>
+        <button class="fchip add">+ Filter</button>
+        <span class="n">1–8 of 42</span>
+      </div>
+
+      <div class="grid">
+        <table id="docket">
+          <thead>
+            <tr>
+              <th class="caps" style="text-align: right">#</th>
+              <th class="caps">Matter</th>
+              <th class="caps">Client</th>
+              <th class="caps">Responsible</th>
+              <th class="caps">Status</th>
+              <th class="caps num">Trust</th>
+              <th class="caps num">WIP</th>
+              <th class="caps num">Unbilled</th>
+              <th class="caps num">Deadline</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="cursor">
+              <td class="ix">1</td>
+              <td class="name"><b>Pemberton v. Hale</b><span class="no">2026-0114</span></td>
+              <td class="dim">Pemberton, J.</td>
+              <td class="dim">A. Reyes</td>
+              <td><span class="st open">Open</span></td>
+              <td class="num">$12,400<span class="cents">.00</span></td>
+              <td class="num">14.2h</td>
+              <td class="num">$3,850<span class="cents">.00</span></td>
+              <td class="num due soon">Jun 18</td>
+            </tr>
+            <tr>
+              <td class="ix">2</td>
+              <td class="name"><b>State v. Boone</b><span class="no">2026-0108</span></td>
+              <td class="dim">Boone, T.</td>
+              <td class="dim">R. Tran</td>
+              <td><span class="st open">Open</span></td>
+              <td class="num">$7,500<span class="cents">.00</span></td>
+              <td class="num">6.0h</td>
+              <td class="num">$1,200<span class="cents">.00</span></td>
+              <td class="num due soon">Jun 16</td>
+            </tr>
+            <tr>
+              <td class="ix">3</td>
+              <td class="name"><b>Kline Divorce</b><span class="no">2026-0098</span></td>
+              <td class="dim">Kline, S.</td>
+              <td class="dim">R. Tran</td>
+              <td><span class="st open">Open</span></td>
+              <td class="num">$5,000<span class="cents">.00</span></td>
+              <td class="num">2.4h</td>
+              <td class="num">$640<span class="cents">.00</span></td>
+              <td class="num due">Jun 19</td>
+            </tr>
+            <tr>
+              <td class="ix">4</td>
+              <td class="name"><b>Estate of Calloway</b><span class="no">2026-0112</span></td>
+              <td class="dim">Calloway Family</td>
+              <td class="dim">M. Okafor</td>
+              <td><span class="st open">Open</span></td>
+              <td class="num">$3,000<span class="cents">.00</span></td>
+              <td class="num">4.1h</td>
+              <td class="num">$980<span class="cents">.00</span></td>
+              <td class="num due">Jun 22</td>
+            </tr>
+            <tr>
+              <td class="ix">5</td>
+              <td class="name"><b>Harbor Point Lease</b><span class="no">2026-0101</span></td>
+              <td class="dim">Harbor Point Inc.</td>
+              <td class="dim">M. Okafor</td>
+              <td><span class="st open">Open</span></td>
+              <td class="num">$2,250<span class="cents">.00</span></td>
+              <td class="num">1.2h</td>
+              <td class="num">$360<span class="cents">.00</span></td>
+              <td class="num due">Jun 30</td>
+            </tr>
+            <tr>
+              <td class="ix">6</td>
+              <td class="name"><b>Northwind Acquisition</b><span class="no">2026-0109</span></td>
+              <td class="dim">Northwind LLC</td>
+              <td class="dim">D. Singh</td>
+              <td><span class="st open">Open</span></td>
+              <td class="num">$45,000<span class="cents">.00</span></td>
+              <td class="num">22.7h</td>
+              <td class="num">$8,120<span class="cents">.00</span></td>
+              <td class="num due">Jul 1</td>
+            </tr>
+            <tr>
+              <td class="ix">7</td>
+              <td class="name"><b>Doyle v. Meridian Health</b><span class="no">2026-0104</span></td>
+              <td class="dim">Doyle, K.</td>
+              <td class="dim">D. Singh</td>
+              <td><span class="st open">Open</span></td>
+              <td class="num">$20,000<span class="cents">.00</span></td>
+              <td class="num">9.8h</td>
+              <td class="num">$2,400<span class="cents">.00</span></td>
+              <td class="num due">Aug 4</td>
+            </tr>
+            <tr>
+              <td class="ix">8</td>
+              <td class="name"><b>Vasquez Immigration</b><span class="no">intake</span></td>
+              <td class="dim">Vasquez, L.</td>
+              <td class="dim">A. Reyes</td>
+              <td><span class="st prospect">Prospective</span></td>
+              <td class="num zero">—</td>
+              <td class="num zero">—</td>
+              <td class="num zero">—</td>
+              <td class="num due">—</td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="5">8 shown</td>
+              <td class="num"><span class="u">$95,150.00</span></td>
+              <td class="num">60.4h</td>
+              <td class="num">$17,550.00</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <div class="keys" aria-hidden="true">
+        <span class="pair"><kbd>j</kbd><kbd>k</kbd> navigate</span>
+        <span class="pair"><kbd>x</kbd> select</span>
+        <span class="pair"><kbd>Enter</kbd> open</span>
+        <span class="pair"><kbd>t</kbd> start timer</span>
+        <span class="pair"><kbd>Ctrl</kbd><kbd>K</kbd> anything else</span>
+      </div>
+    </main>
+
+    <nav class="lab-switch" aria-label="Design lab switcher">
+      <a href="/">Lab</a><a href="/direction-a">A</a><a href="/direction-b">B</a
+      ><a href="/direction-c" aria-current="page">C</a><a href="/home">Home</a
+      ><a href="/matter">Matter</a>
+    </nav>
+    <style>
+      .lab-switch {
+        position: fixed;
+        right: 14px;
+        bottom: 48px;
+        z-index: 99;
+        display: flex;
+        gap: 2px;
+        padding: 4px;
+        border-radius: 999px;
+        background: #191813;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        box-shadow: 0 4px 16px rgba(20, 18, 10, 0.35);
+      }
+      .lab-switch a {
+        display: grid;
+        place-items: center;
+        min-width: 30px;
+        height: 30px;
+        padding: 0 10px;
+        border-radius: 999px;
+        color: #97937f;
+        text-decoration: none;
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .lab-switch a:hover {
+        color: #e9e7df;
+      }
+      .lab-switch a[aria-current] {
+        background: #23221b;
+        color: #e2c476;
+      }
+    </style>
+    <script>
+      document.addEventListener("keydown", (e) => {
+        if (e.target.tagName === "INPUT") return;
+        const map = {
+          0: "/",
+          1: "/direction-a",
+          2: "/direction-b",
+          3: "/direction-c",
+          4: "/home",
+          5: "/matter",
+        };
+        if (map[e.key]) location.href = map[e.key];
+      });
+    </script>
+    <script>
+      const rows = [...document.querySelectorAll("#docket tbody tr")];
+      let cur = 0;
+      function setCursor(i) {
+        rows[cur].classList.remove("cursor");
+        cur = Math.max(0, Math.min(rows.length - 1, i));
+        rows[cur].classList.add("cursor");
+        rows[cur].scrollIntoView({ block: "nearest" });
+      }
+      document.addEventListener("keydown", (e) => {
+        if (e.target.tagName === "INPUT") return;
+        if (e.key === "j" || e.key === "ArrowDown") {
+          e.preventDefault();
+          setCursor(cur + 1);
+        }
+        if (e.key === "k" || e.key === "ArrowUp") {
+          e.preventDefault();
+          setCursor(cur - 1);
+        }
+        if (e.key === "x") rows[cur].toggleAttribute("data-checked");
+      });
+      rows.forEach((r, i) => r.addEventListener("click", () => setCursor(i)));
+    </script>
+  </body>
+</html>
