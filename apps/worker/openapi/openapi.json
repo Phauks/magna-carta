@@ -434,6 +434,95 @@
           "decryptedBase64"
         ]
       },
+      "RecoveryStartResponse": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "type": "string"
+          },
+          "tier": {
+            "type": "string",
+            "enum": [
+              "cfCapable",
+              "gpuRequired"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "found",
+              "exhausted",
+              "needsGpu",
+              "cancelled"
+            ]
+          }
+        },
+        "required": [
+          "jobId",
+          "tier",
+          "status"
+        ]
+      },
+      "RecoveryStatusResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "found",
+              "exhausted",
+              "needsGpu",
+              "cancelled"
+            ]
+          },
+          "tier": {
+            "type": "string",
+            "enum": [
+              "cfCapable",
+              "gpuRequired"
+            ]
+          },
+          "progress": {
+            "type": "object",
+            "properties": {
+              "candidatesTried": {
+                "type": "integer"
+              },
+              "shardsDone": {
+                "type": "integer"
+              },
+              "shardCount": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "candidatesTried",
+              "shardsDone",
+              "shardCount"
+            ]
+          },
+          "result": {
+            "type": "object",
+            "properties": {
+              "password": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "password"
+            ]
+          }
+        },
+        "required": [
+          "status",
+          "tier",
+          "progress"
+        ]
+      },
       "FileIntegrityHashResponse": {
         "type": "object",
         "properties": {
@@ -6500,6 +6589,249 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but the member lacks tools:decryption",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/decryption/recover": {
+      "post": {
+        "description": "Starts an offline password-recovery job for an encrypted file (base64): extracts a hashcat-compatible hash and hands it to the recovery coordinator, which fans the search out across containers on the Cloudflare-CPU tier (or reports needsGpu for a slow key-derivation function outside that tier). Requires explicit attestation that the requester holds the file legitimately. The file is never stored; only the extracted hash reaches the coordinator.",
+        "operationId": "decryption.recoverStart",
+        "tags": [
+          "decryption"
+        ],
+        "x-mc-operationId": "decryption.recoverStart",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tools:decryption",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "expensive",
+        "x-mc-tags": [
+          "decryption"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "fileBase64": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "attestation": {
+                    "type": "object",
+                    "properties": {
+                      "authorized": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "authorized"
+                    ]
+                  }
+                },
+                "required": [
+                  "fileBase64",
+                  "attestation"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The started job's id, recovery tier, and initial status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecoveryStartResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Attestation not authorised, file is not encrypted, format is unsupported, or bytes are malformed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but the member lacks tools:decryption",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/decryption/recover/{jobId}": {
+      "get": {
+        "description": "Polls a password-recovery job's current state. On status found, the response carries result.password — surfaced once to the authorized requester who started the job. Every other status omits result.",
+        "operationId": "decryption.recoverStatus",
+        "tags": [
+          "decryption"
+        ],
+        "x-mc-operationId": "decryption.recoverStatus",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tools:decryption",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "decryption"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "jobId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The job's current status, tier, progress, and (when found) the password",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecoveryStatusResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but the member lacks tools:decryption",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "description": "Cancels a password-recovery job. A no-op if the job is already terminal (found, exhausted, needsGpu, or already cancelled) — cancel never overwrites an outcome already reached.",
+        "operationId": "decryption.recoverCancel",
+        "tags": [
+          "decryption"
+        ],
+        "x-mc-operationId": "decryption.recoverCancel",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tools:decryption",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "decryption"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "jobId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The job was cancelled (or was already terminal — a no-op either way)"
           },
           "401": {
             "description": "No valid session",

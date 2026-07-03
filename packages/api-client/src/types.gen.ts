@@ -116,6 +116,25 @@ export type DecryptionUnlockResponse = {
     filenameHint?: string;
 };
 
+export type RecoveryStartResponse = {
+    jobId: string;
+    tier: 'cfCapable' | 'gpuRequired';
+    status: 'queued' | 'running' | 'found' | 'exhausted' | 'needsGpu' | 'cancelled';
+};
+
+export type RecoveryStatusResponse = {
+    status: 'queued' | 'running' | 'found' | 'exhausted' | 'needsGpu' | 'cancelled';
+    tier: 'cfCapable' | 'gpuRequired';
+    progress: {
+        candidatesTried: number;
+        shardsDone: number;
+        shardCount: number;
+    };
+    result?: {
+        password: string;
+    };
+};
+
 export type FileIntegrityHashResponse = {
     algorithms: {
         md5: string;
@@ -1733,6 +1752,118 @@ export type DecryptionUnlockResponses = {
 };
 
 export type DecryptionUnlockResponse2 = DecryptionUnlockResponses[keyof DecryptionUnlockResponses];
+
+export type DecryptionRecoverStartData = {
+    body: {
+        fileBase64: string;
+        attestation: {
+            authorized: boolean;
+        };
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/decryption/recover';
+};
+
+export type DecryptionRecoverStartErrors = {
+    /**
+     * Attestation not authorised, file is not encrypted, format is unsupported, or bytes are malformed
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated but the member lacks tools:decryption
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DecryptionRecoverStartError = DecryptionRecoverStartErrors[keyof DecryptionRecoverStartErrors];
+
+export type DecryptionRecoverStartResponses = {
+    /**
+     * The started job's id, recovery tier, and initial status
+     */
+    200: RecoveryStartResponse;
+};
+
+export type DecryptionRecoverStartResponse = DecryptionRecoverStartResponses[keyof DecryptionRecoverStartResponses];
+
+export type DecryptionRecoverCancelData = {
+    body?: never;
+    path: {
+        jobId: string;
+    };
+    query?: never;
+    url: '/api/v1/decryption/recover/{jobId}';
+};
+
+export type DecryptionRecoverCancelErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated but the member lacks tools:decryption
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DecryptionRecoverCancelError = DecryptionRecoverCancelErrors[keyof DecryptionRecoverCancelErrors];
+
+export type DecryptionRecoverCancelResponses = {
+    /**
+     * The job was cancelled (or was already terminal — a no-op either way)
+     */
+    204: void;
+};
+
+export type DecryptionRecoverCancelResponse = DecryptionRecoverCancelResponses[keyof DecryptionRecoverCancelResponses];
+
+export type DecryptionRecoverStatusData = {
+    body?: never;
+    path: {
+        jobId: string;
+    };
+    query?: never;
+    url: '/api/v1/decryption/recover/{jobId}';
+};
+
+export type DecryptionRecoverStatusErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated but the member lacks tools:decryption
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DecryptionRecoverStatusError = DecryptionRecoverStatusErrors[keyof DecryptionRecoverStatusErrors];
+
+export type DecryptionRecoverStatusResponses = {
+    /**
+     * The job's current status, tier, progress, and (when found) the password
+     */
+    200: RecoveryStatusResponse;
+};
+
+export type DecryptionRecoverStatusResponse = DecryptionRecoverStatusResponses[keyof DecryptionRecoverStatusResponses];
 
 export type FileIntegrityHashData = {
     body?: never;
