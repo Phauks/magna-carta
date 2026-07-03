@@ -37,6 +37,7 @@ import { registerScanMatterRoute } from "./routes/scan-matter.ts";
 import { registerScanPolicyRoutes } from "./routes/scan-policy.ts";
 import { registerFirmsRoute } from "./routes/firms.ts";
 import { registerPlatformReleaseChannelRoute } from "./routes/platform-release-channel.ts";
+import { registerPlatformStatusRoute } from "./routes/platform-status.ts";
 import { registerFoldersRoutes } from "./routes/folders.ts";
 import { registerIncidentsRoute } from "./routes/incidents.ts";
 import { registerLocationsRoutes } from "./routes/locations.ts";
@@ -191,6 +192,11 @@ export type Bindings = {
   // before the Flagship provider is wired. The resolver (src/flags/flag-evaluator.ts) falls back to
   // defaultOffEvaluator when this is undefined, so every flag returns its stable default safely.
   FLAGS?: import("@magna-carta/feature-flags").FlagshipBinding;
+  // The platform-status KV namespace: holds the two writer-owned documents (status:derived from the
+  // cron probe/telemetry sweep, status:authored from the platform-operator event/override routes) that
+  // the published-status read path merges. A KV namespace (not D1) because the whole document is small,
+  // read far more than written, and needs no relational query — a single get/put per writer.
+  STATUS_KV: KVNamespace;
 };
 
 // One Better Auth instance per worker env: the env object is stable across requests within an
@@ -379,6 +385,7 @@ export function createApp(options: CreateAppOptions = {}) {
   registerReleaseChannelRoute(app, chokepoint, authForEnv);
   registerFirmsRoute(app, chokepoint, authForEnv);
   registerPlatformReleaseChannelRoute(app, chokepoint);
+  registerPlatformStatusRoute(app, chokepoint);
   registerIncidentsRoute(app, chokepoint);
   registerUploadsRoutes(app, chokepoint);
   // Slice 1·1: matters (shell + lifecycle), per-firm matter/document types, Locations, and the

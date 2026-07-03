@@ -208,6 +208,23 @@ export type PlatformSetReleaseChannelRequest = {
     channel: 'stable' | 'beta' | 'alpha';
 };
 
+export type ServiceEventResult = {
+    eventId: string;
+};
+
+export type DeclareServiceEvent = {
+    title: string;
+    impact: 'minor' | 'major' | 'critical' | 'maintenance';
+    affectedComponentIds: Array<string>;
+    body: string;
+};
+
+export type PostServiceEventUpdate = {
+    eventId: string;
+    lifecycle: 'investigating' | 'identified' | 'monitoring' | 'resolved';
+    body: string;
+};
+
 export type ReportIncidentResponse = {
     id: string;
     status: string;
@@ -2032,6 +2049,125 @@ export type PlatformSetFirmReleaseChannelResponses = {
 };
 
 export type PlatformSetFirmReleaseChannelResponse = PlatformSetFirmReleaseChannelResponses[keyof PlatformSetFirmReleaseChannelResponses];
+
+export type PlatformStatusDeclareEventData = {
+    body: DeclareServiceEvent;
+    path?: never;
+    query?: never;
+    url: '/api/v1/platform/status/events';
+};
+
+export type PlatformStatusDeclareEventErrors = {
+    /**
+     * Not signed in
+     */
+    401: Problem;
+    /**
+     * Not a platform operator, or 2FA not enabled
+     */
+    403: Problem;
+    /**
+     * Invalid body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type PlatformStatusDeclareEventError = PlatformStatusDeclareEventErrors[keyof PlatformStatusDeclareEventErrors];
+
+export type PlatformStatusDeclareEventResponses = {
+    /**
+     * The declared event id
+     */
+    201: ServiceEventResult;
+};
+
+export type PlatformStatusDeclareEventResponse = PlatformStatusDeclareEventResponses[keyof PlatformStatusDeclareEventResponses];
+
+export type PlatformStatusPostUpdateData = {
+    body: PostServiceEventUpdate;
+    path?: never;
+    query?: never;
+    url: '/api/v1/platform/status/events/updates';
+};
+
+export type PlatformStatusPostUpdateErrors = {
+    /**
+     * Not signed in
+     */
+    401: Problem;
+    /**
+     * Not a platform operator, or 2FA not enabled
+     */
+    403: Problem;
+    /**
+     * No such event
+     */
+    404: Problem;
+    /**
+     * Invalid body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type PlatformStatusPostUpdateError = PlatformStatusPostUpdateErrors[keyof PlatformStatusPostUpdateErrors];
+
+export type PlatformStatusPostUpdateResponses = {
+    /**
+     * The updated event id
+     */
+    200: ServiceEventResult;
+};
+
+export type PlatformStatusPostUpdateResponse = PlatformStatusPostUpdateResponses[keyof PlatformStatusPostUpdateResponses];
+
+export type PlatformStatusResolveEventData = {
+    body: PostServiceEventUpdate;
+    path?: never;
+    query?: never;
+    url: '/api/v1/platform/status/events/resolve';
+};
+
+export type PlatformStatusResolveEventErrors = {
+    /**
+     * Not signed in
+     */
+    401: Problem;
+    /**
+     * Not a platform operator, or 2FA not enabled
+     */
+    403: Problem;
+    /**
+     * No such event
+     */
+    404: Problem;
+    /**
+     * Invalid body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type PlatformStatusResolveEventError = PlatformStatusResolveEventErrors[keyof PlatformStatusResolveEventErrors];
+
+export type PlatformStatusResolveEventResponses = {
+    /**
+     * The resolved event id
+     */
+    200: ServiceEventResult;
+};
+
+export type PlatformStatusResolveEventResponse = PlatformStatusResolveEventResponses[keyof PlatformStatusResolveEventResponses];
 
 export type IncidentsReportData = {
     body: ReportIncidentRequest;
