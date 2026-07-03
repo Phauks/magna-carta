@@ -16,7 +16,20 @@ import type {
 // finishes fanning in closed — exhausted, never a fabricated password. Extends the single-flight
 // pattern of bundle-coordinator.ts / conversion-coordinator.ts with the one thing neither precedent
 // needs: a shard loop on enqueue and a counter aggregation on report.
-const STUCK_DEADLINE_MS = 10 * 60 * 1000;
+// The stuck-job deadline is a "time since last progress" watchdog, not a fixed guillotine: it is
+// armed at start and RE-ARMED on every reported shard, so an actively-progressing job is never cut
+// off mid-flight. It MUST exceed a single shard's full turnaround — recovery-backend.ts caps one
+// shard's container request at RECOVERY_REQUEST_TIMEOUT_MS (11 min) — plus queue delivery and retry
+// headroom, or the watchdog could fire while a shard is still legitimately searching and discard a
+// real `found`. 20 min clears the 11 min per-shard budget with room for delivery/retry.
+const STUCK_DEADLINE_MS = 20 * 60 * 1000;
+
+// How long a recovered password is retained after `found` before the coordinator purges it. Long
+// enough for the authorized requester to poll and retrieve it once, short enough that the most
+// sensitive material in the subsystem does not sit in DO storage indefinitely ("surfaced once,
+// never persisted long-term"). After purge the job stays `found` but the status route stops
+// returning result.password.
+const PASSWORD_RETENTION_MS = 60 * 60 * 1000;
 
 const UNKNOWN: RecoveryJobState = {
   status: "exhausted",
@@ -24,6 +37,9 @@ const UNKNOWN: RecoveryJobState = {
   progress: { candidatesTried: 0, shardsDone: 0, shardCount: 0 },
   password: null,
   error: "unknown job",
+  // No starter — an unknown job matches no user, so the status route's ownership check 404s it
+  // exactly as it would a job owned by someone else (never distinguishing the two).
+  startedByUserId: "",
 };
 
 function isTerminal(status: RecoveryJobState["status"]): boolean {
@@ -45,6 +61,7 @@ export class RecoveryJobCoordinator extends DurableObject<Bindings> implements R
         progress: { candidatesTried: 0, shardsDone: 0, shardCount: 0 },
         password: null,
         error: null,
+        startedByUserId: input.startedByUserId,
       };
       await this.ctx.storage.put("state", state);
       return state;
@@ -56,6 +73,7 @@ export class RecoveryJobCoordinator extends DurableObject<Bindings> implements R
       progress: { candidatesTried: 0, shardsDone: 0, shardCount: input.shardCount },
       password: null,
       error: null,
+      startedByUserId: input.startedByUserId,
     };
     await this.ctx.storage.put("state", state);
     await this.ctx.storage.setAlarm(Date.now() + STUCK_DEADLINE_MS);
@@ -102,7 +120,9 @@ export class RecoveryJobCoordinator extends DurableObject<Bindings> implements R
         password: outcome.found,
         error: null,
       });
-      await this.ctx.storage.deleteAlarm();
+      // Repurpose the alarm from stuck-watchdog to password-purge: the recovered password is held
+      // only for the retention window, then alarm() nulls it (surfaced once, not persisted).
+      await this.ctx.storage.setAlarm(Date.now() + PASSWORD_RETENTION_MS);
       return;
     }
 
@@ -114,7 +134,10 @@ export class RecoveryJobCoordinator extends DurableObject<Bindings> implements R
       return;
     }
 
+    // A shard reported a miss and the job is still running — re-arm the stuck watchdog so its
+    // deadline measures time since THIS progress, never a fixed clock from job start.
     await this.ctx.storage.put("state", { ...state, status: "running", progress });
+    await this.ctx.storage.setAlarm(Date.now() + STUCK_DEADLINE_MS);
   }
 
   async cancel(): Promise<void> {
@@ -130,15 +153,24 @@ export class RecoveryJobCoordinator extends DurableObject<Bindings> implements R
 
   override async alarm(): Promise<void> {
     const state = await this.ctx.storage.get<RecoveryJobState>("state");
-    // A stuck fan-out (a shard container that never reports) fails closed: exhausted, never a
-    // fabricated password. A terminal job (found/exhausted/needsGpu/cancelled) already has its
-    // answer, so a zombie alarm firing late must not clobber it.
-    if (state !== undefined && (state.status === "queued" || state.status === "running")) {
+    if (state === undefined) return;
+
+    // While the job is in flight the alarm is the stuck-fan-out watchdog: a shard container that
+    // never reports fails the job closed — exhausted, never a fabricated password.
+    if (state.status === "queued" || state.status === "running") {
       await this.ctx.storage.put("state", {
         ...state,
         status: "exhausted",
         error: "recovery timed out",
       });
+      return;
+    }
+
+    // After `found` the alarm is the password-purge timer: null the recovered password once the
+    // retention window elapses (surfaced once, never persisted long-term). The job stays `found`;
+    // the status route simply stops returning result.password from here on.
+    if (state.status === "found" && state.password !== null) {
+      await this.ctx.storage.put("state", { ...state, password: null });
     }
   }
 }

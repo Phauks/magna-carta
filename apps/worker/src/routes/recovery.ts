@@ -167,8 +167,9 @@ const recoverStatusRoute = defineOpenAPIRoute(recoverStatusMeta, {
   path: "/api/v1/decryption/recover/{jobId}",
   description:
     "Polls a password-recovery job's current state. On status found, the response carries " +
-    "result.password — surfaced once to the authorized requester who started the job. Every other " +
-    "status omits result.",
+    "result.password — surfaced once to the user who started the job (retrieval is bound to that " +
+    "identity; the password is purged after a retention window), then every later poll omits " +
+    "result. Every non-found status omits result.",
   request: { params: RecoveryJobIdParam },
   responses: {
     200: {
@@ -181,6 +182,10 @@ const recoverStatusRoute = defineOpenAPIRoute(recoverStatusMeta, {
     },
     403: {
       description: "Authenticated but the member lacks tools:decryption",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    404: {
+      description: "No recovery job with that id was started by the requesting user",
       content: { "application/problem+json": { schema: Problem } },
     },
     429: {
@@ -318,6 +323,7 @@ export function registerRecoveryRoutes(app: RecoveryApp, chokepoint: Chokepoint)
         ruleSet: "best64",
         firmId,
         jobId,
+        startedByUserId: userId,
       };
       const coordinator = c.env.RECOVERY_JOB.get(c.env.RECOVERY_JOB.idFromName(`${firmId}:${jobId}`));
       const state: RecoveryJobState = await coordinator.start(startInput);
@@ -365,10 +371,24 @@ export function registerRecoveryRoutes(app: RecoveryApp, chokepoint: Chokepoint)
     { ...recoverStatusRoute, middleware: chokepointMiddleware(chokepoint, recoverStatusRoute) },
     async (c) => {
       const firmId = requireChokepointFirmId(c);
+      const userId = requireChokepointUserId(c);
       const { jobId } = c.req.valid("param");
 
       const coordinator = c.env.RECOVERY_JOB.get(c.env.RECOVERY_JOB.idFromName(`${firmId}:${jobId}`));
       const state: RecoveryJobState = await coordinator.status();
+
+      // Retrieval is bound to the user who started the job: the recovered password egresses here and
+      // nowhere else, so a jobId that leaks to another firm member must not surrender it. A job the
+      // caller did not start — and an unknown job (startedByUserId "") — are indistinguishable: both
+      // 404, never revealing whether the job exists.
+      if (state.startedByUserId !== userId) {
+        return problemJson(c, {
+          type: "not-found",
+          status: 404,
+          title: "Recovery job not found",
+          detail: "No recovery job with that id was started by you.",
+        });
+      }
 
       const response: z.infer<typeof RecoverStatusResponse> = {
         status: state.status,

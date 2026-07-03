@@ -92,7 +92,7 @@ export const decryptionRecoverStart = <ThrowOnError extends boolean = false>(opt
 export const decryptionRecoverCancel = <ThrowOnError extends boolean = false>(options: Options<DecryptionRecoverCancelData, ThrowOnError>): RequestResult<DecryptionRecoverCancelResponses, DecryptionRecoverCancelErrors, ThrowOnError> => (options.client ?? client).delete<DecryptionRecoverCancelResponses, DecryptionRecoverCancelErrors, ThrowOnError>({ url: '/api/v1/decryption/recover/{jobId}', ...options });
 
 /**
- * Polls a password-recovery job's current state. On status found, the response carries result.password — surfaced once to the authorized requester who started the job. Every other status omits result.
+ * Polls a password-recovery job's current state. On status found, the response carries result.password — surfaced once to the user who started the job (retrieval is bound to that identity; the password is purged after a retention window), then every later poll omits result. Every non-found status omits result.
  */
 export const decryptionRecoverStatus = <ThrowOnError extends boolean = false>(options: Options<DecryptionRecoverStatusData, ThrowOnError>): RequestResult<DecryptionRecoverStatusResponses, DecryptionRecoverStatusErrors, ThrowOnError> => (options.client ?? client).get<DecryptionRecoverStatusResponses, DecryptionRecoverStatusErrors, ThrowOnError>({ url: '/api/v1/decryption/recover/{jobId}', ...options });
 

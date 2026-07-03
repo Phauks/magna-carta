@@ -199,7 +199,7 @@ export const decryptionRecoverCancelMutation = (options?: Partial<Options<Decryp
 export const decryptionRecoverStatusQueryKey = (options: Options<DecryptionRecoverStatusData>) => createQueryKey('decryptionRecoverStatus', options);
 
 /**
- * Polls a password-recovery job's current state. On status found, the response carries result.password — surfaced once to the authorized requester who started the job. Every other status omits result.
+ * Polls a password-recovery job's current state. On status found, the response carries result.password — surfaced once to the user who started the job (retrieval is bound to that identity; the password is purged after a retention window), then every later poll omits result. Every non-found status omits result.
  */
 export const decryptionRecoverStatusOptions = (options: Options<DecryptionRecoverStatusData>) => queryOptions<DecryptionRecoverStatusResponse, DecryptionRecoverStatusError, DecryptionRecoverStatusResponse, ReturnType<typeof decryptionRecoverStatusQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {

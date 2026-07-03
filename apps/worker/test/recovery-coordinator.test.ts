@@ -31,6 +31,7 @@ function input(overrides: Partial<RecoveryStartInput> = {}): RecoveryStartInput 
     ruleSet: "best64",
     firmId: "firm_x",
     jobId: "recoveryJob_1",
+    startedByUserId: "user_starter",
     ...overrides,
   };
 }
@@ -167,6 +168,12 @@ describe("RecoveryJobCoordinator", () => {
     expect(state.error).toBe("unknown job");
   });
 
+  it("start binds the job to its initiating user (startedByUserId)", async () => {
+    const coord = newCoordinator({ send: async () => {} });
+    const state = await coord.start(input({ startedByUserId: "user_alice" }));
+    expect(state.startedByUserId).toBe("user_alice");
+  });
+
   it("alarm fails a still-queued job with 'recovery timed out', never fabricating a password", async () => {
     const coord = newCoordinator({ send: async () => {} });
     await coord.start(input({ shardCount: 3 }));
@@ -180,15 +187,44 @@ describe("RecoveryJobCoordinator", () => {
     expect(state.password).toBeNull();
   });
 
-  it("alarm after found is a no-op — a zombie timeout cannot clobber a recovered password", async () => {
+  it("re-arms the stuck-job alarm on each reported miss (time since last progress, not a fixed clock)", async () => {
     const coord = newCoordinator({ send: async () => {} });
+    const ctx = (coord as unknown as { ctx: DurableObjectState }).ctx;
+    await coord.start(input({ shardCount: 3 }));
+    const armedAtStart = await ctx.storage.getAlarm();
+    expect(armedAtStart).not.toBeNull();
+
+    // A miss report re-arms the watchdog rather than leaving the original start-time deadline, so an
+    // actively-reporting job is never guillotined mid-flight.
+    await coord.reportShard(0, { found: null, candidatesTried: 1 });
+    const armedAfterProgress = await ctx.storage.getAlarm();
+    expect(armedAfterProgress).not.toBeNull();
+    expect(armedAfterProgress).toBeGreaterThanOrEqual(armedAtStart as number);
+
+    // Exhaustion clears the watchdog entirely.
+    await coord.reportShard(1, { found: null, candidatesTried: 1 });
+    await coord.reportShard(2, { found: null, candidatesTried: 1 });
+    expect(await ctx.storage.getAlarm()).toBeNull();
+  });
+
+  it("arms a purge alarm on found, then alarm() nulls the password once the retention window elapses", async () => {
+    const coord = newCoordinator({ send: async () => {} });
+    const ctx = (coord as unknown as { ctx: DurableObjectState }).ctx;
     await coord.start(input({ shardCount: 3 }));
     await coord.reportShard(0, { found: "hunter2", candidatesTried: 3 });
 
+    // Found does not delete the alarm — it repurposes it into the password-purge timer.
+    const found = await coord.status();
+    expect(found.status).toBe("found");
+    expect(found.password).toBe("hunter2");
+    expect(await ctx.storage.getAlarm()).not.toBeNull();
+
+    // When that alarm fires the password is purged; the job stays found so the requester still sees
+    // the outcome, but the secret no longer sits in storage (surfaced once, not persisted long-term).
     await coord.alarm();
-    const state = await coord.status();
-    expect(state.status).toBe("found");
-    expect(state.password).toBe("hunter2");
-    expect(state.error).toBeNull();
+    const purged = await coord.status();
+    expect(purged.status).toBe("found");
+    expect(purged.password).toBeNull();
+    expect(purged.error).toBeNull();
   });
 });

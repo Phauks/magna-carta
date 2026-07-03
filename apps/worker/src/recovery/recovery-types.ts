@@ -23,8 +23,12 @@ export interface RecoveryJobState {
   readonly status: RecoveryJobStatus;
   readonly tier: RecoveryTierName;
   readonly progress: RecoveryProgress;
-  readonly password: string | null; // set ONLY when status === "found"; surfaced once, never persisted long-term
+  readonly password: string | null; // set ONLY when status === "found"; surfaced once, then purged (see coordinator retention alarm)
   readonly error: string | null;
+  // The user who started the job. Retrieval of the recovered password is bound to this identity —
+  // the status route returns result.password only to the same user, so a jobId leaked to another
+  // firm member does not surrender the password. Not part of the HTTP response body.
+  readonly startedByUserId: string;
 }
 
 // One message per shard on the recovery Queue. Hash string only — never the file.
@@ -55,6 +59,7 @@ export interface RecoveryStartInput {
   readonly ruleSet: "best64" | "none";
   readonly firmId: string;
   readonly jobId: string;
+  readonly startedByUserId: string; // binds password retrieval to the initiating user
 }
 
 // The DO RPC surface the route + consumer call.

@@ -59,6 +59,9 @@ const app = createApp();
 let firmId: FirmId;
 let ownerCookie = "";
 let unpermissionedCookie = "";
+// A second member of the same firm who ALSO holds tools:decryption — used to prove password
+// retrieval is bound to the initiating user, not merely to the firm + permission.
+let otherPermissionedCookie = "";
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
@@ -84,6 +87,15 @@ beforeAll(async () => {
     firmId,
   });
   unpermissionedCookie = await signInForSessionCookie("recovery-e2e-noperm@example.com");
+
+  // A second permissioned member of the SAME firm: holds tools:decryption via the owner role, so the
+  // permission gate passes — only the per-job ownership check separates them from the starter.
+  const other = await seedCredentialedUser("recovery-e2e-other@example.com", {
+    userName: "Recovery E2E Other Member",
+    firmId,
+  });
+  await mirrorMemberWithOwnerRole(other.userId, "Recovery E2E Other Member", firmId);
+  otherPermissionedCookie = await signInForSessionCookie("recovery-e2e-other@example.com");
 });
 
 async function ownerRequest(
@@ -293,6 +305,38 @@ describe("recovery end-to-end: cancel", () => {
   });
 });
 
+describe("recovery end-to-end: password retrieval is bound to the initiating user", () => {
+  it("a different firm member with tools:decryption cannot read another member's job (404, indistinguishable from unknown)", async () => {
+    // The owner starts a job.
+    const startResponse = await ownerRequest("/api/v1/decryption/recover", {
+      method: "POST",
+      body: { fileBase64: PDF_FIXTURE_BASE64, attestation: { authorized: true } },
+    });
+    expect(startResponse.status).toBe(200);
+    const { jobId } = (await startResponse.json()) as { jobId: string };
+
+    // A second, equally-permissioned member of the same firm polls the same jobId. The firm scope and
+    // the tools:decryption gate both pass — only the ownership check stands between them and the job —
+    // and it 404s, revealing nothing about whether the job exists.
+    const otherResponse = await app.request(
+      `https://example.com/api/v1/decryption/recover/${jobId}`,
+      {
+        method: "GET",
+        headers: { origin: "https://example.com", cookie: otherPermissionedCookie },
+      },
+      env,
+    );
+    expect(otherResponse.status).toBe(404);
+    expect(otherResponse.headers.get("content-type")).toContain("application/problem+json");
+
+    // The initiating user still reads their own job normally — the binding denies others, not everyone.
+    const ownerResponse = await ownerRequest(`/api/v1/decryption/recover/${jobId}`, {
+      method: "GET",
+    });
+    expect(ownerResponse.status).toBe(200);
+  });
+});
+
 // The gpuRequired tier (slow key-derivation functions — PDF R5/R6, OOXML agile encryption, 7-Zip) has
 // no encrypted-file fixture in this repo: only the mode-9600 example HASH string used by the Rust
 // engine's own unit tests, which is a hash string, not file bytes, and cannot be driven through the
@@ -320,6 +364,7 @@ describe("recovery end-to-end: gpuRequired tier routing (coordinator-level; full
       ruleSet: "best64",
       firmId,
       jobId: gpuJobId,
+      startedByUserId: "user_gpu_test",
     });
     expect(state.status).toBe("needsGpu");
     expect(state.progress).toEqual({ candidatesTried: 0, shardsDone: 0, shardCount: 0 });

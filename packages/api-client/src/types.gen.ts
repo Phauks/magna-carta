@@ -1849,6 +1849,10 @@ export type DecryptionRecoverStatusErrors = {
      */
     403: Problem;
     /**
+     * No recovery job with that id was started by the requesting user
+     */
+    404: Problem;
+    /**
      * Rate limit exceeded
      */
     429: Problem;
