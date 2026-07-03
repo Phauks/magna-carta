@@ -14,6 +14,9 @@
       "path": "apps/magna-carta-edit/tsconfig.build.json"
     },
     {
+      "path": "apps/recovery-worker/tsconfig.build.json"
+    },
+    {
       "path": "apps/scan-worker/tsconfig.build.json"
     },
     {
