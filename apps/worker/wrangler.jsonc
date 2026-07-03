@@ -150,10 +150,13 @@
   //   SCAN_SERVICE: the malware-scan worker (resolveScanPort falls back to the no-engine adapter).
   //   BUNDLE_SERVICE: the bundle-build worker (POST /build); the bundle lanes 503 until it is bound.
   //   CONVERT: the conversion engine worker (resolveEnginePort returns the deferred port while unbound).
+  //   RECOVERY_SERVICE: the file-repair engine worker (POST /diagnose|/repair|/carve); the file-repair
+  //     routes 503 until it is bound.
   "services": [
     { "binding": "SCAN_SERVICE", "service": "magna-carta-scan" },
     { "binding": "BUNDLE_SERVICE", "service": "magna-carta-bundle" },
     { "binding": "CONVERT", "service": "magna-carta-convert" },
+    { "binding": "RECOVERY_SERVICE", "service": "magna-carta-recovery" },
   ],
   // Browser Rendering Workers binding — used by POST /api/v1/safe-browse to render suspect URLs
   // in Cloudflare's isolated remote browser. Requires compatibility_date >= 2026-03-24 for

@@ -116,6 +116,10 @@ export type Bindings = {
   // Optional: absent in every test environment and until the deploy-time binding is added; while
   // unset, resolveEnginePort returns the deferred port (engine-not-implemented).
   CONVERT?: Fetcher;
+  // The dedicated file-repair engine worker (magna-carta-recovery), reached over a service binding.
+  // Optional: absent in every test environment and until the deploy-time binding is added; while
+  // unset, the file-repair routes return 503 (the same posture the file-type and bundle routes take).
+  RECOVERY_SERVICE?: Fetcher;
   // The authenticated Workers AI binding — the only path inference reaches the gateway through (no raw
   // gateway token in any firm-reachable config). Pre-authenticated within the account.
   AI: Ai;
