@@ -15,6 +15,9 @@
   },
   "references": [
     {
+      "path": "../data-access/tsconfig.build.json"
+    },
+    {
       "path": "../identifiers/tsconfig.build.json"
     },
     {

@@ -26,20 +26,28 @@ export default defineConfig({
       "**/tsconfig.build.json",
       "packages/design-tokens/generated/**",
       "packages/design-tokens/test/golden/**",
+      // Assembled build outputs, not hand-authored: CHANGELOG.md is folded from changelog.d/* by
+      // tooling/doc-fragments/build-changelog.mjs, and docs/Decision-Log.md is the register emitted by
+      // build-decisions.mjs. Formatter reflow would fight those assemblers (same case as docs/decisions/**).
+      "CHANGELOG.md",
+      "docs/Decision-Log.md",
     ],
   },
-  // typeCheck makes `vp check` run tsgolint TS type-checks (not just fmt+lint); a real `.ts` type error now fails the gate.
-  // tsgolint does not parse `.svelte`, so the full gate (`pnpm check`) also runs svelte-check. See conventions/typescript.md.
+  // Type-errors are owned by `vp run typecheck` (`tsc -b` over the project-references graph — fast,
+  // incremental, complete), wired into the root `check`. So `typeCheck` is OFF here: vp check does NOT
+  // repeat a whole-repo type-error pass (that whole-repo pass was too slow to complete, which let real
+  // type errors slip — see docs/research/vp-check-typecheck-coverage-gap.md). `typeAware` stays ON so
+  // the type-aware LINT rules (e.g. no-floating-promises) still run; scope them to changed files in the
+  // local loop (`vp check <paths>`) — see docs/conventions/build-performance.md. tsgolint does not parse
+  // `.svelte`, so the full gate (`pnpm check`) also runs svelte-check. See conventions/typescript.md.
   lint: {
     // The Hey API generated client is not our code to lint (its barrel index and codegen idioms trip
-    // our rules); exclude it. NOTE: vp's type-check runs through this lint pass, so excluding the
-    // generated client here also drops it from tsgolint — so the "generated client compiles" gate is
-    // provided separately by the api-client `typecheck` script (a dedicated `tsc -p`, wired into the
-    // root `check`), which type-checks every generated file. The OpenAPI snapshot is data, not source.
+    // our rules); exclude it. It is type-checked by its own `tsc -p` (api-client `typecheck`, wired into
+    // the root `check`), and the project-references graph excludes it too. The OpenAPI snapshot is data.
     ignorePatterns: ["packages/api-client/src/**"],
     options: {
       typeAware: true,
-      typeCheck: true,
+      typeCheck: false,
     },
   },
   // Per-package test projects. apps/worker and apps/status-worker run their tests inside Miniflare via @cloudflare/vitest-pool-workers, which only activates when their own config (apps/worker/vitest.config.ts, apps/status-worker/vitest.config.ts) is loaded, so each is registered as a Vitest project here; otherwise root `vp test` would run the worker test under the default pool and `cloudflare:test` would not resolve.

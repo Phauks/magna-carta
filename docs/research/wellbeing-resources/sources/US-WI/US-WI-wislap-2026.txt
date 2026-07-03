@@ -1,0 +1,18 @@
+---
+jurisdiction: US-WI
+publisher: State Bar of Wisconsin (Wisconsin Lawyers Assistance Program)
+sourceUrl: https://www.wisbar.org/formembers/wislap/pages/lawyer-assistance-program.aspx
+accessedOn: 2026-07-02
+accessGate: open
+method: web search + direct fetch
+---
+[Wisconsin Lawyers Assistance Program (WisLAP)]
+QUOTE: "WisLAP services are free as a benefit of your State Bar membership"
+
+WisLAP Line (800) 543-2625 or callwislap@wisbar.org; Program Manager (800) 444-9404 ext. 6159. "The
+Lawyers Assistance Program offers confidential well-being support" and "WisLAP does not require
+callers to disclose their identity"; exempt from reporting professional misconduct to the Office of
+Lawyer Regulation and the Judicial Commission. Built on a "Lawyers Helping Lawyers / Judges Helping
+Judges" model with 150+ trained volunteers. Services: initial evaluation, referrals, peer assistance,
+consultation, education/CLE, mental-health trainings, well-being presentations. "We do not provide
+legal advice or give lawyer referrals." Line hours not published → unspecified.

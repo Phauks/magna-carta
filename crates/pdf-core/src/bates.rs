@@ -158,6 +158,8 @@ pub struct BatesRange {
 /// Errors that can occur during stamping.
 #[derive(Debug)]
 pub enum BatesError {
+    /// Input rejected by the decompression-bomb guard (oversize or a bomb).
+    Rejected,
     /// The input bytes could not be parsed as a PDF.
     Parse,
     /// The document contains no pages and cannot be stamped.
@@ -397,6 +399,8 @@ pub fn stamp_document(
     opts: &BatesOptions,
     start: u64,
 ) -> Result<(Vec<u8>, BatesRange), BatesError> {
+    crate::guard::guard_input(bytes, &crate::guard::GuardLimits::default())
+        .map_err(|_| BatesError::Rejected)?;
     let mut doc = lopdf::Document::load_mem(bytes).map_err(|_| BatesError::Parse)?;
 
     // Collect page ObjectIds in reading order (sorted by 1-based page number).
@@ -1072,6 +1076,15 @@ mod tests {
             recovered.contains("000001"),
             "rendered page must contain the label; got {recovered:?}"
         );
+    }
+
+    #[test]
+    fn stamp_rejects_oversize_input() {
+        let big = vec![0u8; crate::guard::GuardLimits::default().max_input_bytes + 1];
+        assert!(matches!(
+            stamp_document(&big, &BatesOptions::default(), 1),
+            Err(BatesError::Rejected)
+        ));
     }
 
     #[test]

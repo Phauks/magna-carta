@@ -1,0 +1,22 @@
+---
+jurisdiction: US-HI
+publisher: Hawaii Supreme Court (Attorneys and Judges Assistance Program)
+sourceUrl: http://hawaiiaap.com/contactus.html
+accessedOn: 2026-07-02
+accessGate: open
+method: web search + direct fetch
+---
+[Attorneys and Judges Assistance Program (AAP)]
+QUOTE: "If you contact AAP Hawaii about yourself or about an attorney colleague, you can rest assured that your call and anything you discuss with AAP Hawaii will be protected by strong rules of confidentiality"
+
+Contact: 212 Merchant St., Ste. 200, Honolulu HI 96813. Phone (local) 808-531-2880; Neighbor Islands
+Toll Free 1-800-273-8775; Fax 808-521-7224. The program provides immediate and continuing assistance
+to attorneys, judges, and law students who suffer from disability or impairment which affects their
+professional performance for any reason. Under HSCT Rule 16, any information the AAP receives is
+confidential and privileged; Rule 16.6 makes the identity of persons providing information
+confidential and not subject to discovery or subpoena.
+
+NOTE (hours): search snippets claim a "24-hour hotline," but none of the official AAP pages loaded
+(home, contact, confidentiality) literally state 24/7 → availability recorded as unspecified. The
+1-800-273-8775 number is labeled "Neighbor Islands Toll Free" (a routing line), not stated to be a
+crisis line. HSBA is a unified bar, but the AAP is a Hawaii Supreme Court program under Rule 16.

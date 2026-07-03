@@ -52,6 +52,7 @@ import { registerWhoisRoute, type WhoisRouteDeps } from "./routes/whois.ts";
 import { registerSafeBrowseRoute, type SafeBrowseRouteDeps } from "./routes/safe-browse.ts";
 import { registerFileIntegrityRoutes } from "./routes/file-integrity.ts";
 import { registerFileTypeRoutes } from "./routes/file-type.ts";
+import { registerAiDetectionRoutes } from "./routes/ai-detection.ts";
 import { registerMetadataRoutes } from "./routes/metadata.ts";
 import { registerSupportGrantsRoutes } from "./routes/support-grants.ts";
 import { registerSupportSessionsRoute } from "./routes/support-sessions.ts";
@@ -197,6 +198,18 @@ export type Bindings = {
   // the published-status read path merges. A KV namespace (not D1) because the whole document is small,
   // read far more than written, and needs no relational query — a single get/put per writer.
   STATUS_KV: KVNamespace;
+  // The platform-managed AI-text-detection provider key + base URL. Optional: absent in tests and
+  // until the deploy-time secret is set, in which case the detection route reports detection
+  // unavailable. A platform secret, never a per-firm credential; production sets it with
+  // `wrangler secret put PANGRAM_API_KEY`. PANGRAM_BASE_URL is public config (a var, not a secret) and
+  // is an OPTIONAL override only: PANGRAM_MODE alone selects the correct default host (async-task ->
+  // the external-api host, sync -> the /v3 host); set PANGRAM_BASE_URL only to point at something else.
+  PANGRAM_API_KEY?: string;
+  PANGRAM_BASE_URL?: string;
+  // Which Pangram surface the platform key is provisioned for: "async-task" (the external-api that
+  // returns a task to poll) or "sync". Optional; defaults to "async-task". A public config value, not
+  // a secret — bound via wrangler vars.
+  PANGRAM_MODE?: "async-task" | "sync";
 };
 
 // One Better Auth instance per worker env: the env object is stable across requests within an
@@ -380,6 +393,7 @@ export function createApp(options: CreateAppOptions = {}) {
   registerSafeBrowseRoute(app, chokepoint, options.safeBrowseDeps ?? {});
   registerFileIntegrityRoutes(app, chokepoint);
   registerFileTypeRoutes(app, chokepoint);
+  registerAiDetectionRoutes(app, chokepoint);
   registerMetadataRoutes(app, chokepoint);
   registerMembersRoute(app, chokepoint, authForEnv);
   registerReleaseChannelRoute(app, chokepoint, authForEnv);

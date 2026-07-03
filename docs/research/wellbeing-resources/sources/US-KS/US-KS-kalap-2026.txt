@@ -1,0 +1,19 @@
+---
+jurisdiction: US-KS
+publisher: Kansas Supreme Court / Kansas Judicial Branch (KALAP)
+sourceUrl: https://kalapks.gov/
+accessedOn: 2026-07-02
+accessGate: open
+method: web search + direct fetch
+---
+[Kansas Lawyers Assistance Program (KALAP)]
+QUOTE: "KALAP's confidential services, including counseling, support groups, mentoring and interventions, and referrals for assessments and treatment, are available to all Kansas lawyers at no cost."
+Confidentiality: "By KS. Sup. Ct. R. 233, any information received by the KALAP director, board
+members, and volunteers must remain completely confidential." Phone 785-368-8275;
+klap@kscourts.gov; 515 S Kansas Ave, Topeka, KS 66603.
+
+[KALAP 24/7 EAP Providers Helpline]
+QUOTE: "KALAP has a 24/7 helpline that is staffed with trained mental health professionals."
+"If you need support before KALAP staff return to the office, please call our confidential EAP
+providers helpline at 1-800-466-8282 for personal support." A companion Kansas Judges Assistance
+Committee serves judges via the same office.

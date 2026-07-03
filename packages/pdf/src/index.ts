@@ -37,7 +37,11 @@ export class PdfDocument {
     wasmInput?: BufferSource | WebAssembly.Module,
   ): Promise<PdfDocument> {
     await ensureReady(wasmInput);
-    return new PdfDocument(WasmDocument.load(bytes));
+    try {
+      return new PdfDocument(WasmDocument.load(bytes));
+    } catch (error) {
+      mapGuardError(error);
+    }
   }
 
   get pageCount(): number {
@@ -76,7 +80,11 @@ export async function loadDocument(
   bytes: Uint8Array,
   wasmInput?: BufferSource | WebAssembly.Module,
 ): Promise<PdfDocument> {
-  return PdfDocument.load(bytes, wasmInput);
+  try {
+    return await PdfDocument.load(bytes, wasmInput);
+  } catch (error) {
+    mapGuardError(error);
+  }
 }
 
 export interface RedactionRect {
@@ -137,7 +145,11 @@ export async function redactDocument(
   opts: RedactionOptions = {},
 ): Promise<RedactionResult> {
   await ensureReady();
-  return wasmRedact(bytes, regions, opts) as RedactionResult;
+  try {
+    return wasmRedact(bytes, regions, opts) as RedactionResult;
+  } catch (error) {
+    mapGuardError(error);
+  }
 }
 
 export interface ScrubOptions {
@@ -174,7 +186,11 @@ export async function sanitizeDocument(
   opts: ScrubOptions = {},
 ): Promise<SanitizeResult> {
   await ensureReady();
-  return wasmSanitize(bytes, opts) as SanitizeResult;
+  try {
+    return wasmSanitize(bytes, opts) as SanitizeResult;
+  } catch (error) {
+    mapGuardError(error);
+  }
 }
 
 export interface DetectionFinding {
@@ -301,7 +317,11 @@ export async function stampBates(
   options: BatesStampOptions = {},
 ): Promise<BatesStampResult> {
   await ensureReady();
-  return wasmStampBates(bytes, options) as BatesStampResult;
+  try {
+    return wasmStampBates(bytes, options) as BatesStampResult;
+  } catch (error) {
+    mapGuardError(error);
+  }
 }
 
 /**
@@ -312,7 +332,11 @@ export async function stampBates(
  */
 export async function detectDocument(bytes: Uint8Array): Promise<DetectionReport> {
   await ensureReady();
-  return wasmDetect(bytes) as DetectionReport;
+  try {
+    return wasmDetect(bytes) as DetectionReport;
+  } catch (error) {
+    mapGuardError(error);
+  }
 }
 
 // ── Forms ─────────────────────────────────────────────────────────────────────
@@ -385,7 +409,11 @@ export interface FormFillResult {
  */
 export async function readForm(bytes: Uint8Array): Promise<FormField[]> {
   await ensureReady();
-  return wasmReadForm(bytes) as FormField[];
+  try {
+    return wasmReadForm(bytes) as FormField[];
+  } catch (error) {
+    mapGuardError(error);
+  }
 }
 
 /**
@@ -415,7 +443,11 @@ export async function fillForm(
   options?: FormFillOptions,
 ): Promise<FormFillResult> {
   await ensureReady();
-  return wasmFillForm(bytes, values, options ?? {}) as FormFillResult;
+  try {
+    return wasmFillForm(bytes, values, options ?? {}) as FormFillResult;
+  } catch (error) {
+    mapGuardError(error);
+  }
 }
 
 /**
@@ -432,7 +464,11 @@ export async function fillForm(
  */
 export async function flattenForm(bytes: Uint8Array): Promise<FormFillResult> {
   await ensureReady();
-  return wasmFlattenForm(bytes) as FormFillResult;
+  try {
+    return wasmFlattenForm(bytes) as FormFillResult;
+  } catch (error) {
+    mapGuardError(error);
+  }
 }
 
 // ── Security: inspect / unlock / protect ────────────────────────────────────────
@@ -496,13 +532,35 @@ export class WrongPasswordError extends Error {
   }
 }
 
+/** Thrown by any operation when the decompression-bomb guard rejects the input
+ * (oversize, or a stream that inflates past the engine's caps). */
+export class DecompressionBombError extends Error {
+  readonly code = "decompression-bomb" as const;
+  constructor() {
+    super("The document was rejected as a potential decompression bomb.");
+    this.name = "DecompressionBombError";
+  }
+}
+
+/** Re-throw the engine's guard token as a typed error; pass anything else through. */
+function mapGuardError(error: unknown): never {
+  if (error instanceof Error && error.message === "decompression-bomb") {
+    throw new DecompressionBombError();
+  }
+  throw error;
+}
+
 /**
  * Classify a PDF's security without a password. Lets a caller prompt for a password
  * only when one is needed and refuse an unsupported (public-key) handler.
  */
 export async function inspectSecurity(bytes: Uint8Array): Promise<SecurityInfo> {
   await ensureReady();
-  return wasmInspectSecurity(bytes) as SecurityInfo;
+  try {
+    return wasmInspectSecurity(bytes) as SecurityInfo;
+  } catch (error) {
+    mapGuardError(error);
+  }
 }
 
 /**
@@ -524,7 +582,7 @@ export async function decryptDocument(
     if (error instanceof Error && error.message === "wrong-password") {
       throw new WrongPasswordError();
     }
-    throw error;
+    mapGuardError(error);
   }
 }
 
@@ -538,7 +596,11 @@ export async function secureDocument(
   options: SecureOptions,
 ): Promise<{ pdf: Uint8Array }> {
   await ensureReady();
-  return wasmSecureDocument(bytes, options) as { pdf: Uint8Array };
+  try {
+    return wasmSecureDocument(bytes, options) as { pdf: Uint8Array };
+  } catch (error) {
+    mapGuardError(error);
+  }
 }
 
 // ── Generate / assembly: merge, split, rotate, watermark ────────────────────────
@@ -558,7 +620,11 @@ import {
  * form fields, and named destinations across. */
 export async function mergeDocuments(documents: Uint8Array[]): Promise<{ pdf: Uint8Array }> {
   await ensureReady();
-  return wasmMergeDocuments(documents) as { pdf: Uint8Array };
+  try {
+    return wasmMergeDocuments(documents) as { pdf: Uint8Array };
+  } catch (error) {
+    mapGuardError(error);
+  }
 }
 
 /** An inclusive, 0-based page range. */
@@ -573,7 +639,11 @@ export async function splitDocument(
   ranges: PageRange[],
 ): Promise<{ pdfs: Uint8Array[] }> {
   await ensureReady();
-  return wasmSplitDocument(bytes, ranges) as { pdfs: Uint8Array[] };
+  try {
+    return wasmSplitDocument(bytes, ranges) as { pdfs: Uint8Array[] };
+  } catch (error) {
+    mapGuardError(error);
+  }
 }
 
 /** Rotate pages clockwise by 90, 180, or 270 degrees, relative to each page's existing
@@ -584,7 +654,11 @@ export async function rotatePages(
   pages?: number[],
 ): Promise<{ pdf: Uint8Array }> {
   await ensureReady();
-  return wasmRotatePages(bytes, rotation, pages) as { pdf: Uint8Array };
+  try {
+    return wasmRotatePages(bytes, rotation, pages) as { pdf: Uint8Array };
+  } catch (error) {
+    mapGuardError(error);
+  }
 }
 
 /** A text watermark drawn in one of the built-in standard fonts. */
@@ -629,5 +703,9 @@ export async function watermarkDocument(
   options: WatermarkOptions,
 ): Promise<{ pdf: Uint8Array }> {
   await ensureReady();
-  return wasmWatermarkDocument(bytes, options) as { pdf: Uint8Array };
+  try {
+    return wasmWatermarkDocument(bytes, options) as { pdf: Uint8Array };
+  } catch (error) {
+    mapGuardError(error);
+  }
 }

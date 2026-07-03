@@ -232,6 +232,20 @@
       "when": 1782600000008,
       "tag": "0032_seed-tools-file-type-verifier",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "6",
+      "when": 1782950000000,
+      "tag": "0033_ai-detection-usage",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "6",
+      "when": 1782950100000,
+      "tag": "0034_seed-tools-ai-text-detection",
+      "breakpoints": true
     }
   ]
 }

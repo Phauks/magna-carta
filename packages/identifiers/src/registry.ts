@@ -35,6 +35,8 @@ export const ENTITY_PREFIXES = {
   correlation: "correlation",
   incident: "incident",
   integrationConnection: "integrationConnection",
+  // AI-text detection metering — tracks usage of the AI-text detection tool across the firm.
+  aiDetectionUsage: "aiDetectionUsage",
   // Matters, Locations & File Manager. `matterType`/`documentType` are the per-firm classification
   // catalogs (distinct from `document`, a stored object); `numberingScheme` is the matter-number
   // template; `file`/`fileVersion` are the versioned object metadata; `uploadSession` tracks an

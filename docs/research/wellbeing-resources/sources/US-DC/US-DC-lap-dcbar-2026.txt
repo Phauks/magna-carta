@@ -1,0 +1,20 @@
+---
+jurisdiction: US-DC
+publisher: District of Columbia Bar
+sourceUrl: https://www.dcbar.org/for-lawyers/lawyer-assistance-program
+accessedOn: 2026-07-02
+accessGate: open
+method: web search + direct fetch
+---
+[D.C. Bar Lawyer Assistance Program (LAP)]
+QUOTE: "All inquiries are strictly confidential."
+
+The Lawyer Assistance Program (LAP) provides confidential support services to D.C. Bar members,
+judges, and law students facing personal and professional challenges. Services include consultation,
+evaluation, and short-term counseling (up to 12 sessions); consultations for family, employers, and
+colleagues; support groups facilitated by licensed counselors; individual peer support connections;
+outreach and education; and referrals with follow-up. To speak to an LAP counselor, call the
+confidential line at 202-347-3131 or e-mail LAP@dcbar.org (901 4th Street, NW, Washington, DC
+20001). NOTE: LAP is not an emergency response service — for a mental-health crisis or suicidal
+thoughts, call or text 988. D.C. Bar is a mandatory/unified bar; LAP is in-house (not outsourced).
+Line hours not published.

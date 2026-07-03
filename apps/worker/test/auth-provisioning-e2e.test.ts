@@ -280,6 +280,7 @@ describe("end-to-end", () => {
         "time:manageUtbms",
         "time:track",
         "time:viewFirm",
+        "tools:aiTextDetection",
         "tools:fileConverter",
         "tools:fileIntegrity",
         "tools:fileTypeVerifier",
@@ -436,6 +437,9 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
       "fileIntegrity.hash",
       // Streams the bytes to the scan Container for identification; nothing is stored.
       "fileType.verify",
+      // Analysis POST: the only write is one incidental ai_detection_usage meter row (telemetry),
+      // not an auditable firm-domain mutation; auditing every detection would flood audit_log.
+      "aiDetection.detect",
     ]);
 
     for (const { operation, label } of mutatingV1) {
