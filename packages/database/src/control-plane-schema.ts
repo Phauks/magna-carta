@@ -13,6 +13,7 @@ import type {
   UserId,
   VerificationId,
 } from "@magna-carta/identifiers/types";
+import type { DataRegion } from "./data-region.ts";
 
 // CONTROL-PLANE LINEAGE. The firm registry: one row per tenant firm, in the single control-plane D1.
 // This file is the source of truth drizzle-kit generates control-plane migrations from — schema changes
@@ -61,6 +62,11 @@ export const firm = sqliteTable("firm", {
   supportRequiresCosign: integer("support_requires_cosign", { mode: "boolean" })
     .notNull()
     .default(false),
+  // The firm's data-residency region — where its per-firm storage physically lives. `us` (default)
+  // is North-America placement; `eu` pins storage to Cloudflare's EU jurisdiction. Immutable after
+  // provisioning (a jurisdiction-bound Durable Object id differs from the bare id, so a region change
+  // would orphan the firm's data). DEFAULT keeps pre-region rows valid (expand-contract).
+  dataRegion: text("data_region").notNull().default("us").$type<DataRegion>(),
   // ISO-8601 UTC instant.
   createdAt: text("created_at").notNull(),
 });

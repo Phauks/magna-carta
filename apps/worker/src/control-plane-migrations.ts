@@ -5,6 +5,7 @@ import authAndProvisioningSql from "@magna-carta/database/drizzle/control-plane/
 import firmKeyColumnsSql from "@magna-carta/database/drizzle/control-plane/0002_firm-key-columns.sql";
 import releaseChannelSql from "@magna-carta/database/drizzle/control-plane/0003_handy_rattler.sql";
 import supportAccessSql from "@magna-carta/database/drizzle/control-plane/0004_support-access.sql";
+import dataRegionSql from "@magna-carta/database/drizzle/control-plane/0005_flippant_invaders.sql";
 
 // The control-plane migration lineage bundled INTO the worker (no filesystem at runtime): the
 // scheduled handler is the single-flighted sole applier of these against DB_CONTROL. Mirrors
@@ -18,6 +19,7 @@ export function controlPlaneMigrations(): Migration[] {
     "0002_firm-key-columns": firmKeyColumnsSql,
     "0003_handy_rattler": releaseChannelSql,
     "0004_support-access": supportAccessSql,
+    "0005_flippant_invaders": dataRegionSql,
   });
 }
 
