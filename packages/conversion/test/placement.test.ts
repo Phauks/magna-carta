@@ -15,6 +15,12 @@ describe("enginePlacements", () => {
   });
 });
 
+describe("enginePlacements — image-pdf", () => {
+  it("marks image-pdf as server-only", () => {
+    expect(enginePlacements("image-pdf")).toEqual(["server"]);
+  });
+});
+
 describe("canConvertLocally", () => {
   it("is true for an all-libvips image conversion (png -> webp)", () => {
     expect(canConvertLocally("png", "webp")).toBe(true);
@@ -30,5 +36,13 @@ describe("canConvertLocally", () => {
 
   it("is false for a multi-hop server-only path (wpd -> odt -> pdf)", () => {
     expect(canConvertLocally("wpd", "pdf")).toBe(false);
+  });
+
+  it("is false for a server-only image-pdf conversion (png -> pdf)", () => {
+    expect(canConvertLocally("png", "pdf")).toBe(false);
+  });
+
+  it("is false for a server-only image-pdf conversion (bmp -> pdf)", () => {
+    expect(canConvertLocally("bmp", "pdf")).toBe(false);
   });
 });

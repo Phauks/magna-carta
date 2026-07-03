@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CustomFieldsApplyConvertData, CustomFieldsApplyConvertErrors, CustomFieldsApplyConvertResponses, CustomFieldsArchiveFieldData, CustomFieldsArchiveFieldErrors, CustomFieldsArchiveFieldResponses, CustomFieldsArchiveOptionData, CustomFieldsArchiveOptionErrors, CustomFieldsArchiveOptionResponses, CustomFieldsClearValueData, CustomFieldsClearValueErrors, CustomFieldsClearValueResponses, CustomFieldsCreateOptionData, CustomFieldsCreateOptionErrors, CustomFieldsCreateOptionResponses, CustomFieldsDefineFieldData, CustomFieldsDefineFieldErrors, CustomFieldsDefineFieldResponses, CustomFieldsHardDeleteFieldData, CustomFieldsHardDeleteFieldErrors, CustomFieldsHardDeleteFieldResponses, CustomFieldsHardDeleteOptionData, CustomFieldsHardDeleteOptionErrors, CustomFieldsHardDeleteOptionResponses, CustomFieldsListRecordValuesData, CustomFieldsListRecordValuesErrors, CustomFieldsListRecordValuesResponses, CustomFieldsPreviewConvertData, CustomFieldsPreviewConvertErrors, CustomFieldsPreviewConvertResponses, CustomFieldsPurgeFieldData, CustomFieldsPurgeFieldErrors, CustomFieldsPurgeFieldResponses, CustomFieldsRenameFieldData, CustomFieldsRenameFieldErrors, CustomFieldsRenameFieldResponses, CustomFieldsRenameOptionData, CustomFieldsRenameOptionErrors, CustomFieldsRenameOptionResponses, CustomFieldsReorderFieldData, CustomFieldsReorderFieldErrors, CustomFieldsReorderFieldResponses, CustomFieldsReorderOptionData, CustomFieldsReorderOptionErrors, CustomFieldsReorderOptionResponses, CustomFieldsResolveFieldData, CustomFieldsResolveFieldErrors, CustomFieldsResolveFieldResponses, CustomFieldsSetRequiredData, CustomFieldsSetRequiredErrors, CustomFieldsSetRequiredResponses, CustomFieldsSetValueData, CustomFieldsSetValueErrors, CustomFieldsSetValueResponses, CustomFieldsUnarchiveFieldData, CustomFieldsUnarchiveFieldErrors, CustomFieldsUnarchiveFieldResponses, CustomFieldsValueHistoryData, CustomFieldsValueHistoryErrors, CustomFieldsValueHistoryResponses, DirectoryAddIdentifierData, DirectoryAddIdentifierErrors, DirectoryAddIdentifierResponses, DirectoryAddNameData, DirectoryAddNameErrors, DirectoryAddNameResponses, DirectoryAssignCategoryData, DirectoryAssignCategoryErrors, DirectoryAssignCategoryResponses, DirectoryCreateCategoryData, DirectoryCreateCategoryErrors, DirectoryCreateCategoryResponses, DirectoryCreateEdgeData, DirectoryCreateEdgeErrors, DirectoryCreateEdgeResponses, DirectoryCreateOrganizationData, DirectoryCreateOrganizationErrors, DirectoryCreateOrganizationResponses, DirectoryCreatePersonData, DirectoryCreatePersonErrors, DirectoryCreatePersonResponses, DirectoryDuplicateCandidatesData, DirectoryDuplicateCandidatesErrors, DirectoryDuplicateCandidatesResponses, DirectoryGetOrganizationData, DirectoryGetOrganizationErrors, DirectoryGetOrganizationResponses, DirectoryGetPersonData, DirectoryGetPersonErrors, DirectoryGetPersonResponses, DirectoryLinkMatterPartyData, DirectoryLinkMatterPartyErrors, DirectoryLinkMatterPartyResponses, DirectoryMergeData, DirectoryMergeErrors, DirectoryMergeResponses, DirectoryReadIdentifierData, DirectoryReadIdentifierErrors, DirectoryReadIdentifierResponses, DirectorySearchData, DirectorySearchErrors, DirectorySearchResponses, DocumentTypesCreateData, DocumentTypesCreateErrors, DocumentTypesCreateResponses, DocumentTypesDeactivateData, DocumentTypesDeactivateErrors, DocumentTypesDeactivateResponses, DocumentTypesListData, DocumentTypesListErrors, DocumentTypesListResponses, DocumentTypesUpdateData, DocumentTypesUpdateErrors, DocumentTypesUpdateResponses, DownloadsBundleStatusData, DownloadsBundleStatusErrors, DownloadsBundleStatusResponses, DownloadsZipData, DownloadsZipErrors, DownloadsZipResponses, FilesDeleteData, FilesDeleteErrors, FilesDeleteResponses, FilesDownloadData, FilesDownloadErrors, FilesGetData, FilesGetErrors, FilesGetResponses, FilesListData, FilesListErrors, FilesListResponses, FilesPreviewData, FilesPreviewErrors, FilesPreviewResponses, FilesUpdateData, FilesUpdateErrors, FilesUpdateResponses, FilesVersionsData, FilesVersionsErrors, FilesVersionsResponses, FirmsProvisionData, FirmsProvisionErrors, FirmsProvisionResponses, FirmUsageGetData, FirmUsageGetErrors, FirmUsageGetResponses, FoldersCreateData, FoldersCreateErrors, FoldersCreateResponses, FoldersDeleteData, FoldersDeleteErrors, FoldersDeleteResponses, FoldersUpdateData, FoldersUpdateErrors, FoldersUpdateResponses, HealthReadData, HealthReadErrors, HealthReadResponses, IncidentsReportData, IncidentsReportErrors, IncidentsReportResponses, LocationsAssignMemberData, LocationsAssignMemberErrors, LocationsAssignMemberResponses, LocationsCloseData, LocationsCloseErrors, LocationsCloseResponses, LocationsCreateData, LocationsCreateErrors, LocationsCreateResponses, LocationsGetData, LocationsGetErrors, LocationsGetResponses, LocationsListData, LocationsListErrors, LocationsListResponses, LocationsSetAddressesData, LocationsSetAddressesErrors, LocationsSetAddressesResponses, LocationsUpdateData, LocationsUpdateErrors, LocationsUpdateResponses, MattersCloseData, MattersCloseErrors, MattersCloseResponses, MattersCreateData, MattersCreateErrors, MattersCreateResponses, MattersGetData, MattersGetErrors, MattersGetResponses, MattersListConsultationsData, MattersListConsultationsErrors, MattersListConsultationsResponses, MattersListData, MattersListErrors, MattersListResponses, MattersOpenData, MattersOpenErrors, MattersOpenResponses, MattersRenumberData, MattersRenumberErrors, MattersRenumberResponses, MattersReopenData, MattersReopenErrors, MattersReopenResponses, MattersUpdateData, MattersUpdateErrors, MattersUpdateResponses, MatterTypesCreateData, MatterTypesCreateErrors, MatterTypesCreateResponses, MatterTypesDeactivateData, MatterTypesDeactivateErrors, MatterTypesDeactivateResponses, MatterTypesListData, MatterTypesListErrors, MatterTypesListResponses, MatterTypesUpdateData, MatterTypesUpdateErrors, MatterTypesUpdateResponses, MeGetData, MeGetErrors, MeGetResponses, MembersInviteData, MembersInviteErrors, MembersInviteResponses, NumberingGetData, NumberingGetErrors, NumberingGetResponses, NumberingPreviewData, NumberingPreviewErrors, NumberingPreviewResponses, NumberingSetData, NumberingSetErrors, NumberingSetResponses, SafeBrowsePostData, SafeBrowsePostErrors, SafeBrowsePostResponses, ShippingConnectData, ShippingConnectErrors, ShippingConnectResponses, ShippingCreateShipmentData, ShippingCreateShipmentErrors, ShippingCreateShipmentResponses, ShippingLabelData, ShippingLabelErrors, ShippingLabelResponses, ShippingPurchaseData, ShippingPurchaseErrors, ShippingPurchaseResponses, ShippingRateShipmentData, ShippingRateShipmentErrors, ShippingRateShipmentResponses, ShippingRefundData, ShippingRefundErrors, ShippingRefundResponses, ShippingTrackingData, ShippingTrackingErrors, ShippingTrackingResponses, UploadsAbortData, UploadsAbortErrors, UploadsAbortResponses, UploadsCompleteData, UploadsCompleteErrors, UploadsCompleteResponses, UploadsInitiateData, UploadsInitiateErrors, UploadsInitiateResponses, UploadsSignPartData, UploadsSignPartErrors, UploadsSignPartResponses, WhoisGetData, WhoisGetErrors, WhoisGetResponses } from './types.gen';
+import type { ConversionsStatusData, ConversionsStatusErrors, ConversionsStatusResponses, ConversionsSubmitData, ConversionsSubmitErrors, ConversionsSubmitResponses, ConversionsUploadData, ConversionsUploadErrors, ConversionsUploadResponses, CostsApproveData, CostsApproveErrors, CostsApproveResponses, CostsAttachReceiptData, CostsAttachReceiptErrors, CostsAttachReceiptResponses, CostsBatchData, CostsBatchErrors, CostsBatchResponses, CostsCreateData, CostsCreateErrors, CostsCreateResponses, CostsDetachReceiptData, CostsDetachReceiptErrors, CostsDetachReceiptResponses, CostsGetData, CostsGetErrors, CostsGetResponses, CostsKickBackData, CostsKickBackErrors, CostsKickBackResponses, CostsListData, CostsListErrors, CostsListResponses, CostsSubmitData, CostsSubmitErrors, CostsSubmitResponses, CostsUpdateData, CostsUpdateErrors, CostsUpdateResponses, CostsVoidData, CostsVoidErrors, CostsVoidResponses, CustomFieldsApplyConvertData, CustomFieldsApplyConvertErrors, CustomFieldsApplyConvertResponses, CustomFieldsArchiveFieldData, CustomFieldsArchiveFieldErrors, CustomFieldsArchiveFieldResponses, CustomFieldsArchiveOptionData, CustomFieldsArchiveOptionErrors, CustomFieldsArchiveOptionResponses, CustomFieldsClearValueData, CustomFieldsClearValueErrors, CustomFieldsClearValueResponses, CustomFieldsCreateOptionData, CustomFieldsCreateOptionErrors, CustomFieldsCreateOptionResponses, CustomFieldsDefineFieldData, CustomFieldsDefineFieldErrors, CustomFieldsDefineFieldResponses, CustomFieldsHardDeleteFieldData, CustomFieldsHardDeleteFieldErrors, CustomFieldsHardDeleteFieldResponses, CustomFieldsHardDeleteOptionData, CustomFieldsHardDeleteOptionErrors, CustomFieldsHardDeleteOptionResponses, CustomFieldsListRecordValuesData, CustomFieldsListRecordValuesErrors, CustomFieldsListRecordValuesResponses, CustomFieldsPreviewConvertData, CustomFieldsPreviewConvertErrors, CustomFieldsPreviewConvertResponses, CustomFieldsPurgeFieldData, CustomFieldsPurgeFieldErrors, CustomFieldsPurgeFieldResponses, CustomFieldsRenameFieldData, CustomFieldsRenameFieldErrors, CustomFieldsRenameFieldResponses, CustomFieldsRenameOptionData, CustomFieldsRenameOptionErrors, CustomFieldsRenameOptionResponses, CustomFieldsReorderFieldData, CustomFieldsReorderFieldErrors, CustomFieldsReorderFieldResponses, CustomFieldsReorderOptionData, CustomFieldsReorderOptionErrors, CustomFieldsReorderOptionResponses, CustomFieldsResolveFieldData, CustomFieldsResolveFieldErrors, CustomFieldsResolveFieldResponses, CustomFieldsSetRequiredData, CustomFieldsSetRequiredErrors, CustomFieldsSetRequiredResponses, CustomFieldsSetValueData, CustomFieldsSetValueErrors, CustomFieldsSetValueResponses, CustomFieldsUnarchiveFieldData, CustomFieldsUnarchiveFieldErrors, CustomFieldsUnarchiveFieldResponses, CustomFieldsValueHistoryData, CustomFieldsValueHistoryErrors, CustomFieldsValueHistoryResponses, DirectoryAddIdentifierData, DirectoryAddIdentifierErrors, DirectoryAddIdentifierResponses, DirectoryAddNameData, DirectoryAddNameErrors, DirectoryAddNameResponses, DirectoryAssignCategoryData, DirectoryAssignCategoryErrors, DirectoryAssignCategoryResponses, DirectoryCreateCategoryData, DirectoryCreateCategoryErrors, DirectoryCreateCategoryResponses, DirectoryCreateEdgeData, DirectoryCreateEdgeErrors, DirectoryCreateEdgeResponses, DirectoryCreateOrganizationData, DirectoryCreateOrganizationErrors, DirectoryCreateOrganizationResponses, DirectoryCreatePersonData, DirectoryCreatePersonErrors, DirectoryCreatePersonResponses, DirectoryDuplicateCandidatesData, DirectoryDuplicateCandidatesErrors, DirectoryDuplicateCandidatesResponses, DirectoryGetOrganizationData, DirectoryGetOrganizationErrors, DirectoryGetOrganizationResponses, DirectoryGetPersonData, DirectoryGetPersonErrors, DirectoryGetPersonResponses, DirectoryLinkMatterPartyData, DirectoryLinkMatterPartyErrors, DirectoryLinkMatterPartyResponses, DirectoryMergeData, DirectoryMergeErrors, DirectoryMergeResponses, DirectoryReadIdentifierData, DirectoryReadIdentifierErrors, DirectoryReadIdentifierResponses, DirectorySearchData, DirectorySearchErrors, DirectorySearchResponses, DocumentsCheckinData, DocumentsCheckinErrors, DocumentsCheckinResponses, DocumentsCheckoutData, DocumentsCheckoutErrors, DocumentsCheckoutResponses, DocumentsEditSessionData, DocumentsEditSessionErrors, DocumentsEditSessionResponses, DocumentsForceReleaseData, DocumentsForceReleaseErrors, DocumentsForceReleaseResponses, DocumentsReconcileData, DocumentsReconcileErrors, DocumentsReconcileResponses, DocumentsViewSessionData, DocumentsViewSessionErrors, DocumentsViewSessionResponses, DocumentTypesCreateData, DocumentTypesCreateErrors, DocumentTypesCreateResponses, DocumentTypesDeactivateData, DocumentTypesDeactivateErrors, DocumentTypesDeactivateResponses, DocumentTypesListData, DocumentTypesListErrors, DocumentTypesListResponses, DocumentTypesUpdateData, DocumentTypesUpdateErrors, DocumentTypesUpdateResponses, DownloadsBundleStatusData, DownloadsBundleStatusErrors, DownloadsBundleStatusResponses, DownloadsZipData, DownloadsZipErrors, DownloadsZipResponses, FileIntegrityHashData, FileIntegrityHashErrors, FileIntegrityHashResponses, FileIntegrityVerifyData, FileIntegrityVerifyErrors, FileIntegrityVerifyResponses, FilesDeleteData, FilesDeleteErrors, FilesDeleteResponses, FilesDownloadData, FilesDownloadErrors, FilesGetData, FilesGetErrors, FilesGetResponses, FilesListData, FilesListErrors, FilesListResponses, FilesPreviewData, FilesPreviewErrors, FilesPreviewResponses, FilesUpdateData, FilesUpdateErrors, FilesUpdateResponses, FilesVersionsData, FilesVersionsErrors, FilesVersionsResponses, FileTypeVerifyData, FileTypeVerifyErrors, FileTypeVerifyResponses, FirmSetReleaseChannelData, FirmSetReleaseChannelErrors, FirmSetReleaseChannelResponses, FirmsProvisionData, FirmsProvisionErrors, FirmsProvisionResponses, FirmUsageGetData, FirmUsageGetErrors, FirmUsageGetResponses, FoldersCreateData, FoldersCreateErrors, FoldersCreateResponses, FoldersDeleteData, FoldersDeleteErrors, FoldersDeleteResponses, FoldersUpdateData, FoldersUpdateErrors, FoldersUpdateResponses, HealthReadData, HealthReadErrors, HealthReadResponses, IncidentsReportData, IncidentsReportErrors, IncidentsReportResponses, LocationsAssignMemberData, LocationsAssignMemberErrors, LocationsAssignMemberResponses, LocationsCloseData, LocationsCloseErrors, LocationsCloseResponses, LocationsCreateData, LocationsCreateErrors, LocationsCreateResponses, LocationsGetData, LocationsGetErrors, LocationsGetResponses, LocationsListData, LocationsListErrors, LocationsListResponses, LocationsSetAddressesData, LocationsSetAddressesErrors, LocationsSetAddressesResponses, LocationsUpdateData, LocationsUpdateErrors, LocationsUpdateResponses, MattersCloseData, MattersCloseErrors, MattersCloseResponses, MattersCreateData, MattersCreateErrors, MattersCreateResponses, MattersGetData, MattersGetErrors, MattersGetResponses, MattersListConsultationsData, MattersListConsultationsErrors, MattersListConsultationsResponses, MattersListData, MattersListErrors, MattersListResponses, MattersOpenData, MattersOpenErrors, MattersOpenResponses, MattersRenumberData, MattersRenumberErrors, MattersRenumberResponses, MattersReopenData, MattersReopenErrors, MattersReopenResponses, MattersUpdateData, MattersUpdateErrors, MattersUpdateResponses, MatterTypesCreateData, MatterTypesCreateErrors, MatterTypesCreateResponses, MatterTypesDeactivateData, MatterTypesDeactivateErrors, MatterTypesDeactivateResponses, MatterTypesListData, MatterTypesListErrors, MatterTypesListResponses, MatterTypesUpdateData, MatterTypesUpdateErrors, MatterTypesUpdateResponses, MeGetData, MeGetErrors, MeGetResponses, MembersInviteData, MembersInviteErrors, MembersInviteResponses, MetadataInspectData, MetadataInspectErrors, MetadataInspectResponses, MetadataScrubData, MetadataScrubErrors, MetadataScrubResponses, MyDayGetData, MyDayGetErrors, MyDayGetResponses, NarrativeTemplatesCreateData, NarrativeTemplatesCreateErrors, NarrativeTemplatesCreateResponses, NarrativeTemplatesListData, NarrativeTemplatesListErrors, NarrativeTemplatesListResponses, NarrativeTemplatesRecentNarrativesData, NarrativeTemplatesRecentNarrativesErrors, NarrativeTemplatesRecentNarrativesResponses, NonBillableCategoriesArchiveData, NonBillableCategoriesArchiveErrors, NonBillableCategoriesArchiveResponses, NonBillableCategoriesCreateData, NonBillableCategoriesCreateErrors, NonBillableCategoriesCreateResponses, NonBillableCategoriesListData, NonBillableCategoriesListErrors, NonBillableCategoriesListResponses, NonBillableCategoriesUpdateData, NonBillableCategoriesUpdateErrors, NonBillableCategoriesUpdateResponses, NumberingGetData, NumberingGetErrors, NumberingGetResponses, NumberingPreviewData, NumberingPreviewErrors, NumberingPreviewResponses, NumberingSetData, NumberingSetErrors, NumberingSetResponses, PlatformSetFirmReleaseChannelData, PlatformSetFirmReleaseChannelErrors, PlatformSetFirmReleaseChannelResponses, RateCardsCreateData, RateCardsCreateErrors, RateCardsCreateResponses, RateCardsListData, RateCardsListErrors, RateCardsListResponses, RatesAppendData, RatesAppendErrors, RatesAppendResponses, RatesReRateDraftsData, RatesReRateDraftsErrors, RatesReRateDraftsResponses, SafeBrowsePostData, SafeBrowsePostErrors, SafeBrowsePostResponses, ScanDiagnoseData, ScanDiagnoseErrors, ScanDiagnoseResponses, ScanMatterData, ScanMatterErrors, ScanMatterResponses, ScanPolicyGetData, ScanPolicyGetErrors, ScanPolicyGetResponses, ScanPolicyScoreHistogramData, ScanPolicyScoreHistogramErrors, ScanPolicyScoreHistogramResponses, ScanPolicyUpdateData, ScanPolicyUpdateErrors, ScanPolicyUpdateResponses, ShippingConnectData, ShippingConnectErrors, ShippingConnectResponses, ShippingCreateShipmentData, ShippingCreateShipmentErrors, ShippingCreateShipmentResponses, ShippingLabelData, ShippingLabelErrors, ShippingLabelResponses, ShippingPurchaseData, ShippingPurchaseErrors, ShippingPurchaseResponses, ShippingRateShipmentData, ShippingRateShipmentErrors, ShippingRateShipmentResponses, ShippingRefundData, ShippingRefundErrors, ShippingRefundResponses, ShippingTrackingData, ShippingTrackingErrors, ShippingTrackingResponses, SupportDiagnosticsOverviewData, SupportDiagnosticsOverviewErrors, SupportDiagnosticsOverviewResponses, SupportGrantsCosignData, SupportGrantsCosignErrors, SupportGrantsCosignResponses, SupportGrantsListData, SupportGrantsListErrors, SupportGrantsListResponses, SupportGrantsRequestData, SupportGrantsRequestErrors, SupportGrantsRequestResponses, SupportGrantsRevokeData, SupportGrantsRevokeErrors, SupportGrantsRevokeResponses, SupportSessionsRedeemData, SupportSessionsRedeemErrors, SupportSessionsRedeemResponses, TimeEntriesApproveData, TimeEntriesApproveErrors, TimeEntriesApproveResponses, TimeEntriesCreateData, TimeEntriesCreateErrors, TimeEntriesCreateResponses, TimeEntriesGetData, TimeEntriesGetErrors, TimeEntriesGetResponses, TimeEntriesGridBatchData, TimeEntriesGridBatchErrors, TimeEntriesGridBatchResponses, TimeEntriesKickBackData, TimeEntriesKickBackErrors, TimeEntriesKickBackResponses, TimeEntriesListData, TimeEntriesListErrors, TimeEntriesListResponses, TimeEntriesPreviewQuickAddData, TimeEntriesPreviewQuickAddErrors, TimeEntriesPreviewQuickAddResponses, TimeEntriesSubmitData, TimeEntriesSubmitErrors, TimeEntriesSubmitResponses, TimeEntriesUpdateData, TimeEntriesUpdateErrors, TimeEntriesUpdateResponses, TimeEntriesVoidData, TimeEntriesVoidErrors, TimeEntriesVoidResponses, TimerBindData, TimerBindErrors, TimerBindResponses, TimerDiscardData, TimerDiscardErrors, TimerDiscardResponses, TimerPauseData, TimerPauseErrors, TimerPauseResponses, TimerReadData, TimerReadErrors, TimerReadResponses, TimerResumeData, TimerResumeErrors, TimerResumeResponses, TimerStartData, TimerStartErrors, TimerStartResponses, TimerStopCommitData, TimerStopCommitErrors, TimerStopCommitResponses, UploadsAbortData, UploadsAbortErrors, UploadsAbortResponses, UploadsCompleteData, UploadsCompleteErrors, UploadsCompleteResponses, UploadsInitiateData, UploadsInitiateErrors, UploadsInitiateResponses, UploadsSignPartData, UploadsSignPartErrors, UploadsSignPartResponses, UtbmsCodesDisableData, UtbmsCodesDisableErrors, UtbmsCodesDisableResponses, UtbmsCodesEnableData, UtbmsCodesEnableErrors, UtbmsCodesEnableResponses, UtbmsCodesListData, UtbmsCodesListErrors, UtbmsCodesListResponses, WhoisGetData, WhoisGetErrors, WhoisGetResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -51,6 +51,60 @@ export const safeBrowsePost = <ThrowOnError extends boolean = false>(options: Op
 });
 
 /**
+ * Compute MD5, SHA-1, SHA-256, SHA-384 and SHA-512 digests of the request body in a single pass. Optionally report which algorithm matches an expected digest. Nothing is stored.
+ */
+export const fileIntegrityHash = <ThrowOnError extends boolean = false>(options?: Options<FileIntegrityHashData, ThrowOnError>): RequestResult<FileIntegrityHashResponses, FileIntegrityHashErrors, ThrowOnError> => (options?.client ?? client).post<FileIntegrityHashResponses, FileIntegrityHashErrors, ThrowOnError>({ url: '/api/v1/file-integrity/hash', ...options });
+
+/**
+ * Recompute a stored file's digests from its bytes at rest and compare the SHA-256 to the digest recorded at intake, recording the check. Returns the digests, the baseline result, and a hash receipt.
+ */
+export const fileIntegrityVerify = <ThrowOnError extends boolean = false>(options?: Options<FileIntegrityVerifyData, ThrowOnError>): RequestResult<FileIntegrityVerifyResponses, FileIntegrityVerifyErrors, ThrowOnError> => (options?.client ?? client).post<FileIntegrityVerifyResponses, FileIntegrityVerifyErrors, ThrowOnError>({
+    url: '/api/v1/file-integrity/verify',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options?.headers
+    }
+});
+
+/**
+ * Identify an uploaded file's true content type from its bytes, compare it to the extension the filename claims, and recommend an extension when it is missing or wrong. Nothing is stored.
+ */
+export const fileTypeVerify = <ThrowOnError extends boolean = false>(options: Options<FileTypeVerifyData, ThrowOnError>): RequestResult<FileTypeVerifyResponses, FileTypeVerifyErrors, ThrowOnError> => (options.client ?? client).post<FileTypeVerifyResponses, FileTypeVerifyErrors, ThrowOnError>({
+    bodySerializer: null,
+    url: '/api/v1/file-type/verify',
+    ...options,
+    headers: {
+        'Content-Type': 'application/octet-stream',
+        ...options.headers
+    }
+});
+
+/**
+ * Inspect an uploaded file (base64) and report the metadata and content-bearing artifacts it carries, with a risk level per category. Nothing is stored.
+ */
+export const metadataInspect = <ThrowOnError extends boolean = false>(options: Options<MetadataInspectData, ThrowOnError>): RequestResult<MetadataInspectResponses, MetadataInspectErrors, ThrowOnError> => (options.client ?? client).post<MetadataInspectResponses, MetadataInspectErrors, ThrowOnError>({
+    url: '/api/v1/metadata/inspect',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Return a cleaned copy (base64) of an uploaded file with the selected metadata and content artifacts removed, plus a re-inspection of the result. Defaults to removing everything. Nothing is stored.
+ */
+export const metadataScrub = <ThrowOnError extends boolean = false>(options: Options<MetadataScrubData, ThrowOnError>): RequestResult<MetadataScrubResponses, MetadataScrubErrors, ThrowOnError> => (options.client ?? client).post<MetadataScrubResponses, MetadataScrubErrors, ThrowOnError>({
+    url: '/api/v1/metadata/scrub',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
  * Invites a member into the session firm: creates the (unverified, account-less) user, enqueues the per-firm member.provision outbox row, audits the invite — one atomic batch — then sends the activation email (a password-reset link; the reset creates the credential).
  */
 export const membersInvite = <ThrowOnError extends boolean = false>(options: Options<MembersInviteData, ThrowOnError>): RequestResult<MembersInviteResponses, MembersInviteErrors, ThrowOnError> => (options.client ?? client).post<MembersInviteResponses, MembersInviteErrors, ThrowOnError>({
@@ -63,10 +117,34 @@ export const membersInvite = <ThrowOnError extends boolean = false>(options: Opt
 });
 
 /**
- * Provisions a tenant firm (platform-admin only): firm row, per-firm database created and migrated to head, bucket, owner user with the Owner/Admin role — resumable; re-invoking with the same name no-ops completed steps and returns the existing firm.
+ * Sets the session firm's release channel to stable or beta. Moving to beta requires an explicit consent acknowledgment (the firm confirms it accepts pre-release behavior on live data). Returning to stable needs no acknowledgment. Alpha is a platform-only channel and is rejected at the schema level.
+ */
+export const firmSetReleaseChannel = <ThrowOnError extends boolean = false>(options: Options<FirmSetReleaseChannelData, ThrowOnError>): RequestResult<FirmSetReleaseChannelResponses, FirmSetReleaseChannelErrors, ThrowOnError> => (options.client ?? client).put<FirmSetReleaseChannelResponses, FirmSetReleaseChannelErrors, ThrowOnError>({
+    url: '/api/v1/firm/release-channel',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Provisions a tenant firm (platform-admin only): firm row, bucket, owner user with the Owner/Admin role — resumable; re-invoking with the same name no-ops completed steps and returns the existing firm. The firm's per-firm database is the firmId-addressed database that self-migrates on first access, so it needs no provisioning step.
  */
 export const firmsProvision = <ThrowOnError extends boolean = false>(options: Options<FirmsProvisionData, ThrowOnError>): RequestResult<FirmsProvisionResponses, FirmsProvisionErrors, ThrowOnError> => (options.client ?? client).post<FirmsProvisionResponses, FirmsProvisionErrors, ThrowOnError>({
     url: '/api/v1/firms',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Platform-admin endpoint to set any firm's release channel (including alpha). Requires the X-Platform-Admin-Key secret header. Alpha is accessible only through this platform path; the firm-admin PUT /api/v1/firm/release-channel accepts stable and beta only.
+ */
+export const platformSetFirmReleaseChannel = <ThrowOnError extends boolean = false>(options: Options<PlatformSetFirmReleaseChannelData, ThrowOnError>): RequestResult<PlatformSetFirmReleaseChannelResponses, PlatformSetFirmReleaseChannelErrors, ThrowOnError> => (options.client ?? client).post<PlatformSetFirmReleaseChannelResponses, PlatformSetFirmReleaseChannelErrors, ThrowOnError>({
+    url: '/api/v1/platform/firms/{firmId}/release-channel',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -408,7 +486,7 @@ export const filesUpdate = <ThrowOnError extends boolean = false>(options: Optio
 export const filesVersions = <ThrowOnError extends boolean = false>(options: Options<FilesVersionsData, ThrowOnError>): RequestResult<FilesVersionsResponses, FilesVersionsErrors, ThrowOnError> => (options.client ?? client).get<FilesVersionsResponses, FilesVersionsErrors, ThrowOnError>({ url: '/api/v1/files/{id}/versions', ...options });
 
 /**
- * Resolves the file's current clean version and redirects (302) to a short-TTL presigned GET URL the client downloads the bytes directly from. 404 when the file has no clean current version.
+ * Resolves the file's current clean version and redirects (302) to a short-TTL presigned GET URL the client downloads the bytes directly from. 404 when the file has no clean current version. When a re-scan has flagged the current version as malware, the file stays accessible (no data loss) but the raw download is gated: a 409 carrying the signature unless the caller re-requests with acknowledgeMalware=true, which proceeds and is audited as an acknowledged override.
  */
 export const filesDownload = <ThrowOnError extends boolean = false>(options: Options<FilesDownloadData, ThrowOnError>): RequestResult<unknown, FilesDownloadErrors, ThrowOnError> => (options.client ?? client).get<unknown, FilesDownloadErrors, ThrowOnError>({ url: '/api/v1/files/{id}/download', ...options });
 
@@ -428,6 +506,89 @@ export const downloadsZip = <ThrowOnError extends boolean = false>(options: Opti
         ...options.headers
     }
 });
+
+/**
+ * Launch an editing session for a document: joins the live co-editing session (or starts one), returns the editor URL to iframe, the editor origin, and a short-lived WOPI edit token.
+ */
+export const documentsEditSession = <ThrowOnError extends boolean = false>(options: Options<DocumentsEditSessionData, ThrowOnError>): RequestResult<DocumentsEditSessionResponses, DocumentsEditSessionErrors, ThrowOnError> => (options.client ?? client).post<DocumentsEditSessionResponses, DocumentsEditSessionErrors, ThrowOnError>({ url: '/api/v1/documents/{fileId}/edit-session', ...options });
+
+/**
+ * Open a read-only viewer for a document: returns the editor URL to iframe and a short-lived view-only WOPI token. Never takes the lock; reading is never blocked.
+ */
+export const documentsViewSession = <ThrowOnError extends boolean = false>(options: Options<DocumentsViewSessionData, ThrowOnError>): RequestResult<DocumentsViewSessionResponses, DocumentsViewSessionErrors, ThrowOnError> => (options.client ?? client).get<DocumentsViewSessionResponses, DocumentsViewSessionErrors, ThrowOnError>({ url: '/api/v1/documents/{fileId}/view-session', ...options });
+
+/**
+ * Take a checkout of a document: an optimistic offline working copy (default) or an opt-in exclusive lock. Records a checkout against the current version and returns a short-lived presigned download URL for that version's bytes.
+ */
+export const documentsCheckout = <ThrowOnError extends boolean = false>(options: Options<DocumentsCheckoutData, ThrowOnError>): RequestResult<DocumentsCheckoutResponses, DocumentsCheckoutErrors, ThrowOnError> => (options.client ?? client).post<DocumentsCheckoutResponses, DocumentsCheckoutErrors, ThrowOnError>({
+    url: '/api/v1/documents/{fileId}/checkout',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Return an offline working copy: validates the checkout, mints a pending version, and returns a presigned PUT for the edited bytes. The bytes route the quarantine ingest, then reconcile against the document's current version (fast-forward or a flagged conflicting copy).
+ */
+export const documentsCheckin = <ThrowOnError extends boolean = false>(options: Options<DocumentsCheckinData, ThrowOnError>): RequestResult<DocumentsCheckinResponses, DocumentsCheckinErrors, ThrowOnError> => (options.client ?? client).post<DocumentsCheckinResponses, DocumentsCheckinErrors, ThrowOnError>({
+    url: '/api/v1/documents/{fileId}/checkin',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Resolve a divergent check-in by choosing which copy is authoritative (keep the current version, promote the incoming offline edit, or keep both). Flags the conflicting copy reconciled, releases the checkout, and audits the resolution. The conflicting copy is retained.
+ */
+export const documentsReconcile = <ThrowOnError extends boolean = false>(options: Options<DocumentsReconcileData, ThrowOnError>): RequestResult<DocumentsReconcileResponses, DocumentsReconcileErrors, ThrowOnError> => (options.client ?? client).post<DocumentsReconcileResponses, DocumentsReconcileErrors, ThrowOnError>({
+    url: '/api/v1/documents/{fileId}/reconcile',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Force-release another member's lock on a document (an exclusive lock or a stranded offline checkout): releases the active checkout, frees the document, and audits both the actor and the displaced holder.
+ */
+export const documentsForceRelease = <ThrowOnError extends boolean = false>(options: Options<DocumentsForceReleaseData, ThrowOnError>): RequestResult<DocumentsForceReleaseResponses, DocumentsForceReleaseErrors, ThrowOnError> => (options.client ?? client).post<DocumentsForceReleaseResponses, DocumentsForceReleaseErrors, ThrowOnError>({ url: '/api/v1/documents/{fileId}/force-release', ...options });
+
+/**
+ * Scans an uploaded file — the raw bytes as the application/octet-stream request body — through the malware-scan engine and returns its verdict + details. A one-off diagnostic: the file is NOT stored and is NOT associated with any matter. Returns an honest `unscanned` verdict until the scan Container is activated (the engine-less adapter never reports a false `clean`).
+ */
+export const scanDiagnose = <ThrowOnError extends boolean = false>(options?: Options<ScanDiagnoseData, ThrowOnError>): RequestResult<ScanDiagnoseResponses, ScanDiagnoseErrors, ThrowOnError> => (options?.client ?? client).post<ScanDiagnoseResponses, ScanDiagnoseErrors, ThrowOnError>({ url: '/api/v1/scan/diagnose', ...options });
+
+/**
+ * Queues a background malware re-scan of every current file in a matter whose scan is stale relative to the firm's current engine (a file already scanned under the current engine is skipped, so a matter already current enqueues nothing). User-initiated; the scans run off the request path on the bulk lane. No-op (enqueued 0) when no current engine version is recorded. `capped` is true when more stale files remain than one request fans out — re-run to continue (any uncapped file is still re-scanned on next access).
+ */
+export const scanMatter = <ThrowOnError extends boolean = false>(options: Options<ScanMatterData, ThrowOnError>): RequestResult<ScanMatterResponses, ScanMatterErrors, ThrowOnError> => (options.client ?? client).post<ScanMatterResponses, ScanMatterErrors, ThrowOnError>({ url: '/api/v1/scan/matter/{id}', ...options });
+
+/**
+ * Reads the firm's malware scan-policy settings: the scan tier, suspicious-score floor, flagged-file treatment, and step-up re-auth preference. Missing rows return the built-in defaults so a fresh firm always reads a valid configuration.
+ */
+export const scanPolicyGet = <ThrowOnError extends boolean = false>(options?: Options<ScanPolicyGetData, ThrowOnError>): RequestResult<ScanPolicyGetResponses, ScanPolicyGetErrors, ThrowOnError> => (options?.client ?? client).get<ScanPolicyGetResponses, ScanPolicyGetErrors, ThrowOnError>({ url: '/api/v1/firm/scan-policy', ...options });
+
+/**
+ * Updates one or more of the firm's malware scan-policy settings. Only the supplied fields are changed; absent fields retain their current values. Writes are batched atomically with an audit log entry. Returns the full resolved settings after the update.
+ */
+export const scanPolicyUpdate = <ThrowOnError extends boolean = false>(options: Options<ScanPolicyUpdateData, ThrowOnError>): RequestResult<ScanPolicyUpdateResponses, ScanPolicyUpdateErrors, ThrowOnError> => (options.client ?? client).patch<ScanPolicyUpdateResponses, ScanPolicyUpdateErrors, ThrowOnError>({
+    url: '/api/v1/firm/scan-policy',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Returns the deployed scan engine's heuristic (`_SUSP_`) rule-score distribution as 5-point buckets — the reference data for the firm's custom suspicious-score-floor control. The data is engine-global (identical for every firm). When no scan engine is deployed, engineVersion and minScoreGate are null and buckets is empty.
+ */
+export const scanPolicyScoreHistogram = <ThrowOnError extends boolean = false>(options?: Options<ScanPolicyScoreHistogramData, ThrowOnError>): RequestResult<ScanPolicyScoreHistogramResponses, ScanPolicyScoreHistogramErrors, ThrowOnError> => (options?.client ?? client).get<ScanPolicyScoreHistogramResponses, ScanPolicyScoreHistogramErrors, ThrowOnError>({ url: '/api/v1/firm/scan-policy/score-histogram', ...options });
 
 /**
  * Reports the state of an async bulk-download build (building, ready, or failed). A ready job carries a freshly minted, short-lived signed URL to the built ZIP artifact.
@@ -757,6 +918,441 @@ export const customFieldsListRecordValues = <ThrowOnError extends boolean = fals
  * Returns the full value history of one custom field on one record, oldest first.
  */
 export const customFieldsValueHistory = <ThrowOnError extends boolean = false>(options: Options<CustomFieldsValueHistoryData, ThrowOnError>): RequestResult<CustomFieldsValueHistoryResponses, CustomFieldsValueHistoryErrors, ThrowOnError> => (options.client ?? client).get<CustomFieldsValueHistoryResponses, CustomFieldsValueHistoryErrors, ThrowOnError>({ url: '/api/v1/custom-fields/fields/{fieldId}/records/{targetRowId}/history', ...options });
+
+/**
+ * Captures a batch of cost entries from the grid in one request. All rows are written atomically — if any row is invalid the entire batch is refused.
+ */
+export const costsBatch = <ThrowOnError extends boolean = false>(options: Options<CostsBatchData, ThrowOnError>): RequestResult<CostsBatchResponses, CostsBatchErrors, ThrowOnError> => (options.client ?? client).post<CostsBatchResponses, CostsBatchErrors, ThrowOnError>({
+    url: '/api/v1/costs/batch',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Lists cost entries for a matter, filtered by status. Returns an empty list when no matterId is supplied.
+ */
+export const costsList = <ThrowOnError extends boolean = false>(options?: Options<CostsListData, ThrowOnError>): RequestResult<CostsListResponses, CostsListErrors, ThrowOnError> => (options?.client ?? client).get<CostsListResponses, CostsListErrors, ThrowOnError>({ url: '/api/v1/costs', ...options });
+
+/**
+ * Captures a cost entry against a matter. The source is always set to 'manual'. The amount must be a positive integer in minor units.
+ */
+export const costsCreate = <ThrowOnError extends boolean = false>(options: Options<CostsCreateData, ThrowOnError>): RequestResult<CostsCreateResponses, CostsCreateErrors, ThrowOnError> => (options.client ?? client).post<CostsCreateResponses, CostsCreateErrors, ThrowOnError>({
+    url: '/api/v1/costs',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Returns one cost entry's detail.
+ */
+export const costsGet = <ThrowOnError extends boolean = false>(options: Options<CostsGetData, ThrowOnError>): RequestResult<CostsGetResponses, CostsGetErrors, ThrowOnError> => (options.client ?? client).get<CostsGetResponses, CostsGetErrors, ThrowOnError>({ url: '/api/v1/costs/{id}', ...options });
+
+/**
+ * Updates a draft cost entry. A billed or void entry is frozen and cannot be edited. A submitted or approved entry is not draft and returns 409.
+ */
+export const costsUpdate = <ThrowOnError extends boolean = false>(options: Options<CostsUpdateData, ThrowOnError>): RequestResult<CostsUpdateResponses, CostsUpdateErrors, ThrowOnError> => (options.client ?? client).patch<CostsUpdateResponses, CostsUpdateErrors, ThrowOnError>({
+    url: '/api/v1/costs/{id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Submits a draft cost entry for review. Only legal when the firm's billing review gate is on.
+ */
+export const costsSubmit = <ThrowOnError extends boolean = false>(options: Options<CostsSubmitData, ThrowOnError>): RequestResult<CostsSubmitResponses, CostsSubmitErrors, ThrowOnError> => (options.client ?? client).post<CostsSubmitResponses, CostsSubmitErrors, ThrowOnError>({ url: '/api/v1/costs/{id}/submit', ...options });
+
+/**
+ * Approves a submitted cost entry, making it eligible for billing.
+ */
+export const costsApprove = <ThrowOnError extends boolean = false>(options: Options<CostsApproveData, ThrowOnError>): RequestResult<CostsApproveResponses, CostsApproveErrors, ThrowOnError> => (options.client ?? client).post<CostsApproveResponses, CostsApproveErrors, ThrowOnError>({ url: '/api/v1/costs/{id}/approve', ...options });
+
+/**
+ * Returns a submitted cost entry to draft with an audited reason.
+ */
+export const costsKickBack = <ThrowOnError extends boolean = false>(options: Options<CostsKickBackData, ThrowOnError>): RequestResult<CostsKickBackResponses, CostsKickBackErrors, ThrowOnError> => (options.client ?? client).post<CostsKickBackResponses, CostsKickBackErrors, ThrowOnError>({
+    url: '/api/v1/costs/{id}/kick-back',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Voids a cost entry. The row freezes — it can no longer be edited or billed.
+ */
+export const costsVoid = <ThrowOnError extends boolean = false>(options: Options<CostsVoidData, ThrowOnError>): RequestResult<CostsVoidResponses, CostsVoidErrors, ThrowOnError> => (options.client ?? client).post<CostsVoidResponses, CostsVoidErrors, ThrowOnError>({ url: '/api/v1/costs/{id}/void', ...options });
+
+/**
+ * Removes the receipt file from a cost entry.
+ */
+export const costsDetachReceipt = <ThrowOnError extends boolean = false>(options: Options<CostsDetachReceiptData, ThrowOnError>): RequestResult<CostsDetachReceiptResponses, CostsDetachReceiptErrors, ThrowOnError> => (options.client ?? client).delete<CostsDetachReceiptResponses, CostsDetachReceiptErrors, ThrowOnError>({ url: '/api/v1/costs/{id}/receipt', ...options });
+
+/**
+ * Attaches a receipt file to a cost entry. The file identifier is trusted as a matter-rooted document in the File Manager; a cross-existence check against the File Manager is a deferred follow-up.
+ */
+export const costsAttachReceipt = <ThrowOnError extends boolean = false>(options: Options<CostsAttachReceiptData, ThrowOnError>): RequestResult<CostsAttachReceiptResponses, CostsAttachReceiptErrors, ThrowOnError> => (options.client ?? client).post<CostsAttachReceiptResponses, CostsAttachReceiptErrors, ThrowOnError>({
+    url: '/api/v1/costs/{id}/receipt',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Lists time entries filtered by timekeeper and work date (the daily view) or by matter and status (the unbilled work-in-progress view).
+ */
+export const timeEntriesList = <ThrowOnError extends boolean = false>(options?: Options<TimeEntriesListData, ThrowOnError>): RequestResult<TimeEntriesListResponses, TimeEntriesListErrors, ThrowOnError> => (options?.client ?? client).get<TimeEntriesListResponses, TimeEntriesListErrors, ThrowOnError>({ url: '/api/v1/time-entries', ...options });
+
+/**
+ * Captures a time entry: resolves the rate in force on the work date, rounds the raw duration to the firm/timekeeper increment, and stores the work-in-progress row.
+ */
+export const timeEntriesCreate = <ThrowOnError extends boolean = false>(options: Options<TimeEntriesCreateData, ThrowOnError>): RequestResult<TimeEntriesCreateResponses, TimeEntriesCreateErrors, ThrowOnError> => (options.client ?? client).post<TimeEntriesCreateResponses, TimeEntriesCreateErrors, ThrowOnError>({
+    url: '/api/v1/time-entries',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Returns one time entry's detail.
+ */
+export const timeEntriesGet = <ThrowOnError extends boolean = false>(options: Options<TimeEntriesGetData, ThrowOnError>): RequestResult<TimeEntriesGetResponses, TimeEntriesGetErrors, ThrowOnError> => (options.client ?? client).get<TimeEntriesGetResponses, TimeEntriesGetErrors, ThrowOnError>({ url: '/api/v1/time-entries/{id}', ...options });
+
+/**
+ * Updates a draft time entry. A billed or void entry is frozen and cannot be edited.
+ */
+export const timeEntriesUpdate = <ThrowOnError extends boolean = false>(options: Options<TimeEntriesUpdateData, ThrowOnError>): RequestResult<TimeEntriesUpdateResponses, TimeEntriesUpdateErrors, ThrowOnError> => (options.client ?? client).patch<TimeEntriesUpdateResponses, TimeEntriesUpdateErrors, ThrowOnError>({
+    url: '/api/v1/time-entries/{id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Parses a one-line quick-add string into a duration, a matter hint, and a narrative, returning matching matters for the timekeeper to confirm. Writes nothing.
+ */
+export const timeEntriesPreviewQuickAdd = <ThrowOnError extends boolean = false>(options: Options<TimeEntriesPreviewQuickAddData, ThrowOnError>): RequestResult<TimeEntriesPreviewQuickAddResponses, TimeEntriesPreviewQuickAddErrors, ThrowOnError> => (options.client ?? client).post<TimeEntriesPreviewQuickAddResponses, TimeEntriesPreviewQuickAddErrors, ThrowOnError>({
+    url: '/api/v1/time-entries/quick-add-preview',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Captures a batch of time entries from the weekly grid in one request. Each entry resolves its rate and rounds its duration independently.
+ */
+export const timeEntriesGridBatch = <ThrowOnError extends boolean = false>(options: Options<TimeEntriesGridBatchData, ThrowOnError>): RequestResult<TimeEntriesGridBatchResponses, TimeEntriesGridBatchErrors, ThrowOnError> => (options.client ?? client).post<TimeEntriesGridBatchResponses, TimeEntriesGridBatchErrors, ThrowOnError>({
+    url: '/api/v1/time-entries/grid-batch',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Submits a draft entry for review (only when the firm's review gate is on).
+ */
+export const timeEntriesSubmit = <ThrowOnError extends boolean = false>(options: Options<TimeEntriesSubmitData, ThrowOnError>): RequestResult<TimeEntriesSubmitResponses, TimeEntriesSubmitErrors, ThrowOnError> => (options.client ?? client).post<TimeEntriesSubmitResponses, TimeEntriesSubmitErrors, ThrowOnError>({ url: '/api/v1/time-entries/{id}/submit', ...options });
+
+/**
+ * Approves a submitted entry, making it billable.
+ */
+export const timeEntriesApprove = <ThrowOnError extends boolean = false>(options: Options<TimeEntriesApproveData, ThrowOnError>): RequestResult<TimeEntriesApproveResponses, TimeEntriesApproveErrors, ThrowOnError> => (options.client ?? client).post<TimeEntriesApproveResponses, TimeEntriesApproveErrors, ThrowOnError>({ url: '/api/v1/time-entries/{id}/approve', ...options });
+
+/**
+ * Returns a submitted entry to draft with an audited reason.
+ */
+export const timeEntriesKickBack = <ThrowOnError extends boolean = false>(options: Options<TimeEntriesKickBackData, ThrowOnError>): RequestResult<TimeEntriesKickBackResponses, TimeEntriesKickBackErrors, ThrowOnError> => (options.client ?? client).post<TimeEntriesKickBackResponses, TimeEntriesKickBackErrors, ThrowOnError>({
+    url: '/api/v1/time-entries/{id}/kick-back',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Voids a time entry. The row freezes — it can no longer be edited or billed.
+ */
+export const timeEntriesVoid = <ThrowOnError extends boolean = false>(options: Options<TimeEntriesVoidData, ThrowOnError>): RequestResult<TimeEntriesVoidResponses, TimeEntriesVoidErrors, ThrowOnError> => (options.client ?? client).post<TimeEntriesVoidResponses, TimeEntriesVoidErrors, ThrowOnError>({ url: '/api/v1/time-entries/{id}/void', ...options });
+
+/**
+ * Starts the timekeeper's live timer, stopping any timer already running (single-active). Mints a live run id and sets the abandoned alarm.
+ */
+export const timerStart = <ThrowOnError extends boolean = false>(options: Options<TimerStartData, ThrowOnError>): RequestResult<TimerStartResponses, TimerStartErrors, ThrowOnError> => (options.client ?? client).post<TimerStartResponses, TimerStartErrors, ThrowOnError>({
+    url: '/api/v1/timer/start',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Pauses the running timer.
+ */
+export const timerPause = <ThrowOnError extends boolean = false>(options: Options<TimerPauseData, ThrowOnError>): RequestResult<TimerPauseResponses, TimerPauseErrors, ThrowOnError> => (options.client ?? client).post<TimerPauseResponses, TimerPauseErrors, ThrowOnError>({
+    url: '/api/v1/timer/pause',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Resumes a paused timer.
+ */
+export const timerResume = <ThrowOnError extends boolean = false>(options: Options<TimerResumeData, ThrowOnError>): RequestResult<TimerResumeResponses, TimerResumeErrors, ThrowOnError> => (options.client ?? client).post<TimerResumeResponses, TimerResumeErrors, ThrowOnError>({
+    url: '/api/v1/timer/resume',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Binds the running timer to a matter (required before commit).
+ */
+export const timerBind = <ThrowOnError extends boolean = false>(options: Options<TimerBindData, ThrowOnError>): RequestResult<TimerBindResponses, TimerBindErrors, ThrowOnError> => (options.client ?? client).post<TimerBindResponses, TimerBindErrors, ThrowOnError>({
+    url: '/api/v1/timer/bind',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Discards the running timer without committing.
+ */
+export const timerDiscard = <ThrowOnError extends boolean = false>(options: Options<TimerDiscardData, ThrowOnError>): RequestResult<TimerDiscardResponses, TimerDiscardErrors, ThrowOnError> => (options.client ?? client).post<TimerDiscardResponses, TimerDiscardErrors, ThrowOnError>({
+    url: '/api/v1/timer/discard',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Returns the timekeeper's current timer state. The client computes elapsed time from startedAt.
+ */
+export const timerRead = <ThrowOnError extends boolean = false>(options?: Options<TimerReadData, ThrowOnError>): RequestResult<TimerReadResponses, TimerReadErrors, ThrowOnError> => (options?.client ?? client).get<TimerReadResponses, TimerReadErrors, ThrowOnError>({ url: '/api/v1/timer/read', ...options });
+
+/**
+ * Stops the timer and commits its elapsed time as a draft entry. Refuses an unbound timer. Idempotent on the live run id — two racing commits collapse to one entry.
+ */
+export const timerStopCommit = <ThrowOnError extends boolean = false>(options: Options<TimerStopCommitData, ThrowOnError>): RequestResult<TimerStopCommitResponses, TimerStopCommitErrors, ThrowOnError> => (options.client ?? client).post<TimerStopCommitResponses, TimerStopCommitErrors, ThrowOnError>({
+    url: '/api/v1/timer/stop-commit',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Lists the firm's active (non-archived) rate cards, ordered by name.
+ */
+export const rateCardsList = <ThrowOnError extends boolean = false>(options?: Options<RateCardsListData, ThrowOnError>): RequestResult<RateCardsListResponses, RateCardsListErrors, ThrowOnError> => (options?.client ?? client).get<RateCardsListResponses, RateCardsListErrors, ThrowOnError>({ url: '/api/v1/rate-cards', ...options });
+
+/**
+ * Creates a rate card. All rate lines are appended separately with their effective date.
+ */
+export const rateCardsCreate = <ThrowOnError extends boolean = false>(options: Options<RateCardsCreateData, ThrowOnError>): RequestResult<RateCardsCreateResponses, RateCardsCreateErrors, ThrowOnError> => (options.client ?? client).post<RateCardsCreateResponses, RateCardsCreateErrors, ThrowOnError>({
+    url: '/api/v1/rate-cards',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Appends an effective-dated rate version to the card. Closes the prior open rate for the same scope in the same batch so intervals stay contiguous and non-overlapping.
+ */
+export const ratesAppend = <ThrowOnError extends boolean = false>(options: Options<RatesAppendData, ThrowOnError>): RequestResult<RatesAppendResponses, RatesAppendErrors, ThrowOnError> => (options.client ?? client).post<RatesAppendResponses, RatesAppendErrors, ThrowOnError>({
+    url: '/api/v1/rate-cards/{id}/rates',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Re-resolves and rewrites the rate on every unbilled (draft/submitted/approved) entry produced by this card over a work-date range. Opt-in retroactive correction — amounts never move silently.
+ */
+export const ratesReRateDrafts = <ThrowOnError extends boolean = false>(options: Options<RatesReRateDraftsData, ThrowOnError>): RequestResult<RatesReRateDraftsResponses, RatesReRateDraftsErrors, ThrowOnError> => (options.client ?? client).post<RatesReRateDraftsResponses, RatesReRateDraftsErrors, ThrowOnError>({
+    url: '/api/v1/rate-cards/{id}/re-rate-drafts',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Lists the firm's UTBMS codes for the given ABA set (task, activity, or expense), ordered by code.
+ */
+export const utbmsCodesList = <ThrowOnError extends boolean = false>(options: Options<UtbmsCodesListData, ThrowOnError>): RequestResult<UtbmsCodesListResponses, UtbmsCodesListErrors, ThrowOnError> => (options.client ?? client).get<UtbmsCodesListResponses, UtbmsCodesListErrors, ThrowOnError>({ url: '/api/v1/utbms-codes', ...options });
+
+/**
+ * Enables a seeded UTBMS code so it appears in the entry UI and billing exports.
+ */
+export const utbmsCodesEnable = <ThrowOnError extends boolean = false>(options: Options<UtbmsCodesEnableData, ThrowOnError>): RequestResult<UtbmsCodesEnableResponses, UtbmsCodesEnableErrors, ThrowOnError> => (options.client ?? client).post<UtbmsCodesEnableResponses, UtbmsCodesEnableErrors, ThrowOnError>({ url: '/api/v1/utbms-codes/{id}/enable', ...options });
+
+/**
+ * Disables a seeded UTBMS code so it no longer appears in the entry UI.
+ */
+export const utbmsCodesDisable = <ThrowOnError extends boolean = false>(options: Options<UtbmsCodesDisableData, ThrowOnError>): RequestResult<UtbmsCodesDisableResponses, UtbmsCodesDisableErrors, ThrowOnError> => (options.client ?? client).post<UtbmsCodesDisableResponses, UtbmsCodesDisableErrors, ThrowOnError>({ url: '/api/v1/utbms-codes/{id}/disable', ...options });
+
+/**
+ * Lists active (non-archived) non-billable categories, ordered by name.
+ */
+export const nonBillableCategoriesList = <ThrowOnError extends boolean = false>(options?: Options<NonBillableCategoriesListData, ThrowOnError>): RequestResult<NonBillableCategoriesListResponses, NonBillableCategoriesListErrors, ThrowOnError> => (options?.client ?? client).get<NonBillableCategoriesListResponses, NonBillableCategoriesListErrors, ThrowOnError>({ url: '/api/v1/non-billable-categories', ...options });
+
+/**
+ * Creates a non-billable time category.
+ */
+export const nonBillableCategoriesCreate = <ThrowOnError extends boolean = false>(options: Options<NonBillableCategoriesCreateData, ThrowOnError>): RequestResult<NonBillableCategoriesCreateResponses, NonBillableCategoriesCreateErrors, ThrowOnError> => (options.client ?? client).post<NonBillableCategoriesCreateResponses, NonBillableCategoriesCreateErrors, ThrowOnError>({
+    url: '/api/v1/non-billable-categories',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Renames a non-billable category.
+ */
+export const nonBillableCategoriesUpdate = <ThrowOnError extends boolean = false>(options: Options<NonBillableCategoriesUpdateData, ThrowOnError>): RequestResult<NonBillableCategoriesUpdateResponses, NonBillableCategoriesUpdateErrors, ThrowOnError> => (options.client ?? client).patch<NonBillableCategoriesUpdateResponses, NonBillableCategoriesUpdateErrors, ThrowOnError>({
+    url: '/api/v1/non-billable-categories/{id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Soft-archives a non-billable category. Historical entries that reference it remain intact.
+ */
+export const nonBillableCategoriesArchive = <ThrowOnError extends boolean = false>(options: Options<NonBillableCategoriesArchiveData, ThrowOnError>): RequestResult<NonBillableCategoriesArchiveResponses, NonBillableCategoriesArchiveErrors, ThrowOnError> => (options.client ?? client).post<NonBillableCategoriesArchiveResponses, NonBillableCategoriesArchiveErrors, ThrowOnError>({ url: '/api/v1/non-billable-categories/{id}/archive', ...options });
+
+/**
+ * Lists active (non-archived) narrative templates, ordered by creation date.
+ */
+export const narrativeTemplatesList = <ThrowOnError extends boolean = false>(options?: Options<NarrativeTemplatesListData, ThrowOnError>): RequestResult<NarrativeTemplatesListResponses, NarrativeTemplatesListErrors, ThrowOnError> => (options?.client ?? client).get<NarrativeTemplatesListResponses, NarrativeTemplatesListErrors, ThrowOnError>({ url: '/api/v1/narrative-templates', ...options });
+
+/**
+ * Creates a narrative template. A template pre-fills narrative and optional rate for one-tap entry.
+ */
+export const narrativeTemplatesCreate = <ThrowOnError extends boolean = false>(options: Options<NarrativeTemplatesCreateData, ThrowOnError>): RequestResult<NarrativeTemplatesCreateResponses, NarrativeTemplatesCreateErrors, ThrowOnError> => (options.client ?? client).post<NarrativeTemplatesCreateResponses, NarrativeTemplatesCreateErrors, ThrowOnError>({
+    url: '/api/v1/narrative-templates',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Returns the authenticated timekeeper's own distinct recent narratives, most recently used first. The timekeeperUserId param must match the session user — narrative history is personal typing-autocomplete and may not be read cross-user.
+ */
+export const narrativeTemplatesRecentNarratives = <ThrowOnError extends boolean = false>(options: Options<NarrativeTemplatesRecentNarrativesData, ThrowOnError>): RequestResult<NarrativeTemplatesRecentNarrativesResponses, NarrativeTemplatesRecentNarrativesErrors, ThrowOnError> => (options.client ?? client).get<NarrativeTemplatesRecentNarrativesResponses, NarrativeTemplatesRecentNarrativesErrors, ThrowOnError>({ url: '/api/v1/narrative-templates/recent-narratives', ...options });
+
+/**
+ * Returns billable and non-billable minute totals for one timekeeper on one work date, the shortfall against the firm's daily target, and an un-logged-day flag.
+ */
+export const myDayGet = <ThrowOnError extends boolean = false>(options: Options<MyDayGetData, ThrowOnError>): RequestResult<MyDayGetResponses, MyDayGetErrors, ThrowOnError> => (options.client ?? client).get<MyDayGetResponses, MyDayGetErrors, ThrowOnError>({ url: '/api/v1/my-day', ...options });
+
+/**
+ * Mints a new conversion job slot and returns a short-lived presigned PUT URL the client uploads the source file to directly (bytes never transit the Worker). After uploading, submit the job with POST /api/v1/conversions.
+ */
+export const conversionsUpload = <ThrowOnError extends boolean = false>(options?: Options<ConversionsUploadData, ThrowOnError>): RequestResult<ConversionsUploadResponses, ConversionsUploadErrors, ThrowOnError> => (options?.client ?? client).post<ConversionsUploadResponses, ConversionsUploadErrors, ThrowOnError>({ url: '/api/v1/conversions/upload', ...options });
+
+/**
+ * Submits a file conversion job. The client must have already uploaded the source file using the URL from POST /api/v1/conversions/upload. Returns 422 if no conversion path exists between the specified formats. Returns 202 with status queued when the job is accepted.
+ */
+export const conversionsSubmit = <ThrowOnError extends boolean = false>(options: Options<ConversionsSubmitData, ThrowOnError>): RequestResult<ConversionsSubmitResponses, ConversionsSubmitErrors, ThrowOnError> => (options.client ?? client).post<ConversionsSubmitResponses, ConversionsSubmitErrors, ThrowOnError>({
+    url: '/api/v1/conversions',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Returns the current state of a conversion job. A done job whose R2 result still exists carries a freshly minted, short-lived signed GET URL and the converted file media type. A done job whose result was reaped reports expired. Running or failed jobs carry no URL.
+ */
+export const conversionsStatus = <ThrowOnError extends boolean = false>(options: Options<ConversionsStatusData, ThrowOnError>): RequestResult<ConversionsStatusResponses, ConversionsStatusErrors, ThrowOnError> => (options.client ?? client).get<ConversionsStatusResponses, ConversionsStatusErrors, ThrowOnError>({ url: '/api/v1/conversions/{jobId}', ...options });
+
+/**
+ * The firm's support grants — who requested help, the scope (tier), current status, and the staff principal who redeemed it. Ordered newest first. Visible to any authenticated firm member so every member can see when help-desk access is or was active on their firm.
+ */
+export const supportGrantsList = <ThrowOnError extends boolean = false>(options?: Options<SupportGrantsListData, ThrowOnError>): RequestResult<SupportGrantsListResponses, SupportGrantsListErrors, ThrowOnError> => (options?.client ?? client).get<SupportGrantsListResponses, SupportGrantsListErrors, ThrowOnError>({ url: '/api/v1/support/grants', ...options });
+
+/**
+ * A firm member requests time-boxed help-desk access to their firm. The request is the consent anchor — the requester's identity is the scope, and any staff who redeems the grant acts only within the tier the requester chose. A diagnostic grant opens immediately; a privileged grant waits for admin co-sign when the firm's co-sign policy is on.
+ */
+export const supportGrantsRequest = <ThrowOnError extends boolean = false>(options: Options<SupportGrantsRequestData, ThrowOnError>): RequestResult<SupportGrantsRequestResponses, SupportGrantsRequestErrors, ThrowOnError> => (options.client ?? client).post<SupportGrantsRequestResponses, SupportGrantsRequestErrors, ThrowOnError>({
+    url: '/api/v1/support/grants',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * An admin co-signs a privileged support grant that firm policy held for approval. Moves the grant from requested to active so a platform-staff principal may redeem it.
+ */
+export const supportGrantsCosign = <ThrowOnError extends boolean = false>(options: Options<SupportGrantsCosignData, ThrowOnError>): RequestResult<SupportGrantsCosignResponses, SupportGrantsCosignErrors, ThrowOnError> => (options.client ?? client).post<SupportGrantsCosignResponses, SupportGrantsCosignErrors, ThrowOnError>({ url: '/api/v1/support/grants/{grantId}/cosign', ...options });
+
+/**
+ * An admin revokes a support grant; in-flight support access ends on the next request the platform-staff principal makes against the grant-verification middleware.
+ */
+export const supportGrantsRevoke = <ThrowOnError extends boolean = false>(options: Options<SupportGrantsRevokeData, ThrowOnError>): RequestResult<SupportGrantsRevokeResponses, SupportGrantsRevokeErrors, ThrowOnError> => (options.client ?? client).post<SupportGrantsRevokeResponses, SupportGrantsRevokeErrors, ThrowOnError>({ url: '/api/v1/support/grants/{grantId}/revoke', ...options });
+
+/**
+ * A platform-staff principal redeems an active support grant for a short-lived support-session token. The token encodes the grant, principal, firm, and tier; the live grant row (checked on every subsequent request) remains the source of truth for revocation and expiry. Privileged grants may only be redeemed by a support_lead principal.
+ */
+export const supportSessionsRedeem = <ThrowOnError extends boolean = false>(options: Options<SupportSessionsRedeemData, ThrowOnError>): RequestResult<SupportSessionsRedeemResponses, SupportSessionsRedeemErrors, ThrowOnError> => (options.client ?? client).post<SupportSessionsRedeemResponses, SupportSessionsRedeemErrors, ThrowOnError>({
+    url: '/api/v1/support/sessions',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Non-privileged firm system state for help-desk diagnosis: firm status, per-firm schema version, storage provisioning state, and active member count. Accessible only from a diagnostic support session — the permission is never seeded to a firm role.
+ */
+export const supportDiagnosticsOverview = <ThrowOnError extends boolean = false>(options?: Options<SupportDiagnosticsOverviewData, ThrowOnError>): RequestResult<SupportDiagnosticsOverviewResponses, SupportDiagnosticsOverviewErrors, ThrowOnError> => (options?.client ?? client).get<SupportDiagnosticsOverviewResponses, SupportDiagnosticsOverviewErrors, ThrowOnError>({ url: '/api/v1/support/diagnostics/overview', ...options });
 
 /**
  * Connects the firm's EasyPost postage account by storing its API key as a firm secret.

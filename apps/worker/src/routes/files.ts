@@ -18,6 +18,11 @@ import {
   listFiles,
 } from "@magna-carta/file-manager/queries";
 import { decidePreview } from "@magna-carta/file-manager/preview-policy";
+import {
+  readFlaggedTreatment,
+  readStepUpReauthOnFlagged,
+} from "@magna-carta/file-manager/scan-policy-settings";
+import { documentSessionStub } from "../editing/document-session.ts";
 import { mintPreviewDeliveryToken } from "../files/preview-token.ts";
 import { FileManagerValidationError } from "@magna-carta/file-manager/validation";
 import type { FileId, FileVersionId, FolderId, MatterId } from "@magna-carta/identifiers/types";
@@ -36,6 +41,7 @@ import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { idempotencyKeyHeader, identifierField, identifierPathParam } from "../contracts/common.ts";
 import { Problem, problemJson, type ProblemResponse } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
+import { maybeEnqueueRescanOnAccess } from "../files/access-rescan.ts";
 import { presignerForEnv } from "../files/presigner-wiring.ts";
 import { requireBucket } from "../files/require-bucket.ts";
 import {
@@ -363,12 +369,28 @@ const downloadFileRoute = defineOpenAPIRoute(downloadFileMeta, {
   path: "/api/v1/files/{id}/download",
   description:
     "Resolves the file's current clean version and redirects (302) to a short-TTL presigned GET URL " +
-    "the client downloads the bytes directly from. 404 when the file has no clean current version.",
-  request: { params: fileParam },
+    "the client downloads the bytes directly from. 404 when the file has no clean current version. " +
+    "When a re-scan has flagged the current version as malware, the file stays accessible (no data " +
+    "loss) but the raw download is gated: a 409 carrying the signature unless the caller re-requests " +
+    "with acknowledgeMalware=true, which proceeds and is audited as an acknowledged override.",
+  request: {
+    params: fileParam,
+    query: z.object({
+      // Informed access: a version a re-scan flagged stays downloadable, but only with an
+      // explicit acknowledgment — the member confirms they accept the risk. Absent it, the download
+      // returns 409 with the signature so the UI can prompt.
+      acknowledgeMalware: z.literal("true").optional(),
+    }),
+  },
   responses: {
     302: { description: "Redirect to the presigned download URL" },
     401: authErrors[401],
     404: authErrors[404],
+    409: {
+      description:
+        "The current version was flagged as malware; re-request with acknowledgeMalware=true to download it",
+      content: { "application/problem+json": { schema: Problem } },
+    },
     429: authErrors[429],
   },
 });
@@ -414,6 +436,18 @@ function fileErrorResponse(c: Context, error: FileManagerValidationError): Probl
     });
   }
   throw error;
+}
+
+// Fire-and-forget background work that must NEVER block or fail the response. Uses
+// executionCtx.waitUntil when an execution context is present (production + most test paths); falls
+// back to a detached, error-swallowed promise where there is none (some test harnesses construct a
+// request without one — c.executionCtx is a throwing getter there), so the handler still returns.
+function runInBackground(c: Context, work: Promise<unknown>): void {
+  try {
+    c.executionCtx.waitUntil(work);
+  } catch {
+    void Promise.resolve(work).catch(() => {});
+  }
 }
 
 // The visible file (clean current version, not soft-deleted) by id — the get/versions/download reads
@@ -641,6 +675,12 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
       const idempotency = requireChokepointIdempotency(c);
       const { id } = c.req.valid("param");
       const now = () => new Date().toISOString();
+      // Reap any live editing session first so the file is not deleted out from under live editors with
+      // a stranded session/lock. Idempotent — force-closing an already-idle session is a no-op.
+      await documentSessionStub(c.env, id).forceClose();
+      // Captured inside the effect so the working-copy object is destroyed only after the soft-delete
+      // batch commits (and only by the winner of the idempotency race).
+      let currentR2KeyToDestroy: string | null = null;
       try {
         const result = await runIdempotentEffect({
           database: firm.firmDatabase,
@@ -651,6 +691,7 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
               clock: { now },
               actorUserId: userId,
             });
+            currentR2KeyToDestroy = deleted.currentR2Key;
             return {
               write: deleted.effect,
               responseCode: 200,
@@ -660,6 +701,11 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
         });
         if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch") {
           return problemResponseForIdempotencyConflict(c, result);
+        }
+        // Destroy the live working copy only on the winning execution (a replay's batch rolled back and
+        // the winner already handled it); the committed versions and their bytes are retained.
+        if (result.kind === "executed" && currentR2KeyToDestroy !== null) {
+          await c.env.R2.delete(currentR2KeyToDestroy);
         }
         if (result.kind === "replayed") c.header("Idempotency-Replayed", "true");
         const body = JSON.parse(storedResponseBody(result)) as z.infer<typeof FileActionAck>;
@@ -691,6 +737,87 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
           detail: "No such file with a downloadable version in this firm.",
         });
       }
+      // When a re-scan has flagged the committed version, the response depends on the firm's configured
+      // flagged-file treatment. Resolve both settings in parallel to avoid two serial reads.
+      const acknowledgedMalware = c.req.valid("query").acknowledgeMalware === "true";
+      let downloadAuditEvent: string = "file.downloaded";
+      let downloadAuditExtra: Record<string, unknown> = {};
+      if (version.scanVerdict === "flagged") {
+        const [treatment, stepUpReauth] = await Promise.all([
+          readFlaggedTreatment(firm.firmDatabase),
+          readStepUpReauthOnFlagged(firm.firmDatabase),
+        ]);
+        if (treatment === "block") {
+          // block means inaccessible: a flagged version under block treatment is never served, and the
+          // acknowledgment override is NOT honored — there is no way to download it through this path.
+          // A flagged+committed version can reach here after a re-scan flips an older clean version's
+          // verdict, or after a policy change to block; refusing here is the access-side enforcement of
+          // the firm's quarantine policy. The denied attempt is recorded (metadata only, no content).
+          const now = new Date().toISOString();
+          await commitEffectBatch(
+            firm.firmDatabase,
+            {
+              statements: [
+                insertAuditLogStatement(firm.firmDatabase, {
+                  id: newIdentifier("auditLog"),
+                  event: "file.download_blocked_flagged",
+                  actorUserId: userId,
+                  subjectId: version.id,
+                  metadata: { fileId: id, versionId: version.id, flagged: true },
+                  now,
+                }),
+              ],
+              outboxMessages: [],
+            },
+            { now: () => now },
+          );
+          return problemJson(c, {
+            type: "malware-flagged",
+            title: "File flagged as malware",
+            status: 403,
+            detail:
+              "This file is flagged and the firm's policy blocks access to flagged files." +
+              (version.scanDetail ? ` (${version.scanDetail})` : ""),
+          });
+        }
+        if (treatment === "allow-and-flag") {
+          // Serve the file without an acknowledgment gate; the audit carries a flagged marker so the
+          // access is visible in the audit trail.
+          downloadAuditExtra = { flagged: true };
+        } else {
+          // informed-access: gate behind acknowledgment + audit the override.
+          if (!acknowledgedMalware) {
+            return problemJson(c, {
+              type: "malware-flagged",
+              title: "File flagged as malware",
+              status: 409,
+              detail:
+                "This file was flagged as containing malware" +
+                (version.scanDetail ? ` (${version.scanDetail})` : "") +
+                ". Re-request with acknowledgeMalware=true to download it anyway; the access is recorded.",
+              // Forward seam: when the firm enables step-up re-auth for flagged downloads, signal it
+              // here so the client can show a re-auth prompt. The challenge is wired in a later auth
+              // slice — for now this is metadata only, not an enforcement gate.
+              ...(stepUpReauth ? { stepUpRequired: true } : {}),
+            });
+          }
+          // A distinct event when the member downloaded a malware-flagged file after acknowledging it —
+          // the audited override is the record of who pulled known-bad bytes and when.
+          downloadAuditEvent = "file.downloaded_malware_acknowledged";
+        }
+      }
+      // Access-triggered re-scan: if this version is stale vs the firm's current engine, re-scan it in
+      // the background. Fire-and-forget — never blocks the download.
+      runInBackground(
+        c,
+        maybeEnqueueRescanOnAccess(
+          c.env.FILES_INGEST,
+          firm.firmDatabase,
+          firm.bucketName,
+          version.r2Key,
+          version.sizeBytes,
+        ),
+      );
       const presigner = presignerForEnv(c.env);
       const url = await presigner.presignGet(bucket, version.r2Key, DOWNLOAD_TTL_SECONDS);
       // The export is recorded before the redirect — metadata names the version exported, no content.
@@ -701,10 +828,10 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
           statements: [
             insertAuditLogStatement(firm.firmDatabase, {
               id: newIdentifier("auditLog"),
-              event: "file.downloaded",
+              event: downloadAuditEvent,
               actorUserId: userId,
               subjectId: version.id,
-              metadata: { fileId: id, versionId: version.id },
+              metadata: { fileId: id, versionId: version.id, ...downloadAuditExtra },
               now,
             }),
           ],
@@ -735,6 +862,17 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
           detail: "No such file with a previewable version in this firm.",
         });
       }
+      // Access-triggered re-scan (same as /download): a stale version is re-scanned in the background.
+      runInBackground(
+        c,
+        maybeEnqueueRescanOnAccess(
+          c.env.FILES_INGEST,
+          firm.firmDatabase,
+          firm.bucketName,
+          version.r2Key,
+          version.sizeBytes,
+        ),
+      );
       const downloadUrl = `/api/v1/files/${id}/download`;
       const decision = decidePreview(version);
       const filesOrigin = c.env.FILES_ORIGIN;

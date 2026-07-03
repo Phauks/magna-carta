@@ -217,55 +217,129 @@ The Worker `wrangler.jsonc` binds both; Wrangler errors on deploy if they do not
 
 **Cost:** near-zero marginal — Queues + DO invocations + R2 PUT/GET on a regenerable, TTL-expired artifact; no always-on compute. The Container escalation for outlier-large bundles is a named seam, not built here.
 
-## 11. Malware-scan Container — deploy-time activation + signature refresh (slice 2·1 Plan 2)
+## 11. Malware-scan Worker — deploy-time activation + Cloudflare-native signature refresh
 
-The scan engine is a `linux/amd64` Container (`containers/scan/`): a long-lived clamd daemon plus a Rust HTTP service that fans each file to clamd (signatures), yara-x (heuristic rules), and structural heuristics (PDF/Office/archive). It is **built and unit-tested, but not wired into the running Worker** — the code seam `resolveScanPort` selects it only when its binding is present, and that binding is **deliberately absent everywhere until this deploy step**, because a Container cannot run under the local worker test pool (`@cloudflare/vitest-pool-workers` does not support container bindings — workers-sdk#10408). Until activation, every firm runs the engine-less adapter (an honest `unscanned`/no-engine, never a false `clean`).
+The scan engine lives in its own Worker (`apps/scan-worker`, service `magna-carta-scan`). It owns the `ScanContainer` — a `linux/amd64` Container (`containers/scan/`): a long-lived clamd daemon plus a Rust HTTP service that fans each file to clamd (signatures), yara-x (heuristic rules), and structural heuristics (PDF/Office/archive). The app Worker (`apps/worker`) reaches it exclusively over a `SCAN_SERVICE` service binding; `resolveScanPort` selects the remote engine when that binding is present, otherwise the engine-less `unscanned` adapter (an honest `unscanned`/no-engine verdict, never a false `clean`). The app Worker carries **no** container config of its own.
 
-**Activation (one deploy-time edit + a build):**
+The scan worker is **built, connected to Workers Builds, and deployed** as of 2026-06-28 — the `SCAN_SERVICE` binding in the app Worker is wired and live, so production runs the real engine (local/test envs still use the engine-less adapter — no container pool). The first-activation steps below are retained as the record of what activation entailed; the **acceptance checks** are **deferred** until a prod firm/member is provisioned (none yet — the auth UI is slice 0·7b), since they need an authenticated principal to call `POST /api/v1/scan/diagnose`. The container required a `bookworm`→`trixie` base for onnxruntime's glibc-2.38 symbols (Magika `/identify`).
 
-1. Add the three wrangler blocks to `apps/worker/wrangler.jsonc` (kept out until now so the test pool needs no Docker):
-   - `"containers": [{ "class_name": "ScanContainer", "image": "../../containers/scan/Dockerfile", "max_instances": 5, "instance_type": "standard-1" }]` — `standard-1` (4 GiB) is the floor: clamd loads a ~1–2 GiB signature DB into RAM. **`entrypoint.sh` raises clamd's `StreamMaxLength`/`MaxScanSize`/`MaxFileSize` to 2048M so clamd scans the whole 2 GiB inspectable cap** — its stock limits (`StreamMaxLength` 25M, `MaxScanSize`/`MaxFileSize` 100M) would refuse anything larger over INSTREAM and degrade it to a retryable engine fault. A scan near the cap holds the full body in the Rust service **and** clamd's own copy atop the resident DB, so for reliable full-size (≈2 GiB) scanning, raise `instance_type` above `standard-1` or lower `fileManager.inspectableSizeCapBytes` — the clamd limits and the inspectable cap must stay aligned.
-   - append `{ "name": "SCAN_CONTAINER", "class_name": "ScanContainer" }` to `durable_objects.bindings` (alongside `BUNDLE_COORDINATOR`).
-   - append a **new** migration tag `{ "tag": "v2", "new_sqlite_classes": ["ScanContainer"] }` (never edit the shipped `v1`; a Container class is SQLite-backed).
-2. `wrangler deploy` builds the image (freshclam bakes the initial signature DB at **build** time — the container runs with `enableInternet = false`, so it has **no runtime egress** to fetch signatures) and pushes it. The `*/20` warm-poke cron then keeps one instance — and clamd's resident DB — alive.
+### First-activation steps
 
-**Engine-fault handling:** a clamd fault with no other signal returns **503**, so the ingest consumer retries the message — a running container always booted with clamd ready (the entrypoint fails fast otherwise), so this is exceptional, not a steady state. A persistent fault dead-letters to `magna-carta-production-files-ingest-deadletter`, leaving the file pending (never a usable-but-unscanned object) as a loud ops signal. The Container never commits a file as `unscanned`/no-engine; that honest verdict belongs only to the engine-less launch adapter that runs before this activation.
+1. **Connect `apps/scan-worker` to Workers Builds.** In the Cloudflare dashboard, go to **Workers & Pages → Create → Import a repository** (or **Connect to Git** on the existing `magna-carta-scan` Worker if already created). Select the repository and configure `apps/scan-worker` as the build root. Workers Builds is Cloudflare-side CI — there is **no `CLOUDFLARE_API_TOKEN` in GitHub**; the connection is managed entirely from the dashboard. Every push to the production branch triggers a build: `freshclam` bakes the current signature DB and `build-yara-rules` fetches + compiles the latest YARA Forge rule package, both baked into the image at build time, and the new image is deployed.
 
-**Signature refresh:** because there is no runtime egress, a signature update is an **image rebuild** (re-run `wrangler deploy`, which re-runs `freshclam` in the build). A scheduled signed-update job is a documented seam, not built. clamd listens on **loopback TCP `127.0.0.1:3310`** (not a Unix socket — the cross-platform client transport; loopback only, still no egress).
+2. **Set the Deploy Hook secret on the scan worker.**
 
-**Acceptance gate:** `containers/scan/tests/eicar_e2e.sh` (and the `scan-container` CI job) build the image and assert EICAR → `infected` end to end. This is the engine's proof — it runs in CI (Docker), not under the local worker pool.
+   ```sh
+   wrangler secret put SCAN_BUILD_DEPLOY_HOOK_URL --name magna-carta-scan
+   ```
 
-**Cost:** ~$35–50/mo at MVP scale for one warm `standard-1` instance (the warm-poke keeps it from cold-starting the ~1–2 GiB DB); scales with concurrent scan volume up to `max_instances`. Self-hosted — privileged client bytes never leave our compute.
+   Paste the **Workers Builds Deploy Hook URL** for `magna-carta-scan` at the prompt (generated in the dashboard under the Worker's **Settings → Builds → Deploy Hooks → Create**). This URL is what the scan worker's daily `0 7 * * *` cron POSTs to trigger a nightly image rebuild and signature refresh. Keep the URL out of shell history and chat transcripts — treat it like a secret (it triggers a deploy).
 
-## 12. Container subsystems → dedicated workers (the extraction rubric)
+3. **Push to the production branch** to trigger the first Workers Builds build. The build runs `freshclam` (baking the current signature DB) and `build-yara-rules` (fetching + compiling the latest YARA Forge package), then deploys `magna-carta-scan`. The `*/20` warm-poke cron then keeps one instance — and clamd's resident DB — alive.
 
-A subsystem built on a heavy native runtime in a Container gets its **own** Worker, not a wiring into the main `magna-carta` app Worker. Malware scanning is the realized form (`apps/scan-worker` → `magna-carta-scan`); the §11 inline-into-`apps/worker` wiring above is the pre-extraction description and is superseded by this pattern for new container subsystems. This section is the standing rule new designs follow; cite it by path, not by ADR.
+4. **Deploy the app Worker** (`apps/worker`) so the `SCAN_SERVICE` binding resolves to the now-live scan service. `resolveScanPort` then selects the remote engine path on the next ingest.
 
-**Decide with the rubric. Extract when the subsystem scores high on ①–④ and clears ⑤:**
+### Architecture notes
 
-1. **Heavy native / Container runtime** — work runs in a Dockerfile-built Container Durable Object, not the Worker isolate.
-2. **Independent deploy cadence** — its image rebuilds on a schedule decoupled from app deploys (scan's daily signature refresh; Collabora's security-patch cadence).
-3. **Distinct scaling profile** — wants its own `max_instances`/`instance_type`; must not contend with or starve app request handling.
-4. **Containment / blast-radius** — processes untrusted bytes; wants `enableInternet = false`, no public surface, reachable **only** via service binding from the app Worker.
-5. **Stateless compute (the seam test)** — the work that moves into the dedicated Worker holds **no firm state**. Decisive: it is what lets a subsystem split cleanly.
+**No runtime egress — signatures and rules are image-only.** The container runs with `enableInternet = false`; there is no runtime path to fetch signatures or rules. Freshness comes entirely from image rebuilds. The daily `0 7 * * *` cron on the scan worker POSTs `SCAN_BUILD_DEPLOY_HOOK_URL`, triggering a Workers Builds rebuild+redeploy that re-runs both `freshclam` and `build-yara-rules` — a Cloudflare-native loop with no GitHub involvement.
 
-**The compute-vs-coordination seam — only stateless compute crosses; firm-state coordination stays in the app Worker** (behind the data-access layer and the route chokepoint):
+**YARA rules source — YARA Forge `extended`, self-updating, FP-filtered.** The build fetches the latest [YARA Forge](https://yarahq.github.io/) release (the `YARA_FORGE_TIER` build ARG, default `extended`; pin `YARA_FORGE_TAG` for a reproducible build or a rollback), and `build-yara-rules` drops the false-positive-prone heuristic pocket (`_SUSP_` rules scoring below `YARA_MIN_SUSP_SCORE`, default 75), compiles the kept set with yara-x (skipping + logging any rule yara-x cannot compile, failing the build only on a systemic collapse), and serializes it into the image. The service deserializes the blob at boot — no startup recompile. The resolved release tag becomes the engine-version `yara-rules/<tag>` component, so when a nightly rebuild picks up a **new** Forge release the engine version changes and the access-triggered re-scan staleness gate re-scans the fleet against the new rules; an unchanged release leaves the version (and the fleet) untouched. A YARA hit is treated identically to a clamd signature hit (`infected`) — one quarantine path, no separate workflow.
 
-- **Scanning** — whole engine is the Container; no coordinator. Realized.
-- **Editing** — the **coolwsd Container compute** extracts; the **`DocumentSession` DO** (participants, WOPI lock, working-object metadata) stays in the app Worker.
-- **Conversion** — the **heavy engine bodies** (LibreOffice, OCR, native libvips, future PDF) extract behind the existing `ConversionPort` seam (a container adapter is one more `ConversionPort` impl); the **`ConversionJob` DO**, the `CONVERSION` queue, and the pure-TS `registry`/`pathfinding`/`placement` stay in the app Worker. Light WASM engines (wasm-vips, small rasters) may stay in-process as a fast-path — the multi-candidate registry already models in-worker-WASM vs container-native as two engines in the graph.
+> **Re-scan cadence.** YARA Forge publishes roughly **weekly** (date-tagged releases), so the nightly rebuild resolves a new `latest` ~once a week → a fleet-wide re-scan wave about weekly (access-triggered + cache-first, so a file nobody opens is never re-scanned and identical content reuses its verdict). If that recurring cost is unwanted, **pin `YARA_FORGE_TAG`** and bump it deliberately (matching the "engine-code bump is intentional" philosophy) — the default is unpinned `latest` so rules self-update.
+>
+> **Supply-chain note (accepted).** The downloaded ZIP is fetched over TLS but is **not** checksum/signature-verified — the same trust model as `freshclam`. A compromised upstream release would ship on the next nightly rebuild. This is the deliberate cost of self-updating from a trusted maintained provider; mitigations if the posture tightens are pinning `YARA_FORGE_TAG` to a reviewed release and/or adding a SHA-256 verification step before unzip.
 
-**A subsystem whose state IS a durable per-firm dataset fails ⑤ — it is a different design, not this pattern.** Full-text search (Tantivy): the index is firm data, not stateless compute. It gets its own spec as a **stateful service** when search is scheduled; do not model it as "scan again."
+**clamd limits and the inspectable cap must stay aligned.** `entrypoint.sh` raises clamd's `StreamMaxLength`/`MaxScanSize`/`MaxFileSize` to 2048M so clamd scans the whole 2 GiB inspectable cap. The stock clamd limits (`StreamMaxLength` 25M, `MaxScanSize`/`MaxFileSize` 100M) would refuse anything larger over INSTREAM and degrade it to a retryable engine fault. A scan near the cap holds the full body in the Rust service **and** clamd's own copy atop the resident clamd DB — plus, since rule-loading landed, the resident `Arc<yara_x::Rules>` (the ~15 MB blob expands to compiled bytecode/atom tables) and yara-x's per-scan working set over the 2 GiB buffer. `standard-1` (4 GiB) is the floor for this reason. For reliable full-size (≈2 GiB) scanning, keep `instance_type` at or above `standard-1`, or lower `fileManager.inspectableSizeCapBytes` — the clamd limits and the inspectable cap must always be consistent. (The body bytes are file-backed/mmap and reclaimable; the rules and clamd DB are resident.)
 
-**The worker template — mirror `apps/scan-worker`:**
+**Engine-fault handling.** A clamd fault with no other signal returns **503**, so the ingest consumer retries the message — a running container always boots with clamd ready (the entrypoint fails fast otherwise), so this is exceptional, not a steady state. A persistent fault dead-letters to `magna-carta-production-files-ingest-deadletter`, leaving the file pending (never a usable-but-unscanned object) as a loud ops signal.
 
-- `"workers_dev": false` + `"preview_urls": false` — no public surface; reached only by a service binding from `magna-carta`.
-- Owns the Container DO via a `new_sqlite_classes` migration tag; `enableInternet = false` where the runtime needs no egress (untrusted bytes never reach the network).
-- Its own crons: a `*/20 * * * *` warm-poke to keep one instance (and its resident state) hot ahead of `sleepAfter`; a daily image rebuild where signatures/models refresh at build time, not runtime.
-- Resource floor and clamd-style limits stay aligned with the inspectable size cap (see §11 for the scan-specific numbers).
+**clamd transport.** clamd listens on **loopback TCP `127.0.0.1:3310`** (not a Unix socket — the cross-platform client transport; loopback only, still no egress).
 
-**Grouping is per-candidate, not blanket.** One Worker per Container class by default (independent cadence/scaling per ②/③); group classes into one Worker **only** when they share one pipeline and deploy cadence (e.g. conversion's LibreOffice + OCR).
+### Acceptance checks (run after activation)
 
-**Caveat for pluggable engines.** A *pluggable* engine that needs outbound network (e.g. a cloud OCR/conversion engine) cannot share scan-grade `enableInternet = false` containment and needs its own policy lane — a real fork for conversion's pluggable-engine set.
+1. **EICAR test (live engine proof).** Send an authenticated `POST /api/v1/scan/diagnose` with an EICAR test-file body against the production app Worker. Expect a `200` response with `verdict: "infected"`. This proves the full path: app Worker → `SCAN_SERVICE` binding → scan worker → container → clamd → result.
 
-Decision record: ADR `container-subsystems-dedicated-workers`. Family status: scan realized; editing extracting; conversion evaluating; search deferred (stateful).
+2. **2 GiB resident-memory check.** On a scan near the 2 GiB inspectable cap, observe the container's resident memory — expect approximately 2 GiB (the body held in the Rust service plus clamd's own copy atop the ~1–2 GiB resident DB). If resident memory exceeds the `standard-1` (4 GiB) ceiling or scan throughput degrades, raise `instance_type` or lower the inspectable cap.
+
+### Engine acceptance test (pre-merge)
+
+`containers/scan/tests/eicar_e2e.sh` builds the image and asserts EICAR → `infected` end to end (Docker required). This is the engine's proof before merge — run it locally (or as a Workers Builds build step) on any change under `containers/scan/**`; it is independent of the live deployment acceptance checks above. It needs a Docker daemon, so it does not run inside the `vp test` Miniflare pool.
+
+### Cost
+
+~$35–50/mo at MVP scale for one warm `standard-1` instance (the warm-poke keeps it from cold-starting the ~1–2 GiB DB); scales with concurrent scan volume up to `max_instances`. Self-hosted — privileged client bytes never leave our compute.
+
+---
+
+## 12. Cloudflare Workers Builds — CI/CD pipeline + fast-build settings
+
+The build-and-deploy pipeline is **Cloudflare Workers Builds** (the deploy model; ADR-0075 as amended), not GitHub Actions. Each Worker (`magna-carta`, `magna-carta-scan`, `magna-carta-bundle`) is connected to the GitHub repository and builds + deploys on push to `main`. Build-time performance is a standing requirement — see [`build-performance.md`](build-performance.md).
+
+### Per-Worker build configuration (dashboard: **Workers & Pages → _the Worker_ → Settings → Builds**)
+
+Build and deploy commands are already set (do not change without cause) — recorded here so the pipeline is documented:
+
+- `magna-carta` — build `pnpm install --frozen-lockfile && pnpm exec vp run build-all`; deploy `pnpm --filter @magna-carta/worker exec wrangler deploy`. **The `@magna-carta/pdf` wasm builds inside a pinned Rust Docker image** (`crates/pdf-core/wasm.Dockerfile`, the `rust-wasm-build` task in `vite.config.ts`), exactly as the `scan`/`bundle`/`convert` container images build their Rust — so the runner needs only Docker (which it provides), never Rust/wasm-pack on the bare machine, and the build command stays the standard one. **History:** from the PDF engine merge (2026-06-23) until 2026-06-28 the wasm built with bare `wasm-pack` on the runner, which has no Rust toolchain, so every `magna-carta` build failed with `Failed to find executable wasm-pack` (no deploy succeeded in that window). Moving the wasm build into Docker fixed it without any build-command change.
+- `magna-carta-scan` — root directory `apps/scan-worker`; build `pnpm run build`; deploy `npx wrangler deploy`. Deploying the scan Worker builds and pushes the `containers/scan` image referenced by its Container binding.
+- `magna-carta-bundle` — root directory `apps/bundle-worker`; build `pnpm run build`; deploy `npx wrangler deploy`. Deploying the bundle Worker builds and pushes the `containers/bundle` image referenced by its Container binding. The image is a separate slice's deliverable (`containers/bundle/Dockerfile`); until it exists the bundle Worker cannot deploy, so the `BUNDLE_SERVICE` binding in the app Worker stays unbound and the encrypted/heavy bundle lanes return `503` (the plain ZIP fast lane is unaffected).
+
+Two settings to **enable/set** (the fast-build levers — see [`build-performance.md`](build-performance.md)):
+
+- **Build Caching — turn ON for both Workers.** Caches dependencies and build outputs across builds (a project-wide cache), so a build does not re-download the pnpm store or rebuild unchanged outputs every run. This is the primary fast-build lever and the analog of a CI dependency cache.
+- **Build Watch Paths — set per Worker** so an unrelated change does not rebuild every Worker. Patterns are repo-root-relative; a single `*` matches zero or more characters across directories; excludes are filtered first, then a build runs only if a changed path still matches an include. (Workers Builds always builds regardless of paths when a push has 0 changes, 3000+ changes, or 20+ commits.)
+  - `magna-carta` (depends on most of the repo — scope by exclusion): **Include** `*` · **Exclude** `docs/*`, `containers/*`, `spikes/*`, `*.md`. So a docs- or scan-only change no longer rebuilds and redeploys the app Worker.
+  - `magna-carta-scan` (depends only on its own package + the scan image — scope by inclusion): **Include** `apps/scan-worker/*`, `containers/scan/*`, `pnpm-lock.yaml`, `pnpm-workspace.yaml` · **Exclude** (none). So a change to `apps/web` or any `packages/*` no longer triggers a scan rebuild — the largest waste today.
+  - `magna-carta-bundle` (depends only on its own package + the bundle image — scope by inclusion): **Include** `apps/bundle-worker/*`, `containers/bundle/*`, `pnpm-lock.yaml`, `pnpm-workspace.yaml` · **Exclude** (none).
+
+### Quality gates (no separate CI runner) — the `pre-push` hook
+
+With GitHub Actions retired, Workers Builds builds and deploys but runs no checks. The gates live in the tracked **`pre-push` git hook** (`tooling/git-hooks/pre-push`): it runs `pnpm audit`, `pnpm check`, the governance lints, `vp test`, the OpenAPI contract drift/Spectral gates, and — when `containers/scan/**` changed and Docker is available — the scan EICAR acceptance test (§11), blocking the push on any failure. Activate it once per clone with **`vp run setup-hooks`** (the same step that installs the post-merge auto-clean hook; `core.hooksPath` → `tooling/git-hooks`). `SKIP_PREPUSH=1 git push` bypasses it in a genuine emergency — fix forward. `oasdiff` (breaking-change vs. the base) and the Prism mock smoke are not in the hook (they are review-time / base-branch checks); run them in review if needed.
+
+### Container image cache (scan Worker)
+
+The scan image build uses BuildKit cache mounts (`containers/scan/Dockerfile`) so an unchanged Cargo dependency graph is not recompiled. Mounts are build-local; if cold Rust dependency compiles in the Workers Build become the bottleneck, a cache-mount export is the documented upgrade path ([`build-performance.md`](build-performance.md)).
+
+### Testing a container on Cloudflare (post-deploy self-test)
+
+A container is a Docker image that cannot run under the local Miniflare test pool, and Workers Builds builds the image **remotely** — so the most faithful test is to deploy and exercise the live container, which also covers what no local stub can: the real outbound-Workers `env.R2` mediation, the Container Durable Object lifecycle (cold start, `sleepAfter`, the warm cron), the real instance sizing, and the service-binding wiring. The bundle worker ships a **guarded self-test endpoint** for exactly this; it is the template other container subsystems should copy.
+
+`POST /self-test` on `magna-carta-bundle` runs the deployed container through `/ready`, a buffered ZIP build (R2 + inline entries, verified back in R2 — complete-ZIP + the seeded bytes actually present + reported size matches), the streaming encrypted lane (archive returned, must **not** contain the plaintext — proving encryption — and nothing persisted), and a 7z multi-volume split (volumes read back from R2 and reassembled into a real 7z) — then deletes every object it wrote and returns a JSON report (`{ ok, runId, checks[], elapsedMs }`, HTTP 200 when all checks pass, 500 otherwise). It is **disabled by default**: the route 404s unless `BUNDLE_SELF_TEST_KEY` is set on the worker **and** the request presents it as the `x-self-test-key` header (SHA-256 constant-time compare), so it is safe to ship on every environment including production.
+
+It runs against a **dedicated container instance** (`getContainer(..., "selftest")`), isolated from the `"bundle"` instance that serves live firm builds, so a self-test never contends with customer work (it cold-starts a separate instance, which counts against `max_instances`). All objects it writes live under a per-run `selftest/<uuid>/` prefix in the files bucket; if the caller disconnects mid-run before cleanup, those few small objects can be left behind (harmless; sweep `selftest/` if desired) — a cleanup leak or failed run is also logged (redacted: runId + count) in Workers Logs.
+
+To run it:
+
+1. **Set the secret** (only while testing; remove it after if you prefer the route fully dark):
+   `wrangler secret put BUNDLE_SELF_TEST_KEY` (or Dashboard → the Worker → Settings → Variables and Secrets). Generate a high-entropy value (e.g. `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`).
+2. **Reach the worker.** `magna-carta-bundle` is internal (`workers_dev: false`, no public routes), so pick one:
+   - **Through the app worker (preferred once `BUNDLE_SERVICE` is bound):** the app worker can relay a service-binding call to `http://bundle/self-test` with the header — no public exposure of the bundle worker.
+   - **Isolated (before the app worker is wired):** deploy a throwaway staging instance with `workers_dev: true` and the secret set, then `curl -X POST https://<worker>.<account>.workers.dev/self-test -H "x-self-test-key: <value>"`. Tear it down after. Keep the committed `wrangler.jsonc` at `workers_dev: false` — do not expose the production bundle worker publicly.
+3. **Read the report.** A 200 with every `checks[].ok === true` means the deployed image, both build lanes, the R2 mediation, and split all work end to end. A 500 lists the failing check and its detail.
+
+This makes the local Docker acceptance gate (`containers/bundle/tests/acceptance.sh`) optional — a fast pre-push smoke when Docker is present — rather than the only proof. The same pattern (a secret-gated `/self-test` that round-trips the container and cleans up) is the recommended post-deploy check for any future container subsystem.
+
+---
+
+## 13. Control-plane database migrations
+
+Control-plane D1 migrations apply **automatically** — no manual deploy step is required. The scheduled (Cron) handler (`apps/worker/src/scheduled.ts`) runs `runPendingMigrations` against `env.DB_CONTROL` as its **first action** on every cron tick, before the existing control-plane outbox sweep, so the schema is current before any other control-plane work in the same tick.
+
+**Why the cron is the sole runtime applier — single-flight by construction.** The migration runner is not safe to run concurrently against the same database for the same pending migration. Each migration applies as one atomic `batch()` call (see `packages/database/src/d1-migration-target.ts`), and the runner fails loud on the first error with no internal retry (`packages/database/src/migration-runner.ts`). The `_migrations` table uses `tag TEXT PRIMARY KEY`, so if N worker isolates raced the same pending migration, exactly one batch would commit and every other isolate's batch would fail with a `UNIQUE constraint failed: _migrations.tag` error — a burst of N−1 thrown errors per migration-bearing deploy. The cron fires as a single invocation per tick, so making it the sole applier eliminates that concurrency in the common case; a rare overlapping fire is made safe by the error isolation around the step (the loser throws and is caught, the next tick is a no-op at head).
+
+**Additive migrations + fail-safe reads — tolerating the deploy window.** Between a deploy and the cron tick that applies a new migration (at most one `*/5` cycle, typically under five minutes), request code may read a control-plane column that does not yet exist. The discipline that makes this safe:
+
+- Control-plane migrations are **additive only** (expand-contract; no destructive DDL while data exists).
+- Request code that reads a new additive column must **default safely** on absence rather than propagating an error. Example: `/me` reads `firm.release_channel` on every session bootstrap; if the column is briefly absent right after a deploy (or any transient read error), the handler yields `channel: "stable"` and the default flag set and returns a successful response — the bootstrap never fails fleet-wide while the schema window is open. The same pattern applies to any other endpoint that reads a new control-plane column. (Write endpoints that need the column cannot fail-safe this way; they return an error during the window and recover once the migration lands — see `docs/active-work/release-channels.md`.)
+
+**Deploy-time application — the future zero-window hardening.** Running `runPendingMigrations` in the Workers Builds command (before `wrangler deploy`) would be single-flight by construction: the build runs once, applies the migration, then the deploy follows. That approach eliminates the window entirely (true migrate-before-serve, mirroring how per-firm migrations apply at provision time). It requires a D1-over-HTTP `MigrationTarget` adapter and an API token as a build secret. Adopt this when production firms make a zero-width schema window matter — for now the cron + fail-safe discipline covers the gap.
+
+## 14. Placeholder service workers — REPLACE before activating slices 2·1 / 2·4
+
+The `magna-carta` app worker declares three sibling service bindings (`SCAN_SERVICE`, `BUNDLE_SERVICE`, `CONVERT`). Cloudflare rejects a deploy whose service binding points at a worker that does not exist, so to deploy the editing slice (2·2) without first standing up the bulk-download and conversion subsystems, two of those targets are currently **503 placeholder workers**, deployed 2026-06-27:
+
+- **`magna-carta-bundle`** — placeholder. The real worker (`apps/bundle-worker`, with its `BundleContainer` Rust archive builder) belongs to **slice 2·1 (async bulk-download)**. Until it deploys, the app worker's bundle download lanes return 503 (the code's graceful fallback).
+- **`magna-carta-convert`** — placeholder. The real worker (`apps/convert-worker`, with its `RasterEngineContainer`) belongs to **slice 2·4 (in-app conversion)**. Until it deploys, `resolveEnginePort` falls back to the deferred port.
+
+**To replace each placeholder with the real worker:** connect a Workers Build project for it (dashboard, exactly as §12 / the `magna-carta-edit` setup), since each carries a container image that must build on Cloudflare's runners. Deploying the real worker overwrites the placeholder and adds its container DO migration cleanly (the placeholder has no DO classes). No app-worker config change is needed — the bindings already point at the right names.
+
+**Also pending — the `magna-carta-edit` Workers Build project branch.** Its build project was pointed at the now-deleted `slice-2-2-editing` branch; repoint it to `main` (dashboard → the Worker → Settings → Builds) so future editor-worker changes redeploy on push. The currently deployed editor worker is unaffected.

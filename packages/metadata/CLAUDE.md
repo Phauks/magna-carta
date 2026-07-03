@@ -1,0 +1,71 @@
+# @magna-carta/metadata — local notes
+
+Pure TypeScript engine for the **Metadata Inspector & Scrubber** Tools-area utility: detect a file's
+format, report the metadata + content-bearing artifacts it carries (the inspector), and return a cleaned
+copy to a chosen degree (the scrubber). No D1, no Hono, no `env`, no Svelte, no network — fully
+unit-testable. Consumed by `apps/worker/src/routes/metadata.ts`; a future matter-action can consume the
+same `MetadataPort` directly. Design: `docs/specs/2026-06-22-metadata-tool-design.md`.
+
+- **Shape.** `detect(bytes)` → format → a `MetadataEngine` (`src/ooxml/` for `.docx`, `src/image/` for
+  `.jpg`/`.png`). `createMetadataPort()` wraps them with the size cap + typed outcomes
+  (`{ ok: false, reason }`, never throws for expected failures). `scrub` re-inspects its OUTPUT so callers
+  can confirm `clean`.
+- **OOXML scrub is the safety-critical path.** `transformDocumentNodes` (`src/ooxml/scrub.ts`) drops
+  `REMOVE_TAGS` (deletions) BEFORE recursing/unwrapping `UNWRAP_TAGS` (insertions) — order matters, or
+  deleted text survives a hoist. The walk runs over EVERY content part (`CONTENT_PART_PATTERN` in
+  `walk.ts`: document + headers/footers/footnotes/endnotes), not just `document.xml`. Treat any change
+  here as redaction-critical: a scrub that requests removal must FULLY remove, and inspect must never
+  report a false `clean`.
+- **Image work is segment/chunk surgery, not pixel decoding** (`src/image/`). Assemble output via
+  `Uint8Array.set`, never spread-into-push (overflows the stack on large files).
+- **Tests are hermetic:** `test/support/docx-fixture.ts` builds docx fixtures with fflate (supports
+  `custom`, `comments`, `header` overrides); image tests synthesize JPEG/PNG byte streams.
+
+## Recurring gotchas (cost real rework — see memory `metadata-tool-status`)
+
+- Pure-package `tsconfig.json` MUST carry its own `compilerOptions` (`allowImportingTsExtensions`,
+  `noEmit`, `lib`, `types`) like `packages/whois`; `{extends, include}` alone breaks `.ts` imports under
+  `tsc` (TS5097). Vitest (esbuild) does NOT typecheck — only `pnpm check` runs `tsc`.
+- Under `noUncheckedIndexedAccess`, `bytes[i]` is `number | undefined`; coalesce (`?? 0`) in bounded
+  binary loops.
+
+## Future improvements (deferred — pick up here)
+
+Ordered roughly by value. All sit behind the existing `MetadataEngine` / `MetadataPort` / `detect` seams.
+
+1. **Style- and default-level `w:vanish` detection.** Today only INLINE hidden text (`w:r/w:rPr/w:vanish`)
+   is caught. Hidden text applied via a character/paragraph style or the document defaults
+   (`styles.xml`, `docDefaults`) is NOT detected — a real redaction gap. Deliberately NOT shipped as a
+   partial fix: a half-correct hidden-text detector gives false `clean` confidence, which is worse than a
+   known gap. Needs proper style resolution (style inheritance chains + `docDefaults` + vanish toggle
+   semantics). Until then, inspect could surface a "styles not analyzed" caveat so `clean` is never
+   over-asserted.
+2. **Fully-streaming decompression cap.** `safeUnzip` (`src/guards.ts`) pre-checks DECLARED entry sizes via
+   fflate's `filter` (catches honest bombs) + a post-inflation backstop, all bounded by the 15 MiB input
+   cap — but a zip that UNDER-declares sizes is bounded only by that input cap (a crafted stream can still
+   force a large transient allocation → single-isolate OOM). Real fix: fflate's streaming `Unzip`/`unzip`
+   (async) with a hard running byte budget that aborts mid-inflation. Ripple: `safeUnzip` →
+   `inspectDocx`/`scrubDocx` become async (the port already awaits; `documentEngine` already Promise-wraps).
+3. **Format breadth.** `.xlsx`/`.pptx` content-artifact scrub (docProps already shared; their tracked
+   changes/comments live in `xl/`/`ppt/` parts); TIFF (IFD rewrite); HEIC (ISOBMFF — the original
+   Rust→WASM candidate); then PDF (gated on the in-house PDF engine) and legacy `.doc`/`.xls` (OLE).
+4. **Rust→WASM image engine.** A measured-trigger swap behind `ImageMetadataEngine` — justified only if a
+   forensics tool is greenlit (shared native core) or pure-JS HEIC proves too fragile. Better first-WASM
+   candidates (PDF engine, doc/discovery core) are already on the roadmap.
+5. **Large-file Container engine** behind the engine interfaces — only if measurement shows the in-worker
+   size cap is too limiting.
+6. **Matter-action consumer.** "Scrub in place" on a stored file and "auto-scrub before producing/sending",
+   consuming this core against R2 bytes (no re-upload). Flips the catalog `matterContext` seam to
+   `optional`. The high-value next step — turns an ethereal utility into a guardrail in the discovery/
+   production and outbound-comms paths.
+7. **Combined single-call endpoint** (inspect + scrub in one request) to avoid the v1 double-upload.
+8. **XML round-trip hardening:** a fixture exercising special characters (`&`, `<`) and `xml:space="preserve"`
+   whitespace through scrub, to lock the "scrub never corrupts a valid file" guarantee.
+
+## Adjacent tools that can reuse this substrate
+
+- **Image forensics / AI-image detection** (its own `forensics` subject group, probabilistic): reuses the
+  image-metadata reader; pairs with the Safe Website Viewer for evidence work. Reliability/liability
+  framing is the core of its own design cycle — never present forensic verdicts as determinations.
+- **File hash / integrity** (chain of custody), **Bates stamping**, **PDF redaction** — the discovery-tooling
+  family; several become tractable once the PDF engine lands.

@@ -1416,21 +1416,36 @@ export function inspectJpegFindings(bytes: Uint8Array): Finding[] {
 
 export function scrubJpeg(bytes: Uint8Array): Uint8Array {
   const { segments, scanStart } = walkSegments(bytes);
-  const keep = new Set<Segment>();
+  // Collect the parts to keep, then assemble via Uint8Array.set — never spread a Uint8Array into
+  // push(), which overflows the call stack on large scans.
+  const parts: Uint8Array[] = [new Uint8Array([0xff, 0xd8])]; // SOI
   for (const seg of segments) {
-    if (!isMetadataSegment(classify(bytes, seg))) keep.add(seg);
+    if (!isMetadataSegment(classify(bytes, seg))) parts.push(bytes.subarray(seg.start, seg.end));
   }
-  const out: number[] = [0xff, 0xd8]; // SOI
-  for (const seg of segments) {
-    if (keep.has(seg)) out.push(...bytes.subarray(seg.start, seg.end));
+  // The entropy-coded scan and everything after (includes EOI) copied verbatim.
+  parts.push(bytes.subarray(scanStart));
+
+  let total = 0;
+  for (const part of parts) total += part.length;
+  const assembled = new Uint8Array(total);
+  let offset = 0;
+  for (const part of parts) {
+    assembled.set(part, offset);
+    offset += part.length;
   }
-  // Copy the entropy-coded scan and everything after (includes EOI) verbatim.
-  out.push(...bytes.subarray(scanStart));
+
   // Guard: ensure EOI terminates the stream even for a truncated input.
-  if (out[out.length - 2] !== 0xff || out[out.length - 1] !== EOI) {
-    out.push(0xff, EOI);
+  if (
+    assembled.length < 2 ||
+    assembled[assembled.length - 2] !== 0xff ||
+    assembled[assembled.length - 1] !== EOI
+  ) {
+    const withEoi = new Uint8Array(assembled.length + 2);
+    withEoi.set(assembled, 0);
+    withEoi.set([0xff, EOI], assembled.length);
+    return withEoi;
   }
-  return new Uint8Array(out);
+  return assembled;
 }
 ```
 
@@ -1560,7 +1575,8 @@ function walkChunks(bytes: Uint8Array): Chunk[] {
   const chunks: Chunk[] = [];
   let i = SIGNATURE_LENGTH;
   while (i + 8 <= bytes.length) {
-    const len = (bytes[i] << 24) | (bytes[i + 1] << 16) | (bytes[i + 2] << 8) | bytes[i + 3];
+    const len =
+      ((bytes[i] << 24) | (bytes[i + 1] << 16) | (bytes[i + 2] << 8) | bytes[i + 3]) >>> 0;
     const type = String.fromCharCode(bytes[i + 4], bytes[i + 5], bytes[i + 6], bytes[i + 7]);
     const end = i + 12 + len; // 4 length + 4 type + len data + 4 crc
     chunks.push({ type, start: i, end });
@@ -1594,12 +1610,22 @@ export function inspectPngFindings(bytes: Uint8Array): Finding[] {
 }
 
 export function scrubPng(bytes: Uint8Array): Uint8Array {
-  const out: number[] = [...bytes.subarray(0, SIGNATURE_LENGTH)];
+  // Collect the parts to keep (signature + non-metadata chunks), then assemble via Uint8Array.set —
+  // never spread a Uint8Array into push(), which overflows the call stack on large images.
+  const parts: Uint8Array[] = [bytes.subarray(0, SIGNATURE_LENGTH)];
   for (const c of walkChunks(bytes)) {
     if (METADATA_CHUNKS.has(c.type)) continue;
-    out.push(...bytes.subarray(c.start, c.end));
+    parts.push(bytes.subarray(c.start, c.end));
   }
-  return new Uint8Array(out);
+  let total = 0;
+  for (const part of parts) total += part.length;
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const part of parts) {
+    out.set(part, offset);
+    offset += part.length;
+  }
+  return out;
 }
 ```
 

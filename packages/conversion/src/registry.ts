@@ -6,6 +6,7 @@ export const FORMATS: readonly Format[] = [
   { id: "webp", label: "WebP", mediaType: "image/webp", extensions: ["webp"] },
   { id: "tiff", label: "TIFF", mediaType: "image/tiff", extensions: ["tif", "tiff"] },
   { id: "gif", label: "GIF", mediaType: "image/gif", extensions: ["gif"] },
+  { id: "bmp", label: "BMP", mediaType: "image/bmp", extensions: ["bmp"] },
   {
     id: "docx",
     label: "Word (DOCX)",
@@ -49,6 +50,15 @@ for (const from of RASTER) {
   }
 }
 
+// image-pdf edges: raster images to PDF via the raster Container's image-to-PDF path (server-only;
+// the browser wasm path cannot write PDF). bmp is included here though not in the libvips raster
+// interconversion set — the raster Container handles it via the same route.
+const IMAGE_PDF_SOURCES: readonly FormatId[] = ["png", "jpeg", "webp", "tiff", "gif", "bmp"];
+const imagePdfEdges: ConversionEdge[] = [];
+for (const from of IMAGE_PDF_SOURCES) {
+  imagePdfEdges.push({ from, to: "pdf", engineId: "image-pdf", recipeRef: "image-pdf", weight: 1 });
+}
+
 // LibreOffice office edges (deferred bodies). wpd->odt and odt->pdf together let pathfinding chain
 // wpd->pdf with no direct edge.
 const officeEdges: readonly ConversionEdge[] = [
@@ -66,7 +76,12 @@ const otherEdges: readonly ConversionEdge[] = [
   { from: "webm", to: "mp4", engineId: "ffmpeg", recipeRef: "mp4-h264-aac-faststart", weight: 1 },
 ];
 
-export const EDGES: readonly ConversionEdge[] = [...rasterEdges, ...officeEdges, ...otherEdges];
+export const EDGES: readonly ConversionEdge[] = [
+  ...rasterEdges,
+  ...imagePdfEdges,
+  ...officeEdges,
+  ...otherEdges,
+];
 
 const FORMAT_BY_ID = new Map(FORMATS.map((f) => [f.id, f]));
 

@@ -13,7 +13,7 @@ describe("ooxml/xml", () => {
 
   it("nodeTag returns the element key", () => {
     const nodes = parseXml("<w:p/>") as Record<string, unknown>[];
-    expect(nodeTag(nodes[0])).toBe("w:p");
+    expect(nodeTag(nodes[0]!)).toBe("w:p");
   });
 });
 
@@ -29,7 +29,7 @@ describe("ooxml/walk", () => {
     const shown = parseXml(
       '<w:r><w:rPr><w:vanish w:val="false"/></w:rPr><w:t>x</w:t></w:r>',
     ) as XmlNode[];
-    expect(runIsHidden(hidden[0])).toBe(true);
-    expect(runIsHidden(shown[0])).toBe(false);
+    expect(runIsHidden(hidden[0]!)).toBe(true);
+    expect(runIsHidden(shown[0]!)).toBe(false);
   });
 });

@@ -5,7 +5,6 @@ import type { SecretStore } from "@magna-carta/data-access/firm-secret-credentia
 import type { HttpClient } from "@magna-carta/integrations/http";
 import { createApp } from "../src/app.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
-import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
 import {
   mirrorMemberWithOwnerRole,
   seedCredentialedUser,
@@ -83,7 +82,6 @@ let poolFirmId: FirmId;
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
   poolFirmId = (await seedFirm({ name: "Ship Firm", databaseIdentifier: "DB_FIRM_POOL_1" })).firmId;
   // The purchase route copies the label bytes from EasyPost's transient URL into R2 via global fetch;
   // stub it to return a minimal PDF. SELF.fetch (sign-in) dispatches to the worker, not global fetch.
@@ -107,7 +105,7 @@ describe("shipping e2e", () => {
       userName: "Ship User",
       firmId: poolFirmId,
     });
-    await mirrorMemberWithOwnerRole(userId, "Ship User");
+    await mirrorMemberWithOwnerRole(userId, "Ship User", poolFirmId);
     const cookie = await signInForSessionCookie("ship@example.com");
     const base = "https://example.com/api/v1";
 

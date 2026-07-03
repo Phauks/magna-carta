@@ -7,28 +7,25 @@ import {
 import { beforeAll, describe, expect, it } from "vitest";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
-import type { FileVersionId, FirmId, UserId } from "@magna-carta/identifiers/types";
+import type { FirmId, UserId } from "@magna-carta/identifiers/types";
 import worker from "../src/index.ts";
 import {
   findUnprovisionedMembers,
   listReachableActiveFirms,
-  runRescanSweep,
   runScheduledSweep,
 } from "../src/scheduled.ts";
+import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
-import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
 import { seedFirm } from "./support/test-auth.ts";
 
-// firm.database_identifier is UNIQUE and the pool firm is shared by this file's tests (the
-// members.test.ts pattern): seeded once here, per-test writes are isolated by the harness.
+// The pool firm is seeded once here and its per-firm data lives in the firm's FirmDatabase Durable
+// Object (addressed by firmId, self-migrating on first access). Per-test writes are isolated by the
+// harness; no D1 pool binding is needed for per-firm data.
 let poolFirmId: FirmId;
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
-  poolFirmId = (
-    await seedFirm({ name: "Scheduled Test Firm", databaseIdentifier: "DB_FIRM_POOL_1" })
-  ).firmId;
+  poolFirmId = (await seedFirm({ name: "Scheduled Test Firm" })).firmId;
 });
 
 // Mirrors the invite endpoint's own write — a control-plane user row on the pool firm.
@@ -58,14 +55,26 @@ async function insertMemberProvisionOutboxRow(
   return outboxId;
 }
 
+// A minimal common interface satisfied by both D1Database and ProxyBatchDatabase: supports the
+// prepare → bind → all read path used by this helper. Both D1PreparedStatement and ProxySqlStatement
+// expose .all<T>() returning a { results: T[] } shape, so the structural overlap is safe.
+type AnyReadableDatabase = {
+  prepare(sql: string): {
+    bind(...values: unknown[]): {
+      all<T = Record<string, unknown>>(): Promise<{ results: T[] }>;
+    };
+  };
+};
+
 async function outboxRowState(
-  database: D1Database,
+  database: AnyReadableDatabase,
   outboxId: string,
 ): Promise<{ status: string; attempts: number } | null> {
-  return database
+  const { results } = await database
     .prepare("SELECT status, attempts FROM outbox WHERE id = ?1")
     .bind(outboxId)
-    .first<{ status: string; attempts: number }>();
+    .all<{ status: string; attempts: number }>();
+  return results[0] ?? null;
 }
 
 describe("runScheduledSweep — member.provision consumption", () => {
@@ -93,12 +102,11 @@ describe("runScheduledSweep — member.provision consumption", () => {
     expect(report.controlPlane.failed).toBe(0);
 
     // The member mirror landed in the firm database; the invite carries no role (roleName null).
-    const memberRow = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT display_name, status FROM member WHERE user_id = ?1",
-    )
+    const { results: memberResults } = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("SELECT display_name, status FROM member WHERE user_id = ?1")
       .bind(invitedUserId)
-      .first<{ display_name: string; status: string }>();
-    expect(memberRow).toEqual({ display_name: "Sweep Invitee", status: "active" });
+      .all<{ display_name: string; status: string }>();
+    expect(memberResults[0]).toEqual({ display_name: "Sweep Invitee", status: "active" });
 
     // The reconciliation backstop is clean again (control-plane users without a member row in their
     // firm database).
@@ -107,12 +115,11 @@ describe("runScheduledSweep — member.provision consumption", () => {
     // Re-running the sweep is a no-op: the row is dispatched, nothing duplicates.
     const secondReport = await runScheduledSweep(env);
     expect(secondReport.controlPlane.dispatched).toBe(0);
-    const memberCount = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT COUNT(*) AS count FROM member WHERE user_id = ?1",
-    )
+    const { results: countResults } = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("SELECT COUNT(*) AS count FROM member WHERE user_id = ?1")
       .bind(invitedUserId)
-      .first<{ count: number }>();
-    expect(memberCount?.count).toBe(1);
+      .all<{ count: number }>();
+    expect(countResults[0]?.count).toBe(1);
   });
 
   it("assigns the named seeded role and dedups a redelivery (at-least-once contract)", async () => {
@@ -131,12 +138,13 @@ describe("runScheduledSweep — member.provision consumption", () => {
       attempts: 0,
     });
 
-    const seededRole = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT id FROM role WHERE name = 'Owner/Admin'",
-    ).first<{ id: string }>();
-    const roleRows = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT role_id FROM member_role WHERE member_user_id = ?1",
-    )
+    const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, poolFirmId);
+    const { results: roleResults } = await firmDatabase
+      .prepare("SELECT id FROM role WHERE name = 'Owner/Admin'")
+      .all<{ id: string }>();
+    const seededRole = roleResults[0];
+    const roleRows = await firmDatabase
+      .prepare("SELECT role_id FROM member_role WHERE member_user_id = ?1")
       .bind(userId)
       .all<{ role_id: string }>();
     expect(roleRows.results).toEqual([{ role_id: seededRole?.id }]);
@@ -149,25 +157,25 @@ describe("runScheduledSweep — member.provision consumption", () => {
       .run();
     await runScheduledSweep(env);
 
-    const memberCount = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT COUNT(*) AS count FROM member WHERE user_id = ?1",
-    )
+    const { results: memberCountResults } = await firmDatabase
+      .prepare("SELECT COUNT(*) AS count FROM member WHERE user_id = ?1")
       .bind(userId)
-      .first<{ count: number }>();
-    expect(memberCount?.count).toBe(1);
-    const roleCount = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT COUNT(*) AS count FROM member_role WHERE member_user_id = ?1",
-    )
+      .all<{ count: number }>();
+    expect(memberCountResults[0]?.count).toBe(1);
+    const { results: roleCountResults } = await firmDatabase
+      .prepare("SELECT COUNT(*) AS count FROM member_role WHERE member_user_id = ?1")
       .bind(userId)
-      .first<{ count: number }>();
-    expect(roleCount?.count).toBe(1);
+      .all<{ count: number }>();
+    expect(roleCountResults[0]?.count).toBe(1);
   });
 
   it("dead-letters a poisoned message after max attempts without touching any firm database", async () => {
-    // Poison: a firmId no firm row records — the consumer throws on every delivery.
+    // Poison: a malformed firmId format — parseMemberProvisionPayload throws assertIdentifier on
+    // every delivery before the firm database is accessed. The relay increments attempts and
+    // dead-letters at max attempts (5).
     const outboxId = await insertMemberProvisionOutboxRow(env.DB_CONTROL, {
       userId: newIdentifier("user"),
-      firmId: newIdentifier("firm"),
+      firmId: "not-a-valid-firm-id",
       displayName: "Poisoned",
       roleName: null,
     });
@@ -223,12 +231,11 @@ describe("runScheduledSweep — member.provision consumption", () => {
       attempts: 1,
     });
     // No member row was written for the dropped-field payload.
-    const memberRow = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT user_id FROM member WHERE user_id = ?1",
-    )
+    const { results: memberResults } = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("SELECT user_id FROM member WHERE user_id = ?1")
       .bind(userId)
-      .first();
-    expect(memberRow).toBeNull();
+      .all();
+    expect(memberResults[0]).toBeUndefined();
   });
 
   it("dead-letters a message whose topic has no registered consumer", async () => {
@@ -251,15 +258,16 @@ describe("runScheduledSweep — per-firm relay and TTL purge", () => {
     // Nothing consumes the per-firm queue yet this slice — publishing + the dispatched mark IS
     // the relay contract; the consumer arrives with the first per-firm topic.
     const outboxId = newIdentifier("outbox");
-    await env.DB_FIRM_POOL_1.prepare(
-      "INSERT INTO outbox (id, topic, payload, aggregate_key, seq, status, attempts, created_at) VALUES (?1, 'demo.topic', '{}', NULL, NULL, 'pending', 0, ?2)",
-    )
+    await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare(
+        "INSERT INTO outbox (id, topic, payload, aggregate_key, seq, status, attempts, created_at) VALUES (?1, 'demo.topic', '{}', NULL, NULL, 'pending', 0, ?2)",
+      )
       .bind(outboxId, new Date().toISOString())
       .run();
 
     const report = await runScheduledSweep(env);
     expect(report.firmSweeps).toBeGreaterThanOrEqual(1);
-    expect(await outboxRowState(env.DB_FIRM_POOL_1, outboxId)).toEqual({
+    expect(await outboxRowState(firmDatabaseFor(env.FIRM_DATABASE, poolFirmId), outboxId)).toEqual({
       status: "dispatched",
       attempts: 0,
     });
@@ -271,9 +279,10 @@ describe("runScheduledSweep — per-firm relay and TTL purge", () => {
     // messages cross the single SHARED queue (the first per-firm consumer, slice 0·5+, has no other
     // handle on which physical database the row came from). A capturing fake QUEUE pins the shape.
     const outboxId = newIdentifier("outbox");
-    await env.DB_FIRM_POOL_1.prepare(
-      `INSERT INTO outbox (id, topic, payload, aggregate_key, seq, status, attempts, created_at) VALUES (?1, 'demo.shape', '{"demo":true}', 'agg_demo', 7, 'pending', 0, ?2)`,
-    )
+    await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare(
+        `INSERT INTO outbox (id, topic, payload, aggregate_key, seq, status, attempts, created_at) VALUES (?1, 'demo.shape', '{"demo":true}', 'agg_demo', 7, 'pending', 0, ?2)`,
+      )
       .bind(outboxId, new Date().toISOString())
       .run();
 
@@ -301,7 +310,21 @@ describe("runScheduledSweep — per-firm relay and TTL purge", () => {
     const hourMilliseconds = 60 * 60 * 1000;
     const expired = new Date(Date.now() - 25 * hourMilliseconds).toISOString();
     const fresh = new Date().toISOString();
-    for (const database of [env.DB_CONTROL, env.DB_FIRM_POOL_1]) {
+    const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, poolFirmId);
+    // A minimal common interface satisfied by both D1Database and firmDatabase (ProxyBatchDatabase).
+    // Both support prepare().bind().run() and prepare().all() (the bound form is a fluent no-op
+    // when no parameters are needed: ProxySqlStatement.bind returns itself unchanged).
+    type AnyWriteReadDatabase = {
+      prepare(sql: string): {
+        bind(...values: unknown[]): {
+          run(): Promise<unknown>;
+          all<T>(): Promise<{ results: T[] }>;
+        };
+        all<T>(): Promise<{ results: T[] }>;
+        run(): Promise<unknown>;
+      };
+    };
+    for (const database of [env.DB_CONTROL as AnyWriteReadDatabase, firmDatabase]) {
       for (const [key, createdAt] of [
         ["ttl-expired", expired],
         ["ttl-fresh", fresh],
@@ -317,12 +340,24 @@ describe("runScheduledSweep — per-firm relay and TTL purge", () => {
 
     await runScheduledSweep(env);
 
-    for (const database of [env.DB_CONTROL, env.DB_FIRM_POOL_1]) {
+    for (const database of [env.DB_CONTROL as AnyWriteReadDatabase, firmDatabase]) {
       const remaining = await database
         .prepare("SELECT key FROM idempotency_key WHERE key IN ('ttl-expired', 'ttl-fresh')")
         .all<{ key: string }>();
       expect(remaining.results).toEqual([{ key: "ttl-fresh" }]);
     }
+  });
+});
+
+describe("runScheduledSweep — control-plane migrations", () => {
+  it("runs the control-plane migration step without error and leaves DB_CONTROL at head", async () => {
+    await runScheduledSweep(env);
+    const probe = await env.DB_CONTROL.prepare("SELECT release_channel FROM firm LIMIT 1").all();
+    expect(probe.success).toBe(true);
+    const applied = await env.DB_CONTROL.prepare(
+      "SELECT tag FROM _migrations WHERE tag = '0003_handy_rattler'",
+    ).first<{ tag: string }>();
+    expect(applied?.tag).toBe("0003_handy_rattler");
   });
 });
 
@@ -344,159 +379,10 @@ describe("scheduled handler wiring", () => {
     worker.scheduled(controller, env, executionContext);
     await waitOnExecutionContext(executionContext);
 
-    const memberRow = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT display_name FROM member WHERE user_id = ?1",
-    )
+    const { results: memberResults } = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("SELECT display_name FROM member WHERE user_id = ?1")
       .bind(userId)
-      .first<{ display_name: string }>();
-    expect(memberRow).toEqual({ display_name: "Cron User" });
-  });
-});
-
-// Inserts a minimal file + clean committed version directly into the firm database, with the given
-// scan_verdict. The file and version ids are pre-generated so the test can reference them.
-// Each call uses a unique member + matter to avoid UNIQUE constraint collisions across tests.
-// Insertion order: member → matter → file (current_version_id NULL initially) → file_version →
-// UPDATE file to set current_version_id (avoids the circular FK between file and file_version).
-async function insertCommittedVersion(
-  database: D1Database,
-  versionId: FileVersionId,
-  scanVerdict: "unscanned" | "clean" | null,
-): Promise<void> {
-  const fileId = newIdentifier("file");
-  const matterId = newIdentifier("matter");
-  const memberId = newIdentifier("user");
-  const now = new Date().toISOString();
-  // member has no updated_at column (schema 0002_member-rbac).
-  await database
-    .prepare(
-      "INSERT INTO member (user_id, display_name, status, created_at) VALUES (?1, 'Test', 'active', ?2)",
-    )
-    .bind(memberId, now)
-    .run();
-  await database
-    .prepare(
-      "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'Test Matter', 'open', ?2, ?3, ?3)",
-    )
-    .bind(matterId, memberId, now)
-    .run();
-  // Insert file with current_version_id NULL to break the circular FK with file_version.
-  await database
-    .prepare(
-      "INSERT INTO file (id, matter_id, name, current_version_id, created_at, updated_at) VALUES (?1, ?2, 'test.txt', NULL, ?3, ?3)",
-    )
-    .bind(fileId, matterId, now)
-    .run();
-  await database
-    .prepare(
-      "INSERT INTO file_version (id, file_id, version_number, r2_key, status, scan_verdict, created_at, committed_at) VALUES (?1, ?2, 1, ?3, 'clean', ?4, ?5, ?5)",
-    )
-    .bind(versionId, fileId, `files/${versionId}`, scanVerdict, now)
-    .run();
-  // Back-fill the current_version_id now that the file_version row exists.
-  await database
-    .prepare("UPDATE file SET current_version_id = ?1, updated_at = ?2 WHERE id = ?3")
-    .bind(versionId, now, fileId)
-    .run();
-}
-
-// The bucket name used for rescan tests — any non-null string works here because the sweep only
-// needs a non-null bucketName to decide to enqueue; the ingest consumer resolves the firm from the
-// bucket, but these tests inject a capturing queue that never reaches the consumer.
-const RESCAN_BUCKET = "magna-carta-test-rescan-bucket";
-
-describe("runRescanSweep — weekly re-scan sweep", () => {
-  it("enqueues exactly one re-scan message for the unscanned committed version, not the already-clean one", async () => {
-    // Seed two committed versions: one with scan_verdict = 'unscanned', one with 'clean'.
-    // runRescanSweep should enqueue only the unscanned one.
-    // The firm must have a recorded bucket_name: the sweep skips firms with a null bucket so the
-    // enqueued counter only reflects messages the ingest consumer can meaningfully resolve.
-    await env.DB_CONTROL.prepare("UPDATE firm SET bucket_name = ?2 WHERE id = ?1")
-      .bind(poolFirmId, RESCAN_BUCKET)
-      .run();
-
-    const unscannedVersionId = newIdentifier("fileVersion") as FileVersionId;
-    const cleanVersionId = newIdentifier("fileVersion") as FileVersionId;
-    await insertCommittedVersion(env.DB_FIRM_POOL_1, unscannedVersionId, "unscanned");
-    await insertCommittedVersion(env.DB_FIRM_POOL_1, cleanVersionId, "clean");
-
-    const sent: unknown[] = [];
-    const capturingFilesIngest = {
-      send: (message: unknown) => {
-        sent.push(message);
-        return Promise.resolve();
-      },
-    } as unknown as Queue;
-
-    await runRescanSweep({ ...env, FILES_INGEST: capturingFilesIngest });
-
-    // Exactly one message enqueued — for the unscanned version only.
-    expect(sent).toHaveLength(1);
-    const message = sent[0] as { object?: { key?: unknown } };
-    expect(message.object?.key).toBe(`files/${unscannedVersionId}`);
-
-    // Restore null bucket so other tests that do NOT want enqueuing are unaffected.
-    await env.DB_CONTROL.prepare("UPDATE firm SET bucket_name = NULL WHERE id = ?1")
-      .bind(poolFirmId)
-      .run();
-  });
-
-  it("respects the per-firm cap — enqueues exactly the cap count when backlog exceeds it", async () => {
-    // Seed 3 unscanned committed versions into a fresh firm database so the test is isolated
-    // from other tests that may have left residual unscanned rows in the pool firm.
-    // Then call runRescanSweep with a cap of 2 and assert EXACTLY 2 messages are enqueued,
-    // proving the bounding logic is exercised (not merely that the cap is larger than the backlog).
-    await applyPerFirmMigrations(env.DB_FIRM_POOL_2);
-    const capBoundFirmId = (
-      await seedFirm({ name: "Cap Boundary Firm", databaseIdentifier: "DB_FIRM_POOL_2" })
-    ).firmId;
-
-    // The firm must have a recorded bucket_name: the sweep skips firms with a null bucket so the
-    // enqueued counter only reflects messages the ingest consumer can meaningfully resolve.
-    await env.DB_CONTROL.prepare("UPDATE firm SET bucket_name = ?2 WHERE id = ?1")
-      .bind(capBoundFirmId, "magna-carta-test-cap-bucket")
-      .run();
-
-    const seededVersionIds: FileVersionId[] = [];
-    for (let i = 0; i < 3; i++) {
-      const versionId = newIdentifier("fileVersion") as FileVersionId;
-      seededVersionIds.push(versionId);
-      await insertCommittedVersion(env.DB_FIRM_POOL_2, versionId, "unscanned");
-    }
-
-    const sent: unknown[] = [];
-    const capturingFilesIngest = {
-      send: (message: unknown) => {
-        sent.push(message);
-        return Promise.resolve();
-      },
-    } as unknown as Queue;
-
-    // Cap of 2 with 3 unscanned versions: exactly 2 must be enqueued for the cap-boundary firm.
-    await runRescanSweep({ ...env, FILES_INGEST: capturingFilesIngest }, 2);
-
-    const firmMessages = sent.filter((entry) => {
-      // Filter by key prefix matching a seeded version to isolate this firm's messages.
-      const key = (entry as { object?: { key?: string } }).object?.key ?? "";
-      return seededVersionIds.some((id) => key === `files/${id}`);
-    });
-    expect(firmMessages).toHaveLength(2);
-
-    // Clean up: remove the cap-boundary firm row so it does not interfere with subsequent tests.
-    await env.DB_CONTROL.prepare("DELETE FROM firm WHERE id = ?1").bind(capBoundFirmId).run();
-  });
-
-  it("routes the weekly cron expression to runRescanSweep via the Worker's scheduled handler", async () => {
-    // The scheduled handler must route 0 4 * * 0 to runRescanSweep (not the sweep or reconciliation).
-    // We verify it runs without error (the wiring is structural; the queue binding may be absent in
-    // the test harness, causing a no-op rather than an enqueue — the routing is what matters here).
-    const controller = createScheduledController({
-      scheduledTime: new Date(),
-      cron: "0 4 * * 0",
-    });
-    const executionContext = createExecutionContext();
-    // Should not throw — the handler routes and executes.
-    worker.scheduled(controller, env, executionContext);
-    await waitOnExecutionContext(executionContext);
+      .all<{ display_name: string }>();
+    expect(memberResults[0]).toEqual({ display_name: "Cron User" });
   });
 });

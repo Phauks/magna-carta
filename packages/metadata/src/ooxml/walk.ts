@@ -1,5 +1,10 @@
 import { nodeTag, type XmlNode } from "./xml.ts";
 
+// Matches the word-processing content parts that may carry tracked changes, hidden runs, and comment
+// references: the main document body plus all header, footer, footnote, and endnote parts.
+export const CONTENT_PART_PATTERN =
+  /^word\/(document|header\d+|footer\d+|footnotes|endnotes)\.xml$/;
+
 // The WordprocessingML revision/comment/hidden vocabulary, defined once and shared by the inspect and
 // scrub modules. Accepting a tracked change means: drop REMOVE_TAGS (deleted/moved-out text), unwrap
 // UNWRAP_TAGS (keep inserted/moved-in text), and drop PROP_CHANGE_TAGS (keep current formatting).

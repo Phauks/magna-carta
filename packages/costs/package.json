@@ -1,0 +1,30 @@
+{
+  "name": "@magna-carta/costs",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./cost-entry-service": "./src/cost-entry-service.ts",
+    "./cost-entry-statements": "./src/cost-entry-statements.ts",
+    "./cost-validation": "./src/cost-validation.ts",
+    "./recoverable-charge": "./src/recoverable-charge.ts",
+    "./recovery-policy": "./src/recovery-policy.ts"
+  },
+  "scripts": {
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@magna-carta/billing-core": "workspace:*",
+    "@magna-carta/data-access": "workspace:*",
+    "@magna-carta/identifiers": "workspace:*",
+    "@magna-carta/money": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@magna-carta/database": "workspace:*",
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "vitest": "catalog:"
+  }
+}

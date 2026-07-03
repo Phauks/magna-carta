@@ -12,6 +12,7 @@ const base: CleanVersionForPreview = {
   storageEncoding: "full",
   sniffedContentType: "video/mp4",
   artifactRole: "original",
+  scanVerdict: null,
 };
 
 describe("decidePreview", () => {
@@ -21,6 +22,13 @@ describe("decidePreview", () => {
       r2Key: "files/f/v",
       sniffedContentType: "video/mp4",
       sizeBytes: 100,
+    });
+  });
+
+  it("a flagged scan verdict always degrades to download-only/verdict (gate handles treatment), even if otherwise inline-playable", () => {
+    expect(decidePreview({ ...base, scanVerdict: "flagged" })).toEqual({
+      kind: "download-only",
+      reason: "verdict",
     });
   });
 

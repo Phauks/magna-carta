@@ -26,9 +26,9 @@ describe("detectFormat", () => {
 });
 
 describe("availableTargets", () => {
-  it("lists the reachable targets for a recognized file", () => {
+  it("lists the reachable targets for a recognized file (includes pdf via image-pdf engine)", () => {
     const targets = availableTargets({ name: "photo.png", type: "image/png" });
-    expect([...targets].sort()).toEqual(["gif", "jpeg", "tiff", "webp"]);
+    expect([...targets].sort()).toEqual(["gif", "jpeg", "pdf", "tiff", "webp"]);
   });
   it("returns [] for an unrecognized file", () => {
     expect(availableTargets({ name: "mystery.xyz" })).toEqual([]);

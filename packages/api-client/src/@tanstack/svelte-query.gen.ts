@@ -3,8 +3,8 @@
 import { type InfiniteData, infiniteQueryOptions, type MutationOptions, queryOptions } from '@tanstack/svelte-query';
 
 import { client } from '../client.gen';
-import { customFieldsApplyConvert, customFieldsArchiveField, customFieldsArchiveOption, customFieldsClearValue, customFieldsCreateOption, customFieldsDefineField, customFieldsHardDeleteField, customFieldsHardDeleteOption, customFieldsListRecordValues, customFieldsPreviewConvert, customFieldsPurgeField, customFieldsRenameField, customFieldsRenameOption, customFieldsReorderField, customFieldsReorderOption, customFieldsResolveField, customFieldsSetRequired, customFieldsSetValue, customFieldsUnarchiveField, customFieldsValueHistory, directoryAddIdentifier, directoryAddName, directoryAssignCategory, directoryCreateCategory, directoryCreateEdge, directoryCreateOrganization, directoryCreatePerson, directoryDuplicateCandidates, directoryGetOrganization, directoryGetPerson, directoryLinkMatterParty, directoryMerge, directoryReadIdentifier, directorySearch, documentTypesCreate, documentTypesDeactivate, documentTypesList, documentTypesUpdate, downloadsBundleStatus, downloadsZip, filesDelete, filesDownload, filesGet, filesList, filesPreview, filesUpdate, filesVersions, firmsProvision, firmUsageGet, foldersCreate, foldersDelete, foldersUpdate, healthRead, incidentsReport, locationsAssignMember, locationsClose, locationsCreate, locationsGet, locationsList, locationsSetAddresses, locationsUpdate, mattersClose, mattersCreate, mattersGet, mattersList, mattersListConsultations, mattersOpen, mattersRenumber, mattersReopen, mattersUpdate, matterTypesCreate, matterTypesDeactivate, matterTypesList, matterTypesUpdate, meGet, membersInvite, numberingGet, numberingPreview, numberingSet, type Options, safeBrowsePost, shippingConnect, shippingCreateShipment, shippingLabel, shippingPurchase, shippingRateShipment, shippingRefund, shippingTracking, uploadsAbort, uploadsComplete, uploadsInitiate, uploadsSignPart, whoisGet } from '../sdk.gen';
-import type { CustomFieldsApplyConvertData, CustomFieldsApplyConvertError, CustomFieldsApplyConvertResponse, CustomFieldsArchiveFieldData, CustomFieldsArchiveFieldError, CustomFieldsArchiveFieldResponse, CustomFieldsArchiveOptionData, CustomFieldsArchiveOptionError, CustomFieldsArchiveOptionResponse, CustomFieldsClearValueData, CustomFieldsClearValueError, CustomFieldsClearValueResponse, CustomFieldsCreateOptionData, CustomFieldsCreateOptionError, CustomFieldsCreateOptionResponse, CustomFieldsDefineFieldData, CustomFieldsDefineFieldError, CustomFieldsDefineFieldResponse, CustomFieldsHardDeleteFieldData, CustomFieldsHardDeleteFieldError, CustomFieldsHardDeleteFieldResponse, CustomFieldsHardDeleteOptionData, CustomFieldsHardDeleteOptionError, CustomFieldsHardDeleteOptionResponse, CustomFieldsListRecordValuesData, CustomFieldsListRecordValuesError, CustomFieldsListRecordValuesResponse, CustomFieldsPreviewConvertData, CustomFieldsPreviewConvertError, CustomFieldsPreviewConvertResponse, CustomFieldsPurgeFieldData, CustomFieldsPurgeFieldError, CustomFieldsPurgeFieldResponse, CustomFieldsRenameFieldData, CustomFieldsRenameFieldError, CustomFieldsRenameFieldResponse, CustomFieldsRenameOptionData, CustomFieldsRenameOptionError, CustomFieldsRenameOptionResponse, CustomFieldsReorderFieldData, CustomFieldsReorderFieldError, CustomFieldsReorderFieldResponse, CustomFieldsReorderOptionData, CustomFieldsReorderOptionError, CustomFieldsReorderOptionResponse, CustomFieldsResolveFieldData, CustomFieldsResolveFieldError, CustomFieldsResolveFieldResponse, CustomFieldsSetRequiredData, CustomFieldsSetRequiredError, CustomFieldsSetRequiredResponse, CustomFieldsSetValueData, CustomFieldsSetValueError, CustomFieldsSetValueResponse, CustomFieldsUnarchiveFieldData, CustomFieldsUnarchiveFieldError, CustomFieldsUnarchiveFieldResponse, CustomFieldsValueHistoryData, CustomFieldsValueHistoryError, CustomFieldsValueHistoryResponse, DirectoryAddIdentifierData, DirectoryAddIdentifierError, DirectoryAddIdentifierResponse, DirectoryAddNameData, DirectoryAddNameError, DirectoryAddNameResponse, DirectoryAssignCategoryData, DirectoryAssignCategoryError, DirectoryAssignCategoryResponse, DirectoryCreateCategoryData, DirectoryCreateCategoryError, DirectoryCreateCategoryResponse, DirectoryCreateEdgeData, DirectoryCreateEdgeError, DirectoryCreateEdgeResponse, DirectoryCreateOrganizationData, DirectoryCreateOrganizationError, DirectoryCreateOrganizationResponse, DirectoryCreatePersonData, DirectoryCreatePersonError, DirectoryCreatePersonResponse, DirectoryDuplicateCandidatesData, DirectoryDuplicateCandidatesError, DirectoryDuplicateCandidatesResponse2, DirectoryGetOrganizationData, DirectoryGetOrganizationError, DirectoryGetOrganizationResponse, DirectoryGetPersonData, DirectoryGetPersonError, DirectoryGetPersonResponse, DirectoryLinkMatterPartyData, DirectoryLinkMatterPartyError, DirectoryLinkMatterPartyResponse, DirectoryMergeData, DirectoryMergeError, DirectoryMergeResponse2, DirectoryReadIdentifierData, DirectoryReadIdentifierError, DirectoryReadIdentifierResponse, DirectorySearchData, DirectorySearchError, DirectorySearchResponse2, DocumentTypesCreateData, DocumentTypesCreateError, DocumentTypesCreateResponse, DocumentTypesDeactivateData, DocumentTypesDeactivateError, DocumentTypesDeactivateResponse, DocumentTypesListData, DocumentTypesListError, DocumentTypesListResponse, DocumentTypesUpdateData, DocumentTypesUpdateError, DocumentTypesUpdateResponse, DownloadsBundleStatusData, DownloadsBundleStatusError, DownloadsBundleStatusResponse, DownloadsZipData, DownloadsZipError, DownloadsZipResponse, FilesDeleteData, FilesDeleteError, FilesDeleteResponse, FilesDownloadData, FilesDownloadError, FilesGetData, FilesGetError, FilesGetResponse, FilesListData, FilesListError, FilesListResponse, FilesPreviewData, FilesPreviewError, FilesPreviewResponse, FilesUpdateData, FilesUpdateError, FilesUpdateResponse, FilesVersionsData, FilesVersionsError, FilesVersionsResponse, FirmsProvisionData, FirmsProvisionError, FirmsProvisionResponse, FirmUsageGetData, FirmUsageGetError, FirmUsageGetResponse, FoldersCreateData, FoldersCreateError, FoldersCreateResponse, FoldersDeleteData, FoldersDeleteError, FoldersDeleteResponse, FoldersUpdateData, FoldersUpdateError, FoldersUpdateResponse, HealthReadData, HealthReadError, HealthReadResponse, IncidentsReportData, IncidentsReportError, IncidentsReportResponse, LocationsAssignMemberData, LocationsAssignMemberError, LocationsAssignMemberResponse, LocationsCloseData, LocationsCloseError, LocationsCloseResponse, LocationsCreateData, LocationsCreateError, LocationsCreateResponse, LocationsGetData, LocationsGetError, LocationsGetResponse, LocationsListData, LocationsListError, LocationsListResponse, LocationsSetAddressesData, LocationsSetAddressesError, LocationsSetAddressesResponse, LocationsUpdateData, LocationsUpdateError, LocationsUpdateResponse, MattersCloseData, MattersCloseError, MattersCloseResponse, MattersCreateData, MattersCreateError, MattersCreateResponse, MattersGetData, MattersGetError, MattersGetResponse, MattersListConsultationsData, MattersListConsultationsError, MattersListConsultationsResponse, MattersListData, MattersListError, MattersListResponse, MattersOpenData, MattersOpenError, MattersOpenResponse, MattersRenumberData, MattersRenumberError, MattersRenumberResponse, MattersReopenData, MattersReopenError, MattersReopenResponse, MattersUpdateData, MattersUpdateError, MattersUpdateResponse, MatterTypesCreateData, MatterTypesCreateError, MatterTypesCreateResponse, MatterTypesDeactivateData, MatterTypesDeactivateError, MatterTypesDeactivateResponse, MatterTypesListData, MatterTypesListError, MatterTypesListResponse, MatterTypesUpdateData, MatterTypesUpdateError, MatterTypesUpdateResponse, MeGetData, MeGetError, MeGetResponse, MembersInviteData, MembersInviteError, MembersInviteResponse, NumberingGetData, NumberingGetError, NumberingGetResponse, NumberingPreviewData, NumberingPreviewError, NumberingPreviewResponse2, NumberingSetData, NumberingSetError, NumberingSetResponse, SafeBrowsePostData, SafeBrowsePostError, SafeBrowsePostResponse, ShippingConnectData, ShippingConnectError, ShippingConnectResponse, ShippingCreateShipmentData, ShippingCreateShipmentError, ShippingCreateShipmentResponse, ShippingLabelData, ShippingLabelError, ShippingLabelResponse, ShippingPurchaseData, ShippingPurchaseError, ShippingPurchaseResponse, ShippingRateShipmentData, ShippingRateShipmentError, ShippingRateShipmentResponse, ShippingRefundData, ShippingRefundError, ShippingRefundResponse, ShippingTrackingData, ShippingTrackingError, ShippingTrackingResponse, UploadsAbortData, UploadsAbortError, UploadsAbortResponse, UploadsCompleteData, UploadsCompleteError, UploadsCompleteResponse, UploadsInitiateData, UploadsInitiateError, UploadsInitiateResponse, UploadsSignPartData, UploadsSignPartError, UploadsSignPartResponse, WhoisGetData, WhoisGetError, WhoisGetResponse } from '../types.gen';
+import { conversionsStatus, conversionsSubmit, conversionsUpload, costsApprove, costsAttachReceipt, costsBatch, costsCreate, costsDetachReceipt, costsGet, costsKickBack, costsList, costsSubmit, costsUpdate, costsVoid, customFieldsApplyConvert, customFieldsArchiveField, customFieldsArchiveOption, customFieldsClearValue, customFieldsCreateOption, customFieldsDefineField, customFieldsHardDeleteField, customFieldsHardDeleteOption, customFieldsListRecordValues, customFieldsPreviewConvert, customFieldsPurgeField, customFieldsRenameField, customFieldsRenameOption, customFieldsReorderField, customFieldsReorderOption, customFieldsResolveField, customFieldsSetRequired, customFieldsSetValue, customFieldsUnarchiveField, customFieldsValueHistory, directoryAddIdentifier, directoryAddName, directoryAssignCategory, directoryCreateCategory, directoryCreateEdge, directoryCreateOrganization, directoryCreatePerson, directoryDuplicateCandidates, directoryGetOrganization, directoryGetPerson, directoryLinkMatterParty, directoryMerge, directoryReadIdentifier, directorySearch, documentsCheckin, documentsCheckout, documentsEditSession, documentsForceRelease, documentsReconcile, documentsViewSession, documentTypesCreate, documentTypesDeactivate, documentTypesList, documentTypesUpdate, downloadsBundleStatus, downloadsZip, fileIntegrityHash, fileIntegrityVerify, filesDelete, filesDownload, filesGet, filesList, filesPreview, filesUpdate, filesVersions, fileTypeVerify, firmSetReleaseChannel, firmsProvision, firmUsageGet, foldersCreate, foldersDelete, foldersUpdate, healthRead, incidentsReport, locationsAssignMember, locationsClose, locationsCreate, locationsGet, locationsList, locationsSetAddresses, locationsUpdate, mattersClose, mattersCreate, mattersGet, mattersList, mattersListConsultations, mattersOpen, mattersRenumber, mattersReopen, mattersUpdate, matterTypesCreate, matterTypesDeactivate, matterTypesList, matterTypesUpdate, meGet, membersInvite, metadataInspect, metadataScrub, myDayGet, narrativeTemplatesCreate, narrativeTemplatesList, narrativeTemplatesRecentNarratives, nonBillableCategoriesArchive, nonBillableCategoriesCreate, nonBillableCategoriesList, nonBillableCategoriesUpdate, numberingGet, numberingPreview, numberingSet, type Options, platformSetFirmReleaseChannel, rateCardsCreate, rateCardsList, ratesAppend, ratesReRateDrafts, safeBrowsePost, scanDiagnose, scanMatter, scanPolicyGet, scanPolicyScoreHistogram, scanPolicyUpdate, shippingConnect, shippingCreateShipment, shippingLabel, shippingPurchase, shippingRateShipment, shippingRefund, shippingTracking, supportDiagnosticsOverview, supportGrantsCosign, supportGrantsList, supportGrantsRequest, supportGrantsRevoke, supportSessionsRedeem, timeEntriesApprove, timeEntriesCreate, timeEntriesGet, timeEntriesGridBatch, timeEntriesKickBack, timeEntriesList, timeEntriesPreviewQuickAdd, timeEntriesSubmit, timeEntriesUpdate, timeEntriesVoid, timerBind, timerDiscard, timerPause, timerRead, timerResume, timerStart, timerStopCommit, uploadsAbort, uploadsComplete, uploadsInitiate, uploadsSignPart, utbmsCodesDisable, utbmsCodesEnable, utbmsCodesList, whoisGet } from '../sdk.gen';
+import type { ConversionsStatusData, ConversionsStatusError, ConversionsStatusResponse, ConversionsSubmitData, ConversionsSubmitError, ConversionsSubmitResponse, ConversionsUploadData, ConversionsUploadError, ConversionsUploadResponse, CostsApproveData, CostsApproveError, CostsApproveResponse, CostsAttachReceiptData, CostsAttachReceiptError, CostsAttachReceiptResponse, CostsBatchData, CostsBatchError, CostsBatchResponse, CostsCreateData, CostsCreateError, CostsCreateResponse, CostsDetachReceiptData, CostsDetachReceiptError, CostsDetachReceiptResponse, CostsGetData, CostsGetError, CostsGetResponse, CostsKickBackData, CostsKickBackError, CostsKickBackResponse, CostsListData, CostsListError, CostsListResponse, CostsSubmitData, CostsSubmitError, CostsSubmitResponse, CostsUpdateData, CostsUpdateError, CostsUpdateResponse, CostsVoidData, CostsVoidError, CostsVoidResponse, CustomFieldsApplyConvertData, CustomFieldsApplyConvertError, CustomFieldsApplyConvertResponse, CustomFieldsArchiveFieldData, CustomFieldsArchiveFieldError, CustomFieldsArchiveFieldResponse, CustomFieldsArchiveOptionData, CustomFieldsArchiveOptionError, CustomFieldsArchiveOptionResponse, CustomFieldsClearValueData, CustomFieldsClearValueError, CustomFieldsClearValueResponse, CustomFieldsCreateOptionData, CustomFieldsCreateOptionError, CustomFieldsCreateOptionResponse, CustomFieldsDefineFieldData, CustomFieldsDefineFieldError, CustomFieldsDefineFieldResponse, CustomFieldsHardDeleteFieldData, CustomFieldsHardDeleteFieldError, CustomFieldsHardDeleteFieldResponse, CustomFieldsHardDeleteOptionData, CustomFieldsHardDeleteOptionError, CustomFieldsHardDeleteOptionResponse, CustomFieldsListRecordValuesData, CustomFieldsListRecordValuesError, CustomFieldsListRecordValuesResponse, CustomFieldsPreviewConvertData, CustomFieldsPreviewConvertError, CustomFieldsPreviewConvertResponse, CustomFieldsPurgeFieldData, CustomFieldsPurgeFieldError, CustomFieldsPurgeFieldResponse, CustomFieldsRenameFieldData, CustomFieldsRenameFieldError, CustomFieldsRenameFieldResponse, CustomFieldsRenameOptionData, CustomFieldsRenameOptionError, CustomFieldsRenameOptionResponse, CustomFieldsReorderFieldData, CustomFieldsReorderFieldError, CustomFieldsReorderFieldResponse, CustomFieldsReorderOptionData, CustomFieldsReorderOptionError, CustomFieldsReorderOptionResponse, CustomFieldsResolveFieldData, CustomFieldsResolveFieldError, CustomFieldsResolveFieldResponse, CustomFieldsSetRequiredData, CustomFieldsSetRequiredError, CustomFieldsSetRequiredResponse, CustomFieldsSetValueData, CustomFieldsSetValueError, CustomFieldsSetValueResponse, CustomFieldsUnarchiveFieldData, CustomFieldsUnarchiveFieldError, CustomFieldsUnarchiveFieldResponse, CustomFieldsValueHistoryData, CustomFieldsValueHistoryError, CustomFieldsValueHistoryResponse, DirectoryAddIdentifierData, DirectoryAddIdentifierError, DirectoryAddIdentifierResponse, DirectoryAddNameData, DirectoryAddNameError, DirectoryAddNameResponse, DirectoryAssignCategoryData, DirectoryAssignCategoryError, DirectoryAssignCategoryResponse, DirectoryCreateCategoryData, DirectoryCreateCategoryError, DirectoryCreateCategoryResponse, DirectoryCreateEdgeData, DirectoryCreateEdgeError, DirectoryCreateEdgeResponse, DirectoryCreateOrganizationData, DirectoryCreateOrganizationError, DirectoryCreateOrganizationResponse, DirectoryCreatePersonData, DirectoryCreatePersonError, DirectoryCreatePersonResponse, DirectoryDuplicateCandidatesData, DirectoryDuplicateCandidatesError, DirectoryDuplicateCandidatesResponse2, DirectoryGetOrganizationData, DirectoryGetOrganizationError, DirectoryGetOrganizationResponse, DirectoryGetPersonData, DirectoryGetPersonError, DirectoryGetPersonResponse, DirectoryLinkMatterPartyData, DirectoryLinkMatterPartyError, DirectoryLinkMatterPartyResponse, DirectoryMergeData, DirectoryMergeError, DirectoryMergeResponse2, DirectoryReadIdentifierData, DirectoryReadIdentifierError, DirectoryReadIdentifierResponse, DirectorySearchData, DirectorySearchError, DirectorySearchResponse2, DocumentsCheckinData, DocumentsCheckinError, DocumentsCheckinResponse, DocumentsCheckoutData, DocumentsCheckoutError, DocumentsCheckoutResponse, DocumentsEditSessionData, DocumentsEditSessionError, DocumentsEditSessionResponse, DocumentsForceReleaseData, DocumentsForceReleaseError, DocumentsForceReleaseResponse, DocumentsReconcileData, DocumentsReconcileError, DocumentsReconcileResponse, DocumentsViewSessionData, DocumentsViewSessionError, DocumentsViewSessionResponse, DocumentTypesCreateData, DocumentTypesCreateError, DocumentTypesCreateResponse, DocumentTypesDeactivateData, DocumentTypesDeactivateError, DocumentTypesDeactivateResponse, DocumentTypesListData, DocumentTypesListError, DocumentTypesListResponse, DocumentTypesUpdateData, DocumentTypesUpdateError, DocumentTypesUpdateResponse, DownloadsBundleStatusData, DownloadsBundleStatusError, DownloadsBundleStatusResponse, DownloadsZipData, DownloadsZipError, DownloadsZipResponse, FileIntegrityHashData, FileIntegrityHashError, FileIntegrityHashResponse2, FileIntegrityVerifyData, FileIntegrityVerifyError, FileIntegrityVerifyResponse2, FilesDeleteData, FilesDeleteError, FilesDeleteResponse, FilesDownloadData, FilesDownloadError, FilesGetData, FilesGetError, FilesGetResponse, FilesListData, FilesListError, FilesListResponse, FilesPreviewData, FilesPreviewError, FilesPreviewResponse, FilesUpdateData, FilesUpdateError, FilesUpdateResponse, FilesVersionsData, FilesVersionsError, FilesVersionsResponse, FileTypeVerifyData, FileTypeVerifyError, FileTypeVerifyResponse, FirmSetReleaseChannelData, FirmSetReleaseChannelError, FirmSetReleaseChannelResponse, FirmsProvisionData, FirmsProvisionError, FirmsProvisionResponse, FirmUsageGetData, FirmUsageGetError, FirmUsageGetResponse, FoldersCreateData, FoldersCreateError, FoldersCreateResponse, FoldersDeleteData, FoldersDeleteError, FoldersDeleteResponse, FoldersUpdateData, FoldersUpdateError, FoldersUpdateResponse, HealthReadData, HealthReadError, HealthReadResponse, IncidentsReportData, IncidentsReportError, IncidentsReportResponse, LocationsAssignMemberData, LocationsAssignMemberError, LocationsAssignMemberResponse, LocationsCloseData, LocationsCloseError, LocationsCloseResponse, LocationsCreateData, LocationsCreateError, LocationsCreateResponse, LocationsGetData, LocationsGetError, LocationsGetResponse, LocationsListData, LocationsListError, LocationsListResponse, LocationsSetAddressesData, LocationsSetAddressesError, LocationsSetAddressesResponse, LocationsUpdateData, LocationsUpdateError, LocationsUpdateResponse, MattersCloseData, MattersCloseError, MattersCloseResponse, MattersCreateData, MattersCreateError, MattersCreateResponse, MattersGetData, MattersGetError, MattersGetResponse, MattersListConsultationsData, MattersListConsultationsError, MattersListConsultationsResponse, MattersListData, MattersListError, MattersListResponse, MattersOpenData, MattersOpenError, MattersOpenResponse, MattersRenumberData, MattersRenumberError, MattersRenumberResponse, MattersReopenData, MattersReopenError, MattersReopenResponse, MattersUpdateData, MattersUpdateError, MattersUpdateResponse, MatterTypesCreateData, MatterTypesCreateError, MatterTypesCreateResponse, MatterTypesDeactivateData, MatterTypesDeactivateError, MatterTypesDeactivateResponse, MatterTypesListData, MatterTypesListError, MatterTypesListResponse, MatterTypesUpdateData, MatterTypesUpdateError, MatterTypesUpdateResponse, MeGetData, MeGetError, MeGetResponse, MembersInviteData, MembersInviteError, MembersInviteResponse, MetadataInspectData, MetadataInspectError, MetadataInspectResponse, MetadataScrubData, MetadataScrubError, MetadataScrubResponse, MyDayGetData, MyDayGetError, MyDayGetResponse, NarrativeTemplatesCreateData, NarrativeTemplatesCreateError, NarrativeTemplatesCreateResponse, NarrativeTemplatesListData, NarrativeTemplatesListError, NarrativeTemplatesListResponse, NarrativeTemplatesRecentNarrativesData, NarrativeTemplatesRecentNarrativesError, NarrativeTemplatesRecentNarrativesResponse, NonBillableCategoriesArchiveData, NonBillableCategoriesArchiveError, NonBillableCategoriesArchiveResponse, NonBillableCategoriesCreateData, NonBillableCategoriesCreateError, NonBillableCategoriesCreateResponse, NonBillableCategoriesListData, NonBillableCategoriesListError, NonBillableCategoriesListResponse, NonBillableCategoriesUpdateData, NonBillableCategoriesUpdateError, NonBillableCategoriesUpdateResponse, NumberingGetData, NumberingGetError, NumberingGetResponse, NumberingPreviewData, NumberingPreviewError, NumberingPreviewResponse2, NumberingSetData, NumberingSetError, NumberingSetResponse, PlatformSetFirmReleaseChannelData, PlatformSetFirmReleaseChannelError, PlatformSetFirmReleaseChannelResponse, RateCardsCreateData, RateCardsCreateError, RateCardsCreateResponse, RateCardsListData, RateCardsListError, RateCardsListResponse, RatesAppendData, RatesAppendError, RatesAppendResponse, RatesReRateDraftsData, RatesReRateDraftsError, RatesReRateDraftsResponse, SafeBrowsePostData, SafeBrowsePostError, SafeBrowsePostResponse, ScanDiagnoseData, ScanDiagnoseError, ScanDiagnoseResponse, ScanMatterData, ScanMatterError, ScanMatterResponse, ScanPolicyGetData, ScanPolicyGetError, ScanPolicyGetResponse, ScanPolicyScoreHistogramData, ScanPolicyScoreHistogramError, ScanPolicyScoreHistogramResponse, ScanPolicyUpdateData, ScanPolicyUpdateError, ScanPolicyUpdateResponse, ShippingConnectData, ShippingConnectError, ShippingConnectResponse, ShippingCreateShipmentData, ShippingCreateShipmentError, ShippingCreateShipmentResponse, ShippingLabelData, ShippingLabelError, ShippingLabelResponse, ShippingPurchaseData, ShippingPurchaseError, ShippingPurchaseResponse, ShippingRateShipmentData, ShippingRateShipmentError, ShippingRateShipmentResponse, ShippingRefundData, ShippingRefundError, ShippingRefundResponse, ShippingTrackingData, ShippingTrackingError, ShippingTrackingResponse, SupportDiagnosticsOverviewData, SupportDiagnosticsOverviewError, SupportDiagnosticsOverviewResponse, SupportGrantsCosignData, SupportGrantsCosignError, SupportGrantsCosignResponse, SupportGrantsListData, SupportGrantsListError, SupportGrantsListResponse, SupportGrantsRequestData, SupportGrantsRequestError, SupportGrantsRequestResponse, SupportGrantsRevokeData, SupportGrantsRevokeError, SupportGrantsRevokeResponse, SupportSessionsRedeemData, SupportSessionsRedeemError, SupportSessionsRedeemResponse, TimeEntriesApproveData, TimeEntriesApproveError, TimeEntriesApproveResponse, TimeEntriesCreateData, TimeEntriesCreateError, TimeEntriesCreateResponse, TimeEntriesGetData, TimeEntriesGetError, TimeEntriesGetResponse, TimeEntriesGridBatchData, TimeEntriesGridBatchError, TimeEntriesGridBatchResponse, TimeEntriesKickBackData, TimeEntriesKickBackError, TimeEntriesKickBackResponse, TimeEntriesListData, TimeEntriesListError, TimeEntriesListResponse, TimeEntriesPreviewQuickAddData, TimeEntriesPreviewQuickAddError, TimeEntriesPreviewQuickAddResponse, TimeEntriesSubmitData, TimeEntriesSubmitError, TimeEntriesSubmitResponse, TimeEntriesUpdateData, TimeEntriesUpdateError, TimeEntriesUpdateResponse, TimeEntriesVoidData, TimeEntriesVoidError, TimeEntriesVoidResponse, TimerBindData, TimerBindError, TimerBindResponse, TimerDiscardData, TimerDiscardError, TimerDiscardResponse, TimerPauseData, TimerPauseError, TimerPauseResponse, TimerReadData, TimerReadError, TimerReadResponse, TimerResumeData, TimerResumeError, TimerResumeResponse, TimerStartData, TimerStartError, TimerStartResponse, TimerStopCommitData, TimerStopCommitError, TimerStopCommitResponse, UploadsAbortData, UploadsAbortError, UploadsAbortResponse, UploadsCompleteData, UploadsCompleteError, UploadsCompleteResponse, UploadsInitiateData, UploadsInitiateError, UploadsInitiateResponse, UploadsSignPartData, UploadsSignPartError, UploadsSignPartResponse, UtbmsCodesDisableData, UtbmsCodesDisableError, UtbmsCodesDisableResponse, UtbmsCodesEnableData, UtbmsCodesEnableError, UtbmsCodesEnableResponse, UtbmsCodesListData, UtbmsCodesListError, UtbmsCodesListResponse, WhoisGetData, WhoisGetError, WhoisGetResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -129,6 +129,91 @@ export const safeBrowsePostMutation = (options?: Partial<Options<SafeBrowsePostD
 };
 
 /**
+ * Compute MD5, SHA-1, SHA-256, SHA-384 and SHA-512 digests of the request body in a single pass. Optionally report which algorithm matches an expected digest. Nothing is stored.
+ */
+export const fileIntegrityHashMutation = (options?: Partial<Options<FileIntegrityHashData>>): MutationOptions<FileIntegrityHashResponse2, FileIntegrityHashError, Options<FileIntegrityHashData>> => {
+    const mutationOptions: MutationOptions<FileIntegrityHashResponse2, FileIntegrityHashError, Options<FileIntegrityHashData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await fileIntegrityHash({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Recompute a stored file's digests from its bytes at rest and compare the SHA-256 to the digest recorded at intake, recording the check. Returns the digests, the baseline result, and a hash receipt.
+ */
+export const fileIntegrityVerifyMutation = (options?: Partial<Options<FileIntegrityVerifyData>>): MutationOptions<FileIntegrityVerifyResponse2, FileIntegrityVerifyError, Options<FileIntegrityVerifyData>> => {
+    const mutationOptions: MutationOptions<FileIntegrityVerifyResponse2, FileIntegrityVerifyError, Options<FileIntegrityVerifyData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await fileIntegrityVerify({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Identify an uploaded file's true content type from its bytes, compare it to the extension the filename claims, and recommend an extension when it is missing or wrong. Nothing is stored.
+ */
+export const fileTypeVerifyMutation = (options?: Partial<Options<FileTypeVerifyData>>): MutationOptions<FileTypeVerifyResponse, FileTypeVerifyError, Options<FileTypeVerifyData>> => {
+    const mutationOptions: MutationOptions<FileTypeVerifyResponse, FileTypeVerifyError, Options<FileTypeVerifyData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await fileTypeVerify({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Inspect an uploaded file (base64) and report the metadata and content-bearing artifacts it carries, with a risk level per category. Nothing is stored.
+ */
+export const metadataInspectMutation = (options?: Partial<Options<MetadataInspectData>>): MutationOptions<MetadataInspectResponse, MetadataInspectError, Options<MetadataInspectData>> => {
+    const mutationOptions: MutationOptions<MetadataInspectResponse, MetadataInspectError, Options<MetadataInspectData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await metadataInspect({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Return a cleaned copy (base64) of an uploaded file with the selected metadata and content artifacts removed, plus a re-inspection of the result. Defaults to removing everything. Nothing is stored.
+ */
+export const metadataScrubMutation = (options?: Partial<Options<MetadataScrubData>>): MutationOptions<MetadataScrubResponse, MetadataScrubError, Options<MetadataScrubData>> => {
+    const mutationOptions: MutationOptions<MetadataScrubResponse, MetadataScrubError, Options<MetadataScrubData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await metadataScrub({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
  * Invites a member into the session firm: creates the (unverified, account-less) user, enqueues the per-firm member.provision outbox row, audits the invite — one atomic batch — then sends the activation email (a password-reset link; the reset creates the credential).
  */
 export const membersInviteMutation = (options?: Partial<Options<MembersInviteData>>): MutationOptions<MembersInviteResponse, MembersInviteError, Options<MembersInviteData>> => {
@@ -146,12 +231,46 @@ export const membersInviteMutation = (options?: Partial<Options<MembersInviteDat
 };
 
 /**
- * Provisions a tenant firm (platform-admin only): firm row, per-firm database created and migrated to head, bucket, owner user with the Owner/Admin role — resumable; re-invoking with the same name no-ops completed steps and returns the existing firm.
+ * Sets the session firm's release channel to stable or beta. Moving to beta requires an explicit consent acknowledgment (the firm confirms it accepts pre-release behavior on live data). Returning to stable needs no acknowledgment. Alpha is a platform-only channel and is rejected at the schema level.
+ */
+export const firmSetReleaseChannelMutation = (options?: Partial<Options<FirmSetReleaseChannelData>>): MutationOptions<FirmSetReleaseChannelResponse, FirmSetReleaseChannelError, Options<FirmSetReleaseChannelData>> => {
+    const mutationOptions: MutationOptions<FirmSetReleaseChannelResponse, FirmSetReleaseChannelError, Options<FirmSetReleaseChannelData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await firmSetReleaseChannel({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Provisions a tenant firm (platform-admin only): firm row, bucket, owner user with the Owner/Admin role — resumable; re-invoking with the same name no-ops completed steps and returns the existing firm. The firm's per-firm database is the firmId-addressed database that self-migrates on first access, so it needs no provisioning step.
  */
 export const firmsProvisionMutation = (options?: Partial<Options<FirmsProvisionData>>): MutationOptions<FirmsProvisionResponse, FirmsProvisionError, Options<FirmsProvisionData>> => {
     const mutationOptions: MutationOptions<FirmsProvisionResponse, FirmsProvisionError, Options<FirmsProvisionData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await firmsProvision({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Platform-admin endpoint to set any firm's release channel (including alpha). Requires the X-Platform-Admin-Key secret header. Alpha is accessible only through this platform path; the firm-admin PUT /api/v1/firm/release-channel accepts stable and beta only.
+ */
+export const platformSetFirmReleaseChannelMutation = (options?: Partial<Options<PlatformSetFirmReleaseChannelData>>): MutationOptions<PlatformSetFirmReleaseChannelResponse, PlatformSetFirmReleaseChannelError, Options<PlatformSetFirmReleaseChannelData>> => {
+    const mutationOptions: MutationOptions<PlatformSetFirmReleaseChannelResponse, PlatformSetFirmReleaseChannelError, Options<PlatformSetFirmReleaseChannelData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await platformSetFirmReleaseChannel({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -967,7 +1086,7 @@ export const filesVersionsOptions = (options: Options<FilesVersionsData>) => que
 export const filesDownloadQueryKey = (options: Options<FilesDownloadData>) => createQueryKey('filesDownload', options);
 
 /**
- * Resolves the file's current clean version and redirects (302) to a short-TTL presigned GET URL the client downloads the bytes directly from. 404 when the file has no clean current version.
+ * Resolves the file's current clean version and redirects (302) to a short-TTL presigned GET URL the client downloads the bytes directly from. 404 when the file has no clean current version. When a re-scan has flagged the current version as malware, the file stays accessible (no data loss) but the raw download is gated: a 409 carrying the signature unless the caller re-requests with acknowledgeMalware=true, which proceeds and is audited as an acknowledged override.
  */
 export const filesDownloadOptions = (options: Options<FilesDownloadData>) => queryOptions<unknown, FilesDownloadError, unknown, ReturnType<typeof filesDownloadQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -1016,6 +1135,196 @@ export const downloadsZipMutation = (options?: Partial<Options<DownloadsZipData>
     };
     return mutationOptions;
 };
+
+/**
+ * Launch an editing session for a document: joins the live co-editing session (or starts one), returns the editor URL to iframe, the editor origin, and a short-lived WOPI edit token.
+ */
+export const documentsEditSessionMutation = (options?: Partial<Options<DocumentsEditSessionData>>): MutationOptions<DocumentsEditSessionResponse, DocumentsEditSessionError, Options<DocumentsEditSessionData>> => {
+    const mutationOptions: MutationOptions<DocumentsEditSessionResponse, DocumentsEditSessionError, Options<DocumentsEditSessionData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await documentsEditSession({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const documentsViewSessionQueryKey = (options: Options<DocumentsViewSessionData>) => createQueryKey('documentsViewSession', options);
+
+/**
+ * Open a read-only viewer for a document: returns the editor URL to iframe and a short-lived view-only WOPI token. Never takes the lock; reading is never blocked.
+ */
+export const documentsViewSessionOptions = (options: Options<DocumentsViewSessionData>) => queryOptions<DocumentsViewSessionResponse, DocumentsViewSessionError, DocumentsViewSessionResponse, ReturnType<typeof documentsViewSessionQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await documentsViewSession({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: documentsViewSessionQueryKey(options)
+});
+
+/**
+ * Take a checkout of a document: an optimistic offline working copy (default) or an opt-in exclusive lock. Records a checkout against the current version and returns a short-lived presigned download URL for that version's bytes.
+ */
+export const documentsCheckoutMutation = (options?: Partial<Options<DocumentsCheckoutData>>): MutationOptions<DocumentsCheckoutResponse, DocumentsCheckoutError, Options<DocumentsCheckoutData>> => {
+    const mutationOptions: MutationOptions<DocumentsCheckoutResponse, DocumentsCheckoutError, Options<DocumentsCheckoutData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await documentsCheckout({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Return an offline working copy: validates the checkout, mints a pending version, and returns a presigned PUT for the edited bytes. The bytes route the quarantine ingest, then reconcile against the document's current version (fast-forward or a flagged conflicting copy).
+ */
+export const documentsCheckinMutation = (options?: Partial<Options<DocumentsCheckinData>>): MutationOptions<DocumentsCheckinResponse, DocumentsCheckinError, Options<DocumentsCheckinData>> => {
+    const mutationOptions: MutationOptions<DocumentsCheckinResponse, DocumentsCheckinError, Options<DocumentsCheckinData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await documentsCheckin({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Resolve a divergent check-in by choosing which copy is authoritative (keep the current version, promote the incoming offline edit, or keep both). Flags the conflicting copy reconciled, releases the checkout, and audits the resolution. The conflicting copy is retained.
+ */
+export const documentsReconcileMutation = (options?: Partial<Options<DocumentsReconcileData>>): MutationOptions<DocumentsReconcileResponse, DocumentsReconcileError, Options<DocumentsReconcileData>> => {
+    const mutationOptions: MutationOptions<DocumentsReconcileResponse, DocumentsReconcileError, Options<DocumentsReconcileData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await documentsReconcile({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Force-release another member's lock on a document (an exclusive lock or a stranded offline checkout): releases the active checkout, frees the document, and audits both the actor and the displaced holder.
+ */
+export const documentsForceReleaseMutation = (options?: Partial<Options<DocumentsForceReleaseData>>): MutationOptions<DocumentsForceReleaseResponse, DocumentsForceReleaseError, Options<DocumentsForceReleaseData>> => {
+    const mutationOptions: MutationOptions<DocumentsForceReleaseResponse, DocumentsForceReleaseError, Options<DocumentsForceReleaseData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await documentsForceRelease({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Scans an uploaded file — the raw bytes as the application/octet-stream request body — through the malware-scan engine and returns its verdict + details. A one-off diagnostic: the file is NOT stored and is NOT associated with any matter. Returns an honest `unscanned` verdict until the scan Container is activated (the engine-less adapter never reports a false `clean`).
+ */
+export const scanDiagnoseMutation = (options?: Partial<Options<ScanDiagnoseData>>): MutationOptions<ScanDiagnoseResponse, ScanDiagnoseError, Options<ScanDiagnoseData>> => {
+    const mutationOptions: MutationOptions<ScanDiagnoseResponse, ScanDiagnoseError, Options<ScanDiagnoseData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await scanDiagnose({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Queues a background malware re-scan of every current file in a matter whose scan is stale relative to the firm's current engine (a file already scanned under the current engine is skipped, so a matter already current enqueues nothing). User-initiated; the scans run off the request path on the bulk lane. No-op (enqueued 0) when no current engine version is recorded. `capped` is true when more stale files remain than one request fans out — re-run to continue (any uncapped file is still re-scanned on next access).
+ */
+export const scanMatterMutation = (options?: Partial<Options<ScanMatterData>>): MutationOptions<ScanMatterResponse, ScanMatterError, Options<ScanMatterData>> => {
+    const mutationOptions: MutationOptions<ScanMatterResponse, ScanMatterError, Options<ScanMatterData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await scanMatter({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const scanPolicyGetQueryKey = (options?: Options<ScanPolicyGetData>) => createQueryKey('scanPolicyGet', options);
+
+/**
+ * Reads the firm's malware scan-policy settings: the scan tier, suspicious-score floor, flagged-file treatment, and step-up re-auth preference. Missing rows return the built-in defaults so a fresh firm always reads a valid configuration.
+ */
+export const scanPolicyGetOptions = (options?: Options<ScanPolicyGetData>) => queryOptions<ScanPolicyGetResponse, ScanPolicyGetError, ScanPolicyGetResponse, ReturnType<typeof scanPolicyGetQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await scanPolicyGet({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: scanPolicyGetQueryKey(options)
+});
+
+/**
+ * Updates one or more of the firm's malware scan-policy settings. Only the supplied fields are changed; absent fields retain their current values. Writes are batched atomically with an audit log entry. Returns the full resolved settings after the update.
+ */
+export const scanPolicyUpdateMutation = (options?: Partial<Options<ScanPolicyUpdateData>>): MutationOptions<ScanPolicyUpdateResponse, ScanPolicyUpdateError, Options<ScanPolicyUpdateData>> => {
+    const mutationOptions: MutationOptions<ScanPolicyUpdateResponse, ScanPolicyUpdateError, Options<ScanPolicyUpdateData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await scanPolicyUpdate({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const scanPolicyScoreHistogramQueryKey = (options?: Options<ScanPolicyScoreHistogramData>) => createQueryKey('scanPolicyScoreHistogram', options);
+
+/**
+ * Returns the deployed scan engine's heuristic (`_SUSP_`) rule-score distribution as 5-point buckets — the reference data for the firm's custom suspicious-score-floor control. The data is engine-global (identical for every firm). When no scan engine is deployed, engineVersion and minScoreGate are null and buckets is empty.
+ */
+export const scanPolicyScoreHistogramOptions = (options?: Options<ScanPolicyScoreHistogramData>) => queryOptions<ScanPolicyScoreHistogramResponse, ScanPolicyScoreHistogramError, ScanPolicyScoreHistogramResponse, ReturnType<typeof scanPolicyScoreHistogramQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await scanPolicyScoreHistogram({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: scanPolicyScoreHistogramQueryKey(options)
+});
 
 export const downloadsBundleStatusQueryKey = (options: Options<DownloadsBundleStatusData>) => createQueryKey('downloadsBundleStatus', options);
 
@@ -1618,6 +1927,904 @@ export const customFieldsValueHistoryOptions = (options: Options<CustomFieldsVal
         return data;
     },
     queryKey: customFieldsValueHistoryQueryKey(options)
+});
+
+/**
+ * Captures a batch of cost entries from the grid in one request. All rows are written atomically — if any row is invalid the entire batch is refused.
+ */
+export const costsBatchMutation = (options?: Partial<Options<CostsBatchData>>): MutationOptions<CostsBatchResponse, CostsBatchError, Options<CostsBatchData>> => {
+    const mutationOptions: MutationOptions<CostsBatchResponse, CostsBatchError, Options<CostsBatchData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await costsBatch({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const costsListQueryKey = (options?: Options<CostsListData>) => createQueryKey('costsList', options);
+
+/**
+ * Lists cost entries for a matter, filtered by status. Returns an empty list when no matterId is supplied.
+ */
+export const costsListOptions = (options?: Options<CostsListData>) => queryOptions<CostsListResponse, CostsListError, CostsListResponse, ReturnType<typeof costsListQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await costsList({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: costsListQueryKey(options)
+});
+
+/**
+ * Captures a cost entry against a matter. The source is always set to 'manual'. The amount must be a positive integer in minor units.
+ */
+export const costsCreateMutation = (options?: Partial<Options<CostsCreateData>>): MutationOptions<CostsCreateResponse, CostsCreateError, Options<CostsCreateData>> => {
+    const mutationOptions: MutationOptions<CostsCreateResponse, CostsCreateError, Options<CostsCreateData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await costsCreate({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const costsGetQueryKey = (options: Options<CostsGetData>) => createQueryKey('costsGet', options);
+
+/**
+ * Returns one cost entry's detail.
+ */
+export const costsGetOptions = (options: Options<CostsGetData>) => queryOptions<CostsGetResponse, CostsGetError, CostsGetResponse, ReturnType<typeof costsGetQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await costsGet({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: costsGetQueryKey(options)
+});
+
+/**
+ * Updates a draft cost entry. A billed or void entry is frozen and cannot be edited. A submitted or approved entry is not draft and returns 409.
+ */
+export const costsUpdateMutation = (options?: Partial<Options<CostsUpdateData>>): MutationOptions<CostsUpdateResponse, CostsUpdateError, Options<CostsUpdateData>> => {
+    const mutationOptions: MutationOptions<CostsUpdateResponse, CostsUpdateError, Options<CostsUpdateData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await costsUpdate({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Submits a draft cost entry for review. Only legal when the firm's billing review gate is on.
+ */
+export const costsSubmitMutation = (options?: Partial<Options<CostsSubmitData>>): MutationOptions<CostsSubmitResponse, CostsSubmitError, Options<CostsSubmitData>> => {
+    const mutationOptions: MutationOptions<CostsSubmitResponse, CostsSubmitError, Options<CostsSubmitData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await costsSubmit({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Approves a submitted cost entry, making it eligible for billing.
+ */
+export const costsApproveMutation = (options?: Partial<Options<CostsApproveData>>): MutationOptions<CostsApproveResponse, CostsApproveError, Options<CostsApproveData>> => {
+    const mutationOptions: MutationOptions<CostsApproveResponse, CostsApproveError, Options<CostsApproveData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await costsApprove({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Returns a submitted cost entry to draft with an audited reason.
+ */
+export const costsKickBackMutation = (options?: Partial<Options<CostsKickBackData>>): MutationOptions<CostsKickBackResponse, CostsKickBackError, Options<CostsKickBackData>> => {
+    const mutationOptions: MutationOptions<CostsKickBackResponse, CostsKickBackError, Options<CostsKickBackData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await costsKickBack({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Voids a cost entry. The row freezes — it can no longer be edited or billed.
+ */
+export const costsVoidMutation = (options?: Partial<Options<CostsVoidData>>): MutationOptions<CostsVoidResponse, CostsVoidError, Options<CostsVoidData>> => {
+    const mutationOptions: MutationOptions<CostsVoidResponse, CostsVoidError, Options<CostsVoidData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await costsVoid({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Removes the receipt file from a cost entry.
+ */
+export const costsDetachReceiptMutation = (options?: Partial<Options<CostsDetachReceiptData>>): MutationOptions<CostsDetachReceiptResponse, CostsDetachReceiptError, Options<CostsDetachReceiptData>> => {
+    const mutationOptions: MutationOptions<CostsDetachReceiptResponse, CostsDetachReceiptError, Options<CostsDetachReceiptData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await costsDetachReceipt({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Attaches a receipt file to a cost entry. The file identifier is trusted as a matter-rooted document in the File Manager; a cross-existence check against the File Manager is a deferred follow-up.
+ */
+export const costsAttachReceiptMutation = (options?: Partial<Options<CostsAttachReceiptData>>): MutationOptions<CostsAttachReceiptResponse, CostsAttachReceiptError, Options<CostsAttachReceiptData>> => {
+    const mutationOptions: MutationOptions<CostsAttachReceiptResponse, CostsAttachReceiptError, Options<CostsAttachReceiptData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await costsAttachReceipt({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const timeEntriesListQueryKey = (options?: Options<TimeEntriesListData>) => createQueryKey('timeEntriesList', options);
+
+/**
+ * Lists time entries filtered by timekeeper and work date (the daily view) or by matter and status (the unbilled work-in-progress view).
+ */
+export const timeEntriesListOptions = (options?: Options<TimeEntriesListData>) => queryOptions<TimeEntriesListResponse, TimeEntriesListError, TimeEntriesListResponse, ReturnType<typeof timeEntriesListQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await timeEntriesList({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: timeEntriesListQueryKey(options)
+});
+
+/**
+ * Captures a time entry: resolves the rate in force on the work date, rounds the raw duration to the firm/timekeeper increment, and stores the work-in-progress row.
+ */
+export const timeEntriesCreateMutation = (options?: Partial<Options<TimeEntriesCreateData>>): MutationOptions<TimeEntriesCreateResponse, TimeEntriesCreateError, Options<TimeEntriesCreateData>> => {
+    const mutationOptions: MutationOptions<TimeEntriesCreateResponse, TimeEntriesCreateError, Options<TimeEntriesCreateData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await timeEntriesCreate({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const timeEntriesGetQueryKey = (options: Options<TimeEntriesGetData>) => createQueryKey('timeEntriesGet', options);
+
+/**
+ * Returns one time entry's detail.
+ */
+export const timeEntriesGetOptions = (options: Options<TimeEntriesGetData>) => queryOptions<TimeEntriesGetResponse, TimeEntriesGetError, TimeEntriesGetResponse, ReturnType<typeof timeEntriesGetQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await timeEntriesGet({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: timeEntriesGetQueryKey(options)
+});
+
+/**
+ * Updates a draft time entry. A billed or void entry is frozen and cannot be edited.
+ */
+export const timeEntriesUpdateMutation = (options?: Partial<Options<TimeEntriesUpdateData>>): MutationOptions<TimeEntriesUpdateResponse, TimeEntriesUpdateError, Options<TimeEntriesUpdateData>> => {
+    const mutationOptions: MutationOptions<TimeEntriesUpdateResponse, TimeEntriesUpdateError, Options<TimeEntriesUpdateData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await timeEntriesUpdate({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Parses a one-line quick-add string into a duration, a matter hint, and a narrative, returning matching matters for the timekeeper to confirm. Writes nothing.
+ */
+export const timeEntriesPreviewQuickAddMutation = (options?: Partial<Options<TimeEntriesPreviewQuickAddData>>): MutationOptions<TimeEntriesPreviewQuickAddResponse, TimeEntriesPreviewQuickAddError, Options<TimeEntriesPreviewQuickAddData>> => {
+    const mutationOptions: MutationOptions<TimeEntriesPreviewQuickAddResponse, TimeEntriesPreviewQuickAddError, Options<TimeEntriesPreviewQuickAddData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await timeEntriesPreviewQuickAdd({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Captures a batch of time entries from the weekly grid in one request. Each entry resolves its rate and rounds its duration independently.
+ */
+export const timeEntriesGridBatchMutation = (options?: Partial<Options<TimeEntriesGridBatchData>>): MutationOptions<TimeEntriesGridBatchResponse, TimeEntriesGridBatchError, Options<TimeEntriesGridBatchData>> => {
+    const mutationOptions: MutationOptions<TimeEntriesGridBatchResponse, TimeEntriesGridBatchError, Options<TimeEntriesGridBatchData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await timeEntriesGridBatch({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Submits a draft entry for review (only when the firm's review gate is on).
+ */
+export const timeEntriesSubmitMutation = (options?: Partial<Options<TimeEntriesSubmitData>>): MutationOptions<TimeEntriesSubmitResponse, TimeEntriesSubmitError, Options<TimeEntriesSubmitData>> => {
+    const mutationOptions: MutationOptions<TimeEntriesSubmitResponse, TimeEntriesSubmitError, Options<TimeEntriesSubmitData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await timeEntriesSubmit({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Approves a submitted entry, making it billable.
+ */
+export const timeEntriesApproveMutation = (options?: Partial<Options<TimeEntriesApproveData>>): MutationOptions<TimeEntriesApproveResponse, TimeEntriesApproveError, Options<TimeEntriesApproveData>> => {
+    const mutationOptions: MutationOptions<TimeEntriesApproveResponse, TimeEntriesApproveError, Options<TimeEntriesApproveData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await timeEntriesApprove({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Returns a submitted entry to draft with an audited reason.
+ */
+export const timeEntriesKickBackMutation = (options?: Partial<Options<TimeEntriesKickBackData>>): MutationOptions<TimeEntriesKickBackResponse, TimeEntriesKickBackError, Options<TimeEntriesKickBackData>> => {
+    const mutationOptions: MutationOptions<TimeEntriesKickBackResponse, TimeEntriesKickBackError, Options<TimeEntriesKickBackData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await timeEntriesKickBack({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Voids a time entry. The row freezes — it can no longer be edited or billed.
+ */
+export const timeEntriesVoidMutation = (options?: Partial<Options<TimeEntriesVoidData>>): MutationOptions<TimeEntriesVoidResponse, TimeEntriesVoidError, Options<TimeEntriesVoidData>> => {
+    const mutationOptions: MutationOptions<TimeEntriesVoidResponse, TimeEntriesVoidError, Options<TimeEntriesVoidData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await timeEntriesVoid({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Starts the timekeeper's live timer, stopping any timer already running (single-active). Mints a live run id and sets the abandoned alarm.
+ */
+export const timerStartMutation = (options?: Partial<Options<TimerStartData>>): MutationOptions<TimerStartResponse, TimerStartError, Options<TimerStartData>> => {
+    const mutationOptions: MutationOptions<TimerStartResponse, TimerStartError, Options<TimerStartData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await timerStart({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Pauses the running timer.
+ */
+export const timerPauseMutation = (options?: Partial<Options<TimerPauseData>>): MutationOptions<TimerPauseResponse, TimerPauseError, Options<TimerPauseData>> => {
+    const mutationOptions: MutationOptions<TimerPauseResponse, TimerPauseError, Options<TimerPauseData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await timerPause({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Resumes a paused timer.
+ */
+export const timerResumeMutation = (options?: Partial<Options<TimerResumeData>>): MutationOptions<TimerResumeResponse, TimerResumeError, Options<TimerResumeData>> => {
+    const mutationOptions: MutationOptions<TimerResumeResponse, TimerResumeError, Options<TimerResumeData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await timerResume({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Binds the running timer to a matter (required before commit).
+ */
+export const timerBindMutation = (options?: Partial<Options<TimerBindData>>): MutationOptions<TimerBindResponse, TimerBindError, Options<TimerBindData>> => {
+    const mutationOptions: MutationOptions<TimerBindResponse, TimerBindError, Options<TimerBindData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await timerBind({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Discards the running timer without committing.
+ */
+export const timerDiscardMutation = (options?: Partial<Options<TimerDiscardData>>): MutationOptions<TimerDiscardResponse, TimerDiscardError, Options<TimerDiscardData>> => {
+    const mutationOptions: MutationOptions<TimerDiscardResponse, TimerDiscardError, Options<TimerDiscardData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await timerDiscard({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const timerReadQueryKey = (options?: Options<TimerReadData>) => createQueryKey('timerRead', options);
+
+/**
+ * Returns the timekeeper's current timer state. The client computes elapsed time from startedAt.
+ */
+export const timerReadOptions = (options?: Options<TimerReadData>) => queryOptions<TimerReadResponse, TimerReadError, TimerReadResponse, ReturnType<typeof timerReadQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await timerRead({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: timerReadQueryKey(options)
+});
+
+/**
+ * Stops the timer and commits its elapsed time as a draft entry. Refuses an unbound timer. Idempotent on the live run id — two racing commits collapse to one entry.
+ */
+export const timerStopCommitMutation = (options?: Partial<Options<TimerStopCommitData>>): MutationOptions<TimerStopCommitResponse, TimerStopCommitError, Options<TimerStopCommitData>> => {
+    const mutationOptions: MutationOptions<TimerStopCommitResponse, TimerStopCommitError, Options<TimerStopCommitData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await timerStopCommit({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const rateCardsListQueryKey = (options?: Options<RateCardsListData>) => createQueryKey('rateCardsList', options);
+
+/**
+ * Lists the firm's active (non-archived) rate cards, ordered by name.
+ */
+export const rateCardsListOptions = (options?: Options<RateCardsListData>) => queryOptions<RateCardsListResponse, RateCardsListError, RateCardsListResponse, ReturnType<typeof rateCardsListQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await rateCardsList({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: rateCardsListQueryKey(options)
+});
+
+/**
+ * Creates a rate card. All rate lines are appended separately with their effective date.
+ */
+export const rateCardsCreateMutation = (options?: Partial<Options<RateCardsCreateData>>): MutationOptions<RateCardsCreateResponse, RateCardsCreateError, Options<RateCardsCreateData>> => {
+    const mutationOptions: MutationOptions<RateCardsCreateResponse, RateCardsCreateError, Options<RateCardsCreateData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await rateCardsCreate({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Appends an effective-dated rate version to the card. Closes the prior open rate for the same scope in the same batch so intervals stay contiguous and non-overlapping.
+ */
+export const ratesAppendMutation = (options?: Partial<Options<RatesAppendData>>): MutationOptions<RatesAppendResponse, RatesAppendError, Options<RatesAppendData>> => {
+    const mutationOptions: MutationOptions<RatesAppendResponse, RatesAppendError, Options<RatesAppendData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await ratesAppend({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Re-resolves and rewrites the rate on every unbilled (draft/submitted/approved) entry produced by this card over a work-date range. Opt-in retroactive correction — amounts never move silently.
+ */
+export const ratesReRateDraftsMutation = (options?: Partial<Options<RatesReRateDraftsData>>): MutationOptions<RatesReRateDraftsResponse, RatesReRateDraftsError, Options<RatesReRateDraftsData>> => {
+    const mutationOptions: MutationOptions<RatesReRateDraftsResponse, RatesReRateDraftsError, Options<RatesReRateDraftsData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await ratesReRateDrafts({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const utbmsCodesListQueryKey = (options: Options<UtbmsCodesListData>) => createQueryKey('utbmsCodesList', options);
+
+/**
+ * Lists the firm's UTBMS codes for the given ABA set (task, activity, or expense), ordered by code.
+ */
+export const utbmsCodesListOptions = (options: Options<UtbmsCodesListData>) => queryOptions<UtbmsCodesListResponse, UtbmsCodesListError, UtbmsCodesListResponse, ReturnType<typeof utbmsCodesListQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await utbmsCodesList({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: utbmsCodesListQueryKey(options)
+});
+
+/**
+ * Enables a seeded UTBMS code so it appears in the entry UI and billing exports.
+ */
+export const utbmsCodesEnableMutation = (options?: Partial<Options<UtbmsCodesEnableData>>): MutationOptions<UtbmsCodesEnableResponse, UtbmsCodesEnableError, Options<UtbmsCodesEnableData>> => {
+    const mutationOptions: MutationOptions<UtbmsCodesEnableResponse, UtbmsCodesEnableError, Options<UtbmsCodesEnableData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await utbmsCodesEnable({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Disables a seeded UTBMS code so it no longer appears in the entry UI.
+ */
+export const utbmsCodesDisableMutation = (options?: Partial<Options<UtbmsCodesDisableData>>): MutationOptions<UtbmsCodesDisableResponse, UtbmsCodesDisableError, Options<UtbmsCodesDisableData>> => {
+    const mutationOptions: MutationOptions<UtbmsCodesDisableResponse, UtbmsCodesDisableError, Options<UtbmsCodesDisableData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await utbmsCodesDisable({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const nonBillableCategoriesListQueryKey = (options?: Options<NonBillableCategoriesListData>) => createQueryKey('nonBillableCategoriesList', options);
+
+/**
+ * Lists active (non-archived) non-billable categories, ordered by name.
+ */
+export const nonBillableCategoriesListOptions = (options?: Options<NonBillableCategoriesListData>) => queryOptions<NonBillableCategoriesListResponse, NonBillableCategoriesListError, NonBillableCategoriesListResponse, ReturnType<typeof nonBillableCategoriesListQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await nonBillableCategoriesList({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: nonBillableCategoriesListQueryKey(options)
+});
+
+/**
+ * Creates a non-billable time category.
+ */
+export const nonBillableCategoriesCreateMutation = (options?: Partial<Options<NonBillableCategoriesCreateData>>): MutationOptions<NonBillableCategoriesCreateResponse, NonBillableCategoriesCreateError, Options<NonBillableCategoriesCreateData>> => {
+    const mutationOptions: MutationOptions<NonBillableCategoriesCreateResponse, NonBillableCategoriesCreateError, Options<NonBillableCategoriesCreateData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await nonBillableCategoriesCreate({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Renames a non-billable category.
+ */
+export const nonBillableCategoriesUpdateMutation = (options?: Partial<Options<NonBillableCategoriesUpdateData>>): MutationOptions<NonBillableCategoriesUpdateResponse, NonBillableCategoriesUpdateError, Options<NonBillableCategoriesUpdateData>> => {
+    const mutationOptions: MutationOptions<NonBillableCategoriesUpdateResponse, NonBillableCategoriesUpdateError, Options<NonBillableCategoriesUpdateData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await nonBillableCategoriesUpdate({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Soft-archives a non-billable category. Historical entries that reference it remain intact.
+ */
+export const nonBillableCategoriesArchiveMutation = (options?: Partial<Options<NonBillableCategoriesArchiveData>>): MutationOptions<NonBillableCategoriesArchiveResponse, NonBillableCategoriesArchiveError, Options<NonBillableCategoriesArchiveData>> => {
+    const mutationOptions: MutationOptions<NonBillableCategoriesArchiveResponse, NonBillableCategoriesArchiveError, Options<NonBillableCategoriesArchiveData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await nonBillableCategoriesArchive({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const narrativeTemplatesListQueryKey = (options?: Options<NarrativeTemplatesListData>) => createQueryKey('narrativeTemplatesList', options);
+
+/**
+ * Lists active (non-archived) narrative templates, ordered by creation date.
+ */
+export const narrativeTemplatesListOptions = (options?: Options<NarrativeTemplatesListData>) => queryOptions<NarrativeTemplatesListResponse, NarrativeTemplatesListError, NarrativeTemplatesListResponse, ReturnType<typeof narrativeTemplatesListQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await narrativeTemplatesList({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: narrativeTemplatesListQueryKey(options)
+});
+
+/**
+ * Creates a narrative template. A template pre-fills narrative and optional rate for one-tap entry.
+ */
+export const narrativeTemplatesCreateMutation = (options?: Partial<Options<NarrativeTemplatesCreateData>>): MutationOptions<NarrativeTemplatesCreateResponse, NarrativeTemplatesCreateError, Options<NarrativeTemplatesCreateData>> => {
+    const mutationOptions: MutationOptions<NarrativeTemplatesCreateResponse, NarrativeTemplatesCreateError, Options<NarrativeTemplatesCreateData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await narrativeTemplatesCreate({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const narrativeTemplatesRecentNarrativesQueryKey = (options: Options<NarrativeTemplatesRecentNarrativesData>) => createQueryKey('narrativeTemplatesRecentNarratives', options);
+
+/**
+ * Returns the authenticated timekeeper's own distinct recent narratives, most recently used first. The timekeeperUserId param must match the session user — narrative history is personal typing-autocomplete and may not be read cross-user.
+ */
+export const narrativeTemplatesRecentNarrativesOptions = (options: Options<NarrativeTemplatesRecentNarrativesData>) => queryOptions<NarrativeTemplatesRecentNarrativesResponse, NarrativeTemplatesRecentNarrativesError, NarrativeTemplatesRecentNarrativesResponse, ReturnType<typeof narrativeTemplatesRecentNarrativesQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await narrativeTemplatesRecentNarratives({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: narrativeTemplatesRecentNarrativesQueryKey(options)
+});
+
+export const myDayGetQueryKey = (options: Options<MyDayGetData>) => createQueryKey('myDayGet', options);
+
+/**
+ * Returns billable and non-billable minute totals for one timekeeper on one work date, the shortfall against the firm's daily target, and an un-logged-day flag.
+ */
+export const myDayGetOptions = (options: Options<MyDayGetData>) => queryOptions<MyDayGetResponse, MyDayGetError, MyDayGetResponse, ReturnType<typeof myDayGetQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await myDayGet({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: myDayGetQueryKey(options)
+});
+
+/**
+ * Mints a new conversion job slot and returns a short-lived presigned PUT URL the client uploads the source file to directly (bytes never transit the Worker). After uploading, submit the job with POST /api/v1/conversions.
+ */
+export const conversionsUploadMutation = (options?: Partial<Options<ConversionsUploadData>>): MutationOptions<ConversionsUploadResponse, ConversionsUploadError, Options<ConversionsUploadData>> => {
+    const mutationOptions: MutationOptions<ConversionsUploadResponse, ConversionsUploadError, Options<ConversionsUploadData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await conversionsUpload({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Submits a file conversion job. The client must have already uploaded the source file using the URL from POST /api/v1/conversions/upload. Returns 422 if no conversion path exists between the specified formats. Returns 202 with status queued when the job is accepted.
+ */
+export const conversionsSubmitMutation = (options?: Partial<Options<ConversionsSubmitData>>): MutationOptions<ConversionsSubmitResponse, ConversionsSubmitError, Options<ConversionsSubmitData>> => {
+    const mutationOptions: MutationOptions<ConversionsSubmitResponse, ConversionsSubmitError, Options<ConversionsSubmitData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await conversionsSubmit({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const conversionsStatusQueryKey = (options: Options<ConversionsStatusData>) => createQueryKey('conversionsStatus', options);
+
+/**
+ * Returns the current state of a conversion job. A done job whose R2 result still exists carries a freshly minted, short-lived signed GET URL and the converted file media type. A done job whose result was reaped reports expired. Running or failed jobs carry no URL.
+ */
+export const conversionsStatusOptions = (options: Options<ConversionsStatusData>) => queryOptions<ConversionsStatusResponse, ConversionsStatusError, ConversionsStatusResponse, ReturnType<typeof conversionsStatusQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await conversionsStatus({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: conversionsStatusQueryKey(options)
+});
+
+export const supportGrantsListQueryKey = (options?: Options<SupportGrantsListData>) => createQueryKey('supportGrantsList', options);
+
+/**
+ * The firm's support grants — who requested help, the scope (tier), current status, and the staff principal who redeemed it. Ordered newest first. Visible to any authenticated firm member so every member can see when help-desk access is or was active on their firm.
+ */
+export const supportGrantsListOptions = (options?: Options<SupportGrantsListData>) => queryOptions<SupportGrantsListResponse, SupportGrantsListError, SupportGrantsListResponse, ReturnType<typeof supportGrantsListQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await supportGrantsList({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: supportGrantsListQueryKey(options)
+});
+
+/**
+ * A firm member requests time-boxed help-desk access to their firm. The request is the consent anchor — the requester's identity is the scope, and any staff who redeems the grant acts only within the tier the requester chose. A diagnostic grant opens immediately; a privileged grant waits for admin co-sign when the firm's co-sign policy is on.
+ */
+export const supportGrantsRequestMutation = (options?: Partial<Options<SupportGrantsRequestData>>): MutationOptions<SupportGrantsRequestResponse, SupportGrantsRequestError, Options<SupportGrantsRequestData>> => {
+    const mutationOptions: MutationOptions<SupportGrantsRequestResponse, SupportGrantsRequestError, Options<SupportGrantsRequestData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await supportGrantsRequest({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * An admin co-signs a privileged support grant that firm policy held for approval. Moves the grant from requested to active so a platform-staff principal may redeem it.
+ */
+export const supportGrantsCosignMutation = (options?: Partial<Options<SupportGrantsCosignData>>): MutationOptions<SupportGrantsCosignResponse, SupportGrantsCosignError, Options<SupportGrantsCosignData>> => {
+    const mutationOptions: MutationOptions<SupportGrantsCosignResponse, SupportGrantsCosignError, Options<SupportGrantsCosignData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await supportGrantsCosign({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * An admin revokes a support grant; in-flight support access ends on the next request the platform-staff principal makes against the grant-verification middleware.
+ */
+export const supportGrantsRevokeMutation = (options?: Partial<Options<SupportGrantsRevokeData>>): MutationOptions<SupportGrantsRevokeResponse, SupportGrantsRevokeError, Options<SupportGrantsRevokeData>> => {
+    const mutationOptions: MutationOptions<SupportGrantsRevokeResponse, SupportGrantsRevokeError, Options<SupportGrantsRevokeData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await supportGrantsRevoke({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * A platform-staff principal redeems an active support grant for a short-lived support-session token. The token encodes the grant, principal, firm, and tier; the live grant row (checked on every subsequent request) remains the source of truth for revocation and expiry. Privileged grants may only be redeemed by a support_lead principal.
+ */
+export const supportSessionsRedeemMutation = (options?: Partial<Options<SupportSessionsRedeemData>>): MutationOptions<SupportSessionsRedeemResponse, SupportSessionsRedeemError, Options<SupportSessionsRedeemData>> => {
+    const mutationOptions: MutationOptions<SupportSessionsRedeemResponse, SupportSessionsRedeemError, Options<SupportSessionsRedeemData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await supportSessionsRedeem({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const supportDiagnosticsOverviewQueryKey = (options?: Options<SupportDiagnosticsOverviewData>) => createQueryKey('supportDiagnosticsOverview', options);
+
+/**
+ * Non-privileged firm system state for help-desk diagnosis: firm status, per-firm schema version, storage provisioning state, and active member count. Accessible only from a diagnostic support session — the permission is never seeded to a firm role.
+ */
+export const supportDiagnosticsOverviewOptions = (options?: Options<SupportDiagnosticsOverviewData>) => queryOptions<SupportDiagnosticsOverviewResponse, SupportDiagnosticsOverviewError, SupportDiagnosticsOverviewResponse, ReturnType<typeof supportDiagnosticsOverviewQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await supportDiagnosticsOverview({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: supportDiagnosticsOverviewQueryKey(options)
 });
 
 /**

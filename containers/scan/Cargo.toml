@@ -20,6 +20,14 @@ path = "src/main.rs"
 name = "build-atoms"
 path = "src/bin/build-atoms.rs"
 
+# The build-time YARA Forge bundler. Runs in the image build (never at runtime): reads the downloaded
+# YARA Forge package, drops the FP-prone heuristic pocket, compiles the kept rules with yara-x, and
+# serializes them to the blob the runtime deserializes. Fail-closed + fail-loud — see
+# src/bin/build-yara-rules.rs. Depends on the lib's forge.rs + yara.rs.
+[[bin]]
+name = "build-yara-rules"
+path = "src/bin/build-yara-rules.rs"
+
 # A throwaway RSS benchmark comparing the SCAN (mmap, file-backed) vs INSTREAM (heap buffer, anonymous)
 # transports' service-side memory. Measurement only — not shipped in the runtime image.
 [[bin]]
@@ -62,6 +70,18 @@ regex = "1"
 # `-sys` crate vendors C++ (cmake/g++/libboost/ragel) that only builds in the Linux scan image — the
 # `vectorscan` feature turns it on there. The default (portable) build needs none of that toolchain.
 vectorscan-rs = { version = "0.0.6", optional = true }
+# Google Magika: ML content-type identification for the `/identify` route. The standard model is EMBEDDED
+# in the crate (a const byte array), so no model file is fetched AT RUNTIME — the container keeps its
+# no-egress posture. NOTE: magika 1.1 is NOT pure Rust — it runs inference through `ort` (ONNX Runtime, a
+# C++ library); there is no pure-Rust backend. This is a C/C++ dependency (golden rule 14 — flagged for
+# consent in containers/scan/CLAUDE.md).
+magika = "1.1"
+# ONNX Runtime backend for magika. `download-binaries` fetches a prebuilt onnxruntime AT BUILD TIME and
+# statically links it (no system lib to install, no runtime egress, no runtime external file) — the same
+# build-time-fetch / runtime-sealed pattern as the baked clamd DB and YARA Forge corpus. Pinned to the
+# exact version magika resolves so the added feature unifies onto magika's own `ort`. Build-time download
+# only; the running container never reaches the network.
+ort = { version = "=2.0.0-rc.12", features = ["download-binaries"] }
 
 [features]
 # Off by default so the crate compiles on any dev host; the scan image's build stage enables it to bake

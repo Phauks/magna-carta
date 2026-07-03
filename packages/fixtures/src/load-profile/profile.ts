@@ -2,7 +2,7 @@
 // seed (new archetype, changed faker call order, …) — it participates in snapshot identity, so a
 // stale cached artifact can never be measured against silently. Profile parameter changes bump
 // the profile's own `version` instead.
-export const GENERATOR_VERSION = 4;
+export const GENERATOR_VERSION = 5;
 
 // Transaction archetypes, weighted (faker.helpers.weightedArrayElement). The settlement archetype
 // is the multi-line tail; the rest are two-line entries. Weights are profile PARAMETERS, never
@@ -110,6 +110,61 @@ export interface DirectoryVolume {
 // profile `version`, so a baseline never silently compares two different shapes. Sized like an
 // established firm's field usage, not a stress run; the per-scope and per-field counts stay well under
 // the limits.ts caps so the measured per-record read keeps its realistic ceiling.
+// The timekeeping volume laid over the practice book: rate cards with effective-dated rate versions, and
+// captured time entries spread across the firm's timekeepers and matters, in a draft/billed mix with a
+// UTBMS-coded fraction. This is the queryable shadow of the WIP store + rate engine — the My Day daily
+// totals read, the weekly-grid fan, the per-matter unbilled-WIP read (billing query), and rate
+// resolution. Every count/distribution is a PARAMETER here, never a generator constant — changing one
+// bumps the profile `version`. Sized like an established firm's monthly capture, not a stress run.
+export interface TimeVolume {
+  // Time entries captured per timekeeper per day over the span (the My Day / weekly-grid fan).
+  readonly entriesPerTimekeeperPerDay: number;
+  // Named rate cards the firm runs (e.g. Standard, Insurance-capped).
+  readonly rateCardCount: number;
+  // Effective-dated rate versions appended per card (closed-interval history the resolver walks).
+  readonly ratesPerCard: number;
+  // Fraction of billable entries carrying UTBMS task + activity codes.
+  readonly utbmsCodedFraction: number;
+  // Fraction of captured entries already marked billed (the rest stay draft — the unbilled-WIP read's
+  // selectivity). 0–1.
+  readonly draftBilledMix: number;
+  // Days the capture span covers (work_date dispersal via fixed-clock advances).
+  readonly spanDays: number;
+}
+
+// The costs/expenses volume laid over the practice book: disbursement entries (filing fees, postage,
+// court reporters, …) spread across the firm's matters, in a hard/soft class mix and a billable
+// fraction, resting at points across the draft→billed lifecycle, with a slice arriving through the
+// cost-recovery seam. This is the queryable shadow of the disbursement WIP store — the per-matter
+// unbilled-cost read (the billing query), the by-id lifecycle-guard read, the matter e-billing-flag
+// read, and the recovery dedup lookup. Every count/distribution is a PARAMETER here, never a generator
+// constant — changing one bumps the profile `version`. Sized like an established firm's monthly
+// disbursement volume, not a stress run.
+export interface CostVolume {
+  // Cost entries captured per matter over the span (the per-matter unbilled-WIP fan).
+  readonly entriesPerMatter: { readonly min: number; readonly max: number };
+  // Fraction of entries classed as a hard cost (third-party disbursement the firm fronts) vs a soft
+  // cost (in-house charge). 0–1.
+  readonly hardCostFraction: number;
+  // Fraction of entries marked billable to the client (the rest are non-billable write-offs). 0–1.
+  readonly billableFraction: number;
+  // Relative weights for the lifecycle status an entry rests at. The unbilled-WIP read's selectivity
+  // comes from the billed/void tail being excluded — most disbursements settle, leaving a live head of
+  // draft/submitted/approved the read returns.
+  readonly statusWeights: {
+    readonly draft: number;
+    readonly submitted: number;
+    readonly approved: number;
+    readonly billed: number;
+    readonly void: number;
+  };
+  // Fraction of entries that arrive through the cost-recovery seam (source 'recovery', carrying a
+  // recovery_category + a unique recovery_ref). The rest are captured manually or imported from a grid.
+  readonly recoveryFraction: number;
+  // Days the incurred-date window covers (incurred_date dispersal via fixed-base arithmetic).
+  readonly spanDays: number;
+}
+
 export interface CustomFieldVolume {
   // Fields defined on each matter type (attachment_id = the matter type) — the matter detail panel
   // renders this many custom rows for a matter of that type.
@@ -128,6 +183,34 @@ export interface CustomFieldVolume {
   // Fraction of the entity records' values that are contact-reference values pointing at another
   // entity — the back-reference corpus the merge repoint and the reference lookup traverse.
   readonly referenceShare: number;
+}
+
+// The editing volume laid over the practice's files/versions (slice 2·2): a fraction of superseded
+// (non-current) clean versions already tiered to Infrequent Access, a set of offline/exclusive
+// checkouts across the firm's files, and a handful of files left with a conflict_pending conflicting
+// copy awaiting reconciliation. This is the queryable shadow of the editing background work — the
+// firm-wide tiering candidate scan, the idle-checkout sweep scan, the active-exclusive-lock launch gate,
+// and the reconcile lookup. The two SWEEP scans are firm-wide (every version / every checkout), so they
+// are the volume-shaped operations that must walk an index, not the table. Every count/fraction is a
+// PARAMETER (changing one bumps the profile `version`). Sized like an established firm's editing
+// activity, not a stress run.
+export interface EditingVolume {
+  // Fraction of superseded (non-current) clean versions already moved to Infrequent Access — the
+  // standard/IA mix the tiering candidate scan reads against (its candidates are the standard remainder).
+  readonly tieredVersionFraction: number;
+  // Offline/exclusive checkouts laid across the firm's files — the firm-wide set the idle-checkout
+  // sweep scans. A fraction are left idle (active with an old last_activity) so the sweep's stage-1 scan
+  // is selective and volume-shaped.
+  readonly checkoutCount: number;
+  // Fraction of those checkouts that are exclusive locks (the rest are offline working copies) — gives
+  // the active-exclusive-lock launch gate a populated lookup.
+  readonly exclusiveCheckoutFraction: number;
+  // Fraction of the checkouts left idle (active, last_activity older than any plausible window) — the
+  // stage-1 candidates the idle sweep's firm-wide scan must find selectively.
+  readonly idleCheckoutFraction: number;
+  // Files left with a conflict_pending conflicting copy awaiting human reconciliation (the document
+  // flag the reconcile lookup finds). Created through the real check-in divergence path.
+  readonly conflictCount: number;
 }
 
 export interface LedgerVolumeProfile {
@@ -153,6 +236,12 @@ export interface LedgerVolumeProfile {
   readonly shipping: ShippingVolume;
   // The custom-field volume laid over the practice + directory (fields, options, values, history).
   readonly customFields: CustomFieldVolume;
+  // The editing volume laid over the practice's files/versions (tiered versions, checkouts, conflicts).
+  readonly editing: EditingVolume;
+  // The timekeeping volume laid over the practice book (rate cards, effective-dated rates, time entries).
+  readonly time: TimeVolume;
+  // The costs volume laid over the practice book (disbursement entries across the lifecycle + recovery).
+  readonly costs: CostVolume;
 }
 
 // A plausible established small firm: a few years of posting activity over a 200-client trust book,
@@ -160,7 +249,7 @@ export interface LedgerVolumeProfile {
 // files with multi-version histories.
 export const ledgerVolume: LedgerVolumeProfile = {
   name: "ledgerVolume",
-  version: 7,
+  version: 8,
   trustSubledgerCount: 200,
   entryCount: 25_000,
   postingSpanDays: 1_095,
@@ -222,6 +311,38 @@ export const ledgerVolume: LedgerVolumeProfile = {
     historyDepth: 3,
     referenceShare: 0.2,
   },
+  editing: {
+    // An established firm's editing background: a quarter of superseded versions already tiered to IA,
+    // a few hundred checkouts across the document tree (a fifth exclusive, a fifth gone idle), and a
+    // handful of documents currently flagged for reconciliation.
+    tieredVersionFraction: 0.25,
+    checkoutCount: 200,
+    exclusiveCheckoutFraction: 0.2,
+    idleCheckoutFraction: 0.2,
+    conflictCount: 25,
+  },
+  time: {
+    // An established firm's monthly capture: a handful of entries per timekeeper per day across the
+    // span, two named rate cards each with a few effective-dated versions, two-thirds UTBMS-coded, a
+    // third already billed, over a quarter's worth of work days.
+    entriesPerTimekeeperPerDay: 6,
+    rateCardCount: 2,
+    ratesPerCard: 4,
+    utbmsCodedFraction: 0.66,
+    draftBilledMix: 0.33,
+    spanDays: 90,
+  },
+  costs: {
+    // An established firm's monthly disbursement volume: a handful of entries per matter across the
+    // span, two-thirds hard third-party costs, most billable, a lifecycle weighted toward settled
+    // (billed/void) with a live draft/submitted/approved head, and a tenth arriving via cost recovery.
+    entriesPerMatter: { min: 1, max: 8 },
+    hardCostFraction: 0.66,
+    billableFraction: 0.85,
+    statusWeights: { draft: 20, submitted: 10, approved: 10, billed: 55, void: 5 },
+    recoveryFraction: 0.1,
+    spanDays: 90,
+  },
 };
 
 // One profile, every scale: CI smoke (~0.01), local working scale (1), deliberate stress runs
@@ -273,6 +394,33 @@ export function scaleProfile(
       optionsPerPicklist: scaleCount(profile.customFields.optionsPerPicklist, 2),
       valuesPerRecord: scaleCount(profile.customFields.valuesPerRecord, 3),
       historyDepth: scaleCount(profile.customFields.historyDepth, 1),
+    },
+    editing: {
+      ...profile.editing,
+      // Floors keep a handful of checkouts (enough for an idle subset + an exclusive subset) and at
+      // least a couple of conflicts at the smoke multiplier. Fractions are not scaled.
+      checkoutCount: scaleCount(profile.editing.checkoutCount, 6),
+      conflictCount: scaleCount(profile.editing.conflictCount, 2),
+    },
+    time: {
+      ...profile.time,
+      // Floors keep a couple of entries per timekeeper-day (so the My Day / grid reads have a fan), at
+      // least one rate card with a couple of effective-dated versions (so resolution walks history), and
+      // a handful of span days at the smoke multiplier. The fractions are not scaled.
+      entriesPerTimekeeperPerDay: scaleCount(profile.time.entriesPerTimekeeperPerDay, 2),
+      rateCardCount: scaleCount(profile.time.rateCardCount, 1),
+      ratesPerCard: scaleCount(profile.time.ratesPerCard, 2),
+      spanDays: scaleCount(profile.time.spanDays, 5),
+    },
+    costs: {
+      ...profile.costs,
+      // Floors keep a couple of entries per matter (so the per-matter unbilled read has a fan) and a
+      // handful of span days at the smoke multiplier. The fractions and status weights are not scaled.
+      entriesPerMatter: {
+        min: Math.max(1, Math.round(profile.costs.entriesPerMatter.min * multiplier)),
+        max: Math.max(2, Math.round(profile.costs.entriesPerMatter.max * multiplier)),
+      },
+      spanDays: scaleCount(profile.costs.spanDays, 5),
     },
   };
 }

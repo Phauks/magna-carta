@@ -78,6 +78,29 @@ export const ENTITY_PREFIXES = {
   customField: "customField",
   picklistOption: "picklistOption",
   customFieldValue: "customFieldValue",
+  // In-app editing — a document checkout: an offline-working-copy claim or an opt-in exclusive lock on
+  // a file, tracked through acquisition, staleness, release, and reconciliation.
+  documentCheckout: "documentCheckout",
+  // Time tracking, WIP & the rate engine. `timeEntry` is one captured unit of time (the WIP store);
+  // `rateCard`/`rate` are the effective-dated rate versions; `utbmsCode` is one ABA UTBMS catalog
+  // entry; `nonBillableCategory` classifies non-billable internal time; `narrativeTemplate` is a
+  // reusable per-task-code description. Full-word prefixes (no abbreviations) per golden rule 12.
+  timeEntry: "timeEntry",
+  rateCard: "rateCard",
+  rate: "rate",
+  utbmsCode: "utbmsCode",
+  nonBillableCategory: "nonBillableCategory",
+  narrativeTemplate: "narrativeTemplate",
+  // Server-side conversion — a transient job identifier minted at presign time and used to key the
+  // coordinator Durable Object. Not persisted in D1; the DO itself is the state store for the job.
+  conversionJob: "conversionJob",
+  // Costs & expenses WIP — one matter disbursement captured as a cost entry (the parallel to
+  // timeEntry for non-time billables and cost-recovery amounts).
+  costEntry: "costEntry",
+  // Support-access framework. `platformStaff` identifies a named help-desk operator on the control
+  // plane; `supportGrant` is a time-boxed, pull-redeemed access grant issued to that operator.
+  platformStaff: "platformStaff",
+  supportGrant: "supportGrant",
 } as const;
 
 export type EntityType = keyof typeof ENTITY_PREFIXES;

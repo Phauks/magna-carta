@@ -2,14 +2,20 @@ import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import type { FileId, FileVersionId, FolderId, MatterId } from "@magna-carta/identifiers/types";
 import { describe, expect, it } from "vitest";
 import {
+  commitEditedVersion,
   commitVersion,
   initiateUpload,
   moveFile,
   quarantineVersion,
+  recordRescanVerdict,
+  restoreFile,
+  restoreVersion,
   softDeleteFile,
 } from "../src/file-service.ts";
 import { createFolder } from "../src/folder-service.ts";
-import { listFiles } from "../src/queries.ts";
+import { listFiles, loadCommittedVersionByR2Key } from "../src/queries.ts";
+import { lookupScanCache } from "../src/scan-cache.ts";
+import { readScanEngineVersion } from "../src/upload-policy.ts";
 import { ACTOR, freshDatabase, now, options, seedMatter } from "./support.ts";
 
 // A second matter (id + responsible member) alongside seedMatter's matter_a, for cross-matter guards.
@@ -66,6 +72,89 @@ async function commit(
   await commitEffectBatch(database, result.effect, { now });
   return result;
 }
+
+describe("commitEditedVersion", () => {
+  it("cuts a new immutable version from the current working object and advances the pointer", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const { fileId, versionId: v1 } = await initiate(database, matterId);
+    await commit(database, v1, "hash-v1");
+
+    const copies: Array<[string, string]> = [];
+    const result = await commitEditedVersion(
+      database,
+      {
+        fileId,
+        currentR2Key: `files/${fileId}/current`,
+        contentSha256: "hash-edited",
+        sizeBytes: 2048,
+        uploadedBy: ACTOR,
+      },
+      options,
+      async (from, to) => {
+        copies.push([from, to]);
+      },
+    );
+
+    expect(result.skipped).toBe(false);
+    expect(result.versionId).not.toBeNull();
+    // server-side copy: current -> the new version's opaque key (no bytes through the Worker)
+    expect(copies).toEqual([[`files/${fileId}/current`, `files/${fileId}/${result.versionId}`]]);
+
+    await commitEffectBatch(database, result.effect, { now });
+
+    const { results: rows } = await database
+      .prepare(
+        "SELECT id, version_number, content_sha256, status FROM file_version WHERE file_id = ?1 ORDER BY version_number",
+      )
+      .bind(fileId)
+      .all<{ id: string; version_number: number; content_sha256: string; status: string }>();
+    expect(rows.map((row) => row.version_number)).toEqual([1, 2]);
+    expect(rows[1]?.id).toBe(result.versionId);
+    expect(rows[1]?.content_sha256).toBe("hash-edited");
+    expect(rows[1]?.status).toBe("clean");
+
+    const { results: fileRow } = await database
+      .prepare("SELECT current_version_id FROM file WHERE id = ?1")
+      .bind(fileId)
+      .all<{ current_version_id: string }>();
+    expect(fileRow[0]?.current_version_id).toBe(result.versionId);
+  });
+
+  it("skips when the saved content matches the current version (no copy, no new version)", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const { fileId, versionId: v1 } = await initiate(database, matterId);
+    await commit(database, v1, "hash-unchanged");
+
+    const copies: string[] = [];
+    const result = await commitEditedVersion(
+      database,
+      {
+        fileId,
+        currentR2Key: `files/${fileId}/current`,
+        contentSha256: "hash-unchanged",
+        sizeBytes: 2048,
+        uploadedBy: ACTOR,
+      },
+      options,
+      async (from) => {
+        copies.push(from);
+      },
+    );
+
+    expect(result.skipped).toBe(true);
+    expect(result.versionId).toBeNull();
+    expect(copies).toEqual([]);
+    expect(result.effect.statements).toEqual([]);
+
+    const { results: rows } = await database
+      .prepare("SELECT version_number FROM file_version WHERE file_id = ?1")
+      .bind(fileId)
+      .all<{ version_number: number }>();
+    expect(rows).toHaveLength(1);
+  });
+});
 
 describe("initiateUpload", () => {
   it("creates a pending file that is invisible until a version commits", async () => {
@@ -160,7 +249,7 @@ describe("quarantineVersion", () => {
     const { versionId } = await initiate(database, matterId);
     const result = await quarantineVersion(
       database,
-      { versionId, reason: "scan-infected", scanDetail: null },
+      { versionId, reason: "scan-flagged", scanDetail: null },
       options,
     );
     await commitEffectBatch(database, result.effect, { now });
@@ -206,7 +295,7 @@ describe("commitVersion — scan_detail persistence", () => {
     const { versionId } = await initiate(database, matterId);
     const result = await quarantineVersion(
       database,
-      { versionId, reason: "scan-infected", scanDetail: "trojan detected" },
+      { versionId, reason: "scan-flagged", scanDetail: "trojan detected" },
       options,
     );
     await commitEffectBatch(database, result.effect, { now });
@@ -215,6 +304,62 @@ describe("commitVersion — scan_detail persistence", () => {
       .bind(versionId)
       .all<{ scan_detail: string | null }>();
     expect(rows.results[0]?.scan_detail).toBe("trojan detected");
+  });
+});
+
+describe("commitVersion — current scan engine version stamp", () => {
+  it("stamps the firm's current scan engine version on a clean commit from a real engine", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    expect(await readScanEngineVersion(database)).toBeNull();
+    const { versionId } = await initiate(database, matterId);
+    const result = await commitVersion(
+      database,
+      {
+        versionId,
+        sizeBytes: 1024,
+        sniffedContentType: "application/pdf",
+        contentSha256: "hash-clean",
+        scanVerdict: "clean",
+        scanEngineVersion: "clamav/1.0+heuristics/1",
+        scanDetail: null,
+        now: now(),
+      },
+      options,
+    );
+    await commitEffectBatch(database, result.effect, { now });
+    expect(await readScanEngineVersion(database)).toBe("clamav/1.0+heuristics/1");
+  });
+
+  it("leaves the stamp unchanged on an unscanned commit (never fabricated without a real scan)", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const { versionId } = await initiate(database, matterId);
+    await commit(database, versionId, "hash-unscanned");
+    // An `unscanned` commit carries no engine version — the stamp must stay null, never invented.
+    expect(await readScanEngineVersion(database)).toBeNull();
+  });
+
+  it("does not stamp a clean commit that carries no engine version", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const { versionId } = await initiate(database, matterId);
+    const result = await commitVersion(
+      database,
+      {
+        versionId,
+        sizeBytes: 1024,
+        sniffedContentType: "application/pdf",
+        contentSha256: "hash-clean-noengine",
+        scanVerdict: "clean",
+        scanEngineVersion: null,
+        scanDetail: null,
+        now: now(),
+      },
+      options,
+    );
+    await commitEffectBatch(database, result.effect, { now });
+    expect(await readScanEngineVersion(database)).toBeNull();
   });
 });
 
@@ -237,6 +382,113 @@ describe("softDeleteFile", () => {
     await expect(softDeleteFile(database, "file_missing" as FileId, options)).rejects.toMatchObject(
       { code: "unknown-file" },
     );
+  });
+
+  it("clears the live working-copy fields and returns the current key to destroy", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const { fileId, versionId } = await initiate(database, matterId);
+    await commit(database, versionId, "hash-a");
+    // Simulate a live editing session having written a working copy.
+    await database
+      .prepare(
+        "UPDATE file SET current_r2_key = ?2, current_sha256 = 'wc', current_size_bytes = 5, current_wopi_timestamp = 't', edit_state = 'coediting' WHERE id = ?1",
+      )
+      .bind(fileId, `files/${fileId}/current`)
+      .run();
+
+    const result = await softDeleteFile(database, fileId, options);
+    expect(result.currentR2Key).toBe(`files/${fileId}/current`);
+    await commitEffectBatch(database, result.effect, { now });
+
+    const { results } = await database
+      .prepare(
+        "SELECT current_r2_key, current_sha256, current_size_bytes, edit_state, deleted_at FROM file WHERE id = ?1",
+      )
+      .bind(fileId)
+      .all<{
+        current_r2_key: string | null;
+        current_sha256: string | null;
+        current_size_bytes: number | null;
+        edit_state: string;
+        deleted_at: string | null;
+      }>();
+    expect(results[0]).toEqual({
+      current_r2_key: null,
+      current_sha256: null,
+      current_size_bytes: null,
+      edit_state: "idle",
+      deleted_at: now(),
+    });
+  });
+
+  it("returns a null current key when the file had no live working copy", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const { fileId, versionId } = await initiate(database, matterId);
+    await commit(database, versionId, "hash-a");
+    const result = await softDeleteFile(database, fileId, options);
+    expect(result.currentR2Key).toBeNull();
+  });
+});
+
+describe("restoreFile", () => {
+  it("clears deleted_at so a recovered file returns to the default listing", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const { fileId, versionId } = await initiate(database, matterId);
+    await commit(database, versionId, "hash-a");
+    await commitEffectBatch(database, (await softDeleteFile(database, fileId, options)).effect, {
+      now,
+    });
+    expect((await listFiles(database, { matterId })).data).toHaveLength(0);
+
+    const restored = await restoreFile(database, fileId, options);
+    await commitEffectBatch(database, restored.effect, { now });
+    expect((await listFiles(database, { matterId })).data.map((row) => row.id)).toEqual([fileId]);
+  });
+});
+
+describe("restoreVersion", () => {
+  it("copies an archived version forward into a new current version, leaving history intact", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const { fileId, versionId: v1 } = await initiate(database, matterId);
+    await commit(database, v1, "hash-v1");
+    const { versionId: v2 } = await initiate(database, matterId, { fileId });
+    await commit(database, v2, "hash-v2");
+
+    const copies: Array<[string, string]> = [];
+    const result = await restoreVersion(
+      database,
+      { fileId, sourceVersionId: v1, uploadedBy: ACTOR },
+      options,
+      async (from, to) => {
+        copies.push([from, to]);
+      },
+    );
+    expect(result.skipped).toBe(false);
+    expect(result.versionId).not.toBeNull();
+    // The archived version's bytes are copied forward to the new version's key (forward-only).
+    expect(copies).toEqual([[`files/${fileId}/${v1}`, `files/${fileId}/${result.versionId}`]]);
+    await commitEffectBatch(database, result.effect, { now });
+
+    const { results: rows } = await database
+      .prepare(
+        "SELECT id, version_number, content_sha256 FROM file_version WHERE file_id = ?1 ORDER BY version_number",
+      )
+      .bind(fileId)
+      .all<{ id: string; version_number: number; content_sha256: string }>();
+    // History is intact (v1, v2 untouched) and the restored content is a NEW version 3.
+    expect(rows.map((r) => r.version_number)).toEqual([1, 2, 3]);
+    expect(rows[2]?.id).toBe(result.versionId);
+    expect(rows[2]?.content_sha256).toBe("hash-v1");
+
+    const { results: fileRow } = await database
+      .prepare("SELECT current_version_id FROM file WHERE id = ?1")
+      .bind(fileId)
+      .all<{ current_version_id: string }>();
+    expect(fileRow[0]?.current_version_id).toBe(result.versionId);
   });
 });
 
@@ -350,5 +602,190 @@ describe("initiateUpload — new version on an existing file", () => {
         options,
       ),
     ).rejects.toMatchObject({ code: "file-matter-mismatch" });
+  });
+});
+
+describe("recordRescanVerdict — in-place re-scan", () => {
+  async function committedVersion(database: ReturnType<typeof freshDatabase>, hash: string) {
+    const matterId = await seedMatter(database);
+    const { versionId } = (await initiate(database, matterId)) as { versionId: FileVersionId };
+    const committed = await commit(database, versionId, hash);
+    return { versionId, fileId: committed.fileId };
+  }
+
+  it("stamps a clean re-scan verdict in place — no pointer move, cache recorded", async () => {
+    const database = freshDatabase();
+    const { versionId, fileId } = await committedVersion(database, "hash-x");
+    const before = await database
+      .prepare("SELECT current_version_id FROM file WHERE id = ?1")
+      .bind(fileId)
+      .all<{ current_version_id: string }>();
+
+    const cleanRaw = {
+      engineVersion: "clamav/2.0",
+      clam: { state: "clean" as const },
+      heuristic: { kind: "none" as const },
+      matches: [],
+      timings: { clamdMs: 3, yaraMs: 2 },
+    };
+    await commitEffectBatch(
+      database,
+      recordRescanVerdict(
+        database,
+        {
+          fileId,
+          versionId,
+          scanVerdict: "clean",
+          scanEngineVersion: "clamav/2.0",
+          scanDetail: null,
+          signature: null,
+          contentSha256: "hash-x",
+          now: now(),
+          rawScanResult: cleanRaw,
+        },
+        options,
+      ).effect,
+      { now },
+    );
+
+    const row = await database
+      .prepare("SELECT scan_verdict, scan_engine_version, status FROM file_version WHERE id = ?1")
+      .bind(versionId)
+      .all<{ scan_verdict: string; scan_engine_version: string; status: string }>();
+    expect(row.results[0]).toMatchObject({
+      scan_verdict: "clean",
+      scan_engine_version: "clamav/2.0",
+      status: "clean",
+    });
+    const after = await database
+      .prepare("SELECT current_version_id FROM file WHERE id = ?1")
+      .bind(fileId)
+      .all<{ current_version_id: string }>();
+    expect(after.results[0]?.current_version_id).toBe(before.results[0]?.current_version_id);
+    expect(await lookupScanCache(database, "hash-x", "clamav/2.0")).toEqual(cleanRaw);
+  });
+
+  it("an infected re-scan keeps the version VISIBLE (status stays clean) — informed access, no data loss", async () => {
+    const database = freshDatabase();
+    const { versionId, fileId } = await committedVersion(database, "hash-bad");
+
+    const infectedRaw = {
+      engineVersion: "clamav/2.0",
+      clam: { state: "infected" as const, signature: "Eicar-Test-Signature" },
+      heuristic: { kind: "none" as const },
+      matches: [],
+      timings: { clamdMs: 4, yaraMs: 1 },
+    };
+    const { effect } = recordRescanVerdict(
+      database,
+      {
+        fileId,
+        versionId,
+        scanVerdict: "flagged",
+        scanEngineVersion: "clamav/2.0",
+        scanDetail: "Eicar-Test-Signature",
+        signature: "Eicar-Test-Signature",
+        contentSha256: "hash-bad",
+        now: now(),
+        rawScanResult: infectedRaw,
+      },
+      options,
+    );
+    // A fresh infected finding emits a notification (the outbox seam); a clean re-scan emits none.
+    expect(effect.outboxMessages).toEqual([
+      { topic: "file.rescan_infected", payload: { fileId, versionId } },
+    ]);
+    await commitEffectBatch(database, effect, { now });
+
+    const row = await database
+      .prepare("SELECT scan_verdict, status FROM file_version WHERE id = ?1")
+      .bind(versionId)
+      .all<{ scan_verdict: string; status: string }>();
+    // The hallmark of informed access: flagged but still committed/visible — never hidden or regressed.
+    expect(row.results[0]).toMatchObject({ scan_verdict: "flagged", status: "clean" });
+    expect(await lookupScanCache(database, "hash-bad", "clamav/2.0")).toEqual(infectedRaw);
+  });
+});
+
+describe("commitVersion — flagged-but-committed version", () => {
+  it("persists scan_verdict='flagged', status='clean', populates the scan cache, and records the commit audit", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const { versionId } = await initiate(database, matterId);
+
+    const flaggedRaw = {
+      engineVersion: "clamav/1.0+heuristics/1",
+      clam: { state: "infected" as const, signature: "Eicar-Test-Signature" },
+      heuristic: { kind: "none" as const },
+      matches: [],
+      timings: { clamdMs: 5, yaraMs: 2 },
+    };
+
+    const result = await commitVersion(
+      database,
+      {
+        versionId,
+        sizeBytes: 2048,
+        sniffedContentType: "application/pdf",
+        contentSha256: "hash-flagged",
+        scanVerdict: "flagged",
+        scanEngineVersion: "clamav/1.0+heuristics/1",
+        scanDetail: "Eicar-Test-Signature",
+        now: now(),
+        rawScanResult: flaggedRaw,
+      },
+      options,
+    );
+    await commitEffectBatch(database, result.effect, { now });
+
+    // The version row: flagged verdict, but status is 'clean' (committed + accessible per treatment gate).
+    const row = await database
+      .prepare("SELECT scan_verdict, status FROM file_version WHERE id = ?1")
+      .bind(versionId)
+      .all<{ scan_verdict: string; status: string }>();
+    expect(row.results[0]).toMatchObject({ scan_verdict: "flagged", status: "clean" });
+
+    // The scan cache must be populated (engine-version keyed dedup — same as a clean commit).
+    expect(await lookupScanCache(database, "hash-flagged", "clamav/1.0+heuristics/1")).toEqual(
+      flaggedRaw,
+    );
+
+    // A commit audit row must exist for this version, and its metadata must carry the flagged verdict +
+    // reason so the audit trail is useful without exposing privileged content.
+    const audit = await database
+      .prepare(
+        "SELECT event, metadata FROM audit_log WHERE event = 'file.version_committed' AND subject_id = ?1",
+      )
+      .bind(versionId)
+      .all<{ event: string; metadata: string }>();
+    expect(audit.results).toHaveLength(1);
+    const parsed = JSON.parse(audit.results[0]!.metadata as string);
+    expect(parsed).toMatchObject({ scanVerdict: "flagged", scanDetail: "Eicar-Test-Signature" });
+  });
+});
+
+describe("loadCommittedVersionByR2Key", () => {
+  it("loads a committed version by r2 key (hash + engine); undefined while pending or unknown", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const { versionId } = (await initiate(database, matterId)) as { versionId: FileVersionId };
+    const key = (
+      await database
+        .prepare("SELECT r2_key FROM file_version WHERE id = ?1")
+        .bind(versionId)
+        .all<{ r2_key: string }>()
+    ).results[0]?.r2_key as string;
+
+    // While pending, the committed-only loader must not find it (status gate).
+    expect(await loadCommittedVersionByR2Key(database, key)).toBeUndefined();
+
+    await commit(database, versionId, "hash-q");
+    expect(await loadCommittedVersionByR2Key(database, key)).toMatchObject({
+      id: versionId,
+      contentSha256: "hash-q",
+      scanVerdict: "unscanned",
+      scanEngineVersion: null,
+    });
+    expect(await loadCommittedVersionByR2Key(database, "files/does-not-exist")).toBeUndefined();
   });
 });

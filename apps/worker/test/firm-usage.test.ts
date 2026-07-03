@@ -2,7 +2,7 @@ import { env, SELF } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import type { FirmId } from "@magna-carta/identifiers/types";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
-import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
+import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import {
   mirrorMemberWithOwnerRole,
   seedCredentialedUser,
@@ -14,7 +14,6 @@ let poolFirmId: FirmId;
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_1); // full lineage incl. 0006 (Owner/Admin gets tools:firmUsage)
   poolFirmId = (await seedFirm({ name: "Usage Test Firm", databaseIdentifier: "DB_FIRM_POOL_1" }))
     .firmId;
 });
@@ -45,19 +44,24 @@ describe("GET /api/v1/firm-usage", () => {
       userName: "Usage OK",
       firmId: poolFirmId,
     });
-    await mirrorMemberWithOwnerRole(userId, "Usage OK"); // Owner/Admin carries tools:firmUsage (0006)
+    await mirrorMemberWithOwnerRole(userId, "Usage OK", poolFirmId); // Owner/Admin carries tools:firmUsage (0006)
     const t = "2026-01-01T00:00:00.000Z";
-    await env.DB_FIRM_POOL_1.prepare(
-      "INSERT INTO storage_meter (storage_class, artifact_role, prefix, bytes, object_count) VALUES ('standard','original','files',1000,1)",
-    ).run();
-    await env.DB_FIRM_POOL_1.prepare(
-      "INSERT INTO matter (id, title, description, status, matter_type_id, location_id, responsible_member_id, client_display_name, client_code, matter_number, numbered_at, opened_at, closed_at, created_at, updated_at) VALUES ('matter_u','M',NULL,'open',NULL,NULL,?1,NULL,NULL,NULL,NULL,NULL,NULL,?2,?2)",
-    )
+    const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, poolFirmId);
+    await firmDatabase
+      .prepare(
+        "INSERT INTO storage_meter (storage_class, artifact_role, prefix, bytes, object_count) VALUES ('standard','original','files',1000,1)",
+      )
+      .run();
+    await firmDatabase
+      .prepare(
+        "INSERT INTO matter (id, title, description, status, matter_type_id, location_id, responsible_member_id, client_display_name, client_code, matter_number, numbered_at, opened_at, closed_at, created_at, updated_at) VALUES ('matter_u','M',NULL,'open',NULL,NULL,?1,NULL,NULL,NULL,NULL,NULL,NULL,?2,?2)",
+      )
       .bind(userId, t)
       .run();
-    await env.DB_FIRM_POOL_1.prepare(
-      "INSERT INTO location (id, name, status, jurisdiction, number_code, address_block, footer, remit_to, created_at, updated_at) VALUES ('loc_u','HQ','active',NULL,NULL,NULL,NULL,NULL,?1,?1)",
-    )
+    await firmDatabase
+      .prepare(
+        "INSERT INTO location (id, name, status, jurisdiction, number_code, address_block, footer, remit_to, created_at, updated_at) VALUES ('loc_u','HQ','active',NULL,NULL,NULL,NULL,NULL,?1,?1)",
+      )
       .bind(t)
       .run();
 

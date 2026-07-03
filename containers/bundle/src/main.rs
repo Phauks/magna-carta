@@ -1,0 +1,23 @@
+use magna_carta_bundle::{router, AppState};
+use std::sync::Arc;
+use tokio::net::TcpListener;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // The owner Worker services R2 GET/PUT at this base via outbound Workers; defaults to the documented
+    // virtual host. No credentials and no general egress live in this container.
+    let r2_base_url =
+        std::env::var("R2_BASE_URL").unwrap_or_else(|_| "http://bundle-r2".to_string());
+    // A connect timeout turns a wedged R2 host into a prompt error rather than an indefinitely hung
+    // build; no overall request timeout, so a legitimately large volume transfer is never cut short.
+    let http = reqwest::Client::builder()
+        .connect_timeout(std::time::Duration::from_secs(10))
+        .build()?;
+    let state = AppState {
+        r2_base_url: Arc::from(r2_base_url.as_str()),
+        http,
+    };
+    let listener = TcpListener::bind("0.0.0.0:8080").await?;
+    axum::serve(listener, router(state)).await?;
+    Ok(())
+}

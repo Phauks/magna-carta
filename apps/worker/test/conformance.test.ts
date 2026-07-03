@@ -53,8 +53,22 @@ const NON_MUTATING_POST_ALLOW_LIST: Record<string, string> = {
     "Pulls current carrier tracking and caches events (INSERT OR IGNORE dedup) — a read-shaped sync, not an auditable business mutation.",
   "customFields.previewConvert":
     "Read-shaped POST: counts how each current value would land under a kind change (the target kind rides the body) — no write, no audit.",
+  "timeEntries.previewQuickAdd":
+    "Read-shaped POST: parses a one-line quick-add string and returns matter candidates — no write, nothing committed.",
+  "conversions.upload":
+    "Pure credential mint: mints a jobId and a short-TTL presigned PUT URL — no D1 write, no firm state change, just a signed URL the client uploads to directly.",
+  "conversions.submit":
+    "Enqueues a conversion job through a Durable Object (no D1 write, no firm-database row): the DO + queue track the lifecycle; there is no audit_log row class that models a transient compute job.",
   "safeBrowse.post":
     "Renders a suspect URL in an isolated remote browser and returns a static snapshot — a pure read over the request body, no firm-data write; the target URL is deliberately never logged (redaction).",
+  "metadata.inspect":
+    "Pure computation over the uploaded bytes — reports metadata findings; nothing is stored, no firm data is written.",
+  "metadata.scrub":
+    "Pure computation over the uploaded bytes — returns a cleaned copy in-process; nothing is stored, no firm data is written.",
+  "fileIntegrity.hash":
+    "Pure computation over the streamed request body — computes five digests in one pass; nothing is stored, no firm data is written.",
+  "fileType.verify":
+    "Pure classification over the uploaded bytes — identifies the true content type (raw facts from the container, verdict app-side); nothing is stored, no firm data is written.",
 };
 
 // Subsystems whose every route must be idempotency: required (money/trust/payment/outbound-comms).
@@ -124,6 +138,21 @@ const RESOURCE_BY_PERMISSION_NAMESPACE: Record<string, string> = {
   // customFields:* governs firm-defined fields on matter/entity records; its routes carry the
   // matter resource (the nearest tenancy root — custom fields extend matter/entity records).
   customFields: "matter",
+  // documents:* governs in-app editing of matter-rooted file objects (the same tenancy root files:*
+  // carries), so its routes carry the matter resource.
+  documents: "matter",
+  // time:* governs time entries and the rate engine, all scoped to matters; the matter resource
+  // is the nearest tenancy root for every time-entry mutation and read.
+  time: "matter",
+  // costs:* governs disbursement WIP entries, all scoped to matters; the matter resource is the
+  // nearest tenancy root for every cost-entry mutation and read (mirrors the time precedent).
+  costs: "matter",
+  // support:* governs help-desk access grants on a firm; grants are firm-scoped (the consent
+  // anchor is a firm member, the grant row lives in the control-plane firm namespace).
+  support: "firm",
+  // diagnostics:* is the read-only system-state surface granted only by a diagnostic support session;
+  // no firm role holds it. The resource is the firm — the overview is per-firm state.
+  diagnostics: "firm",
 };
 
 // Rule: every named permission exists in the registry, and its namespace binds to the route's
@@ -477,6 +506,20 @@ describe("conformance — the committed contract holds, and each rule catches a 
   it("exposes the known committed operations (so the positive assertions are not vacuous)", () => {
     const ids = [...operations(document)].map((entry) => entry.operationId).sort();
     expect(ids).toEqual([
+      "conversions.status",
+      "conversions.submit",
+      "conversions.upload",
+      "costs.approve",
+      "costs.attachReceipt",
+      "costs.batch",
+      "costs.create",
+      "costs.detachReceipt",
+      "costs.get",
+      "costs.kickBack",
+      "costs.list",
+      "costs.submit",
+      "costs.update",
+      "costs.void",
       "customFields.applyConvert",
       "customFields.archiveField",
       "customFields.archiveOption",
@@ -515,8 +558,17 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "documentTypes.deactivate",
       "documentTypes.list",
       "documentTypes.update",
+      "documents.checkin",
+      "documents.checkout",
+      "documents.editSession",
+      "documents.forceRelease",
+      "documents.reconcile",
+      "documents.viewSession",
       "downloads.bundleStatus",
       "downloads.zip",
+      "fileIntegrity.hash",
+      "fileIntegrity.verify",
+      "fileType.verify",
       "files.delete",
       "files.download",
       "files.get",
@@ -524,6 +576,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "files.preview",
       "files.update",
       "files.versions",
+      "firm.setReleaseChannel",
       "firmUsage.get",
       "firms.provision",
       "folders.create",
@@ -553,10 +606,30 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "matters.update",
       "me.get",
       "members.invite",
+      "metadata.inspect",
+      "metadata.scrub",
+      "myDay.get",
+      "narrativeTemplates.create",
+      "narrativeTemplates.list",
+      "narrativeTemplates.recentNarratives",
+      "nonBillableCategories.archive",
+      "nonBillableCategories.create",
+      "nonBillableCategories.list",
+      "nonBillableCategories.update",
       "numbering.get",
       "numbering.preview",
       "numbering.set",
+      "platform.setFirmReleaseChannel",
+      "rateCards.create",
+      "rateCards.list",
+      "rates.append",
+      "rates.reRateDrafts",
       "safeBrowse.post",
+      "scan.diagnose",
+      "scan.matter",
+      "scanPolicy.get",
+      "scanPolicy.scoreHistogram",
+      "scanPolicy.update",
       "shipping.connect",
       "shipping.createShipment",
       "shipping.label",
@@ -564,10 +637,36 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "shipping.rateShipment",
       "shipping.refund",
       "shipping.tracking",
+      "supportDiagnostics.overview",
+      "supportGrants.cosign",
+      "supportGrants.list",
+      "supportGrants.request",
+      "supportGrants.revoke",
+      "supportSessions.redeem",
+      "timeEntries.approve",
+      "timeEntries.create",
+      "timeEntries.get",
+      "timeEntries.gridBatch",
+      "timeEntries.kickBack",
+      "timeEntries.list",
+      "timeEntries.previewQuickAdd",
+      "timeEntries.submit",
+      "timeEntries.update",
+      "timeEntries.void",
+      "timer.bind",
+      "timer.discard",
+      "timer.pause",
+      "timer.read",
+      "timer.resume",
+      "timer.start",
+      "timer.stopCommit",
       "uploads.abort",
       "uploads.complete",
       "uploads.initiate",
       "uploads.signPart",
+      "utbmsCodes.disable",
+      "utbmsCodes.enable",
+      "utbmsCodes.list",
       "whois.get",
     ]);
   });

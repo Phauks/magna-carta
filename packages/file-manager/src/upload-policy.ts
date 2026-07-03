@@ -11,7 +11,8 @@ import { FileManagerValidationError } from "./validation.ts";
 // bytes (the sniffed type) — a declared lie cannot smuggle a blocked type past the gate.
 export interface UploadPolicy {
   readonly maxSizeBytes: number;
-  readonly allowedContentTypes: readonly string[]; // exact, or "type/*" prefix wildcard
+  readonly allowedContentTypes: readonly string[]; // exact, or a trailing-`*` prefix wildcard
+  // (e.g. "text/*", or "application/vnd.openxmlformats-officedocument.*" for all OOXML types)
   readonly blockedExtensions: readonly string[]; // lowercase, dot-prefixed (".exe")
 }
 
@@ -117,6 +118,17 @@ export const inspectableSizeCapDefinition: FirmSettingDefinition<number> = {
   defaultValue: 2 * GIBIBYTE,
 };
 
+// The signature-engine identity (engine + signature-database version) that scans run under, set by
+// the engine-rollout/deploy process. A re-scan is triggered on access only when a version's stored
+// scan_engine_version differs from this; the dedup cache is keyed on it so a database update is a
+// deliberate cache miss. Default null: when unset, the re-scan path must fall through to a real scan
+// and never fabricate a cache key from a missing version — correctness over the dedup skip.
+export const scanEngineVersionDefinition: FirmSettingDefinition<string | null> = {
+  key: "fileManager.scanEngineVersion",
+  schema: z.string().min(1).nullable(),
+  defaultValue: null,
+};
+
 // Constraints on archive expansion limits for the scan engine: max directory depth, max entries
 // per archive, max uncompressed total, and max expansion ratio (uncompressed / compressed).
 // These prevent zip bombs and pathological archives from consuming unbounded resources.
@@ -151,6 +163,10 @@ export function readInspectableSizeCap(database: SqlDatabase): Promise<number> {
   return readFirmSetting(database, inspectableSizeCapDefinition);
 }
 
+export function readScanEngineVersion(database: SqlDatabase): Promise<string | null> {
+  return readFirmSetting(database, scanEngineVersionDefinition);
+}
+
 export function readLiveMaxFileCount(database: SqlDatabase): Promise<number> {
   return readFirmSetting(database, liveMaxFileCountDefinition);
 }
@@ -162,7 +178,11 @@ export function readLiveMaxTotalBytes(database: SqlDatabase): Promise<number> {
 function contentTypeAllowed(allowed: readonly string[], contentType: string): boolean {
   const normalized = contentType.toLowerCase().split(";")[0]?.trim() ?? "";
   return allowed.some((pattern) => {
-    if (pattern.endsWith("/*")) return normalized.startsWith(pattern.slice(0, -1));
+    // A trailing `*` is a prefix wildcard. Supports both the MIME `type/*` form ("text/*") AND the
+    // longer dotted prefixes the OOXML/OpenDocument families need
+    // ("application/vnd.openxmlformats-officedocument.*"), which `/*`-only matching silently dropped —
+    // so Word/Excel/PowerPoint/OpenDocument uploads were rejected despite being in the default policy.
+    if (pattern.endsWith("*")) return normalized.startsWith(pattern.slice(0, -1));
     return normalized === pattern;
   });
 }

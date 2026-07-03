@@ -10,7 +10,10 @@ export const PERMISSIONS = [
   "firm:manageMembers", // invite/deactivate members, assign roles
   "firm:provision", // reserved: platform-level firm creation (guarded by secret this slice)
   "firm:reportIncident", // file a diagnostic incident (slice 0·6) — seeded to every default role
+  "firm:scanFile", // run a one-off, matter-less malware-scan diagnostic — seeded to every default role
   "firm:manageSecrets", // read/write the encrypted per-firm secret store (an audited decrypt on read)
+  "firm:manageScanPolicy", // read and update the firm's malware scan-policy settings
+  "firm:manageReleaseChannel", // set the firm's release channel between {stable, beta}; alpha is platform-only
   // Incidents — gates on the user-authored incident report beyond filing it.
   "incidents:viewDescription", // decrypt and read an incident's protected description (audited)
   // Matters — the matter shell, its lifecycle, and the per-firm type/numbering configuration.
@@ -47,9 +50,38 @@ export const PERMISSIONS = [
   "tools:whois", // WHOIS/RDAP registration lookup for a website's domain or an IP
   "tools:safeBrowse", // render a suspect URL in an isolated remote browser (static snapshot only)
   "tools:fileConverter", // general matter-free file converter — convert a file to another format
+  "tools:aiTextDetection", // AI-text detection — likelihood that text was machine-generated (a signal, not proof)
+  // Documents — in-app editing of a file's content (Collabora), versioning, and the offline
+  // check-out / reconciliation flow. Each document route is matter-scoped (RouteMeta resource: "matter").
+  "documents:edit", // open a document for editing; a deliberate Save or session-close cuts a version
+  "documents:checkout", // take an offline working copy, or an opt-in exclusive lock
+  "documents:forceReleaseLock", // release another member's exclusive lock
+  "documents:reconcile", // resolve a divergent check-in — choose which copy becomes authoritative
+  "tools:metadataScrubber", // inspect/scrub a file's metadata & content artifacts (ephemeral, matter-free)
+  "tools:fileIntegrity", // compute a file's cryptographic digests + verify a stored file against its ingest baseline
+  "tools:fileTypeVerifier", // identify a file's true content type and flag/repair an extension mismatch
   // Custom fields — define and maintain field schemas; purge hard-deletes all values for a field.
   "customFields:manage",
   "customFields:purge",
+  // Time tracking, WIP & the rate engine — one namespace per subsystem (house convention).
+  "time:track", // create/edit own time entries and run the timer
+  "time:viewFirm", // see other timekeepers' time (firm-wide My Day / report gating)
+  "time:approve", // submit-for-review / approve / kick-back when the review gate is on
+  "time:manageRates", // rate cards, rate versions, and the re-rate-unbilled-drafts action
+  "time:manageUtbms", // enable/disable the UTBMS code catalog
+  "time:manageSettings", // the scoped time settings, non-billable categories, narrative templates
+  // Costs / disbursements — soft costs and hard costs captured against a matter.
+  "costs:track", // create/edit cost entries (manual and grid sources)
+  "costs:approve", // approve / kick-back cost entries when the review gate is on
+  // Support access — a firm member requests time-boxed help-desk access; admins co-sign/manage it.
+  "support:request", // request a support session (seeded to EVERY default role — any member may ask)
+  "support:cosign", // co-sign a privileged support grant when firm policy requires it (admin)
+  "support:manage", // revoke/oversee the firm's support grants (admin)
+  "support:mintSession", // platform-level: redeem a grant for a session token (never seeded to a firm role)
+  // Diagnostics — the read-only system-state surface a DIAGNOSTIC support session is scoped to. These
+  // keys carry NO decrypt capability, so privileged content stays unreachable from a diagnostic session.
+  // Never seeded to a firm role — granted only by holding a diagnostic support session.
+  "diagnostics:overview", // firm system-state overview (status, schema version, member count, storage)
 ] as const;
 
 // KnownPermission is for hardcoded compile-checked keys (route metadata, role seeds);

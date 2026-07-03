@@ -1,37 +1,45 @@
 import { z } from "@hono/zod-openapi";
-import type { MalwareScanPort, ScanResult } from "@magna-carta/file-manager/scan-port";
+import type { MalwareScanPort, RawScanResult } from "@magna-carta/file-manager/scan-port";
 
-// The scan Container's HTTP surface, narrowed to the one call the adapter makes. The container instance
-// from `getContainer(env.SCAN_CONTAINER, ...)` satisfies it; tests pass a fake so the adapter is
-// exercised without a real container (or Docker).
+// The scan service's HTTP surface, narrowed to the one call the adapter makes. The SCAN_SERVICE
+// Fetcher binding satisfies it; tests pass a fake so the adapter is exercised without a real
+// scan worker running in the pool.
 export interface ScanContainerFetcher {
   fetch(request: Request): Promise<Response>;
 }
 
-// The Rust scan service's JSON contract — the SAME union as scan-port.ts (the Rust⇄TS boundary). The
-// response is validated against it, so an unrecognized verdict is a fault, never a silent `clean`.
-const scanResultSchema: z.ZodType<ScanResult> = z.union([
-  z.object({
-    verdict: z.literal("clean"),
-    engineVersion: z.string(),
-    activeContent: z.boolean().optional(),
-  }),
-  z.object({
-    verdict: z.literal("infected"),
-    engineVersion: z.string(),
-    signature: z.string().nullable(),
-  }),
-  z.object({
-    verdict: z.literal("unscanned"),
-    reason: z.enum(["no-engine", "encrypted"]),
-    engineVersion: z.string().nullable(),
-  }),
-  z.object({
-    verdict: z.literal("suspicious"),
-    reason: z.enum(["decompression-bomb", "archive-nesting", "archive-entry-count"]),
-    engineVersion: z.string(),
-  }),
-]);
+// The Rust scan service's JSON contract — the RawScanResult facts that scan-port.ts defines (the
+// Rust⇄TS boundary). The engine reports facts (clamd state, structural heuristic, YARA matches, per-leg
+// timings); the app's verdict layer (packages/file-manager/src/verdict.ts) turns them into a file
+// verdict. The response is validated against this schema, so a malformed body is a fault (a retryable
+// throw), never a silently fabricated result. An engine that goes dark serializes `clam: unavailable`
+// with HTTP 200 — the verdict layer raises that to a retryable fault, so unavailable is never clean.
+const rawScanResultSchema: z.ZodType<RawScanResult> = z.object({
+  engineVersion: z.string().nullable(),
+  clam: z.discriminatedUnion("state", [
+    z.object({ state: z.literal("clean") }),
+    z.object({ state: z.literal("infected"), signature: z.string() }),
+    z.object({ state: z.literal("unavailable") }),
+  ]),
+  heuristic: z.discriminatedUnion("kind", [
+    z.object({ kind: z.literal("none") }),
+    z.object({
+      kind: z.literal("structural"),
+      reason: z.enum(["decompression-bomb", "archive-nesting", "archive-entry-count"]),
+    }),
+    z.object({ kind: z.literal("encrypted") }),
+    z.object({ kind: z.literal("active-content") }),
+  ]),
+  matches: z.array(
+    z.object({
+      ruleId: z.string(),
+      tier: z.enum(["core", "extended", "full"]),
+      score: z.number(),
+      isSuspicious: z.boolean(),
+    }),
+  ),
+  timings: z.object({ clamdMs: z.number(), yaraMs: z.number() }),
+});
 
 // The worker-side ceiling on a single scan request. The container enforces its own per-leg deadlines on
 // the clamd exchange and isolates engine panics, so it should always answer; this is the backstop for a
@@ -42,7 +50,7 @@ const scanResultSchema: z.ZodType<ScanResult> = z.union([
 const SCAN_REQUEST_TIMEOUT_MS = 11 * 60 * 1000;
 
 // Builds a MalwareScanPort over a scan Container. It POSTs the file body to the container's /scan, then
-// maps the JSON to a ScanResult, THROWING on any non-200, malformed body, or timeout — the consumer
+// maps the JSON to a RawScanResult, THROWING on any non-200, malformed body, or timeout — the consumer
 // retries the queue message on a throw, so a scan fault never commits as clean. `requestTimeoutMs`
 // overrides the wedged-container backstop (a test passes a small value to drive the abort path).
 export function containerScanAdapter(
@@ -69,7 +77,7 @@ export function containerScanAdapter(
       if (response.status !== 200) {
         throw new Error(`scan container returned status ${response.status}`);
       }
-      return scanResultSchema.parse(await response.json());
+      return rawScanResultSchema.parse(await response.json());
     },
   };
 }

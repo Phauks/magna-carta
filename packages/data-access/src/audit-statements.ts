@@ -39,27 +39,29 @@ export function insertAuditLogStatement(database: SqlDatabase, input: AuditLogIn
 
 // What a domain operation needs to write an audit row for an effect batch: the event, its subject,
 // and the caller-supplied clock + actor (the service reads no clock and trusts no ambient identity).
-// randomSource lets fixtures mint byte-deterministic ids.
+// randomSource lets fixtures mint byte-deterministic ids. metadata carries non-privileged fields
+// only (ids, verdicts, reasons) — never privileged content; omit or pass undefined for no metadata.
 export interface DomainAuditInput {
   readonly event: string;
   readonly subjectId: string;
   readonly actorUserId: UserId | null;
   readonly clock: { now(): string };
   readonly randomSource?: RandomSource;
+  readonly metadata?: unknown;
 }
 
-// Composes the per-firm audit_log row for an effect batch, minting the audit-log id and leaving
-// metadata null — the event, subject, actor, and instant are the record; a future audit subsystem
-// enriches it. Every business domain (matters, file manager, locations, …) writes its audit rows
-// through this one wrapper. (The divergent guarded auth-hook path is insertAuthAuditStatement, not
-// this.)
+// Composes the per-firm audit_log row for an effect batch, minting the audit-log id. metadata is
+// optional — most events carry no metadata (the event, subject, actor, and instant are the record);
+// pass metadata only for events that benefit from non-privileged extra context (verdicts, reasons).
+// Every business domain (matters, file manager, locations, …) writes its audit rows through this
+// one wrapper. (The divergent guarded auth-hook path is insertAuthAuditStatement, not this.)
 export function domainAuditStatement(database: SqlDatabase, input: DomainAuditInput): SqlStatement {
   return insertAuditLogStatement(database, {
     id: newIdentifier("auditLog", input.randomSource),
     event: input.event,
     actorUserId: input.actorUserId,
     subjectId: input.subjectId,
-    metadata: null,
+    metadata: input.metadata ?? null,
     now: input.clock.now(),
   });
 }

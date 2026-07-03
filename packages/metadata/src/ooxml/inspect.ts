@@ -1,6 +1,11 @@
 import { safeUnzip } from "../guards.ts";
 import { type Finding, type MetadataReport, reportOf } from "../model.ts";
-import { COMMENT_REF_TAGS, runIsHidden, TRACKED_CHANGE_TAGS } from "./walk.ts";
+import {
+  COMMENT_REF_TAGS,
+  CONTENT_PART_PATTERN,
+  runIsHidden,
+  TRACKED_CHANGE_TAGS,
+} from "./walk.ts";
 import { nodeTag, parseXml, type XmlNode } from "./xml.ts";
 
 function decode(bytes: Uint8Array | undefined): string | undefined {
@@ -78,15 +83,19 @@ export function inspectDocx(bytes: Uint8Array): MetadataReport {
     });
   }
 
-  const document = decode(entries["word/document.xml"]);
+  // Walk all word-processing content parts (document body, headers, footers, footnotes, endnotes)
+  // so that tracked changes, hidden runs, and comment references in any of those parts are found.
   const acc = { tagged: 0, vanish: 0 };
   let commentRefs = 0;
-  if (document !== undefined) {
-    const docNodes = parseXml(document);
-    walk(docNodes, TRACKED_CHANGE_TAGS, true, acc);
+  for (const [name, content] of Object.entries(entries)) {
+    if (!CONTENT_PART_PATTERN.test(name)) continue;
+    const xml = decode(content);
+    if (xml === undefined) continue;
+    const nodes = parseXml(xml);
+    walk(nodes, TRACKED_CHANGE_TAGS, true, acc);
     const commentAcc = { tagged: 0, vanish: 0 };
-    walk(docNodes, COMMENT_REF_TAGS, false, commentAcc);
-    commentRefs = commentAcc.tagged;
+    walk(nodes, COMMENT_REF_TAGS, false, commentAcc);
+    commentRefs += commentAcc.tagged;
   }
   if (acc.tagged > 0) {
     findings.push({

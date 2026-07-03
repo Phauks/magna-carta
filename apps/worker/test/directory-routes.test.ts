@@ -9,7 +9,7 @@ import type { FirmId, UserId } from "@magna-carta/identifiers/types";
 import { beforeAll, describe, expect, it } from "vitest";
 import { buildOpenAPIDocument } from "../src/app.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
-import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
+import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import {
   mirrorMemberWithOwnerRole,
   seedCredentialedUser,
@@ -30,16 +30,19 @@ let readOnlyCookie: string;
 
 // Mirror a member carrying a named seeded role (the Read-only role grants no directory permission).
 async function mirrorMemberWithRole(userId: UserId, displayName: string, roleName: string) {
-  const role = await env.DB_FIRM_POOL_1.prepare("SELECT id FROM role WHERE name = ?1")
+  const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, poolFirmId);
+  const roleResult = await firmDatabase
+    .prepare("SELECT id FROM role WHERE name = ?1")
     .bind(roleName)
-    .first<{ id: string }>();
-  if (role === null) throw new Error(`seeded role ${roleName} missing`);
-  await insertMemberStatement(env.DB_FIRM_POOL_1, {
+    .all<{ id: string }>();
+  const role = roleResult.results[0];
+  if (role === undefined) throw new Error(`seeded role ${roleName} missing`);
+  await insertMemberStatement(firmDatabase, {
     userId,
     displayName,
     now: new Date().toISOString(),
   }).run();
-  await insertRoleAssignmentStatement(env.DB_FIRM_POOL_1, {
+  await insertRoleAssignmentStatement(firmDatabase, {
     id: newIdentifier("memberRole"),
     memberUserId: userId,
     roleId: assertIdentifier(role.id, "role"),
@@ -48,7 +51,6 @@ async function mirrorMemberWithRole(userId: UserId, displayName: string, roleNam
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
   poolFirmId = (
     await seedFirm({ name: "Directory Test Firm", databaseIdentifier: "DB_FIRM_POOL_1" })
   ).firmId;
@@ -58,7 +60,7 @@ beforeAll(async () => {
     userName: "Directory Owner",
     firmId: poolFirmId,
   });
-  await mirrorMemberWithOwnerRole(owner.userId, "Directory Owner");
+  await mirrorMemberWithOwnerRole(owner.userId, "Directory Owner", poolFirmId);
   ownerCookie = await signInForSessionCookie("directory-owner@example.com");
 
   const readOnly = await seedCredentialedUser("directory-readonly@example.com", {
@@ -156,11 +158,11 @@ describe("directory person routes", () => {
     expect(replay.headers.get("Idempotency-Replayed")).toBe("true");
 
     // Exactly ONE person row was created across the two requests — true dedup, not a second insert.
-    const count = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT COUNT(*) AS c FROM directory_person WHERE id = ?1",
-    )
+    const countResult = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("SELECT COUNT(*) AS c FROM directory_person WHERE id = ?1")
       .bind(firstId)
-      .first<{ c: number }>();
+      .all<{ c: number }>();
+    const count = countResult.results[0];
     expect(count?.c).toBe(1);
   });
 });

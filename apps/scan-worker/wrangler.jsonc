@@ -1,0 +1,43 @@
+{
+  // The standalone malware-scan worker. Stateless: no D1, R2, or Queues. It owns the
+  // ScanContainer Durable Object (a Container-backed DO that runs clamd + the Rust scan service)
+  // and is reached only via a service binding from the main app worker — it has no public routes.
+  "name": "magna-carta-scan",
+  "main": "./src/index.ts",
+  "compatibility_date": "2026-06-05",
+  "compatibility_flags": ["nodejs_compat"],
+  // No public surface: this worker is an internal service reached only via service binding.
+  "workers_dev": false,
+  "preview_urls": false,
+  // The scan Container Durable Object (Container-backed, sqlite-class).
+  // The Container runs clamd + the Rust scan service on port 8080 with outbound networking
+  // disabled (untrusted bytes never reach the network).
+  "containers": [
+    {
+      "class_name": "ScanContainer",
+      "image": "../../containers/scan/Dockerfile",
+      "max_instances": 5,
+      "instance_type": "standard-1",
+    },
+  ],
+  "durable_objects": {
+    "bindings": [{ "name": "SCAN_CONTAINER", "class_name": "ScanContainer" }],
+  },
+  // SQLite-backed DO class introduced via migration tag; first migration for this worker.
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ScanContainer"] }],
+  // Cron triggers:
+  //   0 7 * * * — daily signature-refresh: triggers a wrangler deploy via SCAN_BUILD_DEPLOY_HOOK_URL
+  //               so the container image (and therefore ClamAV signatures) is rebuilt daily. A no-op
+  //               when SCAN_BUILD_DEPLOY_HOOK_URL is unset (the secret is not required at deploy time).
+  //
+  // The */20 warm-poke is intentionally OFF while no firms are onboarded: with zero scan traffic,
+  // pinning a standard-1 instance resident keeps its 4 GiB billed continuously (~$26/mo memory) for
+  // no benefit. Without the poke the container reaches its 30-minute sleepAfter and scales to zero,
+  // so it bills only while an actual scan runs. Re-add "*/20 * * * *" when the first firm is
+  // onboarded — that keeps clamd's signature DB resident so the first real scan isn't a ~30-60s cold
+  // start. The poke handler stays wired in index.ts (SCAN_WARM_CRON), so re-enabling is this one line.
+  "triggers": {
+    "crons": ["0 7 * * *"],
+  },
+  "observability": { "enabled": true, "head_sampling_rate": 1 },
+}

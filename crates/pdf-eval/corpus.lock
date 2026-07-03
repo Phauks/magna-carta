@@ -1,0 +1,28 @@
+# pdf-eval corpus manifest.
+#
+# corpus-ci/ — committed, redistributable PDFs used in CI smoke + parse gates.
+# Each file's source and license is recorded below.
+#
+# sha256             bytes    filename                    license / source
+# -------------------------------------------------------------------------
+# 050ae194d21d9b25   2805     pdfjs_franz_image.pdf       Apache-2.0
+#   <- https://raw.githubusercontent.com/mozilla/pdf.js/master/test/pdfs/franz.pdf
+#
+# 925853d98d67d5da   105779   basicapi.pdf                Apache-2.0
+#   <- https://raw.githubusercontent.com/mozilla/pdf.js/master/test/pdfs/basicapi.pdf
+#
+# 2d420cbb4123dcf1   140815   gov_irs_w9_acroform.pdf     Public domain (US Government work)
+#   <- https://www.irs.gov/pub/irs-pdf/fw9.pdf
+#
+# corpus/ — large / non-redistributable PDFs for local dev runs (gitignored).
+# Regenerate via the URLs below.
+#
+# sha256             bytes    filename                    source
+# -------------------------------------------------------------------------
+# a6db6d2f5e4f97e1   674629   TAMReview.pdf               https://raw.githubusercontent.com/mozilla/pdf.js/master/test/pdfs/TAMReview.pdf
+# ac00b579d43b2c0b   774547   court_ao088.pdf              https://www.uscourts.gov/sites/default/files/ao088.pdf
+# 38016e64b06bcd66   316429   court_ao089.pdf              https://www.uscourts.gov/sites/default/files/ao089.pdf
+# 7842bdfb86dd34f5   289301   court_ao240.pdf              https://www.uscourts.gov/sites/default/files/ao240.pdf
+# 92444d8856ce55d9   208845   gov_irs_w4_acroform.pdf      https://www.irs.gov/pub/irs-pdf/fw4.pdf
+# 659d6b19912f63db   374080   pdfjs_cmykjpeg.pdf           https://raw.githubusercontent.com/mozilla/pdf.js/master/test/pdfs/cmykjpeg.pdf
+# a75f3220b351d509   918339   pdfjs_issue1905.pdf          https://raw.githubusercontent.com/mozilla/pdf.js/master/test/pdfs/issue1905.pdf

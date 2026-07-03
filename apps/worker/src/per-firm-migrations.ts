@@ -18,13 +18,28 @@ import inferenceTokenUsageSql from "@magna-carta/database/drizzle/per-firm/0014_
 import inlinePlayableSql from "@magna-carta/database/drizzle/per-firm/0015_odd_mesmero.sql";
 import scanCacheAndDetailSql from "@magna-carta/database/drizzle/per-firm/0016_warm_talkback.sql";
 import seedToolsWebDomainsSql from "@magna-carta/database/drizzle/per-firm/0017_seed-tools-web-domains.sql";
+import seedToolsFileConverterSql from "@magna-carta/database/drizzle/per-firm/0018_seed-tools-file-converter.sql";
+import seedScanFilePermissionSql from "@magna-carta/database/drizzle/per-firm/0019_seed-scan-file-permission.sql";
+import seedToolsMetadataScrubberSql from "@magna-carta/database/drizzle/per-firm/0020_seed-tools-metadata-scrubber.sql";
+import timeTrackingSql from "@magna-carta/database/drizzle/per-firm/0021_outgoing_talon.sql";
+import seedToolsFileIntegritySql from "@magna-carta/database/drizzle/per-firm/0022_seed-tools-file-integrity.sql";
+import rawScanCacheSql from "@magna-carta/database/drizzle/per-firm/0023_raw_scan_cache.sql";
+import seedReleaseChannelPermissionSql from "@magna-carta/database/drizzle/per-firm/0024_seed-release-channel-permission.sql";
+import editingWorkingCopySql from "@magna-carta/database/drizzle/per-firm/0025_amusing_robbie_robertson.sql";
+import editingSweepIndexesSql from "@magna-carta/database/drizzle/per-firm/0026_needy_rage.sql";
+import idleReleaseIndexSql from "@magna-carta/database/drizzle/per-firm/0027_smart_stellaris.sql";
+import costEntrySql from "@magna-carta/database/drizzle/per-firm/0028_burly_piledriver.sql";
+import scanVerdictFlaggedSql from "@magna-carta/database/drizzle/per-firm/0029_scan_verdict_flagged.sql";
+import seedScanPolicyPermissionSql from "@magna-carta/database/drizzle/per-firm/0030_seed-scan-policy-permission.sql";
+import supportAccessPermissionsSql from "@magna-carta/database/drizzle/per-firm/0031_support-access-permissions.sql";
+import seedToolsFileTypeVerifierSql from "@magna-carta/database/drizzle/per-firm/0032_seed-tools-file-type-verifier.sql";
 
-// The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the firm
-// provisioner migrates a freshly created firm database to head at provisioning time, so the SQL
-// must ship in the bundle, not only in test support. Plain `.sql` imports — the dual
+// The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the FirmDatabase
+// Durable Object runs this lineage against its own SQLite storage on wake (firm-database-object.ts),
+// so the SQL must ship in the bundle, not only in test support. Plain `.sql` imports — the dual
 // Vite/wrangler bundling contract lives in src/sql-modules.d.ts.
 // migrationsFromJournal fails loud when the journal gains a migration this map does not carry:
-// add the new import alongside its journal entry (apply-per-firm-migrations.ts reuses this module).
+// add the new import alongside its journal entry. The test support reuses this same lineage.
 export function perFirmMigrations(): Migration[] {
   return migrationsFromJournal(perFirmJournal, {
     "0000_foundational-tables": foundationalTablesSql,
@@ -45,13 +60,20 @@ export function perFirmMigrations(): Migration[] {
     "0015_odd_mesmero": inlinePlayableSql,
     "0016_warm_talkback": scanCacheAndDetailSql,
     "0017_seed-tools-web-domains": seedToolsWebDomainsSql,
+    "0018_seed-tools-file-converter": seedToolsFileConverterSql,
+    "0019_seed-scan-file-permission": seedScanFilePermissionSql,
+    "0020_seed-tools-metadata-scrubber": seedToolsMetadataScrubberSql,
+    "0021_outgoing_talon": timeTrackingSql,
+    "0022_seed-tools-file-integrity": seedToolsFileIntegritySql,
+    "0023_raw_scan_cache": rawScanCacheSql,
+    "0024_seed-release-channel-permission": seedReleaseChannelPermissionSql,
+    "0025_amusing_robbie_robertson": editingWorkingCopySql,
+    "0026_needy_rage": editingSweepIndexesSql,
+    "0027_smart_stellaris": idleReleaseIndexSql,
+    "0028_burly_piledriver": costEntrySql,
+    "0029_scan_verdict_flagged": scanVerdictFlaggedSql,
+    "0030_seed-scan-policy-permission": seedScanPolicyPermissionSql,
+    "0031_support-access-permissions": supportAccessPermissionsSql,
+    "0032_seed-tools-file-type-verifier": seedToolsFileTypeVerifierSql,
   });
-}
-
-// The lineage head (latest journal tag) — the provisioner's migrate-step guard compares the firm
-// row's mirrored per_firm_schema_version against this without touching the firm database.
-export function perFirmHeadSchemaVersion(): string {
-  const lastEntry = [...perFirmJournal.entries].sort((a, b) => a.idx - b.idx).at(-1);
-  if (lastEntry === undefined) throw new Error("per-firm migration journal is empty");
-  return lastEntry.tag;
 }

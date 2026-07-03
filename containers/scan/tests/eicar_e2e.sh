@@ -2,9 +2,11 @@
 set -euo pipefail
 
 # The scan engine's acceptance gate: build the image, run it, and assert the wired container stack
-# detects EICAR end to end (clamd -> the verdict combine -> the HTTP /scan response) and reports a clean
-# text file as clean. The PDF/Office/archive heuristic verdicts are covered by the Rust unit tests
-# (cargo test); this gate proves the full container is wired and clamd's signature DB is live.
+# detects EICAR end to end (clamd -> the raw /scan response) and reports a clean text file with a clean
+# clam fact. The container reports RAW FACTS, not a verdict — EICAR comes back as
+# `clam:{state:infected,…}` and clean text as `clam:{state:clean}` (the app maps facts to a firm
+# verdict). The PDF/Office/archive heuristic facts are covered by the Rust unit tests (cargo test); this
+# gate proves the full container is wired and clamd's signature DB is live.
 #
 # Requires a running Docker daemon. Run: containers/scan/tests/eicar_e2e.sh
 
@@ -34,15 +36,15 @@ curl -fsS "http://127.0.0.1:$PORT/ready" >/dev/null || { echo "FAIL: /ready neve
 EICAR='X5O!P%@AP[4\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTI''VIRUS-TEST-FILE!$H+H*'
 
 echo "scanning EICAR ..."
-eicar_verdict=$(printf '%s' "$EICAR" | curl -fsS -X POST --data-binary @- "http://127.0.0.1:$PORT/scan")
-echo "  -> $eicar_verdict"
-echo "$eicar_verdict" | grep -q '"verdict":"infected"' \
-  || { echo "FAIL: EICAR was not reported infected"; exit 1; }
+eicar_facts=$(printf '%s' "$EICAR" | curl -fsS -X POST --data-binary @- "http://127.0.0.1:$PORT/scan")
+echo "  -> $eicar_facts"
+echo "$eicar_facts" | grep -q '"state":"infected"' \
+  || { echo "FAIL: EICAR did not surface a clam infected fact"; exit 1; }
 
 echo "scanning a clean text file ..."
-clean_verdict=$(printf 'hello world' | curl -fsS -X POST --data-binary @- "http://127.0.0.1:$PORT/scan")
-echo "  -> $clean_verdict"
-echo "$clean_verdict" | grep -q '"verdict":"clean"' \
-  || { echo "FAIL: clean text was not reported clean"; exit 1; }
+clean_facts=$(printf 'hello world' | curl -fsS -X POST --data-binary @- "http://127.0.0.1:$PORT/scan")
+echo "  -> $clean_facts"
+echo "$clean_facts" | grep -q '"state":"clean"' \
+  || { echo "FAIL: clean text did not surface a clam clean fact"; exit 1; }
 
-echo "PASS: EICAR detected as infected, clean text reported clean"
+echo "PASS: EICAR surfaced an infected clam fact, clean text a clean clam fact"

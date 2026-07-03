@@ -1,5 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 import type { Bindings } from "../app.ts";
+import type { BuildResultVolume } from "./bundle-container-adapter.ts";
 import type { BundleBuildMessage, BundleCoordinator, BundleJobState } from "./bundle-types.ts";
 
 // The single-flight coordinator for one bulk-download artifact, keyed firmId:manifestHash. The first
@@ -34,6 +35,16 @@ export class BundleBuildCoordinator extends DurableObject<Bindings> implements B
     // Clear any error from a prior failed attempt: a job can legitimately go failed -> building ->
     // ready (a retried build that succeeds), and a ready state must not carry a stale error string.
     await this.ctx.storage.put("state", { ...state, status: "ready", r2Key, error: null });
+    await this.ctx.storage.deleteAlarm();
+  }
+
+  async markReadyVolumes(volumes: readonly BuildResultVolume[]): Promise<void> {
+    const state = await this.ctx.storage.get<BundleJobState>("state");
+    if (state === undefined) return;
+    // The optioned container lane's completion: it reports N volume keys (one for a single-file
+    // bundle, several for a 7z split) instead of a single r2Key. Mirror markReady — clear any stale
+    // error from a prior failed attempt and disarm the stuck alarm. r2Key stays null on this path.
+    await this.ctx.storage.put("state", { ...state, status: "ready", volumes, error: null });
     await this.ctx.storage.deleteAlarm();
   }
 

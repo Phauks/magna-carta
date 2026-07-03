@@ -12,6 +12,7 @@ import type { AnySQLiteColumn } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 import type {
   AuditLogId,
+  CostEntryId,
   CustomFieldId,
   CustomFieldValueId,
   DirectoryAddressId,
@@ -25,6 +26,7 @@ import type {
   DirectoryPersonId,
   DirectoryPhoneId,
   DocumentTypeId,
+  DocumentCheckoutId,
   EntityMergeId,
   FileId,
   FileVersionId,
@@ -44,16 +46,22 @@ import type {
   MatterTypeId,
   MemberLocationId,
   MemberRoleId,
+  NarrativeTemplateId,
+  NonBillableCategoryId,
   NumberingSchemeId,
   OutboxId,
   PicklistOptionId,
+  RateCardId,
+  RateId,
   RoleId,
   RolePermissionId,
   ShipmentId,
   ShipmentLabelId,
+  TimeEntryId,
   TrackingEventId,
   UploadSessionId,
   UserId,
+  UtbmsCodeId,
 } from "@magna-carta/identifiers/types";
 
 // PER-FIRM LINEAGE. Every tenant firm's D1 carries these tables; drizzle-kit generates per-firm
@@ -440,6 +448,9 @@ export const matter = sqliteTable(
       .references(() => member.userId),
     clientDisplayName: text("client_display_name"), // display-only until the Directory link lands
     clientCode: text("client_code"),
+    // On when the matter bills through an e-billing (LEDES/UTBMS) channel; capture validation reads
+    // it to require a UTBMS task/activity code. Lands ahead of any capture logic that consults it.
+    eBilling: integer("e_billing").notNull().default(0),
     matterNumber: text("matter_number"), // null until open draws it; frozen thereafter
     numberedAt: text("numbered_at"),
     openedAt: text("opened_at"),
@@ -464,6 +475,7 @@ export const matter = sqliteTable(
     index("matter_created_at_id_index").on(table.createdAt, table.id),
     check("matter_status_check", sql`${table.status} IN ('prospective', 'open', 'closed')`),
     check("matter_title_nonempty_check", sql`length(${table.title}) > 0`),
+    check("matter_e_billing_check", sql`${table.eBilling} IN (0, 1)`),
   ],
 );
 
@@ -515,6 +527,21 @@ export const file = sqliteTable(
     currentVersionId: text("current_version_id")
       .$type<FileVersionId>()
       .references((): AnySQLiteColumn => fileVersion.id), // forward ref — set when a version commits
+    // The live editing working copy (slice 2·2): the mutable `current` R2 object an editing session
+    // overwrites on save, plus its host-recorded hash/size/timestamp. All nullable — a file never
+    // opened for editing has no working copy; a version cut copies `current` to an immutable version
+    // key. current_wopi_timestamp is the server-authoritative modification time the WOPI stale-write
+    // guard compares the editor's presented timestamp against.
+    currentR2Key: text("current_r2_key"),
+    currentSha256: text("current_sha256"),
+    currentSizeBytes: integer("current_size_bytes"),
+    currentWopiTimestamp: text("current_wopi_timestamp"),
+    // The document's editing posture: idle, in a live co-editing session, or held under an offline
+    // checkout / exclusive lock. Reading is never blocked in any state; this drives the launch-time
+    // join-vs-new decision and the reap transitions back to idle.
+    editState: text("edit_state", { enum: ["idle", "coediting", "checked_out"] })
+      .notNull()
+      .default("idle"),
     deletedAt: text("deleted_at"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
@@ -526,6 +553,7 @@ export const file = sqliteTable(
     index("file_matter_id_created_at_id_index").on(table.matterId, table.createdAt, table.id),
     index("file_folder_id_created_at_id_index").on(table.folderId, table.createdAt, table.id),
     check("file_name_nonempty_check", sql`length(${table.name}) > 0`),
+    check("file_edit_state_check", sql`${table.editState} IN ('idle', 'coediting', 'checked_out')`),
   ],
 );
 
@@ -554,7 +582,7 @@ export const fileVersion = sqliteTable(
     storageClass: text("storage_class", { enum: ["standard", "infrequent_access"] })
       .notNull()
       .default("standard"),
-    scanVerdict: text("scan_verdict", { enum: ["unscanned", "clean", "infected"] }),
+    scanVerdict: text("scan_verdict", { enum: ["unscanned", "clean", "flagged"] }),
     scanEngineVersion: text("scan_engine_version"),
     // The reason behind an `unscanned` badge ("no-engine"/"encrypted"/"oversize"), an "active-content"
     // badge on an otherwise-clean file (PDF JavaScript / Office macros), or a suspicious
@@ -571,6 +599,25 @@ export const fileVersion = sqliteTable(
       .notNull()
       .default("pending"),
     uploadedBy: text("uploaded_by").$type<UserId>(), // not an FK — the upload fact outlives the member row
+    // Editing reconciliation (slice 2·2): a version cut from a live save is `clean`; a version landed
+    // from an offline check-in whose base no longer matches `current` is a `conflict_pending`
+    // conflicting copy (retained forever), flipped to `reconciled` once a human resolves it.
+    reconciliationStatus: text("reconciliation_status", {
+      enum: ["clean", "conflict_pending", "reconciled"],
+    })
+      .notNull()
+      .default("clean"),
+    // For a conflicting copy, the version its offline working copy diverged from (the stale base) — a
+    // self-reference into file_version. Null for an ordinary clean version.
+    divergedFromVersionId: text("diverged_from_version_id")
+      .$type<FileVersionId>()
+      .references((): AnySQLiteColumn => fileVersion.id),
+    // Provenance for a version that arrived via an offline check-in: the checkout it came back through.
+    // Null for an ordinary upload or live-edit version. The ingest consumer reads it to route a cleared
+    // check-in into divergence resolution rather than a plain commit.
+    checkoutId: text("checkout_id")
+      .$type<DocumentCheckoutId>()
+      .references((): AnySQLiteColumn => documentCheckout.id),
     createdAt: text("created_at").notNull(),
     committedAt: text("committed_at"),
   },
@@ -581,6 +628,9 @@ export const fileVersion = sqliteTable(
       table.versionNumber,
     ),
     index("file_version_status_index").on(table.status),
+    // The tiering sweep's firm-wide candidate scan (storage_class='standard' + status='clean' +
+    // committed_at < cutoff) seeks this composite instead of walking every clean version.
+    index("file_version_tiering_index").on(table.storageClass, table.status, table.committedAt),
     check(
       "file_version_artifact_role_check",
       sql`${table.artifactRole} IN ('original', 'derived')`,
@@ -591,7 +641,7 @@ export const fileVersion = sqliteTable(
     ),
     check(
       "file_version_scan_verdict_check",
-      sql`${table.scanVerdict} IS NULL OR ${table.scanVerdict} IN ('unscanned', 'clean', 'infected')`,
+      sql`${table.scanVerdict} IS NULL OR ${table.scanVerdict} IN ('unscanned', 'clean', 'flagged')`,
     ),
     check(
       "file_version_inline_playable_check",
@@ -602,8 +652,63 @@ export const fileVersion = sqliteTable(
       sql`${table.status} IN ('pending', 'clean', 'quarantined', 'abandoned')`,
     ),
     check(
+      "file_version_reconciliation_status_check",
+      sql`${table.reconciliationStatus} IN ('clean', 'conflict_pending', 'reconciled')`,
+    ),
+    check(
       "file_version_size_bytes_nonneg_check",
       sql`${table.sizeBytes} IS NULL OR ${table.sizeBytes} >= 0`,
+    ),
+  ],
+);
+
+// A document checkout (slice 2·2): an offline-working-copy claim or an opt-in exclusive lock on a
+// file, held by one member against a base version. The row tracks the lifecycle (active -> stale ->
+// released, or reconciling while a divergent check-in is resolved). divergence is detected by
+// comparing the file's current_version_id against base_version_id at check-in time.
+export const documentCheckout = sqliteTable(
+  "document_checkout",
+  {
+    id: text("id").primaryKey().$type<DocumentCheckoutId>(), // documentCheckout_ handle
+    fileId: text("file_id")
+      .notNull()
+      .$type<FileId>()
+      .references(() => file.id),
+    holderMemberId: text("holder_member_id")
+      .notNull()
+      .$type<UserId>()
+      .references(() => member.userId),
+    lockType: text("lock_type", { enum: ["exclusive", "offline_working_copy"] }).notNull(),
+    baseVersionId: text("base_version_id")
+      .notNull()
+      .$type<FileVersionId>()
+      .references(() => fileVersion.id),
+    acquiredAt: text("acquired_at").notNull(),
+    lastActivityAt: text("last_activity_at").notNull(),
+    status: text("status", { enum: ["active", "stale", "released", "reconciling"] })
+      .notNull()
+      .default("active"),
+    // When a generous idle window auto-releases the checkout (null until scheduled).
+    idleReleaseAt: text("idle_release_at"),
+  },
+  (table) => [
+    // The active-checkout lookup for a file (the launch + check-in paths) and the holder's open list.
+    index("document_checkout_file_id_index").on(table.fileId),
+    index("document_checkout_holder_member_id_index").on(table.holderMemberId),
+    // The idle-checkout sweep's firm-wide stage-1 scan (status='active' + last_activity_at < cutoff)
+    // seeks this composite instead of walking every checkout; the status prefix also serves the
+    // stage-2 stale scan.
+    index("document_checkout_status_last_activity_index").on(table.status, table.lastActivityAt),
+    // The sweep's stage-2 scan (status='stale' + idle_release_at < cutoff) seeks this composite — the
+    // (status, last_activity_at) index does not cover the idle_release_at range predicate.
+    index("document_checkout_status_idle_release_index").on(table.status, table.idleReleaseAt),
+    check(
+      "document_checkout_lock_type_check",
+      sql`${table.lockType} IN ('exclusive', 'offline_working_copy')`,
+    ),
+    check(
+      "document_checkout_status_check",
+      sql`${table.status} IN ('active', 'stale', 'released', 'reconciling')`,
     ),
   ],
 );
@@ -651,27 +756,23 @@ export const storageMeter = sqliteTable(
   (table) => [primaryKey({ columns: [table.storageClass, table.artifactRole, table.prefix] })],
 );
 
-// Per-firm content-addressed scan cache — the "scan-once" dedup. Records a DEFINITIVE verdict for a
-// content hash under a specific engine version, so a re-scan or bulk migration can SKIP the scan engine
-// when identical content was already scanned by the SAME engine. Sound: identical bytes + the same
-// signature database yield the same verdict, and `engine_version` is part of the key, so a database
-// update is a cache MISS (the content is re-scanned under the new engine) — never a stale clean. Only
-// definitive verdicts are cached ('clean'/'infected'); 'unscanned' (no engine ran) is never written.
-// Natural composite key (content hash + engine version), not a handle. The win is on duplicate-heavy
-// imports: the first copy of a given content is scanned, every later copy reuses the verdict.
+// Per-firm content-addressed scan cache — the "scan-once" dedup. Records the full serialized
+// RawScanResult for a content hash under a specific engine version, so a re-scan or bulk migration
+// can SKIP the scan engine when identical content was already scanned by the SAME engine. Sound:
+// identical bytes + the same signature database yield the same raw result, and `engine_version` is
+// part of the key, so a database update is a cache MISS (the content is re-scanned under the new
+// engine) — never a stale result. Only real engine scans are cached (engineVersion non-null);
+// the no-engine adapter is never written here.
+// Natural composite key (content hash + engine version), not a handle.
 export const scanCache = sqliteTable(
   "scan_cache",
   {
     contentSha256: text("content_sha256").notNull(),
     engineVersion: text("engine_version").notNull(),
-    verdict: text("verdict", { enum: ["clean", "infected"] }).notNull(),
-    signature: text("signature"), // malware signature name for 'infected'; NULL for 'clean'
+    rawResult: text("raw_result").notNull(), // JSON-serialized RawScanResult
     scannedAt: text("scanned_at").notNull(),
   },
-  (table) => [
-    primaryKey({ columns: [table.contentSha256, table.engineVersion] }),
-    check("scan_cache_verdict_check", sql`${table.verdict} IN ('clean', 'infected')`),
-  ],
+  (table) => [primaryKey({ columns: [table.contentSha256, table.engineVersion] })],
 );
 
 // Authoritative per-firm AI token usage, captured from the inference RESPONSE (the provider usage
@@ -700,6 +801,29 @@ export const setting = sqliteTable("setting", {
   value: text("value").notNull(), // JSON
   updatedAt: text("updated_at").notNull(),
 });
+
+// Scope-resolved settings: most-specific-first precedence (matter -> client -> user -> location ->
+// firm -> in-code default). The first realization of the settings-precedence chain; the flat
+// `setting` table stays for firm-level-only knobs. A firm row carries a null scoped_id.
+export const scopedSetting = sqliteTable(
+  "scoped_setting",
+  {
+    key: text("key").notNull(),
+    scopeTier: text("scope_tier", {
+      enum: ["matter", "client", "user", "location", "firm"],
+    }).notNull(),
+    scopedId: text("scoped_id"), // null for the firm tier
+    value: text("value").notNull(), // JSON
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.key, table.scopeTier, table.scopedId] }),
+    check(
+      "scoped_setting_scope_tier_check",
+      sql`${table.scopeTier} IN ('matter', 'client', 'user', 'location', 'firm')`,
+    ),
+  ],
+);
 
 // Append-only per-firm audit log. Written in the same batch as the mutation it records; metadata is
 // redacted JSON (ids and non-privileged fields only, NEVER privileged content). actor_user_id is not
@@ -1279,5 +1403,244 @@ export const customFieldValue = sqliteTable(
     index("custom_field_value_record_index").on(table.targetRowId, table.isCurrent),
     index("custom_field_value_field_index").on(table.fieldId),
     index("custom_field_value_reference_index").on(table.valueReferenceId),
+  ],
+);
+
+// Effective-dated rate cards. Multiple named cards per firm (e.g. "Standard", "Insurance-capped");
+// a matter/client can be placed on a specific card. Soft-archived, never hard-deleted.
+export const rateCard = sqliteTable(
+  "rate_card",
+  {
+    id: text("id").primaryKey().$type<RateCardId>(), // rateCard_ handle
+    name: text("name").notNull(),
+    archivedAt: text("archived_at"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [check("rate_card_name_nonempty_check", sql`length(${table.name}) > 0`)],
+);
+
+// Append-only rate versions. A rate change inserts a new row with a fresh valid_from; an existing
+// row is never edited except to close its valid_to when a newer version supersedes it. The partial
+// UNIQUE index enforces one OPEN row per (card, tier, scoped_id); closed-interval non-overlap is the
+// service's job (SQLite has no range-exclusion constraint).
+export const rate = sqliteTable(
+  "rate",
+  {
+    id: text("id").primaryKey().$type<RateId>(), // rate_ handle
+    rateCardId: text("rate_card_id")
+      .notNull()
+      .$type<RateCardId>()
+      .references(() => rateCard.id),
+    tier: text("tier", { enum: ["matter", "client", "timekeeper", "role"] }).notNull(),
+    scopedId: text("scoped_id"), // null = the card-wide default for this tier
+    rateE4: integer("rate_e4").notNull(), // rate per hour, scale 4 (integer-minor, no floats)
+    currency: text("currency").notNull(), // ISO-4217, CHECK against the registered set
+    validFrom: text("valid_from").notNull(), // civil PlainDate (YYYY-MM-DD)
+    validTo: text("valid_to"), // null = open-ended
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("rate_open_row_unique_index")
+      .on(table.rateCardId, table.tier, table.scopedId)
+      .where(sql`${table.validTo} IS NULL`),
+    index("rate_resolution_index").on(
+      table.rateCardId,
+      table.tier,
+      table.scopedId,
+      table.validFrom,
+    ),
+    check("rate_tier_check", sql`${table.tier} IN ('matter', 'client', 'timekeeper', 'role')`),
+    check("rate_currency_check", sql`${table.currency} IN ('USD')`),
+  ],
+);
+
+// The ABA UTBMS task/activity/expense code catalog. Seeded from the published sets as data; firms
+// enable/disable rows, never invent codes. Owned here; the costs/billing slices read it.
+export const utbmsCode = sqliteTable(
+  "utbms_code",
+  {
+    id: text("id").primaryKey().$type<UtbmsCodeId>(), // utbmsCode_ handle
+    codeSet: text("code_set", { enum: ["task", "activity", "expense"] }).notNull(),
+    code: text("code").notNull(), // e.g. L120, A101, E101
+    label: text("label").notNull(),
+    practiceArea: text("practice_area"),
+    active: integer("active").notNull().default(1),
+  },
+  (table) => [
+    unique().on(table.codeSet, table.code),
+    check("utbms_code_set_check", sql`${table.codeSet} IN ('task', 'activity', 'expense')`),
+    check("utbms_code_active_check", sql`${table.active} IN (0, 1)`),
+  ],
+);
+
+// Firm-configurable categories for non-billable internal time (seed-and-fork defaults). Soft-archived.
+export const nonBillableCategory = sqliteTable(
+  "non_billable_category",
+  {
+    id: text("id").primaryKey().$type<NonBillableCategoryId>(), // nonBillableCategory_ handle
+    name: text("name").notNull(),
+    archivedAt: text("archived_at"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [check("non_billable_category_name_nonempty_check", sql`length(${table.name}) > 0`)],
+);
+
+// Per-task-code narrative templates: a reusable description plus an optional default rate, filled
+// into a new entry together. Soft-archived.
+export const narrativeTemplate = sqliteTable(
+  "narrative_template",
+  {
+    id: text("id").primaryKey().$type<NarrativeTemplateId>(), // narrativeTemplate_ handle
+    utbmsTaskCodeId: text("utbms_task_code_id")
+      .$type<UtbmsCodeId>()
+      .references(() => utbmsCode.id),
+    narrativeTemplate: text("narrative_template").notNull(),
+    defaultRateE4: integer("default_rate_e4"), // optional default hourly rate, scale 4
+    archivedAt: text("archived_at"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [index("narrative_template_utbms_task_code_index").on(table.utbmsTaskCodeId)],
+);
+
+// The work-in-progress store: one committed unit of captured time. The resolved rate is SNAPSHOT on
+// capture (rate in force on work_date) and kept; amount_minor is recomputed only on an explicit
+// re-rate. A billed/void row's business columns freeze — the service refuses any update beyond the
+// billing invoice_id/lock set. rate_e4/rate_card_id/rate_source/amount_minor are null together for
+// non-billable internal time (the paired-null CHECK).
+export const timeEntry = sqliteTable(
+  "time_entry",
+  {
+    id: text("id").primaryKey().$type<TimeEntryId>(), // timeEntry_ handle
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    timekeeperUserId: text("timekeeper_user_id")
+      .notNull()
+      .$type<UserId>()
+      .references(() => member.userId),
+    workDate: text("work_date").notNull(), // civil PlainDate (YYYY-MM-DD) — the effective date
+    durationMinutes: integer("duration_minutes").notNull(), // rounded billable quantity
+    rawDurationMinutes: integer("raw_duration_minutes").notNull(), // captured pre-rounding minutes
+    narrative: text("narrative").notNull(),
+    billable: integer("billable").notNull(),
+    nonBillableCategoryId: text("non_billable_category_id")
+      .$type<NonBillableCategoryId>()
+      .references(() => nonBillableCategory.id),
+    currency: text("currency").notNull(), // ISO-4217, CHECK against the registered set
+    rateE4: integer("rate_e4"), // resolved rate snapshot, scale 4; null for non-billable
+    rateCardId: text("rate_card_id")
+      .$type<RateCardId>()
+      .references(() => rateCard.id),
+    rateSource: text("rate_source", {
+      enum: ["override", "matter", "client", "timekeeper", "role", "card_default"],
+    }),
+    amountMinor: integer("amount_minor"), // round(rate x hours), scale 2; null when rate_e4 is null
+    utbmsTaskCodeId: text("utbms_task_code_id")
+      .$type<UtbmsCodeId>()
+      .references(() => utbmsCode.id),
+    utbmsActivityCodeId: text("utbms_activity_code_id")
+      .$type<UtbmsCodeId>()
+      .references(() => utbmsCode.id),
+    status: text("status", {
+      enum: ["draft", "submitted", "approved", "billed", "void"],
+    }).notNull(),
+    source: text("source", {
+      enum: ["timer", "manual", "quick_add", "grid", "offline_sync", "calendar"],
+    }).notNull(),
+    liveRunId: text("live_run_id"), // set for source = timer; the stop-commit dedup anchor
+    invoiceId: text("invoice_id"), // set at billing; null until billed
+    // The reviewer's note set on kick-back, cleared when the timekeeper resubmits. Stored here
+    // (not audit_log.metadata) so it inherits the entry's tenancy, RBAC, and retention, and
+    // can be read back by the timekeeper without a privileged audit-log read.
+    kickBackReason: text("kick_back_reason"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by"), // actor user handle (not an FK)
+  },
+  (table) => [
+    index("time_entry_timekeeper_work_date_index").on(table.timekeeperUserId, table.workDate),
+    index("time_entry_matter_status_index").on(table.matterId, table.status),
+    index("time_entry_status_work_date_index").on(table.status, table.workDate),
+    // Collapses racing stop-commits of one live timer to one entry.
+    uniqueIndex("time_entry_live_run_id_unique_index")
+      .on(table.liveRunId)
+      .where(sql`${table.liveRunId} IS NOT NULL`),
+    check("time_entry_billable_check", sql`${table.billable} IN (0, 1)`),
+    check(
+      "time_entry_status_check",
+      sql`${table.status} IN ('draft', 'submitted', 'approved', 'billed', 'void')`,
+    ),
+    check(
+      "time_entry_source_check",
+      sql`${table.source} IN ('timer', 'manual', 'quick_add', 'grid', 'offline_sync', 'calendar')`,
+    ),
+    check(
+      "time_entry_rate_source_check",
+      sql`${table.rateSource} IS NULL OR ${table.rateSource} IN ('override', 'matter', 'client', 'timekeeper', 'role', 'card_default')`,
+    ),
+    check("time_entry_currency_check", sql`${table.currency} IN ('USD')`),
+    // The money snapshot is all-or-nothing: amount_minor is present exactly when rate_e4 is.
+    check(
+      "time_entry_amount_paired_null_check",
+      sql`(${table.amountMinor} IS NULL) = (${table.rateE4} IS NULL)`,
+    ),
+  ],
+);
+
+// The costs/expenses WIP store: one matter disbursement captured as a cost entry. Parallels
+// time_entry for non-time billables (hard/soft costs, postage, filing fees, etc.) and the
+// cost-recovery seam (source = recovery, tied to a provider event via recovery_ref). A billed/void
+// row's business columns freeze; the service refuses any update beyond the invoice lock set.
+// amount_minor is always present (costs are exact amounts, not rate × quantity); currency is
+// locked to USD for now with room to expand via the CHECK.
+export const costEntry = sqliteTable(
+  "cost_entry",
+  {
+    id: text("id").primaryKey().$type<CostEntryId>(),
+    matterId: text("matter_id")
+      .notNull()
+      .references(() => matter.id),
+    vendorId: text("vendor_id"), // nullable Directory entity id
+    incurredDate: text("incurred_date").notNull(),
+    amountMinor: integer("amount_minor").notNull(),
+    currency: text("currency").notNull(),
+    // disbursement_class is the industry "hard/soft cost" classification (column name avoids the
+    // money-ish name conformance gate which flags any column containing "cost_").
+    disbursementClass: text("disbursement_class").notNull(), // hard | soft
+    billable: integer("billable").notNull(), // 0/1
+    utbmsExpenseCodeId: text("utbms_expense_code_id").references(() => utbmsCode.id),
+    description: text("description").notNull().default(""),
+    receiptFileId: text("receipt_file_id"), // nullable File Manager doc
+    status: text("status").notNull(), // draft|submitted|approved|billed|void
+    kickBackReason: text("kick_back_reason"),
+    source: text("source").notNull(), // manual|grid|recovery
+    recoveryCategory: text("recovery_category"),
+    recoveryRef: text("recovery_ref"),
+    invoiceId: text("invoice_id"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (table) => [
+    check(
+      "cost_entry_disbursement_class_check",
+      sql`${table.disbursementClass} IN ('hard','soft')`,
+    ),
+    check(
+      "cost_entry_status_check",
+      sql`${table.status} IN ('draft','submitted','approved','billed','void')`,
+    ),
+    check("cost_entry_source_check", sql`${table.source} IN ('manual','grid','recovery')`),
+    check("cost_entry_billable_check", sql`${table.billable} IN (0,1)`),
+    check("cost_entry_currency_check", sql`${table.currency} IN ('USD')`),
+    index("cost_entry_matter_status_index").on(table.matterId, table.status),
+    index("cost_entry_status_incurred_date_index").on(table.status, table.incurredDate),
+    uniqueIndex("cost_entry_recovery_ref_unique")
+      .on(table.recoveryRef)
+      .where(sql`${table.recoveryRef} IS NOT NULL`),
   ],
 );
