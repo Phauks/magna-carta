@@ -126,23 +126,23 @@ There is no `legal_hold` column today; hold is a documented rule, not a schema c
 
 ## 7. Track B — the per-firm residency seam
 
-**Column.** Add `data_region` to the control-plane `firm` table (`control-plane-schema.ts`) via a control-plane migration. Type: a small enum, `'default' | 'eu'` (extensible; `'canada'` reserved, §7 open). `default` = the launch region. Immutable after provisioning.
+**Column.** Add `data_region` to the control-plane `firm` table (`control-plane-schema.ts`) via a control-plane migration. Type: a small enum, `'us' | 'eu'` (extensible; `'canada'` reserved, §7 open). **`us` is the primary market and the column default** (existing firms backfill to `us`). Immutable after provisioning. **Asymmetry to be explicit about:** `eu` is a *hard* Cloudflare jurisdiction lock (EU-only data centers); `us` is North-America **placement** via a location hint, because Cloudflare offers no general US jurisdiction primitive (only FedRAMP, a government-only tier). That is adequate for US legal work — no GDPR-style transfer restriction binds US-resident data — and if a *hard* US-residency guarantee is ever required, it is a separate escalation (a FedRAMP-tier or a contractual control), not this column.
 
 **Threading at provisioning** (`firm-provisioner.ts` reads `data_region` and passes it down):
 
-- **R2 bucket** — `firm-resource-provider.ts` `createBucket(firmId, { jurisdiction })`. For `eu`, create the bucket in Cloudflare's **`eu` jurisdiction** (a hard EU-storage guarantee, not a best-effort location hint). For `default`, the account default. This is the single R2 call site to thread the parameter through (`createBucket` today passes only `{ name }`).
+- **R2 bucket** — `firm-resource-provider.ts` `createBucket(firmId, { jurisdiction })`. For `eu`, create the bucket in Cloudflare's **`eu` jurisdiction** (a hard EU-storage guarantee, not a best-effort location hint). For `us`, the account's North-America placement (an `enam`/`wnam` location hint, no hard jurisdiction). This is the single R2 call site to thread the parameter through (`createBucket` today passes only `{ name }`).
 - **Per-firm database DO** — the firm database is a Durable Object addressed by `namespace.idFromName(firmId)` in `firm-database-proxy.ts` `firmDatabaseFor`. For `eu`, address via `namespace.jurisdiction("eu").idFromName(firmId)`, which constrains the DO to EU data centers. Because `idFromName` under a jurisdiction yields a **different** DO id than the bare form, a firm's region must be known **wherever** its database is addressed, and it can never change post-creation (addressing it under a different jurisdiction would point at a different, empty DO). Hence: **set once at provisioning, no cross-region moves.**
 
-**Region resolution at addressing time.** `firmDatabaseFor` gains an optional `jurisdiction` derived from the firm's `data_region`. Region is immutable, so it is resolved with firm context at the tenancy chokepoint (where firm context is already established per request) and carried through — aggressively cacheable. The seam ships with `firmDatabaseFor` accepting the jurisdiction and `default` firms passing none; the `eu` path is exercised by a fitness test.
+**Region resolution at addressing time.** `firmDatabaseFor` gains an optional `jurisdiction` derived from the firm's `data_region`. Region is immutable, so it is resolved with firm context at the tenancy chokepoint (where firm context is already established per request) and carried through — aggressively cacheable. The seam ships with `firmDatabaseFor` accepting the jurisdiction and `us` firms passing none (bare `idFromName`); the `eu` path is exercised by a fitness test.
 
 **Fitness test.** An `eu`-tagged firm provisions its R2 bucket under the `eu` jurisdiction and addresses its database DO under the `eu` jurisdiction — asserted so the invariant cannot silently regress. Regional Terms-of-Service variants (legal-perimeter.md) key off the same `data_region`.
 
-**Open (§7):** Cloudflare offers no Canada jurisdiction; a `canada` value would need a different mechanism (or interim US placement + SCCs) — reserved, not built. `default`→`eu` migration for an existing firm is out of scope (would be a full data move, not an addressing change).
+**Open (§7):** Cloudflare offers no Canada jurisdiction; a `canada` value would need a different mechanism (or interim US placement + SCCs) — reserved, not built. `us`→`eu` migration for an existing firm is out of scope (would be a full data move, not an addressing change).
 
 ## 8. Test plan
 
 - **Track A:** the §3 registry-coverage fitness function (the headline test); a unit test that the registry's entity-axis rows stay in sync with `REPOINT_TARGETS` (drift tripwire); the merge suite stays green after the REPOINT_TARGETS refactor; a `directory:eraseSubject` permission conformance check. The orchestrator's own tests land with the deferred build.
-- **Track B:** a provisioning test that a `default` firm places R2 + DO with no jurisdiction and an `eu` firm places both under `eu`; a migration test for the new column (default backfill = `default`); an addressing test that `firmDatabaseFor` resolves the right jurisdiction from `data_region`.
+- **Track B:** a provisioning test that a `us` firm places R2 + DO with no jurisdiction (North-America location hint) and an `eu` firm places both under the `eu` jurisdiction; a migration test for the new column (backfill = `us`); an addressing test that `firmDatabaseFor` resolves the right jurisdiction from `data_region`.
 
 ## 9. Decomposition & sequence
 
