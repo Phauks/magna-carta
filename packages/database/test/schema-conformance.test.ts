@@ -44,11 +44,13 @@ describe("schema conformance (fitness functions)", () => {
     //  - member: the per-firm mirror of the control-plane user — keyed by the GLOBAL user handle.
     //  - matter_number_counter: a counter keyed by its scope (like the migration tracker, _migrations).
     //  - setting: key/value config keyed by the setting key.
+    //  - platform_operator: one row per elevated user — keyed by the GLOBAL user handle, same idiom as member.
     const naturalSinglePrimaryKeyNames: Record<string, string> = {
       account_balance: "account_id",
       member: "user_id",
       matter_number_counter: "scope_key",
       setting: "key",
+      platform_operator: "user_id",
     };
     // storage_meter is keyed by WHAT it rolls up — a composite natural key, no handle. Still all TEXT.
     // token_usage_meter is the same shape — keyed by (day, slot, model_id), all TEXT, append-by-delta.
