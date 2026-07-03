@@ -1,0 +1,20 @@
+# containers/recovery — local rules
+
+The native Cloudflare-Container HTTP host for the file-corruption recovery engine. It exposes
+`recovery-core` (diagnose / repair / carve) over axum and owns every wire concern.
+
+- **Pure Rust, memory-safe deps only.** No C/C++ dependency, direct or transitive. The stack here is
+  axum + tokio + serde + serde_json + base64 — all pure Rust.
+- **The engine stays serde-free and I/O-free.** `recovery-core` is pure compute: bytes in, a model
+  value out. This host owns all HTTP and JSON marshalling — the wire DTOs and their string labels
+  live in `src/dto.rs`, nowhere else. Do not add serde or networking to `recovery-core`.
+- **String labels are fixed and content-free.** Enum-to-string mapping happens only in `src/dto.rs`,
+  always as `&'static str`. A label never carries file bytes; error responses carry only the engine's
+  stable `code`.
+- **`cargo test` runs without Docker.** Tests spawn the full app on an ephemeral loopback port and hit
+  it over HTTP — no container runtime required.
+- **The image builds in Cloudflare Workers Builds**, not locally, via `image_build_context` set to the
+  repo root (see the recovery-worker `wrangler`); the `../../crates/...` path deps resolve inside the
+  image because the two crates land at `/src/crates/...` and this host at `/src/containers/recovery`.
+- **Reference implementation.** recovery is the first container built on `engine_host::host`; future
+  engine containers copy this shape (thin `main.rs` → `router()` → `engine_host::host` skeleton).
