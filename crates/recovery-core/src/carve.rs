@@ -28,6 +28,13 @@ use crate::model::{LossManifest, RecoveredItem, RepairResult, SalvagedFile};
 /// an incremental-update marker).
 const MAX_FOOTER_ATTEMPTS: usize = 256;
 
+/// The total number of validation parses allowed across one `carve` call. Bounds
+/// aggregate work when a blob fans out into many header × footer-attempt parses;
+/// real inputs use far fewer. A host wiring `carve` to an endpoint must still cap
+/// the input size and run heavy blobs on the container lane — this bounds the
+/// parse fan-out, not wall-clock.
+const MAX_TOTAL_VALIDATIONS: usize = 1024;
+
 /// How one header's extent resolved.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Outcome {
@@ -61,6 +68,7 @@ pub fn carve(bytes: &[u8]) -> Result<RepairResult, RepairError> {
     let mut items = Vec::new();
     let mut cursor = 0;
     let mut index = 0u32;
+    let mut budget = MAX_TOTAL_VALIDATIONS;
     while cursor < bytes.len() && items.len() < MAX_ENTRY_COUNT {
         let Some(m) = automaton.find(&bytes[cursor..]) else {
             break;
@@ -68,7 +76,7 @@ pub fn carve(bytes: &[u8]) -> Result<RepairResult, RepairError> {
         let signature = m.pattern().as_usize();
         let start = cursor + m.start();
         let sig = &SIGNATURES[signature];
-        let (end, outcome) = resolve_extent(bytes, sig, start);
+        let (end, outcome, more_after) = resolve_extent(bytes, sig, start, &mut budget);
 
         index += 1;
         let name = format!("{index:04}.{}", sig.extension);
@@ -76,6 +84,14 @@ pub fn carve(bytes: &[u8]) -> Result<RepairResult, RepairError> {
         // partial is emitted but flagged not recovered; a header that never validated
         // is listed lost and NOT emitted, so garbage is never handed back.
         let (recovered, emit, detail) = match outcome {
+            // A later end-marker after a valid run means the blob may hold a newer
+            // revision of this file or another file — disclosed so a recovered
+            // fragment is never implied to be the exclusive or latest version.
+            Outcome::Validated if more_after => (
+                true,
+                true,
+                "extracted as a valid file; a later end-marker was found, so the source may hold a newer revision or additional data".to_string(),
+            ),
             Outcome::Validated => (true, true, String::new()),
             Outcome::Truncated => (
                 false,
@@ -109,6 +125,12 @@ pub fn carve(bytes: &[u8]) -> Result<RepairResult, RepairError> {
             Outcome::Validated | Outcome::Truncated => end.max(start + 1),
             Outcome::NoValidExtent => start + sig.header.len(),
         };
+
+        // The validation budget is spent — remaining headers cannot be confirmed,
+        // so stop rather than spin scanning without validating.
+        if budget == 0 {
+            break;
+        }
     }
 
     if files.is_empty() {
@@ -133,40 +155,55 @@ pub fn carve(bytes: &[u8]) -> Result<RepairResult, RepairError> {
 /// over premature terminators (a thumbnail's EOI, a coincidental end-of-archive
 /// signature). If no footer occurrence validates, report `NoValidExtent` (a footer
 /// was present but nothing parsed) or `Truncated` (no footer at all within the cap).
-fn resolve_extent(bytes: &[u8], sig: &Signature, start: usize) -> (usize, Outcome) {
+/// Returns `(end, outcome, more_after)`; `more_after` is true when a validated run
+/// has a further footer occurrence after it (the blob may hold more of this file or
+/// another). `budget` is the shared count of validation parses left this carve;
+/// exhausting it stops further attempts (they resolve as `NoValidExtent`).
+fn resolve_extent(
+    bytes: &[u8],
+    sig: &Signature,
+    start: usize,
+    budget: &mut usize,
+) -> (usize, Outcome, bool) {
     let body_start = start + sig.header.len();
     let cap_end = start.saturating_add(sig.max_len).min(bytes.len());
     match sig.footer {
         None => {
+            if *budget == 0 {
+                return (cap_end, Outcome::NoValidExtent, false);
+            }
+            *budget -= 1;
             if validate_run(sig, &bytes[start..cap_end]) {
-                (cap_end, Outcome::Validated)
+                (cap_end, Outcome::Validated, false)
             } else {
-                (cap_end, Outcome::NoValidExtent)
+                (cap_end, Outcome::NoValidExtent, false)
             }
         }
         Some(footer) => {
             let mut search = body_start;
             let mut any_footer = false;
             let mut attempts = 0;
-            while attempts < MAX_FOOTER_ATTEMPTS {
+            while attempts < MAX_FOOTER_ATTEMPTS && *budget > 0 {
                 let Some(at) = find_from(&bytes[..cap_end], footer, search) else {
                     break;
                 };
                 any_footer = true;
                 attempts += 1;
+                *budget -= 1;
                 // The footer signature is not always the file's last byte — a ZIP's
                 // end-of-central-directory record carries 18 fixed bytes plus a
                 // variable comment after its signature. Compute the true end.
                 let end = footer_end(sig, bytes, at, cap_end);
                 if validate_run(sig, &bytes[start..end]) {
-                    return (end, Outcome::Validated);
+                    let more_after = find_from(&bytes[..cap_end], footer, end).is_some();
+                    return (end, Outcome::Validated, more_after);
                 }
                 search = at + 1;
             }
             if any_footer {
-                (cap_end, Outcome::NoValidExtent)
+                (cap_end, Outcome::NoValidExtent, false)
             } else {
-                (cap_end, Outcome::Truncated)
+                (cap_end, Outcome::Truncated, false)
             }
         }
     }
@@ -318,6 +355,20 @@ mod tests {
         assert!(!result.loss.fully_recovered);
         assert!(result.loss.synthesized.is_empty());
         assert_eq!(result.loss.items.iter().filter(|i| i.recovered).count(), 1);
+    }
+
+    #[test]
+    fn a_later_end_marker_is_disclosed_not_implied_exclusive() {
+        // Two valid PNGs back to back: both are recovered, and the first discloses
+        // that a later end-marker exists (so it is not implied to be the only one).
+        let mut blob = TINY_PNG.to_vec();
+        blob.extend_from_slice(TINY_PNG);
+        let result = carve(&blob).expect("carvable");
+        assert_eq!(result.files.len(), 2);
+        assert!(result.loss.items[0].recovered);
+        assert!(result.loss.items[0].detail.contains("later end-marker"));
+        // The second (last) one has no later end-marker, so no such note.
+        assert!(!result.loss.items[1].detail.contains("later end-marker"));
     }
 
     #[test]
