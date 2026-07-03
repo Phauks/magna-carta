@@ -67,4 +67,26 @@ describe("PII registry coverage", () => {
       }
     }
   });
+
+  it("every registered subjectKey names a real column on its table (except the node's own id)", () => {
+    const columnsByTable = new Map<string, Set<string>>();
+    for (const exported of Object.values(perFirmSchema)) {
+      if (typeof exported !== "object" || exported === null) continue;
+      try {
+        const config = getTableConfig(exported as SQLiteTable);
+        columnsByTable.set(config.name, new Set(config.columns.map((column) => column.name)));
+      } catch {
+        continue;
+      }
+    }
+    for (const entry of PII_TABLES) {
+      if (entry.subjectKey === "self") continue; // the node's own primary key
+      const columns = columnsByTable.get(entry.table);
+      expect(columns, `table ${entry.table} not found in schema`).toBeDefined();
+      expect(
+        columns?.has(entry.subjectKey),
+        `${entry.table}.${entry.subjectKey} is a registered subjectKey but not a real column`,
+      ).toBe(true);
+    }
+  });
 });

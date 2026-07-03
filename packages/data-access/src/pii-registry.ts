@@ -65,12 +65,6 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     note: "vendor payee on a financial record",
   },
   { table: "file", subjectKey: "matter_id", action: "retain-under-matter", note: "matter corpus" },
-  {
-    table: "file_version",
-    subjectKey: "matter_id",
-    action: "retain-under-matter",
-    note: "matter corpus",
-  },
   // User-axis: firm members are data subjects of their own account/activity PII.
   {
     table: "time_entry",
@@ -116,13 +110,16 @@ export const NO_PII_TABLES: readonly string[] = [
   "location_address",
   "member_location",
   // Matters, Locations & File Manager structure — classification catalogs, matter/folder shells, and
-  // file-lifecycle bookkeeping. `matter.client_display_name` is a display convenience, not the
-  // client's PII of record (that lives in the Directory, already registered); the real matter-corpus
-  // documents are `file`/`file_version`, already registered under retain-under-matter.
+  // file-lifecycle bookkeeping.
   "matter_type",
   "document_type",
   "numbering_scheme",
   "matter_number_counter",
+  // matter is matter-scoped metadata, BUT matter.client_display_name/client_code can hold a
+  // prospective client's name pre-Directory-link, with no structured subject key to resolve — a known
+  // residual in the same class as shipment-address JSON (handled by the residue report / a product
+  // constraint requiring a Directory link before a client name is stored). See
+  // docs/conventions/compliance.md.
   "matter",
   "folder",
   "document_checkout",
@@ -130,6 +127,9 @@ export const NO_PII_TABLES: readonly string[] = [
   "storage_meter",
   "scan_cache",
   "token_usage_meter",
+  // file-version metadata (r2_key, hashes, status) — no personal data of its own; the document's
+  // matter-corpus retention is expressed by the file entry
+  "file_version",
   // Per-firm config — key/value settings; a user-scoped row is application preference data, not the
   // user's own identity/activity PII.
   "setting",
