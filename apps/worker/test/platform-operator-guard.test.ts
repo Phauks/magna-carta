@@ -15,9 +15,11 @@ import { seedCredentialedUser, signInForSessionCookie } from "./support/test-aut
 // logic alone can't reach: no session at all (401) and a signed-in user who is not a platform
 // operator (403). Two end-to-end cases remain deferred here: an active seeded platform_operator
 // with 2FA getting 200 with the event stamped with their userId, and a lapsed grant (expires_at in
-// the past) getting 403 through the real route. Both need a seeded platform_operator row plus a
-// Better Auth authenticated-session fixture, which does not exist in this suite yet. Add those two
-// cases, and the fixture they need, before the first platform_operator is seeded in production.
+// the past) getting 403 through the real route. The session fixture these need now exists —
+// seedCredentialedUser / signInForSessionCookie (imported above, used by the 403 test) — so the
+// only remaining work is seeding a platform_operator row (insertPlatformOperatorStatement, with the
+// user's two_factor_enabled set) plus a lapsed variant. Add both before the first platform_operator
+// is seeded in production.
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);

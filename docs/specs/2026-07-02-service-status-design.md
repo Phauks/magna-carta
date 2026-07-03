@@ -1,6 +1,13 @@
 # Service Status — design
 
-Status: design (brainstormed 2026-07-02) · Extends ADR-0048 (product-updates surface + live status)
+Status: **built + merged to main 2026-07-02** (backend only; UI deferred) · Extends ADR-0048
+(product-updates surface + live status)
+
+Implementation plan: [`docs/superpowers/plans/2026-07-02-service-status.md`](../superpowers/plans/2026-07-02-service-status.md)
+(includes the deploy-activation checklist). Code: `packages/status`, `apps/status-worker`, the
+`platform_operator` control-plane table + `platformOperatorGuard`, the `/api/v1/platform/status/*`
+routes, and the derived-snapshot cron in `apps/worker`. See **"As-built follow-ups & accepted debt"**
+at the end before extending this feature — several v1 simplifications are load-bearing to understand.
 
 ## Purpose
 
@@ -340,3 +347,63 @@ principal could subsume both, but that convergence is its own project and out of
 - Self-service management of `platform_operator` membership (seeded by hand this slice).
 - Whether firm-provisioning migrates off its secret onto this principal (later cleanup).
 - Diagnostics-agent propose-then-publish workflow (ADR-0048 seam).
+
+## As-built follow-ups & accepted debt
+
+The feature merged **backend-only**; this section is the durable record of what a future session
+must know to extend it. Each item is a deliberate v1 simplification, not an oversight — most were
+surfaced by the whole-branch review and are safe to leave until the noted trigger.
+
+**Not yet wired (the biggest gaps):**
+
+- **Telemetry-derived engine health is a stub.** The cron calls `deriveComponents` with
+  `signals: {}` (`apps/worker/src/status/derived-snapshot.ts`), so every `engine`-kind component
+  (Collabora, LibreOffice, Tantivy, OCR, scan) is **always `operational`** and only leaves that
+  via an operator override. The `deriveFromTelemetry` interface exists in shape but is **not
+  connected to a real error-rate source**. Wiring it (the standard error pipeline incrementing a
+  bounded per-component counter the derivation reads) is the main outstanding "signal B" work.
+- **Manual providers are omitted from the feed.** `pollProviders` only emits `statuspage`-kind
+  providers (Cloudflare, GitHub). `manual` registry entries (Helcim, Pangram) are placeholders
+  with **no operator-set-provider-status path** — they never appear in the snapshot yet. Follow-up:
+  either a consumable feed, or an operator "set provider status" write path.
+- **UI, subscriber notifications, and per-firm status filtering** are all deferred (as scoped). The
+  read endpoints (`status.json`) are the seam a UI consumes; the internal in-app banner just fetches
+  the same feed.
+
+**Accepted debt (safe for v1, revisit before scale / long-lived use):**
+
+- **No retention on `status:authored`.** Events are never pruned; the public feed emits every event
+  (resolved included) forever, and each operator write is a read-modify-write of one growing KV
+  value. Fine for a small operator team; add pruning/archival before it is long-lived.
+- **The Cache-API failure tier is not built.** The status worker degrades a KV/merge error straight
+  to the static "status unavailable" fallback (never a 500), skipping the design's intermediate
+  "serve last value from the Cache API" tier. Add it if serving a stale-but-real snapshot during a
+  KV outage is wanted.
+- **`componentId` / `affectedComponentIds` are unvalidated free strings** at the write edge (not
+  checked against `COMPONENT_REGISTRY`). A bogus id is inert (`mergeSnapshot` only applies an
+  override to a component that exists in the derived set) but accumulates junk in the authored doc.
+
+**Owed tests:**
+
+- **Two guard integration cases remain** (in `apps/worker/test/platform-operator-guard.test.ts`):
+  an active `platform_operator` **with 2FA** getting `200` with the event stamped with their
+  `userId`, and a **lapsed-grant** (`expires_at` past) getting `403` through the real route. NOTE:
+  the Better Auth session fixture the original deferral cited as missing **now exists** —
+  `apps/worker/test/support/test-auth.ts` (`seedCredentialedUser` / `signInForSessionCookie`), used
+  by the non-operator-403 test. The only remaining work is seeding a `platform_operator` row (with a
+  2FA-enabled user, via `insertPlatformOperatorStatement` + setting `two_factor_enabled`) and a
+  lapsed variant — small and tractable. Land before the first production operator is seeded.
+- **Minor coverage gaps** (all correct in code, just unasserted): a boundary-value (`== threshold`)
+  derive test; a non-`status_unavailable` provider actually worsening `overall`; the
+  NaN-`generatedAt` staleness path; a cron probe-**failure** path test.
+
+**Operational, before go-live** (full detail in the plan's "Deploy-activation checklist"):
+
+- Create the `STATUS_KV` namespace and replace the placeholder id in **both**
+  `apps/worker/wrangler.jsonc` and `apps/status-worker/wrangler.jsonc`.
+- Stand up the `apps/status-worker` Workers Build connection + its `status.<domain>` route.
+- Seed the first `platform_operator` row (with 2FA enabled) for the operating owner.
+- Confirm the `*/10` status cron is publishing `status:derived`.
+- The single-shot `pnpm check` + `vp test` gate could not run on the constrained build machine
+  during implementation (per-package suites, both `tsc -b`, and both `wrangler deploy --dry-run`
+  passed); it **must pass green in CI** (runs on push to `main`) before production.
