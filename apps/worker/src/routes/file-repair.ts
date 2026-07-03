@@ -1,15 +1,28 @@
 import { type OpenAPIHono, z } from "@hono/zod-openapi";
 import type { Context } from "hono";
+import { commitEffectBatch, type EffectWrite } from "@magna-carta/data-access/effect-batch";
+import { recordRepairProvenanceStatement } from "@magna-carta/data-access/file-repair-provenance-statements";
+import { fileAuditStatement } from "@magna-carta/file-manager/audit";
+import { initiateUpload } from "@magna-carta/file-manager/file-service";
 import { readInspectableSizeCap } from "@magna-carta/file-manager/upload-policy";
 import { computeVerdict } from "@magna-carta/file-manager/verdict";
 import { readFirmScanPolicy } from "@magna-carta/file-manager/scan-policy-settings";
+import { FileManagerValidationError } from "@magna-carta/file-manager/validation";
+import { newIdentifier } from "@magna-carta/identifiers/generate";
+import type { FileId, FolderId, MatterId } from "@magna-carta/identifiers/types";
 import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
-import { requireChokepointFirmContext } from "../chokepoint/context-accessors.ts";
+import {
+  assertAlsoHasPermission,
+  requireChokepointFirmContext,
+  requireChokepointUserId,
+} from "../chokepoint/context-accessors.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
+import { identifierField } from "../contracts/common.ts";
 import { Problem, problemJson, type ProblemResponse } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
+import { requireBucket } from "../files/require-bucket.ts";
 
 type AppContext = Context<{ Bindings: Bindings; Variables: AppVariables }>;
 
@@ -59,7 +72,8 @@ const LossManifestSchema = z.object({
   fullyRecovered: z.boolean(),
   synthesized: z.array(z.string()),
 });
-const RepairResultSchema = z
+type LossManifest = z.infer<typeof LossManifestSchema>;
+export const RepairResultSchema = z
   .object({
     files: z.array(SalvagedFileSchema),
     loss: LossManifestSchema,
@@ -80,6 +94,27 @@ export const fileRepairDiagnoseMeta: RouteMeta = { ...baseMeta, operationId: "fi
 export const fileRepairRepairMeta: RouteMeta = { ...baseMeta, operationId: "fileRepair.repair" };
 export const fileRepairCarveMeta: RouteMeta = { ...baseMeta, operationId: "fileRepair.carve" };
 
+// Unlike diagnose/repair/carve above (stateless — resource: "firm", gated solely on tools:fileRepair),
+// attach WRITES a version into a matter, so its primary gate is files:upload (the matter-write gate
+// every other mutating file route names) against resource: "matter" — the same shape uploads.ts's
+// initiateUploadMeta uses. tools:fileRepair is asserted a SECOND time, in-handler
+// (assertAlsoHasPermission), because the recovery-engine call this route rides is itself a
+// fileRepair-gated action: a principal must hold BOTH capabilities to reconstruct AND save.
+const attachBaseMeta = {
+  surface: "app",
+  authenticated: true,
+  permission: "files:upload",
+  resource: "matter",
+  audited: true,
+  idempotency: "optional",
+  rateLimit: "expensive",
+} as const satisfies Omit<RouteMeta, "operationId">;
+
+export const fileRepairRepairAttachMeta: RouteMeta = {
+  ...attachBaseMeta,
+  operationId: "fileRepair.repairAttach",
+};
+
 // A refusal before dispatch is one of these three typed Problem responses (all declared on every route).
 type PreflightProblem = ProblemResponse<400> | ProblemResponse<413> | ProblemResponse<503>;
 type Dispatched =
@@ -89,7 +124,7 @@ type Dispatched =
 // Shared preflight + dispatch: size-cap the input, then stream it to the recovery container. Returns
 // the container's raw Response, or a ready-made typed Problem when the request is refused before
 // dispatch. The explicit tagged union keeps the Problem responses precisely typed for the handler.
-async function dispatchToRecovery(
+export async function dispatchToRecovery(
   c: AppContext,
   operation: "diagnose" | "repair" | "carve",
 ): Promise<Dispatched> {
@@ -167,6 +202,86 @@ async function anyFileFlagged(
     if (computeVerdict(raw, policy).verdict === "flagged") return true;
   }
   return false;
+}
+
+// One salvaged file -> one attached version, riding the ingest gate: initiateUpload mints the pending
+// file (or version, when target.fileId is given) exactly as a direct upload would, so the same async
+// ingest consumer (hash + scan + commit/quarantine) governs it — never a second, parallel malware gate
+// here. The provenance row + the "file.repaired"/"file.carved" audit ride the SAME batch as the
+// pending file/version rows (commitEffectBatch), so the honest loss manifest is durable even if ingest
+// later quarantines the reconstruction; the bytes are put to R2 only after that batch commits, so a
+// failed commit never leaves an orphaned R2 object for the ingest consumer to pick up.
+async function attachOneFile(
+  c: AppContext,
+  file: { name: string; mediaType: string | null; contentBase64: string },
+  manifest: LossManifest,
+  operation: "repair" | "carve",
+  target: { matterId: MatterId; fileId?: FileId; folderId?: FolderId | null; fileName: string },
+): Promise<{ fileId: string; versionId: string }> {
+  const firm = requireChokepointFirmContext(c);
+  const userId = requireChokepointUserId(c);
+  // An active session firm always has a provisioned bucket; asserted here (before any write) even
+  // though the byte write below goes through the single bound c.env.R2 (the PER-FIRM BUCKET SEAM
+  // every other R2-writing route defers to — see ingest-consumer.ts), mirroring every other route
+  // that writes a firm's bytes.
+  requireBucket(firm.bucketName);
+  const bytes = decodeBase64(file.contentBase64);
+  const now = () => new Date().toISOString();
+  const auditContext = { clock: { now }, actorUserId: userId };
+
+  const initiated = await initiateUpload(
+    firm.firmDatabase,
+    {
+      matterId: target.matterId,
+      fileId: target.fileId,
+      folderId: target.folderId ?? null,
+      name: target.fileName,
+      declaredSize: bytes.length,
+      declaredContentType: file.mediaType,
+      uploadedBy: userId,
+      mode: "put",
+      uploadKind: "interactive",
+    },
+    auditContext,
+  );
+
+  const effect: EffectWrite = {
+    statements: [
+      ...initiated.effect.statements,
+      recordRepairProvenanceStatement(firm.firmDatabase, {
+        id: newIdentifier("repairProvenance"),
+        fileVersionId: initiated.versionId,
+        operation,
+        fullyRecovered: manifest.fullyRecovered,
+        manifestJson: JSON.stringify(manifest),
+        sourceMediaType: file.mediaType,
+        createdAt: now(),
+      }),
+      fileAuditStatement(
+        firm.firmDatabase,
+        auditContext,
+        operation === "repair" ? "file.repaired" : "file.carved",
+        initiated.versionId,
+        {
+          operation,
+          fullyRecovered: manifest.fullyRecovered,
+          lostCount: manifest.items.filter((item) => !item.recovered).length,
+          synthesizedCount: manifest.synthesized.length,
+        },
+      ),
+    ],
+    outboxMessages: initiated.effect.outboxMessages,
+  };
+  // Not runIdempotentEffect: this route is idempotency: "optional" (a repair reconstruction is not
+  // byte-reproducible run to run, so a client cannot safely retry-replay it), and the chokepoint's
+  // idempotency port only stashes an idempotency context for a "required" route — mirrors
+  // completeUploadRoute/abortUploadRoute in uploads.ts, the other optional-idempotency mutating routes
+  // in this file's neighborhood, which commit their effect the same direct way.
+  await commitEffectBatch(firm.firmDatabase, effect, { now });
+
+  // The metadata batch is committed; now put the bytes so the R2 event drives ingest.
+  await c.env.R2.put(initiated.r2Key, bytes);
+  return { fileId: initiated.fileId, versionId: initiated.versionId };
 }
 
 const problemResponses = {
@@ -252,6 +367,49 @@ const carveRoute = defineOpenAPIRoute(fileRepairCarveMeta, {
     body: { content: { "application/octet-stream": { schema: z.any() } }, required: true },
   },
   responses: salvageResponses,
+});
+
+const attachResponses = {
+  // Spread first: the literal keys below intentionally override problemResponses' generic 403
+  // (naming only tools:fileRepair) with the dual-gate-aware description, and add 202/404/422.
+  ...problemResponses,
+  202: {
+    description:
+      "Attaching: the pending file/version rows and the provenance were committed and the bytes " +
+      "were put to R2. The version is pending until the ingest queue consumer commits or quarantines it.",
+    content: {
+      "application/json": { schema: z.object({ fileId: z.string(), versionId: z.string() }) },
+    },
+  },
+  403: {
+    description: "Missing files:upload, or missing tools:fileRepair",
+    content: { "application/problem+json": { schema: Problem } },
+  },
+  404: {
+    description: "The target file, or its folder, is unknown in this firm, or belongs to another matter",
+    content: { "application/problem+json": { schema: Problem } },
+  },
+  422: salvageResponses[422],
+} as const;
+
+const repairAttachRoute = defineOpenAPIRoute(fileRepairRepairAttachMeta, {
+  method: "post",
+  path: "/api/v1/file-repair/repair/attach",
+  description:
+    "Repair the uploaded corrupt file and save the result into a matter: a new version of an " +
+    "existing file (when fileId is given) or a new file. The reconstruction rides the ingest " +
+    "malware gate; the honest loss manifest is stored with the version. Returns 202 — the version " +
+    "is pending until ingest resolves.",
+  request: {
+    query: z.object({
+      matterId: identifierField("matter"),
+      fileId: identifierField("file").optional(),
+      folderId: identifierField("folder").optional(),
+      fileName: z.string().min(1).optional(),
+    }),
+    body: { content: { "application/octet-stream": { schema: z.any() } }, required: true },
+  },
+  responses: attachResponses,
 });
 
 export function registerFileRepairRoutes(
@@ -345,6 +503,83 @@ export function registerFileRepairRoutes(
         });
       }
       return c.json(result, 200);
+    },
+  );
+
+  app.openapi(
+    { ...repairAttachRoute, middleware: chokepointMiddleware(chokepoint, repairAttachRoute) },
+    async (c) => {
+      // The dual gate: the route's own primary permission (files:upload, checked by the chokepoint
+      // before this handler runs) plus this SECOND, in-handler check for tools:fileRepair — the
+      // recovery-engine call below is itself a fileRepair-gated action, so attaching its output
+      // requires both capabilities together.
+      const forbidden = assertAlsoHasPermission(c, "tools:fileRepair");
+      if (forbidden !== null) return forbidden;
+
+      const dispatched = await dispatchToRecovery(c, "repair");
+      if (!dispatched.ok) return dispatched.problem;
+      const { containerResponse } = dispatched;
+      if (containerResponse.status === 422) {
+        return problemJson(c, {
+          type: "validation",
+          title: "The file could not be repaired",
+          status: 422,
+          detail: "The recovery engine could not reconstruct usable content from this file.",
+        });
+      }
+      if (containerResponse.status !== 200) {
+        return problemJson(c, {
+          type: "service-unavailable",
+          title: "Recovery failed",
+          status: 503,
+          detail: "The recovery engine returned an error. Try again shortly.",
+        });
+      }
+      const result = RepairResultSchema.parse(await containerResponse.json());
+      const query = c.req.valid("query");
+      const file = result.files[0];
+      if (file === undefined) {
+        return problemJson(c, {
+          type: "validation",
+          title: "The file could not be repaired",
+          status: 422,
+          detail: "The recovery engine could not reconstruct usable content from this file.",
+        });
+      }
+      try {
+        const attached = await attachOneFile(c, file, result.loss, "repair", {
+          matterId: query.matterId,
+          fileId: query.fileId,
+          folderId: query.folderId ?? null,
+          fileName: query.fileName ?? file.name,
+        });
+        return c.json(attached, 202);
+      } catch (caught) {
+        if (caught instanceof FileManagerValidationError) {
+          if (caught.code === "upload-policy-size" || caught.code === "upload-policy-type") {
+            return problemJson(c, {
+              type: "upload-not-allowed",
+              title: "Upload not allowed",
+              status: 422,
+              detail: caught.message,
+            });
+          }
+          if (
+            caught.code === "unknown-file" ||
+            caught.code === "unknown-folder" ||
+            caught.code === "file-matter-mismatch" ||
+            caught.code === "file-cross-matter"
+          ) {
+            return problemJson(c, {
+              type: "not-found",
+              title: "Not found",
+              status: 404,
+              detail: "No such resource in this firm.",
+            });
+          }
+        }
+        throw caught;
+      }
     },
   );
 }
