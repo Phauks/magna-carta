@@ -40,8 +40,3 @@ aho-corasick = "1"
 # image without a full pixel decode). Pure Rust; zune-jpeg is already in the tree transitively.
 zune-jpeg = "0.5"
 zune-png = "0.4"
-
-# lopdf pulls getrandom; the Worker (wasm32-unknown-unknown) lane requires the
-# wasm_js backend to compile.
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-getrandom = { version = "0.4", features = ["wasm_js"] }

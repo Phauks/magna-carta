@@ -2404,7 +2404,6 @@ dependencies = [
  "aho-corasick",
  "cfb",
  "flate2",
- "getrandom 0.4.3",
  "lopdf",
  "magna-carta-engine-host",
  "uuid",
