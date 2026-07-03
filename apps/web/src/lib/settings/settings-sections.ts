@@ -140,6 +140,28 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     commitMode: defaultCommitModeForScope("user"),
     shipped: true,
   },
+  // Firm
+  {
+    id: "firm-profile",
+    label: "Firm profile",
+    href: "/settings/firm-profile",
+    group: "firm",
+    scope: "firm",
+    commitMode: "draft",
+    editPermissionArea: "firm",
+    shipped: true,
+  },
+  // Billing
+  {
+    id: "billing",
+    label: "Billing",
+    href: "/settings/billing",
+    group: "billing",
+    scope: "firm",
+    commitMode: "draft",
+    editPermissionArea: "billing",
+    shipped: true,
+  },
   // Data & platform
   {
     id: "versions",

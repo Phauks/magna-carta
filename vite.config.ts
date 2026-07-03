@@ -46,6 +46,7 @@ export default defineConfig({
   // The design-system Storybook story tests (browser-mode Chromium via Playwright + per-story axe) are registered explicitly: Vitest ignores `test.projects` nested inside a config loaded as a project, so the glob entry alone would silently skip them at the root (the package's vitest.config.ts then only contributes its unit tests). Requires the Chromium binary: `pnpm --filter @magna-carta/design-system exec playwright install chromium` (CI too).
   test: {
     projects: [
+      "apps/web/vitest.config.ts",
       "apps/worker/vitest.config.ts",
       "packages/*/vitest.config.ts",
       "packages/design-system/vitest.storybook.config.ts",
