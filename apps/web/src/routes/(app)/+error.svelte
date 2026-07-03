@@ -7,6 +7,7 @@
   import { page } from "$app/state";
   import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
+  import ErrorDetails from "$lib/components/error-details.svelte";
 
   const notFound = $derived(page.status === 404);
 </script>
@@ -15,21 +16,23 @@
   <title>{notFound ? "Not found" : "Something went wrong"} · Magna Carta</title>
 </svelte:head>
 
-{#if notFound}
-  <EmptyState title="There's nothing at this address">
-    The page may have moved, or the link may be stale — the navigation on the left has everything
-    that exists today.
-    {#snippet actions()}
-      <Button variant="primary" href="/home">Go home</Button>
-    {/snippet}
-  </EmptyState>
-{:else}
-  <EmptyState title="Something went wrong">
-    The error has been noted{page.error?.message ? ` — ${page.error.message}` : ""}. Retry, and if
-    it persists, report the problem with the Error ID shown here.
-    {#snippet actions()}
-      <Button variant="primary" onclick={() => location.reload()}>Retry</Button>
-      <Button variant="secondary" href="/home">Go home</Button>
-    {/snippet}
-  </EmptyState>
-{/if}
+<div class="flex flex-col items-center">
+  {#if notFound}
+    <EmptyState title="There's nothing at this address">
+      The page may have moved, or the link may be stale — the navigation on the left has
+      everything that exists today.
+      {#snippet actions()}
+        <Button variant="primary" href="/home">Go home</Button>
+      {/snippet}
+    </EmptyState>
+  {:else}
+    <EmptyState title="Something went wrong">
+      The error has been noted. Retry, and if it persists, copy the details below into a report.
+      {#snippet actions()}
+        <Button variant="primary" onclick={() => location.reload()}>Retry</Button>
+        <Button variant="secondary" href="/home">Go home</Button>
+      {/snippet}
+    </EmptyState>
+  {/if}
+  <ErrorDetails />
+</div>

@@ -21,6 +21,46 @@
  * close — the panel would just vanish. Distinct names guarantee both directions animate.
  */
 
+/*
+ * Sidebar collapse/expand — view-transition SNAPSHOT GEOMETRY. By default the browser scales the
+ * old and new snapshots to fill the morphing group box, so collapsing 256px -> 52px SQUISHES the
+ * rail's content toward the top-left corner (owner review 2026-07-02: "it moves to the top-left
+ * rather than sliding left"). Pinning both snapshots to their natural size, anchored at the
+ * inline start, and clipping the pair turns the same width morph into a REVEAL: the edge slides,
+ * the content never rescales. The literals here are structural snapshot geometry (100% / auto /
+ * none / anchor keywords) — the same class of unavoidable literal as the keyframe offsets above;
+ * durations/easing still come from the tokens.
+ */
+::view-transition-group(mc-sidebar) {
+  animation-duration: var(--mc-duration-normal);
+  animation-timing-function: var(--mc-easing-settle);
+}
+::view-transition-image-pair(mc-sidebar) {
+  overflow: clip;
+}
+::view-transition-old(mc-sidebar),
+::view-transition-new(mc-sidebar) {
+  height: 100%;
+  width: auto;
+  object-fit: none;
+  object-position: left top;
+}
+/* The work canvas morphs alongside; same timing so the seam moves as one. */
+::view-transition-group(mc-app-canvas) {
+  animation-duration: var(--mc-duration-normal);
+  animation-timing-function: var(--mc-easing-settle);
+}
+::view-transition-image-pair(mc-app-canvas) {
+  overflow: clip;
+}
+::view-transition-old(mc-app-canvas),
+::view-transition-new(mc-app-canvas) {
+  height: 100%;
+  width: auto;
+  object-fit: none;
+  object-position: left top;
+}
+
 @keyframes mc-sheet-in-right {
   from {
     transform: translateX(100%);
