@@ -16,7 +16,15 @@
   import { goto } from "$app/navigation";
   import * as Command from "@magna-carta/design-system/command";
   import * as Dialog from "@magna-carta/design-system/dialog";
+  import {
+    PRESENCE_SCALE_FADE,
+    type PresenceClass,
+  } from "@magna-carta/design-system/internal/floating";
   import BugReportDialog from "$lib/components/bug-report-dialog.svelte";
+  import {
+    PALETTE_ENTRANCE_PRESENCE,
+    readPaletteEntranceVariant,
+  } from "$lib/developer/palette-entrance.ts";
   import { shippedDestinations } from "$lib/navigation/destinations.ts";
   import { ECOSYSTEM_SITES } from "$lib/navigation/ecosystem-sites.ts";
   import { bandedSettingsSections } from "$lib/settings/settings-sections.ts";
@@ -75,6 +83,21 @@
     return lastAnchoredStyle ?? `inset-inline-start: ${insetStart}`;
   });
 
+  // Entrance-animation TRIAL HARNESS: in development builds a developer-console preference
+  // (Motion module, "Palette entrance") picks the panel's presence recipe so the owner can feel
+  // each candidate live. Re-read at every open — the console select applies on the NEXT open —
+  // and LATCHED like the anchor style above, so the exit animation always matches the entrance
+  // the panel opened with even if the preference changes mid-open. Production (and an unset
+  // preference) always gets the shipped scale-fade. Once the owner picks a winner, hard-code
+  // that presence here and remove the console control + palette-entrance.ts.
+  let latchedPresence: PresenceClass = PRESENCE_SCALE_FADE;
+  const presence = $derived.by(() => {
+    if (open && import.meta.env.DEV) {
+      latchedPresence = PALETTE_ENTRANCE_PRESENCE[readPaletteEntranceVariant()];
+    }
+    return latchedPresence;
+  });
+
   function navigateTo(href: string): void {
     open = false;
     void goto(href);
@@ -103,6 +126,7 @@
 <Dialog.Root bind:open>
   <Dialog.Content
     showClose={false}
+    {presence}
     class="overflow-hidden rounded-md p-0"
     style={contentStyle}
   >

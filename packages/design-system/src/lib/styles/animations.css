@@ -258,3 +258,31 @@
     transform: scale(0.95);
   }
 }
+
+/*
+ * Settle-fade — fade plus a small downward translate, for surfaces that should read as
+ * dropping into place under an anchor (e.g. a panel settling out of the search bar) rather
+ * than growing from their center: a translate has no origin, so nothing scales. The offset
+ * IS tokenizable (a plain length, unlike the structural 100% offsets above), so it rides the
+ * space scale. Compositor-only (opacity + transform), like every presence keyframe here.
+ */
+@keyframes mc-settle-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(calc(-1 * var(--mc-space-8)));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes mc-settle-fade-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(calc(-1 * var(--mc-space-8)));
+  }
+}

@@ -5,6 +5,9 @@ import {
   FLOATING_WRAPPER_RULE,
   floatingContentClasses,
   PRESENCE_FADE,
+  PRESENCE_NONE,
+  PRESENCE_SCALE_FADE,
+  PRESENCE_SETTLE_FADE,
   Z_LAYER_CLASSES,
 } from "../src/lib/internal/floating.ts";
 
@@ -67,6 +70,23 @@ describe("Z_LAYER_CLASSES — the token z-scale", () => {
         zIndexTokens.has(layer),
         `--z-index-${layer} is missing from the generated theme — the ${utility} utility would emit no CSS`,
       ).toBe(true);
+    },
+  );
+});
+
+describe("presence constants — recipe wiring", () => {
+  // The constants are class STRINGS pointing at recipes in styles/recipes/presence.css; a
+  // constant naming a class the recipe file does not define would silently animate nothing —
+  // the same failure mode the z-layer assertions above make loud, checked the same way.
+  const presenceRecipeCss = readFileSync(
+    join(import.meta.dirname, "..", "src", "lib", "styles", "recipes", "presence.css"),
+    "utf8",
+  );
+
+  it.each([PRESENCE_FADE, PRESENCE_SCALE_FADE, PRESENCE_SETTLE_FADE, PRESENCE_NONE])(
+    "%s names a class the presence recipe file defines",
+    (presenceClass) => {
+      expect(presenceRecipeCss).toContain(`.${presenceClass}`);
     },
   );
 });

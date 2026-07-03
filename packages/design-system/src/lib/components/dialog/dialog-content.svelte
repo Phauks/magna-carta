@@ -19,7 +19,13 @@
   import { Dialog as DialogPrimitive } from "bits-ui";
   import X from "@lucide/svelte/icons/x";
   import { mergeClasses } from "../../internal/merge-classes.ts";
-  import { Z_LAYER_CLASSES, PRESENCE_SCALE_FADE } from "../../internal/floating.ts";
+  import {
+    Z_LAYER_CLASSES,
+    PRESENCE_FADE,
+    PRESENCE_NONE,
+    PRESENCE_SCALE_FADE,
+    type PresenceClass,
+  } from "../../internal/floating.ts";
   import type { WithoutChild } from "../../internal/types.ts";
   import DialogOverlay from "./dialog-overlay.svelte";
 
@@ -30,19 +36,32 @@
     // confirmation should not use this component at all — use AlertDialog. Destructured out so it does
     // NOT spread onto Bits' Content.
     showClose = true,
+    // The panel's entrance/exit recipe — one of the closed presence constants from
+    // internal/floating.ts, defaulting to the standard scale-fade. A caller whose panel should
+    // not read as growing from center picks fade, settle-fade, or none. Destructured out so it
+    // does NOT spread onto Bits' Content.
+    presence = PRESENCE_SCALE_FADE,
     class: className,
     children,
     ...restProps
-  }: WithoutChild<DialogPrimitive.ContentProps> & { showClose?: boolean } = $props();
+  }: WithoutChild<DialogPrimitive.ContentProps> & {
+    showClose?: boolean;
+    presence?: PresenceClass;
+  } = $props();
+
+  // An instant panel needs an instant scrim: the overlay fading in beneath a panel that is
+  // already fully formed reads as the backdrop lagging. Every animated presence keeps the
+  // scrim's own low-emphasis fade.
+  const overlayPresence = $derived(presence === PRESENCE_NONE ? PRESENCE_NONE : PRESENCE_FADE);
 </script>
 
 <DialogPrimitive.Portal>
-  <DialogOverlay />
+  <DialogOverlay presence={overlayPresence} />
   <DialogPrimitive.Content
     bind:ref
     class={mergeClasses(
       Z_LAYER_CLASSES.modal,
-      PRESENCE_SCALE_FADE,
+      presence,
       "mc-dialog-content max-h-screen w-full max-w-lg",
       className,
     )}

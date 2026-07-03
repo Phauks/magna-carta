@@ -19,6 +19,12 @@
   import EasingGraph from "../../easing-graph.svelte";
   import { buildMotionReport } from "../../motion-report.ts";
   import {
+    PALETTE_ENTRANCE_VARIANTS,
+    readPaletteEntranceVariant,
+    savePaletteEntranceVariant,
+    type PaletteEntranceVariant,
+  } from "../../palette-entrance.ts";
+  import {
     ALL_SURFACES_ID,
     MOTION_SURFACES,
     motionSurfaceById,
@@ -53,6 +59,9 @@
   let surfaceId = $state(ALL_SURFACES_ID);
   let reportCopied = $state(false);
   let overridesEnabled = $state(true);
+  // The palette-entrance trial (palette-entrance.ts): the persisted choice is read by the
+  // command palette at each open, so this control needs no apply step — pick, then reopen.
+  let paletteEntrance = $state<PaletteEntranceVariant>(readPaletteEntranceVariant());
 
   const surface = $derived(motionSurfaceById(surfaceId));
 
@@ -276,6 +285,42 @@
       <EasingGraph value={easings[activeEasing]} onchange={setEasing} />
       <p class="text-xs text-text-muted" style="font-family: var(--mc-font-mono)">
         {formatCubicBezier(easings[activeEasing])}
+      </p>
+    </div>
+
+    <Separator />
+
+    <div class="flex flex-col gap-8">
+      <p class="text-xs text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
+        Palette entrance
+      </p>
+      <Select.Root
+        type="single"
+        items={PALETTE_ENTRANCE_VARIANTS.map((variant) => ({
+          value: variant.value,
+          label: variant.label,
+        }))}
+        bind:value={
+          () => paletteEntrance,
+          (next) => {
+            paletteEntrance = next as PaletteEntranceVariant;
+            savePaletteEntranceVariant(paletteEntrance);
+          }
+        }
+        allowDeselect={false}
+      >
+        <Select.Trigger aria-label="Palette entrance" class="w-full">
+          <Select.Value placeholder="Choose an entrance" />
+        </Select.Trigger>
+        <Select.Content>
+          {#each PALETTE_ENTRANCE_VARIANTS as variant (variant.value)}
+            <Select.Item value={variant.value} label={variant.label} />
+          {/each}
+        </Select.Content>
+      </Select.Root>
+      <p class="text-xs text-text-muted">
+        Trial of the command palette's entrance animation — applies the next time the palette
+        opens (Ctrl+K).
       </p>
     </div>
 

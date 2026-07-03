@@ -70,6 +70,22 @@ export const PRESENCE_FADE = "mc-presence-fade";
 /** Fade combined with a subtle scale — the standard popover/menu presence. */
 export const PRESENCE_SCALE_FADE = "mc-presence-scale-fade";
 
+/** Fade combined with a small downward settle — the surface drops into place, never scales. */
+export const PRESENCE_SETTLE_FADE = "mc-presence-settle-fade";
+
+/** No presence animation — the surface appears and disappears fully formed, the same frame. */
+export const PRESENCE_NONE = "mc-presence-none";
+
+/**
+ * The closed set of presence recipes a surface may accept as a prop — the constants above,
+ * never a bare string, so a typo cannot silently name a recipe that does not exist.
+ */
+export type PresenceClass =
+  | typeof PRESENCE_FADE
+  | typeof PRESENCE_SCALE_FADE
+  | typeof PRESENCE_SETTLE_FADE
+  | typeof PRESENCE_NONE;
+
 /*
  * Edge-pinned PANEL slides (drawers/sheets) are NOT here — they carry their own per-side recipe
  * (mc-sheet-content in components.css, keyframes in styles/animations.css). Same keyframe-animation

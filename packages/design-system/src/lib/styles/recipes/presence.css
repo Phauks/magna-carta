@@ -34,10 +34,50 @@
   .mc-presence-scale-fade[data-state="closed"] {
     animation-name: mc-scale-fade-out;
   }
+  /*
+   * A full dialog PANEL fading in must move on its very first frame: the standard easing's
+   * flat start reads as a delay at the fast duration — fine for low-emphasis scrims and
+   * tooltips (which keep the base curve above), jarring on the surface the user just
+   * summoned. Scoped to the dialog panel recipe so only a panel carrying the fade presence
+   * gets the immediate-start decelerate curve; the global fade surfaces are untouched.
+   */
+  .mc-dialog-content.mc-presence-fade {
+    animation-timing-function: var(--mc-easing-decelerate);
+  }
+  /*
+   * Settle-fade — fade plus a small downward translate (keyframes in styles/animations.css):
+   * the surface drops into place under its anchor instead of growing from center. Decelerate
+   * easing so the motion starts immediately and eases to rest, matching the "settling" read.
+   */
+  .mc-presence-settle-fade {
+    animation-duration: var(--mc-duration-fast);
+    animation-timing-function: var(--mc-easing-decelerate);
+    animation-fill-mode: both;
+  }
+  .mc-presence-settle-fade[data-state="open"] {
+    animation-name: mc-settle-fade-in;
+  }
+  .mc-presence-settle-fade[data-state="closed"] {
+    animation-name: mc-settle-fade-out;
+  }
   @media (prefers-reduced-motion: reduce) {
     .mc-presence-fade,
-    .mc-presence-scale-fade {
+    .mc-presence-scale-fade,
+    .mc-presence-settle-fade {
       animation-duration: var(--mc-duration-instant);
     }
+  }
+  /*
+   * No presence at all: the surface appears fully formed the same frame it mounts and
+   * vanishes the same frame it closes. animation-name: none removes the animation outright
+   * and the instant duration neutralizes any fill-mode hold, so Bits' wait-for-animation
+   * unmount is immediate too. Declared LAST so that if it is ever stacked with another
+   * presence class its per-state rules win the equal-specificity tie by source order.
+   */
+  .mc-presence-none,
+  .mc-presence-none[data-state="open"],
+  .mc-presence-none[data-state="closed"] {
+    animation-name: none;
+    animation-duration: var(--mc-duration-instant);
   }
 }
