@@ -198,6 +198,10 @@ export type Bindings = {
   // `wrangler secret put PANGRAM_API_KEY`. PANGRAM_BASE_URL is public config (a var, not a secret).
   PANGRAM_API_KEY?: string;
   PANGRAM_BASE_URL?: string;
+  // Which Pangram surface the platform key is provisioned for: "async-task" (the external-api that
+  // returns a task to poll) or "sync". Optional; defaults to "async-task". A public config value, not
+  // a secret — bound via wrangler vars.
+  PANGRAM_MODE?: "async-task" | "sync";
 };
 
 // One Better Auth instance per worker env: the env object is stable across requests within an
