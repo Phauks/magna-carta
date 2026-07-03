@@ -5,17 +5,19 @@ import type { RecoveryShardMessage, RecoveryStartInput } from "../src/recovery/r
 // Unit-tests the DO directly against a fake DurableObjectState — this coordinator has no wrangler.jsonc
 // binding yet (that wiring, plus RECOVERY_QUEUE on Bindings, lands with the queue consumer that reports
 // back to it), so it cannot be reached through the Miniflare `cloudflare:test` env the way
-// bundle-coordinator.test.ts / conversion-coordinator.test.ts reach their registered DOs. The fake only
-// implements the storage.get/put/setAlarm/deleteAlarm surface recovery-coordinator.ts touches.
+// bundle-coordinator.test.ts / conversion-coordinator.test.ts reach their registered DOs (those files
+// construct a REAL DO via env.CONVERSION_JOB.get(idFromName(...)) + runInDurableObject, never
+// Object.create). The fake only implements the storage.get/put/setAlarm/deleteAlarm surface
+// recovery-coordinator.ts touches.
 //
 // `new RecoveryJobCoordinator(fakeCtx, fakeEnv)` is not viable: workerd's native DurableObjectBase
 // constructor rejects a non-native ctx with "constructor parameter 1 is not of type
-// 'DurableObjectState'" — confirmed empirically. Since RecoveryJobCoordinator defines no constructor
-// of its own (it only ever reads this.ctx / this.env, mirroring bundle-coordinator.ts and
-// conversion-coordinator.ts, which reassign `.env` post-construction on a REAL DO instance to fake a
-// downstream binding — proof that `env` is a plain writable own property, not a native accessor), the
-// native constructor can be bypassed entirely with Object.create(prototype) plus a direct property
-// assignment of ctx/env, without ever invoking the branded base constructor.
+// 'DurableObjectState'" — confirmed empirically. So the test constructs via Object.create(prototype)
+// plus a direct ctx/env property assignment, bypassing the branded base constructor entirely. That is
+// valid because RecoveryJobCoordinator defines no constructor of its own (it only ever reads this.ctx /
+// this.env). The single fact the two precedent test files establish here is narrower: they reassign
+// `instance.env` post-construction (to fake a downstream binding), which proves `env` is a plain
+// writable own property — not a native accessor — so assigning it on an Object.create'd instance holds.
 
 const HASH = "$pdf$4*4*128*-1028*1*16*aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa*32*bb*8*cc";
 
@@ -80,6 +82,27 @@ describe("RecoveryJobCoordinator", () => {
     expect(done.status).toBe("exhausted");
     expect(done.progress).toEqual({ candidatesTried: 35, shardsDone: 3, shardCount: 3 });
     expect(done.password).toBeNull();
+  });
+
+  it("dedups a redelivered shard report — at-least-once delivery cannot cause false exhaustion", async () => {
+    const coord = newCoordinator({ send: async () => {} });
+    await coord.start(input({ shardCount: 3 }));
+
+    // At-least-once queue delivery redelivers shard 1's message; its container reports twice.
+    await coord.reportShard(1, { found: null, candidatesTried: 9 });
+    await coord.reportShard(1, { found: null, candidatesTried: 9 });
+    const afterDup = await coord.status();
+    // The duplicate must count ONCE: candidatesTried 9 (not 18), shardsDone 1 (not 2). Without dedup
+    // the duplicate would push shardsDone toward shardCount early and prematurely terminate the job.
+    expect(afterDup.status).toBe("running");
+    expect(afterDup.progress).toEqual({ candidatesTried: 9, shardsDone: 1, shardCount: 3 });
+
+    // A genuine `found` from a different, not-yet-reported shard still wins — the job was never
+    // falsely exhausted by the redelivery, so the terminal-guard did not drop this real hit.
+    await coord.reportShard(0, { found: "hunter2", candidatesTried: 3 });
+    const found = await coord.status();
+    expect(found.status).toBe("found");
+    expect(found.password).toBe("hunter2");
   });
 
   it("gpuRequired start is terminal and enqueues nothing", async () => {

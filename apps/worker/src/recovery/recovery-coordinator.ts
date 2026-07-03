@@ -75,9 +75,18 @@ export class RecoveryJobCoordinator extends DurableObject<Bindings> implements R
   }
 
   async reportShard(shardIndex: number, outcome: ShardOutcome): Promise<void> {
-    void shardIndex; // aggregation only needs the running sum + done count, not per-shard identity
     const state = await this.ctx.storage.get<RecoveryJobState>("state");
     if (state === undefined || isTerminal(state.status)) return; // first hit / cancel already won
+
+    // At-least-once queue delivery can redeliver a shard's message, so the same shard can report
+    // more than once. Dedup per shard index (internal DO bookkeeping, kept out of the RPC-returned
+    // RecoveryJobState) so a duplicate never double-counts shardsDone/candidatesTried — otherwise a
+    // duplicate could push shardsDone to shardCount before every distinct shard has actually
+    // reported, flip the job to a terminal exhausted, and drop a genuinely-later `found`. Defense in
+    // depth: correct even if the consumer is not itself idempotent.
+    const reportedShards = (await this.ctx.storage.get<number[]>("reportedShards")) ?? [];
+    if (reportedShards.includes(shardIndex)) return; // redelivered report — already counted
+    await this.ctx.storage.put("reportedShards", [...reportedShards, shardIndex]);
 
     const progress = {
       candidatesTried: state.progress.candidatesTried + outcome.candidatesTried,
@@ -97,7 +106,9 @@ export class RecoveryJobCoordinator extends DurableObject<Bindings> implements R
       return;
     }
 
-    if (progress.shardsDone >= progress.shardCount) {
+    // With per-shard dedup shardsDone can never overshoot shardCount, so an exact `===` is correct
+    // and strictly safer than `>=` (which could terminate early on a miscount).
+    if (progress.shardsDone === progress.shardCount) {
       await this.ctx.storage.put("state", { ...state, status: "exhausted", progress });
       await this.ctx.storage.deleteAlarm();
       return;
