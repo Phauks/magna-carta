@@ -20,13 +20,35 @@ function jsonResponse(status: number, body: unknown): HttpResponse {
   return { status, json: async () => body };
 }
 
-function adapter(client: HttpClient) {
+function adapter(client: HttpClient, overrides: Partial<Parameters<typeof createPangramAdapter>[0]> = {}) {
   return createPangramAdapter({
     http: client,
     apiKey: "test-key",
     baseUrl: "https://pangram.example",
+    mode: "sync",
     now: () => AT,
+    sleep: async () => {},
+    ...overrides,
   });
+}
+
+// A queue-backed HttpClient: each call returns the next scripted response; POST vs GET is asserted by
+// the caller. Records the requests so we can assert the submit URL and the poll URL.
+function scriptedClient(responses: HttpResponse[]): { client: HttpClient; requests: HttpRequest[] } {
+  const requests: HttpRequest[] = [];
+  let i = 0;
+  return {
+    requests,
+    client: {
+      async request(req) {
+        requests.push(req);
+        const response = responses[i];
+        i += 1;
+        if (response === undefined) throw new Error("no scripted response");
+        return response;
+      },
+    },
+  };
 }
 
 describe("createPangramAdapter.detect", () => {
@@ -45,6 +67,8 @@ describe("createPangramAdapter.detect", () => {
     expect(result.value.provenance.egressedTo).toBe("pangram");
     expect(result.value.provenance.adapterId).toBe("pangram");
     expect(result.value.provenance.detectedAt).toBe(AT);
+    expect(result.value.provenance.vendorVersion).toBe("v3");
+    expect(result.value.provenance.vendorModel).toBeUndefined();
     // The request carries the key and never sets a public dashboard link for privileged content.
     expect(seen?.method).toBe("POST");
     expect(JSON.stringify(seen?.headers)).toContain("test-key");
@@ -133,5 +157,69 @@ describe("createPangramAdapter.detect", () => {
     expect(result.reason).toBe("adapter-error");
     expect(result.problem?.category).toBe("upstream");
     expect(result.problem?.status).toBe(502);
+  });
+});
+
+describe("createPangramAdapter.detect — async task flow", () => {
+  it("submits, polls past a pending status, and maps the terminal prediction", async () => {
+    const { client, requests } = scriptedClient([
+      jsonResponse(200, { task_id: "task-1" }),
+      jsonResponse(200, { stage: "STAGE_PROCESSING" }),
+      jsonResponse(200, { stage: "STAGE_SUCCESS", fraction_ai: 0.95, version: "3.3" }),
+    ]);
+    let slept = 0;
+    const port = adapter(client, { mode: "async-task", sleep: async () => { slept += 1; } });
+    const result = await port.detect({ text: LONG_TEXT, firmId: FIRM });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.band).toBe("likely");
+    expect(result.value.provenance.vendorVersion).toBe("3.3"); // version, not stage
+    expect(requests[0]?.method).toBe("POST");
+    expect(requests[0]?.url).toBe("https://pangram.example/task");
+    expect(requests[1]?.method).toBe("GET");
+    expect(requests[1]?.url).toBe("https://pangram.example/task/task-1");
+    expect(slept).toBe(1); // waited once between the pending poll and the success poll
+  });
+
+  it("returns adapter-error when the task reports STAGE_FAILED", async () => {
+    const { client } = scriptedClient([
+      jsonResponse(200, { task_id: "task-2" }),
+      jsonResponse(200, { stage: "STAGE_FAILED" }),
+    ]);
+    const port = adapter(client, { mode: "async-task" });
+    const result = await port.detect({ text: LONG_TEXT, firmId: FIRM });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe("adapter-error");
+    expect(result.problem?.status).toBe(502);
+  });
+
+  it("returns adapter-error when the submit response has no task_id", async () => {
+    const { client } = scriptedClient([jsonResponse(200, { not_a_task: true })]);
+    const port = adapter(client, { mode: "async-task" });
+    const result = await port.detect({ text: LONG_TEXT, firmId: FIRM });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe("adapter-error");
+  });
+
+  it("times out (adapter-error) when the task never reaches a terminal stage", async () => {
+    const pending = () => jsonResponse(200, { stage: "STAGE_PROCESSING" });
+    const { client } = scriptedClient([
+      jsonResponse(200, { task_id: "task-3" }),
+      pending(),
+      pending(),
+    ]);
+    const port = adapter(client, {
+      mode: "async-task",
+      sleep: async () => {},
+      maxPollAttempts: 2,
+    });
+    const result = await port.detect({ text: "secret privileged content", firmId: FIRM });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe("adapter-error");
+    expect(result.problem?.status).toBe(502);
+    expect(JSON.stringify(result)).not.toContain("secret privileged content");
   });
 });
