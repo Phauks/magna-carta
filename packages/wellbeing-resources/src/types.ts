@@ -60,8 +60,3 @@ export interface JurisdictionEntry {
   readonly resources: readonly WellbeingResource[];
   readonly nationalFallbackOnly: boolean;
 }
-
-export interface WellbeingDataset {
-  readonly national: readonly WellbeingResource[];
-  readonly jurisdictions: readonly JurisdictionEntry[];
-}
