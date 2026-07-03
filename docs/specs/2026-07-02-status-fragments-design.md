@@ -152,3 +152,30 @@ the tree as a record, like `migrate-decisions.mjs`.
 - The compact "matrix + notes-below" render (revisit only if raw-source readability becomes a felt need).
 - A CI drift/coverage gate ("a slice-state-changing PR must touch a status fragment") — start with
   schema validation only; add coverage enforcement if fragments get forgotten in practice.
+
+## Addendum (2026-07-03) — agent-first fields, as built
+
+Owner review reframed the goal from "stop the collisions" to also "make the tracker better for the
+Claude programmers who read it." Three additions to the design above, all shipped:
+
+- **Structured stage frontmatter, not marker strings.** A stage is `state [by="…"] [awaiting] [gap]`
+  (e.g. `built: done by="Opus 4.8" gap`) rather than the opaque `[x] Opus 4.8\*`. The renderer maps it
+  back to the exact historical cell, so `STATUS.md` is byte-unchanged, but the source an agent edits or
+  reads is unambiguous.
+- **`STATUS.json` machine index.** `status-build` emits a second output next to `STATUS.md`: one object
+  per slice with normalized stages plus development fields — `next` (the concrete next action),
+  `branch` / `active-work`, and `links` (spec / plan / ADRs). An agent resuming a slice reads structured
+  data instead of parsing a padded table. Dev fields live in fragments + JSON; the human matrix in
+  `STATUS.md` is unchanged (they are additive, not new columns).
+- **Two guards.** The CI **drift gate** is adopted now (regenerate, then `git diff --exit-code
+  STATUS.md STATUS.json`, the code-as-contract idiom) rather than deferred; alongside it a
+  `pnpm run lint:status` fitness function validates schema, unique `(group, order)` slot, and link
+  existence. `blocked-by` is an optional field, not required.
+
+Recorded as an ADR (fragment `docs/decisions/pending/status-fragments.md`), the same family as ADR-0104
+(parallel doc fragments) / ADR-0105 (worktree coordination).
+
+**Module layout as built** (mirrors `build-decisions.mjs`): pure transforms in
+`tooling/doc-fragments/status.mjs`; the impure runner `build-status.mjs`; the one-time
+`migrate-status.mjs` (kept as a record); unit tests `status.test.mjs` (golden render, schema, the
+width-independence regression, idempotency, migrate round-trip); the guard `tooling/lint-status.mjs`.
