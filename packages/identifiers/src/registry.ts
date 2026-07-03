@@ -107,6 +107,8 @@ export const ENTITY_PREFIXES = {
   // the RecoveryJobCoordinator Durable Object (mirrors conversionJob: not persisted in D1, the DO
   // itself is the state store for the job).
   recoveryJob: "recoveryJob",
+  serviceEvent: "serviceEvent",
+  serviceComponent: "serviceComponent",
 } as const;
 
 export type EntityType = keyof typeof ENTITY_PREFIXES;

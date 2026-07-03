@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { parsePangramResponse } from "../src/adapters/pangram-response.ts";
+import {
+  parsePangramResponse,
+  parsePangramSubmit,
+  parsePangramTaskStatus,
+} from "../src/adapters/pangram-response.ts";
 
 describe("parsePangramResponse", () => {
   it("accepts a well-formed prediction and preserves optional fields", () => {
@@ -54,5 +58,46 @@ describe("parsePangramResponse", () => {
         windows: [{ start_index: 0, end_index: 10, ai_assistance_score: 0.9, confidence: 9 }],
       }),
     ).toBeNull();
+  });
+});
+
+describe("parsePangramSubmit", () => {
+  it("reads task_id from the async submit response", () => {
+    expect(parsePangramSubmit({ task_id: "abc123" })).toEqual({ taskId: "abc123" });
+  });
+  it("returns null when task_id is missing or non-string", () => {
+    expect(parsePangramSubmit({})).toBeNull();
+    expect(parsePangramSubmit({ task_id: 5 })).toBeNull();
+    expect(parsePangramSubmit(null)).toBeNull();
+  });
+  it("returns null when task_id is an empty string", () => {
+    expect(parsePangramSubmit({ task_id: "" })).toBeNull();
+  });
+});
+
+describe("parsePangramTaskStatus", () => {
+  it("returns success with the prediction when stage is STAGE_SUCCESS and the body is valid", () => {
+    const status = parsePangramTaskStatus({
+      stage: "STAGE_SUCCESS",
+      fraction_ai: 0.9,
+      version: "3.3",
+    });
+    expect(status.kind).toBe("success");
+    if (status.kind !== "success") return;
+    expect(status.prediction.fraction_ai).toBe(0.9);
+    expect(status.prediction.version).toBe("3.3");
+  });
+  it("returns failed when stage is STAGE_FAILED", () => {
+    expect(parsePangramTaskStatus({ stage: "STAGE_FAILED" }).kind).toBe("failed");
+  });
+  it("returns pending for a non-terminal or absent stage", () => {
+    expect(parsePangramTaskStatus({ stage: "STAGE_PROCESSING" }).kind).toBe("pending");
+    expect(parsePangramTaskStatus({}).kind).toBe("pending");
+  });
+  it("returns malformed for a non-object, or STAGE_SUCCESS with an invalid prediction", () => {
+    expect(parsePangramTaskStatus(null).kind).toBe("malformed");
+    expect(parsePangramTaskStatus("nope").kind).toBe("malformed");
+    expect(parsePangramTaskStatus({ stage: "STAGE_SUCCESS", fraction_ai: 5 }).kind).toBe("malformed");
+    expect(parsePangramTaskStatus({ stage: "STAGE_SUCCESS" }).kind).toBe("malformed");
   });
 });

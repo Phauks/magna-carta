@@ -1,0 +1,17 @@
+---
+jurisdiction: US-NE
+publisher: Nebraska Supreme Court (Nebraska Lawyers Assistance Program)
+sourceUrl: https://nebraskajudicial.gov/administration/attorneys/nebraska-lawyers-assistance-program
+accessedOn: 2026-07-02
+accessGate: open
+method: web search + direct fetch (nebar.com 403 this session)
+---
+[Nebraska Lawyers Assistance Program (NLAP)]
+QUOTE (hours): toll-free hotline (888) 584-6527 — "24HRS, 7 DAYS A WEEK"
+QUOTE (confidentiality): "The relationship between a member of the Committee and/or the NLAP Director and a lawyer or judge who seeks or receives assistance shall be the same as that of attorney and client." (Neb. Rule of Prof. Conduct §3-501.6(c))
+
+Funding: "NLAP is funded by the Nebraska Supreme Court through attorney mandatory dues payment. The
+payment of NSBA voluntary dues is not required to access this service." Services: assessment and
+referral; formal interventions; geographically matched peer-support network; education and
+prevention for firms and courts. Operated under the Nebraska Supreme Court (Judicial Branch),
+co-presented with the NSBA.

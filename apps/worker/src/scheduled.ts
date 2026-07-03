@@ -37,6 +37,7 @@ import { presignerForEnv } from "./files/presigner-wiring.ts";
 import { firmDatabaseFor, type ProxyBatchDatabase } from "./firm-database/firm-database-proxy.ts";
 import { firmKeyProviderForEnv } from "./firm-key-provider-wiring.ts";
 import { consumeMemberProvision } from "./member-provision-consumer.ts";
+import { buildAndStoreDerivedSnapshot } from "./status/derived-snapshot.ts";
 import { maybeEmitCompleted } from "./usage/completed.ts";
 
 // All background logging in this file goes through the slice 0·6 telemetry pipeline (golden rule 4 —
@@ -494,6 +495,23 @@ export async function runStorageReconciliation(env: Bindings): Promise<Reconcili
     }
   }
   return { firmsReconciled, corrections };
+}
+
+// The status-snapshot Cron pass (its own */10 Cron, separate from both the */5 sweep and the daily
+// reconciliation pass): probes the cheap core primitives, polls the upstream provider feeds, derives
+// every component's status, and writes status:derived — the one writer of that KV key (the operator
+// UI owns the sibling status:authored key through the mutateAuthored helper). A probe or provider
+// failure never aborts the pass (buildAndStoreDerivedSnapshot's internals swallow their own errors
+// into a status value), so the only throw this catches is something writing to STATUS_KV itself.
+export async function runStatusSnapshot(env: Bindings): Promise<void> {
+  const logger = createWorkersLogger(env.TELEMETRY);
+  const correlationId = newCorrelationId();
+  try {
+    const snapshot = await buildAndStoreDerivedSnapshot(env, new Date().toISOString());
+    logger.count("status.snapshot.components", {}, snapshot.components.length);
+  } catch (caught) {
+    logOperationFailed(logger, "cron:status-snapshot", caught, correlationId);
+  }
 }
 
 // One-off, idempotent backfill sweeps — the migration-can't-encrypt half of the protected-module

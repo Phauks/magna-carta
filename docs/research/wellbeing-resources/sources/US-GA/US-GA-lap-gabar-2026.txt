@@ -1,0 +1,25 @@
+---
+jurisdiction: US-GA
+publisher: State Bar of Georgia (administered by CuraLinc/SupportLinc)
+sourceUrl: https://www.gabar.org/programs/lawyer-wellbeing/mental-wellbeing/lawyer-assistance-program
+accessedOn: 2026-07-02
+accessGate: open
+method: web search + direct fetch
+---
+[Lawyer Assistance Program (LAP)]
+QUOTE: "Staffed by trained counselors 24 hours a day, 7 days a week."
+
+Do you need immediate, confidential help? Call 800-327-9631. LAP is a confidential service provided
+through SupportLinc, a program administered by CuraLinc Healthcare. Members are entitled to six
+prepaid clinical sessions per calendar year. LAP provides a broad range of services for stress,
+anxiety, depression, substance abuse, family problems, workplace conflicts, psychological and other
+issues. Email gabar@curalinc.com; web portal galap.mysupportid.com.
+
+[Lawyers Helping Lawyers (GA peer program)] — georgialhl.org (corroborated; site did not render)
+QUOTE: "a confidential peer-to-peer program that provides attorneys with a fellow Bar member to be there, listen and help with various struggles."
+Peer support via phone, text, meetings, or shared activities; disclosures held in an encrypted
+confidential database per its Policies & Guidelines.
+
+NOTE (currency): the Bar's LAP is now administered by CuraLinc/SupportLinc — CorpCare Associates
+(the prior EAP vendor in older materials) is NOT the current administrator on the live pages; the
+single current confidential line is 800-327-9631. Georgia is a mandatory/unified bar.

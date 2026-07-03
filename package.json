@@ -9,6 +9,7 @@
     "generate-client": "pnpm --filter @magna-carta/api-client run generate",
     "lint:process-refs": "node tooling/lint-process-references.mjs",
     "lint:licenses": "node tooling/lint-licenses.mjs",
+    "lint:status": "node tooling/lint-status.mjs",
     "test": "vp test"
   },
   "devDependencies": {

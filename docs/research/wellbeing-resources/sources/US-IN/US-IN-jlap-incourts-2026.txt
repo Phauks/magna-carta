@@ -1,0 +1,17 @@
+---
+jurisdiction: US-IN
+publisher: Indiana Supreme Court (Judicial Branch)
+sourceUrl: https://www.in.gov/courts/jlaphelps/how/
+accessedOn: 2026-07-02
+accessGate: open
+method: web search + direct fetch
+---
+[Indiana Judges and Lawyers Assistance Program (JLAP)]
+QUOTE: "All contact with JLAP is confidential under Admission and Discipline Rule 31 §9 and Rules of Professional Conduct 8.3 (c)."
+
+201 N. Illinois St, Suite 950, Indianapolis, IN 46204. Phone 317-833-0370; toll-free
+866-428-JLAP (5527); email JLAPhelps@courts.in.gov. Services: initial contact/support, follow-up
+consultations (in-person, phone, or video), volunteer peer pairing, support groups (Care for the
+Caregiver; Addiction Issues; Weekly Connection; Grief and Loss), and referrals. JLAP services are
+"no cost to you"; external-provider referrals are the individual's responsibility. No line advertises
+24/7 → unspecified.

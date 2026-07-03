@@ -12,7 +12,7 @@ import { runIdleCheckoutSweep } from "./editing/idle-checkout-sweep.ts";
 import { runTieringSweep } from "./editing/tiering-sweep.ts";
 import { recoveryQueue } from "./recovery/recovery-consumer.ts";
 import type { RecoveryShardMessage } from "./recovery/recovery-types.ts";
-import { runScheduledSweep, runStorageReconciliation } from "./scheduled.ts";
+import { runScheduledSweep, runStatusSnapshot, runStorageReconciliation } from "./scheduled.ts";
 import { LiveTimerDurableObject } from "./timer/live-timer-durable-object.ts";
 
 // The async bulk-download coordinator Durable Object must be exported from the Worker's main entrypoint
@@ -63,6 +63,11 @@ const app = createApp();
 // sweep — a full R2 LIST per firm is too heavy to run every five minutes.
 const RECONCILIATION_CRON = "0 3 * * *";
 
+// The status-snapshot Cron expression (wrangler.jsonc triggers.crons): probes the core primitives
+// and polls the upstream provider feeds every ten minutes, independent of both the */5 outbox sweep
+// and the daily reconciliation pass.
+const STATUS_SNAPSHOT_CRON = "*/10 * * * *";
+
 // fetch + scheduled + queue: the Hono app serves requests; the Cron triggers run the outbox relay
 // sweeps + idempotency TTL purge + stale-pending upload sweep every 5 minutes, the storage
 // reconciliation once daily, and the weekly re-scan sweep on Sundays at 04:00 UTC; the queue
@@ -85,7 +90,9 @@ export default {
               await runIdleCheckoutSweep(env);
             },
           }
-        : { operation: "cron:scheduled-sweep", run: () => runScheduledSweep(env) };
+        : controller.cron === STATUS_SNAPSHOT_CRON
+          ? { operation: "cron:status-snapshot", run: () => runStatusSnapshot(env) }
+          : { operation: "cron:scheduled-sweep", run: () => runScheduledSweep(env) };
     executionContext.waitUntil(
       pass.run().catch((caught: unknown) => {
         logOperationFailed(createWorkersLogger(env.TELEMETRY), pass.operation, caught);

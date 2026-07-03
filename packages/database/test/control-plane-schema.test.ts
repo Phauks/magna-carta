@@ -69,6 +69,11 @@ describe("control-plane schema: firm registry", () => {
     expect(ownerUserId.getSQLType()).toBe("text");
     expect(getTableConfig(firm).foreignKeys).toHaveLength(0);
   });
+
+  it("firm.data_region defaults to us and is not null", () => {
+    expect(columnOf(firm, "data_region").default).toBe("us");
+    expect(columnOf(firm, "data_region").notNull).toBe(true);
+  });
 });
 
 describe("control-plane schema: Better Auth-owned tables (better-auth 1.6.16 reference)", () => {

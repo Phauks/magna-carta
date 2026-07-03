@@ -1,0 +1,1 @@
+ALTER TABLE `firm` ADD `data_region` text DEFAULT 'us' NOT NULL;

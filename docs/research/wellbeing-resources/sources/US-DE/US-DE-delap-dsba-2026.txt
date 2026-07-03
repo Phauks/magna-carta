@@ -1,0 +1,19 @@
+---
+jurisdiction: US-DE
+publisher: Delaware State Bar Association
+sourceUrl: https://www.dsba.org/resources/delaware-lawyers-assistance-program/
+accessedOn: 2026-07-02
+accessGate: open
+method: web search + direct fetch (de-lap.org served a mismatched TLS cert; verified via DSBA-hosted page)
+---
+[Delaware Lawyers Assistance Program (DE-LAP)]
+QUOTE: "The De-LAP program provides a confidential, free, non-disciplinary way for Delaware's judges and lawyers to seek appropriate help for problems before they sabotage an individual's career and/or quality of life."
+
+DE-LAP assists judges and lawyers with substance abuse, mental and physical health issues,
+depression, stress, gambling addiction, and related problems. Any legal professional who seeks
+assistance as a self-referral can be assured that his/her information will be held in the strictest
+of confidence; those concerned about a co-worker or peer are guaranteed the same confidentiality
+(the Lawyers Assistance Committee relationship carries attorney-client privilege). Contact:
+302-777-0124; delap@de-lap.org. A toll-free 877-243-3527 (877-24DELAP) appears in search snippets
+but was not confirmed on a loaded primary page. No 24-hour availability stated. Delaware State Bar
+is a voluntary bar.

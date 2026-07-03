@@ -1,0 +1,21 @@
+---
+jurisdiction: US-AZ
+publisher: State Bar of Arizona
+sourceUrl: https://azbar.org/for-legal-professionals/benefits-services/member-assistance-program-wellness-resource/support/
+accessedOn: 2026-07-02
+accessGate: open
+method: web search + direct fetch
+---
+[Member Assistance Program (MAP)]
+QUOTE: "All communication is confidential."
+
+The Member Assistance Program, also called "MAP", offers a peer support network of volunteer
+lawyers who have been trained to offer support to lawyers, judges and law students or their
+immediate families. If you have questions, or want to be matched with a peer volunteer, call
+602.340.7334. All communication is confidential; all calls to MAP and to MAP's volunteers are
+confidential under Supreme Court rule ("This Rule does not require disclosure of information
+otherwise protected by Rule 1.6 or information gained by a lawyer or judge while participating in an
+approved lawyers assistance program."). Crisis referral given: Suicide Prevention Lifeline (free,
+24/7). Also lists support groups and 12-Step programs (AA, Al-Anon, IDAA, NA) and a monthly
+non-12-step Lawyer Support Group. NOTE: the canonical /member-assistance-program/ short URL returns
+HTTP 404; live pages are under /member-assistance-program-wellness-resource/.

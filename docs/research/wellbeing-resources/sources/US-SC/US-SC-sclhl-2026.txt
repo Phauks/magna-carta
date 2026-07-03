@@ -1,0 +1,17 @@
+---
+jurisdiction: US-SC
+publisher: South Carolina Bar (Lawyers Helping Lawyers)
+sourceUrl: https://www.scbar.org/for-lawyers/membership/member-benefits/lawyers-helping-lawyers/
+accessedOn: 2026-07-02
+accessGate: open
+method: web search + direct fetch
+---
+[Lawyers Helping Lawyers (SCLHL)]
+QUOTE: "This service is strictly confidential." / "CuraLinc Healthcare provides additional resources and online support available 24/7/365."
+
+"Call 1-(855)-321-4384, answered 24 hours a day/seven days a week, to get referred to a counselor in
+your area. As a member of the South Carolina Bar, you are eligible to receive five free counseling
+sessions per year through Lawyers Helping Lawyers. This service is strictly confidential and callers
+remain anonymous." Services: referral to treatment, peer support, mental-health/wellness CLE, law
+student assistance, Character and Fitness interviews, and court-mandated monitoring oversight.
+Clinical/EAP vendor: CuraLinc Healthcare.

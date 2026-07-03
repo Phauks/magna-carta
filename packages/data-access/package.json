@@ -24,6 +24,7 @@
     "./firm-key-provider": "./src/firm-key-provider.ts",
     "./protected-fields": "./src/protected-fields.ts",
     "./protected-field-registry": "./src/protected-field-registry.ts",
+    "./pii-registry": "./src/pii-registry.ts",
     "./secret-statements": "./src/secret-statements.ts",
     "./integration-connection-statements": "./src/integration-connection-statements.ts",
     "./integration-connection-store": "./src/integration-connection-store.ts",
@@ -33,6 +34,7 @@
     "./usage-consent-statements": "./src/usage-consent-statements.ts",
     "./support-access-statements": "./src/support-access-statements.ts",
     "./firm-release-channel-statements": "./src/firm-release-channel-statements.ts",
+    "./platform-operator-statements": "./src/platform-operator-statements.ts",
     "./ai-detection-usage-statements": "./src/ai-detection-usage-statements.ts"
   },
   "scripts": {

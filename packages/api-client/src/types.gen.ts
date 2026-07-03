@@ -264,6 +264,37 @@ export type PlatformSetReleaseChannelRequest = {
     channel: 'stable' | 'beta' | 'alpha';
 };
 
+export type ServiceEventResult = {
+    eventId: string;
+};
+
+export type DeclareServiceEvent = {
+    title: string;
+    impact: 'minor' | 'major' | 'critical' | 'maintenance';
+    affectedComponentIds: Array<string>;
+    body: string;
+};
+
+export type PostServiceEventUpdate = {
+    eventId: string;
+    lifecycle: 'investigating' | 'identified' | 'monitoring' | 'resolved';
+    body: string;
+};
+
+export type ComponentOverrideResult = {
+    componentId: string;
+};
+
+export type SetComponentOverride = {
+    componentId: string;
+    status: 'operational' | 'maintenance' | 'degraded' | 'partial_outage' | 'major_outage';
+    note: string;
+};
+
+export type ClearComponentOverride = {
+    componentId: string;
+};
+
 export type ReportIncidentResponse = {
     id: string;
     status: string;
@@ -2330,6 +2361,199 @@ export type PlatformSetFirmReleaseChannelResponses = {
 };
 
 export type PlatformSetFirmReleaseChannelResponse = PlatformSetFirmReleaseChannelResponses[keyof PlatformSetFirmReleaseChannelResponses];
+
+export type PlatformStatusDeclareEventData = {
+    body: DeclareServiceEvent;
+    path?: never;
+    query?: never;
+    url: '/api/v1/platform/status/events';
+};
+
+export type PlatformStatusDeclareEventErrors = {
+    /**
+     * Not signed in
+     */
+    401: Problem;
+    /**
+     * Not a platform operator, or 2FA not enabled
+     */
+    403: Problem;
+    /**
+     * Invalid body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type PlatformStatusDeclareEventError = PlatformStatusDeclareEventErrors[keyof PlatformStatusDeclareEventErrors];
+
+export type PlatformStatusDeclareEventResponses = {
+    /**
+     * The declared event id
+     */
+    201: ServiceEventResult;
+};
+
+export type PlatformStatusDeclareEventResponse = PlatformStatusDeclareEventResponses[keyof PlatformStatusDeclareEventResponses];
+
+export type PlatformStatusPostUpdateData = {
+    body: PostServiceEventUpdate;
+    path?: never;
+    query?: never;
+    url: '/api/v1/platform/status/events/updates';
+};
+
+export type PlatformStatusPostUpdateErrors = {
+    /**
+     * Not signed in
+     */
+    401: Problem;
+    /**
+     * Not a platform operator, or 2FA not enabled
+     */
+    403: Problem;
+    /**
+     * No such event
+     */
+    404: Problem;
+    /**
+     * Invalid body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type PlatformStatusPostUpdateError = PlatformStatusPostUpdateErrors[keyof PlatformStatusPostUpdateErrors];
+
+export type PlatformStatusPostUpdateResponses = {
+    /**
+     * The updated event id
+     */
+    200: ServiceEventResult;
+};
+
+export type PlatformStatusPostUpdateResponse = PlatformStatusPostUpdateResponses[keyof PlatformStatusPostUpdateResponses];
+
+export type PlatformStatusResolveEventData = {
+    body: PostServiceEventUpdate;
+    path?: never;
+    query?: never;
+    url: '/api/v1/platform/status/events/resolve';
+};
+
+export type PlatformStatusResolveEventErrors = {
+    /**
+     * Not signed in
+     */
+    401: Problem;
+    /**
+     * Not a platform operator, or 2FA not enabled
+     */
+    403: Problem;
+    /**
+     * No such event
+     */
+    404: Problem;
+    /**
+     * Invalid body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type PlatformStatusResolveEventError = PlatformStatusResolveEventErrors[keyof PlatformStatusResolveEventErrors];
+
+export type PlatformStatusResolveEventResponses = {
+    /**
+     * The resolved event id
+     */
+    200: ServiceEventResult;
+};
+
+export type PlatformStatusResolveEventResponse = PlatformStatusResolveEventResponses[keyof PlatformStatusResolveEventResponses];
+
+export type PlatformStatusSetComponentOverrideData = {
+    body: SetComponentOverride;
+    path?: never;
+    query?: never;
+    url: '/api/v1/platform/status/overrides';
+};
+
+export type PlatformStatusSetComponentOverrideErrors = {
+    /**
+     * Not signed in
+     */
+    401: Problem;
+    /**
+     * Not a platform operator, or 2FA not enabled
+     */
+    403: Problem;
+    /**
+     * Invalid body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type PlatformStatusSetComponentOverrideError = PlatformStatusSetComponentOverrideErrors[keyof PlatformStatusSetComponentOverrideErrors];
+
+export type PlatformStatusSetComponentOverrideResponses = {
+    /**
+     * The overridden component id
+     */
+    200: ComponentOverrideResult;
+};
+
+export type PlatformStatusSetComponentOverrideResponse = PlatformStatusSetComponentOverrideResponses[keyof PlatformStatusSetComponentOverrideResponses];
+
+export type PlatformStatusClearComponentOverrideData = {
+    body: ClearComponentOverride;
+    path?: never;
+    query?: never;
+    url: '/api/v1/platform/status/overrides/clear';
+};
+
+export type PlatformStatusClearComponentOverrideErrors = {
+    /**
+     * Not signed in
+     */
+    401: Problem;
+    /**
+     * Not a platform operator, or 2FA not enabled
+     */
+    403: Problem;
+    /**
+     * Invalid body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type PlatformStatusClearComponentOverrideError = PlatformStatusClearComponentOverrideErrors[keyof PlatformStatusClearComponentOverrideErrors];
+
+export type PlatformStatusClearComponentOverrideResponses = {
+    /**
+     * The cleared component id
+     */
+    200: ComponentOverrideResult;
+};
+
+export type PlatformStatusClearComponentOverrideResponse = PlatformStatusClearComponentOverrideResponses[keyof PlatformStatusClearComponentOverrideResponses];
 
 export type IncidentsReportData = {
     body: ReportIncidentRequest;

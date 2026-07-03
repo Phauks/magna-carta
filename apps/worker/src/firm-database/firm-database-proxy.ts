@@ -79,16 +79,30 @@ function firmDatabaseProxy(stub: DurableObjectStub<FirmDatabase>): ProxyBatchDat
 interface FirmDatabaseNamespace {
   idFromName(name: string): DurableObjectId;
   get(id: DurableObjectId): unknown;
+  // A jurisdiction-constrained view of the same namespace (Cloudflare Durable Object jurisdictions:
+  // "eu", "fedramp"). Present on the real binding; optional here so tests can omit it.
+  jurisdiction?(jurisdiction: "eu" | "fedramp"): FirmDatabaseNamespace;
 }
 
 // Resolve a firm's per-firm database by firmId: address its FirmDatabase Durable Object by name and
 // wrap the stub in the proxy. The explicit ProxyBatchDatabase return is the single annotated boundary.
 // The firmId comes from a trusted source (the session, a control-plane row, or a firm-scoped job),
 // never client input.
+//
+// Residency activation seam: when the first eu-region firm is provisioned, resolve the firm's
+// data_region at the tenancy chokepoint and pass jurisdictionForRegion(region) here so every
+// statement addresses the firm's DO under its jurisdiction. Until then all firms are us (bare id).
 export function firmDatabaseFor(
   namespace: FirmDatabaseNamespace,
   firmId: string,
+  jurisdiction?: "eu" | "fedramp",
 ): ProxyBatchDatabase {
-  const stub = namespace.get(namespace.idFromName(firmId)) as DurableObjectStub<FirmDatabase>;
+  // A jurisdiction-bound id differs from the bare id, so a firm must always be addressed under the
+  // same jurisdiction it was provisioned in — never mix the two for one firm.
+  const resolver =
+    jurisdiction !== undefined && namespace.jurisdiction !== undefined
+      ? namespace.jurisdiction(jurisdiction)
+      : namespace;
+  const stub = resolver.get(resolver.idFromName(firmId)) as DurableObjectStub<FirmDatabase>;
   return firmDatabaseProxy(stub);
 }

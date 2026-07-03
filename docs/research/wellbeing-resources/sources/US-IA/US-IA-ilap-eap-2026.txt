@@ -1,0 +1,21 @@
+---
+jurisdiction: US-IA
+publisher: Iowa Lawyers Assistance Program, Inc. + Iowa Judicial Branch OPR
+sourceUrl: http://www.iowalap.org/
+accessedOn: 2026-07-02
+accessGate: open
+method: web search + corroborated (iowalap.org cert mismatch; iowacourts.gov/iowabar.org 403)
+---
+[Iowa Lawyers Assistance Program (ILAP)] (corroborated — cert mismatch on site)
+QUOTE: "ILAP offers this service on a free and confidential basis. Importantly, ILAP will not disclose the names or any other identifying information of any participant."
+Private nonprofit helping Iowa judges, attorneys, and law students obtain treatment for substance
+use, addiction, and mental-health issues; with monitoring. Toll-free 1-833-301-9529 or 515-277-3817;
+email Jquinn@iowalap.org.
+
+[Esquire Assistance Program (EAP)] (corroborated — iowacourts.gov 403)
+A license benefit at no cost to all Iowa-licensed lawyers, judges, and court reporters and families:
+three free in-person/telehealth sessions plus "unlimited access to master's-level counselors any
+time of day or night by phone." Call 1-800-EAP-IOWA (1-800-327-4692); "available around the clock,
+365 days a year." QUOTE: "all information you provide is confidential and will not be shared with the
+OPR, your employer, or anyone else, except as required by law in rare situations (such as imminent
+harm)." NOTE: 24/7 claim corroborated from search snippets, not a page loaded in-session.
