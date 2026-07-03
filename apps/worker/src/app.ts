@@ -211,7 +211,7 @@ function emailAdapterForEnv(env: Bindings): SendEmail {
   return createLoggingEmailAdapter();
 }
 
-function authForEnv(env: Bindings): ReturnType<typeof createAuth> {
+export function authForEnv(env: Bindings): ReturnType<typeof createAuth> {
   let auth = authInstanceByEnv.get(env);
   if (auth === undefined) {
     auth = createAuth(env, emailAdapterForEnv(env));
