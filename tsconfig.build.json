@@ -17,6 +17,9 @@
       "path": "apps/scan-worker/tsconfig.build.json"
     },
     {
+      "path": "apps/status-worker/tsconfig.build.json"
+    },
+    {
       "path": "apps/worker/tsconfig.build.json"
     },
     {
