@@ -28,6 +28,7 @@ let poolMatterId: MatterId;
 let poolFolderId: FolderId;
 let firmDb: ReturnType<typeof firmDatabaseFor>;
 let toolOnlyRoleId: RoleId;
+let uploadOnlyRoleId: RoleId;
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
@@ -60,6 +61,19 @@ beforeAll(async () => {
   await firmDb
     .prepare("INSERT OR IGNORE INTO role_permission (id, role_id, permission) VALUES (?1, ?2, ?3)")
     .bind("rolePermission_FileRepairAttachToolOnly01", toolOnlyRoleId, "tools:fileRepair")
+    .run();
+
+  // The INVERSE role: files:upload (the primary gate) but NOT tools:fileRepair — a principal who may
+  // upload to the matter but is not entitled to the repair tool. Exercises the in-handler second gate
+  // (assertAlsoHasPermission), which the primary-gate-missing case never reaches.
+  uploadOnlyRoleId = newIdentifier("role");
+  await firmDb
+    .prepare("INSERT INTO role (id, name, created_at) VALUES (?1, ?2, ?3)")
+    .bind(uploadOnlyRoleId, "Upload Only", ISO)
+    .run();
+  await firmDb
+    .prepare("INSERT OR IGNORE INTO role_permission (id, role_id, permission) VALUES (?1, ?2, ?3)")
+    .bind("rolePermission_FileRepairAttachUploadOnly", uploadOnlyRoleId, "files:upload")
     .run();
 
   // A matter + folder to attach into. The responsible member is a fresh owner so the FK is satisfied.
@@ -106,6 +120,21 @@ async function toolOnlyCookie(email: string): Promise<string> {
     id: newIdentifier("memberRole"),
     memberUserId: userId,
     roleId: toolOnlyRoleId,
+  }).run();
+  return signInForSessionCookie(email);
+}
+
+// A member holding ONLY files:upload — never tools:fileRepair — to exercise the in-handler second gate.
+async function uploadOnlyCookie(email: string): Promise<string> {
+  const { userId } = await seedCredentialedUser(email, {
+    userName: "Upload Only",
+    firmId: poolFirmId,
+  });
+  await insertMemberStatement(firmDb, { userId, displayName: "Upload Only", now: ISO }).run();
+  await insertRoleAssignmentStatement(firmDb, {
+    id: newIdentifier("memberRole"),
+    memberUserId: userId,
+    roleId: uploadOnlyRoleId,
   }).run();
   return signInForSessionCookie(email);
 }
@@ -194,6 +223,19 @@ describe("POST /api/v1/file-repair/repair/attach", () => {
 
   it("rejects without files:upload even with tools:fileRepair", async () => {
     const cookie = await toolOnlyCookie("attach-noupload@example.com");
+    const response = await postAttach("repair/attach", cookie, "bytes", {
+      matterId: poolMatterId,
+    });
+    expect(response.status).toBe(403);
+    expect(response.headers.get("content-type")).toContain("application/problem+json");
+  });
+
+  it("rejects with files:upload but WITHOUT tools:fileRepair (the in-handler second gate)", async () => {
+    // The primary gate (files:upload) passes, so the request reaches the handler; the second gate
+    // (assertAlsoHasPermission for tools:fileRepair) is what refuses. If that gate were removed, this
+    // principal would fall through to the recovery dispatch (a non-403 status), so the assertion below
+    // fails closed on a regression.
+    const cookie = await uploadOnlyCookie("attach-notool@example.com");
     const response = await postAttach("repair/attach", cookie, "bytes", {
       matterId: poolMatterId,
     });
