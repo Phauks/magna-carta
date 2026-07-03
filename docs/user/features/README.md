@@ -9,3 +9,4 @@ Each guide follows the per-feature pattern in [`../README.md`](../README.md): wh
 - [`safe-website-viewer.md`](safe-website-viewer.md) — Safe Website Viewer (stub; backend built, screens pending).
 - [`metadata-inspector-scrubber.md`](metadata-inspector-scrubber.md) — Metadata Inspector & Scrubber (stub; backend built, screens pending).
 - [`file-hash-integrity.md`](file-hash-integrity.md) — File Hash & Integrity (stub; backend built, screens pending).
+- [`file-unlock-password-recovery.md`](file-unlock-password-recovery.md) — File Unlock & Password Recovery (stub; backend built, screens pending).
