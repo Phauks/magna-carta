@@ -1,6 +1,6 @@
 # File Repair & Salvage — Plan 6: integration & closeout (design)
 
-> **Status:** DESIGN — awaiting owner review of the open decisions in "Decision points" before the execution plan is written. This is the last plan of SP2 (File Repair & Salvage); it makes the three built engine pillars + the carving fallback shippable end-to-end.
+> **Status:** DESIGN RESOLVED (owner decisions A–E settled 2026-07-02) — ready for the execution plan, pending `vp run worktrees` + a `main` sync before the cross-cutting edits. This is the last plan of SP2 (File Repair & Salvage); it makes the three built engine pillars + the carving fallback shippable end-to-end.
 
 **Goal:** Wire the inert `recovery-core` engine (ZIP/OOXML, CFB/OLE2, PDF-xref repair pillars + the carving fallback) into the running product: a worker route to diagnose/repair/carve an uploaded file, execution on a proven runtime lane, stateless download of the salvaged output, and opt-in attach-to-matter. Migrate the file-oriented tools into a dedicated `files` subject group. **No UI** (owner decision — no tool-drawer entry, no wrench icon yet); the route is the deliverable, exercised by tests.
 
@@ -58,7 +58,7 @@ POST /api/tools/file-repair/attach     (opt-in, separate route)
 
 ## The `files` subject group + permission (the cross-cutting part)
 
-**Subject group (zero-risk):** add `"files"` to `SUBJECT_GROUP_ORDER` (`packages/tools/src/types.ts`); flip `subjectGroup: "documents" → "files"` on the file-oriented tool rows in `packages/tools/src/catalog.ts` (Metadata Inspector/Scrubber, File Hash & Integrity, File Type Verifier, Converter — see Decision A); add the new `file-repair` catalog row. Update any catalog snapshot/subject-group tests. No DB migration.
+**Subject group — a RENAME, not a split (zero-risk).** The `documents` subject group is already the file-utilities bucket: `types.ts` comments it "file utilities" and it holds exactly the five file tools (File Converter, Metadata Inspector/Scrubber, File Hash & Integrity, File Type Verifier, AI-Text Detection). So Plan 6 **renames** `"documents" → "files"` in `SUBJECT_GROUP_ORDER` (`packages/tools/src/types.ts`, and update its comment); the compiler then forces every `subjectGroup: "documents"` row in `packages/tools/src/catalog.ts` to `"files"` (all five). Add the new `file-repair` row (`subjectGroup: "files"`). Update any catalog snapshot/subject-group tests. No DB migration. All five tools — AI-Text Detection included (Decision A) — stay grouped together under the truer name.
 
 **Permission (needs the full triple + seeds):** add `tools:fileRepair` to the access-control registry (`packages/access-control/src/registry.ts`); add a per-firm seed migration (`packages/database/drizzle/per-firm/00NN_seed-tools-file-repair.sql` + `meta/_journal.json` + register in `apps/worker/src/per-firm-migrations.ts`); update the "seed unions" e2e arrays that assert the full permission set (`me.test.ts`, `auth-provisioning-e2e.test.ts`). These are the known recurring tool-slice gotchas (see the metadata-tool status memory): tsconfig references, seed unions, `per-firm-migrations.ts`, dual allow-lists, contract regen.
 
@@ -66,13 +66,13 @@ POST /api/tools/file-repair/attach     (opt-in, separate route)
 
 ---
 
-## Decision points (need owner input before the execution plan)
+## Decision points (RESOLVED by owner, 2026-07-02)
 
-- **A — Which tools move to `files`?** Proposed: Metadata Inspector/Scrubber, File Hash & Integrity, File Type Verifier, Converter, and the new File Repair. **Open:** does AI-Text Detection (currently `documents`) also move? It analyzes document *content*, not file structure — argument to leave it in `documents`. *Recommend: leave AI-Text Detection in `documents`; move the five structural-file tools.*
-- **B — Re-scan repaired output through the malware gate?** The salvaged bytes are reconstructed from a possibly-malicious corrupt input. The existing content tools commit trusted bytes without a re-scan, but repair is different — it emits a *new* file the user will open. *Recommend: run the stateless repair output through the scan engine before attach-to-matter (not on the stateless download, which is the user's own bytes back). Confirm.*
-- **C — Stateless-only, or attach-to-matter in this plan?** Owner previously said "no UI." Attach-to-matter has no UI either way (it's a route). *Recommend: build both the stateless route and the opt-in attach route now — attach is the whole point of a legal-evidence tool, and the file-service template makes it cheap.*
-- **D — N salvaged files → new versions or new files?** Carving returns N `SalvagedFile`s from one input; the pillars return one. Attach can create N new versions of one file, or N new files. *Recommend: one repaired input file → one new version (modeled on `commitEditedVersion`); carve's N fragments → N new files (each is a distinct recovered document, not a revision of the input). Confirm.*
-- **E — Render-verification of repaired PDFs?** Optional enhancement flagged in the Plan 4 doc: verify a repaired PDF via the mainline `pdf-core` hayro render path ("N of M pages decode") on the container lane. *Recommend: defer to a fast-follow; keep Plan 6 to the honest-loss manifest the engine already produces.*
+- **A — Grouping → RESOLVED: rename `documents` → `files`, keep all five tools together (AI-Text Detection included).** The `documents` group is already the file-utilities bucket; AI-Text Detection touches the file/OCR layer, so it belongs with the pack, not cordoned off. No split — see "The `files` subject group" above.
+- **B — Re-scan repaired output → RESOLVED: YES.** Run every repaired/carved output through the malware scan engine before it leaves the system — on **both** the stateless return (returning reconstructed bytes to the browser is itself a delivery; matches the safe-delivery precedent) and the attach-to-matter path. The salvaged bytes are reconstructed from possibly-malicious input, so they are never trusted without a re-scan. (Users tolerate the extra container hop — see the lane decision.)
+- **C — Stateless vs attach → RESOLVED: build BOTH.** A stateless diagnose/repair/carve route (bytes back, `audited:false`, nothing persisted) AND an opt-in attach-to-matter route (`audited:true`, `resource:"matter"`). No UI either way.
+- **D — N files → RESOLVED (recommendation): repair = one new version, carve = N new files.** One repaired input → one new version (modeled on `commitEditedVersion`); carve's N fragments → N new files (each a distinct recovered document, not a revision of the input).
+- **E — Render-verification → RESOLVED: DEFER.** Keep Plan 6 to the honest-loss manifest the engine already produces; the `pdf-core` hayro render-verify is a fast-follow.
 
 ---
 
