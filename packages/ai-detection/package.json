@@ -18,6 +18,7 @@
     "test": "vp test run"
   },
   "dependencies": {
+    "@magna-carta/data-access": "workspace:*",
     "@magna-carta/identifiers": "workspace:*",
     "@magna-carta/integrations": "workspace:*",
     "zod": "catalog:"
