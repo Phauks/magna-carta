@@ -220,8 +220,10 @@
   // 03:00 UTC pass runs the storage-metering reconciliation (a full R2 LIST per firm — too heavy for
   // every five minutes); the weekly 04:00 UTC Sunday pass re-enqueues committed versions still
   // marked scan_verdict = 'unscanned' onto FILES_INGEST so a now-available scan engine can evaluate
-  // them in place. src/index.ts routes each Cron expression to its handler.
+  // them in place; the */10 pass probes the core primitives and polls the upstream provider feeds,
+  // writing the status:derived snapshot in STATUS_KV. src/index.ts routes each Cron expression to
+  // its handler.
   "triggers": {
-    "crons": ["*/5 * * * *", "0 3 * * *"],
+    "crons": ["*/5 * * * *", "0 3 * * *", "*/10 * * * *"],
   },
 }
