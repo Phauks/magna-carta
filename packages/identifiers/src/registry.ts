@@ -101,6 +101,8 @@ export const ENTITY_PREFIXES = {
   // plane; `supportGrant` is a time-boxed, pull-redeemed access grant issued to that operator.
   platformStaff: "platformStaff",
   supportGrant: "supportGrant",
+  serviceEvent: "serviceEvent",
+  serviceComponent: "serviceComponent",
 } as const;
 
 export type EntityType = keyof typeof ENTITY_PREFIXES;
