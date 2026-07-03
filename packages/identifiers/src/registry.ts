@@ -103,6 +103,10 @@ export const ENTITY_PREFIXES = {
   // plane; `supportGrant` is a time-boxed, pull-redeemed access grant issued to that operator.
   platformStaff: "platformStaff",
   supportGrant: "supportGrant",
+  // Password recovery — a transient job identifier minted at recover-request time and used to key
+  // the RecoveryJobCoordinator Durable Object (mirrors conversionJob: not persisted in D1, the DO
+  // itself is the state store for the job).
+  recoveryJob: "recoveryJob",
 } as const;
 
 export type EntityType = keyof typeof ENTITY_PREFIXES;

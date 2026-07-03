@@ -50,6 +50,7 @@ import { registerFirmUsageRoute } from "./routes/firm-usage.ts";
 import { registerWhoisRoute, type WhoisRouteDeps } from "./routes/whois.ts";
 import { registerSafeBrowseRoute, type SafeBrowseRouteDeps } from "./routes/safe-browse.ts";
 import { registerDecryptionRoutes } from "./routes/decryption.ts";
+import { registerRecoveryRoutes } from "./routes/recovery.ts";
 import { registerFileIntegrityRoutes } from "./routes/file-integrity.ts";
 import { registerFileTypeRoutes } from "./routes/file-type.ts";
 import { registerAiDetectionRoutes } from "./routes/ai-detection.ts";
@@ -381,6 +382,10 @@ export function createApp(options: CreateAppOptions = {}) {
   // createFetchRedirectProbe() — built lazily in the handler, never at startup.
   registerSafeBrowseRoute(app, chokepoint, options.safeBrowseDeps ?? {});
   registerDecryptionRoutes(app, chokepoint);
+  // Password recovery: mints a job and fans it out through the recovery coordinator Durable
+  // Object. Registered beside decryption — the button-initiated surface for the SAME extracted
+  // hash decryption.inspect returns inline, handed instead to an offline dictionary search.
+  registerRecoveryRoutes(app, chokepoint);
   registerFileIntegrityRoutes(app, chokepoint);
   registerFileTypeRoutes(app, chokepoint);
   registerAiDetectionRoutes(app, chokepoint);
