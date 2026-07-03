@@ -38,15 +38,26 @@ function input(overrides: Partial<RecoveryStartInput> = {}): RecoveryStartInput 
 
 // A minimal in-memory stand-in for DurableObjectState — only the storage surface
 // recovery-coordinator.ts uses. Fresh per test so no state leaks between cases.
+// Exposes setAlarmCount so a test can prove the alarm was RE-armed (a second setAlarm call), which a
+// timestamp comparison cannot distinguish from "never re-armed" at sub-millisecond test resolution.
+type CountingStorage = DurableObjectState["storage"] & { readonly setAlarmCount: number };
+
 function fakeState(): DurableObjectState {
   const values = new Map<string, unknown>();
   let alarmTime: number | null = null;
+  let setAlarmCount = 0;
   const storage = {
     get: async <T,>(key: string): Promise<T | undefined> => values.get(key) as T | undefined,
     put: async <T,>(key: string, value: T): Promise<void> => void values.set(key, value),
-    setAlarm: async (time: number): Promise<void> => void (alarmTime = time),
+    setAlarm: async (time: number): Promise<void> => {
+      alarmTime = time;
+      setAlarmCount += 1;
+    },
     deleteAlarm: async (): Promise<void> => void (alarmTime = null),
     getAlarm: async (): Promise<number | null> => alarmTime,
+    get setAlarmCount(): number {
+      return setAlarmCount;
+    },
   };
   return { storage } as unknown as DurableObjectState;
 }
@@ -189,22 +200,23 @@ describe("RecoveryJobCoordinator", () => {
 
   it("re-arms the stuck-job alarm on each reported miss (time since last progress, not a fixed clock)", async () => {
     const coord = newCoordinator({ send: async () => {} });
-    const ctx = (coord as unknown as { ctx: DurableObjectState }).ctx;
+    const storage = (coord as unknown as { ctx: DurableObjectState }).ctx
+      .storage as unknown as CountingStorage;
     await coord.start(input({ shardCount: 3 }));
-    const armedAtStart = await ctx.storage.getAlarm();
-    expect(armedAtStart).not.toBeNull();
+    expect(await storage.getAlarm()).not.toBeNull();
+    expect(storage.setAlarmCount).toBe(1); // armed once at start
 
-    // A miss report re-arms the watchdog rather than leaving the original start-time deadline, so an
-    // actively-reporting job is never guillotined mid-flight.
+    // A miss report re-arms the watchdog (a second setAlarm) rather than leaving the original
+    // start-time deadline, so an actively-reporting job is never guillotined mid-flight. Counting the
+    // calls proves the re-arm regardless of clock resolution — a timestamp compare could not.
     await coord.reportShard(0, { found: null, candidatesTried: 1 });
-    const armedAfterProgress = await ctx.storage.getAlarm();
-    expect(armedAfterProgress).not.toBeNull();
-    expect(armedAfterProgress).toBeGreaterThanOrEqual(armedAtStart as number);
+    expect(await storage.getAlarm()).not.toBeNull();
+    expect(storage.setAlarmCount).toBe(2); // re-armed on progress
 
     // Exhaustion clears the watchdog entirely.
     await coord.reportShard(1, { found: null, candidatesTried: 1 });
     await coord.reportShard(2, { found: null, candidatesTried: 1 });
-    expect(await ctx.storage.getAlarm()).toBeNull();
+    expect(await storage.getAlarm()).toBeNull();
   });
 
   it("arms a purge alarm on found, then alarm() nulls the password once the retention window elapses", async () => {
