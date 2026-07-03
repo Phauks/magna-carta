@@ -464,6 +464,9 @@ importers:
       '@magna-carta/shipping':
         specifier: workspace:*
         version: link:../../packages/shipping
+      '@magna-carta/status':
+        specifier: workspace:*
+        version: link:../../packages/status
       '@magna-carta/telemetry':
         specifier: workspace:*
         version: link:../../packages/telemetry

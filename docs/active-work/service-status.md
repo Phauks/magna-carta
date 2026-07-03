@@ -63,6 +63,7 @@ with dashboard/D1 access must:
 4. **Confirm the cron:** after the `*/10` status cron has run at least once, verify it is publishing
    `status:derived` — check the KV value directly or the status worker's public feed.
 
-Before step 1, also fix the Task 14 blocking finding: `apps/worker/package.json` is missing the
-`@magna-carta/status` workspace dependency (breaks its wrangler dry-run and the six
-feature-relevant test suites — see `.superpowers/sdd/task-14-report.md`).
+The Task 14 blocking finding — `apps/worker/package.json` missing the `@magna-carta/status`
+workspace dependency — is fixed: the dependency is declared, `tsconfig.build.json` references are
+regenerated, and `wrangler deploy --dry-run` resolves cleanly (see
+`.superpowers/sdd/task-14-report.md`).
