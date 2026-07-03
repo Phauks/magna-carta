@@ -15,7 +15,8 @@ export interface FirmResourceProvider {
   // Configure the firm bucket's object-create event notification to feed the files-ingest queue
   // (prefix files/). Idempotent and re-runnable: provisioning calls it on every run that reaches the
   // bucket step, so a run that created the bucket but crashed before this still configures on retry.
-  configureBucketNotifications(firmId: FirmId): Promise<void>;
+  // The region must match what createBucket used — the notification PUTs target the SAME bucket.
+  configureBucketNotifications(firmId: FirmId, region: DataRegion): Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -38,7 +39,7 @@ export function createDevFirmResourceProvider(): FirmResourceProvider {
 
     // Miniflare delivers no R2 event notifications, so there is nothing to configure locally — the
     // ingest consumer is driven by synthetic events in dev/tests. A no-op marks the step complete.
-    configureBucketNotifications(): Promise<void> {
+    configureBucketNotifications(_firmId: FirmId, _region: DataRegion): Promise<void> {
       return Promise.resolve();
     },
   };
@@ -197,7 +198,7 @@ export function createCloudflareRestFirmResourceProvider(
     // PUT the object-create notification rule onto the firm's bucket, targeting the files-ingest
     // queue. PUT is idempotent — re-running replaces the same rule set, so a resumed provisioning is
     // safe. The bucket name is its deterministic resource name (createBucket's identifier).
-    async configureBucketNotifications(firmId: FirmId): Promise<void> {
+    async configureBucketNotifications(firmId: FirmId, region: DataRegion): Promise<void> {
       if (
         options.eventNotificationQueueId === undefined ||
         options.eventNotificationQueueId === ""
@@ -208,6 +209,11 @@ export function createCloudflareRestFirmResourceProvider(
         );
       }
       const bucketName = await firmResourceName(firmId);
+      // The jurisdiction header must ride every bucket-scoped operation against a jurisdiction-
+      // restricted bucket (same requirement as createBucket's probe/create) — an unheadered PUT
+      // resolves against the default jurisdiction and misses the bucket entirely.
+      const jurisdiction = jurisdictionForRegion(region);
+      const extraHeaders = jurisdiction ? { "cf-r2-jurisdiction": jurisdiction } : undefined;
       const configured = await callApi<unknown>(
         "configureBucketNotifications",
         "PUT",
@@ -220,6 +226,7 @@ export function createCloudflareRestFirmResourceProvider(
             },
           ],
         },
+        extraHeaders,
       );
       if (!configured.envelope.success) {
         throw describeFailure(
@@ -244,6 +251,7 @@ export function createCloudflareRestFirmResourceProvider(
               },
             ],
           },
+          extraHeaders,
         );
         if (!configuredBulk.envelope.success) {
           throw describeFailure(

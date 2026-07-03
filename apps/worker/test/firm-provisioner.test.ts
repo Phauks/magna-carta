@@ -44,7 +44,7 @@ function fakePorts(): FakePorts {
       if (failures.createBucket) return Promise.reject(new Error("injected createBucket crash"));
       return Promise.resolve({ bucketName: `fake-bucket-${firmId}` });
     },
-    configureBucketNotifications() {
+    configureBucketNotifications(_firmId: FirmId, _region: DataRegion) {
       calls.configureBucketNotifications += 1;
       return Promise.resolve();
     },

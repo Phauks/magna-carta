@@ -25,7 +25,7 @@ describe("dev FirmResourceProvider (bucket-name adapter)", () => {
   it("configureBucketNotifications is a no-op (Miniflare delivers no R2 notifications)", async () => {
     const provider = createDevFirmResourceProvider();
     await expect(
-      provider.configureBucketNotifications(newIdentifier("firm")),
+      provider.configureBucketNotifications(newIdentifier("firm"), "us"),
     ).resolves.toBeUndefined();
   });
 });
@@ -209,7 +209,7 @@ describe("Cloudflare REST FirmResourceProvider", () => {
       eventNotificationQueueId: "queue-uuid-files-ingest",
       fetchImplementation: stub.fetchImplementation,
     });
-    await provider.configureBucketNotifications(firmId);
+    await provider.configureBucketNotifications(firmId, "us");
 
     const call = stub.calls[0];
     expect(call?.method).toBe("PUT");
@@ -229,7 +229,7 @@ describe("Cloudflare REST FirmResourceProvider", () => {
       apiToken: "test-api-token",
       fetchImplementation: stub.fetchImplementation,
     });
-    await expect(provider.configureBucketNotifications(firmId)).rejects.toThrow(
+    await expect(provider.configureBucketNotifications(firmId, "us")).rejects.toThrow(
       /eventNotificationQueueId/,
     );
   });
@@ -244,7 +244,7 @@ describe("Cloudflare REST FirmResourceProvider", () => {
       eventNotificationQueueId: "queue-uuid-files-ingest",
       fetchImplementation: stub.fetchImplementation,
     });
-    await expect(provider.configureBucketNotifications(firmId)).rejects.toThrow(
+    await expect(provider.configureBucketNotifications(firmId, "us")).rejects.toThrow(
       /configureBucketNotifications failed.*403.*forbidden/s,
     );
   });
@@ -261,7 +261,7 @@ describe("Cloudflare REST FirmResourceProvider", () => {
       bulkEventNotificationQueueId: "queue-uuid-bulk-ingest",
       fetchImplementation: stub.fetchImplementation,
     });
-    await provider.configureBucketNotifications(firmId);
+    await provider.configureBucketNotifications(firmId, "us");
 
     expect(stub.calls).toHaveLength(2);
     const bucketName = await firmResourceName(firmId);
@@ -285,5 +285,37 @@ describe("Cloudflare REST FirmResourceProvider", () => {
     expect(bulkCall?.body).toEqual({
       rules: [{ actions: ["PutObject", "CompleteMultipartUpload"], prefix: "bulk/" }],
     });
+  });
+
+  it("eu firm's notification PUTs carry the eu jurisdiction header; us firm's carry none — the bucket lives under a jurisdiction-restricted namespace, so an unheadered PUT misses it", async () => {
+    const euStub = stubFetch([
+      { status: 200, body: { success: true, result: {} } }, // files/ rule
+      { status: 200, body: { success: true, result: {} } }, // bulk/ rule
+    ]);
+    const euProvider = createCloudflareRestFirmResourceProvider({
+      accountId: "test-account-id",
+      apiToken: "test-api-token",
+      eventNotificationQueueId: "queue-uuid-files-ingest",
+      bulkEventNotificationQueueId: "queue-uuid-bulk-ingest",
+      fetchImplementation: euStub.fetchImplementation,
+    });
+    await euProvider.configureBucketNotifications(firmId, "eu");
+    expect(euStub.calls[0]?.headers["cf-r2-jurisdiction"]).toBe("eu");
+    expect(euStub.calls[1]?.headers["cf-r2-jurisdiction"]).toBe("eu");
+
+    const usStub = stubFetch([
+      { status: 200, body: { success: true, result: {} } }, // files/ rule
+      { status: 200, body: { success: true, result: {} } }, // bulk/ rule
+    ]);
+    const usProvider = createCloudflareRestFirmResourceProvider({
+      accountId: "test-account-id",
+      apiToken: "test-api-token",
+      eventNotificationQueueId: "queue-uuid-files-ingest",
+      bulkEventNotificationQueueId: "queue-uuid-bulk-ingest",
+      fetchImplementation: usStub.fetchImplementation,
+    });
+    await usProvider.configureBucketNotifications(firmId, "us");
+    expect(usStub.calls[0]?.headers["cf-r2-jurisdiction"]).toBeUndefined();
+    expect(usStub.calls[1]?.headers["cf-r2-jurisdiction"]).toBeUndefined();
   });
 });
