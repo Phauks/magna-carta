@@ -106,9 +106,12 @@ async fn main() -> std::io::Result<()> {
 }
 ```
 
-- [ ] **Step 6: `Dockerfile`** (clone `containers/raster/Dockerfile`) — `rust:1-bookworm` build stage copying the crate PLUS its path-deps' source (`crates/engine-host`, `crates/recovery-core`) into the build context; `debian:bookworm-slim` runtime, `EXPOSE 8080`, entrypoint the bin. **Note the build-context subtlety:** raster is self-contained, but recovery path-deps two `crates/*` — the Docker build context/`COPY` must include them (either widen the context to the repo root in the recovery-worker wrangler `image` build, or vendor). Resolve this concretely and document it in `containers/recovery/CLAUDE.md`. This is the one genuinely novel build wrinkle.
+- [ ] **Step 6: `Dockerfile` + repo-root build context (the reference pattern for ALL harness-hosted engine containers).** Unlike raster/scan (self-contained crates whose build context is their own dir), a harness-hosted engine container path-deps shared `crates/*` (here `engine-host` + `recovery-core`), so its build context MUST be a common ancestor — the repo root. This is a first-class, verified wrangler capability: the container `image` takes a `dockerfile` path + an **`image_build_context`** (confirmed present in the wrangler 4.98 config schema), so the Dockerfile can live in `containers/recovery/` while the build context is the repo root. Write:
+  - `containers/recovery/Dockerfile` — `rust:1-bookworm` build stage with `WORKDIR /src`, then (paths RELATIVE TO REPO ROOT, the context): `COPY crates/engine-host crates/engine-host`, `COPY crates/recovery-core crates/recovery-core`, `COPY containers/recovery containers/recovery`, then `WORKDIR /src/containers/recovery && cargo build --release`; `debian:bookworm-slim` runtime, `EXPOSE 8080`, entrypoint the bin. (`containers/recovery` carries its own `Cargo.lock`, copied with it.)
+  - A repo-root-scoped `.dockerignore` (or a `containers/recovery/.dockerignore` honored for its context) that excludes everything except those three trees — so the uploaded build context stays small even though it is rooted at the repo. This keeps the Cloudflare Workers Builds image build fast.
+  This is deliberately established as the **canonical engine-container build pattern** (see Task 8 Step 3): the next harness-hosted engine copies this Dockerfile + `image_build_context` shape rather than re-solving it.
 
-- [ ] **Step 7: `containers/recovery/CLAUDE.md`** — local rules: pure-Rust only; engine stays serde-free (host marshals); `cargo test` runs without Docker; the path-dep build-context note from Step 6.
+- [ ] **Step 7: `containers/recovery/CLAUDE.md`** — local rules: pure-Rust only; engine stays serde-free (host marshals); `cargo test` runs without Docker; the `image_build_context` = repo-root pattern from Step 6, and that recovery is the reference container-on-`engine_host::host` implementation.
 
 - [ ] **Step 8: Gate + commit** — `cd containers/recovery && cargo test && cargo fmt --check && cargo clippy --all-targets -- -D warnings`; citation grep clean. Commit `feat(recovery-container): axum host for diagnose/repair/carve on engine-host`.
 
@@ -123,7 +126,23 @@ async fn main() -> std::io::Result<()> {
 - [ ] **Step 1: `src/recovery-engine-container.ts`** — `export class RecoveryEngineContainer extends Container { defaultPort = 8080; requiredPorts = [8080]; sleepAfter = "5m"; enableInternet = false; pingEndpoint = "ready"; }` (identical to `RasterEngineContainer`).
 - [ ] **Step 2: `src/forward.ts`** — the `container.fetch` proxy (clone `forward-convert.ts`), generalized to forward the incoming path (`/diagnose|/repair|/carve`) to `http://recovery<path>`, streaming the body (`duplex: "half"`, pass `signal`), returning the container response verbatim.
 - [ ] **Step 3: `src/index.ts`** — `getContainer(env.RECOVERY_ENGINE, "recovery")`; route the three POST paths to `forward(...)`, else 404. Export the DO class. `Bindings = { RECOVERY_ENGINE: DurableObjectNamespace<RecoveryEngineContainer> }`.
-- [ ] **Step 4: `wrangler.jsonc`** (clone `convert-worker`, NO cron): `name: "magna-carta-recovery"`; `containers: [{ class_name: "RecoveryEngineContainer", image: "../../containers/recovery/Dockerfile", max_instances: 5, instance_type: "standard-1" }]`; `durable_objects.bindings: [{ name: "RECOVERY_ENGINE", class_name: "RecoveryEngineContainer" }]`; `migrations: [{ tag: "v1", new_sqlite_classes: ["RecoveryEngineContainer"] }]`. **If Task 1 Step 6 required a repo-root build context**, set the `image` build context accordingly here.
+- [ ] **Step 4: `wrangler.jsonc`** (clone `convert-worker`, NO cron): `name: "magna-carta-recovery"`; `durable_objects.bindings: [{ name: "RECOVERY_ENGINE", class_name: "RecoveryEngineContainer" }]`; `migrations: [{ tag: "v1", new_sqlite_classes: ["RecoveryEngineContainer"] }]`. The `containers` entry uses the repo-root build context from Task 1 Step 6 — the `image` is an object naming the Dockerfile + `image_build_context` (paths are relative to this wrangler file at `apps/recovery-worker/`, so both point up to the repo root):
+
+```jsonc
+"containers": [
+  {
+    "class_name": "RecoveryEngineContainer",
+    "image": {
+      "dockerfile": "../../containers/recovery/Dockerfile",
+      "image_build_context": "../../",
+    },
+    "max_instances": 5,
+    "instance_type": "standard-1",
+  },
+],
+```
+
+  Verify the exact `image`-object field names against the wrangler 4.98 config schema before committing (the schema confirms `image_build_context` exists); if the installed wrangler wants the Dockerfile named differently within the object, follow the schema. The in-cloud Workers Build validates the actual image build on first push.
 - [ ] **Step 5: `package.json`** (clone convert-worker): `@cloudflare/containers: "catalog:"`; scripts `build`/`dev`/`deploy`/`test`. `pnpm-workspace.yaml` `apps/*` glob auto-includes it.
 - [ ] **Step 6: Test** — clone convert-worker's forward test: inject a fake container fetcher, assert path forwarding + streamed body + verbatim response passthrough for each of the three paths.
 - [ ] **Step 7: Gate + commit** — `pnpm --filter magna-carta-recovery test`; `pnpm --filter magna-carta-recovery exec wrangler deploy --dry-run`. Commit `feat(recovery-worker): dedicated container worker for the repair engine`.
@@ -226,8 +245,9 @@ Repaired/carved bytes are reconstructed from possibly-malicious input, so they a
 
 - [ ] **Step 1:** `changelog.d/file-repair-salvage.md` fragment — the tool is reachable (diagnose/repair/carve), stateless, re-scans output.
 - [ ] **Step 2:** `docs/decisions/pending/file-repair-single-container-lane.md` ADR fragment — record the WASM-lane-dropped / single-Container-lane decision and the `documents→files` rename (the engine-host + carving ADR fragments are owed at SP2 merge too — see the design doc closeout).
-- [ ] **Step 3:** `STATUS.md` — update the File Repair slice row (built/tested for 6a). `ROADMAP.md` — reflect stateless File Repair shipped, attach-to-matter (6b) next.
-- [ ] **Step 4:** Commit `docs(file-repair): changelog + ADR fragments + status for stateless integration`.
+- [ ] **Step 3 (the reusable-leverage step): capture the canonical engine-container pattern in the engine-host seam standard.** recovery is the first harness-hosted engine container, and we will have many more (raster/scan/bundle exist; SP3 retrofits pdf-core/decryption-core; conversion 2·4, OCR, Tantivy are planned). Add a short "Hosting a pure-Rust engine in a Container" section to the engine-host seam convention (`docs/conventions/engine-host-seam.md` — the standard the framework design anticipated; create it if absent) documenting the reference pattern this plan established: engine crate stays pure in `crates/`; a thin `containers/<engine>` host on `engine_host::host::{ready_app, with_panic_net, serve}`; the `image_build_context` = repo-root Dockerfile shape + `.dockerignore`; a dedicated `apps/<engine>-worker` (Container DO + `getContainer` + forward proxy) reached from the app worker by a service binding. So the NEXT engine copies the pattern instead of re-deriving it. Note (do NOT build now) the future SP3-scope extraction of a shared `container-worker` base across the 4 near-identical workers.
+- [ ] **Step 4:** `STATUS.md` — update the File Repair slice row (built/tested for 6a). `ROADMAP.md` — reflect stateless File Repair shipped, attach-to-matter (6b) next.
+- [ ] **Step 5:** Commit `docs(file-repair): changelog + ADR fragments + engine-container convention + status`.
 
 ---
 
@@ -238,7 +258,8 @@ Repaired/carved bytes are reconstructed from possibly-malicious input, so they a
 
 ## Notes for the implementer
 
-- **The one novel wrinkle is Task 1 Step 6** (Docker build context for a container that path-deps two `crates/*`). Everything else is cloning a proven template. Resolve the build context concretely and prove `wrangler deploy --dry-run` on the recovery-worker before wiring the app route.
+- **The one novel piece is Task 1 Step 6** — the `image_build_context` = repo-root Dockerfile for a container that builds on the shared `crates/` harness. It is a verified wrangler capability (schema-confirmed), not a hack, and it is deliberately the reference pattern future engine containers copy (Task 8 Step 3). It is NOT locally buildable (no local Docker — images build in Cloudflare Workers Builds on push); `wrangler deploy --dry-run` validates the worker bundle but not the image build, so the image is proven by the in-cloud build on first push. Everything else is cloning a proven template.
+- **Use `engine_host::host`, do not hand-roll axum.** recovery is the first NEW engine after the harness landed and is its reference container consumer (raster/scan/bundle predate the harness and are SP3's retrofit targets, not the pattern to copy). The shared `with_panic_net`/body-cap/`/ready` are safety-critical (never-crash-the-container, never a silently-wrong success) and must be shared, not re-derived.
 - **`file-type.ts` reaches its container directly off `c.env.SCAN_SERVICE`** (no dedicated helper) — the repair route does the same off `c.env.RECOVERY_SERVICE`. The dedicated `recovery-worker` (Task 2) is what owns the `getContainer` DO call; the app worker only holds the service binding.
 - **Re-scan uses the inline port** (`resolveScanPort(...).scan(...)` + `computeVerdict`), the `scan-diagnose.ts` pattern — NOT the queued `maybeEnqueueRescanOnAccess` path (that is for stored versions; here there is no stored version yet).
 - **`matterContext: "optional"`** on the catalog row is the seam Plan 6b fills; 6a ships stateless-only.
