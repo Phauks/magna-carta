@@ -46,14 +46,25 @@ describe("PII registry coverage", () => {
     }
   });
 
-  it("every protected column's table is registered as PII", () => {
+  // firm_secret holds firm-owned integration credentials (encrypted for confidentiality), not a data
+  // subject's personal data, so it is classified non-PII. Every other protected column IS personal
+  // data and must be attributed for erasure in PII_TABLES.
+  const protectedNonPersonalTables = new Set(["firm_secret"]);
+
+  it("every protected column's per-firm table is classified correctly", () => {
     for (const protectedColumn of PROTECTED_COLUMNS) {
-      // firm_secret is control-plane, not per-firm; skip control-plane-only protected tables.
-      if (!schemaTables.has(protectedColumn.table)) continue;
-      expect(
-        registered.has(protectedColumn.table),
-        `protected table ${protectedColumn.table} must be in PII_TABLES`,
-      ).toBe(true);
+      if (!schemaTables.has(protectedColumn.table)) continue; // a protected table not in the per-firm schema
+      if (protectedNonPersonalTables.has(protectedColumn.table)) {
+        expect(
+          declaredNonPii.has(protectedColumn.table),
+          `${protectedColumn.table} holds firm-owned secrets, not personal data — expected in NO_PII_TABLES`,
+        ).toBe(true);
+      } else {
+        expect(
+          registered.has(protectedColumn.table),
+          `protected personal-data table ${protectedColumn.table} must be in PII_TABLES`,
+        ).toBe(true);
+      }
     }
   });
 });

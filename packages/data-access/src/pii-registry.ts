@@ -81,16 +81,6 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
   // Append-only tables: pseudonymize the subject reference, never delete the row.
   { table: "audit_log", subjectKey: "actor_user_id", action: "pseudonymize-keep" },
   { table: "entity_merge", subjectKey: "subordinate_id", action: "pseudonymize-keep" },
-  // firm_secret holds only a named sealed value (API keys, OAuth material) — no natural-person
-  // subject, so its own id never matches a real erasure subject. Registered solely because its sealed
-  // column is a PROTECTED_COLUMNS entry, per the coverage fitness's protected-column-implies-registered
-  // rule; this keeps the encrypted-at-rest surface and the PII registry from silently drifting apart.
-  {
-    table: "firm_secret",
-    subjectKey: "id",
-    action: "retain-under-matter",
-    note: "firm-scoped secret store, not a data subject's personal data; kept out of subject-erasure reach by construction (managed only through firm:manageSecrets)",
-  },
 ];
 
 // Per-firm tables that hold NO personal data — the explicit non-PII half of the coverage fitness.
@@ -145,6 +135,7 @@ export const NO_PII_TABLES: readonly string[] = [
   // A connection's principal_ref names a firm- or user-scoped OAuth principal, but the row is current
   // connection *state* (mirrors member_role/document_checkout above), not an activity record.
   "integration_connection",
+  "firm_secret", // firm-owned integration secrets (encrypted), not data-subject personal data
   // Directory classification catalogs — tag/role names, not entity data.
   "directory_category",
   "directory_party_role",
