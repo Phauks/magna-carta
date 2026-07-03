@@ -22,4 +22,16 @@ US-MD-lap-msba-2026	US-MD	https://www.msba.org/health-and-wellness/	web search +
 US-ME-map-2026	US-ME	http://www.me-lap.org/	web search + direct fetch	2026-07-02	
 US-MI-ljap-2026	US-MI	https://www.michbar.org/generalinfo/ljap/home	web search + direct fetch	2026-07-02	
 US-MN-lcl-allonehealth-2026	US-MN	https://mnlcl.org/	web search + direct fetch	2026-07-02	
+US-MO-molap-2026	US-MO	https://publicdefender.mo.gov/wp-content/uploads/2019/07/MOLAP-Brochure.pdf	official MOLAP brochure PDF loaded (mobar.org 403 this session)	2026-07-02	
 US-MS-ljap-2026	US-MS	https://www.msbar.org/programs-affiliates/lawyers-judges-assistance-program/	web search + corroborated (msbar.org 403; courts.ms.gov 500)	2026-07-02	
+US-MT-lap-montanabar-2026	US-MT	https://www.montanabar.org/For-Attorneys/Lawyer-Assistance-Program	web search + direct fetch	2026-07-02	
+US-NC-nclap-barcares-2026	US-NC	https://www.nclap.org/contact/	web search + direct fetch	2026-07-02	
+US-ND-lap-sband-2026	US-ND	https://cdn.ymaws.com/www.sband.org/resource/resmgr/docs/for_lawyers/LAP_Brochure.pdf	official SBAND LAP brochure PDF loaded (sband.org LAP web page 403 this session)	2026-07-02	
+US-NE-nlap-2026	US-NE	https://nebraskajudicial.gov/administration/attorneys/nebraska-lawyers-assistance-program	web search + direct fetch (nebar.com 403 this session)	2026-07-02	
+US-NH-nhlap-lapnh-2026	US-NH	https://www.lapnh.org/	web search + direct fetch	2026-07-02	
+US-NJ-njlap-2026	US-NJ	https://www.njcourts.gov/attorneys/attorney-ethics-and-discipline/attorney-resources	NJ Judiciary official page loaded (njlap.org 403 this session)	2026-07-02	
+US-NM-nmlap-2026	US-NM	https://www.sbnm.org/Member-Services/New-Mexico-Lawyer-Assistance-Program/For-Judges	web search + direct fetch	2026-07-02	
+US-NV-nlap-lcl-2026	US-NV	https://nvbar.org/for-lawyers/resources/wellbeing/nlap/	corroborated from search index (nvbar.org 403 this session; browser tool unavailable)	2026-07-02	
+US-OH-olap-2026	US-OH	https://www.ohiolap.org/faq	web search + direct fetch	2026-07-02	
+US-OK-lhl-2026	US-OK	https://www.okbar.org/lhl/	web search + direct fetch	2026-07-02	
+US-OR-oaap-2026	US-OR	https://oaap.org/about/	web search + direct fetch	2026-07-02	

@@ -163,6 +163,13 @@ sources:
     accessedOn: 2026-07-02
     accessGate: open
     sha256: 9cf963ac9817b7e31b0e089c8a45ec17a7ef9ee84ad917966347e8c4299892b7
+  - jurisdiction: US-MO
+    path: US-MO/US-MO-molap-2026.txt
+    publisher: "The Missouri Bar (Missouri Lawyers' Assistance Program)"
+    sourceUrl: https://publicdefender.mo.gov/wp-content/uploads/2019/07/MOLAP-Brochure.pdf
+    accessedOn: 2026-07-02
+    accessGate: open
+    sha256: 569945b64e59ebd647d27b3666bddfbfca28270540d841a7b1cb663c5d567b72
   - jurisdiction: US-MS
     path: US-MS/US-MS-ljap-2026.txt
     publisher: 'The Mississippi Bar (Lawyers and Judges Assistance Program)'
@@ -170,3 +177,80 @@ sources:
     accessedOn: 2026-07-02
     accessGate: open
     sha256: ca156b7eebc0b6dc6e79b620804a252e9b468dae7abdefa677105b11c985d637
+  - jurisdiction: US-MT
+    path: US-MT/US-MT-lap-montanabar-2026.txt
+    publisher: 'State Bar of Montana (Lawyer Assistance Program)'
+    sourceUrl: https://www.montanabar.org/For-Attorneys/Lawyer-Assistance-Program
+    accessedOn: 2026-07-02
+    accessGate: open
+    sha256: 565ed8b58dec56108140d17089a16401b350d4bbbd7a63f2170ad7bfbfb275b1
+  - jurisdiction: US-NC
+    path: US-NC/US-NC-nclap-barcares-2026.txt
+    publisher: 'North Carolina State Bar (NC LAP) + NC Bar Association (BarCARES)'
+    sourceUrl: https://www.nclap.org/contact/
+    accessedOn: 2026-07-02
+    accessGate: open
+    sha256: bd4fe03154189d76823318198637f8d08d7f33ae62417704a380ee27caa2d9fe
+  - jurisdiction: US-ND
+    path: US-ND/US-ND-lap-sband-2026.txt
+    publisher: 'State Bar Association of North Dakota (Lawyer Assistance Program)'
+    sourceUrl: https://cdn.ymaws.com/www.sband.org/resource/resmgr/docs/for_lawyers/LAP_Brochure.pdf
+    accessedOn: 2026-07-02
+    accessGate: open
+    sha256: 3647fed279862492b455da39a0b52f3aba59647470398b4ab1d074f564699fc0
+  - jurisdiction: US-NE
+    path: US-NE/US-NE-nlap-2026.txt
+    publisher: 'Nebraska Supreme Court (Nebraska Lawyers Assistance Program)'
+    sourceUrl: https://nebraskajudicial.gov/administration/attorneys/nebraska-lawyers-assistance-program
+    accessedOn: 2026-07-02
+    accessGate: open
+    sha256: af270de0ea0d950e571373259dab10aeb0613fd9b34f372c1863d8ac3a1f3114
+  - jurisdiction: US-NH
+    path: US-NH/US-NH-nhlap-lapnh-2026.txt
+    publisher: 'New Hampshire Lawyers Assistance Program (LAPNH)'
+    sourceUrl: https://www.lapnh.org/
+    accessedOn: 2026-07-02
+    accessGate: open
+    sha256: 467b88a8c73a73ee9df2c463800ed96de5006de2393a0e03b89228e9c9af89c6
+  - jurisdiction: US-NJ
+    path: US-NJ/US-NJ-njlap-2026.txt
+    publisher: 'New Jersey Lawyers Assistance Program (via NJ Judiciary)'
+    sourceUrl: https://www.njcourts.gov/attorneys/attorney-ethics-and-discipline/attorney-resources
+    accessedOn: 2026-07-02
+    accessGate: open
+    sha256: ef108c4c0ff59135f039bb6de1e6ae5f63fc7e00916115bf52d0e5dfdcc2db73
+  - jurisdiction: US-NM
+    path: US-NM/US-NM-nmlap-2026.txt
+    publisher: 'State Bar of New Mexico (New Mexico Lawyer Assistance Program)'
+    sourceUrl: https://www.sbnm.org/Member-Services/New-Mexico-Lawyer-Assistance-Program/For-Judges
+    accessedOn: 2026-07-02
+    accessGate: open
+    sha256: ba7144b89dd19b96ab5c5834b50b4121cdcf2c8ce69791ced375694ba9444b55
+  - jurisdiction: US-NV
+    path: US-NV/US-NV-nlap-lcl-2026.txt
+    publisher: 'State Bar of Nevada (NLAP / LCL / Therapy Benefit)'
+    sourceUrl: https://nvbar.org/for-lawyers/resources/wellbeing/nlap/
+    accessedOn: 2026-07-02
+    accessGate: open
+    sha256: 48faf096e15316681bc1b9e21a346ebffc2d19f429abaddcb4a1179ee2a5a168
+  - jurisdiction: US-OH
+    path: US-OH/US-OH-olap-2026.txt
+    publisher: 'Ohio Lawyers Assistance Program, Inc. (+ Toledo Bar MAP)'
+    sourceUrl: https://www.ohiolap.org/faq
+    accessedOn: 2026-07-02
+    accessGate: open
+    sha256: 70bf49deff5100876eb98f5be0bd2f54eebcf58f352315e7e3802dc4f9f1357a
+  - jurisdiction: US-OK
+    path: US-OK/US-OK-lhl-2026.txt
+    publisher: 'Oklahoma Bar Association (Lawyers Helping Lawyers)'
+    sourceUrl: https://www.okbar.org/lhl/
+    accessedOn: 2026-07-02
+    accessGate: open
+    sha256: 31536e849aa4a5203e7110d8cacf07ff2c174aafc140c32f394885b421d026ab
+  - jurisdiction: US-OR
+    path: US-OR/US-OR-oaap-2026.txt
+    publisher: 'Oregon Attorney Assistance Program (Oregon State Bar PLF)'
+    sourceUrl: https://oaap.org/about/
+    accessedOn: 2026-07-02
+    accessGate: open
+    sha256: 907a68eee91ab7db334ba58ff9fa45e0aa232aac263a96751f9e6a04e5a99d9d
