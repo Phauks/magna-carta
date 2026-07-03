@@ -67,6 +67,10 @@
     ],
   },
   "r2_buckets": [{ "binding": "R2", "bucket_name": "magna-carta-production-platform-files" }],
+  // The platform-status KV namespace: holds the operator-authored document (status:authored, written by
+  // the platform-status routes) and the cron-derived document (status:derived); the read path merges
+  // both. Placeholder id — the real namespace id is filled in when it is created in the dashboard.
+  "kv_namespaces": [{ "binding": "STATUS_KV", "id": "00000000000000000000000000000000" }],
   // Workers AI — the authenticated binding the inference foundation reaches the AI Gateway through.
   // No per-firm provider key at launch (Unified Billing, Cloudflare-managed credentials).
   "ai": { "binding": "AI" },
@@ -218,8 +222,10 @@
   // 03:00 UTC pass runs the storage-metering reconciliation (a full R2 LIST per firm — too heavy for
   // every five minutes); the weekly 04:00 UTC Sunday pass re-enqueues committed versions still
   // marked scan_verdict = 'unscanned' onto FILES_INGEST so a now-available scan engine can evaluate
-  // them in place. src/index.ts routes each Cron expression to its handler.
+  // them in place; the */10 pass probes the core primitives and polls the upstream provider feeds,
+  // writing the status:derived snapshot in STATUS_KV. src/index.ts routes each Cron expression to
+  // its handler.
   "triggers": {
-    "crons": ["*/5 * * * *", "0 3 * * *"],
+    "crons": ["*/5 * * * *", "0 3 * * *", "*/10 * * * *"],
   },
 }

@@ -1,4 +1,4 @@
-import type { UserId } from "@magna-carta/identifiers";
+import type { UserId } from "@magna-carta/identifiers/types";
 
 // A GDPR data subject resolves to one of two existing anchors — a Directory entity
 // (person/organization, the entity_id axis) or a firm member (the control-plane user_id axis).

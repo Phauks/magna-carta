@@ -1,0 +1,19 @@
+---
+jurisdiction: US-GU
+publisher: Guam Bar Association
+sourceUrl: https://guambar.org/about-us/laws
+accessedOn: 2026-07-02
+accessGate: open
+method: Playwright load of the Guam Bar bylaws page
+---
+[Alternative Disciplinary and Attorney Wellness Committee]
+QUOTE: "to promote attorney well-being by providing education, peer-to-peer support and resources to attorneys in the areas of mental health, emotional balance, stress management, and addiction"
+
+Guam Bar By-Laws, Article X (standing committees), item 6: "Alternative Disciplinary and Attorney
+Wellness Committee: Responsible for actively managing, determining and participating in all referrals
+under Rule 11 of the GUAM RULES FOR LAWYER DISCIPLINARY ENFORCEMENT AND DISABILITY PROCEEDINGS ...,
+and to promote attorney well-being by providing education, peer-to-peer support and resources to
+attorneys in the areas of mental health, emotional balance, stress management, and addiction."
+Committee added/amended March 21, 2024 (SPR23-001). No dedicated hotline published; access via the
+bar. NOTE: web-search results describing a SupportLinc/CuraLinc LAP under "Guam Bar" were actually
+the State Bar of GEORGIA (gabar.org), not Guam (guambar.org) — discarded.

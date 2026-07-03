@@ -242,6 +242,21 @@ export const supportGrant = sqliteTable(
   (table) => [index("support_grant_firm_id_index").on(table.firmId)],
 );
 
+// A platform operator: an elevated Better Auth user who may author global service status. A
+// distinct platform axis from per-firm RBAC and from platform_staff (the reach-into-a-firm
+// support identity). Seeded by hand until a self-service management surface exists; expires_at
+// mirrors direct_grant time-boxing (NULL = standing).
+export const platformOperator = sqliteTable("platform_operator", {
+  userId: text("user_id")
+    .primaryKey()
+    .$type<UserId>()
+    .references(() => user.id),
+  grantedAt: text("granted_at").notNull(),
+  grantedByUserId: text("granted_by").notNull().$type<UserId>(),
+  expiresAt: text("expires_at"),
+  note: text("note"),
+});
+
 // Control-plane copies of the reliability tables — same shapes as the per-firm lineage so the
 // data-access middleware and relay run identically against either database.
 

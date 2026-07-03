@@ -1,0 +1,17 @@
+---
+jurisdiction: US-AK
+publisher: Alaska Bar Association
+sourceUrl: https://alaskabar.org/sections-committees/lawyers-assistance-committee/
+accessedOn: 2026-07-02
+accessGate: open
+method: web search + direct fetch
+---
+[Lawyers' Assistance Committee (LAC)]
+QUOTE: "The Lawyers' Assistance Committee promotes the well-being of the legal profession and protects the public by providing education, respectful confidential assistance and referrals for members of the Bar, their families, colleagues, and clients affected by a member's mental health and substance abuse issues."
+
+Contact: Alaska Bar Association, 840 K Street, Suite 100, Anchorage, AK 99501-3353; phone
+907-272-7469; info@alaskabar.org. Resources: a Provider List (PDF) of mental-health providers who
+help attorneys with substance abuse and wellness issues, an FAQ document, and a link to the
+Institute for Well-Being in Law (lawyerwellbeing.net). The committee comprises 15 members across
+Alaska who can be contacted directly. Hours, cost, and an explicit confidentiality guarantee beyond
+the mission statement are not stated on the page.

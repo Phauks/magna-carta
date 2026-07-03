@@ -28,7 +28,9 @@ export { ScanContainer } from "./scan-container.ts";
 const SIG_REFRESH_CRON = "0 7 * * *";
 
 // The scan-container warm-poke cron (*/20 * * * *) hits /ready inside the container's 30-minute
-// sleepAfter to keep one instance — and clamd's resident signature DB — alive between scans.
+// sleepAfter to keep one instance — and clamd's resident signature DB — alive between scans. The
+// trigger is currently OFF in wrangler.jsonc (no scan traffic pre-onboarding — see the cron comment
+// there); this handler stays wired so re-arming it at first-firm onboarding is a one-line cron add.
 const SCAN_WARM_CRON = "*/20 * * * *";
 
 export default {
