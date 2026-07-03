@@ -60,46 +60,54 @@ A single declarative manifest, sibling to `PROTECTED_COLUMNS`, living in `packag
 interface PiiTableEntry {
   table: string;
   subjectKey: "entity_id" | "from_entity_id" | "to_entity_id" | "user_id" | "matter_id" | "self";
-  piiClass: "identifier" | "contact" | "name" | "node" | "reference" | "freetext" | "actor" | "audit";
+  piiClass:
+    | "identifier"
+    | "contact"
+    | "name"
+    | "node"
+    | "reference"
+    | "freetext"
+    | "actor"
+    | "audit";
   action: ErasureAction;
   note?: string; // e.g. the Art. 17(3) basis for a `retain` action
 }
 
 type ErasureAction =
-  | "hard-delete"          // remove the rows for this subject
-  | "anonymize"            // scrub PII columns, keep the row (referential integrity / tombstone)
-  | "retain-under-matter"  // kept: legal-obligation / claims retention (GDPR Art. 17(3))
-  | "pseudonymize-keep"    // append-only rows: replace the subject reference, never delete
-  | "report-manual";       // free-text / content — not auto-erased; surfaced in the residue report
+  | "hard-delete" // remove the rows for this subject
+  | "anonymize" // scrub PII columns, keep the row (referential integrity / tombstone)
+  | "retain-under-matter" // kept: legal-obligation / claims retention (GDPR Art. 17(3))
+  | "pseudonymize-keep" // append-only rows: replace the subject reference, never delete
+  | "report-manual"; // free-text / content — not auto-erased; surfaced in the residue report
 ```
 
 **The registry is a superset of `merge.ts:REPOINT_TARGETS`.** REPOINT_TARGETS already enumerates every inbound `entity_id` reference (it powers entity-merge repointing) and is kept complete by the `mergeRelinkCompleteness` fitness probe. The erasure registry reuses that inventory and adds the two things merge does not need: the erasure **action** per table, and the **user-axis** tables merge never touches. To prevent drift, the entity-axis rows are derived from the same source-of-truth list REPOINT_TARGETS consumes.
 
 **Initial entries** (grounded in the current schema):
 
-| Table / column | subjectKey | class | action |
-| --- | --- | --- | --- |
-| `directory_identifier.value_ciphertext` (SSN/DOB/DL/EIN/account) | `entity_id` | identifier | hard-delete (firm crypto-shred is the at-rest backstop) |
-| `directory_name` (+ phonetic code) | `entity_id` | name | hard-delete |
-| `directory_email` / `directory_phone` / `directory_address` | `entity_id` | contact | hard-delete |
-| `directory_edge` | `from_entity_id` / `to_entity_id` | reference | hard-delete |
-| `directory_entity_category` | `entity_id` | reference | hard-delete |
-| `directory_person` / `directory_organization` (node) | `self` | node | anonymize (keep id as tombstone for matter-link / audit integrity) |
-| `matter_party` | `entity_id` | reference | retain-under-matter (the party's role on a matter is a matter record; PII is scrubbed at the entity) |
-| `custom_field_value` (`value_reference_id`, `target_row_id`) | `entity_id` | reference | anonymize / detach |
-| `cost_entry.vendor_id` | `entity_id` | reference | retain-under-matter (financial record) |
-| `time_entry` (`timekeeper_user_id`; `narrative`) | `user_id` | actor / freetext | retain-under-matter; narrative → report-manual |
-| `incident` (`reported_by`; `description_ciphertext`) | `user_id` | actor / freetext | pseudonymize-keep; description → report-manual |
-| `ai_detection_usage.requested_by` | `user_id` | actor | pseudonymize-keep |
-| `audit_log` (`actor_user_id`, `subject_id`) | `user_id` | audit | pseudonymize-keep (append-only) |
-| `entity_merge` | `entity_id` | audit | pseudonymize-keep (append-only) |
-| `file` / `file_version` (matter-rooted) | `matter_id` | reference | retain-under-matter (documents are matter corpus; §5) |
+| Table / column                                                   | subjectKey                        | class            | action                                                                                               |
+| ---------------------------------------------------------------- | --------------------------------- | ---------------- | ---------------------------------------------------------------------------------------------------- |
+| `directory_identifier.value_ciphertext` (SSN/DOB/DL/EIN/account) | `entity_id`                       | identifier       | hard-delete (firm crypto-shred is the at-rest backstop)                                              |
+| `directory_name` (+ phonetic code)                               | `entity_id`                       | name             | hard-delete                                                                                          |
+| `directory_email` / `directory_phone` / `directory_address`      | `entity_id`                       | contact          | hard-delete                                                                                          |
+| `directory_edge`                                                 | `from_entity_id` / `to_entity_id` | reference        | hard-delete                                                                                          |
+| `directory_entity_category`                                      | `entity_id`                       | reference        | hard-delete                                                                                          |
+| `directory_person` / `directory_organization` (node)             | `self`                            | node             | anonymize (keep id as tombstone for matter-link / audit integrity)                                   |
+| `matter_party`                                                   | `entity_id`                       | reference        | retain-under-matter (the party's role on a matter is a matter record; PII is scrubbed at the entity) |
+| `custom_field_value` (`value_reference_id`, `target_row_id`)     | `entity_id`                       | reference        | anonymize / detach                                                                                   |
+| `cost_entry.vendor_id`                                           | `entity_id`                       | reference        | retain-under-matter (financial record)                                                               |
+| `time_entry` (`timekeeper_user_id`; `narrative`)                 | `user_id`                         | actor / freetext | retain-under-matter; narrative → report-manual                                                       |
+| `incident` (`reported_by`; `description_ciphertext`)             | `user_id`                         | actor / freetext | pseudonymize-keep; description → report-manual                                                       |
+| `ai_detection_usage.requested_by`                                | `user_id`                         | actor            | pseudonymize-keep                                                                                    |
+| `audit_log` (`actor_user_id`, `subject_id`)                      | `user_id`                         | audit            | pseudonymize-keep (append-only)                                                                      |
+| `entity_merge`                                                   | `entity_id`                       | audit            | pseudonymize-keep (append-only)                                                                      |
+| `file` / `file_version` (matter-rooted)                          | `matter_id`                       | reference        | retain-under-matter (documents are matter corpus; §5)                                                |
 
 ## 3. The attribution fitness function — the enforcement seam
 
-A test in the conformance family (mirroring `no-plaintext-escape` and the `protected-columns` conformance): it walks the per-firm and control-plane schemas and asserts **every table carrying a known personal-data column appears in the PII registry** (or on an explicit, justified `NO_PII` allowlist). A new PII-bearing table added without a registry entry fails CI. This is what converts "we attribute PII to subjects" from a hope into a structural guarantee — and it is the whole reason to build now, before the directory/matters/custom-fields PII surface grows.
+A test in the conformance family (mirroring the `protected-columns` conformance's schema introspection via `getTableConfig`): it walks the per-firm schema and asserts **every table is classified — either registered in `PII_TABLES` or listed on the explicit `NO_PII_TABLES` allowlist**. A new table added to the schema fails CI until it is consciously placed in one bucket. It additionally asserts the two halves are disjoint, carry no stale (non-schema) entries, and that each `protected()` column's per-firm table lands in the correct half (`incident` / `directory_identifier` are personal data → `PII_TABLES`; `firm_secret` is firm-owned integration secrets, not data-subject data → `NO_PII_TABLES`). This converts "we attribute PII to subjects" from a hope into a structural guarantee — forcing a decision on every new table, before the directory/matters/custom-fields PII surface grows.
 
-The check is column-name driven (a curated set: the `*_ciphertext` protected columns, `given/family/legal_name`, `value` on contact tables, `narrative`, `description*`, `entity_id`/`vendor_id`/`timekeeper_user_id`/`reported_by` subject keys) plus a schema-diff tripwire so a new table with an obvious PII column cannot slip past unregistered.
+**Deferred strengthening (recorded, not built now):** the gate forces every table to be *classified* but does not yet *validate* a `NO_PII_TABLES` entry against its columns — a table with a plaintext personal-data column (e.g. `display_name`, `email`, a contact `value`) that a developer mislabels `NO_PII` would still pass. A stronger column-name-driven scan (a curated PII-column set asserting no `NO_PII` table carries one, with justified per-column exceptions — e.g. the deliberate `member.display_name` copy, whose authoritative identity PII lives control-plane) would catch *mis*classification, not just non-classification. It is deferred because the curated set needs exception-handling to avoid false positives (matter titles, member names); the force-classification gate is the primary protection and ships now. Control-plane tables are likewise not yet walked (the initial registry has no control-plane entries; Better Auth `user` / `session` identity PII is managed separately).
 
 ## 4. Track A module placement
 
@@ -122,11 +130,11 @@ The orchestrator is idempotent and audited. It is **not built now**; §3's fitne
 
 ## 6. Legal hold & the retention boundary
 
-There is no `legal_hold` column today; hold is a documented rule, not a schema construct. This spec does **not** add one — the **retention-by-default boundary** covers the seam: every matter-corpus table (`matter_party`, `file`/`file_version`, `cost_entry`, `time_entry`) carries a `retain-under-matter` action, so subject erasure never touches matter-attached data. That is the legally-correct default for a law firm (Art. 17(3) exempts data retained for legal obligations and the establishment/exercise/defence of legal claims — which is most matter data). A first-class `legal_hold` / retention-schedule construct is a named follow-up that will *refine* (not replace) this boundary when matter lifecycle/closure is built.
+There is no `legal_hold` column today; hold is a documented rule, not a schema construct. This spec does **not** add one — the **retention-by-default boundary** covers the seam: every matter-corpus table (`matter_party`, `file`/`file_version`, `cost_entry`, `time_entry`) carries a `retain-under-matter` action, so subject erasure never touches matter-attached data. That is the legally-correct default for a law firm (Art. 17(3) exempts data retained for legal obligations and the establishment/exercise/defence of legal claims — which is most matter data). A first-class `legal_hold` / retention-schedule construct is a named follow-up that will _refine_ (not replace) this boundary when matter lifecycle/closure is built.
 
 ## 7. Track B — the per-firm residency seam
 
-**Column.** Add `data_region` to the control-plane `firm` table (`control-plane-schema.ts`) via a control-plane migration. Type: a small enum, `'us' | 'eu'` (extensible; `'canada'` reserved, §7 open). **`us` is the primary market and the column default** (existing firms backfill to `us`). Immutable after provisioning. **Asymmetry to be explicit about:** `eu` is a *hard* Cloudflare jurisdiction lock (EU-only data centers); `us` is North-America **placement** via a location hint, because Cloudflare offers no general US jurisdiction primitive (only FedRAMP, a government-only tier). That is adequate for US legal work — no GDPR-style transfer restriction binds US-resident data — and if a *hard* US-residency guarantee is ever required, it is a separate escalation (a FedRAMP-tier or a contractual control), not this column.
+**Column.** Add `data_region` to the control-plane `firm` table (`control-plane-schema.ts`) via a control-plane migration. Type: a small enum, `'us' | 'eu'` (extensible; `'canada'` reserved, §7 open). **`us` is the primary market and the column default** (existing firms backfill to `us`). Immutable after provisioning. **Asymmetry to be explicit about:** `eu` is a _hard_ Cloudflare jurisdiction lock (EU-only data centers); `us` is North-America **placement** via a location hint, because Cloudflare offers no general US jurisdiction primitive (only FedRAMP, a government-only tier). That is adequate for US legal work — no GDPR-style transfer restriction binds US-resident data — and if a _hard_ US-residency guarantee is ever required, it is a separate escalation (a FedRAMP-tier or a contractual control), not this column.
 
 **Threading at provisioning** (`firm-provisioner.ts` reads `data_region` and passes it down):
 
