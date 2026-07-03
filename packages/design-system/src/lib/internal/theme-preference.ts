@@ -107,6 +107,34 @@ export function applyDensityToDocument(density: DensityPreference): void {
   else root.dataset.density = density;
 }
 
+/*
+ * CROSS-TAB FOLLOW. The browser fires "storage" in every OTHER same-origin tab when a
+ * localStorage key changes, so re-reading and re-applying here makes a theme/mode/motion/density
+ * choice in one tab land in all of them instantly. The contract: last write wins (there is one
+ * storage record; whichever tab persisted last is the truth every tab converges on), the
+ * re-apply is pure DOM attribute writes and idempotent (re-applying the current value is a
+ * no-op), and the writer tab never receives its own event — it already applied before
+ * persisting. Registered once at module scope (one module instance per app), guarded so the
+ * module stays importable during SSR/tests where `window` does not exist. `event.key === null`
+ * means `storage.clear()` — every key may have changed, so re-apply then too.
+ */
+const APPEARANCE_STORAGE_KEYS: readonly string[] = [
+  THEME_STORAGE_KEY,
+  MODE_STORAGE_KEY,
+  MOTION_STORAGE_KEY,
+  DENSITY_STORAGE_KEY,
+];
+
+if (typeof window !== "undefined") {
+  window.addEventListener("storage", (event) => {
+    if (event.key !== null && !APPEARANCE_STORAGE_KEYS.includes(event.key)) return;
+    const { theme, mode, motion, density } = readThemePreference();
+    applyThemeToDocument(theme, mode);
+    applyMotionToDocument(motion);
+    applyDensityToDocument(density);
+  });
+}
+
 /**
  * Persists the preferences (all storage keys) and applies them to the document via
  * `applyThemeToDocument` + `applyMotionToDocument` + `applyDensityToDocument`. The app-facing

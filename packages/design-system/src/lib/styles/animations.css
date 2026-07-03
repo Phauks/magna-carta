@@ -38,13 +38,21 @@
 ::view-transition-image-pair(mc-sidebar) {
   overflow: clip;
 }
-/* The work canvas morphs alongside; same timing so the seam moves as one. */
+/*
+ * The work canvas morphs alongside; same timing so the seam moves as one. The canvas pair is
+ * deliberately NOT clipped (no overflow: clip like the sidebar's). Both canvas states share the
+ * same right edge — the viewport's — so a clip there can only ever cut off-screen pixels; but at
+ * fractional display scaling (e.g. Windows 150%) the interpolated box's right edge rasterizes a
+ * device pixel short of the viewport edge at some frames, and the clip then uncovered a
+ * one-device-pixel column in which the root snapshot's light page background showed through the
+ * dark header — a white line flashing at the screen's top-right on every toggle (owner report
+ * 2026-07-02, reproduced and pixel-verified at deviceScaleFactor 1.5). Unclipped, the canvas
+ * snapshot itself paints across that column and the line cannot occur. The sidebar pair MUST
+ * keep its clip — its box's right edge is the mid-screen seam doing the reveal.
+ */
 ::view-transition-group(mc-app-canvas) {
   animation-duration: var(--mc-duration-normal);
   animation-timing-function: var(--mc-easing-settle);
-}
-::view-transition-image-pair(mc-app-canvas) {
-  overflow: clip;
 }
 /*
  * NO crossfade on either pair — the sweep IS the animation (`animation: none` kills the UA
@@ -80,6 +88,23 @@
  */
 :root[data-mc-view-transition="sidebar-collapse"]::view-transition-old(mc-sidebar) {
   z-index: 1;
+}
+/*
+ * The top-bar actions region is its own named group so it holds still while the canvas slides
+ * (see top-bar.css). But a named group still runs the UA default cross-fade on its snapshot
+ * pair, blended plus-lighter — and at fractional display scaling the old and new rects can
+ * round to device pixels a pixel apart, so the additive blend momentarily brightens the
+ * region's edge into a white flash next to the profile (owner review 2026-07-02, persists at
+ * normal speed). Same timing as the other groups so the whole bar settles as one; animation:
+ * none stacks the new snapshot opaque on the old — no blend, no flash.
+ */
+::view-transition-group(mc-top-bar-actions) {
+  animation-duration: var(--mc-duration-normal);
+  animation-timing-function: var(--mc-easing-settle);
+}
+::view-transition-old(mc-top-bar-actions),
+::view-transition-new(mc-top-bar-actions) {
+  animation: none;
 }
 /*
  * During a sidebar transition the ROOT snapshot pair holds still — no fade, no plus-lighter

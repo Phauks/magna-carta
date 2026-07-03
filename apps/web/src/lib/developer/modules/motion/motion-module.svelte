@@ -2,7 +2,8 @@
   /*
    * The motion module — the developer console's first resident: live tuning of every animation
    * in the app through the token indirection (motion-overrides.ts writes a handful of custom
-   * properties on <html>; every recipe follows). A speed multiplier, a surface picker over the
+   * properties on <html>; every recipe follows). A master apply-overrides switch (instant A/B
+   * between the tuned set and the shipped tokens), a speed multiplier, a surface picker over the
    * motion-surface registry (focus the controls on one animation, replay it where replayable),
    * an interactive cubic-bezier editor per easing token, and the copy-ready motion report — the
    * deliverable of a tuning session (motion-report.ts).
@@ -11,6 +12,7 @@
   import Button from "@magna-carta/design-system/button";
   import * as Select from "@magna-carta/design-system/select";
   import Separator from "@magna-carta/design-system/separator";
+  import Switch from "@magna-carta/design-system/switch";
   import Check from "@lucide/svelte/icons/check";
   import ClipboardCopy from "@lucide/svelte/icons/clipboard-copy";
   import Play from "@lucide/svelte/icons/play";
@@ -34,6 +36,7 @@
     type CubicBezierPoints,
     type EasingName,
     type MotionBaseline,
+    type MotionOverrides,
   } from "../../motion-overrides.ts";
 
   const SPEED_PRESETS = [0.25, 1, 3, 10] as const;
@@ -49,6 +52,7 @@
   let activeEasing = $state<EasingName>("settle");
   let surfaceId = $state(ALL_SURFACES_ID);
   let reportCopied = $state(false);
+  let overridesEnabled = $state(true);
 
   const surface = $derived(motionSurfaceById(surfaceId));
 
@@ -64,9 +68,14 @@
     if (stored !== null) {
       speedMultiplier = stored.speedMultiplier;
       easings = { ...easings, ...stored.easings };
-      applyMotionOverrides(base, { speedMultiplier, easings });
+      overridesEnabled = stored.enabled;
+      if (stored.enabled) applyMotionOverrides(base, currentOverrides());
     }
   });
+
+  function currentOverrides(): MotionOverrides {
+    return { enabled: overridesEnabled, speedMultiplier, easings };
+  }
 
   function isPristine(): boolean {
     if (baseline === null) return true;
@@ -82,12 +91,30 @@
     if (baseline === null) return;
     if (isPristine()) {
       // Back at the shipped tokens: drop the inline layer entirely instead of pinning copies.
+      // With nothing tuned the master switch has nothing to disable, so it returns to on.
       clearMotionOverrides();
       clearStoredOverrides();
+      overridesEnabled = true;
       return;
     }
-    applyMotionOverrides(baseline, { speedMultiplier, easings });
-    saveStoredOverrides({ speedMultiplier, easings });
+    // Touching a control while the master switch is off means "I want to feel this change":
+    // flip back on and apply, rather than silently editing a dormant set.
+    overridesEnabled = true;
+    applyMotionOverrides(baseline, currentOverrides());
+    saveStoredOverrides(currentOverrides());
+  }
+
+  function setOverridesEnabled(next: boolean): void {
+    overridesEnabled = next;
+    if (baseline === null) return;
+    if (next) {
+      applyMotionOverrides(baseline, currentOverrides());
+    } else {
+      // Shipped tokens go live again; the tuned state and its storage stay for the flip back.
+      clearMotionOverrides();
+    }
+    // A pristine set has nothing stored (apply() cleared it), so there is no flag to persist.
+    if (!isPristine()) saveStoredOverrides(currentOverrides());
   }
 
   function setSpeed(multiplier: number): void {
@@ -124,11 +151,12 @@
     easings = structuredClone($state.snapshot(baseline).easings);
     clearMotionOverrides();
     clearStoredOverrides();
+    overridesEnabled = true;
   }
 
   async function copyReport(): Promise<void> {
     if (baseline === null) return;
-    await navigator.clipboard.writeText(buildMotionReport(baseline, { speedMultiplier, easings }));
+    await navigator.clipboard.writeText(buildMotionReport(baseline, currentOverrides()));
     reportCopied = true;
     setTimeout(() => (reportCopied = false), 2000);
   }
@@ -136,9 +164,21 @@
 
 {#if baseline !== null}
   <div class="flex flex-col gap-12">
+    <div class="flex items-center justify-between gap-8">
+      <p class="text-xs text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
+        Apply overrides
+      </p>
+      <Switch
+        bind:checked={() => overridesEnabled, setOverridesEnabled}
+        aria-label="Apply motion overrides"
+      />
+    </div>
+
+    <Separator />
+
     <div class="flex flex-col gap-8">
       <div class="flex items-baseline justify-between gap-8">
-        <p class="text-xs text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
+        <p class="text-xs text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
           Transition speed
         </p>
         <p class="text-sm">{formatMultiplier(speedMultiplier)}</p>
@@ -172,7 +212,7 @@
       <div class="flex gap-12 text-xs">
         {#each DURATION_RUNGS as rung (rung)}
           <!-- The selected surface's rungs read stronger; the rest stay muted. -->
-          <span class={surface.durationRungs.includes(rung) ? "" : "text-muted"}>
+          <span class={surface.durationRungs.includes(rung) ? "" : "text-text-muted"}>
             {rung}
             {Math.round(baseline.durations[rung] * speedMultiplier)}ms
           </span>
@@ -184,7 +224,7 @@
 
     <div class="flex flex-col gap-8">
       <div class="flex items-center justify-between gap-8">
-        <p class="text-xs text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
+        <p class="text-xs text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
           Surface
         </p>
         {#if surface.replay !== null}
@@ -210,7 +250,7 @@
         </Select.Content>
       </Select.Root>
       {#if surface.note}
-        <p class="text-xs text-muted">{surface.note}</p>
+        <p class="text-xs text-text-muted">{surface.note}</p>
       {/if}
     </div>
 
@@ -218,7 +258,7 @@
 
     <div class="flex flex-col gap-8">
       <div class="flex items-center justify-between gap-8">
-        <p class="text-xs text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
+        <p class="text-xs text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
           Easing curves
         </p>
         <div class="flex gap-4">
@@ -234,7 +274,7 @@
         </div>
       </div>
       <EasingGraph value={easings[activeEasing]} onchange={setEasing} />
-      <p class="text-xs text-muted" style="font-family: var(--mc-font-mono)">
+      <p class="text-xs text-text-muted" style="font-family: var(--mc-font-mono)">
         {formatCubicBezier(easings[activeEasing])}
       </p>
     </div>

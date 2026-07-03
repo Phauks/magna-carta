@@ -9,7 +9,6 @@
    * slices ship — the Actions region reserves their geometry; the shell never fakes function.
    */
   import { page } from "$app/state";
-  import * as Avatar from "@magna-carta/design-system/avatar";
   import BrandMark from "@magna-carta/design-system/brand-mark";
   import * as Sidebar from "@magna-carta/design-system/sidebar";
   import * as Tooltip from "@magna-carta/design-system/tooltip";
@@ -20,11 +19,13 @@
   } from "@magna-carta/design-system/internal/platform";
   import Settings from "@lucide/svelte/icons/settings";
   import CommandPalette from "$lib/components/command-palette.svelte";
+  import ProfileMenu from "$lib/components/profile-menu.svelte";
   import {
     DESTINATION_GROUPS,
     isCurrentDestination,
     shippedDestinations,
   } from "$lib/navigation/destinations.ts";
+  import { developerPreferences } from "$lib/settings/developer-preferences.svelte.ts";
   import type { Snippet } from "svelte";
 
   let { children }: { children: Snippet } = $props();
@@ -121,17 +122,17 @@
         </TopBar.Search>
         <TopBar.Actions>
           <!-- +New, the billable timer, and alerts land here with their slices. -->
-          {#if import.meta.env.DEV}
+          {#if import.meta.env.DEV && developerPreferences.developerSettingsEnabled && developerPreferences.developerToolkitInHeader}
             <!-- The developer console (modular tooling; motion tuning first). The dynamic import
-                 inside a DEV-gated branch keeps every byte of it out of production bundles. -->
+                 inside a DEV-gated branch keeps every byte of it out of production bundles.
+                 The preference gates (Settings · Developer) are live: switching them off
+                 removes the console without a reload. -->
             {#await import("$lib/developer/developer-console.svelte") then developerConsoleModule}
               {@const DeveloperConsole = developerConsoleModule.default}
               <DeveloperConsole />
             {/await}
           {/if}
-          <Avatar.Root>
-            <Avatar.Fallback>MC</Avatar.Fallback>
-          </Avatar.Root>
+          <ProfileMenu />
         </TopBar.Actions>
       </TopBar.Root>
 

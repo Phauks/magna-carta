@@ -77,7 +77,7 @@
         {/each}
       </Select.Content>
     </Select.Root>
-    <p class="text-sm text-muted">
+    <p class="text-sm text-text-muted">
       Six curated themes, each in light and dark. A firm-wide default (and lock) arrives with firm
       settings.
     </p>

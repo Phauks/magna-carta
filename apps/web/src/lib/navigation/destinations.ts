@@ -8,6 +8,9 @@
  * commit as the surface. `permission` and firm module flags attach to these entries when the
  * auth session lands — filtering composes onto the registry; the registry itself never changes
  * shape for it.
+ *
+ * The Ctrl+K command palette (src/lib/components/command-palette.svelte) also renders from this
+ * registry — adding a destination here is what makes the page searchable; never hand-list it there.
  */
 import type { Component } from "svelte";
 import House from "@lucide/svelte/icons/house";

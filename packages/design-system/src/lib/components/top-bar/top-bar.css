@@ -23,8 +23,19 @@
     color: var(--mc-chrome-text);
     border-block-end: var(--mc-border-width-default) solid var(--mc-chrome-border);
   }
-  /* The command-palette trigger reads as a quiet inset field on the ink; it is a BUTTON (the
-     palette owns real input focus). Width is the consumer's utility concern (grow/max-w). */
+  /* The command-palette trigger; it is a BUTTON (the palette owns real input focus). Width is
+     the consumer's utility concern (grow/max-w).
+     TRANSPARENT at rest so the field sits in the ink band's own tone and recedes into the
+     header — any filled well popped from the band in either direction (owner review
+     2026-07-02: "closer in tone to the header... more a part of the header"). The
+     chrome-border hairline,
+     the placeholder, and the keycap are the only resting cues; hover lifts the fill one chrome
+     step.
+     GEOMETRY PAIRED with the command palette's input row
+     (packages/design-system/src/lib/components/command/command.css): the palette opens
+     anchored exactly over this button on its own light overlay surface — geometry only, never
+     these ink fills — so block-size, padding, border width, radius, icon size, gap, font-size,
+     and line-height must stay identical in both files; change one and change the other. */
   .mc-top-bar-search {
     display: flex;
     align-items: center;
@@ -33,23 +44,30 @@
     padding-inline: var(--mc-space-12);
     border: var(--mc-border-width-default) solid var(--mc-chrome-border);
     border-radius: var(--mc-radius-md);
-    background-color: var(--mc-chrome-surface-hover);
+    background-color: transparent;
     color: var(--mc-chrome-text-muted);
     font-family: var(--mc-font-sans);
     font-size: var(--mc-font-size-sm);
     line-height: var(--mc-leading-tight);
     text-align: start;
     cursor: pointer;
-    transition-property: color;
+    transition-property: color, background-color;
     transition-duration: var(--mc-duration-fast);
     transition-timing-function: var(--mc-easing-standard);
   }
   .mc-top-bar-search:hover {
+    background-color: var(--mc-chrome-surface-hover);
     color: var(--mc-chrome-text);
   }
+  /* INSET focus ring, not an outline: the trigger's start edge sits flush ON the clipped
+     sidebar seam (no bar start padding, above), so an outside outline loses its start edge
+     under the adjacent column. An inset box-shadow ring draws entirely within the field's own
+     box, so the whole ring survives the seam. The zero offsets are the space-0 token — this
+     file is token-pure. */
   .mc-top-bar-search:focus-visible {
-    outline: var(--mc-focus-ring-width) solid var(--mc-chrome-accent);
-    outline-offset: var(--mc-focus-ring-offset);
+    outline: none;
+    box-shadow: inset var(--mc-space-0) var(--mc-space-0) var(--mc-space-0)
+      var(--mc-focus-ring-width) var(--mc-chrome-accent);
   }
   .mc-top-bar-search-label {
     flex: auto;

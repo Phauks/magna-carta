@@ -48,7 +48,7 @@
 >
   <!-- The display face has no utility on purpose (it enters through Masthead); a heritage quote
        is the other sanctioned door, so it reads the token directly. -->
-  <span class="italic text-muted" style="font-family: var(--mc-font-display)">
+  <span class="italic text-text-muted" style="font-family: var(--mc-font-display)">
     "We will sell to no man, we will not deny or defer to any man either Justice or Right."
   </span>
   <cite class="text-xs whitespace-nowrap text-subtle not-italic">Magna Carta, 1297 · ch. XXIX</cite>

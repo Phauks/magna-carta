@@ -37,6 +37,11 @@ export interface MotionBaseline {
 }
 
 export interface MotionOverrides {
+  /**
+   * The master switch: false = the shipped tokens are live (no inline layer on <html>) while the
+   * tuned set stays saved, so toggling gives an instant A/B between tuned and shipped feel.
+   */
+  enabled: boolean;
   /** Scales every duration rung; 1 = the shipped tokens. */
   speedMultiplier: number;
   easings: Record<EasingName, CubicBezierPoints>;
@@ -123,8 +128,9 @@ export function loadStoredOverrides(): MotionOverrides | null {
     return null;
   }
   // A stored payload from before an easing was added to EASING_NAMES lacks that curve; the
-  // caller merges over the baseline, so partial payloads stay valid.
-  return parsed;
+  // caller merges over the baseline, so partial payloads stay valid. A payload saved before the
+  // master switch existed lacks `enabled` — treat it as on, the only behavior that existed then.
+  return { ...parsed, enabled: typeof parsed.enabled === "boolean" ? parsed.enabled : true };
 }
 
 export function saveStoredOverrides(overrides: MotionOverrides): void {

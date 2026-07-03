@@ -152,7 +152,7 @@
   <!-- The keyboard path: the same four values as number fields. -->
   <div class="grid grow grid-cols-2 gap-8">
     {#each HANDLE_FIELDS as field (field.label)}
-      <Label class="flex flex-col gap-4 text-xs text-muted">
+      <Label class="flex flex-col gap-4 text-xs text-text-muted">
         {field.label}
         <Input
           type="number"

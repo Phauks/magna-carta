@@ -11,7 +11,7 @@ import type { Component } from "svelte";
 export interface DeveloperConsoleModule {
   /** Stable identifier; also the module's persistence namespace (developer-console-storage.ts). */
   id: string;
-  /** Heading now; tab label once a second module makes the shell grow tabs. */
+  /** The module's tab label in the console shell. */
   title: string;
   /** Self-contained panel; must take no required props. */
   component: Component;

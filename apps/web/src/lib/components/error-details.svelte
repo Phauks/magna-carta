@@ -40,7 +40,7 @@
 
 <div class="mt-16 flex flex-col items-stretch gap-8" style="max-inline-size: var(--mc-size-prose)">
   <pre
-    class="rounded-md border border-border-default bg-surface-sunken p-12 text-start font-mono text-xs whitespace-pre-wrap text-muted select-all">{details}</pre>
+    class="rounded-md border border-border-default bg-surface-sunken p-12 text-start font-mono text-xs whitespace-pre-wrap text-text-muted select-all">{details}</pre>
   <div class="flex justify-end">
     <Button variant="secondary" size="sm" onclick={copyDetails}>
       {#if copied}
