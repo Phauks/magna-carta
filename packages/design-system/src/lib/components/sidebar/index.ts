@@ -5,8 +5,8 @@
  *
  * House namespace shape — bare names (Root, Header, Content, …) plus Sidebar-prefixed aliases — so
  * both `import * as Sidebar` then <Sidebar.Root> and `import { Sidebar, SidebarMenuButton }` work.
- * This is the structural chrome only; the data-driven, role-filtered destination registry (the
- * archetype's §1.2) and the top bar are wired in the feature slices that own them.
+ * This is the structural chrome only; the data-driven, role-filtered destination registry and the
+ * top bar are wired in the feature slices that own them (apps/web/src/lib/navigation/destinations.ts).
  */
 import Root from "./sidebar.svelte";
 import Header from "./sidebar-header.svelte";

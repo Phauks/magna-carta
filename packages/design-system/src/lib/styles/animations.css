@@ -81,6 +81,21 @@
 :root[data-mc-view-transition="sidebar-collapse"]::view-transition-old(mc-sidebar) {
   z-index: 1;
 }
+/*
+ * During a sidebar transition the ROOT snapshot pair holds still — no fade, no plus-lighter
+ * blend. The work-canvas group's width and translate round to device pixels independently, so
+ * at fractional display scaling a 1px gap can open at its right edge mid-flight; whatever shows
+ * through is the root pair, and the UA's additive cross-blend momentarily doubles those pixels
+ * into a white flash at the screen edge (owner review 2026-07-02, slow toggles). Static, opaque
+ * root snapshots make any such gap render the stable end-state chrome instead. Scoped to the
+ * sidebar markers so a future route-level view transition keeps the default root cross-fade.
+ */
+:root[data-mc-view-transition="sidebar-collapse"]::view-transition-old(root),
+:root[data-mc-view-transition="sidebar-collapse"]::view-transition-new(root),
+:root[data-mc-view-transition="sidebar-expand"]::view-transition-old(root),
+:root[data-mc-view-transition="sidebar-expand"]::view-transition-new(root) {
+  animation: none;
+}
 
 @keyframes mc-sheet-in-right {
   from {

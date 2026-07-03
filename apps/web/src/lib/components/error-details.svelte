@@ -9,18 +9,23 @@
   import Button from "@magna-carta/design-system/button";
   import Copy from "@lucide/svelte/icons/copy";
   import Check from "@lucide/svelte/icons/check";
+  import { buildIdentityLine } from "$lib/build-identity.ts";
 
   const errorId = $derived(
     (page.error as { errorId?: string } | null)?.errorId ?? "not yet assigned",
   );
+  // Trace-shaped: every line a `key: value` pair, build identity included, so one paste tells
+  // support WHICH build misbehaved and where (owner review 2026-07-02 — version tracing).
   const details = $derived(
     [
       "Magna Carta — error report",
+      `build: ${buildIdentityLine()}`,
       `time: ${new Date().toISOString()}`,
       `status: ${page.status}`,
       `path: ${page.url.pathname}${page.url.search}`,
       `message: ${page.error?.message ?? "(none)"}`,
       `error id: ${errorId}`,
+      `browser: ${navigator.userAgent}`,
     ].join("\n"),
   );
 

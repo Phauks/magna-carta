@@ -16,10 +16,15 @@
  * developer menu, which only exists in dev builds — none of it reaches production.
  */
 
+import { createDeveloperConsoleStorage } from "./developer-console-storage.ts";
+
 export const DURATION_RUNGS = ["fast", "normal", "slow", "signature"] as const;
 export type DurationRung = (typeof DURATION_RUNGS)[number];
 
-export const EASING_NAMES = ["settle", "travel", "standard"] as const;
+/* decelerate is a first-class register easing (the gilt tab-underline draw animates with it),
+   so it is editable here like the other three; travel is reserved for route-level transitions
+   and has no consumer yet. */
+export const EASING_NAMES = ["settle", "travel", "standard", "decelerate"] as const;
 export type EasingName = (typeof EASING_NAMES)[number];
 
 /** The four cubic-bezier control values: x1, y1, x2, y2. */
@@ -37,7 +42,9 @@ export interface MotionOverrides {
   easings: Record<EasingName, CubicBezierPoints>;
 }
 
-const STORAGE_KEY = "mc-developer-motion-overrides";
+/* The "-2" invalidates overrides saved before the baseline was read correctly (early builds
+   captured it through live overrides after a hot reload, so persisted values could be junk). */
+const storage = createDeveloperConsoleStorage<MotionOverrides>("motion-overrides-2");
 
 function durationProperty(rung: DurationRung): string {
   return `--mc-duration-${rung}`;
@@ -110,31 +117,20 @@ export function clearMotionOverrides(): void {
 }
 
 export function loadStoredOverrides(): MotionOverrides | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw === null) return null;
-    const parsed = JSON.parse(raw) as MotionOverrides;
-    if (typeof parsed.speedMultiplier !== "number" || typeof parsed.easings !== "object") {
-      return null;
-    }
-    return parsed;
-  } catch {
+  const parsed = storage.load();
+  if (parsed === null) return null;
+  if (typeof parsed.speedMultiplier !== "number" || typeof parsed.easings !== "object") {
     return null;
   }
+  // A stored payload from before an easing was added to EASING_NAMES lacks that curve; the
+  // caller merges over the baseline, so partial payloads stay valid.
+  return parsed;
 }
 
 export function saveStoredOverrides(overrides: MotionOverrides): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(overrides));
-  } catch {
-    // Storage unavailable (private mode); the live overrides still work for the session.
-  }
+  storage.save(overrides);
 }
 
 export function clearStoredOverrides(): void {
-  try {
-    localStorage.removeItem(STORAGE_KEY);
-  } catch {
-    // Nothing to clear.
-  }
+  storage.clear();
 }

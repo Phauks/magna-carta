@@ -15,7 +15,10 @@
        trigger needs air above and below (owner review 2026-07-02). The sidebar brand corner pins
        to the same token so the two read as one band. */
     min-block-size: var(--mc-size-top-bar);
-    padding-inline: var(--mc-space-16);
+    /* NO start padding (owner review 2026-07-02): the palette trigger's left edge sits ON the
+       sidebar seam, so the field visibly travels with the seam when the rail collapses — the
+       one element in the bar that moves. End padding still holds the actions off the edge. */
+    padding-inline: var(--mc-space-0) var(--mc-space-16);
     background-color: var(--mc-chrome-surface);
     color: var(--mc-chrome-text);
     border-block-end: var(--mc-border-width-default) solid var(--mc-chrome-border);
@@ -59,13 +62,18 @@
     background-color: var(--mc-chrome-surface);
     color: var(--mc-chrome-text-muted);
   }
-  /* Trailing region: +New, the timer/alerts seams, user/firm. Pushed to the inline end. */
+  /* Trailing region: +New, the timer/alerts seams, user/firm. Pushed to the inline end.
+     Its own view-transition group: the region is viewport-right-anchored and does not change
+     between sidebar states, so naming it EXCLUDES it from the sliding canvas snapshot — the
+     profile circle and its neighbours hold still while the rail collapses (owner review
+     2026-07-02: only the palette trigger should travel). */
   .mc-top-bar-actions {
     display: flex;
     flex: none;
     align-items: center;
     gap: var(--mc-space-8);
     margin-inline-start: auto;
+    view-transition-name: mc-top-bar-actions;
   }
   /* Quiet icon affordance on the ink (alerts, future chrome controls). */
   .mc-top-bar-icon-button {

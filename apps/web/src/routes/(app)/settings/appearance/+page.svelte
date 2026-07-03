@@ -1,7 +1,7 @@
 <script lang="ts">
   /*
-   * Settings · Appearance — the user-facing controls over the personalization axes (design
-   * language §2): theme is the firm's brand choice (admin policy + lock arrive with the settings
+   * Settings · Appearance — the user-facing controls over the personalization
+   * axes: theme is the firm's brand choice (admin policy + lock arrive with the settings
    * registry later in 0·7b); mode/density/motion are the user's accessibility axes. The pickers
    * drive the SAME seam the boot script reads (theme-preference.ts), so a choice applies
    * instantly and survives reload. Intent, never implementation: users pick "reduced", never a

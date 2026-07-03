@@ -1,10 +1,10 @@
 import { mergeClasses } from "./merge-classes.ts";
 
 /*
- * The internal floating/presence pattern (design spec, "Styling discipline"):
- * every Tier 3/4 floating part composes its content classes here — the z-index
- * scale and the data-state presence animations are defined ONCE, in this file,
- * and nowhere else.
+ * The internal floating/presence pattern: every Tier 3/4 floating part composes
+ * its content classes here — the z-index scale and the data-state presence
+ * animations are defined ONCE, in this file, and nowhere else, so no two
+ * floating surfaces can drift apart in stacking or motion.
  *
  * Bits UI v2 background (bits-ui.com/docs/transitions, bits-ui.com/docs/child-snippet):
  * content components carry a `data-state="open" | "closed"` attribute and keep the
@@ -41,9 +41,9 @@ export const FLOATING_WRAPPER_RULE =
  * `--z-index-*` theme namespace (@magna-carta/design-tokens, tokens/primitives/z-index.json).
  *
  * This map is the ONLY home for stacking order in the component layer: raw
- * `z-<number>` utilities are banned (design spec, "Styling discipline" — lint
- * arrives with the enforcement task), and Bits portals impose no z-index of
- * their own, so layering is owned entirely by these tokens.
+ * `z-<number>` utilities are banned (an off-scale layer would stack
+ * unpredictably against every existing surface), and Bits portals impose no
+ * z-index of their own, so layering is owned entirely by these tokens.
  */
 export const Z_LAYER_CLASSES = {
   dropdown: "z-dropdown",

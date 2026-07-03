@@ -52,6 +52,9 @@ const SKIP_DIRECTORIES = new Set([
   // "spike" is the literal name of the artifact, not a citation of one. Golden rule 13 governs shipped
   // source/tests/config.
   "spikes",
+  // The kept CSP probe (re-run on bits-ui/svelte upgrades): "spike" is this directory's own name,
+  // and its files necessarily say what they are and how to re-run them.
+  "csp-spike",
 ]);
 
 // Each pattern flags a process-artifact citation that has no legitimate form in code.
@@ -62,7 +65,9 @@ const BANNED = [
   { label: "spec-section citation", pattern: /\bspec §|§\s?\d/ },
   { label: "numbered-decision citation", pattern: /\bdecided (?:up front )?#\d/i },
   { label: "white-paper citation", pattern: /\bwhite[ -]paper\b/i },
-  { label: "spike citation", pattern: /\bspike\b/i },
+  // (?<!-) lets hyphenated artifact names pass: "test/csp-spike/…" is a concrete file path —
+  // exactly what rule 13 says to point at — while prose like "the spike showed" stays banned.
+  { label: "spike citation", pattern: /(?<!-)\bspike\b/i },
 ];
 
 const files = [];

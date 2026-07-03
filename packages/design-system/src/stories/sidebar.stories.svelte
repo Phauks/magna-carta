@@ -4,8 +4,8 @@
    * <nav> landmark with grouped destinations that collapses to an icon rail (the Trigger flips it;
    * Sidebar.Root shares the state via context). In the rail the labels go sr-only — the link keeps
    * its accessible name — and a Tooltip surfaces the name visually on hover/focus. This story is the
-   * first archetype-composition proof; the destination registry, RBAC filtering, and top bar are the
-   * feature-slice concerns (§1.2), not the structural chrome shown here. svelte-csf v5.
+   * first archetype-composition proof; the destination registry, RBAC filtering, and top bar are
+   * feature-slice concerns, not the structural chrome shown here. svelte-csf v5.
    */
   import { defineMeta } from "@storybook/addon-svelte-csf";
   import { expect, userEvent, waitFor } from "storybook/test";

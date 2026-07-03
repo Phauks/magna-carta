@@ -160,7 +160,9 @@
           min={field.min}
           max={field.max}
           value={value[field.index]}
-          oninput={(event) => {
+          onchange={(event) => {
+            // Commit on change (blur/Enter/steppers), NOT per keystroke: an oninput commit
+            // parses "0." to 0 and rewrites the field mid-typing, eating the decimal point.
             const next = Number.parseFloat(event.currentTarget.value);
             if (!Number.isNaN(next)) setPoint(field.index, clamp(next, field.min, field.max));
           }}

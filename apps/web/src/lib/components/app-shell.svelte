@@ -122,11 +122,11 @@
         <TopBar.Actions>
           <!-- +New, the billable timer, and alerts land here with their slices. -->
           {#if import.meta.env.DEV}
-            <!-- Developer-only controls (motion tuning). The dynamic import inside a DEV-gated
-                 branch keeps every byte of it out of production bundles. -->
-            {#await import("$lib/developer/developer-menu.svelte") then developerMenuModule}
-              {@const DeveloperMenu = developerMenuModule.default}
-              <DeveloperMenu />
+            <!-- The developer console (modular tooling; motion tuning first). The dynamic import
+                 inside a DEV-gated branch keeps every byte of it out of production bundles. -->
+            {#await import("$lib/developer/developer-console.svelte") then developerConsoleModule}
+              {@const DeveloperConsole = developerConsoleModule.default}
+              <DeveloperConsole />
             {/await}
           {/if}
           <Avatar.Root>
