@@ -1,0 +1,90 @@
+@layer components {
+  /*
+   * TopBar — the app shell's horizontal chrome (page-archetypes: command palette trigger, +New,
+   * the billable-timer and alerts SEAMS, user/firm). EDGE CHROME like the Sidebar: the dark ink
+   * register framing the light canvas. Height pins to the same row as the sidebar's brand corner
+   * (control-lg, deliberately NOT the density alias — the chrome frame is layout identity and
+   * does not tighten with the user density axis) so the two read as one unbroken chrome band.
+   * The assembled bar lives in the app (slots are domain knowledge); these are the parts.
+   */
+  .mc-top-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--mc-space-12);
+    min-block-size: var(--mc-control-lg);
+    padding-inline: var(--mc-space-16);
+    background-color: var(--mc-chrome-surface);
+    color: var(--mc-chrome-text);
+    border-block-end: var(--mc-border-width-default) solid var(--mc-chrome-border);
+  }
+  /* The command-palette trigger reads as a quiet inset field on the ink; it is a BUTTON (the
+     palette owns real input focus). Width is the consumer's utility concern (grow/max-w). */
+  .mc-top-bar-search {
+    display: flex;
+    align-items: center;
+    gap: var(--mc-space-8);
+    padding-block: var(--mc-space-8);
+    padding-inline: var(--mc-space-12);
+    border: var(--mc-border-width-default) solid var(--mc-chrome-border);
+    border-radius: var(--mc-radius-md);
+    background-color: var(--mc-chrome-surface-hover);
+    color: var(--mc-chrome-text-muted);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    line-height: var(--mc-leading-tight);
+    text-align: start;
+    cursor: pointer;
+    transition-property: color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+  }
+  .mc-top-bar-search:hover {
+    color: var(--mc-chrome-text);
+  }
+  .mc-top-bar-search:focus-visible {
+    outline: var(--mc-focus-ring-width) solid var(--mc-chrome-accent);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-top-bar-search-label {
+    flex: auto;
+  }
+  /* The quiet chrome keycap — muted warm text + a hairline on the ink, NOT the light-ground
+     Keyboard keycap (which renders white and shouts on the dark register). */
+  .mc-top-bar-keycap {
+    padding-inline: var(--mc-space-4);
+    border: var(--mc-border-width-default) solid var(--mc-chrome-border);
+    border-radius: var(--mc-radius-sm);
+    color: var(--mc-chrome-text-muted);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-xs);
+  }
+  /* Trailing region: +New, the timer/alerts seams, user/firm. Pushed to the inline end. */
+  .mc-top-bar-actions {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: var(--mc-space-8);
+    margin-inline-start: auto;
+  }
+  /* Quiet icon affordance on the ink (alerts, future chrome controls). */
+  .mc-top-bar-icon-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--mc-space-8);
+    border-radius: var(--mc-radius-md);
+    color: var(--mc-chrome-text-muted);
+    cursor: pointer;
+    transition-property: color, background-color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+  }
+  .mc-top-bar-icon-button:hover {
+    background-color: var(--mc-chrome-surface-hover);
+    color: var(--mc-chrome-text-strong);
+  }
+  .mc-top-bar-icon-button:focus-visible {
+    outline: var(--mc-focus-ring-width) solid var(--mc-chrome-accent);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+}

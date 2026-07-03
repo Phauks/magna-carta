@@ -17,12 +17,12 @@
   import Clock from "@lucide/svelte/icons/clock";
   import ReceiptText from "@lucide/svelte/icons/receipt-text";
   import Settings from "@lucide/svelte/icons/settings";
-  import Search from "@lucide/svelte/icons/search";
   import Plus from "@lucide/svelte/icons/plus";
   import Bell from "@lucide/svelte/icons/bell";
   import BrandMark from "../lib/components/brand-mark/brand-mark.svelte";
   import * as Masthead from "../lib/components/masthead/index.ts";
   import * as Sidebar from "../lib/components/sidebar/index.ts";
+  import * as TopBar from "../lib/components/top-bar/index.ts";
   import * as Tooltip from "../lib/components/tooltip/index.ts";
   import Button from "../lib/components/button/index.ts";
   import * as Avatar from "../lib/components/avatar/index.ts";
@@ -142,41 +142,25 @@
         <!-- Named so the work column resizes as its own view-transition group (geometry morph) rather
              than crossfading with the page root when the rail collapses — no canvas ghosting. -->
         <div class="flex grow flex-col overflow-hidden" style="view-transition-name: mc-app-canvas">
-          <!-- Top bar — chrome, starting to the right of the brand corner. Its height matches the brand
-               header (min-block-size control-lg) so their bottom hairlines line up into one row. -->
-          <header
-            class="flex items-center gap-12 border-b border-chrome-border bg-chrome-surface px-16"
-            style="min-block-size: var(--mc-control-lg)"
-          >
-            <button
-              type="button"
-              class="flex grow items-center gap-8 rounded-md border border-chrome-border bg-chrome-surface-hover px-12 py-8 text-sm text-chrome-text-muted max-w-md"
-            >
-              <Search class="size-16" aria-hidden="true" />
-              <span class="grow text-start">Search or jump to anything</span>
-              <!-- A quiet chrome keycap (muted warm text + a hairline), not the light-ground Keyboard
-                   keycap, which renders white and shouts on the dark ink. -->
-              <kbd
-                class="rounded-sm border border-chrome-border px-4 font-sans text-xs text-chrome-text-muted"
-                >⌘K</kbd
-              >
-            </button>
-            <div class="grow"></div>
-            <Button variant="accent" size="sm">
-              <Plus class="size-16" aria-hidden="true" />
-              New
-            </Button>
-            <button
-              type="button"
-              aria-label="Notifications"
-              class="flex items-center justify-center rounded-md p-8 text-chrome-text-muted transition-colors duration-fast hover:bg-chrome-surface-hover hover:text-chrome-text-strong"
-            >
-              <Bell class="size-20" aria-hidden="true" />
-            </button>
-            <Avatar.Root>
-              <Avatar.Fallback>TG</Avatar.Fallback>
-            </Avatar.Root>
-          </header>
+          <!-- Top bar — the TopBar chrome parts, starting to the right of the brand corner; its
+               row height pins to the brand header so the chrome reads as one band. -->
+          <TopBar.Root>
+            <TopBar.Search shortcut="⌘K" class="max-w-md grow">
+              Search or jump to anything
+            </TopBar.Search>
+            <TopBar.Actions>
+              <Button variant="accent" size="sm">
+                <Plus class="size-16" aria-hidden="true" />
+                New
+              </Button>
+              <TopBar.IconButton aria-label="Notifications">
+                <Bell class="size-20" aria-hidden="true" />
+              </TopBar.IconButton>
+              <Avatar.Root>
+                <Avatar.Fallback>TG</Avatar.Fallback>
+              </Avatar.Root>
+            </TopBar.Actions>
+          </TopBar.Root>
 
           <!-- Work canvas — light and calm. The Masthead is the page's ceremonial edge (the one
                place the display serif appears); identity recedes below it. -->

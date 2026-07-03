@@ -101,7 +101,7 @@ const bitsUiSweep = collectWorkspaceSourceFiles([
 
 describe("bits-ui import boundary (golden rule 2; ADR-0076)", () => {
   it("sweeps a real surface (vacuity guard)", () => {
-    expect(bitsUiSweep).toContain("apps/web/src/routes/+page.svelte");
+    expect(bitsUiSweep).toContain("apps/web/src/routes/(app)/+page.svelte");
     expect(bitsUiSweep).toContain("apps/worker/src/index.ts");
     expect(bitsUiSweep.length).toBeGreaterThanOrEqual(25);
     // The exclusions must not be vacuous either: the excluded trees really exist and
@@ -235,7 +235,7 @@ const lucideSweep = collectWorkspaceSourceFiles([...FITNESS_SELF_EXCLUSIONS]);
 describe("Lucide deep-import boundary (golden rule 2; ADR-0076)", () => {
   it("sweeps a real surface including the design system itself (vacuity guard)", () => {
     expect(lucideSweep).toContain("packages/design-system/src/lib/internal/floating.ts");
-    expect(lucideSweep).toContain("apps/web/src/routes/+page.svelte");
+    expect(lucideSweep).toContain("apps/web/src/routes/(app)/+page.svelte");
     expect(lucideSweep.length).toBeGreaterThan(bitsUiSweep.length);
   });
 

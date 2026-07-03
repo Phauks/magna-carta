@@ -42,6 +42,11 @@
     "$description": "Named layout dimensions for app-shell chrome — mode-invariant, consumed directly by recipes (like control/focus-ring/border-width). The global sidebar (page-archetypes Layout A) is a fixed-width rail that collapses to an icon rail; its two widths are tokens so the mc-sidebar recipe carries no literal length.",
     "sidebar": { "$type": "dimension", "$value": { "value": 256, "unit": "px" } },
     "sidebar-rail": { "$type": "dimension", "$value": { "value": 52, "unit": "px" } },
-    "popover": { "$type": "dimension", "$value": { "value": 224, "unit": "px" } }
+    "popover": { "$type": "dimension", "$value": { "value": 224, "unit": "px" } },
+    "prose": {
+      "$description": "The constrained readable measure for descriptions and form bodies (the design language's field discipline: forms and prose are never full-width).",
+      "$type": "dimension",
+      "$value": { "value": 480, "unit": "px" }
+    }
   }
 }

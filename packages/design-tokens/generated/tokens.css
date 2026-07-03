@@ -139,6 +139,8 @@
   --mc-radius-none: 0px;
   --mc-radius-sm: 2px;
   --mc-size-popover: 224px;
+  /* The constrained readable measure for descriptions and form bodies (the design language's field discipline: forms and prose are never full-width). */
+  --mc-size-prose: 480px;
   --mc-size-sidebar: 256px;
   --mc-size-sidebar-rail: 52px;
   --mc-space-0: 0px;
@@ -375,6 +377,8 @@
   --mc-radius-none: 0px;
   --mc-radius-sm: 2px;
   --mc-size-popover: 224px;
+  /* The constrained readable measure for descriptions and form bodies (the design language's field discipline: forms and prose are never full-width). */
+  --mc-size-prose: 480px;
   --mc-size-sidebar: 256px;
   --mc-size-sidebar-rail: 52px;
   --mc-space-0: 0px;
@@ -611,6 +615,8 @@
   --mc-radius-none: 0px;
   --mc-radius-sm: 2px;
   --mc-size-popover: 224px;
+  /* The constrained readable measure for descriptions and form bodies (the design language's field discipline: forms and prose are never full-width). */
+  --mc-size-prose: 480px;
   --mc-size-sidebar: 256px;
   --mc-size-sidebar-rail: 52px;
   --mc-space-0: 0px;
@@ -847,6 +853,8 @@
   --mc-radius-none: 0px;
   --mc-radius-sm: 2px;
   --mc-size-popover: 224px;
+  /* The constrained readable measure for descriptions and form bodies (the design language's field discipline: forms and prose are never full-width). */
+  --mc-size-prose: 480px;
   --mc-size-sidebar: 256px;
   --mc-size-sidebar-rail: 52px;
   --mc-space-0: 0px;
@@ -1083,6 +1091,8 @@
   --mc-radius-none: 0px;
   --mc-radius-sm: 2px;
   --mc-size-popover: 224px;
+  /* The constrained readable measure for descriptions and form bodies (the design language's field discipline: forms and prose are never full-width). */
+  --mc-size-prose: 480px;
   --mc-size-sidebar: 256px;
   --mc-size-sidebar-rail: 52px;
   --mc-space-0: 0px;
@@ -1319,6 +1329,8 @@
   --mc-radius-none: 0px;
   --mc-radius-sm: 2px;
   --mc-size-popover: 224px;
+  /* The constrained readable measure for descriptions and form bodies (the design language's field discipline: forms and prose are never full-width). */
+  --mc-size-prose: 480px;
   --mc-size-sidebar: 256px;
   --mc-size-sidebar-rail: 52px;
   --mc-space-0: 0px;
@@ -1555,6 +1567,8 @@
   --mc-radius-none: 0px;
   --mc-radius-sm: 2px;
   --mc-size-popover: 224px;
+  /* The constrained readable measure for descriptions and form bodies (the design language's field discipline: forms and prose are never full-width). */
+  --mc-size-prose: 480px;
   --mc-size-sidebar: 256px;
   --mc-size-sidebar-rail: 52px;
   --mc-space-0: 0px;
@@ -1791,6 +1805,8 @@
   --mc-radius-none: 0px;
   --mc-radius-sm: 2px;
   --mc-size-popover: 224px;
+  /* The constrained readable measure for descriptions and form bodies (the design language's field discipline: forms and prose are never full-width). */
+  --mc-size-prose: 480px;
   --mc-size-sidebar: 256px;
   --mc-size-sidebar-rail: 52px;
   --mc-space-0: 0px;
@@ -2027,6 +2043,8 @@
   --mc-radius-none: 0px;
   --mc-radius-sm: 2px;
   --mc-size-popover: 224px;
+  /* The constrained readable measure for descriptions and form bodies (the design language's field discipline: forms and prose are never full-width). */
+  --mc-size-prose: 480px;
   --mc-size-sidebar: 256px;
   --mc-size-sidebar-rail: 52px;
   --mc-space-0: 0px;
@@ -2263,6 +2281,8 @@
   --mc-radius-none: 0px;
   --mc-radius-sm: 2px;
   --mc-size-popover: 224px;
+  /* The constrained readable measure for descriptions and form bodies (the design language's field discipline: forms and prose are never full-width). */
+  --mc-size-prose: 480px;
   --mc-size-sidebar: 256px;
   --mc-size-sidebar-rail: 52px;
   --mc-space-0: 0px;
@@ -2499,6 +2519,8 @@
   --mc-radius-none: 0px;
   --mc-radius-sm: 2px;
   --mc-size-popover: 224px;
+  /* The constrained readable measure for descriptions and form bodies (the design language's field discipline: forms and prose are never full-width). */
+  --mc-size-prose: 480px;
   --mc-size-sidebar: 256px;
   --mc-size-sidebar-rail: 52px;
   --mc-space-0: 0px;
@@ -2735,6 +2757,8 @@
   --mc-radius-none: 0px;
   --mc-radius-sm: 2px;
   --mc-size-popover: 224px;
+  /* The constrained readable measure for descriptions and form bodies (the design language's field discipline: forms and prose are never full-width). */
+  --mc-size-prose: 480px;
   --mc-size-sidebar: 256px;
   --mc-size-sidebar-rail: 52px;
   --mc-space-0: 0px;

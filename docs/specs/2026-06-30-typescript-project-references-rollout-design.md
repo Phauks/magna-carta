@@ -48,18 +48,18 @@ its own `.d.ts`). So references live in a **parallel `tsconfig.build.json` graph
       "declarationMap": false, // off — tsgo RC does not yet support declaration maps (keep tsc/tsgo parity)
       "outDir": ".tsbuild",
       "rootDir": "src",
-      "tsBuildInfoFile": ".tsbuild/tsconfig.build.tsbuildinfo"
+      "tsBuildInfoFile": ".tsbuild/tsconfig.build.tsbuildinfo",
     },
     "references": [
       /* one { "path": "../<dep>/tsconfig.build.json" } per @magna-carta/* workspace dependency */
     ],
-    "include": ["src/**/*.ts"] // src only — the public surface; test files are not in the build graph
+    "include": ["src/**/*.ts"], // src only — the public surface; test files are not in the build graph
   }
   ```
   `include` drops `test/**` deliberately: the reference graph type-checks the package's public surface
   and its cross-package contracts. Test type-checking stays with `vp check` on the main `tsconfig.json`.
 - **Root `tsconfig.build.json`** — a solution file (`{ "files": [], "references": [ ...every package/app
-  build config... ] }`) so one `tsc -b` builds the whole graph in dependency order, incrementally.
+build config... ] }`) so one `tsc -b` builds the whole graph in dependency order, incrementally.
 - **`.gitignore`** gains `.tsbuild/` (the emitted `.d.ts` + `.tsbuildinfo` are regenerable build output).
 
 ### The type-check task
