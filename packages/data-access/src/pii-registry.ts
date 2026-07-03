@@ -81,4 +81,87 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
   // Append-only tables: pseudonymize the subject reference, never delete the row.
   { table: "audit_log", subjectKey: "actor_user_id", action: "pseudonymize-keep" },
   { table: "entity_merge", subjectKey: "subordinate_id", action: "pseudonymize-keep" },
+  // firm_secret holds only a named sealed value (API keys, OAuth material) — no natural-person
+  // subject, so its own id never matches a real erasure subject. Registered solely because its sealed
+  // column is a PROTECTED_COLUMNS entry, per the coverage fitness's protected-column-implies-registered
+  // rule; this keeps the encrypted-at-rest surface and the PII registry from silently drifting apart.
+  {
+    table: "firm_secret",
+    subjectKey: "id",
+    action: "retain-under-matter",
+    note: "firm-scoped secret store, not a data subject's personal data; kept out of subject-erasure reach by construction (managed only through firm:manageSecrets)",
+  },
+];
+
+// Per-firm tables that hold NO personal data — the explicit non-PII half of the coverage fitness.
+// A table added to the schema is unclassified until it appears here or in PII_TABLES, so a new
+// personal-data table cannot slip in unattributed. Filled from the coverage test's failure output;
+// each is a structural/administrative/catalog/config table with no personal-data column of its own.
+export const NO_PII_TABLES: readonly string[] = [
+  // Request/event plumbing — ids and redacted, non-privileged payloads only.
+  "idempotency_key",
+  "outbox",
+  // Per-firm RBAC — roles are data, permissions are registry keys; no personal data. `member` mirrors
+  // the control-plane user by user_id (the join key) and carries only a display name, kept live for
+  // referential integrity across nearly every table below; the user-axis rows already in PII_TABLES
+  // (time_entry.timekeeper_user_id, incident.reported_by, audit_log.actor_user_id,
+  // ai_detection_usage.requested_by) are the subject's own erasure-relevant ACTIVITY, which is what
+  // this registry attributes — `member` itself, and the pure role/location/lock assignment tables
+  // below, are current operational state, not an activity record about the subject.
+  "member",
+  "role",
+  "role_permission",
+  "member_role",
+  "direct_grant",
+  // Append-only double-entry ledger — structural accounting rows; a transaction's free-text
+  // description is a business record, not personal data (mirrors matter.description below).
+  "ledger_account",
+  "ledger_entry",
+  "ledger_line",
+  "account_balance",
+  // Firm offices and their staffing — the firm's own addresses/phone numbers, not a person's.
+  "location",
+  "location_address",
+  "member_location",
+  // Matters, Locations & File Manager structure — classification catalogs, matter/folder shells, and
+  // file-lifecycle bookkeeping. `matter.client_display_name` is a display convenience, not the
+  // client's PII of record (that lives in the Directory, already registered); the real matter-corpus
+  // documents are `file`/`file_version`, already registered under retain-under-matter.
+  "matter_type",
+  "document_type",
+  "numbering_scheme",
+  "matter_number_counter",
+  "matter",
+  "folder",
+  "document_checkout",
+  "upload_session",
+  "storage_meter",
+  "scan_cache",
+  "token_usage_meter",
+  // Per-firm config — key/value settings; a user-scoped row is application preference data, not the
+  // user's own identity/activity PII.
+  "setting",
+  "scoped_setting",
+  // A connection's principal_ref names a firm- or user-scoped OAuth principal, but the row is current
+  // connection *state* (mirrors member_role/document_checkout above), not an activity record.
+  "integration_connection",
+  // Directory classification catalogs — tag/role names, not entity data.
+  "directory_category",
+  "directory_party_role",
+  // Mailing/shipment records — from/to addresses are opaque JSON (content-level PII discovery in
+  // free text is explicitly out of scope for this registry; see docs/conventions/compliance.md).
+  "shipment",
+  "shipment_label",
+  "tracking_event",
+  // Custom-field definitions and picklist catalogs — schema/config, not the field *values*
+  // (custom_field_value is already registered).
+  "custom_field",
+  "picklist_option",
+  // Billing configuration — rate cards/rates/UTBMS codes/non-billable categories/narrative templates
+  // are firm pricing and coding catalogs, not personal data.
+  "rate_card",
+  "rate",
+  "utbms_code",
+  "non_billable_category",
+  "narrative_template",
 ];
