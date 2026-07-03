@@ -18,6 +18,9 @@
       "path": "../../packages/access-control/tsconfig.build.json"
     },
     {
+      "path": "../../packages/ai-detection/tsconfig.build.json"
+    },
+    {
       "path": "../../packages/billing-core/tsconfig.build.json"
     },
     {
