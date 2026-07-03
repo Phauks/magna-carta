@@ -34,9 +34,9 @@ const FALLBACK_HTML =
 
 export default {
   async fetch(request: Request, env: Bindings): Promise<Response> {
-    const url = new URL(request.url);
     if (request.method !== "GET") return new Response("Method Not Allowed", { status: 405 });
     try {
+      const url = new URL(request.url);
       if (url.pathname === "/api/status.json") return await publicSnapshotJson(env);
       if (url.pathname === "/" || url.pathname === "") {
         // HTML page is deferred; serve the machine feed's summary as a minimal placeholder.

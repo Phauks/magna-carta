@@ -8,6 +8,16 @@ import { seedCredentialedUser, signInForSessionCookie } from "./support/test-aut
 // route did not exist yet; it does now.
 //
 // Storage is SHARED across this file's tests; the control-plane migrations run once in beforeAll.
+//
+// Coverage note: the guard's allow-decision logic (active operator, missing 2FA, lapsed grant) is
+// unit-tested directly via decidePlatformOperatorAccess in
+// packages/access-control/test/platform-operator.test.ts. This file covers the two paths that
+// logic alone can't reach: no session at all (401) and a signed-in user who is not a platform
+// operator (403). Two end-to-end cases remain deferred here: an active seeded platform_operator
+// with 2FA getting 200 with the event stamped with their userId, and a lapsed grant (expires_at in
+// the past) getting 403 through the real route. Both need a seeded platform_operator row plus a
+// Better Auth authenticated-session fixture, which does not exist in this suite yet. Add those two
+// cases, and the fixture they need, before the first platform_operator is seeded in production.
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);

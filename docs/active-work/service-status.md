@@ -67,3 +67,13 @@ The Task 14 blocking finding — `apps/worker/package.json` missing the `@magna-
 workspace dependency — is fixed: the dependency is declared, `tsconfig.build.json` references are
 regenerated, and `wrangler deploy --dry-run` resolves cleanly (see
 `.superpowers/sdd/task-14-report.md`).
+
+## Deferred tests (2026-07-02)
+
+Two integration tests called for in the design's Testing section are not yet written: an active
+seeded `platform_operator` with 2FA getting `200` from a write route with the event stamped with
+their `userId`, and a lapsed grant (`expires_at` in the past) getting `403`. Both need a seeded
+`platform_operator` row plus a Better Auth authenticated-session fixture, which does not exist in
+the test suite yet — see the comment block in `apps/worker/test/platform-operator-guard.test.ts`
+for what is and isn't covered today. Trigger: add those two cases, and the fixture they need,
+before the first `platform_operator` is seeded in production.

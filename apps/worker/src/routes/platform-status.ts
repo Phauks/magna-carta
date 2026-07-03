@@ -5,7 +5,7 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import type { MiddlewareHandler } from "hono";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
-import { COMPONENT_STATUS } from "@magna-carta/status";
+import { COMPONENT_STATUS, EVENT_IMPACT, EVENT_LIFECYCLE } from "@magna-carta/status";
 import type { Bindings } from "../app.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
@@ -14,9 +14,6 @@ import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { Problem, problemJson } from "../contracts/problem.ts";
 import { platformOperatorGuard } from "./platform-operator-guard.ts";
 import { mutateAuthored } from "../status/authored-store.ts";
-
-const EVENT_IMPACT = ["minor", "major", "critical", "maintenance"] as const;
-const LIFECYCLE = ["investigating", "identified", "monitoring", "resolved"] as const;
 
 const DeclareBody = z
   .object({
@@ -28,7 +25,7 @@ const DeclareBody = z
   .openapi("DeclareServiceEvent");
 
 const UpdateBody = z
-  .object({ eventId: z.string(), lifecycle: z.enum(LIFECYCLE), body: z.string().min(1) })
+  .object({ eventId: z.string(), lifecycle: z.enum(EVENT_LIFECYCLE), body: z.string().min(1) })
   .openapi("PostServiceEventUpdate");
 
 const EventResult = z.object({ eventId: z.string() }).openapi("ServiceEventResult");
@@ -332,7 +329,7 @@ async function appendEventUpdate(
   kv: KVNamespace,
   now: string,
   eventId: string,
-  lifecycle: (typeof LIFECYCLE)[number],
+  lifecycle: (typeof EVENT_LIFECYCLE)[number],
   body: string,
   author: string,
   resolve: boolean,
