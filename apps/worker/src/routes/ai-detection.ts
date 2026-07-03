@@ -145,11 +145,18 @@ export function registerAiDetectionRoutes(
         });
       }
 
+      const mode = c.env.PANGRAM_MODE === "sync" ? ("sync" as const) : ("async-task" as const);
+      const defaultBaseUrl =
+        mode === "sync" ? "https://text.api.pangram.com/v3" : "https://text.external-api.pangram.com";
       const port = createPangramAdapter({
         http: fetchHttpClient(),
         apiKey,
-        baseUrl: c.env.PANGRAM_BASE_URL ?? "https://text.api.pangram.com",
+        baseUrl: c.env.PANGRAM_BASE_URL ?? defaultBaseUrl,
+        mode,
         now: () => new Date().toISOString(),
+        // The poll delay lives here (the pure adapter is timer-free). A queued microtask timer is
+        // enough — polling is I/O wait between fetches, not CPU.
+        sleep: (milliseconds) => new Promise<void>((resolve) => setTimeout(resolve, milliseconds)),
       });
 
       const result = await port.detect({ text, languageHint, firmId });

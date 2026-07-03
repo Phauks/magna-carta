@@ -195,9 +195,15 @@ export type Bindings = {
   // The platform-managed AI-text-detection provider key + base URL. Optional: absent in tests and
   // until the deploy-time secret is set, in which case the detection route reports detection
   // unavailable. A platform secret, never a per-firm credential; production sets it with
-  // `wrangler secret put PANGRAM_API_KEY`. PANGRAM_BASE_URL is public config (a var, not a secret).
+  // `wrangler secret put PANGRAM_API_KEY`. PANGRAM_BASE_URL is public config (a var, not a secret) and
+  // is an OPTIONAL override only: PANGRAM_MODE alone selects the correct default host (async-task ->
+  // the external-api host, sync -> the /v3 host); set PANGRAM_BASE_URL only to point at something else.
   PANGRAM_API_KEY?: string;
   PANGRAM_BASE_URL?: string;
+  // Which Pangram surface the platform key is provisioned for: "async-task" (the external-api that
+  // returns a task to poll) or "sync". Optional; defaults to "async-task". A public config value, not
+  // a secret — bound via wrangler vars.
+  PANGRAM_MODE?: "async-task" | "sync";
 };
 
 // One Better Auth instance per worker env: the env object is stable across requests within an
