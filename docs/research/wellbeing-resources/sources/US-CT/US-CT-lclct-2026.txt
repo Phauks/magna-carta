@@ -1,0 +1,21 @@
+---
+jurisdiction: US-CT
+publisher: Lawyers Concerned for Lawyers — Connecticut, Inc.
+sourceUrl: https://lclct.org/
+accessedOn: 2026-07-02
+accessGate: open
+method: web search + direct fetch
+---
+[Lawyers Concerned for Lawyers — Connecticut, Inc. (LCL-CT)]
+QUOTE: "This is an anonymous, confidential program offered free of charge and free of judgment"
+
+LCL-CT is a Connecticut non-profit created to assist Connecticut lawyers and judges experiencing
+alcoholism, drug addiction, depression, anxiety, compulsive disorders (including gambling), stress
+or other distress. Services are free and completely confidential: crisis intervention and referral;
+free mental-health evaluation and assessment (no evaluations/documentation supplied to any
+regulatory or state agency); biweekly peer-driven support groups with a professional facilitator.
+"Our services are confidential and protected under Connecticut General Statutes §51-81d (a)." Not
+affiliated with the State Judicial Branch, State Grievance Committee, Office of Disciplinary
+Counsel, or Connecticut Bar Association (which support its mission). Contact: hotline 800-497-1422;
+office 860-563-4900; info@lclct.org. Hours/24-7 not stated → availability unspecified. Connecticut
+Bar is voluntary.

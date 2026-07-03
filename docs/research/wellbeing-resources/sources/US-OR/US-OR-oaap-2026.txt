@@ -1,0 +1,16 @@
+---
+jurisdiction: US-OR
+publisher: Oregon Attorney Assistance Program (Oregon State Bar PLF)
+sourceUrl: https://oaap.org/about/
+accessedOn: 2026-07-02
+accessGate: open
+method: web search + direct fetch
+---
+[Oregon Attorney Assistance Program (OAAP)]
+QUOTE: "All communications with the OAAP are completely voluntary, confidential, and will not affect your standing with the Professional Liability Fund or the Oregon State Bar."
+Cost: "We are funded by the Professional Liability Fund (PLF), which means nearly all our services
+are free." Statewide LAP for lawyers, judges, and law students (since 1982), staffed by attorney
+counselors: free confidential short-term counseling (in-office, phone, or teleconference),
+peer-support groups, workshops, CLEs. Contact 503-226-1057 (local) / 800-321-6227 (toll-free); hours
+8:30a-5:00p M-F; 520 SW Yamhill St, Suite 1050, Portland, OR 97204. Same local number offered for
+urgent after-hours matters but with no 24/7 designation → businessHours.

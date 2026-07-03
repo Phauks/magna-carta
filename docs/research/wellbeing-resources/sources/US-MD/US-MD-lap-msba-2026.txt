@@ -1,0 +1,16 @@
+---
+jurisdiction: US-MD
+publisher: Maryland State Bar Association
+sourceUrl: https://www.msba.org/health-and-wellness/
+accessedOn: 2026-07-02
+accessGate: open
+method: web search + direct fetch
+---
+[Maryland Lawyer Assistance Program (LAP)]
+QUOTE: "The Lawyer Assistance Program is available to all lawyers in Maryland and provides free, confidential assistance to lawyers, judges, law school students and support staff by offering virtual assessment, referral, short-term counseling, and continued support to ensure long term success."
+
+Confidential toll-free line 1-888-388-5459. "We offer a network of counselors that can assist you no
+matter what state you are living in." "Financial Assistance Available — The Lawyer Assistance Program
+offers financial assistance for Mental Health and Addiction treatment." Director Sarah Myers. MSBA,
+3700 O'Donnell Street, Suite 200, Baltimore, MD 21224. Director email obscured on page → omitted.
+Line hours not stated → unspecified.

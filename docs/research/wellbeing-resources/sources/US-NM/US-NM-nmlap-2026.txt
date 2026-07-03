@@ -1,0 +1,27 @@
+---
+jurisdiction: US-NM
+publisher: State Bar of New Mexico (New Mexico Lawyer Assistance Program)
+sourceUrl: https://www.sbnm.org/Member-Services/New-Mexico-Lawyer-Assistance-Program/For-Judges
+accessedOn: 2026-07-02
+accessGate: open
+method: web search + direct fetch
+---
+[New Mexico Lawyer Assistance Program (NM LAP)]
+QUOTE (hours + confidentiality): "24 Hours Every Day ... Confidential Helpline/Hotline Assistance"; "communications made to a member, staff, or authorized agent of the Lawyers Assistance Program ... are privileged."
+
+Free, confidential program for judges, attorneys, law students, and legal staff: confidential
+helpline, substance-use assessments, peer support, referrals. "judges may access confidential,
+judicial peer support and professional services at no cost." Helpline/peer contacts 505-420-8179,
+505-797-6091; office 505-797-6003, 800-860-4914; nmlap@sbnm.org.
+
+[The Solutions Group — NM LAP EAP] (vendor)
+QUOTE: "Free Employee Assistance Program: www.solutionsbiz.com or 505-254-3555"
+Outsourced EAP delivering free confidential counseling (up to four sessions/issue/year, corroborated
+from search) for members and families.
+
+[In This Together Fund] (corroborated)
+QUOTE: "In This Together Fund & Donations"
+NM LAP donation-supported fund (Bar Foundation) for treatment/assistance costs; detailed eligibility
+text not extractable this session.
+NOTE: NM LAP was formerly the Judges and Lawyers Assistance Program (renamed to distinguish it from
+the new NM Judicial Wellness Program).

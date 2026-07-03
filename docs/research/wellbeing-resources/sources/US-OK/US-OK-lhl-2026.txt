@@ -1,0 +1,18 @@
+---
+jurisdiction: US-OK
+publisher: Oklahoma Bar Association (Lawyers Helping Lawyers)
+sourceUrl: https://www.okbar.org/lhl/
+accessedOn: 2026-07-02
+accessGate: open
+method: web search + direct fetch
+---
+[Lawyers Helping Lawyers Assistance Program (LHL)]
+QUOTE: "By statute and OBA resolution, any information received by the program must remain completely confidential."
+Cost: "The OBA offers all bar members up to six hours of free short-term, problem-focused or crisis
+counseling." LHL hotline 800-364-7886 or oklalhl@gmail.com; the hotline is answered by a contracted
+counseling/mental-health service (after-hours reaches licensed professionals) — no literal 24/7
+statement → unspecified. Peer mentoring and monthly discussion groups (OKC and Tulsa).
+
+[Lawyers Helping Lawyers Foundation] (nonprofit funding)
+QUOTE: "Attorneys may qualify for a grant from the Lawyers Helping Lawyers Foundation to help pay for treatment or medication."
+Grants applied for via the 800-364-7886 hotline / off-site coordinator.

@@ -1,0 +1,17 @@
+---
+jurisdiction: US-ME
+publisher: Maine Assistance Program for Lawyers and Judges, Inc.
+sourceUrl: http://www.me-lap.org/
+accessedOn: 2026-07-02
+accessGate: open
+method: web search + direct fetch
+---
+[Maine Assistance Program for Lawyers and Judges (MAP)]
+QUOTE: "MAP services are confidential and protected under Maine Revised Statutes Title 14 §164-A(3) unless confidentiality is waived by the affected person."
+
+"The Maine Assistance Program for Lawyers and Judges (MAP) is a free service for all members of the
+Maine bench and bar, as well as law students and bar applicants." All communications and actions are
+held in the strictest confidence and are not reported to any entity outside MAP, including any
+professional disciplinary agency, without the client's permission. Contact: 207-266-5951;
+maineassistanceprogram@gmail.com. Independent 501(c)(3); not affiliated with the Maine Board of
+Overseers of the Bar. Line hours not stated → unspecified.

@@ -1,0 +1,22 @@
+---
+jurisdiction: US-NV
+publisher: State Bar of Nevada (NLAP / LCL / Therapy Benefit)
+sourceUrl: https://nvbar.org/for-lawyers/resources/wellbeing/nlap/
+accessedOn: 2026-07-02
+accessGate: open
+method: corroborated from search index (nvbar.org 403 this session; browser tool unavailable)
+---
+[Nevada Lawyer Assistance Program (NLAP)] (corroborated)
+QUOTE: "The initial evaluation is conducted by a medical professional and is provided at no charge to the attorney."
+Clinical program for attorneys/judges: assessment, treatment referral, and ongoing monitoring.
+Voluntary self-report or Office of Bar Counsel referral. Member therapy benefit: "The first five
+sessions are provided at no charge" (expanded from three), statewide and via secure video. Hotline
+1-866-828-0022 (answered by a fellow lawyer).
+
+[Lawyers Concerned for Lawyers (LCL) — Nevada] (corroborated)
+QUOTE: "The first five sessions are provided at no charge. The inquiry and subsequent five sessions are completely confidential."
+Peer-support program (est. mid-1980s) of attorneys in recovery: one-on-one help, statewide closed-
+door AA meetings, therapist referrals. Same hotline 1-866-828-0022; leave only first name and phone.
+
+NOTE: all nvbar.org pages returned HTTP 403 this session; details corroborated from the search
+index. 24/7 availability asserted by a secondary source, not confirmed on a loaded page → unspecified.
