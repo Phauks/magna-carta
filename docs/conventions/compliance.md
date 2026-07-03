@@ -87,9 +87,9 @@ Strong on the technical-measures side: isolation, encryption, crypto-shred, reda
 **Gaps:**
 
 - **Subject-level erasure / DSAR** — only _firm-level_ crypto-shred exists; per-subject erasure within a firm is
-  undecided (ADR-0078 flags per-matter/subject destruction open). → **ADR-subject-level-erasure-dsar** (Proposed).
+  undecided (ADR-0078 flags per-matter/subject destruction open). → **ADR-subject-level-erasure-dsar** (Accepted; [spec](../specs/2026-07-02-data-subject-attribution-erasure-residency-design.md)) — the PII/erasure registry + fitness-function seam builds now; the erasure orchestrator is deferred.
 - **Data residency / international transfers** — no per-firm region control today (Art. 44; also PIPEDA /
-  Canadian provincial rules). SCCs/IDTA flow through Cloudflare + the payment processor. → **ADR-data-residency-firm-region-seam** (Proposed).
+  Canadian provincial rules). SCCs/IDTA flow through Cloudflare + the payment processor. → **ADR-data-residency-firm-region-seam** (Accepted; [spec](../specs/2026-07-02-data-subject-attribution-erasure-residency-design.md)) — `firm.data_region` seam + `eu` path; Canada reserved.
 - **DPA (Art. 28), published sub-processor list + change notification, GDPR statement, RoPA (Art. 30), breach-
   notification policy (72h to controller), EU representative (Art. 27) / DPO** — owner/legal artifacts,
   unproduced (legal-perimeter.md _§B_).
@@ -119,8 +119,8 @@ Each item is either a Proposed ADR (an engineering decision to make) or an owner
 
 | Gap | Frameworks | Where it goes |
 | --- | --- | --- |
-| Subject-level erasure / DSAR (beyond firm crypto-shred) | G | **ADR-subject-level-erasure-dsar** (Proposed) |
-| Per-firm data residency / region seam | G, I | **ADR-data-residency-firm-region-seam** (Proposed) |
+| Subject-level erasure / DSAR (beyond firm crypto-shred) | G | **ADR-subject-level-erasure-dsar** (Accepted; [spec](../specs/2026-07-02-data-subject-attribution-erasure-residency-design.md)) — registry+fitness seam building |
+| Per-firm data residency / region seam | G, I | **ADR-data-residency-firm-region-seam** (Accepted; [spec](../specs/2026-07-02-data-subject-attribution-erasure-residency-design.md)) — seam building |
 | Breach detection → controller-notification workflow + policy | S, G, I | Eng seam (incident pipeline exists, ADR-0038) + owner policy (legal-perimeter.md _§B_) |
 | Audit subsystem — viewer, retention policy, tamper-evidence beyond append-only scan (e.g. hash-chaining) | S, G, I | Later slice; storage contract already exists (ADR-0084) |
 | ROOT_KEK rotation machinery | S, I | Seam reserved in the envelope frame (ADR-0084); scheduled hardening build |
