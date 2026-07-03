@@ -44,6 +44,30 @@ pub fn missing_documents(entries: &[ManifestEntry], dir: &Path) -> Vec<ManifestE
         .collect()
 }
 
+/// Download every manifest entry missing from `dir` into `dir`, creating it if
+/// needed. Returns how many files were fetched. Network code is compiled only
+/// under the `corpus-fetch` feature so the default build pulls no HTTP stack.
+#[cfg(feature = "corpus-fetch")]
+pub fn fetch_missing(entries: &[ManifestEntry], dir: &Path) -> std::io::Result<usize> {
+    std::fs::create_dir_all(dir)?;
+    let client = reqwest::blocking::Client::builder()
+        .user_agent("magna-carta-pdf-eval/validation")
+        .build()
+        .map_err(|e| std::io::Error::other(e.to_string()))?;
+    let mut fetched = 0usize;
+    for entry in missing_documents(entries, dir) {
+        let body = client
+            .get(&entry.url)
+            .send()
+            .and_then(|r| r.error_for_status())
+            .and_then(|r| r.bytes())
+            .map_err(|e| std::io::Error::other(format!("{}: {e}", entry.url)))?;
+        std::fs::write(dir.join(&entry.filename), &body)?;
+        fetched += 1;
+    }
+    Ok(fetched)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
