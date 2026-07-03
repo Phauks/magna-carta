@@ -5,6 +5,8 @@
 pub mod corpus;
 pub mod operation;
 pub mod operations;
+pub mod report;
+pub mod runner;
 
 /// Fetch any missing forms-corpus files into `corpus-forms/`. Requires the
 /// `corpus-fetch` feature; without it, prints how to enable it.
