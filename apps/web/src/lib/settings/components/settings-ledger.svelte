@@ -1,14 +1,15 @@
 <script lang="ts">
   /*
-   * The change history trail — a right-side pull-out. History is a META interaction, not page
-   * content (the owner's three-zone settings architecture: navigation | the settings themselves |
-   * meta), so the trail lives in a drawer off the page's edge and only its quiet trigger spends
-   * space in the meta corner.
+   * The change history trail — a right-side pull-out. History is a meta interaction, not page
+   * content, so the trail lives in a drawer off the page's edge and only its quiet trigger
+   * spends space in the header band's rail.
    *
    * Each entry is one committed change: the setting's label, old → new, and when. Restore never
-   * rewrites history: it STAGES the old value through the draft, and saving appends a NEW entry —
-   * append-only, like the trust ledger. The store enforces that; this component only ever goes
-   * through the draft, never at the entries.
+   * rewrites history: on a draft page it STAGES the old value through the draft, and saving
+   * appends a NEW entry — append-only, like the trust ledger. The store enforces that; this
+   * component only ever goes through the draft (or the page's restoreAction), never at the
+   * entries. Instant pages pass `restoreAction` — their restore re-APPLIES immediately and the
+   * page appends the new entry itself, the same append-only discipline by another route.
    *
    * The trail is session/device-backed today, hence the honest empty state; the firm audit trail
    * takes over when the backend lands.
@@ -31,10 +32,17 @@
     sectionId,
     draft,
     canRestore = true,
+    restoreAction,
   }: {
     sectionId: string;
     draft?: SettingsDraft;
     canRestore?: boolean;
+    /**
+     * Overrides the built-in stage-through-the-draft restore. The page resolves the entry in its
+     * own vocabulary and returns the action to run — or null when the entry cannot be restored
+     * (hides the button). Instant pages use this to apply-and-append.
+     */
+    restoreAction?: (entry: SettingsLedgerEntry) => (() => void) | null;
   } = $props();
 
   // Newest first — sorted here so the trail reads top-down as "most recent" regardless of the
@@ -77,18 +85,22 @@
     return definition.options?.find((option) => option.label === label)?.value;
   }
 
-  function restoreTarget(
-    entry: SettingsLedgerEntry,
-  ): { definition: SettingDefinition; value: SettingValue } | undefined {
+  function restoreHandler(entry: SettingsLedgerEntry): (() => void) | null {
+    if (restoreAction !== undefined) {
+      return restoreAction(entry);
+    }
+    if (!canRestore || draft === undefined) {
+      return null;
+    }
     const definition = definitions.find((candidate) => candidate.id === entry.settingId);
     if (definition === undefined) {
-      return undefined;
+      return null;
     }
     const restoredValue = rawValueForLabel(definition, entry.from);
     if (restoredValue === undefined) {
-      return undefined;
+      return null;
     }
-    return { definition, value: restoredValue };
+    return () => draft?.stage(definition, restoredValue);
   }
 
   function formatTimestamp(at: string): string {
@@ -97,8 +109,8 @@
 </script>
 
 <Sheet.Root>
-  <!-- The quiet meta-corner trigger; Sheet.Trigger carries no look of its own, so it wears the
-       ghost button recipe. -->
+  <!-- The rail's constant terminal element; Sheet.Trigger carries no look of its own, so it
+       wears the ghost button recipe. -->
   <Sheet.Trigger class={buttonClasses({ variant: "ghost", size: "default" })}>
     <History class="size-16" aria-hidden="true" />
     Change history
@@ -110,7 +122,7 @@
     {:else}
       <ul class="flex flex-col gap-12">
         {#each entries as entry (entry.id)}
-          {@const target = canRestore && draft !== undefined ? restoreTarget(entry) : undefined}
+          {@const handler = restoreHandler(entry)}
           <li class="flex items-center justify-between gap-16">
             <div class="flex min-w-0 flex-col gap-4">
               <p class="text-sm">
@@ -121,14 +133,8 @@
               </p>
               <p class="text-xs text-text-muted">{formatTimestamp(entry.at)}</p>
             </div>
-            {#if target !== undefined}
-              <Button
-                variant="ghost"
-                size="sm"
-                onclick={() => draft?.stage(target.definition, target.value)}
-              >
-                Restore
-              </Button>
+            {#if handler !== null}
+              <Button variant="ghost" size="sm" onclick={handler}>Restore</Button>
             {/if}
           </li>
         {/each}

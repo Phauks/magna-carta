@@ -1,56 +1,124 @@
 <script lang="ts">
   /*
-   * The see-but-cannot-edit composer — a member who can read a section's settings but not change
-   * them asks here. The dialog gathers which setting, the proposed value (free text: the
-   * administrator interprets it), and the required reason, and assembles them into one
-   * paste-ready block behind a single Copy action (bug-report-dialog.svelte is the sibling
-   * idiom).
+   * The see-but-cannot-edit composer, pre-scoped to ONE setting: the request affordance lives on
+   * the row being asked about, so the dialog opens already knowing which setting — and states
+   * its CURRENT value engraved. Both sides gain information: the member asks about the thing in
+   * front of them, and the administrator receives the setting, what it reads today, the proposed
+   * value, and the reason, addressed to named recipients. (The setting is open-sensitivity by
+   * construction — restricted settings never render for non-editors — so stating its current
+   * value discloses nothing the member cannot already see.)
+   *
+   * Recipients default to every administrator holding the section's edit right (the mock roster
+   * seam in settings-permissions.ts); the member may narrow the list, and the copied block
+   * carries the To: line so the request lands with the people who can act on it.
    *
    * Honesty rule: there is no submit. Filing straight to the firm's administrators arrives with
    * firm accounts — the request will ride the same rails as access requests when they land;
-   * until then Copy carries it, and the footer says so plainly. The committed value is NOT part
-   * of the block: this surface cannot see restricted state, so the request never pretends to
-   * know it — the administrator reads it off their own screen.
+   * until then Copy carries it, and the footer says so plainly.
    *
    * The page owns the trigger state (`bind:open`); this component renders no trigger.
    */
   import * as Dialog from "@magna-carta/design-system/dialog";
-  import * as Select from "@magna-carta/design-system/select";
   import Button from "@magna-carta/design-system/button";
+  import Checkbox from "@magna-carta/design-system/checkbox";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
   import Textarea from "@magna-carta/design-system/textarea";
   import Check from "@lucide/svelte/icons/check";
   import Copy from "@lucide/svelte/icons/copy";
-  import { visibleSettingsForSection } from "$lib/settings/settings-definitions.ts";
+  import { settingValueLabel, type SettingDefinition } from "$lib/settings/settings-definitions.ts";
+  import { committedSettingValue } from "$lib/settings/settings-draft.svelte.ts";
+  import { SETTINGS_SECTIONS } from "$lib/settings/settings-sections.ts";
+  import { administratorsForPermissionArea } from "$lib/settings/settings-permissions.ts";
 
-  let { open = $bindable(false), sectionId }: { open?: boolean; sectionId: string } = $props();
+  let {
+    open = $bindable(false),
+    definition,
+  }: {
+    open?: boolean;
+    definition: SettingDefinition;
+  } = $props();
 
-  // The draft survives close/reopen on purpose: an accidental dismiss must not eat a
-  // half-written request.
-  let settingId = $state("");
-  let proposedValue = $state("");
-  let reason = $state("");
+  // The section's edit right names the eligible recipients; a section without a declared area
+  // falls back to firm administration (whoever governs the firm governs its unclaimed areas).
+  const permissionArea = $derived(
+    SETTINGS_SECTIONS.find((section) => section.id === definition.sectionId)
+      ?.editPermissionArea ?? "firm",
+  );
+  const administrators = $derived(administratorsForPermissionArea(permissionArea));
+
+  /*
+   * Draft retention: the composition survives close/reopen FOR THE SAME SETTING (an accidental
+   * dismiss must not eat a half-written request — the bug-report dialog sets the precedent), but
+   * switching to a different setting starts fresh: a reason written about time increments must
+   * never ride along under a request about rounding. The stored composition is keyed by the
+   * definition it was written for; while the key does not match, the fields read as pristine
+   * (recipients defaulting to ALL eligible administrators — the common case is "whoever can,
+   * please", so narrowing is the deliberate act, not assembling) and the first edit snapshots a
+   * fresh composition for the new setting.
+   */
+  interface RequestComposition {
+    definitionId: string;
+    proposedValue: string;
+    reason: string;
+    recipientIds: string[];
+  }
+
+  let composition = $state<RequestComposition>({
+    definitionId: "",
+    proposedValue: "",
+    reason: "",
+    recipientIds: [],
+  });
   let copied = $state(false);
 
-  // Only the section's OPEN settings are requestable: restricted ones are not shown to
-  // non-editors, and a request about a setting the member cannot see would name nothing.
-  const openSettings = $derived(visibleSettingsForSection(sectionId, false));
-  const selectItems = $derived(
-    openSettings.map((definition) => ({ value: definition.id, label: definition.label })),
+  const pristine = $derived(composition.definitionId !== definition.id);
+  const proposedValue = $derived(pristine ? "" : composition.proposedValue);
+  const reason = $derived(pristine ? "" : composition.reason);
+  const selectedRecipientIds = $derived(
+    pristine ? administrators.map((administrator) => administrator.id) : composition.recipientIds,
   );
 
-  // Copy is gated on substance (trim-aware, like the bug dialog): a request needs a setting and
-  // a reason; the proposed value may live in the reason's prose, so it alone is not required.
-  const reasonEmpty = $derived(reason.trim().length === 0);
-  const copyDisabled = $derived(reasonEmpty || settingId === "");
+  function editComposition(mutate: (draft: RequestComposition) => void): void {
+    if (pristine) {
+      composition = {
+        definitionId: definition.id,
+        proposedValue: "",
+        reason: "",
+        recipientIds: administrators.map((administrator) => administrator.id),
+      };
+    }
+    mutate(composition);
+  }
+
+  const currentValueLabel = $derived(
+    settingValueLabel(definition, committedSettingValue(definition)),
+  );
+
+  function setRecipientSelected(id: string, selected: boolean): void {
+    editComposition((draft) => {
+      draft.recipientIds = selected
+        ? [...draft.recipientIds, id]
+        : draft.recipientIds.filter((candidate) => candidate !== id);
+    });
+  }
+
+  // Copy is gated on substance (trim-aware, like the bug dialog): a request needs a reason and
+  // someone to receive it; the proposed value may live in the reason's prose, so it alone is
+  // not required.
+  const copyDisabled = $derived(reason.trim().length === 0 || selectedRecipientIds.length === 0);
 
   async function copyRequest(): Promise<void> {
-    const selected = openSettings.find((definition) => definition.id === settingId);
+    const recipients = administrators
+      .filter((administrator) => selectedRecipientIds.includes(administrator.id))
+      .map((administrator) => `${administrator.name} (${administrator.role})`)
+      .join(", ");
     const request = [
       "Magna Carta — settings change request",
+      `To: ${recipients}`,
       "",
-      `setting: ${selected?.label ?? settingId}`,
+      `setting: ${definition.label}`,
+      `current value: ${currentValueLabel}`,
       `proposed value: ${proposedValue.trim() || "(described in the reason)"}`,
       "",
       "reason:",
@@ -66,19 +134,41 @@
   <Dialog.Content showClose={false}>
     <Dialog.Title>Request a change</Dialog.Title>
 
+    <!-- The setting under discussion, stated as facts: name and what it reads today — the
+         context the administrator needs before weighing the proposal. -->
     <div class="flex flex-col gap-4">
-      <Label for="request-change-setting">Setting</Label>
-      <Select.Root type="single" items={selectItems} bind:value={settingId} allowDeselect={false}>
-        <Select.Trigger id="request-change-setting" class="w-full">
-          <Select.Value placeholder="Select a setting" />
-        </Select.Trigger>
-        <Select.Content>
-          {#each selectItems as item (item.value)}
-            <Select.Item value={item.value} label={item.label} />
-          {/each}
-        </Select.Content>
-      </Select.Root>
+      <p class="text-xs text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
+        Setting
+      </p>
+      <p class="text-sm font-medium">{definition.label}</p>
+      <p class="text-xs text-text-muted">
+        Current value: <span class="tabular-nums">{currentValueLabel}</span>
+      </p>
     </div>
+
+    <fieldset class="flex flex-col gap-8">
+      <legend
+        class="pb-4 text-xs text-text-muted uppercase"
+        style="letter-spacing: var(--mc-tracking-caps)"
+      >
+        Send to
+      </legend>
+      {#each administrators as administrator (administrator.id)}
+        <div class="flex items-center gap-8">
+          <Checkbox
+            id="request-change-recipient-{administrator.id}"
+            bind:checked={
+              () => selectedRecipientIds.includes(administrator.id),
+              (next) => setRecipientSelected(administrator.id, next)
+            }
+          />
+          <Label for="request-change-recipient-{administrator.id}">
+            {administrator.name}
+            <span class="text-text-muted">— {administrator.role}</span>
+          </Label>
+        </div>
+      {/each}
+    </fieldset>
 
     <div class="flex flex-col gap-4">
       <Label for="request-change-proposed-value">Proposed value</Label>
@@ -87,7 +177,10 @@
       </p>
       <Input
         id="request-change-proposed-value"
-        bind:value={proposedValue}
+        bind:value={
+          () => proposedValue,
+          (next) => editComposition((draft) => (draft.proposedValue = String(next ?? "")))
+        }
         aria-describedby="request-change-proposed-value-hint"
       />
     </div>
@@ -99,7 +192,10 @@
       </p>
       <Textarea
         id="request-change-reason"
-        bind:value={reason}
+        bind:value={
+          () => reason,
+          (next) => editComposition((draft) => (draft.reason = String(next ?? "")))
+        }
         required
         aria-describedby="request-change-reason-hint"
       />
@@ -107,8 +203,8 @@
 
     <p class="text-xs text-text-muted">
       Filing this with your firm's administrators arrives with firm accounts — requests will ride
-      the same rails as access requests. Until then, send the copied request to your firm's
-      administrator.
+      the same rails as access requests. Until then, send the copied request to the recipients
+      yourself.
     </p>
 
     <div class="flex justify-end gap-8">

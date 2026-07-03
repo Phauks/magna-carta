@@ -44,6 +44,23 @@ Current state of the pieces:
 
 When the endpoint ships, the page swaps its one fetch and the seam rows light up.
 
+### No setting change-request endpoint (2026-07-03)
+
+Read-only firm settings pages carry a per-setting "Request a change" composer
+(`apps/web/src/lib/settings/components/request-change-dialog.svelte`): a member who can see but
+not edit a firm setting files a request scoped to THAT setting — the owner's direction, so both
+sides share maximum context ("Matter numbering: currently X, requested Y, because Z"). Today the
+composer assembles a copy-ready request; it needs an endpoint accepting `settingId`, the
+member's proposed value (free text — the administrator interprets), and the reason, routed to
+the members holding that setting's edit permission area. The existing access-request shape
+(see-but-cannot-act yields a request, an approver acts — the support-access framework's pattern)
+is the intended rail; the settings ledger then records the applied change when an administrator
+acts. The requester also CHOOSES the recipients (owner direction: a request must not "go into
+the void to some admin") from the members holding that setting's edit permission area, so the
+payload carries explicit recipient member ids — the server validates each holds the required
+permission area. The UI already scopes requests per setting, shows the current value, and
+collects recipients, so the endpoint's payload should mirror exactly those fields.
+
 ### No bug-report ingest endpoint (2026-07-02)
 
 The profile menu's "Report a bug" dialog (`apps/web/src/lib/components/bug-report-dialog.svelte`)

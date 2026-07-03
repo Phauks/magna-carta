@@ -25,6 +25,12 @@ export interface SettingDefinition {
   readonly id: string;
   /** Foreign key to SettingsSection.id (settings-sections.ts). */
   readonly sectionId: string;
+  /**
+   * The engraved-table plate (category group of rows) this setting renders under on its page.
+   * Definitions sharing a plateLabel render as one framed group; omitted definitions gather
+   * under "General".
+   */
+  readonly plateLabel?: string;
   readonly label: string;
   readonly description?: string;
   readonly kind: SettingKind;
@@ -50,6 +56,7 @@ export const SETTING_DEFINITIONS: readonly SettingDefinition[] = [
   {
     id: "billing.time-increment",
     sectionId: "billing",
+    plateLabel: "Time capture",
     label: "Time increment",
     description: "The smallest unit a time entry rounds to on invoices.",
     kind: "select",
@@ -63,6 +70,7 @@ export const SETTING_DEFINITIONS: readonly SettingDefinition[] = [
   {
     id: "billing.time-rounding",
     sectionId: "billing",
+    plateLabel: "Time capture",
     label: "Time rounding",
     description: "How a time entry that falls between increments lands.",
     kind: "radio",
@@ -76,6 +84,7 @@ export const SETTING_DEFINITIONS: readonly SettingDefinition[] = [
   {
     id: "billing.retainer-floor-alerts",
     sectionId: "billing",
+    plateLabel: "Safeguards",
     label: "Retainer floor alerts",
     description:
       "Alert the responsible attorney when a matter's retainer balance falls below its floor. " +
@@ -90,6 +99,7 @@ export const SETTING_DEFINITIONS: readonly SettingDefinition[] = [
   {
     id: "firm.display-name",
     sectionId: "firm-profile",
+    plateLabel: "Identity",
     label: "Firm display name",
     description: "The name on invoices, the client portal, and generated documents.",
     kind: "text",
@@ -99,6 +109,7 @@ export const SETTING_DEFINITIONS: readonly SettingDefinition[] = [
   {
     id: "firm.matter-numbering",
     sectionId: "firm-profile",
+    plateLabel: "Conventions",
     label: "Matter numbering",
     description: "The scheme new matter numbers follow.",
     kind: "select",
@@ -113,6 +124,7 @@ export const SETTING_DEFINITIONS: readonly SettingDefinition[] = [
   {
     id: "firm.week-start",
     sectionId: "firm-profile",
+    plateLabel: "Conventions",
     label: "Week starts on",
     kind: "select",
     options: [
@@ -127,6 +139,7 @@ export const SETTING_DEFINITIONS: readonly SettingDefinition[] = [
     // "restricted", so the setting is absent for them rather than shown locked.
     id: "firm.sso-enforcement",
     sectionId: "firm-profile",
+    plateLabel: "Access & security",
     label: "Enforce single sign-on",
     description:
       "Require every member to sign in through the firm's identity provider; password sign-in is disabled.",
@@ -156,6 +169,28 @@ export function visibleSettingsForSection(
   return canEdit
     ? definitions
     : definitions.filter((definition) => definition.sensitivity === "open");
+}
+
+/**
+ * A section's visible settings grouped into engraved-table plates, in registry order (a plate's
+ * position follows its first definition). Definitions without a plateLabel gather under
+ * "General".
+ */
+export function platesForSection(
+  sectionId: string,
+  canEdit: boolean,
+): ReadonlyArray<{ label: string; definitions: readonly SettingDefinition[] }> {
+  const plates: { label: string; definitions: SettingDefinition[] }[] = [];
+  for (const definition of visibleSettingsForSection(sectionId, canEdit)) {
+    const label = definition.plateLabel ?? "General";
+    const plate = plates.find((candidate) => candidate.label === label);
+    if (plate === undefined) {
+      plates.push({ label, definitions: [definition] });
+    } else {
+      plate.definitions.push(definition);
+    }
+  }
+  return plates;
 }
 
 /**

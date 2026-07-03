@@ -1,7 +1,7 @@
 <script lang="ts">
   /*
-   * Settings · Versions — read-only platform diagnostics: one quiet ledger of every versioned
-   * component in the deployment. Two kinds of rows:
+   * Settings · Versions — read-only platform diagnostics in the engraved-table framing: one
+   * quiet ledger of every versioned component in the deployment. Two kinds of rows:
    *
    * - The app build is baked in at build time (build-identity.ts) — always real, never fetched.
    * - The backend components (scan engine, editing container, conversion engines, PDF engine)
@@ -13,9 +13,18 @@
    *   firm:manageScanPolicy, so most members (and every environment without a deployed scan
    *   engine) fall through to the honest em-dash seam — never a faked number. When the
    *   aggregated endpoint ships, this page swaps the fetch and the seam rows light up.
+   *
+   * The header band carries no History trigger: this page has no ledger section — versions are
+   * reported facts, not user changes, and an always-empty trail would state something untrue
+   * about where their history lives (it is the platform's deploy log, not this device).
+   *
+   * The dl keeps its own plate framing (rather than the settings-plate component) because its
+   * rows are definition-list semantics, not setting rows — same rules, same voice, different
+   * element; settings-plate.svelte is the reference for the recipe.
    */
   import * as Masthead from "@magna-carta/design-system/masthead";
   import Skeleton from "@magna-carta/design-system/skeleton";
+  import SettingsHeaderBand from "$lib/settings/components/settings-header-band.svelte";
   import { BUILD_IDENTITY } from "$lib/build-identity.ts";
   import { ECOSYSTEM_SITES } from "$lib/navigation/ecosystem-sites.ts";
 
@@ -100,71 +109,111 @@
   </Masthead.Heading>
 </Masthead.Root>
 
-<div class="flex flex-col gap-16" style="max-inline-size: var(--mc-size-prose)">
-  <dl
-    class="flex flex-col divide-y divide-border-default"
-    aria-busy={scanEngine.status === "loading"}
-  >
-    {#snippet row(component: string, version: string | null, asOf: string | null)}
-      <div class="flex items-baseline justify-between gap-24 py-12">
-        <dt
-          class="text-xs text-text-muted uppercase"
-          style="letter-spacing: var(--mc-tracking-caps)"
-        >
-          {component}
-        </dt>
-        <dd class="flex flex-col items-end gap-4 text-end">
-          {#if version !== null && changelogHref !== null}
-            <a
-              href={changelogHref}
-              target="_blank"
-              rel="noreferrer noopener"
-              class="text-sm text-text-default tabular-nums underline decoration-border-default underline-offset-4 hover:decoration-current"
-            >
-              {version}
-            </a>
-          {:else}
-            <span class="text-sm text-text-default tabular-nums">{version ?? "—"}</span>
-          {/if}
-          {#if asOf !== null}
-            <span class="text-xs text-text-muted">as of {asOf}</span>
-          {/if}
-        </dd>
-      </div>
-    {/snippet}
+<div class="flex flex-col gap-24" style="max-inline-size: var(--mc-size-prose)">
+  <SettingsHeaderBand
+    sectionId="versions"
+    legend="Platform diagnostics"
+    posture="readOnly"
+    railLegend="Reported by the platform"
+    showHistory={false}
+  />
 
-    {#snippet loadingRow(component: string)}
-      <div class="flex items-baseline justify-between gap-24 py-12">
-        <dt
-          class="text-xs text-text-muted uppercase"
-          style="letter-spacing: var(--mc-tracking-caps)"
-        >
-          {component}
-        </dt>
-        <dd><Skeleton class="h-16 w-96" /></dd>
-      </div>
-    {/snippet}
+  {#snippet row(component: string, version: string | null, asOf: string | null)}
+    <!-- The shared table grid: the (empty) marker gutter, the flexible label, and the value at
+         the fixed control-column measure — so diagnostic values share the settings rows'
+         vertical edge. -->
+    <div class="flex items-baseline gap-16 py-12">
+      <div class="shrink-0" style="inline-size: var(--mc-space-16)"></div>
+      <dt
+        class="min-w-0 grow text-xs text-text-muted uppercase"
+        style="letter-spacing: var(--mc-tracking-caps)"
+      >
+        {component}
+      </dt>
+      <dd
+        class="flex shrink-0 flex-col items-end gap-4 text-end"
+        style="inline-size: var(--mc-size-popover)"
+      >
+        {#if version !== null && changelogHref !== null}
+          <a
+            href={changelogHref}
+            target="_blank"
+            rel="noreferrer noopener"
+            class="text-sm text-text-default tabular-nums underline decoration-border-default underline-offset-4 hover:decoration-current"
+          >
+            {version}
+          </a>
+        {:else}
+          <span class="text-sm text-text-default tabular-nums">{version ?? "—"}</span>
+        {/if}
+        {#if asOf !== null}
+          <span class="text-xs text-text-muted">as of {asOf}</span>
+        {/if}
+      </dd>
+    </div>
+  {/snippet}
 
-    {@render row("Application build", `${BUILD_IDENTITY.commit} · ${BUILD_IDENTITY.mode}`, builtAt)}
+  {#snippet loadingRow(component: string)}
+    <div class="flex items-baseline gap-16 py-12">
+      <div class="shrink-0" style="inline-size: var(--mc-space-16)"></div>
+      <dt
+        class="min-w-0 grow text-xs text-text-muted uppercase"
+        style="letter-spacing: var(--mc-tracking-caps)"
+      >
+        {component}
+      </dt>
+      <dd class="flex shrink-0 justify-end" style="inline-size: var(--mc-size-popover)">
+        <Skeleton class="h-16 w-96" />
+      </dd>
+    </div>
+  {/snippet}
 
-    {#if scanEngine.status === "loading"}
-      {@render loadingRow("Scan engine · code")}
-      {@render loadingRow("Scan engine · YARA ruleset")}
-      {@render loadingRow("Scan engine · malware definitions")}
-    {:else if scanEngine.status === "reported"}
-      {@render row("Scan engine · code", scanEngine.parts.engineCode, null)}
-      {@render row("Scan engine · YARA ruleset", scanEngine.parts.yaraRuleset, null)}
-      {@render row("Scan engine · malware definitions", scanEngine.parts.malwareDefinitions, null)}
-    {:else}
-      {@render row("Scan engine · code", null, null)}
-      {@render row("Scan engine · YARA ruleset", null, null)}
-      {@render row("Scan engine · malware definitions", null, null)}
-    {/if}
+  <section class="flex flex-col">
+    <h3
+      class="border-b border-border-strong pb-8 text-xs text-text-muted uppercase"
+      style="letter-spacing: var(--mc-tracking-caps)"
+    >
+      Application
+    </h3>
+    <dl class="flex flex-col divide-y divide-border-default border-b border-border-strong">
+      {@render row(
+        "Application build",
+        `${BUILD_IDENTITY.commit} · ${BUILD_IDENTITY.mode}`,
+        builtAt,
+      )}
+    </dl>
+  </section>
 
-    {@render row("Document editing container", null, null)}
-    {@render row("Conversion engines", null, null)}
-    {@render row("PDF engine", null, null)}
-  </dl>
+  <section class="flex flex-col">
+    <h3
+      class="border-b border-border-strong pb-8 text-xs text-text-muted uppercase"
+      style="letter-spacing: var(--mc-tracking-caps)"
+    >
+      Platform services
+    </h3>
+    <dl
+      class="flex flex-col divide-y divide-border-default border-b border-border-strong"
+      aria-busy={scanEngine.status === "loading"}
+    >
+      {#if scanEngine.status === "loading"}
+        {@render loadingRow("Scan engine · code")}
+        {@render loadingRow("Scan engine · YARA ruleset")}
+        {@render loadingRow("Scan engine · malware definitions")}
+      {:else if scanEngine.status === "reported"}
+        {@render row("Scan engine · code", scanEngine.parts.engineCode, null)}
+        {@render row("Scan engine · YARA ruleset", scanEngine.parts.yaraRuleset, null)}
+        {@render row("Scan engine · malware definitions", scanEngine.parts.malwareDefinitions, null)}
+      {:else}
+        {@render row("Scan engine · code", null, null)}
+        {@render row("Scan engine · YARA ruleset", null, null)}
+        {@render row("Scan engine · malware definitions", null, null)}
+      {/if}
+
+      {@render row("Document editing container", null, null)}
+      {@render row("Conversion engines", null, null)}
+      {@render row("PDF engine", null, null)}
+    </dl>
+  </section>
 
   <p class="text-sm text-text-muted">
     Reported by the platform once the versions endpoint ships.
