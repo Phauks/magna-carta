@@ -84,3 +84,4 @@ export type CostEntryId = Identifier<"costEntry">;
 export type PlatformStaffId = Identifier<"platformStaff">;
 export type SupportGrantId = Identifier<"supportGrant">;
 export type AiDetectionUsageId = Identifier<"aiDetectionUsage">;
+export type RepairProvenanceId = Identifier<"repairProvenance">;
