@@ -10,4 +10,16 @@ US-DE-delap-dsba-2026	US-DE	https://www.dsba.org/resources/delaware-lawyers-assi
 US-FL-fla-and-helpline-2026	US-FL	https://www.fla-lap.org/what-we-do	web search + direct fetch	2026-07-02	
 US-GA-lap-gabar-2026	US-GA	https://www.gabar.org/programs/lawyer-wellbeing/mental-wellbeing/lawyer-assistance-program	web search + direct fetch	2026-07-02	
 US-HI-aap-hawaiiaap-2026	US-HI	http://hawaiiaap.com/contactus.html	web search + direct fetch	2026-07-02	
+US-IA-ilap-eap-2026	US-IA	http://www.iowalap.org/	web search + corroborated (iowalap.org cert mismatch; iowacourts.gov/iowabar.org 403)	2026-07-02	
 US-ID-lap-isb-2026	US-ID	https://isb.idaho.gov/member-services/programs-resources/lap/	web search + direct fetch	2026-07-02	
+US-IL-lap-illinoislap-2026	US-IL	https://illinoislap.org/	web search + direct fetch	2026-07-02	
+US-IN-jlap-incourts-2026	US-IN	https://www.in.gov/courts/jlaphelps/how/	web search + direct fetch	2026-07-02	
+US-KS-kalap-2026	US-KS	https://kalapks.gov/	web search + direct fetch	2026-07-02	
+US-KY-kylap-2026	US-KY	https://www.kylap.org/how-can-we-help/	web search + direct fetch	2026-07-02	
+US-LA-jlap-2026	US-LA	https://louisianajlap.com/faq/	web search + direct fetch	2026-07-02	
+US-MA-lcl-2026	US-MA	https://www.lclma.org/	browser-agent fetch (WebFetch hit a TLS-chain error)	2026-07-02	
+US-MD-lap-msba-2026	US-MD	https://www.msba.org/health-and-wellness/	web search + direct fetch	2026-07-02	
+US-ME-map-2026	US-ME	http://www.me-lap.org/	web search + direct fetch	2026-07-02	
+US-MI-ljap-2026	US-MI	https://www.michbar.org/generalinfo/ljap/home	web search + direct fetch	2026-07-02	
+US-MN-lcl-allonehealth-2026	US-MN	https://mnlcl.org/	web search + direct fetch	2026-07-02	
+US-MS-ljap-2026	US-MS	https://www.msbar.org/programs-affiliates/lawyers-judges-assistance-program/	web search + corroborated (msbar.org 403; courts.ms.gov 500)	2026-07-02	

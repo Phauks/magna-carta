@@ -79,6 +79,13 @@ sources:
     accessedOn: 2026-07-02
     accessGate: open
     sha256: d6e79aafdebd26e4365eaceae5610e73be976c5b8e9e0ed12d96a1f9ba534de6
+  - jurisdiction: US-IA
+    path: US-IA/US-IA-ilap-eap-2026.txt
+    publisher: 'Iowa Lawyers Assistance Program, Inc. + Iowa Judicial Branch OPR'
+    sourceUrl: http://www.iowalap.org/
+    accessedOn: 2026-07-02
+    accessGate: open
+    sha256: 1011e896abee709f956b979749829a08cc205dc68c542ab1b9d060a9a05dd77a
   - jurisdiction: US-ID
     path: US-ID/US-ID-lap-isb-2026.txt
     publisher: 'Idaho State Bar (clinical services by Southworth Associates International)'
@@ -86,3 +93,80 @@ sources:
     accessedOn: 2026-07-02
     accessGate: open
     sha256: 750d98009cf3fc9ff054f926f161f53efd8e3d119e208485eca4d9f837a45f7c
+  - jurisdiction: US-IL
+    path: US-IL/US-IL-lap-illinoislap-2026.txt
+    publisher: "Illinois Lawyers' Assistance Program"
+    sourceUrl: https://illinoislap.org/
+    accessedOn: 2026-07-02
+    accessGate: open
+    sha256: 93d6dff623b56785a01f63381d0b163ca79838513712b761576649cc907d5eb8
+  - jurisdiction: US-IN
+    path: US-IN/US-IN-jlap-incourts-2026.txt
+    publisher: 'Indiana Supreme Court (Judicial Branch)'
+    sourceUrl: https://www.in.gov/courts/jlaphelps/how/
+    accessedOn: 2026-07-02
+    accessGate: open
+    sha256: 90bf25e23e148ec886a250bc497604d8bbfaf43f4257945f646902a103f070df
+  - jurisdiction: US-KS
+    path: US-KS/US-KS-kalap-2026.txt
+    publisher: 'Kansas Supreme Court / Kansas Judicial Branch (KALAP)'
+    sourceUrl: https://kalapks.gov/
+    accessedOn: 2026-07-02
+    accessGate: open
+    sha256: 5f4c084b0ca4e3ab30def9746fb89d18d6ee480aa67733fa0bc2e3cf8a4e0d7c
+  - jurisdiction: US-KY
+    path: US-KY/US-KY-kylap-2026.txt
+    publisher: 'Kentucky Bar Association / KYLAP'
+    sourceUrl: https://www.kylap.org/how-can-we-help/
+    accessedOn: 2026-07-02
+    accessGate: open
+    sha256: 5e7a8ff9be251c61eecff737d13680ca7cc59775b26853f659bbb1c8c673e118
+  - jurisdiction: US-LA
+    path: US-LA/US-LA-jlap-2026.txt
+    publisher: 'Judges and Lawyers Assistance Program, Inc. (Louisiana)'
+    sourceUrl: https://louisianajlap.com/faq/
+    accessedOn: 2026-07-02
+    accessGate: open
+    sha256: ef840f31864e9eb8bff4eda32eef3107b51d960048fbb1cffffbf605bb888920
+  - jurisdiction: US-MA
+    path: US-MA/US-MA-lcl-2026.txt
+    publisher: 'Lawyers Concerned for Lawyers, Inc. (Massachusetts)'
+    sourceUrl: https://www.lclma.org/
+    accessedOn: 2026-07-02
+    accessGate: open
+    sha256: 716e5ccdaff09f8545723f0c9ba255b24bc6ce0310bd2169978a50b32f764e16
+  - jurisdiction: US-MD
+    path: US-MD/US-MD-lap-msba-2026.txt
+    publisher: 'Maryland State Bar Association'
+    sourceUrl: https://www.msba.org/health-and-wellness/
+    accessedOn: 2026-07-02
+    accessGate: open
+    sha256: 5cc43e7fbcfd78b030ee9b04499ac58602bd45698394d1ce8496767a86d792a5
+  - jurisdiction: US-ME
+    path: US-ME/US-ME-map-2026.txt
+    publisher: 'Maine Assistance Program for Lawyers and Judges, Inc.'
+    sourceUrl: http://www.me-lap.org/
+    accessedOn: 2026-07-02
+    accessGate: open
+    sha256: db01c1e80deffb574bc1b2cc00e350efe035a2e3ffd850c1e49a2aff5c7f85f9
+  - jurisdiction: US-MI
+    path: US-MI/US-MI-ljap-2026.txt
+    publisher: 'State Bar of Michigan (Lawyers and Judges Assistance Program)'
+    sourceUrl: https://www.michbar.org/generalinfo/ljap/home
+    accessedOn: 2026-07-02
+    accessGate: open
+    sha256: 12cb0639ce936999b97dab981840aa10118c166c6f1b1284bed922ca6caa12e1
+  - jurisdiction: US-MN
+    path: US-MN/US-MN-lcl-allonehealth-2026.txt
+    publisher: 'Lawyers Concerned for Lawyers (Minnesota) + AllOne Health'
+    sourceUrl: https://mnlcl.org/
+    accessedOn: 2026-07-02
+    accessGate: open
+    sha256: 9cf963ac9817b7e31b0e089c8a45ec17a7ef9ee84ad917966347e8c4299892b7
+  - jurisdiction: US-MS
+    path: US-MS/US-MS-ljap-2026.txt
+    publisher: 'The Mississippi Bar (Lawyers and Judges Assistance Program)'
+    sourceUrl: https://www.msbar.org/programs-affiliates/lawyers-judges-assistance-program/
+    accessedOn: 2026-07-02
+    accessGate: open
+    sha256: ca156b7eebc0b6dc6e79b620804a252e9b468dae7abdefa677105b11c985d637
