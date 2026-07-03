@@ -16,18 +16,18 @@
 
 ---
 
-## The lane decision (the pivotal fork — RESOLVED to container-only v1)
+## The lane decision (the pivotal fork — RESOLVED to a single Container lane)
 
 The SP2 design assumed a two-lane model: a **Worker (WASM) default lane** for small files and a **Container (native) heavy lane** for large ones. Verification (above) shows the default half is unbuilt and unprecedented here, while the heavy half is fully proven.
 
-**Decision: Plan 6 ships the Container lane only; the WASM default lane is deferred to a separate post-SP2 slice.** Rationale:
+**Decision (owner, 2026-07-02): drop the WASM lane entirely — repairs run on the Container, and only the Container.** Users are content to upload a file and wait a few seconds for a repair; there is no requirement the WASM lane was meant to serve, so a second runtime is pure cost. Rationale:
 
-1. **The Container lane is mandatory regardless.** A Worker isolate has a hard 128 MB memory ceiling; the carving budget alone permits a 256 MB candidate, and large corrupt archives/PDFs will not fit an isolate. So the Container path must exist no matter what — the WASM lane is only ever a latency optimization layered on top of a path we must build anyway.
-2. **The novel bundling does not belong in the closeout.** Standing up wasm-bindgen bindings + a `wrangler.jsonc` module rule + a `packages/recovery` wrapper for the first time, *inside* the plan meant to land the feature, is where a bundling rabbit hole would hurt most.
-3. **Nothing is thrown away.** `recovery-core` already compiles to wasm32; the WASM lane is purely additive later. Plan 6 builds the lane-selector seam (`selectRepairLane`, modeled on the existing `selectBundleLane`) with a single Container arm today; the WASM branch slots in later with no rework.
+1. **The Container lane is mandatory regardless.** A Worker isolate has a hard 128 MB memory ceiling; the carving budget alone permits a 256 MB candidate, and large corrupt archives/PDFs will not fit an isolate. The Container path must exist no matter what.
+2. **A second runtime is cost without benefit here.** Standing up wasm-bindgen bindings + a `wrangler.jsonc` module rule + a `packages/recovery` wrapper would trailblaze unproven bundling to buy a few seconds of latency users do not need.
+3. **One course of action = a simpler system.** With a single lane there is **no lane selector** (`selectRepairLane` is not built) — the route always dispatches to the Container. The only sizing concern left is an upload cap that rejects oversized input before dispatch.
 4. **It matches how every engine tool here already ships** (File Type Verifier, Converter are container-backed).
 
-This trades a little best-case small-file latency for a de-risked closeout. Optimization (the WASM lane) follows measurement, per the performance golden rule — not the reverse.
+**Consequence — vestigial wasm32 support in `recovery-core`.** The crate carries wasm32-compile machinery solely for the dropped lane: the `getrandom/wasm_js` target pin in `crates/recovery-core/Cargo.toml` and a `wasm32-unknown-unknown` build step in each pillar's gate. With WASM gone these are dead maintenance on a crate that will never run in a browser or isolate. **Recommended cleanup (fold into Plan 6):** remove the `getrandom/wasm_js` pin and drop the wasm build step from the recovery-core gate. This is scoped to `recovery-core` only — `engine-host`'s `wasm_edge.rs` and `pdf-core`'s `wasm.rs` stay, because `pdf-core` genuinely runs as WASM in the SPA.
 
 ---
 
@@ -36,7 +36,7 @@ This trades a little best-case small-file latency for a de-risked closeout. Opti
 ```
 POST /api/tools/file-repair            (worker route, defineOpenAPIRoute + zod)
   -> RBAC chokepoint: requires tools:fileRepair
-  -> size-based lane selector: selectRepairLane(bytes.length)  [today: always Container]
+  -> upload-size cap: reject oversized input (no lane selector — one lane)
   -> service binding -> getContainer -> container.fetch(POST /diagnose|/repair|/carve)
        (engine-host axum host running recovery-core native)
   -> response: DiagnosisReport | { files:[{name, media_type, bytes}], loss: LossManifest }
@@ -76,9 +76,9 @@ POST /api/tools/file-repair/attach     (opt-in, separate route)
 
 ---
 
-## Explicitly deferred (not this plan)
+## Explicitly deferred / dropped (not this plan)
 
-- **The WASM default lane** — separate post-SP2 slice; prove wasm-bindgen-in-Worker bundling in isolation, then benchmark before adopting.
+- **The WASM lane — DROPPED, not deferred** (owner, 2026-07-02). Repairs run on the Container only; there is no second runtime and no lane selector. Fold the vestigial-wasm32 cleanup into Plan 6 (see the lane decision above).
 - **UI** — no tool-drawer entry, no wrench icon (owner decision).
 - **Magika ML carving** — container-only ONNX enhancement, already deferred in Plan 5.
 - **Render-verification** (Decision E) unless the owner pulls it in.
