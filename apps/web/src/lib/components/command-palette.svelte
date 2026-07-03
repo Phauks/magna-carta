@@ -16,7 +16,9 @@
   import { goto } from "$app/navigation";
   import * as Command from "@magna-carta/design-system/command";
   import * as Dialog from "@magna-carta/design-system/dialog";
+  import BugReportDialog from "$lib/components/bug-report-dialog.svelte";
   import { shippedDestinations } from "$lib/navigation/destinations.ts";
+  import { ECOSYSTEM_SITES } from "$lib/navigation/ecosystem-sites.ts";
   import { bandedSettingsSections } from "$lib/settings/settings-sections.ts";
 
   let {
@@ -77,6 +79,21 @@
     open = false;
     void goto(href);
   }
+
+  // "Report a bug" is reachable from search as well as the profile menu (owner directive:
+  // everything under the profile icon must be findable here). The palette owns its own dialog
+  // instance — the component is self-contained, so no state threads through the shell.
+  let bugReportOpen = $state(false);
+
+  function openBugReport(): void {
+    open = false;
+    bugReportOpen = true;
+  }
+
+  function openEcosystemSite(href: string): void {
+    open = false;
+    window.open(href, "_blank", "noopener,noreferrer");
+  }
 </script>
 
 <!-- rounded-md: the container's radius must match the trigger's (.mc-top-bar-search,
@@ -122,8 +139,30 @@
               </Command.Group>
             {/if}
           {/each}
+          <!-- Everything under the profile icon is searchable too (owner directive): the bug
+               report action, and the ecosystem sites from their registry — not-yet-wired sites
+               render disabled with the same "Soon" voice as the menu, so search tells the truth
+               about what exists without hiding what is coming. -->
+          <Command.Group>
+            <Command.GroupHeading>Help & websites</Command.GroupHeading>
+            <Command.GroupItems>
+              <Command.Item onSelect={openBugReport}>Report a bug</Command.Item>
+              {#each ECOSYSTEM_SITES as site (site.id)}
+                {#if site.href !== null}
+                  {@const siteHref = site.href}
+                  <Command.Item onSelect={() => openEcosystemSite(siteHref)}>
+                    Website: {site.label}
+                  </Command.Item>
+                {:else}
+                  <Command.Item disabled>Website: {site.label} — soon</Command.Item>
+                {/if}
+              {/each}
+            </Command.GroupItems>
+          </Command.Group>
         </Command.Viewport>
       </Command.List>
     </Command.Root>
   </Dialog.Content>
 </Dialog.Root>
+
+<BugReportDialog bind:open={bugReportOpen} />

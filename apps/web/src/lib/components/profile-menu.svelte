@@ -49,11 +49,14 @@
     </div>
     <DropdownMenu.Separator />
     <DropdownMenu.Sub>
-      <DropdownMenu.SubTrigger>
+      <!-- The profile menu hugs the viewport's right edge, so the submenu must open INWARD
+           (left) — and the trigger's chevron points left to match the motion (owner review
+           2026-07-02: a right-pointing arrow over a left-opening panel contradicts itself). -->
+      <DropdownMenu.SubTrigger submenuSide="left">
         <Earth class="size-16" aria-hidden="true" />
         Websites
       </DropdownMenu.SubTrigger>
-      <DropdownMenu.SubContent style="min-inline-size: var(--mc-size-popover)">
+      <DropdownMenu.SubContent side="left" style="min-inline-size: var(--mc-size-popover)">
         {#each ECOSYSTEM_SITES as site (site.id)}
           {@const SiteIcon = site.icon}
           {@const href = site.href}

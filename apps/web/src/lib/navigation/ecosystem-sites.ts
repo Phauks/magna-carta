@@ -16,8 +16,10 @@ import type { Component } from "svelte";
 import Activity from "@lucide/svelte/icons/activity";
 import MessagesSquare from "@lucide/svelte/icons/messages-square";
 import Globe from "@lucide/svelte/icons/globe";
+import BookOpen from "@lucide/svelte/icons/book-open";
 import CodeXml from "@lucide/svelte/icons/code-xml";
 import ScrollText from "@lucide/svelte/icons/scroll-text";
+import ShieldCheck from "@lucide/svelte/icons/shield-check";
 
 export interface EcosystemSite {
   readonly id: string;
@@ -53,6 +55,13 @@ export const ECOSYSTEM_SITES: readonly EcosystemSite[] = [
     icon: Globe,
   },
   {
+    id: "documentation",
+    label: "Documentation",
+    description: "Product guides and how-to help for using Magna Carta",
+    href: null,
+    icon: BookOpen,
+  },
+  {
     id: "api-documentation",
     label: "API documentation",
     description: "Reference for the public API",
@@ -65,5 +74,12 @@ export const ECOSYSTEM_SITES: readonly EcosystemSite[] = [
     description: "What shipped, release by release",
     href: null,
     icon: ScrollText,
+  },
+  {
+    id: "trust-center",
+    label: "Trust Center",
+    description: "Security, compliance, and data-handling commitments",
+    href: null,
+    icon: ShieldCheck,
   },
 ];
