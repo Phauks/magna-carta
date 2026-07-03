@@ -5,6 +5,7 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import type { MiddlewareHandler } from "hono";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
+import { COMPONENT_STATUS } from "@magna-carta/status";
 import type { Bindings } from "../app.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
@@ -32,6 +33,17 @@ const UpdateBody = z
 
 const EventResult = z.object({ eventId: z.string() }).openapi("ServiceEventResult");
 
+// A component-status override is the v1 shape for a maintenance window too: an operator sets an
+// override with status "maintenance" for the affected component — there is no separate schedule
+// model. Note is required (not optional) so an override always carries operator-visible context.
+const SetOverrideBody = z
+  .object({ componentId: z.string().min(1), status: z.enum(COMPONENT_STATUS), note: z.string().min(1) })
+  .openapi("SetComponentOverride");
+
+const ClearOverrideBody = z.object({ componentId: z.string().min(1) }).openapi("ClearComponentOverride");
+
+const OverrideResult = z.object({ componentId: z.string() }).openapi("ComponentOverrideResult");
+
 // surface: "public" is the platform-operator exception (the same posture as
 // platform-release-channel.ts): platformOperatorGuard does the auth (Better Auth session +
 // platform_operator/2FA check), so the chokepoint skips session/firm/RBAC gates and still owns the
@@ -56,6 +68,14 @@ export const postUpdateMeta: RouteMeta = { ...commonMeta, operationId: "platform
 export const resolveEventMeta: RouteMeta = {
   ...commonMeta,
   operationId: "platformStatus.resolveEvent",
+};
+export const setComponentOverrideMeta: RouteMeta = {
+  ...commonMeta,
+  operationId: "platformStatus.setComponentOverride",
+};
+export const clearComponentOverrideMeta: RouteMeta = {
+  ...commonMeta,
+  operationId: "platformStatus.clearComponentOverride",
 };
 
 export const declareEventRoute = defineOpenAPIRoute(declareEventMeta, {
@@ -121,6 +141,53 @@ export const resolveEventRoute = defineOpenAPIRoute(resolveEventMeta, {
       content: { "application/problem+json": { schema: Problem } },
     },
     404: { description: "No such event", content: { "application/problem+json": { schema: Problem } } },
+    422: { description: "Invalid body", content: { "application/problem+json": { schema: Problem } } },
+    429: {
+      description: "Rate limit exceeded",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+  },
+});
+
+export const setComponentOverrideRoute = defineOpenAPIRoute(setComponentOverrideMeta, {
+  method: "post",
+  path: "/api/v1/platform/status/overrides",
+  description:
+    "A platform operator sets a component status override (including a maintenance window, via status maintenance), upserted by componentId.",
+  request: { body: { content: { "application/json": { schema: SetOverrideBody } }, required: true } },
+  responses: {
+    200: {
+      description: "The overridden component id",
+      content: { "application/json": { schema: OverrideResult } },
+    },
+    401: { description: "Not signed in", content: { "application/problem+json": { schema: Problem } } },
+    403: {
+      description: "Not a platform operator, or 2FA not enabled",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    422: { description: "Invalid body", content: { "application/problem+json": { schema: Problem } } },
+    429: {
+      description: "Rate limit exceeded",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+  },
+});
+
+export const clearComponentOverrideRoute = defineOpenAPIRoute(clearComponentOverrideMeta, {
+  method: "post",
+  path: "/api/v1/platform/status/overrides/clear",
+  description: "A platform operator clears a component status override by componentId.",
+  request: { body: { content: { "application/json": { schema: ClearOverrideBody } }, required: true } },
+  responses: {
+    200: {
+      description: "The cleared component id",
+      content: { "application/json": { schema: OverrideResult } },
+    },
+    401: { description: "Not signed in", content: { "application/problem+json": { schema: Problem } } },
+    403: {
+      description: "Not a platform operator, or 2FA not enabled",
+      content: { "application/problem+json": { schema: Problem } },
+    },
     422: { description: "Invalid body", content: { "application/problem+json": { schema: Problem } } },
     429: {
       description: "Rate limit exceeded",
@@ -212,6 +279,46 @@ export function registerPlatformStatusRoute(
       );
       if (!found) return problemJson(c, { type: "not-found", title: "No such event", status: 404 });
       return c.json({ eventId }, 200);
+    },
+  );
+
+  app.openapi(
+    {
+      ...setComponentOverrideRoute,
+      middleware: chokepointMiddleware(chokepoint, setComponentOverrideRoute, [
+        platformOperatorGuard as MiddlewareHandler,
+      ]),
+    },
+    async (c) => {
+      const { componentId, status, note } = c.req.valid("json");
+      const author = c.get("platformOperatorUserId") ?? "";
+      const now = new Date().toISOString();
+      await mutateAuthored(c.env.STATUS_KV, now, (current) => ({
+        ...current,
+        overrides: [
+          ...current.overrides.filter((override) => override.componentId !== componentId),
+          { componentId, status, note, setAt: now, authorUserId: author },
+        ],
+      }));
+      return c.json({ componentId }, 200);
+    },
+  );
+
+  app.openapi(
+    {
+      ...clearComponentOverrideRoute,
+      middleware: chokepointMiddleware(chokepoint, clearComponentOverrideRoute, [
+        platformOperatorGuard as MiddlewareHandler,
+      ]),
+    },
+    async (c) => {
+      const { componentId } = c.req.valid("json");
+      const now = new Date().toISOString();
+      await mutateAuthored(c.env.STATUS_KV, now, (current) => ({
+        ...current,
+        overrides: current.overrides.filter((override) => override.componentId !== componentId),
+      }));
+      return c.json({ componentId }, 200);
     },
   );
 }

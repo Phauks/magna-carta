@@ -225,6 +225,20 @@ export type PostServiceEventUpdate = {
     body: string;
 };
 
+export type ComponentOverrideResult = {
+    componentId: string;
+};
+
+export type SetComponentOverride = {
+    componentId: string;
+    status: 'operational' | 'maintenance' | 'degraded' | 'partial_outage' | 'major_outage';
+    note: string;
+};
+
+export type ClearComponentOverride = {
+    componentId: string;
+};
+
 export type ReportIncidentResponse = {
     id: string;
     status: string;
@@ -2168,6 +2182,80 @@ export type PlatformStatusResolveEventResponses = {
 };
 
 export type PlatformStatusResolveEventResponse = PlatformStatusResolveEventResponses[keyof PlatformStatusResolveEventResponses];
+
+export type PlatformStatusSetComponentOverrideData = {
+    body: SetComponentOverride;
+    path?: never;
+    query?: never;
+    url: '/api/v1/platform/status/overrides';
+};
+
+export type PlatformStatusSetComponentOverrideErrors = {
+    /**
+     * Not signed in
+     */
+    401: Problem;
+    /**
+     * Not a platform operator, or 2FA not enabled
+     */
+    403: Problem;
+    /**
+     * Invalid body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type PlatformStatusSetComponentOverrideError = PlatformStatusSetComponentOverrideErrors[keyof PlatformStatusSetComponentOverrideErrors];
+
+export type PlatformStatusSetComponentOverrideResponses = {
+    /**
+     * The overridden component id
+     */
+    200: ComponentOverrideResult;
+};
+
+export type PlatformStatusSetComponentOverrideResponse = PlatformStatusSetComponentOverrideResponses[keyof PlatformStatusSetComponentOverrideResponses];
+
+export type PlatformStatusClearComponentOverrideData = {
+    body: ClearComponentOverride;
+    path?: never;
+    query?: never;
+    url: '/api/v1/platform/status/overrides/clear';
+};
+
+export type PlatformStatusClearComponentOverrideErrors = {
+    /**
+     * Not signed in
+     */
+    401: Problem;
+    /**
+     * Not a platform operator, or 2FA not enabled
+     */
+    403: Problem;
+    /**
+     * Invalid body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type PlatformStatusClearComponentOverrideError = PlatformStatusClearComponentOverrideErrors[keyof PlatformStatusClearComponentOverrideErrors];
+
+export type PlatformStatusClearComponentOverrideResponses = {
+    /**
+     * The cleared component id
+     */
+    200: ComponentOverrideResult;
+};
+
+export type PlatformStatusClearComponentOverrideResponse = PlatformStatusClearComponentOverrideResponses[keyof PlatformStatusClearComponentOverrideResponses];
 
 export type IncidentsReportData = {
     body: ReportIncidentRequest;

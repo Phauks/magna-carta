@@ -864,6 +864,57 @@
           "body"
         ]
       },
+      "ComponentOverrideResult": {
+        "type": "object",
+        "properties": {
+          "componentId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "componentId"
+        ]
+      },
+      "SetComponentOverride": {
+        "type": "object",
+        "properties": {
+          "componentId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "operational",
+              "maintenance",
+              "degraded",
+              "partial_outage",
+              "major_outage"
+            ]
+          },
+          "note": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "componentId",
+          "status",
+          "note"
+        ]
+      },
+      "ClearComponentOverride": {
+        "type": "object",
+        "properties": {
+          "componentId": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "componentId"
+        ]
+      },
       "ReportIncidentResponse": {
         "type": "object",
         "properties": {
@@ -7512,6 +7563,172 @@
           },
           "404": {
             "description": "No such event",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid body",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/platform/status/overrides": {
+      "post": {
+        "description": "A platform operator sets a component status override (including a maintenance window, via status maintenance), upserted by componentId.",
+        "operationId": "platformStatus.setComponentOverride",
+        "tags": [
+          "platformStatus"
+        ],
+        "x-mc-operationId": "platformStatus.setComponentOverride",
+        "x-mc-surface": "public",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:provision",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "auth",
+        "x-mc-tags": [
+          "platformStatus"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetComponentOverride"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The overridden component id",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComponentOverrideResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a platform operator, or 2FA not enabled",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid body",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/platform/status/overrides/clear": {
+      "post": {
+        "description": "A platform operator clears a component status override by componentId.",
+        "operationId": "platformStatus.clearComponentOverride",
+        "tags": [
+          "platformStatus"
+        ],
+        "x-mc-operationId": "platformStatus.clearComponentOverride",
+        "x-mc-surface": "public",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:provision",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "auth",
+        "x-mc-tags": [
+          "platformStatus"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClearComponentOverride"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The cleared component id",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComponentOverrideResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a platform operator, or 2FA not enabled",
             "content": {
               "application/problem+json": {
                 "schema": {
