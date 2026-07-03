@@ -62,6 +62,11 @@ function unexpectedResponseProblem() {
     detail: "The detection provider returned an unexpected response shape.",
   });
 }
+function taskFailedProblem() {
+  return integrationProblem("upstream", 502, "Detection failed", {
+    detail: "The detection provider could not complete the analysis.",
+  });
+}
 
 // A single HTTP round-trip that returns either the decoded JSON body or a typed failure. Centralizes
 // the transport-throw / non-2xx / undecodable-body handling shared by submit, poll, and sync.
@@ -169,7 +174,7 @@ async function detectAsync(
 
   const interval = config.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
   const maxAttempts = config.maxPollAttempts ?? DEFAULT_MAX_POLL_ATTEMPTS;
-  const pollUrl = `${config.baseUrl}/task/${submitted.taskId}`;
+  const pollUrl = `${config.baseUrl}/task/${encodeURIComponent(submitted.taskId)}`;
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const pollResult = await fetchJson(config.http, {
@@ -180,9 +185,9 @@ async function detectAsync(
     if (!pollResult.ok) return pollResult.dispatch;
     const status = parsePangramTaskStatus(pollResult.body);
     if (status.kind === "success") return mapPrediction(input, status.prediction, config.now);
-    if (status.kind === "failed" || status.kind === "malformed") {
-      return adapterError(unexpectedResponseProblem());
-    }
+    // A terminal task failure is an expected upstream outcome, distinct from a shape violation.
+    if (status.kind === "failed") return adapterError(taskFailedProblem());
+    if (status.kind === "malformed") return adapterError(unexpectedResponseProblem());
     // pending — wait and poll again, unless this was the last attempt.
     if (attempt < maxAttempts - 1) await config.sleep(interval);
   }

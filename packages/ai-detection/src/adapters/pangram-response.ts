@@ -83,6 +83,7 @@ export function parsePangramResponse(json: unknown): PangramPrediction | null {
 export function parsePangramSubmit(json: unknown): { readonly taskId: string } | null {
   if (!isRecord(json)) return null;
   if (typeof json.task_id !== "string") return null;
+  if (json.task_id === "") return null;
   return { taskId: json.task_id };
 }
 

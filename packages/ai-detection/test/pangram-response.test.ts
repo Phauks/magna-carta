@@ -70,6 +70,9 @@ describe("parsePangramSubmit", () => {
     expect(parsePangramSubmit({ task_id: 5 })).toBeNull();
     expect(parsePangramSubmit(null)).toBeNull();
   });
+  it("returns null when task_id is an empty string", () => {
+    expect(parsePangramSubmit({ task_id: "" })).toBeNull();
+  });
 });
 
 describe("parsePangramTaskStatus", () => {

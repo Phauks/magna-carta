@@ -181,8 +181,8 @@ describe("createPangramAdapter.detect — async task flow", () => {
     expect(slept).toBe(1); // waited once between the pending poll and the success poll
   });
 
-  it("returns adapter-error when the task reports STAGE_FAILED", async () => {
-    const { client } = scriptedClient([
+  it("returns adapter-error when the task reports STAGE_FAILED, and stops polling", async () => {
+    const { client, requests } = scriptedClient([
       jsonResponse(200, { task_id: "task-2" }),
       jsonResponse(200, { stage: "STAGE_FAILED" }),
     ]);
@@ -192,6 +192,10 @@ describe("createPangramAdapter.detect — async task flow", () => {
     if (result.ok) return;
     expect(result.reason).toBe("adapter-error");
     expect(result.problem?.status).toBe(502);
+    // The honest STAGE_FAILED message, distinct from the generic malformed-shape message.
+    expect(result.problem?.title).toBe("Detection failed");
+    // Exactly the submit POST + one poll GET — a terminal failure must not trigger another poll.
+    expect(requests.length).toBe(2);
   });
 
   it("returns adapter-error when the submit response has no task_id", async () => {
