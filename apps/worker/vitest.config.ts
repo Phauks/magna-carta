@@ -68,7 +68,7 @@ function billingPackageSources(): Plugin {
 // report shape without running the real Container.
 const SCAN_SERVICE_STUB_SCRIPT = `
 export default {
-  fetch(request) {
+  async fetch(request) {
     const url = new URL(request.url);
     // GET /rules/score-histogram returns the no-engine histogram shape — the engine-less equivalent of
     // the real container endpoint, matching what production returns before the scan engine is wired.
@@ -85,7 +85,23 @@ export default {
         { status: 200, headers: { "content-type": "application/json" } }
       );
     }
-    // The default (/scan): the no-engine RawScanResult, an honest unscanned verdict (not a fake clean).
+    // The default (/scan): the no-engine RawScanResult (honest unscanned, never a fake clean), unless the
+    // body carries the test malware marker — then an infected clam verdict (a deployed engine), which lets
+    // the file-repair re-scan withhold path be exercised end to end. No production test sends the marker,
+    // so scan behaviour is otherwise unchanged.
+    const scanBody = await request.text();
+    if (scanBody.includes("MALWARE_EICAR")) {
+      return new Response(
+        JSON.stringify({
+          engineVersion: "test-engine",
+          clam: { state: "infected", signature: "Test.EICAR.Marker" },
+          heuristic: { kind: "none" },
+          matches: [],
+          timings: { clamdMs: 1, yaraMs: 0 },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      );
+    }
     return new Response(
       JSON.stringify({
         engineVersion: null,
@@ -96,6 +112,45 @@ export default {
       }),
       { status: 200, headers: { "content-type": "application/json" } }
     );
+  }
+};
+`;
+
+// Stub for the magna-carta-recovery service binding in tests — no real recovery worker runs under the
+// local pool. Returns a canned diagnosis for /diagnose; for /repair and /carve, a RepairResult with one
+// reconstructed file, whose bytes carry the scan malware marker only when the input asked for it (input
+// contains "TRIGGERMALWARE"), and a 422 { code } when the input asks to be unrepairable ("UNREPAIRABLE").
+// This lets the route tests drive the happy path, the unrepairable path, and the re-scan withhold path.
+const RECOVERY_SERVICE_STUB_SCRIPT = `
+export default {
+  async fetch(request) {
+    const url = new URL(request.url);
+    const json = (obj, status) =>
+      new Response(JSON.stringify(obj), {
+        status: status ?? 200,
+        headers: { "content-type": "application/json" },
+      });
+    if (url.pathname === "/diagnose") {
+      return json({
+        detectedFormat: "pdf",
+        corruption: ["brokenCrossReference"],
+        recoverability: "repairable",
+        repairSupported: true,
+        carveSuggested: false,
+        detail: "pdf document",
+      });
+    }
+    const body = await request.text();
+    if (body.includes("UNREPAIRABLE")) {
+      return json({ code: "unrepairable" }, 422);
+    }
+    const outputText = body.includes("TRIGGERMALWARE")
+      ? "MALWARE_EICAR_marker_payload"
+      : "clean-reconstructed-bytes";
+    return json({
+      files: [{ name: "repaired", mediaType: "application/pdf", contentBase64: btoa(outputText) }],
+      loss: { items: [{ name: "body", recovered: true, detail: "" }], fullyRecovered: true, synthesized: [] },
+    });
   }
 };
 `;
@@ -145,9 +200,10 @@ export default defineConfig({
       // local pool — magna-carta-scan (SCAN_SERVICE), magna-carta-convert (CONVERT), magna-carta-bundle
       // (BUNDLE_SERVICE), and magna-carta-recovery (RECOVERY_SERVICE). Miniflare requires all to exist,
       // so register minimal stubs. The scan stub returns the no-engine RawScanResult (an honest
-      // unscanned, never a fake clean); the convert and recovery stubs only satisfy startup validation
-      // (those route tests inject fake fetchers directly, never call the stub); the bundle stub returns
-      // a canned BuildResponse so coordinator tests can exercise the happy path without a live worker.
+      // unscanned, never a fake clean, plus a malware-marker branch for the file-repair re-scan test);
+      // the convert stub only satisfies startup validation (conversion tests inject fakes directly); the
+      // recovery stub returns canned diagnose/repair/carve JSON so the file-repair route tests drive the
+      // real path; the bundle stub returns a canned BuildResponse for the coordinator's happy path.
       miniflare: {
         workers: [
           {
@@ -168,7 +224,7 @@ export default defineConfig({
           {
             name: "magna-carta-recovery",
             modules: true,
-            script: `export default { fetch() { return new Response("stub", { status: 501 }); } };`,
+            script: RECOVERY_SERVICE_STUB_SCRIPT,
           },
         ],
       },

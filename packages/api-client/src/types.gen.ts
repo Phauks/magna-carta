@@ -133,6 +133,32 @@ export type FileIntegrityVerifyResponse = {
     receipt?: unknown;
 };
 
+export type FileRepairDiagnosis = {
+    detectedFormat: string | null;
+    corruption: Array<string>;
+    recoverability: string;
+    repairSupported: boolean;
+    carveSuggested: boolean;
+    detail: string;
+};
+
+export type FileRepairResult = {
+    files: Array<{
+        name: string;
+        mediaType: string | null;
+        contentBase64: string;
+    }>;
+    loss: {
+        items: Array<{
+            name: string;
+            recovered: boolean;
+            detail: string;
+        }>;
+        fullyRecovered: boolean;
+        synthesized: Array<string>;
+    };
+};
+
 export type AiDetectionReport = {
     band: 'unlikely' | 'mixed' | 'likely' | 'inconclusive';
     score: number;
@@ -1779,6 +1805,149 @@ export type FileTypeVerifyResponses = {
 };
 
 export type FileTypeVerifyResponse = FileTypeVerifyResponses[keyof FileTypeVerifyResponses];
+
+export type FileRepairDiagnoseData = {
+    body: unknown;
+    path?: never;
+    query?: never;
+    url: '/api/v1/file-repair/diagnose';
+};
+
+export type FileRepairDiagnoseErrors = {
+    /**
+     * Empty request body
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Missing tools:fileRepair
+     */
+    403: Problem;
+    /**
+     * File exceeds the inspectable-size cap
+     */
+    413: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+    /**
+     * Recovery engine unavailable
+     */
+    503: Problem;
+};
+
+export type FileRepairDiagnoseError = FileRepairDiagnoseErrors[keyof FileRepairDiagnoseErrors];
+
+export type FileRepairDiagnoseResponses = {
+    /**
+     * Diagnosis report
+     */
+    200: FileRepairDiagnosis;
+};
+
+export type FileRepairDiagnoseResponse = FileRepairDiagnoseResponses[keyof FileRepairDiagnoseResponses];
+
+export type FileRepairRepairData = {
+    body: unknown;
+    path?: never;
+    query?: never;
+    url: '/api/v1/file-repair/repair';
+};
+
+export type FileRepairRepairErrors = {
+    /**
+     * Empty request body
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Missing tools:fileRepair
+     */
+    403: Problem;
+    /**
+     * File exceeds the inspectable-size cap
+     */
+    413: Problem;
+    /**
+     * The file could not be reconstructed, or the output was withheld by the malware gate
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+    /**
+     * Recovery engine unavailable
+     */
+    503: Problem;
+};
+
+export type FileRepairRepairError = FileRepairRepairErrors[keyof FileRepairRepairErrors];
+
+export type FileRepairRepairResponses = {
+    /**
+     * The reconstructed files and the honest loss manifest
+     */
+    200: FileRepairResult;
+};
+
+export type FileRepairRepairResponse = FileRepairRepairResponses[keyof FileRepairRepairResponses];
+
+export type FileRepairCarveData = {
+    body: unknown;
+    path?: never;
+    query?: never;
+    url: '/api/v1/file-repair/carve';
+};
+
+export type FileRepairCarveErrors = {
+    /**
+     * Empty request body
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Missing tools:fileRepair
+     */
+    403: Problem;
+    /**
+     * File exceeds the inspectable-size cap
+     */
+    413: Problem;
+    /**
+     * The file could not be reconstructed, or the output was withheld by the malware gate
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+    /**
+     * Recovery engine unavailable
+     */
+    503: Problem;
+};
+
+export type FileRepairCarveError = FileRepairCarveErrors[keyof FileRepairCarveErrors];
+
+export type FileRepairCarveResponses = {
+    /**
+     * The reconstructed files and the honest loss manifest
+     */
+    200: FileRepairResult;
+};
+
+export type FileRepairCarveResponse = FileRepairCarveResponses[keyof FileRepairCarveResponses];
 
 export type AiDetectionDetectData = {
     body: AiDetectionDetectRequest;
