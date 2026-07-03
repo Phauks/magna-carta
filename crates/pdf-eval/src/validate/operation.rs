@@ -11,7 +11,10 @@ use serde::Serialize;
 pub enum Outcome {
     /// Completed on the good path; `variant` names the success mode.
     Success { variant: String },
-    /// Intentionally took a safe fallback (e.g. rasterized redaction).
+    /// Intentionally took a safe fallback (e.g. rasterized redaction). Not yet
+    /// constructed by the phase-1 forms operation; later-phase operations
+    /// (e.g. redaction) construct this variant.
+    #[allow(dead_code)]
     Fallback { reason: String },
     /// Nothing to do (e.g. the document has no form).
     Skipped { reason: String },

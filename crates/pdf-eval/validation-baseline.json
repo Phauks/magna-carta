@@ -1,0 +1,11 @@
+{
+  "total": 7,
+  "outcomes": {
+    "skipped": 2,
+    "success": 5
+  },
+  "fallback_reasons": {},
+  "panicked": [],
+  "timed_out": [],
+  "safety_violations": []
+}

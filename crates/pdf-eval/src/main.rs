@@ -10,6 +10,7 @@
 //   fidelity          <corpus_dir> <pdfium.dll> [dpi]       — hayro-vs-PDFium MSSIM per page (needs pdfium dll at runtime)
 //   pdfium            <input.pdf> <pdfium.dll> <out_dir> [dpi] — dump PDFium renders to PNG (needs pdfium dll at runtime)
 //   corpus-fetch                                             — fetch missing forms-corpus files (needs --features corpus-fetch)
+//   validate          <corpus_dir>                          — run the validation harness (Task 1-8) over a corpus dir; diffs against validation-baseline.json
 use hayro::hayro_interpret::InterpreterSettings;
 use hayro::hayro_syntax::Pdf;
 use hayro::{render, RenderCache, RenderSettings};
@@ -43,6 +44,9 @@ fn main() {
             surgery_coverage_mode(args.next().expect("usage: surgery-coverage <corpus_dir>"))
         }
         Some("corpus-fetch") => validate::corpus_fetch_mode(),
+        Some("validate") => {
+            validate::validate_mode(args.next().expect("usage: validate <corpus_dir>"))
+        }
         #[cfg(feature = "pdfium")]
         Some("fidelity") => fidelity_mode(args.collect()),
         #[cfg(feature = "pdfium")]
@@ -54,7 +58,7 @@ fn main() {
         }
         other => {
             eprintln!(
-                "unknown mode {other:?}; use smoke | redact-smoke | sanitize-smoke | detect | detect-smoke | render | parse | surgery-coverage | fidelity | pdfium | corpus-fetch"
+                "unknown mode {other:?}; use smoke | redact-smoke | sanitize-smoke | detect | detect-smoke | render | parse | surgery-coverage | fidelity | pdfium | corpus-fetch | validate"
             );
             std::process::exit(2);
         }
