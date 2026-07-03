@@ -49,9 +49,10 @@ dropped on later without rework.
   **public Workers surface** deliberately kept off the app's fate so it survives an incident.
   This design **extends** that from a single banner to a full component matrix + upstream
   aggregation + an isolated read worker.
-- **No `platform_staff` entity and no support-access framework exist in code.** Support-access
-  (accessing *another* firm for remote support) is a different, unbuilt axis and is **not** the
-  model for authoring global status.
+- **A `platform_staff` entity and the support-access framework already exist** (ADR-0157). They
+  are a *different* principal — the reach-into-another-firm support identity — and are **not**
+  the model for authoring global status. See "Relationship to `platform_staff`" under
+  Authorization for why this builds a separate `platform_operator` axis rather than reusing it.
 - **The only global (cross-firm) auth gate that exists** is the `PLATFORM_ADMIN_KEY`
   shared-secret header guarding firm-provisioning (`apps/worker/src/routes/firms.ts`), which is
   self-labeled as a placeholder until a real platform-admin principal model is built. This
@@ -236,6 +237,12 @@ anticipated ("a real platform-admin principal model is a later seam"):
   `platform_operator` (`expires_at IS NULL OR expires_at > now`). Non-members and lapsed grants
   get `403`; unauthenticated get `401`. It runs as a route-level guard on the status write
   group, on the **platform** axis (not the per-firm RBAC chokepoint permission check).
+- **MFA required.** Because a platform operator can publish a public-facing status and is the
+  seam that later gates provisioning, the guard additionally requires the acting user's Better
+  Auth account to have two-factor enabled (`user.twoFactorEnabled`; the `twoFactor()` plugin is
+  already configured). This matches the support-access framework's "MFA mandatory" posture for
+  its `platform_staff` principal — a platform-trust identity should not rest on a password
+  alone. A member without 2FA gets `403` with a "enable two-factor" detail.
 - Every write is **stamped with the session `userId`** as `authorUserId` → attribution and
   audit fall out for free. (Public exposure of that identity is prevented by the
   audience-scoped merge, above.)
@@ -244,6 +251,24 @@ anticipated ("a real platform-admin principal model is a later seam"):
 
 The `PLATFORM_ADMIN_KEY` secret is **not** reused here; it remains firm-provisioning's gate.
 Migrating provisioning onto this principal later is a natural cleanup but out of scope.
+
+### Relationship to `platform_staff` (why a separate axis, not a reuse)
+
+The control plane already has a `platform_staff` principal (the support-access framework,
+ADR-0157). It is **deliberately not** reused here, because the two are different principals:
+
+- `platform_staff` is the **reach-into-one-customer-firm** identity — credential-less, belongs
+  to no firm, and *by construction* only ever yields a **single-`firmId`, grant-scoped,
+  time-boxed** session (redeemed from a firm member's support grant). It has **no global
+  session** and a cross-firm surface is explicitly out of its model.
+- `platform_operator` is the **runs-the-platform-globally** identity — an *elevated Better Auth
+  user* with a real, already-working login, acting on no single firm.
+
+Status authoring is a global action by a logged-in human, so it needs the second, not the
+first. Growing `platform_staff` a global session would contradict its by-design firm scoping
+and entangle status with the support subsystem. The two tables are parallel, both
+hand-seeded, and conceptually adjacent ("people who run the SaaS"); a future unified platform
+principal could subsume both, but that convergence is its own project and out of scope here.
 
 ## Read surfaces (UI deferred — endpoints are the deliverable)
 
