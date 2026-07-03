@@ -106,7 +106,7 @@ async fn main() -> std::io::Result<()> {
 }
 ```
 
-- [ ] **Step 6: `Dockerfile` + repo-root build context (the reference pattern for ALL harness-hosted engine containers).** Unlike raster/scan (self-contained crates whose build context is their own dir), a harness-hosted engine container path-deps shared `crates/*` (here `engine-host` + `recovery-core`), so its build context MUST be a common ancestor — the repo root. This is a first-class, verified wrangler capability: the container `image` takes a `dockerfile` path + an **`image_build_context`** (confirmed present in the wrangler 4.98 config schema), so the Dockerfile can live in `containers/recovery/` while the build context is the repo root. Write:
+- [ ] **Step 6: `Dockerfile` + repo-root build context (the reference pattern for ALL harness-hosted engine containers).** Unlike raster/scan (self-contained crates whose build context is their own dir), a harness-hosted engine container path-deps shared `crates/*` (here `engine-host` + `recovery-core`), so its build context MUST be a common ancestor — the repo root. This is a first-class, verified wrangler capability: the container object takes `image` (the Dockerfile path) and a sibling **`image_build_context`** (both string fields, confirmed in the wrangler config schema), so the Dockerfile can live in `containers/recovery/` while the build context is the repo root. Write:
   - `containers/recovery/Dockerfile` — `rust:1-bookworm` build stage with `WORKDIR /src`, then (paths RELATIVE TO REPO ROOT, the context): `COPY crates/engine-host crates/engine-host`, `COPY crates/recovery-core crates/recovery-core`, `COPY containers/recovery containers/recovery`, then `WORKDIR /src/containers/recovery && cargo build --release`; `debian:bookworm-slim` runtime, `EXPOSE 8080`, entrypoint the bin. (`containers/recovery` carries its own `Cargo.lock`, copied with it.)
   - A repo-root-scoped `.dockerignore` (or a `containers/recovery/.dockerignore` honored for its context) that excludes everything except those three trees — so the uploaded build context stays small even though it is rooted at the repo. This keeps the Cloudflare Workers Builds image build fast.
   This is deliberately established as the **canonical engine-container build pattern** (see Task 8 Step 3): the next harness-hosted engine copies this Dockerfile + `image_build_context` shape rather than re-solving it.
@@ -126,23 +126,21 @@ async fn main() -> std::io::Result<()> {
 - [ ] **Step 1: `src/recovery-engine-container.ts`** — `export class RecoveryEngineContainer extends Container { defaultPort = 8080; requiredPorts = [8080]; sleepAfter = "5m"; enableInternet = false; pingEndpoint = "ready"; }` (identical to `RasterEngineContainer`).
 - [ ] **Step 2: `src/forward.ts`** — the `container.fetch` proxy (clone `forward-convert.ts`), generalized to forward the incoming path (`/diagnose|/repair|/carve`) to `http://recovery<path>`, streaming the body (`duplex: "half"`, pass `signal`), returning the container response verbatim.
 - [ ] **Step 3: `src/index.ts`** — `getContainer(env.RECOVERY_ENGINE, "recovery")`; route the three POST paths to `forward(...)`, else 404. Export the DO class. `Bindings = { RECOVERY_ENGINE: DurableObjectNamespace<RecoveryEngineContainer> }`.
-- [ ] **Step 4: `wrangler.jsonc`** (clone `convert-worker`, NO cron): `name: "magna-carta-recovery"`; `durable_objects.bindings: [{ name: "RECOVERY_ENGINE", class_name: "RecoveryEngineContainer" }]`; `migrations: [{ tag: "v1", new_sqlite_classes: ["RecoveryEngineContainer"] }]`. The `containers` entry uses the repo-root build context from Task 1 Step 6 — the `image` is an object naming the Dockerfile + `image_build_context` (paths are relative to this wrangler file at `apps/recovery-worker/`, so both point up to the repo root):
+- [ ] **Step 4: `wrangler.jsonc`** (clone `convert-worker`, NO cron): `name: "magna-carta-recovery"`; `durable_objects.bindings: [{ name: "RECOVERY_ENGINE", class_name: "RecoveryEngineContainer" }]`; `migrations: [{ tag: "v1", new_sqlite_classes: ["RecoveryEngineContainer"] }]`. The `containers` entry uses the repo-root build context from Task 1 Step 6. VERIFIED against the wrangler config schema: `image` (the Dockerfile path) and `image_build_context` (the build-context dir) are **sibling** string fields on the container object — NOT a nested object. Paths are relative to this wrangler file at `apps/recovery-worker/`:
 
 ```jsonc
 "containers": [
   {
     "class_name": "RecoveryEngineContainer",
-    "image": {
-      "dockerfile": "../../containers/recovery/Dockerfile",
-      "image_build_context": "../../",
-    },
+    "image": "../../containers/recovery/Dockerfile",
+    "image_build_context": "../../",
     "max_instances": 5,
     "instance_type": "standard-1",
   },
 ],
 ```
 
-  Verify the exact `image`-object field names against the wrangler 4.98 config schema before committing (the schema confirms `image_build_context` exists); if the installed wrangler wants the Dockerfile named differently within the object, follow the schema. The in-cloud Workers Build validates the actual image build on first push.
+  Note: `wrangler deploy --dry-run` on a container worker tries to build the image with local Docker even in dry-run and fails without it — pass `--containers-rollout=none` to validate the worker bundle + config without Docker (the image itself builds in Cloudflare Workers Builds on push).
 - [ ] **Step 5: `package.json`** (clone convert-worker): `@cloudflare/containers: "catalog:"`; scripts `build`/`dev`/`deploy`/`test`. `pnpm-workspace.yaml` `apps/*` glob auto-includes it.
 - [ ] **Step 6: Test** — clone convert-worker's forward test: inject a fake container fetcher, assert path forwarding + streamed body + verbatim response passthrough for each of the three paths.
 - [ ] **Step 7: Gate + commit** — `pnpm --filter magna-carta-recovery test`; `pnpm --filter magna-carta-recovery exec wrangler deploy --dry-run`. Commit `feat(recovery-worker): dedicated container worker for the repair engine`.
