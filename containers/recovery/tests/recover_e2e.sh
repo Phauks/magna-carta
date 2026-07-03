@@ -35,14 +35,16 @@ curl -fsS "http://127.0.0.1:$PORT/ready" | grep -q "^ok$" \
   || { echo "FAIL: /ready did not return 'ok'"; exit 1; }
 
 # MS Office 2013 agile hash (hashcat example_hashes mode 9600, password = "hashcat").
-# The acceptance test scans only the first 10 words of the baked wordlist — fast and sufficient
-# to prove the engine is wired. found=null is expected and fine; we assert valid JSON only.
+# The container resolves shardIndex/shardCount into a word range itself (it's the only
+# place that knows the baked wordlist's length); shardIndex 0 of 1 covers the whole
+# wordlist — slow but sufficient to prove the engine is wired. found=null is expected
+# and fine; we assert valid JSON only.
 HASH='$office$*2013*100000*256*16*7dd611d7eb4c899f74816d1dec817b3b*948dc0b2c2c6c32f14b5995a543ad037*0b7ee0e48e935f937192a59de48a7d561ef2691d5c8a3ba87ec2d04402a94895'
 
-echo "POST /recover-shard (shard 0–10, ruleSet=none) ..."
+echo "POST /recover-shard (shardIndex 0 of 1, ruleSet=none) ..."
 response=$(curl -fsS -X POST \
   -H "Content-Type: application/json" \
-  -d "{\"hash\":\"$HASH\",\"format\":\"ooxml\",\"hashcatMode\":9600,\"wordStart\":0,\"wordEnd\":10,\"ruleSet\":\"none\"}" \
+  -d "{\"hash\":\"$HASH\",\"format\":\"ooxml\",\"hashcatMode\":9600,\"shardIndex\":0,\"shardCount\":1,\"ruleSet\":\"none\"}" \
   "http://127.0.0.1:$PORT/recover-shard")
 echo "  -> $response"
 

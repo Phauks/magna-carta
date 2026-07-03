@@ -76,8 +76,8 @@ async fn finds_password_when_present() {
         "hash": OFFICE_2013_EXAMPLE,
         "format": "ooxml",
         "hashcatMode": 9600,
-        "wordStart": 0,
-        "wordEnd": 4,
+        "shardIndex": 0,
+        "shardCount": 1,
         "ruleSet": "none"
     });
 
@@ -116,8 +116,8 @@ async fn returns_null_when_password_absent() {
         "hash": OFFICE_2013_EXAMPLE,
         "format": "ooxml",
         "hashcatMode": 9600,
-        "wordStart": 0,
-        "wordEnd": 3,
+        "shardIndex": 0,
+        "shardCount": 1,
         "ruleSet": "none"
     });
 
@@ -159,37 +159,89 @@ async fn malformed_body_returns_400() {
 }
 
 // ---------------------------------------------------------------------------
-// Inverted range → 400
+// Container self-splits the keyspace from shardIndex/shardCount
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
-async fn inverted_range_returns_400() {
-    let (state, _temp) = state_with_words(&["foo", "bar", "hashcat"]);
+async fn resolves_shard_range_by_index_and_count() {
+    // "hashcat" sits at index 1 of a 4-word list. Splitting into 2 shards puts
+    // it in shard 0 (words 0..2); shard 1 (words 2..4) must miss it.
+    let (state, _temp) = state_with_words(&["foo", "hashcat", "bar", "baz"]);
     let base = spawn_server(state).await;
-
     let client = Client::new();
-    let body = serde_json::json!({
+
+    let hit_body = serde_json::json!({
         "hash": OFFICE_2013_EXAMPLE,
         "format": "ooxml",
         "hashcatMode": 9600,
-        // wordStart > wordEnd — an inverted range
-        "wordStart": 5,
-        "wordEnd": 2,
+        "shardIndex": 0,
+        "shardCount": 2,
         "ruleSet": "none"
     });
-
-    let response = client
+    let hit = client
         .post(format!("{base}/recover-shard"))
-        .json(&body)
+        .json(&hit_body)
         .send()
         .await
         .expect("POST /recover-shard");
-
+    assert_eq!(hit.status(), 200);
+    let hit_json: serde_json::Value = hit.json().await.expect("parse JSON");
     assert_eq!(
-        response.status(),
-        400,
-        "an inverted wordStart/wordEnd must yield 400"
+        hit_json["found"],
+        serde_json::json!("hashcat"),
+        "shard 0 of 2 covers index 1 and must find the password"
     );
+
+    let miss_body = serde_json::json!({
+        "hash": OFFICE_2013_EXAMPLE,
+        "format": "ooxml",
+        "hashcatMode": 9600,
+        "shardIndex": 1,
+        "shardCount": 2,
+        "ruleSet": "none"
+    });
+    let miss = client
+        .post(format!("{base}/recover-shard"))
+        .json(&miss_body)
+        .send()
+        .await
+        .expect("POST /recover-shard");
+    assert_eq!(miss.status(), 200);
+    let miss_json: serde_json::Value = miss.json().await.expect("parse JSON");
+    assert_eq!(
+        miss_json["found"],
+        serde_json::json!(null),
+        "shard 1 of 2 does not cover index 1 and must not find the password"
+    );
+}
+
+#[tokio::test]
+async fn rejects_out_of_range_shard() {
+    let (state, _temp) = state_with_words(&["a", "b"]);
+    let base = spawn_server(state).await;
+    let client = Client::new();
+
+    for (shard_index, shard_count) in [(2usize, 2usize), (0, 0)] {
+        let body = serde_json::json!({
+            "hash": OFFICE_2013_EXAMPLE,
+            "format": "ooxml",
+            "hashcatMode": 9600,
+            "shardIndex": shard_index,
+            "shardCount": shard_count,
+            "ruleSet": "none"
+        });
+        let response = client
+            .post(format!("{base}/recover-shard"))
+            .json(&body)
+            .send()
+            .await
+            .expect("POST /recover-shard");
+        assert_eq!(
+            response.status(),
+            400,
+            "shardIndex {shard_index} of {shard_count} must be 400"
+        );
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -206,8 +258,8 @@ async fn unknown_format_returns_400() {
         "hash": OFFICE_2013_EXAMPLE,
         "format": "unknown_format",
         "hashcatMode": 9600,
-        "wordStart": 0,
-        "wordEnd": 1,
+        "shardIndex": 0,
+        "shardCount": 1,
         "ruleSet": "none"
     });
 
@@ -239,8 +291,8 @@ async fn malformed_hash_returns_400() {
         "hash": "not-a-valid-office-hash",
         "format": "ooxml",
         "hashcatMode": 9600,
-        "wordStart": 0,
-        "wordEnd": 1,
+        "shardIndex": 0,
+        "shardCount": 1,
         "ruleSet": "none"
     });
 

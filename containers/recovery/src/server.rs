@@ -6,8 +6,8 @@ use axum::{
     Json, Router,
 };
 use decryption_core::{
-    parse_rules, recover_shard, Format, OoxmlAdapter, PdfAdapter, RecoveryJob, RuleSet, ShardSpec,
-    ZipAdapter,
+    parse_rules, recover_shard, split_keyspace, Format, OoxmlAdapter, PdfAdapter, RecoveryJob,
+    RuleSet, ZipAdapter,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -44,10 +44,12 @@ struct RecoverShardRequest {
     format: String,
     /// The hashcat mode matching the hash (e.g. 9600 for OOXML agile).
     hashcat_mode: u32,
-    /// Inclusive start index into the loaded wordlist.
-    word_start: usize,
-    /// Exclusive end index into the loaded wordlist.
-    word_end: usize,
+    /// Which shard of the wordlist this request covers, in `0..shard_count`.
+    shard_index: usize,
+    /// How many shards to split the wordlist into. The container — not the
+    /// caller — resolves `shard_index` into a concrete word range, since only
+    /// the container knows how long its baked wordlist is.
+    shard_count: usize,
     /// Which rule set to apply: `"best64"` or `"none"`.
     rule_set: String,
 }
@@ -107,30 +109,39 @@ async fn recover_shard_handler(
         }
     };
 
-    // Guard the shard range. Clamp both ends to the wordlist length, then check
-    // that the (possibly clamped) start <= end so the range is non-inverted.
-    // An inverted range after clamping (word_start > word_end before clamping
-    // resolves it, e.g. word_start=5 word_end=2) is a caller error → 400.
-    let wordlist_len = state.wordlist.len();
-    let word_start = request.word_start.min(wordlist_len);
-    let word_end = request.word_end.min(wordlist_len);
-
-    if request.word_start > request.word_end {
-        // The caller sent an inverted range — reject rather than silently running
-        // nothing, which could mask a coordinator bug.
+    // Guard the shard request itself before deriving a range from it.
+    // `shard_count == 0` has no valid index; `shard_index >= shard_count` is
+    // outside the caller's own declared range. Both are caller errors — reject
+    // rather than silently running nothing, which could mask a coordinator bug.
+    if request.shard_count == 0 || request.shard_index >= request.shard_count {
         return (
             StatusCode::BAD_REQUEST,
             format!(
-                "wordStart ({}) must not exceed wordEnd ({})",
-                request.word_start, request.word_end
+                "shardIndex ({}) must be less than a non-zero shardCount ({})",
+                request.shard_index, request.shard_count
             ),
         )
             .into_response();
     }
 
-    let spec = ShardSpec {
-        word_start,
-        word_end,
+    // Only the container knows how long its baked wordlist is, so it — not the
+    // caller — resolves shardIndex into a concrete word range.
+    let shards = split_keyspace(state.wordlist.len(), request.shard_count);
+    let spec = match shards.get(request.shard_index) {
+        Some(spec) => spec.clone(),
+        None => {
+            // shard_index is inside the caller's declared shard_count, but the
+            // wordlist is shorter than shard_count, so split_keyspace dropped the
+            // trailing empty shards (see decryption-core's shard module). This
+            // shard legitimately covers zero words rather than being a caller
+            // error, so report an empty result instead of erroring or panicking
+            // on an out-of-bounds index.
+            return Json(RecoverShardResponse {
+                found: None,
+                candidates_tried: 0,
+            })
+            .into_response();
+        }
     };
 
     // Run the recovery on a blocking thread — `recover_shard` is CPU-bound (rayon).
