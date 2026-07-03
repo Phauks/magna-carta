@@ -10,7 +10,7 @@
 //   fidelity          <corpus_dir> <pdfium.dll> [dpi]       — hayro-vs-PDFium MSSIM per page (needs pdfium dll at runtime)
 //   pdfium            <input.pdf> <pdfium.dll> <out_dir> [dpi] — dump PDFium renders to PNG (needs pdfium dll at runtime)
 //   corpus-fetch                                             — fetch missing forms-corpus files (needs --features corpus-fetch)
-//   validate          <corpus_dir>                          — run the validation harness (Task 1-8) over a corpus dir; diffs against validation-baseline.json
+//   validate          <corpus_dir>                          — run the validation harness over a corpus dir; diffs against validation-baseline.json
 use hayro::hayro_interpret::InterpreterSettings;
 use hayro::hayro_syntax::Pdf;
 use hayro::{render, RenderCache, RenderSettings};

@@ -97,13 +97,23 @@ mod tests {
 
     #[test]
     fn captures_panic_as_panicked() {
-        let r = run_document(Arc::new(Panicker), "d".into(), vec![], Duration::from_secs(5));
+        let r = run_document(
+            Arc::new(Panicker),
+            "d".into(),
+            vec![],
+            Duration::from_secs(5),
+        );
         assert!(matches!(r.outcome, Outcome::Panicked { .. }));
     }
 
     #[test]
     fn captures_timeout() {
-        let r = run_document(Arc::new(Sleeper), "d".into(), vec![], Duration::from_millis(100));
+        let r = run_document(
+            Arc::new(Sleeper),
+            "d".into(),
+            vec![],
+            Duration::from_millis(100),
+        );
         assert_eq!(r.outcome, Outcome::TimedOut);
     }
 

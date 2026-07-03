@@ -2,8 +2,8 @@
 //! regression diff against a committed baseline.
 
 use crate::validate::operation::{Outcome, Safety};
-use serde::Serialize;
 use serde::Deserialize;
+use serde::Serialize;
 use std::collections::BTreeMap;
 use std::io::Write;
 use std::path::Path;
@@ -97,10 +97,36 @@ mod summary_tests {
     #[test]
     fn counts_outcomes_and_collects_defects() {
         let reports = vec![
-            report("a", Outcome::Success { variant: "x".into() }, Safety::Upheld),
-            report("b", Outcome::Skipped { reason: "no form".into() }, Safety::NotApplicable),
-            report("c", Outcome::Panicked { detail: "boom".into() }, Safety::NotApplicable),
-            report("d", Outcome::Success { variant: "x".into() }, Safety::Violated { detail: "leak".into() }),
+            report(
+                "a",
+                Outcome::Success {
+                    variant: "x".into(),
+                },
+                Safety::Upheld,
+            ),
+            report(
+                "b",
+                Outcome::Skipped {
+                    reason: "no form".into(),
+                },
+                Safety::NotApplicable,
+            ),
+            report(
+                "c",
+                Outcome::Panicked {
+                    detail: "boom".into(),
+                },
+                Safety::NotApplicable,
+            ),
+            report(
+                "d",
+                Outcome::Success {
+                    variant: "x".into(),
+                },
+                Safety::Violated {
+                    detail: "leak".into(),
+                },
+            ),
         ];
         let s = summarize(&reports);
         assert_eq!(s.total, 4);
@@ -126,13 +152,22 @@ pub fn diff_baseline(current: &Summary, baseline: &Summary) -> Vec<Regression> {
         cur.iter().filter(|n| !base.contains(n)).cloned().collect()
     };
     for n in new_names(&current.panicked, &baseline.panicked) {
-        out.push(Regression { kind: "new_panic".into(), detail: n });
+        out.push(Regression {
+            kind: "new_panic".into(),
+            detail: n,
+        });
     }
     for n in new_names(&current.timed_out, &baseline.timed_out) {
-        out.push(Regression { kind: "new_timeout".into(), detail: n });
+        out.push(Regression {
+            kind: "new_timeout".into(),
+            detail: n,
+        });
     }
     for n in new_names(&current.safety_violations, &baseline.safety_violations) {
-        out.push(Regression { kind: "new_safety_violation".into(), detail: n });
+        out.push(Regression {
+            kind: "new_safety_violation".into(),
+            detail: n,
+        });
     }
     let cur_success = current.outcomes.get("success").copied().unwrap_or(0);
     let base_success = baseline.outcomes.get("success").copied().unwrap_or(0);
@@ -171,7 +206,9 @@ mod diff_tests {
         cur.outcomes.insert("success".into(), 1);
         cur.panicked.push("evil.pdf".into());
         let regs = diff_baseline(&cur, &base());
-        assert!(regs.iter().any(|r| r.kind == "new_panic" && r.detail == "evil.pdf"));
+        assert!(regs
+            .iter()
+            .any(|r| r.kind == "new_panic" && r.detail == "evil.pdf"));
         assert!(regs.iter().any(|r| r.kind == "coverage_drop"));
     }
 }

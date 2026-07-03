@@ -2,10 +2,9 @@
 //! confirm the probe reads back from the output (the safety invariant), and flatten
 //! to a document that re-parses. Documents without a fillable form are skipped.
 
-use crate::validate::operation::{Outcome, OperationVerdict, Safety, ValidationOperation};
+use crate::validate::operation::{OperationVerdict, Outcome, Safety, ValidationOperation};
 use pdf_core::{
-    fill_form, flatten_form, read_form, Document, FieldKind, FieldValue, FormError,
-    FormFillOptions,
+    fill_form, flatten_form, read_form, Document, FieldKind, FieldValue, FormError, FormFillOptions,
 };
 use std::collections::BTreeMap;
 
