@@ -103,9 +103,7 @@
       "indexes": {
         "account_user_id_index": {
           "name": "account_user_id_index",
-          "columns": [
-            "user_id"
-          ],
+          "columns": ["user_id"],
           "isUnique": false
         }
       },
@@ -114,12 +112,8 @@
           "name": "account_user_id_user_id_fk",
           "tableFrom": "account",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -284,16 +278,12 @@
       "indexes": {
         "firm_name_unique": {
           "name": "firm_name_unique",
-          "columns": [
-            "name"
-          ],
+          "columns": ["name"],
           "isUnique": true
         },
         "firm_database_identifier_unique": {
           "name": "firm_database_identifier_unique",
-          "columns": [
-            "database_identifier"
-          ],
+          "columns": ["database_identifier"],
           "isUnique": true
         }
       },
@@ -358,16 +348,12 @@
       "indexes": {
         "idempotency_key_key_unique_index": {
           "name": "idempotency_key_key_unique_index",
-          "columns": [
-            "key"
-          ],
+          "columns": ["key"],
           "isUnique": true
         },
         "idempotency_key_created_at_index": {
           "name": "idempotency_key_created_at_index",
-          "columns": [
-            "created_at"
-          ],
+          "columns": ["created_at"],
           "isUnique": false
         }
       },
@@ -447,10 +433,7 @@
       "indexes": {
         "outbox_status_created_at_index": {
           "name": "outbox_status_created_at_index",
-          "columns": [
-            "status",
-            "created_at"
-          ],
+          "columns": ["status", "created_at"],
           "isUnique": false
         }
       },
@@ -509,9 +492,7 @@
       "indexes": {
         "platform_staff_email_unique": {
           "name": "platform_staff_email_unique",
-          "columns": [
-            "email"
-          ],
+          "columns": ["email"],
           "isUnique": true
         }
       },
@@ -584,16 +565,12 @@
       "indexes": {
         "session_token_unique": {
           "name": "session_token_unique",
-          "columns": [
-            "token"
-          ],
+          "columns": ["token"],
           "isUnique": true
         },
         "session_user_id_index": {
           "name": "session_user_id_index",
-          "columns": [
-            "user_id"
-          ],
+          "columns": ["user_id"],
           "isUnique": false
         }
       },
@@ -602,12 +579,8 @@
           "name": "session_user_id_user_id_fk",
           "tableFrom": "session",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -709,9 +682,7 @@
       "indexes": {
         "support_grant_firm_id_index": {
           "name": "support_grant_firm_id_index",
-          "columns": [
-            "firm_id"
-          ],
+          "columns": ["firm_id"],
           "isUnique": false
         }
       },
@@ -720,12 +691,8 @@
           "name": "support_grant_firm_id_firm_id_fk",
           "tableFrom": "support_grant",
           "tableTo": "firm",
-          "columnsFrom": [
-            "firm_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["firm_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -777,16 +744,12 @@
       "indexes": {
         "two_factor_secret_index": {
           "name": "two_factor_secret_index",
-          "columns": [
-            "secret"
-          ],
+          "columns": ["secret"],
           "isUnique": false
         },
         "two_factor_user_id_index": {
           "name": "two_factor_user_id_index",
-          "columns": [
-            "user_id"
-          ],
+          "columns": ["user_id"],
           "isUnique": false
         }
       },
@@ -795,12 +758,8 @@
           "name": "two_factor_user_id_user_id_fk",
           "tableFrom": "two_factor",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -883,9 +842,7 @@
       "indexes": {
         "user_email_unique": {
           "name": "user_email_unique",
-          "columns": [
-            "email"
-          ],
+          "columns": ["email"],
           "isUnique": true
         }
       },
@@ -894,12 +851,8 @@
           "name": "user_firm_id_firm_id_fk",
           "tableFrom": "user",
           "tableTo": "firm",
-          "columnsFrom": [
-            "firm_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["firm_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -959,9 +912,7 @@
       "indexes": {
         "verification_identifier_index": {
           "name": "verification_identifier_index",
-          "columns": [
-            "identifier"
-          ],
+          "columns": ["identifier"],
           "isUnique": false
         }
       },
