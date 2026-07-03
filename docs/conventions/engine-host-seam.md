@@ -26,3 +26,38 @@ the runtime seam. Home of the design: `docs/specs/2026-06-28-engine-host-framewo
 - **Raw facts in the container, the verdict in the app.** The container returns
   structured facts; the app composes the user-facing verdict. Each engine defines its
   own payload type; the harness does not.
+
+## Hosting a pure-Rust engine in a Container
+
+The reference shape for standing an engine up as a native Container service, so the
+next engine copies it instead of re-deriving it. `containers/recovery` (File Repair)
+is the first engine built to this pattern; `raster`/`scan`/`bundle` predate the harness
+and hand-roll their axum, and are the retrofit targets, not the pattern to copy.
+
+- **The engine crate stays pure.** `crates/<engine>` is I/O-free and serde-free — bytes
+  in, engine types out. It never depends on `axum`, `serde`, or `tokio`. All HTTP/JSON
+  marshalling lives in the container host, mapping from the engine's own types — the same
+  "engine parses, host hosts" split `wasm_edge` uses on the WASM edge.
+- **A thin container host.** `containers/<engine>` is a small standalone crate with
+  path-dependencies on `crates/engine-host` and `crates/<engine>`. Its `main` builds the
+  service with `engine_host::host` — `with_panic_net(ready_app(router()))` then `serve` —
+  binding `0.0.0.0:8080`. It owns the request/response DTOs (`serde` camelCase, file bytes
+  as base64) and the `From<engine_type>` mappings. An engine error becomes a `422` carrying
+  only the stable error `code`, never file content (golden rule 4).
+- **A repo-root build context.** Because the host copies two `crates/*` path-dependencies,
+  the Docker build context must be the repo root, not the container directory. Set
+  `image` (the Dockerfile path) and `image_build_context` (the context dir, e.g. `"../../"`)
+  as sibling fields on the container config; the Dockerfile `COPY`s exactly
+  `crates/engine-host`, `crates/<engine>`, and `containers/<engine>`, and a tight
+  `.dockerignore` allowlists only those. This is a verified wrangler capability, not a hack.
+  Images build in Cloudflare Workers Builds on push (there is no local Docker build);
+  `wrangler deploy --dry-run --containers-rollout=none` validates the worker bundle and
+  config without attempting the image.
+- **A dedicated container worker.** `apps/<engine>-worker` owns the Container Durable Object
+  (`defaultPort=8080`, `sleepAfter`, `enableInternet=false` for untrusted bytes,
+  `pingEndpoint="ready"`), a `getContainer(env.<ENGINE>, "<name>")` dispatch, and a forward
+  proxy. The app worker reaches it through a `services` binding, never a `getContainer` call
+  of its own — the app worker holds only the binding.
+- **Future work (do not build now):** the four near-identical container workers
+  (`convert`/`scan`/`bundle`/`recovery`) share enough that a `container-worker` base is worth
+  extracting once they converge — a later program-scope consolidation, not a per-engine cost.
