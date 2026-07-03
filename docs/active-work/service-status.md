@@ -46,3 +46,23 @@ firm-provisioning's own deferred "real platform-admin principal" seam. Writes st
 - New `packages/status` (DAL-free, ADR-0044 isolation pattern).
 
 Gate cross-cutting edits on `vp run worktrees` + a `main` sync.
+
+## Deploy activation (post-merge — not performed here)
+
+Verification (Task 14) is otherwise clean; before this feature goes live in production, someone
+with dashboard/D1 access must:
+
+1. **Create the KV namespace:** `wrangler kv namespace create magna-carta-production-status`, then
+   paste the real id into the `STATUS_KV` binding in both `apps/worker/wrangler.jsonc` and
+   `apps/status-worker/wrangler.jsonc` (both currently carry the placeholder all-zero id).
+2. **Stand up the second deployable:** create the `apps/status-worker` Workers Build connection in
+   the Cloudflare dashboard, and bind its `status.<domain>` custom domain/route.
+3. **Seed the bootstrap operator:** insert the first `platform_operator` row (by hand, against
+   control-plane D1) for the operating owner's `user.id`, and confirm that account has 2FA enabled
+   — `platform_operator` select requires it (see `packages/data-access` platform_operator select).
+4. **Confirm the cron:** after the `*/10` status cron has run at least once, verify it is publishing
+   `status:derived` — check the KV value directly or the status worker's public feed.
+
+Before step 1, also fix the Task 14 blocking finding: `apps/worker/package.json` is missing the
+`@magna-carta/status` workspace dependency (breaks its wrangler dry-run and the six
+feature-relevant test suites — see `.superpowers/sdd/task-14-report.md`).
