@@ -4,6 +4,16 @@
 
 The whole system enforces **golden rule 2** — _all UI through the design system_ — and most of it is **machine-checked**, so "follow the convention" mostly means "make the gates pass."
 
+## Working model — orchestrate, don't implement inline
+
+**All UI design and implementation work is delegated to subagents; the main Claude instance in a UI stream stays an orchestrator** (owner-directed, 2026-07-02). The coordinator's context is spent on the things only a coordinator can do — sequencing the work, empirical browser verification of what agents built, design review against the owner's corrections, running the gates, and committing — never on writing component code inline. The working rules that make this safe:
+
+- **Strict per-agent file ownership.** Each subagent receives an explicit list of files it owns for the task; two agents never touch the same file in the same round. The coordinator resolves any file that genuinely needs two hands by sequencing, not sharing.
+- **One browser.** Browser verification runs in one place — the coordinator's session (or one designated agent) — so screenshots, computed styles, and interaction tests never race each other.
+- **The coordinator verifies empirically before committing.** An agent's "done" is a claim; the coordinator confirms it in the running app (screenshots, computed styles, interaction round-trips) before the round's gates and commit.
+- **Agents get the constraints, not just the task.** Every delegation prompt carries the binding rules for the files in play (token purity, no emojis, full names, the relevant recipes and gotchas from the area `CLAUDE.md`s) so the gates pass on the first round, not after rework.
+- **Sessions die; transcripts persist.** A killed or interrupted agent is resumed by continuing the same agent with a precise finish list (inventory the on-disk state first), not by re-delegating from scratch.
+
 ## The four layers
 
 1. **`@magna-carta/design-tokens`** — the single source of design truth. Spec-pure DTCG 2025.10 token source → Terrazzo generates committed CSS custom properties (`--mc-*`) per theme×mode plus the Tailwind v4 `@theme`.
