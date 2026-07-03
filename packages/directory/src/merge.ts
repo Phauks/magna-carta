@@ -229,6 +229,12 @@ const REPOINT_TARGETS: readonly RepointTarget[] = [
   },
 ];
 
+// The (table, column) inbound-reference pairs the merge repoints — exported so the PII/erasure
+// registry can be pinned as a superset (a new entity reference here must also be attributed for
+// erasure). Derived from REPOINT_TARGETS so the two never drift.
+export const REPOINT_REFERENCE_COLUMNS: readonly { readonly table: string; readonly column: string }[] =
+  REPOINT_TARGETS.map((target) => ({ table: target.table, column: target.column }));
+
 interface NodeRow {
   readonly id: string;
   readonly status: string;
