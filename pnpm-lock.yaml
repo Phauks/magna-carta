@@ -503,9 +503,6 @@ importers:
 
   packages/access-control:
     dependencies:
-      '@magna-carta/data-access':
-        specifier: workspace:*
-        version: link:../data-access
       '@magna-carta/identifiers':
         specifier: workspace:*
         version: link:../identifiers

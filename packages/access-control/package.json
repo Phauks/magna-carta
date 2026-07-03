@@ -13,7 +13,6 @@
     "test": "vp test run"
   },
   "dependencies": {
-    "@magna-carta/data-access": "workspace:*",
     "@magna-carta/identifiers": "workspace:*"
   },
   "devDependencies": {

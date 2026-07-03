@@ -22,10 +22,12 @@ export const platformOperatorGuard: MiddlewareHandler<GuardEnv> = async (c, next
   const correlationId = c.get("correlationId") ?? "";
   if (session === null) {
     const errorId = newErrorId();
+    // Better Auth resolves the session from a cookie, not a header — "no-session" names what
+    // actually failed (distinct from platformAdminGuard's header-secret "missing-header").
     c.get("logger")?.log(
       authDenied(
         { correlationId, now: new Date().toISOString() },
-        { cause: "missing-header", route: c.req.routePath, errorId },
+        { cause: "no-session", route: c.req.routePath, errorId },
       ),
     );
     return problemJson(c, {
@@ -47,10 +49,12 @@ export const platformOperatorGuard: MiddlewareHandler<GuardEnv> = async (c, next
   const decision = decidePlatformOperatorAccess(row);
   if (!decision.allow) {
     const errorId = newErrorId();
+    // decision.reason ("not-operator" / "mfa-required") distinguishes the two 403 causes in
+    // telemetry — they were previously collapsed under one "mismatch" label.
     c.get("logger")?.log(
       authDenied(
         { correlationId, now: nowIso },
-        { cause: "mismatch", route: c.req.routePath, errorId },
+        { cause: decision.reason, route: c.req.routePath, errorId },
       ),
     );
     const detail =

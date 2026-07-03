@@ -1,4 +1,12 @@
-import type { PlatformOperatorAccessRow } from "@magna-carta/data-access/platform-operator-statements";
+// Local input shape — deliberately NOT imported from @magna-carta/data-access: that package already
+// depends on @magna-carta/access-control (for its resolver), so importing back would create a
+// workspace dependency cycle. The decision only needs this row structurally; the data-access
+// package's PlatformOperatorAccessRow (packages/data-access/src/platform-operator-statements.ts)
+// satisfies this shape and callers pass it straight through.
+export interface PlatformOperatorAccessRow {
+  readonly user_id: string;
+  readonly two_factor_enabled: number;
+}
 
 export type PlatformOperatorDecision =
   | { allow: true }
