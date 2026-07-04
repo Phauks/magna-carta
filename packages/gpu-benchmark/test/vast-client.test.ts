@@ -97,9 +97,12 @@ describe("vast-client", () => {
 
   it("never includes the api key in a thrown error", async () => {
     const fetchImpl = vi.fn().mockResolvedValue(new Response("boom", { status: 500 }));
-    await expect(createVastClient("SECRETKEY", fetchImpl).searchOffers({})).rejects.toThrow(
-      expect.not.stringContaining("SECRETKEY"),
-    );
+    try {
+      await createVastClient("SECRETKEY", fetchImpl).searchOffers({});
+      expect.fail("expected searchOffers to throw");
+    } catch (error) {
+      expect((error as Error).message).not.toContain("SECRETKEY");
+    }
   });
 
   it("includes the status and endpoint (but never the key) when destroyInstance fails", async () => {
@@ -107,8 +110,11 @@ describe("vast-client", () => {
     await expect(createVastClient("SECRETKEY", fetchImpl).destroyInstance(777)).rejects.toThrow(
       /500/,
     );
-    await expect(createVastClient("SECRETKEY", fetchImpl).destroyInstance(777)).rejects.toThrow(
-      expect.not.stringContaining("SECRETKEY"),
-    );
+    try {
+      await createVastClient("SECRETKEY", fetchImpl).destroyInstance(777);
+      expect.fail("expected destroyInstance to throw");
+    } catch (error) {
+      expect((error as Error).message).not.toContain("SECRETKEY");
+    }
   });
 });
