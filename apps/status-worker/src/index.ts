@@ -5,6 +5,8 @@ import {
   STATUS_KV_KEYS,
   type PublishedSnapshot,
 } from "@magna-carta/status";
+import atkinsonLatinWoff2 from "./assets/fonts/atkinson-hyperlegible-next-latin-wght-normal.woff2";
+import { FONT_ASSET_PATH, PAGE_CSS, STYLES_ASSET_PATH } from "./page-styles.ts";
 import { renderStatusPage } from "./render-status-page.ts";
 
 export type Bindings = {
@@ -12,6 +14,11 @@ export type Bindings = {
 };
 
 const STALENESS_THRESHOLD_MS = 20 * 60 * 1000; // 20 min: twice the 10-min derived cron cadence
+
+// Both /assets responses are immutable for a year: the stylesheet path is content-hashed (a CSS
+// change mints a new URL), and the font file is a fixed artifact renamed if ever replaced. The
+// meta-refreshed HTML is the only thing a reader refetches every minute.
+const IMMUTABLE_CACHE = "public, max-age=31536000, immutable";
 
 async function publicSnapshot(env: Bindings, now: string): Promise<PublishedSnapshot> {
   const [derivedText, authoredText] = await Promise.all([
@@ -39,6 +46,17 @@ export default {
       if (url.pathname === "/api/status.json") {
         return Response.json(await publicSnapshot(env, now), {
           headers: { "cache-control": "public, max-age=30", "x-robots-tag": "all" },
+        });
+      }
+      // The page's only assets, served by this same worker (nothing external, fate-isolated).
+      if (url.pathname === STYLES_ASSET_PATH) {
+        return new Response(PAGE_CSS, {
+          headers: { "content-type": "text/css; charset=utf-8", "cache-control": IMMUTABLE_CACHE },
+        });
+      }
+      if (url.pathname === FONT_ASSET_PATH) {
+        return new Response(atkinsonLatinWoff2, {
+          headers: { "content-type": "font/woff2", "cache-control": IMMUTABLE_CACHE },
         });
       }
       if (url.pathname === "/" || url.pathname === "") {

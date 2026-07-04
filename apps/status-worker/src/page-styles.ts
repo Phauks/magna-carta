@@ -1,5 +1,12 @@
-// Stylesheet for the public status page, inlined into the rendered HTML so the page arrives as
-// one self-contained response — no external asset may stand between a reader and "is it down?".
+// Stylesheet for the public status page, served by this worker itself at a content-hashed
+// same-origin /assets path (long immutable cache, so the 60-second meta refresh refetches only
+// the HTML). Everything the page loads comes from this worker and nowhere else — no font CDN,
+// no external asset may stand between a reader and "is it down?" — and the page stays fully
+// readable as bare HTML if the stylesheet or font request ever fails.
+//
+// Type: the real Atkinson Hyperlegible Next (the app's reading face), bundled into the worker
+// as a single latin variable woff2 (~34 KB, weights 200-800) and declared with
+// font-display: swap over the system stack, so degraded readers get instant text.
 //
 // Palette: hand-copied approximations of the house palette (ink text on warm paper, gilt accent,
 // green/amber/red status hues). Source of truth: packages/design-tokens/tokens/primitives/color.json.
@@ -10,6 +17,9 @@
 // Scheme handling is CSS-first: readers without JavaScript get their system scheme via
 // prefers-color-scheme; the toggle (a small inline enhancement) overrides it by stamping
 // data-scheme on the root element, which must win in both directions.
+
+// Stable name, immutable cache: the file is a fixed artifact — if it is ever replaced, rename it.
+export const FONT_ASSET_PATH = "/assets/fonts/atkinson-hyperlegible-next-latin-wght-normal.woff2";
 
 const LIGHT_VARIABLES = `
   color-scheme: light;
@@ -38,6 +48,10 @@ const LIGHT_VARIABLES = `
      brand golds so nothing planned shares a hue with anything broken or ceremonial. */
   --info-fg: #33608c;
   --info-bg: #e8eff7;
+  /* The one no-data gray: legend entry and every no-data row (a provider whose feed is
+     unreachable today; any future component without data) share this property, so the key and
+     the rows it explains cannot drift apart. */
+  --nodata-fg: #5d5a50;
   --neutral-fg: #5d5a50;
   --neutral-bg: #eeede7;
 `;
@@ -67,11 +81,22 @@ const DARK_VARIABLES = `
   --danger-bg: #392019;
   --info-fg: #8ab0d4;
   --info-bg: #1e2a37;
+  --nodata-fg: #a5a08c;
   --neutral-fg: #a5a08c;
   --neutral-bg: #2a2921;
 `;
 
 export const PAGE_CSS = `
+/* The app's reading face, self-served (latin subset; the variable file covers every weight the
+   page uses). font-display: swap + the system stack behind it keeps text instant if the font
+   request is slow or fails; operator text outside latin falls back to the system stack. */
+@font-face {
+  font-family: "Atkinson Hyperlegible Next";
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+  src: url("${FONT_ASSET_PATH}") format("woff2-variations");
+}
 :root {
 ${LIGHT_VARIABLES}
   --ok-band: #41724f;
@@ -80,7 +105,7 @@ ${LIGHT_VARIABLES}
   --info-band: #3b658f;
 
   --serif: Georgia, "Times New Roman", serif;
-  --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --sans: "Atkinson Hyperlegible Next", system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
 }
 :root[data-scheme="dark"] {
@@ -140,9 +165,9 @@ a { color: inherit; }
 .topbar .mark { display: flex; align-items: center; color: var(--brand-gold); }
 .brand-glyph { height: 1.25rem; width: auto; display: block; }
 .topbar .word {
-  /* Mirrors the app's BrandMark wordmark: 0.75rem, semibold, uppercase, 0.125rem tracking.
-     "Status" joins the same lockup in the same treatment, muted a step so the product name
-     leads but the pair reads as one word-set. */
+  /* The app's BrandMark wordmark treatment, now in the true face: Atkinson Hyperlegible Next,
+     0.75rem, semibold, uppercase, 0.125rem tracking. "Status" joins the same lockup in the same
+     treatment, muted a step so the product name leads but the pair reads as one word-set. */
   font-size: 0.75rem;
   letter-spacing: 0.125rem;
   text-transform: uppercase;
@@ -155,7 +180,9 @@ a { color: inherit; }
    baseline, and a CSS-only hover reveal of "Soon" — quiet at rest, honest on approach,
    never mistakable for a live link. */
 .dead { display: inline-flex; align-items: center; position: relative; }
-.dead-link { color: var(--subtle); font-size: 0.78125rem; cursor: default; }
+/* Header links tuned to the face: Atkinson reads light at small sizes, so the medium weight
+   with a touch of tracking keeps the control row crisp without competing with the wordmark. */
+.dead-link { color: var(--subtle); font-size: 0.75rem; font-weight: 500; letter-spacing: 0.01em; cursor: default; }
 .dead::after {
   content: "Soon";
   position: absolute;
@@ -214,7 +241,8 @@ button.icon-button:not(:disabled):hover { color: var(--text); }
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
-  width: 264px;
+  /* Wide enough that the country popup can show the longest country names without clipping. */
+  width: 320px;
   background: var(--card);
   border: 1px solid var(--hair-strong);
   border-radius: 6px;
@@ -234,6 +262,44 @@ button.icon-button:not(:disabled):hover { color: var(--text); }
   color: var(--muted);
   margin-bottom: 4px;
 }
+/* Scope choice: native radios (all updates, or only the current issue). The current-issue
+   option stays visible when no incident is live — disabled with a quiet note — so the panel
+   always teaches what subscribing can do. */
+.scope-group { border: 0; padding: 0; margin: 0 0 12px; }
+.scope-option {
+  display: flex;
+  gap: 7px;
+  align-items: baseline;
+  font-size: 0.78125rem;
+  margin-top: 5px;
+}
+.scope-option input { margin: 0; flex: none; }
+.scope-option.is-disabled { color: var(--subtle); }
+.scope-detail { display: block; color: var(--subtle); font-size: 0.6875rem; }
+
+/* Channel toggle: a real two-segment control (presentation only — the backend seam stays in
+   the submit). One field shows at a time; both field blocks share an identical structure so
+   swapping them never resizes the panel. */
+.channel-toggle {
+  display: flex;
+  border: 1px solid var(--hair-strong);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+.channel-segment {
+  flex: 1;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 5px 8px;
+  background: var(--paper);
+  color: var(--muted);
+  border: 0;
+  cursor: pointer;
+}
+.channel-segment + .channel-segment { border-left: 1px solid var(--hair-strong); }
+.channel-segment[aria-pressed="true"] { background: var(--sunken); color: var(--text); }
 .subscribe-input {
   width: 100%;
   font: inherit;
@@ -245,6 +311,63 @@ button.icon-button:not(:disabled):hover { color: var(--text); }
   color: var(--text);
   margin-bottom: 10px;
 }
+/* Phone channel: dial-code control beside the national-number input, one control row so the
+   email and phone field blocks keep identical geometry. The no-JS baseline is the plain select
+   (full names; only its closed state truncates, title keeps it readable); the enhancement
+   script swaps in the compact listbox button whose CLOSED form is just "ISO dial" so nothing
+   can overflow at any text-size step. */
+.phone-row { display: flex; gap: 8px; position: relative; }
+.phone-row .subscribe-input { flex: 1; min-width: 0; }
+.subscribe-country {
+  flex: 0 0 42%;
+  min-width: 0;
+  font: inherit;
+  font-size: 0.8125rem;
+  padding: 6px 4px;
+  border: 1px solid var(--hair-strong);
+  border-radius: 3px;
+  background: var(--paper);
+  color: var(--text);
+  margin-bottom: 10px;
+}
+.country-button {
+  flex: none;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  padding: 6px 10px;
+  border: 1px solid var(--hair-strong);
+  border-radius: 3px;
+  background: var(--paper);
+  color: var(--text);
+  cursor: pointer;
+  margin-bottom: 10px;
+  white-space: nowrap;
+}
+/* The open list is anchored to the control's start edge and sizes to its content (the longest
+   country names), bounded by the panel and scrolling vertically through the full ITU list. */
+.country-listbox {
+  position: absolute;
+  left: 0;
+  top: calc(100% - 4px);
+  z-index: 6;
+  width: max-content;
+  max-width: 100%;
+  max-height: 240px;
+  overflow-y: auto;
+  background: var(--card);
+  border: 1px solid var(--hair-strong);
+  border-radius: 4px;
+  box-shadow: 0 4px 14px rgba(35, 33, 26, 0.12);
+}
+.country-option {
+  padding: 5px 10px;
+  font-size: 0.78125rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.country-option:hover { background: var(--sunken); }
+.country-option[aria-selected="true"] { background: var(--sunken); font-weight: 600; }
 .subscribe-submit {
   font: inherit;
   font-size: 0.75rem;
@@ -269,38 +392,49 @@ button.icon-button:not(:disabled):hover { color: var(--text); }
   flex-wrap: wrap;
   border-radius: 8px;
 }
-/* The lamp splits into a perfectly STATIC solid dot and a lighter halo behind it that does the
-   breathing — a slow, compositor-only scale on the halo, the SAME calm period in every state
-   (the band color already carries severity; a faster red pulse would be alarm fatigue, not
-   information). Both circles share one center: the halo is absolutely positioned behind the dot
-   and scales from its own center, so nothing ever shifts position. */
+/* The lamp: a perfectly STATIC solid dot over a lighter halo that alone does the breathing —
+   a slow, compositor-only scale, the SAME calm period in every state (the band color already
+   carries severity; a faster red pulse would be alarm fatigue, not information).
+
+   Concentricity is enforced structurally, not by matching offsets: the wrapper is a fixed
+   square, BOTH circles are absolutely positioned at its exact center (left/top 50% plus a
+   centering translate), and each carries an explicit width = height. The centering translate
+   lives INSIDE every keyframe alongside the scale — a keyframe owns the whole transform, so a
+   bare scale() in the animation would drop translate-based centering and shove the halo toward
+   the top-left; composing them in one stack makes drift impossible. Sizes are deliberately px,
+   not rem: the lamp is a fixed ornament, so the text-size ladder can never skew the pair. */
 .band .lamp {
   position: relative;
-  width: 14px;
-  height: 14px;
+  width: 24px;
+  height: 24px;
   flex: none;
 }
-.band .lamp-dot {
+.band .lamp-dot,
+.band .lamp-halo {
   position: absolute;
-  inset: 0;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
   border-radius: 50%;
+}
+.band .lamp-dot {
+  width: 14px;
+  height: 14px;
   background: #fdfcf8;
 }
 .band .lamp-halo {
-  position: absolute;
-  inset: -5px;
-  border-radius: 50%;
+  width: 24px;
+  height: 24px;
   background: rgba(253, 252, 248, 0.25);
-  transform-origin: center;
   animation: halo-breathe 5s ease-in-out infinite;
 }
 @keyframes halo-breathe {
-  0%, 100% { transform: scale(0.72); }
-  50% { transform: scale(1.15); }
+  0%, 100% { transform: translate(-50%, -50%) scale(0.72); }
+  50% { transform: translate(-50%, -50%) scale(1.15); }
 }
 @media (prefers-reduced-motion: reduce) {
   /* A static halo at rest scale — the lamp keeps its ringed anatomy, it just holds still. */
-  .band .lamp-halo { animation: none; transform: scale(0.85); }
+  .band .lamp-halo { animation: none; transform: translate(-50%, -50%) scale(0.85); }
 }
 .band h1 { font-size: 1.4375rem; font-weight: 650; }
 .band .sub { margin-left: auto; text-align: right; font-size: 0.75rem; opacity: 0.92; }
@@ -398,8 +532,8 @@ button.icon-button:not(:disabled):hover { color: var(--text); }
 .info-row .dot { background: var(--info-fg); }
 .info-row .st { color: var(--info-fg); }
 .info-row .note { border-left: 2px solid var(--info-fg); padding-left: 10px; }
-.neutral-row .dot { background: var(--subtle); }
-.neutral-row .st { color: var(--neutral-fg); }
+.neutral-row .dot { background: var(--nodata-fg); }
+.neutral-row .st { color: var(--nodata-fg); }
 .empty-note { color: var(--subtle); font-size: 0.78125rem; padding: 14px 0; }
 
 /* providers */
@@ -418,7 +552,7 @@ button.icon-button:not(:disabled):hover { color: var(--text); }
 .prov.warn-row .dot { background: var(--warn-fg); }
 .prov.danger-row .dot { background: var(--danger-fg); }
 .prov.info-row .dot { background: var(--info-fg); }
-.prov.neutral-row .dot { background: var(--subtle); }
+.prov.neutral-row .dot { background: var(--nodata-fg); }
 .prov .st { color: var(--muted); }
 .prov-note { color: var(--subtle); font-size: 0.75rem; margin-top: 8px; }
 
@@ -432,13 +566,20 @@ h2.section { font-size: 0.9375rem; font-weight: 650; margin: 34px 0 2px; }
 .hist h3 { font-size: 0.875rem; font-weight: 650; margin-bottom: 4px; }
 .hist .meta { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; flex-wrap: wrap; }
 
-/* footer — just the honesty paragraph, wrapping naturally across the full measure */
-.foot {
-  border-top: 1px solid var(--hair-strong);
-  margin-top: 30px;
-  margin-bottom: 40px;
-  padding-top: 16px;
-  color: var(--muted);
-  font-size: 0.78125rem;
-}
+/* the page ends on the history section; no footer (it develops separately later) */
+main.col { padding-bottom: 48px; }
 `;
+
+// Content-hashed stylesheet path: the URL changes whenever the CSS changes, so it can be cached
+// immutably for a year while the meta-refreshed HTML always references the current version.
+// FNV-1a is plenty for cache-busting (this is a version tag, not a security digest).
+function fnv1aHash(text: string): string {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash.toString(16).padStart(8, "0");
+}
+
+export const STYLES_ASSET_PATH = `/assets/styles.${fnv1aHash(PAGE_CSS)}.css`;

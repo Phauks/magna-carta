@@ -1,11 +1,13 @@
 // Pure renderer: PublishedSnapshot -> complete HTML document, no runtime dependencies.
 //
 // The page must be COMPLETE with zero JavaScript — a status page is consulted precisely when
-// other things are broken, so nothing required for reading may depend on script or any external
-// asset. A meta refresh keeps it current without script. The two small inline scripts are
-// progressive enhancement only (a live countdown and the scheme toggle); everything they touch
-// has a working static fallback. Every snapshot-sourced string is operator- or upstream-authored
-// and is HTML-escaped here.
+// other things are broken, so nothing required for reading may depend on script. Everything the
+// page loads (the stylesheet, the font) is served same-origin by this same worker at immutable
+// /assets paths, so the 60-second meta refresh refetches only the HTML — and the bare HTML stays
+// fully readable in sensible order if those requests ever fail. The small inline scripts are
+// progressive enhancement only (countdown, scheme toggle, text size, the subscribe panel);
+// everything a reader needs has a working static fallback. Every snapshot-sourced string is
+// operator- or upstream-authored and is HTML-escaped here.
 import type {
   ComponentStatus,
   EventImpact,
@@ -13,7 +15,8 @@ import type {
   Provider,
   ProviderStatus,
 } from "@magna-carta/status";
-import { PAGE_CSS } from "./page-styles.ts";
+import { COUNTRY_DIAL_CODES, nationalNumberShapeFor } from "./country-dial-codes.ts";
+import { STYLES_ASSET_PATH } from "./page-styles.ts";
 
 // The published schema exports the snapshot type; its member shapes are addressed from it so
 // this renderer stays aligned with the schema without widening that package's export surface.
@@ -157,7 +160,7 @@ const TYPE_ICON_SVG = `<svg class="icon-type" viewBox="0 0 24 24" fill="none" st
 // ---------------------------------------------------------------------------
 // fragments
 
-function renderTopBar(): string {
+function renderTopBar(activeEvent: PublishedEvent | null): string {
   // One header row: the brand lockup (a plain home anchor back to this page), then the links,
   // then the bell and the scheme icon. Every
   // dead item is a light-up seam shipped honest: muted ink, no pointer cursor, a title attribute
@@ -173,33 +176,89 @@ function renderTopBar(): string {
 <span class="dead"><span class="dead-link" title="Help Desk — soon">Help Desk</span></span>
 <span class="dead"><span class="dead-link" title="Forums — soon">Forums</span></span>
 <span class="dead"><span class="dead-link" title="Magna Carta — soon">Magna Carta</span></span>
-${renderSubscribeControl()}
+${renderSubscribeControl(activeEvent)}
 <button type="button" id="text-size" class="icon-button" hidden aria-label="Change text size" title="Text size: standard">${TYPE_ICON_SVG}</button>
 <button type="button" id="scheme-toggle" class="icon-button toggle" hidden aria-label="Switch color scheme">${SUN_ICON_SVG}${MOON_ICON_SVG}</button>
 </span>
 </div></header>`;
 }
 
-function renderSubscribeControl(): string {
+function renderCountryOptions(): string {
+  // United States carries the static selected attribute (a sensible no-script default for the
+  // current audience); when scripts run, the enhancement script re-selects from the browser
+  // locale's region, so most readers land on their own country without touching the list.
+  // Each option carries its national-number shape (data-groups / data-max) so the
+  // format-as-you-type enhancement reads everything from the selected option.
+  return COUNTRY_DIAL_CODES.map((country) => {
+    const shape = nationalNumberShapeFor(country);
+    const groupsAttribute =
+      shape.groups === undefined ? "" : ` data-groups="${shape.groups.join("-")}"`;
+    return `<option value="${escapeHtml(country.dial)}" data-region="${escapeHtml(country.region)}"${groupsAttribute} data-max="${shape.maxDigits}"${country.region === "US" ? " selected" : ""}>${escapeHtml(country.name)} (${escapeHtml(country.dial)})</option>`;
+  }).join("\n");
+}
+
+function renderSubscribeControl(activeEvent: PublishedEvent | null): string {
   // The subscribe front door: the bell opens a real panel in its final anatomy, but nothing here
-  // can fake a subscription — both fields accept typing, the submit stays disabled with the
-  // hover-Soon treatment, and the note says plainly that delivery arrives with the notifications
-  // machinery. Two labeled fields (Email, Text messages) rather than a channel picker: at this
-  // panel size two visible fields read simpler than a choice control, need no interaction logic,
-  // and both channels stay honestly inert side by side. Light-up seam: enable the submit and
-  // wire the write when that machinery ships — the subscribe payload will carry channel + address
-  // (email or phone number). The bell (like the other header enhancements) starts hidden and is
-  // revealed by the script — without JavaScript the panel cannot open, and a live-looking dead
-  // control would be dishonest.
+  // can fake a subscription; the dead backend stays isolated in the submit, which keeps the
+  // hover-Soon treatment. Anatomy, top to bottom:
+  // - SCOPE (native radio group): everything, or only the current issue — the second means one
+  //   notice when THIS incident resolves, then done. With no live incident it stays visible but
+  //   disabled ("No active issue"), so the anatomy still teaches what subscribing can do.
+  // - CHANNEL (two-segment toggle, aria-pressed buttons): a subscription needs ONE channel, so
+  //   the toggle chooses which single field shows. It is presentation and works today. Both
+  //   field blocks share the same one-label-one-control-row shape so swapping never resizes the
+  //   panel.
+  // - The phone field pairs a full ITU dial-code control (country-dial-codes.ts) with a
+  //   national-number input. The no-JS baseline is the plain select below (full country names;
+  //   only its closed state truncates, and the title attribute keeps the selection readable);
+  //   the enhancement script replaces it with a compact listbox — closed control shows only
+  //   "ISO dial" (for example "US +1") so nothing overflows, the open list shows full names at
+  //   content width. Flag artwork is deliberately NOT shipped: an accurate all-countries SVG
+  //   set is megabytes of vendored artwork against a page currently ~50 KB total, so the ISO
+  //   code carries the identity; if real flags are ever wanted, vendor a license-checked set as
+  //   a lazily fetched same-origin sprite in its own change. The input accepts digits only
+  //   (paste is digit-stripped) and groups them in the selected country's typical national
+  //   pattern from the option's data attributes — presentational convenience only; countries
+  //   with irregular plans get digit-limiting without grouping, and the backend owns real
+  //   validation when the subscribe endpoint lands (the app's future PhoneInput compound owns
+  //   the heavy version).
+  // Light-up seam: enable the submit and wire the write when the notifications machinery ships —
+  // the payload will carry scope ("all" or the incident id, which auto-expires at resolution by
+  // the backend's contract), the CHOSEN channel, and its address (email, or the E.164-combined
+  // number: dial code + national digits). The bell (like the other header enhancements) starts
+  // hidden and is revealed by the script — without JavaScript the panel cannot open, and a
+  // live-looking dead control would be dishonest.
+  const currentIssueDetail =
+    activeEvent === null
+      ? `<span class="scope-detail">No active issue</span>`
+      : `<span class="scope-detail">${escapeHtml(activeEvent.title)} (one notice when it resolves)</span>`;
   return `<span class="subscribe-wrap">
 <button type="button" id="subscribe-bell" class="icon-button" hidden aria-haspopup="dialog" aria-expanded="false" aria-controls="subscribe-panel" aria-label="Subscribe to updates" title="Subscribe to updates">${BELL_ICON_SVG}</button>
 <div id="subscribe-panel" class="subscribe-panel" role="dialog" aria-labelledby="subscribe-title" hidden>
 <h2 id="subscribe-title">Subscribe to updates</h2>
 <p class="subscribe-note">Email and text-message updates on service events are designed but not yet wired &mdash; delivery arrives with the notifications machinery.</p>
-<label class="subscribe-label" for="subscribe-email">Email</label>
+<fieldset class="scope-group">
+<legend class="subscribe-label">What to receive</legend>
+<label class="scope-option"><input type="radio" name="subscribe-scope" value="all" checked><span>All status updates</span></label>
+<label class="scope-option${activeEvent === null ? " is-disabled" : ""}"><input type="radio" name="subscribe-scope" value="current"${activeEvent === null ? " disabled" : ` data-event-id="${escapeHtml(activeEvent.id)}"`}><span>Only the current issue${currentIssueDetail}</span></label>
+</fieldset>
+<div class="channel-toggle" role="group" aria-label="Delivery channel">
+<button type="button" id="channel-email-button" class="channel-segment" aria-pressed="true">Email</button>
+<button type="button" id="channel-phone-button" class="channel-segment" aria-pressed="false">Text messages</button>
+</div>
+<div class="channel-field" id="subscribe-field-email">
+<label class="subscribe-label" for="subscribe-email">Email address</label>
 <input id="subscribe-email" class="subscribe-input" type="email" name="email" autocomplete="email" placeholder="you@example.com">
-<label class="subscribe-label" for="subscribe-phone">Text messages</label>
-<input id="subscribe-phone" class="subscribe-input" type="tel" name="phone" autocomplete="tel" placeholder="+1 555 010 0123">
+</div>
+<div class="channel-field" id="subscribe-field-phone" hidden>
+<label class="subscribe-label" for="subscribe-phone">Phone number</label>
+<div class="phone-row">
+<select id="subscribe-country" class="subscribe-country" aria-label="Country code" title="United States (+1)">
+${renderCountryOptions()}
+</select>
+<input id="subscribe-phone" class="subscribe-input" type="tel" name="phone" autocomplete="tel-national" inputmode="tel" pattern="[0-9 ]{4,17}" placeholder="555 010 0123">
+</div>
+</div>
 <span class="dead"><button type="button" class="subscribe-submit" disabled title="Subscribe — soon">Subscribe</button></span>
 </div>
 </span>`;
@@ -215,19 +274,35 @@ function nextCheckIso(generatedAt: string): string | null {
   return new Date(generated + CHECK_CADENCE_MS).toISOString();
 }
 
-function renderVerdictBand(snapshot: PublishedSnapshot): string {
-  const verdict = VERDICT[snapshot.overall];
+function renderNextCheckLine(snapshot: PublishedSnapshot, now: string | undefined): string {
+  // The next-check instant is SERVER-derived from the snapshot's generatedAt and must be
+  // identical across refreshes; a page load never starts a fresh window. Two honesty branches:
+  // - When no derived snapshot exists yet, the parse fallback stamps generatedAt with the
+  //   request moment (packages/status parseDerived), which would otherwise read as a live
+  //   10-minute window that resets on every refresh. That fallback is detectable exactly by
+  //   generatedAt equaling the render moment, and the truthful line is that the first check is
+  //   still pending — no countdown, no data attribute.
+  // - When the fixed target is already in the past, say so ("Next check due", the same wording
+  //   the script uses) instead of presenting a stale future.
   const nextCheck = nextCheckIso(snapshot.generatedAt);
+  if (nextCheck === null) return "";
+  if (now !== undefined && snapshot.generatedAt === now) {
+    return `\n<div>First check pending</div>`;
+  }
+  if (now !== undefined && nextCheck <= now) {
+    return `\n<div data-next-check="${escapeHtml(nextCheck)}">Next check due</div>`;
+  }
   // Static "Next check by HH:MM UTC" works with zero JavaScript; the enhancement script
-  // upgrades the same element to a live mm:ss countdown via the data attribute.
-  const nextCheckLine =
-    nextCheck === null
-      ? ""
-      : `\n<div data-next-check="${escapeHtml(nextCheck)}">Next check by ${formatUtcTime(nextCheck)} UTC</div>`;
+  // upgrades the same element to a live countdown toward the same fixed instant.
+  return `\n<div data-next-check="${escapeHtml(nextCheck)}">Next check by ${formatUtcTime(nextCheck)} UTC</div>`;
+}
+
+function renderVerdictBand(snapshot: PublishedSnapshot, now: string | undefined): string {
+  const verdict = VERDICT[snapshot.overall];
   return `<section class="band ${verdict.hue}">
 <span class="lamp" aria-hidden="true"><span class="lamp-halo"></span><span class="lamp-dot"></span></span>
 <h1>${escapeHtml(verdict.headline)}</h1>
-<div class="sub num"><div class="big">Checked ${formatUtcDateTime(snapshot.generatedAt)}</div>${nextCheckLine}</div>
+<div class="sub num"><div class="big">Checked ${formatUtcDateTime(snapshot.generatedAt)}</div>${renderNextCheckLine(snapshot, now)}</div>
 </section>`;
 }
 
@@ -296,13 +371,15 @@ function renderComponentRow(component: PublishedComponent): string {
 // section rule — the genre convention (GitHub keeps its key adjacent to the component list), and
 // one well-placed key beats two competing ones. The dot colors are the same custom properties
 // the rows use, so the key stays truthful in both light and dark schemes automatically. The two
-// outage severities share the danger hue, so one "Outage" entry covers both; the provider-only
-// "Status unavailable" state carries its own explanation line under the providers instead.
+// outage severities share the danger hue, so one "Outage" entry covers both. "No data" shares
+// --nodata-fg with every no-data row (a provider whose feed is unreachable today; any future
+// component without data), so the key and the rows it explains cannot drift apart.
 const COLOR_KEY_HTML = `<span class="legend" role="note" aria-label="Color key">
 <span><span class="dot" style="background: var(--ok-fg)"></span>Operational</span>
 <span><span class="dot" style="background: var(--warn-fg)"></span>Degraded</span>
 <span><span class="dot" style="background: var(--danger-fg)"></span>Outage</span>
 <span><span class="dot" style="background: var(--info-fg)"></span>Maintenance</span>
+<span><span class="dot" style="background: var(--nodata-fg)"></span>No data</span>
 </span>`;
 
 function renderComponentGroups(snapshot: PublishedSnapshot): string {
@@ -388,16 +465,11 @@ ${renderEventUpdates(event)}
 ${entries}`;
 }
 
-function renderFooter(): string {
-  // Just the honesty paragraph, wrapping naturally across the measure — the footer develops
-  // separately later; all site links live in the header.
-  return `<footer class="foot">
-<p class="notice">This page runs on infrastructure kept separate from the application, so it stays readable when the application is not. A green light means no known problem &mdash; services report by exception.</p>
-</footer>`;
-}
+// No footer: the owner removed the closing paragraph outright; the footer region develops
+// separately in a later round.
 
 // ---------------------------------------------------------------------------
-// progressive enhancement (the page is complete without either script)
+// progressive enhancement (the page is complete without any script)
 
 // Applied before first paint so persisted choices (scheme, text size) do not flash defaults.
 const BOOT_SCRIPT = `<script>try{var storedScheme=localStorage.getItem("mc-status-scheme");if(storedScheme==="dark"||storedScheme==="light"){document.documentElement.setAttribute("data-scheme",storedScheme);}var storedText=localStorage.getItem("mc-status-text");if(storedText==="large"||storedText==="larger"){document.documentElement.setAttribute("data-text",storedText);}}catch(error){}</script>`;
@@ -485,8 +557,8 @@ const ENHANCEMENT_SCRIPT = `<script>
       if (panel.hidden) {
         panel.hidden = false;
         bell.setAttribute("aria-expanded", "true");
-        var email = document.getElementById("subscribe-email");
-        if (email) email.focus();
+        var visibleInput = panel.querySelector(".channel-field:not([hidden]) .subscribe-input");
+        if (visibleInput) visibleInput.focus();
       } else {
         closePanel(true);
       }
@@ -499,6 +571,188 @@ const ENHANCEMENT_SCRIPT = `<script>
         closePanel(false);
       }
     });
+
+    var emailButton = document.getElementById("channel-email-button");
+    var phoneButton = document.getElementById("channel-phone-button");
+    var emailField = document.getElementById("subscribe-field-email");
+    var phoneField = document.getElementById("subscribe-field-phone");
+    if (emailButton && phoneButton && emailField && phoneField) {
+      var chooseChannel = function (channel) {
+        emailField.hidden = channel !== "email";
+        phoneField.hidden = channel !== "phone";
+        emailButton.setAttribute("aria-pressed", channel === "email" ? "true" : "false");
+        phoneButton.setAttribute("aria-pressed", channel === "phone" ? "true" : "false");
+      };
+      emailButton.addEventListener("click", function () {
+        chooseChannel("email");
+      });
+      phoneButton.addEventListener("click", function () {
+        chooseChannel("phone");
+      });
+    }
+
+    // Preselect the dial code from the browser locale's region; the static markup already
+    // selects United States for readers without script.
+    var countrySelect = document.getElementById("subscribe-country");
+    if (countrySelect && navigator.language) {
+      var localeRegion = (navigator.language.split("-")[1] || "").toUpperCase();
+      if (localeRegion) {
+        for (var optionIndex = 0; optionIndex < countrySelect.options.length; optionIndex += 1) {
+          if (countrySelect.options[optionIndex].getAttribute("data-region") === localeRegion) {
+            countrySelect.selectedIndex = optionIndex;
+            break;
+          }
+        }
+      }
+    }
+
+    // Digits-only national number, grouped as the selected country typically writes it (from
+    // the option's data attributes). Presentational convenience only — the backend validates
+    // for real when the subscribe endpoint lands.
+    var phoneInput = document.getElementById("subscribe-phone");
+    var formatPhone = function () {
+      if (!phoneInput || !countrySelect) return;
+      var selected = countrySelect.options[countrySelect.selectedIndex];
+      var maxDigits = parseInt((selected && selected.getAttribute("data-max")) || "12", 10);
+      var digits = phoneInput.value.replace(/\\D/g, "").slice(0, maxDigits);
+      var groupsAttribute = selected && selected.getAttribute("data-groups");
+      if (!groupsAttribute) {
+        phoneInput.value = digits;
+        return;
+      }
+      var groups = groupsAttribute.split("-");
+      var parts = [];
+      var position = 0;
+      for (var groupIndex = 0; groupIndex < groups.length && position < digits.length; groupIndex += 1) {
+        var groupSize = parseInt(groups[groupIndex], 10);
+        parts.push(digits.slice(position, position + groupSize));
+        position += groupSize;
+      }
+      phoneInput.value = parts.join(" ");
+    };
+    if (phoneInput && countrySelect) {
+      phoneInput.addEventListener("input", formatPhone);
+      countrySelect.addEventListener("change", formatPhone);
+    }
+
+    // The country control upgrades to a compact listbox: the CLOSED control shows only
+    // "ISO dial" (nothing overflows at any text size); the OPEN list shows full names at
+    // content width, scrolling, with arrow keys, Enter/Escape, and type-to-jump. The native
+    // select stays in the DOM as the data store and the no-JS baseline.
+    if (countrySelect) {
+      var phoneRow = countrySelect.parentNode;
+      var countryButton = document.createElement("button");
+      countryButton.type = "button";
+      countryButton.id = "subscribe-country-button";
+      countryButton.className = "country-button";
+      countryButton.setAttribute("aria-haspopup", "listbox");
+      countryButton.setAttribute("aria-expanded", "false");
+      var countryList = document.createElement("div");
+      countryList.id = "subscribe-country-listbox";
+      countryList.className = "country-listbox";
+      countryList.setAttribute("role", "listbox");
+      countryList.tabIndex = -1;
+      countryList.hidden = true;
+      var countryRows = [];
+      for (var buildIndex = 0; buildIndex < countrySelect.options.length; buildIndex += 1) {
+        var sourceOption = countrySelect.options[buildIndex];
+        var row = document.createElement("div");
+        row.setAttribute("role", "option");
+        row.id = "country-option-" + buildIndex;
+        row.className = "country-option";
+        row.setAttribute("data-index", String(buildIndex));
+        row.textContent = sourceOption.textContent;
+        countryList.appendChild(row);
+        countryRows.push(row);
+      }
+      var relabelCountry = function () {
+        var selected = countrySelect.options[countrySelect.selectedIndex];
+        countryButton.textContent = selected.getAttribute("data-region") + " " + selected.value;
+        countryButton.setAttribute("aria-label", "Country code: " + selected.textContent);
+        for (var rowIndex = 0; rowIndex < countryRows.length; rowIndex += 1) {
+          countryRows[rowIndex].setAttribute(
+            "aria-selected",
+            rowIndex === countrySelect.selectedIndex ? "true" : "false",
+          );
+        }
+        countryList.setAttribute("aria-activedescendant", "country-option-" + countrySelect.selectedIndex);
+      };
+      var closeCountryList = function (returnFocus) {
+        if (countryList.hidden) return;
+        countryList.hidden = true;
+        countryButton.setAttribute("aria-expanded", "false");
+        if (returnFocus) countryButton.focus();
+      };
+      var openCountryList = function () {
+        countryList.hidden = false;
+        countryButton.setAttribute("aria-expanded", "true");
+        relabelCountry();
+        countryList.focus();
+        var current = countryRows[countrySelect.selectedIndex];
+        if (current && current.scrollIntoView) current.scrollIntoView({ block: "nearest" });
+      };
+      var chooseCountry = function (index) {
+        countrySelect.selectedIndex = index;
+        countrySelect.title = countrySelect.options[index].textContent;
+        relabelCountry();
+        formatPhone();
+        closeCountryList(true);
+      };
+      countryButton.addEventListener("click", function () {
+        if (countryList.hidden) openCountryList();
+        else closeCountryList(true);
+      });
+      countryList.addEventListener("click", function (clickEvent) {
+        var target = clickEvent.target;
+        while (target && target !== countryList && !target.getAttribute("data-index")) {
+          target = target.parentNode;
+        }
+        if (target && target !== countryList) chooseCountry(parseInt(target.getAttribute("data-index"), 10));
+      });
+      var typeahead = "";
+      var typeaheadClearTimer = 0;
+      countryList.addEventListener("keydown", function (keyboardEvent) {
+        var index = countrySelect.selectedIndex;
+        if (keyboardEvent.key === "ArrowDown" || keyboardEvent.key === "ArrowUp") {
+          keyboardEvent.preventDefault();
+          index += keyboardEvent.key === "ArrowDown" ? 1 : -1;
+          index = Math.max(0, Math.min(countryRows.length - 1, index));
+          countrySelect.selectedIndex = index;
+          relabelCountry();
+          countryRows[index].scrollIntoView({ block: "nearest" });
+        } else if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
+          keyboardEvent.preventDefault();
+          chooseCountry(index);
+        } else if (keyboardEvent.key === "Escape") {
+          keyboardEvent.preventDefault();
+          closeCountryList(true);
+        } else if (keyboardEvent.key.length === 1 && keyboardEvent.key !== " ") {
+          // Type-to-jump on the visible names.
+          typeahead += keyboardEvent.key.toLowerCase();
+          window.clearTimeout(typeaheadClearTimer);
+          typeaheadClearTimer = window.setTimeout(function () {
+            typeahead = "";
+          }, 700);
+          for (var searchIndex = 0; searchIndex < countryRows.length; searchIndex += 1) {
+            if (countryRows[searchIndex].textContent.toLowerCase().indexOf(typeahead) === 0) {
+              countrySelect.selectedIndex = searchIndex;
+              relabelCountry();
+              countryRows[searchIndex].scrollIntoView({ block: "nearest" });
+              break;
+            }
+          }
+        }
+      });
+      document.addEventListener("click", function (pointerEvent) {
+        if (!countryList.hidden && !countryList.contains(pointerEvent.target) && !countryButton.contains(pointerEvent.target)) {
+          closeCountryList(false);
+        }
+      });
+      countrySelect.hidden = true;
+      phoneRow.insertBefore(countryButton, countrySelect);
+      phoneRow.insertBefore(countryList, countrySelect);
+      relabelCountry();
+    }
   }
 })();
 </script>`;
@@ -525,19 +779,18 @@ export function renderStatusPage(
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="refresh" content="60">
 <title>Magna Carta &mdash; Service status</title>
-<style>${PAGE_CSS}</style>
+<link rel="stylesheet" href="${STYLES_ASSET_PATH}">
 ${BOOT_SCRIPT}
 </head>
 <body>
-${renderTopBar()}
+${renderTopBar(activeEvents[0] ?? null)}
 <main class="col">
-${renderVerdictBand(snapshot)}
+${renderVerdictBand(snapshot, options.now)}
 ${renderStaleStrip(snapshot, options.now)}
 ${activeEvents.map((event) => renderActiveEvent(snapshot, event)).join("\n")}
 ${renderComponentGroups(snapshot)}
 ${renderProviders(snapshot)}
 ${renderHistory(snapshot, resolvedEvents)}
-${renderFooter()}
 </main>
 ${ENHANCEMENT_SCRIPT}
 </body>

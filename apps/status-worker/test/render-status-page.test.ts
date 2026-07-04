@@ -1,6 +1,7 @@
 import { env, SELF } from "cloudflare:test";
 import { beforeEach, describe, expect, test } from "vitest";
 import { STATUS_KV_KEYS, type PublishedSnapshot } from "@magna-carta/status";
+import { FONT_ASSET_PATH, PAGE_CSS, STYLES_ASSET_PATH } from "../src/page-styles.ts";
 import { renderStatusPage } from "../src/render-status-page.ts";
 
 const GENERATED_AT = "2026-07-03T14:20:00.000Z";
@@ -38,7 +39,7 @@ function snapshotFixture(overrides: Partial<PublishedSnapshot> = {}): PublishedS
 }
 
 describe("renderStatusPage", () => {
-  test("operational steady state: verdict, both groups, providers, footer", () => {
+  test("operational steady state: verdict, both groups, providers, header anatomy", () => {
     const html = renderStatusPage(snapshotFixture());
     expect(html).toContain("All systems operational");
     expect(html).toContain('class="band ok"');
@@ -47,17 +48,15 @@ describe("renderStatusPage", () => {
     expect(html).toContain("Application API");
     expect(html).toContain("Document conversion");
     expect(html).toContain("Checked 3 July 2026, 14:20 UTC");
-    // Fate-isolation honesty in the footer, and the exception-based-green explanation. The dead
-    // "if this page is unreachable" advice is gone (a reader who cannot reach the page cannot
-    // read it), and the notice is a single naturally-wrapping paragraph.
-    expect(html).toContain("kept separate from the application");
-    expect(html).toContain("services report by exception");
-    expect(html).not.toContain("If this page is unreachable");
+    // No footer: the owner removed the closing paragraph; the region develops separately later.
+    expect(html).not.toContain("<footer");
     // The Cloudflare provider row keeps its link-out (reachable exactly when it matters).
     expect(html).toContain('<a href="https://www.cloudflarestatus.com">Cloudflare</a>');
     // Complete with zero JavaScript: static countdown text plus the meta refresh; the inline
-    // scripts only enhance (live countdown, scheme toggle).
+    // scripts only enhance. The stylesheet is a same-origin content-hashed asset so the
+    // 60-second refresh refetches only the HTML.
     expect(html).toContain('<meta http-equiv="refresh" content="60">');
+    expect(html).toContain(`<link rel="stylesheet" href="${STYLES_ASSET_PATH}">`);
     expect(html).toContain("Next check by 14:30 UTC");
     expect(html).toContain('data-next-check="2026-07-03T14:30:00.000Z"');
     expect(html).not.toContain("Reviewed every 10 minutes");
@@ -78,50 +77,22 @@ describe("renderStatusPage", () => {
     expect(html).not.toContain("magna-carta.com");
     expect(html).not.toContain('class="soon"');
     expect(html).not.toContain(">Soon<");
-    expect(html).toContain('content: "Soon"');
-    // The bell opens the subscribe panel: real anatomy and aria wiring, honest inert submit —
-    // nothing fakes a subscription until the notifications machinery ships.
-    expect(html).toContain('class="icon-bell"');
-    expect(html).toContain('id="subscribe-bell"');
-    expect(html).toMatch(/id="subscribe-bell"[^>]*aria-expanded="false"/);
-    expect(html).toMatch(/<div id="subscribe-panel"[^>]*role="dialog"[^>]*hidden/);
-    expect(html).toContain('aria-labelledby="subscribe-title"');
-    expect(html).toContain("Subscribe to updates");
-    // Both channels, side by side, honestly inert: typing works, the submit stays Soon.
-    expect(html).toContain('id="subscribe-email"');
-    expect(html).toMatch(/id="subscribe-phone"[^>]*type="tel"/);
-    expect(html).toContain(">Text messages</label>");
-    expect(html).toContain("Email and text-message updates");
-    expect(html).toMatch(/class="subscribe-submit"[^>]*disabled[^>]*title="Subscribe — soon"/);
-    expect(html).toContain("not yet wired");
     // Text-size button: a hidden enhancement cycling a rem-based root ladder (the no-JS
     // baseline is browser zoom; the persisted step is applied pre-paint by the boot script).
     expect(html).toContain('id="text-size"');
     expect(html).toMatch(/id="text-size"[^>]*hidden/);
-    expect(html).toContain('[data-text="large"]');
-    expect(html).toContain('[data-text="larger"]');
     expect(html).toContain("mc-status-text");
     const bandIndex = html.indexOf('class="band');
     expect(html.indexOf("Help Desk")).toBeLessThan(bandIndex);
     expect(html.indexOf('class="icon-bell"')).toBeLessThan(bandIndex);
-    expect(html).not.toContain("foot-links");
-    // The band is a rounded block with no gold hairline beneath it. The lamp splits into a
-    // perfectly static solid dot and a lighter halo behind it that does the breathing — calm
-    // constant period, compositor-only scale from a shared center, animation suppressed under
-    // reduced motion (static halo).
-    expect(html).toContain("border-radius: 8px");
-    expect(html).not.toContain(".band::after");
+    // The lamp: static solid dot over the breathing halo, both markup children present.
     expect(html).toContain('<span class="lamp-halo"></span><span class="lamp-dot"></span>');
-    expect(html).toContain("halo-breathe");
-    expect(html).not.toContain("lamp-breathe");
-    expect(html).toContain("prefers-reduced-motion: reduce");
-    // The page's single color key sits on the first component section rule.
+    // The page's single color key sits on the first component section rule, No data included.
     expect(html).toContain('aria-label="Color key"');
     expect((html.match(/aria-label="Color key"/g) ?? []).length).toBe(1);
-    // Scheme support: CSS-first dark scheme plus the hidden icon toggle the script reveals
-    // (sun and moon both present; CSS shows the right one per scheme).
-    expect(html).toContain("prefers-color-scheme: dark");
-    expect(html).toContain('[data-scheme="dark"]');
+    expect(html).toContain(">No data</span>");
+    expect(html).toContain('style="background: var(--nodata-fg)"');
+    // Scheme and channel controls exist for the enhancement script to reveal/wire.
     expect(html).toContain('id="scheme-toggle"');
     expect(html).toMatch(/id="scheme-toggle"[^>]*hidden/);
     expect(html).toContain('class="icon-sun"');
@@ -129,6 +100,55 @@ describe("renderStatusPage", () => {
     // No live-event card and an explicitly empty history in the steady state.
     expect(html).not.toContain('class="live');
     expect(html).toContain("No past service events recorded.");
+  });
+
+  test("subscribe panel: scope choice, working channel toggle wiring, dial-code select", () => {
+    const html = renderStatusPage(snapshotFixture());
+    // Bell: a real toggle now (no Soon treatment on the bell itself), aria wired both ways.
+    expect(html).toContain('id="subscribe-bell"');
+    expect(html).toMatch(/id="subscribe-bell"[^>]*aria-expanded="false"/);
+    expect(html).toContain('title="Subscribe to updates"');
+    expect(html).not.toContain('title="Subscribe to updates — soon"');
+    expect(html).toMatch(/<div id="subscribe-panel"[^>]*role="dialog"[^>]*hidden/);
+    expect(html).toContain('aria-labelledby="subscribe-title"');
+    // Scope: native radio group, "all" default; with no live incident the current-issue option
+    // stays visible but disabled with the quiet note.
+    expect(html).toContain("What to receive");
+    expect(html).toMatch(/name="subscribe-scope" value="all" checked/);
+    expect(html).toMatch(/name="subscribe-scope" value="current" disabled/);
+    expect(html).toContain("No active issue");
+    // Channel toggle: two aria-pressed segments, email field visible, phone field hidden, and
+    // the enhancement script carries the field-swap hook for both buttons.
+    expect(html).toMatch(/id="channel-email-button"[^>]*aria-pressed="true"/);
+    expect(html).toMatch(/id="channel-phone-button"[^>]*aria-pressed="false"/);
+    expect(html).toContain('<div class="channel-field" id="subscribe-field-email">');
+    expect(html).toContain('<div class="channel-field" id="subscribe-field-phone" hidden>');
+    expect(html).toContain("chooseChannel");
+    expect((html.match(/chooseChannel\(/g) ?? []).length).toBeGreaterThanOrEqual(2);
+    // Phone structures: full dial-code select (US statically selected; script re-selects from
+    // the browser locale), light sanity validation only on the national number.
+    expect(html).toContain('id="subscribe-country"');
+    expect(html).toMatch(/data-region="US"[^>]*selected>United States \(\+1\)/);
+    expect(html).toContain("United Kingdom (+44)");
+    expect(html).toContain("Japan (+81)");
+    expect((html.match(/<option /g) ?? []).length).toBeGreaterThan(200);
+    expect(html).toMatch(/id="subscribe-phone"[^>]*type="tel"/);
+    expect(html).toMatch(/id="subscribe-phone"[^>]*inputmode="tel"/);
+    expect(html).toMatch(/id="subscribe-phone"[^>]*pattern=/);
+    // Format-as-you-type metadata rides on the options (NANP 3-3-4 for the US; digit caps
+    // everywhere), and the script carries the digit filter plus the listbox upgrade whose
+    // closed control is the compact "ISO dial" form.
+    expect(html).toMatch(/data-region="US"[^>]*data-groups="3-3-4" data-max="10"/);
+    expect(html).toMatch(/data-region="DE"[^>]*data-max="11"/);
+    expect(html).toContain("formatPhone");
+    expect(html).toContain('replace(/\\D/g, "")');
+    expect(html).toContain("subscribe-country-button");
+    expect(html).toContain('setAttribute("role", "listbox")');
+    // The no-JS select keeps a readable title for its truncated closed state.
+    expect(html).toMatch(/id="subscribe-country"[^>]*title="United States \(\+1\)"/);
+    // The submit is the only Soon left in the panel.
+    expect(html).toMatch(/class="subscribe-submit"[^>]*disabled[^>]*title="Subscribe — soon"/);
+    expect(html).toContain("not yet wired");
   });
 
   test("degraded: warn band, component note, active event pinned with updates newest first", () => {
@@ -180,6 +200,10 @@ describe("renderStatusPage", () => {
     // The affected id resolves to the component's display name.
     expect(html).toContain("Document conversion");
     expect(html.indexOf("Newest update body.")).toBeLessThan(html.indexOf("Older update body."));
+    // With a live incident, the current-issue subscribe scope is enabled and names it.
+    expect(html).toMatch(/name="subscribe-scope" value="current" data-event-id="serviceEvent_1"/);
+    expect(html).toContain("(one notice when it resolves)");
+    expect(html).not.toContain("No active issue");
   });
 
   test("major outage: danger band transformation and outage status labels", () => {
@@ -258,6 +282,29 @@ describe("renderStatusPage", () => {
     expect(html).toContain('class="row info-row"');
   });
 
+  test("the next-check target is fixed to generatedAt, never the page load", () => {
+    // A fresh page load against the same snapshot must show the same target (no reset): the
+    // static text is derived only from generatedAt.
+    const firstLoad = renderStatusPage(snapshotFixture(), { now: "2026-07-03T14:22:00.000Z" });
+    const laterLoad = renderStatusPage(snapshotFixture(), { now: "2026-07-03T14:27:00.000Z" });
+    expect(firstLoad).toContain('data-next-check="2026-07-03T14:30:00.000Z"');
+    expect(laterLoad).toContain('data-next-check="2026-07-03T14:30:00.000Z"');
+    // Past-due target: say so instead of presenting a stale future.
+    const overdue = renderStatusPage(snapshotFixture(), { now: "2026-07-03T15:01:00.000Z" });
+    expect(overdue).toContain("Next check due");
+    expect(overdue).not.toContain("Next check by");
+    // No derived snapshot yet (the parse fallback stamps generatedAt with the request moment):
+    // the truthful line is a pending first check, not an invented 10-minute window.
+    const pendingNow = "2026-07-03T16:00:00.000Z";
+    const pending = renderStatusPage(snapshotFixture({ generatedAt: pendingNow }), {
+      now: pendingNow,
+    });
+    expect(pending).toContain("First check pending");
+    // No countdown attribute in the MARKUP (the enhancement script's selector string for it is
+    // always present, so match the attribute form).
+    expect(pending).not.toContain('data-next-check="');
+  });
+
   test("stale snapshot: the strip appears with the age; absent when fresh", () => {
     const stale = renderStatusPage(snapshotFixture({ stale: true }), {
       now: "2026-07-03T15:01:00.000Z",
@@ -332,6 +379,8 @@ describe("renderStatusPage", () => {
     expect(html).toContain(">Completed<");
     // Resolved events are history, not live incidents.
     expect(html).not.toContain('class="live');
+    // Resolved events do not enable the current-issue subscribe scope.
+    expect(html).toMatch(/name="subscribe-scope" value="current" disabled/);
     // Newest history entry first.
     expect(html.indexOf("Document editing sessions were slow to open")).toBeLessThan(
       html.indexOf("Scheduled maintenance: malware-scanning rule refresh"),
@@ -363,6 +412,34 @@ describe("renderStatusPage", () => {
     expect(html).toContain("&lt;script&gt;alert(1)&lt;/script&gt;");
     // An unknown affected id stays visible (escaped) instead of silently vanishing.
     expect(html).toContain("not-a-component-&lt;b&gt;");
+  });
+});
+
+describe("stylesheet (served as its own asset)", () => {
+  test("carries the scheme system, motion rules, ladder, and the true reading face", () => {
+    // The real Atkinson Hyperlegible Next, self-served, with the system stack behind it.
+    expect(PAGE_CSS).toContain('font-family: "Atkinson Hyperlegible Next"');
+    expect(PAGE_CSS).toContain(`src: url("${FONT_ASSET_PATH}")`);
+    expect(PAGE_CSS).toContain("font-display: swap");
+    expect(PAGE_CSS).toContain('"Atkinson Hyperlegible Next", system-ui');
+    // CSS-first dark scheme; the data-scheme stamp wins in both directions.
+    expect(PAGE_CSS).toContain("prefers-color-scheme: dark");
+    expect(PAGE_CSS).toContain('[data-scheme="dark"]');
+    // Text-size ladder steps.
+    expect(PAGE_CSS).toContain('[data-text="large"]');
+    expect(PAGE_CSS).toContain('[data-text="larger"]');
+    // Rounded band, no gold hairline, halo breath with static dot, reduced-motion suppression.
+    expect(PAGE_CSS).toContain("border-radius: 8px");
+    expect(PAGE_CSS).not.toContain(".band::after");
+    expect(PAGE_CSS).toContain("halo-breathe");
+    expect(PAGE_CSS).not.toContain("lamp-breathe");
+    expect(PAGE_CSS).toContain("prefers-reduced-motion: reduce");
+    // Hover-Soon reveal for dead affordances; the no-data gray shared by legend and rows.
+    expect(PAGE_CSS).toContain('content: "Soon"');
+    expect(PAGE_CSS).toContain("--nodata-fg");
+    expect(PAGE_CSS).toContain(".neutral-row .dot { background: var(--nodata-fg); }");
+    // The content-hashed path derives from this exact stylesheet.
+    expect(STYLES_ASSET_PATH).toMatch(/^\/assets\/styles\.[0-9a-f]{8}\.css$/);
   });
 });
 
@@ -426,6 +503,8 @@ describe("GET / (served page)", () => {
     const html = await response.text();
     expect(html).toContain("A live event title");
     expect(html).toContain("Application API");
+    // A seeded (old) snapshot renders the overdue wording, never an invented future window.
+    expect(html).toContain("Next check due");
     // The public page must never carry an operator identity.
     expect(html).not.toContain("usr_secret");
   });
@@ -436,5 +515,22 @@ describe("GET / (served page)", () => {
     const html = await response.text();
     expect(html).toContain("All systems operational");
     expect(html).toContain("No component data has been published yet.");
+    // No derived snapshot yet: a pending first check, not a fresh window anchored to page load.
+    expect(html).toContain("First check pending");
+  });
+
+  test("serves the stylesheet and font as immutable same-origin assets", async () => {
+    const stylesResponse = await SELF.fetch(`https://status.example.com${STYLES_ASSET_PATH}`);
+    expect(stylesResponse.status).toBe(200);
+    expect(stylesResponse.headers.get("content-type")).toContain("text/css");
+    expect(stylesResponse.headers.get("cache-control")).toContain("immutable");
+    expect(await stylesResponse.text()).toBe(PAGE_CSS);
+
+    const fontResponse = await SELF.fetch(`https://status.example.com${FONT_ASSET_PATH}`);
+    expect(fontResponse.status).toBe(200);
+    expect(fontResponse.headers.get("content-type")).toBe("font/woff2");
+    expect(fontResponse.headers.get("cache-control")).toContain("immutable");
+    // The bundled latin variable file (weights 200-800) as copied from the app's font package.
+    expect((await fontResponse.arrayBuffer()).byteLength).toBe(33996);
   });
 });
