@@ -33,6 +33,9 @@ import scanVerdictFlaggedSql from "@magna-carta/database/drizzle/per-firm/0029_s
 import seedScanPolicyPermissionSql from "@magna-carta/database/drizzle/per-firm/0030_seed-scan-policy-permission.sql";
 import supportAccessPermissionsSql from "@magna-carta/database/drizzle/per-firm/0031_support-access-permissions.sql";
 import seedToolsFileTypeVerifierSql from "@magna-carta/database/drizzle/per-firm/0032_seed-tools-file-type-verifier.sql";
+import aiDetectionUsageSql from "@magna-carta/database/drizzle/per-firm/0033_ai-detection-usage.sql";
+import seedToolsAiTextDetectionSql from "@magna-carta/database/drizzle/per-firm/0034_seed-tools-ai-text-detection.sql";
+import seedToolsDecryptionSql from "@magna-carta/database/drizzle/per-firm/0035_seed-tools-decryption.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the FirmDatabase
 // Durable Object runs this lineage against its own SQLite storage on wake (firm-database-object.ts),
@@ -75,5 +78,8 @@ export function perFirmMigrations(): Migration[] {
     "0030_seed-scan-policy-permission": seedScanPolicyPermissionSql,
     "0031_support-access-permissions": supportAccessPermissionsSql,
     "0032_seed-tools-file-type-verifier": seedToolsFileTypeVerifierSql,
+    "0033_ai-detection-usage": aiDetectionUsageSql,
+    "0034_seed-tools-ai-text-detection": seedToolsAiTextDetectionSql,
+    "0035_seed-tools-decryption": seedToolsDecryptionSql,
   });
 }

@@ -1,0 +1,18 @@
+---
+jurisdiction: US-MI
+publisher: State Bar of Michigan (Lawyers and Judges Assistance Program)
+sourceUrl: https://www.michbar.org/generalinfo/ljap/home
+accessedOn: 2026-07-02
+accessGate: open
+method: web search + direct fetch
+---
+[Lawyers and Judges Assistance Program (LJAP)]
+QUOTE: "All services offered by LJAP are confidential as regulated by HIPAA."
+
+Serves attorneys (including suspended/disbarred/reinstatement candidates), law students, bar
+applicants, judges, family members, and colleagues. Services: free consultations for legal
+professionals and families, clinical assessments, short-term counseling for law students, monitoring
+programs, provider referrals, professional training, and free confidential virtual support groups.
+Contact 800-996-5522; main office 517-346-6300; contactljap@michbar.org. LJAP's own helpline is not
+advertised 24/7 → unspecified (LJAP's resources page lists national 24/7 lines: Crisis Text Line
+741741, 988).

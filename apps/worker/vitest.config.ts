@@ -128,6 +128,23 @@ export default {
 };
 `;
 
+// Stub for the magna-carta-recovery service binding in tests — no real recovery worker runs under
+// the local pool, so the service binding must resolve to something or workerd refuses to boot.
+// POST /recover-shard returns an honest zero-count miss (never a fabricated hit) so any test that
+// inadvertently reaches the real RECOVERY_SERVICE binding (rather than driving the queue consumer
+// directly with a fake RecoveryBackend, the pattern the recovery e2e test uses for a deterministic
+// found/miss split) gets a shape-correct ShardOutcome, not a boot failure or a silent hit.
+const RECOVERY_SERVICE_STUB_SCRIPT = `
+export default {
+  fetch() {
+    return new Response(
+      JSON.stringify({ found: null, candidatesTried: 0 }),
+      { status: 200, headers: { "content-type": "application/json" } }
+    );
+  }
+};
+`;
+
 // Run Vitest inside Miniflare so the integration test gets real Worker bindings (D1/R2/Queues/ASSETS) loaded from wrangler.jsonc.
 // @cloudflare/vitest-pool-workers 0.16.x exposes the harness as the cloudflareTest() Vite plugin (the older defineWorkersConfig/poolOptions shape was removed); configPath points it at our Wrangler config so the same bindings back the test as back `wrangler dev`.
 // root is pinned to this package so the pool resolves `vitest/worker` (and the wrangler config) from apps/worker even when this config is loaded as a Vitest project from the repo-root `vp test`; without it the workerd VM reports `No such module "vitest/worker"`.
@@ -141,13 +158,16 @@ export default defineConfig({
     cloudflareTest({
       wrangler: { configPath: `${import.meta.dirname}/wrangler.jsonc` },
       remoteBindings: false,
-      // Three service bindings in wrangler.jsonc reference dedicated workers that do not run under
-      // the local pool — magna-carta-scan (SCAN_SERVICE), magna-carta-convert (CONVERT), and
-      // magna-carta-bundle (BUNDLE_SERVICE). Miniflare requires all to exist, so register minimal
-      // stubs. The scan stub returns the no-engine RawScanResult (an honest unscanned, never a fake
-      // clean); the convert stub only satisfies startup validation (conversion-engine tests inject
-      // fake CONVERT fetchers directly, never call it); the bundle stub returns a canned BuildResponse
-      // so coordinator tests can exercise the happy path without a live bundle worker.
+      // Four service bindings in wrangler.jsonc reference dedicated workers that do not run under
+      // the local pool — magna-carta-scan (SCAN_SERVICE), magna-carta-convert (CONVERT),
+      // magna-carta-bundle (BUNDLE_SERVICE), and magna-carta-recovery (RECOVERY_SERVICE). Miniflare
+      // requires all to exist, so register minimal stubs. The scan stub returns the no-engine
+      // RawScanResult (an honest unscanned, never a fake clean); the convert stub only satisfies
+      // startup validation (conversion-engine tests inject fake CONVERT fetchers directly, never call
+      // it); the bundle stub returns a canned BuildResponse so coordinator tests can exercise the
+      // happy path without a live bundle worker; the recovery stub returns an honest zero-count miss
+      // so the pool boots (the recovery e2e test drives the queue consumer directly with a fake
+      // RecoveryBackend rather than routing through this stub).
       miniflare: {
         workers: [
           {
@@ -164,6 +184,11 @@ export default defineConfig({
             name: "magna-carta-bundle",
             modules: true,
             script: BUNDLE_SERVICE_STUB_SCRIPT,
+          },
+          {
+            name: "magna-carta-recovery",
+            modules: true,
+            script: RECOVERY_SERVICE_STUB_SCRIPT,
           },
         ],
       },

@@ -1,0 +1,19 @@
+{
+  // The isolated, read-only, public status surface. Deliberately its own deployable, separate from
+  // the main app worker: it binds ONLY the platform-status KV namespace below — no D1, no R2, no
+  // per-firm binding, no service binding into the app. That fate-isolation is the whole point: an
+  // app-wide outage (a bad D1 migration, a Durable Object incident, a queue backlog) must never take
+  // the status page down with it, since the status page is exactly where operators and customers look
+  // during such an outage.
+  "name": "magna-carta-status",
+  "main": "./src/index.ts",
+  "compatibility_date": "2026-06-05",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "preview_urls": false,
+  // Same namespace the app worker's cron writes status:derived / status:authored into (see
+  // apps/worker/wrangler.jsonc) — this worker only ever reads it. Placeholder id — the real
+  // namespace id is filled in when it is created in the dashboard.
+  "kv_namespaces": [{ "binding": "STATUS_KV", "id": "00000000000000000000000000000000" }],
+  "observability": { "enabled": true, "head_sampling_rate": 1 },
+}

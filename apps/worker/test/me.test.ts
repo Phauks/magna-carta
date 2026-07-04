@@ -66,7 +66,8 @@ describe("GET /api/v1/me", () => {
       // costs: grants (0028_burly_piledriver: costs:track + costs:approve onto Owner/Admin) +
       // support:request / support:cosign / support:manage (0029_support-access-permissions,
       // Owner/Admin gets all three; other roles get support:request only) +
-      // tools:fileTypeVerifier (0032_seed-tools-file-type-verifier.sql, seeded onto every default role).
+      // tools:fileTypeVerifier (0032_seed-tools-file-type-verifier.sql, seeded onto every default role) +
+      // tools:decryption (0035_seed-tools-decryption.sql, seeded onto every default role).
       // Sorted.
       permissions: [
         "costs:approve",
@@ -105,6 +106,8 @@ describe("GET /api/v1/me", () => {
         "time:manageUtbms",
         "time:track",
         "time:viewFirm",
+        "tools:aiTextDetection",
+        "tools:decryption",
         "tools:fileConverter",
         "tools:fileIntegrity",
         "tools:fileTypeVerifier",

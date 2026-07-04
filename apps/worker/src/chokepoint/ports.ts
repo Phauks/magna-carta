@@ -54,6 +54,10 @@ export type AppVariables = ChokepointVariables & {
   idempotency?: IdempotencyContext;
   correlationId?: string;
   logger?: Logger;
+  // Set by platformOperatorGuard on allow: the platform-operator route-specific guard's own
+  // authorized-principal handle, parallel to chokepointUserId but for the "public" surface routes
+  // that skip the per-firm chokepoint entirely (see platform-operator-guard.ts).
+  platformOperatorUserId?: import("@magna-carta/identifiers/types").UserId;
 };
 
 // resolveSession port: the cookie → { userId, firmId } resolver, bound to the per-env Better Auth

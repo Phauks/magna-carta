@@ -1,6 +1,8 @@
 import { env } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
+import type { DataRegion } from "@magna-carta/database/data-region";
+import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FirmId } from "@magna-carta/identifiers/types";
 import { isFirmActivationConflict } from "../src/control-plane-conflicts.ts";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
@@ -27,25 +29,29 @@ interface FakePorts {
     createBucket: number;
     configureBucketNotifications: number;
   };
+  readonly regions: DataRegion[];
   failures: { createBucket?: boolean };
 }
 
 function fakePorts(): FakePorts {
   const calls = { createBucket: 0, configureBucketNotifications: 0 };
+  const regions: DataRegion[] = [];
   const failures: FakePorts["failures"] = {};
   const resourceProvider: FirmResourceProvider = {
-    createBucket(firmId: FirmId) {
+    createBucket(firmId: FirmId, region: DataRegion) {
       calls.createBucket += 1;
+      regions.push(region);
       if (failures.createBucket) return Promise.reject(new Error("injected createBucket crash"));
       return Promise.resolve({ bucketName: `fake-bucket-${firmId}` });
     },
-    configureBucketNotifications() {
+    configureBucketNotifications(_firmId: FirmId, _region: DataRegion) {
       calls.configureBucketNotifications += 1;
       return Promise.resolve();
     },
   };
   return {
     calls,
+    regions,
     failures,
     dependencies: {
       controlPlaneDatabase: env.DB_CONTROL,
@@ -401,5 +407,22 @@ describe("provisionFirm", () => {
       .bind(firmRow?.id)
       .first<{ count: number }>();
     expect(outboxCount?.count).toBe(1);
+  });
+
+  it("passes the firm's data_region to createBucket", async () => {
+    const ports = fakePorts();
+    const input = inputFor("EU Residency LLP");
+
+    // Pre-insert the firm row with data_region='eu' so provisionFirm's find-or-insert finds it
+    // rather than inserting a fresh row under the 'us' column default.
+    const firmId = newIdentifier("firm");
+    await env.DB_CONTROL.prepare(
+      "INSERT INTO firm (id, name, status, data_region, created_at) VALUES (?1, ?2, 'provisioning', 'eu', ?3)",
+    )
+      .bind(firmId, input.name, new Date().toISOString())
+      .run();
+
+    await provisionAndCommit(ports, input);
+    expect(ports.regions).toContain("eu");
   });
 });

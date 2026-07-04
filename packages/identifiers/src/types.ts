@@ -83,3 +83,7 @@ export type ConversionJobId = Identifier<"conversionJob">;
 export type CostEntryId = Identifier<"costEntry">;
 export type PlatformStaffId = Identifier<"platformStaff">;
 export type SupportGrantId = Identifier<"supportGrant">;
+export type ServiceEventId = Identifier<"serviceEvent">;
+export type ServiceComponentId = Identifier<"serviceComponent">;
+export type AiDetectionUsageId = Identifier<"aiDetectionUsage">;
+export type RecoveryJobId = Identifier<"recoveryJob">;

@@ -1,0 +1,18 @@
+---
+jurisdiction: US-RI
+publisher: Rhode Island Bar Association (Lawyers Helping Lawyers)
+sourceUrl: https://ribar.com/page.aspx?id=50
+accessedOn: 2026-07-02
+accessGate: open
+method: corroborated from RI Bar page content surfaced via search (ribar.com 403 this session)
+---
+[Lawyers Helping Lawyers (Rhode Island Bar Association)] (corroborated)
+QUOTE: "Simply pick up the telephone and call 866-482-8378 for confidential, round the clock support."
+
+RI Bar members and dependents may receive free, confidential help, assessment, and referral through
+the Lawyers Helping Lawyers Program. Services via the Association's contract with SupportLinc
+(previously CorpCare, now under CuraLinc Healthcare) and via the volunteer Lawyers Helping Lawyers
+Committee of peer attorneys. In 1991 the RI Supreme Court gave Committee members immunity from suit,
+exception from the duty to disclose unprofessional conduct, and an obligation to confer in
+confidence. Call 866-482-8378 (counselors answer 24/7). NOTE: ribar.com returned HTTP 403 this
+session; 24/7 claim corroborated, not page-verified.

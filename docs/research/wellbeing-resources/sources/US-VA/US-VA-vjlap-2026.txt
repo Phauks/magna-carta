@@ -1,0 +1,18 @@
+---
+jurisdiction: US-VA
+publisher: Virginia Judges and Lawyers Assistance Program (via VA CLE)
+sourceUrl: https://www.vacle.org/lawyers-helping-lawyers/
+accessedOn: 2026-07-02
+accessGate: open
+method: VA CLE official affiliated page loaded (vjlap.org 403 this session)
+---
+[Virginia Judges and Lawyers Assistance Program (VJLAP)] (corroborated)
+QUOTE: "24-hour confidential help line" ; "Services offered without fee."
+
+VJLAP provides confidential, non-disciplinary help to lawyers, judges, law students, bar applicants,
+and other members of the legal community. 24-hour confidential help line: 1-877-545-4682;
+info@vjlap.org. Services include substance-abuse and mental-health education, information and
+referral, assessment and treatment referral, intervention, compliance monitoring, and family/staff
+support. Formerly "Virginia Lawyers Helping Lawyers"; became an independent corporation in 2002.
+NOTE: vjlap.org returned HTTP 403 every attempt this session; the 24/7 line and "without fee" are
+verbatim from the loaded VA CLE (vacle.org) affiliated official page → MEDIUM/corroborated.

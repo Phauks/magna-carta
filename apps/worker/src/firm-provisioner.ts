@@ -1,5 +1,6 @@
 import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
 import { insertAuthAuditStatement } from "@magna-carta/data-access/auth-audit-statements";
+import type { DataRegion } from "@magna-carta/database/data-region";
 import { generateFirmKeyBytes, importRootKek, wrapFirmKey } from "@magna-carta/encryption/keys";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FirmId, UserId } from "@magna-carta/identifiers/types";
@@ -90,10 +91,11 @@ interface FirmRow {
   readonly status: string;
   readonly bucket_name: string | null;
   readonly wrapped_firm_key: string | null;
+  readonly data_region: DataRegion;
 }
 
 const SELECT_FIRM_BY_NAME =
-  "SELECT id, status, bucket_name, wrapped_firm_key FROM firm WHERE name = ?1";
+  "SELECT id, status, bucket_name, wrapped_firm_key, data_region FROM firm WHERE name = ?1";
 
 export async function provisionFirm(
   dependencies: FirmProvisionerDependencies,
@@ -145,9 +147,13 @@ export async function provisionFirm(
     return { kind: "already-active", firmId, owner };
   }
 
-  // Step 2 — create (or re-claim) the firm's bucket, then record it.
+  // Step 2 — create (or re-claim) the firm's bucket, then record it. The region drives physical
+  // placement (jurisdiction + location hint) — it is set once at find-or-insert and never changes.
   if (firmRow.bucket_name === null) {
-    const { bucketName } = await dependencies.resourceProvider.createBucket(firmId);
+    const { bucketName } = await dependencies.resourceProvider.createBucket(
+      firmId,
+      firmRow.data_region,
+    );
     await database
       .prepare("UPDATE firm SET bucket_name = ?2 WHERE id = ?1 AND bucket_name IS NULL")
       .bind(firmId, bucketName)
@@ -158,7 +164,7 @@ export async function provisionFirm(
   // (not gated on the bucket-was-just-created branch): a run that created the bucket but crashed
   // before this would otherwise never configure notifications on resume. Idempotent (PUT), so the
   // re-run on a resume is harmless.
-  await dependencies.resourceProvider.configureBucketNotifications(firmId);
+  await dependencies.resourceProvider.configureBucketNotifications(firmId, firmRow.data_region);
 
   // Step 2c — mint the firm's data key. Guarded by wrapped_firm_key IS NULL so a resume mints
   // nothing, AND by the firm never having been shredded (a firm.key_shredded audit row): a shredded

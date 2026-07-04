@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["engine-host", "pdf-core", "pdf-eval"]
+members = ["engine-host", "pdf-core", "pdf-eval", "decryption-core"]
 
 [workspace.package]
 edition = "2021"
@@ -9,6 +9,7 @@ publish = false
 [workspace.dependencies]
 hayro = "0.7"
 image = "0.25"
+lopdf = "0.41"
 
 [profile.release]
 opt-level = "z"

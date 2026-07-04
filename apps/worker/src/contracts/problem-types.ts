@@ -37,6 +37,10 @@ export const PROBLEM_TYPES = {
   // the conversion graph — either the format is unknown or no engine covers the pair. DISTINCT from
   // `validation` (request-shape) — the request is well-formed; the registry has no path.
   "unsupported-conversion": "unsupported-conversion",
+  // A decryption attempt that failed because the supplied password did not open the file (HTTP 400).
+  // Generic — does not reveal whether the file or its format was otherwise valid; only that the
+  // password was wrong. The client can retry with a different password without re-uploading.
+  "wrong-password": "wrong-password",
   // A beta-channel activation rejected because the required consent acknowledgment was absent.
   // Distinct from `validation` (request-shape failures) — the request is well-formed; a business
   // rule gates the channel transition on explicit opt-in.

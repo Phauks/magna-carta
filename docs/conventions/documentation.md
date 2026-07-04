@@ -45,11 +45,11 @@ A feature an engineer can use but a user cannot understand is half-built.
 
 Section numbers (`§N`) are navigation **inside the white paper only.** Any file pointing _into_ the white paper from outside references it by **document + topic/area name** (titles outlast numbers) or by a stable **`ADR-NNNN`** — never a section number, which shifts on reorganization. Link to a document and a name, not a number or line.
 
-## Fragment workflow (CHANGELOG and ADRs)
+## Fragment workflow (CHANGELOG, ADRs, STATUS)
 
-Parallel worktrees — multiple branches open at once — collide on `CHANGELOG.md` and the ADR register when both try to append to the same file. The fragment workflow eliminates that conflict.
+Parallel worktrees — multiple branches open at once — collide on `CHANGELOG.md`, the ADR register, and `STATUS.md` when both try to edit the same file. The fragment workflow eliminates that conflict.
 
-**Core invariant:** branches add fragment files only; `main` assembles the rendered outputs.
+**Core invariant:** branches add or edit fragment files only; `main` assembles the rendered outputs.
 
 **On a branch, commit a fragment (or both):**
 
@@ -77,14 +77,17 @@ Parallel worktrees — multiple branches open at once — collide on `CHANGELOG.
   Full decision body.
   ```
 
+- **Status fragment** — `status.d/<slice-slug>.md`, one **persistent** file per slice. Flat frontmatter (stage tokens `research`…`tested`, plus `slice`, `group`, `order`, `branch`, `next`, `link-spec`/`link-plan`, `adrs`, `blocked-by`) and a one-line Notes body. Edit the slice's own fragment as it moves through the pipeline; never edit `STATUS.md` / `STATUS.json`. Format and stage-token grammar: [`status.d/README.md`](../../status.d/README.md).
+
 **On `main`, right after a merge, run the assemblers:**
 
 ```
 vp run decisions-build    # consumes docs/decisions/pending/*.md → docs/decisions/NNNN-<slug>.md; updates the register
 vp run changelog-build    # consumes changelog.d/*.md → appends to CHANGELOG.md [Unreleased]
+vp run status-build       # renders status.d/* → STATUS.md + STATUS.json (fragments persist — NOT consumed)
 ```
 
-Each consumed fragment is deleted; the assembled output (`docs/decisions/NNNN-<slug>.md`, the register in `Decision-Log.md`, and the `[Unreleased]` entries in `CHANGELOG.md`) is committed to `main`. ADR numbers are assigned at merge in the order fragments are processed — contiguous and stable, never renumbered.
+Changelog and decision fragments are **consumed** (deleted) on assembly; the output (`docs/decisions/NNNN-<slug>.md`, the register in `Decision-Log.md`, the `[Unreleased]` entries in `CHANGELOG.md`) is committed to `main`. ADR numbers are assigned at merge in fragment-processing order — contiguous and stable, never renumbered. **Status fragments are the exception: they persist** (a slice's status keeps changing), so `status-build` re-renders `STATUS.md` + `STATUS.json` from the whole current set every run and never deletes a fragment. Validate the set anytime with `pnpm run lint:status`.
 
 ## Changelog (Keep a Changelog)
 

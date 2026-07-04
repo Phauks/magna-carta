@@ -31,6 +31,11 @@ export default defineConfig({
       // build-decisions.mjs. Formatter reflow would fight those assemblers (same case as docs/decisions/**).
       "CHANGELOG.md",
       "docs/Decision-Log.md",
+      // Assembled by tooling/doc-fragments/build-status.mjs from status.d/* — same case: the generator
+      // owns the exact bytes (tables are emitted width-independent so a note edit can't re-pad, and diff,
+      // every row) and CI re-derives + diff-gates them. Never hand-edit; never let the formatter reflow.
+      "STATUS.md",
+      "STATUS.json",
     ],
   },
   // Type-errors are owned by `vp run typecheck` (`tsc -b` over the project-references graph — fast,
@@ -50,11 +55,12 @@ export default defineConfig({
       typeCheck: false,
     },
   },
-  // Per-package test projects. apps/worker runs its tests inside Miniflare via @cloudflare/vitest-pool-workers, which only activates when its own config (apps/worker/vitest.config.ts) is loaded, so it is registered as a Vitest project here; otherwise root `vp test` would run the worker test under the default pool and `cloudflare:test` would not resolve.
+  // Per-package test projects. apps/worker and apps/status-worker run their tests inside Miniflare via @cloudflare/vitest-pool-workers, which only activates when their own config (apps/worker/vitest.config.ts, apps/status-worker/vitest.config.ts) is loaded, so each is registered as a Vitest project here; otherwise root `vp test` would run the worker test under the default pool and `cloudflare:test` would not resolve.
   // The design-system Storybook story tests (browser-mode Chromium via Playwright + per-story axe) are registered explicitly: Vitest ignores `test.projects` nested inside a config loaded as a project, so the glob entry alone would silently skip them at the root (the package's vitest.config.ts then only contributes its unit tests). Requires the Chromium binary: `pnpm --filter @magna-carta/design-system exec playwright install chromium` (CI too).
   test: {
     projects: [
       "apps/worker/vitest.config.ts",
+      "apps/status-worker/vitest.config.ts",
       "packages/*/vitest.config.ts",
       "packages/design-system/vitest.storybook.config.ts",
       "tooling/doc-fragments/vitest.config.ts",
@@ -134,6 +140,11 @@ export default defineConfig({
       // Fold changelog.d/* fragments into CHANGELOG.md [Unreleased] and consume them.
       "changelog-build": {
         command: "node tooling/doc-fragments/build-changelog.mjs",
+      },
+      // Regenerate STATUS.md + STATUS.json from status.d/* fragments (persistent — NOT consumed, since
+      // a slice's status keeps moving across the pipeline). See docs/conventions/documentation.md.
+      "status-build": {
+        command: "node tooling/doc-fragments/build-status.mjs",
       },
       // Print the active-work registry: git worktrees + docs/active-work notes + touch-overlaps.
       // Run before starting a stream or editing a cross-cutting file (see docs/active-work/README.md).

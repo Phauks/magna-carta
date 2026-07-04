@@ -36,6 +36,20 @@
       "when": 1782588922248,
       "tag": "0004_support-access",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1783047907823,
+      "tag": "0005_platform-operator",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1783113150513,
+      "tag": "0006_natural_overlord",
+      "breakpoints": true
     }
   ]
 }

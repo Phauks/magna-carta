@@ -31,7 +31,9 @@
   // value lets the Miniflare test pool exercise the host branch. The editor half is USERCONTENT_DOMAIN
   // (the bare content domain), which defaults to magnacartausercontent.com in code — no deploy var, prod
   // can't forget it; only local dev overrides it.
-  "vars": { "FILES_ORIGIN": "files.example.com" },
+  "vars": {
+    "FILES_ORIGIN": "files.example.com",
+  },
   // Real production resources (created 2026-06-09; naming convention in ADR-0075:
   // magna-carta-<environment>-<scope>[-<purpose-or-slug>]). Binding names are the code-facing
   // contract and never change; resource names are environment-scoped and permanent (D1/R2
@@ -65,6 +67,10 @@
     ],
   },
   "r2_buckets": [{ "binding": "R2", "bucket_name": "magna-carta-production-platform-files" }],
+  // The platform-status KV namespace: holds the operator-authored document (status:authored, written by
+  // the platform-status routes) and the cron-derived document (status:derived); the read path merges
+  // both. Placeholder id — the real namespace id is filled in when it is created in the dashboard.
+  "kv_namespaces": [{ "binding": "STATUS_KV", "id": "00000000000000000000000000000000" }],
   // Workers AI — the authenticated binding the inference foundation reaches the AI Gateway through.
   // No per-firm provider key at launch (Unified Billing, Cloudflare-managed credentials).
   "ai": { "binding": "AI" },
@@ -92,6 +98,9 @@
       // The server-conversion queue: the ConversionJob DO enqueues one message per job; the
       // consumer runs the ConversionPort adapter to convert the source to the target format.
       { "binding": "CONVERSION", "queue": "magna-carta-production-conversion" },
+      // The recovery shard queue: the RecoveryJobCoordinator DO enqueues one message per shard; the
+      // consumer runs a dictionary/rule search over its shard and reports the outcome back.
+      { "binding": "RECOVERY_QUEUE", "queue": "magna-carta-production-recovery-shard" },
     ],
     // The files-ingest consumer (the queue() handler in src/index.ts over the ingest consumer): one
     // R2 object-create event per uploaded object → single-read gates + SHA-256 + scan port → commit
@@ -140,6 +149,14 @@
         "max_concurrency": 2,
         "dead_letter_queue": "magna-carta-production-conversion-deadletter",
       },
+      // The recovery shard consumer (the queue() handler routes this queue to the recovery
+      // consumer): one dictionary/rule shard per message, reporting its outcome back to the
+      // RecoveryJobCoordinator DO. Concurrency tracks the shard fan-out width.
+      {
+        "queue": "magna-carta-production-recovery-shard",
+        "max_concurrency": 4,
+        "dead_letter_queue": "magna-carta-production-recovery-shard-deadletter",
+      },
     ],
   },
   // Worker service bindings to dedicated sibling workers. JSONC keeps only the LAST duplicate top-level
@@ -148,10 +165,12 @@
   //   SCAN_SERVICE: the malware-scan worker (resolveScanPort falls back to the no-engine adapter).
   //   BUNDLE_SERVICE: the bundle-build worker (POST /build); the bundle lanes 503 until it is bound.
   //   CONVERT: the conversion engine worker (resolveEnginePort returns the deferred port while unbound).
+  //   RECOVERY_SERVICE: the password-recovery worker; optional, falls back when absent.
   "services": [
     { "binding": "SCAN_SERVICE", "service": "magna-carta-scan" },
     { "binding": "BUNDLE_SERVICE", "service": "magna-carta-bundle" },
     { "binding": "CONVERT", "service": "magna-carta-convert" },
+    { "binding": "RECOVERY_SERVICE", "service": "magna-carta-recovery" },
   ],
   // Browser Rendering Workers binding — used by POST /api/v1/safe-browse to render suspect URLs
   // in Cloudflare's isolated remote browser. Requires compatibility_date >= 2026-03-24 for
@@ -180,6 +199,9 @@
       // The per-firm SQLite-backed database: one instance per firm (idFromName(firmId)), self-migrating
       // on wake, and the data-plane RPC target for all per-firm SQL.
       { "name": "FIRM_DATABASE", "class_name": "FirmDatabase" },
+      // The password-recovery job coordinator: fans a recovery job out across shards and aggregates
+      // outcomes into the job's final state.
+      { "name": "RECOVERY_JOB", "class_name": "RecoveryJobCoordinator" },
     ],
   },
   // SQLite-backed DO classes are introduced through a migration tag — ONE consolidated lineage (a
@@ -187,13 +209,15 @@
   // sequence already applied on the deployed worker (Cloudflare rejects a deploy that drops or renames
   // an applied tag), so the names follow the order they actually landed in: v1 the bulk-download +
   // conversion-job coordinators; v1-live-timer the live-timer coordinator; v1-editing-document-session
-  // the editing document-session DO; v2-firm-database the per-firm database DO (the most recent class,
-  // appended last). Never modify an applied tag — only append a new one.
+  // the editing document-session DO; v2-firm-database the per-firm database DO; v3-recovery-job the
+  // password-recovery job coordinator DO (the most recent class, appended last). Never modify an
+  // applied tag — only append a new one.
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["BundleBuildCoordinator", "ConversionJob"] },
     { "tag": "v1-live-timer", "new_sqlite_classes": ["LiveTimerDurableObject"] },
     { "tag": "v1-editing-document-session", "new_sqlite_classes": ["DocumentSession"] },
     { "tag": "v2-firm-database", "new_sqlite_classes": ["FirmDatabase"] },
+    { "tag": "v3-recovery-job", "new_sqlite_classes": ["RecoveryJobCoordinator"] },
   ],
   // Workers Logs at full sampling (current volumes; the golden-rule-4 structured-JSON event lines
   // the telemetry Workers logger emits land here). Logpush → R2 is a deploy-time runbook step
@@ -216,8 +240,10 @@
   // 03:00 UTC pass runs the storage-metering reconciliation (a full R2 LIST per firm — too heavy for
   // every five minutes); the weekly 04:00 UTC Sunday pass re-enqueues committed versions still
   // marked scan_verdict = 'unscanned' onto FILES_INGEST so a now-available scan engine can evaluate
-  // them in place. src/index.ts routes each Cron expression to its handler.
+  // them in place; the */10 pass probes the core primitives and polls the upstream provider feeds,
+  // writing the status:derived snapshot in STATUS_KV. src/index.ts routes each Cron expression to
+  // its handler.
   "triggers": {
-    "crons": ["*/5 * * * *", "0 3 * * *"],
+    "crons": ["*/5 * * * *", "0 3 * * *", "*/10 * * * *"],
   },
 }

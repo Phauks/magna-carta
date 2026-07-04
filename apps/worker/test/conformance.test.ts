@@ -69,6 +69,8 @@ const NON_MUTATING_POST_ALLOW_LIST: Record<string, string> = {
     "Pure computation over the streamed request body — computes five digests in one pass; nothing is stored, no firm data is written.",
   "fileType.verify":
     "Pure classification over the uploaded bytes — identifies the true content type (raw facts from the container, verdict app-side); nothing is stored, no firm data is written.",
+  "aiDetection.detect":
+    "Analysis POST: sends pasted text to the platform-managed detector and returns a likelihood band. The only write is one incidental ai_detection_usage meter row (telemetry — the accountability record for the egress), not an auditable firm-domain mutation; auditing every detection would flood audit_log.",
 };
 
 // Subsystems whose every route must be idempotency: required (money/trust/payment/outbound-comms).
@@ -506,6 +508,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
   it("exposes the known committed operations (so the positive assertions are not vacuous)", () => {
     const ids = [...operations(document)].map((entry) => entry.operationId).sort();
     expect(ids).toEqual([
+      "aiDetection.detect",
       "conversions.status",
       "conversions.submit",
       "conversions.upload",
@@ -540,6 +543,11 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "customFields.setValue",
       "customFields.unarchiveField",
       "customFields.valueHistory",
+      "decryption.inspect",
+      "decryption.recoverCancel",
+      "decryption.recoverStart",
+      "decryption.recoverStatus",
+      "decryption.unlock",
       "directory.addIdentifier",
       "directory.addName",
       "directory.assignCategory",
@@ -620,6 +628,11 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "numbering.preview",
       "numbering.set",
       "platform.setFirmReleaseChannel",
+      "platformStatus.clearComponentOverride",
+      "platformStatus.declareEvent",
+      "platformStatus.postUpdate",
+      "platformStatus.resolveEvent",
+      "platformStatus.setComponentOverride",
       "rateCards.create",
       "rateCards.list",
       "rates.append",

@@ -1,0 +1,18 @@
+---
+jurisdiction: US-WV
+publisher: Supreme Court of Appeals of West Virginia (WVJLAP)
+sourceUrl: https://wvjlap.org/
+accessedOn: 2026-07-02
+accessGate: open
+method: web search + direct fetch
+---
+[West Virginia Judicial & Lawyer Assistance Program (WVJLAP)]
+QUOTE: "Information received concerning anyone seeking help or to whom assistance is offered is and remains confidential absent their Express Consent."
+
+Phone 304-553-7232; 4700 MacCorkle Ave., SE, Suite 100, Charleston, WV 25304. "Confidentiality is
+afforded by Rules of the West Virginia Supreme Court of Appeals and WVJLAP operates independently of
+the Court, the State Bar and Office of Disciplinary Counsel." Court-created (2013): consultation,
+referral, intervention, crisis management, monitoring, and peer support for judges, attorneys, bar
+applicants, and law students. Weekly Zoom peer groups (Lawyers-in-Recovery Thu noon; Mental
+Health/Stress Reduction Mon noon). Resources page references external lines it does not operate (988;
+ILAA Judges Helping Judges ~1-800-219-6474). Line hours not stated → unspecified.

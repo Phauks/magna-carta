@@ -1,0 +1,17 @@
+---
+jurisdiction: US-TN
+publisher: Tennessee Supreme Court / Administrative Office of the Courts (TLAP)
+sourceUrl: https://www.tncourts.gov/press/2020/03/23/tennessee-lawyers-assistance-program-ready-assist-attorneys-need
+accessedOn: 2026-07-02
+accessGate: open
+method: tncourts.gov official pages loaded (tlap.org rendered but truncated)
+---
+[Tennessee Lawyers Assistance Program (TLAP)]
+QUOTE: "our services are free, confidential and anonymous"
+
+Toll-free (877) 424-8527; Local (615) 741-3238; tlap@tncourts.gov. Administered by the
+Administrative Office of the Courts (511 Union Street, Suite 600, Nashville, TN 37219). Professional
+clinical staff provide crisis counseling, consultation, intervention, referral to
+assessment/treatment providers, and TLAP Monitoring. Members of TLAP are relieved of the duty to
+report ethical violations discovered through TLAP work. Established by Tennessee Supreme Court Rule
+33. No 24/7 statement appears on the loaded pages → unspecified.

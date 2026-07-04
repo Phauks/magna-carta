@@ -101,6 +101,7 @@ describe("permission registry", () => {
       "tools:firmUsage",
       "tools:whois",
       "tools:safeBrowse",
+      "tools:decryption",
       "tools:fileConverter",
       "tools:aiTextDetection",
       "tools:metadataScrubber",

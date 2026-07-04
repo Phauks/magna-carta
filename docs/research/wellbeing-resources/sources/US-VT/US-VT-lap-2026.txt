@@ -1,0 +1,21 @@
+---
+jurisdiction: US-VT
+publisher: Vermont Bar Association attorney-wellness page (VT LAP + Bar Counsel)
+sourceUrl: https://www.vtbar.org/attorney-well-being/
+accessedOn: 2026-07-02
+accessGate: open
+method: VBA attorney-wellness page loaded (lapvt.org 403 this session)
+---
+[Vermont Lawyers Assistance Program (VT LAP)] (corroborated)
+QUOTE: "Vermont Lawyers Assistance Program ... 1-802-355-4352"
+The VBA attorney-wellness page lists the VT LAP (1-802-355-4352) and links to lapvt.org, describing
+it as providing confidential services to judges, lawyers, and law students facing substance use
+disorders or mental-health issues. lapvt.org returned HTTP 403 this session, so cost/hours/operator
+are not primary-verified → MEDIUM.
+
+[Vermont Bar Assistance Program / Bar Counsel wellness contact] (court)
+QUOTE: "VT Bar Assistance Program — 802-859-3004"
+Routes to Bar Counsel within the Vermont Judiciary's Professional Responsibility Program: guidance,
+referrals, and wellness education (not clinical treatment).
+NOTE: the VBA page also lists a national "Judges Helping Judges" helpline (1-800-219-6474) and local
+providers (Clara Martin Center; Vermont CWBLP) — national/local resources, not the state program.

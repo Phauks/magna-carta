@@ -1,0 +1,19 @@
+---
+jurisdiction: US-ID
+publisher: Idaho State Bar (clinical services by Southworth Associates International)
+sourceUrl: https://isb.idaho.gov/member-services/programs-resources/lap/
+accessedOn: 2026-07-02
+accessGate: open
+method: web search + direct fetch
+---
+[Idaho Lawyer Assistance Program (LAP)]
+QUOTE: "All information is 100% confidential and will not be reported to the Idaho State Bar"
+QUOTE (hours): "Call (866) 460-9014 for a 100% confidential, 24/7 hotline!"
+
+The mission of the Idaho Lawyer Assistance Program (LAP) is to provide support for lawyers
+experiencing problems associated with substance abuse and/or mental health issues in a safe manner.
+Primary resources are provided by Southworth Associates International (800 S. Industry Way, Suite
+300, Meridian, ID 83706). Program Coordinator: Ben Seymour, CADC — (208) 949-0363,
+ben@southworthassociates.net. 24-Hour Hotline: (866) 460-9014. Services: alcohol/drug education,
+mental-health treatment, interventions, monitoring, workplace re-entry, temporary attorney
+replacement referrals, and family support. Idaho State Bar is a mandatory/unified bar.

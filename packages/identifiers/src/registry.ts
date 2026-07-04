@@ -35,6 +35,8 @@ export const ENTITY_PREFIXES = {
   correlation: "correlation",
   incident: "incident",
   integrationConnection: "integrationConnection",
+  // AI-text detection metering — tracks usage of the AI-text detection tool across the firm.
+  aiDetectionUsage: "aiDetectionUsage",
   // Matters, Locations & File Manager. `matterType`/`documentType` are the per-firm classification
   // catalogs (distinct from `document`, a stored object); `numberingScheme` is the matter-number
   // template; `file`/`fileVersion` are the versioned object metadata; `uploadSession` tracks an
@@ -101,6 +103,12 @@ export const ENTITY_PREFIXES = {
   // plane; `supportGrant` is a time-boxed, pull-redeemed access grant issued to that operator.
   platformStaff: "platformStaff",
   supportGrant: "supportGrant",
+  // Password recovery — a transient job identifier minted at recover-request time and used to key
+  // the RecoveryJobCoordinator Durable Object (mirrors conversionJob: not persisted in D1, the DO
+  // itself is the state store for the job).
+  recoveryJob: "recoveryJob",
+  serviceEvent: "serviceEvent",
+  serviceComponent: "serviceComponent",
 } as const;
 
 export type EntityType = keyof typeof ENTITY_PREFIXES;

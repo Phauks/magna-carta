@@ -1,0 +1,29 @@
+{
+  // The standalone password-recovery worker. Stateless: no D1, R2, or Queues. It owns the
+  // RecoveryEngineContainer Durable Object (a Container-backed DO that runs the Rust recovery engine)
+  // and is reached only via a service binding from the main app worker — it has no public routes.
+  "name": "magna-carta-recovery",
+  "main": "./src/index.ts",
+  "compatibility_date": "2026-06-05",
+  "compatibility_flags": ["nodejs_compat"],
+  // No public surface: this worker is an internal service reached only via service binding.
+  "workers_dev": false,
+  "preview_urls": false,
+  // The recovery Container Durable Object (Container-backed, sqlite-class).
+  // The Container runs the Rust recovery engine on port 8080 with outbound networking
+  // disabled — only the password hash is sent in; no file bytes and no egress.
+  "containers": [
+    {
+      "class_name": "RecoveryEngineContainer",
+      "image": "../../containers/recovery/Dockerfile",
+      "max_instances": 5,
+      "instance_type": "standard-1",
+    },
+  ],
+  "durable_objects": {
+    "bindings": [{ "name": "RECOVERY_ENGINE", "class_name": "RecoveryEngineContainer" }],
+  },
+  // SQLite-backed DO class introduced via migration tag; first migration for this worker.
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RecoveryEngineContainer"] }],
+  "observability": { "enabled": true, "head_sampling_rate": 1 },
+}

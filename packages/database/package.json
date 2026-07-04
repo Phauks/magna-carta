@@ -6,6 +6,7 @@
   "sideEffects": false,
   "exports": {
     "./control-plane-schema": "./src/control-plane-schema.ts",
+    "./data-region": "./src/data-region.ts",
     "./per-firm-schema": "./src/per-firm-schema.ts",
     "./protected-columns": "./src/protected-columns.ts",
     "./migration": "./src/migration.ts",
