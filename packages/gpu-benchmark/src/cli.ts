@@ -5,17 +5,26 @@ import { BENCHMARK_SHORTLIST, type RigShape } from "./offer-filter.ts";
 import type { RigProfile } from "./profiles.ts";
 import { upsertProfile } from "./profiles.ts";
 import { benchmarkOneRig } from "./run.ts";
-import { collectViaSsh } from "./ssh-collect.ts";
+import { collectViaLogs } from "./logs-collect.ts";
 import { createVastClient, type VastClient } from "./vast-client.ts";
 
 /**
- * The command each rented instance runs on boot: runs the benchmark script, sending its result to
- * a file the SSH collector polls for and its log output to a separate file for after-the-fact
- * diagnosis, then keeps the instance alive so it stays SSH-reachable once the benchmark exits —
- * vast.ai otherwise recycles an instance whose onstart command finishes.
+ * A public Docker Hub image with hashcat and CUDA preinstalled, built for vast.ai rentals — no
+ * custom image, build, or registry needed. `--image <ref>` overrides this for a one-off run
+ * against a different image.
+ */
+export const DEFAULT_BENCHMARK_IMAGE = "dizcza/docker-hashcat:latest";
+
+/**
+ * The command each rented instance runs on boot: prints the rig's GPU facts, then runs `hashcat
+ * -b` for every hash mode the recovery ladder cares about, echoing a begin/end marker the
+ * collector (`logs-collect.ts`) watches for in the instance's captured stdout. Renting with
+ * `runtype: "ssh"` (see `vast-client.ts`'s `createInstance`) already keeps the instance's sshd
+ * process — and therefore the instance itself — alive once this command exits, so unlike the
+ * retired custom-image approach there is no need for a trailing `sleep infinity`.
  */
 export const BENCHMARK_ONSTART_COMMAND =
-  "/opt/recovery-gpu/bench/run-benchmark.sh > /result.json 2>/benchmark.log; sleep infinity";
+  "echo BENCH_BEGIN; nvidia-smi --query-gpu=name,memory.total --format=csv,noheader 2>&1; for m in 9600 10700 11600 10500 13600 17200 9400 9500; do echo MODE=$m; hashcat -b -m $m --machine-readable --quiet 2>&1; done; echo BENCH_END";
 
 /** Resolved relative to this file so the CLI finds the profiles table regardless of the caller's working directory. */
 const RIG_PROFILES_URL = new URL(
@@ -42,9 +51,9 @@ export class CliUsageError extends Error {
 }
 
 /**
- * Parses `--image <ref>` (required) and `--gpu <name>` (optional). Anything else on the command
- * line is ignored rather than rejected, so this stays a thin driver rather than a general-purpose
- * argument parser.
+ * Parses `--image <ref>` (optional, defaults to the public hashcat image) and `--gpu <name>`
+ * (optional). Anything else on the command line is ignored rather than rejected, so this stays a
+ * thin driver rather than a general-purpose argument parser.
  */
 export function parseArgs(argv: string[]): ParsedArgs {
   let image: string | undefined;
@@ -59,10 +68,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       index++;
     }
   }
-  if (image === undefined || image === "") {
-    throw new CliUsageError("--image <ref> is required");
-  }
-  return { image, gpu };
+  return { image: image === undefined || image === "" ? DEFAULT_BENCHMARK_IMAGE : image, gpu };
 }
 
 /**
@@ -149,7 +155,7 @@ export async function main(argv: string[]): Promise<void> {
         console.log(`benchmarking ${label}...`);
         const profile = await benchmarkOneRig({
           client,
-          collect: collectViaSsh,
+          collect: collectViaLogs,
           image,
           want,
           now: () => new Date().toISOString(),

@@ -6,6 +6,7 @@ import {
   reconcileLeakedInstances,
   selectTargets,
   CliUsageError,
+  DEFAULT_BENCHMARK_IMAGE,
 } from "../src/cli.ts";
 import { BENCHMARK_SHORTLIST } from "../src/offer-filter.ts";
 import type { VastClient } from "../src/vast-client.ts";
@@ -23,20 +24,23 @@ describe("cli", () => {
 
   it("refuses to run without VAST_API_KEY", async () => {
     delete process.env.VAST_API_KEY;
-    await expect(main(["--image", "some/image:tag"])).rejects.toThrow(/VAST_API_KEY/);
+    await expect(main([])).rejects.toThrow(/VAST_API_KEY/);
   });
 
   it("refuses to run when VAST_API_KEY is empty", async () => {
     process.env.VAST_API_KEY = "";
-    await expect(main(["--image", "some/image:tag"])).rejects.toThrow(/VAST_API_KEY/);
+    await expect(main([])).rejects.toThrow(/VAST_API_KEY/);
   });
 
-  it("parseArgs requires --image", () => {
-    expect(() => parseArgs([])).toThrow(CliUsageError);
-    expect(() => parseArgs(["--gpu", "RTX_4090"])).toThrow(/--image/);
+  it("parseArgs defaults --image to the public hashcat image when omitted", () => {
+    expect(parseArgs([])).toEqual({ image: DEFAULT_BENCHMARK_IMAGE, gpu: undefined });
+    expect(parseArgs(["--gpu", "RTX_4090"])).toEqual({
+      image: DEFAULT_BENCHMARK_IMAGE,
+      gpu: "RTX_4090",
+    });
   });
 
-  it("parseArgs reads --image and optional --gpu", () => {
+  it("parseArgs reads --image and optional --gpu, overriding the default image", () => {
     expect(parseArgs(["--image", "repo/img:tag"])).toEqual({
       image: "repo/img:tag",
       gpu: undefined,
@@ -83,6 +87,9 @@ describe("reconcileLeakedInstances", () => {
         { instanceId: 222, label: "someone-elses-unrelated-instance" },
       ],
       destroyInstance,
+      requestLogsUrl: async () => {
+        throw new Error("not used in this test");
+      },
     };
 
     await reconcileLeakedInstances(fakeClient);
@@ -106,6 +113,9 @@ describe("reconcileLeakedInstances", () => {
       listInstances: async () => [{ instanceId: 111, label: "gpu-benchmark-RTX_4090-1" }],
       destroyInstance: async () => {
         throw new Error("vast.ai request to DELETE /api/v0/instances/111/ failed with status 500");
+      },
+      requestLogsUrl: async () => {
+        throw new Error("not used in this test");
       },
     };
 
