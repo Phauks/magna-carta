@@ -12,8 +12,8 @@
   "workers_dev": true,
   "preview_urls": false,
   // Same namespace the app worker's cron writes status:derived / status:authored into (see
-  // apps/worker/wrangler.jsonc) — this worker only ever reads it. Placeholder id — the real
-  // namespace id is filled in when it is created in the dashboard.
-  "kv_namespaces": [{ "binding": "STATUS_KV", "id": "00000000000000000000000000000000" }],
+  // apps/worker/wrangler.jsonc) — this worker only ever reads it. This id MUST stay identical to the
+  // STATUS_KV id in apps/worker/wrangler.jsonc; both bind the one real "Magna_Carta_Status" namespace.
+  "kv_namespaces": [{ "binding": "STATUS_KV", "id": "6746720bd1ad4638ad00370197f49788" }],
   "observability": { "enabled": true, "head_sampling_rate": 1 },
 }
