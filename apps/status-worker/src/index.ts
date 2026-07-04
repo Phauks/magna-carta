@@ -33,7 +33,7 @@ async function publicSnapshot(env: Bindings, now: string): Promise<PublishedSnap
 }
 
 const FALLBACK_HTML =
-  "<!doctype html><meta charset=utf-8><title>Service status</title>" +
+  "<!doctype html><meta charset=utf-8><title>Magna Carta Status</title>" +
   "<p>The status system is temporarily unavailable. See the Cloudflare status page at " +
   '<a href="https://www.cloudflarestatus.com/">cloudflarestatus.com</a>.</p>';
 

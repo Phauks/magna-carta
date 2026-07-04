@@ -805,7 +805,7 @@ export function renderStatusPage(
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="refresh" content="60">
-<title>Magna Carta &mdash; Service status</title>
+<title>Magna Carta Status</title>
 <link rel="stylesheet" href="${STYLES_ASSET_PATH}">
 ${BOOT_SCRIPT}
 </head>
