@@ -63,26 +63,39 @@ describe("renderStatusPage", () => {
     expect(html).not.toContain("Reviewed every 10 minutes");
     // The machine feed is unadvertised (still served; just not linked).
     expect(html).not.toContain(">status.json<");
-    // The brand lockup is the app's: inline-SVG blackletter M plus the letterspaced wordmark.
+    // The brand lockup is the app's, with "Status" joined into the same wordmark treatment.
     expect(html).toContain('class="brand-glyph"');
-    expect(html).toContain('<span class="word">Magna Carta</span>');
-    // GitHub-style affordances, all dead-but-honest until their slices ship — and all in the
-    // HEADER (before the verdict band); the footer stays a lone honesty paragraph.
-    expect(html).toContain("Subscribe to updates");
-    expect(html).toContain("Help Desk");
-    expect(html).toContain("Forums");
-    expect(html).toContain("magna-carta.com");
-    expect(html).toContain(">Soon<");
+    expect(html).toContain(
+      '<span class="word">Magna Carta <span class="word-status">Status</span></span>',
+    );
+    // Header link row, all dead-but-honest until their slices ship: quiet at rest (no badge
+    // text), title attribute as the accessibility baseline, CSS hover reveal of "Soon".
+    expect(html).toContain('title="Help Desk — soon"');
+    expect(html).toContain('title="Forums — soon"');
+    expect(html).toContain('title="Magna Carta — soon"');
+    expect(html).not.toContain("magna-carta.com");
+    expect(html).not.toContain('class="soon"');
+    expect(html).not.toContain(">Soon<");
+    expect(html).toContain('content: "Soon"');
+    // Subscribe is the notification bell icon, disabled, beside the scheme icon.
+    expect(html).toContain('title="Subscribe to updates — soon"');
+    expect(html).toContain('class="icon-bell"');
+    expect(html).toMatch(/<button[^>]*disabled[^>]*aria-label="Subscribe to updates"/);
     const bandIndex = html.indexOf('class="band');
-    expect(html.indexOf("Subscribe to updates")).toBeLessThan(bandIndex);
     expect(html.indexOf("Help Desk")).toBeLessThan(bandIndex);
-    expect(html.indexOf("magna-carta.com")).toBeLessThan(bandIndex);
+    expect(html.indexOf('class="icon-bell"')).toBeLessThan(bandIndex);
     expect(html).not.toContain("foot-links");
-    // Scheme support: CSS-first dark scheme plus the hidden toggle the script reveals.
+    // The band is a rounded block with no gold hairline beneath it.
+    expect(html).toContain("border-radius: 8px");
+    expect(html).not.toContain(".band::after");
+    // Scheme support: CSS-first dark scheme plus the hidden icon toggle the script reveals
+    // (sun and moon both present; CSS shows the right one per scheme).
     expect(html).toContain("prefers-color-scheme: dark");
     expect(html).toContain('[data-scheme="dark"]');
     expect(html).toContain('id="scheme-toggle"');
     expect(html).toMatch(/id="scheme-toggle"[^>]*hidden/);
+    expect(html).toContain('class="icon-sun"');
+    expect(html).toContain('class="icon-moon"');
     // No live-event card and an explicitly empty history in the steady state.
     expect(html).not.toContain('class="live');
     expect(html).toContain("No past service events recorded.");

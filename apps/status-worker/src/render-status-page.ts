@@ -146,26 +146,32 @@ function minutesBetween(earlierIso: string, laterIso: string): number | null {
 // Hyperlegible Next, which is itself a humanist sans).
 const BRAND_GLYPH_SVG = `<svg class="brand-glyph" viewBox="51 -1436 2158 1467" aria-hidden="true" focusable="false"><path transform="scale(1 -1)" fill="currentColor" d="M564 553Q566 609 537.5 622.5Q509 636 417 615Q275 581 163.0 678.0Q51 775 51 967Q52 1158 190.0 1297.0Q328 1436 520 1436Q607 1436 709.0 1393.0Q811 1350 883 1265Q889 1257 896.0 1258.0Q903 1259 908 1267Q952 1339 1021.5 1388.0Q1091 1437 1206 1434Q1355 1427 1473 1250Q1479 1241 1488.0 1241.0Q1497 1241 1502 1251Q1544 1329 1608.0 1379.0Q1672 1429 1768 1429Q1891 1427 1971.0 1354.0Q2051 1281 2087 1109Q2109 990 2179 983Q2199 982 2200.5 966.0Q2202 950 2176 942Q1982 876 1909.0 730.5Q1836 585 1915 360Q1950 258 2015.5 216.5Q2081 175 2159 223Q2188 240 2202.5 222.5Q2217 205 2197 188Q2129 134 2062.5 80.5Q1996 27 1929 -26Q1918 -34 1908 -26Q1695 145 1651.5 354.0Q1608 563 1927 849Q1934 856 1933.5 863.0Q1933 870 1924 875Q1854 922 1821 1116Q1786 1308 1665 1310Q1579 1312 1519 1184Q1515 1177 1519 1170Q1558 1087 1575.5 985.0Q1593 883 1577 769Q1537 493 1458.5 352.5Q1380 212 1272 72Q1129 -107 1002 33Q966 73 926.5 85.0Q887 97 836 57Q817 41 803.5 53.5Q790 66 805 85Q933 263 1008.5 288.0Q1084 313 1156 246Q1215 191 1264.5 187.0Q1314 183 1342 261Q1396 411 1380.5 680.5Q1365 950 1271.5 1094.0Q1178 1238 1093.5 1263.5Q1009 1289 940 1219Q930 1209 939 1198Q1058 1033 1067 816Q1073 638 998.0 474.5Q923 311 805 161Q676 -3 560.5 -27.0Q445 -51 349 90Q265 216 178 121Q157 103 140.5 120.0Q124 137 145 159Q418 437 574 232Q599 198 621.5 169.0Q644 140 689 142Q747 144 811.0 269.0Q875 394 875 584Q873 833 745.0 1020.5Q617 1208 452 1226Q287 1243 192.0 1164.0Q97 1085 100 977Q103 867 158.5 801.0Q214 735 364 774Q653 848 615 561Q611 531 587.5 530.5Q564 530 564 553Z"/></svg>`;
 
+// Lucide-style outline icons, inlined (self-containment law: no icon font, no sprite fetch).
+const BELL_ICON_SVG = `<svg class="icon-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>`;
+const SUN_ICON_SVG = `<svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>`;
+const MOON_ICON_SVG = `<svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>`;
+
 // ---------------------------------------------------------------------------
 // fragments
 
 function renderTopBar(): string {
-  // The whole link row lives in the header (the footer develops separately later). Every item
-  // is a light-up seam shipped dead-but-honest with the Soon badge: swap the span for a real
-  // anchor when its destination ships (help desk, forums, the marketing site), and enable the
-  // subscribe button — the genre's prominent affordance (GitHub status leads with it) — when
-  // notifications exist. The scheme toggle starts hidden and is revealed by the enhancement
-  // script; no-JS readers rely on prefers-color-scheme.
+  // One header row: the brand lockup, then the links, then the bell and the scheme icon. Every
+  // dead item is a light-up seam shipped honest: muted ink, no pointer cursor, a title attribute
+  // as the accessibility baseline, and a CSS-only hover "Soon" reveal (no JS required). Swap the
+  // span for a real anchor when its destination ships — "Magna Carta" is the future marketing
+  // site — and swap the disabled bell for the live subscribe flow when notifications exist. The
+  // scheme toggle starts hidden and is revealed by the enhancement script; no-JS readers rely on
+  // prefers-color-scheme (the CSS swaps its sun/moon icon by scheme, so the script never touches
+  // the button's contents).
   return `<header class="topbar"><div class="col">
 <span class="mark">${BRAND_GLYPH_SVG}</span>
-<span class="word">Magna Carta</span>
-<span class="caps surface">Status</span>
+<span class="word">Magna Carta <span class="word-status">Status</span></span>
 <span class="right">
-<span class="dead"><span class="dead-link">Help Desk</span><span class="soon">Soon</span></span>
-<span class="dead"><span class="dead-link">Forums</span><span class="soon">Soon</span></span>
-<span class="dead"><span class="dead-link">magna-carta.com</span><span class="soon">Soon</span></span>
-<span class="dead"><button type="button" class="btn-subscribe" disabled>Subscribe to updates</button><span class="soon">Soon</span></span>
-<button type="button" id="scheme-toggle" class="toggle" hidden aria-label="Switch color scheme">Dark</button>
+<span class="dead"><span class="dead-link" title="Help Desk — soon">Help Desk</span></span>
+<span class="dead"><span class="dead-link" title="Forums — soon">Forums</span></span>
+<span class="dead"><span class="dead-link" title="Magna Carta — soon">Magna Carta</span></span>
+<span class="dead"><button type="button" class="icon-button" disabled title="Subscribe to updates — soon" aria-label="Subscribe to updates">${BELL_ICON_SVG}</button></span>
+<button type="button" id="scheme-toggle" class="icon-button toggle" hidden aria-label="Switch color scheme">${SUN_ICON_SVG}${MOON_ICON_SVG}</button>
 </span>
 </div></header>`;
 }
@@ -389,18 +395,15 @@ const ENHANCEMENT_SCRIPT = `<script>
       if (stamped === "dark" || stamped === "light") return stamped;
       return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
     };
-    var relabel = function () {
-      toggle.textContent = currentScheme() === "dark" ? "Light" : "Dark";
-    };
+    // The button holds both sun and moon SVGs; CSS shows the right one per scheme, so this
+    // handler only stamps the scheme — it never rewrites the button's contents.
     toggle.hidden = false;
-    relabel();
     toggle.addEventListener("click", function () {
       var nextScheme = currentScheme() === "dark" ? "light" : "dark";
       root.setAttribute("data-scheme", nextScheme);
       try {
         localStorage.setItem("mc-status-scheme", nextScheme);
       } catch (error) {}
-      relabel();
     });
   }
 })();

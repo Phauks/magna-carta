@@ -130,19 +130,28 @@ a { color: inherit; }
 .topbar .mark { display: flex; align-items: center; color: var(--brand-gold); }
 .brand-glyph { height: 20px; width: auto; display: block; }
 .topbar .word {
-  /* Mirrors the app's BrandMark wordmark: 0.75rem, semibold, uppercase, 0.125rem tracking. */
+  /* Mirrors the app's BrandMark wordmark: 0.75rem, semibold, uppercase, 0.125rem tracking.
+     "Status" joins the same lockup in the same treatment, muted a step so the product name
+     leads but the pair reads as one word-set. */
   font-size: 12px;
   letter-spacing: 0.125rem;
   text-transform: uppercase;
   font-weight: 600;
 }
-.topbar .surface { color: var(--subtle); margin-left: 2px; }
+.word-status { color: var(--muted); }
 .topbar .right { margin-left: auto; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: flex-end; }
 
-/* dead affordances: a disabled control plus a Soon badge — never a live-looking dead link */
-.dead { display: inline-flex; align-items: center; gap: 6px; }
-.dead-link { color: var(--subtle); font-size: 12.5px; }
-.soon {
+/* Dead affordances: muted ink, no pointer cursor, title attribute as the accessibility
+   baseline, and a CSS-only hover reveal of "Soon" — quiet at rest, honest on approach,
+   never mistakable for a live link. */
+.dead { display: inline-flex; align-items: center; position: relative; }
+.dead-link { color: var(--subtle); font-size: 12.5px; cursor: default; }
+.dead::after {
+  content: "Soon";
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
   font-size: 9.5px;
   letter-spacing: 0.09em;
   text-transform: uppercase;
@@ -150,35 +159,42 @@ a { color: inherit; }
   padding: 1px 6px;
   border: 1px solid var(--hair-strong);
   border-radius: 2px;
+  background: var(--card);
   color: var(--subtle);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease-out;
+  z-index: 1;
 }
-.btn-subscribe {
-  font: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--subtle);
-  background: var(--sunken);
-  border: 1px solid var(--hair-strong);
-  border-radius: 2px;
-  padding: 5px 12px;
-}
-.btn-subscribe:disabled { cursor: not-allowed; }
+.dead:hover::after,
+.dead:focus-within::after { opacity: 1; }
 
-/* scheme toggle — revealed by the enhancement script; absent for no-JS readers */
-.toggle {
-  font: inherit;
-  font-size: 11px;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  font-weight: 600;
-  color: var(--muted);
+/* icon buttons: the bell (disabled subscribe seam) and the scheme toggle (revealed by the
+   enhancement script; absent for no-JS readers, who rely on prefers-color-scheme) */
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: none;
-  border: 1px solid var(--hair-strong);
-  border-radius: 2px;
-  padding: 4px 10px;
-  cursor: pointer;
+  border: 0;
+  padding: 4px;
+  color: var(--muted);
 }
-.toggle:hover { color: var(--text); }
+.icon-button svg { width: 16px; height: 16px; }
+.icon-button:disabled { color: var(--subtle); cursor: default; }
+button.icon-button:not(:disabled) { cursor: pointer; }
+button.icon-button:not(:disabled):hover { color: var(--text); }
+/* The toggle carries both icons; CSS shows the one for the scheme you would switch TO, and the
+   data-scheme stamp must win over the system preference in both directions. */
+.toggle .icon-sun { display: none; }
+.toggle .icon-moon { display: block; }
+:root[data-scheme="dark"] .toggle .icon-sun { display: block; }
+:root[data-scheme="dark"] .toggle .icon-moon { display: none; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-scheme="light"]) .toggle .icon-sun { display: block; }
+  :root:not([data-scheme="light"]) .toggle .icon-moon { display: none; }
+}
 
 /* the verdict band — constrained to the column so the page breathes on open paper */
 .band {
@@ -190,6 +206,7 @@ a { color: inherit; }
   position: relative;
   margin-bottom: 28px;
   flex-wrap: wrap;
+  border-radius: 8px;
 }
 .band .lamp {
   width: 14px;
@@ -206,16 +223,9 @@ a { color: inherit; }
 .band.warn { background: var(--warn-band); }
 .band.danger { background: var(--danger-band); }
 .band.gilt { background: var(--gilt-band); }
-/* the one gilt moment on the page: a hairline of gold beneath the band */
-.band::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -3px;
-  height: 2px;
-  background: var(--gold);
-}
+/* When the stale strip tucks under the band, square the band's bottom corners so the pair
+   reads as one rounded block (cosmetic only — browsers without :has just show a hairline gap). */
+.band:has(+ .stale-strip) { border-radius: 8px 8px 0 0; }
 
 .stale-strip {
   background: var(--neutral-bg);
@@ -225,6 +235,7 @@ a { color: inherit; }
   padding: 8px 26px;
   font-size: 12px;
   margin: -28px 0 28px;
+  border-radius: 0 0 6px 6px;
 }
 .stale-strip b { font-weight: 600; }
 
