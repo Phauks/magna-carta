@@ -29,10 +29,27 @@ docker run --rm --gpus all mc-recovery-gpu
 ```
 
 The entrypoint (`bench/run-benchmark.sh`) runs `hashcat -b -m <mode> --machine-readable --quiet`
-for every mode in `9400 9500 9600 10500 10700 11600 13600 17200`, sums each mode's per-device
-`SPEED` values, reads the GPU name and total VRAM from `nvidia-smi`, and prints a single JSON
-object to stdout — nothing else. `-b` needs no hash or wordlist input, so no password is ever
-cracked and nothing sensitive is produced or logged.
+for every mode in `9400 9500 9600 10500 10700 11600 13600 17200`. That output is colon-delimited,
+one line per compute device, with the speed in hashes/sec as the LAST field (e.g.
+`1:0:1683:4513:55.02:10240000000` is ~10.24 GH/s on one device); the script sums the last field
+across all of a mode's device lines to get the rig's total hashes/sec for that mode. It also reads
+the GPU name and total VRAM from `nvidia-smi`, and prints a single JSON object to stdout — nothing
+else. `-b` needs no hash or wordlist input, so no password is ever cracked and nothing sensitive is
+produced or logged. If a mode produces no parseable speed line, the script warns on stderr and
+omits that mode from the JSON rather than reporting a false `0`.
+
+## Ops: verifying real output
+
+The exact machine-readable field layout can vary slightly by hashcat version, so at the first real
+run on a rig, sanity-check the emitted numbers before trusting them for cost-per-work ranking:
+
+- Every reported `hashesPerSecond` should be non-zero and in a plausible order of magnitude for the
+  format — e.g. mode 10500 (old PDF) should land around 10^8 H/s, and mode 9600 (Office 2013+)
+  around 10^4-10^5 H/s, on a single RTX 4090.
+- If any mode is missing from the output, or its number looks implausible (too low, too high, or
+  suspiciously round), run `hashcat -b -m <mode> --machine-readable` directly on the rig, inspect
+  one raw device line, and confirm the last colon-delimited field is still the speed — adjust
+  `bench/run-benchmark.sh` if that hashcat version's layout has shifted.
 
 ## Publish
 

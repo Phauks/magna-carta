@@ -12,31 +12,25 @@ set -euo pipefail
 
 modes=(9400 9500 9600 10500 10700 11600 13600 17200)
 
-# Sums the per-device "SPEED" values from one hashcat --machine-readable status line, using the
-# same tokenizing rule as sumDeviceSpeeds in packages/gpu-benchmark/src/bench-parse.ts: read
-# "<hashes> <milliseconds>" pairs following the SPEED token, summing the hashes, and stop at the
-# first pair that is not purely numeric. hashcat repeats the pair once per device, and periodic
-# status lines repeat across a run, so this keeps the LAST line's total as the mode's throughput.
+# hashcat's benchmark mode (`-b --machine-readable`) prints one colon-delimited line per compute
+# device, e.g. `1:0:1683:4513:55.02:10240000000` — the LAST field is that device's speed in
+# hashes/sec (10240000000 above, ~10.24 GH/s). A multi-GPU rig prints one such line per device for
+# each mode; this sums the last field across every line to get the rig's total hashes/sec for the
+# mode. Any line whose last field isn't a positive number (blank line, header, stray warning) is
+# ignored rather than counted. If a mode produces zero parseable lines, this prints nothing and
+# the caller is expected to treat that as "not measured" rather than a measured zero.
 sum_device_speeds() {
-  awk '
+  awk -F: '
     {
-      speed_index = 0
-      for (i = 1; i <= NF; i++) {
-        if ($i == "SPEED") { speed_index = i; break }
+      last = $NF
+      if (last ~ /^[0-9]+(\.[0-9]+)?$/ && last + 0 > 0) {
+        total += last
+        count++
       }
-      if (speed_index == 0) next
-      total = 0
-      i = speed_index + 1
-      while (i + 1 <= NF) {
-        hashes = $i
-        milliseconds = $(i + 1)
-        if (hashes !~ /^[0-9]+$/ || milliseconds !~ /^[0-9]+$/) break
-        total += hashes
-        i += 2
-      }
-      last_total = total
     }
-    END { print last_total + 0 }
+    END {
+      if (count > 0) print total
+    }
   '
 }
 
@@ -51,6 +45,15 @@ throughput_json="[]"
 for mode in "${modes[@]}"; do
   if mode_output=$(hashcat -b -m "$mode" --machine-readable --quiet 2>/dev/null); then
     hashes_per_second=$(printf '%s\n' "$mode_output" | sum_device_speeds)
+    if [[ -z "$hashes_per_second" ]]; then
+      # The mode ran but no line had a parseable positive last field — the output format didn't
+      # match what this rig's hashcat version emits. Omit the mode rather than reporting a
+      # measured-looking 0: an absent mode reads downstream as "not measured", a 0 would read as
+      # "measured, and the rig is worthless for this format," which is false and dangerous for
+      # cost-per-work ranking.
+      echo "run-benchmark: hashcat mode $mode produced no parseable speed line, omitting from output" >&2
+      continue
+    fi
     throughput_json=$(jq --argjson hashcatMode "$mode" --argjson hashesPerSecond "$hashes_per_second" \
       '. + [{"hashcatMode": $hashcatMode, "hashesPerSecond": $hashesPerSecond}]' <<<"$throughput_json")
   else
