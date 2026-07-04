@@ -63,7 +63,9 @@ describe("renderStatusPage", () => {
     expect(html).not.toContain("Reviewed every 10 minutes");
     // The machine feed is unadvertised (still served; just not linked).
     expect(html).not.toContain(">status.json<");
-    // The brand lockup is the app's, with "Status" joined into the same wordmark treatment.
+    // The brand lockup is the app's, with "Status" joined into the same wordmark treatment,
+    // and the whole lockup is a plain home anchor back to this page.
+    expect(html).toContain('<a href="/" class="home">');
     expect(html).toContain('class="brand-glyph"');
     expect(html).toContain(
       '<span class="word">Magna Carta <span class="word-status">Status</span></span>',
@@ -77,17 +79,37 @@ describe("renderStatusPage", () => {
     expect(html).not.toContain('class="soon"');
     expect(html).not.toContain(">Soon<");
     expect(html).toContain('content: "Soon"');
-    // Subscribe is the notification bell icon, disabled, beside the scheme icon.
-    expect(html).toContain('title="Subscribe to updates — soon"');
+    // The bell opens the subscribe panel: real anatomy and aria wiring, honest inert submit —
+    // nothing fakes a subscription until the notifications machinery ships.
     expect(html).toContain('class="icon-bell"');
-    expect(html).toMatch(/<button[^>]*disabled[^>]*aria-label="Subscribe to updates"/);
+    expect(html).toContain('id="subscribe-bell"');
+    expect(html).toMatch(/id="subscribe-bell"[^>]*aria-expanded="false"/);
+    expect(html).toMatch(/<div id="subscribe-panel"[^>]*role="dialog"[^>]*hidden/);
+    expect(html).toContain('aria-labelledby="subscribe-title"');
+    expect(html).toContain("Subscribe to updates");
+    expect(html).toContain('id="subscribe-email"');
+    expect(html).toMatch(/class="subscribe-submit"[^>]*disabled[^>]*title="Subscribe — soon"/);
+    expect(html).toContain("not yet wired");
+    // Text-size button: a hidden enhancement cycling a rem-based root ladder (the no-JS
+    // baseline is browser zoom; the persisted step is applied pre-paint by the boot script).
+    expect(html).toContain('id="text-size"');
+    expect(html).toMatch(/id="text-size"[^>]*hidden/);
+    expect(html).toContain('[data-text="large"]');
+    expect(html).toContain('[data-text="larger"]');
+    expect(html).toContain("mc-status-text");
     const bandIndex = html.indexOf('class="band');
     expect(html.indexOf("Help Desk")).toBeLessThan(bandIndex);
     expect(html.indexOf('class="icon-bell"')).toBeLessThan(bandIndex);
     expect(html).not.toContain("foot-links");
-    // The band is a rounded block with no gold hairline beneath it.
+    // The band is a rounded block with no gold hairline beneath it, and its lamp breathes —
+    // a calm, constant-period, compositor-only pulse, suppressed under reduced motion.
     expect(html).toContain("border-radius: 8px");
     expect(html).not.toContain(".band::after");
+    expect(html).toContain("lamp-breathe");
+    expect(html).toContain("prefers-reduced-motion: reduce");
+    // The page's single color key sits on the first component section rule.
+    expect(html).toContain('aria-label="Color key"');
+    expect((html.match(/aria-label="Color key"/g) ?? []).length).toBe(1);
     // Scheme support: CSS-first dark scheme plus the hidden icon toggle the script reveals
     // (sun and moon both present; CSS shows the right one per scheme).
     expect(html).toContain("prefers-color-scheme: dark");
@@ -193,7 +215,7 @@ describe("renderStatusPage", () => {
     expect(html).toContain(">Partial outage<");
   });
 
-  test("maintenance: gilt band, maintenance status label", () => {
+  test("maintenance: informational blue band, maintenance status label", () => {
     const html = renderStatusPage(
       snapshotFixture({
         overall: "maintenance",
@@ -221,9 +243,11 @@ describe("renderStatusPage", () => {
       }),
     );
     expect(html).toContain("Scheduled maintenance in progress");
-    expect(html).toContain('class="band gilt"');
-    expect(html).toContain('class="live gilt"');
+    // Maintenance wears the calm informational blue — never the severity family or the golds.
+    expect(html).toContain('class="band info"');
+    expect(html).toContain('class="live info"');
     expect(html).toContain(">Maintenance<");
+    expect(html).toContain('class="row info-row"');
   });
 
   test("stale snapshot: the strip appears with the age; absent when fresh", () => {

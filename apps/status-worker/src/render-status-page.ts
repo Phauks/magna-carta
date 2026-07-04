@@ -44,11 +44,13 @@ export function escapeHtml(text: string): string {
 // ---------------------------------------------------------------------------
 // vocabulary -> presentation
 
-type Hue = "ok" | "warn" | "danger" | "gilt" | "neutral";
+// "info" is the calm blue reserved for maintenance — planned, informational, deliberately
+// outside the red/green/yellow severity family and away from the brand golds.
+type Hue = "ok" | "warn" | "danger" | "info" | "neutral";
 
 const STATUS_PRESENTATION: Record<ProviderStatus, { label: string; hue: Hue }> = {
   operational: { label: "Operational", hue: "ok" },
-  maintenance: { label: "Maintenance", hue: "gilt" },
+  maintenance: { label: "Maintenance", hue: "info" },
   degraded: { label: "Degraded", hue: "warn" },
   partial_outage: { label: "Partial outage", hue: "danger" },
   major_outage: { label: "Major outage", hue: "danger" },
@@ -59,7 +61,7 @@ const STATUS_PRESENTATION: Record<ProviderStatus, { label: string; hue: Hue }> =
 
 const VERDICT: Record<ComponentStatus, { headline: string; hue: Hue }> = {
   operational: { headline: "All systems operational", hue: "ok" },
-  maintenance: { headline: "Scheduled maintenance in progress", hue: "gilt" },
+  maintenance: { headline: "Scheduled maintenance in progress", hue: "info" },
   degraded: { headline: "Degraded performance on some services", hue: "warn" },
   partial_outage: { headline: "Partial outage in effect", hue: "danger" },
   major_outage: { headline: "Major outage in effect", hue: "danger" },
@@ -69,7 +71,7 @@ const IMPACT_PRESENTATION: Record<EventImpact, { label: string; hue: Hue }> = {
   minor: { label: "Minor impact", hue: "warn" },
   major: { label: "Major impact", hue: "danger" },
   critical: { label: "Critical impact", hue: "danger" },
-  maintenance: { label: "Maintenance", hue: "gilt" },
+  maintenance: { label: "Maintenance", hue: "info" },
 };
 
 const LIFECYCLE_LABELS: Record<string, string> = {
@@ -150,30 +152,51 @@ const BRAND_GLYPH_SVG = `<svg class="brand-glyph" viewBox="51 -1436 2158 1467" a
 const BELL_ICON_SVG = `<svg class="icon-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>`;
 const SUN_ICON_SVG = `<svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>`;
 const MOON_ICON_SVG = `<svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>`;
+const TYPE_ICON_SVG = `<svg class="icon-type" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" x2="15" y1="20" y2="20"/><line x1="12" x2="12" y1="4" y2="20"/></svg>`;
 
 // ---------------------------------------------------------------------------
 // fragments
 
 function renderTopBar(): string {
-  // One header row: the brand lockup, then the links, then the bell and the scheme icon. Every
+  // One header row: the brand lockup (a plain home anchor back to this page), then the links,
+  // then the bell and the scheme icon. Every
   // dead item is a light-up seam shipped honest: muted ink, no pointer cursor, a title attribute
   // as the accessibility baseline, and a CSS-only hover "Soon" reveal (no JS required). Swap the
   // span for a real anchor when its destination ships — "Magna Carta" is the future marketing
-  // site — and swap the disabled bell for the live subscribe flow when notifications exist. The
-  // scheme toggle starts hidden and is revealed by the enhancement script; no-JS readers rely on
-  // prefers-color-scheme (the CSS swaps its sun/moon icon by scheme, so the script never touches
-  // the button's contents).
+  // site. The bell opens the subscribe panel (renderSubscribeControl below); the text-size and
+  // scheme buttons start hidden and are revealed by the enhancement script — no-JS readers rely
+  // on prefers-color-scheme and the browser's own zoom (the CSS swaps the toggle's sun/moon icon
+  // by scheme, so the script never touches button contents).
   return `<header class="topbar"><div class="col">
-<span class="mark">${BRAND_GLYPH_SVG}</span>
-<span class="word">Magna Carta <span class="word-status">Status</span></span>
+<a href="/" class="home"><span class="mark">${BRAND_GLYPH_SVG}</span><span class="word">Magna Carta <span class="word-status">Status</span></span></a>
 <span class="right">
 <span class="dead"><span class="dead-link" title="Help Desk — soon">Help Desk</span></span>
 <span class="dead"><span class="dead-link" title="Forums — soon">Forums</span></span>
 <span class="dead"><span class="dead-link" title="Magna Carta — soon">Magna Carta</span></span>
-<span class="dead"><button type="button" class="icon-button" disabled title="Subscribe to updates — soon" aria-label="Subscribe to updates">${BELL_ICON_SVG}</button></span>
+${renderSubscribeControl()}
+<button type="button" id="text-size" class="icon-button" hidden aria-label="Change text size" title="Text size: standard">${TYPE_ICON_SVG}</button>
 <button type="button" id="scheme-toggle" class="icon-button toggle" hidden aria-label="Switch color scheme">${SUN_ICON_SVG}${MOON_ICON_SVG}</button>
 </span>
 </div></header>`;
+}
+
+function renderSubscribeControl(): string {
+  // The subscribe front door: the bell opens a real panel in its final anatomy, but nothing here
+  // can fake a subscription — the field accepts typing, the submit stays disabled with the
+  // hover-Soon treatment, and the note says plainly that delivery arrives with the notifications
+  // machinery. Light-up seam: enable the submit and wire the write when that machinery ships.
+  // The bell (like the other header enhancements) starts hidden and is revealed by the script —
+  // without JavaScript the panel cannot open, and a live-looking dead control would be dishonest.
+  return `<span class="subscribe-wrap">
+<button type="button" id="subscribe-bell" class="icon-button" hidden aria-haspopup="dialog" aria-expanded="false" aria-controls="subscribe-panel" aria-label="Subscribe to updates" title="Subscribe to updates">${BELL_ICON_SVG}</button>
+<div id="subscribe-panel" class="subscribe-panel" role="dialog" aria-labelledby="subscribe-title" hidden>
+<h2 id="subscribe-title">Subscribe to updates</h2>
+<p class="subscribe-note">Email updates on service events are designed but not yet wired &mdash; delivery arrives with the notifications machinery. More channels may follow.</p>
+<label class="subscribe-label" for="subscribe-email">Email address</label>
+<input id="subscribe-email" class="subscribe-email" type="email" name="email" autocomplete="email" placeholder="you@example.com">
+<span class="dead"><button type="button" class="subscribe-submit" disabled title="Subscribe — soon">Subscribe</button></span>
+</div>
+</span>`;
 }
 
 // The countdown target: the derived snapshot is republished on a 10-minute cron cadence
@@ -263,9 +286,22 @@ function renderComponentRow(component: PublishedComponent): string {
 </div>`;
 }
 
+// The page's one color key. Deliberately a single legend, right-aligned on the first component
+// section rule — the genre convention (GitHub keeps its key adjacent to the component list), and
+// one well-placed key beats two competing ones. The dot colors are the same custom properties
+// the rows use, so the key stays truthful in both light and dark schemes automatically. The two
+// outage severities share the danger hue, so one "Outage" entry covers both; the provider-only
+// "Status unavailable" state carries its own explanation line under the providers instead.
+const COLOR_KEY_HTML = `<span class="legend" role="note" aria-label="Color key">
+<span><span class="dot" style="background: var(--ok-fg)"></span>Operational</span>
+<span><span class="dot" style="background: var(--warn-fg)"></span>Degraded</span>
+<span><span class="dot" style="background: var(--danger-fg)"></span>Outage</span>
+<span><span class="dot" style="background: var(--info-fg)"></span>Maintenance</span>
+</span>`;
+
 function renderComponentGroups(snapshot: PublishedSnapshot): string {
   if (snapshot.components.length === 0) {
-    return `<div class="group-head"><span class="caps">Services</span></div>
+    return `<div class="group-head"><span class="caps">Services</span>${COLOR_KEY_HTML}</div>
 <p class="empty-note">No component data has been published yet.</p>`;
   }
   // Preserve the snapshot's group order (registry order: core first, engines after).
@@ -278,17 +314,11 @@ function renderComponentGroups(snapshot: PublishedSnapshot): string {
     }
     grouped.get(component.group)?.push(component);
   }
-  const legend = `<span class="legend">
-<span><span class="dot" style="background: var(--ok-fg)"></span>Operational</span>
-<span><span class="dot" style="background: var(--warn-fg)"></span>Degraded</span>
-<span><span class="dot" style="background: var(--danger-fg)"></span>Outage</span>
-<span><span class="dot" style="background: var(--gold-deep)"></span>Maintenance</span>
-</span>`;
   return groupOrder
     .map((group, index) => {
       const heading = GROUP_HEADINGS[group] ?? group;
       const rows = (grouped.get(group) ?? []).map(renderComponentRow).join("\n");
-      return `<div class="group-head"><span class="caps">${escapeHtml(heading)}</span>${index === 0 ? legend : ""}</div>
+      return `<div class="group-head"><span class="caps">${escapeHtml(heading)}</span>${index === 0 ? COLOR_KEY_HTML : ""}</div>
 <div class="grid">
 ${rows}
 </div>`;
@@ -363,11 +393,13 @@ function renderFooter(): string {
 // ---------------------------------------------------------------------------
 // progressive enhancement (the page is complete without either script)
 
-// Applied before first paint so a persisted scheme choice does not flash the system scheme.
-const SCHEME_BOOT_SCRIPT = `<script>try{var storedScheme=localStorage.getItem("mc-status-scheme");if(storedScheme==="dark"||storedScheme==="light"){document.documentElement.setAttribute("data-scheme",storedScheme);}}catch(error){}</script>`;
+// Applied before first paint so persisted choices (scheme, text size) do not flash defaults.
+const BOOT_SCRIPT = `<script>try{var storedScheme=localStorage.getItem("mc-status-scheme");if(storedScheme==="dark"||storedScheme==="light"){document.documentElement.setAttribute("data-scheme",storedScheme);}var storedText=localStorage.getItem("mc-status-text");if(storedText==="large"||storedText==="larger"){document.documentElement.setAttribute("data-text",storedText);}}catch(error){}</script>`;
 
 const ENHANCEMENT_SCRIPT = `<script>
 (function () {
+  var root = document.documentElement;
+
   var countdown = document.querySelector("[data-next-check]");
   if (countdown) {
     var due = Date.parse(countdown.getAttribute("data-next-check") || "");
@@ -387,9 +419,9 @@ const ENHANCEMENT_SCRIPT = `<script>
       tick();
     }
   }
+
   var toggle = document.getElementById("scheme-toggle");
   if (toggle) {
-    var root = document.documentElement;
     var currentScheme = function () {
       var stamped = root.getAttribute("data-scheme");
       if (stamped === "dark" || stamped === "light") return stamped;
@@ -404,6 +436,62 @@ const ENHANCEMENT_SCRIPT = `<script>
       try {
         localStorage.setItem("mc-status-scheme", nextScheme);
       } catch (error) {}
+    });
+  }
+
+  var textButton = document.getElementById("text-size");
+  if (textButton) {
+    var textSteps = ["standard", "large", "larger"];
+    var currentText = function () {
+      return root.getAttribute("data-text") || "standard";
+    };
+    var relabelText = function () {
+      textButton.title = "Text size: " + currentText();
+      textButton.setAttribute("aria-label", "Change text size (now " + currentText() + ")");
+    };
+    textButton.hidden = false;
+    relabelText();
+    textButton.addEventListener("click", function () {
+      var next = textSteps[(textSteps.indexOf(currentText()) + 1) % textSteps.length];
+      if (next === "standard") {
+        root.removeAttribute("data-text");
+      } else {
+        root.setAttribute("data-text", next);
+      }
+      try {
+        localStorage.setItem("mc-status-text", next);
+      } catch (error) {}
+      relabelText();
+    });
+  }
+
+  var bell = document.getElementById("subscribe-bell");
+  var panel = document.getElementById("subscribe-panel");
+  if (bell && panel) {
+    var closePanel = function (returnFocus) {
+      if (panel.hidden) return;
+      panel.hidden = true;
+      bell.setAttribute("aria-expanded", "false");
+      if (returnFocus) bell.focus();
+    };
+    bell.hidden = false;
+    bell.addEventListener("click", function () {
+      if (panel.hidden) {
+        panel.hidden = false;
+        bell.setAttribute("aria-expanded", "true");
+        var email = document.getElementById("subscribe-email");
+        if (email) email.focus();
+      } else {
+        closePanel(true);
+      }
+    });
+    document.addEventListener("keydown", function (keyboardEvent) {
+      if (keyboardEvent.key === "Escape") closePanel(true);
+    });
+    document.addEventListener("click", function (pointerEvent) {
+      if (!panel.hidden && !panel.contains(pointerEvent.target) && !bell.contains(pointerEvent.target)) {
+        closePanel(false);
+      }
     });
   }
 })();
@@ -432,7 +520,7 @@ export function renderStatusPage(
 <meta http-equiv="refresh" content="60">
 <title>Magna Carta &mdash; Service status</title>
 <style>${PAGE_CSS}</style>
-${SCHEME_BOOT_SCRIPT}
+${BOOT_SCRIPT}
 </head>
 <body>
 ${renderTopBar()}
