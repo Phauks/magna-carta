@@ -4,7 +4,7 @@
 
 **Goal:** Build the hashcat GPU container image plus a benchmark harness that runs our recovery hash-modes on rented vast.ai rigs and records throughput + price into a committed rig-profiles table — the empirical input that parameterizes Stage 2 (the wired GPU rung).
 
-**Architecture:** A committed Docker image (CUDA + hashcat + our clean-license wordlists/rules + a benchmark entrypoint that emits JSON) is published to a registry vast.ai can pull. A local TypeScript harness (`tooling/gpu-benchmark/`) drives the vast.ai REST API — search offers → rent our image → wait ready → collect the benchmark JSON → destroy — and aggregates results into `docs/research/gpu-recovery/rig-profiles.json`. All harness logic (vast.ai client, hashcat-output parser, profiles aggregation, offer filter, driver) is unit-tested with mocks; only image build/publish and the real benchmark run need hardware.
+**Architecture:** A committed Docker image (CUDA + hashcat + our clean-license wordlists/rules + a benchmark entrypoint that emits JSON) is published to a registry vast.ai can pull. A local TypeScript harness (`packages/gpu-benchmark/`, an internal tool package like `@magna-carta/fixtures`) drives the vast.ai REST API — search offers → rent our image → wait ready → collect the benchmark JSON → destroy — and aggregates results into `docs/research/gpu-recovery/rig-profiles.json`. All harness logic (vast.ai client, hashcat-output parser, profiles aggregation, offer filter, driver) is unit-tested with mocks; only image build/publish and the real benchmark run need hardware.
 
 **Tech Stack:** Docker (CUDA base, hashcat), TypeScript + Vitest (harness), zod (schemas), the vast.ai REST API (`/api/v0`).
 
@@ -20,15 +20,15 @@
 
 ---
 
-### Task 1: Rig-profiles schema + aggregation (`tooling/gpu-benchmark/src/profiles.ts`)
+### Task 1: Rig-profiles schema + aggregation (`packages/gpu-benchmark/src/profiles.ts`)
 
 The committed profiles table and the pure functions that build it. Built first because it defines the shape everything else produces.
 
 **Files:**
-- Create: `tooling/gpu-benchmark/src/profiles.ts`
-- Create: `tooling/gpu-benchmark/test/profiles.test.ts`
-- Create: `tooling/gpu-benchmark/package.json` (name `@magna-carta/gpu-benchmark`, `"private": true`, type module, vitest dep)
-- Create: `tooling/gpu-benchmark/tsconfig.json` (extends the repo base)
+- Create: `packages/gpu-benchmark/src/profiles.ts`
+- Create: `packages/gpu-benchmark/test/profiles.test.ts`
+- Create: `packages/gpu-benchmark/package.json` (name `@magna-carta/gpu-benchmark`, `"private": true`, type module, vitest dep)
+- Create: `packages/gpu-benchmark/tsconfig.json` (extends the repo base)
 - Create: `docs/research/gpu-recovery/rig-profiles.json` (seed: `{ "generatedAt": null, "profiles": [] }`)
 
 **Interfaces:**
@@ -75,19 +75,19 @@ describe("profiles", () => {
 - [ ] **Step 5: Commit**
 
 ```bash
-git add tooling/gpu-benchmark/package.json tooling/gpu-benchmark/tsconfig.json tooling/gpu-benchmark/src/profiles.ts tooling/gpu-benchmark/test/profiles.test.ts docs/research/gpu-recovery/rig-profiles.json
+git add packages/gpu-benchmark/package.json packages/gpu-benchmark/tsconfig.json packages/gpu-benchmark/src/profiles.ts packages/gpu-benchmark/test/profiles.test.ts docs/research/gpu-recovery/rig-profiles.json
 git commit -m "feat(gpu-benchmark): rig-profiles schema + value ranking"
 ```
 
 ---
 
-### Task 2: hashcat benchmark-output parser (`tooling/gpu-benchmark/src/bench-parse.ts`)
+### Task 2: hashcat benchmark-output parser (`packages/gpu-benchmark/src/bench-parse.ts`)
 
 Parse the container's emitted benchmark JSON *and* raw hashcat machine-readable lines into `ModeThroughput[]`. The image entrypoint (Task 5) emits a JSON envelope, but we parse defensively so a raw-hashcat fallback also works.
 
 **Files:**
-- Create: `tooling/gpu-benchmark/src/bench-parse.ts`
-- Create: `tooling/gpu-benchmark/test/bench-parse.test.ts`
+- Create: `packages/gpu-benchmark/src/bench-parse.ts`
+- Create: `packages/gpu-benchmark/test/bench-parse.test.ts`
 
 **Interfaces:**
 - Consumes: `ModeThroughput` (Task 1).
@@ -128,13 +128,13 @@ describe("bench-parse", () => {
 
 ---
 
-### Task 3: vast.ai client wrapper (`tooling/gpu-benchmark/src/vast-client.ts`)
+### Task 3: vast.ai client wrapper (`packages/gpu-benchmark/src/vast-client.ts`)
 
 A typed wrapper over the four vast.ai endpoints we use. Injectable `fetch` for testing; key redacted from all errors.
 
 **Files:**
-- Create: `tooling/gpu-benchmark/src/vast-client.ts`
-- Create: `tooling/gpu-benchmark/test/vast-client.test.ts`
+- Create: `packages/gpu-benchmark/src/vast-client.ts`
+- Create: `packages/gpu-benchmark/test/vast-client.test.ts`
 
 **Interfaces:**
 - Produces:
@@ -185,13 +185,13 @@ describe("vast-client", () => {
 
 ---
 
-### Task 4: Candidate shortlist + offer filter (`tooling/gpu-benchmark/src/offer-filter.ts`)
+### Task 4: Candidate shortlist + offer filter (`packages/gpu-benchmark/src/offer-filter.ts`)
 
 The concrete benchmark shortlist (design §1) and a pure filter/selector over `VastOffer[]` — on real fields, never `dlperf`.
 
 **Files:**
-- Create: `tooling/gpu-benchmark/src/offer-filter.ts`
-- Create: `tooling/gpu-benchmark/test/offer-filter.test.ts`
+- Create: `packages/gpu-benchmark/src/offer-filter.ts`
+- Create: `packages/gpu-benchmark/test/offer-filter.test.ts`
 
 **Interfaces:**
 - Consumes: `VastOffer` (Task 3).
@@ -258,18 +258,19 @@ COPY containers/recovery-gpu/bench/ ./bench/
 ENTRYPOINT ["/opt/recovery-gpu/bench/run-benchmark.sh"]
 ```
 
-- [ ] **Step 2: Write `run-benchmark.sh`** — runs, for each mode in `9600 10700 11600`, both `hashcat -b -m $mode --machine-readable --quiet` (raw device speed) and a real-attack timing (`hashcat -m $mode -a 0 example-hashes/$mode.hash wordlists/ncsc-100k.txt -r wordlists/best64.rule --machine-readable --potfile-disable`), reads the GPU name/VRAM from `nvidia-smi --query-gpu=name,memory.total --format=csv,noheader`, and prints ONE JSON object matching `BenchmarkResult` to stdout. Redirect all hashcat cracking output to a file (never echo a recovered password). Include the exact `jq` assembly in the script.
+- [ ] **Step 2: Write `run-benchmark.sh`** — runs, for each mode in the full baseline set **`9400 9500 9600 10500 10700 11600 13600 17200`** (the three GPU-band modes 9600/10700/11600 plus the CPU-band modes 9400/9500 older Office, 10500 old PDF, 13600 WinZip-AES, 17200 ZipCrypto — baselined even though they run on Rung-1 CPU in production, per the owner's "measure them all" call), both `hashcat -b -m $mode --machine-readable --quiet` (raw device speed) and a real-attack timing (`hashcat -m $mode -a 0 example-hashes/$mode.hash wordlists/ncsc-100k.txt -r wordlists/best64.rule --machine-readable --potfile-disable`), reads the GPU name/VRAM from `nvidia-smi --query-gpu=name,memory.total --format=csv,noheader`, and prints ONE JSON object matching `BenchmarkResult` to stdout. Redirect all hashcat cracking output to a file (never echo a recovered password). Include the exact `jq` assembly in the script. Provide one `example-hashes/<mode>.hash` per mode (password `hashcat`, from hashcat's published `example_hashes`).
 
-- [ ] **Step 3: Verify the envelope shape against the parser** — add `tooling/gpu-benchmark/test/envelope-contract.test.ts` that feeds a committed `containers/recovery-gpu/bench/sample-output.json` (a hand-authored example emit) through `parseBenchmarkJson` and asserts it yields three modes. Create `sample-output.json` alongside.
+- [ ] **Step 3: Verify the envelope shape against the parser** — add `packages/gpu-benchmark/test/envelope-contract.test.ts` that feeds a committed `containers/recovery-gpu/bench/sample-output.json` (a hand-authored example emit) through `parseBenchmarkJson` and asserts it yields three modes. Create `sample-output.json` alongside.
 
 ```typescript
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { parseBenchmarkJson } from "../src/bench-parse.ts";
 
-it("the image's sample output parses into three modes", () => {
+it("the image's sample output parses into the full baseline mode set", () => {
   const raw = readFileSync(new URL("../../../containers/recovery-gpu/bench/sample-output.json", import.meta.url), "utf8");
-  expect(parseBenchmarkJson(raw).throughput.map((t) => t.hashcatMode).sort()).toEqual([9600, 10700, 11600]);
+  expect(parseBenchmarkJson(raw).throughput.map((t) => t.hashcatMode).sort((a, b) => a - b))
+    .toEqual([9400, 9500, 9600, 10500, 10700, 11600, 13600, 17200]);
 });
 ```
 
@@ -278,13 +279,13 @@ it("the image's sample output parses into three modes", () => {
 
 ---
 
-### Task 6: The benchmark driver (`tooling/gpu-benchmark/src/run.ts`)
+### Task 6: The benchmark driver (`packages/gpu-benchmark/src/run.ts`)
 
 Orchestrates one rig's benchmark: select offer → rent → poll ready (timeout) → collect the JSON → **always destroy** → return a `RigProfile`. TDD the orchestration + the guaranteed-destroy with a fake client; the SSH/collection transport is injected so it's mockable.
 
 **Files:**
-- Create: `tooling/gpu-benchmark/src/run.ts`
-- Create: `tooling/gpu-benchmark/test/run.test.ts`
+- Create: `packages/gpu-benchmark/src/run.ts`
+- Create: `packages/gpu-benchmark/test/run.test.ts`
 
 **Interfaces:**
 - Consumes: `VastClient` (Task 3), `cheapestVerifiedOffer` (Task 4), `parseBenchmarkJson` (Task 2), `upsertProfile` (Task 1).
@@ -336,8 +337,8 @@ describe("benchmarkOneRig", () => {
 Wire the driver into a runnable CLI, document the image publish + run, then execute a real benchmark to populate the profiles. The build/publish/run steps need Docker, a registry, and the vast.ai key — they are **owner ops steps**, marked as such.
 
 **Files:**
-- Create: `tooling/gpu-benchmark/src/cli.ts` (reads `VAST_API_KEY`, `--image`, iterates `BENCHMARK_SHORTLIST`, writes `rig-profiles.json` via `upsertProfile`; real `CollectFn` = SSH exec reading the container stdout)
-- Create: `tooling/gpu-benchmark/README.md` (the runbook)
+- Create: `packages/gpu-benchmark/src/cli.ts` (reads `VAST_API_KEY`, `--image`, iterates `BENCHMARK_SHORTLIST`, writes `rig-profiles.json` via `upsertProfile`; real `CollectFn` = SSH exec reading the container stdout)
+- Create: `packages/gpu-benchmark/README.md` (the runbook)
 - Modify: `docs/research/gpu-recovery/rig-profiles.json` (populated by the run — committed by the owner after the run)
 
 - [ ] **Step 1: Implement `cli.ts`** — arg parse (`--image <ref>`, `--gpu <name>` optional single-rig), construct `createVastClient(process.env.VAST_API_KEY)`, loop the shortlist calling `benchmarkOneRig`, `upsertProfile` into the loaded table, write it back with a stamped `generatedAt`. The SSH `CollectFn` runs `nvidia-smi`-gated boot then reads `/opt/recovery-gpu` stdout — documented, not unit-tested.
