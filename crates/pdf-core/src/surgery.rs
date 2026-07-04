@@ -904,11 +904,14 @@ pub(crate) fn build_byte_splice(
         }
     }
 
-    // Apply splices right-to-left so earlier offsets stay valid.
+    // Apply splices right-to-left so earlier offsets stay valid. `replacements`
+    // is a `BTreeMap`, so `.keys()` already yields ascending order; `.rev()`
+    // walks it right-to-left without a separate sort.
     let mut out = raw.to_vec();
-    let mut indices: Vec<&usize> = replacements.keys().collect();
-    indices.sort_unstable();
-    for &op_index in indices.iter().rev() {
+    for op_index in replacements.keys().rev() {
+        if *op_index >= tokens.len() {
+            return None;
+        }
         let token = &tokens[*op_index];
         let repl_ops = &replacements[op_index];
         let encoded = encode_operations(repl_ops)?;
@@ -2297,6 +2300,22 @@ mod tests {
         // Build a tiny doc whose page content is `raw`, with an F1 standard-14 font.
         let (doc, page_id) = crate::surgery::tests::doc_with_content(raw, "Helvetica");
         let content = lopdf::content::Content::decode(raw).unwrap();
+
+        // Pin the premise this test relies on: the fixture must actually trip the
+        // round-trip guard (encode-then-decode losing operations, or failing outright —
+        // `try_build_surgery`'s guard treats a decode failure the same as a count
+        // mismatch), otherwise it stops exercising the byte-splice path and silently
+        // degrades to testing nothing new.
+        let reencoded = content.encode().unwrap();
+        let after = lopdf::content::Content::decode(&reencoded)
+            .ok()
+            .map(|c| c.operations.len());
+        assert_ne!(
+            after,
+            Some(content.operations.len()),
+            "fixture must trip the round-trip guard (else it is not exercising the byte path)"
+        );
+
         let fonts = page_fonts(&doc, page_id);
         let slots = enumerate_page_glyphs(&content, &fonts, kurbo::Affine::IDENTITY).unwrap();
         let rects = [Rect { x0: -1.0, y0: -1.0, x1: 1000.0, y1: 1000.0 }];
@@ -2326,5 +2345,49 @@ mod tests {
         bogus.push(lopdf::content::Operation::new("Tj", vec![])); // extra op, not in raw
         let out = build_byte_splice(raw, &bogus, &BTreeMap::new(), &[]);
         assert!(out.is_none(), "count mismatch must return None");
+    }
+
+    #[test]
+    fn byte_splice_self_check_flattens_on_operator_name_desync() {
+        // Same operation COUNT as `raw` (so the count check alone would pass), but one
+        // operator's name has been changed from what the tokenizer sees in `raw` — the
+        // per-index operator-name comparison must catch this desync on its own.
+        let raw: &[u8] = b"BT (Hi) Tj ET";
+        let mut mutated = lopdf::content::Content::decode(raw).unwrap().operations;
+        let tj_index = mutated
+            .iter()
+            .position(|op| op.operator == "Tj")
+            .expect("raw must contain a Tj operator");
+        mutated[tj_index].operator = "TJ".to_string();
+
+        let out = build_byte_splice(raw, &mutated, &BTreeMap::new(), &[]);
+        assert!(
+            out.is_none(),
+            "operator-name mismatch at equal length must return None"
+        );
+    }
+
+    #[test]
+    fn byte_splice_boxes_only_appends_without_replacements() {
+        // No glyph marked (empty replacements), but a redaction box must still be
+        // drawn — the path used when a rect covers no text (e.g. an image region).
+        let raw: &[u8] = b"BT (Hi) Tj ET";
+        let content = lopdf::content::Content::decode(raw).unwrap();
+        let rects = [Rect { x0: 10.0, y0: 10.0, x1: 20.0, y1: 20.0 }];
+        let boxes = fill_box_operations(&rects);
+        let encoded_boxes = encode_operations(&boxes).unwrap();
+
+        let out = build_byte_splice(raw, &content.operations, &BTreeMap::new(), &boxes)
+            .expect("byte splice must succeed with no replacements");
+
+        let mut expected = raw.to_vec();
+        expected.push(b' ');
+        expected.extend_from_slice(&encoded_boxes);
+        assert_eq!(
+            out, expected,
+            "output must equal raw bytes plus the encoded boxes appended"
+        );
+
+        lopdf::content::Content::decode(&out).expect("spliced stream must decode");
     }
 }
