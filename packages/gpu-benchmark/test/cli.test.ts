@@ -1,7 +1,14 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { main, parseArgs, selectTargets, CliUsageError } from "../src/cli.ts";
+import {
+  main,
+  parseArgs,
+  reconcileLeakedInstances,
+  selectTargets,
+  CliUsageError,
+} from "../src/cli.ts";
 import { BENCHMARK_SHORTLIST } from "../src/offer-filter.ts";
+import type { VastClient } from "../src/vast-client.ts";
 
 describe("cli", () => {
   afterEach(() => {
@@ -55,5 +62,53 @@ describe("cli", () => {
   it("selectTargets throws a clear error for an unknown GPU", () => {
     expect(() => selectTargets(BENCHMARK_SHORTLIST, "NOT_A_REAL_GPU")).toThrow(CliUsageError);
     expect(() => selectTargets(BENCHMARK_SHORTLIST, "NOT_A_REAL_GPU")).toThrow(/NOT_A_REAL_GPU/);
+  });
+});
+
+describe("reconcileLeakedInstances", () => {
+  it("destroys only the gpu-benchmark-labeled instance, never an unrelated one", async () => {
+    const destroyInstance = vi.fn(async (_instanceId: number) => {});
+    const fakeClient: VastClient = {
+      searchOffers: async () => {
+        throw new Error("not used in this test");
+      },
+      createInstance: async () => {
+        throw new Error("not used in this test");
+      },
+      getInstance: async () => {
+        throw new Error("not used in this test");
+      },
+      listInstances: async () => [
+        { instanceId: 111, label: "gpu-benchmark-RTX_4090-1" },
+        { instanceId: 222, label: "someone-elses-unrelated-instance" },
+      ],
+      destroyInstance,
+    };
+
+    await reconcileLeakedInstances(fakeClient);
+
+    expect(destroyInstance).toHaveBeenCalledTimes(1);
+    expect(destroyInstance).toHaveBeenCalledWith(111);
+    expect(destroyInstance).not.toHaveBeenCalledWith(222);
+  });
+
+  it("propagates a destroyInstance failure rather than swallowing it (main's own finally is what logs and moves on)", async () => {
+    const fakeClient: VastClient = {
+      searchOffers: async () => {
+        throw new Error("not used in this test");
+      },
+      createInstance: async () => {
+        throw new Error("not used in this test");
+      },
+      getInstance: async () => {
+        throw new Error("not used in this test");
+      },
+      listInstances: async () => [{ instanceId: 111, label: "gpu-benchmark-RTX_4090-1" }],
+      destroyInstance: async () => {
+        throw new Error("vast.ai request to DELETE /api/v0/instances/111/ failed with status 500");
+      },
+    };
+
+    await expect(reconcileLeakedInstances(fakeClient)).rejects.toThrow(/500/);
   });
 });

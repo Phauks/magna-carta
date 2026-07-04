@@ -34,10 +34,21 @@ export interface VastInstanceStatus {
   readonly sshPort: number | null;
 }
 
+/**
+ * A live vast.ai instance as returned by the instance-list endpoint, reduced to the two fields the
+ * billing-reconciliation sweep needs: its id (to destroy it) and its label (to recognize it as a
+ * benchmark rig regardless of which run created it).
+ */
+export interface VastInstanceSummary {
+  readonly instanceId: number;
+  readonly label: string;
+}
+
 export interface VastClient {
   searchOffers(query: Record<string, unknown>): Promise<VastOffer[]>;
   createInstance(offerId: number, params: CreateInstanceParams): Promise<VastInstanceHandle>;
   getInstance(instanceId: number): Promise<VastInstanceStatus>;
+  listInstances(): Promise<VastInstanceSummary[]>;
   destroyInstance(instanceId: number): Promise<void>;
 }
 
@@ -76,6 +87,7 @@ const vastInstanceWireSchema = z.object({
   actual_status: z.string().nullish(),
   ssh_host: z.string().nullish(),
   ssh_port: z.number().nullish(),
+  label: z.string().nullish(),
 });
 
 const listInstancesResponseSchema = z.object({
@@ -153,6 +165,15 @@ export function createVastClient(apiKey: string, fetchImpl: typeof fetch = fetch
         sshHost: found.ssh_host ?? null,
         sshPort: found.ssh_port ?? null,
       };
+    },
+
+    async listInstances() {
+      const raw = await requestJson("/api/v0/instances/", "GET");
+      const parsed = listInstancesResponseSchema.parse(raw);
+      return parsed.instances.map((instance) => ({
+        instanceId: instance.id,
+        label: instance.label ?? "",
+      }));
     },
 
     async destroyInstance(instanceId) {

@@ -18,6 +18,7 @@ function fakeClient(overrides: Partial<VastClient> = {}): VastClient {
     ]),
     createInstance: vi.fn().mockResolvedValue({ instanceId: 777 }),
     getInstance: vi.fn().mockResolvedValue({ status: "running", sshHost: "h", sshPort: 22 }),
+    listInstances: vi.fn().mockResolvedValue([]),
     destroyInstance: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };

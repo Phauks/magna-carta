@@ -6,7 +6,7 @@ import type { RigProfile } from "./profiles.ts";
 import { upsertProfile } from "./profiles.ts";
 import { benchmarkOneRig } from "./run.ts";
 import { collectViaSsh } from "./ssh-collect.ts";
-import { createVastClient } from "./vast-client.ts";
+import { createVastClient, type VastClient } from "./vast-client.ts";
 
 /**
  * The command each rented instance runs on boot: runs the benchmark script, sending its result to
@@ -94,6 +94,32 @@ async function saveRigProfiles(file: RigProfilesFile): Promise<void> {
   await writeFile(RIG_PROFILES_URL, `${JSON.stringify(file, null, 2)}\n`, "utf8");
 }
 
+/** Every instance `benchmarkOneRig` rents carries this label prefix (see `run.ts`'s `createInstance` call). */
+const BENCHMARK_LABEL_PREFIX = "gpu-benchmark-";
+
+/**
+ * Billing backstop for the window between a rented instance existing on vast.ai's side and its id
+ * reaching `benchmarkOneRig`'s local bookkeeping: if `createInstance`'s response is lost or fails
+ * validation after vast.ai has already provisioned the rig, the instance id never reaches the
+ * `finally` block that would otherwise destroy it, and it bills with nothing local tracking it.
+ *
+ * This sweeps every live vast.ai instance labeled as a benchmark rig and destroys it, independent of
+ * which run (or invocation) created it — the label is deterministic (`gpu-benchmark-<gpuName>-
+ * <gpuCount>`), so any instance carrying it is benchmark spend that should not still be running once
+ * the sweep completes. `destroyInstance` treats a 404 as success, so destroying an instance that
+ * `benchmarkOneRig` already cleaned up itself is harmless.
+ */
+export async function reconcileLeakedInstances(client: VastClient): Promise<void> {
+  const instances = await client.listInstances();
+  for (const instance of instances) {
+    if (!instance.label.startsWith(BENCHMARK_LABEL_PREFIX)) continue;
+    console.log(
+      `reconcile: destroying leaked benchmark instance ${instance.instanceId} (${instance.label})`,
+    );
+    await client.destroyInstance(instance.instanceId);
+  }
+}
+
 /**
  * Drives the benchmark harness end to end: rents and measures every targeted rig shape one at a
  * time, recording each result into the committed rig-profiles table as it lands so a crash partway
@@ -116,27 +142,40 @@ export async function main(argv: string[]): Promise<void> {
 
   let profilesFile = await loadRigProfiles();
 
-  for (const want of targets) {
-    const label = `${want.gpuName} x${want.gpuCount}`;
+  try {
+    for (const want of targets) {
+      const label = `${want.gpuName} x${want.gpuCount}`;
+      try {
+        console.log(`benchmarking ${label}...`);
+        const profile = await benchmarkOneRig({
+          client,
+          collect: collectViaSsh,
+          image,
+          want,
+          now: () => new Date().toISOString(),
+          onstart: BENCHMARK_ONSTART_COMMAND,
+        });
+        profilesFile = {
+          generatedAt: new Date().toISOString(),
+          profiles: upsertProfile(profilesFile.profiles, profile),
+        };
+        await saveRigProfiles(profilesFile);
+        console.log(`recorded ${label}: ${profile.dollarsPerHour}/hr, ${profile.bootSeconds}s boot`);
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error);
+        console.error(`skipping ${label} after failure: ${detail}`);
+      }
+    }
+  } finally {
+    // Runs even if the sweep above throws, and never lets a reconciliation failure crash the
+    // process after profiles are already written — the sweep's own per-rig destroy in `finally`
+    // already handles the common case, so a reconciliation error just means the billing backstop
+    // did not additionally run this time, not that the measured profiles are at risk.
     try {
-      console.log(`benchmarking ${label}...`);
-      const profile = await benchmarkOneRig({
-        client,
-        collect: collectViaSsh,
-        image,
-        want,
-        now: () => new Date().toISOString(),
-        onstart: BENCHMARK_ONSTART_COMMAND,
-      });
-      profilesFile = {
-        generatedAt: new Date().toISOString(),
-        profiles: upsertProfile(profilesFile.profiles, profile),
-      };
-      await saveRigProfiles(profilesFile);
-      console.log(`recorded ${label}: ${profile.dollarsPerHour}/hr, ${profile.bootSeconds}s boot`);
+      await reconcileLeakedInstances(client);
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
-      console.error(`skipping ${label} after failure: ${detail}`);
+      console.error(`reconciliation sweep failed (profiles already written): ${detail}`);
     }
   }
 }
