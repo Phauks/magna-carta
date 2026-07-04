@@ -87,7 +87,11 @@ describe("renderStatusPage", () => {
     expect(html).toMatch(/<div id="subscribe-panel"[^>]*role="dialog"[^>]*hidden/);
     expect(html).toContain('aria-labelledby="subscribe-title"');
     expect(html).toContain("Subscribe to updates");
+    // Both channels, side by side, honestly inert: typing works, the submit stays Soon.
     expect(html).toContain('id="subscribe-email"');
+    expect(html).toMatch(/id="subscribe-phone"[^>]*type="tel"/);
+    expect(html).toContain(">Text messages</label>");
+    expect(html).toContain("Email and text-message updates");
     expect(html).toMatch(/class="subscribe-submit"[^>]*disabled[^>]*title="Subscribe — soon"/);
     expect(html).toContain("not yet wired");
     // Text-size button: a hidden enhancement cycling a rem-based root ladder (the no-JS
@@ -101,11 +105,15 @@ describe("renderStatusPage", () => {
     expect(html.indexOf("Help Desk")).toBeLessThan(bandIndex);
     expect(html.indexOf('class="icon-bell"')).toBeLessThan(bandIndex);
     expect(html).not.toContain("foot-links");
-    // The band is a rounded block with no gold hairline beneath it, and its lamp breathes —
-    // a calm, constant-period, compositor-only pulse, suppressed under reduced motion.
+    // The band is a rounded block with no gold hairline beneath it. The lamp splits into a
+    // perfectly static solid dot and a lighter halo behind it that does the breathing — calm
+    // constant period, compositor-only scale from a shared center, animation suppressed under
+    // reduced motion (static halo).
     expect(html).toContain("border-radius: 8px");
     expect(html).not.toContain(".band::after");
-    expect(html).toContain("lamp-breathe");
+    expect(html).toContain('<span class="lamp-halo"></span><span class="lamp-dot"></span>');
+    expect(html).toContain("halo-breathe");
+    expect(html).not.toContain("lamp-breathe");
     expect(html).toContain("prefers-reduced-motion: reduce");
     // The page's single color key sits on the first component section rule.
     expect(html).toContain('aria-label="Color key"');

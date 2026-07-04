@@ -182,18 +182,24 @@ ${renderSubscribeControl()}
 
 function renderSubscribeControl(): string {
   // The subscribe front door: the bell opens a real panel in its final anatomy, but nothing here
-  // can fake a subscription — the field accepts typing, the submit stays disabled with the
+  // can fake a subscription — both fields accept typing, the submit stays disabled with the
   // hover-Soon treatment, and the note says plainly that delivery arrives with the notifications
-  // machinery. Light-up seam: enable the submit and wire the write when that machinery ships.
-  // The bell (like the other header enhancements) starts hidden and is revealed by the script —
-  // without JavaScript the panel cannot open, and a live-looking dead control would be dishonest.
+  // machinery. Two labeled fields (Email, Text messages) rather than a channel picker: at this
+  // panel size two visible fields read simpler than a choice control, need no interaction logic,
+  // and both channels stay honestly inert side by side. Light-up seam: enable the submit and
+  // wire the write when that machinery ships — the subscribe payload will carry channel + address
+  // (email or phone number). The bell (like the other header enhancements) starts hidden and is
+  // revealed by the script — without JavaScript the panel cannot open, and a live-looking dead
+  // control would be dishonest.
   return `<span class="subscribe-wrap">
 <button type="button" id="subscribe-bell" class="icon-button" hidden aria-haspopup="dialog" aria-expanded="false" aria-controls="subscribe-panel" aria-label="Subscribe to updates" title="Subscribe to updates">${BELL_ICON_SVG}</button>
 <div id="subscribe-panel" class="subscribe-panel" role="dialog" aria-labelledby="subscribe-title" hidden>
 <h2 id="subscribe-title">Subscribe to updates</h2>
-<p class="subscribe-note">Email updates on service events are designed but not yet wired &mdash; delivery arrives with the notifications machinery. More channels may follow.</p>
-<label class="subscribe-label" for="subscribe-email">Email address</label>
-<input id="subscribe-email" class="subscribe-email" type="email" name="email" autocomplete="email" placeholder="you@example.com">
+<p class="subscribe-note">Email and text-message updates on service events are designed but not yet wired &mdash; delivery arrives with the notifications machinery.</p>
+<label class="subscribe-label" for="subscribe-email">Email</label>
+<input id="subscribe-email" class="subscribe-input" type="email" name="email" autocomplete="email" placeholder="you@example.com">
+<label class="subscribe-label" for="subscribe-phone">Text messages</label>
+<input id="subscribe-phone" class="subscribe-input" type="tel" name="phone" autocomplete="tel" placeholder="+1 555 010 0123">
 <span class="dead"><button type="button" class="subscribe-submit" disabled title="Subscribe — soon">Subscribe</button></span>
 </div>
 </span>`;
@@ -219,7 +225,7 @@ function renderVerdictBand(snapshot: PublishedSnapshot): string {
       ? ""
       : `\n<div data-next-check="${escapeHtml(nextCheck)}">Next check by ${formatUtcTime(nextCheck)} UTC</div>`;
   return `<section class="band ${verdict.hue}">
-<span class="lamp" aria-hidden="true"></span>
+<span class="lamp" aria-hidden="true"><span class="lamp-halo"></span><span class="lamp-dot"></span></span>
 <h1>${escapeHtml(verdict.headline)}</h1>
 <div class="sub num"><div class="big">Checked ${formatUtcDateTime(snapshot.generatedAt)}</div>${nextCheckLine}</div>
 </section>`;

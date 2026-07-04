@@ -234,7 +234,7 @@ button.icon-button:not(:disabled):hover { color: var(--text); }
   color: var(--muted);
   margin-bottom: 4px;
 }
-.subscribe-email {
+.subscribe-input {
   width: 100%;
   font: inherit;
   font-size: 0.8125rem;
@@ -269,24 +269,38 @@ button.icon-button:not(:disabled):hover { color: var(--text); }
   flex-wrap: wrap;
   border-radius: 8px;
 }
+/* The lamp splits into a perfectly STATIC solid dot and a lighter halo behind it that does the
+   breathing — a slow, compositor-only scale on the halo, the SAME calm period in every state
+   (the band color already carries severity; a faster red pulse would be alarm fatigue, not
+   information). Both circles share one center: the halo is absolutely positioned behind the dot
+   and scales from its own center, so nothing ever shifts position. */
 .band .lamp {
+  position: relative;
   width: 14px;
   height: 14px;
+  flex: none;
+}
+.band .lamp-dot {
+  position: absolute;
+  inset: 0;
   border-radius: 50%;
   background: #fdfcf8;
-  box-shadow: 0 0 0 4px rgba(253, 252, 248, 0.25);
-  flex: none;
-  /* A slow breath so the page reads as alive, not frozen. Compositor-only (opacity + scale),
-     and the SAME calm period in every state — the band color already carries severity; a
-     faster red pulse would be alarm fatigue, not information. */
-  animation: lamp-breathe 5s ease-in-out infinite;
 }
-@keyframes lamp-breathe {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.6; transform: scale(0.88); }
+.band .lamp-halo {
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  background: rgba(253, 252, 248, 0.25);
+  transform-origin: center;
+  animation: halo-breathe 5s ease-in-out infinite;
+}
+@keyframes halo-breathe {
+  0%, 100% { transform: scale(0.72); }
+  50% { transform: scale(1.15); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .band .lamp { animation: none; }
+  /* A static halo at rest scale — the lamp keeps its ringed anatomy, it just holds still. */
+  .band .lamp-halo { animation: none; transform: scale(0.85); }
 }
 .band h1 { font-size: 1.4375rem; font-weight: 650; }
 .band .sub { margin-left: auto; text-align: right; font-size: 0.75rem; opacity: 0.92; }
