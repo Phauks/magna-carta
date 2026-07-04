@@ -871,9 +871,6 @@ pub(crate) fn apply_excision(
 }
 
 /// Encode a small operation list to content-stream bytes.
-// The caller that swaps `try_build_surgery` over to the byte splice lands next in this
-// feature; until then this is reachable only from its own tests.
-#[allow(dead_code)]
 fn encode_operations(ops: &[lopdf::content::Operation]) -> Option<Vec<u8>> {
     let content = Content { operations: ops.to_vec() };
     content.encode().ok()
@@ -884,9 +881,6 @@ fn encode_operations(ops: &[lopdf::content::Operation]) -> Option<Vec<u8>> {
 /// whole-stream re-encode is never run, so inline images and every untouched operator
 /// stay byte-identical. Returns `None` if the raw tokenization disagrees with
 /// `operations` (a desync) — the caller then falls back to flatten.
-// Same interim note as `encode_operations` above: unused outside tests until the
-// `try_build_surgery` caller is switched over.
-#[allow(dead_code)]
 pub(crate) fn build_byte_splice(
     raw: &[u8],
     operations: &[lopdf::content::Operation],
@@ -1284,16 +1278,18 @@ pub(crate) fn resolve_rotate(doc: &lopdf::Document, page_id: lopdf::ObjectId) ->
 
 /// Attempt to surgically redact `rects` from the content stream of `page_id`.
 ///
-/// Returns `Some(bytes)` when the page's content stream can be decoded,
-/// round-tripped without loss, and re-encoded after excision. Returns `None`
-/// when the page structure prevents reliable surgery — for example when:
-/// - The content stream cannot be decoded or the decode-encode round-trip loses
-///   operations (a sign that lopdf does not faithfully represent the stream).
+/// Returns `Some(bytes)` when the page's content stream can be decoded and its glyphs
+/// enumerated. Whether the stream then round-trips through lopdf whole picks the path:
+/// when it does, the operation list is rewritten and the whole stream re-encoded; when
+/// it does not (e.g. an inline image lopdf cannot faithfully re-encode), the original
+/// bytes are copied and only the edited operators are re-encoded and spliced in, so the
+/// unrepresentable parts pass through byte-identical. Returns `None` when the page
+/// structure prevents reliable surgery either way — for example when:
+/// - The content stream cannot be decoded, or a font/encoding it uses is not supported
+///   by the glyph-position walker.
 /// - The page's MediaBox cannot be resolved from the page tree.
 /// - The page carries a non-zero `/Rotate` value (rotated pages require
 ///   coordinate-frame adjustments that are handled by a flatten fallback).
-/// - A font or encoding encountered in a show operator is not supported by the
-///   glyph-position walker.
 ///
 /// Returning `Some` does not guarantee that all glyphs within `rects` were
 /// removed — an outcome gate in the caller verifies that. This function only
@@ -1303,56 +1299,48 @@ pub(crate) fn try_build_surgery(
     page_id: lopdf::ObjectId,
     rects: &[crate::redact::Rect],
 ) -> Option<Vec<u8>> {
-    // Step 1: obtain the raw content stream bytes for the page.
+    // Obtain and decode the content stream.
     let raw = doc.get_page_content(page_id).ok()?;
-
-    // Step 2: decode the content stream into a structured operation list.
     let content = lopdf::content::Content::decode(&raw).ok()?;
 
-    // Step 3: round-trip guard — re-encode and decode back; if the operation
-    // count differs, lopdf cannot faithfully represent this stream and we
-    // must fall back to flatten rather than risk silent data loss.
-    let encoded_check = content.encode().ok()?;
-    let operation_count_after_roundtrip = lopdf::content::Content::decode(&encoded_check)
-        .ok()?
-        .operations
-        .len();
-    if operation_count_after_roundtrip != content.operations.len() {
-        return None;
-    }
-
-    // Step 4: resolve per-page font metrics.
+    // Resolve page geometry and fonts.
     let fonts = page_fonts(doc, page_id);
-
-    // Step 5: resolve the MediaBox to build the initial CTM.
-    // The redaction Rect frame has the page's lower-left at (0, 0). When the
-    // MediaBox lower-left is not at the origin (llx != 0 or lly != 0) we seed
-    // the CTM with a translation that maps the MediaBox lower-left to (0, 0).
     let [llx, lly, _urx, _ury] = resolve_mediabox(doc, page_id)?;
     let initial_ctm = kurbo::Affine::translate((-llx as f64, -lly as f64));
 
-    // Step 6: check page rotation. Non-zero rotations require a coordinate-frame
-    // adjustment that is not handled here; those pages fall back to flatten.
-    let rotate_raw = resolve_rotate(doc, page_id);
-    let rotate_normalized = rotate_raw.rem_euclid(360);
-    if rotate_normalized != 0 {
+    // Non-zero rotation needs a coordinate-frame adjustment not handled here.
+    if resolve_rotate(doc, page_id).rem_euclid(360) != 0 {
         return None;
     }
 
-    // Step 7: enumerate glyph positions.
+    // Locate glyphs and mark those inside the rectangles. This runs before the
+    // round-trip guard: a stream lopdf cannot re-encode (inline images) may still have
+    // perfectly analyzable text, and the byte-path below rewrites it without a re-encode.
     let slots = enumerate_page_glyphs(&content, &fonts, initial_ctm).ok()?;
-
-    // Step 8: find which glyphs fall inside the redaction rectangles.
     let marked = mark_in_rects(&slots, rects);
 
-    // Step 9: rewrite the content stream, dropping marked glyphs and appending
-    // black fill boxes for each rectangle.
-    let mut edited = content;
-    apply_excision(&mut edited, &slots, &marked, &fonts, rects);
+    // Round-trip guard: can lopdf faithfully re-encode this whole stream? A re-encode
+    // that fails to re-decode counts as "does not round-trip", same as a differing
+    // operation count — both mean lopdf cannot faithfully represent this stream whole.
+    let roundtrips = content
+        .encode()
+        .ok()
+        .and_then(|enc| lopdf::content::Content::decode(&enc).ok())
+        .map(|c| c.operations.len() == content.operations.len())
+        .unwrap_or(false);
 
-    // Step 10: encode the edited stream back to bytes.
-    let out = edited.encode().ok()?;
-    Some(out)
+    if roundtrips {
+        // Op-path: rewrite the operation list and re-encode the whole stream.
+        let mut edited = content;
+        apply_excision(&mut edited, &slots, &marked, &fonts, rects);
+        edited.encode().ok()
+    } else {
+        // Byte-path: copy the original bytes and re-encode only the edited operators,
+        // so inline images and exotic constructs pass through byte-identical.
+        let replacements = op_replacements(&content, &slots, &marked, &fonts);
+        let boxes = fill_box_operations(rects);
+        build_byte_splice(&raw, &content.operations, &replacements, &boxes)
+    }
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -2389,5 +2377,33 @@ mod tests {
         );
 
         lopdf::content::Content::decode(&out).expect("spliced stream must decode");
+    }
+
+    #[test]
+    fn inline_image_page_surgers_via_byte_path() {
+        // The same inline-image page as the byte-splice test above, end-to-end through
+        // try_build_surgery. Previously this flattened (round-trip guard); now it must
+        // return Some via the byte-path branch.
+        let raw: &[u8] =
+            b"BT /F1 12 Tf 0 0 Td (Hello) Tj ET\nq BI /W 2 /H 2 /CS /Weird /BPC 8 ID \x01\x02\x03\x04 EI Q";
+        let (doc, page_id) = crate::surgery::tests::doc_with_content(raw, "Helvetica");
+
+        // Confirm the round-trip guard would have tripped (precondition for the byte-path).
+        // This fixture's re-encoded bytes fail to re-decode outright (not merely a
+        // differing operation count), so the check below mirrors the guard's own
+        // decode-failure-counts-as-no-round-trip logic rather than unwrapping the re-decode.
+        let content = lopdf::content::Content::decode(raw).unwrap();
+        let roundtrips = content
+            .encode()
+            .ok()
+            .and_then(|enc| lopdf::content::Content::decode(&enc).ok())
+            .map(|c| c.operations.len() == content.operations.len())
+            .unwrap_or(false);
+        assert!(!roundtrips, "guard must trip for this fixture");
+
+        let rects = [Rect { x0: -1.0, y0: -1.0, x1: 1000.0, y1: 1000.0 }];
+        let out = try_build_surgery(&doc, page_id, &rects).expect("byte-path must surger");
+        assert!(out.windows(4).any(|w| w == b"\x01\x02\x03\x04"), "inline image preserved");
+        assert!(!out.windows(5).any(|w| w == b"Hello"), "text removed");
     }
 }

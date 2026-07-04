@@ -9,11 +9,6 @@
 //! inline-image dict, which lopdf's stricter grammar fails but this maximal-munch reader
 //! accepts — this tokenizer may still return `Some`; that output never reaches the
 //! splicer, which runs only after a successful decode.
-//!
-//! The stream rewriter that consumes these tokens is built next in this feature; until
-//! that lands the whole module is reachable only from its own tests, so the unused
-//! warnings it would otherwise raise are silenced here rather than item by item.
-#![allow(dead_code)]
 
 /// One operator invocation located in a raw content stream.
 #[derive(Debug, Clone)]
