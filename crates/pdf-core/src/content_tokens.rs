@@ -1,8 +1,14 @@
 //! A raw content-stream tokenizer: locate each operator invocation and its byte span
 //! without decoding operand values. It exists so surgery can rewrite a stream by
 //! splicing only the operators it edits and copying every other byte verbatim —
-//! inline images and exotic constructs never pass through a re-encode. Token order and
-//! count match `lopdf::content::Content::decode` so the two can be zipped by index.
+//! inline images and exotic constructs never pass through a re-encode. For any stream
+//! `lopdf::content::Content::decode` accepts, this emits tokens in the same order and
+//! count, so the two can be zipped by index. The consumer must gate on a successful
+//! `Content::decode` first and reject on any count/name mismatch before trusting a span
+//! (the splicer does both). On input lopdf REJECTS — e.g. a malformed numeric in an
+//! inline-image dict, which lopdf's stricter grammar fails but this maximal-munch reader
+//! accepts — this tokenizer may still return `Some`; that output never reaches the
+//! splicer, which runs only after a successful decode.
 //!
 //! The stream rewriter that consumes these tokens is built next in this feature; until
 //! that lands the whole module is reachable only from its own tests, so the unused
