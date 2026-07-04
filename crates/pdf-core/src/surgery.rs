@@ -851,12 +851,39 @@ pub(crate) fn apply_excision(
         return;
     }
 
+    let replacements = op_replacements(content, slots, marked, fonts);
+
+    // Rebuild content.operations, splicing in the replacement ops (T* + TJ) for
+    // each affected operation and keeping everything else as-is.
+    let original_operations = std::mem::take(&mut content.operations);
+    let mut new_operations: Vec<lopdf::content::Operation> =
+        Vec::with_capacity(original_operations.len() + replacements.len());
+
+    for (op_index, op) in original_operations.into_iter().enumerate() {
+        match replacements.get(&op_index) {
+            Some(repl) => new_operations.extend(repl.iter().cloned()),
+            None => new_operations.push(op),
+        }
+    }
+
+    new_operations.extend(fill_box_operations(rects));
+    content.operations = new_operations;
+}
+
+/// For each text-show operation containing a marked glyph, the operations that replace
+/// it: a rebuilt `TJ` (marked glyphs dropped, each contiguous dropped run collapsed to a
+/// numeric advance-compensation so following glyphs keep position), preceded by a `T*`
+/// when the original operator was `'` or `"` (whose implicit line-advance must be preserved).
+pub(crate) fn op_replacements(
+    content: &Content,
+    slots: &[GlyphSlot],
+    marked: &[usize],
+    fonts: &BTreeMap<Vec<u8>, FontMetrics>,
+) -> BTreeMap<usize, Vec<lopdf::content::Operation>> {
     // Build a set of marked slot indices for O(log n) lookup.
     let marked_set: BTreeSet<usize> = marked.iter().copied().collect();
 
-    // Group marked slot indices by (op_index, elem_index) so we know which
-    // operations need rewriting and which string elements within them are affected.
-    // key = op_index; value = set of slot indices belonging to that operation.
+    // Group marked slot indices by op_index so we know which operations need rewriting.
     let mut ops_with_marked: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
     for &slot_index in marked {
         let op_index = slots[slot_index].op;
@@ -868,7 +895,7 @@ pub(crate) fn apply_excision(
 
     // Collect all slots for each affected operation (including non-marked ones in
     // the same operand, so we know what to keep).
-    let mut rewrite_map: BTreeMap<usize, OpRewrite> = BTreeMap::new();
+    let mut replacements: BTreeMap<usize, Vec<lopdf::content::Operation>> = BTreeMap::new();
     for &op_index in ops_with_marked.keys() {
         // Gather all slots that belong to this op_index.
         let all_slots_for_op: Vec<usize> = slots
@@ -901,80 +928,56 @@ pub(crate) fn apply_excision(
             _ => (None, None),
         };
 
-        rewrite_map.insert(
-            op_index,
-            OpRewrite {
-                all_slots: all_slots_for_op,
-                original_operator,
-                original_array,
-                single_string_bytes,
-            },
-        );
-    }
-
-    // Now rebuild content.operations, inserting T* before rewrites of '/'" ops.
-    let original_operations = std::mem::take(&mut content.operations);
-    let mut new_operations: Vec<lopdf::content::Operation> = Vec::with_capacity(
-        original_operations.len() + rewrite_map.len(), // at most one T* per '/" op
-    );
-
-    for (op_index, op) in original_operations.into_iter().enumerate() {
-        let Some(rewrite) = rewrite_map.get(&op_index) else {
-            // Not an op we need to rewrite; keep as-is.
-            new_operations.push(op);
-            continue;
+        let rewrite = OpRewrite {
+            all_slots: all_slots_for_op,
+            original_operator: original_operator.clone(),
+            original_array,
+            single_string_bytes,
         };
+        let rebuilt_array = rebuild_tj_array(&rewrite, slots, &marked_set, fonts);
 
-        // If the original operator was ' or ", emit T* first to carry the line advance.
-        if rewrite.original_operator == "'" || rewrite.original_operator == "\"" {
-            new_operations.push(lopdf::content::Operation::new("T*", vec![]));
+        let mut ops = Vec::new();
+        if original_operator == "'" || original_operator == "\"" {
+            // Emit T* first to carry the line advance the original operator implied.
+            ops.push(lopdf::content::Operation::new("T*", vec![]));
         }
-
-        // Rebuild the TJ array for this operation.
-        let rebuilt_array = rebuild_tj_array(rewrite, slots, &marked_set, fonts);
-
-        new_operations.push(lopdf::content::Operation::new(
+        ops.push(lopdf::content::Operation::new(
             "TJ",
             vec![Object::Array(rebuilt_array)],
         ));
+        replacements.insert(op_index, ops);
     }
+    replacements
+}
 
-    content.operations = new_operations;
-
-    // Append one opaque black redaction box per rect.
-    // Normalise corners before computing width/height so the rectangle is always
-    // drawn with positive dimensions, regardless of caller-supplied corner order.
+/// One opaque black redaction box per rect, as `q rg re f Q` operations in page space.
+/// Corners are normalised so width/height are positive regardless of caller order.
+pub(crate) fn fill_box_operations(rects: &[Rect]) -> Vec<lopdf::content::Operation> {
+    let mut ops = Vec::new();
     for rect in rects {
         let x0 = rect.x0.min(rect.x1);
         let y0 = rect.y0.min(rect.y1);
         let x1 = rect.x0.max(rect.x1);
         let y1 = rect.y0.max(rect.y1);
-        let width = x1 - x0;
-        let height = y1 - y0;
 
-        content
-            .operations
-            .push(lopdf::content::Operation::new("q", vec![]));
-        content.operations.push(lopdf::content::Operation::new(
+        ops.push(lopdf::content::Operation::new("q", vec![]));
+        ops.push(lopdf::content::Operation::new(
             "rg",
             vec![Object::Integer(0), Object::Integer(0), Object::Integer(0)],
         ));
-        content.operations.push(lopdf::content::Operation::new(
+        ops.push(lopdf::content::Operation::new(
             "re",
             vec![
                 Object::Real(x0),
                 Object::Real(y0),
-                Object::Real(width),
-                Object::Real(height),
+                Object::Real(x1 - x0),
+                Object::Real(y1 - y0),
             ],
         ));
-        content
-            .operations
-            .push(lopdf::content::Operation::new("f", vec![]));
-        content
-            .operations
-            .push(lopdf::content::Operation::new("Q", vec![]));
+        ops.push(lopdf::content::Operation::new("f", vec![]));
+        ops.push(lopdf::content::Operation::new("Q", vec![]));
     }
+    ops
 }
 
 /// Rebuild the TJ array for one affected operation.
@@ -1771,6 +1774,55 @@ mod tests {
             );
         } else {
             panic!("expected TJ array operand");
+        }
+    }
+
+    #[test]
+    fn op_replacements_and_boxes_match_apply_excision() {
+        // Building a Content two ways — via the factored helpers vs. apply_excision —
+        // must yield identical operations. This pins that the refactor is behavior-preserving.
+        let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/fixtures/surgery_simple.pdf");
+        let doc = lopdf::Document::load(&fixture).unwrap();
+        let page_id = *doc.get_pages().values().next().unwrap();
+        let raw = doc.get_page_content(page_id).unwrap();
+        let content = lopdf::content::Content::decode(&raw).unwrap();
+        let fonts = page_fonts(&doc, page_id);
+        let [llx, lly, _, _] = resolve_mediabox(&doc, page_id).unwrap();
+        let slots = enumerate_page_glyphs(
+            &content,
+            &fonts,
+            kurbo::Affine::translate((-llx as f64, -lly as f64)),
+        )
+        .unwrap();
+        let rects = [Rect {
+            x0: 0.0,
+            y0: 0.0,
+            x1: 200.0,
+            y1: 50.0,
+        }];
+        let marked = mark_in_rects(&slots, &rects);
+
+        // Path A: apply_excision on a clone.
+        let mut via_excision = content.clone();
+        apply_excision(&mut via_excision, &slots, &marked, &fonts, &rects);
+
+        // Path B: rebuild from the factored helpers.
+        let replacements = op_replacements(&content, &slots, &marked, &fonts);
+        let mut rebuilt = Vec::new();
+        for (idx, op) in content.operations.iter().enumerate() {
+            if let Some(repl) = replacements.get(&idx) {
+                rebuilt.extend(repl.iter().cloned());
+            } else {
+                rebuilt.push(op.clone());
+            }
+        }
+        rebuilt.extend(fill_box_operations(&rects));
+
+        assert_eq!(via_excision.operations.len(), rebuilt.len());
+        for (a, b) in via_excision.operations.iter().zip(rebuilt.iter()) {
+            assert_eq!(a.operator, b.operator);
+            assert_eq!(a.operands, b.operands);
         }
     }
 
