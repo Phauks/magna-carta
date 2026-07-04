@@ -35,7 +35,7 @@ const MINIMUM_HOST_RELIABILITY = 0.95;
 const MAX_OFFER_ATTEMPTS = 3;
 
 /** Bounded polling for the rented instance to report `running`: attempts * interval is the boot-timeout ceiling. */
-const MAX_POLL_ATTEMPTS = 60;
+const MAX_POLL_ATTEMPTS = 90;
 const POLL_INTERVAL_MILLISECONDS = 5000;
 
 /** Thrown when no marketplace offer matches the wanted rig shape at the reliability floor. Nothing is rented. */
@@ -74,19 +74,22 @@ function sleep(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
-async function pollUntilRunning(
-  client: VastClient,
-  instanceId: number,
-): Promise<{ sshHost: string; sshPort: number }> {
+// Only a status message that names a concrete runtime error is a real boot failure. The normal
+// boot path reports benign progress messages like "Pulling from <image>", "Downloading",
+// "Extracting", and "Successfully loaded <image>" while a multi-gigabyte GPU image is fetched —
+// those are NOT failures and must not abort the rig (a real container failure reads e.g. "Error
+// response from daemon: failed to create task ... OCI runtime create failed ... unable to start").
+const BOOT_ERROR_PATTERN = /error|oci runtime|failed to create|unable to start|cannot start|no space/i;
+
+async function pollUntilRunning(client: VastClient, instanceId: number): Promise<void> {
   for (let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt++) {
     const status = await client.getInstance(instanceId);
-    if (status.status === "running" && status.sshHost !== null && status.sshPort !== null) {
-      return { sshHost: status.sshHost, sshPort: status.sshPort };
+    // The result is collected over vast.ai's logs API, not SSH, so reaching `running` is the only
+    // success condition — the ssh host/port are irrelevant here.
+    if (status.status === "running") {
+      return;
     }
-    if (status.status !== "running" && status.statusMsg !== null && status.statusMsg !== "") {
-      // A non-running status paired with a status message is vast.ai reporting a concrete
-      // failure (e.g. a container runtime error) rather than an in-progress boot — fail fast
-      // instead of burning the whole poll budget on a rig that will never come up.
+    if (status.statusMsg !== null && BOOT_ERROR_PATTERN.test(status.statusMsg)) {
       throw new InstanceFailedError(
         `instance ${instanceId} failed to boot: ${status.status} — ${status.statusMsg}`,
       );
