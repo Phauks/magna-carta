@@ -1,0 +1,607 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Direction B2 — The Instrument Panel, centered measure</title>
+    <style>
+      /* Direction B refined per owner reaction: everything lives in a centered content column
+         (~920px measure, generous gutters), density loosened a step.
+
+         Judgment call — verdict band: shipped the FULLY-CONSTRAINED band (color block inside the
+         column, not a full-bleed tint). Tried constrained first as directed and kept it: with the
+         page now breathing on open paper, a full-bleed band re-created exactly the edge-to-edge
+         density the owner flagged, and the constrained band is still by far the largest colored
+         object on the page — the one-second read survives intact.
+
+         Judgment call — component layout: single-column list rows (GitHub's treatment), not a
+         wider-gapped two-column. At a 920px measure two columns still pinch the 90-day bars to
+         ~420px; a single column gives every bar the full measure (more day-resolution, more
+         prominence) and the airier rhythm the owner asked for. Rows are hairline-separated list
+         rows rather than boxed cards — one card outline per component read as clutter at this
+         density; the live-incident card keeps its box so an active event still pops.
+
+         Palette approximated from the design lab; production uses design-system tokens.
+         Self-contained mockup: fonts fall back to system stacks. */
+      :root {
+        --paper: #faf9f5;
+        --card: #ffffff;
+        --sunken: #f2f0ea;
+        --text: #22211c;
+        --muted: #5d5a50;
+        --subtle: #8b877a;
+
+        --gold: #c7a857;
+        --gold-deep: #8a7434;
+        --gold-wash: #fbf6e9;
+
+        --hair: rgba(35, 33, 26, 0.13);
+        --hair-strong: rgba(35, 33, 26, 0.26);
+
+        --ok-fg: #3d6b4f;
+        --ok-bg: #eaf2ec;
+        --ok-band: #41724f;
+        --warn-fg: #8a6a2f;
+        --warn-bg: #f7efdc;
+        --warn-band: #9a763a;
+        --danger-fg: #8f3d33;
+        --danger-bg: #f7e7e3;
+        --danger-band: #93483d;
+        --neutral-fg: #5d5a50;
+        --neutral-bg: #eeede7;
+
+        --serif: "Fraunces", Georgia, "Times New Roman", serif;
+        --sans: "Atkinson Hyperlegible Next", system-ui, -apple-system, sans-serif;
+        --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+      }
+      * { margin: 0; box-sizing: border-box; }
+      body {
+        font-family: var(--sans);
+        font-size: 14px;
+        line-height: 1.5;
+        color: var(--text);
+        background: var(--paper);
+      }
+      a { color: inherit; }
+      .caps {
+        font-size: 11px;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        font-weight: 600;
+      }
+      .num { font-variant-numeric: tabular-nums; }
+
+      /* the centered measure — the genre norm */
+      .col {
+        max-width: 920px;
+        margin: 0 auto;
+        padding-left: 36px;
+        padding-right: 36px;
+      }
+
+      /* ————— lab scaffolding (not part of the design) ————— */
+      .lab-note {
+        max-width: 920px;
+        margin: 18px auto 0;
+        padding: 10px 14px;
+        border: 1px dashed var(--hair-strong);
+        color: var(--muted);
+        font-size: 12px;
+        background: var(--sunken);
+      }
+      .lab-note b { color: var(--text); }
+      .lab-note a { margin-right: 10px; }
+      .state-label {
+        max-width: 920px;
+        margin: 44px auto 0;
+        padding: 0 0 10px;
+        color: var(--muted);
+        font-size: 11px;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        font-weight: 600;
+        border-bottom: 3px double var(--hair-strong);
+      }
+      .state-section { padding-bottom: 34px; border-bottom: 1px solid var(--hair); }
+
+      /* ————— top bar (quiet brand, aligned to the column) ————— */
+      .topbar {
+        border-bottom: 1px solid var(--hair);
+        margin-bottom: 26px;
+      }
+      .topbar .col {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding-top: 16px;
+        padding-bottom: 16px;
+      }
+      .topbar .m {
+        font-family: var(--serif);
+        font-weight: 700;
+        font-size: 18px;
+        color: var(--gold-deep);
+        line-height: 1;
+      }
+      .topbar .word { font-size: 11.5px; letter-spacing: 0.18em; font-weight: 600; }
+      .topbar .surface { color: var(--subtle); margin-left: 2px; }
+      .topbar .right { margin-left: auto; display: flex; gap: 18px; font-size: 12px; color: var(--muted); }
+      .topbar .right a { text-decoration: none; }
+      .topbar .right a:hover { color: var(--text); }
+
+      /* ————— the verdict band — constrained to the column ————— */
+      .band {
+        color: #fdfcf8;
+        padding: 24px 26px;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        position: relative;
+        margin-bottom: 28px;
+      }
+      .band .lamp {
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: #fdfcf8;
+        box-shadow: 0 0 0 4px rgba(253, 252, 248, 0.25);
+        flex: none;
+      }
+      .band h1 { font-size: 23px; font-weight: 650; letter-spacing: 0.002em; }
+      .band .sub { margin-left: auto; text-align: right; font-size: 12px; opacity: 0.92; }
+      .band .sub .big { font-size: 13px; font-weight: 600; }
+      .band.ok { background: var(--ok-band); }
+      .band.warn { background: var(--warn-band); }
+      .band.danger { background: var(--danger-band); }
+      .band.gilt { background: var(--gold-deep); }
+      /* the one gilt moment: a hairline of gold beneath the band */
+      .band::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: -3px;
+        height: 2px;
+        background: var(--gold);
+      }
+
+      .stale-strip {
+        background: var(--neutral-bg);
+        color: var(--neutral-fg);
+        border: 1px solid var(--hair);
+        border-top: 0;
+        padding: 8px 26px;
+        font-size: 12px;
+        margin: -28px 0 28px;
+      }
+      .stale-strip b { font-weight: 600; }
+
+      /* ————— component list: single-column, hairline rows ————— */
+      .group-head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        margin: 26px 0 0;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--hair-strong);
+      }
+      .group-head .caps { color: var(--muted); }
+      .group-head .legend { display: flex; gap: 14px; font-size: 11px; color: var(--subtle); align-items: center; flex-wrap: wrap; }
+      .legend .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; vertical-align: 1px; }
+
+      .row {
+        padding: 15px 0 14px;
+        border-bottom: 1px solid var(--hair);
+      }
+      .row .line { display: flex; align-items: center; gap: 10px; }
+      .row .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+      .row .name { font-weight: 600; }
+      .row .st { margin-left: auto; font-size: 11px; letter-spacing: 0.09em; text-transform: uppercase; font-weight: 600; }
+      .row .note { color: var(--muted); font-size: 12.5px; margin: 5px 0 0 19px; }
+      .ok-r .dot { background: var(--ok-fg); }
+      .ok-r .st { color: var(--ok-fg); }
+      .warn-r .dot { background: var(--warn-fg); }
+      .warn-r .st { color: var(--warn-fg); }
+      .warn-r .note { border-left: 2px solid var(--warn-fg); padding-left: 10px; margin-left: 19px; }
+      .danger-r .dot { background: var(--danger-fg); }
+      .danger-r .st { color: var(--danger-fg); }
+      .danger-r .note { border-left: 2px solid var(--danger-fg); padding-left: 10px; margin-left: 19px; }
+      .gilt-r .dot { background: var(--gold-deep); }
+      .gilt-r .st { color: var(--gold-deep); }
+      .gilt-r .note { border-left: 2px solid var(--gold); padding-left: 10px; margin-left: 19px; }
+
+      /* 90-day bars at full measure (data seam: no history store yet — see NOTES.md) */
+      .bar {
+        position: relative;
+        height: 28px;
+        margin: 10px 0 0 19px;
+        background: repeating-linear-gradient(90deg, #cfe0d4 0 5px, transparent 5px 9px);
+      }
+      .bar i { position: absolute; top: 0; bottom: 0; width: 5px; }
+      .bar i.warn { background: var(--warn-fg); }
+      .bar i.danger { background: var(--danger-fg); }
+      .bar i.gilt { background: var(--gold); }
+      .bar-cap { display: flex; justify-content: space-between; color: var(--subtle); font-size: 11px; margin: 5px 0 0 19px; }
+      .bar-cap .pct { color: var(--muted); font-weight: 600; }
+
+      /* ————— live incident card (only when an event is active) ————— */
+      .live {
+        border: 1px solid var(--hair-strong);
+        border-left: 3px solid var(--warn-fg);
+        background: var(--card);
+        padding: 18px 20px;
+        margin-bottom: 6px;
+      }
+      .live.danger { border-left-color: var(--danger-fg); }
+      .live.gilt { border-left-color: var(--gold); }
+      .live h2 { font-size: 16.5px; font-weight: 650; margin-bottom: 4px; }
+      .live .meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+      .chip {
+        font-size: 10.5px;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        font-weight: 600;
+        padding: 2px 8px;
+        border: 1px solid var(--hair-strong);
+        color: var(--muted);
+        background: var(--paper);
+      }
+      .chip.warn { border-color: var(--warn-fg); color: var(--warn-fg); background: var(--warn-bg); }
+      .chip.danger { border-color: var(--danger-fg); color: var(--danger-fg); background: var(--danger-bg); }
+      .chip.gilt { border-color: var(--gold-deep); color: var(--gold-deep); background: var(--gold-wash); }
+      .chip.ok { border-color: var(--ok-fg); color: var(--ok-fg); background: var(--ok-bg); }
+      .live .affected { color: var(--subtle); font-size: 12px; }
+      .update { display: grid; grid-template-columns: 88px 104px 1fr; gap: 12px; padding: 8px 0; }
+      .update + .update { border-top: 1px solid var(--hair); }
+      .update .t { font-family: var(--mono); font-size: 12px; color: var(--muted); padding-top: 1px; }
+      .update .phase { padding-top: 2px; color: var(--muted); }
+
+      /* ————— providers ————— */
+      .providers { display: flex; gap: 10px; flex-wrap: wrap; margin: 14px 0 4px; }
+      .prov {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid var(--hair);
+        background: var(--card);
+        padding: 8px 13px;
+        font-size: 12.5px;
+      }
+      .prov .dot { width: 8px; height: 8px; border-radius: 50%; }
+      .prov.ok .dot { background: var(--ok-fg); }
+      .prov.neutral .dot { background: var(--subtle); }
+      .prov .st { color: var(--muted); }
+      .prov-note { color: var(--subtle); font-size: 12px; margin-top: 8px; }
+
+      /* ————— history ————— */
+      h2.section { font-size: 15px; font-weight: 650; margin: 34px 0 2px; }
+      .section-sub { color: var(--subtle); font-size: 12px; margin-bottom: 12px; }
+      .day { border-top: 1px solid var(--hair); padding: 12px 0; }
+      .day .d { color: var(--muted); font-weight: 600; font-size: 12.5px; margin-bottom: 6px; }
+      .day .none { color: var(--subtle); font-size: 12.5px; }
+      .day .hist { background: var(--card); border: 1px solid var(--hair); padding: 14px 16px; }
+      .day .hist h3 { font-size: 14px; font-weight: 650; margin-bottom: 4px; }
+      .day .hist .meta { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; flex-wrap: wrap; }
+      .day .hist .affected { color: var(--subtle); font-size: 12px; }
+
+      /* ————— footer ————— */
+      .foot {
+        border-top: 1px solid var(--hair-strong);
+        margin-top: 30px;
+        padding-top: 16px;
+        color: var(--muted);
+        font-size: 12.5px;
+        display: flex;
+        justify-content: space-between;
+        gap: 24px;
+        flex-wrap: wrap;
+      }
+      .foot .notice { max-width: 540px; }
+      .foot .subscribe { text-align: right; }
+      .foot .subscribe .caps { color: var(--gold-deep); display: block; margin-bottom: 4px; }
+      .foot .subscribe .soon { color: var(--subtle); font-size: 11px; }
+
+      .continues { color: var(--subtle); font-size: 12px; margin-top: 18px; }
+    </style>
+  </head>
+  <body>
+    <div class="lab-note">
+      <b>Direction B2 — The Instrument Panel, centered measure.</b> Direction B with everything in
+      a centered ~920px column, single-column component rows at full-measure bar width, density
+      loosened a step. The verdict band is fully constrained to the column (rationale in the CSS
+      comment at the top of this file). States:
+      <a href="#b2-operational">operational</a> <a href="#b2-degraded">degraded</a>
+      <a href="#b2-outage">major outage</a> <a href="#b2-maintenance">maintenance</a>.
+      The 90-day bars remain a design seam — the feed carries no history yet (NOTES.md).
+      All data below is representative fake data.
+    </div>
+
+    <!-- ==================================================================== -->
+    <div class="state-label" id="b2-operational">State 1 of 4 — Operational (steady state, full anatomy)</div>
+    <div class="state-section">
+      <header class="topbar">
+        <div class="col">
+          <span class="m">M</span>
+          <span class="word">MAGNA CARTA</span>
+          <span class="caps surface">Status</span>
+          <span class="right"><a href="#">status.json</a><a href="#">Back to the application</a></span>
+        </div>
+      </header>
+
+      <div class="col">
+        <section class="band ok">
+          <span class="lamp"></span>
+          <h1>All systems operational</h1>
+          <div class="sub num">
+            <div class="big">Checked 3 July 2026, 14:20 UTC</div>
+            <div>Reviewed every 10 minutes · page refreshes every 30 seconds</div>
+          </div>
+        </section>
+
+        <div class="group-head">
+          <span class="caps">Core services</span>
+          <span class="legend">
+            <span><span class="dot" style="background: var(--ok-fg)"></span>Operational</span>
+            <span><span class="dot" style="background: var(--warn-fg)"></span>Degraded</span>
+            <span><span class="dot" style="background: var(--danger-fg)"></span>Outage</span>
+            <span><span class="dot" style="background: var(--gold-deep)"></span>Maintenance</span>
+          </span>
+        </div>
+        <div class="row ok-r">
+          <div class="line"><span class="dot"></span><span class="name">Application API</span><span class="st">Operational</span></div>
+          <div class="bar"></div>
+          <div class="bar-cap num"><span>90 days ago</span><span class="pct">100.00%</span><span>today</span></div>
+        </div>
+        <div class="row ok-r">
+          <div class="line"><span class="dot"></span><span class="name">Control-plane database</span><span class="st">Operational</span></div>
+          <div class="bar"><i class="warn" style="left: 31%"></i></div>
+          <div class="bar-cap num"><span>90 days ago</span><span class="pct">99.97%</span><span>today</span></div>
+        </div>
+        <div class="row ok-r">
+          <div class="line"><span class="dot"></span><span class="name">Object storage</span><span class="st">Operational</span></div>
+          <div class="bar"></div>
+          <div class="bar-cap num"><span>90 days ago</span><span class="pct">100.00%</span><span>today</span></div>
+        </div>
+        <div class="row ok-r">
+          <div class="line"><span class="dot"></span><span class="name">Status store</span><span class="st">Operational</span></div>
+          <div class="bar"></div>
+          <div class="bar-cap num"><span>90 days ago</span><span class="pct">100.00%</span><span>today</span></div>
+        </div>
+
+        <div class="group-head"><span class="caps">Document &amp; analysis engines</span></div>
+        <div class="row ok-r">
+          <div class="line"><span class="dot"></span><span class="name">Document editing</span><span class="st">Operational</span></div>
+          <div class="bar"><i class="danger" style="left: 64%"></i><i class="warn" style="left: 65%"></i></div>
+          <div class="bar-cap num"><span>90 days ago</span><span class="pct">99.89%</span><span>today</span></div>
+        </div>
+        <div class="row ok-r">
+          <div class="line"><span class="dot"></span><span class="name">Document conversion</span><span class="st">Operational</span></div>
+          <div class="bar"></div>
+          <div class="bar-cap num"><span>90 days ago</span><span class="pct">100.00%</span><span>today</span></div>
+        </div>
+        <div class="row ok-r">
+          <div class="line"><span class="dot"></span><span class="name">Search indexing</span><span class="st">Operational</span></div>
+          <div class="bar"></div>
+          <div class="bar-cap num"><span>90 days ago</span><span class="pct">100.00%</span><span>today</span></div>
+        </div>
+        <div class="row ok-r">
+          <div class="line"><span class="dot"></span><span class="name">OCR</span><span class="st">Operational</span></div>
+          <div class="bar"></div>
+          <div class="bar-cap num"><span>90 days ago</span><span class="pct">100.00%</span><span>today</span></div>
+        </div>
+        <div class="row ok-r">
+          <div class="line"><span class="dot"></span><span class="name">Malware scanning</span><span class="st">Operational</span></div>
+          <div class="bar"><i class="gilt" style="left: 88%"></i></div>
+          <div class="bar-cap num"><span>90 days ago</span><span class="pct">99.98%</span><span>today</span></div>
+        </div>
+
+        <div class="group-head"><span class="caps">Upstream providers</span></div>
+        <div class="providers">
+          <span class="prov ok"><span class="dot"></span>Cloudflare <span class="st">Operational</span></span>
+          <span class="prov neutral"><span class="dot"></span>GitHub <span class="st">Status unavailable</span></span>
+        </div>
+        <p class="prov-note">"Status unavailable" means the provider's own feed could not be reached; it never counts against this platform.</p>
+
+        <h2 class="section">Past service events</h2>
+        <p class="section-sub">Last 14 days · updates newest first · times UTC</p>
+        <div class="day"><div class="d">3 July – 29 June 2026</div><div class="none">No events recorded.</div></div>
+        <div class="day">
+          <div class="d">28 June 2026</div>
+          <div class="hist">
+            <h3>Document editing sessions were slow to open</h3>
+            <div class="meta">
+              <span class="chip ok">Resolved</span>
+              <span class="chip">Minor impact</span>
+              <span class="affected">Affected: Document editing</span>
+            </div>
+            <div class="update"><span class="t num">16:42</span><span class="phase caps">Resolved</span><span>Session start times returned to normal and held for thirty minutes.</span></div>
+            <div class="update"><span class="t num">16:10</span><span class="phase caps">Monitoring</span><span>A fix is in place; new editing sessions are opening promptly.</span></div>
+            <div class="update"><span class="t num">15:31</span><span class="phase caps">Identified</span><span>Editing containers were starting slowly after a platform update. Remedy in progress.</span></div>
+            <div class="update"><span class="t num">15:07</span><span class="phase caps">Investigating</span><span>Some documents are taking longer than usual to open for editing.</span></div>
+          </div>
+        </div>
+        <div class="day"><div class="d">27 June – 15 June 2026</div><div class="none">No events recorded.</div></div>
+        <div class="day">
+          <div class="d">14 June 2026</div>
+          <div class="hist">
+            <h3>Scheduled maintenance — malware-scanning rule refresh</h3>
+            <div class="meta">
+              <span class="chip ok">Completed</span>
+              <span class="chip">Maintenance</span>
+              <span class="affected">Affected: Malware scanning</span>
+            </div>
+            <div class="update"><span class="t num">03:24</span><span class="phase caps">Resolved</span><span>Maintenance completed ahead of the window. Scanning resumed with the refreshed rule set.</span></div>
+            <div class="update"><span class="t num">03:00</span><span class="phase caps">Monitoring</span><span>Scanning paused while detection rules refresh. Files queue and scan on resume; nothing is skipped.</span></div>
+          </div>
+        </div>
+
+        <footer class="foot">
+          <p class="notice">
+            This page runs on infrastructure kept separate from the application, so it stays
+            readable when the application is not. A green light means no known problem — services
+            report by exception. If this page is unreachable, see the
+            <a href="https://www.cloudflarestatus.com/">Cloudflare status page</a>.
+          </p>
+          <div class="subscribe">
+            <span class="caps">Get notified</span>
+            <span class="soon">Email and feed subscriptions arrive with a later release.</span>
+          </div>
+        </footer>
+      </div>
+    </div>
+
+    <!-- ==================================================================== -->
+    <div class="state-label" id="b2-degraded">State 2 of 4 — Degraded (live incident pinned under the band; stale strip shown)</div>
+    <div class="state-section">
+      <header class="topbar">
+        <div class="col">
+          <span class="m">M</span>
+          <span class="word">MAGNA CARTA</span>
+          <span class="caps surface">Status</span>
+          <span class="right"><a href="#">status.json</a><a href="#">Back to the application</a></span>
+        </div>
+      </header>
+
+      <div class="col">
+        <section class="band warn">
+          <span class="lamp"></span>
+          <h1>Degraded performance on one service</h1>
+          <div class="sub num">
+            <div class="big">Checked 3 July 2026, 14:20 UTC</div>
+            <div>Details directly below</div>
+          </div>
+        </section>
+        <div class="stale-strip num"><b>Note:</b> the last automatic review was 41 minutes ago — this snapshot may be stale.</div>
+
+        <div class="live">
+          <h2>Document conversion is running slowly</h2>
+          <div class="meta">
+            <span class="chip warn">Identified</span>
+            <span class="chip">Minor impact</span>
+            <span class="affected">Affected: Document conversion · started 13:41 UTC</span>
+          </div>
+          <div class="update"><span class="t num">14:05</span><span class="phase caps">Identified</span><span>Conversions of very large files are queuing longer than usual. Smaller conversions are unaffected. A remedy is being applied.</span></div>
+          <div class="update"><span class="t num">13:41</span><span class="phase caps">Investigating</span><span>Some document conversions are taking longer than normal to complete.</span></div>
+        </div>
+
+        <div class="group-head"><span class="caps">Document &amp; analysis engines</span></div>
+        <div class="row ok-r">
+          <div class="line"><span class="dot"></span><span class="name">Document editing</span><span class="st">Operational</span></div>
+        </div>
+        <div class="row warn-r">
+          <div class="line"><span class="dot"></span><span class="name">Document conversion</span><span class="st">Degraded</span></div>
+          <div class="note">Large conversions queuing longer than usual — see the live event above.</div>
+        </div>
+        <div class="row ok-r">
+          <div class="line"><span class="dot"></span><span class="name">Search indexing</span><span class="st">Operational</span></div>
+        </div>
+        <div class="row ok-r">
+          <div class="line"><span class="dot"></span><span class="name">OCR</span><span class="st">Operational</span></div>
+        </div>
+        <p class="continues">(Core services, providers, and history continue as in the steady state.)</p>
+      </div>
+    </div>
+
+    <!-- ==================================================================== -->
+    <div class="state-label" id="b2-outage">State 3 of 4 — Major outage (the band transformation)</div>
+    <div class="state-section">
+      <header class="topbar">
+        <div class="col">
+          <span class="m">M</span>
+          <span class="word">MAGNA CARTA</span>
+          <span class="caps surface">Status</span>
+          <span class="right"><a href="#">status.json</a><a href="#">Back to the application</a></span>
+        </div>
+      </header>
+
+      <div class="col">
+        <section class="band danger">
+          <span class="lamp"></span>
+          <h1>Major outage — the application is unavailable</h1>
+          <div class="sub num">
+            <div class="big">Checked 3 July 2026, 09:12 UTC</div>
+            <div>Updates below as we have them</div>
+          </div>
+        </section>
+
+        <div class="live danger">
+          <h2>The application is unavailable</h2>
+          <div class="meta">
+            <span class="chip danger">Investigating</span>
+            <span class="chip">Critical impact</span>
+            <span class="affected">Affected: Application API, Control-plane database · started 09:12 UTC</span>
+          </div>
+          <div class="update"><span class="t num">09:12</span><span class="phase caps">Investigating</span><span>Sign-in and all application requests are failing. We are investigating with the highest urgency. Your documents and records are safe; this is an availability problem, not a data problem.</span></div>
+        </div>
+
+        <div class="group-head"><span class="caps">Core services</span></div>
+        <div class="row danger-r">
+          <div class="line"><span class="dot"></span><span class="name">Application API</span><span class="st">Major outage</span></div>
+          <div class="note">All requests failing — see the live event above.</div>
+        </div>
+        <div class="row danger-r">
+          <div class="line"><span class="dot"></span><span class="name">Control-plane database</span><span class="st">Partial outage</span></div>
+        </div>
+        <div class="row ok-r">
+          <div class="line"><span class="dot"></span><span class="name">Object storage</span><span class="st">Operational</span></div>
+        </div>
+        <div class="row ok-r">
+          <div class="line"><span class="dot"></span><span class="name">Status store</span><span class="st">Operational</span></div>
+        </div>
+        <p class="continues">(Engines, providers, and history continue as in the steady state.)</p>
+      </div>
+    </div>
+
+    <!-- ==================================================================== -->
+    <div class="state-label" id="b2-maintenance">State 4 of 4 — Maintenance (planned, unalarming)</div>
+    <div class="state-section" style="border-bottom: 0">
+      <header class="topbar">
+        <div class="col">
+          <span class="m">M</span>
+          <span class="word">MAGNA CARTA</span>
+          <span class="caps surface">Status</span>
+          <span class="right"><a href="#">status.json</a><a href="#">Back to the application</a></span>
+        </div>
+      </header>
+
+      <div class="col">
+        <section class="band gilt">
+          <span class="lamp"></span>
+          <h1>Scheduled maintenance in progress</h1>
+          <div class="sub num">
+            <div class="big">Window 03:00 – 04:00 UTC, 3 July 2026</div>
+            <div>Everything else is operating normally</div>
+          </div>
+        </section>
+
+        <div class="live gilt">
+          <h2>Scheduled maintenance — search index rebuild</h2>
+          <div class="meta">
+            <span class="chip gilt">Monitoring</span>
+            <span class="chip">Maintenance</span>
+            <span class="affected">Affected: Search indexing · window closes 04:00 UTC</span>
+          </div>
+          <div class="update"><span class="t num">03:00</span><span class="phase caps">Monitoring</span><span>Search indexing is paused while the index is rebuilt. Searches keep working against the existing index; new documents appear in results after the window closes.</span></div>
+        </div>
+
+        <div class="group-head"><span class="caps">Document &amp; analysis engines</span></div>
+        <div class="row ok-r">
+          <div class="line"><span class="dot"></span><span class="name">Document editing</span><span class="st">Operational</span></div>
+        </div>
+        <div class="row gilt-r">
+          <div class="line"><span class="dot"></span><span class="name">Search indexing</span><span class="st">Maintenance</span></div>
+          <div class="note">Index rebuild in progress — planned window closes 04:00 UTC.</div>
+        </div>
+        <div class="row ok-r">
+          <div class="line"><span class="dot"></span><span class="name">OCR</span><span class="st">Operational</span></div>
+        </div>
+        <div class="row ok-r">
+          <div class="line"><span class="dot"></span><span class="name">Malware scanning</span><span class="st">Operational</span></div>
+        </div>
+        <p class="continues">(Core services, providers, and history continue as in the steady state.)</p>
+      </div>
+    </div>
+
+    <div style="height: 60px"></div>
+  </body>
+</html>
