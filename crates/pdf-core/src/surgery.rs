@@ -1276,6 +1276,19 @@ pub(crate) fn resolve_rotate(doc: &lopdf::Document, page_id: lopdf::ObjectId) ->
     0
 }
 
+/// Whether lopdf can faithfully re-encode this content stream: encode, then re-decode,
+/// and the operation count is preserved. A re-encode that fails to re-decode counts as
+/// non-round-tripping. This is the production decision for op-path (round-trips) vs
+/// byte-path (does not).
+fn content_roundtrips(content: &Content) -> bool {
+    content
+        .encode()
+        .ok()
+        .and_then(|enc| Content::decode(&enc).ok())
+        .map(|c| c.operations.len() == content.operations.len())
+        .unwrap_or(false)
+}
+
 /// Attempt to surgically redact `rects` from the content stream of `page_id`.
 ///
 /// Returns `Some(bytes)` when the page's content stream can be decoded and its glyphs
@@ -1294,19 +1307,6 @@ pub(crate) fn resolve_rotate(doc: &lopdf::Document, page_id: lopdf::ObjectId) ->
 /// Returning `Some` does not guarantee that all glyphs within `rects` were
 /// removed — an outcome gate in the caller verifies that. This function only
 /// refuses pages it structurally cannot handle.
-/// Whether lopdf can faithfully re-encode this content stream: encode, then re-decode,
-/// and the operation count is preserved. A re-encode that fails to re-decode counts as
-/// non-round-tripping. This is the production decision for op-path (round-trips) vs
-/// byte-path (does not).
-fn content_roundtrips(content: &Content) -> bool {
-    content
-        .encode()
-        .ok()
-        .and_then(|enc| Content::decode(&enc).ok())
-        .map(|c| c.operations.len() == content.operations.len())
-        .unwrap_or(false)
-}
-
 pub(crate) fn try_build_surgery(
     doc: &lopdf::Document,
     page_id: lopdf::ObjectId,
