@@ -86,3 +86,29 @@ an email-me-a-copy flag, so the ingest fans the filed report out to chosen firm 
 the platform's transactional email (which also does not exist yet), to the requester. The "Request assistance" contact flow is then gated on a filed report id,
 with the existing support-access framework (time-boxed, firm-approved grants) supplying the
 session that follows.
+
+### No status-page subscribe endpoint (2026-07-03)
+
+The public status page (`apps/status-worker`, the `service-status-ui` branch) ships the
+subscribe seam in its final anatomy: the header bell opens a panel with an email field and an
+inert Submit. It needs a subscribe endpoint on the status worker (or an adjacent isolated
+service — same fate-isolation constraint: subscribing must work during an app outage) that
+stores the subscription and, on event publish/update, delivers it. Owner-directed (2026-07-03):
+TWO channels — email (via the platform's transactional email, which also does not exist yet) and
+TEXT MESSAGES, so the payload is channel + address (phone numbers arrive E.164-combined from a
+country-code selector; the standalone page does only light structural checks, so the endpoint
+owns real per-country validation), and SMS delivery implies an SMS provider dependency (a
+Twilio-class service — a new operating cost and a golden-rule-14-style adoption decision when it
+lands). The payload also carries a SCOPE (owner-directed): "all" for ongoing updates, or a
+specific incident id meaning one notification when that incident resolves, after which the
+subscription self-expires. Double-opt-in and unsubscribe are table stakes for the genre on both
+channels. The panel lights up when it lands.
+
+### Provider registry growth expectation (2026-07-03)
+
+The status page renders whatever providers the derived snapshot carries; the backend emits
+Cloudflare and GitHub today, with Helcim and Pangram deliberately held back as placeholders. The
+owner's direction: each third-party service joins the provider registry when its integration
+goes live (Helcim with payments, Pangram with AI-text detection, a GPU provider such as vast.ai
+if that rung ships) — one registry entry per service on the backend, zero UI work. Recorded so
+the expectation travels with the integrations, not from the UI side.

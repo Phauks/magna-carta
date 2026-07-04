@@ -37,7 +37,10 @@ export const ECOSYSTEM_SITES: readonly EcosystemSite[] = [
     id: "status",
     label: "Status",
     description: "Live service health and incident history",
-    href: null,
+    // The first ecosystem site to light up: the status worker's page at the owner's
+    // status.magnacarta.esq custom domain (goes live with the same push wave that deploys the
+    // status worker and attaches the domain).
+    href: "https://status.magnacarta.esq",
     icon: Activity,
   },
   {
