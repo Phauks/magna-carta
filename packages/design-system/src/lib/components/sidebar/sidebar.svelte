@@ -44,8 +44,11 @@
   } = $props();
 
   // The peek is component-owned UI state, not a persisted preference (the shell owns the
-  // preference and passes `expandOnHover`). It floats the collapsed rail open on hover and closes
-  // it a short beat after the pointer leaves, so a brush past the edge does not slam it shut.
+  // preference and passes `expandOnHover`). It expands the collapsed rail on hover and closes it a
+  // short beat after the pointer leaves, so a brush past the edge does not slam it shut. The open
+  // and close run through the SAME `runViewTransition` the manual collapse/expand uses, with the
+  // SAME direction markers — so a peek animates identically to a real toggle (one central motion
+  // path, not a second un-animated one) and inherits its reduced-motion fallback.
   let closeTimer: ReturnType<typeof setTimeout> | undefined;
 
   // The linger before a peeked rail folds back — long enough that crossing a small gap (into a
@@ -55,15 +58,20 @@
   const canPeek = $derived(expandOnHover && collapsed && !editing);
 
   function openPeek(): void {
-    if (!canPeek) return;
+    if (!canPeek || peeking) return;
     clearTimeout(closeTimer);
-    peeking = true;
+    runViewTransition(() => {
+      peeking = true;
+    }, "sidebar-expand");
   }
 
   function closePeekSoon(): void {
     clearTimeout(closeTimer);
     closeTimer = setTimeout(() => {
-      peeking = false;
+      if (!peeking) return;
+      runViewTransition(() => {
+        peeking = false;
+      }, "sidebar-collapse");
     }, PEEK_CLOSE_DELAY_MS);
   }
 
