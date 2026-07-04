@@ -5,6 +5,16 @@
    * bindable and also drives the data-state the recipes key off (expanded width ↔ icon-rail width);
    * Root publishes it through context so the trigger and menu buttons react. The accessible name
    * defaults to "Main"; pass `aria-label` to override (e.g. a second nav on the page).
+   *
+   * THE PANEL WRAPPER: the header/content/footer live inside `.mc-sidebar-panel`, a full-size flex
+   * column that normally fills the rail. It exists so the HOVER PEEK can float open WITHOUT reflow:
+   * when a collapsed rail is peeked, the nav keeps its icon-rail width in flow (the canvas never
+   * shifts) while the panel lifts to `position: absolute` at the expanded width, elevated over the
+   * canvas. See the peek + panel rules in sidebar.css.
+   *
+   * `editing` widens the rail to a comfortable arranging width and forces it expanded — the shell's
+   * Customize mode. `expandOnHover` opts the rail into the peek; the peek only fires while the rail
+   * rests collapsed and is not editing.
    */
   import type { HTMLAttributes } from "svelte/elements";
   import { mergeClasses } from "../../internal/merge-classes.ts";
@@ -15,11 +25,55 @@
   let {
     ref = $bindable(null),
     collapsed = $bindable(false),
+    editing = false,
+    expandOnHover = false,
     class: className,
     children,
     "aria-label": ariaLabel = "Main",
     ...restProps
-  }: WithElementRef<HTMLAttributes<HTMLElement>, HTMLElement> & { collapsed?: boolean } = $props();
+  }: WithElementRef<HTMLAttributes<HTMLElement>, HTMLElement> & {
+    collapsed?: boolean;
+    /** Customize mode: the rail widens and stays expanded for arranging. */
+    editing?: boolean;
+    /** Opt into the hover peek: a collapsed rail floats open on pointer-over. */
+    expandOnHover?: boolean;
+  } = $props();
+
+  // The peek is component-local UI state, not a persisted preference (the shell owns the
+  // preference and passes `expandOnHover`). It floats the collapsed rail open on hover and closes
+  // it a short beat after the pointer leaves, so a brush past the edge does not slam it shut.
+  let peeking = $state(false);
+  let closeTimer: ReturnType<typeof setTimeout> | undefined;
+
+  // The linger before a peeked rail folds back — long enough that crossing a small gap (into a
+  // tooltip, back onto the panel) does not collapse it, short enough to feel responsive.
+  const PEEK_CLOSE_DELAY_MS = 350;
+
+  const canPeek = $derived(expandOnHover && collapsed && !editing);
+
+  function openPeek(): void {
+    if (!canPeek) return;
+    clearTimeout(closeTimer);
+    peeking = true;
+  }
+
+  function closePeekSoon(): void {
+    clearTimeout(closeTimer);
+    closeTimer = setTimeout(() => {
+      peeking = false;
+    }, PEEK_CLOSE_DELAY_MS);
+  }
+
+  // Any state change that ends the peek's precondition drops it at once (expanding manually,
+  // entering Customize, or turning the preference off mid-peek).
+  $effect(() => {
+    if (!canPeek && peeking) {
+      clearTimeout(closeTimer);
+      peeking = false;
+    }
+  });
+
+  $effect(() => () => clearTimeout(closeTimer));
 
   // Collapse runs through a View Transition so the rail↔canvas resize is composited (no per-frame
   // reflow, no sub-pixel seam tearing); it falls back to an instant change under reduced motion or
@@ -30,6 +84,9 @@
   setSidebarContext({
     get collapsed() {
       return collapsed;
+    },
+    get peeking() {
+      return peeking;
     },
     toggle() {
       runViewTransition(
@@ -50,12 +107,25 @@
   });
 </script>
 
+<!-- The peek handlers ride the <nav> (a landmark, so no bare-element a11y role is needed). The
+     floated panel is a DESCENDANT of the nav, so moving the pointer onto it — even where it
+     overflows past the rail's in-flow box, over the canvas — never triggers the nav's
+     pointerleave; only leaving the whole subtree does, which is exactly when the peek should
+     fold back. -->
 <nav
   bind:this={ref}
   data-state={collapsed ? "collapsed" : "expanded"}
+  data-editing={editing ? "true" : undefined}
+  data-peek={peeking ? "true" : undefined}
   aria-label={ariaLabel}
   class={mergeClasses("mc-sidebar h-full", className)}
+  onpointerenter={openPeek}
+  onpointerleave={closePeekSoon}
   {...restProps}
 >
-  {@render children?.()}
+  <!-- The floatable panel: fills the rail normally; lifts to an absolute overlay while peeking so
+       the canvas never reflows (the nav keeps its in-flow rail width; only the panel moves). -->
+  <div class="mc-sidebar-panel">
+    {@render children?.()}
+  </div>
 </nav>

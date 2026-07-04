@@ -20,6 +20,8 @@
     /* flex: none (shrink 0) so the flex algorithm does not override (and snap) the animated width.
        A unitless flex-shrink can't be a length token, so the keyword shorthand is the token-pure form. */
     flex: none;
+    /* Positioning context for the peek panel, which lifts to an absolute overlay off this box. */
+    position: relative;
     inline-size: var(--mc-size-sidebar);
     background-color: var(--mc-chrome-surface);
     color: var(--mc-chrome-text);
@@ -33,6 +35,46 @@
   }
   .mc-sidebar[data-state="collapsed"] {
     inline-size: var(--mc-size-sidebar-rail);
+  }
+  /* Customize mode: a comfortable arranging width, wider than the expanded rail so the trailing
+     star/lock control clears the label. A real layout dimension, so it is its own token. The shell
+     forces the rail expanded while editing, so this width always applies over the expanded base,
+     never the collapsed one. */
+  .mc-sidebar[data-editing="true"] {
+    inline-size: var(--mc-size-sidebar-editing);
+  }
+  /*
+   * The panel — header/content/footer live inside it. Normally it fills the rail: `flex: auto`
+   * grows it to the nav's full height and the flex column's default cross-axis stretch fills the
+   * width (no explicit 100%). On peek it lifts to an absolute overlay at the expanded width so a
+   * collapsed rail can float open WITHOUT reflowing the canvas (the nav keeps its in-flow icon-rail
+   * width; only the panel moves).
+   */
+  .mc-sidebar-panel {
+    display: flex;
+    flex-direction: column;
+    flex: auto;
+    min-block-size: var(--mc-space-0);
+  }
+  .mc-sidebar[data-peek="true"] {
+    /* The panel escapes the rail's box while floating, so the clip must lift for the peek only. */
+    overflow: visible;
+  }
+  .mc-sidebar[data-peek="true"] .mc-sidebar-panel {
+    position: absolute;
+    inset-block: var(--mc-space-0);
+    inset-inline-start: var(--mc-space-0);
+    inline-size: var(--mc-size-sidebar);
+    background-color: var(--mc-chrome-surface);
+    box-shadow: var(--mc-elevation-2);
+    /* Above the work canvas, below overlays/modals and the anchored menus/popovers. */
+    z-index: var(--mc-z-sticky);
+    animation: mc-sidebar-peek-in var(--mc-duration-fast) var(--mc-easing-standard);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .mc-sidebar[data-peek="true"] .mc-sidebar-panel {
+      animation-duration: var(--mc-duration-instant);
+    }
   }
   .mc-sidebar-header {
     display: flex;
@@ -233,5 +275,112 @@
      icon to read as a control rather than a destination. */
   .mc-sidebar-trigger .mc-sidebar-icon {
     color: var(--mc-chrome-text-muted);
+  }
+  /*
+   * The rail-controls cluster — collapse + Customize, side by side as quiet ICON buttons. These
+   * are controls of the rail, not destinations, so they get a distinct compact treatment set
+   * apart from the labelled rows above (the Settings row is a destination and keeps its normal
+   * menu-button look). In the icon rail the two stack, since two side-by-side controls will not
+   * fit the narrow width.
+   */
+  .mc-sidebar-controls {
+    display: flex;
+    align-items: center;
+    gap: var(--mc-space-4);
+    margin-block-start: var(--mc-space-4);
+  }
+  .mc-sidebar[data-state="collapsed"] .mc-sidebar-controls {
+    flex-direction: column;
+  }
+  .mc-sidebar-control-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-block-size: var(--mc-control-md);
+    min-inline-size: var(--mc-control-md);
+    padding: var(--mc-space-8);
+    border-radius: var(--mc-radius-md);
+    background-color: transparent;
+    color: var(--mc-chrome-text-muted);
+    cursor: pointer;
+    transition-property: background-color, color;
+    transition-duration: var(--mc-duration-normal);
+    transition-timing-function: var(--mc-easing-standard);
+  }
+  .mc-sidebar-control-button:hover {
+    background-color: var(--mc-chrome-surface-hover);
+    color: var(--mc-chrome-text-strong);
+  }
+  .mc-sidebar-control-button:focus-visible {
+    outline: var(--mc-focus-ring-width) solid var(--mc-chrome-accent);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-sidebar-control-button[aria-pressed="true"] {
+    color: var(--mc-chrome-accent);
+  }
+  /*
+   * The trailing star/lock in a Customize-mode row — a consistent control slot, vertically
+   * centred against the row's label. Sized to the control height so the row keeps the SAME height
+   * as a normal nav row (only the added control differs). `data-starred` fills the star gold
+   * (in the sidebar); `data-locked` is the pinned rows' lock — a stated fact, not a live toggle.
+   */
+  .mc-sidebar-row-control {
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    inline-size: var(--mc-control-md);
+    block-size: var(--mc-control-md);
+    border-radius: var(--mc-radius-md);
+    background-color: transparent;
+    color: var(--mc-chrome-text-muted);
+    cursor: pointer;
+    transition-property: background-color, color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+  }
+  .mc-sidebar-row-control:hover {
+    background-color: var(--mc-chrome-surface-hover);
+    color: var(--mc-chrome-text-strong);
+  }
+  .mc-sidebar-row-control:focus-visible {
+    outline: var(--mc-focus-ring-width) solid var(--mc-chrome-accent);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-sidebar-row-control[data-starred="true"] {
+    color: var(--mc-chrome-accent);
+  }
+  .mc-sidebar-row-control[data-locked="true"] {
+    cursor: default;
+  }
+  .mc-sidebar-row-control[data-locked="true"]:hover {
+    background-color: transparent;
+    color: var(--mc-chrome-text-muted);
+  }
+  /* The subtle ink hairline dividing the two Customize tiers (in the sidebar / add back). */
+  .mc-sidebar-edit-divider {
+    block-size: var(--mc-border-width-default);
+    margin-block: var(--mc-space-4);
+    margin-inline: var(--mc-space-8);
+    background-color: var(--mc-chrome-border);
+  }
+  /*
+   * PEEK PRESENTATION — while a collapsed rail is floated open, it must READ as expanded (labels,
+   * group headings, wordmark all visible) even though data-state is still "collapsed". These
+   * override the collapsed rules above, so they must come AFTER them (equal specificity, source
+   * order wins). The controls cluster likewise returns to a row inside the widened panel.
+   */
+  .mc-sidebar[data-peek="true"] .mc-sidebar-menu-button {
+    grid-template-columns: var(--mc-space-20) 1fr;
+  }
+  .mc-sidebar[data-peek="true"] .mc-sidebar-label {
+    padding-inline-start: var(--mc-space-8);
+    color: inherit;
+  }
+  .mc-sidebar[data-peek="true"] .mc-sidebar-group-label {
+    color: var(--mc-chrome-text-muted);
+  }
+  .mc-sidebar[data-peek="true"] .mc-sidebar-controls {
+    flex-direction: row;
   }
 }

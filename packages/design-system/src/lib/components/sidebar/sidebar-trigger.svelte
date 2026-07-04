@@ -1,9 +1,15 @@
 <script lang="ts">
   /*
-   * Sidebar.Trigger — toggles the collapsed icon rail and SAYS which it does: a full-width control
-   * styled like a menu button, with a state icon + a "Collapse" / "Expand" label. In the rail the
-   * label goes sr-only (the button keeps its accessible name) and a Tooltip surfaces "Expand", same as
-   * the nav items. aria-expanded reflects the state. Lives in the footer's pinned region.
+   * Sidebar.Trigger — toggles the collapsed icon rail and SAYS which it does. Two shapes:
+   *
+   * - DEFAULT: a full-width control styled like a menu button, with a state icon + a
+   *   "Collapse" / "Expand" label. In the rail the label goes sr-only (the button keeps its
+   *   accessible name) and a Tooltip surfaces "Expand", same as the nav items.
+   * - COMPACT (`compact`): a quiet ICON button for the rail-controls cluster — no inline label,
+   *   the name carried by the tooltip in every state. Pairs with the shell's Customize control so
+   *   the two rail CONTROLS read as a set, distinct from the destination rows above.
+   *
+   * aria-expanded reflects the state either way. Lives in the footer's pinned region.
    */
   import type { HTMLButtonAttributes } from "svelte/elements";
   import PanelLeftClose from "@lucide/svelte/icons/panel-left-close";
@@ -16,12 +22,17 @@
 
   let {
     ref = $bindable(null),
+    compact = false,
     class: className,
     onclick,
     ...restProps
-  }: WithElementRef<HTMLButtonAttributes, HTMLButtonElement> = $props();
+  }: WithElementRef<HTMLButtonAttributes, HTMLButtonElement> & { compact?: boolean } = $props();
 
   const sidebar = getSidebarContext();
+
+  // The full-width shape shows the tooltip only in the rail (the label is otherwise visible); the
+  // compact shape carries its name in the tooltip always. Never while peeking — the label shows.
+  const showTooltip = $derived(compact || (sidebar.collapsed && !sidebar.peeking));
 </script>
 
 {#snippet trigger(triggerProps: Record<string, unknown>)}
@@ -30,7 +41,12 @@
     type="button"
     aria-label={sidebar.collapsed ? "Expand sidebar" : "Collapse sidebar"}
     aria-expanded={!sidebar.collapsed}
-    class={mergeClasses("mc-sidebar-menu-button mc-sidebar-trigger w-full", className)}
+    class={mergeClasses(
+      compact
+        ? "mc-sidebar-control-button"
+        : "mc-sidebar-menu-button mc-sidebar-trigger w-full",
+      className,
+    )}
     {...restProps}
     {...triggerProps}
     onclick={(event) => {
@@ -43,18 +59,20 @@
     {:else}
       <PanelLeftClose class="mc-sidebar-icon" aria-hidden="true" />
     {/if}
-    <span class="mc-sidebar-label">{sidebar.collapsed ? "Expand" : "Collapse"}</span>
+    {#if !compact}
+      <span class="mc-sidebar-label">{sidebar.collapsed ? "Expand" : "Collapse"}</span>
+    {/if}
   </button>
 {/snippet}
 
-{#if sidebar.collapsed}
+{#if showTooltip}
   <Tooltip.Root>
     <TooltipPrimitive.Trigger>
       {#snippet child({ props })}
         {@render trigger(props)}
       {/snippet}
     </TooltipPrimitive.Trigger>
-    <Tooltip.Content side="right">Expand</Tooltip.Content>
+    <Tooltip.Content side="right">{sidebar.collapsed ? "Expand" : "Collapse"}</Tooltip.Content>
   </Tooltip.Root>
 {:else}
   {@render trigger({})}

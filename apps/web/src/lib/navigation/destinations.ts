@@ -12,9 +12,14 @@
  * THE STAR LAYER: this registry stays canonical — membership, groups, canonical order, the
  * shipped/announced light-ups. WHICH rows the sidebar shows, and in what per-group order, is
  * the member's own preference (src/lib/navigation/sidebar-preferences.svelte.ts): pinned +
- * starred rows render; everything else waits in the App Library (/library). `defaultStarred`
- * is the registry's half of that contract — the curated core arrives starred, exotic additions
- * arrive available-but-quiet.
+ * starred rows render; everything else is added back from the sidebar's own Customize mode,
+ * which reveals every destination grouped. `defaultStarred` is the registry's half of that
+ * contract — the curated core arrives starred, exotic additions arrive available-but-quiet.
+ *
+ * ONLY REAL THINGS (owner-directed): every entry is either `shipped` (its user-facing surface
+ * exists) or `announced` (an owner-curated Soon stub the sidebar and palette pre-announce ahead
+ * of the build). Nothing speculative lives here — the sidebar is a promise to the user, not an
+ * inventory of the backlog.
  *
  * The Ctrl+K command palette (src/lib/components/command-palette.svelte) also renders from this
  * registry — adding a destination here is what makes it searchable; never hand-list it there.
@@ -22,20 +27,16 @@
  */
 import type { Component } from "svelte";
 import House from "@lucide/svelte/icons/house";
+import Bell from "@lucide/svelte/icons/bell";
 import FolderOpen from "@lucide/svelte/icons/folder-open";
 import CalendarDays from "@lucide/svelte/icons/calendar-days";
 import Users from "@lucide/svelte/icons/users";
 import FileText from "@lucide/svelte/icons/file-text";
 import ClipboardPenLine from "@lucide/svelte/icons/clipboard-pen-line";
-import SquareCheck from "@lucide/svelte/icons/square-check";
 import Inbox from "@lucide/svelte/icons/inbox";
 import Clock from "@lucide/svelte/icons/clock";
 import Landmark from "@lucide/svelte/icons/landmark";
-import LayoutGrid from "@lucide/svelte/icons/layout-grid";
 import ReceiptText from "@lucide/svelte/icons/receipt-text";
-import CreditCard from "@lucide/svelte/icons/credit-card";
-import Calculator from "@lucide/svelte/icons/calculator";
-import FileStack from "@lucide/svelte/icons/file-stack";
 import FileSearch from "@lucide/svelte/icons/file-search";
 import Settings from "@lucide/svelte/icons/settings";
 import Vault from "@lucide/svelte/icons/vault";
@@ -45,7 +46,7 @@ import MessageSquare from "@lucide/svelte/icons/message-square";
 import ChartColumn from "@lucide/svelte/icons/chart-column";
 import Sparkles from "@lucide/svelte/icons/sparkles";
 
-export type DestinationGroup = "top" | "money" | "practice" | "firm";
+export type DestinationGroup = "top" | "money" | "firm";
 
 export interface Destination {
   readonly id: string;
@@ -53,7 +54,7 @@ export interface Destination {
   readonly label: string;
   readonly href: string;
   readonly icon: Component;
-  /** One line for the App Library: what living here gets you. */
+  /** One line describing what living here gets you (the palette and Customize mode show it). */
   readonly description: string;
   readonly group: DestinationGroup;
   /** Renders in the sidebar only when true — flipped when the surface's UI ships. */
@@ -65,15 +66,15 @@ export interface Destination {
    */
   readonly announced?: true;
   /**
-   * Cannot be unstarred — the App Library shows a locked star ("Always available"). Home and
-   * Settings also hold fixed positions (Home first; Settings in its pinned footer home);
-   * Matters is movable within its group but never hideable.
+   * Cannot be unstarred — Customize mode shows a lock instead of a star ("always in your
+   * sidebar"). Home and Settings also hold fixed positions (Home first; Settings in its pinned
+   * footer home); Matters is movable within its group but never hideable.
    */
   readonly pinned?: true;
   /**
    * The registry's half of the star contract: whether this destination arrives in a fresh
-   * member's sidebar. The curated core is true; future exotic additions (and the App Library
-   * itself) are false — available in the library, never pushed.
+   * member's sidebar. The curated core is true; future exotic additions arrive false —
+   * revealed in Customize mode and added by a click, never pushed.
    */
   readonly defaultStarred: boolean;
   /**
@@ -83,11 +84,14 @@ export interface Destination {
   readonly footerPinned?: true;
 }
 
-/** Group headings in canonical order; "top" is unlabelled (it opens the rail). */
-export const DESTINATION_GROUPS: ReadonlyArray<{ id: DestinationGroup; label: string | null }> = [
-  { id: "top", label: null },
+/*
+ * Group headings in canonical order. Every group carries a heading now (owner-directed — a
+ * headless top group read as unbalanced against the labelled ones): "Workspace" is the
+ * matter/document daily surfaces, "Money" the ledger, "Firm" the firm-wide tools.
+ */
+export const DESTINATION_GROUPS: ReadonlyArray<{ id: DestinationGroup; label: string }> = [
+  { id: "top", label: "Workspace" },
   { id: "money", label: "Money" },
-  { id: "practice", label: "Practice" },
   { id: "firm", label: "Firm" },
 ];
 
@@ -96,11 +100,11 @@ export const DESTINATION_GROUPS: ReadonlyArray<{ id: DestinationGroup; label: st
  * precisely so the owner can feel the order — daily drivers and matter-work first, money next,
  * output last. It is data; reorder THIS array (and nothing else) to try another arrangement.
  * Members now reorder their OWN sidebars (the star layer), but this canonical order still
- * matters: it is every fresh sidebar, the App Library's order, and where reconciliation seats
- * new arrivals.
+ * matters: it is every fresh sidebar, the order Customize mode reveals hidden destinations in,
+ * and where reconciliation seats new arrivals.
  */
 export const DESTINATIONS: readonly Destination[] = [
-  // Top — the owner's draft order: daily drivers, then the matter-work cluster.
+  // Workspace — the owner's draft order: daily drivers, then the matter-work cluster.
   {
     id: "home",
     label: "Home",
@@ -110,6 +114,18 @@ export const DESTINATIONS: readonly Destination[] = [
     group: "top",
     shipped: true,
     pinned: true,
+    defaultStarred: true,
+  },
+  {
+    // A shipped stub: the page exists (an honest empty state) so the top-bar bell has a home to
+    // open into. The alerts machinery that fills it arrives later.
+    id: "notifications",
+    label: "Notifications",
+    href: "/notifications",
+    icon: Bell,
+    description: "Alerts, mentions, and updates across your matters.",
+    group: "top",
+    shipped: true,
     defaultStarred: true,
   },
   {
@@ -243,16 +259,6 @@ export const DESTINATIONS: readonly Destination[] = [
     announced: true,
     defaultStarred: true,
   },
-  {
-    id: "tasks",
-    label: "Tasks",
-    href: "/tasks",
-    icon: SquareCheck,
-    description: "Work to do, assigned and tracked across matters.",
-    group: "top",
-    shipped: false,
-    defaultStarred: false,
-  },
   // Money (draft order: Time, Billing, Trust)
   {
     id: "time",
@@ -287,47 +293,6 @@ export const DESTINATIONS: readonly Destination[] = [
     announced: true,
     defaultStarred: true,
   },
-  {
-    id: "payments",
-    label: "Payments",
-    href: "/payments",
-    icon: CreditCard,
-    description: "Card and bank payments from clients.",
-    group: "money",
-    shipped: false,
-    defaultStarred: false,
-  },
-  {
-    id: "accounting",
-    label: "Accounting",
-    href: "/accounting",
-    icon: Calculator,
-    description: "The firm's books and exports.",
-    group: "money",
-    shipped: false,
-    defaultStarred: false,
-  },
-  // Practice
-  {
-    id: "templates",
-    label: "Templates",
-    href: "/templates",
-    icon: FileStack,
-    description: "Reusable document and matter templates.",
-    group: "practice",
-    shipped: false,
-    defaultStarred: false,
-  },
-  {
-    id: "safe-custody",
-    label: "Safe custody",
-    href: "/safe-custody",
-    icon: Vault,
-    description: "Original wills, deeds, and instruments in the firm's safe.",
-    group: "practice",
-    shipped: false,
-    defaultStarred: false,
-  },
   // Firm
   {
     id: "tools",
@@ -350,19 +315,6 @@ export const DESTINATIONS: readonly Destination[] = [
     shipped: false,
     announced: true,
     defaultStarred: true,
-  },
-  {
-    // The catalog itself: reached from the sidebar's Customize mode and the palette, never
-    // pushed into the sidebar (defaultStarred false) — a member who wants it one click away
-    // stars it like anything else.
-    id: "library",
-    label: "App Library",
-    href: "/library",
-    icon: LayoutGrid,
-    description: "Every Magna Carta app — star what belongs in your sidebar.",
-    group: "firm",
-    shipped: true,
-    defaultStarred: false,
   },
   {
     id: "settings",

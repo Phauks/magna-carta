@@ -2,9 +2,13 @@
  * Pointer drag-to-reorder — the platform's FIRST drag treatment, deliberately small:
  *
  * - COMPOSITOR-ONLY MOTION: the dragged row follows the pointer via a translateY transform
- *   (runtime geometry, not a design value) plus an elevation class; the rest of the list
- *   stays put until the drop COMMITS the new order as a plain, instant reorder — no layout
- *   animation, nothing for reduced-motion to suppress (direct manipulation is not animation).
+ *   (runtime geometry, not a design value) plus an elevation class. The OTHER rows reflow LIVE
+ *   to preview the drop — each shifts by one row-height (again a transform) to open a gap at the
+ *   projected landing index, so the member sees where the row will seat before releasing. The
+ *   drop COMMITS the new order as a plain, instant reorder. Every motion is a transform, so
+ *   reduced-motion has nothing to suppress beyond the tween on the reflowing neighbours (the
+ *   consumer drops that transition under prefers-reduced-motion; direct manipulation is not
+ *   animation).
  * - The pointer path is one half; the KEYBOARD half lives with the consumer (a focused row
  *   moves one slot per modifier-arrow press through the same commit callback), because arrow
  *   semantics belong to the row widget, not this controller.
@@ -64,6 +68,37 @@ export class DragReorderController {
     element.addEventListener("pointercancel", this.#onPointerCancel);
   }
 
+  /**
+   * The index the row would seat at if released now — travel in whole row-heights from its
+   * origin, clamped to the reorderable range. -1 at rest. Reactive through `offsetY`.
+   */
+  get projectedIndex(): number {
+    if (this.draggingId === null) return -1;
+    const slotTravel = Math.round(this.offsetY / this.#rowHeight);
+    return Math.max(
+      this.#minimumIndex,
+      Math.min(this.#ids.length - 1, this.#fromIndex + slotTravel),
+    );
+  }
+
+  /**
+   * The live-reflow shift for a NON-dragged row, in pixels: rows between the origin and the
+   * projected drop index slide one row-height to open the gap the dragged row will fill. The
+   * dragged row itself (and rows outside the affected span) get 0. Reactive through `offsetY`.
+   */
+  rowShift(id: string): number {
+    if (this.draggingId === null || id === this.draggingId) return 0;
+    const index = this.#ids.indexOf(id);
+    if (index === -1) return 0;
+    const projected = this.projectedIndex;
+    const from = this.#fromIndex;
+    // Dragging DOWN: rows just below the origin, up to and including the target, rise one slot.
+    if (from < projected && index > from && index <= projected) return -this.#rowHeight;
+    // Dragging UP: rows from the target up to just above the origin fall one slot.
+    if (projected < from && index >= projected && index < from) return this.#rowHeight;
+    return 0;
+  }
+
   #onPointerMove = (event: PointerEvent): void => {
     if (event.pointerId !== this.#pointerId) return;
     this.offsetY = event.clientY - this.#startY;
@@ -71,11 +106,8 @@ export class DragReorderController {
 
   #onPointerEnd = (event: PointerEvent): void => {
     if (event.pointerId !== this.#pointerId) return;
-    const slotTravel = Math.round(this.offsetY / this.#rowHeight);
-    const toIndex = Math.max(
-      this.#minimumIndex,
-      Math.min(this.#ids.length - 1, this.#fromIndex + slotTravel),
-    );
+    // The committed landing is exactly the previewed one — same computation as the live reflow.
+    const toIndex = this.projectedIndex;
     const id = this.draggingId;
     this.#teardown();
     if (id !== null && toIndex !== this.#fromIndex) {

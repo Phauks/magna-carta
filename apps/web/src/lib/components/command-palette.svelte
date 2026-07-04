@@ -28,6 +28,7 @@
     readPaletteEntranceVariant,
   } from "$lib/developer/palette-entrance.ts";
   import { visibleDestinations } from "$lib/navigation/destinations.ts";
+  import { SEARCH_PLACEHOLDER } from "$lib/navigation/search.ts";
   import { ECOSYSTEM_SITES } from "$lib/navigation/ecosystem-sites.ts";
   import { bandedSettingsSections } from "$lib/settings/settings-sections.ts";
 
@@ -147,7 +148,9 @@
     <Dialog.Title class="sr-only">Command menu</Dialog.Title>
     <Command.Root label="Command menu" class="border-0 bg-transparent">
       <div class="relative">
-        <Command.Input placeholder="Search or jump to anything…" bind:value={searchQuery} />
+        <!-- Same label as the passive top-bar trigger (one home in navigation/search.ts): the
+             palette opens ON the trigger, so the active and passive text must never drift. -->
+        <Command.Input placeholder={SEARCH_PLACEHOLDER} bind:value={searchQuery} />
         {#if searchQuery.trim() === ""}
           <div
             class="pointer-events-none absolute inset-y-0 flex items-center gap-8"

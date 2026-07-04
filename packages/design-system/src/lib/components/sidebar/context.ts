@@ -10,6 +10,12 @@ const SIDEBAR_KEY = Symbol("mc-sidebar");
 export interface SidebarContext {
   /** True when the sidebar is the narrow icon rail. */
   readonly collapsed: boolean;
+  /**
+   * True while a collapsed rail is floating open on hover (the overlay peek). The rail is still
+   * collapsed — parts that surface labels in the rail (tooltips) suppress them during the peek,
+   * since the labels are visible in the floated panel.
+   */
+  readonly peeking: boolean;
   toggle(): void;
   setCollapsed(value: boolean): void;
 }

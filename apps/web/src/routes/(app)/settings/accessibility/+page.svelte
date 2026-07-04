@@ -23,8 +23,31 @@
     MOTION_AXIS,
     MOTION_DEFINITION,
   } from "$lib/settings/appearance-axes.svelte.ts";
+  import type { SettingDefinition } from "$lib/settings/settings-definitions.ts";
+  import {
+    expandSidebarOnHover,
+    setExpandSidebarOnHover,
+  } from "$lib/navigation/sidebar-preferences.svelte.ts";
 
   const restoreAction = appearanceRestoreAction([DENSITY_AXIS, MOTION_AXIS]);
+
+  /*
+   * Navigation ergonomics belong on the Accessibility page: expand-on-hover reduces pointer
+   * travel and reclaims screen space by keeping the rail collapsed at rest — reading/interaction
+   * ergonomics, the same family as motion and density. It is a per-browser preference kept in the
+   * sidebar-preferences store (not the theme-preference seam the axes use), so it applies
+   * instantly through the store's setter rather than the appearance ledger.
+   */
+  const EXPAND_ON_HOVER_DEFINITION: SettingDefinition = {
+    id: "accessibility.expand-sidebar-on-hover",
+    sectionId: "accessibility",
+    label: "Expand sidebar on hover",
+    description:
+      "When the sidebar is collapsed, hovering it floats the rail open over the page.",
+    kind: "switch",
+    defaultValue: false,
+    sensitivity: "open",
+  };
 </script>
 
 <svelte:head>
@@ -51,6 +74,15 @@
     />
     <SettingsRow definition={MOTION_DEFINITION} instant={instantForAxis(MOTION_AXIS)} />
     <SettingsRow definition={DENSITY_DEFINITION} instant={instantForAxis(DENSITY_AXIS)} />
+  </SettingsPlate>
+  <SettingsPlate heading="Navigation">
+    <SettingsRow
+      definition={EXPAND_ON_HOVER_DEFINITION}
+      instant={{
+        value: expandSidebarOnHover(),
+        apply: (next) => setExpandSidebarOnHover(next === true),
+      }}
+    />
   </SettingsPlate>
   </div>
 </div>

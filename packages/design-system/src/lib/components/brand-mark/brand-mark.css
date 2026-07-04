@@ -33,4 +33,10 @@
   .mc-sidebar[data-state="collapsed"] .mc-brand-mark-word {
     color: transparent;
   }
+  /* While the collapsed rail is floated open on hover it reads as expanded, so the wordmark
+     returns (this override follows the collapsed rule so equal specificity resolves in its
+     favour). */
+  .mc-sidebar[data-peek="true"] .mc-brand-mark-word {
+    color: var(--mc-chrome-text-strong);
+  }
 }

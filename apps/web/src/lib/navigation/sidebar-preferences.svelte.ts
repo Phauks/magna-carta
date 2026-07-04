@@ -4,8 +4,8 @@
  * what THIS member shows and in what per-group order.
  *
  * INVARIANT — STARS GOVERN THE SIDEBAR ONLY. Every destination stays reachable through the
- * command palette and the App Library regardless of stars: hiding must never remove
- * capability — searching for a thing is wanting it.
+ * command palette regardless of stars, and Customize mode reveals every destination for
+ * re-adding: hiding must never remove capability — searching for a thing is wanting it.
  *
  * Storage shape (localStorage, per browser; cross-tab synced by the storage event, the
  * developer-preferences pattern):
@@ -19,6 +19,9 @@
  * - `known` is arrival bookkeeping: ids that have appeared in this member's sidebar before.
  *   A visible id not yet known is a NEW ARRIVAL — the shell gives it a one-time gilt-draw
  *   highlight so the eye catches where it landed, then acknowledges it into `known`.
+ * - `expandOnHover` is a per-browser interaction preference (default off): when the rail rests
+ *   collapsed, hovering it floats the rail open as an overlay over the canvas. It lives here,
+ *   beside the other per-browser sidebar preferences, rather than in the theme-preference seam.
  */
 
 import {
@@ -35,6 +38,7 @@ interface SidebarPreferencesValue {
   starredOverrides: Record<string, boolean>;
   order: Partial<Record<DestinationGroup, string[]>>;
   known: string[];
+  expandOnHover: boolean;
 }
 
 const REGISTRY_IDS = new Set(DESTINATIONS.map((destination) => destination.id));
@@ -49,7 +53,7 @@ function defaultVisibleIds(): string[] {
 function emptyValue(): SidebarPreferencesValue {
   // `known` seeds to the default-visible set: a fresh sidebar is not a wall of arrivals — the
   // gilt highlight is for rows that land LATER (a star elsewhere, a new registry addition).
-  return { starredOverrides: {}, order: {}, known: defaultVisibleIds() };
+  return { starredOverrides: {}, order: {}, known: defaultVisibleIds(), expandOnHover: false };
 }
 
 /** Normalization on read: unknown ids (retired registry rows, hand edits) drop silently. */
@@ -84,6 +88,9 @@ function readStoredPreferences(): SidebarPreferencesValue {
         (id): id is string => typeof id === "string" && REGISTRY_IDS.has(id),
       );
     }
+    if (typeof parsed?.expandOnHover === "boolean") {
+      value.expandOnHover = parsed.expandOnHover;
+    }
     return value;
   } catch {
     return emptyValue();
@@ -114,6 +121,7 @@ if (typeof window !== "undefined") {
     preferences.starredOverrides = next.starredOverrides;
     preferences.order = next.order;
     preferences.known = next.known;
+    preferences.expandOnHover = next.expandOnHover;
   });
 }
 
@@ -129,7 +137,7 @@ export function isStarred(destination: Destination): boolean {
 
 export interface SidebarGroupView {
   readonly id: DestinationGroup;
-  readonly label: string | null;
+  readonly label: string;
   readonly destinations: readonly Destination[];
 }
 
@@ -156,6 +164,39 @@ export function sidebarGroups(): readonly SidebarGroupView[] {
   }).filter((group) => group.destinations.length > 0);
 }
 
+export interface SidebarEditingGroupView {
+  readonly id: DestinationGroup;
+  readonly label: string;
+  /** In the sidebar now — pinned + starred, in the member's reconciled order (draggable). */
+  readonly starred: readonly Destination[];
+  /** Hidden from the sidebar — offered in canonical order, one click to add back. */
+  readonly unstarred: readonly Destination[];
+}
+
+/**
+ * The Customize-mode render tree: per group, EVERY destination split into the two tiers the
+ * editor shows — the ones in the sidebar now (starred, member order) and the ones a click would
+ * add (unstarred, canonical order). Footer-pinned rows (Settings) are excluded — the footer owns
+ * them. This is the editor's superset of sidebarGroups(), which shows only the starred tier.
+ */
+export function sidebarEditingGroups(): readonly SidebarEditingGroupView[] {
+  return DESTINATION_GROUPS.map((group) => {
+    const members = DESTINATIONS.filter(
+      (destination) => destination.group === group.id && destination.footerPinned !== true,
+    );
+    const starredCanonical = members
+      .filter((destination) => isStarred(destination))
+      .map((destination) => destination.id);
+    const orderedStarredIds = mergeGroupOrder(starredCanonical, preferences.order[group.id] ?? []);
+    const starred = orderedStarredIds
+      .map((id) => destinationById(id))
+      .filter((destination): destination is Destination => destination !== undefined);
+    // Canonical order for the add-back tier — the members array is already canonical.
+    const unstarred = members.filter((destination) => !isStarred(destination));
+    return { id: group.id, label: group.label, starred, unstarred };
+  }).filter((group) => group.starred.length + group.unstarred.length > 0);
+}
+
 /** A visible id the member's sidebar has never carried before — highlight once, then acknowledge. */
 export function isNewArrival(id: string): boolean {
   return !preferences.known.includes(id);
@@ -180,6 +221,12 @@ export function setStarred(id: string, next: boolean): void {
   } else {
     preferences.starredOverrides = { ...preferences.starredOverrides, [id]: next };
   }
+  // Adding a row back replays its one-time gilt-draw arrival: forgetting it from `known` lets the
+  // shell catch it as a NEW ARRIVAL where reconciliation seats it, then re-acknowledge it. Removing
+  // never highlights (there is nothing to draw attention to).
+  if (next) {
+    preferences.known = preferences.known.filter((knownId) => knownId !== id);
+  }
   persist({ ...preferences });
 }
 
@@ -200,5 +247,16 @@ export function moveDestination(group: DestinationGroup, id: string, toIndex: nu
   ids.splice(fromIndex, 1);
   ids.splice(boundedIndex, 0, id);
   preferences.order = { ...preferences.order, [group]: ids };
+  persist({ ...preferences });
+}
+
+/** The hover-to-expand preference — read reactively; default off. */
+export function expandSidebarOnHover(): boolean {
+  return preferences.expandOnHover;
+}
+
+export function setExpandSidebarOnHover(next: boolean): void {
+  if (preferences.expandOnHover === next) return;
+  preferences.expandOnHover = next;
   persist({ ...preferences });
 }
