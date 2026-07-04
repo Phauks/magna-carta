@@ -255,3 +255,28 @@ describe("POST /api/v1/file-repair/repair/attach", () => {
     expect(response.headers.get("content-type")).toContain("application/problem+json");
   });
 });
+
+describe("POST /api/v1/file-repair/carve/attach", () => {
+  it("carve/attach creates N new files, each with provenance", async () => {
+    const cookie = await ownerCookie("attach-carve@example.com", "Attach Carve");
+    const res = await postAttach("carve/attach", cookie, "junk with an embedded jpeg", {
+      matterId: poolMatterId,
+      folderId: poolFolderId,
+    });
+    expect(res.status).toBe(202);
+    const body = (await res.json()) as { files: { fileId: string; versionId: string; name: string }[] };
+    expect(body.files.length).toBeGreaterThan(0);
+    for (const f of body.files) {
+      expect(await readRepairProvenance(firmDb, f.versionId)).not.toBeNull();
+    }
+  });
+
+  it("carve/attach returns 403 for upload-only cookie (the in-handler second gate)", async () => {
+    const cookie = await uploadOnlyCookie("attach-carve-noperm@example.com");
+    const res = await postAttach("carve/attach", cookie, "bytes", {
+      matterId: poolMatterId,
+    });
+    expect(res.status).toBe(403);
+    expect(res.headers.get("content-type")).toContain("application/problem+json");
+  });
+});

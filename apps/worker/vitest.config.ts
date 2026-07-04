@@ -117,9 +117,10 @@ export default {
 `;
 
 // Stub for the magna-carta-recovery service binding in tests — no real recovery worker runs under the
-// local pool. Returns a canned diagnosis for /diagnose; for /repair and /carve, a RepairResult with one
-// reconstructed file, whose bytes carry the scan malware marker only when the input asked for it (input
-// contains "TRIGGERMALWARE"), and a 422 { code } when the input asks to be unrepairable ("UNREPAIRABLE").
+// local pool. Returns a canned diagnosis for /diagnose; for /repair, a RepairResult with one
+// reconstructed file; for /carve, a RepairResult with multiple files to exercise the N-file loop.
+// Bytes carry the scan malware marker only when the input asked for it (input contains "TRIGGERMALWARE"),
+// and a 422 { code } when the input asks to be unrepairable ("UNREPAIRABLE").
 // This lets the route tests drive the happy path, the unrepairable path, and the re-scan withhold path.
 const RECOVERY_SERVICE_STUB_SCRIPT = `
 export default {
@@ -147,8 +148,16 @@ export default {
     const outputText = body.includes("TRIGGERMALWARE")
       ? "MALWARE_EICAR_marker_payload"
       : "clean-reconstructed-bytes";
+    // For carve, return multiple files; for repair, return a single file.
+    const files = url.pathname === "/carve"
+      ? [
+          { name: "carved.jpg", mediaType: "image/jpeg", contentBase64: btoa(outputText) },
+          { name: "carved.png", mediaType: "image/png", contentBase64: btoa(outputText) },
+          { name: "embedded.pdf", mediaType: "application/pdf", contentBase64: btoa(outputText) },
+        ]
+      : [{ name: "repaired", mediaType: "application/pdf", contentBase64: btoa(outputText) }];
     return json({
-      files: [{ name: "repaired", mediaType: "application/pdf", contentBase64: btoa(outputText) }],
+      files,
       loss: { items: [{ name: "body", recovered: true, detail: "" }], fullyRecovered: true, synthesized: [] },
     });
   }

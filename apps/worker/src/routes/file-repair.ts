@@ -115,6 +115,11 @@ export const fileRepairRepairAttachMeta: RouteMeta = {
   operationId: "fileRepair.repairAttach",
 };
 
+export const fileRepairCarveAttachMeta: RouteMeta = {
+  ...attachBaseMeta,
+  operationId: "fileRepair.carveAttach",
+};
+
 // A refusal before dispatch is one of these three typed Problem responses (all declared on every route).
 type PreflightProblem = ProblemResponse<400> | ProblemResponse<413> | ProblemResponse<503>;
 type Dispatched =
@@ -369,6 +374,13 @@ const carveRoute = defineOpenAPIRoute(fileRepairCarveMeta, {
   responses: salvageResponses,
 });
 
+// Carved names come from the engine's SalvagedFile.name; strip any path separators or traversal so a
+// carved fragment can never write outside its folder or collide with a control name.
+function sanitizeCarvedName(name: string, index: number): string {
+  const base = name.replace(/[/\\]/g, "_").replace(/^\.+/, "").trim();
+  return base.length > 0 ? base : `carved-${index + 1}`;
+}
+
 const attachResponses = {
   // Spread first: the literal keys below intentionally override problemResponses' generic 403
   // (naming only tools:fileRepair) with the dual-gate-aware description, and add 202/404/422.
@@ -392,6 +404,31 @@ const attachResponses = {
   422: salvageResponses[422],
 } as const;
 
+const carveAttachResponses = {
+  ...problemResponses,
+  202: {
+    description:
+      "Attaching carved files; versions pending. Each carved file's metadata was committed and bytes " +
+      "were put to R2. Versions are pending until ingest resolves.",
+    content: {
+      "application/json": {
+        schema: z.object({
+          files: z.array(z.object({ fileId: z.string(), versionId: z.string(), name: z.string() })),
+        }),
+      },
+    },
+  },
+  403: {
+    description: "Missing files:upload, or missing tools:fileRepair",
+    content: { "application/problem+json": { schema: Problem } },
+  },
+  404: {
+    description: "The target folder, or the matter, is unknown in this firm",
+    content: { "application/problem+json": { schema: Problem } },
+  },
+  422: salvageResponses[422],
+} as const;
+
 const repairAttachRoute = defineOpenAPIRoute(fileRepairRepairAttachMeta, {
   method: "post",
   path: "/api/v1/file-repair/repair/attach",
@@ -410,6 +447,19 @@ const repairAttachRoute = defineOpenAPIRoute(fileRepairRepairAttachMeta, {
     body: { content: { "application/octet-stream": { schema: z.any() } }, required: true },
   },
   responses: attachResponses,
+});
+
+const carveAttachRoute = defineOpenAPIRoute(fileRepairCarveAttachMeta, {
+  method: "post",
+  path: "/api/v1/file-repair/carve/attach",
+  description:
+    "Carve embedded files out of the uploaded input and save each as a new file in the matter folder. " +
+    "Each carved file rides the ingest malware gate and carries the honest carve manifest. Returns 202.",
+  request: {
+    query: z.object({ matterId: identifierField("matter"), folderId: identifierField("folder").optional() }),
+    body: { content: { "application/octet-stream": { schema: z.any() } }, required: true },
+  },
+  responses: carveAttachResponses,
 });
 
 export function registerFileRepairRoutes(
@@ -554,6 +604,75 @@ export function registerFileRepairRoutes(
           fileName: query.fileName ?? file.name,
         });
         return c.json(attached, 202);
+      } catch (caught) {
+        if (caught instanceof FileManagerValidationError) {
+          if (caught.code === "upload-policy-size" || caught.code === "upload-policy-type") {
+            return problemJson(c, {
+              type: "upload-not-allowed",
+              title: "Upload not allowed",
+              status: 422,
+              detail: caught.message,
+            });
+          }
+          if (
+            caught.code === "unknown-file" ||
+            caught.code === "unknown-folder" ||
+            caught.code === "file-matter-mismatch" ||
+            caught.code === "file-cross-matter"
+          ) {
+            return problemJson(c, {
+              type: "not-found",
+              title: "Not found",
+              status: 404,
+              detail: "No such resource in this firm.",
+            });
+          }
+        }
+        throw caught;
+      }
+    },
+  );
+
+  app.openapi(
+    { ...carveAttachRoute, middleware: chokepointMiddleware(chokepoint, carveAttachRoute) },
+    async (c) => {
+      // The dual gate: files:upload (primary) plus tools:fileRepair (secondary).
+      const forbidden = assertAlsoHasPermission(c, "tools:fileRepair");
+      if (forbidden !== null) return forbidden;
+
+      const dispatched = await dispatchToRecovery(c, "carve");
+      if (!dispatched.ok) return dispatched.problem;
+      const { containerResponse } = dispatched;
+      if (containerResponse.status === 422) {
+        return problemJson(c, {
+          type: "validation",
+          title: "Nothing could be carved",
+          status: 422,
+          detail: "The recovery engine could not carve any valid embedded file from this input.",
+        });
+      }
+      if (containerResponse.status !== 200) {
+        return problemJson(c, {
+          type: "service-unavailable",
+          title: "Recovery failed",
+          status: 503,
+          detail: "The recovery engine returned an error. Try again shortly.",
+        });
+      }
+      const result = RepairResultSchema.parse(await containerResponse.json());
+      const q = c.req.valid("query");
+      const attached: { fileId: string; versionId: string; name: string }[] = [];
+      try {
+        for (const [index, file] of result.files.entries()) {
+          const name = sanitizeCarvedName(file.name, index);
+          const one = await attachOneFile(c, file, result.loss, "carve", {
+            matterId: q.matterId as MatterId,
+            folderId: (q.folderId as FolderId | undefined) ?? null,
+            fileName: name,
+          });
+          attached.push({ ...one, name });
+        }
+        return c.json({ files: attached }, 202);
       } catch (caught) {
         if (caught instanceof FileManagerValidationError) {
           if (caught.code === "upload-policy-size" || caught.code === "upload-policy-type") {
