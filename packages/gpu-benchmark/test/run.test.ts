@@ -39,6 +39,7 @@ describe("benchmarkOneRig", () => {
       image: "img",
       want: { gpuName: "RTX_4090", gpuCount: 1 },
       now: () => "2026-07-03T00:00:00Z",
+      onstart: "test-onstart",
     });
     expect(profile.dollarsPerHour).toBe(0.4);
     expect(profile.gpuName).toBe("RTX_4090");
@@ -48,6 +49,10 @@ describe("benchmarkOneRig", () => {
     expect(profile.measuredAt).toBe("2026-07-03T00:00:00Z");
     expect(profile.bootSeconds).toBeGreaterThanOrEqual(0);
     expect(client.destroyInstance).toHaveBeenCalledWith(777);
+    expect(client.createInstance).toHaveBeenCalledWith(
+      42,
+      expect.objectContaining({ onstart: "test-onstart" }),
+    );
   });
 
   it("destroys the instance even when collection fails", async () => {
@@ -61,6 +66,7 @@ describe("benchmarkOneRig", () => {
         image: "img",
         want: { gpuName: "RTX_4090", gpuCount: 1 },
         now: () => "t",
+        onstart: "test-onstart",
       }),
     ).rejects.toThrow("ssh died");
     expect(client.destroyInstance).toHaveBeenCalledWith(777);
@@ -75,6 +81,7 @@ describe("benchmarkOneRig", () => {
         image: "img",
         want: { gpuName: "RTX_4090", gpuCount: 1 },
         now: () => "t",
+        onstart: "test-onstart",
       }),
     ).rejects.toThrow(/no verified offer/i);
     expect(client.createInstance).not.toHaveBeenCalled();
@@ -95,6 +102,7 @@ describe("benchmarkOneRig", () => {
         image: "img",
         want: { gpuName: "RTX_4090", gpuCount: 1 },
         now: () => "t",
+        onstart: "test-onstart",
       });
       const assertion = expect(result).rejects.toThrow(/running/i);
       await vi.runAllTimersAsync();

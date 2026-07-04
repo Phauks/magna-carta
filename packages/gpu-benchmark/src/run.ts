@@ -17,6 +17,7 @@ export interface BenchmarkOneRigDeps {
   readonly image: string;
   readonly want: RigShape;
   readonly now: () => string;
+  readonly onstart: string;
 }
 
 /**
@@ -97,7 +98,7 @@ export async function benchmarkOneRig(deps: BenchmarkOneRigDeps): Promise<RigPro
     const instance = await deps.client.createInstance(offer.offerId, {
       image: deps.image,
       label: `gpu-benchmark-${deps.want.gpuName}-${deps.want.gpuCount}`,
-      onstart: "",
+      onstart: deps.onstart,
       diskGb: 20,
     });
     instanceId = instance.instanceId;

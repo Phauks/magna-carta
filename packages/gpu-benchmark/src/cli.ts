@@ -13,11 +13,6 @@ import { createVastClient } from "./vast-client.ts";
  * a file the SSH collector polls for and its log output to a separate file for after-the-fact
  * diagnosis, then keeps the instance alive so it stays SSH-reachable once the benchmark exits —
  * vast.ai otherwise recycles an instance whose onstart command finishes.
- *
- * `run.ts`'s `benchmarkOneRig` does not currently accept an onstart override in
- * `BenchmarkOneRigDeps` (it calls `createInstance` with a hardcoded empty onstart), so this
- * constant is not yet wired into the rented instance — it documents the intended boot command
- * until `benchmarkOneRig`'s dependency shape exposes an override.
  */
 export const BENCHMARK_ONSTART_COMMAND =
   "/opt/recovery-gpu/bench/run-benchmark.sh > /result.json 2>/benchmark.log; sleep infinity";
@@ -131,6 +126,7 @@ export async function main(argv: string[]): Promise<void> {
         image,
         want,
         now: () => new Date().toISOString(),
+        onstart: BENCHMARK_ONSTART_COMMAND,
       });
       profilesFile = {
         generatedAt: new Date().toISOString(),
