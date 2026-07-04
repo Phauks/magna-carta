@@ -25,6 +25,7 @@
   let {
     ref = $bindable(null),
     collapsed = $bindable(false),
+    peeking = $bindable(false),
     editing = false,
     expandOnHover = false,
     class: className,
@@ -33,16 +34,18 @@
     ...restProps
   }: WithElementRef<HTMLAttributes<HTMLElement>, HTMLElement> & {
     collapsed?: boolean;
+    /** Whether the collapsed rail is currently hover-peeked open — component-owned, exposed as
+        bindable for consumers that want to react to it. */
+    peeking?: boolean;
     /** Customize mode: the rail widens and stays expanded for arranging. */
     editing?: boolean;
     /** Opt into the hover peek: a collapsed rail floats open on pointer-over. */
     expandOnHover?: boolean;
   } = $props();
 
-  // The peek is component-local UI state, not a persisted preference (the shell owns the
+  // The peek is component-owned UI state, not a persisted preference (the shell owns the
   // preference and passes `expandOnHover`). It floats the collapsed rail open on hover and closes
   // it a short beat after the pointer leaves, so a brush past the edge does not slam it shut.
-  let peeking = $state(false);
   let closeTimer: ReturnType<typeof setTimeout> | undefined;
 
   // The linger before a peeked rail folds back — long enough that crossing a small gap (into a

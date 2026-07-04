@@ -68,6 +68,16 @@
   const groups = $derived(sidebarGroups());
   const editingGroups = $derived(sidebarEditingGroups());
   const hoverExpand = $derived(expandSidebarOnHover());
+  const settingsActive = $derived(page.url.pathname.startsWith("/settings"));
+
+  // "Expand on hover" makes the rail REST collapsed and float open on hover, so whenever the
+  // preference is on (and we are not customizing, which needs the rail expanded to arrange) the
+  // resting state is forced collapsed. The peek is separate component state, so it floats the
+  // rail open without touching `collapsed`; the manual collapse control is hidden while the
+  // preference governs the rail. Turning the preference off leaves the rail wherever it sits.
+  $effect(() => {
+    if (hoverExpand && !customizing) collapsed = true;
+  });
 
   // The Settings footer fixture from the registry, so the row has one home.
   const settingsDestination = DESTINATIONS.find(
@@ -154,7 +164,12 @@
 
 <Tooltip.Provider>
   <div class="flex h-screen overflow-hidden bg-surface-default">
-    <Sidebar.Root bind:collapsed editing={customizing} expandOnHover={hoverExpand} aria-label="Primary">
+    <Sidebar.Root
+      bind:collapsed
+      editing={customizing}
+      expandOnHover={hoverExpand}
+      aria-label="Primary"
+    >
       <Sidebar.Header>
         <!-- The universal convention: the mark goes home. Chrome identity, not a menu row, so
              the treatment stays quiet — the pointer cursor and focus ring say "link", nothing
@@ -180,7 +195,7 @@
                   <Sidebar.MenuItem>
                     <div
                       class="mc-sidebar-edit-row flex items-center gap-8 rounded-md {dragging
-                        ? 'relative z-sticky shadow-elevation-2'
+                        ? 'relative z-sticky bg-chrome-surface shadow-elevation-2'
                         : 'transition-transform duration-fast ease-standard motion-reduce:transition-none'}"
                       style="transform: translateY({shift}px)"
                     >
@@ -307,23 +322,20 @@
       <Sidebar.Footer>
         <!-- Keyboard reorders narrate here (polite: never steals focus from the row). -->
         <span class="sr-only" role="status">{moveAnnouncement}</span>
-        <Sidebar.Menu>
-          <Sidebar.MenuItem>
-            <Sidebar.MenuButton
-              href={settingsDestination.href}
-              tooltip={settingsDestination.label}
-              isActive={page.url.pathname.startsWith("/settings")}
-              aria-current={page.url.pathname.startsWith("/settings") ? "page" : undefined}
-            >
-              {#snippet icon()}<SettingsIcon class="mc-sidebar-icon" aria-hidden="true" />{/snippet}
-              {settingsDestination.label}
-            </Sidebar.MenuButton>
-          </Sidebar.MenuItem>
-        </Sidebar.Menu>
-        <!-- The rail-controls cluster: collapse + Customize, quiet icon buttons set apart from the
-             Settings destination above. In-place customization is the owner-preferred editor. -->
+        <!-- The utility tray: small icon activities. Settings LEADS (a real link, so it stays the
+             one visible icon when the rail collapses), Customize sits beside it, and the row has
+             room for more small utilities of the same register later. -->
         <div class="mc-sidebar-controls">
-          <Sidebar.Trigger compact />
+          <a
+            href={settingsDestination.href}
+            class="mc-sidebar-control-button"
+            title={settingsDestination.label}
+            aria-label={settingsDestination.label}
+            aria-current={settingsActive ? "page" : undefined}
+            data-active={settingsActive ? "true" : undefined}
+          >
+            <SettingsIcon class="mc-sidebar-icon" aria-hidden="true" />
+          </a>
           <Tooltip.Root>
             <Tooltip.Trigger
               class="mc-sidebar-control-button"
@@ -340,6 +352,12 @@
             <Tooltip.Content side="top">{customizing ? "Done" : "Customize"}</Tooltip.Content>
           </Tooltip.Root>
         </div>
+        <!-- Collapse is a primary behaviour, so it keeps a large, full-width labelled control at
+             the foot of the rail. When "expand on hover" governs the rail it is redundant (hover
+             opens, leaving collapses) and hides. -->
+        {#if !hoverExpand}
+          <Sidebar.Trigger />
+        {/if}
       </Sidebar.Footer>
     </Sidebar.Root>
 
@@ -353,7 +371,9 @@
     >
       <TopBar.Root>
         <!-- Rest state reads just "Search…" (owner-directed): the keyboard hints moved INTO the
-             open palette's input row, shown only while the query is empty. -->
+             open palette's input row, shown only while the query is empty. The search rides the
+             canvas, so it tracks the rail's edge on collapse AND on the hover peek (which expands
+             the rail for real) with no extra wiring. -->
         <TopBar.Search class="max-w-md grow" onclick={() => (paletteOpen = true)}>
           {SEARCH_PLACEHOLDER}
         </TopBar.Search>

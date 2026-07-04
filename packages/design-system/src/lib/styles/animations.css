@@ -238,20 +238,6 @@
   }
 }
 
-/* The sidebar hover-peek float — the collapsed rail lifting open over the canvas. A brief fade +
-   a short slide from the rail's own edge (compositor-only: opacity + transform), so the panel
-   reads as sliding out from behind the rail rather than appearing whole. */
-@keyframes mc-sidebar-peek-in {
-  from {
-    opacity: 0;
-    transform: translateX(calc(-1 * var(--mc-space-8)));
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
 @keyframes mc-scale-fade-in {
   from {
     opacity: 0;

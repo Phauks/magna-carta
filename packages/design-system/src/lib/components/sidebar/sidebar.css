@@ -36,45 +36,27 @@
   .mc-sidebar[data-state="collapsed"] {
     inline-size: var(--mc-size-sidebar-rail);
   }
-  /* Customize mode: a comfortable arranging width, wider than the expanded rail so the trailing
-     star/lock control clears the label. A real layout dimension, so it is its own token. The shell
-     forces the rail expanded while editing, so this width always applies over the expanded base,
-     never the collapsed one. */
-  .mc-sidebar[data-editing="true"] {
-    inline-size: var(--mc-size-sidebar-editing);
-  }
-  /*
-   * The panel — header/content/footer live inside it. Normally it fills the rail: `flex: auto`
-   * grows it to the nav's full height and the flex column's default cross-axis stretch fills the
-   * width (no explicit 100%). On peek it lifts to an absolute overlay at the expanded width so a
-   * collapsed rail can float open WITHOUT reflowing the canvas (the nav keeps its in-flow icon-rail
-   * width; only the panel moves).
-   */
+  /* Customize mode arranges IN the normal expanded rail (owner-directed): no widened editing
+     state — the trailing star/lock control shares the row with the label at the standard width.
+     The shell still forces the rail expanded while editing so the labels and controls show;
+     `data-editing` only marks the state (it blocks the hover peek), it no longer resizes. */
+  /* The panel — header/content/footer live inside it, filling the rail (`flex: auto` for the
+     height, the flex column's cross-axis stretch for the width). It is a plain wrapper now; the
+     hover peek widens the whole rail rather than floating this panel. */
   .mc-sidebar-panel {
     display: flex;
     flex-direction: column;
     flex: auto;
     min-block-size: var(--mc-space-0);
   }
+  /* The hover peek expands the rail FOR REAL — an in-flow width change that PUSHES the work canvas
+     aside (owner-directed), never an overlay floating over and hiding content. The persisted
+     collapsed state is unchanged; this is a transient widening driven by hover, and leaving snaps
+     it back. Placed after the collapsed-width rule so it wins while both apply (a peeked collapsed
+     rail). The canvas — and the top-bar search with it — reflows to the new edge, so the search
+     tracks the rail with no extra plumbing. */
   .mc-sidebar[data-peek="true"] {
-    /* The panel escapes the rail's box while floating, so the clip must lift for the peek only. */
-    overflow: visible;
-  }
-  .mc-sidebar[data-peek="true"] .mc-sidebar-panel {
-    position: absolute;
-    inset-block: var(--mc-space-0);
-    inset-inline-start: var(--mc-space-0);
     inline-size: var(--mc-size-sidebar);
-    background-color: var(--mc-chrome-surface);
-    box-shadow: var(--mc-elevation-2);
-    /* Above the work canvas, below overlays/modals and the anchored menus/popovers. */
-    z-index: var(--mc-z-sticky);
-    animation: mc-sidebar-peek-in var(--mc-duration-fast) var(--mc-easing-standard);
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .mc-sidebar[data-peek="true"] .mc-sidebar-panel {
-      animation-duration: var(--mc-duration-instant);
-    }
   }
   .mc-sidebar-header {
     display: flex;
@@ -277,11 +259,11 @@
     color: var(--mc-chrome-text-muted);
   }
   /*
-   * The rail-controls cluster — collapse + Customize, side by side as quiet ICON buttons. These
-   * are controls of the rail, not destinations, so they get a distinct compact treatment set
-   * apart from the labelled rows above (the Settings row is a destination and keeps its normal
-   * menu-button look). In the icon rail the two stack, since two side-by-side controls will not
-   * fit the narrow width.
+   * The utility tray — a row of small icon activities (Settings, Customize, and room for more
+   * that match their register), set apart from the labelled destination rows above and from the
+   * large collapse control below. In the COLLAPSED rail the tray does NOT reflow or stack (owner-
+   * directed): only its leftmost icon (Settings) shows; the rest return when the rail is expanded
+   * or peeked, so nothing rearranges as the rail narrows.
    */
   .mc-sidebar-controls {
     display: flex;
@@ -289,8 +271,13 @@
     gap: var(--mc-space-4);
     margin-block-start: var(--mc-space-4);
   }
-  .mc-sidebar[data-state="collapsed"] .mc-sidebar-controls {
-    flex-direction: column;
+  .mc-sidebar[data-state="collapsed"]:not([data-peek="true"])
+    .mc-sidebar-controls
+    > :not(:first-child) {
+    display: none;
+  }
+  .mc-sidebar-control-button[data-active="true"] {
+    color: var(--mc-chrome-accent);
   }
   .mc-sidebar-control-button {
     display: flex;
@@ -379,8 +366,5 @@
   }
   .mc-sidebar[data-peek="true"] .mc-sidebar-group-label {
     color: var(--mc-chrome-text-muted);
-  }
-  .mc-sidebar[data-peek="true"] .mc-sidebar-controls {
-    flex-direction: row;
   }
 }
