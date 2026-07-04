@@ -9,14 +9,16 @@
    *   [tag slot, fixed — "Staged" when staged, empty otherwise]
    *   [control column, fixed inline-size, right edges aligned]
    *
-   * The gutter and tag slot exist in EVERY posture: state changes ink, never geometry, so
-   * staging a value cannot reflow the table.
+   * THE ROW'S GEOMETRY INVARIANT: rest, hover, and staged all share IDENTICAL geometry. The
+   * marker gutter, the tag slot, and the Was + Revert line under the control are permanently
+   * reserved in every posture — state changes ink and visibility, never layout — so staging
+   * (or revealing) anything can never push the rows below it.
    *
    * Postures (exactly one prop group applies):
-   * - draft: the control binds to the page draft — edits stage, nothing lands until the header
-   *   band commits. Staged rows light the gutter's gilt bar, take the "Staged" tag, show the old
-   *   value struck through (the ledger's own grammar: strike and re-enter, never erase), and
-   *   grow a quiet per-row revert.
+   * - draft: the control binds to the page draft — edits stage, nothing lands until the
+   *   masthead's meta bar commits. Staged rows light the gutter's gilt bar, take the "Staged"
+   *   tag, and carry one compact line under the control: the previous value in a quiet "Was:"
+   *   badge (re-entered, never erased) with Revert beside it.
    * - instant: the control binds to a live value and applies on interaction — the page owns the
    *   apply (and its history append).
    * - read-only (`value` alone): NO control — the committed value engraves as a stated fact.
@@ -26,19 +28,21 @@
    *   revealed on row hover and on focus (screen readers always reach it), so the resting table
    *   stays calm.
    */
-  import * as RadioGroup from "@magna-carta/design-system/radio-group";
   import * as Select from "@magna-carta/design-system/select";
-  import Button from "@magna-carta/design-system/button";
+  import * as Tooltip from "@magna-carta/design-system/tooltip";
+  import Badge from "@magna-carta/design-system/badge";
+  import Button, { buttonClasses } from "@magna-carta/design-system/button";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
   import Switch from "@magna-carta/design-system/switch";
-  import Undo2 from "@lucide/svelte/icons/undo-2";
+  import MessageSquarePlus from "@lucide/svelte/icons/message-square-plus";
   import {
     settingValueLabel,
     type SettingDefinition,
     type SettingValue,
   } from "$lib/settings/settings-definitions.ts";
   import type { SettingsDraft } from "$lib/settings/settings-draft.svelte.ts";
+  import type { Snippet } from "svelte";
 
   let {
     definition,
@@ -46,6 +50,7 @@
     instant,
     value,
     onRequestChange,
+    control,
   }: {
     definition: SettingDefinition;
     /** Draft posture: edits stage into this page draft. */
@@ -56,13 +61,18 @@
     value?: SettingValue;
     /** Read-only rows only: mounts the per-row "Request a change" affordance. */
     onRequestChange?: (definition: SettingDefinition) => void;
+    /**
+     * Bespoke control-column content (e.g. a seam row's Soon device) — the row still supplies
+     * the shared grid, label, and description, so one-off rows never re-implement the anatomy.
+     */
+    control?: Snippet;
   } = $props();
 
   const controlId = $derived(`settings-${definition.id}`);
   const editable = $derived(draft !== undefined || instant !== undefined);
   const staged = $derived(draft !== undefined && draft.isStaged(definition));
   // The row is interactive when it carries a control or a per-row action — those rows take the
-  // full-width hover tint; purely stated rows stay still.
+  // full-width hover tint; purely stated rows (and bespoke seam content) stay still.
   const interactive = $derived(editable || onRequestChange !== undefined);
 
   // The helpers go through `draft?`/`instant?` rather than template narrowing: the function-form
@@ -117,14 +127,12 @@
   </div>
 
   <div class="flex min-w-0 grow flex-col gap-4">
-    <!-- For radio kinds there is no single control to point at; the group is labelled via
-         aria-labelledby on RadioGroup.Root instead. -->
-    <Label id="{controlId}-label" for={definition.kind === "radio" ? undefined : controlId}>
+    <!-- text-md (owner-directed): the setting's NAME leads the row by size, not weight alone;
+         the description stays sm and muted. -->
+    <Label id="{controlId}-label" class="text-md" for={controlId}>
       {definition.label}
     </Label>
-    {#if definition.description}
-      <p class="text-sm text-text-muted">{definition.description}</p>
-    {/if}
+    <p class="text-sm text-text-muted">{definition.description}</p>
   </div>
 
   <!-- The fixed tag slot — geometry never changes, only whether the tag is inked. -->
@@ -141,21 +149,47 @@
 
   <!-- The control column — fixed measure, so every row's control shares the same right edge. -->
   <div class="flex shrink-0 flex-col items-end gap-4" style="inline-size: var(--mc-size-popover)">
-    {#if !editable}
-      <!-- The engraved value: a fact stated in the ledger voice, at the column's right edge. -->
-      <p class="text-sm font-medium tabular-nums">{committedLabel()}</p>
-      {#if onRequestChange !== undefined}
-        <!-- Quiet at rest, never absent: sr-only keeps the button reachable (keyboard and screen
-             reader), and hovering the row or focusing the button reveals it in place. -->
-        <Button
-          variant="ghost"
-          size="sm"
-          class="sr-only group-hover:not-sr-only group-focus-within:not-sr-only"
-          onclick={() => onRequestChange?.(definition)}
-        >
-          Request a change
-        </Button>
-      {/if}
+    {#if control !== undefined}
+      <div class="flex items-center justify-end gap-8 pe-8">
+        {@render control()}
+      </div>
+    {:else if !editable}
+      <!-- pe-8 insets the whole group from the table's edge rule (owner: the button "hugs the
+           edge"); gap-8 seats the button one step after the value. -->
+      <div class="flex items-center justify-end gap-8 pe-8">
+        <!-- The engraved value: a fact stated in the ledger voice, at the column's right edge. -->
+        <p class="text-sm font-medium tabular-nums">{committedLabel()}</p>
+        {#if onRequestChange !== undefined}
+          <!-- The per-row request affordance: an icon-only ghost button in the square `icon`
+               size, so the hover tint sits concentric around the glyph (the same device as the
+               canvas icon buttons — never a lopsided pad).
+
+               ALWAYS IN LAYOUT, hidden by INK: the button keeps its full box at rest and only
+               its color is transparent, revealed by row hover or its own keyboard focus — so
+               revealing it can never grow the row (owner defect: sr-only re-entered the flow on
+               reveal and reflowed the line). visibility:hidden would also hold geometry but
+               removes the button from the tab order, killing the keyboard reveal — hide-by-color
+               is the house pattern for exactly this (the sidebar labels and brand wordmark hide
+               the same way). The focus side pairs with request-change-dialog.svelte cancelling
+               Bits' focus restore on close, so the reveal cannot latch open after backing out.
+
+               Tooltip.Trigger IS the button element (Bits renders it as one), so it wears the
+               ghost recipe directly — nesting a Button inside it would render button-in-button. -->
+          <Tooltip.Root>
+            <Tooltip.Trigger
+              class="{buttonClasses({
+                variant: 'ghost',
+                size: 'icon',
+              })} text-transparent group-hover:text-text-default focus-visible:text-text-default"
+              aria-label="Request a change to {definition.label}"
+              onclick={() => onRequestChange?.(definition)}
+            >
+              <MessageSquarePlus class="size-16" aria-hidden="true" />
+            </Tooltip.Trigger>
+            <Tooltip.Content>Request a change</Tooltip.Content>
+          </Tooltip.Root>
+        {/if}
+      </div>
     {:else if definition.kind === "select"}
       <Select.Root
         type="single"
@@ -172,19 +206,6 @@
           {/each}
         </Select.Content>
       </Select.Root>
-    {:else if definition.kind === "radio"}
-      <RadioGroup.Root
-        class="w-full"
-        aria-labelledby="{controlId}-label"
-        bind:value={() => currentValue() as string, (next) => applyNext(next)}
-      >
-        {#each definition.options ?? [] as option (option.value)}
-          <div class="flex items-center gap-8">
-            <RadioGroup.Item value={option.value} id="{controlId}-{option.value}" />
-            <Label for="{controlId}-{option.value}">{option.label}</Label>
-          </div>
-        {/each}
-      </RadioGroup.Root>
     {:else if definition.kind === "switch"}
       <Switch
         id={controlId}
@@ -194,14 +215,15 @@
       <Input id={controlId} bind:value={() => String(currentValue()), (next) => applyNext(next ?? "")} />
     {/if}
 
-    {#if staged}
-      <!-- Strike and re-enter, never erase: the superseded value stays legible under the strike
-           while the staged value lives in the control above. -->
-      <p class="text-xs text-text-muted tabular-nums line-through">{committedLabel()}</p>
-      <Button variant="ghost" size="sm" onclick={revert}>
-        <Undo2 class="size-16" aria-hidden="true" />
-        Revert
-      </Button>
-    {/if}
+    <!-- One compact line under the control (owner-directed over a strikethrough): the
+         superseded value rides a quiet badge — re-entered, never erased — with Revert beside
+         it at the same small type. The line's space is PERMANENTLY reserved (the geometry
+         invariant): it reveals by visibility, so staging never pushes the rows below —
+         hidden it also leaves the tab order and the accessibility tree, which is the correct
+         semantics for an action that only exists while staged. -->
+    <div class="flex items-center gap-8 {staged ? '' : 'invisible'}">
+      <Badge variant="neutral" class="tabular-nums">Was: {committedLabel()}</Badge>
+      <Button variant="ghost" size="sm" class="text-xs" onclick={revert}>Revert</Button>
+    </div>
   </div>
 </div>

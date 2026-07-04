@@ -13,17 +13,16 @@
   import * as Sidebar from "@magna-carta/design-system/sidebar";
   import * as Tooltip from "@magna-carta/design-system/tooltip";
   import * as TopBar from "@magna-carta/design-system/top-bar";
-  import {
-    isPaletteChord,
-    paletteShortcutLabel,
-  } from "@magna-carta/design-system/internal/platform";
+  import { isPaletteChord } from "@magna-carta/design-system/internal/platform";
   import Settings from "@lucide/svelte/icons/settings";
+  import Timer from "@lucide/svelte/icons/timer";
   import CommandPalette from "$lib/components/command-palette.svelte";
   import ProfileMenu from "$lib/components/profile-menu.svelte";
+  import Badge from "@magna-carta/design-system/badge";
   import {
     DESTINATION_GROUPS,
     isCurrentDestination,
-    shippedDestinations,
+    visibleDestinations,
   } from "$lib/navigation/destinations.ts";
   import { developerPreferences } from "$lib/settings/developer-preferences.svelte.ts";
   import type { Snippet } from "svelte";
@@ -33,15 +32,13 @@
   let collapsed = $state(false);
   let paletteOpen = $state(false);
 
-  const destinations = shippedDestinations();
+  // Shipped destinations navigate; announced ones render as honest Soon rows (the owner is
+  // feeling out the ordering ahead of the builds — the registry documents the draft).
+  const destinations = visibleDestinations();
   const groups = DESTINATION_GROUPS.map((group) => ({
     ...group,
     destinations: destinations.filter((destination) => destination.group === group.id),
   })).filter((group) => group.destinations.length > 0);
-
-  // The palette chord, detected from the OS (never hardcoded) — one shared module answers the
-  // Apple-vs-everyone question for the keycap label AND the listener, so they cannot disagree.
-  const paletteShortcut = paletteShortcutLabel();
 
   function onKeydown(event: KeyboardEvent): void {
     if (!isPaletteChord(event)) return;
@@ -58,7 +55,13 @@
   <div class="flex h-screen overflow-hidden bg-surface-default">
     <Sidebar.Root bind:collapsed aria-label="Primary">
       <Sidebar.Header>
-        <BrandMark />
+        <!-- The universal convention: the mark goes home. Chrome identity, not a menu row, so
+             the treatment stays quiet — the pointer cursor and focus ring say "link", nothing
+             louder. The collapsed rail keeps the mark alone clickable (the wordmark hides by
+             color inside BrandMark; the anchor's box remains). -->
+        <a href="/home" aria-label="Magna Carta — Home" class="rounded-md">
+          <BrandMark />
+        </a>
       </Sidebar.Header>
       <Sidebar.Content>
         {#each groups as group (group.id)}
@@ -71,15 +74,31 @@
                 {@const Icon = destination.icon}
                 {@const current = isCurrentDestination(destination, page.url.pathname)}
                 <Sidebar.MenuItem>
-                  <Sidebar.MenuButton
-                    href={destination.href}
-                    tooltip={destination.label}
-                    isActive={current}
-                    aria-current={current ? "page" : undefined}
-                  >
-                    {#snippet icon()}<Icon class="mc-sidebar-icon" aria-hidden="true" />{/snippet}
-                    {destination.label}
-                  </Sidebar.MenuButton>
+                  {#if destination.shipped}
+                    <Sidebar.MenuButton
+                      href={destination.href}
+                      tooltip={destination.label}
+                      isActive={current}
+                      aria-current={current ? "page" : undefined}
+                    >
+                      {#snippet icon()}<Icon class="mc-sidebar-icon" aria-hidden="true" />{/snippet}
+                      {destination.label}
+                    </Sidebar.MenuButton>
+                  {:else}
+                    <!-- An announced Soon row: no destination yet, so no href and disabled —
+                         honest about not existing. The badge rides the label (both hide in the
+                         collapsed rail, where the tooltip carries the truth instead and the
+                         un-navigable muted icon is the Soon treatment). -->
+                    <Sidebar.MenuButton
+                      disabled
+                      tooltip="{destination.label} — coming soon"
+                      class="cursor-default"
+                    >
+                      {#snippet icon()}<Icon class="mc-sidebar-icon" aria-hidden="true" />{/snippet}
+                      {destination.label}
+                      <Badge variant="neutral" class="ms-8">Soon</Badge>
+                    </Sidebar.MenuButton>
+                  {/if}
                 </Sidebar.MenuItem>
               {/each}
             </Sidebar.Menu>
@@ -90,7 +109,7 @@
         <Sidebar.Menu>
           <Sidebar.MenuItem>
             <Sidebar.MenuButton
-              href="/settings/appearance"
+              href="/settings/theme"
               tooltip="Settings"
               isActive={page.url.pathname.startsWith("/settings")}
               aria-current={page.url.pathname.startsWith("/settings") ? "page" : undefined}
@@ -113,15 +132,37 @@
       style="view-transition-name: mc-app-canvas"
     >
       <TopBar.Root>
-        <TopBar.Search
-          shortcut={paletteShortcut}
-          class="max-w-md grow"
-          onclick={() => (paletteOpen = true)}
-        >
-          Search or jump to anything
+        <!-- Rest state reads just "Search…" (owner-directed): the keyboard hints moved INTO the
+             open palette's input row, shown only while the query is empty. -->
+        <TopBar.Search class="max-w-md grow" onclick={() => (paletteOpen = true)}>
+          Search…
         </TopBar.Search>
         <TopBar.Actions>
-          <!-- +New, the billable timer, and alerts land here with their slices. -->
+          <!-- +New and alerts land here with their slices. -->
+          <!-- The Time Keeper — a WIDGET, not an icon button (owner-corrected): the running-
+               timer chip from the approved mockups (design-lab/home.html: a hairline chip with
+               a status dot, tabular elapsed readout, and the active matter). Its SHAPE ships
+               now so the chrome's layout is settled; this is the resting anatomy — glyph plus
+               a muted 0:00 placeholder, Soon treatment (aria-disabled with no action, NOT the
+               disabled attribute, which would swallow the hover that carries the tooltip's
+               truth).
+
+               THE LIGHT-UP CONTRACT (arrives with the Time surface's UI; the time-tracking
+               backend already exists): a live elapsed readout while a timer runs, and click
+               opens the timer panel — a popover with the active matter, description, and
+               start/stop/switch controls. -->
+          <Tooltip.Root>
+            <Tooltip.Trigger
+              class="mc-top-bar-icon-button cursor-not-allowed gap-8 border text-xs tabular-nums"
+              style="border-color: var(--mc-chrome-border)"
+              aria-label="Time Keeper — soon"
+              aria-disabled="true"
+            >
+              <Timer class="size-16" aria-hidden="true" />
+              <span>0:00</span>
+            </Tooltip.Trigger>
+            <Tooltip.Content>Time Keeper — soon</Tooltip.Content>
+          </Tooltip.Root>
           {#if import.meta.env.DEV && developerPreferences.developerSettingsEnabled && developerPreferences.developerToolkitInHeader}
             <!-- The developer console (modular tooling; motion tuning first). The dynamic import
                  inside a DEV-gated branch keeps every byte of it out of production bundles.

@@ -14,8 +14,7 @@
    * flip appends to the section's trail; a cascade the master's kill causes in the store is not
    * itemized — the master's own entry records the kill.
    */
-  import * as Masthead from "@magna-carta/design-system/masthead";
-  import SettingsHeaderBand from "$lib/settings/components/settings-header-band.svelte";
+  import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
   import SettingsPlate from "$lib/settings/components/settings-plate.svelte";
   import SettingsRow from "$lib/settings/components/settings-row.svelte";
   import {
@@ -32,7 +31,7 @@
   const ENABLED_DEFINITION: SettingDefinition = {
     id: "developer.settings-enabled",
     sectionId: "developer",
-    label: "Enable developer settings",
+    label: "Enable Developer Settings",
     description: "The master switch: turning it off turns every developer control off.",
     kind: "switch",
     defaultValue: false,
@@ -42,7 +41,7 @@
   const TOOLKIT_DEFINITION: SettingDefinition = {
     id: "developer.toolkit-in-header",
     sectionId: "developer",
-    label: "Show developer toolkit in the header",
+    label: "Show Developer Toolkit in the Header",
     description: "Places the developer console in the top bar on every page.",
     kind: "switch",
     defaultValue: false,
@@ -108,33 +107,37 @@
   <title>Developer · Settings · Magna Carta</title>
 </svelte:head>
 
-<Masthead.Root class="mb-24">
-  <Masthead.Heading>
-    <Masthead.Eyebrow>Settings</Masthead.Eyebrow>
-    <Masthead.Title>Developer</Masthead.Title>
-    <Masthead.Meta>
-      <span>Controls that exist only in development builds.</span>
-    </Masthead.Meta>
-  </Masthead.Heading>
-</Masthead.Root>
+<SettingsMasthead
+  sectionId="developer"
+  title="Developer"
+  meta="Controls that exist only in development builds."
+  posture="instant"
+  {restoreAction}
+/>
 
-<div class="flex flex-col gap-24" style="max-inline-size: var(--mc-size-prose)">
-  <SettingsHeaderBand
-    sectionId="developer"
-    legend="Developer controls"
-    posture="instant"
-    {restoreAction}
-  />
-
-  <SettingsPlate heading="Development toolkit">
-    <SettingsRow definition={ENABLED_DEFINITION} instant={instantFor(ENABLED_FLAG)} />
-    {#if developerPreferences.developerSettingsEnabled}
-      <SettingsRow definition={TOOLKIT_DEFINITION} instant={instantFor(TOOLKIT_FLAG)} />
-    {:else}
-      <p class="py-12 text-sm text-text-muted">
+<!-- The middle story: the one scroll area, reaching the canvas's true edges (the breathing
+     room rides INSIDE it); scrollbar-gutter keeps pages that scroll and pages that do not at
+     identical width. Full canvas width (owner-directed): the table uses the space. -->
+<div class="min-h-0 grow overflow-y-auto" style="scrollbar-gutter: stable">
+  <div class="flex flex-col gap-24 p-24">
+  <!-- The master switch stands in its OWN plate (owner-directed), apart from the settings it
+       governs; the reveal hint lives beneath the plate, never inside the row's box. -->
+  <div class="flex flex-col gap-8">
+    <SettingsPlate heading="Development Toolkit">
+      <SettingsRow definition={ENABLED_DEFINITION} instant={instantFor(ENABLED_FLAG)} />
+    </SettingsPlate>
+    {#if !developerPreferences.developerSettingsEnabled}
+      <p class="text-sm text-text-muted">
         Enabling developer settings reveals the individual developer controls, all off until you
         turn them on.
       </p>
     {/if}
-  </SettingsPlate>
+  </div>
+
+  {#if developerPreferences.developerSettingsEnabled}
+    <SettingsPlate heading="Toolkit Controls">
+      <SettingsRow definition={TOOLKIT_DEFINITION} instant={instantFor(TOOLKIT_FLAG)} />
+    </SettingsPlate>
+  {/if}
+  </div>
 </div>

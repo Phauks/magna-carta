@@ -18,6 +18,7 @@
   import ExternalLink from "@lucide/svelte/icons/external-link";
   import LifeBuoy from "@lucide/svelte/icons/life-buoy";
   import LogOut from "@lucide/svelte/icons/log-out";
+  import Shield from "@lucide/svelte/icons/shield";
   import { ECOSYSTEM_SITES } from "$lib/navigation/ecosystem-sites.ts";
   import BugReportDialog from "$lib/components/bug-report-dialog.svelte";
 
@@ -48,6 +49,23 @@
       <p class="text-xs text-text-muted">Signed-in identity arrives with accounts</p>
     </div>
     <DropdownMenu.Separator />
+    <!-- Account Settings — an honest seam under the identity it will govern (owner directive).
+         Credentials and profile identity (2FA, password, resets, profile information) are a
+         separate, HIGHER-CEREMONY surface than preference settings: step-up re-authentication
+         lives there when authentication ships, so it hangs off the profile, not the settings
+         nav. "Account Settings" is the owner's working name — it may be renamed; one string.
+         (Shield, not ShieldCheck — the check variant is the Trust Center website's icon.) -->
+    <!-- The scope line names WHAT the surface covers; the arrival is the Soon badge's job
+         (an "arrives with…" clause beside a Soon badge is redundant — owner-directed). -->
+    <DropdownMenu.Item disabled>
+      <Shield class="size-16" aria-hidden="true" />
+      <span class="flex min-w-0 flex-col">
+        <span>Account Settings</span>
+        <span class="text-xs">2FA, password, and profile</span>
+      </span>
+      <Badge variant="neutral" class="ms-auto">Soon</Badge>
+    </DropdownMenu.Item>
+    <DropdownMenu.Separator />
     <DropdownMenu.Sub>
       <!-- The profile menu hugs the viewport's right edge, so the submenu must open INWARD
            (left) — and the trigger's chevron points left to match the motion (owner review
@@ -77,7 +95,7 @@
       </DropdownMenu.SubContent>
     </DropdownMenu.Sub>
     <DropdownMenu.Separator />
-    <!-- Help group. "Report a bug" is live from every screen — the dialog assembles a
+    <!-- Help group. "Report an Issue" is live from every screen — the dialog assembles a
          copy-ready report (bug-report-dialog.svelte). "Request assistance" is an honest seam
          for the owner's support funnel: contacting an agent will REQUIRE a filed bug/issue
          report first, so the report id anchors the conversation; the backend support-access
@@ -86,23 +104,20 @@
          support. -->
     <DropdownMenu.Item onSelect={() => (bugReportOpen = true)}>
       <Bug class="size-16" aria-hidden="true" />
-      Report a bug
+      Report an Issue
     </DropdownMenu.Item>
+    <!-- Single line: its old second line stated only the arrival, which the Soon badge says. -->
     <DropdownMenu.Item disabled>
       <LifeBuoy class="size-16" aria-hidden="true" />
-      <span class="flex min-w-0 flex-col">
-        <span>Request assistance</span>
-        <span class="text-xs">Arrives with in-application support</span>
-      </span>
+      Request assistance
+      <Badge variant="neutral" class="ms-auto">Soon</Badge>
     </DropdownMenu.Item>
     <DropdownMenu.Separator />
     <!-- Disabled until authentication ships — there is no session to end yet. -->
     <DropdownMenu.Item disabled>
       <LogOut class="size-16" aria-hidden="true" />
-      <span class="flex min-w-0 flex-col">
-        <span>Sign out</span>
-        <span class="text-xs">Arrives with authentication</span>
-      </span>
+      Sign out
+      <Badge variant="neutral" class="ms-auto">Soon</Badge>
     </DropdownMenu.Item>
   </DropdownMenu.Content>
 </DropdownMenu.Root>

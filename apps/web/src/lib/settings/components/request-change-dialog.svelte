@@ -8,24 +8,30 @@
    * construction — restricted settings never render for non-editors — so stating its current
    * value discloses nothing the member cannot already see.)
    *
-   * Recipients default to every administrator holding the section's edit right (the mock roster
-   * seam in settings-permissions.ts); the member may narrow the list, and the copied block
-   * carries the To: line so the request lands with the people who can act on it.
+   * Recipients ride a SEARCH PICKER (owner-directed, v1 of a fuller routing workflow later):
+   * the combobox filters ONLY the administrators holding the section's edit right (the mock
+   * roster seam in settings-permissions.ts), each pick becomes its own removable chip, and the
+   * copied block carries the To: line so the request lands with the people who can act on it.
+   * The list starts EMPTY: with an explicit picker, adding someone is the deliberate act, and
+   * the at-least-one-recipient gate (not preselection) prevents a request addressed to no one.
    *
-   * Honesty rule: there is no submit. Filing straight to the firm's administrators arrives with
-   * firm accounts — the request will ride the same rails as access requests when they land;
-   * until then Copy carries it, and the footer says so plainly.
+   * Honesty rule: filing is not wired yet. The real "File Request" action renders disabled with
+   * the Soon badge rather than being omitted — designed-but-not-wired actions keep their place
+   * so the dialog shows its final anatomy (owner rule) — and it lights up when requests ride
+   * the access-request rails with firm accounts; until then Copy carries it, and the footer
+   * says so plainly.
    *
    * The page owns the trigger state (`bind:open`); this component renders no trigger.
    */
   import * as Dialog from "@magna-carta/design-system/dialog";
+  import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
-  import Checkbox from "@magna-carta/design-system/checkbox";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
   import Textarea from "@magna-carta/design-system/textarea";
   import Check from "@lucide/svelte/icons/check";
   import Copy from "@lucide/svelte/icons/copy";
+  import RecipientPicker from "$lib/components/recipient-picker.svelte";
   import { settingValueLabel, type SettingDefinition } from "$lib/settings/settings-definitions.ts";
   import { committedSettingValue } from "$lib/settings/settings-draft.svelte.ts";
   import { SETTINGS_SECTIONS } from "$lib/settings/settings-sections.ts";
@@ -53,8 +59,7 @@
    * switching to a different setting starts fresh: a reason written about time increments must
    * never ride along under a request about rounding. The stored composition is keyed by the
    * definition it was written for; while the key does not match, the fields read as pristine
-   * (recipients defaulting to ALL eligible administrators — the common case is "whoever can,
-   * please", so narrowing is the deliberate act, not assembling) and the first edit snapshots a
+   * (no recipients — assembling them is the deliberate act) and the first edit snapshots a
    * fresh composition for the new setting.
    */
   interface RequestComposition {
@@ -75,9 +80,7 @@
   const pristine = $derived(composition.definitionId !== definition.id);
   const proposedValue = $derived(pristine ? "" : composition.proposedValue);
   const reason = $derived(pristine ? "" : composition.reason);
-  const selectedRecipientIds = $derived(
-    pristine ? administrators.map((administrator) => administrator.id) : composition.recipientIds,
-  );
+  const selectedRecipientIds = $derived(pristine ? [] : composition.recipientIds);
 
   function editComposition(mutate: (draft: RequestComposition) => void): void {
     if (pristine) {
@@ -85,7 +88,7 @@
         definitionId: definition.id,
         proposedValue: "",
         reason: "",
-        recipientIds: administrators.map((administrator) => administrator.id),
+        recipientIds: [],
       };
     }
     mutate(composition);
@@ -95,11 +98,15 @@
     settingValueLabel(definition, committedSettingValue(definition)),
   );
 
-  function setRecipientSelected(id: string, selected: boolean): void {
+  function addRecipient(id: string): void {
     editComposition((draft) => {
-      draft.recipientIds = selected
-        ? [...draft.recipientIds, id]
-        : draft.recipientIds.filter((candidate) => candidate !== id);
+      if (!draft.recipientIds.includes(id)) draft.recipientIds = [...draft.recipientIds, id];
+    });
+  }
+
+  function removeRecipient(id: string): void {
+    editComposition((draft) => {
+      draft.recipientIds = draft.recipientIds.filter((candidate) => candidate !== id);
     });
   }
 
@@ -107,6 +114,21 @@
   // someone to receive it; the proposed value may live in the reason's prose, so it alone is
   // not required.
   const copyDisabled = $derived(reason.trim().length === 0 || selectedRecipientIds.length === 0);
+
+  /*
+   * Kill the reveal latch at the source. Bits' Dialog restores focus to its trigger when the
+   * dialog closes, and a focused per-row request trigger keeps ANY focus-based reveal latched
+   * open until the user clicks elsewhere (owner-reported twice: "the request a change text
+   * will not go away") — Chromium even marks the programmatically refocused button
+   * :focus-visible after an Escape close. Cancelling the restore through Bits' own
+   * close-auto-focus seam (no timing race against the exit animation, unlike a blur scheduled
+   * after close) leaves the row at rest the moment the dialog leaves. The trade, accepted for
+   * simplicity: keyboard users lose the restored tab position and re-enter with Tab — the
+   * affordance re-reveals on focus as they do.
+   */
+  function preventTriggerRefocus(event: Event): void {
+    event.preventDefault();
+  }
 
   async function copyRequest(): Promise<void> {
     const recipients = administrators
@@ -131,7 +153,7 @@
 </script>
 
 <Dialog.Root bind:open>
-  <Dialog.Content showClose={false}>
+  <Dialog.Content showClose={false} onCloseAutoFocus={preventTriggerRefocus}>
     <Dialog.Title>Request a change</Dialog.Title>
 
     <!-- The setting under discussion, stated as facts: name and what it reads today — the
@@ -146,29 +168,17 @@
       </p>
     </div>
 
-    <fieldset class="flex flex-col gap-8">
-      <legend
-        class="pb-4 text-xs text-text-muted uppercase"
-        style="letter-spacing: var(--mc-tracking-caps)"
-      >
-        Send to
-      </legend>
-      {#each administrators as administrator (administrator.id)}
-        <div class="flex items-center gap-8">
-          <Checkbox
-            id="request-change-recipient-{administrator.id}"
-            bind:checked={
-              () => selectedRecipientIds.includes(administrator.id),
-              (next) => setRecipientSelected(administrator.id, next)
-            }
-          />
-          <Label for="request-change-recipient-{administrator.id}">
-            {administrator.name}
-            <span class="text-text-muted">— {administrator.role}</span>
-          </Label>
-        </div>
-      {/each}
-    </fieldset>
+    <div class="flex flex-col gap-4">
+      <Label for="request-change-recipients">Send to</Label>
+      <RecipientPicker
+        members={administrators}
+        selectedIds={selectedRecipientIds}
+        onAdd={addRecipient}
+        onRemove={removeRecipient}
+        inputId="request-change-recipients"
+        placeholder="Search administrators…"
+      />
+    </div>
 
     <div class="flex flex-col gap-4">
       <Label for="request-change-proposed-value">Proposed value</Label>
@@ -209,6 +219,13 @@
 
     <div class="flex justify-end gap-8">
       <Button variant="ghost" onclick={() => (open = false)}>Close</Button>
+      <!-- Designed-but-not-wired actions render disabled + Soon rather than being omitted —
+           the dialog shows its final anatomy (owner rule). Filing lights up when requests ride
+           the access-request rails with firm accounts. -->
+      <Button variant="secondary" disabled>
+        File Request
+        <Badge variant="neutral">Soon</Badge>
+      </Button>
       <Button variant="primary" disabled={copyDisabled} onclick={copyRequest}>
         {#if copied}
           <Check class="size-16" aria-hidden="true" />

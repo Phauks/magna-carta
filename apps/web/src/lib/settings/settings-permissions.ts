@@ -15,10 +15,10 @@ export function canEditFirmSettings(area: SettingsPermissionArea): boolean {
 }
 
 /**
- * A firm member who holds edit rights over one or more settings areas — the audience a change
- * request can be addressed to.
+ * A firm member — a name a request or report can be addressed to. `permissionAreas` names the
+ * settings areas the member may edit (empty for colleagues with no administration rights).
  */
-export interface FirmAdministrator {
+export interface FirmMember {
   readonly id: string;
   readonly name: string;
   /** The role line shown beside the name — context for choosing whom to ask. */
@@ -27,12 +27,11 @@ export interface FirmAdministrator {
 }
 
 /*
- * Mock roster seam. The change-request dialog addresses a request to real names — a request
- * "to whoever" gives no administrator a reason to feel it was meant for them. The firm member
- * directory replaces this list when firm accounts arrive; the function below is the contract
- * that survives the swap.
+ * Mock roster seam. Requests and reports address real names — "to whoever" gives no one a
+ * reason to feel it was meant for them. The firm member directory replaces this list when firm
+ * accounts arrive; the two functions below are the contract that survives the swap.
  */
-const FIRM_ADMINISTRATORS: readonly FirmAdministrator[] = [
+const FIRM_MEMBERS: readonly FirmMember[] = [
   {
     id: "member-goldsmith",
     name: "Trevor Goldsmith",
@@ -51,13 +50,22 @@ const FIRM_ADMINISTRATORS: readonly FirmAdministrator[] = [
     role: "Billing administrator",
     permissionAreas: ["billing"],
   },
+  {
+    id: "member-osei",
+    name: "Naomi Osei",
+    role: "Associate",
+    permissionAreas: [],
+  },
 ];
 
-/** The administrators holding an area's edit right — a change request's eligible recipients. */
+/** The whole firm roster — any colleague a report can be shared with. */
+export function firmMembers(): readonly FirmMember[] {
+  return FIRM_MEMBERS;
+}
+
+/** The members holding an area's edit right — a change request's eligible recipients. */
 export function administratorsForPermissionArea(
   area: SettingsPermissionArea,
-): readonly FirmAdministrator[] {
-  return FIRM_ADMINISTRATORS.filter((administrator) =>
-    administrator.permissionAreas.includes(area),
-  );
+): readonly FirmMember[] {
+  return FIRM_MEMBERS.filter((member) => member.permissionAreas.includes(area));
 }

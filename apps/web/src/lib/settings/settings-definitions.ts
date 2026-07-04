@@ -13,7 +13,12 @@
 
 export type SettingValue = string | boolean;
 
-export type SettingKind = "select" | "radio" | "switch" | "text";
+/**
+ * Enumerated settings render as dropdowns, never radio groups — owner preference: a dropdown
+ * makes the option set clearer and spends less vertical space. There is deliberately no
+ * "radio" kind.
+ */
+export type SettingKind = "select" | "switch" | "text";
 
 export interface SettingOption {
   readonly value: string;
@@ -31,10 +36,18 @@ export interface SettingDefinition {
    * under "General".
    */
   readonly plateLabel?: string;
+  /**
+   * User-facing setting name — Title Case ("Time Increment"), owner-directed; descriptions
+   * stay sentence case.
+   */
   readonly label: string;
-  readonly description?: string;
+  /**
+   * One muted line under the name — REQUIRED (owner-directed: every setting carries a
+   * descriptor), sentence case, intent not implementation.
+   */
+  readonly description: string;
   readonly kind: SettingKind;
-  /** select and radio only. */
+  /** select only. */
   readonly options?: readonly SettingOption[];
   readonly defaultValue: SettingValue;
   /**
@@ -51,15 +64,26 @@ export interface SettingDefinition {
   readonly audited?: true;
 }
 
+/*
+ * ONLY REAL SETTINGS (owner-directed): every row here mirrors something that actually exists
+ * server-side. Earlier demonstration rows with no backend counterpart (a retainer-floor alert
+ * switch, a week-start select, an SSO-enforcement switch) were deleted for that reason — as a
+ * consequence NO current row exercises `confirm: true` or `sensitivity: "restricted"`; both
+ * mechanisms stay built and covered (types, draft store, confirm dialog, visibility filtering)
+ * and light up with the first real consequential or restricted setting.
+ */
 export const SETTING_DEFINITIONS: readonly SettingDefinition[] = [
-  // Section "billing"
+  // Section "billing" — mirrors the backend's scoped time-capture settings.
   {
     id: "billing.time-increment",
     sectionId: "billing",
-    plateLabel: "Time capture",
-    label: "Time increment",
+    plateLabel: "Time Capture",
+    label: "Time Increment",
     description: "The smallest unit a time entry rounds to on invoices.",
     kind: "select",
+    // Mirrors backend `time.increment_minutes`, which accepts ANY positive integer and can be
+    // scoped per matter/client/timekeeper — the 6/15 menu is the common-case presentation;
+    // revisit when this row wires to the real API.
     options: [
       { value: "6", label: "6 minutes (0.1 hour)" },
       { value: "15", label: "15 minutes (0.25 hour)" },
@@ -70,85 +94,36 @@ export const SETTING_DEFINITIONS: readonly SettingDefinition[] = [
   {
     id: "billing.time-rounding",
     sectionId: "billing",
-    plateLabel: "Time capture",
-    label: "Time rounding",
+    plateLabel: "Time Capture",
+    label: "Time Rounding",
     description: "How a time entry that falls between increments lands.",
-    kind: "radio",
+    kind: "select",
+    // Matches backend `time.rounding_direction` exactly: enum ["up", "nearest", "down"],
+    // default "nearest".
     options: [
       { value: "nearest", label: "Round to the nearest increment" },
       { value: "up", label: "Always round up" },
+      { value: "down", label: "Always round down" },
     ],
     defaultValue: "nearest",
     sensitivity: "open",
   },
-  {
-    id: "billing.retainer-floor-alerts",
-    sectionId: "billing",
-    plateLabel: "Safeguards",
-    label: "Retainer floor alerts",
-    description:
-      "Alert the responsible attorney when a matter's retainer balance falls below its floor. " +
-      "Turning this safeguard off is consequential — work can proceed unfunded without anyone noticing.",
-    kind: "switch",
-    defaultValue: true,
-    sensitivity: "open",
-    confirm: true,
-    audited: true,
-  },
   // Section "firm-profile"
   {
+    // The firm's name really exists on the control plane, so the read-only display is honest;
+    // member EDITING of it arrives with a real display-name field on the backend.
     id: "firm.display-name",
     sectionId: "firm-profile",
     plateLabel: "Identity",
-    label: "Firm display name",
+    label: "Firm Display Name",
     description: "The name on invoices, the client portal, and generated documents.",
     kind: "text",
     defaultValue: "Goldsmith & Associates",
     sensitivity: "open",
   },
-  {
-    id: "firm.matter-numbering",
-    sectionId: "firm-profile",
-    plateLabel: "Conventions",
-    label: "Matter numbering",
-    description: "The scheme new matter numbers follow.",
-    kind: "select",
-    options: [
-      { value: "year-sequence", label: "MAT-2026-0001 — year and sequence" },
-      { value: "practice-prefix", label: "LIT-26-0001 — practice-area prefix" },
-    ],
-    defaultValue: "year-sequence",
-    sensitivity: "open",
-    audited: true,
-  },
-  {
-    id: "firm.week-start",
-    sectionId: "firm-profile",
-    plateLabel: "Conventions",
-    label: "Week starts on",
-    kind: "select",
-    options: [
-      { value: "monday", label: "Monday" },
-      { value: "sunday", label: "Sunday" },
-    ],
-    defaultValue: "monday",
-    sensitivity: "open",
-  },
-  {
-    // Security posture stays invisible to members without firm administration rights —
-    // "restricted", so the setting is absent for them rather than shown locked.
-    id: "firm.sso-enforcement",
-    sectionId: "firm-profile",
-    plateLabel: "Access & security",
-    label: "Enforce single sign-on",
-    description:
-      "Require every member to sign in through the firm's identity provider; password sign-in is disabled.",
-    kind: "switch",
-    defaultValue: false,
-    sensitivity: "restricted",
-    confirm: true,
-    audited: true,
-  },
+  // The earlier interim Matter Numbering row (a two-preset enum summarizing the real
+  // segment-template model) moved out: the dedicated Matter Numbering section under Practice
+  // supersedes it — see /settings/matter-numbering.
 ];
 
 /** Every definition registered to a section, in registry order. */
@@ -194,15 +169,14 @@ export function platesForSection(
 }
 
 /**
- * Human label for a value: the option label for select/radio, "On"/"Off" for a switch, the
- * string itself for text.
+ * Human label for a value: the option label for select, "On"/"Off" for a switch, the string
+ * itself for text.
  */
 export function settingValueLabel(definition: SettingDefinition, value: SettingValue): string {
   switch (definition.kind) {
     case "switch":
       return value === true ? "On" : "Off";
-    case "select":
-    case "radio": {
+    case "select": {
       const option = definition.options?.find((candidate) => candidate.value === value);
       // A value with no matching option (stale storage from an older build) still needs a
       // label somewhere — the raw value is the honest fallback.

@@ -14,17 +14,18 @@
    *   engine) fall through to the honest em-dash seam — never a faked number. When the
    *   aggregated endpoint ships, this page swaps the fetch and the seam rows light up.
    *
-   * The header band carries no History trigger: this page has no ledger section — versions are
+   * The masthead carries no History trigger: this page has no ledger section — versions are
    * reported facts, not user changes, and an always-empty trail would state something untrue
-   * about where their history lives (it is the platform's deploy log, not this device).
+   * about where their history lives (it is the platform's deploy log, not this device). The
+   * posture badge is overridden to "Reported by the platform" for the same honesty: nothing
+   * here is managed, it is observed.
    *
    * The dl keeps its own plate framing (rather than the settings-plate component) because its
    * rows are definition-list semantics, not setting rows — same rules, same voice, different
    * element; settings-plate.svelte is the reference for the recipe.
    */
-  import * as Masthead from "@magna-carta/design-system/masthead";
   import Skeleton from "@magna-carta/design-system/skeleton";
-  import SettingsHeaderBand from "$lib/settings/components/settings-header-band.svelte";
+  import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
   import { BUILD_IDENTITY } from "$lib/build-identity.ts";
   import { ECOSYSTEM_SITES } from "$lib/navigation/ecosystem-sites.ts";
 
@@ -99,25 +100,20 @@
   <title>Versions · Settings · Magna Carta</title>
 </svelte:head>
 
-<Masthead.Root class="mb-24">
-  <Masthead.Heading>
-    <Masthead.Eyebrow>Settings</Masthead.Eyebrow>
-    <Masthead.Title>Versions</Masthead.Title>
-    <Masthead.Meta>
-      <span>What is running: every versioned component of the platform, in one place.</span>
-    </Masthead.Meta>
-  </Masthead.Heading>
-</Masthead.Root>
+<SettingsMasthead
+  sectionId="versions"
+  title="Versions"
+  meta="What is running: every versioned component of the platform, in one place."
+  posture="readOnly"
+  badgeLabel="Reported by the platform"
+  showHistory={false}
+/>
 
-<div class="flex flex-col gap-24" style="max-inline-size: var(--mc-size-prose)">
-  <SettingsHeaderBand
-    sectionId="versions"
-    legend="Platform diagnostics"
-    posture="readOnly"
-    railLegend="Reported by the platform"
-    showHistory={false}
-  />
-
+<!-- The middle story: the one scroll area, reaching the canvas's true edges (the breathing
+     room rides INSIDE it); scrollbar-gutter keeps pages that scroll and pages that do not at
+     identical width. Full canvas width (owner-directed): the table uses the space. -->
+<div class="min-h-0 grow overflow-y-auto" style="scrollbar-gutter: stable">
+  <div class="flex flex-col gap-24 p-24">
   {#snippet row(component: string, version: string | null, asOf: string | null)}
     <!-- The shared table grid: the (empty) marker gutter, the flexible label, and the value at
          the fixed control-column measure — so diagnostic values share the settings rows'
@@ -177,7 +173,7 @@
     </h3>
     <dl class="flex flex-col divide-y divide-border-default border-b border-border-strong">
       {@render row(
-        "Application build",
+        "Application Build",
         `${BUILD_IDENTITY.commit} · ${BUILD_IDENTITY.mode}`,
         builtAt,
       )}
@@ -196,26 +192,27 @@
       aria-busy={scanEngine.status === "loading"}
     >
       {#if scanEngine.status === "loading"}
-        {@render loadingRow("Scan engine · code")}
-        {@render loadingRow("Scan engine · YARA ruleset")}
-        {@render loadingRow("Scan engine · malware definitions")}
+        {@render loadingRow("Scan Engine · Code")}
+        {@render loadingRow("Scan Engine · YARA Ruleset")}
+        {@render loadingRow("Scan Engine · Malware Definitions")}
       {:else if scanEngine.status === "reported"}
-        {@render row("Scan engine · code", scanEngine.parts.engineCode, null)}
-        {@render row("Scan engine · YARA ruleset", scanEngine.parts.yaraRuleset, null)}
-        {@render row("Scan engine · malware definitions", scanEngine.parts.malwareDefinitions, null)}
+        {@render row("Scan Engine · Code", scanEngine.parts.engineCode, null)}
+        {@render row("Scan Engine · YARA Ruleset", scanEngine.parts.yaraRuleset, null)}
+        {@render row("Scan Engine · Malware Definitions", scanEngine.parts.malwareDefinitions, null)}
       {:else}
-        {@render row("Scan engine · code", null, null)}
-        {@render row("Scan engine · YARA ruleset", null, null)}
-        {@render row("Scan engine · malware definitions", null, null)}
+        {@render row("Scan Engine · Code", null, null)}
+        {@render row("Scan Engine · YARA Ruleset", null, null)}
+        {@render row("Scan Engine · Malware Definitions", null, null)}
       {/if}
 
-      {@render row("Document editing container", null, null)}
-      {@render row("Conversion engines", null, null)}
-      {@render row("PDF engine", null, null)}
+      {@render row("Document Editing Container", null, null)}
+      {@render row("Conversion Engines", null, null)}
+      {@render row("PDF Engine", null, null)}
     </dl>
   </section>
 
   <p class="text-sm text-text-muted">
     Reported by the platform once the versions endpoint ships.
   </p>
+  </div>
 </div>

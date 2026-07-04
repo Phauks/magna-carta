@@ -63,8 +63,7 @@ describe("settings mode purity", () => {
   it("every default value is representable by its definition", () => {
     for (const definition of SETTING_DEFINITIONS) {
       switch (definition.kind) {
-        case "select":
-        case "radio": {
+        case "select": {
           const optionValues = (definition.options ?? []).map((option) => option.value);
           expect(
             optionValues.length,

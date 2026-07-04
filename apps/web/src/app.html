@@ -30,6 +30,13 @@
         if (density !== "compact") density = "comfortable";
         if (density === "comfortable") delete root.dataset.density;
         else root.dataset.density = density;
+        var contrast = localStorage.getItem("magna-carta.contrast");
+        if (contrast !== "high" && contrast !== "standard") contrast = "system";
+        if (contrast === "system") {
+          contrast = matchMedia("(prefers-contrast: more)").matches ? "high" : "standard";
+        }
+        if (contrast === "standard") delete root.dataset.contrast;
+        else root.dataset.contrast = contrast;
       })();
     </script>
     %sveltekit.head%

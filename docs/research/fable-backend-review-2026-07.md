@@ -68,6 +68,9 @@ assembles a paste-ready report (user description + build identity, time, path, b
 only copy it to the clipboard. It needs a report-ingest endpoint that accepts the description
 plus the trace fields, feeds the standard redact-by-default error/report pipeline
 ([`docs/conventions/error-logging.md`](../conventions/error-logging.md)), and mints a reference
-id shown to the user. The "Request assistance" contact flow is then gated on a filed report id,
+id shown to the user. Owner-directed additions (2026-07-03): the payload also carries optional
+in-office recipient member ids ("also send to" — colleagues who should see the same report) and
+an email-me-a-copy flag, so the ingest fans the filed report out to chosen firm members and, via
+the platform's transactional email (which also does not exist yet), to the requester. The "Request assistance" contact flow is then gated on a filed report id,
 with the existing support-access framework (time-boxed, firm-approved grants) supplying the
 session that follows.

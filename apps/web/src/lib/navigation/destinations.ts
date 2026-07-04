@@ -15,8 +15,10 @@
 import type { Component } from "svelte";
 import House from "@lucide/svelte/icons/house";
 import FolderOpen from "@lucide/svelte/icons/folder-open";
-import Calendar from "@lucide/svelte/icons/calendar";
+import CalendarDays from "@lucide/svelte/icons/calendar-days";
 import Users from "@lucide/svelte/icons/users";
+import FileText from "@lucide/svelte/icons/file-text";
+import ClipboardPenLine from "@lucide/svelte/icons/clipboard-pen-line";
 import SquareCheck from "@lucide/svelte/icons/square-check";
 import Inbox from "@lucide/svelte/icons/inbox";
 import Clock from "@lucide/svelte/icons/clock";
@@ -25,11 +27,11 @@ import ReceiptText from "@lucide/svelte/icons/receipt-text";
 import CreditCard from "@lucide/svelte/icons/credit-card";
 import Calculator from "@lucide/svelte/icons/calculator";
 import FileStack from "@lucide/svelte/icons/file-stack";
-import SearchCheck from "@lucide/svelte/icons/search-check";
+import FileSearch from "@lucide/svelte/icons/file-search";
 import Vault from "@lucide/svelte/icons/vault";
-import Scale from "@lucide/svelte/icons/scale";
+import ShieldAlert from "@lucide/svelte/icons/shield-alert";
 import Wrench from "@lucide/svelte/icons/wrench";
-import Mail from "@lucide/svelte/icons/mail";
+import MessageSquare from "@lucide/svelte/icons/message-square";
 import ChartColumn from "@lucide/svelte/icons/chart-column";
 
 export type DestinationGroup = "top" | "money" | "practice" | "firm";
@@ -43,6 +45,12 @@ export interface Destination {
   readonly group: DestinationGroup;
   /** Renders in the sidebar only when true — flipped when the surface's UI ships. */
   readonly shipped: boolean;
+  /**
+   * An unshipped destination the sidebar (and palette) already ANNOUNCE as a Soon row — the
+   * owner is feeling out the ordering ahead of the builds. Flipping `shipped` retires the Soon
+   * treatment; `announced` without `shipped` is the only combination that renders disabled.
+   */
+  readonly announced?: true;
 }
 
 /** Group headings in canonical order; "top" is unlabelled (it opens the rail). */
@@ -53,9 +61,26 @@ export const DESTINATION_GROUPS: ReadonlyArray<{ id: DestinationGroup; label: st
   { id: "firm", label: "Firm" },
 ];
 
+/*
+ * ORDERING IS UNDER REVIEW (owner-directed draft, 2026-07-03): the announced Soon rows exist
+ * precisely so the owner can feel the order — daily drivers and matter-work first, money next,
+ * output last. It is data; reorder THIS array (and nothing else) to try another arrangement.
+ * At fifteen rows the sidebar is nearing the length where it wants GROUPING (the settings
+ * nav's band device) — the expected next step once the owner settles membership and order;
+ * not built yet.
+ */
 export const DESTINATIONS: readonly Destination[] = [
-  // Top
+  // Top — the owner's draft order: daily drivers, then the matter-work cluster.
   { id: "home", label: "Home", href: "/home", icon: House, group: "top", shipped: true },
+  {
+    id: "calendar",
+    label: "Calendar",
+    href: "/calendar",
+    icon: CalendarDays,
+    group: "top",
+    shipped: false,
+    announced: true,
+  },
   {
     id: "matters",
     label: "Matters",
@@ -65,12 +90,23 @@ export const DESTINATIONS: readonly Destination[] = [
     shipped: true,
   },
   {
-    id: "calendar",
-    label: "Calendar",
-    href: "/calendar",
-    icon: Calendar,
+    id: "intake",
+    label: "Intake",
+    href: "/intake",
+    icon: Inbox,
     group: "top",
     shipped: false,
+    announced: true,
+  },
+  {
+    // Runs at intake, so it sits beside it.
+    id: "conflicts",
+    label: "Conflicts Check",
+    href: "/conflicts",
+    icon: ShieldAlert,
+    group: "top",
+    shipped: false,
+    announced: true,
   },
   {
     id: "contacts",
@@ -79,12 +115,70 @@ export const DESTINATIONS: readonly Destination[] = [
     icon: Users,
     group: "top",
     shipped: false,
+    announced: true,
+  },
+  {
+    // Client and portal communications.
+    id: "communications",
+    label: "Messaging",
+    href: "/communications",
+    icon: MessageSquare,
+    group: "top",
+    shipped: false,
+    announced: true,
+  },
+  {
+    id: "documents",
+    label: "Documents",
+    href: "/documents",
+    icon: FileText,
+    group: "top",
+    shipped: false,
+    announced: true,
+  },
+  {
+    // Document automation and court forms — the documents cluster, distinct glyph from
+    // Documents itself.
+    id: "forms",
+    label: "Forms",
+    href: "/forms",
+    icon: ClipboardPenLine,
+    group: "top",
+    shipped: false,
+    announced: true,
+  },
+  {
+    // The evidence cluster: discovery beside its custodian stewardship.
+    id: "discovery",
+    label: "Discovery",
+    href: "/discovery",
+    icon: FileSearch,
+    group: "top",
+    shipped: false,
+    announced: true,
+  },
+  {
+    // A safe for what the firm holds in stewardship (Trust keeps Landmark — institutional
+    // client money — so the two stay distinct).
+    id: "custodian",
+    label: "Custodian",
+    href: "/custodian",
+    icon: Vault,
+    group: "top",
+    shipped: false,
+    announced: true,
   },
   { id: "tasks", label: "Tasks", href: "/tasks", icon: SquareCheck, group: "top", shipped: false },
-  { id: "intake", label: "Intake", href: "/intake", icon: Inbox, group: "top", shipped: false },
-  // Money
-  { id: "time", label: "Time", href: "/time", icon: Clock, group: "money", shipped: false },
-  { id: "trust", label: "Trust", href: "/trust", icon: Landmark, group: "money", shipped: false },
+  // Money (draft order: Time, Billing, Trust)
+  {
+    id: "time",
+    label: "Time",
+    href: "/time",
+    icon: Clock,
+    group: "money",
+    shipped: false,
+    announced: true,
+  },
   {
     id: "billing",
     label: "Billing",
@@ -92,6 +186,16 @@ export const DESTINATIONS: readonly Destination[] = [
     icon: ReceiptText,
     group: "money",
     shipped: false,
+    announced: true,
+  },
+  {
+    id: "trust",
+    label: "Trust",
+    href: "/trust",
+    icon: Landmark,
+    group: "money",
+    shipped: false,
+    announced: true,
   },
   {
     id: "payments",
@@ -119,14 +223,6 @@ export const DESTINATIONS: readonly Destination[] = [
     shipped: false,
   },
   {
-    id: "discovery",
-    label: "Discovery",
-    href: "/discovery",
-    icon: SearchCheck,
-    group: "practice",
-    shipped: false,
-  },
-  {
     id: "safe-custody",
     label: "Safe custody",
     href: "/safe-custody",
@@ -134,23 +230,15 @@ export const DESTINATIONS: readonly Destination[] = [
     group: "practice",
     shipped: false,
   },
-  {
-    id: "conflicts",
-    label: "Conflicts",
-    href: "/conflicts",
-    icon: Scale,
-    group: "practice",
-    shipped: false,
-  },
   // Firm
-  { id: "tools", label: "Tools", href: "/tools", icon: Wrench, group: "firm", shipped: false },
   {
-    id: "communications",
-    label: "Communications",
-    href: "/communications",
-    icon: Mail,
+    id: "tools",
+    label: "Tools",
+    href: "/tools",
+    icon: Wrench,
     group: "firm",
     shipped: false,
+    announced: true,
   },
   {
     id: "reports",
@@ -159,12 +247,20 @@ export const DESTINATIONS: readonly Destination[] = [
     icon: ChartColumn,
     group: "firm",
     shipped: false,
+    announced: true,
   },
 ];
 
 /** The sidebar's render list: shipped destinations, canonical order, grouped. */
 export function shippedDestinations(): readonly Destination[] {
   return DESTINATIONS.filter((destination) => destination.shipped);
+}
+
+/** Shipped plus announced-Soon destinations — what the sidebar and palette present. */
+export function visibleDestinations(): readonly Destination[] {
+  return DESTINATIONS.filter(
+    (destination) => destination.shipped || destination.announced === true,
+  );
 }
 
 /** True when `pathname` lives under the destination (drives aria-current / the gilt bar). */

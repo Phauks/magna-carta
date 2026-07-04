@@ -54,6 +54,35 @@
     padding: var(--mc-space-8);
     overflow-x: hidden;
     overflow-y: auto;
+    /* The nav list scrolls its own area with the scrollbar HIDDEN — the dark rail stays one
+       clean plane while the header (brand) and footer (Settings + collapse) stay pinned around
+       it. Same Firefox/WebKit split the mc-scrollbar recipe documents; hidden rather than slim
+       because chrome is identity, not a work surface. */
+    scrollbar-width: none;
+  }
+  .mc-sidebar-content::-webkit-scrollbar {
+    display: none;
+  }
+  /*
+   * The gilt scroll-edge hint — the affordance the hidden scrollbar gave up: a thin gold rule
+   * at the scroll area's top edge while scrolled below the top, and at its bottom edge while
+   * more lies below (sidebar-content.svelte drives the state). Gold never fades — it DRAWS
+   * (the mc-draw-x keyframes, from the start edge); removal is instant by unmount. Reusable
+   * for any invisible-scrollbar area.
+   */
+  .mc-sidebar-scroll-hint {
+    position: absolute;
+    inset-inline: var(--mc-space-8);
+    block-size: var(--mc-focus-ring-width);
+    background-color: var(--mc-accent-default);
+    pointer-events: none;
+    transform-origin: left center;
+    animation: mc-draw-x var(--mc-duration-fast) var(--mc-easing-standard);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .mc-sidebar-scroll-hint {
+      animation-duration: var(--mc-duration-instant);
+    }
   }
   .mc-sidebar-footer {
     display: flex;

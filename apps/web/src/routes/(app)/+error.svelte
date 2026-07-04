@@ -10,6 +10,11 @@
   import ErrorDetails from "$lib/components/error-details.svelte";
 
   const notFound = $derived(page.status === 404);
+
+  // Back renders only when there is somewhere to go back TO: a direct or external landing has
+  // no in-app history, and hiding Back beats offering a dead button (the no-dead-controls
+  // rule). history.length is a coarse signal but the honest one available.
+  const canGoBack = typeof history !== "undefined" && history.length > 1;
 </script>
 
 <svelte:head>
@@ -22,7 +27,11 @@
       The page may have moved, or the link may be stale — the navigation on the left has
       everything that exists today.
       {#snippet actions()}
-        <Button variant="primary" href="/home">Go home</Button>
+        <!-- Back first — the fastest recovery from a wrong turn is the page you just left. -->
+        {#if canGoBack}
+          <Button variant="primary" onclick={() => history.back()}>Go Back</Button>
+        {/if}
+        <Button variant={canGoBack ? "secondary" : "primary"} href="/home">Go home</Button>
       {/snippet}
     </EmptyState>
   {:else}

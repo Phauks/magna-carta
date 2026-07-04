@@ -7,11 +7,13 @@
    * The nav's three levels are made unmistakable (they read at three distinct registers, not
    * three shades of the same list):
    *
-   * - BAND — an identity plate: a glyph naming WHOSE settings these are (the member's avatar for
-   *   "My settings", the firm's mark for "Firm settings") beside a firm small-caps label, seated
-   *   on a full-width rule. The firm band's rule is a DOUBLE RULE — the ledger's device for
-   *   authority and totals — so one glance separates "mine" (single rule) from "the firm's"
-   *   (double rule).
+   * - BAND — a glyph naming WHOSE settings these are beside a firm small-caps label, seated on
+   *   a full-width rule. The glyphs are plain symbolic Lucide icons (person / building /
+   *   server): the member's avatar and the Magna Carta mark were tried here and the owner
+   *   rejected both (2026-07-03) — identity marks stay in the chrome, the nav carries symbols.
+   *   Every band gets the SAME single hairline: a double rule under the firm band was likewise
+   *   tried and rejected ("no setting on the left side should have a double line") — do not
+   *   reintroduce either; the glyphs and the indent stagger carry the scope distinction.
    * - GROUP — small-caps muted, indented one step past the band edge.
    * - PAGE ROW — sentence-case pills, indented one step past the group. The two-step stagger is
    *   the legibility device: access level, category, destination.
@@ -24,8 +26,10 @@
    * finding aid, not chrome. Canvas voice throughout — standard tokens, no chrome-* register.
    */
   import { page } from "$app/state";
-  import * as Avatar from "@magna-carta/design-system/avatar";
   import Badge from "@magna-carta/design-system/badge";
+  import Building2 from "@lucide/svelte/icons/building-2";
+  import Server from "@lucide/svelte/icons/server";
+  import UserRound from "@lucide/svelte/icons/user-round";
   import {
     bandedSettingsSections,
     isCurrentSettingsSection,
@@ -49,67 +53,52 @@
   }
 </script>
 
-<div class="flex items-start gap-32">
-  <!--
-    The nav column is a narrow fixed measure (the popover width token, 224px) rather than the
-    sidebar width: the labels are short, and the page should read as one composition — nav
-    beside content — not two islands separated by dead air. Fixed (not max-content) so the
-    hover/active pills keep a steady width as sections with longer labels ship.
+<!--
+  TWO INDEPENDENT SCROLL COLUMNS (owner-directed): the section nav and the settings content
+  each scroll on their own, and the canvas itself never scrolls on settings routes. The columns
+  reach the canvas's TRUE edges (owner: the padding frame around the scroll areas read as a
+  border and wasted width) — the -m-24 swallows the canvas's own padding and the breathing room
+  moves INSIDE each scroll area, so scrollbars sit at the actual edges. This also retires the
+  whole-canvas scrollbar shift that made the nav appear to move between pages (the content
+  column's own stable scrollbar gutter carries that guarantee now — see the pages).
 
-    Sticky: the canvas (<main> in app-shell.svelte) is the scroll container below the top bar,
-    so the nav pins at the canvas's own padding offset (24) while long pages scroll beside it —
-    no jump between resting and stuck positions. If the section list ever outgrows the
-    viewport, the nav scrolls within itself (max-block-size = viewport minus the top bar and
-    the canvas's vertical padding) rather than trapping the pinned column.
+  The content column is a flex STACK, not a scroll container: each settings page renders
+  header / scrolling middle / exit footer as its three stories, so the footer holds the bottom
+  of the screen even on short pages.
+-->
+<div class="-m-24 flex items-start" style="block-size: calc(100dvh - var(--mc-size-top-bar))">
+  <!--
+    The nav column is a narrow fixed measure (the popover width token plus its own internal
+    breathing room) rather than the sidebar width: the labels are short, and the page should
+    read as one composition — nav beside content — not two islands separated by dead air.
+    Fixed (not max-content) so the hover/active pills keep a steady width as sections with
+    longer labels ship.
   -->
   <nav
     aria-label="Settings sections"
-    class="sticky flex shrink-0 flex-col gap-32 overflow-y-auto"
-    style="inline-size: var(--mc-size-popover); inset-block-start: var(--mc-space-24); max-block-size: calc(100dvh - var(--mc-size-top-bar) - var(--mc-space-48))"
+    class="flex h-full shrink-0 flex-col gap-32 overflow-y-auto p-24"
+    style="inline-size: calc(var(--mc-size-popover) + var(--mc-space-48))"
   >
     {#each bands as band (band.id)}
       <div class="flex flex-col gap-16">
-        <!-- The identity plate. px-12 aligns the cap-line with the group headers' indent origin. -->
-        <div class="flex flex-col">
-          <div class="flex items-center gap-8 border-b border-border-strong px-12 pb-8">
-            {#if band.id === "user"}
-              <!-- The member's avatar — the same MC-initials fallback seam as the profile menu;
-                   the member's photograph takes over when accounts arrive. size-20 is the
-                   smallest circle the two initials stay legible in. -->
-              <Avatar.Root class="size-20">
-                <Avatar.Fallback class="text-xs">MC</Avatar.Fallback>
-              </Avatar.Root>
-            {:else}
-              <!-- The firm's mark. The BrandMark component is chrome-register (fixed 2xl gold
-                   glyph + a wordmark inked for dark chrome surfaces — near-invisible on the
-                   canvas) with no size seam, so the glyph is composed here from the same tokens
-                   at canvas scale: the blackletter face, the accent gold. The firm's OWN mark
-                   replaces this when firm branding arrives. -->
-              <span
-                aria-hidden="true"
-                class="text-lg"
-                style="font-family: var(--mc-font-blackletter); color: var(--mc-accent-default); line-height: var(--mc-leading-tight)"
-              >
-                M
-              </span>
-            {/if}
-            <p
-              class="text-xs font-semibold text-text-default uppercase"
-              style="letter-spacing: var(--mc-tracking-caps)"
-            >
-              {band.label}
-            </p>
-          </div>
-          {#if band.id === "firm"}
-            <!-- The second stroke of the double rule: an empty spacer whose bottom border sits
-                 one small step under the header's own rule — two stacked hairlines, the ledger
-                 total device, built from border tokens alone. -->
-            <div
-              aria-hidden="true"
-              class="border-b border-border-strong"
-              style="block-size: var(--mc-space-4)"
-            ></div>
+        <!-- The band header. px-12 aligns the cap-line with the group headers' indent origin;
+             one hairline for every band (the firm double rule was owner-rejected). The glyphs
+             are plain symbols in the band's own muted ink — never an avatar or a brand mark
+             (owner-rejected here). -->
+        <div class="flex items-center gap-8 border-b border-border-strong px-12 pb-8">
+          {#if band.id === "user"}
+            <UserRound class="size-16 text-text-muted" aria-hidden="true" />
+          {:else if band.id === "firm"}
+            <Building2 class="size-16 text-text-muted" aria-hidden="true" />
+          {:else}
+            <Server class="size-16 text-text-muted" aria-hidden="true" />
           {/if}
+          <p
+            class="text-xs font-semibold text-text-default uppercase"
+            style="letter-spacing: var(--mc-tracking-caps)"
+          >
+            {band.label}
+          </p>
         </div>
 
         <div class="flex flex-col gap-24">
@@ -165,7 +154,7 @@
     {/each}
   </nav>
 
-  <div class="min-w-0 grow">
+  <div class="flex h-full min-w-0 grow flex-col">
     {@render children()}
   </div>
 </div>

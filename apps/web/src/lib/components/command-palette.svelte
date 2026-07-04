@@ -16,6 +16,8 @@
   import { goto } from "$app/navigation";
   import * as Command from "@magna-carta/design-system/command";
   import * as Dialog from "@magna-carta/design-system/dialog";
+  import Keyboard from "@magna-carta/design-system/keyboard";
+  import { paletteShortcutLabel } from "@magna-carta/design-system/internal/platform";
   import {
     PRESENCE_SCALE_FADE,
     type PresenceClass,
@@ -25,7 +27,7 @@
     PALETTE_ENTRANCE_PRESENCE,
     readPaletteEntranceVariant,
   } from "$lib/developer/palette-entrance.ts";
-  import { shippedDestinations } from "$lib/navigation/destinations.ts";
+  import { visibleDestinations } from "$lib/navigation/destinations.ts";
   import { ECOSYSTEM_SITES } from "$lib/navigation/ecosystem-sites.ts";
   import { bandedSettingsSections } from "$lib/settings/settings-sections.ts";
 
@@ -34,7 +36,9 @@
     sidebarCollapsed = false,
   }: { open?: boolean; sidebarCollapsed?: boolean } = $props();
 
-  const destinations = shippedDestinations();
+  // Shipped destinations navigate; announced ones surface as disabled "— soon" rows so search
+  // tells the same truth as the sidebar.
+  const destinations = visibleDestinations();
   // Shipped sections flattened per band — the registry already gates development-only
   // sections out of production builds, so no extra filtering here.
   const settingsBands = bandedSettingsSections().map((band) => ({
@@ -98,6 +102,16 @@
     return latchedPresence;
   });
 
+  /*
+   * The keyboard hints live INSIDE the open palette (owner-directed — the rest-state trigger
+   * reads just "Search…"): shown while the query is EMPTY, gone the moment anything is typed,
+   * back if it is cleared. They overlay the input row's end (absolute, no reserved text space),
+   * so appearing and disappearing never reflows the row. The chord chip stays in the set — the
+   * owner wants the shortcut learnable at the moment of first click.
+   */
+  let searchQuery = $state("");
+  const paletteShortcut = paletteShortcutLabel();
+
   function navigateTo(href: string): void {
     open = false;
     void goto(href);
@@ -132,7 +146,23 @@
   >
     <Dialog.Title class="sr-only">Command menu</Dialog.Title>
     <Command.Root label="Command menu" class="border-0 bg-transparent">
-      <Command.Input placeholder="Search or jump to anything…" />
+      <div class="relative">
+        <Command.Input placeholder="Search or jump to anything…" bind:value={searchQuery} />
+        {#if searchQuery.trim() === ""}
+          <div
+            class="pointer-events-none absolute inset-y-0 flex items-center gap-8"
+            style="inset-inline-end: var(--mc-space-12)"
+          >
+            <Keyboard>↑↓</Keyboard>
+            <span class="text-xs text-text-muted">navigate</span>
+            <Keyboard>↵</Keyboard>
+            <span class="text-xs text-text-muted">select</span>
+            <Keyboard>Esc</Keyboard>
+            <span class="text-xs text-text-muted">close</span>
+            <Keyboard>{paletteShortcut}</Keyboard>
+          </div>
+        {/if}
+      </div>
       <Command.List>
         <Command.Viewport>
           <Command.Empty>No results found.</Command.Empty>
@@ -140,9 +170,13 @@
             <Command.GroupHeading>Go to</Command.GroupHeading>
             <Command.GroupItems>
               {#each destinations as destination (destination.id)}
-                <Command.Item onSelect={() => navigateTo(destination.href)}>
-                  {destination.label}
-                </Command.Item>
+                {#if destination.shipped}
+                  <Command.Item onSelect={() => navigateTo(destination.href)}>
+                    {destination.label}
+                  </Command.Item>
+                {:else}
+                  <Command.Item disabled>{destination.label} — soon</Command.Item>
+                {/if}
               {/each}
             </Command.GroupItems>
           </Command.Group>
@@ -170,7 +204,10 @@
           <Command.Group>
             <Command.GroupHeading>Help & websites</Command.GroupHeading>
             <Command.GroupItems>
-              <Command.Item onSelect={openBugReport}>Report a bug</Command.Item>
+              <Command.Item onSelect={openBugReport}>Report an Issue</Command.Item>
+              <!-- Hand-mirrored from the profile menu like Report a bug (the seam has no
+                   registry yet — it gains one, or a live route, when accounts ship). -->
+              <Command.Item disabled>Account Settings — soon</Command.Item>
               {#each ECOSYSTEM_SITES as site (site.id)}
                 {#if site.href !== null}
                   {@const siteHref = site.href}

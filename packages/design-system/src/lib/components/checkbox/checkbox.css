@@ -49,4 +49,15 @@
     inline-size: var(--mc-space-12);
     block-size: var(--mc-space-12);
   }
+  /*
+   * High contrast (the data-contrast="high" document attribute — theme-preference.ts): the box
+   * edge steps up to the strong ink in BOTH states — unchecked stops reading as a faint field,
+   * and the filled checked box keeps a drawn ink ring. SCOPE: the toggle family (Switch,
+   * Checkbox) only for now — a fuller high-contrast pass across every recipe is follow-on work.
+   */
+  :root[data-contrast="high"] .mc-checkbox,
+  :root[data-contrast="high"] .mc-checkbox[data-state="checked"],
+  :root[data-contrast="high"] .mc-checkbox[data-state="indeterminate"] {
+    border-color: var(--mc-border-strong);
+  }
 }

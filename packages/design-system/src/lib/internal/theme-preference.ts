@@ -14,6 +14,13 @@ export type Mode = "light" | "dark" | "system";
 export type MotionPreference = "full" | "reduced" | "off" | "system";
 /** The user density axis (design language: comfortable / compact). */
 export type DensityPreference = "comfortable" | "compact";
+/**
+ * The user contrast axis. SEED-THEN-OWN: "system" is the internal UNSET encoding — a user who
+ * has never chosen follows the OS `prefers-contrast: more` signal; the first explicit flip of
+ * the High Contrast switch persists "standard"/"high" and owns the axis thereafter. The UI is a
+ * two-state switch, never a three-option list.
+ */
+export type ContrastPreference = "standard" | "high" | "system";
 
 // Exported so the boot-script mirror test (test/boot-script-mirror.test.ts) can pin the literals
 // the inline app.html script must contain — the keys are part of the persistence contract.
@@ -21,11 +28,13 @@ export const THEME_STORAGE_KEY = "magna-carta.theme";
 export const MODE_STORAGE_KEY = "magna-carta.mode";
 export const MOTION_STORAGE_KEY = "magna-carta.motion";
 export const DENSITY_STORAGE_KEY = "magna-carta.density";
+export const CONTRAST_STORAGE_KEY = "magna-carta.contrast";
 
 export const DEFAULT_THEME = "chancery";
 const DEFAULT_MODE: Mode = "system";
 const DEFAULT_MOTION: MotionPreference = "system";
 const DEFAULT_DENSITY: DensityPreference = "comfortable";
+const DEFAULT_CONTRAST: ContrastPreference = "system";
 
 function isMode(value: string | null): value is Mode {
   return value === "light" || value === "dark" || value === "system";
@@ -39,25 +48,32 @@ function isDensityPreference(value: string | null): value is DensityPreference {
   return value === "comfortable" || value === "compact";
 }
 
+function isContrastPreference(value: string | null): value is ContrastPreference {
+  return value === "standard" || value === "high" || value === "system";
+}
+
 /**
  * Reads the persisted appearance preferences. Unset or unrecognized stored values fall back to
- * the defaults (theme "chancery", mode "system", motion "system", density "comfortable") rather
- * than leaking garbage into the unions.
+ * the defaults (theme "chancery", mode "system", motion "system", density "comfortable",
+ * contrast "standard") rather than leaking garbage into the unions.
  */
 export function readThemePreference(): {
   theme: string;
   mode: Mode;
   motion: MotionPreference;
   density: DensityPreference;
+  contrast: ContrastPreference;
 } {
   const storedMode = localStorage.getItem(MODE_STORAGE_KEY);
   const storedMotion = localStorage.getItem(MOTION_STORAGE_KEY);
   const storedDensity = localStorage.getItem(DENSITY_STORAGE_KEY);
+  const storedContrast = localStorage.getItem(CONTRAST_STORAGE_KEY);
   return {
     theme: localStorage.getItem(THEME_STORAGE_KEY) ?? DEFAULT_THEME,
     mode: isMode(storedMode) ? storedMode : DEFAULT_MODE,
     motion: isMotionPreference(storedMotion) ? storedMotion : DEFAULT_MOTION,
     density: isDensityPreference(storedDensity) ? storedDensity : DEFAULT_DENSITY,
+    contrast: isContrastPreference(storedContrast) ? storedContrast : DEFAULT_CONTRAST,
   };
 }
 
@@ -107,6 +123,25 @@ export function applyDensityToDocument(density: DensityPreference): void {
   else root.dataset.density = density;
 }
 
+/**
+ * Applies the contrast level to the document WITHOUT persisting anything: sets `data-contrast`
+ * on `<html>`, which the high-contrast recipe rules (`:root[data-contrast="high"] …` in the
+ * component recipes) key on. "system" resolves the OS `prefers-contrast: more` signal to
+ * high/standard, mirroring how motion resolves its OS signal; a resolved "standard" removes the
+ * attribute (the primitive truth needs no overlay).
+ */
+export function applyContrastToDocument(contrast: ContrastPreference): void {
+  const resolved =
+    contrast === "system"
+      ? matchMedia("(prefers-contrast: more)").matches
+        ? "high"
+        : "standard"
+      : contrast;
+  const root = document.documentElement;
+  if (resolved === "standard") delete root.dataset.contrast;
+  else root.dataset.contrast = resolved;
+}
+
 /*
  * CROSS-TAB FOLLOW. The browser fires "storage" in every OTHER same-origin tab when a
  * localStorage key changes, so re-reading and re-applying here makes a theme/mode/motion/density
@@ -123,34 +158,38 @@ const APPEARANCE_STORAGE_KEYS: readonly string[] = [
   MODE_STORAGE_KEY,
   MOTION_STORAGE_KEY,
   DENSITY_STORAGE_KEY,
+  CONTRAST_STORAGE_KEY,
 ];
 
 if (typeof window !== "undefined") {
   window.addEventListener("storage", (event) => {
     if (event.key !== null && !APPEARANCE_STORAGE_KEYS.includes(event.key)) return;
-    const { theme, mode, motion, density } = readThemePreference();
+    const { theme, mode, motion, density, contrast } = readThemePreference();
     applyThemeToDocument(theme, mode);
     applyMotionToDocument(motion);
     applyDensityToDocument(density);
+    applyContrastToDocument(contrast);
   });
 }
 
 /**
- * Persists the preferences (all storage keys) and applies them to the document via
- * `applyThemeToDocument` + `applyMotionToDocument` + `applyDensityToDocument`. The app-facing
- * entry point.
+ * Persists the preferences (all storage keys) and applies them to the document via the
+ * `apply…ToDocument` seams. The app-facing entry point.
  */
 export function applyThemePreference(
   theme: string,
   mode: Mode,
   motion: MotionPreference = "system",
   density: DensityPreference = "comfortable",
+  contrast: ContrastPreference = "standard",
 ): void {
   localStorage.setItem(THEME_STORAGE_KEY, theme);
   localStorage.setItem(MODE_STORAGE_KEY, mode);
   localStorage.setItem(MOTION_STORAGE_KEY, motion);
   localStorage.setItem(DENSITY_STORAGE_KEY, density);
+  localStorage.setItem(CONTRAST_STORAGE_KEY, contrast);
   applyThemeToDocument(theme, mode);
   applyMotionToDocument(motion);
   applyDensityToDocument(density);
+  applyContrastToDocument(contrast);
 }

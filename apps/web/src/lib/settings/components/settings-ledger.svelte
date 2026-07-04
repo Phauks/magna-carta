@@ -1,8 +1,8 @@
 <script lang="ts">
   /*
    * The change history trail — a right-side pull-out. History is a meta interaction, not page
-   * content, so the trail lives in a drawer off the page's edge and only its quiet trigger
-   * spends space in the header band's rail.
+   * content, so the trail lives in a drawer off the page's edge and only its quiet icon-only
+   * trigger (owner-directed: the button, no announcement) spends space beside the page title.
    *
    * Each entry is one committed change: the setting's label, old → new, and when. Restore never
    * rewrites history: on a draft page it STAGES the old value through the draft, and saving
@@ -15,6 +15,7 @@
    * takes over when the backend lands.
    */
   import * as Sheet from "@magna-carta/design-system/sheet";
+  import * as Tooltip from "@magna-carta/design-system/tooltip";
   import Button, { buttonClasses } from "@magna-carta/design-system/button";
   import History from "@lucide/svelte/icons/history";
   import {
@@ -106,15 +107,26 @@
   function formatTimestamp(at: string): string {
     return new Date(at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
   }
+
+  // The sheet opens programmatically from the tooltip's button: Tooltip.Trigger and
+  // Sheet.Trigger both render real button elements, so composing them would nest
+  // button-in-button — instead the tooltip's button drives the bound open state, and Bits
+  // still returns focus to it when the sheet closes.
+  let historyOpen = $state(false);
 </script>
 
-<Sheet.Root>
-  <!-- The rail's constant terminal element; Sheet.Trigger carries no look of its own, so it
-       wears the ghost button recipe. -->
-  <Sheet.Trigger class={buttonClasses({ variant: "ghost", size: "default" })}>
+<Tooltip.Root>
+  <Tooltip.Trigger
+    class={buttonClasses({ variant: "ghost", size: "sm" })}
+    aria-label="Change history"
+    onclick={() => (historyOpen = true)}
+  >
     <History class="size-16" aria-hidden="true" />
-    Change history
-  </Sheet.Trigger>
+  </Tooltip.Trigger>
+  <Tooltip.Content>Change history</Tooltip.Content>
+</Tooltip.Root>
+
+<Sheet.Root bind:open={historyOpen}>
   <Sheet.Content side="right">
     <Sheet.Title>Change history</Sheet.Title>
     {#if entries.length === 0}

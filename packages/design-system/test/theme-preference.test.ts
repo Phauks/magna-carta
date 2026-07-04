@@ -7,10 +7,12 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  applyContrastToDocument,
   applyDensityToDocument,
   applyMotionToDocument,
   applyThemePreference,
   applyThemeToDocument,
+  CONTRAST_STORAGE_KEY,
   DEFAULT_THEME,
   DENSITY_STORAGE_KEY,
   MODE_STORAGE_KEY,
@@ -45,6 +47,7 @@ beforeEach(() => {
   document.documentElement.removeAttribute("data-theme");
   document.documentElement.removeAttribute("data-motion");
   document.documentElement.removeAttribute("data-density");
+  document.documentElement.removeAttribute("data-contrast");
   document.documentElement.classList.remove("dark");
   stubMatchMedia(false);
 });
@@ -54,12 +57,14 @@ afterEach(() => {
 });
 
 describe("readThemePreference", () => {
-  it("defaults to flagship theme, system mode/motion, comfortable density when nothing is stored", () => {
+  it("defaults to flagship theme, system mode/motion/contrast, comfortable density when nothing is stored", () => {
+    // Contrast defaults to "system" — the seed-then-own contract: unset follows the OS signal.
     expect(readThemePreference()).toEqual({
       theme: DEFAULT_THEME,
       mode: "system",
       motion: "system",
       density: "comfortable",
+      contrast: "system",
     });
   });
 
@@ -68,11 +73,13 @@ describe("readThemePreference", () => {
     localStorage.setItem("magna-carta.mode", "dark");
     localStorage.setItem("magna-carta.motion", "reduced");
     localStorage.setItem("magna-carta.density", "compact");
+    localStorage.setItem("magna-carta.contrast", "high");
     expect(readThemePreference()).toEqual({
       theme: "midnight",
       mode: "dark",
       motion: "reduced",
       density: "compact",
+      contrast: "high",
     });
   });
 
@@ -89,6 +96,36 @@ describe("readThemePreference", () => {
   it("falls back to comfortable density when the stored density is not recognized", () => {
     localStorage.setItem("magna-carta.density", "cozy");
     expect(readThemePreference().density).toBe("comfortable");
+  });
+
+  it("falls back to system contrast (the unset seed) when the stored contrast is not recognized", () => {
+    localStorage.setItem("magna-carta.contrast", "extra");
+    expect(readThemePreference().contrast).toBe("system");
+  });
+});
+
+describe("applyContrastToDocument", () => {
+  it("sets data-contrast for high and removes it for standard", () => {
+    applyContrastToDocument("high");
+    expect(document.documentElement.dataset.contrast).toBe("high");
+    applyContrastToDocument("standard");
+    expect(document.documentElement.dataset.contrast).toBeUndefined();
+  });
+
+  it("resolves system contrast via prefers-contrast: more", () => {
+    const matchMediaStub = stubMatchMedia(true); // operating system asks for more contrast
+    applyContrastToDocument("system");
+    expect(document.documentElement.dataset.contrast).toBe("high");
+    expect(matchMediaStub).toHaveBeenCalledWith("(prefers-contrast: more)");
+
+    stubMatchMedia(false);
+    applyContrastToDocument("system");
+    expect(document.documentElement.dataset.contrast).toBeUndefined();
+  });
+
+  it("persists NOTHING — the pure DOM seam", () => {
+    applyContrastToDocument("high");
+    expect(localStorage.getItem(CONTRAST_STORAGE_KEY)).toBeNull();
   });
 });
 
@@ -172,30 +209,34 @@ describe("applyThemeToDocument", () => {
 
 describe("applyThemePreference", () => {
   it("persists all storage keys (the exported key constants are the stored literals)", () => {
-    applyThemePreference("slate", "light", "reduced");
+    applyThemePreference("slate", "light", "reduced", "comfortable", "high");
     expect(THEME_STORAGE_KEY).toBe("magna-carta.theme");
     expect(MODE_STORAGE_KEY).toBe("magna-carta.mode");
     expect(MOTION_STORAGE_KEY).toBe("magna-carta.motion");
+    expect(CONTRAST_STORAGE_KEY).toBe("magna-carta.contrast");
     expect(localStorage.getItem("magna-carta.theme")).toBe("slate");
     expect(localStorage.getItem("magna-carta.mode")).toBe("light");
     expect(localStorage.getItem("magna-carta.motion")).toBe("reduced");
+    expect(localStorage.getItem("magna-carta.contrast")).toBe("high");
   });
 
-  it("applies the theme, mode, and motion to the document", () => {
-    applyThemePreference("midnight", "dark", "off");
+  it("applies the theme, mode, motion, and contrast to the document", () => {
+    applyThemePreference("midnight", "dark", "off", "comfortable", "high");
     expect(document.documentElement.dataset.theme).toBe("midnight");
     expect(document.documentElement.classList.contains("dark")).toBe(true);
     expect(document.documentElement.dataset.motion).toBe("off");
+    expect(document.documentElement.dataset.contrast).toBe("high");
   });
 
   it("round-trips through readThemePreference", () => {
     const mode: Mode = "dark";
-    applyThemePreference("midnight", mode, "full", "compact");
+    applyThemePreference("midnight", mode, "full", "compact", "high");
     expect(readThemePreference()).toEqual({
       theme: "midnight",
       mode,
       motion: "full",
       density: "compact",
+      contrast: "high",
     });
   });
 });

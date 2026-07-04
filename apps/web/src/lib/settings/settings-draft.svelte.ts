@@ -35,7 +35,6 @@ function normalizeValue(definition: SettingDefinition, candidate: unknown): Sett
     case "text":
       return typeof candidate === "string" ? candidate : definition.defaultValue;
     case "select":
-    case "radio":
       return typeof candidate === "string" &&
         definition.options?.some((option) => option.value === candidate)
         ? candidate

@@ -16,6 +16,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  CONTRAST_STORAGE_KEY,
   DEFAULT_THEME,
   DENSITY_STORAGE_KEY,
   MODE_STORAGE_KEY,
@@ -52,5 +53,13 @@ describe("apps/web/src/app.html inline boot script mirrors theme-preference.ts",
 
   it("reads the same density storage key", () => {
     expect(appHtml).toContain(`"${DENSITY_STORAGE_KEY}"`);
+  });
+
+  it("reads the same contrast storage key", () => {
+    expect(appHtml).toContain(`"${CONTRAST_STORAGE_KEY}"`);
+  });
+
+  it("resolves system contrast via the same media query", () => {
+    expect(appHtml).toContain('"(prefers-contrast: more)"');
   });
 });
