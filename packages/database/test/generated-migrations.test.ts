@@ -223,3 +223,30 @@ describe("seed permission values stay inside the registry (fitness function)", (
     expect(seedCount).toBeGreaterThanOrEqual(1); // the parse actually covered the committed seed
   });
 });
+
+describe("migration ids stay monotonic and collision-free (fitness function)", () => {
+  // Guards the timestamp-id scheme against a future hand-authored migration: every tag must be a
+  // YYYYMMDDThhmmss_slug id, tags must be unique within a lineage, and lexical (tag) order must
+  // agree with the dense drizzle idx order — which is what the loader and worker bundles rely on to
+  // apply migrations in authored order. `scripts/timestamp-latest-migration.mjs` keeps generated
+  // migrations conformant; this catches a stamp edited or added by hand.
+  for (const lineage of ["control-plane", "per-firm"] as const) {
+    it(`${lineage}: tags are unique, timestamp-formatted, and monotonic with idx`, async () => {
+      const journal = JSON.parse(
+        await readFile(join(DRIZZLE, lineage, "meta", "_journal.json"), "utf8"),
+      ) as MigrationJournal;
+      const entries = journal.entries;
+      expect(entries.length).toBeGreaterThan(0);
+
+      const tags = entries.map((entry) => entry.tag);
+      expect(new Set(tags).size, `${lineage} has duplicate migration tags`).toBe(tags.length);
+      for (const tag of tags) {
+        expect(tag, `${lineage} migration ${tag} is not a timestamp id`).toMatch(TIMESTAMP_TAG);
+      }
+
+      const byIdx = [...entries].sort((a, b) => a.idx - b.idx).map((entry) => entry.tag);
+      const byTag = [...tags].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+      expect(byTag, `${lineage} lexical tag order disagrees with idx order`).toEqual(byIdx);
+    });
+  }
+});

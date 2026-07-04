@@ -17,19 +17,13 @@ type Lineage = "control-plane" | "per-firm";
 const LINEAGES: readonly Lineage[] = ["control-plane", "per-firm"];
 const DRIZZLE = join(import.meta.dirname, "..", "drizzle");
 
-// Table-rebuilds present and reviewed on main as of 2026-06-29. Each is a SQLite rebuild
-// (CREATE `__new_X` / copy / DROP / RENAME) that drizzle emits for an in-place ALTER SQLite can't do.
-// The sentinel grandfathers these and FAILS on any NEW one, so a future destructive rebuild is a
-// conscious review decision (does it preserve every row? is the copy SELECT correct?) — not a silent
-// merge artifact. Adding a migration that rebuilds a table: audit it, then add its tag here.
-const REVIEWED_REBUILDS: ReadonlySet<string> = new Set([
-  "0001_auth-and-provisioning", // control-plane: firm lifecycle columns + name UNIQUE
-  "0007_incident-description-nullable",
-  "0015_odd_mesmero",
-  "0021_outgoing_talon",
-  "0025_amusing_robbie_robertson",
-  "0029_scan_verdict_flagged",
-]);
+// Tags whose migration performs a reviewed SQLite table-rebuild (CREATE `__new_X` / copy / DROP /
+// RENAME — what drizzle emits for an in-place ALTER SQLite can't do). The collapsed baselines rebuild
+// nothing, so this list is empty. The sentinel FAILS on any rebuild not listed here, so a future
+// destructive rebuild is a conscious review decision (does it preserve every row? is the copy SELECT
+// correct?) — not a silent merge artifact. Adding a migration that rebuilds a table: audit it, then
+// add its timestamp tag here.
+const REVIEWED_REBUILDS: ReadonlySet<string> = new Set<string>([]);
 
 interface Artifacts {
   readonly journal: MigrationJournal;

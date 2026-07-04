@@ -58,26 +58,25 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
       return grants.filter((grant) => grant.role_id === roleId).map((grant) => grant.permission);
     };
     const ownerAdmin = roles.find((row) => row.name === "Owner/Admin");
-    // firm:manageMembers is seeded onto Owner/Admin ONLY (0002_member-rbac.sql).
+    // firm:manageMembers is seeded onto Owner/Admin ONLY.
     expect(grants.filter((grant) => grant.permission === "firm:manageMembers")).toEqual([
       { role_id: ownerAdmin?.id, permission: "firm:manageMembers" },
     ]);
     expect(grantsFor("Attorney")).not.toContain("firm:manageMembers");
-    // firm:reportIncident is seeded onto EVERY default role (0003_incident-intake.sql) — any member
-    // may file a diagnostic incident.
+    // firm:reportIncident is seeded onto EVERY default role — any member may file a diagnostic
+    // incident.
     expect(
       grants
         .filter((grant) => grant.permission === "firm:reportIncident")
         .map((grant) => grant.role_id)
         .sort(),
     ).toEqual(roles.map((row) => row.id).sort());
-    // The matters/locations/files grants (0004) extend the seed per the role distribution.
+    // The matters/locations/files grants extend the seed per the role distribution.
     expect(grantsFor("Owner/Admin")).toContain("matters:create");
-    // Paralegal: firm:reportIncident (0003) + matters:create + files upload/organize (0004)
-    // + tools:whois/safeBrowse (0017) + firm:scanFile (0019) + tools:metadataScrubber (0020)
-    // + tools:fileIntegrity (0022) + costs:track (0028) + support:request (0029 — seeded to every role so any member can request help)
-    // + tools:fileTypeVerifier (0032) + tools:aiTextDetection (0034 — seeded to every role; the consent
-    // setting, not the permission, gates egress) + tools:decryption (0035).
+    // Paralegal carries the practitioner set: file/matter work plus the firm-wide tools. The
+    // firm-wide tool grants (whois/safeBrowse, scanFile, metadataScrubber, fileIntegrity,
+    // fileTypeVerifier, aiTextDetection, decryption) and support:request are seeded to every role;
+    // for aiTextDetection the consent setting, not the permission, gates egress.
     expect(grantsFor("Paralegal").sort()).toEqual(
       [
         "costs:track",
@@ -96,11 +95,8 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "tools:whois",
       ].sort(),
     );
-    // Billing and Read-only carry firm:reportIncident (0003) + tools:whois/safeBrowse (0017) +
-    // firm:scanFile (0019) + tools:metadataScrubber (0020) + tools:fileIntegrity (0022) +
-    // tools:fileTypeVerifier (0032) + tools:aiTextDetection (0034) + tools:decryption (0035) by
-    // default (all seeded to every role); Billing additionally carries costs:approve (0028);
-    // support:request (0029) by default (all seeded to every role).
+    // Billing and Read-only carry only the every-role set (firm:reportIncident, the firm-wide
+    // tools, support:request); Billing additionally carries costs:approve.
     expect(grantsFor("Billing").sort()).toEqual(
       [
         "costs:approve",
@@ -154,54 +150,53 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
     expect(results[0]?.n).toBe(0); // nothing committed
   });
 
-  it("control-plane 0001 rebuild backfills a 0000-era firm row and lands the new constraints", () => {
+  it("the control-plane baseline lands the firm lifecycle constraints (status default, nullable database_identifier, UNIQUE name)", () => {
     const raw = new DatabaseSync(":memory:");
-    const [firmRegistry, authAndProvisioning] = loadMigrationsFromDisk("control-plane");
-    if (firmRegistry === undefined || authAndProvisioning === undefined)
-      throw new Error("control-plane lineage is shorter than the two migrations this test pins");
-    applyMigrations(raw, [firmRegistry]);
-    raw
-      .prepare(
-        "INSERT INTO firm (id, name, database_identifier, per_firm_schema_version, created_at) VALUES (?, ?, ?, ?, ?)",
-      )
-      .run(
-        "firm_aaaaaaaaaaaaaaaaaaaaa",
-        "Legacy Firm",
-        "legacy-database",
-        null,
-        "2026-01-05T09:00:00.000Z",
-      );
-    applyMigrations(raw, [authAndProvisioning]);
-    // The pre-lifecycle row survives the rebuild with the expand-contract backfill values.
+    applyMigrations(raw, loadMigrationsFromDisk("control-plane"));
+    // The provisioning lifecycle inserts the firm row before a database exists: database_identifier
+    // is nullable and status defaults to 'active'.
+    const insertNameOnly = raw.prepare(
+      "INSERT INTO firm (id, name, status, created_at) VALUES (?, ?, ?, ?)",
+    );
+    insertNameOnly.run(
+      "firm_aaaaaaaaaaaaaaaaaaaaa",
+      "Provisioning Firm",
+      "provisioning",
+      "2026-01-05T09:00:00.000Z",
+    );
     const row = raw
       .prepare(
         "SELECT status, bucket_name, owner_user_id, database_identifier FROM firm WHERE name = ?",
       )
-      .get("Legacy Firm") as {
+      .get("Provisioning Firm") as {
       status: string;
       bucket_name: string | null;
       owner_user_id: string | null;
-      database_identifier: string;
+      database_identifier: string | null;
     };
     expect(row).toEqual({
-      status: "active",
+      status: "provisioning",
       bucket_name: null,
-      owner_user_id: null, // pre-lifecycle rows have no recorded owner
-      database_identifier: "legacy-database",
+      owner_user_id: null,
+      database_identifier: null,
     });
-    // UNIQUE(name) holds post-rebuild, and database_identifier is now nullable (the provisioning
-    // lifecycle inserts the firm row before a database exists).
-    const insertNameOnly = raw.prepare(
-      "INSERT INTO firm (id, name, status, created_at) VALUES (?, ?, 'provisioning', ?)",
-    );
+    // status defaults to 'active' when omitted.
+    raw
+      .prepare("INSERT INTO firm (id, name, created_at) VALUES (?, ?, ?)")
+      .run("firm_ddddddddddddddddddddd", "Active Firm", "2026-01-05T09:00:00.000Z");
+    const active = raw
+      .prepare("SELECT status FROM firm WHERE name = ?")
+      .get("Active Firm") as { status: string };
+    expect(active.status).toBe("active");
+    // UNIQUE(name) holds.
     expect(() =>
-      insertNameOnly.run("firm_bbbbbbbbbbbbbbbbbbbbb", "Legacy Firm", "2026-01-05T09:00:00.000Z"),
+      insertNameOnly.run(
+        "firm_bbbbbbbbbbbbbbbbbbbbb",
+        "Provisioning Firm",
+        "provisioning",
+        "2026-01-05T09:00:00.000Z",
+      ),
     ).toThrow(/UNIQUE/);
-    insertNameOnly.run(
-      "firm_ccccccccccccccccccccc",
-      "Provisioning Firm",
-      "2026-01-05T09:00:00.000Z",
-    );
   });
 
   it("run() outside a batch autocommits independently", async () => {
