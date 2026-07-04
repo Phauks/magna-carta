@@ -248,6 +248,15 @@ fn first_surviving_text(pdf: &[u8], redacted_text: &[String]) -> Option<String> 
         .cloned()
 }
 
+/// Whether an observed glyph is whitespace-only, and therefore not redactable
+/// content the outcome gate should reject. Text that is entirely whitespace (a
+/// space, tab, etc.) draws no ink and encodes nothing sensitive. Empty text is
+/// deliberately excluded: a glyph with no ToUnicode mapping may be visible ink,
+/// so it is treated as redactable and stays subject to the gate.
+pub(crate) fn is_whitespace_glyph(text: &str) -> bool {
+    !text.is_empty() && text.chars().all(|c| c.is_whitespace())
+}
+
 pub(crate) fn verify_gate(
     doc: &lopdf::Document,
     flattened_pages_1based: &[u32],
@@ -403,6 +412,15 @@ pub fn redact(
                 Some(obs) => {
                     let mut any_inside = false;
                     'glyph_loop: for glyph in &obs.glyphs {
+                        // A whitespace-only glyph carries no redactable ink: a
+                        // surviving space is not sensitive text and must not fail
+                        // the gate (it would otherwise force an unnecessary raster
+                        // flatten of an otherwise text-preservable page). Glyphs
+                        // with empty text — no ToUnicode mapping, possibly visible
+                        // ink — are deliberately NOT skipped; they stay checked.
+                        if is_whitespace_glyph(&glyph.text) {
+                            continue;
+                        }
                         let display_rect =
                             crate::detect::to_display_rect(glyph.bbox, obs.height_pt);
                         let cx = (display_rect.x0 + display_rect.x1) / 2.0;
@@ -631,6 +649,95 @@ mod tests {
             .extract_text(&[1])
             .unwrap_or_default()
             .contains("Hello"));
+    }
+
+    #[test]
+    fn whitespace_glyph_classification() {
+        // Whitespace-only text is not redactable content: a surviving space must
+        // not fail the outcome gate.
+        assert!(is_whitespace_glyph(" "));
+        assert!(is_whitespace_glyph("   "));
+        assert!(is_whitespace_glyph("\t"));
+        // U+00A0 non-breaking space is whitespace.
+        assert!(is_whitespace_glyph("\u{00A0}"));
+        // Visible ink is redactable and must still be gated.
+        assert!(!is_whitespace_glyph("a"));
+        assert!(!is_whitespace_glyph("A "));
+        // Empty text (no ToUnicode) is conservatively treated as possible ink.
+        assert!(!is_whitespace_glyph(""));
+    }
+
+    #[test]
+    fn surgery_flattens_when_text_is_only_in_a_form_xobject() {
+        // Move hello.pdf's page content into a Form XObject invoked by `Do`, so the
+        // only page-0 text ("Hello") lives inside the XObject — which the content-
+        // stream surgery walk does not recurse into. The outcome gate observes
+        // rendered XObject text and must fall back to flatten rather than emit a page
+        // that still visibly shows it. This guards the confidentiality invariant that
+        // surgery's non-recursion into XObjects can never leak text past the gate.
+        let mut doc = lopdf::Document::load_mem(&hello_bytes()).unwrap();
+        let page_id = *doc.get_pages().get(&1).unwrap();
+        let content = doc.get_page_content(page_id).unwrap();
+        let page_resources = doc
+            .get_dictionary(page_id)
+            .unwrap()
+            .get(b"Resources")
+            .unwrap()
+            .clone();
+
+        // Form XObject reusing the page's own resources (fonts) and its content.
+        let mut form_dict = Dictionary::new();
+        form_dict.set("Type", Object::Name(b"XObject".to_vec()));
+        form_dict.set("Subtype", Object::Name(b"Form".to_vec()));
+        form_dict.set(
+            "BBox",
+            Object::Array(vec![
+                Object::Integer(0),
+                Object::Integer(0),
+                Object::Integer(612),
+                Object::Integer(792),
+            ]),
+        );
+        form_dict.set("Resources", page_resources);
+        let form_id = doc.add_object(Stream::new(form_dict, content));
+
+        // The page now holds ONLY a `Do` invoking the XObject; its resources point
+        // at the form and no longer expose the fonts directly.
+        let mut xobject_res = Dictionary::new();
+        xobject_res.set("X0", Object::Reference(form_id));
+        let mut new_res = Dictionary::new();
+        new_res.set("XObject", Object::Dictionary(xobject_res));
+        let do_id = doc.add_object(Stream::new(Dictionary::new(), b"q /X0 Do Q".to_vec()));
+        {
+            let page = doc.get_dictionary_mut(page_id).unwrap();
+            page.set("Contents", Object::Reference(do_id));
+            page.set("Resources", Object::Dictionary(new_res));
+        }
+
+        let mut bytes = Vec::new();
+        doc.save_to(&mut bytes).unwrap();
+
+        let region = RedactionRegion {
+            page: 0,
+            rect: Rect {
+                x0: 0.0,
+                y0: 0.0,
+                x1: 1000.0,
+                y1: 1000.0,
+            },
+            reason: None,
+        };
+        let opts = RedactionOptions {
+            mode: RedactionMode::Surgery,
+            dpi: 150.0,
+            ..RedactionOptions::default()
+        };
+        let outcome = redact(bytes, std::slice::from_ref(&region), &opts).unwrap();
+        assert!(
+            outcome.report.pages_flattened.contains(&0),
+            "text only inside a Form XObject must flatten, not surger"
+        );
+        assert!(!outcome.report.pages_surgered.contains(&0));
     }
 
     #[test]

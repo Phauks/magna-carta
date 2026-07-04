@@ -1,0 +1,18 @@
+---
+jurisdiction: US-MT
+publisher: State Bar of Montana (Lawyer Assistance Program)
+sourceUrl: https://www.montanabar.org/For-Attorneys/Lawyer-Assistance-Program
+accessedOn: 2026-07-02
+accessGate: open
+method: web search + direct fetch
+---
+[Montana Lawyer Assistance Program (LAP)]
+QUOTE (hours): "Confidential, 24-hours a day, every day"
+
+Confidential helpline (406) 660-1181 (hotline counselor Mike Larson). "The Montana Lawyer Assistance
+Program is independent from any disciplinary organization and does not police, report, discipline, or
+otherwise threaten the career of an attorney or judge. By order of the Montana Supreme Court (Order
+No. 85-96), the names of all persons seeking assistance under this program shall remain
+confidential." Services: guidance and referral; treatment-program information; intervention;
+family/friend support; education; weekly online support groups (Addiction Recovery Tue noon; Mental
+Health Wed noon). Cost not stated on page.

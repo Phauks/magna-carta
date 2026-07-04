@@ -32,6 +32,22 @@ function sqlAsText(): Plugin {
   };
 }
 
+// Stubs `.wasm` imports so the Vite SSR runner can load the worker app without the WebAssembly ESM
+// integration proposal (not supported in the SSR pipeline). The `load` hook (enforce: "pre") runs
+// before Vite's builtin:vite-wasm-fallback, intercepting the WASM before it errors. The route
+// handlers that call ensureReady() are never invoked during emission — only the OpenAPI route schema
+// is traversed — so a null stub is safe here. Wrangler handles real WASM at deploy time.
+function wasmAsStub(): Plugin {
+  return {
+    name: "magna-carta:wasm-as-stub",
+    enforce: "pre",
+    load(id) {
+      if (!id.endsWith(".wasm")) return null;
+      return `export default null;`;
+    },
+  };
+}
+
 // `cloudflare:workers` is a workerd-provided virtual module (the Durable Object base classes the DO
 // modules extend). The route graph reaches a DO module for its request-time stub helper, but emission
 // needs only the static route metadata, never the DO runtime — so resolve the virtual to an inert stub
@@ -60,7 +76,7 @@ const server = await createServer({
   root: workerRoot,
   logLevel: "warn",
   server: { middlewareMode: true, watch: null },
-  plugins: [sqlAsText(), stubCloudflareWorkers()],
+  plugins: [sqlAsText(), wasmAsStub(), stubCloudflareWorkers()],
 });
 
 try {

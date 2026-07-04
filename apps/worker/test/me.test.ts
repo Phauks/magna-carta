@@ -67,7 +67,8 @@ describe("GET /api/v1/me", () => {
       // support:request / support:cosign / support:manage (0029_support-access-permissions,
       // Owner/Admin gets all three; other roles get support:request only) +
       // tools:fileTypeVerifier (0032_seed-tools-file-type-verifier.sql, seeded onto every default role) +
-      // tools:fileRepair (0035_seed-tools-file-repair.sql, seeded onto every default role).
+      // tools:decryption (in the 20260704T041516 baseline) +
+      // tools:fileRepair (20260704T041517_seed-tools-file-repair) — both seeded onto every default role.
       // Sorted.
       permissions: [
         "costs:approve",
@@ -107,6 +108,7 @@ describe("GET /api/v1/me", () => {
         "time:track",
         "time:viewFirm",
         "tools:aiTextDetection",
+        "tools:decryption",
         "tools:fileConverter",
         "tools:fileIntegrity",
         "tools:fileRepair",

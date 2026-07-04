@@ -37,6 +37,7 @@ import { registerScanMatterRoute } from "./routes/scan-matter.ts";
 import { registerScanPolicyRoutes } from "./routes/scan-policy.ts";
 import { registerFirmsRoute } from "./routes/firms.ts";
 import { registerPlatformReleaseChannelRoute } from "./routes/platform-release-channel.ts";
+import { registerPlatformStatusRoute } from "./routes/platform-status.ts";
 import { registerFoldersRoutes } from "./routes/folders.ts";
 import { registerIncidentsRoute } from "./routes/incidents.ts";
 import { registerLocationsRoutes } from "./routes/locations.ts";
@@ -49,6 +50,8 @@ import { registerMattersRoutes } from "./routes/matters.ts";
 import { registerFirmUsageRoute } from "./routes/firm-usage.ts";
 import { registerWhoisRoute, type WhoisRouteDeps } from "./routes/whois.ts";
 import { registerSafeBrowseRoute, type SafeBrowseRouteDeps } from "./routes/safe-browse.ts";
+import { registerDecryptionRoutes } from "./routes/decryption.ts";
+import { registerRecoveryRoutes } from "./routes/recovery.ts";
 import { registerFileIntegrityRoutes } from "./routes/file-integrity.ts";
 import { registerFileTypeRoutes } from "./routes/file-type.ts";
 import { registerFileRepairRoutes } from "./routes/file-repair.ts";
@@ -121,6 +124,17 @@ export type Bindings = {
   // Optional: absent in every test environment and until the deploy-time binding is added; while
   // unset, the file-repair routes return 503 (the same posture the file-type and bundle routes take).
   FILE_REPAIR_SERVICE?: Fetcher;
+  // The password-recovery job coordinator: fans a recovery job out across shards and aggregates
+  // outcomes into the job's final state.
+  RECOVERY_JOB: DurableObjectNamespace<
+    import("./recovery/recovery-coordinator.ts").RecoveryJobCoordinator
+  >;
+  // The recovery shard queue the coordinator enqueues onto; the consumer runs one dictionary/rule
+  // shard and reports its outcome back to the coordinator.
+  RECOVERY_QUEUE: Queue<import("./recovery/recovery-types.ts").RecoveryShardMessage>;
+  // The dedicated password-recovery worker (magna-carta-recovery), reached over a service binding.
+  // Optional here so the pool can start without a running recovery worker.
+  RECOVERY_SERVICE?: Fetcher;
   // The authenticated Workers AI binding — the only path inference reaches the gateway through (no raw
   // gateway token in any firm-reachable config). Pre-authenticated within the account.
   AI: Ai;
@@ -197,6 +211,11 @@ export type Bindings = {
   // before the Flagship provider is wired. The resolver (src/flags/flag-evaluator.ts) falls back to
   // defaultOffEvaluator when this is undefined, so every flag returns its stable default safely.
   FLAGS?: import("@magna-carta/feature-flags").FlagshipBinding;
+  // The platform-status KV namespace: holds the two writer-owned documents (status:derived from the
+  // cron probe/telemetry sweep, status:authored from the platform-operator event/override routes) that
+  // the published-status read path merges. A KV namespace (not D1) because the whole document is small,
+  // read far more than written, and needs no relational query — a single get/put per writer.
+  STATUS_KV: KVNamespace;
   // The platform-managed AI-text-detection provider key + base URL. Optional: absent in tests and
   // until the deploy-time secret is set, in which case the detection route reports detection
   // unavailable. A platform secret, never a per-firm credential; production sets it with
@@ -229,7 +248,7 @@ function emailAdapterForEnv(env: Bindings): SendEmail {
   return createLoggingEmailAdapter();
 }
 
-function authForEnv(env: Bindings): ReturnType<typeof createAuth> {
+export function authForEnv(env: Bindings): ReturnType<typeof createAuth> {
   let auth = authInstanceByEnv.get(env);
   if (auth === undefined) {
     auth = createAuth(env, emailAdapterForEnv(env));
@@ -390,6 +409,11 @@ export function createApp(options: CreateAppOptions = {}) {
   // without touching the BROWSER binding. Production: createBrowserRenderer(c.env.BROWSER) +
   // createFetchRedirectProbe() — built lazily in the handler, never at startup.
   registerSafeBrowseRoute(app, chokepoint, options.safeBrowseDeps ?? {});
+  registerDecryptionRoutes(app, chokepoint);
+  // Password recovery: mints a job and fans it out through the recovery coordinator Durable
+  // Object. Registered beside decryption — the button-initiated surface for the SAME extracted
+  // hash decryption.inspect returns inline, handed instead to an offline dictionary search.
+  registerRecoveryRoutes(app, chokepoint);
   registerFileIntegrityRoutes(app, chokepoint);
   registerFileTypeRoutes(app, chokepoint);
   registerFileRepairRoutes(app, chokepoint);
@@ -399,6 +423,7 @@ export function createApp(options: CreateAppOptions = {}) {
   registerReleaseChannelRoute(app, chokepoint, authForEnv);
   registerFirmsRoute(app, chokepoint, authForEnv);
   registerPlatformReleaseChannelRoute(app, chokepoint);
+  registerPlatformStatusRoute(app, chokepoint);
   registerIncidentsRoute(app, chokepoint);
   registerUploadsRoutes(app, chokepoint);
   // Slice 1·1: matters (shell + lifecycle), per-firm matter/document types, Locations, and the

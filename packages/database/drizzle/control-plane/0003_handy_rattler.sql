@@ -1,1 +1,0 @@
-ALTER TABLE `firm` ADD `release_channel` text DEFAULT 'stable' NOT NULL;

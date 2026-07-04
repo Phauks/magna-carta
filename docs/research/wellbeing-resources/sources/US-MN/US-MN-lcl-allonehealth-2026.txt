@@ -1,0 +1,19 @@
+---
+jurisdiction: US-MN
+publisher: Lawyers Concerned for Lawyers (Minnesota) + AllOne Health
+sourceUrl: https://mnlcl.org/
+accessedOn: 2026-07-02
+accessGate: open
+method: web search + direct fetch
+---
+[Lawyers Concerned for Lawyers (LCL)]
+QUOTE (hours via partner): counseling partner AllOne Health "provides someone to talk to 24/7, including on holidays"
+Minnesota's LAP (est. 1976), free, confidential for lawyers, judges, law students, and immediate
+family. Services: 24-hour crisis response, clinical assessments and referrals, interventions,
+short-term counseling, licensed-counselor support groups, peer mentoring, education. Contact
+651-646-5590 / 1-866-525-6466, help@mnlcl.org. Partly funded by the Minnesota Supreme Court.
+
+[AllOne Health (LCL counseling partner)] — mnlcl.org/services/counseling
+QUOTE: "AllOne Health meets all state and federal laws governing confidentiality and does not reveal any information to LCL or any other agency or organization about client contacts without express written permission of the client. Exceptions exist in cases where the client poses a real and present danger to him or herself or others."
+"Available by phone 24 hours a day, seven days a week" at 800-451-1834. Up to four free counseling
+sessions through LCL; addiction-specialized clinicians; face-to-face and phone counseling.

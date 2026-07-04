@@ -38,8 +38,11 @@ export function migrationsFromJournal(
   journal: MigrationJournal,
   sqlByTag: Record<string, string>,
 ): Migration[] {
+  // Order by the monotonic migration id (tag), not the dense integer idx: timestamp-prefixed tags
+  // sort lexicographically into apply order, so migrations authored on parallel branches merge
+  // without a shared counter and never need renumbering. Zero-padded legacy ids sort the same way.
   return [...journal.entries]
-    .sort((a, b) => a.idx - b.idx)
+    .sort((a, b) => (a.tag < b.tag ? -1 : a.tag > b.tag ? 1 : 0))
     .map((entry) => {
       const sql = sqlByTag[entry.tag];
       if (sql === undefined) {

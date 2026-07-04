@@ -1,0 +1,15 @@
+---
+jurisdiction: US-IL
+publisher: Illinois Lawyers' Assistance Program
+sourceUrl: https://illinoislap.org/
+accessedOn: 2026-07-02
+accessGate: open
+method: web search + direct fetch
+---
+[Illinois Lawyers' Assistance Program (LAP)]
+QUOTE: "Confidentiality is guaranteed. Illinois Supreme Court Rule 1.6(d) mandates confidentiality for all information received by LAP volunteers and trained interveners during interventions and related meetings."
+
+A not-for-profit dedicated to helping Illinois judges, lawyers, and law students. Phone
+312-726-6607; email gethelp@illinoislap.org. Services: counseling, peer support, mental-health
+assessments, substance-use evaluations, education, interventions, group meetings, and referrals to
+specialized treatment. Services provided at no cost. Line hours not stated → unspecified.

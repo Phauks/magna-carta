@@ -1,0 +1,17 @@
+---
+jurisdiction: US-WA
+publisher: Washington State Bar Association (Member Wellness Program)
+sourceUrl: https://www.wsba.org/for-legal-professionals/member-support/wellness
+accessedOn: 2026-07-02
+accessGate: open
+method: web search + direct fetch
+---
+[WSBA Member Wellness Program]
+QUOTE: "All services are confidential" (references APR 19) ; "Our services are free of charge."
+
+Phone 206-727-8268 / 206-727-8267; wellness@wsba.org. Free consultations for attorneys, LPOs, LLLTs,
+law students, or those concerned about an attorney; mental-health support and referrals; peer
+advising (~50 attorney volunteers statewide); addiction resources; job-search assistance;
+presentations. Counseling delivered IN-HOUSE by WSBA-employed clinicians (Dan Crystal, Psy.D.; Adely
+Ruiz, LICSW) rather than an outsourced EAP. A Judicial Assistance Service Program (JASP) track serves
+judicial officers via the same program. No 24/7 crisis line advertised → unspecified.

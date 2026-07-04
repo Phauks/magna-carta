@@ -105,6 +105,36 @@ export type SafeWebsiteView = {
     links: Array<string>;
 };
 
+export type DecryptionInspectResponse = {
+    format: 'pdf' | 'zip' | 'ooxml';
+    hash: string;
+    hashcatMode: number;
+};
+
+export type DecryptionUnlockResponse = {
+    decryptedBase64: string;
+    filenameHint?: string;
+};
+
+export type RecoveryStartResponse = {
+    jobId: string;
+    tier: 'cfCapable' | 'gpuRequired';
+    status: 'queued' | 'running' | 'found' | 'exhausted' | 'needsGpu' | 'cancelled';
+};
+
+export type RecoveryStatusResponse = {
+    status: 'queued' | 'running' | 'found' | 'exhausted' | 'needsGpu' | 'cancelled';
+    tier: 'cfCapable' | 'gpuRequired';
+    progress: {
+        candidatesTried: number;
+        shardsDone: number;
+        shardCount: number;
+    };
+    result?: {
+        password: string;
+    };
+};
+
 export type FileIntegrityHashResponse = {
     algorithms: {
         md5: string;
@@ -258,6 +288,37 @@ export type PlatformSetReleaseChannelResponse = {
 
 export type PlatformSetReleaseChannelRequest = {
     channel: 'stable' | 'beta' | 'alpha';
+};
+
+export type ServiceEventResult = {
+    eventId: string;
+};
+
+export type DeclareServiceEvent = {
+    title: string;
+    impact: 'minor' | 'major' | 'critical' | 'maintenance';
+    affectedComponentIds: Array<string>;
+    body: string;
+};
+
+export type PostServiceEventUpdate = {
+    eventId: string;
+    lifecycle: 'investigating' | 'identified' | 'monitoring' | 'resolved';
+    body: string;
+};
+
+export type ComponentOverrideResult = {
+    componentId: string;
+};
+
+export type SetComponentOverride = {
+    componentId: string;
+    status: 'operational' | 'maintenance' | 'degraded' | 'partial_outage' | 'major_outage';
+    note: string;
+};
+
+export type ClearComponentOverride = {
+    componentId: string;
 };
 
 export type ReportIncidentResponse = {
@@ -1664,6 +1725,207 @@ export type SafeBrowsePostResponses = {
 
 export type SafeBrowsePostResponse = SafeBrowsePostResponses[keyof SafeBrowsePostResponses];
 
+export type DecryptionInspectData = {
+    body: {
+        fileBase64: string;
+        attestation: {
+            authorized: boolean;
+        };
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/decryption/inspect';
+};
+
+export type DecryptionInspectErrors = {
+    /**
+     * Attestation not authorised, file is not encrypted, format is unsupported, or bytes are malformed
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated but the member lacks tools:decryption
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DecryptionInspectError = DecryptionInspectErrors[keyof DecryptionInspectErrors];
+
+export type DecryptionInspectResponses = {
+    /**
+     * Detected format, hashcat-compatible hash string, and hashcat mode number
+     */
+    200: DecryptionInspectResponse;
+};
+
+export type DecryptionInspectResponse2 = DecryptionInspectResponses[keyof DecryptionInspectResponses];
+
+export type DecryptionUnlockData = {
+    body: {
+        fileBase64: string;
+        password: string;
+        attestation: {
+            authorized: boolean;
+        };
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/decryption/unlock';
+};
+
+export type DecryptionUnlockErrors = {
+    /**
+     * Attestation not authorised, wrong password, file is not encrypted, format unsupported, or bytes are malformed
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated but the member lacks tools:decryption
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DecryptionUnlockError = DecryptionUnlockErrors[keyof DecryptionUnlockErrors];
+
+export type DecryptionUnlockResponses = {
+    /**
+     * Decrypted file bytes encoded as base64, with an optional filename hint
+     */
+    200: DecryptionUnlockResponse;
+};
+
+export type DecryptionUnlockResponse2 = DecryptionUnlockResponses[keyof DecryptionUnlockResponses];
+
+export type DecryptionRecoverStartData = {
+    body: {
+        fileBase64: string;
+        attestation: {
+            authorized: boolean;
+        };
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/decryption/recover';
+};
+
+export type DecryptionRecoverStartErrors = {
+    /**
+     * Attestation not authorised, file is not encrypted, format is unsupported, or bytes are malformed
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated but the member lacks tools:decryption
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DecryptionRecoverStartError = DecryptionRecoverStartErrors[keyof DecryptionRecoverStartErrors];
+
+export type DecryptionRecoverStartResponses = {
+    /**
+     * The started job's id, recovery tier, and initial status
+     */
+    200: RecoveryStartResponse;
+};
+
+export type DecryptionRecoverStartResponse = DecryptionRecoverStartResponses[keyof DecryptionRecoverStartResponses];
+
+export type DecryptionRecoverCancelData = {
+    body?: never;
+    path: {
+        jobId: string;
+    };
+    query?: never;
+    url: '/api/v1/decryption/recover/{jobId}';
+};
+
+export type DecryptionRecoverCancelErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated but the member lacks tools:decryption
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DecryptionRecoverCancelError = DecryptionRecoverCancelErrors[keyof DecryptionRecoverCancelErrors];
+
+export type DecryptionRecoverCancelResponses = {
+    /**
+     * The job was cancelled (or was already terminal — a no-op either way)
+     */
+    204: void;
+};
+
+export type DecryptionRecoverCancelResponse = DecryptionRecoverCancelResponses[keyof DecryptionRecoverCancelResponses];
+
+export type DecryptionRecoverStatusData = {
+    body?: never;
+    path: {
+        jobId: string;
+    };
+    query?: never;
+    url: '/api/v1/decryption/recover/{jobId}';
+};
+
+export type DecryptionRecoverStatusErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated but the member lacks tools:decryption
+     */
+    403: Problem;
+    /**
+     * No recovery job with that id was started by the requesting user
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DecryptionRecoverStatusError = DecryptionRecoverStatusErrors[keyof DecryptionRecoverStatusErrors];
+
+export type DecryptionRecoverStatusResponses = {
+    /**
+     * The job's current status, tier, progress, and (when found) the password
+     */
+    200: RecoveryStatusResponse;
+};
+
+export type DecryptionRecoverStatusResponse = DecryptionRecoverStatusResponses[keyof DecryptionRecoverStatusResponses];
+
 export type FileIntegrityHashData = {
     body?: never;
     path?: never;
@@ -2391,6 +2653,199 @@ export type PlatformSetFirmReleaseChannelResponses = {
 };
 
 export type PlatformSetFirmReleaseChannelResponse = PlatformSetFirmReleaseChannelResponses[keyof PlatformSetFirmReleaseChannelResponses];
+
+export type PlatformStatusDeclareEventData = {
+    body: DeclareServiceEvent;
+    path?: never;
+    query?: never;
+    url: '/api/v1/platform/status/events';
+};
+
+export type PlatformStatusDeclareEventErrors = {
+    /**
+     * Not signed in
+     */
+    401: Problem;
+    /**
+     * Not a platform operator, or 2FA not enabled
+     */
+    403: Problem;
+    /**
+     * Invalid body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type PlatformStatusDeclareEventError = PlatformStatusDeclareEventErrors[keyof PlatformStatusDeclareEventErrors];
+
+export type PlatformStatusDeclareEventResponses = {
+    /**
+     * The declared event id
+     */
+    201: ServiceEventResult;
+};
+
+export type PlatformStatusDeclareEventResponse = PlatformStatusDeclareEventResponses[keyof PlatformStatusDeclareEventResponses];
+
+export type PlatformStatusPostUpdateData = {
+    body: PostServiceEventUpdate;
+    path?: never;
+    query?: never;
+    url: '/api/v1/platform/status/events/updates';
+};
+
+export type PlatformStatusPostUpdateErrors = {
+    /**
+     * Not signed in
+     */
+    401: Problem;
+    /**
+     * Not a platform operator, or 2FA not enabled
+     */
+    403: Problem;
+    /**
+     * No such event
+     */
+    404: Problem;
+    /**
+     * Invalid body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type PlatformStatusPostUpdateError = PlatformStatusPostUpdateErrors[keyof PlatformStatusPostUpdateErrors];
+
+export type PlatformStatusPostUpdateResponses = {
+    /**
+     * The updated event id
+     */
+    200: ServiceEventResult;
+};
+
+export type PlatformStatusPostUpdateResponse = PlatformStatusPostUpdateResponses[keyof PlatformStatusPostUpdateResponses];
+
+export type PlatformStatusResolveEventData = {
+    body: PostServiceEventUpdate;
+    path?: never;
+    query?: never;
+    url: '/api/v1/platform/status/events/resolve';
+};
+
+export type PlatformStatusResolveEventErrors = {
+    /**
+     * Not signed in
+     */
+    401: Problem;
+    /**
+     * Not a platform operator, or 2FA not enabled
+     */
+    403: Problem;
+    /**
+     * No such event
+     */
+    404: Problem;
+    /**
+     * Invalid body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type PlatformStatusResolveEventError = PlatformStatusResolveEventErrors[keyof PlatformStatusResolveEventErrors];
+
+export type PlatformStatusResolveEventResponses = {
+    /**
+     * The resolved event id
+     */
+    200: ServiceEventResult;
+};
+
+export type PlatformStatusResolveEventResponse = PlatformStatusResolveEventResponses[keyof PlatformStatusResolveEventResponses];
+
+export type PlatformStatusSetComponentOverrideData = {
+    body: SetComponentOverride;
+    path?: never;
+    query?: never;
+    url: '/api/v1/platform/status/overrides';
+};
+
+export type PlatformStatusSetComponentOverrideErrors = {
+    /**
+     * Not signed in
+     */
+    401: Problem;
+    /**
+     * Not a platform operator, or 2FA not enabled
+     */
+    403: Problem;
+    /**
+     * Invalid body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type PlatformStatusSetComponentOverrideError = PlatformStatusSetComponentOverrideErrors[keyof PlatformStatusSetComponentOverrideErrors];
+
+export type PlatformStatusSetComponentOverrideResponses = {
+    /**
+     * The overridden component id
+     */
+    200: ComponentOverrideResult;
+};
+
+export type PlatformStatusSetComponentOverrideResponse = PlatformStatusSetComponentOverrideResponses[keyof PlatformStatusSetComponentOverrideResponses];
+
+export type PlatformStatusClearComponentOverrideData = {
+    body: ClearComponentOverride;
+    path?: never;
+    query?: never;
+    url: '/api/v1/platform/status/overrides/clear';
+};
+
+export type PlatformStatusClearComponentOverrideErrors = {
+    /**
+     * Not signed in
+     */
+    401: Problem;
+    /**
+     * Not a platform operator, or 2FA not enabled
+     */
+    403: Problem;
+    /**
+     * Invalid body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type PlatformStatusClearComponentOverrideError = PlatformStatusClearComponentOverrideErrors[keyof PlatformStatusClearComponentOverrideErrors];
+
+export type PlatformStatusClearComponentOverrideResponses = {
+    /**
+     * The cleared component id
+     */
+    200: ComponentOverrideResult;
+};
+
+export type PlatformStatusClearComponentOverrideResponse = PlatformStatusClearComponentOverrideResponses[keyof PlatformStatusClearComponentOverrideResponses];
 
 export type IncidentsReportData = {
     body: ReportIncidentRequest;

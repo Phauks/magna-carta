@@ -6,6 +6,7 @@
   "sideEffects": false,
   "exports": {
     "./control-plane-schema": "./src/control-plane-schema.ts",
+    "./data-region": "./src/data-region.ts",
     "./per-firm-schema": "./src/per-firm-schema.ts",
     "./protected-columns": "./src/protected-columns.ts",
     "./migration": "./src/migration.ts",
@@ -18,8 +19,8 @@
   },
   "scripts": {
     "test": "vp test run",
-    "generate-control-plane-migrations": "drizzle-kit generate --config=drizzle-control-plane.config.ts",
-    "generate-per-firm-migrations": "drizzle-kit generate --config=drizzle-per-firm.config.ts"
+    "generate-control-plane-migrations": "drizzle-kit generate --config=drizzle-control-plane.config.ts && node scripts/timestamp-latest-migration.mjs control-plane",
+    "generate-per-firm-migrations": "drizzle-kit generate --config=drizzle-per-firm.config.ts && node scripts/timestamp-latest-migration.mjs per-firm"
   },
   "dependencies": {
     "@magna-carta/identifiers": "workspace:*",

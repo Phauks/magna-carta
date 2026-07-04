@@ -1,0 +1,40 @@
+[package]
+name = "decryption-core"
+version = "0.0.0"
+edition.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+lopdf = { workspace = true }
+zip = { version = "2", default-features = false, features = ["aes-crypto", "deflate"] }
+cfb = "0.10"
+office-crypto = "0.2"
+pbkdf2 = { version = "0.12", default-features = false, features = ["hmac"] }
+hmac = "0.12"
+sha1 = "0.10"
+sha2 = "0.10"
+md-5 = "0.10"
+aes = "0.8"
+cbc = "0.1"
+ctr = "0.9"
+cfb-mode = "0.8"
+rc4 = "0.1"
+thiserror = "2"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+rayon = "1"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2"
+js-sys = "0.3"
+# lopdf and office-crypto pull in getrandom transitively; wasm32-unknown-unknown
+# requires the wasm_js feature to compile.
+getrandom = { version = "0.4", features = ["wasm_js"] }
+
+[dev-dependencies]
+hex = "0.4"
+ms-offcrypto-writer = "1"
+rand = "0.9"

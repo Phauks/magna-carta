@@ -40,6 +40,7 @@ describe("tool catalog", () => {
       "file-converter",
       "metadata-scrubber",
       "file-hash-integrity",
+      "file-decryption",
       "file-type-verifier",
       "ai-text-detection",
       "file-repair",

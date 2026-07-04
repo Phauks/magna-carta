@@ -6,6 +6,7 @@ publish = false
 
 [features]
 pdfium = ["dep:pdfium-render", "dep:image-compare"]
+corpus-fetch = ["dep:reqwest"]
 
 [dependencies]
 pdf-core = { path = "../pdf-core" }
@@ -15,3 +16,6 @@ lopdf = "0.41"
 pdf = "0.10"
 pdfium-render = { version = "0.9", optional = true }
 image-compare = { version = "0.5", optional = true }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "blocking"], optional = true }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

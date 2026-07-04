@@ -1,0 +1,79 @@
+{
+  "jurisdictions": {
+    "US-PR": {
+      "fips": "72", "code": "PR", "name": "Puerto Rico", "source": "US-PR",
+      "resources": [
+        {
+          "name": "No dedicated lawyer-assistance program found", "operator": "—",
+          "operatorType": "national", "scope": "national",
+          "url": "https://www.americanbar.org/groups/lawyer_assistance/resources/lap_programs_by_state/",
+          "phones": [],
+          "services": ["mentalHealth"],
+          "confidential": "Resolves to the national safety net", "cost": "—",
+          "description": "No standing territory-specific lawyer-assistance program located; resolves to the national safety net (988, SAMHSA, ABA CoLAP). The Colegio de Abogados y Abogadas de Puerto Rico has emerging wellbeing initiatives (a 2025 wellness event, nascent commissions) but no dedicated program with counseling/hotline services.",
+          "confidence": "NA", "sourceUrl": "https://www.americanbar.org/groups/lawyer_assistance/resources/lap_programs_by_state/", "sourceTier": "primary-official", "verifiedOn": "2026-07-02"
+        }
+      ]
+    },
+    "US-GU": {
+      "fips": "66", "code": "GU", "name": "Guam", "source": "US-GU",
+      "resources": [
+        {
+          "name": "Alternative Disciplinary and Attorney Wellness Committee", "operator": "Guam Bar Association",
+          "operatorType": "stateBar", "scope": "statewide",
+          "url": "https://guambar.org/about-us/laws",
+          "phones": [],
+          "services": ["peerSupport", "mentalHealth", "substanceUse"],
+          "confidential": "Not stated on the bylaws page", "cost": "Not stated (bar-member committee)",
+          "description": "Standing committee of the Guam Bar Association (added 2024) that manages Rule 11 disability referrals and promotes attorney well-being through education, peer-to-peer support, and resources in mental health, emotional balance, stress management, and addiction. No dedicated hotline is published; access is via the bar.",
+          "confidence": "HIGH", "sourceUrl": "https://guambar.org/about-us/laws", "sourceTier": "primary-official", "verifiedOn": "2026-07-02"
+        }
+      ]
+    },
+    "US-VI": {
+      "fips": "78", "code": "VI", "name": "U.S. Virgin Islands", "source": "US-VI",
+      "resources": [
+        {
+          "name": "Lawyer's Assistance Program (Committee)", "operator": "Virgin Islands Bar Association",
+          "operatorType": "stateBar", "scope": "statewide",
+          "url": "https://www.usvibar.org/page/Committees", "email": "info@usvibar.org",
+          "phones": [{"number": "340-778-7497", "label": "Virgin Islands Bar Association (general)", "availability": "businessHours", "hoursNote": "General bar line; the LAP committee has no separately published number"}],
+          "services": ["substanceUse", "mentalHealth", "counseling", "peerSupport"],
+          "confidential": "Not stated on the committees page", "cost": "Not stated (bar-member benefit)",
+          "description": "Standing committee of the Virgin Islands Bar Association implementing a program to assist members with substance abuse and addiction; corroborating reports indicate partnerships with local providers (Insight Psychological Services, Island Therapy Solutions) for expedited referrals (partner detail not on the official page).",
+          "confidence": "HIGH", "sourceUrl": "https://www.usvibar.org/page/Committees", "sourceTier": "primary-official", "verifiedOn": "2026-07-02"
+        }
+      ]
+    },
+    "US-AS": {
+      "fips": "60", "code": "AS", "name": "American Samoa", "source": "US-AS",
+      "resources": [
+        {
+          "name": "No dedicated lawyer-assistance program found", "operator": "—",
+          "operatorType": "national", "scope": "national",
+          "url": "https://www.americanbar.org/groups/lawyer_assistance/resources/lap_programs_by_state/",
+          "phones": [],
+          "services": ["mentalHealth"],
+          "confidential": "Resolves to the national safety net", "cost": "—",
+          "description": "No territory-specific lawyer-assistance program located (American Samoa has public Legal Aid, not an attorney wellness program); resolves to the national safety net (988, SAMHSA, ABA CoLAP).",
+          "confidence": "NA", "sourceUrl": "https://www.americanbar.org/groups/lawyer_assistance/resources/lap_programs_by_state/", "sourceTier": "primary-official", "verifiedOn": "2026-07-02"
+        }
+      ]
+    },
+    "US-MP": {
+      "fips": "69", "code": "MP", "name": "Northern Mariana Islands", "source": "US-MP",
+      "resources": [
+        {
+          "name": "No dedicated lawyer-assistance program found", "operator": "—",
+          "operatorType": "national", "scope": "national",
+          "url": "https://www.americanbar.org/groups/lawyer_assistance/resources/lap_programs_by_state/",
+          "phones": [],
+          "services": ["mentalHealth"],
+          "confidential": "Resolves to the national safety net", "cost": "—",
+          "description": "No territory-specific lawyer-assistance program located (the CNMI Bar's charitable focus is funding Micronesian Legal Services); resolves to the national safety net (988, SAMHSA, ABA CoLAP).",
+          "confidence": "NA", "sourceUrl": "https://www.americanbar.org/groups/lawyer_assistance/resources/lap_programs_by_state/", "sourceTier": "primary-official", "verifiedOn": "2026-07-02"
+        }
+      ]
+    }
+  }
+}

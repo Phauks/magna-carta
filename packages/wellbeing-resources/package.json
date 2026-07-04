@@ -1,0 +1,24 @@
+{
+  "name": "@magna-carta/wellbeing-resources",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./types": "./src/types.ts",
+    "./registry": "./src/registry.ts",
+    "./manifest": "./src/manifest.ts"
+  },
+  "scripts": {
+    "test": "vp test run",
+    "build:data": "tsx scripts/build-data.mts",
+    "verify:data": "tsx scripts/build-data.mts --check",
+    "directory": "tsx scripts/build-directory-data.mts && start mockups/directory.html"
+  },
+  "devDependencies": {
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "tsx": "^4.22.4",
+    "vitest": "catalog:"
+  }
+}

@@ -1,0 +1,17 @@
+---
+jurisdiction: US-MS
+publisher: The Mississippi Bar (Lawyers and Judges Assistance Program)
+sourceUrl: https://www.msbar.org/programs-affiliates/lawyers-judges-assistance-program/
+accessedOn: 2026-07-02
+accessGate: open
+method: web search + corroborated (msbar.org 403; courts.ms.gov 500)
+---
+[Mississippi Lawyers and Judges Assistance Program (LJAP)] (corroborated — official pages 403/500)
+QUOTE: "The identity of any lawyer, judge, or family member who requests assistance through the program is kept strictly confidential. The LJA Program is not affiliated with any disciplinary authority."
+
+Authorized by the Mississippi Supreme Court; provides intervention, referral for evaluation and
+treatment, and monitoring for attorneys, judges, and law students suffering from chemical dependence
+or physical, emotional, or mental disabilities. Available to all attorneys, judges, law students, bar
+applicants, law staff, and families. 24-hour confidential hotline: 800-593-9777. NOTE: the msbar.org
+page returned HTTP 403 and the MS Supreme Court rules PDF returned 500 this session — details
+corroborated from search snippets; the 24-hour hotline claim is not page-verified.

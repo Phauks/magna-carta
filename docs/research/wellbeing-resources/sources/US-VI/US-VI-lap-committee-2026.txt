@@ -1,0 +1,17 @@
+---
+jurisdiction: US-VI
+publisher: Virgin Islands Bar Association
+sourceUrl: https://www.usvibar.org/page/Committees
+accessedOn: 2026-07-02
+accessGate: open
+method: direct fetch of the VIBA committees page
+---
+[Lawyer's Assistance Program (Committee)]
+QUOTE: "This committee shall continue the process of creating and implementing a program to provide assistance to members of the Virgin Islands Bar Association who suffer from substance abuse and addiction."
+
+VIRGIN ISLANDS BAR ASSOCIATION, PO Box 224108, Christiansted, VI 00822. Phone (340) 778-7497; email
+info@usvibar.org. The "Lawyer's Assistance Program" is a standing committee; the official text scopes
+it to substance abuse and addiction. Corroborating reports (not on the official page) indicate
+partnerships with local providers (Insight Psychological Services, Island Therapy Solutions) for
+expedited, same-day referrals. No LAP-specific hotline is published; contact is the general bar
+line/email.

@@ -1,0 +1,11 @@
+# pdf-eval forms corpus manifest.
+# One line per document: <filename> <url> <license/source>.
+# Fetched (gitignored) into corpus-forms/ via: cargo run -p pdf-eval --features corpus-fetch corpus-fetch
+#
+acroform_calculation_order.pdf  https://raw.githubusercontent.com/mozilla/pdf.js/master/test/pdfs/acroform_calculation_order.pdf  Apache-2.0 (mozilla/pdf.js)
+annotation-text-widget.pdf      https://raw.githubusercontent.com/mozilla/pdf.js/master/test/pdfs/annotation-text-widget.pdf      Apache-2.0 (mozilla/pdf.js)
+annotation-button-widget.pdf    https://raw.githubusercontent.com/mozilla/pdf.js/master/test/pdfs/annotation-button-widget.pdf    Apache-2.0 (mozilla/pdf.js)
+annotation-choice-widget.pdf    https://raw.githubusercontent.com/mozilla/pdf.js/master/test/pdfs/annotation-choice-widget.pdf    Apache-2.0 (mozilla/pdf.js)
+annotation-tx.pdf               https://raw.githubusercontent.com/mozilla/pdf.js/master/test/pdfs/annotation-tx.pdf               Apache-2.0 (mozilla/pdf.js)
+annotation-tx2.pdf              https://raw.githubusercontent.com/mozilla/pdf.js/master/test/pdfs/annotation-tx2.pdf              Apache-2.0 (mozilla/pdf.js)
+annotation-tx3.pdf              https://raw.githubusercontent.com/mozilla/pdf.js/master/test/pdfs/annotation-tx3.pdf              Apache-2.0 (mozilla/pdf.js)
