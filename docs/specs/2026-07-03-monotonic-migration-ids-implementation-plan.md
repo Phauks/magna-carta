@@ -16,9 +16,20 @@
 
 1. **ID format = bare UTC timestamp + slug**, `YYYYMMDDTHHMMSS_slug` (e.g. `20260703T120400_baseline`). Not ULID. Rationale: human-readable, lexicographically sortable, industry standard (Rails/Django/Flyway); the slug carries context. ULID's extra collision-resistance is unneeded for hand-authored migrations and costs readability.
 2. **Second precision, no sub-second suffix in the tag.** Two hand-authored migrations colliding to the same UTC second across this team is not a real risk; if it ever happens, the journal's `when` (millis) is the tiebreak. Keeps tags clean.
-3. **Seeds = a separate companion `…_baseline_seed` migration per lineage**, applied immediately after the schema baseline (not folded into it). Rationale: the schema baseline stays pure drizzle-generated DDL (regenerable, diffable); the seeds live in one explicit, auditable file. Built by concatenating every legacy `INSERT` in original apply order.
+3. **Seeds = a separate companion `…_baseline_seed` migration per lineage**, applied immediately after the schema baseline (not folded into it). Rationale: the schema baseline stays pure drizzle-generated DDL (regenerable, diffable); the seeds live in one explicit, auditable file. **The seed is built from an END-STATE DATA DUMP, not by concatenating the legacy source `INSERT`s** — the dry-run (below) proved concatenation fails on both lineages (source INSERTs target table-rebuild temp tables like `__new_firm` and violate FK ordering when replayed against the final schema). Emit the seed by applying the full legacy chain to a scratch DB, then `SELECT *` each real user table and re-emit as `INSERT` statements in a stable order. Exclude FTS shadow tables (see below).
 4. **Loader orders by `tag` ascending** (monotonic via the timestamp prefix), dropping reliance on the dense `idx`. `idx`/`when` stay in the journal for drizzle-kit compatibility but are not the order key.
 5. **Acceptance gate = schema + data equivalence.** Build one SQLite DB from the full legacy chain and one from the new baseline+seed, per lineage; diff (a) the `sqlite_master` schema dump and (b) a full row-ordered data dump of every table. Byte-identical schema and identical seed rows is the pass condition.
+
+## Dry-run validation (already done, dependency-free)
+
+A `node:sqlite` dry-run (`packages/database/scripts/collapse-dry-run.mjs`, added on this branch) applied the real legacy chains to in-memory scratch DBs and verified the collapse **without touching any migration file**. Results (2026-07-03):
+
+- **Legacy chains apply cleanly.** Control-plane: 26 schema objects / 12 real tables / 0 seed rows. Per-firm: 138 schema objects / 61 real tables / 104 seed rows.
+- **The collapse reproduces the DB exactly** for both lineages: baseline schema (end-state DDL) + data-dump seed yields a byte-identical `sqlite_master` schema and identical row data to the full chain. **This validates the collapse approach and the acceptance gate.**
+- **Source-INSERT concatenation FAILS** (both lineages) — hence sub-decision 3's data-dump seed. Do not use the design's originally-suggested concatenation.
+- **FTS5 virtual tables need special handling.** `directory_name_fts` auto-creates shadow tables (`_data`/`_idx`/`_docsize`/`_config`); the baseline must emit only the `CREATE VIRTUAL TABLE` and **exclude the shadow tables** from both the schema replay and the seed (they are re-created and repopulated by the vtable). Re-run the dry-run to confirm the FTS index is queryable after seeding, since the seed carries base-table rows, not shadow-table rows.
+
+The real execution's acceptance gate (B6) reuses this script's compare method, but against the **drizzle-kit-generated** baseline (from the TS schema) rather than the schema synthesized from the applied chain — that is the one thing the dependency-free dry-run could not exercise (drizzle-kit needs the dep install).
 
 ## Execution — Phase A: tooling touchpoints (low-risk, reversible)
 
@@ -28,7 +39,7 @@ Do these first; they are independently testable and don't touch existing migrati
 
 **A2 — Generation emits a timestamp ID.** drizzle-kit auto-numbers, so wrap generation with a post-process step: after `drizzle-kit generate`, rename the just-created `NNNN_slug.sql` → `<UTC-timestamp>_slug.sql`, rename its `meta/NNNN_snapshot.json`, and rewrite the new `_journal.json` entry's `tag` (leave `idx` as drizzle wrote it). Implement as a small `tooling/` node script invoked by the two `generate-*` package scripts. Verify by generating a throwaway no-op migration and confirming the timestamp name + journal tag.
 
-**A3 — CI uniqueness/monotonic check.** Add a `tooling/` fitness check (wired into `pnpm check` / CI) asserting, per lineage: every journal `tag` is unique, and tags are strictly ascending in `idx` order (i.e. authoring order == lexical order). No dense-sequence check exists to remove.
+**A3 — CI checks: update the migration-integrity guard + add a uniqueness check.** No standalone lint asserts dense numbering, but `packages/database/test/migration-integrity.test.ts` bakes in **two `00NN` assumptions the collapse breaks**, discovered while analyzing the harness: (a) `const snapshotIdx = … /^\d{4}_snapshot\.json$/` — a 4-digit snapshot-filename regex that timestamp IDs fail; (b) `REVIEWED_REBUILDS: Set<string>` — a hardcoded set of legacy `00NN` tags (`0001_auth-and-provisioning`, `0007_incident-description-nullable`, `0015_odd_mesmero`, `0021_outgoing_talon`, `0025_amusing_robbie_robertson`, `0029_scan_verdict_flagged`) that all vanish in the collapse. Update this test to accept timestamp-ID snapshot filenames and to re-seed `REVIEWED_REBUILDS` from the baseline (which contains no rebuilds — likely empties the set). Check `generated-migrations.test.ts` for the same. Then add a small fitness check asserting, per lineage, that every journal `tag` is unique and tags are strictly ascending in `idx` order (authoring order == lexical order).
 
 ## Execution — Phase B: the collapse (DESTRUCTIVE — gated on owner go-ahead)
 
