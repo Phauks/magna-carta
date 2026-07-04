@@ -52,3 +52,26 @@ export function cheapestVerifiedOffer(
   }
   return cheapest;
 }
+
+/**
+ * Narrows the marketplace to offers matching a rig shape, verified and at or above the
+ * reliability floor, ranked cheapest-first. Unlike `cheapestVerifiedOffer`, this returns the
+ * whole ranked list rather than just the top match, so a caller can fall through to the
+ * next-cheapest offer when the cheapest one's rented instance turns out to be a bad rig (fails
+ * to boot, never produces benchmark output) — see `run.ts`'s `benchmarkOneRig`.
+ */
+export function rankedVerifiedOffers(
+  offers: VastOffer[],
+  want: RigShape,
+  minReliability: number,
+): VastOffer[] {
+  return offers
+    .filter(
+      (candidate) =>
+        candidate.gpuName === want.gpuName &&
+        candidate.gpuCount === want.gpuCount &&
+        candidate.verified &&
+        candidate.reliability >= minReliability,
+    )
+    .sort((a, b) => a.dollarsPerHour - b.dollarsPerHour);
+}

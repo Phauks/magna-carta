@@ -17,26 +17,31 @@ function fakeClient(overrides: Partial<VastClient> = {}): VastClient {
       } satisfies VastOffer,
     ]),
     createInstance: vi.fn().mockResolvedValue({ instanceId: 777 }),
-    getInstance: vi.fn().mockResolvedValue({ status: "running", sshHost: "h", sshPort: 22 }),
+    getInstance: vi
+      .fn()
+      .mockResolvedValue({ status: "running", statusMsg: null, sshHost: "h", sshPort: 22 }),
     listInstances: vi.fn().mockResolvedValue([]),
     destroyInstance: vi.fn().mockResolvedValue(undefined),
+    requestLogsUrl: vi.fn().mockResolvedValue("https://s3.example.com/logs.txt"),
     ...overrides,
   };
 }
 
-const envelope = JSON.stringify({
-  gpuName: "RTX_4090",
-  gpuCount: 1,
-  gpuRamMegabytes: 24576,
-  throughput: [{ hashcatMode: 9600, hashesPerSecond: 68356 }],
-});
+/** A raw hashcat benchmark log matching the real onstart-command output shape. */
+const rawLog = [
+  "BENCH_BEGIN",
+  "RTX_4090, 24576 MiB",
+  "MODE=9600",
+  "1:9600:2310:10251:91.27:68356",
+  "BENCH_END",
+].join("\n");
 
 describe("benchmarkOneRig", () => {
   it("returns a profile and always destroys on success", async () => {
     const client = fakeClient();
     const profile = await benchmarkOneRig({
       client,
-      collect: async () => envelope,
+      collect: async () => rawLog,
       image: "img",
       want: { gpuName: "RTX_4090", gpuCount: 1 },
       now: () => "2026-07-03T00:00:00Z",
@@ -56,7 +61,7 @@ describe("benchmarkOneRig", () => {
     );
   });
 
-  it("destroys the instance even when collection fails", async () => {
+  it("destroys the instance even when collection fails, and reports the failure (single offer available)", async () => {
     const client = fakeClient();
     await expect(
       benchmarkOneRig({
@@ -78,7 +83,7 @@ describe("benchmarkOneRig", () => {
     await expect(
       benchmarkOneRig({
         client,
-        collect: async () => envelope,
+        collect: async () => rawLog,
         image: "img",
         want: { gpuName: "RTX_4090", gpuCount: 1 },
         now: () => "t",
@@ -89,17 +94,17 @@ describe("benchmarkOneRig", () => {
     expect(client.destroyInstance).not.toHaveBeenCalled();
   });
 
-  it("destroys the instance when the instance never reaches running status", async () => {
+  it("destroys the instance when the instance never reaches running status (single offer available)", async () => {
     vi.useFakeTimers();
     try {
       const client = fakeClient({
         getInstance: vi
           .fn()
-          .mockResolvedValue({ status: "loading", sshHost: null, sshPort: null }),
+          .mockResolvedValue({ status: "loading", statusMsg: null, sshHost: null, sshPort: null }),
       });
       const result = benchmarkOneRig({
         client,
-        collect: async () => envelope,
+        collect: async () => rawLog,
         image: "img",
         want: { gpuName: "RTX_4090", gpuCount: 1 },
         now: () => "t",
@@ -112,5 +117,133 @@ describe("benchmarkOneRig", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("retries on the next-cheapest offer when the first offer's rig fails, destroying the failed instance along the way", async () => {
+    const offers: VastOffer[] = [
+      {
+        offerId: 1,
+        gpuName: "RTX_4090",
+        gpuCount: 1,
+        gpuRamMegabytes: 24576,
+        dollarsPerHour: 0.3,
+        internetDownMbps: 900,
+        reliability: 0.99,
+        verified: true,
+      },
+      {
+        offerId: 2,
+        gpuName: "RTX_4090",
+        gpuCount: 1,
+        gpuRamMegabytes: 24576,
+        dollarsPerHour: 0.5,
+        internetDownMbps: 900,
+        reliability: 0.99,
+        verified: true,
+      },
+    ];
+    const createInstance = vi.fn(async (offerId: number) => ({
+      instanceId: offerId === 1 ? 901 : 902,
+    }));
+    const getInstance = vi.fn(async (instanceId: number) => {
+      if (instanceId === 901) {
+        // The bad rig: vast.ai reports a terminal container-runtime failure, never `running`.
+        return {
+          status: "exited",
+          statusMsg: "OCI runtime create failed: unable to start container process",
+          sshHost: null,
+          sshPort: null,
+        };
+      }
+      return { status: "running", statusMsg: null, sshHost: "h", sshPort: 22 };
+    });
+    const destroyInstance = vi.fn(async (_instanceId: number) => {});
+    const collect = vi.fn(async (_client: VastClient, instanceId: number) => {
+      if (instanceId === 901) {
+        throw new Error("should never collect from the bad rig");
+      }
+      return rawLog;
+    });
+
+    const client: VastClient = {
+      searchOffers: vi.fn().mockResolvedValue(offers),
+      createInstance,
+      getInstance,
+      listInstances: vi.fn().mockResolvedValue([]),
+      destroyInstance,
+      requestLogsUrl: vi.fn().mockResolvedValue("https://s3.example.com/logs.txt"),
+    };
+
+    const profile = await benchmarkOneRig({
+      client,
+      collect,
+      image: "img",
+      want: { gpuName: "RTX_4090", gpuCount: 1 },
+      now: () => "t",
+      onstart: "test-onstart",
+    });
+
+    // The winning (second, next-cheapest) offer's price is what gets recorded.
+    expect(profile.dollarsPerHour).toBe(0.5);
+    expect(createInstance).toHaveBeenCalledTimes(2);
+    expect(createInstance).toHaveBeenNthCalledWith(1, 1, expect.anything());
+    expect(createInstance).toHaveBeenNthCalledWith(2, 2, expect.anything());
+    expect(destroyInstance).toHaveBeenCalledWith(901);
+    expect(destroyInstance).toHaveBeenCalledWith(902);
+    expect(collect).toHaveBeenCalledTimes(1);
+  });
+
+  it("throws AllOffersFailedError when every offer attempt fails", async () => {
+    const offers: VastOffer[] = [
+      {
+        offerId: 1,
+        gpuName: "RTX_4090",
+        gpuCount: 1,
+        gpuRamMegabytes: 24576,
+        dollarsPerHour: 0.3,
+        internetDownMbps: 900,
+        reliability: 0.99,
+        verified: true,
+      },
+      {
+        offerId: 2,
+        gpuName: "RTX_4090",
+        gpuCount: 1,
+        gpuRamMegabytes: 24576,
+        dollarsPerHour: 0.5,
+        internetDownMbps: 900,
+        reliability: 0.99,
+        verified: true,
+      },
+    ];
+    const destroyInstance = vi.fn(async (_instanceId: number) => {});
+    const client: VastClient = {
+      searchOffers: vi.fn().mockResolvedValue(offers),
+      createInstance: vi.fn(async (offerId: number) => ({ instanceId: offerId })),
+      getInstance: vi
+        .fn()
+        .mockResolvedValue({
+          status: "exited",
+          statusMsg: "OCI runtime create failed",
+          sshHost: null,
+          sshPort: null,
+        }),
+      listInstances: vi.fn().mockResolvedValue([]),
+      destroyInstance,
+      requestLogsUrl: vi.fn().mockResolvedValue("https://s3.example.com/logs.txt"),
+    };
+
+    await expect(
+      benchmarkOneRig({
+        client,
+        collect: async () => rawLog,
+        image: "img",
+        want: { gpuName: "RTX_4090", gpuCount: 1 },
+        now: () => "t",
+        onstart: "test-onstart",
+      }),
+    ).rejects.toThrow(/every offer tried/i);
+    expect(destroyInstance).toHaveBeenCalledWith(1);
+    expect(destroyInstance).toHaveBeenCalledWith(2);
   });
 });
