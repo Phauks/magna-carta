@@ -1,6 +1,6 @@
 # Monotonic migration IDs + baseline collapse — implementation plan
 
-**Status:** plan (awaiting owner go-ahead to execute the collapse). Design: `2026-07-03-monotonic-migration-ids-design.md`; ADR: `docs/decisions/pending/monotonic-migration-ids.md`. This plan resolves the design's open sub-decisions and specifies the coordinated execution. **The destructive collapse (steps in Phase B) must not run until the owner confirms the prerequisite and the sub-decisions below.**
+**Status:** EXECUTED on branch `monotonic-migration-ids` (owner confirmed "no prod users yet, timestamp is good idea. commence"). Design: `2026-07-03-monotonic-migration-ids-design.md`; ADR: `docs/decisions/pending/monotonic-migration-ids.md`. This plan resolved the design's open sub-decisions and specified the coordinated execution. See **As-built** at the bottom for the two points where execution refined the plan.
 
 ## Current-state facts (verified on main `a28bb8f`, 2026-07-03)
 
@@ -72,6 +72,15 @@ Run per lineage (control-plane, then per-firm). All work on this branch (`monoto
 - **Statement splitting**: the seed file must use the same `--> statement-breakpoint` convention the loader splits on (`migration.ts` `splitSqlStatements`), or D1's single-statement prepared execution breaks.
 - Keep the two lineages fully independent throughout (separate journals, separate baselines) — never cross-apply.
 
-## Not doing autonomously (why this plan stops here)
+## Not doing autonomously (why this plan stopped here originally)
 
-The collapse rewrites the migration system (catastrophic if wrong), the seed re-expression spans 27 files, and sub-decisions 1–5 set a permanent scheme. Per the design's own "coordinated execution" mandate and the reversibility bar, Phase B executes only after the owner confirms the prerequisite (no firm onboarded) and the resolved sub-decisions. Phase A tooling could land first as a safe increment if desired.
+The collapse rewrites the migration system (catastrophic if wrong), the seed re-expression spans 27 files, and sub-decisions 1–5 set a permanent scheme. Per the design's own "coordinated execution" mandate and the reversibility bar, Phase B executed only after the owner confirmed the prerequisite (no firm onboarded) and the resolved sub-decisions.
+
+## As-built (what execution refined)
+
+Executed 2026-07-04 (UTC). Two deliberate departures from the plan above, plus the outcome:
+
+1. **Seed folded into the baseline, not a companion file (refines sub-decision 3 / B2–B4).** Each lineage collapsed to a **single** `20260704T041516_baseline` migration carrying DDL + the directory FTS5 virtual table and its three sync triggers + the seed `INSERT`s — not the planned two-entry (baseline + `_baseline_seed`) journal. A separate seed file forces a second drizzle snapshot in the chain for no benefit; one baseline is simpler and the acceptance gate validates it identically. The seed is still an **end-state data dump** (sub-decision 3's core finding holds — concatenating source `INSERT`s fails). Journals therefore have **one** entry per lineage, not two.
+2. **Acceptance gate is LOGICAL schema equivalence, not byte-identical (refines sub-decision 5 / B6).** A byte-for-byte `sqlite_master` diff fails on cosmetic differences that are not schema differences: drizzle canonicalizes column order to the TS-schema order (vs the legacy incremental `ALTER` order) and quotes identifiers differently. The gate instead compares PRAGMA-normalized structure (`table_info`/`index_list`/`foreign_key_list`, ignoring column order, quoting, and auto-index names) plus a name-sorted full data dump. Logical schema + row-identical data is the pass condition. Both lineages passed.
+
+**Outcome.** Both lineages collapsed (control-plane 7→1, per-firm 36→1 with 104 seed rows + FTS). Loader orders by tag (A1). Generation auto-stamps future migrations via `packages/database/scripts/timestamp-latest-migration.mjs`, wired into both `generate-*` package scripts (A2). Fitness function guards tag uniqueness/format/monotonicity; `REVIEWED_REBUILDS` emptied (the baselines rebuild nothing); obsolete per-step transform tests reconciled to the baseline (A3). Database suite 105 pass; data-access 137 pass. The worker Miniflare suite was not run in this worktree (unrelated: the decryption Rust→WASM `pkg/` is not built in a fresh checkout). **Phase C** (file-repair-salvage re-authoring `0036` onto the baseline; landing to main) is still owner-run.
