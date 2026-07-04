@@ -53,26 +53,3 @@ export function parseBenchmarkJson(raw: string): BenchmarkResult {
   }
   return parsed.data;
 }
-
-/**
- * Sums the per-device hashes/sec reported by a hashcat `--machine-readable` status line. hashcat
- * repeats a `SPEED <hashes> <ms>` pair for each device after the `SPEED` token; this reads pairs
- * until the next non-numeric token (or the line ends) and returns the total hashes/sec across all
- * devices.
- */
-export function sumDeviceSpeeds(machineReadableLine: string): number {
-  const tokens = machineReadableLine.trim().split(/\s+/);
-  const speedIndex = tokens.indexOf("SPEED");
-  if (speedIndex === -1) return 0;
-
-  let total = 0;
-  let index = speedIndex + 1;
-  while (index + 1 < tokens.length) {
-    const hashes = Number(tokens[index]);
-    const milliseconds = Number(tokens[index + 1]);
-    if (!Number.isFinite(hashes) || !Number.isFinite(milliseconds)) break;
-    total += hashes;
-    index += 2;
-  }
-  return total;
-}
