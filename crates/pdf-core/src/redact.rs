@@ -302,6 +302,85 @@ pub(crate) fn verify_gate(
     Ok(())
 }
 
+/// The surgery outcome gate for one candidate page: re-observe `probe` at `page` via
+/// hayro and return true iff no non-whitespace glyph centre lands inside any rect and no
+/// image cover intersects any rect. Extracted so both `redact` and `compare_surgery_paths`
+/// share one gate.
+pub(crate) fn surgery_candidate_passes_gate(
+    probe: &hayro::hayro_syntax::Pdf,
+    page: usize,
+    rects: &[Rect],
+) -> bool {
+    let observation = crate::textpos::observe_page(probe, page);
+    match observation {
+        None => false, // Cannot observe page — conservatively fail the gate.
+        Some(obs) => {
+            let mut any_inside = false;
+            'glyph_loop: for glyph in &obs.glyphs {
+                // A whitespace-only glyph carries no redactable ink: a
+                // surviving space is not sensitive text and must not fail
+                // the gate (it would otherwise force an unnecessary raster
+                // flatten of an otherwise text-preservable page). Glyphs
+                // with empty text — no ToUnicode mapping, possibly visible
+                // ink — are deliberately NOT skipped; they stay checked.
+                if is_whitespace_glyph(&glyph.text) {
+                    continue;
+                }
+                let display_rect = crate::detect::to_display_rect(glyph.bbox, obs.height_pt);
+                let cx = (display_rect.x0 + display_rect.x1) / 2.0;
+                let cy = (display_rect.y0 + display_rect.y1) / 2.0;
+                for rect in rects {
+                    if crate::detect::rect_contains(rect, cx, cy) {
+                        any_inside = true;
+                        break 'glyph_loop;
+                    }
+                }
+            }
+
+            // A surgery stream replaces targeted glyphs with a vector path fill
+            // (`draw_path`, is_image=false).  An image XObject already present on
+            // the page is emitted as `draw_image` (is_image=true).  If a raster
+            // image cover intersects a redaction rectangle the vector box drawn by
+            // surgery sits *on top of* the image but does not destroy its pixels;
+            // the image is recoverable by removing the box.  Reject any such page
+            // so it falls back to the full-raster flatten, which overwrites the
+            // pixels entirely.
+            //
+            // Intersection test: two axis-aligned rects A and B overlap iff neither
+            // is fully to the left, right, above, or below the other.
+            if !any_inside {
+                'image_loop: for cover in &obs.covers {
+                    if !cover.is_image {
+                        continue;
+                    }
+                    let image_rect = crate::detect::to_display_rect(cover.bbox, obs.height_pt);
+                    // Normalise corners (min/max) so the intersection test is
+                    // orientation-independent.
+                    let (ix0, ix1) = (
+                        image_rect.x0.min(image_rect.x1),
+                        image_rect.x0.max(image_rect.x1),
+                    );
+                    let (iy0, iy1) = (
+                        image_rect.y0.min(image_rect.y1),
+                        image_rect.y0.max(image_rect.y1),
+                    );
+                    for rect in rects {
+                        let (rx0, rx1) = (rect.x0.min(rect.x1), rect.x0.max(rect.x1));
+                        let (ry0, ry1) = (rect.y0.min(rect.y1), rect.y0.max(rect.y1));
+                        let disjoint = rx1 <= ix0 || rx0 >= ix1 || ry1 <= iy0 || ry0 >= iy1;
+                        if !disjoint {
+                            any_inside = true;
+                            break 'image_loop;
+                        }
+                    }
+                }
+            }
+
+            !any_inside
+        }
+    }
+}
+
 fn map_scrub_err(e: crate::ScrubError) -> RedactError {
     match e {
         crate::ScrubError::Rejected => RedactError::Rejected,
@@ -406,76 +485,8 @@ pub fn redact(
         let probe_pdf = hayro::hayro_syntax::Pdf::new(probe).map_err(|_| RedactError::Parse)?;
 
         for candidate in surgery_candidates {
-            let observation = crate::textpos::observe_page(&probe_pdf, candidate.page);
-            let passes_gate = match observation {
-                None => false, // Cannot observe page — conservatively fail the gate.
-                Some(obs) => {
-                    let mut any_inside = false;
-                    'glyph_loop: for glyph in &obs.glyphs {
-                        // A whitespace-only glyph carries no redactable ink: a
-                        // surviving space is not sensitive text and must not fail
-                        // the gate (it would otherwise force an unnecessary raster
-                        // flatten of an otherwise text-preservable page). Glyphs
-                        // with empty text — no ToUnicode mapping, possibly visible
-                        // ink — are deliberately NOT skipped; they stay checked.
-                        if is_whitespace_glyph(&glyph.text) {
-                            continue;
-                        }
-                        let display_rect =
-                            crate::detect::to_display_rect(glyph.bbox, obs.height_pt);
-                        let cx = (display_rect.x0 + display_rect.x1) / 2.0;
-                        let cy = (display_rect.y0 + display_rect.y1) / 2.0;
-                        for rect in &candidate.rects {
-                            if crate::detect::rect_contains(rect, cx, cy) {
-                                any_inside = true;
-                                break 'glyph_loop;
-                            }
-                        }
-                    }
-
-                    // A surgery stream replaces targeted glyphs with a vector path fill
-                    // (`draw_path`, is_image=false).  An image XObject already present on
-                    // the page is emitted as `draw_image` (is_image=true).  If a raster
-                    // image cover intersects a redaction rectangle the vector box drawn by
-                    // surgery sits *on top of* the image but does not destroy its pixels;
-                    // the image is recoverable by removing the box.  Reject any such page
-                    // so it falls back to the full-raster flatten, which overwrites the
-                    // pixels entirely.
-                    //
-                    // Intersection test: two axis-aligned rects A and B overlap iff neither
-                    // is fully to the left, right, above, or below the other.
-                    if !any_inside {
-                        'image_loop: for cover in &obs.covers {
-                            if !cover.is_image {
-                                continue;
-                            }
-                            let image_rect =
-                                crate::detect::to_display_rect(cover.bbox, obs.height_pt);
-                            // Normalise corners (min/max) so the intersection test is
-                            // orientation-independent.
-                            let (ix0, ix1) = (
-                                image_rect.x0.min(image_rect.x1),
-                                image_rect.x0.max(image_rect.x1),
-                            );
-                            let (iy0, iy1) = (
-                                image_rect.y0.min(image_rect.y1),
-                                image_rect.y0.max(image_rect.y1),
-                            );
-                            for rect in &candidate.rects {
-                                let (rx0, rx1) = (rect.x0.min(rect.x1), rect.x0.max(rect.x1));
-                                let (ry0, ry1) = (rect.y0.min(rect.y1), rect.y0.max(rect.y1));
-                                let disjoint = rx1 <= ix0 || rx0 >= ix1 || ry1 <= iy0 || ry0 >= iy1;
-                                if !disjoint {
-                                    any_inside = true;
-                                    break 'image_loop;
-                                }
-                            }
-                        }
-                    }
-
-                    !any_inside
-                }
-            };
+            let passes_gate =
+                surgery_candidate_passes_gate(&probe_pdf, candidate.page, &candidate.rects);
 
             if passes_gate {
                 surgered.push(candidate.page);

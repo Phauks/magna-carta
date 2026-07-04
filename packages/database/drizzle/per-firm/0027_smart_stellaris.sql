@@ -1,1 +1,0 @@
-CREATE INDEX `document_checkout_status_idle_release_index` ON `document_checkout` (`status`,`idle_release_at`);

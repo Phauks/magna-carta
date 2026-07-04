@@ -49,11 +49,14 @@ docs/research/wellbeing-resources/
 ```json
 {
   "schemaVersion": 1,
-  "national": [ { "<resource>": "..." } ],
+  "national": [{ "<resource>": "..." }],
   "jurisdictions": {
     "US-CA": {
-      "fips": "06", "code": "CA", "name": "California", "source": "US-CA",
-      "resources": [ { "<resource>": "..." } ]
+      "fips": "06",
+      "code": "CA",
+      "name": "California",
+      "source": "US-CA",
+      "resources": [{ "<resource>": "..." }]
     }
   }
 }
@@ -69,10 +72,22 @@ docs/research/wellbeing-resources/
   "scope": "statewide",
   "url": "https://www.calbar.ca.gov/legal-professionals/legal-resource-center/lawyer-assistance-program",
   "phones": [
-    { "number": "877-527-4435", "label": "Confidential intake", "availability": "unspecified", "hoursNote": "Hours not published" }
+    {
+      "number": "877-527-4435",
+      "label": "Confidential intake",
+      "availability": "unspecified",
+      "hoursNote": "Hours not published"
+    }
   ],
   "email": "LAP@calbar.ca.gov",
-  "services": ["counseling", "substanceUse", "mentalHealth", "peerSupport", "monitoring", "financialAid"],
+  "services": [
+    "counseling",
+    "substanceUse",
+    "mentalHealth",
+    "peerSupport",
+    "monitoring",
+    "financialAid"
+  ],
   "confidential": "Confidential by statute (Bus. & Prof. Code §6234)",
   "cost": "Some services free; fees may apply",
   "description": "State Bar of California program: confidential assessment, short-term counseling, peer support, and referrals for lawyers, applicants, and law students.",
@@ -85,6 +100,7 @@ docs/research/wellbeing-resources/
 ```
 
 **Enumerations (single source of truth — `pipeline/validate.py` enforces):**
+
 - `operatorType`: `stateBar | nonprofit | court | vendor | national`
 - `scope`: `statewide | metro | national`
 - `availability`: `aroundTheClock | businessHours | unspecified`
@@ -97,12 +113,14 @@ docs/research/wellbeing-resources/
 ### Task 1: Corpus scaffold + README + provenance seed files
 
 **Files:**
+
 - Create: `docs/research/wellbeing-resources/README.md`
 - Create: `docs/research/wellbeing-resources/.gitignore`
 - Create: `docs/research/wellbeing-resources/sources/_collection-worklist.tsv`
 - Create: `docs/research/wellbeing-resources/sources/manifest.yaml`
 
 **Interfaces:**
+
 - Consumes: nothing (first task).
 - Produces: the directory tree and the `README.md` schema/legend that every later task follows; `manifest.yaml` + `_collection-worklist.tsv` that research tasks append to.
 
@@ -119,25 +137,30 @@ Feeds the Phase B package `@magna-carta/wellbeing-resources`. Design spec:
 `docs/superpowers/specs/2026-07-02-wellbeing-resources-design.md`.
 
 ## Confidence legend
+
 - ✅ `HIGH` — confirmed from a directly-fetched primary-official source this session.
 - ⚠️ `MEDIUM` — partial: corroborated or secondary source only.
 - ❓ `LOW` — general knowledge, unverified against a fetched source. Must be resolved before Phase B.
 - `NA` — jurisdiction has no program; resolves to the national safety net by design (an answer, not a gap).
 
 ## Dataset
+
 `profiles.json` is generated — never hand-edit it or `viewer.html`. Author data in `extract/*.json`,
 then run the pipeline. Provenance lives at the **resource** level (`confidence`, `sourceUrl`,
 `sourceTier`, `verifiedOn`).
 
 ## Run order (from this directory)
+
 ```
 python pipeline/merge_profiles.py    # extract/*.json → profiles.json
 python pipeline/validate.py          # invariant check (exit non-zero on violation)
 python build_viewer.py               # profiles.json → viewer.html
 ```
+
 Windows: prefix with `PYTHONIOENCODING=utf-8`.
 
 ## Discipline
+
 Every HIGH/MEDIUM value rests on a verbatim quote from an official source fetched this session —
 never training recall. We author the national crisis numbers (988) ourselves; never trust a state
 page to be current. `availability` is `aroundTheClock` only where the page states 24/7.
@@ -182,10 +205,12 @@ git commit -m "docs(wellbeing): scaffold research corpus (README, provenance see
 ### Task 2: Dataset validator (`pipeline/validate.py`)
 
 **Files:**
+
 - Create: `docs/research/wellbeing-resources/pipeline/validate.py`
 - Create (temporary test fixtures, deleted at end of task): `docs/research/wellbeing-resources/pipeline/_fixture_ok.json`, `_fixture_bad.json`
 
 **Interfaces:**
+
 - Consumes: a `profiles.json`-shaped dict (the dataset shape from File Structure).
 - Produces: `validate(data: dict) -> list[str]` returning a list of violation strings (empty = valid); a CLI `python pipeline/validate.py [path]` that prints violations and exits 1 if any. Later tasks call it as the data "test".
 
@@ -354,9 +379,11 @@ if __name__ == "__main__":
 - [ ] **Step 2: Run the self-test to verify it passes**
 
 Run (from `docs/research/wellbeing-resources/`):
+
 ```bash
 PYTHONIOENCODING=utf-8 python pipeline/validate.py --selftest
 ```
+
 Expected: `selftest passed: OK fixture clean; BAD fixture raised N violations` (N ≥ 8), exit 0.
 
 - [ ] **Step 3: Commit**
@@ -371,9 +398,11 @@ git commit -m "docs(wellbeing): dataset validator with invariant self-test"
 ### Task 3: Merge pipeline (`pipeline/merge_profiles.py`)
 
 **Files:**
+
 - Create: `docs/research/wellbeing-resources/pipeline/merge_profiles.py`
 
 **Interfaces:**
+
 - Consumes: `extract/national.json` (`{"national": [...]}`) and `extract/group-*.json` (`{"jurisdictions": {"US-XX": {...}}}`).
 - Produces: `profiles.json` with `{schemaVersion, national, jurisdictions}`; a CLI `python pipeline/merge_profiles.py`. Fails loudly on duplicate jurisdiction keys across group files.
 
@@ -430,20 +459,24 @@ if __name__ == "__main__":
 - [ ] **Step 2: Smoke-test the merge against a throwaway fixture**
 
 Run (from `docs/research/wellbeing-resources/`):
+
 ```bash
 mkdir -p extract
 echo '{"national":[]}' > extract/national.json
 echo '{"jurisdictions":{"US-ZZ":{"fips":"00","code":"ZZ","name":"Test","source":"US-ZZ","resources":[]}}}' > extract/group-99-tmp.json
 PYTHONIOENCODING=utf-8 python pipeline/merge_profiles.py
 ```
+
 Expected: `merged: 0 national + 1 jurisdictions -> profiles.json`, and `profiles.json` exists with the `US-ZZ` key.
 
 - [ ] **Step 3: Remove the throwaway fixtures**
 
 Run:
+
 ```bash
 rm extract/group-99-tmp.json profiles.json
 ```
+
 (Leave `extract/national.json` empty-stub in place; Task 5 fills it.)
 
 - [ ] **Step 4: Commit**
@@ -458,9 +491,11 @@ git commit -m "docs(wellbeing): merge pipeline (extract/*.json -> profiles.json)
 ### Task 4: Viewer generator (`build_viewer.py`)
 
 **Files:**
+
 - Create: `docs/research/wellbeing-resources/build_viewer.py`
 
 **Interfaces:**
+
 - Consumes: `profiles.json`.
 - Produces: `viewer.html` — a self-contained page listing the national safety net (pinned) and every jurisdiction's resources, each with a verify / needs-fix toggle (state persisted in `localStorage`) and confidence/coverage filters. CLI `python build_viewer.py`.
 
@@ -595,11 +630,13 @@ git commit -m "docs(wellbeing): viewer generator (profiles.json -> coverage map)
 Uses data already gathered in the 2026-07-02 spike (CA/TX/NY/WY/SD + national) — **not new research.** This proves the whole pipeline end-to-end before any gated research begins.
 
 **Files:**
+
 - Modify: `docs/research/wellbeing-resources/extract/national.json`
 - Create: `docs/research/wellbeing-resources/extract/group-00-spike.json`
 - Generated: `profiles.json`, `viewer.html`
 
 **Interfaces:**
+
 - Consumes: the resource shape (File Structure) + enums (validator).
 - Produces: a valid seeded `profiles.json` with `national` populated and jurisdictions `US-CA, US-TX, US-NY, US-WY, US-SD`.
 
@@ -611,32 +648,66 @@ Write `docs/research/wellbeing-resources/extract/national.json`:
 {
   "national": [
     {
-      "name": "988 Suicide & Crisis Lifeline", "operator": "SAMHSA / Vibrant Emotional Health",
-      "operatorType": "national", "scope": "national", "url": "https://988lifeline.org/",
-      "phones": [{"number": "988", "label": "Call, text, or chat", "availability": "aroundTheClock", "hoursNote": "24/7/365"}],
+      "name": "988 Suicide & Crisis Lifeline",
+      "operator": "SAMHSA / Vibrant Emotional Health",
+      "operatorType": "national",
+      "scope": "national",
+      "url": "https://988lifeline.org/",
+      "phones": [
+        {
+          "number": "988",
+          "label": "Call, text, or chat",
+          "availability": "aroundTheClock",
+          "hoursNote": "24/7/365"
+        }
+      ],
       "services": ["crisisLine", "mentalHealth"],
-      "confidential": "Free and confidential", "cost": "Free",
+      "confidential": "Free and confidential",
+      "cost": "Free",
       "description": "US national crisis line for anyone in emotional distress or thinking about suicide — call, text, or chat, 24/7.",
-      "confidence": "HIGH", "sourceUrl": "https://988lifeline.org/", "sourceTier": "primary-official", "verifiedOn": "2026-07-02"
+      "confidence": "HIGH",
+      "sourceUrl": "https://988lifeline.org/",
+      "sourceTier": "primary-official",
+      "verifiedOn": "2026-07-02"
     },
     {
-      "name": "SAMHSA National Helpline", "operator": "Substance Abuse and Mental Health Services Administration",
-      "operatorType": "national", "scope": "national", "url": "https://www.samhsa.gov/find-help/helplines/national-helpline",
-      "phones": [{"number": "1-800-662-4357", "label": "Treatment referral & information", "availability": "aroundTheClock", "hoursNote": "24/7/365, English & Spanish"}],
+      "name": "SAMHSA National Helpline",
+      "operator": "Substance Abuse and Mental Health Services Administration",
+      "operatorType": "national",
+      "scope": "national",
+      "url": "https://www.samhsa.gov/find-help/helplines/national-helpline",
+      "phones": [
+        {
+          "number": "1-800-662-4357",
+          "label": "Treatment referral & information",
+          "availability": "aroundTheClock",
+          "hoursNote": "24/7/365, English & Spanish"
+        }
+      ],
       "services": ["substanceUse", "mentalHealth"],
-      "confidential": "Free and confidential", "cost": "Free",
+      "confidential": "Free and confidential",
+      "cost": "Free",
       "description": "Confidential treatment referral and information service for mental-health and substance-use disorders.",
-      "confidence": "HIGH", "sourceUrl": "https://www.samhsa.gov/find-help/helplines/national-helpline", "sourceTier": "primary-official", "verifiedOn": "2026-07-02"
+      "confidence": "HIGH",
+      "sourceUrl": "https://www.samhsa.gov/find-help/helplines/national-helpline",
+      "sourceTier": "primary-official",
+      "verifiedOn": "2026-07-02"
     },
     {
       "name": "ABA Commission on Lawyer Assistance Programs (CoLAP) — Directory of state programs",
-      "operator": "American Bar Association", "operatorType": "national", "scope": "national",
+      "operator": "American Bar Association",
+      "operatorType": "national",
+      "scope": "national",
       "url": "https://www.americanbar.org/groups/lawyer_assistance/resources/lap_programs_by_state/",
       "phones": [],
       "services": ["peerSupport", "mentalHealth", "substanceUse"],
-      "confidential": "Routes to confidential state programs", "cost": "Free",
+      "confidential": "Routes to confidential state programs",
+      "cost": "Free",
       "description": "The ABA's maintained by-state directory of Lawyer Assistance Programs — the lawyer-specific fallback for finding a local program.",
-      "confidence": "HIGH", "sourceUrl": "https://www.americanbar.org/groups/lawyer_assistance/", "sourceTier": "primary-official", "verifiedOn": "2026-07-02"
+      "confidence": "HIGH",
+      "sourceUrl": "https://www.americanbar.org/groups/lawyer_assistance/",
+      "sourceTier": "primary-official",
+      "verifiedOn": "2026-07-02"
     }
   ]
 }
@@ -650,99 +721,248 @@ Write `docs/research/wellbeing-resources/extract/group-00-spike.json` from the v
 {
   "jurisdictions": {
     "US-CA": {
-      "fips": "06", "code": "CA", "name": "California", "source": "US-CA",
-      "resources": [{
-        "name": "Lawyer Assistance Program (LAP)", "operator": "State Bar of California",
-        "operatorType": "stateBar", "scope": "statewide",
-        "url": "https://www.calbar.ca.gov/legal-professionals/legal-resource-center/lawyer-assistance-program",
-        "phones": [{"number": "877-527-4435", "label": "Confidential intake (877-LAP-4HELP)", "availability": "unspecified", "hoursNote": "Hours not published"}],
-        "email": "LAP@calbar.ca.gov",
-        "services": ["counseling", "substanceUse", "mentalHealth", "peerSupport", "monitoring", "financialAid"],
-        "confidential": "Confidential by statute (Bus. & Prof. Code §6234)", "cost": "Some services free; fees may apply",
-        "description": "State Bar of California program: confidential assessment, short-term counseling, peer support, and referrals for lawyers, applicants, and law students.",
-        "confidence": "HIGH", "sourceUrl": "https://www.calbar.ca.gov/legal-professionals/legal-resource-center/lawyer-assistance-program", "sourceTier": "primary-official", "verifiedOn": "2026-07-02"
-      }]
-    },
-    "US-TX": {
-      "fips": "48", "code": "TX", "name": "Texas", "source": "US-TX",
+      "fips": "06",
+      "code": "CA",
+      "name": "California",
+      "source": "US-CA",
       "resources": [
         {
-          "name": "Texas Lawyers' Assistance Program (TLAP)", "operator": "State Bar of Texas",
-          "operatorType": "stateBar", "scope": "statewide", "url": "https://www.tlaphelps.org/",
-          "phones": [{"number": "1-800-343-8527", "label": "Confidential helpline (1-800-343-TLAP)", "availability": "aroundTheClock", "hoursNote": "24/7"}],
+          "name": "Lawyer Assistance Program (LAP)",
+          "operator": "State Bar of California",
+          "operatorType": "stateBar",
+          "scope": "statewide",
+          "url": "https://www.calbar.ca.gov/legal-professionals/legal-resource-center/lawyer-assistance-program",
+          "phones": [
+            {
+              "number": "877-527-4435",
+              "label": "Confidential intake (877-LAP-4HELP)",
+              "availability": "unspecified",
+              "hoursNote": "Hours not published"
+            }
+          ],
+          "email": "LAP@calbar.ca.gov",
+          "services": [
+            "counseling",
+            "substanceUse",
+            "mentalHealth",
+            "peerSupport",
+            "monitoring",
+            "financialAid"
+          ],
+          "confidential": "Confidential by statute (Bus. & Prof. Code §6234)",
+          "cost": "Some services free; fees may apply",
+          "description": "State Bar of California program: confidential assessment, short-term counseling, peer support, and referrals for lawyers, applicants, and law students.",
+          "confidence": "HIGH",
+          "sourceUrl": "https://www.calbar.ca.gov/legal-professionals/legal-resource-center/lawyer-assistance-program",
+          "sourceTier": "primary-official",
+          "verifiedOn": "2026-07-02"
+        }
+      ]
+    },
+    "US-TX": {
+      "fips": "48",
+      "code": "TX",
+      "name": "Texas",
+      "source": "US-TX",
+      "resources": [
+        {
+          "name": "Texas Lawyers' Assistance Program (TLAP)",
+          "operator": "State Bar of Texas",
+          "operatorType": "stateBar",
+          "scope": "statewide",
+          "url": "https://www.tlaphelps.org/",
+          "phones": [
+            {
+              "number": "1-800-343-8527",
+              "label": "Confidential helpline (1-800-343-TLAP)",
+              "availability": "aroundTheClock",
+              "hoursNote": "24/7"
+            }
+          ],
           "services": ["counseling", "substanceUse", "mentalHealth", "peerSupport", "crisisLine"],
-          "confidential": "Confidential by statute", "cost": "Free",
+          "confidential": "Confidential by statute",
+          "cost": "Free",
           "description": "State Bar of Texas program: confidential 24/7 support, peer assistance, and referrals for lawyers, judges, and law students.",
-          "confidence": "HIGH", "sourceUrl": "https://www.tlaphelps.org/", "sourceTier": "primary-official", "verifiedOn": "2026-07-02"
+          "confidence": "HIGH",
+          "sourceUrl": "https://www.tlaphelps.org/",
+          "sourceTier": "primary-official",
+          "verifiedOn": "2026-07-02"
         },
         {
-          "name": "Sheeran-Crowley Lawyer Wellness Trust", "operator": "Texas Lawyers Concerned for Lawyers",
-          "operatorType": "nonprofit", "scope": "statewide", "url": "https://www.sheerancrowley.org/get-help",
+          "name": "Sheeran-Crowley Lawyer Wellness Trust",
+          "operator": "Texas Lawyers Concerned for Lawyers",
+          "operatorType": "nonprofit",
+          "scope": "statewide",
+          "url": "https://www.sheerancrowley.org/get-help",
           "phones": [],
           "services": ["financialAid", "substanceUse", "mentalHealth"],
-          "confidential": "Works with TLAP", "cost": "Grants toward treatment for those in need",
+          "confidential": "Works with TLAP",
+          "cost": "Grants toward treatment for those in need",
           "description": "Nonprofit trust that funds treatment (paid to providers) for Texas legal professionals working with TLAP.",
-          "confidence": "HIGH", "sourceUrl": "https://www.sheerancrowley.org/what-we-do", "sourceTier": "primary-official", "verifiedOn": "2026-07-02"
+          "confidence": "HIGH",
+          "sourceUrl": "https://www.sheerancrowley.org/what-we-do",
+          "sourceTier": "primary-official",
+          "verifiedOn": "2026-07-02"
         }
       ]
     },
     "US-NY": {
-      "fips": "36", "code": "NY", "name": "New York", "source": "US-NY",
+      "fips": "36",
+      "code": "NY",
+      "name": "New York",
+      "source": "US-NY",
       "resources": [
         {
-          "name": "Lawyer Assistance Program (LAP)", "operator": "New York State Bar Association",
-          "operatorType": "stateBar", "scope": "statewide", "url": "https://nysba.org/lawyer-assistance-program/",
-          "phones": [{"number": "877-772-8835", "label": "Confidential hotline", "availability": "aroundTheClock", "hoursNote": "24/7"}, {"number": "518-487-5669", "label": "Intake coordinator", "availability": "businessHours"}],
-          "services": ["counseling", "substanceUse", "mentalHealth", "peerSupport", "monitoring", "familySupport"],
-          "confidential": "Confidential under Judiciary Law §499", "cost": "Free (4 free counseling sessions/yr for members)",
+          "name": "Lawyer Assistance Program (LAP)",
+          "operator": "New York State Bar Association",
+          "operatorType": "stateBar",
+          "scope": "statewide",
+          "url": "https://nysba.org/lawyer-assistance-program/",
+          "phones": [
+            {
+              "number": "877-772-8835",
+              "label": "Confidential hotline",
+              "availability": "aroundTheClock",
+              "hoursNote": "24/7"
+            },
+            {
+              "number": "518-487-5669",
+              "label": "Intake coordinator",
+              "availability": "businessHours"
+            }
+          ],
+          "services": [
+            "counseling",
+            "substanceUse",
+            "mentalHealth",
+            "peerSupport",
+            "monitoring",
+            "familySupport"
+          ],
+          "confidential": "Confidential under Judiciary Law §499",
+          "cost": "Free (4 free counseling sessions/yr for members)",
           "description": "Statewide NYSBA program: free confidential support, referrals, and peer help for lawyers, judges, law students, and families.",
-          "confidence": "HIGH", "sourceUrl": "https://nysba.org/lawyer-assistance-program/", "sourceTier": "primary-official", "verifiedOn": "2026-07-02"
+          "confidence": "HIGH",
+          "sourceUrl": "https://nysba.org/lawyer-assistance-program/",
+          "sourceTier": "primary-official",
+          "verifiedOn": "2026-07-02"
         },
         {
-          "name": "Lawyer Assistance Program (NYC)", "operator": "New York City Bar Association",
-          "operatorType": "nonprofit", "scope": "metro", "url": "https://www.nycbar.org/serving-the-community/lawyer-assistance-program/",
-          "phones": [{"number": "212-302-5787", "label": "Confidential helpline", "availability": "aroundTheClock", "hoursNote": "24/7"}],
+          "name": "Lawyer Assistance Program (NYC)",
+          "operator": "New York City Bar Association",
+          "operatorType": "nonprofit",
+          "scope": "metro",
+          "url": "https://www.nycbar.org/serving-the-community/lawyer-assistance-program/",
+          "phones": [
+            {
+              "number": "212-302-5787",
+              "label": "Confidential helpline",
+              "availability": "aroundTheClock",
+              "hoursNote": "24/7"
+            }
+          ],
           "services": ["counseling", "substanceUse", "mentalHealth", "peerSupport"],
-          "confidential": "Free and confidential (Judiciary Law §499)", "cost": "Free",
+          "confidential": "Free and confidential (Judiciary Law §499)",
+          "cost": "Free",
           "description": "NYC-area program (no bar membership required) for lawyers, judges, law students, and families in the five boroughs and Westchester.",
-          "confidence": "HIGH", "sourceUrl": "https://www.nycbar.org/serving-the-community/lawyer-assistance-program/", "sourceTier": "primary-official", "verifiedOn": "2026-07-02"
+          "confidence": "HIGH",
+          "sourceUrl": "https://www.nycbar.org/serving-the-community/lawyer-assistance-program/",
+          "sourceTier": "primary-official",
+          "verifiedOn": "2026-07-02"
         }
       ]
     },
     "US-WY": {
-      "fips": "56", "code": "WY", "name": "Wyoming", "source": "US-WY",
+      "fips": "56",
+      "code": "WY",
+      "name": "Wyoming",
+      "source": "US-WY",
       "resources": [
         {
-          "name": "Wyoming Lawyer Assistance Program (WyLAP)", "operator": "Wyoming State Bar",
-          "operatorType": "stateBar", "scope": "statewide", "url": "https://www.wyomingbar.org/for-lawyers/lawyer-resources/lawyer-assistance-program/",
-          "phones": [{"number": "307-432-2101", "label": "WyLAP Director", "availability": "unspecified", "hoursNote": "Not a 24/7 crisis line"}],
+          "name": "Wyoming Lawyer Assistance Program (WyLAP)",
+          "operator": "Wyoming State Bar",
+          "operatorType": "stateBar",
+          "scope": "statewide",
+          "url": "https://www.wyomingbar.org/for-lawyers/lawyer-resources/lawyer-assistance-program/",
+          "phones": [
+            {
+              "number": "307-432-2101",
+              "label": "WyLAP Director",
+              "availability": "unspecified",
+              "hoursNote": "Not a 24/7 crisis line"
+            }
+          ],
           "services": ["peerSupport", "substanceUse", "mentalHealth", "financialAid"],
-          "confidential": "Strictly confidential", "cost": "Free intake",
+          "confidential": "Strictly confidential",
+          "cost": "Free intake",
           "description": "Wyoming State Bar program: confidential peer support and referrals; clinical services via a contracted provider (WPAP).",
-          "confidence": "HIGH", "sourceUrl": "https://www.wyomingbar.org/for-lawyers/lawyer-resources/lawyer-assistance-program/", "sourceTier": "primary-official", "verifiedOn": "2026-07-02"
+          "confidence": "HIGH",
+          "sourceUrl": "https://www.wyomingbar.org/for-lawyers/lawyer-resources/lawyer-assistance-program/",
+          "sourceTier": "primary-official",
+          "verifiedOn": "2026-07-02"
         },
         {
-          "name": "Wyoming Professional Assistance Program (WPAP)", "operator": "WPAP (contracted provider)",
-          "operatorType": "vendor", "scope": "statewide", "url": "https://wpapro.org/",
-          "phones": [{"number": "307-472-1222", "label": "Direct line", "availability": "unspecified"}],
+          "name": "Wyoming Professional Assistance Program (WPAP)",
+          "operator": "WPAP (contracted provider)",
+          "operatorType": "vendor",
+          "scope": "statewide",
+          "url": "https://wpapro.org/",
+          "phones": [
+            { "number": "307-472-1222", "label": "Direct line", "availability": "unspecified" }
+          ],
           "services": ["counseling", "substanceUse", "mentalHealth", "monitoring"],
-          "confidential": "Anonymous, confidential, voluntary", "cost": "Free evaluation/consultation",
+          "confidential": "Anonymous, confidential, voluntary",
+          "cost": "Free evaluation/consultation",
           "description": "Independent professional-assistance program (serves multiple licensed professions) contracted for WyLAP's clinical evaluation, referral, and monitoring.",
-          "confidence": "HIGH", "sourceUrl": "https://wpapro.org/", "sourceTier": "primary-official", "verifiedOn": "2026-07-02"
+          "confidence": "HIGH",
+          "sourceUrl": "https://wpapro.org/",
+          "sourceTier": "primary-official",
+          "verifiedOn": "2026-07-02"
         }
       ]
     },
     "US-SD": {
-      "fips": "46", "code": "SD", "name": "South Dakota", "source": "US-SD",
-      "resources": [{
-        "name": "Lawyers Assistance Program", "operator": "State Bar of South Dakota (Sand Creek / ALLONE Health)",
-        "operatorType": "stateBar", "scope": "statewide", "url": "https://www.sdlawyerwellness.com/gethelp",
-        "phones": [{"number": "1-888-243-5744", "label": "Sand Creek member assistance (24/7)", "availability": "aroundTheClock", "hoursNote": "24/7"}, {"number": "605-391-5191", "label": "Lawyers Concerned for Lawyers peer contact", "availability": "unspecified"}],
-        "services": ["counseling", "substanceUse", "mentalHealth", "peerSupport", "crisisLine", "familySupport"],
-        "confidential": "Free, confidential assessment; records not shared with the Bar", "cost": "Free (short-term); cost-coverage project up to $500",
-        "description": "South Dakota program on its own site: 24/7 assessment and short-term counseling via Sand Creek/ALLONE, plus confidential peer support.",
-        "confidence": "HIGH", "sourceUrl": "https://www.sdlawyerwellness.com/gethelp", "sourceTier": "primary-official", "verifiedOn": "2026-07-02"
-      }]
+      "fips": "46",
+      "code": "SD",
+      "name": "South Dakota",
+      "source": "US-SD",
+      "resources": [
+        {
+          "name": "Lawyers Assistance Program",
+          "operator": "State Bar of South Dakota (Sand Creek / ALLONE Health)",
+          "operatorType": "stateBar",
+          "scope": "statewide",
+          "url": "https://www.sdlawyerwellness.com/gethelp",
+          "phones": [
+            {
+              "number": "1-888-243-5744",
+              "label": "Sand Creek member assistance (24/7)",
+              "availability": "aroundTheClock",
+              "hoursNote": "24/7"
+            },
+            {
+              "number": "605-391-5191",
+              "label": "Lawyers Concerned for Lawyers peer contact",
+              "availability": "unspecified"
+            }
+          ],
+          "services": [
+            "counseling",
+            "substanceUse",
+            "mentalHealth",
+            "peerSupport",
+            "crisisLine",
+            "familySupport"
+          ],
+          "confidential": "Free, confidential assessment; records not shared with the Bar",
+          "cost": "Free (short-term); cost-coverage project up to $500",
+          "description": "South Dakota program on its own site: 24/7 assessment and short-term counseling via Sand Creek/ALLONE, plus confidential peer support.",
+          "confidence": "HIGH",
+          "sourceUrl": "https://www.sdlawyerwellness.com/gethelp",
+          "sourceTier": "primary-official",
+          "verifiedOn": "2026-07-02"
+        }
+      ]
     }
   }
 }
@@ -751,11 +971,13 @@ Write `docs/research/wellbeing-resources/extract/group-00-spike.json` from the v
 - [ ] **Step 3: Merge, validate, and build the viewer**
 
 Run (from `docs/research/wellbeing-resources/`):
+
 ```bash
 PYTHONIOENCODING=utf-8 python pipeline/merge_profiles.py
 PYTHONIOENCODING=utf-8 python pipeline/validate.py
 PYTHONIOENCODING=utf-8 python build_viewer.py
 ```
+
 Expected: merge reports `3 national + 5 jurisdictions`; validate prints `0 violation(s)` and exits 0; viewer reports `built viewer.html for 5 jurisdictions + 3 national`.
 
 - [ ] **Step 4: Eyeball the viewer**
@@ -776,6 +998,7 @@ git commit -m "docs(wellbeing): seed national safety net + 6 verified spike juri
 Each group task is one research batch and follows the **same procedure** (spelled out in Task 6 and restated compactly per task). Groups exclude the 5 already-seeded states (CA, TX, NY, WY, SD).
 
 **Shared research procedure (every group task performs these, per jurisdiction in the group):**
+
 1. From the ABA CoLAP by-state directory (`https://www.americanbar.org/groups/lawyer_assistance/resources/lap_programs_by_state/` — **use a browser; it 403s automated fetch**) find the state's program(s).
 2. Open each program's **own official page**; capture it to `sources/US-XX/` (`.txt` extraction; PDF only if bytes matter) and append a `manifest.yaml` entry (sha256 of the `.txt`, publisher, `sourceUrl`, `accessedOn`) + a `_collection-worklist.tsv` row.
 3. Record findings in `group-NN-*.md` with the `✅/⚠️/❓` marker per resource.
@@ -838,10 +1061,13 @@ Mirrors trust-rules' `group-5-verification-pass.md`: re-verify weak entries and 
 **Files:** Create `group-06-verification-pass.md`; modify any `extract/group-*.json` needing fixes; regenerate `profiles.json` + `viewer.html`.
 
 - [ ] **Step 1:** Add a coverage check to the validator run: confirm all 51 committed jurisdictions (50 states + DC) are present as keys in `profiles.json`. Command:
+
 ```bash
 PYTHONIOENCODING=utf-8 python -c "import json;d=json.load(open('profiles.json',encoding='utf-8'));ks=set(d['jurisdictions']);exp={'US-'+c for c in 'AL AK AZ AR CA CO CT DE DC FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY'.split()};print('MISSING:',sorted(exp-ks));print('count',len(ks&exp),'/51')"
 ```
+
 Expected: `MISSING: []` and `count 51 /51`.
+
 - [ ] **Step 2:** In `viewer.html`, filter to `LOW` and `MEDIUM`; for each, re-open the source and upgrade to `HIGH` where a primary-official page confirms it, or leave a documented reason in `group-06-verification-pass.md`. Re-run merge + validate after edits.
 - [ ] **Step 3:** Write `group-06-verification-pass.md` summarizing final tallies (per-confidence counts, any residual MEDIUM/LOW with reasons, territories status).
 - [ ] **Step 4:** Final run: `python pipeline/merge_profiles.py && python pipeline/validate.py && python build_viewer.py`. Expected: `0 violation(s)`, coverage 51/51.
@@ -852,6 +1078,7 @@ Expected: `MISSING: []` and `count 51 /51`.
 ## Self-Review
 
 **Spec coverage:**
+
 - Source corpus w/ provenance manifest → Task 1 (seed), Tasks 6–10 (append). ✅
 - `profiles.json` per-field... resource-level provenance `{confidence, sourceUrl, sourceTier, verifiedOn}` → schema in File Structure + enforced by Task 2 validator. ✅ (Deliberate adaptation from trust-rules' per-field provenance; noted in spec Phase A.)
 - Regenerable pipeline, edit inputs not outputs → Tasks 3–4; README run order. ✅

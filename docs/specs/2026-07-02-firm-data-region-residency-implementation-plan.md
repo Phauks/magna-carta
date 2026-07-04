@@ -17,17 +17,19 @@
 - **Region values:** `"us" | "eu"` (`us` the primary-market default; `canada` reserved, NOT built — Cloudflare has no CA jurisdiction). `eu` is a hard jurisdiction lock; `us` is North-America placement via location hint.
 - **Immutable after provisioning** — never expose a region-change path; a jurisdiction-bound DO id differs from the bare id, so changing region would orphan the firm's data.
 - **Control-plane migration** (schema change on the `firm` table), NOT a per-firm migration. Generate via drizzle-kit; wire into `apps/worker/src/control-plane-migrations.ts`.
-- **Scope boundary (seam, not full activation):** this plan makes the DO layer *jurisdiction-capable* and fully wires **R2** placement + the region column. Threading the region-derived jurisdiction into *every* `firmDatabaseFor` call site (so an `eu` firm's ~185 statement modules all address the EU DO) is the **activation step deferred to when the first `eu` firm provisions** — until then every firm is `us` and addresses the bare DO, so there is no behavior change to wire now. This is called out in Task 5.
+- **Scope boundary (seam, not full activation):** this plan makes the DO layer _jurisdiction-capable_ and fully wires **R2** placement + the region column. Threading the region-derived jurisdiction into _every_ `firmDatabaseFor` call site (so an `eu` firm's ~185 statement modules all address the EU DO) is the **activation step deferred to when the first `eu` firm provisions** — until then every firm is `us` and addresses the bare DO, so there is no behavior change to wire now. This is called out in Task 5.
 
 ---
 
 ### Task 1: The `DataRegion` type + jurisdiction helper
 
 **Files:**
+
 - Create: `packages/database/src/data-region.ts`
 - Test: `packages/database/test/data-region.test.ts`
 
 **Interfaces:**
+
 - Produces: `type DataRegion = "us" | "eu"`; `jurisdictionForRegion(region): "eu" | undefined`; `locationHintForRegion(region): "enam" | undefined`.
 
 - [ ] **Step 1: Write the failing test**
@@ -95,6 +97,7 @@ git commit -m "feat(database): DataRegion type + Cloudflare jurisdiction mapping
 ### Task 2: The `firm.data_region` column + control-plane migration
 
 **Files:**
+
 - Modify: `packages/database/src/control-plane-schema.ts` (add the column; import `DataRegion`)
 - Generate: `packages/database/drizzle/control-plane/000X_<tag>.sql` (drizzle-kit) + its `meta/_journal.json` entry
 - Modify: `apps/worker/src/control-plane-migrations.ts` (import + map the new SQL)
@@ -134,8 +137,7 @@ import type { DataRegion } from "./data-region.ts";
 
 Run: `pnpm --filter @magna-carta/database run generate-control-plane-migrations`
 Expected: creates `packages/database/drizzle/control-plane/0005_<tag>.sql` containing:
-`ALTER TABLE \`firm\` ADD \`data_region\` text DEFAULT 'us' NOT NULL;`
-and appends a `0005_<tag>` entry to `drizzle/control-plane/meta/_journal.json`. Note the exact `<tag>`.
+`ALTER TABLE \`firm\` ADD \`data*region\` text DEFAULT 'us' NOT NULL;`and appends a`0005*<tag>`entry to`drizzle/control-plane/meta/\_journal.json`. Note the exact `<tag>`.
 
 - [ ] **Step 4: Wire the migration into the worker bundle**
 
@@ -167,10 +169,12 @@ git commit -m "feat(database): add firm.data_region column (control-plane migrat
 ### Task 3: Thread the region into R2 bucket creation
 
 **Files:**
+
 - Modify: `apps/worker/src/firm-resource-provider.ts` (widen the `createBucket` port + both adapters)
 - Test: `apps/worker/test/firm-resource-provider.test.ts` (or the existing provider test file)
 
 **Interfaces:**
+
 - Consumes: `DataRegion`, `jurisdictionForRegion`, `locationHintForRegion` (Task 1).
 - Produces: `createBucket(firmId: FirmId, region: DataRegion): Promise<{ bucketName: string }>`.
 
@@ -191,7 +195,11 @@ it("eu firm creates its bucket under the eu jurisdiction; us firm uses a North-A
     // probe misses (404) then create succeeds — mirror the existing find-first fake.
     return url.endsWith("/r2/buckets") ? okEnvelope() : missEnvelope();
   });
-  const provider = cloudflareRestFirmResourceProvider({ accountId: "a", apiToken: "t", fetchImplementation });
+  const provider = cloudflareRestFirmResourceProvider({
+    accountId: "a",
+    apiToken: "t",
+    fetchImplementation,
+  });
 
   await provider.createBucket("firm_eu" as FirmId, "eu");
   await provider.createBucket("firm_us" as FirmId, "us");
@@ -280,6 +288,7 @@ git commit -m "feat(worker): thread data_region into R2 bucket creation (eu juri
 ### Task 4: Read `data_region` in the provisioner and pass it to `createBucket`
 
 **Files:**
+
 - Modify: `apps/worker/src/firm-provisioner.ts`
 - Test: `apps/worker/test/firm-provisioner.test.ts` (add a region assertion using the fake provider)
 
@@ -320,14 +329,17 @@ const SELECT_FIRM_BY_NAME =
 ```
 
 ```ts
-  // Step 2 — create (or re-claim) the firm's bucket in its data region, then record it.
-  if (firmRow.bucket_name === null) {
-    const { bucketName } = await dependencies.resourceProvider.createBucket(firmId, firmRow.data_region);
-    await database
-      .prepare("UPDATE firm SET bucket_name = ?2 WHERE id = ?1 AND bucket_name IS NULL")
-      .bind(firmId, bucketName)
-      .run();
-  }
+// Step 2 — create (or re-claim) the firm's bucket in its data region, then record it.
+if (firmRow.bucket_name === null) {
+  const { bucketName } = await dependencies.resourceProvider.createBucket(
+    firmId,
+    firmRow.data_region,
+  );
+  await database
+    .prepare("UPDATE firm SET bucket_name = ?2 WHERE id = ?1 AND bucket_name IS NULL")
+    .bind(firmId, bucketName)
+    .run();
+}
 ```
 
 Add `import type { DataRegion } from "@magna-carta/database/data-region";`. (A firm row created before the column existed reads `data_region = 'us'` via the column default — no null handling needed.)
@@ -348,6 +360,7 @@ git commit -m "feat(worker): provision the firm R2 bucket in its data_region"
 Makes the firm-database Durable Object addressor able to place/address a firm's DO under a jurisdiction, **backward-compatibly** (existing callers pass nothing → bare `idFromName`, unchanged). Full threading of region to every call site is the deferred activation step (see Global Constraints).
 
 **Files:**
+
 - Modify: `apps/worker/src/firm-database/firm-database-proxy.ts`
 - Test: `apps/worker/src/firm-database/firm-database-proxy.test.ts` (or the co-located test)
 

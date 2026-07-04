@@ -22,7 +22,7 @@ a shared seam across the whole crate.
   - our explicit `decompressed_content()` calls (detect ×2, redact ×1, watermark ×1) —
     under our control, and
   - inside `load_mem`, where `ObjectStream::new` calls `stream.decompress()` to enumerate
-    objects packed in an object stream (ObjStm) — *before any of our code runs*.
+    objects packed in an object stream (ObjStm) — _before any of our code runs_.
 - **hayro is a second, independent parser** (`Document::load`, used by redact and detect)
   with its own internal, unbounded decompression.
 - **An input byte cap alone does not make load-time safe.** A single zlib stream tops out
@@ -102,7 +102,7 @@ immediately and aborts cheaply. Caps are generous for real documents, tight for 
   Claims); Adobe PDF Services and Smallpdf cap at 100 MB. A legitimate legal PDF essentially
   never exceeds ~200 MB, so 256 MiB clears the real-world ceiling with margin while staying
   inside the wasm32 memory envelope (~2 GiB practical, allocations failing earlier).
-  Chrome/PDFium and PDF.js impose *no* clean cap and simply OOM on huge files — the very
+  Chrome/PDFium and PDF.js impose _no_ clean cap and simply OOM on huge files — the very
   failure this guard prevents, so they are a cautionary example, not a target.
 - `max_stream_inflated` = **256 MiB** and `max_total_inflated` = **1 GiB** — grounded by
   measuring the committed corpus (W-9 AcroForm, the API/image samples, the fixtures): the
@@ -144,7 +144,7 @@ Why this suffices:
   per the PDF spec. For an **encrypted** document the pre-flight sees ciphertext, not
   the decoded object stream — see Residual below.
 - **No `endstream`/`/Length` boundary detection is needed for safety.** Deflate and
-  raw-deflate are *self-terminating* (end-of-block marker / Adler-32 trailer), so the
+  raw-deflate are _self-terminating_ (end-of-block marker / Adler-32 trailer), so the
   decoder stops on its own at the true stream end regardless of trailing bytes, and a bomb
   hits the cap long before then. The `endstream` keyword is used only to advance the scan
   cursor, never to bound the inflate.
@@ -159,7 +159,7 @@ Why this suffices:
 - **The explicit `decompressed_content()` sites (detect ×2, redact ×1, watermark ×1) stay
   unchanged.** Because every PDF stream is a top-level indirect object — a stream can never
   be packed inside an ObjStm per the spec — the pre-flight has already bounded every stream
-  these sites can reach. They are therefore bounded *transitively* and keep lopdf's
+  these sites can reach. They are therefore bounded _transitively_ and keep lopdf's
   full-fidelity, multi-filter decode. No Flate-only re-implementation is introduced.
 
 ### Fail mode

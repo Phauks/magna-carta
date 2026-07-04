@@ -23,11 +23,11 @@ Only use it on files you are authorized to open. Each time you start a job you c
 
 ## Supported file types
 
-| Type                    | Formats                          |
-| ----------------------- | -------------------------------- |
-| PDF documents           | `.pdf`                           |
-| Compressed archives     | `.zip`                           |
-| Office documents        | `.docx`, `.xlsx`, `.pptx`        |
+| Type                | Formats                   |
+| ------------------- | ------------------------- |
+| PDF documents       | `.pdf`                    |
+| Compressed archives | `.zip`                    |
+| Office documents    | `.docx`, `.xlsx`, `.pptx` |
 
 More formats (7-Zip, older Office formats, RAR) are planned but not yet supported. If you upload a type that is not listed, the tool tells you clearly.
 

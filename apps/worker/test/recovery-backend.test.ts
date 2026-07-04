@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { Bindings } from "../src/app.ts";
-import { cloudflareRecoveryBackend, resolveRecoveryBackend } from "../src/recovery/recovery-backend.ts";
+import {
+  cloudflareRecoveryBackend,
+  resolveRecoveryBackend,
+} from "../src/recovery/recovery-backend.ts";
 
 // The backend is exercised against a fake RECOVERY_SERVICE Fetcher (no real recovery-worker running):
 // it must dispatch the shard-by-count body with the per-shard X-Recovery-Instance header, and parse
@@ -30,7 +33,11 @@ describe("cloudflareRecoveryBackend", () => {
 
     expect(outcome).toEqual({ found: "pw", candidatesTried: 42 });
     expect(captured!.headers.get("X-Recovery-Instance")).toBe("recoveryJob_9:2");
-    expect(await captured!.json()).toMatchObject({ shardIndex: 2, shardCount: 4, ruleSet: "best64" });
+    expect(await captured!.json()).toMatchObject({
+      shardIndex: 2,
+      shardCount: 4,
+      ruleSet: "best64",
+    });
   });
 
   it("throws on a non-200 response (never returns a silent miss)", async () => {

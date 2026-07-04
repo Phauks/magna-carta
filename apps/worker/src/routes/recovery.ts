@@ -56,14 +56,7 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
 }
 
 const RecoveryTier = z.enum(["cfCapable", "gpuRequired"]);
-const RecoveryStatus = z.enum([
-  "queued",
-  "running",
-  "found",
-  "exhausted",
-  "needsGpu",
-  "cancelled",
-]);
+const RecoveryStatus = z.enum(["queued", "running", "found", "exhausted", "needsGpu", "cancelled"]);
 
 const RecoverStartRequest = z.object({
   fileBase64: z.string().min(1),
@@ -325,7 +318,9 @@ export function registerRecoveryRoutes(app: RecoveryApp, chokepoint: Chokepoint)
         jobId,
         startedByUserId: userId,
       };
-      const coordinator = c.env.RECOVERY_JOB.get(c.env.RECOVERY_JOB.idFromName(`${firmId}:${jobId}`));
+      const coordinator = c.env.RECOVERY_JOB.get(
+        c.env.RECOVERY_JOB.idFromName(`${firmId}:${jobId}`),
+      );
       const state: RecoveryJobState = await coordinator.start(startInput);
 
       // Compute the SHA-256 of the raw *input* (encrypted) bytes for the audit record — the digest
@@ -374,7 +369,9 @@ export function registerRecoveryRoutes(app: RecoveryApp, chokepoint: Chokepoint)
       const userId = requireChokepointUserId(c);
       const { jobId } = c.req.valid("param");
 
-      const coordinator = c.env.RECOVERY_JOB.get(c.env.RECOVERY_JOB.idFromName(`${firmId}:${jobId}`));
+      const coordinator = c.env.RECOVERY_JOB.get(
+        c.env.RECOVERY_JOB.idFromName(`${firmId}:${jobId}`),
+      );
       const state: RecoveryJobState = await coordinator.status();
 
       // Retrieval is bound to the user who started the job: the recovered password egresses here and
@@ -412,7 +409,9 @@ export function registerRecoveryRoutes(app: RecoveryApp, chokepoint: Chokepoint)
       const userId = requireChokepointUserId(c);
       const { jobId } = c.req.valid("param");
 
-      const coordinator = c.env.RECOVERY_JOB.get(c.env.RECOVERY_JOB.idFromName(`${firmId}:${jobId}`));
+      const coordinator = c.env.RECOVERY_JOB.get(
+        c.env.RECOVERY_JOB.idFromName(`${firmId}:${jobId}`),
+      );
       await coordinator.cancel();
 
       const now = new Date().toISOString();

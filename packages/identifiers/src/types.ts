@@ -86,4 +86,5 @@ export type SupportGrantId = Identifier<"supportGrant">;
 export type ServiceEventId = Identifier<"serviceEvent">;
 export type ServiceComponentId = Identifier<"serviceComponent">;
 export type AiDetectionUsageId = Identifier<"aiDetectionUsage">;
+export type RepairProvenanceId = Identifier<"repairProvenance">;
 export type RecoveryJobId = Identifier<"recoveryJob">;

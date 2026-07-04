@@ -42,7 +42,7 @@ dropped on later without rework.
 - Subscriber notifications (email/webhook on status change).
 - Per-firm-scoped status filtering (all firms see the same platform status for now; ADR-0048
   already reserves an `audience` seam for later).
-- The diagnostics-agent *propose* workflow (ADR-0048 mentions agents proposing status) — left
+- The diagnostics-agent _propose_ workflow (ADR-0048 mentions agents proposing status) — left
   as a named seam; operators publish directly for now.
 - A **self-service** grant UI for platform operators — the `platform_operator` allow-list is
   seeded by hand (see "Authorization"); a management surface is later.
@@ -51,13 +51,13 @@ dropped on later without rework.
 
 ## Background — what already exists (and what does not)
 
-- **ADR-0048** already decided the substrate for the *live* status content: it lives in
+- **ADR-0048** already decided the substrate for the _live_ status content: it lives in
   **control-plane KV** (not D1), is written by an operator-gated endpoint, and is served as a
   **public Workers surface** deliberately kept off the app's fate so it survives an incident.
   This design **extends** that from a single banner to a full component matrix + upstream
   aggregation + an isolated read worker.
 - **A `platform_staff` entity and the support-access framework already exist** (ADR-0157). They
-  are a *different* principal — the reach-into-another-firm support identity — and are **not**
+  are a _different_ principal — the reach-into-another-firm support identity — and are **not**
   the model for authoring global status. See "Relationship to `platform_staff`" under
   Authorization for why this builds a separate `platform_operator` axis rather than reusing it.
 - **The only global (cross-firm) auth gate that exists** is the `PLATFORM_ADMIN_KEY`
@@ -99,18 +99,18 @@ Three deployables sharing exactly **one** KV namespace and nothing else:
   infrastructure (`apps/worker/src/scheduled.ts`).
 - **`STATUS_KV`** — the system of record. No new D1, no new migrations lane.
 
-Fate note: if the *write* side (app worker) is down, the status worker keeps serving the last
+Fate note: if the _write_ side (app worker) is down, the status worker keeps serving the last
 published snapshot from KV — which is the desired behavior (last known state persists).
 
 ## Code placement
 
 - **`packages/status` (new)** — pure, DAL-free core (the ADR-0044 pattern where package
-  isolation *is* the confidentiality boundary; no per-firm data crosses it). Single home for:
+  isolation _is_ the confidentiality boundary; no per-firm data crosses it). Single home for:
   - the snapshot **zod schema** and status vocabulary,
   - the **provider registry + adapters** (upstream polling normalization),
   - **health derivation** (probe results + telemetry signal → component status),
   - the **`mergeSnapshot()`** function (derived + authored → published view + overall rollup).
-  Both workers import it. Nearly all unit tests live here.
+    Both workers import it. Nearly all unit tests live here.
 - **`apps/worker`** — write routes + cron, importing `@magna-carta/status`; writes `STATUS_KV`.
   Hosts the `platformOperatorGuard` middleware.
 - **`apps/status-worker`** — read/serve, importing `@magna-carta/status`; reads `STATUS_KV`.
@@ -135,7 +135,7 @@ package. This removes any lost-update race without needing a lock or a DO:
 - **Component status:** `operational | degraded | partial_outage | major_outage | maintenance`.
 - **Service-event lifecycle:** `investigating | identified | monitoring | resolved`.
 - **Upstream provider status:** normalized into the component vocabulary, plus a distinct
-  `status_unavailable` when *their* feed cannot be reached (an honest fetch failure, not a
+  `status_unavailable` when _their_ feed cannot be reached (an honest fetch failure, not a
   fabricated verdict about our own components).
 
 ### Snapshot shape (informative — schema is the contract, in `packages/status`)
@@ -191,7 +191,7 @@ status pages behave — a green dot means "no known problem," not "just tested p
 component leaves operational **only on positive problem-evidence**, from three sources:
 
 1. **Operator declaration** (an override or an event) — see C.
-2. **Telemetry error-signal** (passive) — the error rate on jobs *already flowing through* a
+2. **Telemetry error-signal** (passive) — the error rate on jobs _already flowing through_ a
    component crosses a threshold. **No traffic → no error signal → stays operational.** An idle
    container reads the same green as everything else; there is no "unknown/idle" state.
 3. **A failed active probe** — but **only for the cheap, always-on core primitives**: the
@@ -220,7 +220,7 @@ Operator actions, all writing `status:authored` and stamped with the acting oper
 
 ## Authorization — a minimal platform-operator principal
 
-Status authoring is a **repeated, attributed, human** action performed *during incidents*. A
+Status authoring is a **repeated, attributed, human** action performed _during incidents_. A
 shared secret (the `PLATFORM_ADMIN_KEY` used by firm-provisioning) is the wrong fit for it:
 
 - it authenticates a **request, not a person**, so it has no identity to record as the author —
@@ -234,7 +234,7 @@ So this slice builds the small, real thing that firm-provisioning's own comment 
 anticipated ("a real platform-admin principal model is a later seam"):
 
 - **`platform_operator` table** in the **control-plane** D1 — `{ user_id, granted_at,
-  granted_by, expires_at (nullable), note }`. It is a distinct **platform** authorization axis,
+granted_by, expires_at (nullable), note }`. It is a distinct **platform** authorization axis,
   separate from per-firm RBAC (which stays per-firm). `expires_at` mirrors the per-firm
   `direct_grant` time-boxing pattern: `NULL` = standing membership, a timestamp = a grant that
   lapses automatically. Membership is **seeded by hand** (SQL) for the operating firm's owner —
@@ -265,11 +265,11 @@ The control plane already has a `platform_staff` principal (the support-access f
 ADR-0157). It is **deliberately not** reused here, because the two are different principals:
 
 - `platform_staff` is the **reach-into-one-customer-firm** identity — credential-less, belongs
-  to no firm, and *by construction* only ever yields a **single-`firmId`, grant-scoped,
+  to no firm, and _by construction_ only ever yields a **single-`firmId`, grant-scoped,
   time-boxed** session (redeemed from a firm member's support grant). It has **no global
   session** and a cross-firm surface is explicitly out of its model.
-- `platform_operator` is the **runs-the-platform-globally** identity — an *elevated Better Auth
-  user* with a real, already-working login, acting on no single firm.
+- `platform_operator` is the **runs-the-platform-globally** identity — an _elevated Better Auth
+  user_ with a real, already-working login, acting on no single firm.
 
 Status authoring is a global action by a logged-in human, so it needs the second, not the
 first. Growing `platform_staff` a global session would contradict its by-design firm scoping

@@ -34,10 +34,16 @@ const EventResult = z.object({ eventId: z.string() }).openapi("ServiceEventResul
 // override with status "maintenance" for the affected component — there is no separate schedule
 // model. Note is required (not optional) so an override always carries operator-visible context.
 const SetOverrideBody = z
-  .object({ componentId: z.string().min(1), status: z.enum(COMPONENT_STATUS), note: z.string().min(1) })
+  .object({
+    componentId: z.string().min(1),
+    status: z.enum(COMPONENT_STATUS),
+    note: z.string().min(1),
+  })
   .openapi("SetComponentOverride");
 
-const ClearOverrideBody = z.object({ componentId: z.string().min(1) }).openapi("ClearComponentOverride");
+const ClearOverrideBody = z
+  .object({ componentId: z.string().min(1) })
+  .openapi("ClearComponentOverride");
 
 const OverrideResult = z.object({ componentId: z.string() }).openapi("ComponentOverrideResult");
 
@@ -61,7 +67,10 @@ export const declareEventMeta: RouteMeta = {
   ...commonMeta,
   operationId: "platformStatus.declareEvent",
 };
-export const postUpdateMeta: RouteMeta = { ...commonMeta, operationId: "platformStatus.postUpdate" };
+export const postUpdateMeta: RouteMeta = {
+  ...commonMeta,
+  operationId: "platformStatus.postUpdate",
+};
 export const resolveEventMeta: RouteMeta = {
   ...commonMeta,
   operationId: "platformStatus.resolveEvent",
@@ -78,19 +87,26 @@ export const clearComponentOverrideMeta: RouteMeta = {
 export const declareEventRoute = defineOpenAPIRoute(declareEventMeta, {
   method: "post",
   path: "/api/v1/platform/status/events",
-  description: "A platform operator declares a service event (a disruption) with an opening update.",
+  description:
+    "A platform operator declares a service event (a disruption) with an opening update.",
   request: { body: { content: { "application/json": { schema: DeclareBody } }, required: true } },
   responses: {
     201: {
       description: "The declared event id",
       content: { "application/json": { schema: EventResult } },
     },
-    401: { description: "Not signed in", content: { "application/problem+json": { schema: Problem } } },
+    401: {
+      description: "Not signed in",
+      content: { "application/problem+json": { schema: Problem } },
+    },
     403: {
       description: "Not a platform operator, or 2FA not enabled",
       content: { "application/problem+json": { schema: Problem } },
     },
-    422: { description: "Invalid body", content: { "application/problem+json": { schema: Problem } } },
+    422: {
+      description: "Invalid body",
+      content: { "application/problem+json": { schema: Problem } },
+    },
     429: {
       description: "Rate limit exceeded",
       content: { "application/problem+json": { schema: Problem } },
@@ -108,13 +124,22 @@ export const postUpdateRoute = defineOpenAPIRoute(postUpdateMeta, {
       description: "The updated event id",
       content: { "application/json": { schema: EventResult } },
     },
-    401: { description: "Not signed in", content: { "application/problem+json": { schema: Problem } } },
+    401: {
+      description: "Not signed in",
+      content: { "application/problem+json": { schema: Problem } },
+    },
     403: {
       description: "Not a platform operator, or 2FA not enabled",
       content: { "application/problem+json": { schema: Problem } },
     },
-    404: { description: "No such event", content: { "application/problem+json": { schema: Problem } } },
-    422: { description: "Invalid body", content: { "application/problem+json": { schema: Problem } } },
+    404: {
+      description: "No such event",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    422: {
+      description: "Invalid body",
+      content: { "application/problem+json": { schema: Problem } },
+    },
     429: {
       description: "Rate limit exceeded",
       content: { "application/problem+json": { schema: Problem } },
@@ -125,20 +150,30 @@ export const postUpdateRoute = defineOpenAPIRoute(postUpdateMeta, {
 export const resolveEventRoute = defineOpenAPIRoute(resolveEventMeta, {
   method: "post",
   path: "/api/v1/platform/status/events/resolve",
-  description: "A platform operator resolves a service event (marks it resolved with a final update).",
+  description:
+    "A platform operator resolves a service event (marks it resolved with a final update).",
   request: { body: { content: { "application/json": { schema: UpdateBody } }, required: true } },
   responses: {
     200: {
       description: "The resolved event id",
       content: { "application/json": { schema: EventResult } },
     },
-    401: { description: "Not signed in", content: { "application/problem+json": { schema: Problem } } },
+    401: {
+      description: "Not signed in",
+      content: { "application/problem+json": { schema: Problem } },
+    },
     403: {
       description: "Not a platform operator, or 2FA not enabled",
       content: { "application/problem+json": { schema: Problem } },
     },
-    404: { description: "No such event", content: { "application/problem+json": { schema: Problem } } },
-    422: { description: "Invalid body", content: { "application/problem+json": { schema: Problem } } },
+    404: {
+      description: "No such event",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    422: {
+      description: "Invalid body",
+      content: { "application/problem+json": { schema: Problem } },
+    },
     429: {
       description: "Rate limit exceeded",
       content: { "application/problem+json": { schema: Problem } },
@@ -151,18 +186,26 @@ export const setComponentOverrideRoute = defineOpenAPIRoute(setComponentOverride
   path: "/api/v1/platform/status/overrides",
   description:
     "A platform operator sets a component status override (including a maintenance window, via status maintenance), upserted by componentId.",
-  request: { body: { content: { "application/json": { schema: SetOverrideBody } }, required: true } },
+  request: {
+    body: { content: { "application/json": { schema: SetOverrideBody } }, required: true },
+  },
   responses: {
     200: {
       description: "The overridden component id",
       content: { "application/json": { schema: OverrideResult } },
     },
-    401: { description: "Not signed in", content: { "application/problem+json": { schema: Problem } } },
+    401: {
+      description: "Not signed in",
+      content: { "application/problem+json": { schema: Problem } },
+    },
     403: {
       description: "Not a platform operator, or 2FA not enabled",
       content: { "application/problem+json": { schema: Problem } },
     },
-    422: { description: "Invalid body", content: { "application/problem+json": { schema: Problem } } },
+    422: {
+      description: "Invalid body",
+      content: { "application/problem+json": { schema: Problem } },
+    },
     429: {
       description: "Rate limit exceeded",
       content: { "application/problem+json": { schema: Problem } },
@@ -174,18 +217,26 @@ export const clearComponentOverrideRoute = defineOpenAPIRoute(clearComponentOver
   method: "post",
   path: "/api/v1/platform/status/overrides/clear",
   description: "A platform operator clears a component status override by componentId.",
-  request: { body: { content: { "application/json": { schema: ClearOverrideBody } }, required: true } },
+  request: {
+    body: { content: { "application/json": { schema: ClearOverrideBody } }, required: true },
+  },
   responses: {
     200: {
       description: "The cleared component id",
       content: { "application/json": { schema: OverrideResult } },
     },
-    401: { description: "Not signed in", content: { "application/problem+json": { schema: Problem } } },
+    401: {
+      description: "Not signed in",
+      content: { "application/problem+json": { schema: Problem } },
+    },
     403: {
       description: "Not a platform operator, or 2FA not enabled",
       content: { "application/problem+json": { schema: Problem } },
     },
-    422: { description: "Invalid body", content: { "application/problem+json": { schema: Problem } } },
+    422: {
+      description: "Invalid body",
+      content: { "application/problem+json": { schema: Problem } },
+    },
     429: {
       description: "Rate limit exceeded",
       content: { "application/problem+json": { schema: Problem } },
@@ -345,7 +396,10 @@ async function appendEventUpdate(
         ...event,
         lifecycle: nextLifecycle,
         resolvedAt: resolve ? now : event.resolvedAt,
-        updates: [...event.updates, { at: now, lifecycle: nextLifecycle, body, authorUserId: author }],
+        updates: [
+          ...event.updates,
+          { at: now, lifecycle: nextLifecycle, body, authorUserId: author },
+        ],
       };
     }),
   }));

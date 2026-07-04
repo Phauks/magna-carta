@@ -1,99 +1,248 @@
 {
   "jurisdictions": {
     "US-CA": {
-      "fips": "06", "code": "CA", "name": "California", "source": "US-CA",
-      "resources": [{
-        "name": "Lawyer Assistance Program (LAP)", "operator": "State Bar of California",
-        "operatorType": "stateBar", "scope": "statewide",
-        "url": "https://www.calbar.ca.gov/legal-professionals/legal-resource-center/lawyer-assistance-program",
-        "phones": [{"number": "877-527-4435", "label": "Confidential intake (877-LAP-4HELP)", "availability": "unspecified", "hoursNote": "Hours not published"}],
-        "email": "LAP@calbar.ca.gov",
-        "services": ["counseling", "substanceUse", "mentalHealth", "peerSupport", "monitoring", "financialAid"],
-        "confidential": "Confidential by statute (Bus. & Prof. Code §6234)", "cost": "Some services free; fees may apply",
-        "description": "State Bar of California program: confidential assessment, short-term counseling, peer support, and referrals for lawyers, applicants, and law students.",
-        "confidence": "HIGH", "sourceUrl": "https://www.calbar.ca.gov/legal-professionals/legal-resource-center/lawyer-assistance-program", "sourceTier": "primary-official", "verifiedOn": "2026-07-02"
-      }]
-    },
-    "US-TX": {
-      "fips": "48", "code": "TX", "name": "Texas", "source": "US-TX",
+      "fips": "06",
+      "code": "CA",
+      "name": "California",
+      "source": "US-CA",
       "resources": [
         {
-          "name": "Texas Lawyers' Assistance Program (TLAP)", "operator": "State Bar of Texas",
-          "operatorType": "stateBar", "scope": "statewide", "url": "https://www.tlaphelps.org/",
-          "phones": [{"number": "1-800-343-8527", "label": "Confidential helpline (1-800-343-TLAP)", "availability": "aroundTheClock", "hoursNote": "24/7"}],
+          "name": "Lawyer Assistance Program (LAP)",
+          "operator": "State Bar of California",
+          "operatorType": "stateBar",
+          "scope": "statewide",
+          "url": "https://www.calbar.ca.gov/legal-professionals/legal-resource-center/lawyer-assistance-program",
+          "phones": [
+            {
+              "number": "877-527-4435",
+              "label": "Confidential intake (877-LAP-4HELP)",
+              "availability": "unspecified",
+              "hoursNote": "Hours not published"
+            }
+          ],
+          "email": "LAP@calbar.ca.gov",
+          "services": [
+            "counseling",
+            "substanceUse",
+            "mentalHealth",
+            "peerSupport",
+            "monitoring",
+            "financialAid"
+          ],
+          "confidential": "Confidential by statute (Bus. & Prof. Code §6234)",
+          "cost": "Some services free; fees may apply",
+          "description": "State Bar of California program: confidential assessment, short-term counseling, peer support, and referrals for lawyers, applicants, and law students.",
+          "confidence": "HIGH",
+          "sourceUrl": "https://www.calbar.ca.gov/legal-professionals/legal-resource-center/lawyer-assistance-program",
+          "sourceTier": "primary-official",
+          "verifiedOn": "2026-07-02"
+        }
+      ]
+    },
+    "US-TX": {
+      "fips": "48",
+      "code": "TX",
+      "name": "Texas",
+      "source": "US-TX",
+      "resources": [
+        {
+          "name": "Texas Lawyers' Assistance Program (TLAP)",
+          "operator": "State Bar of Texas",
+          "operatorType": "stateBar",
+          "scope": "statewide",
+          "url": "https://www.tlaphelps.org/",
+          "phones": [
+            {
+              "number": "1-800-343-8527",
+              "label": "Confidential helpline (1-800-343-TLAP)",
+              "availability": "aroundTheClock",
+              "hoursNote": "24/7"
+            }
+          ],
           "services": ["counseling", "substanceUse", "mentalHealth", "peerSupport", "crisisLine"],
-          "confidential": "Confidential by statute", "cost": "Free",
+          "confidential": "Confidential by statute",
+          "cost": "Free",
           "description": "State Bar of Texas program: confidential 24/7 support, peer assistance, and referrals for lawyers, judges, and law students.",
-          "confidence": "HIGH", "sourceUrl": "https://www.tlaphelps.org/", "sourceTier": "primary-official", "verifiedOn": "2026-07-02"
+          "confidence": "HIGH",
+          "sourceUrl": "https://www.tlaphelps.org/",
+          "sourceTier": "primary-official",
+          "verifiedOn": "2026-07-02"
         },
         {
-          "name": "Sheeran-Crowley Lawyer Wellness Trust", "operator": "Texas Lawyers Concerned for Lawyers",
-          "operatorType": "nonprofit", "scope": "statewide", "url": "https://www.sheerancrowley.org/get-help",
+          "name": "Sheeran-Crowley Lawyer Wellness Trust",
+          "operator": "Texas Lawyers Concerned for Lawyers",
+          "operatorType": "nonprofit",
+          "scope": "statewide",
+          "url": "https://www.sheerancrowley.org/get-help",
           "phones": [],
           "services": ["financialAid", "substanceUse", "mentalHealth"],
-          "confidential": "Works with TLAP", "cost": "Grants toward treatment for those in need",
+          "confidential": "Works with TLAP",
+          "cost": "Grants toward treatment for those in need",
           "description": "Nonprofit trust that funds treatment (paid to providers) for Texas legal professionals working with TLAP.",
-          "confidence": "HIGH", "sourceUrl": "https://www.sheerancrowley.org/what-we-do", "sourceTier": "primary-official", "verifiedOn": "2026-07-02"
+          "confidence": "HIGH",
+          "sourceUrl": "https://www.sheerancrowley.org/what-we-do",
+          "sourceTier": "primary-official",
+          "verifiedOn": "2026-07-02"
         }
       ]
     },
     "US-NY": {
-      "fips": "36", "code": "NY", "name": "New York", "source": "US-NY",
+      "fips": "36",
+      "code": "NY",
+      "name": "New York",
+      "source": "US-NY",
       "resources": [
         {
-          "name": "Lawyer Assistance Program (LAP)", "operator": "New York State Bar Association",
-          "operatorType": "stateBar", "scope": "statewide", "url": "https://nysba.org/lawyer-assistance-program/",
-          "phones": [{"number": "877-772-8835", "label": "Confidential hotline", "availability": "aroundTheClock", "hoursNote": "24/7"}, {"number": "518-487-5669", "label": "Intake coordinator", "availability": "businessHours"}],
-          "services": ["counseling", "substanceUse", "mentalHealth", "peerSupport", "monitoring", "familySupport"],
-          "confidential": "Confidential under Judiciary Law §499", "cost": "Free (4 free counseling sessions/yr for members)",
+          "name": "Lawyer Assistance Program (LAP)",
+          "operator": "New York State Bar Association",
+          "operatorType": "stateBar",
+          "scope": "statewide",
+          "url": "https://nysba.org/lawyer-assistance-program/",
+          "phones": [
+            {
+              "number": "877-772-8835",
+              "label": "Confidential hotline",
+              "availability": "aroundTheClock",
+              "hoursNote": "24/7"
+            },
+            {
+              "number": "518-487-5669",
+              "label": "Intake coordinator",
+              "availability": "businessHours"
+            }
+          ],
+          "services": [
+            "counseling",
+            "substanceUse",
+            "mentalHealth",
+            "peerSupport",
+            "monitoring",
+            "familySupport"
+          ],
+          "confidential": "Confidential under Judiciary Law §499",
+          "cost": "Free (4 free counseling sessions/yr for members)",
           "description": "Statewide NYSBA program: free confidential support, referrals, and peer help for lawyers, judges, law students, and families.",
-          "confidence": "HIGH", "sourceUrl": "https://nysba.org/lawyer-assistance-program/", "sourceTier": "primary-official", "verifiedOn": "2026-07-02"
+          "confidence": "HIGH",
+          "sourceUrl": "https://nysba.org/lawyer-assistance-program/",
+          "sourceTier": "primary-official",
+          "verifiedOn": "2026-07-02"
         },
         {
-          "name": "Lawyer Assistance Program (NYC)", "operator": "New York City Bar Association",
-          "operatorType": "nonprofit", "scope": "metro", "url": "https://www.nycbar.org/serving-the-community/lawyer-assistance-program/",
-          "phones": [{"number": "212-302-5787", "label": "Confidential helpline", "availability": "aroundTheClock", "hoursNote": "24/7"}],
+          "name": "Lawyer Assistance Program (NYC)",
+          "operator": "New York City Bar Association",
+          "operatorType": "nonprofit",
+          "scope": "metro",
+          "url": "https://www.nycbar.org/serving-the-community/lawyer-assistance-program/",
+          "phones": [
+            {
+              "number": "212-302-5787",
+              "label": "Confidential helpline",
+              "availability": "aroundTheClock",
+              "hoursNote": "24/7"
+            }
+          ],
           "services": ["counseling", "substanceUse", "mentalHealth", "peerSupport"],
-          "confidential": "Free and confidential (Judiciary Law §499)", "cost": "Free",
+          "confidential": "Free and confidential (Judiciary Law §499)",
+          "cost": "Free",
           "description": "NYC-area program (no bar membership required) for lawyers, judges, law students, and families in the five boroughs and Westchester.",
-          "confidence": "HIGH", "sourceUrl": "https://www.nycbar.org/serving-the-community/lawyer-assistance-program/", "sourceTier": "primary-official", "verifiedOn": "2026-07-02"
+          "confidence": "HIGH",
+          "sourceUrl": "https://www.nycbar.org/serving-the-community/lawyer-assistance-program/",
+          "sourceTier": "primary-official",
+          "verifiedOn": "2026-07-02"
         }
       ]
     },
     "US-WY": {
-      "fips": "56", "code": "WY", "name": "Wyoming", "source": "US-WY",
+      "fips": "56",
+      "code": "WY",
+      "name": "Wyoming",
+      "source": "US-WY",
       "resources": [
         {
-          "name": "Wyoming Lawyer Assistance Program (WyLAP)", "operator": "Wyoming State Bar",
-          "operatorType": "stateBar", "scope": "statewide", "url": "https://www.wyomingbar.org/for-lawyers/lawyer-resources/lawyer-assistance-program/",
-          "phones": [{"number": "307-432-2101", "label": "WyLAP Director", "availability": "unspecified", "hoursNote": "Not a 24/7 crisis line"}],
+          "name": "Wyoming Lawyer Assistance Program (WyLAP)",
+          "operator": "Wyoming State Bar",
+          "operatorType": "stateBar",
+          "scope": "statewide",
+          "url": "https://www.wyomingbar.org/for-lawyers/lawyer-resources/lawyer-assistance-program/",
+          "phones": [
+            {
+              "number": "307-432-2101",
+              "label": "WyLAP Director",
+              "availability": "unspecified",
+              "hoursNote": "Not a 24/7 crisis line"
+            }
+          ],
           "services": ["peerSupport", "substanceUse", "mentalHealth", "financialAid"],
-          "confidential": "Strictly confidential", "cost": "Free intake",
+          "confidential": "Strictly confidential",
+          "cost": "Free intake",
           "description": "Wyoming State Bar program: confidential peer support and referrals; clinical services via a contracted provider (WPAP).",
-          "confidence": "HIGH", "sourceUrl": "https://www.wyomingbar.org/for-lawyers/lawyer-resources/lawyer-assistance-program/", "sourceTier": "primary-official", "verifiedOn": "2026-07-02"
+          "confidence": "HIGH",
+          "sourceUrl": "https://www.wyomingbar.org/for-lawyers/lawyer-resources/lawyer-assistance-program/",
+          "sourceTier": "primary-official",
+          "verifiedOn": "2026-07-02"
         },
         {
-          "name": "Wyoming Professional Assistance Program (WPAP)", "operator": "WPAP (contracted provider)",
-          "operatorType": "vendor", "scope": "statewide", "url": "https://wpapro.org/",
-          "phones": [{"number": "307-472-1222", "label": "Direct line", "availability": "unspecified"}],
+          "name": "Wyoming Professional Assistance Program (WPAP)",
+          "operator": "WPAP (contracted provider)",
+          "operatorType": "vendor",
+          "scope": "statewide",
+          "url": "https://wpapro.org/",
+          "phones": [
+            { "number": "307-472-1222", "label": "Direct line", "availability": "unspecified" }
+          ],
           "services": ["counseling", "substanceUse", "mentalHealth", "monitoring"],
-          "confidential": "Anonymous, confidential, voluntary", "cost": "Free evaluation/consultation",
+          "confidential": "Anonymous, confidential, voluntary",
+          "cost": "Free evaluation/consultation",
           "description": "Independent professional-assistance program (serves multiple licensed professions) contracted for WyLAP's clinical evaluation, referral, and monitoring.",
-          "confidence": "HIGH", "sourceUrl": "https://wpapro.org/", "sourceTier": "primary-official", "verifiedOn": "2026-07-02"
+          "confidence": "HIGH",
+          "sourceUrl": "https://wpapro.org/",
+          "sourceTier": "primary-official",
+          "verifiedOn": "2026-07-02"
         }
       ]
     },
     "US-SD": {
-      "fips": "46", "code": "SD", "name": "South Dakota", "source": "US-SD",
-      "resources": [{
-        "name": "Lawyers Assistance Program", "operator": "State Bar of South Dakota (Sand Creek / ALLONE Health)",
-        "operatorType": "stateBar", "scope": "statewide", "url": "https://www.sdlawyerwellness.com/gethelp",
-        "phones": [{"number": "1-888-243-5744", "label": "Sand Creek member assistance (24/7)", "availability": "aroundTheClock", "hoursNote": "24/7"}, {"number": "605-391-5191", "label": "Lawyers Concerned for Lawyers peer contact", "availability": "unspecified"}],
-        "services": ["counseling", "substanceUse", "mentalHealth", "peerSupport", "crisisLine", "familySupport"],
-        "confidential": "Free, confidential assessment; records not shared with the Bar", "cost": "Free (short-term); cost-coverage project up to $500",
-        "description": "South Dakota program on its own site: 24/7 assessment and short-term counseling via Sand Creek/ALLONE, plus confidential peer support.",
-        "confidence": "HIGH", "sourceUrl": "https://www.sdlawyerwellness.com/gethelp", "sourceTier": "primary-official", "verifiedOn": "2026-07-02"
-      }]
+      "fips": "46",
+      "code": "SD",
+      "name": "South Dakota",
+      "source": "US-SD",
+      "resources": [
+        {
+          "name": "Lawyers Assistance Program",
+          "operator": "State Bar of South Dakota (Sand Creek / ALLONE Health)",
+          "operatorType": "stateBar",
+          "scope": "statewide",
+          "url": "https://www.sdlawyerwellness.com/gethelp",
+          "phones": [
+            {
+              "number": "1-888-243-5744",
+              "label": "Sand Creek member assistance (24/7)",
+              "availability": "aroundTheClock",
+              "hoursNote": "24/7"
+            },
+            {
+              "number": "605-391-5191",
+              "label": "Lawyers Concerned for Lawyers peer contact",
+              "availability": "unspecified"
+            }
+          ],
+          "services": [
+            "counseling",
+            "substanceUse",
+            "mentalHealth",
+            "peerSupport",
+            "crisisLine",
+            "familySupport"
+          ],
+          "confidential": "Free, confidential assessment; records not shared with the Bar",
+          "cost": "Free (short-term); cost-coverage project up to $500",
+          "description": "South Dakota program on its own site: 24/7 assessment and short-term counseling via Sand Creek/ALLONE, plus confidential peer support.",
+          "confidence": "HIGH",
+          "sourceUrl": "https://www.sdlawyerwellness.com/gethelp",
+          "sourceTier": "primary-official",
+          "verifiedOn": "2026-07-02"
+        }
+      ]
     }
   }
 }

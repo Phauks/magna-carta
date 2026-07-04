@@ -1,0 +1,224 @@
+import { z } from "zod";
+
+const BASE_URL = "https://console.vast.ai";
+
+/**
+ * A rentable GPU offer as returned by vast.ai's marketplace search, with vast.ai's wire field
+ * names mapped to full names. The wire names themselves stay confined to this module.
+ */
+export interface VastOffer {
+  readonly offerId: number;
+  readonly gpuName: string;
+  readonly gpuCount: number;
+  readonly gpuRamMegabytes: number;
+  readonly dollarsPerHour: number;
+  readonly reliability: number;
+  readonly verified: boolean;
+}
+
+export interface CreateInstanceParams {
+  readonly image: string;
+  readonly label: string;
+  readonly onstart: string;
+  readonly diskGb: number;
+}
+
+export interface VastInstanceHandle {
+  readonly instanceId: number;
+}
+
+export interface VastInstanceStatus {
+  readonly status: string;
+  readonly statusMsg: string | null;
+}
+
+/**
+ * A live vast.ai instance as returned by the instance-list endpoint, reduced to the two fields the
+ * billing-reconciliation sweep needs: its id (to destroy it) and its label (to recognize it as a
+ * benchmark rig regardless of which run created it).
+ */
+export interface VastInstanceSummary {
+  readonly instanceId: number;
+  readonly label: string;
+}
+
+export interface VastClient {
+  searchOffers(query: Record<string, unknown>): Promise<VastOffer[]>;
+  createInstance(offerId: number, params: CreateInstanceParams): Promise<VastInstanceHandle>;
+  getInstance(instanceId: number): Promise<VastInstanceStatus>;
+  listInstances(): Promise<VastInstanceSummary[]>;
+  destroyInstance(instanceId: number): Promise<void>;
+  /**
+   * Requests a fresh capture of a rented instance's stdout/stderr and returns the S3 URL vast.ai
+   * hands back to fetch that capture's text from — the collection path the benchmark harness uses
+   * instead of SSH.
+   */
+  requestLogsUrl(instanceId: number): Promise<string>;
+}
+
+/**
+ * Thrown for any non-2xx vast.ai response. The message carries the HTTP status and the endpoint
+ * path only — never the API key, even though the key was on the request that produced it.
+ */
+export class VastApiError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "VastApiError";
+  }
+}
+
+const vastOfferWireSchema = z.object({
+  id: z.number(),
+  gpu_name: z.string(),
+  num_gpus: z.number(),
+  gpu_ram: z.number(),
+  dph_total: z.number(),
+  reliability: z.number(),
+  // vast.ai's marketplace search does not return a `verified` boolean: it returns
+  // `verification`, a string that reads "verified" for a verified host. Some offers omit
+  // the field entirely, so it is tolerated as absent and treated as unverified.
+  verification: z.string().nullable().optional(),
+});
+
+// Parse the envelope loosely (each offer as `unknown`) so a single malformed offer among the up-to-
+// 64 the search returns can be skipped individually rather than sinking the whole batch — see
+// `searchOffers`, which `safeParse`s each row. A strict `z.array(vastOfferWireSchema)` here would
+// throw for the entire response if one offer omitted or mistyped a field, silently dropping the rig.
+const searchOffersEnvelopeSchema = z.object({
+  offers: z.array(z.unknown()),
+});
+
+const createInstanceResponseSchema = z.object({
+  new_contract: z.number(),
+});
+
+const vastInstanceWireSchema = z.object({
+  id: z.number(),
+  actual_status: z.string().nullish(),
+  status_msg: z.string().nullish(),
+  label: z.string().nullish(),
+});
+
+const listInstancesResponseSchema = z.object({
+  instances: z.array(vastInstanceWireSchema),
+});
+
+const requestLogsResponseSchema = z.object({
+  result_url: z.string(),
+});
+
+function toVastOffer(wire: z.infer<typeof vastOfferWireSchema>): VastOffer {
+  return {
+    offerId: wire.id,
+    gpuName: wire.gpu_name,
+    gpuCount: wire.num_gpus,
+    gpuRamMegabytes: wire.gpu_ram,
+    dollarsPerHour: wire.dph_total,
+    reliability: wire.reliability,
+    verified: wire.verification === "verified",
+  };
+}
+
+/**
+ * Builds a typed client over the four vast.ai REST endpoints the GPU-benchmark harness uses:
+ * searching marketplace offers, renting an offer as an instance, polling that instance's status,
+ * and destroying it when the recovery run ends. Accepts an injectable `fetch` so callers can test
+ * against a mock without reaching the network.
+ *
+ * Every non-2xx response throws `VastApiError` with the HTTP status and endpoint path — the API
+ * key is never interpolated into a thrown message or otherwise logged.
+ */
+export function createVastClient(apiKey: string, fetchImpl: typeof fetch = fetch): VastClient {
+  async function requestJson(path: string, method: string, body?: unknown): Promise<unknown> {
+    const response = await fetchImpl(`${BASE_URL}${path}`, {
+      method,
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    if (!response.ok) {
+      throw new VastApiError(
+        `vast.ai request to ${method} ${path} failed with status ${response.status}`,
+      );
+    }
+    return response.json();
+  }
+
+  return {
+    async searchOffers(query) {
+      const raw = await requestJson("/api/v0/bundles/", "POST", query);
+      const envelope = searchOffersEnvelopeSchema.parse(raw);
+      const offers: VastOffer[] = [];
+      for (const candidate of envelope.offers) {
+        // One malformed offer is dropped, not fatal: a missing/mistyped field on a single row must
+        // not skip the whole rig. The downstream reliability + verification filters already exclude
+        // unusable offers, so a dropped row only costs that one candidate.
+        const parsed = vastOfferWireSchema.safeParse(candidate);
+        if (parsed.success) offers.push(toVastOffer(parsed.data));
+      }
+      return offers;
+    },
+
+    async createInstance(offerId, params) {
+      // `PUT /api/v0/asks/{offerId}/` returning `new_contract` is confirmed live at the first
+      // real rent — unlike the other endpoints in this client, it was not stale.
+      const raw = await requestJson(`/api/v0/asks/${offerId}/`, "PUT", {
+        image: params.image,
+        disk: params.diskGb,
+        onstart: params.onstart,
+        label: params.label,
+        runtype: "ssh",
+      });
+      const parsed = createInstanceResponseSchema.parse(raw);
+      return { instanceId: parsed.new_contract };
+    },
+
+    async getInstance(instanceId) {
+      const raw = await requestJson("/api/v1/instances/", "GET");
+      const parsed = listInstancesResponseSchema.parse(raw);
+      const found = parsed.instances.find((instance) => instance.id === instanceId);
+      if (found === undefined) {
+        throw new VastApiError(`instance ${instanceId} not found in vast.ai instance list`);
+      }
+      return {
+        status: found.actual_status ?? "unknown",
+        statusMsg: found.status_msg ?? null,
+      };
+    },
+
+    async listInstances() {
+      const raw = await requestJson("/api/v1/instances/", "GET");
+      const parsed = listInstancesResponseSchema.parse(raw);
+      return parsed.instances.map((instance) => ({
+        instanceId: instance.id,
+        label: instance.label ?? "",
+      }));
+    },
+
+    async destroyInstance(instanceId) {
+      // v0, not v1 — confirmed live: `DELETE /api/v1/instances/{id}/` silently returns "Not
+      // found" without destroying the instance, which would otherwise leak billing.
+      const path = `/api/v0/instances/${instanceId}/`;
+      const response = await fetchImpl(`${BASE_URL}${path}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+        },
+      });
+      if (response.status === 404 || response.ok) return;
+      throw new VastApiError(
+        `vast.ai request to DELETE ${path} failed with status ${response.status}`,
+      );
+    },
+
+    async requestLogsUrl(instanceId) {
+      const raw = await requestJson(`/api/v0/instances/request_logs/${instanceId}/`, "PUT", {
+        tail: "600",
+      });
+      const parsed = requestLogsResponseSchema.parse(raw);
+      return parsed.result_url;
+    },
+  };
+}

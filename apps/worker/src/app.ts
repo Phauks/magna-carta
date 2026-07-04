@@ -54,6 +54,7 @@ import { registerDecryptionRoutes } from "./routes/decryption.ts";
 import { registerRecoveryRoutes } from "./routes/recovery.ts";
 import { registerFileIntegrityRoutes } from "./routes/file-integrity.ts";
 import { registerFileTypeRoutes } from "./routes/file-type.ts";
+import { registerFileRepairRoutes } from "./routes/file-repair.ts";
 import { registerAiDetectionRoutes } from "./routes/ai-detection.ts";
 import { registerMetadataRoutes } from "./routes/metadata.ts";
 import { registerSupportGrantsRoutes } from "./routes/support-grants.ts";
@@ -119,6 +120,10 @@ export type Bindings = {
   // Optional: absent in every test environment and until the deploy-time binding is added; while
   // unset, resolveEnginePort returns the deferred port (engine-not-implemented).
   CONVERT?: Fetcher;
+  // The dedicated file-repair engine worker (magna-carta-file-repair), reached over a service binding.
+  // Optional: absent in every test environment and until the deploy-time binding is added; while
+  // unset, the file-repair routes return 503 (the same posture the file-type and bundle routes take).
+  FILE_REPAIR_SERVICE?: Fetcher;
   // The password-recovery job coordinator: fans a recovery job out across shards and aggregates
   // outcomes into the job's final state.
   RECOVERY_JOB: DurableObjectNamespace<
@@ -411,6 +416,7 @@ export function createApp(options: CreateAppOptions = {}) {
   registerRecoveryRoutes(app, chokepoint);
   registerFileIntegrityRoutes(app, chokepoint);
   registerFileTypeRoutes(app, chokepoint);
+  registerFileRepairRoutes(app, chokepoint);
   registerAiDetectionRoutes(app, chokepoint);
   registerMetadataRoutes(app, chokepoint);
   registerMembersRoute(app, chokepoint, authForEnv);

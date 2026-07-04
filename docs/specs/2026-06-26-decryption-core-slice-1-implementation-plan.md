@@ -14,7 +14,7 @@
 - **Reuse, don't duplicate** (golden rule 1): `lopdf` is already a workspace dependency (`crates/pdf-core` pins `lopdf 0.41`). Use **one** `lopdf` version across the workspace — promote `lopdf` to `[workspace.dependencies]` and have both crates use `lopdf = { workspace = true }`. The password-decode API (`EncryptionState::decode(password)`) must exist in the chosen version; if it requires `lopdf 0.42`, bump the workspace pin to `0.42` and confirm `pdf-core` still builds + its tests pass in the same task.
 - **RustCrypto generation:** pin the **0.10/0.4 generation** (`digest 0.10` / `cipher 0.4` era: `pbkdf2 0.12`, `hmac 0.12`, `sha1 0.10`, `sha2 0.10`, `md-5 0.10`, `aes 0.8`, `cbc 0.1`, `ctr 0.9`, `cfb-mode 0.8`, `rc4 0.1`) to match `zip` and `lopdf`'s trait stack. Confirm exact patch versions with `cargo add` before pinning.
 - **Full names, no shorthand** (golden rule 12): `decryption-core`, `FormatAdapter`, `strip_with_key`, `extract_hash`, `verify_guess`, `RecoveryJob` — never abbreviate.
-- **No process-doc references in source** (golden rule 13): code comments explain *why* inline or cite a concrete file/spec path; no "slice N" / "ADR-N" in `.rs` files (a forward-looking "built in Plan 2" schedule note is allowed).
+- **No process-doc references in source** (golden rule 13): code comments explain _why_ inline or cite a concrete file/spec path; no "slice N" / "ADR-N" in `.rs` files (a forward-looking "built in Plan 2" schedule note is allowed).
 - **Run the gate after every task:** `cargo test -p decryption-core` and `cargo clippy -p decryption-core --all-targets -- -D warnings` and `cargo fmt -p decryption-core -- --check` must pass before each commit.
 - **Crate is `publish = false`**, `version = "0.0.0"`, `edition.workspace = true`, matching `pdf-core`.
 
@@ -23,11 +23,13 @@
 ### Task 1: Scaffold `decryption-core` crate
 
 **Files:**
+
 - Create: `crates/decryption-core/Cargo.toml`
 - Create: `crates/decryption-core/src/lib.rs`
 - Modify: `crates/Cargo.toml` (add member + promote `lopdf` to workspace deps)
 
 **Interfaces:**
+
 - Produces: a compiling `decryption-core` library crate with a `version()` smoke function later replaced by real API.
 
 - [ ] **Step 1: Add the workspace member and shared `lopdf` pin**
@@ -107,10 +109,12 @@ git commit -m "feat(decryption): scaffold decryption-core crate"
 ### Task 2: Core types + `FormatAdapter` trait
 
 **Files:**
+
 - Create: `crates/decryption-core/src/adapter.rs`
 - Modify: `crates/decryption-core/src/lib.rs` (add `mod adapter; pub use`)
 
 **Interfaces:**
+
 - Produces:
   - `enum Format { Pdf, Zip, Ooxml }`
   - `struct DecryptedFile { pub bytes: Vec<u8>, pub filename_hint: Option<String> }`
@@ -234,12 +238,14 @@ git commit -m "feat(decryption): FormatAdapter trait + core types"
 ### Task 3: Magic-byte format detection
 
 **Files:**
+
 - Create: `crates/decryption-core/src/detect.rs`
 - Modify: `crates/decryption-core/src/lib.rs`
 
 **Interfaces:**
+
 - Consumes: `Format` (Task 2).
-- Produces: `fn detect(bytes: &[u8]) -> Option<Format>` — distinguishes PDF (`%PDF`), OOXML-encrypted (OLE2 compound-file magic `D0 CF 11 E0 A1 B1 1A E1`), and ZIP (`PK\x03\x04`). Note an *encrypted* `.docx` is an OLE2 file, not a zip, so OLE2 → `Ooxml` and `PK` → `Zip`.
+- Produces: `fn detect(bytes: &[u8]) -> Option<Format>` — distinguishes PDF (`%PDF`), OOXML-encrypted (OLE2 compound-file magic `D0 CF 11 E0 A1 B1 1A E1`), and ZIP (`PK\x03\x04`). Note an _encrypted_ `.docx` is an OLE2 file, not a zip, so OLE2 → `Ooxml` and `PK` → `Zip`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -306,12 +312,14 @@ git commit -m "feat(decryption): magic-byte format detection"
 ### Task 4: PDF — `strip_with_key`
 
 **Files:**
+
 - Create: `crates/decryption-core/src/pdf.rs`
 - Create: `crates/decryption-core/tests/fixtures/README.md` (fixture provenance)
 - Create: `crates/decryption-core/tests/fixtures/pdf_userpw_test.pdf` (a 1-page PDF encrypted with user password `test`, RC4-128 or AES; generate with `qpdf --encrypt test test 128 -- plain.pdf pdf_userpw_test.pdf`)
 - Modify: `crates/decryption-core/src/lib.rs`
 
 **Interfaces:**
+
 - Consumes: `FormatAdapter`, `DecryptError`, `DecryptedFile` (Task 2).
 - Produces: `struct PdfAdapter;` implementing `FormatAdapter::strip_with_key` (the other two methods land in Task 5 — until then, `extract_hash`/`verify_guess` may `unimplemented!()` with a `// filled in Task 5` note, since the trait requires all three; OR implement the trait incrementally by splitting into inherent methods first and the `impl FormatAdapter` last in Task 5). Use inherent methods: `PdfAdapter::strip_with_key(...)`.
 
@@ -400,14 +408,17 @@ git commit -m "feat(decryption): PDF strip_with_key"
 ### Task 5: PDF — `extract_hash` + `verify_guess`
 
 **Files:**
+
 - Modify: `crates/decryption-core/src/pdf.rs`
 - Modify: `crates/decryption-core/src/adapter.rs` (add `KdfParams::Pdf { ... }`)
 
 **Interfaces:**
+
 - Consumes: `RecoveryJob`, `ExtractError`, `KdfParams` (Task 2).
 - Produces: `PdfAdapter::extract_hash` (emits the `$pdf$` John/hashcat string + mode), `PdfAdapter::verify_guess`, and the `impl FormatAdapter for PdfAdapter` binding all three.
 
 **Reference (transcribe, then validate against the test vector):**
+
 - The `$pdf$` field order is `$pdf$<V>*<R>*<keyBits>*<P>*<encMeta>*<idLen>*<id>*<uLen>*<U>*<oLen>*<O>` plus `*<ueLen>*<UE>*<oeLen>*<OE>` for R5/R6 — read V/R/P/O/U/OE/UE and the trailer `/ID` from `lopdf`'s `/Encrypt` dict.
 - R6 `verify_guess` = ISO 32000-2 Algorithm 2.A (validate password) using the hardened hash Algorithm 2.B (the SHA-256→AES-128-CBC→mod-3→SHA-256/384/512 loop, terminating when `round >= 64 && last_byte(E) <= round - 32`). R2–R4 use the MD5+RC4 derivation. The design doc §7 records both.
 
@@ -465,6 +476,7 @@ Pdf {
 ```
 
 In `pdf.rs` implement:
+
 - `PdfAdapter::extract_hash(bytes)` — load with `lopdf`, read the trailer `/Encrypt` dict (V, R, Length, P, /EncryptMetadata, O, U, OE, UE) and trailer `/ID[0]`, format the `$pdf$` string, set `hashcat_mode` (10400/10500/10600/10700 by R), and fill `KdfParams::Pdf`.
 - `PdfAdapter::parse_hash(&str) -> Result<KdfParams, ExtractError>` — inverse parse of the `$pdf$` string (used by tests and by callers that only have the hash).
 - `PdfAdapter::verify_guess(job, candidate)` — match on `KdfParams::Pdf`; for R6 run Algorithm 2.A/2.B (use `sha2`, `aes`+`cbc` no-padding); for R2–R4 run the MD5/RC4 derivation (`md-5`, `rc4`). Return whether the computed U (or O) matches.
@@ -489,12 +501,14 @@ git commit -m "feat(decryption): PDF extract_hash + verify_guess (R2-R6)"
 ### Task 6: ZIP — `strip_with_key`
 
 **Files:**
+
 - Create: `crates/decryption-core/src/zip.rs`
 - Create: `crates/decryption-core/tests/fixtures/zip_aes_test.zip` (AES-256, password `test`, one entry `hello.txt` = `hello\n`; make with `7z a -tzip -pPASS -mem=AES256 zip_aes_test.zip hello.txt` — record in fixtures README)
 - Create: `crates/decryption-core/tests/fixtures/zip_zipcrypto_test.zip` (legacy ZipCrypto, password `test`; `zip -e` or `7z a -tzip -pPASS -mem=ZipCrypto`)
 - Modify: `crates/decryption-core/src/lib.rs`
 
 **Interfaces:**
+
 - Produces: `ZipAdapter::strip_with_key` — decrypts the entry(ies) and returns the **decrypted inner file** (for a single-entry archive, the entry bytes; for multi-entry, re-emit a plain zip — for slice 1, single-entry is enough, return the first entry's bytes with `filename_hint`).
 
 - [ ] **Step 1: Write the failing tests (both AES and ZipCrypto)**
@@ -578,10 +592,12 @@ git commit -m "feat(decryption): ZIP strip_with_key (ZipCrypto + WinZip-AES)"
 ### Task 7: ZIP — `extract_hash` + `verify_guess`
 
 **Files:**
+
 - Modify: `crates/decryption-core/src/zip_adapter.rs`
 - Modify: `crates/decryption-core/src/adapter.rs` (add `KdfParams::ZipAes`, `KdfParams::ZipCrypto`)
 
 **Reference (transcribe, validate against vectors):**
+
 - **WinZip-AES** (`$zip2$`, hashcat 13600): extra field `0x9901` gives the AES strength byte (1/2/3 = 128/192/256); record layout = `[salt][2-byte verifier][AES-CTR ciphertext][10-byte HMAC]`. KDF = PBKDF2-HMAC-SHA1, 1000 iters, salt = keylen/2 bytes; derived bytes = encKey(keylen) ‖ macKey(keylen) ‖ 2-byte verifier; verify by comparing the last 2 derived bytes to the stored verifier. Use `pbkdf2`, `hmac`, `sha1`.
 - **ZipCrypto** (`$pkzip2$`, hashcat 17200-range): 12-byte encryption header; the 12th decrypted byte equals the high byte of the entry CRC-32 (or DOS mod-time high byte when a data descriptor is used). Keys init `0x12345678/0x23456789/0x34567890`, `update_keys` per APPNOTE.
 
@@ -620,6 +636,7 @@ Expected: FAIL.
 - [ ] **Step 4: Implement the header parse, `parse_hash`, `extract_hash`, `verify_guess`**
 
 Add `KdfParams::ZipAes { strength: u8, salt: Vec<u8>, verifier: [u8;2] }` and `KdfParams::ZipCrypto { header12: [u8;12], crc_high: u8 }`. Parse the local file header + extra field `0x9901` for AES, or the 12-byte header for ZipCrypto, directly from `bytes` (walk the central directory with the `zip` crate to locate the first encrypted entry, then read the raw header bytes). `verify_guess`:
+
 - AES: `pbkdf2_hmac::<Sha1>(pw, salt, 1000, &mut derived)` where `derived.len() = 2*keylen + 2`; compare `derived[2*keylen..]` to `verifier`.
 - ZipCrypto: run `update_keys` over the password, decrypt the 12-byte header, compare byte 11 to `crc_high`.
 
@@ -640,11 +657,13 @@ git commit -m "feat(decryption): ZIP extract_hash + verify_guess"
 ### Task 8: OOXML — `strip_with_key`
 
 **Files:**
+
 - Create: `crates/decryption-core/src/ooxml.rs`
 - Create: `crates/decryption-core/tests/fixtures/docx_agile_test.docx` (a `.docx` encrypted with password `test`, agile/SHA-512; make in Word/LibreOffice or with python `msoffcrypto-tool` — record in README)
 - Modify: `crates/decryption-core/src/lib.rs`
 
 **Interfaces:**
+
 - Produces: `OoxmlAdapter::strip_with_key` — returns the decrypted inner OOXML zip bytes (a valid `.docx`).
 
 - [ ] **Step 1: Write the failing test**
@@ -713,10 +732,12 @@ git commit -m "feat(decryption): OOXML strip_with_key (agile)"
 ### Task 9: OOXML — `extract_hash` + `verify_guess`
 
 **Files:**
+
 - Modify: `crates/decryption-core/src/ooxml.rs`
 - Modify: `crates/decryption-core/src/adapter.rs` (add `KdfParams::OoxmlAgile`)
 
 **Reference (transcribe, validate against vectors):**
+
 - `$office$` (hashcat 9600 agile / 9500 2010 / 9400 2007). Open the OLE2 container with `cfb`; read `EncryptionInfo` (skip the version header, parse the `<encryption>` XML for `keyData` salt + `encryptedKey` salt/spinCount/encryptedVerifierHashInput/encryptedVerifierHashValue). `verify_guess`: `H0 = SHA512(salt ‖ UTF16LE(pw))`, iterate `Hn = SHA512(LE_u32(i) ‖ H(n-1))` for spinCount; derive block keys with the fixed GUID constants; AES-256-CBC-decrypt the verifier hash input + value; password correct iff `SHA512(decrypted input) == decrypted value`. Primitives: `sha2`, `aes`, `cbc`.
 
 - [ ] **Step 1: Deterministic `verify_guess` test from hashcat example hash (mode 9600)**
@@ -770,10 +791,12 @@ git commit -m "feat(decryption): OOXML extract_hash + verify_guess (agile)"
 ### Task 10: In-house CPU dictionary engine
 
 **Files:**
+
 - Create: `crates/decryption-core/src/dictionary.rs`
 - Modify: `crates/decryption-core/src/lib.rs`
 
 **Interfaces:**
+
 - Consumes: `RecoveryJob`, and a per-format `verify` dispatch (Tasks 5/7/9).
 - Produces: `fn run_dictionary(job: &RecoveryJob, candidates: impl IntoIterator<Item = String>) -> Option<String>` — returns the first candidate for which `verify_guess` is true, parallelized with `rayon`.
 
@@ -851,10 +874,12 @@ git commit -m "feat(decryption): rayon CPU dictionary engine"
 ### Task 11: Top-level dispatch API + integration test
 
 **Files:**
+
 - Modify: `crates/decryption-core/src/lib.rs`
 - Create: `crates/decryption-core/tests/integration.rs`
 
 **Interfaces:**
+
 - Produces the crate's public façade:
   - `fn strip_with_key(bytes: &[u8], password: &str) -> Result<DecryptedFile, DecryptError>` (detect → adapter)
   - `fn extract_hash(bytes: &[u8]) -> Result<RecoveryJob, ExtractError>` (detect → adapter)
@@ -936,6 +961,7 @@ git commit -m "feat(decryption): top-level dispatch facade + integration tests"
 ## Self-Review
 
 **Spec coverage (design §2 core, §7 dependencies):**
+
 - `FormatAdapter` trait + `strip_with_key`/`extract_hash`/`verify_guess` → Tasks 2, 4–9. ✓
 - PDF/ZIP/OOXML v1 formats → Tasks 4–9. ✓
 - Magic-byte detection (OLE2 = OOXML, PK = ZIP) → Task 3. ✓

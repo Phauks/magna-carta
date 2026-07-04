@@ -76,7 +76,12 @@ type FetchResult =
 
 async function fetchJson(
   http: HttpClient,
-  request: { method: "GET" | "POST"; url: string; headers: Readonly<Record<string, string>>; body?: string },
+  request: {
+    method: "GET" | "POST";
+    url: string;
+    headers: Readonly<Record<string, string>>;
+    body?: string;
+  },
 ): Promise<FetchResult> {
   let response: HttpResponse;
   try {

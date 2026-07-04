@@ -285,6 +285,7 @@ describe("end-to-end", () => {
         "tools:decryption",
         "tools:fileConverter",
         "tools:fileIntegrity",
+        "tools:fileRepair",
         "tools:fileTypeVerifier",
         "tools:firmUsage",
         "tools:metadataScrubber",

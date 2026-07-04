@@ -16,6 +16,13 @@
     {
       "class_name": "RecoveryEngineContainer",
       "image": "../../containers/recovery/Dockerfile",
+      // The build context is the repo ROOT, not this Dockerfile's directory: the recovery image
+      // COPYs both `crates/decryption-core` (a path dependency) and `containers/recovery/...`, so
+      // both trees must be reachable in one context. The root `.dockerignore` allowlists exactly
+      // `crates` + `containers` so nothing else transits. Without this, wrangler builds against a
+      // narrower default context and the `COPY containers/recovery/wordlists` step fails with
+      // "not found" on Cloudflare's runner (a local `docker build … .` happens to use the root).
+      "image_build_context": "../../",
       "max_instances": 5,
       "instance_type": "standard-1",
     },

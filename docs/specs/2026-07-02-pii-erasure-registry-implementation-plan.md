@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build the *attribution seam* for GDPR subject-level erasure — a declarative PII/erasure registry plus a coverage fitness function so no per-firm table holding personal data can escape subject attribution unregistered. The `eraseDataSubject` orchestrator that consumes the registry is designed but **not** built here.
+**Goal:** Build the _attribution seam_ for GDPR subject-level erasure — a declarative PII/erasure registry plus a coverage fitness function so no per-firm table holding personal data can escape subject attribution unregistered. The `eraseDataSubject` orchestrator that consumes the registry is designed but **not** built here.
 
 **Architecture:** One pure-data manifest (`PII_TABLES`) sibling to `@magna-carta/database`'s `PROTECTED_COLUMNS`, listing every PII-bearing table, the column that resolves it to a data subject, and the erasure action. A Vitest fitness test introspects the Drizzle schema (the `getTableConfig` idiom already used by `protected-field-registry.test.ts`) and forces every table to be classified as either PII (registered) or explicitly non-PII. A drift tripwire keeps the registry's entity-axis rows a superset of the directory merge's `REPOINT_TARGETS` reference set.
 
@@ -23,10 +23,12 @@
 ### Task 1: The PII/erasure registry manifest
 
 **Files:**
+
 - Create: `packages/data-access/src/pii-registry.ts`
 - Test: `packages/data-access/test/pii-registry.test.ts`
 
 **Interfaces:**
+
 - Produces: `PII_TABLES: readonly PiiTableEntry[]`; types `PiiTableEntry`, `ErasureAction`, `SubjectRef`.
 
 - [ ] **Step 1: Write the failing test**
@@ -184,10 +186,12 @@ git commit -m "feat(data-access): PII/erasure registry manifest"
 Forces every per-firm table to be **classified** — registered as PII or explicitly listed as non-PII — so a new personal-data table cannot slip in unattributed. Uses the schema-introspection idiom from `packages/data-access/test/protected-field-registry.test.ts`.
 
 **Files:**
+
 - Modify: `packages/data-access/src/pii-registry.ts` (add `NO_PII_TABLES`)
 - Test: `packages/data-access/test/pii-registry-coverage.test.ts`
 
 **Interfaces:**
+
 - Consumes: `PII_TABLES` (Task 1), `PROTECTED_COLUMNS` from `@magna-carta/database/protected-columns`, `perFirmSchema` tables.
 - Produces: `NO_PII_TABLES: readonly string[]`.
 
@@ -272,7 +276,7 @@ Expected: FAIL — the first assertion lists every unregistered per-firm table (
 
 - [ ] **Step 3: Classify the listed tables**
 
-From the failure output, put every table that carries **no** personal data into `NO_PII_TABLES` (matters/ledger/roles/settings/scan/file-structure/bookkeeping tables). Any table the failure lists that *does* carry personal data belongs in `PII_TABLES` instead (Task 1 should already cover the current ones; add any missed). Example shape (fill from the actual output — do not guess table names):
+From the failure output, put every table that carries **no** personal data into `NO_PII_TABLES` (matters/ledger/roles/settings/scan/file-structure/bookkeeping tables). Any table the failure lists that _does_ carry personal data belongs in `PII_TABLES` instead (Task 1 should already cover the current ones; add any missed). Example shape (fill from the actual output — do not guess table names):
 
 ```ts
 export const NO_PII_TABLES: readonly string[] = [
@@ -305,10 +309,12 @@ git commit -m "feat(data-access): PII registry coverage fitness — every table 
 Keeps the registry's entity-axis rows a **superset** of the Directory merge's `REPOINT_TARGETS` reference set, so a new inbound reference to an entity (added to merge) cannot bypass erasure attribution. Lives in the `@magna-carta/directory` package (which may depend on `@magna-carta/data-access`; not the reverse).
 
 **Files:**
+
 - Modify: `packages/directory/src/merge.ts` (export a derived reference list)
 - Test: `packages/directory/test/pii-registry-merge-sync.test.ts`
 
 **Interfaces:**
+
 - Consumes: `PII_TABLES` from `@magna-carta/data-access`, the exported reference list from `merge.ts`.
 - Produces: `REPOINT_REFERENCE_COLUMNS: readonly { table: string; column: string }[]`.
 
@@ -347,8 +353,10 @@ Immediately after the `REPOINT_TARGETS` definition (`packages/directory/src/merg
 // The (table, column) inbound-reference pairs the merge repoints — exported so the PII/erasure
 // registry can be pinned as a superset (a new entity reference here must also be attributed for
 // erasure). Derived from REPOINT_TARGETS so the two never drift.
-export const REPOINT_REFERENCE_COLUMNS: readonly { readonly table: string; readonly column: string }[] =
-  REPOINT_TARGETS.map((target) => ({ table: target.table, column: target.column }));
+export const REPOINT_REFERENCE_COLUMNS: readonly {
+  readonly table: string;
+  readonly column: string;
+}[] = REPOINT_TARGETS.map((target) => ({ table: target.table, column: target.column }));
 ```
 
 - [ ] **Step 4: Run to green + confirm the merge suite is unaffected**

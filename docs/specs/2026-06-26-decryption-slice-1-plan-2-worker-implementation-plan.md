@@ -25,21 +25,26 @@
 ### Task 1: WASM edge on `decryption-core` (+ cfg-gate rayon)
 
 **Files:**
+
 - Create: `crates/decryption-core/src/wasm.rs`
 - Modify: `crates/decryption-core/Cargo.toml` (wasm32 deps; rayon → native-only target dep)
 - Modify: `crates/decryption-core/src/lib.rs` (`#[cfg(target_arch="wasm32")] mod wasm;`; cfg-gate `mod dictionary` + its re-exports to non-wasm)
 
 **Interfaces:**
+
 - Produces (wasm-bindgen exports, camelCase to JS): `detect(bytes: &[u8]) -> Option<String>` (format name or null), `stripWithKey(bytes: &[u8], password: &str) -> Result<JsValue, JsError>` (→ `{ bytes: Uint8Array, filenameHint?: string }`), `extractHash(bytes: &[u8]) -> Result<JsValue, JsError>` (→ `{ format, hash, hashcatMode }`), `verifyGuess(hash: &str, format: &str, candidate: &str) -> bool` (parse the hash for the format, then verify). Errors carry a stable code string (`wrongPassword`/`notEncrypted`/`unsupported`/`malformed`), never file content.
 
 - [ ] **Step 1: cfg-gate rayon + dictionary**
 
 In `Cargo.toml` move `rayon` out of `[dependencies]` into:
+
 ```toml
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 rayon = "1"
 ```
+
 In `lib.rs` change `mod dictionary; pub use dictionary::{run_dictionary, verify};` to:
+
 ```rust
 #[cfg(not(target_arch = "wasm32"))]
 mod dictionary;
@@ -68,6 +73,7 @@ Run: `cd crates/decryption-core && wasm-pack build --target web --out-dir ../../
 Expected: SUCCESS, emits `decryption_core_bg.wasm` + JS bindings. **If a dependency fails to compile for wasm32, STOP → BLOCKED** (report which crate; the fix is likely a feature flag or cfg-gating that format's path to native-only, which reshapes Task 2).
 
 - [ ] **Step 5: commit** (`crates/decryption-core/Cargo.toml`, `src/lib.rs`, `src/wasm.rs`)
+
 ```
 git commit -m "feat(decryption): wasm-bindgen edge (detect/strip/extract/verify); rayon native-only"
 ```
@@ -77,10 +83,12 @@ git commit -m "feat(decryption): wasm-bindgen edge (detect/strip/extract/verify)
 ### Task 2: `@magna-carta/decryption` WASM wrapper package
 
 **Files:**
+
 - Create: `packages/decryption/package.json`, `packages/decryption/src/index.ts`, `packages/decryption/.gitignore` (`src/pkg/`), `packages/decryption/tsconfig.json`, `packages/decryption/test/wrapper.test.ts`
 - (Generated, gitignored: `packages/decryption/src/pkg/`)
 
 **Interfaces:**
+
 - Consumes: the wasm exports from Task 1.
 - Produces (TS, mirroring `packages/pdf/src/index.ts`): `ensureReady(wasmInput?)`, and typed wrappers `detectFormat(bytes: Uint8Array): "pdf"|"zip"|"ooxml"|null`, `stripWithKey(bytes, password): { bytes: Uint8Array; filenameHint?: string }`, `extractHash(bytes): { format; hash; hashcatMode }`, `verifyGuess(hash, format, candidate): boolean`. Errors surface as a typed error carrying the stable code.
 
@@ -90,6 +98,7 @@ git commit -m "feat(decryption): wasm-bindgen edge (detect/strip/extract/verify)
 - [ ] **Step 4: implement `src/index.ts`** (mirror `packages/pdf`'s `ensureReady` + free()/dispose discipline; here the calls are stateless free functions, so no handle lifecycle — just `ensureReady` then call).
 - [ ] **Step 5: run the test → pass**, then `pnpm check` for the package.
 - [ ] **Step 6: commit** (the package files; NOT `src/pkg/`).
+
 ```
 git commit -m "feat(decryption): @magna-carta/decryption wasm wrapper"
 ```
@@ -100,7 +109,7 @@ git commit -m "feat(decryption): @magna-carta/decryption wasm wrapper"
 
 **Files:** Modify `packages/access-control/src/registry.ts`.
 
-- [ ] **Step 1:** add `"tools:decryption"` to the `PERMISSIONS` array, alphabetically within the `tools:` group (read the file for ordering). 
+- [ ] **Step 1:** add `"tools:decryption"` to the `PERMISSIONS` array, alphabetically within the `tools:` group (read the file for ordering).
 - [ ] **Step 2:** run `pnpm --filter @magna-carta/access-control test` + `pnpm check` for the package → green. (This permission is now referenceable as a compile-checked literal in route metadata.)
 - [ ] **Step 3: commit** `git commit -m "feat(decryption): register tools:decryption permission"`
 
@@ -109,6 +118,7 @@ git commit -m "feat(decryption): @magna-carta/decryption wasm wrapper"
 ### Task 4: per-firm migration seeding `tools:decryption`
 
 **Files:**
+
 - Create: `packages/database/drizzle/per-firm/0023_seed-tools-decryption.sql` (+ the Drizzle journal entry it requires — mirror exactly how `0022_seed-tools-file-integrity` is journaled).
 - Modify: `apps/worker/src/per-firm-migrations.ts` (import + map entry).
 
@@ -122,14 +132,16 @@ git commit -m "feat(decryption): @magna-carta/decryption wasm wrapper"
 ### Task 5: Worker route `POST /api/v1/decryption/inspect`
 
 **Files:**
+
 - Create: `apps/worker/src/routes/decryption.ts` (with `registerDecryptionRoutes(app, chokepoint)`; this task adds the inspect route, Task 6 adds unlock).
 - Modify: `apps/worker/src/app.ts` (import + call `registerDecryptionRoutes`).
 
 **Interfaces:**
+
 - Request (zod): `{ fileBase64: string; attestation: { authorized: true } }`. Response: `{ format: "pdf"|"zip"|"ooxml"; hash: string; hashcatMode: number }`.
 - RouteMeta: `permission: "tools:decryption"`, `surface: "app"`, `authenticated: true`, `resource: "firm"`, `audited: true`, `idempotency: "optional"`, `rateLimit: "expensive"`, `operationId: "decryption.inspect"`.
 
-- [ ] **Step 1:** read `apps/worker/src/routes/metadata.ts` (route shape, base64 chunked decode helpers) and `file-integrity.ts` (audit-statement write). 
+- [ ] **Step 1:** read `apps/worker/src/routes/metadata.ts` (route shape, base64 chunked decode helpers) and `file-integrity.ts` (audit-statement write).
 - [ ] **Step 2: write the failing route test** (`apps/worker/test/decryption-route.test.ts`, Miniflare): POST `/api/v1/decryption/inspect` with the PDF fixture base64 + `attestation.authorized=true` and a principal holding `tools:decryption` → 200 `{format:"pdf", hashcatMode:10500|..., hash:"$pdf$..."}`; without the permission → 403; missing/`false` attestation → 400 (a stable problem code).
 - [ ] **Step 3: run it, see it fail.**
 - [ ] **Step 4: implement** the route in `decryption.ts`: validate body, enforce a size cap (read the cap helper used by metadata/file-integrity, e.g. `readInspectableSizeCap`), decode base64 → bytes, call `@magna-carta/decryption` `ensureReady` + `extractHash`, map `ExtractError` codes → 400 problems (no content echoed), and on success write a redacted audit record (`event: "decryption.inspected"`, metadata: actor, `fileSha256` of the input, `format`, `outcome:"extracted"`, attestation) via `insertAuditLogStatement` + `commitEffectBatch`. Register `registerDecryptionRoutes` in `app.ts`.
@@ -143,12 +155,13 @@ git commit -m "feat(decryption): @magna-carta/decryption wasm wrapper"
 **Files:** Modify `apps/worker/src/routes/decryption.ts`, `apps/worker/test/decryption-route.test.ts`.
 
 **Interfaces:**
+
 - Request: `{ fileBase64: string; password: string; attestation: { authorized: true } }`. Response: `{ decryptedBase64: string; filenameHint?: string }`.
 - RouteMeta: same as inspect but `operationId: "decryption.unlock"`.
 
 - [ ] **Step 1: write the failing test:** unlock the PDF fixture with `password:"test"` + attestation + permission → 200, `decryptedBase64` decodes to bytes starting `%PDF`; wrong password → 400 `wrongPassword`; missing attestation → 400; no permission → 403. Assert an audit record is written (and that NO test asserts the password appears anywhere in the audit/response).
 - [ ] **Step 2: run, see fail.**
-- [ ] **Step 3: implement:** size cap → decode → `ensureReady` + `stripWithKey(bytes, password)`; map `DecryptError::WrongPassword→400 wrongPassword`, `NotEncrypted→400 notEncrypted`, `Unsupported→400`, `Malformed→400 malformed`; on success base64-encode the decrypted bytes. Write a redacted audit record (`event:"decryption.unlocked"`, metadata: actor, `fileSha256`, `format`, `outcome:"decrypted"`, attestation — **never** the password or any plaintext). 
+- [ ] **Step 3: implement:** size cap → decode → `ensureReady` + `stripWithKey(bytes, password)`; map `DecryptError::WrongPassword→400 wrongPassword`, `NotEncrypted→400 notEncrypted`, `Unsupported→400`, `Malformed→400 malformed`; on success base64-encode the decrypted bytes. Write a redacted audit record (`event:"decryption.unlocked"`, metadata: actor, `fileSha256`, `format`, `outcome:"decrypted"`, attestation — **never** the password or any plaintext).
 - [ ] **Step 4: run → pass**, `pnpm check`.
 - [ ] **Step 5: commit** `git commit -m "feat(decryption): POST /api/v1/decryption/unlock (strip-with-key, audited, redacted)"`
 
@@ -159,6 +172,7 @@ git commit -m "feat(decryption): @magna-carta/decryption wasm wrapper"
 **Files:** Modify `packages/tools/src/catalog.ts`.
 
 - [ ] **Step 1:** add one `ToolManifest` row (read the file + its `CLAUDE.md`):
+
 ```ts
 {
   id: "file-decryption",
@@ -171,6 +185,7 @@ git commit -m "feat(decryption): @magna-carta/decryption wasm wrapper"
   matterContext: "none",
 },
 ```
+
 - [ ] **Step 2:** run `pnpm --filter @magna-carta/tools test` (incl. the purity fitness test) + `pnpm check` → green.
 - [ ] **Step 3: commit** `git commit -m "feat(decryption): tools catalog manifest row"`
 
@@ -179,6 +194,7 @@ git commit -m "feat(decryption): @magna-carta/decryption wasm wrapper"
 ### Task 8: reconcile the conformance + provisioning test "unions"
 
 **Files (read each, update only what the new permission/routes require):**
+
 - `apps/worker/test/conformance.test.ts` — add `decryption.inspect` + `decryption.unlock` to the **committed-operations list** (sorted). They are `audited:true` → do **NOT** add them to `NON_MUTATING_POST_ALLOW_LIST`.
 - `apps/worker/test/auth-provisioning-e2e.test.ts` — add `"tools:decryption"` to the Owner/seeded permissions array (alphabetical); bump the expected `per_firm_schema_version` to the `0023` tag.
 - `packages/database/test/node-sqlite.test.ts`, `apps/worker/test/me.test.ts`, `apps/worker/test/firms.test.ts` — union `tools:decryption` into the exact role-grant/permission assertions (and the latest-migration-tag assertion) wherever they enumerate seeded permissions.
@@ -213,6 +229,7 @@ git commit -m "feat(decryption): @magna-carta/decryption wasm wrapper"
 ## Self-Review
 
 **Spec coverage (design §1 module placement, §2 core API surfacing, §5 data model, §6 auth boundary, §10 catalog):**
+
 - `packages/decryption` WASM wrapper → Tasks 1–2. ✓
 - Worker routes inspect+unlock → Tasks 5–6. ✓
 - `tools:decryption` permission + Owner/Admin seed → Tasks 3–4. ✓

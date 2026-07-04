@@ -31,6 +31,9 @@ function recorder(): { db: SqlDatabase; calls: { sql: string; args: unknown[] }[
         async all<T = Record<string, unknown>>() {
           return { results: [] as T[] };
         },
+        async first<T = Record<string, unknown>>() {
+          return null as T | null;
+        },
       };
       return stmt;
     },
