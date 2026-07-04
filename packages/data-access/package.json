@@ -35,7 +35,8 @@
     "./support-access-statements": "./src/support-access-statements.ts",
     "./firm-release-channel-statements": "./src/firm-release-channel-statements.ts",
     "./platform-operator-statements": "./src/platform-operator-statements.ts",
-    "./ai-detection-usage-statements": "./src/ai-detection-usage-statements.ts"
+    "./ai-detection-usage-statements": "./src/ai-detection-usage-statements.ts",
+    "./file-repair-provenance-statements": "./src/file-repair-provenance-statements.ts"
   },
   "scripts": {
     "test": "vp test run"

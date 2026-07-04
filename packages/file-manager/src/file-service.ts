@@ -147,29 +147,34 @@ export async function initiateUpload(
   });
 
   const statements: EffectWrite["statements"][number][] = [];
+
+  // A file's folder (when given) must belong to the target matter — enforced for BOTH a new file and a
+  // new version of an existing file, so a file can never be parented under another matter's folder
+  // (an unknown folder is a clean validation error, not an FK-violating insert).
+  if (input.folderId !== undefined && input.folderId !== null) {
+    const folderMatterId = await loadFolderMatter(database, input.folderId);
+    if (folderMatterId === undefined) {
+      throw new FileManagerValidationError("unknown-folder", `no such folder: ${input.folderId}`);
+    }
+    if (folderMatterId !== input.matterId) {
+      throw new FileManagerValidationError(
+        "file-cross-matter",
+        "a file's folder must belong to the same matter",
+      );
+    }
+  }
+
   let fileId: FileId;
   let versionNumber: number;
   if (input.fileId !== undefined) {
     const existing = await requireFile(database, input.fileId);
     // A new version rides the existing file's matter; a payload claiming a different matter is a
-    // mismatch (the folder/document-type fields below are validated against that same matter).
+    // mismatch (the folder is validated against that same matter above).
     if (existing.matterId !== input.matterId) {
       throw new FileManagerValidationError(
         "file-matter-mismatch",
         "the target file belongs to a different matter",
       );
-    }
-    if (input.folderId !== undefined && input.folderId !== null) {
-      const folderMatterId = await loadFolderMatter(database, input.folderId);
-      if (folderMatterId === undefined) {
-        throw new FileManagerValidationError("unknown-folder", `no such folder: ${input.folderId}`);
-      }
-      if (folderMatterId !== input.matterId) {
-        throw new FileManagerValidationError(
-          "file-cross-matter",
-          "a file's folder must belong to the same matter",
-        );
-      }
     }
     fileId = input.fileId;
     const { results } = await selectMaxVersionNumberStatement(database, fileId).all<{

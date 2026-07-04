@@ -61,6 +61,7 @@ export const PERMISSIONS = [
   "tools:metadataScrubber", // inspect/scrub a file's metadata & content artifacts (ephemeral, matter-free)
   "tools:fileIntegrity", // compute a file's cryptographic digests + verify a stored file against its ingest baseline
   "tools:fileTypeVerifier", // identify a file's true content type and flag/repair an extension mismatch
+  "tools:fileRepair", // recover content from a structurally corrupted / truncated / damaged file (stateless)
   // Custom fields — define and maintain field schemas; purge hard-deletes all values for a field.
   "customFields:manage",
   "customFields:purge",

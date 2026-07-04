@@ -107,6 +107,7 @@ describe("permission registry", () => {
       "tools:metadataScrubber",
       "tools:fileIntegrity",
       "tools:fileTypeVerifier",
+      "tools:fileRepair",
     ]);
   });
 
@@ -196,5 +197,9 @@ describe("permission registry", () => {
 
   it("registers the AI-text detection tool permission", () => {
     expect(isPermission("tools:aiTextDetection")).toBe(true);
+  });
+
+  it("registers the file-repair tool permission", () => {
+    expect(isPermission("tools:fileRepair")).toBe(true);
   });
 });

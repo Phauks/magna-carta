@@ -43,13 +43,14 @@ describe("tool catalog", () => {
       "file-decryption",
       "file-type-verifier",
       "ai-text-detection",
+      "file-repair",
     ]);
   });
 
   it("registers a matter-free, library-backed file converter", () => {
     const tool = CATALOG.find((entry) => entry.id === "file-converter");
     expect(tool).toBeDefined();
-    expect(tool?.subjectGroup).toBe("documents");
+    expect(tool?.subjectGroup).toBe("files");
     expect(tool?.backing).toEqual({ kind: "library" });
     expect(tool?.matterContext).toBe("none");
     expect(tool?.contextTags).toEqual(["none"]);
@@ -58,7 +59,7 @@ describe("tool catalog", () => {
   it("includes the AI-text detection tool backed by the ai-detection integration", () => {
     const tool = CATALOG.find((entry) => entry.id === "ai-text-detection");
     expect(tool).toBeDefined();
-    expect(tool?.subjectGroup).toBe("documents");
+    expect(tool?.subjectGroup).toBe("files");
     expect(tool?.backing).toEqual({ kind: "integration", category: "ai-detection" });
     expect(tool?.matterContext).toBe("optional");
   });

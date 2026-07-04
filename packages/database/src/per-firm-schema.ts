@@ -54,6 +54,7 @@ import type {
   PicklistOptionId,
   RateCardId,
   RateId,
+  RepairProvenanceId,
   RoleId,
   RolePermissionId,
   ShipmentId,
@@ -813,6 +814,24 @@ export const aiDetectionUsage = sqliteTable(
     createdAt: text("created_at").notNull(),
   },
   (table) => [index("ai_detection_usage_created_at_index").on(table.createdAt)],
+);
+
+// The honest provenance of a machine-reconstructed file version: the operation and the verbatim loss
+// manifest, so viewing the file surfaces "reconstructed — here is what was lost/synthesized". Firm
+// data (access-gated like the version it describes), never the redacted log pipeline. Keyed by the
+// file version it belongs to; a row's existence IS the "this version is a reconstruction" marker.
+export const fileRepairProvenance = sqliteTable(
+  "file_repair_provenance",
+  {
+    id: text("id").primaryKey().$type<RepairProvenanceId>(),
+    fileVersionId: text("file_version_id").notNull().$type<FileVersionId>(),
+    operation: text("operation", { enum: ["repair", "carve"] }).notNull(),
+    fullyRecovered: integer("fully_recovered").notNull(),
+    manifestJson: text("manifest_json").notNull(),
+    sourceMediaType: text("source_media_type"),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [index("file_repair_provenance_version_index").on(table.fileVersionId)],
 );
 
 // Per-firm key/value config (JSON values), read through a typed accessor with defaults in code: a
