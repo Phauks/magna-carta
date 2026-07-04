@@ -1,1 +1,174 @@
-{ "generatedAt": null, "profiles": [] }
+{
+  "generatedAt": "2026-07-04T09:05:00Z",
+  "note": "Measured on vast.ai via public dizcza/docker-hashcat + hashcat -b (v7.1.1, CUDA 13.0). bootSeconds approximate (manual run). RTX 4090 x4 failed to boot (per-host container error) \u2014 not recorded. RTX 5090 = best $/hash; H100 SXM = worst value (do not rent for hashcat).",
+  "profiles": [
+    {
+      "gpuName": "RTX 4090",
+      "gpuCount": 1,
+      "gpuRamMegabytes": 24564,
+      "dollarsPerHour": 0.391,
+      "bootSeconds": 120,
+      "throughput": [
+        {
+          "hashcatMode": 9600,
+          "hashesPerSecond": 57305
+        },
+        {
+          "hashcatMode": 10700,
+          "hashesPerSecond": 436775
+        },
+        {
+          "hashcatMode": 11600,
+          "hashesPerSecond": 2372228
+        },
+        {
+          "hashcatMode": 9400,
+          "hashesPerSecond": 745756
+        },
+        {
+          "hashcatMode": 9500,
+          "hashesPerSecond": 370413
+        },
+        {
+          "hashcatMode": 10500,
+          "hashesPerSecond": 151930830
+        },
+        {
+          "hashcatMode": 13600,
+          "hashesPerSecond": 16979827
+        },
+        {
+          "hashcatMode": 17200,
+          "hashesPerSecond": 531496521
+        }
+      ],
+      "measuredAt": "2026-07-04T09:01:00Z"
+    },
+    {
+      "gpuName": "RTX 4090",
+      "gpuCount": 2,
+      "gpuRamMegabytes": 24564,
+      "dollarsPerHour": 0.776,
+      "bootSeconds": 140,
+      "throughput": [
+        {
+          "hashcatMode": 9600,
+          "hashesPerSecond": 130446
+        },
+        {
+          "hashcatMode": 10700,
+          "hashesPerSecond": 989940
+        },
+        {
+          "hashcatMode": 11600,
+          "hashesPerSecond": 5079684
+        },
+        {
+          "hashcatMode": 9400,
+          "hashesPerSecond": 1726227
+        },
+        {
+          "hashcatMode": 9500,
+          "hashesPerSecond": 863045
+        },
+        {
+          "hashcatMode": 10500,
+          "hashesPerSecond": 340206147
+        },
+        {
+          "hashcatMode": 13600,
+          "hashesPerSecond": 41109198
+        },
+        {
+          "hashcatMode": 17200,
+          "hashesPerSecond": 1196502566
+        }
+      ],
+      "measuredAt": "2026-07-04T09:01:00Z"
+    },
+    {
+      "gpuName": "RTX 5090",
+      "gpuCount": 1,
+      "gpuRamMegabytes": 32607,
+      "dollarsPerHour": 0.418,
+      "bootSeconds": 120,
+      "throughput": [
+        {
+          "hashcatMode": 9600,
+          "hashesPerSecond": 89745
+        },
+        {
+          "hashcatMode": 10700,
+          "hashesPerSecond": 741866
+        },
+        {
+          "hashcatMode": 11600,
+          "hashesPerSecond": 3518194
+        },
+        {
+          "hashcatMode": 9400,
+          "hashesPerSecond": 1106743
+        },
+        {
+          "hashcatMode": 9500,
+          "hashesPerSecond": 556154
+        },
+        {
+          "hashcatMode": 10500,
+          "hashesPerSecond": 221945210
+        },
+        {
+          "hashcatMode": 13600,
+          "hashesPerSecond": 25867197
+        },
+        {
+          "hashcatMode": 17200,
+          "hashesPerSecond": 1022324252
+        }
+      ],
+      "measuredAt": "2026-07-04T09:01:00Z"
+    },
+    {
+      "gpuName": "H100 SXM",
+      "gpuCount": 1,
+      "gpuRamMegabytes": 81559,
+      "dollarsPerHour": 2.176,
+      "bootSeconds": 150,
+      "throughput": [
+        {
+          "hashcatMode": 9600,
+          "hashesPerSecond": 49451
+        },
+        {
+          "hashcatMode": 10700,
+          "hashesPerSecond": 225297
+        },
+        {
+          "hashcatMode": 11600,
+          "hashesPerSecond": 2133637
+        },
+        {
+          "hashcatMode": 9400,
+          "hashesPerSecond": 708445
+        },
+        {
+          "hashcatMode": 9500,
+          "hashesPerSecond": 354213
+        },
+        {
+          "hashcatMode": 10500,
+          "hashesPerSecond": 258211470
+        },
+        {
+          "hashcatMode": 13600,
+          "hashesPerSecond": 16890964
+        },
+        {
+          "hashcatMode": 17200,
+          "hashesPerSecond": 458947163
+        }
+      ],
+      "measuredAt": "2026-07-04T09:01:00Z"
+    }
+  ]
+}
