@@ -60,6 +60,7 @@
   --transition-duration-normal: 200ms;
   --transition-duration-signature: 500ms;
   --transition-duration-slow: 300ms;
+  --z-index-anchored: 1350;
   --z-index-base: 0;
   --z-index-dropdown: 1000;
   --z-index-modal: 1300;

@@ -30,7 +30,7 @@
     {sideOffset}
     {collisionPadding}
     class={mergeClasses(
-      floatingContentClasses("overlay", PRESENCE_FADE),
+      floatingContentClasses("anchored", PRESENCE_FADE),
       "mc-tooltip max-w-xs",
       className,
     )}

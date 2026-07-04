@@ -58,8 +58,22 @@ describe("Z_LAYER_CLASSES — the token z-scale", () => {
       "sticky",
       "overlay",
       "modal",
+      "anchored",
       "toast",
     ]);
+  });
+
+  it("the generated theme stacks the layers in the declared order", () => {
+    // The map's key order IS the stacking contract — pin it to the emitted numeric values so a
+    // token edit that reorders the scale (e.g. anchored slipping back beneath modal, the
+    // picker-inside-a-dialog defect) fails here, not in a browser.
+    const values = Object.keys(Z_LAYER_CLASSES).map((layer) => {
+      const match = generatedTheme.match(new RegExp(`--z-index-${layer}\\s*:\\s*(\\d+)\\s*;`));
+      expect(match, `--z-index-${layer} missing from the generated theme`).not.toBeNull();
+      return Number((match as RegExpMatchArray)[1]);
+    });
+    const sorted = [...values].sort((first, second) => first - second);
+    expect(values).toEqual(sorted);
   });
 
   it.each(Object.entries(Z_LAYER_CLASSES))(

@@ -44,12 +44,22 @@ export const FLOATING_WRAPPER_RULE =
  * `z-<number>` utilities are banned (an off-scale layer would stack
  * unpredictably against every existing surface), and Bits portals impose no
  * z-index of their own, so layering is owned entirely by these tokens.
+ *
+ * ANCHORED sits ABOVE MODAL (decided 2026-07-03, superseding the earlier
+ * dropdown-below-sticky workshop question): anchor-positioned floating content
+ * (listboxes, menus, popovers, tooltips) portals to the body, so a picker
+ * opened from INSIDE a dialog painted beneath the panel at the old dropdown
+ * layer — visible but unclickable, the panel intercepted the pointer. The
+ * Radix/Bits ecosystem norm is anchored content above dialogs; toast stays
+ * highest so notifications always win. The `dropdown` layer remains for
+ * non-anchored dropdown-like surfaces that should scroll under pinned bars.
  */
 export const Z_LAYER_CLASSES = {
   dropdown: "z-dropdown",
   sticky: "z-sticky",
   overlay: "z-overlay",
   modal: "z-modal",
+  anchored: "z-anchored",
   toast: "z-toast",
 } as const;
 

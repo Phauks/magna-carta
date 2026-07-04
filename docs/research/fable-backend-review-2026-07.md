@@ -61,6 +61,18 @@ payload carries explicit recipient member ids — the server validates each hold
 permission area. The UI already scopes requests per setting, shows the current value, and
 collects recipients, so the endpoint's payload should mirror exactly those fields.
 
+### No account activity-inventory endpoint (2026-07-03)
+
+The developer console's Resources module (and, plausibly, a future user-facing Activity
+surface) wants one member-readable answer to "what is Magna Carta doing for me right now":
+the account's active streams — open document-editing sessions (each is its own container),
+scans and conversions in flight, queued background jobs, pending uploads. Every piece is
+known somewhere server-side (editing session state, queue depth per consumer, job records);
+nothing aggregates it per member/firm. The UI ships the section as an honest seam until an
+endpoint exists. Server CPU/RAM is deliberately NOT requested — the Workers plane has no
+per-user resource meaning, and per-container stats are platform diagnostics for operators,
+not members.
+
 ### No bug-report ingest endpoint (2026-07-02)
 
 The profile menu's "Report a bug" dialog (`apps/web/src/lib/components/bug-report-dialog.svelte`)
