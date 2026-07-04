@@ -1,1 +1,0 @@
-ALTER TABLE `member` ADD `opted_out_of_usage_analytics` integer DEFAULT false NOT NULL;

@@ -14,6 +14,7 @@ import {
   listReachableActiveFirms,
   runScheduledSweep,
 } from "../src/scheduled.ts";
+import { controlPlaneHeadSchemaVersion } from "../src/control-plane-migrations.ts";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { seedFirm } from "./support/test-auth.ts";
@@ -354,10 +355,11 @@ describe("runScheduledSweep — control-plane migrations", () => {
     await runScheduledSweep(env);
     const probe = await env.DB_CONTROL.prepare("SELECT release_channel FROM firm LIMIT 1").all();
     expect(probe.success).toBe(true);
-    const applied = await env.DB_CONTROL.prepare(
-      "SELECT tag FROM _migrations WHERE tag = '0003_handy_rattler'",
-    ).first<{ tag: string }>();
-    expect(applied?.tag).toBe("0003_handy_rattler");
+    const head = controlPlaneHeadSchemaVersion();
+    const applied = await env.DB_CONTROL.prepare("SELECT tag FROM _migrations WHERE tag = ?")
+      .bind(head)
+      .first<{ tag: string }>();
+    expect(applied?.tag).toBe(head);
   });
 });
 
