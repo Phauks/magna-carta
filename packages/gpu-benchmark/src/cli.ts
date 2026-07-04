@@ -43,6 +43,10 @@ interface RigProfilesFile {
 interface ParsedArgs {
   readonly image: string;
   readonly gpu: string | undefined;
+  // `--reconcile` runs only the leaked-instance sweep and exits without renting anything — the
+  // manual pull of the dead-man's switch, for cleaning up after a crashed or killed run (whose
+  // `finally` sweep never got to run) without paying for a fresh benchmark.
+  readonly reconcileOnly: boolean;
 }
 
 /** Thrown for a malformed or incomplete command line — never a benchmark or vast.ai failure. */
@@ -61,6 +65,7 @@ export class CliUsageError extends Error {
 export function parseArgs(argv: string[]): ParsedArgs {
   let image: string | undefined;
   let gpu: string | undefined;
+  let reconcileOnly = false;
   for (let index = 0; index < argv.length; index++) {
     const token = argv[index];
     if (token === "--image") {
@@ -69,9 +74,15 @@ export function parseArgs(argv: string[]): ParsedArgs {
     } else if (token === "--gpu") {
       gpu = argv[index + 1];
       index++;
+    } else if (token === "--reconcile") {
+      reconcileOnly = true;
     }
   }
-  return { image: image === undefined || image === "" ? DEFAULT_BENCHMARK_IMAGE : image, gpu };
+  return {
+    image: image === undefined || image === "" ? DEFAULT_BENCHMARK_IMAGE : image,
+    gpu,
+    reconcileOnly,
+  };
 }
 
 /**
@@ -145,9 +156,24 @@ export async function main(argv: string[]): Promise<void> {
     throw new Error("VAST_API_KEY is required (set it in the environment before running the CLI)");
   }
 
-  const { image, gpu } = parseArgs(argv);
-  const targets = selectTargets(BENCHMARK_SHORTLIST, gpu);
+  const { image, gpu, reconcileOnly } = parseArgs(argv);
   const client = createVastClient(apiKey);
+
+  // Dead-man's switch, client side: a run that crashed or was killed never reached its `finally`
+  // teardown, so its rented rig can still be billing. `--reconcile` is the manual pull — sweep any
+  // leaked benchmark rig and exit, renting nothing. Selecting targets happens after this so the
+  // sweep runs even for an otherwise-invalid `--gpu`.
+  if (reconcileOnly) {
+    await reconcileLeakedInstances(client);
+    return;
+  }
+
+  const targets = selectTargets(BENCHMARK_SHORTLIST, gpu);
+
+  // Same switch, fired automatically at the top of every run: clear any orphan a previous crashed
+  // run left behind before renting more. Combined with the `finally` sweep below, this bounds a
+  // killed run's leak to "until the next run (or manual --reconcile)" instead of "until noticed".
+  await reconcileLeakedInstances(client);
 
   let profilesFile = await loadRigProfiles();
 
