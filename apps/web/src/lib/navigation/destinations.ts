@@ -33,6 +33,7 @@ import ShieldAlert from "@lucide/svelte/icons/shield-alert";
 import Wrench from "@lucide/svelte/icons/wrench";
 import MessageSquare from "@lucide/svelte/icons/message-square";
 import ChartColumn from "@lucide/svelte/icons/chart-column";
+import Sparkles from "@lucide/svelte/icons/sparkles";
 
 export type DestinationGroup = "top" | "money" | "practice" | "firm";
 
@@ -72,6 +73,18 @@ export const DESTINATION_GROUPS: ReadonlyArray<{ id: DestinationGroup; label: st
 export const DESTINATIONS: readonly Destination[] = [
   // Top — the owner's draft order: daily drivers, then the matter-work cluster.
   { id: "home", label: "Home", href: "/home", icon: House, group: "top", shipped: true },
+  {
+    // Magnus — the Magna Carta assistant. It will converse inside a matter and around the
+    // app, but this is its always-reachable home: one sidebar entry, easy to find at all
+    // times (owner-directed). A stub only until the assistant ships.
+    id: "magnus",
+    label: "Magnus",
+    href: "/magnus",
+    icon: Sparkles,
+    group: "top",
+    shipped: false,
+    announced: true,
+  },
   {
     id: "calendar",
     label: "Calendar",
