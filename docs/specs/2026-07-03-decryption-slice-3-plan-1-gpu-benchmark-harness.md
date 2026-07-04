@@ -337,23 +337,18 @@ describe("benchmarkOneRig", () => {
 Wire the driver into a runnable CLI, document the image publish + run, then execute a real benchmark to populate the profiles. The build/publish/run steps need Docker, a registry, and the vast.ai key — they are **owner ops steps**, marked as such.
 
 **Files:**
-- Create: `packages/gpu-benchmark/src/cli.ts` (reads `VAST_API_KEY`, `--image`, iterates `BENCHMARK_SHORTLIST`, writes `rig-profiles.json` via `upsertProfile`; real `CollectFn` = SSH exec reading the container stdout)
-- Create: `packages/gpu-benchmark/README.md` (the runbook)
-- Modify: `docs/research/gpu-recovery/rig-profiles.json` (populated by the run — committed by the owner after the run)
+- Create: `packages/gpu-benchmark/src/cli.ts` (reads `VAST_API_KEY`, `--image`, iterates `BENCHMARK_SHORTLIST`, writes `rig-profiles.json` via `upsertProfile`; the real `CollectFn` = SSH poll-and-read of the result file)
+- Create: `packages/gpu-benchmark/src/ssh-collect.ts` (the real `CollectFn` implementation — isolated so the CLI orchestration stays unit-testable with a fake)
+- The runbook README is **controller-authored** (`packages/gpu-benchmark/README.md`, serverless-registry walk-through) — the implementer does not write it.
+- Modify: `docs/research/gpu-recovery/rig-profiles.json` (populated by the owner run)
 
-- [ ] **Step 1: Implement `cli.ts`** — arg parse (`--image <ref>`, `--gpu <name>` optional single-rig), construct `createVastClient(process.env.VAST_API_KEY)`, loop the shortlist calling `benchmarkOneRig`, `upsertProfile` into the loaded table, write it back with a stamped `generatedAt`. The SSH `CollectFn` runs `nvidia-smi`-gated boot then reads `/opt/recovery-gpu` stdout — documented, not unit-tested.
-- [ ] **Step 2: Add a smoke test** — `test/cli.test.ts` asserts `cli.ts` exports `main` and refuses to run without `VAST_API_KEY` (throws a clear error). Run → PASS.
-- [ ] **Step 3: Write the runbook** in `README.md` — the **image build+publish decision** (recommend GitHub Container Registry `ghcr.io`; note this Docker image is *not* a Cloudflare Worker so it does not go through Workers Builds — the owner picks: build+push locally, or a minimal image-only CI; flag that this is the one artifact outside the Workers-Builds model). Exact commands:
+**Result-collection mechanism (the one ops-dependent piece):** rent the instance with an `onstart` that runs the benchmark to a file and keeps the box alive — `/opt/recovery-gpu/bench/run-benchmark.sh > /result.json 2>/benchmark.log; sleep infinity` — so the instance stays SSH-reachable after the benchmark finishes. The `CollectFn` SSHes to `sshHost:sshPort` (from `getInstance`) and polls `cat /result.json` until it parses as valid JSON (bounded retries), then returns it. This whole path is **validated + adjusted at the first real run** (SSH key setup, exact timing, whether the base image needs `sleep infinity` vs vast.ai's ssh runtype keeping it up) — write it best-effort with clear comments, it is not unit-testable here.
 
-```bash
-# Owner ops (needs Docker + a registry + the vast.ai key):
-docker build -f containers/recovery-gpu/Dockerfile -t ghcr.io/<org>/recovery-gpu:latest .
-docker push ghcr.io/<org>/recovery-gpu:latest
-VAST_API_KEY=... pnpm --filter @magna-carta/gpu-benchmark exec node dist/cli.js --image ghcr.io/<org>/recovery-gpu:latest
-```
-
-- [ ] **Step 4: Commit the code** (`cli.ts`, `cli.test.ts`, `README.md`): `feat(gpu-benchmark): benchmark CLI + ops runbook`
-- [ ] **Step 5 (owner ops): run the benchmark and commit the profiles** — after the owner publishes the image and runs the CLI against real rigs, commit the populated `docs/research/gpu-recovery/rig-profiles.json`: `chore(gpu-benchmark): record measured rig profiles`. These numbers finalize Stage 2's concrete tiers and offer selection.
+- [ ] **Step 1: Implement `cli.ts`** — arg parse (`--image <ref>`, `--gpu <name>` optional single-rig), `createVastClient(process.env.VAST_API_KEY)` (throw a clear error if unset), loop `BENCHMARK_SHORTLIST` (or the single `--gpu`) calling `benchmarkOneRig` with the SSH `CollectFn` and the `onstart` above, `upsertProfile` into the loaded `rig-profiles.json`, write it back with a stamped `generatedAt` (`new Date().toISOString()`). Put the SSH glue in `ssh-collect.ts`.
+- [ ] **Step 2: Add a smoke test** — `test/cli.test.ts` asserts `cli.ts` exports `main` and that `main` refuses to run without `VAST_API_KEY` (throws a clear error). Keep the orchestration testable by injecting a fake `CollectFn`/client where practical. Run → PASS.
+- [ ] **Step 3: (controller) author the serverless-registry runbook** in `README.md` — the owner chose to self-host the image on a Cloudflare **serverless-registry** (Workers + R2), pulling with **read-only credentials** passed to vast.ai. The runbook is a step-by-step walk-through (deploy the registry, build + push the image via its large-layer helper since CUDA layers exceed the 500 MB Worker limit, mint read-only pull creds, run the CLI, configure vast.ai's private-image auth). Controller-authored because it is verified-ops content + a live walk-through; not an implementer transcription task.
+- [ ] **Step 4: Commit the code** (`cli.ts`, `ssh-collect.ts`, `cli.test.ts`): `feat(gpu-benchmark): benchmark CLI + SSH collector`
+- [ ] **Step 5 (owner ops, controller-guided): deploy the registry, publish the image, run the benchmark, commit the profiles** — the owner performs the runbook (their Cloudflare account + Docker + the vast.ai key), guided live by the controller; the result-collection path is validated + adjusted against the first real rig here. Commit the populated `docs/research/gpu-recovery/rig-profiles.json`: `chore(gpu-benchmark): record measured rig profiles`. These numbers finalize Stage 2's concrete tiers and offer selection.
 
 ---
 
