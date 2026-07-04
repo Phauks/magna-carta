@@ -1294,6 +1294,19 @@ pub(crate) fn resolve_rotate(doc: &lopdf::Document, page_id: lopdf::ObjectId) ->
 /// Returning `Some` does not guarantee that all glyphs within `rects` were
 /// removed — an outcome gate in the caller verifies that. This function only
 /// refuses pages it structurally cannot handle.
+/// Whether lopdf can faithfully re-encode this content stream: encode, then re-decode,
+/// and the operation count is preserved. A re-encode that fails to re-decode counts as
+/// non-round-tripping. This is the production decision for op-path (round-trips) vs
+/// byte-path (does not).
+fn content_roundtrips(content: &Content) -> bool {
+    content
+        .encode()
+        .ok()
+        .and_then(|enc| Content::decode(&enc).ok())
+        .map(|c| c.operations.len() == content.operations.len())
+        .unwrap_or(false)
+}
+
 pub(crate) fn try_build_surgery(
     doc: &lopdf::Document,
     page_id: lopdf::ObjectId,
@@ -1322,14 +1335,7 @@ pub(crate) fn try_build_surgery(
     // Round-trip guard: can lopdf faithfully re-encode this whole stream? A re-encode
     // that fails to re-decode counts as "does not round-trip", same as a differing
     // operation count — both mean lopdf cannot faithfully represent this stream whole.
-    let roundtrips = content
-        .encode()
-        .ok()
-        .and_then(|enc| lopdf::content::Content::decode(&enc).ok())
-        .map(|c| c.operations.len() == content.operations.len())
-        .unwrap_or(false);
-
-    if roundtrips {
+    if content_roundtrips(&content) {
         // Op-path: rewrite the operation list and re-encode the whole stream.
         op_path_write(&content, &slots, &marked, &fonts, rects)
     } else {
@@ -1434,8 +1440,19 @@ pub fn compare_surgery_paths(
             _ => SurgeryDisposition::Flattened,
         }
     };
+    // Production only ever runs the op-path when the round-trip guard passes; on a
+    // guard-failing page it never runs the op-path at all (byte_path_write handles it
+    // instead). Mirror that here: a guard failure forces op_path to Flattened rather
+    // than gating whatever op_path_write happens to produce, so a stream lopdf silently
+    // truncated (and which the gate then can't see past) doesn't get misreported as
+    // Surgered.
+    let op_path = if content_roundtrips(&content) {
+        disposition(op_path_write(&content, &slots, &marked, &fonts, rects))
+    } else {
+        SurgeryDisposition::Flattened
+    };
     Some(SurgeryPathComparison {
-        op_path: disposition(op_path_write(&content, &slots, &marked, &fonts, rects)),
+        op_path,
         byte_path: disposition(byte_path_write(
             &raw, &content, &slots, &marked, &fonts, rects,
         )),
@@ -2489,16 +2506,9 @@ mod tests {
 
         // Confirm the round-trip guard would have tripped (precondition for the byte-path).
         // This fixture's re-encoded bytes fail to re-decode outright (not merely a
-        // differing operation count), so the check below mirrors the guard's own
-        // decode-failure-counts-as-no-round-trip logic rather than unwrapping the re-decode.
+        // differing operation count), which content_roundtrips treats as non-round-tripping.
         let content = lopdf::content::Content::decode(raw).unwrap();
-        let roundtrips = content
-            .encode()
-            .ok()
-            .and_then(|enc| lopdf::content::Content::decode(&enc).ok())
-            .map(|c| c.operations.len() == content.operations.len())
-            .unwrap_or(false);
-        assert!(!roundtrips, "guard must trip for this fixture");
+        assert!(!content_roundtrips(&content), "guard must trip for this fixture");
 
         let rects = [Rect { x0: -1.0, y0: -1.0, x1: 1000.0, y1: 1000.0 }];
         let out = try_build_surgery(&doc, page_id, &rects).expect("byte-path must surger");
@@ -2511,29 +2521,24 @@ mod tests {
         // Same inline-image fixture as the byte-splice tests above, redacted with a
         // full-page rect so the image also falls inside the redaction target.
         //
-        // Verified dispositions (not the naive "op-path always flattens when the
-        // round-trip guard would trip" assumption — see below):
-        //   - byte_path == Flattened: the byte-splice faithfully preserves the inline
-        //     image untouched, so the surgered candidate still has a real image sitting
-        //     under the redaction box. The outcome gate's image-cover check correctly
-        //     rejects this as recoverable (the pixels survive; deleting the box would
-        //     reveal them), so byte_path legitimately fails the gate here.
-        //   - op_path == Surgered, but NOT because op-path is safe: lopdf's whole-stream
-        //     `Content::encode()` cannot re-serialize this inline image at all and
-        //     silently collapses it to a bare `BI` operator with no dict/data/`EI`.
-        //     hayro's content-stream reader (hayro_syntax::content) treats `BI` as
-        //     requiring an immediately-following inline-image dictionary; when that read
-        //     fails it stops the instruction iterator entirely, so nothing from that
-        //     point on (including the very redaction box `apply_excision` appended) is
-        //     ever observed. The gate only checks for *surviving* violations, so an
-        //     image that silently vanished — rather than one that was safely removed —
-        //     is indistinguishable from a clean page and passes.
+        // The round-trip guard fails for this fixture (lopdf's whole-stream
+        // `Content::encode()` cannot faithfully re-serialize this inline image), so
+        // production would never run the op-path here — it forces a raster flatten
+        // instead. The diagnostic now mirrors that: op_path is reported as Flattened
+        // rather than gating whatever `op_path_write` happens to produce (which, left
+        // ungated, silently collapses the inline image to a bare `BI` operator that
+        // hayro's reader can't parse past — a truncation, not a safe removal — and
+        // could otherwise be misread by the gate as a clean, "Surgered" page).
         //
-        // This is itself a finding of the diagnostic: forcing the op-path past its
-        // round-trip guard is not just occasionally worse than the byte-path, it can
-        // look *safer* than the byte-path while actually destroying content the gate
-        // never gets a chance to inspect. The byte-path never has this failure mode —
-        // it only ever touches the bytes of operators it explicitly rewrites.
+        // byte_path == Flattened: the byte-splice faithfully preserves the inline
+        // image untouched, so the surgered candidate still has a real image sitting
+        // under the redaction box. The outcome gate's image-cover check correctly
+        // rejects this as recoverable (the pixels survive; deleting the box would
+        // reveal them), so byte_path legitimately fails the gate here.
+        //
+        // Net result: an inline image inside the redaction rect has no safe surgical
+        // path — both writers correctly fall back to Flattened, matching production's
+        // raster-flatten behavior for this page.
         let raw: &[u8] =
             b"BT /F1 12 Tf 0 0 Td (Hello) Tj ET\nq BI /W 2 /H 2 /CS /Weird /BPC 8 ID \x01\x02\x03\x04 EI Q";
         let (doc, _page_id) = crate::surgery::tests::doc_with_content(raw, "Helvetica");
@@ -2549,7 +2554,7 @@ mod tests {
             y1: 1000.0,
         }];
         let cmp = crate::surgery::compare_surgery_paths(&pdf, 0, &rects).unwrap();
-        assert_eq!(cmp.op_path, crate::surgery::SurgeryDisposition::Surgered);
+        assert_eq!(cmp.op_path, crate::surgery::SurgeryDisposition::Flattened);
         assert_eq!(cmp.byte_path, crate::surgery::SurgeryDisposition::Flattened);
     }
 
@@ -2558,10 +2563,16 @@ mod tests {
         // The realistic bar-A shape: redact only a name-sized region of text; an
         // unrelated inline image lives elsewhere on the page (translated away from the
         // target via `cm`), so it is neither excised nor covered by the redaction box.
-        // The byte-path surgers cleanly here (image preserved and clear of the rect);
-        // this is the scenario Task 4's byte-splice exists for — a page that used to
-        // force a full-page raster flatten (because ANY inline image tripped the
-        // round-trip guard) now keeps its live text and its unrelated image intact.
+        //
+        // The round-trip guard still fails for this fixture (same inline image lopdf
+        // cannot faithfully re-encode), so op_path == Flattened — production would
+        // never run the op-path here either. But the byte-path surgers cleanly: text
+        // in the rect is removed, the unrelated image outside the rect is preserved
+        // byte-identical, and the gate passes because nothing covering the redaction
+        // rect survives. This is the real `byte_path_recovers` case the byte-splice
+        // exists for — a page that used to force a full-page raster flatten (because
+        // ANY inline image tripped the round-trip guard) now keeps its live text and
+        // its unrelated image intact via the byte-path alone.
         let raw: &[u8] =
             b"BT /F1 12 Tf 0 0 Td (Hello) Tj ET\nq 1 0 0 1 300 300 cm BI /W 2 /H 2 /CS /Weird /BPC 8 ID \x01\x02\x03\x04 EI Q";
         let (doc, _page_id) = crate::surgery::tests::doc_with_content(raw, "Helvetica");
@@ -2578,6 +2589,7 @@ mod tests {
             y1: 20.0,
         }];
         let cmp = crate::surgery::compare_surgery_paths(&pdf, 0, &rects).unwrap();
+        assert_eq!(cmp.op_path, crate::surgery::SurgeryDisposition::Flattened);
         assert_eq!(cmp.byte_path, crate::surgery::SurgeryDisposition::Surgered);
     }
 }
