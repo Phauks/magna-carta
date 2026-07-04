@@ -1377,7 +1377,10 @@ fn byte_path_write(
 /// (`Surgered`) or had to be treated as unusable by the caller (`Flattened`). Used
 /// only by the diagnostic below — production redaction falls back to a real raster
 /// flatten, this enum just names the two outcomes for comparison purposes.
+///
+/// Diagnostic-only, not a supported engine type: eval-harness internal, hidden from docs.
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[doc(hidden)]
 pub enum SurgeryDisposition {
     Surgered,
     Flattened,
@@ -1385,16 +1388,34 @@ pub enum SurgeryDisposition {
 
 /// The op-path and byte-path writers' dispositions for one page, run independently
 /// of each other and of production `redact`'s single chosen path.
+///
+/// Diagnostic-only, not a supported engine type: eval-harness internal, hidden from docs.
+#[doc(hidden)]
 pub struct SurgeryPathComparison {
     pub op_path: SurgeryDisposition,
     pub byte_path: SurgeryDisposition,
 }
 
 /// Diagnostic: run BOTH writers on one page and report whether each produced a
-/// gate-passing stream. Bar-A confirmation and the bar-B decision are read off the
-/// aggregate of these across a corpus. `Surgered` = the writer produced a stream that
-/// passes the surgery outcome gate; otherwise `Flattened`. Returns `None` if the page
-/// cannot be loaded or enumerated at all (not a disposition — no comparison to make).
+/// gate-passing stream. The op-path/byte-path recovery comparison and the
+/// full-replacement-safety decision are read off the aggregate of these across a
+/// corpus. `Surgered` = the writer produced a stream that passes the surgery outcome
+/// gate; otherwise `Flattened`. Returns `None` if the page cannot be loaded or
+/// enumerated at all (not a disposition — no comparison to make).
+///
+/// Scope of what a green comparison actually proves: it rests on (a) gate-pass
+/// equivalence per page, checked independently for each writer, and (b) the fact
+/// that surviving-glyph layout is identical BY CONSTRUCTION whenever both writers
+/// surger the same page — both call the shared `op_replacements` to build the
+/// replacement operators, so a kept glyph ends up at the position that same
+/// replacement data dictates in the op-path and in the byte-spliced output alike.
+/// This function does not independently diff surviving-glyph positions between the
+/// two outputs. A `Surgered`/`Surgered` or `Flattened`/`Surgered` verdict means
+/// "the byte-path gate-passes wherever the op-path does, and shares the rewrite" —
+/// not "pixel-diffed equivalent."
+///
+/// Diagnostic-only, not a supported engine type: eval-harness internal, hidden from docs.
+#[doc(hidden)]
 pub fn compare_surgery_paths(
     pdf_bytes: &[u8],
     page: usize,
@@ -2560,7 +2581,8 @@ mod tests {
 
     #[test]
     fn compare_surgery_paths_recovers_when_image_is_outside_the_target() {
-        // The realistic bar-A shape: redact only a name-sized region of text; an
+        // The realistic case where the byte-path recovers a page the op-path would
+        // flatten: redact only a name-sized region of text; an
         // unrelated inline image lives elsewhere on the page (translated away from the
         // target via `cm`), so it is neither excised nor covered by the redaction box.
         //
