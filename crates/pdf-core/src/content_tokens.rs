@@ -71,6 +71,12 @@ fn skip_dict(bytes: &[u8], mut i: usize) -> Option<usize> {
         }
         else if bytes[i] == b'<' { i = skip_hex_string(bytes, i)?; }
         else if bytes[i] == b'(' { i = skip_literal_string(bytes, i)?; }
+        else if bytes[i] == b'%' {
+            // A comment runs to the next EOL and cannot itself contain a delimiter that
+            // closes the dict — mirror the top-level `tokenize` loop's handling so a
+            // stray '>' inside a comment never ends the dict early.
+            while i < bytes.len() && bytes[i] != b'\n' && bytes[i] != b'\r' { i += 1; }
+        }
         else { i += 1; }
     }
     None
@@ -87,6 +93,11 @@ fn skip_array(bytes: &[u8], mut i: usize) -> Option<usize> {
             b'(' => i = skip_literal_string(bytes, i)?,
             b'<' if bytes.get(i + 1) == Some(&b'<') => i = skip_dict(bytes, i)?,
             b'<' => i = skip_hex_string(bytes, i)?,
+            b'%' => {
+                // Same comment handling as `skip_dict`: run to EOL so a stray ']' inside
+                // a comment can't close the array early — parity with lopdf.
+                while i < bytes.len() && bytes[i] != b'\n' && bytes[i] != b'\r' { i += 1; }
+            }
             _ => i += 1,
         }
     }
@@ -115,10 +126,188 @@ fn is_number(word: &[u8]) -> bool {
         && word.iter().any(|b| b.is_ascii_digit())
 }
 
-/// After `BI` (starting scan at `after_bi`), advance past the inline image to just after
-/// its `EI` terminator. The `EI` must be whitespace-bounded on the left and followed by
-/// whitespace or end-of-stream. Returns `None` if no such `EI` is found.
-fn skip_inline_image(bytes: &[u8], after_bi: usize) -> Option<usize> {
+/// One value parsed while scanning an inline-image dict's `/Key value` pairs between
+/// `BI` and `ID`. Tagged by its exact PDF object kind because lopdf's own accessors
+/// (`as_i64`, `as_bool`, `as_name`) are strict — a `2.0` Real is not a `2` Integer, and a
+/// kind mismatch fails the whole lookup rather than coercing.
+#[derive(Debug, Clone, Copy)]
+enum InlineImageValue<'a> {
+    Boolean(bool),
+    Integer(i64),
+    Name(&'a [u8]),
+    Other,
+}
+
+/// Advance past whitespace and `%…eol` comments starting at `i`, mirroring lopdf's
+/// `space` combinator (used between the inline-image dict's keys, values, and `BI`/`ID`).
+fn skip_dict_space(bytes: &[u8], mut i: usize) -> usize {
+    loop {
+        while i < bytes.len() && is_whitespace(bytes[i]) { i += 1; }
+        if i < bytes.len() && bytes[i] == b'%' {
+            while i < bytes.len() && bytes[i] != b'\n' && bytes[i] != b'\r' { i += 1; }
+        } else {
+            return i;
+        }
+    }
+}
+
+/// Parse one PDF direct-object value starting at `i`, mirroring lopdf's `_direct_objects`
+/// alternation closely enough to classify the Boolean/Integer/Name kinds the inline-image
+/// keys below ever resolve to; anything else (string, hex string, array, dict, `null`) is
+/// skipped by byte span without needing its value.
+fn parse_inline_image_value(bytes: &[u8], i: usize) -> Option<(InlineImageValue<'_>, usize)> {
+    if i >= bytes.len() { return None; }
+    match bytes[i] {
+        b'(' => Some((InlineImageValue::Other, skip_literal_string(bytes, i)?)),
+        b'<' if bytes.get(i + 1) == Some(&b'<') => Some((InlineImageValue::Other, skip_dict(bytes, i)?)),
+        b'<' => Some((InlineImageValue::Other, skip_hex_string(bytes, i)?)),
+        b'[' => Some((InlineImageValue::Other, skip_array(bytes, i)?)),
+        b'/' => {
+            let end = skip_name(bytes, i);
+            Some((InlineImageValue::Name(&bytes[i + 1..end]), end))
+        }
+        _ => {
+            let (word, end) = read_bareword(bytes, i);
+            if end == i { return None; }
+            match word {
+                b"null" => Some((InlineImageValue::Other, end)),
+                b"true" => Some((InlineImageValue::Boolean(true), end)),
+                b"false" => Some((InlineImageValue::Boolean(false), end)),
+                _ if is_number(word) && !word.contains(&b'.') => std::str::from_utf8(word)
+                    .ok()?
+                    .parse::<i64>()
+                    .ok()
+                    .map(|n| (InlineImageValue::Integer(n), end)),
+                _ if is_number(word) => Some((InlineImageValue::Other, end)), // a Real
+                _ => None,
+            }
+        }
+    }
+}
+
+/// Metadata resolved from an inline-image dict, one slot per lopdf key pair. Each slot
+/// prefers the abbreviated spelling over the full one exactly as lopdf's own `get_abbr`
+/// does: if the abbreviation key is present at all, the full-name key is never even
+/// consulted, regardless of the abbreviation value's kind.
+struct InlineImageMetadata<'a> {
+    width: Option<InlineImageValue<'a>>,
+    height: Option<InlineImageValue<'a>>,
+    bits_per_component: Option<InlineImageValue<'a>>,
+    image_mask: Option<InlineImageValue<'a>>,
+    colorspace: Option<InlineImageValue<'a>>,
+    has_filter: bool,
+}
+
+/// Scan the `/Key value` pairs between `BI` and `ID`, returning the resolved metadata
+/// plus the byte index of `ID`'s `I`. Returns `None` when the dict portion never resolves
+/// to a literal `ID` — the caller falls back to the whitespace-bounded scan rather than
+/// guess, matching lopdf's own hard failure on such input.
+fn scan_inline_image_dict(bytes: &[u8], after_bi: usize) -> Option<(InlineImageMetadata<'_>, usize)> {
+    #[derive(Default, Clone, Copy)]
+    struct Slot<'a> {
+        abbrev: Option<InlineImageValue<'a>>,
+        full: Option<InlineImageValue<'a>>,
+    }
+    impl<'a> Slot<'a> {
+        fn resolved(self) -> Option<InlineImageValue<'a>> { self.abbrev.or(self.full) }
+    }
+
+    let mut width = Slot::default();
+    let mut height = Slot::default();
+    let mut bpc = Slot::default();
+    let mut image_mask = Slot::default();
+    let mut colorspace = Slot::default();
+    let mut has_filter = false;
+
+    let mut i = skip_dict_space(bytes, after_bi);
+    loop {
+        if bytes[i..].starts_with(b"ID") {
+            return Some((
+                InlineImageMetadata {
+                    width: width.resolved(),
+                    height: height.resolved(),
+                    bits_per_component: bpc.resolved(),
+                    image_mask: image_mask.resolved(),
+                    colorspace: colorspace.resolved(),
+                    has_filter,
+                },
+                i,
+            ));
+        }
+        if i >= bytes.len() || bytes[i] != b'/' { return None; }
+        let key_end = skip_name(bytes, i);
+        let key = &bytes[i + 1..key_end];
+        let value_start = skip_dict_space(bytes, key_end);
+        let (value, value_end) = parse_inline_image_value(bytes, value_start)?;
+        match key {
+            b"W" => width.abbrev = Some(value),
+            b"Width" => width.full = Some(value),
+            b"H" => height.abbrev = Some(value),
+            b"Height" => height.full = Some(value),
+            b"BPC" => bpc.abbrev = Some(value),
+            b"BitsPerComponent" => bpc.full = Some(value),
+            b"IM" => image_mask.abbrev = Some(value),
+            b"ImageMask" => image_mask.full = Some(value),
+            b"CS" => colorspace.abbrev = Some(value),
+            b"ColorSpace" => colorspace.full = Some(value),
+            b"F" | b"Filter" => has_filter = true,
+            _ => {}
+        }
+        i = skip_dict_space(bytes, value_end);
+    }
+}
+
+/// Number of color components for a recognized inline-image colorspace name — exactly
+/// lopdf's own recognized set. An unrecognized name (including `Pattern`, which lopdf
+/// explicitly rejects) must fall through to the whitespace-bounded scan rather than be
+/// guessed at, or this tokenizer would introduce a divergence of its own.
+fn inline_image_num_colors(colorspace: &[u8]) -> Option<usize> {
+    match colorspace {
+        b"DeviceGray" | b"Gray" => Some(1),
+        b"DeviceRGB" | b"RGB" => Some(3),
+        b"DeviceRGBA" | b"RGBA" => Some(4),
+        b"DeviceCMYK" | b"CMYK" => Some(4),
+        _ => None,
+    }
+}
+
+/// Compute the exact end of an inline image's data plus its `EI` terminator from the
+/// dict's resolved metadata, mirroring lopdf's `image_data_stream`: `stride = ceil(W *
+/// numColors * BPC / 8)`, `length = H * stride`, and only when no `/Filter` key is
+/// present (lopdf treats *any* Filter value as unimplemented there and falls back to its
+/// own whitespace scan). `data_start` is the index just past `ID` and its separating
+/// whitespace. Returns `None` when the metadata doesn't support this path — one of
+/// lopdf's own `Err` branches — so the caller falls back to the whitespace scan too.
+fn exact_inline_image_end(bytes: &[u8], data_start: usize, meta: &InlineImageMetadata) -> Option<usize> {
+    if meta.has_filter { return None; }
+    let width = match meta.width { Some(InlineImageValue::Integer(n)) => n as usize, _ => return None };
+    let height = match meta.height { Some(InlineImageValue::Integer(n)) => n as usize, _ => return None };
+    let bpc = match meta.bits_per_component { Some(InlineImageValue::Integer(n)) => n as usize, _ => return None };
+    let num_colors = if matches!(meta.image_mask, Some(InlineImageValue::Boolean(true))) {
+        1usize
+    } else {
+        match meta.colorspace {
+            Some(InlineImageValue::Name(name)) => inline_image_num_colors(name)?,
+            _ => return None,
+        }
+    };
+    let bits = width.checked_mul(num_colors)?.checked_mul(bpc)?;
+    let stride = bits.checked_add(7)?.checked_div(8)?;
+    let length = height.checked_mul(stride)?;
+    let data_end = data_start.checked_add(length)?;
+    if data_end > bytes.len() { return None; }
+    let mut i = data_end;
+    // lopdf's `content_space` immediately before `EI` recognizes only " \t\r\n" — no
+    // comments, no NUL/FF — narrower than this module's general `is_whitespace`.
+    while i < bytes.len() && matches!(bytes[i], b' ' | b'\t' | b'\r' | b'\n') { i += 1; }
+    if bytes[i..].starts_with(b"EI") { Some(i + 2) } else { None }
+}
+
+/// The whitespace-bounded `EI` scan: the `EI` must be whitespace-bounded on the left and
+/// followed by whitespace or end-of-stream. This is lopdf's own fallback whenever it
+/// cannot resolve an exact byte length for the inline-image data (metadata missing,
+/// colorspace unrecognized, or a `/Filter` present).
+fn whitespace_scan_inline_image_end(bytes: &[u8], after_bi: usize) -> Option<usize> {
     let mut i = after_bi;
     while i + 1 < bytes.len() {
         let at_boundary = i == 0 || is_whitespace(bytes[i - 1]);
@@ -130,6 +319,25 @@ fn skip_inline_image(bytes: &[u8], after_bi: usize) -> Option<usize> {
         i += 1;
     }
     None
+}
+
+/// After `BI` (starting scan at `after_bi`), advance past the inline image to just after
+/// its `EI` terminator. Mirrors lopdf's `image_data_stream`: when the dict between `BI`
+/// and `ID` resolves W/H/BPC and a recognized colorspace (or `/ImageMask true`) with no
+/// `/Filter`, the data span is computed as an exact byte length so an embedded `EI`-like
+/// byte sequence in the pixel data can't end the image early; otherwise this falls back
+/// to the whitespace-bounded `EI` scan, exactly as lopdf does on its own `Err` path.
+fn skip_inline_image(bytes: &[u8], after_bi: usize) -> Option<usize> {
+    if let Some((meta, id_start)) = scan_inline_image_dict(bytes, after_bi) {
+        let mut data_start = id_start + 2; // past "ID"
+        while data_start < bytes.len() && matches!(bytes[data_start], b' ' | b'\t' | b'\r' | b'\n') {
+            data_start += 1;
+        }
+        if let Some(end) = exact_inline_image_end(bytes, data_start, &meta) {
+            return Some(end);
+        }
+    }
+    whitespace_scan_inline_image_end(bytes, after_bi)
 }
 
 pub(crate) fn tokenize(bytes: &[u8]) -> Option<Vec<RawToken>> {
@@ -227,6 +435,27 @@ mod tests {
     }
 
     #[test]
+    fn comment_inside_array_is_skipped() {
+        // A ']' inside a comment must not close the array early; parity with lopdf.
+        let raw = b"BT [(a) 1 % ]not real\n (b)] TJ ET";
+        let toks = tokenize(raw).unwrap();
+        assert_eq!(toks.iter().map(|t| t.operator.clone()).collect::<Vec<_>>(),
+                   vec![b"BT".to_vec(), b"TJ".to_vec(), b"ET".to_vec()]);
+        // and count parity with lopdf on the same stream:
+        assert_eq!(toks.len(), lopdf::content::Content::decode(raw).unwrap().operations.len());
+    }
+
+    #[test]
+    fn comment_inside_dict_is_skipped() {
+        // A '>' inside a comment must not close the dict early; parity with lopdf.
+        let raw = b"<< /A 1 % >> not real\n /B 2 >> BDC";
+        let toks = tokenize(raw).unwrap();
+        assert_eq!(toks.iter().map(|t| t.operator.clone()).collect::<Vec<_>>(),
+                   vec![b"BDC".to_vec()]);
+        assert_eq!(toks.len(), lopdf::content::Content::decode(raw).unwrap().operations.len());
+    }
+
+    #[test]
     fn inline_image_is_one_opaque_bi_token_spanning_to_ei() {
         let raw = b"q BI /W 2 /H 2 /CS /G ID \x00\xFF\x10\x20 EI Q";
         let toks = tokenize(raw).unwrap();
@@ -234,6 +463,36 @@ mod tests {
                    vec![b"q".to_vec(), b"BI".to_vec(), b"Q".to_vec()]);
         let bi = toks.iter().find(|t| t.operator == b"BI").unwrap();
         assert_eq!(&raw[bi.start..bi.end], b"BI /W 2 /H 2 /CS /G ID \x00\xFF\x10\x20 EI");
+    }
+
+    #[test]
+    fn inline_image_exact_length_skips_fake_ei_in_pixel_data() {
+        // W=2 H=2 BPC=8 CS=RGB -> stride = ceil(2*3*8/8) = 6, length = 2*6 = 12 bytes.
+        // The pixel data itself contains a whitespace-bounded "EI" that the old
+        // whitespace-only heuristic would have stopped at; the exact-length path (lopdf's
+        // own behavior for a recognized colorspace with no /Filter) must skip past it and
+        // land on the real terminator instead.
+        let data: &[u8] = b"\x01\x02\x03 EI \x04\x05\x06\x07\x08";
+        assert_eq!(data.len(), 12);
+
+        let mut raw = b"q ".to_vec();
+        let bi_start = raw.len();
+        raw.extend_from_slice(b"BI /W 2 /H 2 /BPC 8 /CS /RGB ID ");
+        raw.extend_from_slice(data);
+        raw.extend_from_slice(b" EI");
+        let bi_end = raw.len();
+        raw.extend_from_slice(b" Q");
+
+        let toks = tokenize(&raw).unwrap();
+        assert_eq!(toks.iter().map(|t| t.operator.clone()).collect::<Vec<_>>(),
+                   vec![b"q".to_vec(), b"BI".to_vec(), b"Q".to_vec()]);
+
+        let bi = toks.iter().find(|t| t.operator == b"BI").unwrap();
+        assert_eq!(bi.start, bi_start);
+        assert_eq!(bi.end, bi_end);
+        assert_eq!(&raw[bi.start..bi.end], &raw[bi_start..bi_end]);
+
+        assert_eq!(toks.len(), lopdf::content::Content::decode(&raw).unwrap().operations.len());
     }
 
     #[test]
