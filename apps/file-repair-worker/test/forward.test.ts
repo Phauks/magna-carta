@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { forwardRecovery } from "../src/forward.ts";
+import { forwardFileRepair } from "../src/forward.ts";
 
 // A minimal fake container: the real recovery engine image cannot run under the local test pool, and
-// forwardRecovery needs only a { fetch } object.
+// forwardFileRepair needs only a { fetch } object.
 function fakeContainer(response: Response): { fetch(req: Request): Promise<Response> } {
   return { fetch: async () => response };
 }
 
-describe("forwardRecovery", () => {
+describe("forwardFileRepair", () => {
   it("targets the operation path at the container and returns the JSON body verbatim", async () => {
     let capturedUrl: string | undefined;
     const container = {
@@ -19,14 +19,14 @@ describe("forwardRecovery", () => {
         });
       },
     };
-    const request = new Request("http://recovery-worker/diagnose", {
+    const request = new Request("http://file-repair-worker/diagnose", {
       method: "POST",
       body: new Uint8Array([0x25, 0x50, 0x44, 0x46]),
       duplex: "half",
     } as RequestInit & { duplex: "half" });
 
-    const response = await forwardRecovery(request, "/diagnose", container);
-    expect(capturedUrl).toBe("http://recovery/diagnose");
+    const response = await forwardFileRepair(request, "/diagnose", container);
+    expect(capturedUrl).toBe("http://file-repair/diagnose");
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ recoverability: "repairable" });
   });
@@ -38,8 +38,8 @@ describe("forwardRecovery", () => {
         headers: { "Content-Type": "application/json" },
       }),
     );
-    const request = new Request("http://recovery-worker/repair", { method: "POST", body: "x" });
-    const response = await forwardRecovery(request, "/repair", container);
+    const request = new Request("http://file-repair-worker/repair", { method: "POST", body: "x" });
+    const response = await forwardFileRepair(request, "/repair", container);
     expect(response.status).toBe(422);
     expect(await response.json()).toEqual({ code: "unrepairable" });
   });
@@ -53,9 +53,9 @@ describe("forwardRecovery", () => {
           return new Response("{}", { status: 200, headers: { "Content-Type": "application/json" } });
         },
       };
-      const request = new Request(`http://recovery-worker${op}`, { method: "POST", body: "bytes" });
-      await forwardRecovery(request, op, container);
-      expect(capturedUrl).toBe(`http://recovery${op}`);
+      const request = new Request(`http://file-repair-worker${op}`, { method: "POST", body: "bytes" });
+      await forwardFileRepair(request, op, container);
+      expect(capturedUrl).toBe(`http://file-repair${op}`);
     }
   });
 });

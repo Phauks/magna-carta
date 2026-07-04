@@ -1,19 +1,19 @@
 [package]
-name = "magna-carta-recovery"
+name = "magna-carta-file-repair"
 version = "0.0.0"
 edition = "2021"
 publish = false
 
 [lib]
-name = "magna_carta_recovery"
+name = "magna_carta_file_repair"
 path = "src/lib.rs"
 
 [[bin]]
-name = "magna-carta-recovery"
+name = "magna-carta-file-repair"
 path = "src/main.rs"
 
 [dependencies]
-# The shared container host skeleton (/ready, body cap, panic net, :8080 serve). recovery is the first
+# The shared container host skeleton (/ready, body cap, panic net, :8080 serve). file-repair is the first
 # container to build on the harness; raster/scan predate it and hand-rolled axum.
 engine_host = { path = "../../crates/engine-host", package = "magna-carta-engine-host" }
 # The repair/salvage engine — diagnose/repair/carve. Pure, I/O-free; this host owns all HTTP/JSON.

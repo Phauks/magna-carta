@@ -1,5 +1,5 @@
 {
-  "name": "@magna-carta/recovery-worker",
+  "name": "@magna-carta/file-repair-worker",
   "version": "0.0.0",
   "private": true,
   "type": "module",

@@ -1,4 +1,4 @@
-//! The JSON wire contract for the recovery container. Serde-serializable
+//! The JSON wire contract for the file-repair container. Serde-serializable
 //! mirrors of the engine's pure model types, plus the one-way conversions from
 //! `recovery_core` values. This module is the only place a human-readable string
 //! is assigned to an enum: every mapping below is a fixed `&'static str`, never

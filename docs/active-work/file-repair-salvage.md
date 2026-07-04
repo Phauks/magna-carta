@@ -15,7 +15,7 @@ Design: `docs/specs/2026-06-28-file-repair-salvage-design.md`. Research: `docs/r
 
 - `crates/recovery-core/**` (Rust engine on the engine-host harness — **native only**; the WASM lane was
   dropped, so Plan 6 also removes the crate's vestigial wasm32-compile support — `getrandom/wasm_js` pin + gate step)
-- `containers/recovery/**` (native container = the **single** repair lane; axum on the harness `/diagnose|/repair|/carve`)
+- `containers/file-repair/**` (native container = the **single** repair lane; axum on the harness `/diagnose|/repair|/carve`)
 - the main worker: `/api/tools/file-repair` (stateless) + `/api/tools/file-repair/attach` routes; repaired/carved
   output is re-scanned through the malware gate before it leaves (both paths)
 - `packages/tools/src/{types.ts,catalog.ts}` — **rename** the `documents` subject group to `files` (it is already the
@@ -41,7 +41,7 @@ Recovery") is a separate branch.
 ## Status — SP2 built (2026-07-03)
 
 Both plans landed on this branch:
-- **6a (stateless):** `containers/recovery` + `apps/recovery-worker` + `RECOVERY_SERVICE` + `documents→files` rename + `tools:fileRepair` (seed `0035`) + stateless routes with re-scan-and-withhold; single Container lane (WASM dropped); `engine-host` R2 client gated behind an opt-in `r2` feature so recovery links no `ring` C dep.
+- **6a (stateless):** `containers/file-repair` + `apps/file-repair-worker` + `FILE_REPAIR_SERVICE` + `documents→files` rename + `tools:fileRepair` (seed `0035`) + stateless routes with re-scan-and-withhold; single Container lane (WASM dropped); `engine-host` R2 client gated behind an opt-in `r2` feature so recovery links no `ring` C dep.
 - **6b (attach-to-matter):** `file_repair_provenance` per-firm table (migration `0036`) + data-access statements + `{repair,carve}/attach` routes (server-side upload riding the ingest gate) + dual permission gate + `file.repaired`/`file.carved` audit + flagged→quarantine test + contract regen.
 
 **Owed at merge (this branch is ~68 behind `main` — several latent failures already surfaced and were fixed on-branch; a `main` sync is overdue before merge):**

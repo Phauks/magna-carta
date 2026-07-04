@@ -116,13 +116,13 @@ export default {
 };
 `;
 
-// Stub for the magna-carta-recovery service binding in tests — no real recovery worker runs under the
+// Stub for the magna-carta-file-repair service binding in tests — no real recovery worker runs under the
 // local pool. Returns a canned diagnosis for /diagnose; for /repair, a RepairResult with one
 // reconstructed file; for /carve, a RepairResult with multiple files to exercise the N-file loop.
 // Bytes carry the scan malware marker only when the input asked for it (input contains "TRIGGERMALWARE"),
 // and a 422 { code } when the input asks to be unrepairable ("UNREPAIRABLE").
 // This lets the route tests drive the happy path, the unrepairable path, and the re-scan withhold path.
-const RECOVERY_SERVICE_STUB_SCRIPT = `
+const FILE_REPAIR_SERVICE_STUB_SCRIPT = `
 export default {
   async fetch(request) {
     const url = new URL(request.url);
@@ -207,8 +207,8 @@ export default defineConfig({
       remoteBindings: false,
       // Four service bindings in wrangler.jsonc reference dedicated workers that do not run under the
       // local pool — magna-carta-scan (SCAN_SERVICE), magna-carta-convert (CONVERT), magna-carta-bundle
-      // (BUNDLE_SERVICE), and magna-carta-recovery (RECOVERY_SERVICE). Miniflare requires all to exist,
-      // so register minimal stubs. The scan stub returns the no-engine RawScanResult (an honest
+      // (BUNDLE_SERVICE), and magna-carta-file-repair (FILE_REPAIR_SERVICE). Miniflare requires all to
+      // exist, so register minimal stubs. The scan stub returns the no-engine RawScanResult (an honest
       // unscanned, never a fake clean, plus a malware-marker branch for the file-repair re-scan test);
       // the convert stub only satisfies startup validation (conversion tests inject fakes directly); the
       // recovery stub returns canned diagnose/repair/carve JSON so the file-repair route tests drive the
@@ -231,9 +231,9 @@ export default defineConfig({
             script: BUNDLE_SERVICE_STUB_SCRIPT,
           },
           {
-            name: "magna-carta-recovery",
+            name: "magna-carta-file-repair",
             modules: true,
-            script: RECOVERY_SERVICE_STUB_SCRIPT,
+            script: FILE_REPAIR_SERVICE_STUB_SCRIPT,
           },
         ],
       },

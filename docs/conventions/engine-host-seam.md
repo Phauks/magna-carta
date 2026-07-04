@@ -31,7 +31,7 @@ the runtime seam. Home of the design: `docs/specs/2026-06-28-engine-host-framewo
 ## Hosting a pure-Rust engine in a Container
 
 The reference shape for standing an engine up as a native Container service, so the
-next engine copies it instead of re-deriving it. `containers/recovery` (File Repair)
+next engine copies it instead of re-deriving it. `containers/file-repair` (File Repair)
 is the first engine built to this pattern; `raster`/`scan`/`bundle` predate the harness
 and hand-roll their axum, and are the retrofit targets, not the pattern to copy.
 
@@ -72,5 +72,5 @@ and hand-roll their axum, and are the retrofit targets, not the pattern to copy.
   proxy. The app worker reaches it through a `services` binding, never a `getContainer` call
   of its own — the app worker holds only the binding.
 - **Future work (do not build now):** the four near-identical container workers
-  (`convert`/`scan`/`bundle`/`recovery`) share enough that a `container-worker` base is worth
+  (`convert`/`scan`/`bundle`/`file-repair`) share enough that a `container-worker` base is worth
   extracting once they converge — a later program-scope consolidation, not a per-engine cost.

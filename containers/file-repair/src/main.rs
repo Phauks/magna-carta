@@ -5,7 +5,7 @@
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
     let app = engine_host::host::with_panic_net(engine_host::host::ready_app(
-        magna_carta_recovery::router(),
+        magna_carta_file_repair::router(),
     ));
     engine_host::host::serve(app).await
 }

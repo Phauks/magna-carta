@@ -1,19 +1,19 @@
 import { getContainer } from "@cloudflare/containers";
-import { forwardRecovery } from "./forward.ts";
+import { forwardFileRepair } from "./forward.ts";
 
-// The recovery worker's runtime bindings. Stateless: no D1, R2, or Queues. The only binding is the
+// The file-repair worker's runtime bindings. Stateless: no D1, R2, or Queues. The only binding is the
 // engine Container Durable Object. Reached only via a service binding from the app worker — no public
 // routes, so the service binding is the trust boundary.
 export type Bindings = {
-  // The pure-Rust recovery engine Container (Container-backed Durable Object). Named in
+  // The pure-Rust file-repair engine Container (Container-backed Durable Object). Named in
   // wrangler.jsonc's durable_objects.bindings + migrations; the class is re-exported below so the
   // runtime can instantiate it.
-  RECOVERY_ENGINE: DurableObjectNamespace<
-    import("./recovery-engine-container.ts").RecoveryEngineContainer
+  FILE_REPAIR_ENGINE: DurableObjectNamespace<
+    import("./file-repair-engine-container.ts").FileRepairEngineContainer
   >;
 };
 
-export { RecoveryEngineContainer } from "./recovery-engine-container.ts";
+export { FileRepairEngineContainer } from "./file-repair-engine-container.ts";
 
 // The three engine operations this worker proxies to the Container. Anything else is a 404.
 const OPERATIONS = new Set(["/diagnose", "/repair", "/carve"]);
@@ -28,7 +28,11 @@ export default {
   async fetch(request: Request, env: Bindings): Promise<Response> {
     const url = new URL(request.url);
     if (request.method === "POST" && OPERATIONS.has(url.pathname)) {
-      return forwardRecovery(request, url.pathname, getContainer(env.RECOVERY_ENGINE, "recovery"));
+      return forwardFileRepair(
+        request,
+        url.pathname,
+        getContainer(env.FILE_REPAIR_ENGINE, "file-repair"),
+      );
     }
     return new Response("Not Found", { status: 404 });
   },

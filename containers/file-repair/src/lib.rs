@@ -1,4 +1,4 @@
-//! The recovery container's HTTP surface: three POST routes that hand a request
+//! The file-repair container's HTTP surface: three POST routes that hand a request
 //! body to the pure `recovery_core` engine and marshal the result to JSON. All
 //! I/O and wire concerns live here; the engine stays pure and serde-free. The
 //! standard `/ready` probe and body cap are added by

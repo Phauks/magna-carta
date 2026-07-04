@@ -45,7 +45,7 @@ function bytesToStream(bytes: Uint8Array): ReadableStream<Uint8Array> {
 }
 
 // The recovery container's JSON wire contract (camelCase), validated at the trust boundary before it
-// is handed back. Mirrors containers/recovery/src/dto.rs.
+// is handed back. Mirrors containers/file-repair/src/dto.rs.
 const DiagnosisReportSchema = z
   .object({
     detectedFormat: z.string().nullable(),
@@ -160,7 +160,7 @@ export async function dispatchToRecovery(
       }),
     };
   }
-  const service = c.env.RECOVERY_SERVICE;
+  const service = c.env.FILE_REPAIR_SERVICE;
   if (service === undefined) {
     return {
       ok: false,
