@@ -117,11 +117,14 @@ ${DARK_VARIABLES}
   }
 }
 /* Text-size ladder: every text size below is in rem, so stepping the root font-size scales the
-   whole page. Standard is the browser default (16px root); the button in the header cycles the
-   data-text stamp (persisted, applied pre-paint by the boot script). The no-JS baseline is the
-   browser's own zoom — the page is fully readable without the button. */
-:root[data-text="large"] { font-size: 18px; }
-:root[data-text="larger"] { font-size: 20px; }
+   whole page. Standard sits one step above the browser default — percentages, so a reader's
+   own configured base is respected rather than overridden (106.25% = 17px on the common 16px
+   default) — and the header button cycles the data-text stamp (persisted, applied pre-paint by
+   the boot script) through the 17 / 19 / 21px equivalents. The no-JS baseline is the browser's
+   own zoom — the page is fully readable without the button. */
+:root { font-size: 106.25%; }
+:root[data-text="large"] { font-size: 118.75%; }
+:root[data-text="larger"] { font-size: 131.25%; }
 * { margin: 0; box-sizing: border-box; }
 body {
   font-family: var(--sans);
@@ -139,15 +142,15 @@ a { color: inherit; }
 }
 .num { font-variant-numeric: tabular-nums; }
 
-/* the centered measure */
+/* The centered measure: substantially wider than the genre's ~900px letterbox, but still a
+   measure — fluid viewport-relative gutters keep it off the screen edges, and the extra width
+   is spent on breathing room (wider column gap, roomier rows), never on more density (the
+   original full-width complaint was density, not width). */
 .col {
-  max-width: 920px;
+  max-width: 1320px;
   margin: 0 auto;
-  padding-left: 36px;
-  padding-right: 36px;
-}
-@media (max-width: 680px) {
-  .col { padding-left: 18px; padding-right: 18px; }
+  padding-left: clamp(20px, 5vw, 72px);
+  padding-right: clamp(20px, 5vw, 72px);
 }
 
 /* top bar — the app's brand lockup (inline-SVG glyph + letterspaced wordmark), quiet otherwise */
@@ -241,8 +244,9 @@ button.icon-button:not(:disabled):hover { color: var(--text); }
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
-  /* Wide enough that the country popup can show the longest country names without clipping. */
-  width: 320px;
+  /* Wide enough that the country popup can show the longest country names without clipping;
+     rem so the panel grows with the text-size ladder instead of squeezing its controls. */
+  width: min(20rem, 90vw);
   background: var(--card);
   border: 1px solid var(--hair-strong);
   border-radius: 6px;
@@ -486,10 +490,13 @@ button.icon-button:not(:disabled):hover { color: var(--text); }
 .chip.info { border-color: var(--info-fg); color: var(--info-fg); background: var(--info-bg); }
 .chip.ok { border-color: var(--ok-fg); color: var(--ok-fg); background: var(--ok-bg); }
 .affected { color: var(--subtle); font-size: 0.75rem; }
-.update { display: grid; grid-template-columns: 110px 104px 1fr; gap: 12px; padding: 8px 0; }
+.update { display: grid; grid-template-columns: 7rem 6.5rem 1fr; gap: 12px; padding: 8px 0; }
 .update + .update { border-top: 1px solid var(--hair); }
 .update .t { font-family: var(--mono); font-size: 0.75rem; color: var(--muted); padding-top: 1px; }
 .update .phase { padding-top: 2px; color: var(--muted); }
+/* Update bodies are the page's only real prose: they keep a readable line length inside the
+   wider measure — unbounded 1300px prose lines are hard to track back to the left edge. */
+.update > span:last-child { max-width: 72ch; }
 @media (max-width: 680px) {
   .update { grid-template-columns: 84px 1fr; }
   .update .phase { display: none; }
@@ -512,10 +519,11 @@ button.icon-button:not(:disabled):hover { color: var(--text); }
 .grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  column-gap: 44px;
+  /* The wider measure is spent here: a generous inter-column channel, not more density. */
+  column-gap: clamp(44px, 7vw, 110px);
 }
 @media (max-width: 680px) { .grid { grid-template-columns: 1fr; } }
-.row { padding: 14px 0 13px; border-bottom: 1px solid var(--hair); }
+.row { padding: 16px 0 15px; border-bottom: 1px solid var(--hair); }
 .row .line { display: flex; align-items: center; gap: 10px; }
 .row .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
 .row .name { font-weight: 600; }

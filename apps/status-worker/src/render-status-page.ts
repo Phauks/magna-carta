@@ -15,7 +15,12 @@ import type {
   Provider,
   ProviderStatus,
 } from "@magna-carta/status";
-import { COUNTRY_DIAL_CODES, nationalNumberShapeFor } from "./country-dial-codes.ts";
+import {
+  COUNTRY_DIAL_CODES,
+  examplePlaceholderFor,
+  formatNationalDigits,
+  nationalNumberShapeFor,
+} from "./country-dial-codes.ts";
 import { STYLES_ASSET_PATH } from "./page-styles.ts";
 
 // The published schema exports the snapshot type; its member shapes are addressed from it so
@@ -187,15 +192,21 @@ function renderCountryOptions(): string {
   // United States carries the static selected attribute (a sensible no-script default for the
   // current audience); when scripts run, the enhancement script re-selects from the browser
   // locale's region, so most readers land on their own country without touching the list.
-  // Each option carries its national-number shape (data-groups / data-max) so the
-  // format-as-you-type enhancement reads everything from the selected option.
+  // Each option carries its national-number shape (data-groups / data-max) plus its example
+  // placeholder, which is rendered through the SAME formatter as live typing
+  // (country-dial-codes.ts examplePlaceholderFor), so the example beside the country can never
+  // disagree with what typing produces.
   return COUNTRY_DIAL_CODES.map((country) => {
     const shape = nationalNumberShapeFor(country);
     const groupsAttribute =
       shape.groups === undefined ? "" : ` data-groups="${shape.groups.join("-")}"`;
-    return `<option value="${escapeHtml(country.dial)}" data-region="${escapeHtml(country.region)}"${groupsAttribute} data-max="${shape.maxDigits}"${country.region === "US" ? " selected" : ""}>${escapeHtml(country.name)} (${escapeHtml(country.dial)})</option>`;
+    return `<option value="${escapeHtml(country.dial)}" data-region="${escapeHtml(country.region)}"${groupsAttribute} data-max="${shape.maxDigits}" data-placeholder="${escapeHtml(examplePlaceholderFor(country))}"${country.region === "US" ? " selected" : ""}>${escapeHtml(country.name)} (${escapeHtml(country.dial)})</option>`;
   }).join("\n");
 }
+
+// The static placeholder for the no-script baseline comes from the same example pipeline.
+const US_COUNTRY = COUNTRY_DIAL_CODES.find((country) => country.region === "US");
+const DEFAULT_PHONE_PLACEHOLDER = US_COUNTRY === undefined ? "" : examplePlaceholderFor(US_COUNTRY);
 
 function renderSubscribeControl(activeEvent: PublishedEvent | null): string {
   // The subscribe front door: the bell opens a real panel in its final anatomy, but nothing here
@@ -256,7 +267,7 @@ function renderSubscribeControl(activeEvent: PublishedEvent | null): string {
 <select id="subscribe-country" class="subscribe-country" aria-label="Country code" title="United States (+1)">
 ${renderCountryOptions()}
 </select>
-<input id="subscribe-phone" class="subscribe-input" type="tel" name="phone" autocomplete="tel-national" inputmode="tel" pattern="[0-9 ]{4,17}" placeholder="555 010 0123">
+<input id="subscribe-phone" class="subscribe-input" type="tel" name="phone" autocomplete="tel-national" inputmode="tel" pattern="[0-9 ]{4,17}" placeholder="${escapeHtml(DEFAULT_PHONE_PLACEHOLDER)}">
 </div>
 </div>
 <span class="dead"><button type="button" class="subscribe-submit" disabled title="Subscribe — soon">Subscribe</button></span>
@@ -606,33 +617,27 @@ const ENHANCEMENT_SCRIPT = `<script>
       }
     }
 
-    // Digits-only national number, grouped as the selected country typically writes it (from
-    // the option's data attributes). Presentational convenience only — the backend validates
-    // for real when the subscribe endpoint lands.
+    // Digits-only national number, grouped for EVERY country: the table's national shape where
+    // known, the generic readability fallback otherwise. The formatter below is the exact
+    // unit-tested function from country-dial-codes.ts, injected verbatim.
+    var formatNationalDigits = ${formatNationalDigits.toString()};
     var phoneInput = document.getElementById("subscribe-phone");
     var formatPhone = function () {
       if (!phoneInput || !countrySelect) return;
       var selected = countrySelect.options[countrySelect.selectedIndex];
       var maxDigits = parseInt((selected && selected.getAttribute("data-max")) || "12", 10);
       var digits = phoneInput.value.replace(/\\D/g, "").slice(0, maxDigits);
-      var groupsAttribute = selected && selected.getAttribute("data-groups");
-      if (!groupsAttribute) {
-        phoneInput.value = digits;
-        return;
-      }
-      var groups = groupsAttribute.split("-");
-      var parts = [];
-      var position = 0;
-      for (var groupIndex = 0; groupIndex < groups.length && position < digits.length; groupIndex += 1) {
-        var groupSize = parseInt(groups[groupIndex], 10);
-        parts.push(digits.slice(position, position + groupSize));
-        position += groupSize;
-      }
-      phoneInput.value = parts.join(" ");
+      phoneInput.value = formatNationalDigits(digits, selected && selected.getAttribute("data-groups"));
+      // The example follows the same formatter (stamped server-side from the same function),
+      // so the placeholder can never disagree with live typing.
+      var placeholder = selected && selected.getAttribute("data-placeholder");
+      if (placeholder) phoneInput.placeholder = placeholder;
     };
     if (phoneInput && countrySelect) {
       phoneInput.addEventListener("input", formatPhone);
       countrySelect.addEventListener("change", formatPhone);
+      // Align value and placeholder with the (possibly locale-preselected) country at load.
+      formatPhone();
     }
 
     // The country control upgrades to a compact listbox: the CLOSED control shows only

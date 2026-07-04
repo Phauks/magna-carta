@@ -1,6 +1,11 @@
 import { env, SELF } from "cloudflare:test";
 import { beforeEach, describe, expect, test } from "vitest";
 import { STATUS_KV_KEYS, type PublishedSnapshot } from "@magna-carta/status";
+import {
+  COUNTRY_DIAL_CODES,
+  examplePlaceholderFor,
+  formatNationalNumber,
+} from "../src/country-dial-codes.ts";
 import { FONT_ASSET_PATH, PAGE_CSS, STYLES_ASSET_PATH } from "../src/page-styles.ts";
 import { renderStatusPage } from "../src/render-status-page.ts";
 
@@ -412,6 +417,46 @@ describe("renderStatusPage", () => {
     expect(html).toContain("&lt;script&gt;alert(1)&lt;/script&gt;");
     // An unknown affected id stays visible (escaped) instead of silently vanishing.
     expect(html).toContain("not-a-component-&lt;b&gt;");
+  });
+});
+
+describe("formatNationalNumber (the exact function injected into the page script)", () => {
+  test("every country formats: national shapes where known, generic fallback otherwise", () => {
+    // Table-known national groupings.
+    expect(formatNationalNumber("US", "2025550123")).toBe("202 555 0123");
+    expect(formatNationalNumber("FR", "0612345678")).toBe("06 12 34 56 78");
+    expect(formatNationalNumber("AU", "412345678")).toBe("412 345 678");
+    expect(formatNationalNumber("JP", "09012345678")).toBe("090 1234 5678");
+    expect(formatNationalNumber("IN", "9876543210")).toBe("98765 43210");
+    expect(formatNationalNumber("MX", "5512345678")).toBe("55 1234 5678");
+    expect(formatNationalNumber("BR", "11987654321")).toBe("11 98765 4321");
+    // Irregular-plan countries get the generic readability fallback (threes with a two-to-four
+    // final group), never an unbroken wall.
+    expect(formatNationalNumber("GB", "2079460958")).toBe("207 946 0958");
+    expect(formatNationalNumber("DE", "15123456789")).toBe("151 234 567 89");
+    // A country outside the shape table entirely still formats via the fallback.
+    expect(formatNationalNumber("IS", "5551234")).toBe("555 1234");
+    // Digit cap and non-digit stripping.
+    expect(formatNationalNumber("US", "202-555-0123-9999")).toBe("202 555 0123");
+    expect(formatNationalNumber("US", "")).toBe("");
+  });
+
+  test("placeholders come from the same formatter, so example and typing cannot disagree", () => {
+    const byRegion = new Map(COUNTRY_DIAL_CODES.map((country) => [country.region, country]));
+    const unitedStates = byRegion.get("US");
+    const france = byRegion.get("FR");
+    const germany = byRegion.get("DE");
+    if (!unitedStates || !france || !germany) throw new Error("registry entry missing");
+    // NANP keeps the classic fictional 555 pattern; others are sequential shape-length runs.
+    expect(examplePlaceholderFor(unitedStates)).toBe("555 010 0123");
+    expect(examplePlaceholderFor(france)).toBe("12 34 56 78 90");
+    expect(examplePlaceholderFor(germany)).toBe("123 456 789 01");
+    // Every country produces a grouped, non-empty example.
+    for (const country of COUNTRY_DIAL_CODES) {
+      const placeholder = examplePlaceholderFor(country);
+      expect(placeholder.length).toBeGreaterThan(0);
+      expect(placeholder).toContain(" ");
+    }
   });
 });
 

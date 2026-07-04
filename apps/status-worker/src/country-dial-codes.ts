@@ -323,3 +323,72 @@ export const COUNTRY_DIAL_CODES: readonly CountryDialCode[] = [
   { name: "Zambia", dial: "+260", region: "ZM" },
   { name: "Zimbabwe", dial: "+263", region: "ZW" },
 ];
+
+// ---------------------------------------------------------------------------
+// national-number formatting (pure; shared verbatim with the browser)
+
+// EVERY country formats: the table's national grouping where known, otherwise a generic
+// readability fallback — chunks of three with a two-to-four digit final group — so no country
+// ever types an unbroken digit wall. The fallback is a readability device, not a national
+// claim; the backend owns real validation when the subscribe endpoint lands.
+//
+// This function is injected into the page script via Function.prototype.toString, so the exact
+// code under unit test is the code that runs in the browser. Keep it fully self-contained (no
+// imports, no closures, no template literals) and plain enough to survive transpilation intact.
+export function formatNationalDigits(digits: string, groupsAttribute: string | null): string {
+  const cleaned = digits.replace(/\D/g, "");
+  if (cleaned === "") return "";
+  let groups: number[];
+  if (groupsAttribute) {
+    groups = groupsAttribute.split("-").map(function (part) {
+      return parseInt(part, 10);
+    });
+  } else {
+    groups = [];
+    let remaining = cleaned.length;
+    while (remaining > 4) {
+      groups.push(3);
+      remaining -= 3;
+    }
+    groups.push(remaining);
+  }
+  const parts: string[] = [];
+  let position = 0;
+  for (let index = 0; index < groups.length && position < cleaned.length; index += 1) {
+    const groupSize = groups[index] as number;
+    parts.push(cleaned.slice(position, position + groupSize));
+    position += groupSize;
+  }
+  // Digits beyond the declared groups stay visible rather than silently vanishing.
+  if (position < cleaned.length) parts.push(cleaned.slice(position));
+  return parts.join(" ");
+}
+
+// Test- and server-facing entry: resolve a region's shape, cap to its digit limit, format.
+export function formatNationalNumber(region: string, digits: string): string {
+  const country = COUNTRY_DIAL_CODES.find((entry) => entry.region === region);
+  const shape =
+    country === undefined
+      ? { maxDigits: DEFAULT_MAX_NATIONAL_DIGITS }
+      : nationalNumberShapeFor(country);
+  const capped = digits.replace(/\D/g, "").slice(0, shape.maxDigits);
+  return formatNationalDigits(capped, shape.groups === undefined ? null : shape.groups.join("-"));
+}
+
+// Representative example digits for a country's placeholder, derived from the shape itself so
+// the example can never disagree with the typing behavior: the classic fictional 555 pattern
+// for NANP, and a plain sequential run at the shape's length elsewhere (obviously an example,
+// never a real-looking published number).
+export function exampleNationalDigitsFor(country: CountryDialCode): string {
+  if (country.dial === "+1") return "5550100123";
+  const shape = nationalNumberShapeFor(country);
+  const length =
+    shape.groups === undefined
+      ? shape.maxDigits
+      : shape.groups.reduce((total, group) => total + group, 0);
+  return "123456789012345".slice(0, length);
+}
+
+export function examplePlaceholderFor(country: CountryDialCode): string {
+  return formatNationalNumber(country.region, exampleNationalDigitsFor(country));
+}
