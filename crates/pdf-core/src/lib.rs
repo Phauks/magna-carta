@@ -36,6 +36,7 @@ mod secure;
 pub use secure::{secure, SecureOptions, WriteAlgorithm};
 
 mod surgery;
+pub use surgery::{compare_surgery_paths, SurgeryDisposition, SurgeryPathComparison};
 
 mod content_tokens;
 

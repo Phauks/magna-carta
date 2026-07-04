@@ -1331,16 +1331,115 @@ pub(crate) fn try_build_surgery(
 
     if roundtrips {
         // Op-path: rewrite the operation list and re-encode the whole stream.
-        let mut edited = content;
-        apply_excision(&mut edited, &slots, &marked, &fonts, rects);
-        edited.encode().ok()
+        op_path_write(&content, &slots, &marked, &fonts, rects)
     } else {
         // Byte-path: copy the original bytes and re-encode only the edited operators,
         // so inline images and exotic constructs pass through byte-identical.
-        let replacements = op_replacements(&content, &slots, &marked, &fonts);
-        let boxes = fill_box_operations(rects);
-        build_byte_splice(&raw, &content.operations, &replacements, &boxes)
+        byte_path_write(&raw, &content, &slots, &marked, &fonts, rects)
     }
+}
+
+/// Run the op-path writer (whole-stream re-encode) on one page, ignoring the round-trip
+/// guard. Returns the surgered bytes, or None if it cannot produce a stream.
+fn op_path_write(
+    content: &Content,
+    slots: &[GlyphSlot],
+    marked: &[usize],
+    fonts: &BTreeMap<Vec<u8>, FontMetrics>,
+    rects: &[Rect],
+) -> Option<Vec<u8>> {
+    let mut edited = content.clone();
+    apply_excision(&mut edited, slots, marked, fonts, rects);
+    edited.encode().ok()
+}
+
+/// Run the byte-path writer on one page. Returns the spliced bytes, or None on desync.
+fn byte_path_write(
+    raw: &[u8],
+    content: &Content,
+    slots: &[GlyphSlot],
+    marked: &[usize],
+    fonts: &BTreeMap<Vec<u8>, FontMetrics>,
+    rects: &[Rect],
+) -> Option<Vec<u8>> {
+    let replacements = op_replacements(content, slots, marked, fonts);
+    let boxes = fill_box_operations(rects);
+    build_byte_splice(raw, &content.operations, &replacements, &boxes)
+}
+
+/// Whether one writer's candidate stream ended up preserving live text/vectors
+/// (`Surgered`) or had to be treated as unusable by the caller (`Flattened`). Used
+/// only by the diagnostic below — production redaction falls back to a real raster
+/// flatten, this enum just names the two outcomes for comparison purposes.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum SurgeryDisposition {
+    Surgered,
+    Flattened,
+}
+
+/// The op-path and byte-path writers' dispositions for one page, run independently
+/// of each other and of production `redact`'s single chosen path.
+pub struct SurgeryPathComparison {
+    pub op_path: SurgeryDisposition,
+    pub byte_path: SurgeryDisposition,
+}
+
+/// Diagnostic: run BOTH writers on one page and report whether each produced a
+/// gate-passing stream. Bar-A confirmation and the bar-B decision are read off the
+/// aggregate of these across a corpus. `Surgered` = the writer produced a stream that
+/// passes the surgery outcome gate; otherwise `Flattened`. Returns `None` if the page
+/// cannot be loaded or enumerated at all (not a disposition — no comparison to make).
+pub fn compare_surgery_paths(
+    pdf_bytes: &[u8],
+    page: usize,
+    rects: &[Rect],
+) -> Option<SurgeryPathComparison> {
+    let doc = lopdf::Document::load_mem(pdf_bytes).ok()?;
+    let page_id = *doc.get_pages().get(&((page + 1) as u32))?;
+    let raw = doc.get_page_content(page_id).ok()?;
+    let content = lopdf::content::Content::decode(&raw).ok()?;
+    let fonts = page_fonts(&doc, page_id);
+    let [llx, lly, _, _] = resolve_mediabox(&doc, page_id)?;
+    if resolve_rotate(&doc, page_id).rem_euclid(360) != 0 {
+        return None;
+    }
+    let slots = enumerate_page_glyphs(
+        &content,
+        &fonts,
+        kurbo::Affine::translate((-llx as f64, -lly as f64)),
+    )
+    .ok()?;
+    let marked = mark_in_rects(&slots, rects);
+
+    // Assemble a hayro probe by installing `candidate` as the page's content stream.
+    let build_probe = |candidate: &[u8]| -> Option<hayro::hayro_syntax::Pdf> {
+        let mut probe_doc = doc.clone(); // lopdf Document::clone is deep
+        let content_id = probe_doc.add_object(lopdf::Stream::new(
+            lopdf::Dictionary::new(),
+            candidate.to_vec(),
+        ));
+        probe_doc
+            .get_dictionary_mut(page_id)
+            .ok()?
+            .set("Contents", lopdf::Object::Reference(content_id));
+        let mut bytes = Vec::new();
+        probe_doc.save_to(&mut bytes).ok()?;
+        hayro::hayro_syntax::Pdf::new(bytes).ok()
+    };
+    let disposition = |candidate: Option<Vec<u8>>| -> SurgeryDisposition {
+        match candidate.as_deref().and_then(build_probe) {
+            Some(probe) if crate::redact::surgery_candidate_passes_gate(&probe, page, rects) => {
+                SurgeryDisposition::Surgered
+            }
+            _ => SurgeryDisposition::Flattened,
+        }
+    };
+    Some(SurgeryPathComparison {
+        op_path: disposition(op_path_write(&content, &slots, &marked, &fonts, rects)),
+        byte_path: disposition(byte_path_write(
+            &raw, &content, &slots, &marked, &fonts, rects,
+        )),
+    })
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -2405,5 +2504,80 @@ mod tests {
         let out = try_build_surgery(&doc, page_id, &rects).expect("byte-path must surger");
         assert!(out.windows(4).any(|w| w == b"\x01\x02\x03\x04"), "inline image preserved");
         assert!(!out.windows(5).any(|w| w == b"Hello"), "text removed");
+    }
+
+    #[test]
+    fn compare_surgery_paths_reports_both_writers() {
+        // Same inline-image fixture as the byte-splice tests above, redacted with a
+        // full-page rect so the image also falls inside the redaction target.
+        //
+        // Verified dispositions (not the naive "op-path always flattens when the
+        // round-trip guard would trip" assumption — see below):
+        //   - byte_path == Flattened: the byte-splice faithfully preserves the inline
+        //     image untouched, so the surgered candidate still has a real image sitting
+        //     under the redaction box. The outcome gate's image-cover check correctly
+        //     rejects this as recoverable (the pixels survive; deleting the box would
+        //     reveal them), so byte_path legitimately fails the gate here.
+        //   - op_path == Surgered, but NOT because op-path is safe: lopdf's whole-stream
+        //     `Content::encode()` cannot re-serialize this inline image at all and
+        //     silently collapses it to a bare `BI` operator with no dict/data/`EI`.
+        //     hayro's content-stream reader (hayro_syntax::content) treats `BI` as
+        //     requiring an immediately-following inline-image dictionary; when that read
+        //     fails it stops the instruction iterator entirely, so nothing from that
+        //     point on (including the very redaction box `apply_excision` appended) is
+        //     ever observed. The gate only checks for *surviving* violations, so an
+        //     image that silently vanished — rather than one that was safely removed —
+        //     is indistinguishable from a clean page and passes.
+        //
+        // This is itself a finding of the diagnostic: forcing the op-path past its
+        // round-trip guard is not just occasionally worse than the byte-path, it can
+        // look *safer* than the byte-path while actually destroying content the gate
+        // never gets a chance to inspect. The byte-path never has this failure mode —
+        // it only ever touches the bytes of operators it explicitly rewrites.
+        let raw: &[u8] =
+            b"BT /F1 12 Tf 0 0 Td (Hello) Tj ET\nq BI /W 2 /H 2 /CS /Weird /BPC 8 ID \x01\x02\x03\x04 EI Q";
+        let (doc, _page_id) = crate::surgery::tests::doc_with_content(raw, "Helvetica");
+        let mut pdf = Vec::new();
+        {
+            let mut d = doc;
+            d.save_to(&mut pdf).unwrap();
+        }
+        let rects = [Rect {
+            x0: -1.0,
+            y0: -1.0,
+            x1: 1000.0,
+            y1: 1000.0,
+        }];
+        let cmp = crate::surgery::compare_surgery_paths(&pdf, 0, &rects).unwrap();
+        assert_eq!(cmp.op_path, crate::surgery::SurgeryDisposition::Surgered);
+        assert_eq!(cmp.byte_path, crate::surgery::SurgeryDisposition::Flattened);
+    }
+
+    #[test]
+    fn compare_surgery_paths_recovers_when_image_is_outside_the_target() {
+        // The realistic bar-A shape: redact only a name-sized region of text; an
+        // unrelated inline image lives elsewhere on the page (translated away from the
+        // target via `cm`), so it is neither excised nor covered by the redaction box.
+        // The byte-path surgers cleanly here (image preserved and clear of the rect);
+        // this is the scenario Task 4's byte-splice exists for — a page that used to
+        // force a full-page raster flatten (because ANY inline image tripped the
+        // round-trip guard) now keeps its live text and its unrelated image intact.
+        let raw: &[u8] =
+            b"BT /F1 12 Tf 0 0 Td (Hello) Tj ET\nq 1 0 0 1 300 300 cm BI /W 2 /H 2 /CS /Weird /BPC 8 ID \x01\x02\x03\x04 EI Q";
+        let (doc, _page_id) = crate::surgery::tests::doc_with_content(raw, "Helvetica");
+        let mut pdf = Vec::new();
+        {
+            let mut d = doc;
+            d.save_to(&mut pdf).unwrap();
+        }
+        // Cover only the "Hello" text near the origin; well clear of the image at (300,300).
+        let rects = [Rect {
+            x0: -1.0,
+            y0: -1.0,
+            x1: 50.0,
+            y1: 20.0,
+        }];
+        let cmp = crate::surgery::compare_surgery_paths(&pdf, 0, &rects).unwrap();
+        assert_eq!(cmp.byte_path, crate::surgery::SurgeryDisposition::Surgered);
     }
 }
