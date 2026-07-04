@@ -14,7 +14,6 @@ describe("vast-client", () => {
             num_gpus: 1,
             gpu_ram: 24576,
             dph_total: 0.4,
-            inet_down: 900,
             reliability: 0.99,
             verification: "verified",
           },
@@ -29,7 +28,6 @@ describe("vast-client", () => {
       gpuCount: 1,
       gpuRamMegabytes: 24576,
       dollarsPerHour: 0.4,
-      internetDownMbps: 900,
       reliability: 0.99,
       verified: true,
     });
@@ -45,7 +43,6 @@ describe("vast-client", () => {
             num_gpus: 1,
             gpu_ram: 24576,
             dph_total: 0.4,
-            inet_down: 900,
             reliability: 0.99,
             verification: "unverified",
           },
@@ -66,7 +63,6 @@ describe("vast-client", () => {
             num_gpus: 1,
             gpu_ram: 24576,
             dph_total: 0.4,
-            inet_down: 900,
             reliability: 0.99,
             verification: "verified",
           },
@@ -113,8 +109,8 @@ describe("vast-client", () => {
     const fetchImpl = vi.fn().mockResolvedValue(
       jsonResponse({
         instances: [
-          { id: 1, actual_status: "loading", ssh_host: null, ssh_port: null },
-          { id: 777, actual_status: "running", ssh_host: "1.2.3.4", ssh_port: 22222 },
+          { id: 1, actual_status: "loading" },
+          { id: 777, actual_status: "running" },
         ],
       }),
     );
@@ -122,8 +118,6 @@ describe("vast-client", () => {
     expect(status).toEqual({
       status: "running",
       statusMsg: null,
-      sshHost: "1.2.3.4",
-      sshPort: 22222,
     });
     expect(fetchImpl).toHaveBeenCalledWith(
       "https://console.vast.ai/api/v1/instances/",
@@ -139,8 +133,6 @@ describe("vast-client", () => {
             id: 777,
             actual_status: "exited",
             status_msg: "OCI runtime create failed: unable to start container process",
-            ssh_host: null,
-            ssh_port: null,
           },
         ],
       }),

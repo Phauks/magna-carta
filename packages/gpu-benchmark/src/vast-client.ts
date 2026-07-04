@@ -12,7 +12,6 @@ export interface VastOffer {
   readonly gpuCount: number;
   readonly gpuRamMegabytes: number;
   readonly dollarsPerHour: number;
-  readonly internetDownMbps: number;
   readonly reliability: number;
   readonly verified: boolean;
 }
@@ -31,8 +30,6 @@ export interface VastInstanceHandle {
 export interface VastInstanceStatus {
   readonly status: string;
   readonly statusMsg: string | null;
-  readonly sshHost: string | null;
-  readonly sshPort: number | null;
 }
 
 /**
@@ -76,7 +73,6 @@ const vastOfferWireSchema = z.object({
   num_gpus: z.number(),
   gpu_ram: z.number(),
   dph_total: z.number(),
-  inet_down: z.number(),
   reliability: z.number(),
   // vast.ai's marketplace search does not return a `verified` boolean: it returns
   // `verification`, a string that reads "verified" for a verified host. Some offers omit
@@ -100,8 +96,6 @@ const vastInstanceWireSchema = z.object({
   id: z.number(),
   actual_status: z.string().nullish(),
   status_msg: z.string().nullish(),
-  ssh_host: z.string().nullish(),
-  ssh_port: z.number().nullish(),
   label: z.string().nullish(),
 });
 
@@ -120,7 +114,6 @@ function toVastOffer(wire: z.infer<typeof vastOfferWireSchema>): VastOffer {
     gpuCount: wire.num_gpus,
     gpuRamMegabytes: wire.gpu_ram,
     dollarsPerHour: wire.dph_total,
-    internetDownMbps: wire.inet_down,
     reliability: wire.reliability,
     verified: wire.verification === "verified",
   };
@@ -192,8 +185,6 @@ export function createVastClient(apiKey: string, fetchImpl: typeof fetch = fetch
       return {
         status: found.actual_status ?? "unknown",
         statusMsg: found.status_msg ?? null,
-        sshHost: found.ssh_host ?? null,
-        sshPort: found.ssh_port ?? null,
       };
     },
 

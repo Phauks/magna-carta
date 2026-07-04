@@ -11,7 +11,6 @@ function fakeClient(overrides: Partial<VastClient> = {}): VastClient {
         gpuCount: 1,
         gpuRamMegabytes: 24576,
         dollarsPerHour: 0.4,
-        internetDownMbps: 900,
         reliability: 0.99,
         verified: true,
       } satisfies VastOffer,
@@ -19,7 +18,7 @@ function fakeClient(overrides: Partial<VastClient> = {}): VastClient {
     createInstance: vi.fn().mockResolvedValue({ instanceId: 777 }),
     getInstance: vi
       .fn()
-      .mockResolvedValue({ status: "running", statusMsg: null, sshHost: "h", sshPort: 22 }),
+      .mockResolvedValue({ status: "running", statusMsg: null }),
     listInstances: vi.fn().mockResolvedValue([]),
     destroyInstance: vi.fn().mockResolvedValue(undefined),
     requestLogsUrl: vi.fn().mockResolvedValue("https://s3.example.com/logs.txt"),
@@ -122,7 +121,7 @@ describe("benchmarkOneRig", () => {
       const client = fakeClient({
         getInstance: vi
           .fn()
-          .mockResolvedValue({ status: "loading", statusMsg: null, sshHost: null, sshPort: null }),
+          .mockResolvedValue({ status: "loading", statusMsg: null }),
       });
       const result = benchmarkOneRig({
         client,
@@ -150,7 +149,6 @@ describe("benchmarkOneRig", () => {
         gpuCount: 1,
         gpuRamMegabytes: 24576,
         dollarsPerHour: 0.3,
-        internetDownMbps: 900,
         reliability: 0.99,
         verified: true,
       },
@@ -160,7 +158,6 @@ describe("benchmarkOneRig", () => {
         gpuCount: 1,
         gpuRamMegabytes: 24576,
         dollarsPerHour: 0.5,
-        internetDownMbps: 900,
         reliability: 0.99,
         verified: true,
       },
@@ -174,11 +171,9 @@ describe("benchmarkOneRig", () => {
         return {
           status: "exited",
           statusMsg: "OCI runtime create failed: unable to start container process",
-          sshHost: null,
-          sshPort: null,
         };
       }
-      return { status: "running", statusMsg: null, sshHost: "h", sshPort: 22 };
+      return { status: "running", statusMsg: null };
     });
     const destroyInstance = vi.fn(async (_instanceId: number) => {});
     const collect = vi.fn(async (_client: VastClient, instanceId: number) => {
@@ -225,7 +220,6 @@ describe("benchmarkOneRig", () => {
         gpuCount: 1,
         gpuRamMegabytes: 24576,
         dollarsPerHour: 0.3,
-        internetDownMbps: 900,
         reliability: 0.99,
         verified: true,
       },
@@ -235,7 +229,6 @@ describe("benchmarkOneRig", () => {
         gpuCount: 1,
         gpuRamMegabytes: 24576,
         dollarsPerHour: 0.5,
-        internetDownMbps: 900,
         reliability: 0.99,
         verified: true,
       },
@@ -249,8 +242,6 @@ describe("benchmarkOneRig", () => {
         .mockResolvedValue({
           status: "exited",
           statusMsg: "OCI runtime create failed",
-          sshHost: null,
-          sshPort: null,
         }),
       listInstances: vi.fn().mockResolvedValue([]),
       destroyInstance,
