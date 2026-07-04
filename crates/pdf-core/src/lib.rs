@@ -37,6 +37,8 @@ pub use secure::{secure, SecureOptions, WriteAlgorithm};
 
 mod surgery;
 
+mod content_tokens;
+
 mod generate;
 pub use generate::{merge, rotate, split, GenerateError, PageRange, PageSelection, Rotation};
 
