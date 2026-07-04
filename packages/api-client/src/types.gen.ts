@@ -1949,6 +1949,129 @@ export type FileRepairCarveResponses = {
 
 export type FileRepairCarveResponse = FileRepairCarveResponses[keyof FileRepairCarveResponses];
 
+export type FileRepairRepairAttachData = {
+    body: unknown;
+    path?: never;
+    query: {
+        matterId: string;
+        fileId?: string;
+        folderId?: string;
+        fileName?: string;
+    };
+    url: '/api/v1/file-repair/repair/attach';
+};
+
+export type FileRepairRepairAttachErrors = {
+    /**
+     * Empty request body
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Missing files:upload, or missing tools:fileRepair
+     */
+    403: Problem;
+    /**
+     * The target file, or its folder, is unknown in this firm, or belongs to another matter
+     */
+    404: Problem;
+    /**
+     * File exceeds the inspectable-size cap
+     */
+    413: Problem;
+    /**
+     * The file could not be reconstructed, or the output was withheld by the malware gate
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+    /**
+     * Recovery engine unavailable
+     */
+    503: Problem;
+};
+
+export type FileRepairRepairAttachError = FileRepairRepairAttachErrors[keyof FileRepairRepairAttachErrors];
+
+export type FileRepairRepairAttachResponses = {
+    /**
+     * Attaching: the pending file/version rows and the provenance were committed and the bytes were put to R2. The version is pending until the ingest queue consumer commits or quarantines it.
+     */
+    202: {
+        fileId: string;
+        versionId: string;
+    };
+};
+
+export type FileRepairRepairAttachResponse = FileRepairRepairAttachResponses[keyof FileRepairRepairAttachResponses];
+
+export type FileRepairCarveAttachData = {
+    body: unknown;
+    path?: never;
+    query: {
+        matterId: string;
+        folderId?: string;
+    };
+    url: '/api/v1/file-repair/carve/attach';
+};
+
+export type FileRepairCarveAttachErrors = {
+    /**
+     * Empty request body
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Missing files:upload, or missing tools:fileRepair
+     */
+    403: Problem;
+    /**
+     * The target folder, or the matter, is unknown in this firm
+     */
+    404: Problem;
+    /**
+     * File exceeds the inspectable-size cap
+     */
+    413: Problem;
+    /**
+     * The file could not be reconstructed, or the output was withheld by the malware gate
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+    /**
+     * Recovery engine unavailable
+     */
+    503: Problem;
+};
+
+export type FileRepairCarveAttachError = FileRepairCarveAttachErrors[keyof FileRepairCarveAttachErrors];
+
+export type FileRepairCarveAttachResponses = {
+    /**
+     * Attaching carved files; versions pending. Each carved file's metadata was committed and bytes were put to R2. Versions are pending until ingest resolves.
+     */
+    202: {
+        files: Array<{
+            fileId: string;
+            versionId: string;
+            name: string;
+        }>;
+    };
+};
+
+export type FileRepairCarveAttachResponse = FileRepairCarveAttachResponses[keyof FileRepairCarveAttachResponses];
+
 export type AiDetectionDetectData = {
     body: AiDetectionDetectRequest;
     path?: never;

@@ -10,6 +10,7 @@ import type { FileId, FirmId, FolderId, MatterId, RoleId } from "@magna-carta/id
 import { createApp } from "../src/app.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
+import { handleIngestMessage } from "../src/files/ingest-consumer.ts";
 import {
   mirrorMemberWithOwnerRole,
   seedCredentialedUser,
@@ -166,6 +167,50 @@ async function seedCommittedFile(
   return { fileId };
 }
 
+// The R2-event -> queue chain that drives ingest in production is not automatic under the test pool
+// (Miniflare cannot deliver real R2 notifications), so this drives the SAME entrypoint the queue
+// consumer calls (handleIngestMessage) directly over the pending version the attach route created —
+// mirrors ingest-consumer.test.ts's event() + handleIngestMessage call. The pool firm's bucket_name is
+// set to 'R2' in beforeAll, matching the single bound R2 binding every firm shares in this pool.
+async function driveIngestForVersion(
+  firmDatabase: ReturnType<typeof firmDatabaseFor>,
+  environment: typeof env,
+  versionId: string,
+  r2Key: string,
+): Promise<void> {
+  const object = await environment.R2.head(r2Key);
+  await handleIngestMessage(environment, {
+    bucket: "R2",
+    object: { key: r2Key, size: object?.size ?? 0 },
+    action: "PutObject",
+  });
+}
+
+// The status column alone: enough to assert the ingest gate's terminal outcome for a version.
+async function loadVersionStatus(
+  firmDatabase: ReturnType<typeof firmDatabaseFor>,
+  versionId: string,
+): Promise<{ status: string } | null> {
+  return firmDatabase
+    .prepare("SELECT status FROM file_version WHERE id = ?1")
+    .bind(versionId)
+    .first<{ status: string }>();
+}
+
+// The attach response exposes only { fileId, versionId } (no r2Key); the pending version's key is
+// looked up directly so the test can drive ingest over the exact object the route put to R2.
+async function loadVersionR2Key(
+  firmDatabase: ReturnType<typeof firmDatabaseFor>,
+  versionId: string,
+): Promise<string> {
+  const row = await firmDatabase
+    .prepare("SELECT r2_key FROM file_version WHERE id = ?1")
+    .bind(versionId)
+    .first<{ r2_key: string }>();
+  if (row === null) throw new Error(`no file_version row for ${versionId}`);
+  return row.r2_key;
+}
+
 function postAttach(
   path: string,
   cookie: string,
@@ -253,6 +298,31 @@ describe("POST /api/v1/file-repair/repair/attach", () => {
     );
     expect(response.status).toBe(422);
     expect(response.headers.get("content-type")).toContain("application/problem+json");
+  });
+
+  it("a flagged reconstruction is quarantined by the ingest gate (firm policy = block)", async () => {
+    const cookie = await ownerCookie("attach-flagged@example.com", "Attach Flagged");
+    const response = await postAttach("repair/attach", cookie, "corrupt pdf TRIGGERMALWARE payload", {
+      matterId: poolMatterId,
+      folderId: poolFolderId,
+      fileName: "suspect.pdf",
+    });
+    // The attach route persists the pending version + provenance and puts the reconstructed bytes to
+    // R2 regardless of their content — the malware gate is not a second, parallel check here; the same
+    // async ingest consumer that governs a direct upload governs this attach too.
+    expect(response.status).toBe(202);
+    const body = (await response.json()) as { fileId: string; versionId: string };
+
+    const r2Key = await loadVersionR2Key(firmDb, body.versionId);
+    await driveIngestForVersion(firmDb, env, body.versionId, r2Key);
+
+    const version = await loadVersionStatus(firmDb, body.versionId);
+    expect(version?.status).toBe("quarantined");
+    // Provenance persists on the quarantined version too (chain of custody on a quarantined
+    // reconstruction survives the later ingest verdict).
+    const provenance = await readRepairProvenance(firmDb, body.versionId);
+    expect(provenance).not.toBeNull();
+    expect(provenance?.operation).toBe("repair");
   });
 });
 
