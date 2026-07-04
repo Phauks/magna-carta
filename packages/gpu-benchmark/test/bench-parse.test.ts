@@ -51,9 +51,9 @@ describe("bench-parse", () => {
   });
 
   it("throws BenchmarkParseError, never a partial result, when no mode data is found", () => {
-    expect(() =>
-      parseBenchmarkLog("nothing useful here\nssh warning: blah\n"),
-    ).toThrow(BenchmarkParseError);
+    expect(() => parseBenchmarkLog("nothing useful here\nssh warning: blah\n")).toThrow(
+      BenchmarkParseError,
+    );
   });
 
   it("omits a mode whose MODE= marker produced no device line (never a silent 0)", () => {

@@ -16,9 +16,7 @@ function fakeClient(overrides: Partial<VastClient> = {}): VastClient {
       } satisfies VastOffer,
     ]),
     createInstance: vi.fn().mockResolvedValue({ instanceId: 777 }),
-    getInstance: vi
-      .fn()
-      .mockResolvedValue({ status: "running", statusMsg: null }),
+    getInstance: vi.fn().mockResolvedValue({ status: "running", statusMsg: null }),
     listInstances: vi.fn().mockResolvedValue([]),
     destroyInstance: vi.fn().mockResolvedValue(undefined),
     requestLogsUrl: vi.fn().mockResolvedValue("https://s3.example.com/logs.txt"),
@@ -65,7 +63,9 @@ describe("benchmarkOneRig", () => {
     // A transient 5xx from the destroy endpoint must not discard an already-measured profile — the
     // end-of-run reconciliation sweep is the billing backstop for the rig this failed to destroy.
     const client = fakeClient({
-      destroyInstance: vi.fn().mockRejectedValue(new Error("vast.ai DELETE failed with status 502")),
+      destroyInstance: vi
+        .fn()
+        .mockRejectedValue(new Error("vast.ai DELETE failed with status 502")),
     });
     const profile = await benchmarkOneRig({
       client,
@@ -92,7 +92,7 @@ describe("benchmarkOneRig", () => {
         want: { gpuName: "RTX_4090", gpuCount: 1 },
         now: () => "t",
         onstart: "test-onstart",
-      geolocationCountries: ["US"],
+        geolocationCountries: ["US"],
       }),
     ).rejects.toThrow("ssh died");
     expect(client.destroyInstance).toHaveBeenCalledWith(777);
@@ -108,7 +108,7 @@ describe("benchmarkOneRig", () => {
         want: { gpuName: "RTX_4090", gpuCount: 1 },
         now: () => "t",
         onstart: "test-onstart",
-      geolocationCountries: ["US"],
+        geolocationCountries: ["US"],
       }),
     ).rejects.toThrow(/no verified offer/i);
     expect(client.createInstance).not.toHaveBeenCalled();
@@ -119,9 +119,7 @@ describe("benchmarkOneRig", () => {
     vi.useFakeTimers();
     try {
       const client = fakeClient({
-        getInstance: vi
-          .fn()
-          .mockResolvedValue({ status: "loading", statusMsg: null }),
+        getInstance: vi.fn().mockResolvedValue({ status: "loading", statusMsg: null }),
       });
       const result = benchmarkOneRig({
         client,
@@ -130,7 +128,7 @@ describe("benchmarkOneRig", () => {
         want: { gpuName: "RTX_4090", gpuCount: 1 },
         now: () => "t",
         onstart: "test-onstart",
-      geolocationCountries: ["US"],
+        geolocationCountries: ["US"],
       });
       const assertion = expect(result).rejects.toThrow(/running/i);
       await vi.runAllTimersAsync();
@@ -237,12 +235,10 @@ describe("benchmarkOneRig", () => {
     const client: VastClient = {
       searchOffers: vi.fn().mockResolvedValue(offers),
       createInstance: vi.fn(async (offerId: number) => ({ instanceId: offerId })),
-      getInstance: vi
-        .fn()
-        .mockResolvedValue({
-          status: "exited",
-          statusMsg: "OCI runtime create failed",
-        }),
+      getInstance: vi.fn().mockResolvedValue({
+        status: "exited",
+        statusMsg: "OCI runtime create failed",
+      }),
       listInstances: vi.fn().mockResolvedValue([]),
       destroyInstance,
       requestLogsUrl: vi.fn().mockResolvedValue("https://s3.example.com/logs.txt"),
@@ -256,7 +252,7 @@ describe("benchmarkOneRig", () => {
         want: { gpuName: "RTX_4090", gpuCount: 1 },
         now: () => "t",
         onstart: "test-onstart",
-      geolocationCountries: ["US"],
+        geolocationCountries: ["US"],
       }),
     ).rejects.toThrow(/every offer tried/i);
     expect(destroyInstance).toHaveBeenCalledWith(1);

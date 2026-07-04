@@ -41,7 +41,9 @@ describe("collectViaLogs", () => {
       .fn()
       .mockResolvedValueOnce(new Response("NoSuchKey", { status: 404 }))
       .mockResolvedValueOnce(new Response("BENCH_BEGIN\nMODE=9600\n", { status: 200 }))
-      .mockResolvedValueOnce(new Response("BENCH_BEGIN\nMODE=9600\n1:9600::::5\nBENCH_END", { status: 200 }));
+      .mockResolvedValueOnce(
+        new Response("BENCH_BEGIN\nMODE=9600\n1:9600::::5\nBENCH_END", { status: 200 }),
+      );
     vi.stubGlobal("fetch", fetchImpl);
 
     const promise = collectViaLogs(clientReturningUrl(S3_URL), 777);
@@ -54,7 +56,9 @@ describe("collectViaLogs", () => {
 
   it("times out (never abandons early) and leaks neither the signed URL nor a key into the error", async () => {
     vi.useFakeTimers();
-    const fetchImpl = vi.fn().mockResolvedValue(new Response("still pulling image", { status: 200 }));
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(new Response("still pulling image", { status: 200 }));
     vi.stubGlobal("fetch", fetchImpl);
 
     const promise = collectViaLogs(clientReturningUrl(S3_URL), 777);

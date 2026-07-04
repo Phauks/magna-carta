@@ -191,7 +191,8 @@ export async function benchmarkOneRig(deps: BenchmarkOneRigDeps): Promise<RigPro
           // 5xx from the destroy endpoint must not mask the attempt's real outcome. The rig is still
           // covered by the end-of-run reconciliation sweep (see cli.ts), the billing backstop that
           // destroys any benchmark instance this failed to clean up.
-          const detail = destroyError instanceof Error ? destroyError.message : String(destroyError);
+          const detail =
+            destroyError instanceof Error ? destroyError.message : String(destroyError);
           console.error(`warning: failed to destroy instance ${instanceId}: ${detail}`);
         }
       }

@@ -38,7 +38,11 @@ describe("offer-filter", () => {
 
   it("rankedVerifiedOffers returns an empty array when nothing qualifies", () => {
     expect(
-      rankedVerifiedOffers([offer({ verified: false })], { gpuName: "RTX 4090", gpuCount: 1 }, 0.95),
+      rankedVerifiedOffers(
+        [offer({ verified: false })],
+        { gpuName: "RTX 4090", gpuCount: 1 },
+        0.95,
+      ),
     ).toEqual([]);
   });
 });

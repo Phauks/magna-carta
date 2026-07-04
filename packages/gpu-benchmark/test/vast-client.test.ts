@@ -138,9 +138,7 @@ describe("vast-client", () => {
       }),
     );
     const status = await createVastClient("KEY", fetchImpl).getInstance(777);
-    expect(status.statusMsg).toBe(
-      "OCI runtime create failed: unable to start container process",
-    );
+    expect(status.statusMsg).toBe("OCI runtime create failed: unable to start container process");
   });
 
   it("throws when getInstance cannot find the id in the list", async () => {
@@ -195,9 +193,9 @@ describe("vast-client", () => {
   });
 
   it("requestLogsUrl PUTs to request_logs with a tail and returns the S3 result_url", async () => {
-    const fetchImpl = vi.fn().mockResolvedValue(
-      jsonResponse({ result_url: "https://s3.example.com/logs/777.txt" }),
-    );
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ result_url: "https://s3.example.com/logs/777.txt" }));
     const url = await createVastClient("KEY", fetchImpl).requestLogsUrl(777);
     expect(url).toBe("https://s3.example.com/logs/777.txt");
     expect(fetchImpl).toHaveBeenCalledWith(

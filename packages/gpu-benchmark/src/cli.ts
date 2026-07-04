@@ -199,7 +199,9 @@ export async function main(argv: string[]): Promise<void> {
           profiles: upsertProfile(profilesFile.profiles, profile),
         };
         await saveRigProfiles(profilesFile);
-        console.log(`recorded ${label}: ${profile.dollarsPerHour}/hr, ${profile.bootSeconds}s boot`);
+        console.log(
+          `recorded ${label}: ${profile.dollarsPerHour}/hr, ${profile.bootSeconds}s boot`,
+        );
       } catch (error) {
         const detail = error instanceof Error ? error.message : String(error);
         console.error(`skipping ${label} after failure: ${detail}`);

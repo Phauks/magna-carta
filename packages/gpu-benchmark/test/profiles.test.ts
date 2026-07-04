@@ -1,9 +1,19 @@
 import { describe, it, expect } from "vitest";
-import { dollarsPerBillionCandidates, rankByValue, upsertProfile, type RigProfile } from "../src/profiles.ts";
+import {
+  dollarsPerBillionCandidates,
+  rankByValue,
+  upsertProfile,
+  type RigProfile,
+} from "../src/profiles.ts";
 
 const rig = (gpuName: string, dollarsPerHour: number, hps: number): RigProfile => ({
-  gpuName, gpuCount: 1, gpuRamMegabytes: 24576, dollarsPerHour, bootSeconds: 120,
-  throughput: [{ hashcatMode: 9600, hashesPerSecond: hps }], measuredAt: "2026-07-03T00:00:00Z",
+  gpuName,
+  gpuCount: 1,
+  gpuRamMegabytes: 24576,
+  dollarsPerHour,
+  bootSeconds: 120,
+  throughput: [{ hashcatMode: 9600, hashesPerSecond: hps }],
+  measuredAt: "2026-07-03T00:00:00Z",
 });
 
 describe("profiles", () => {

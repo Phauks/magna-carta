@@ -28,7 +28,10 @@ export interface RigProfile {
  * score, which conflates unrelated workloads and does not reflect this mode's actual throughput.
  * Returns null when the rig has no measurement for the requested mode.
  */
-export function dollarsPerBillionCandidates(profile: RigProfile, hashcatMode: number): number | null {
+export function dollarsPerBillionCandidates(
+  profile: RigProfile,
+  hashcatMode: number,
+): number | null {
   const mode = profile.throughput.find((entry) => entry.hashcatMode === hashcatMode);
   if (mode === undefined || mode.hashesPerSecond <= 0) return null;
   const secondsForOneBillion = 1e9 / mode.hashesPerSecond;
