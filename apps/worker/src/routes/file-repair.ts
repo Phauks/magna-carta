@@ -660,14 +660,14 @@ export function registerFileRepairRoutes(
         });
       }
       const result = RepairResultSchema.parse(await containerResponse.json());
-      const q = c.req.valid("query");
+      const query = c.req.valid("query");
       const attached: { fileId: string; versionId: string; name: string }[] = [];
       try {
         for (const [index, file] of result.files.entries()) {
           const name = sanitizeCarvedName(file.name, index);
           const one = await attachOneFile(c, file, result.loss, "carve", {
-            matterId: q.matterId as MatterId,
-            folderId: (q.folderId as FolderId | undefined) ?? null,
+            matterId: query.matterId,
+            folderId: query.folderId ?? null,
             fileName: name,
           });
           attached.push({ ...one, name });
