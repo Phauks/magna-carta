@@ -58,8 +58,10 @@
   const canPeek = $derived(expandOnHover && collapsed && !editing);
 
   function openPeek(): void {
-    if (!canPeek || peeking) return;
+    if (!canPeek) return;
+    // Always cancel a pending close on (re-)enter — re-entering the rail means "stay open".
     clearTimeout(closeTimer);
+    if (peeking) return;
     runViewTransition(() => {
       peeking = true;
     }, "sidebar-expand");
@@ -68,7 +70,11 @@
   function closePeekSoon(): void {
     clearTimeout(closeTimer);
     closeTimer = setTimeout(() => {
-      if (!peeking) return;
+      // Guard against a self-perpetuating open/close flicker: routing the peek through a view
+      // transition makes the browser fire a SPURIOUS pointerleave mid-animation (the pointer never
+      // actually left the rail). `:hover` reflects the real pointer, so if the rail is still hovered
+      // when the timer fires we do not fold it back — only a genuine exit closes it.
+      if (!peeking || ref?.matches(":hover")) return;
       runViewTransition(() => {
         peeking = false;
       }, "sidebar-collapse");
