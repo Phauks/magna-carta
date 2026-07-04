@@ -48,14 +48,22 @@ A pure `&[u8] → Vec<RawToken>` scan of the original content stream, with **no 
 
 The tokenizer deliberately does **not** decode string operands. Decoded string bytes already come from lopdf's `operation.operands`, so the byte-path works in decoded space for string *content* and uses the tokenizer only to answer "where does each operator begin and end in the raw bytes." The tokenizer must still correctly *skip over* string operands (honoring `()` literal nesting/escapes and `<>` hex) so it finds operator boundaries, but it emits no per-byte map.
 
-### 3. The splicer + advance compensation
+### 3. The splicer — reuse the op-path's rebuild, encode per-operator
 
-For each show operator (`Tj` / `TJ` / `'` / `"`) that contains at least one marked glyph, rebuild **only that operator** as a `TJ`:
+The op-path already contains exactly the rewrite we want: for each show operator (`Tj` / `TJ` / `'` / `"`) with a marked glyph, `apply_excision` rebuilds it into an equivalent `TJ` whose surviving runs are verbatim `Literal` strings taken from the decoded operand (`source_bytes[byte_off..byte_off+byte_len]`) and whose removed runs collapse to a single numeric advance-compensation element, so glyphs surviving to the right of the rect **do not shift**. Its only failure is the final step: re-encoding the *whole* operation list, which forces lopdf to re-serialize the inline images it mangles.
 
-- **surviving runs** → hex strings (`<48656c…>`) built from the decoded operand bytes. Hex is byte-exact at the glyph-code level: same codes, word-spacing (`Tw`) still fires on `0x20`, Type0 Identity two-byte codes are preserved — rendering-identical to the original run — and it sidesteps every literal-string escape/paren-balance hazard that cutting a `(...)` literal at an arbitrary boundary would create. The cost is that an *edited* operator's representation changes; an edited operator already differs from the original, so this is immaterial.
-- **removed runs** → a numeric `TJ` gap equal to the run's total advance, so glyphs surviving to the right of the rect **do not shift**. The advance for a run of glyphs (widths from `/Widths`, plus `Tc`/`Tw` contributions at the active font size and horizontal scale) is exactly what `apply_excision` already computes. Factor that into a shared `run_advance(slots, fonts, …)` helper used by both paths so the compensation cannot drift between them.
+So the byte-path **reuses that rebuild verbatim** and changes only how bytes are produced. Factor the op-path's two build steps into pure helpers shared by both paths:
+- `op_replacements(content, slots, marked, fonts) -> BTreeMap<usize, Vec<Operation>>` — for each affected operation index, the replacement operations (a rebuilt `TJ`, preceded by `T*` when the original was `'`/`"`). This is the existing `apply_excision` logic lifted out unchanged; the op-path now consumes it to rebuild the operation list exactly as before (byte-identical op-path behavior, guarded by its existing tests).
+- `fill_box_operations(rects) -> Vec<Operation>` — the `q rg re f Q` boxes, likewise lifted out.
 
-The output is the original bytes copied verbatim, with each edited operator's byte span replaced by its rebuilt `TJ`, and the black fill boxes appended as raw bytes exactly as the op-path appends them. Every other byte — inline images, `Do` XObject invocations, graphics-state operators, untouched text — is identical to the input.
+The byte-path then:
+1. copies the original stream bytes verbatim, and
+2. for each affected operation index, encodes **just that operation's** replacement — `Content{operations: replacement}.encode()` — and splices those bytes over the operator's raw byte span (padded with surrounding spaces so it can't glue to a neighbor), and
+3. appends `fill_box_operations(rects)` encoded on their own.
+
+Every per-operator re-encode touches only pure text (a `TJ` and, for `'`/`"`, a `T*`) — **never** an inline image — so lopdf's per-operator encode is safe. Surviving content is byte-exact at the decoded level because lopdf's `Literal` escaping is lossless and the kept bytes come straight from the original decoded string. Every untouched byte — inline images, `Do` XObject invocations, graphics-state operators — is identical to the input because it is never re-encoded.
+
+This is strictly less new code than an independent splicer, and the compensation math cannot drift between the two paths because there is only one copy of it.
 
 ### 4. Correlation self-check — the safety valve
 
@@ -84,15 +92,15 @@ Zip lopdf's operation list against the tokenizer's tokens by index. If the opera
 ## Files touched
 
 - `crates/pdf-core/src/content_tokens.rs` — new; the raw tokenizer.
-- `crates/pdf-core/src/surgery.rs` — reorder `try_build_surgery` to branch on the guard; add `build_byte_splice`; factor out `run_advance` (shared with `apply_excision`).
+- `crates/pdf-core/src/surgery.rs` — factor `op_replacements` + `fill_box_operations` out of `apply_excision` (op-path behavior unchanged); reorder `try_build_surgery` to branch on the guard; add `build_byte_splice`.
 - `crates/pdf-core/src/lib.rs` — register the new module.
 - `crates/pdf-eval/…` — a `surgery` validation operation running both paths in shadow with the A/B report.
 - Tests alongside each.
 
-Net new code is roughly 250–400 lines; the text-state machine, marking, advance math, and outcome gate are all reused.
+Net new code is roughly 250–400 lines; the text-state machine, marking, excision/compensation rebuild, and outcome gate are all reused.
 
 ## Risks
 
-- **Tokenizer/lopdf desync on exotic streams** — mitigated by the operator-name self-check (→ flatten) and the outcome gate (→ flatten). Worst case is a safe-flatten, i.e. today's behavior.
-- **Hex re-encode of a survivor changing rendering** — ruled out: hex is byte-exact at the code level for both simple and Identity Type0 fonts, and `Tw` still applies to `0x20`.
-- **Advance-compensation drift between the two paths** — mitigated by the shared `run_advance` helper.
+- **Tokenizer/lopdf desync on exotic streams** — mitigated by the operator-name/count self-check (→ flatten) and the outcome gate (→ flatten). Worst case is a safe-flatten, i.e. today's behavior.
+- **Per-operator re-encode changing rendering** — ruled out: the only re-encoded operators are pure-text `TJ`/`T*`, and lopdf's `Literal` escaping is lossless, so decoded content and glyph codes are preserved. Inline images are never re-encoded.
+- **Advance-compensation drift between the two paths** — ruled out: `op_replacements` is the single shared source of the rewrite for both paths.
