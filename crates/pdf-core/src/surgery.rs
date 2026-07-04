@@ -870,6 +870,63 @@ pub(crate) fn apply_excision(
     content.operations = new_operations;
 }
 
+/// Encode a small operation list to content-stream bytes.
+// The caller that swaps `try_build_surgery` over to the byte splice lands next in this
+// feature; until then this is reachable only from its own tests.
+#[allow(dead_code)]
+fn encode_operations(ops: &[lopdf::content::Operation]) -> Option<Vec<u8>> {
+    let content = Content { operations: ops.to_vec() };
+    content.encode().ok()
+}
+
+/// Produce edited content bytes by copying `raw` verbatim and re-encoding only the
+/// operators named in `replacements`, splicing them over their raw byte spans. The
+/// whole-stream re-encode is never run, so inline images and every untouched operator
+/// stay byte-identical. Returns `None` if the raw tokenization disagrees with
+/// `operations` (a desync) — the caller then falls back to flatten.
+// Same interim note as `encode_operations` above: unused outside tests until the
+// `try_build_surgery` caller is switched over.
+#[allow(dead_code)]
+pub(crate) fn build_byte_splice(
+    raw: &[u8],
+    operations: &[lopdf::content::Operation],
+    replacements: &BTreeMap<usize, Vec<lopdf::content::Operation>>,
+    boxes: &[lopdf::content::Operation],
+) -> Option<Vec<u8>> {
+    let tokens = crate::content_tokens::tokenize(raw)?;
+    // Self-check: token count and operator names must match the decoded operation list.
+    if tokens.len() != operations.len() {
+        return None;
+    }
+    for (token, op) in tokens.iter().zip(operations.iter()) {
+        if token.operator.as_slice() != op.operator.as_bytes() {
+            return None;
+        }
+    }
+
+    // Apply splices right-to-left so earlier offsets stay valid.
+    let mut out = raw.to_vec();
+    let mut indices: Vec<&usize> = replacements.keys().collect();
+    indices.sort_unstable();
+    for &op_index in indices.iter().rev() {
+        let token = &tokens[*op_index];
+        let repl_ops = &replacements[op_index];
+        let encoded = encode_operations(repl_ops)?;
+        let mut padded = Vec::with_capacity(encoded.len() + 2);
+        padded.push(b' ');
+        padded.extend_from_slice(&encoded);
+        padded.push(b' ');
+        out.splice(token.start..token.end, padded);
+    }
+
+    if !boxes.is_empty() {
+        let encoded = encode_operations(boxes)?;
+        out.push(b' ');
+        out.extend_from_slice(&encoded);
+    }
+    Some(out)
+}
+
 /// For each text-show operation containing a marked glyph, the operations that replace
 /// it: a rebuilt `TJ` (marked glyphs dropped, each contiguous dropped run collapsed to a
 /// numeric advance-compensation so following glyphs keep position), preceded by a `T*`
@@ -2188,5 +2245,86 @@ mod tests {
             fonts.is_empty(),
             "page_fonts must return an empty map for a cyclic /Parent chain"
         );
+    }
+
+    // ── Byte-level splice ────────────────────────────────────────────────────
+
+    /// Build a one-page document whose page content stream is exactly `content_bytes`,
+    /// with a single standard-14 font resource named `F1`. Returns the doc and page id.
+    pub(super) fn doc_with_content(
+        content_bytes: &[u8],
+        base_font: &str,
+    ) -> (lopdf::Document, lopdf::ObjectId) {
+        use lopdf::{dictionary, Object, Stream};
+        let mut doc = lopdf::Document::with_version("1.5");
+        let font_id = doc.add_object(dictionary! {
+            "Type" => Object::Name(b"Font".to_vec()),
+            "Subtype" => Object::Name(b"Type1".to_vec()),
+            "BaseFont" => Object::Name(base_font.as_bytes().to_vec()),
+        });
+        let resources_id = doc.add_object(dictionary! {
+            "Font" => dictionary! { "F1" => font_id },
+        });
+        let content_id = doc.add_object(Stream::new(dictionary! {}, content_bytes.to_vec()));
+        let pages_id = doc.new_object_id();
+        let page_id = doc.add_object(dictionary! {
+            "Type" => Object::Name(b"Page".to_vec()),
+            "Parent" => pages_id,
+            "Contents" => content_id,
+            "MediaBox" => Object::Array(vec![0.into(), 0.into(), 200.into(), 200.into()]),
+            "Resources" => resources_id,
+        });
+        doc.objects.insert(pages_id, Object::Dictionary(dictionary! {
+            "Type" => Object::Name(b"Pages".to_vec()),
+            "Kids" => Object::Array(vec![page_id.into()]),
+            "Count" => 1,
+        }));
+        let catalog_id = doc.add_object(dictionary! {
+            "Type" => Object::Name(b"Catalog".to_vec()),
+            "Pages" => pages_id,
+        });
+        doc.trailer.set("Root", catalog_id);
+        (doc, page_id)
+    }
+
+    #[test]
+    fn byte_splice_preserves_inline_image_and_removes_text() {
+        // A page with text followed by an inline image whose colorspace lopdf drops on
+        // decode (tripping the round-trip guard). The byte splice must remove the text,
+        // keep the inline-image bytes byte-identical, and still parse.
+        let raw: &[u8] =
+            b"BT /F1 12 Tf 0 0 Td (Hello) Tj ET\nq BI /W 2 /H 2 /CS /Weird /BPC 8 ID \x01\x02\x03\x04 EI Q";
+        // Build a tiny doc whose page content is `raw`, with an F1 standard-14 font.
+        let (doc, page_id) = crate::surgery::tests::doc_with_content(raw, "Helvetica");
+        let content = lopdf::content::Content::decode(raw).unwrap();
+        let fonts = page_fonts(&doc, page_id);
+        let slots = enumerate_page_glyphs(&content, &fonts, kurbo::Affine::IDENTITY).unwrap();
+        let rects = [Rect { x0: -1.0, y0: -1.0, x1: 1000.0, y1: 1000.0 }];
+        let marked = mark_in_rects(&slots, &rects);
+        assert!(!marked.is_empty(), "the text must be inside the rect");
+
+        let replacements = op_replacements(&content, &slots, &marked, &fonts);
+        let boxes = fill_box_operations(&rects);
+        let out = build_byte_splice(raw, &content.operations, &replacements, &boxes)
+            .expect("byte splice must succeed");
+
+        // Inline-image bytes survive verbatim.
+        assert!(out.windows(4).any(|w| w == b"\x01\x02\x03\x04"), "inline image data must be preserved");
+        assert!(out.windows(2).any(|w| w == b"BI"), "BI operator preserved");
+        assert!(out.windows(2).any(|w| w == b"EI"), "EI terminator preserved");
+        // The literal "Hello" no longer appears as a shown string.
+        assert!(!out.windows(5).any(|w| w == b"Hello"), "marked text must be gone");
+        // Output still decodes.
+        lopdf::content::Content::decode(&out).expect("spliced stream must decode");
+    }
+
+    #[test]
+    fn byte_splice_self_check_flattens_on_operator_desync() {
+        // If the operations list disagrees with the raw bytes, the splice must refuse.
+        let raw: &[u8] = b"BT (Hi) Tj ET";
+        let mut bogus = lopdf::content::Content::decode(raw).unwrap().operations;
+        bogus.push(lopdf::content::Operation::new("Tj", vec![])); // extra op, not in raw
+        let out = build_byte_splice(raw, &bogus, &BTreeMap::new(), &[]);
+        assert!(out.is_none(), "count mismatch must return None");
     }
 }
