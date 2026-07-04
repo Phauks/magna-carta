@@ -69,8 +69,8 @@
   "r2_buckets": [{ "binding": "R2", "bucket_name": "magna-carta-production-platform-files" }],
   // The platform-status KV namespace: holds the operator-authored document (status:authored, written by
   // the platform-status routes) and the cron-derived document (status:derived); the read path merges
-  // both. Placeholder id — the real namespace id is filled in when it is created in the dashboard.
-  "kv_namespaces": [{ "binding": "STATUS_KV", "id": "00000000000000000000000000000000" }],
+  // both. The id is the Magna_Carta_Status namespace the owner created in the dashboard (2026-07-03).
+  "kv_namespaces": [{ "binding": "STATUS_KV", "id": "6746720bd1ad4638ad00370197f49788" }],
   // Workers AI — the authenticated binding the inference foundation reaches the AI Gateway through.
   // No per-firm provider key at launch (Unified Billing, Cloudflare-managed credentials).
   "ai": { "binding": "AI" },
