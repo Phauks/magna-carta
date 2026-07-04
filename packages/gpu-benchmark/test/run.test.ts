@@ -62,6 +62,25 @@ describe("benchmarkOneRig", () => {
     );
   });
 
+  it("still returns the captured profile when the post-success destroy throws (sweep is the backstop)", async () => {
+    // A transient 5xx from the destroy endpoint must not discard an already-measured profile — the
+    // end-of-run reconciliation sweep is the billing backstop for the rig this failed to destroy.
+    const client = fakeClient({
+      destroyInstance: vi.fn().mockRejectedValue(new Error("vast.ai DELETE failed with status 502")),
+    });
+    const profile = await benchmarkOneRig({
+      client,
+      collect: async () => rawLog,
+      image: "img",
+      want: { gpuName: "RTX_4090", gpuCount: 1 },
+      now: () => "t",
+      onstart: "test-onstart",
+      geolocationCountries: ["US"],
+    });
+    expect(profile.throughput).toEqual([{ hashcatMode: 9600, hashesPerSecond: 68356 }]);
+    expect(client.destroyInstance).toHaveBeenCalledWith(777);
+  });
+
   it("destroys the instance even when collection fails, and reports the failure (single offer available)", async () => {
     const client = fakeClient();
     await expect(

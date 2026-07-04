@@ -84,8 +84,12 @@ const vastOfferWireSchema = z.object({
   verification: z.string().nullable().optional(),
 });
 
-const searchOffersResponseSchema = z.object({
-  offers: z.array(vastOfferWireSchema),
+// Parse the envelope loosely (each offer as `unknown`) so a single malformed offer among the up-to-
+// 64 the search returns can be skipped individually rather than sinking the whole batch — see
+// `searchOffers`, which `safeParse`s each row. A strict `z.array(vastOfferWireSchema)` here would
+// throw for the entire response if one offer omitted or mistyped a field, silently dropping the rig.
+const searchOffersEnvelopeSchema = z.object({
+  offers: z.array(z.unknown()),
 });
 
 const createInstanceResponseSchema = z.object({
@@ -152,8 +156,16 @@ export function createVastClient(apiKey: string, fetchImpl: typeof fetch = fetch
   return {
     async searchOffers(query) {
       const raw = await requestJson("/api/v0/bundles/", "POST", query);
-      const parsed = searchOffersResponseSchema.parse(raw);
-      return parsed.offers.map(toVastOffer);
+      const envelope = searchOffersEnvelopeSchema.parse(raw);
+      const offers: VastOffer[] = [];
+      for (const candidate of envelope.offers) {
+        // One malformed offer is dropped, not fatal: a missing/mistyped field on a single row must
+        // not skip the whole rig. The downstream reliability + verification filters already exclude
+        // unusable offers, so a dropped row only costs that one candidate.
+        const parsed = vastOfferWireSchema.safeParse(candidate);
+        if (parsed.success) offers.push(toVastOffer(parsed.data));
+      }
+      return offers;
     },
 
     async createInstance(offerId, params) {

@@ -55,4 +55,39 @@ describe("bench-parse", () => {
       parseBenchmarkLog("nothing useful here\nssh warning: blah\n"),
     ).toThrow(BenchmarkParseError);
   });
+
+  it("omits a mode whose MODE= marker produced no device line (never a silent 0)", () => {
+    // The onstart loop echoes `MODE=$m` for every mode unconditionally, so an unsupported mode
+    // still prints its marker with no following device line. That mode must be absent from the
+    // result, not recorded as 0 H/s (which would read as "this rig can't do this mode").
+    const raw = [
+      "NVIDIA GeForce RTX 4090, 24564 MiB",
+      "MODE=9600",
+      "1:9600:2310:10251:91.27:57305",
+      "MODE=17200",
+      "Cannot find a supported hash-mode for 17200 on this build",
+      "MODE=11600",
+      "1:11600:1000:2000:10.00:3520000",
+      "BENCH_END",
+    ].join("\n");
+    const result = parseBenchmarkLog(raw);
+    expect(result.throughput).toEqual([
+      { hashcatMode: 9600, hashesPerSecond: 57305 },
+      { hashcatMode: 11600, hashesPerSecond: 3520000 },
+    ]);
+    expect(result.throughput.map((entry) => entry.hashcatMode)).not.toContain(17200);
+  });
+
+  it("ignores a truncated device line with an empty speed field (no phantom 0-H/s device)", () => {
+    const raw = [
+      "NVIDIA GeForce RTX 4090, 24564 MiB",
+      "MODE=9600",
+      "1:9600:2310:10251:91.27:57305",
+      "5:9600:", // truncated: trailing colon, no speed — must not add a device or a 0
+      "BENCH_END",
+    ].join("\n");
+    const result = parseBenchmarkLog(raw);
+    expect(result.gpuCount).toBe(1);
+    expect(result.throughput).toEqual([{ hashcatMode: 9600, hashesPerSecond: 57305 }]);
+  });
 });

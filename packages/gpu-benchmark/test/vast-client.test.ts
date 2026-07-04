@@ -56,6 +56,31 @@ describe("vast-client", () => {
     expect(first?.verified).toBe(false);
   });
 
+  it("skips a single malformed offer rather than failing the whole batch", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      jsonResponse({
+        offers: [
+          {
+            id: 42,
+            gpu_name: "RTX 4090",
+            num_gpus: 1,
+            gpu_ram: 24576,
+            dph_total: 0.4,
+            inet_down: 900,
+            reliability: 0.99,
+            verification: "verified",
+          },
+          // Malformed: dph_total (price) is a string, and num_gpus is missing. One bad row must
+          // not sink the good offer alongside it.
+          { id: 99, gpu_name: "RTX 4090", dph_total: "not-a-number" },
+        ],
+      }),
+    );
+    const offers = await createVastClient("KEY", fetchImpl).searchOffers({});
+    expect(offers).toHaveLength(1);
+    expect(offers[0]?.offerId).toBe(42);
+  });
+
   it("sends the query body via POST and the bearer auth header to the bundles endpoint", async () => {
     const fetchImpl = vi.fn().mockResolvedValue(jsonResponse({ offers: [] }));
     await createVastClient("KEY", fetchImpl).searchOffers({ gpu_name: { in: ["RTX 4090"] } });

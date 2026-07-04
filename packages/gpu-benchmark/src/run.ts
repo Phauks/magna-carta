@@ -79,12 +79,19 @@ function sleep(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
-// Only a status message that names a concrete runtime error is a real boot failure. The normal
-// boot path reports benign progress messages like "Pulling from <image>", "Downloading",
-// "Extracting", and "Successfully loaded <image>" while a multi-gigabyte GPU image is fetched —
-// those are NOT failures and must not abort the rig (a real container failure reads e.g. "Error
-// response from daemon: failed to create task ... OCI runtime create failed ... unable to start").
-const BOOT_ERROR_PATTERN = /error|oci runtime|failed to create|unable to start|cannot start|no space/i;
+// Only a status message that names a concrete, fatal runtime error is a real boot failure. The
+// normal boot path reports benign progress like "Pulling from <image>", "Downloading",
+// "Extracting", "Successfully loaded <image>" while a multi-gigabyte GPU image is fetched — none
+// of those must abort the rig. A bare `/error/` would false-positive on those transient messages
+// (e.g. a self-recovering "error pulling image, retrying" or a "0 errors" line) and needlessly
+// burn the offer, so the pattern instead lists the specific fatal signatures:
+//   - container runtime failures: "oci runtime", "failed to create", "unable to start", "cannot start"
+//   - image-pull failures incl. Docker Hub anonymous rate-limits (surface as a daemon error):
+//     "error response from daemon", "failed to resolve", "manifest unknown", "pull access denied"
+//   - host out of disk: "no space"
+// These are exactly the failures the bad-GPU retry should skip a host on; benign progress is not.
+const BOOT_ERROR_PATTERN =
+  /error response from daemon|oci runtime|failed to create|failed to resolve|manifest unknown|pull access denied|unable to start|cannot start|no space/i;
 
 async function pollUntilRunning(client: VastClient, instanceId: number): Promise<void> {
   for (let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt++) {
@@ -176,7 +183,17 @@ export async function benchmarkOneRig(deps: BenchmarkOneRigDeps): Promise<RigPro
       continue;
     } finally {
       if (instanceId !== undefined) {
-        await deps.client.destroyInstance(instanceId);
+        try {
+          await deps.client.destroyInstance(instanceId);
+        } catch (destroyError) {
+          // A throw here would supersede the pending `return` (discarding a captured profile on the
+          // success path) or the `continue` (aborting the remaining offer attempts) — so a transient
+          // 5xx from the destroy endpoint must not mask the attempt's real outcome. The rig is still
+          // covered by the end-of-run reconciliation sweep (see cli.ts), the billing backstop that
+          // destroys any benchmark instance this failed to clean up.
+          const detail = destroyError instanceof Error ? destroyError.message : String(destroyError);
+          console.error(`warning: failed to destroy instance ${instanceId}: ${detail}`);
+        }
       }
     }
   }

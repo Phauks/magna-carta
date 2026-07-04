@@ -28,7 +28,11 @@ function sleep(milliseconds: number): Promise<void> {
 async function fetchText(url: string): Promise<string> {
   const response = await fetch(url);
   if (!response.ok) {
-    throw new Error(`fetching benchmark logs from ${url} failed with status ${response.status}`);
+    // Deliberately omit `url`: it is a vast.ai presigned S3 link whose query string is a bearer
+    // capability to the instance's captured stdout. Logging it (this message reaches the CLI's
+    // console.error) would leak that capability — harmless for a benchmark's nvidia-smi output,
+    // but this same collection path captures a real hash-crack run's stdout in production.
+    throw new Error(`fetching benchmark logs failed with status ${response.status}`);
   }
   return response.text();
 }
@@ -48,15 +52,26 @@ export const collectViaLogs: CollectFn = async (
   client: VastClient,
   instanceId: number,
 ): Promise<string> => {
+  let lastError: unknown;
   for (let attempt = 0; attempt < MAX_LOG_POLL_ATTEMPTS; attempt++) {
-    const resultUrl = await client.requestLogsUrl(instanceId);
-    const text = await fetchText(resultUrl);
-    if (text.includes(COMPLETION_MARKER)) return text;
+    try {
+      const resultUrl = await client.requestLogsUrl(instanceId);
+      const text = await fetchText(resultUrl);
+      if (text.includes(COMPLETION_MARKER)) return text;
+    } catch (error) {
+      // vast.ai populates the logs capture asynchronously: before the S3 object exists the
+      // request-logs call or the fetch commonly returns 404/403 (and can 5xx transiently). That
+      // is "not ready yet", not a dead rig — swallow it and keep polling within the bounded
+      // budget rather than discarding an otherwise-healthy rented instance (which would force
+      // benchmarkOneRig to re-rent a fresh offer and burn money for nothing).
+      lastError = error;
+    }
     if (attempt < MAX_LOG_POLL_ATTEMPTS - 1) {
       await sleep(LOG_POLL_INTERVAL_MILLISECONDS);
     }
   }
+  const detail = lastError instanceof Error ? ` (last error: ${lastError.message})` : "";
   throw new LogCollectionTimeoutError(
-    `never observed ${COMPLETION_MARKER} in instance ${instanceId}'s logs after ${MAX_LOG_POLL_ATTEMPTS} attempts`,
+    `never observed ${COMPLETION_MARKER} in instance ${instanceId}'s logs after ${MAX_LOG_POLL_ATTEMPTS} attempts${detail}`,
   );
 };

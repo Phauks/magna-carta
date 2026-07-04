@@ -43,9 +43,12 @@ function parseDeviceLine(line: string): ParsedDeviceLine | null {
   const speedRaw = parts[parts.length - 1];
   if (deviceId === undefined || speedRaw === undefined) return null;
   if (!/^\d+$/.test(deviceId)) return null;
-  const hashesPerSecond = Number(speedRaw);
-  if (!Number.isFinite(hashesPerSecond)) return null;
-  return { deviceId, hashesPerSecond };
+  // The speed field must be a non-empty run of digits: `Number("")` and `Number(" ")` are both
+  // `0` and `Number.isFinite(0)` is true, so without this a truncated line like `5:9600:`
+  // (trailing colon, no speed) would otherwise register a phantom device doing 0 H/s — inflating
+  // gpuCount and polluting the mode's summed throughput with a fake zero.
+  if (!/^\d+$/.test(speedRaw)) return null;
+  return { deviceId, hashesPerSecond: Number(speedRaw) };
 }
 
 /**
@@ -86,10 +89,13 @@ export function parseBenchmarkLog(raw: string): BenchmarkResult {
     if (modeMatch !== null) {
       const mode = Number(modeMatch[1]);
       currentMode = mode;
-      if (!modeTotals.has(mode)) {
-        modeTotals.set(mode, 0);
-        modeOrder.push(mode);
-      }
+      // Record the mode's position for stable output ordering, but do NOT seed a 0 total here.
+      // The onstart loop echoes `MODE=$m` for every mode unconditionally, so a marker alone does
+      // not mean hashcat produced a speed for it (an unsupported mode, or a driver error, prints
+      // the marker with no device line). A mode is only emitted below if it actually accumulated a
+      // device line — a silent 0 would read as "this rig can't do this mode" and corrupt the
+      // downstream cost-per-work ranking.
+      if (!modeOrder.includes(mode)) modeOrder.push(mode);
       continue;
     }
 
@@ -100,16 +106,16 @@ export function parseBenchmarkLog(raw: string): BenchmarkResult {
     modeTotals.set(currentMode, (modeTotals.get(currentMode) ?? 0) + device.hashesPerSecond);
   }
 
-  if (modeOrder.length === 0 || gpuName === null || gpuRamMegabytes === null) {
+  if (modeTotals.size === 0 || gpuName === null || gpuRamMegabytes === null) {
     throw new BenchmarkParseError(
       "benchmark log has no recognizable GPU facts or MODE=/device throughput lines",
     );
   }
 
-  const throughput: ModeThroughput[] = modeOrder.map((mode) => ({
-    hashcatMode: mode,
-    hashesPerSecond: modeTotals.get(mode) ?? 0,
-  }));
+  // Emit only modes that produced at least one device line, in first-seen order.
+  const throughput: ModeThroughput[] = modeOrder
+    .filter((mode) => modeTotals.has(mode))
+    .map((mode) => ({ hashcatMode: mode, hashesPerSecond: modeTotals.get(mode) ?? 0 }));
 
   return {
     gpuName,
