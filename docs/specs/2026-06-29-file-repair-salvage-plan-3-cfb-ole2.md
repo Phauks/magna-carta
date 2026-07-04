@@ -23,6 +23,7 @@
 ### Task 1: Add the `cfb` dependency, extract shared cap limits, + the CFB module skeleton
 
 **Files:**
+
 - Modify: `crates/recovery-core/Cargo.toml` (add `cfb`)
 - Create: `crates/recovery-core/src/limits.rs`
 - Modify: `crates/recovery-core/src/zip_repair.rs` (use the shared limits)
@@ -30,6 +31,7 @@
 - Modify: `crates/recovery-core/src/lib.rs` (declare `limits` + `cfb_repair`)
 
 **Interfaces:**
+
 - Produces: `pub const MAX_ENTRY_UNCOMPRESSED_BYTES: u64`, `pub const MAX_TOTAL_UNCOMPRESSED_BYTES: u64`, `pub const MAX_ENTRY_COUNT: usize` in `crate::limits`; an empty `cfb_repair` module; the `cfb` crate available.
 
 - [ ] **Step 1: Add `cfb` to `crates/recovery-core/Cargo.toml`** under `[dependencies]` (after `zip`):
@@ -85,9 +87,11 @@ git commit -m "feat(recovery-core): add cfb dep + shared salvage limits + CFB sk
 ### Task 2: Salvage streams from a compound file
 
 **Files:**
+
 - Modify: `crates/recovery-core/src/cfb_repair.rs`
 
 **Interfaces:**
+
 - Produces:
   - `pub struct SalvagedStream { pub path: String, pub data: Option<Vec<u8>>, pub recovered: bool, pub detail: String }`
   - `pub fn salvage_streams(bytes: &[u8]) -> Result<Vec<SalvagedStream>, crate::error::RepairError>` — open the compound file (`Err(Unrepairable)` if the header/FAT/directory is too damaged to open); walk the directory; best-effort read every stream (a stream that errors or exceeds the per-stream cap → `recovered: false, data: None`); enforce the count and total caps.
@@ -242,9 +246,11 @@ git commit -m "feat(recovery-core): salvage streams from a compound file"
 ### Task 3: Re-emit a fresh compound file
 
 **Files:**
+
 - Modify: `crates/recovery-core/src/cfb_repair.rs`
 
 **Interfaces:**
+
 - Produces: `pub fn rebuild_cfb(streams: &[(String, Vec<u8>)]) -> Result<(Vec<u8>, Vec<String>), crate::error::RepairError>` — write a fresh version-3 CFB from recovered (path, bytes) pairs, creating parent storages as needed. A stream whose path the writer rejects is skipped and its path returned in the skipped list (mirroring the ZIP pillar's resilient rebuild). `finish`/flush failure → `Unrepairable`.
 
 - [ ] **Step 1: Write the failing test** — add to the test section of `cfb_repair.rs`:
@@ -332,10 +338,12 @@ git commit -m "feat(recovery-core): re-emit a fresh compound file from recovered
 ### Task 4: Diagnose CFB corruption + register the diagnoser
 
 **Files:**
+
 - Modify: `crates/recovery-core/src/cfb_repair.rs`
 - Modify: `crates/recovery-core/src/diagnose.rs`
 
 **Interfaces:**
+
 - Produces (in `cfb_repair`): `pub fn diagnose_cfb(bytes: &[u8]) -> (Vec<crate::model::CorruptionKind>, crate::model::Recoverability)` — opens and reads every stream: all readable → (`[]`, `Intact`); opens but ≥1 stream lost → (`[Truncated]`, `Partial`); cannot open → (`[Other]`, `Unrecoverable`).
 - Consumes (in `diagnose`): the `Ole2` arm calls `diagnose_cfb` and sets `repair_supported = true`.
 
@@ -430,10 +438,12 @@ git commit -m "feat(recovery-core): diagnose cfb corruption + register the diagn
 ### Task 5: The CFB repairer + register into the repair dispatch
 
 **Files:**
+
 - Modify: `crates/recovery-core/src/cfb_repair.rs`
 - Modify: `crates/recovery-core/src/repair.rs`
 
 **Interfaces:**
+
 - Produces (in `cfb_repair`): `pub fn repair_cfb(bytes: &[u8]) -> Result<RepairResult, RepairError>` — salvage streams; if none recovered → `Err(Unrepairable)`; rebuild a fresh CFB; build the `LossManifest` (one `RecoveredItem` per stream, recovered or lost; re-emit-skipped streams flipped to lost; `synthesized` empty; `fully_recovered` = all recovered).
 - Consumes (in `repair`): the `Ole2` arm dispatches to `repair_cfb`.
 
@@ -517,7 +527,7 @@ pub fn repair_cfb(bytes: &[u8]) -> Result<RepairResult, RepairError> {
   - `cargo fmt --manifest-path crates/Cargo.toml -p recovery-core -- --check` (run `cargo fmt` first if needed; stage everything it touches)
   - `cargo clippy --manifest-path crates/Cargo.toml -p recovery-core --all-targets -- -D warnings`
   - `grep -rniE "golden rule|ADR-[0-9]|spec §" crates/recovery-core/src` (returns nothing)
-  Expected: all pass, fmt clean, clippy clean, no citations. Working tree clean after the commit.
+    Expected: all pass, fmt clean, clippy clean, no citations. Working tree clean after the commit.
 
 - [ ] **Step 6: Commit**
 
@@ -537,4 +547,7 @@ git commit -m "feat(recovery-core): cfb repairer + register into the repair disp
 - **Caps now live in `crate::limits`** — shared by the ZIP and CFB pillars; the PDF/carving pillars reuse them too.
 - **Log-safety:** stream paths live in `RecoveredItem.name`/`detail` — owner-facing receipt only, never the redacted log path. Only `RepairError::code()` is log-safe.
 - The worker route, container, attach-to-matter, and the `files` catalog group are Plan 6 — this plan is the pure engine pillar only.
+
+```
+
 ```

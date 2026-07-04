@@ -13,7 +13,7 @@ The pure-Rust PDF engine (`crates/pdf-core`) now ships many operations — rende
 text-preserving redaction (surgery), scrub, bad-redaction detection, AcroForm
 read/fill/flatten, generate (merge/split/rotate/watermark), Bates, and
 secure/encrypt. Confidence in each rests today on a ~10-file eval corpus. That is
-enough to prove a feature works; it is not enough to *trust* the engine against
+enough to prove a feature works; it is not enough to _trust_ the engine against
 the messy, adversarial, internationally-diverse documents real firms will bring.
 
 We want a **durable, reusable validation apparatus**: run any engine operation
@@ -24,7 +24,7 @@ at once —
 2. **Safety** — when an operation claims success, is its safety invariant truly
    upheld (e.g. a redacted region contains no recoverable text)?
 3. **Coverage** — how often does the good path fire versus a safe fallback, and
-   *why* does it fall back?
+   _why_ does it fall back?
 
 The apparatus is not a one-off measurement. It is re-run as the engine evolves,
 tracks regressions against a committed baseline, and is structured so the same
@@ -65,7 +65,7 @@ The harness is four operation-agnostic pieces plus a set of per-operation plug-i
 **Phase 1 keeps this deliberately light.** The first slice references a handful of
 pdf.js form-file URLs directly. Those files are direct-committed `.pdf`s in
 `mozilla/pdf.js` (not the rot-prone `.pdf.link` external pointers) and are treated
-as stable, so a sha256 pin and a local cache are *optional conveniences* (recorded
+as stable, so a sha256 pin and a local cache are _optional conveniences_ (recorded
 for drift-detection, never a hard gate) rather than required infrastructure. New or
 changed pdf.js files are fine — the harness simply tests whatever the manifest
 points at. The fuller manifest rigor below applies only when we later add larger,
@@ -87,15 +87,15 @@ Sourcing is public-domain or permissively-licensed only (a redaction tool must n
 ingest documents it cannot redistribute or that carry third-party PII). The fuller
 starter set (~300–400 files, phase 2+) draws from:
 
-| Source | License | Contributes |
-| --- | --- | --- |
-| Mozilla pdf.js `test/pdfs` | Apache-2.0 (project) | edge cases, fuzzed files, fonts incl. CJK/Arabic, annotations, compression |
-| SafeDocs "Targeted Test PDFs" | Apache-2.0 | hand-coded parser stressors |
-| veraPDF corpus | Open | PDF/A · PDF/UA · ISO 32000 feature files (atomic per clause) |
-| pdf20examples | Open | PDF 2.0 features |
-| Isartor / BFO / PDF-UA reference | Open | conformance failure conditions |
-| GovDocs1 (digitalcorpora) | Open | ~50–100 messy real-world sample |
-| Gov forms/filings (uscourts, IRS, GPO) | Public domain | target-domain: legal, AcroForms |
+| Source                                 | License              | Contributes                                                                |
+| -------------------------------------- | -------------------- | -------------------------------------------------------------------------- |
+| Mozilla pdf.js `test/pdfs`             | Apache-2.0 (project) | edge cases, fuzzed files, fonts incl. CJK/Arabic, annotations, compression |
+| SafeDocs "Targeted Test PDFs"          | Apache-2.0           | hand-coded parser stressors                                                |
+| veraPDF corpus                         | Open                 | PDF/A · PDF/UA · ISO 32000 feature files (atomic per clause)               |
+| pdf20examples                          | Open                 | PDF 2.0 features                                                           |
+| Isartor / BFO / PDF-UA reference       | Open                 | conformance failure conditions                                             |
+| GovDocs1 (digitalcorpora)              | Open                 | ~50–100 messy real-world sample                                            |
+| Gov forms/filings (uscourts, IRS, GPO) | Public domain        | target-domain: legal, AcroForms                                            |
 
 Proprietary suites (Ghent GWG, Altona) are excluded. The manifest records the
 per-file license so provenance is auditable.
@@ -118,16 +118,16 @@ planned future operation** (once the OCR engine lands) and drops into this same
 interface with no harness change — a key reason the abstraction is worth building
 now.
 
-| Operation | Phase | Outcome variants | Safety invariant |
-| --- | --- | --- | --- |
-| **forms (read/fill/flatten)** | **1 (pilot)** | Success / Error | filled field values read back from the output |
-| render | 2 | Success / Error | — (read-only) |
-| redact (surgery) | 2 | surgered / flattened / skipped(no-text) | redacted region text-free — re-run `Document::page_text_rects` on the **output** over the redaction rect; must be empty |
-| scrub | 2 | Success / Error | supplied target strings absent from output bytes |
-| detect | 2 | Success / Error | — |
-| generate (merge/split/rotate/watermark) | 2 | Success / Error | output re-parses as a valid PDF |
-| secure (encrypt / decrypt) | 2 | Success / Error | decrypt(encrypt(x)) round-trips |
-| **OCR** | 3 (future) | text-extracted / no-text / Error | — (read-only; optionally: extracted text matches a fixture expectation) |
+| Operation                               | Phase         | Outcome variants                        | Safety invariant                                                                                                        |
+| --------------------------------------- | ------------- | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| **forms (read/fill/flatten)**           | **1 (pilot)** | Success / Error                         | filled field values read back from the output                                                                           |
+| render                                  | 2             | Success / Error                         | — (read-only)                                                                                                           |
+| redact (surgery)                        | 2             | surgered / flattened / skipped(no-text) | redacted region text-free — re-run `Document::page_text_rects` on the **output** over the redaction rect; must be empty |
+| scrub                                   | 2             | Success / Error                         | supplied target strings absent from output bytes                                                                        |
+| detect                                  | 2             | Success / Error                         | —                                                                                                                       |
+| generate (merge/split/rotate/watermark) | 2             | Success / Error                         | output re-parses as a valid PDF                                                                                         |
+| secure (encrypt / decrypt)              | 2             | Success / Error                         | decrypt(encrypt(x)) round-trips                                                                                         |
+| **OCR**                                 | 3 (future)    | text-extracted / no-text / Error        | — (read-only; optionally: extracted text matches a fixture expectation)                                                 |
 
 The safety check for redaction is deliberately **self-contained** — it reuses the
 engine's own `page_text_rects` on the produced output, so every surgered document
@@ -167,7 +167,7 @@ as a real gate.
 ### 5. Enabling change in `pdf-core` — fallback reasons
 
 To populate the fallback-reason histogram, `redact` (and analogous operations)
-must report *why* a page took the safe fallback. Add a small reason enum to the
+must report _why_ a page took the safe fallback. Add a small reason enum to the
 redaction report — `FontUnsupported`, `ImageOverlap`, `Rotation`, `RoundTrip`,
 `GateRejected` — surfaced per flattened page. This is a minor, self-contained
 addition and is independently useful: a consumer UI can tell a user "couldn't
@@ -186,7 +186,7 @@ CPU-time limit. A document that surgers fine natively can OOM a Worker (the flat
 path rasterizes pages — millions of pixels). A smaller sample is therefore run
 through the **real WASM build under Miniflare**, recording `OOM`/`TimedOut`
 alongside the normal outcome. This tier answers a real architectural question:
-*do heavy documents fit in a Worker, or does an operation need a Container fallback*
+_do heavy documents fit in a Worker, or does an operation need a Container fallback_
 (as editing/conversion/OCR already do)? It is specified here but built later (see
 Phasing), so the first delivery stays focused.
 

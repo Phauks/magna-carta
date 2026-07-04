@@ -1,6 +1,6 @@
 # File Repair & Salvage — Plan 6b: attach-to-matter (design)
 
-**Status:** design, awaiting review. Follows Plan 6a (stateless integration, shipped — `HEAD 5a5fa60`). This plan makes the repair tool's output *persistable*: a user can save a repaired file into a matter as a new version, or carve embedded files into a matter as new files, with honest provenance travelling with each. Design resolved with the owner 2026-07-03 (four decisions below).
+**Status:** design, awaiting review. Follows Plan 6a (stateless integration, shipped — `HEAD 5a5fa60`). This plan makes the repair tool's output _persistable_: a user can save a repaired file into a matter as a new version, or carve embedded files into a matter as new files, with honest provenance travelling with each. Design resolved with the owner 2026-07-03 (four decisions below).
 
 ## Context
 
@@ -12,7 +12,7 @@ Plan 6b adds the opt-in `attach-to-matter` path (the `file` context). It is a se
 
 1. **Source is always the uploaded corrupt file.** Even when saving a new version of an existing matter file, the client uploads the corrupt bytes in the request body — the worker never server-fetches an existing matter version as the source. One source model for every case.
 2. **Both destinations.** Repair attaches as a **new version** of a target file when a `fileId` is given, else as a **new file**; carve always creates **N new files** in a chosen folder.
-3. **Flagged output rides the firm's normal ingest policy.** The re-scan on attach *is* the ingest scan; a flagged reconstruction is handled by the firm's existing `flaggedTreatment` setting exactly like any upload (quarantine, or commit-marked-flagged) — no special repair rule.
+3. **Flagged output rides the firm's normal ingest policy.** The re-scan on attach _is_ the ingest scan; a flagged reconstruction is handled by the firm's existing `flaggedTreatment` setting exactly like any upload (quarantine, or commit-marked-flagged) — no special repair rule.
 4. **Provenance is persisted with the version.** A repaired/carved version is a lossy machine reconstruction; its operation and honest loss manifest are stored in a per-firm record keyed by the version, so the "this is a reconstruction, here is what was lost/synthesized" fact is surfaced whenever the file is viewed — not just at repair time. The crown rule (never overclaim) applied to durable evidence.
 
 ## Architecture — attach is a server-side upload
@@ -34,7 +34,7 @@ client --corrupt bytes--> attach route
 
 **`ingest-core.ts` and `ingest-consumer.ts` are never edited.** The scan gate, the flagged handling, the scan-once dedup cache, and the size cap are all inherited by writing to the pending version's R2 key. The re-scan is the ingest scan — no double-scan.
 
-**Async by design.** Because ingest is queue-driven, attach returns **202 Accepted** with the `fileId`/`versionId`; the version stays *pending* until the consumer commits or quarantines it — identical to the existing upload `/complete` semantics. The tool UI (deferred) polls the version status, as the upload UI will.
+**Async by design.** Because ingest is queue-driven, attach returns **202 Accepted** with the `fileId`/`versionId`; the version stays _pending_ until the consumer commits or quarantines it — identical to the existing upload `/complete` semantics. The tool UI (deferred) polls the version status, as the upload UI will.
 
 ## Routes
 
@@ -67,21 +67,21 @@ The stateless `diagnose`/`repair`/`carve` routes are unchanged; attach is additi
 
 New per-firm table `file_repair_provenance`:
 
-| column | type | note |
-| --- | --- | --- |
-| `id` | text PK | `repairProvenance_…` identifier |
-| `file_version_id` | text | the attached pending/committed version; indexed |
-| `operation` | text | `repair` \| `carve` |
-| `fully_recovered` | integer | boolean; carve is always `0` |
-| `manifest_json` | text | the verbatim `LossManifest` (items `{name,recovered,detail}`, `synthesized[]`) |
-| `source_media_type` | text null | the sniffed/declared type of the corrupt input, for context |
-| `created_at` | text | ISO-8601 |
+| column              | type      | note                                                                           |
+| ------------------- | --------- | ------------------------------------------------------------------------------ |
+| `id`                | text PK   | `repairProvenance_…` identifier                                                |
+| `file_version_id`   | text      | the attached pending/committed version; indexed                                |
+| `operation`         | text      | `repair` \| `carve`                                                            |
+| `fully_recovered`   | integer   | boolean; carve is always `0`                                                   |
+| `manifest_json`     | text      | the verbatim `LossManifest` (items `{name,recovered,detail}`, `synthesized[]`) |
+| `source_media_type` | text null | the sniffed/declared type of the corrupt input, for context                    |
+| `created_at`        | text      | ISO-8601                                                                       |
 
-`manifest_json` holds item names (e.g. ZIP entry paths, PDF object numbers). This is **firm data**, access-gated exactly like the file it describes — it is *not* the redacted error-log pipeline, so names belong here (they are the evidentiary record). It must never be copied into an error/log/Problem response.
+`manifest_json` holds item names (e.g. ZIP entry paths, PDF object numbers). This is **firm data**, access-gated exactly like the file it describes — it is _not_ the redacted error-log pipeline, so names belong here (they are the evidentiary record). It must never be copied into an error/log/Problem response.
 
 **Repair vs. carve manifest.** A repair produces one file and stores that repair's manifest. A carve produces N files from one operation whose loss manifest describes the whole salvage (candidates found, recovered, lost); each carved file stores the **whole-operation manifest** verbatim, so every fragment carries the full "carved from an input where X was found, M recovered, K lost" context rather than a lossy per-fragment slice. `fully_recovered` is the engine's value (always `0`/false for carve).
 
-Data-access adds `readRepairProvenance(database, versionId)` (returns the parsed row or `null`) so a file/version view can surface "machine-reconstructed — N items recovered, M lost, K synthesized" with the full manifest on demand. The presence of a provenance row *is* the reconstruction marker; no redundant `origin` column on `file_version`.
+Data-access adds `readRepairProvenance(database, versionId)` (returns the parsed row or `null`) so a file/version view can surface "machine-reconstructed — N items recovered, M lost, K synthesized" with the full manifest on demand. The presence of a provenance row _is_ the reconstruction marker; no redundant `origin` column on `file_version`.
 
 A per-firm migration creates the table + the `file_version_id` index and is wired into `per-firm-migrations.ts` and the journal (migration-number coordination as in 6a — confirm against `main` before the number is fixed).
 
@@ -91,7 +91,7 @@ Two new file-audit actions, `file.repaired` and `file.carved`, added to the file
 
 ## Authorization
 
-`permission: "tools:fileRepair"`, `resource: "matter"` (the chokepoint scopes the actor to `matterId`). Because attach *writes files into a matter*, the handler additionally asserts the same matter file-write capability a normal upload requires, before `initiateUpload` — a dual gate (tool access + file-write). The exact composition (a second `assertPermission` in-handler vs. a chokepoint capability list) is confirmed against `route-meta.ts` / the uploads route in the implementation plan; the security requirement is fixed here: **both** the repair-tool capability and matter file-write are required.
+`permission: "tools:fileRepair"`, `resource: "matter"` (the chokepoint scopes the actor to `matterId`). Because attach _writes files into a matter_, the handler additionally asserts the same matter file-write capability a normal upload requires, before `initiateUpload` — a dual gate (tool access + file-write). The exact composition (a second `assertPermission` in-handler vs. a chokepoint capability list) is confirmed against `route-meta.ts` / the uploads route in the implementation plan; the security requirement is fixed here: **both** the repair-tool capability and matter file-write are required.
 
 ## What is NOT in this plan (seams / deferred)
 
@@ -114,6 +114,6 @@ Two new file-audit actions, `file.repaired` and `file.carved`, added to the file
 - repair → new file (no `fileId`; file + version created; provenance; audit).
 - carve → N new files in the target folder (N versions; N provenance rows; sanitized names; one 202 listing all).
 - flagged reconstruction → the firm's `flaggedTreatment` governs (quarantine under `block`; commit-flagged under allow) — driven by invoking the ingest consumer (`handleIngestMessage`) over the attached pending version, with the container stub emitting the malware marker (the R2-event→queue chain is not automatic under the test pool, so the test drives the consumer directly).
-- provenance round-trip: `readRepairProvenance(versionId)` returns the manifest; a committed *and* a quarantined version both carry it.
+- provenance round-trip: `readRepairProvenance(versionId)` returns the manifest; a committed _and_ a quarantined version both carry it.
 - authorization: 403 without `tools:fileRepair`; 403 without matter file-write; cross-matter `folderId` rejected (`file-cross-matter`).
 - unrepairable / empty-body / oversize / missing-binding reuse the stateless Problem paths.

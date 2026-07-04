@@ -4,7 +4,7 @@
 
 **Goal:** The third repair pillar — salvage a PDF whose cross-reference table (xref) is broken or truncated by scanning the raw bytes for the indirect objects that are still physically present, synthesizing a fresh classic xref + trailer, re-emitting a clean PDF, and reporting every object that could not be recovered — registered into the `recovery-core` diagnose/repair framework, following the ZIP and CFB pillars' shape.
 
-**Architecture:** Pure-Rust on the `lopdf` 0.41 crate. `lopdf` will not brute-force a broken xref (its reader errors on an unfindable/unparseable xref) and its object parser is private, so recovery cannot parse objects one-by-one. Instead the pillar reconstructs the *index*: a raw-byte scan finds every `N G obj` header and its offset; a fresh classic xref table + trailer (with a located `/Root`) is appended to a copy of the original bytes (whose object offsets are unchanged); `lopdf::Document::load_mem` then loads via that synthesized xref and `save_to` re-emits a clean file. The honest-loss layer is the crux: `lopdf` silently drops any object it cannot re-parse (`Err(_e) => {}` in its reader), so the pillar DIFFS the raw-scanned object set against what actually loaded and records every dropped object — never letting a silent drop become a silent overclaim. Objects packed inside compressed object streams (ObjStm) are invisible to the `N G obj` scan; when the original xref is unusable they cannot be recovered by this pass — a documented seam and a disclosed loss, exactly as the ZIP pillar seamed partial-final-entry recovery and the CFB pillar seamed manual sector-scan reconstruction.
+**Architecture:** Pure-Rust on the `lopdf` 0.41 crate. `lopdf` will not brute-force a broken xref (its reader errors on an unfindable/unparseable xref) and its object parser is private, so recovery cannot parse objects one-by-one. Instead the pillar reconstructs the _index_: a raw-byte scan finds every `N G obj` header and its offset; a fresh classic xref table + trailer (with a located `/Root`) is appended to a copy of the original bytes (whose object offsets are unchanged); `lopdf::Document::load_mem` then loads via that synthesized xref and `save_to` re-emits a clean file. The honest-loss layer is the crux: `lopdf` silently drops any object it cannot re-parse (`Err(_e) => {}` in its reader), so the pillar DIFFS the raw-scanned object set against what actually loaded and records every dropped object — never letting a silent drop become a silent overclaim. Objects packed inside compressed object streams (ObjStm) are invisible to the `N G obj` scan; when the original xref is unusable they cannot be recovered by this pass — a documented seam and a disclosed loss, exactly as the ZIP pillar seamed partial-final-entry recovery and the CFB pillar seamed manual sector-scan reconstruction.
 
 **Tech Stack:** Rust, `lopdf` 0.41 (`default-features = false`), Plan-1 `recovery-core` types, the shared `crate::limits` caps.
 
@@ -27,11 +27,13 @@
 ### Task 1: Add the `lopdf` dependency + the PDF module skeleton
 
 **Files:**
+
 - Modify: `crates/recovery-core/Cargo.toml` (add `lopdf`; add the wasm `getrandom` backend)
 - Create: `crates/recovery-core/src/pdf_repair.rs`
 - Modify: `crates/recovery-core/src/lib.rs` (declare `pdf_repair`)
 
 **Interfaces:**
+
 - Produces: an empty `pdf_repair` module; the `lopdf` crate available on both native and wasm targets.
 
 - [ ] **Step 1: Add `lopdf` to `crates/recovery-core/Cargo.toml`** under `[dependencies]` (after `cfb`/`uuid`):
@@ -73,7 +75,7 @@ pub mod pdf_repair;
   - `cargo build --manifest-path crates/Cargo.toml -p recovery-core`
   - `cargo build --manifest-path crates/Cargo.toml -p recovery-core --target wasm32-unknown-unknown`
   - `cargo tree --manifest-path crates/Cargo.toml -p recovery-core -i flate2 -e features` — confirm the DEFLATE backend resolves to the pure-Rust `miniz_oxide`/`rust_backend`, NOT a C `zlib`/`zlib-ng` backend. (recovery-core already pins `flate2` with `default-features=false, features=["rust_backend"]`; cargo unifies lopdf's `flate2` onto it. If a C backend appears, add the matching pin.)
-  Expected: both builds compile; no C zlib backend. If the wasm build fails on `getrandom`, confirm Step 2 landed.
+    Expected: both builds compile; no C zlib backend. If the wasm build fails on `getrandom`, confirm Step 2 landed.
 
 - [ ] **Step 6: Commit**
 
@@ -87,9 +89,11 @@ git commit -m "feat(recovery-core): add lopdf dep + PDF module skeleton"
 ### Task 2: Scan the raw bytes for indirect objects
 
 **Files:**
+
 - Modify: `crates/recovery-core/src/pdf_repair.rs`
 
 **Interfaces:**
+
 - Produces:
   - `pub struct ScannedObject { pub number: u32, pub generation: u16, pub offset: usize }`
   - `pub fn scan_objects(bytes: &[u8], max_count: usize) -> Vec<ScannedObject>` — forward-scan for every `N G obj` indirect-object header; `offset` is the byte index of the header's first digit; capped at `max_count` headers. Best-effort: a digit run that is not followed by `<uint> obj` is skipped.
@@ -251,9 +255,11 @@ git commit -m "feat(recovery-core): raw-byte scan for pdf indirect objects"
 ### Task 3: Locate the document catalog (`/Root`)
 
 **Files:**
+
 - Modify: `crates/recovery-core/src/pdf_repair.rs`
 
 **Interfaces:**
+
 - Consumes: `scan_objects` / `ScannedObject` from Task 2.
 - Produces: `pub fn find_root(bytes: &[u8], scanned: &[ScannedObject]) -> Option<(u32, u16)>` — the object number+generation of the first scanned object whose body declares `/Type /Catalog`, or None if none is found.
 
@@ -327,9 +333,11 @@ git commit -m "feat(recovery-core): locate the pdf catalog for /Root"
 ### Task 4: Synthesize a fresh cross-reference table and append it
 
 **Files:**
+
 - Modify: `crates/recovery-core/src/pdf_repair.rs`
 
 **Interfaces:**
+
 - Consumes: `ScannedObject` from Task 2.
 - Produces: `pub fn rebuild_with_xref(bytes: &[u8], scanned: &[ScannedObject], root: (u32, u16)) -> Vec<u8>` — return a copy of `bytes` with a fresh classic xref table, a trailer (`/Size`, `/Root`), and `startxref` appended, so `lopdf::Document::load_mem` can load it. The appended xref references each scanned object at its original offset; later duplicates of an object number win (the offset physically latest in the file is the current revision).
 
@@ -440,10 +448,12 @@ git commit -m "feat(recovery-core): synthesize a fresh pdf cross-reference table
 ### Task 5: The PDF repairer + honest loss manifest + register into the repair dispatch
 
 **Files:**
+
 - Modify: `crates/recovery-core/src/pdf_repair.rs`
 - Modify: `crates/recovery-core/src/repair.rs`
 
 **Interfaces:**
+
 - Consumes: `scan_objects`, `find_root`, `rebuild_with_xref` (Tasks 2–4); `crate::limits::MAX_ENTRY_COUNT`; `lopdf::Document`.
 - Produces (in `pdf_repair`): `pub fn repair_pdf(bytes: &[u8]) -> Result<RepairResult, RepairError>` — scan objects (Err `Unrepairable` if none); locate `/Root` (Err `Unrepairable` if none); synthesize the xref; `load_mem` the patched buffer (Err `Unrepairable` if it still will not load); `save_to` a fresh buffer; build the `LossManifest` by DIFFING scanned object numbers against the numbers lopdf actually loaded (each scanned number → one `RecoveredItem`, recovered iff loaded); disclose a compressed-object-stream coverage gap as a loss item; `synthesized` empty; `fully_recovered` = all items recovered.
 - Consumes (in `repair`): the `Pdf` arm dispatches to `repair_pdf`.
@@ -600,10 +610,12 @@ git commit -m "feat(recovery-core): pdf repairer with honest loss manifest + reg
 ### Task 6: Diagnose PDF xref corruption + register the diagnoser
 
 **Files:**
+
 - Modify: `crates/recovery-core/src/pdf_repair.rs`
 - Modify: `crates/recovery-core/src/diagnose.rs`
 
 **Interfaces:**
+
 - Consumes: `scan_objects`, `find_root`, `rebuild_with_xref` (Tasks 2–4); `lopdf::Document`.
 - Produces (in `pdf_repair`): `pub fn diagnose_pdf(bytes: &[u8]) -> (Vec<crate::model::CorruptionKind>, crate::model::Recoverability)` — no objects → (`[Other]`, `Unrecoverable`); loads as-is → (`[]`, `Intact`); original will not load but the rebuild loads every scanned object → (`[BrokenCrossReference]`, `Repairable`); rebuild loads but some scanned objects are missing → (`[BrokenCrossReference]`, `Partial`); no catalog → (`[MissingRequiredParts]`, `Unrecoverable`); rebuild will not load → (`[BrokenCrossReference]`, `Unrecoverable`). The Repairable-vs-Partial split uses the SAME scanned-number-set ⊆ loaded-number-set check as the repair manifest, so diagnose and repair never disagree.
 - Consumes (in `diagnose`): the `Pdf` arm calls `diagnose_pdf` and sets `repair_supported = true`.
@@ -740,7 +752,7 @@ pub fn diagnose_pdf(bytes: &[u8]) -> (Vec<CorruptionKind>, Recoverability) {
   - `cargo fmt --manifest-path crates/Cargo.toml -p recovery-core` then `cargo fmt --manifest-path crates/Cargo.toml -p recovery-core -- --check` (stage everything it touches)
   - `cargo clippy --manifest-path crates/Cargo.toml -p recovery-core --all-targets -- -D warnings`
   - `grep -rniE "golden rule|ADR-[0-9]|spec §|slice [0-9]" crates/recovery-core/src` (returns nothing)
-  Expected: all pass, fmt clean, clippy clean, no citations, clean working tree after commit.
+    Expected: all pass, fmt clean, clippy clean, no citations, clean working tree after commit.
 
 - [ ] **Step 7: Commit**
 

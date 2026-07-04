@@ -25,7 +25,7 @@ A six-way parallel spike (CA, TX, NY, WY, SD + a national sweep) established the
 data and killed the naive "one link per state" model:
 
 - **Every state has a real program** — even the two small states picked to test the sparse case
-  (WY, SD) have full programs. The hard problem is *shape variance*, not absence.
+  (WY, SD) have full programs. The hard problem is _shape variance_, not absence.
 - **A state carries multiple resources, not one.** NY has a statewide NYSBA LAP **plus** a
   separate NYC Bar LAP **plus** county programs; WY has a bar program **plus** an outsourced
   clinical vendor (WPAP) **plus** a teletherapy member benefit; SD layers a peer network, a
@@ -54,7 +54,7 @@ data and killed the naive "one link per state" model:
    `government-links`' `PortalSite`/`deepLink` shape (wrong fit) or a data-only JSON blob (loses
    type safety, tests, and the verify/needs-fix curation the link rot demands). `government-links`
    is additionally **paused** pending an integrations reorg — we build on our own ground.
-2. **Data first, code second.** Research all jurisdictions into a structured corpus, *then*
+2. **Data first, code second.** Research all jurisdictions into a structured corpus, _then_
    analyze it to finalize the model and build the package. The model below is a **hypothesis**;
    the corpus confirms or reshapes it — exactly as trust-rules deferred its schema until the
    corpus was clean.
@@ -76,7 +76,7 @@ Root: `docs/research/wellbeing-resources/`
 - `profiles/profiles.json` — **the dataset.** Per jurisdiction: a **list of resources**; every
   field carries provenance `{ value, confidence, sourceUrl, sourceTier, verifiedOn }`.
   `confidence ∈ HIGH | MEDIUM | LOW | NA`; `sourceTier ∈ primary-official | corroborated |
-  secondary`. Each profile references its `sources/` manifest entry.
+secondary`. Each profile references its `sources/` manifest entry.
 - `profiles/viewer.html` — the verify / needs-fix / fix coverage map, driven by `profiles.json`
   (lifted from the `government-links` and trust-rules viewers). **Generated — never hand-edited;**
   edit the dataset via `extract/*.json` inputs + a regenerable pipeline.
@@ -85,6 +85,7 @@ Root: `docs/research/wellbeing-resources/`
   (403s automated fetch), each then verified against the program's own official page.
 
 **Discipline carried from trust-rules (non-negotiable):**
+
 - Every `HIGH`/`MEDIUM` value rests on a **verbatim quote from a source fetched this session** —
   never training recall.
 - Provenance is uniform across **every** field, not just some.
@@ -105,29 +106,36 @@ type OperatorType = "stateBar" | "nonprofit" | "court" | "vendor" | "national";
 type ResourceScope = "statewide" | "metro" | "national";
 type Availability = "aroundTheClock" | "businessHours" | "unspecified";
 type ServiceTag =
-  | "counseling" | "substanceUse" | "mentalHealth" | "peerSupport"
-  | "crisisLine" | "teletherapy" | "financialAid" | "familySupport" | "monitoring";
+  | "counseling"
+  | "substanceUse"
+  | "mentalHealth"
+  | "peerSupport"
+  | "crisisLine"
+  | "teletherapy"
+  | "financialAid"
+  | "familySupport"
+  | "monitoring";
 
 interface Phone {
-  readonly number: string;             // display form, e.g. "800-343-8527"
-  readonly label?: string;             // "Confidential helpline", "Peer volunteer", "Intake"
+  readonly number: string; // display form, e.g. "800-343-8527"
+  readonly label?: string; // "Confidential helpline", "Peer volunteer", "Intake"
   readonly availability: Availability; // only aroundTheClock when the page states it
-  readonly hoursNote?: string;         // free text when nuanced
+  readonly hoursNote?: string; // free text when nuanced
 }
 
 interface WellbeingResource {
-  readonly name: string;               // "Texas Lawyers' Assistance Program (TLAP)"
-  readonly operator: string;           // "State Bar of Texas"
+  readonly name: string; // "Texas Lawyers' Assistance Program (TLAP)"
+  readonly operator: string; // "State Bar of Texas"
   readonly operatorType: OperatorType;
   readonly scope: ResourceScope;
-  readonly url?: string;               // landing page — may be off the bar's own domain
+  readonly url?: string; // landing page — may be off the bar's own domain
   readonly phones: readonly Phone[];
   readonly email?: string;
   readonly services: readonly ServiceTag[];
-  readonly confidential?: string;      // short qualifier, e.g. "Confidential by statute"
-  readonly cost?: string;              // "Free" | "Some services free; fees may apply"
-  readonly description?: string;       // one or two sentences
-  readonly verifiedOn: string;         // ISO date the url/phone was last confirmed
+  readonly confidential?: string; // short qualifier, e.g. "Confidential by statute"
+  readonly cost?: string; // "Free" | "Some services free; fees may apply"
+  readonly description?: string; // one or two sentences
+  readonly verifiedOn: string; // ISO date the url/phone was last confirmed
   readonly notes?: string;
 }
 ```
@@ -206,5 +214,5 @@ follow-up, not built in this slice.
   in `profiles.json`, every field with provenance, and the viewer renders the coverage map with
   a working verify/needs-fix loop.
 - Phase B: `@magna-carta/wellbeing-resources` builds and passes tests; `wellbeingResourcesForState`
-  + `nationalResources` return the verified data; the national safety net is unconditionally
-  present.
+  - `nationalResources` return the verified data; the national safety net is unconditionally
+    present.

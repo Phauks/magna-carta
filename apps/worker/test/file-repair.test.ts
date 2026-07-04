@@ -34,7 +34,9 @@ function post(path: string, cookie: string, body: string | null): Promise<Respon
       headers: {
         cookie,
         "content-type": "application/octet-stream",
-        ...(body === null ? {} : { "content-length": String(new TextEncoder().encode(body).length) }),
+        ...(body === null
+          ? {}
+          : { "content-length": String(new TextEncoder().encode(body).length) }),
       },
       ...(body === null ? {} : { body }),
     },

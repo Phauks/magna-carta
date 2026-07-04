@@ -61,6 +61,7 @@ Each file has one responsibility; `data.generated.ts` is the only generated TS i
 ### Task 1: Package scaffold + typed model
 
 **Files:**
+
 - Create: `packages/wellbeing-resources/package.json`
 - Create: `packages/wellbeing-resources/tsconfig.json`
 - Create: `packages/wellbeing-resources/vitest.config.ts`
@@ -68,6 +69,7 @@ Each file has one responsibility; `data.generated.ts` is the only generated TS i
 - Test: `packages/wellbeing-resources/test/types.test.ts`
 
 **Interfaces:**
+
 - Produces: `OperatorType`, `ResourceScope`, `Availability`, `ServiceTag` (string-literal unions); `Phone`, `WellbeingResource`, `JurisdictionEntry`, `WellbeingDataset` interfaces — consumed by every later task.
 
 - [ ] **Step 1: Create `package.json`**
@@ -240,10 +242,12 @@ git commit -m "feat(wellbeing-resources): scaffold package + typed model"
 ### Task 2: Data generator + generated data table
 
 **Files:**
+
 - Create: `packages/wellbeing-resources/scripts/build-data.mts`
 - Create: `packages/wellbeing-resources/src/data.generated.ts` (written by the generator; commit the output)
 
 **Interfaces:**
+
 - Consumes: `WellbeingResource`, `JurisdictionEntry` from `src/types.ts`; the corpus at `docs/research/wellbeing-resources/profiles.json`.
 - Produces: `NATIONAL_RESOURCES: readonly WellbeingResource[]` and `JURISDICTIONS: readonly JurisdictionEntry[]` in `src/data.generated.ts`; and `renderDataModule(profiles)` + a `--check` mode in the generator.
 
@@ -429,10 +433,12 @@ git commit -m "feat(wellbeing-resources): generate shipped data table from the r
 ### Task 3: Registry accessors
 
 **Files:**
+
 - Create: `packages/wellbeing-resources/src/registry.ts`
 - Test: `packages/wellbeing-resources/test/registry.test.ts`
 
 **Interfaces:**
+
 - Consumes: `NATIONAL_RESOURCES`, `JURISDICTIONS` from `src/data.generated.ts`; `JurisdictionEntry`, `WellbeingResource` from `src/types.ts`.
 - Produces: `nationalResources(): readonly WellbeingResource[]`; `wellbeingResourcesForState(key: string): JurisdictionEntry | undefined`; `allCoveredJurisdictions(): readonly JurisdictionEntry[]`; `isNationalFallbackOnly(entry: JurisdictionEntry): boolean`; re-exports `NATIONAL_RESOURCES`, `JURISDICTIONS`.
 
@@ -550,9 +556,11 @@ git commit -m "feat(wellbeing-resources): registry accessors over the data table
 ### Task 4: Shipped-model invariant suite
 
 **Files:**
+
 - Test: `packages/wellbeing-resources/test/data.test.ts`
 
 **Interfaces:**
+
 - Consumes: `NATIONAL_RESOURCES`, `JURISDICTIONS` from `src/registry.ts`. No new production code — this task proves the generated data satisfies the shipped-model invariants (the TS port of `docs/research/wellbeing-resources/pipeline/validate.py`).
 
 - [ ] **Step 1: Write the invariant test — `test/data.test.ts`**
@@ -623,9 +631,57 @@ describe("jurisdictions", () => {
       codes.add(j.code);
     }
     const STATES_AND_DC = [
-      "AL","AK","AZ","AR","CA","CO","CT","DE","DC","FL","GA","HI","ID","IL","IN","IA","KS","KY",
-      "LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH",
-      "OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY",
+      "AL",
+      "AK",
+      "AZ",
+      "AR",
+      "CA",
+      "CO",
+      "CT",
+      "DE",
+      "DC",
+      "FL",
+      "GA",
+      "HI",
+      "ID",
+      "IL",
+      "IN",
+      "IA",
+      "KS",
+      "KY",
+      "LA",
+      "ME",
+      "MD",
+      "MA",
+      "MI",
+      "MN",
+      "MS",
+      "MO",
+      "MT",
+      "NE",
+      "NV",
+      "NH",
+      "NJ",
+      "NM",
+      "NY",
+      "NC",
+      "ND",
+      "OH",
+      "OK",
+      "OR",
+      "PA",
+      "RI",
+      "SC",
+      "SD",
+      "TN",
+      "TX",
+      "UT",
+      "VT",
+      "VA",
+      "WA",
+      "WV",
+      "WI",
+      "WY",
     ];
     for (const code of STATES_AND_DC) {
       expect(codes.has(code), `missing ${code}`).toBe(true);
@@ -662,10 +718,12 @@ git commit -m "test(wellbeing-resources): shipped-model invariant suite"
 ### Task 5: Coverage manifest
 
 **Files:**
+
 - Create: `packages/wellbeing-resources/src/manifest.ts`
 - Test: `packages/wellbeing-resources/test/manifest.test.ts`
 
 **Interfaces:**
+
 - Consumes: `JURISDICTIONS`, `NATIONAL_RESOURCES` from `src/data.generated.ts`.
 - Produces: `CoverageManifest` interface; `coverageManifest(): CoverageManifest`.
 
@@ -746,11 +804,13 @@ git commit -m "feat(wellbeing-resources): coverage manifest derived from the dat
 ### Task 6: Coverage directory mockup
 
 **Files:**
+
 - Create: `packages/wellbeing-resources/scripts/build-directory-data.mts`
 - Create: `packages/wellbeing-resources/mockups/directory-data.js` (written by the script; commit the output)
 - Create: `packages/wellbeing-resources/mockups/directory.html`
 
 **Interfaces:**
+
 - Consumes: `allCoveredJurisdictions`, `nationalResources`, `coverageManifest` from the package.
 - Produces: `window.WELLBEING` on `mockups/directory-data.js`; a static coverage grid that opens over `file://` (script tag, not `fetch`, which is blocked for local files — same approach as `government-links`' coverage map).
 
@@ -797,16 +857,47 @@ main();
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Wellbeing Resources — coverage</title>
     <style>
-      body { font: 14px/1.5 system-ui, sans-serif; margin: 2rem; color: #1a1a1a; }
-      h1 { font-size: 1.25rem; }
-      .summary { color: #444; margin-bottom: 1rem; }
-      .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
-      .cell { border: 1px solid #ddd; border-radius: 6px; padding: 8px 10px; }
-      .cell.fallback { background: #fbf4e6; border-color: #e6d3a3; }
-      .code { font-weight: 600; }
-      .count { color: #555; font-size: 12px; }
-      .national { margin-top: 1.5rem; }
-      .national li { margin: 2px 0; }
+      body {
+        font:
+          14px/1.5 system-ui,
+          sans-serif;
+        margin: 2rem;
+        color: #1a1a1a;
+      }
+      h1 {
+        font-size: 1.25rem;
+      }
+      .summary {
+        color: #444;
+        margin-bottom: 1rem;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 8px;
+      }
+      .cell {
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        padding: 8px 10px;
+      }
+      .cell.fallback {
+        background: #fbf4e6;
+        border-color: #e6d3a3;
+      }
+      .code {
+        font-weight: 600;
+      }
+      .count {
+        color: #555;
+        font-size: 12px;
+      }
+      .national {
+        margin-top: 1.5rem;
+      }
+      .national li {
+        margin: 2px 0;
+      }
     </style>
   </head>
   <body>
@@ -867,6 +958,7 @@ git commit -m "feat(wellbeing-resources): coverage directory mockup built from t
 ### Task 7: Package CLAUDE.md + docs + fragments
 
 **Files:**
+
 - Create: `packages/wellbeing-resources/CLAUDE.md`
 - Modify: `ROADMAP.md` (mark the wellbeing-resources package built)
 - Modify: `STATUS.md` (edit only the wellbeing-resources slice row)
@@ -1008,6 +1100,7 @@ Expected: no uncommitted changes in `packages/wellbeing-resources/` or the docs 
 ## Self-Review
 
 **Spec coverage:**
+
 - New dedicated package `@magna-carta/wellbeing-resources` reusing the authoring pattern → Tasks 1, 3, 5, 6.
 - Data model finalized from the corpus (resource-centric; enums; national safety net) → Model Confirmation + Task 1.
 - Data first, code second; model confirmed against the corpus before freezing → Model Confirmation section + Task 2 generator.
@@ -1021,4 +1114,7 @@ Expected: no uncommitted changes in `packages/wellbeing-resources/` or the docs 
 **Placeholder scan:** no TBD/TODO; every code step carries complete code; every command has an expected result.
 
 **Type consistency:** `WellbeingResource`/`JurisdictionEntry`/`Phone` field names are identical across `types.ts`, the generator projection, `registry.ts`, `manifest.ts`, and the tests. `nationalFallbackOnly` (boolean) is used consistently. Accessor names (`wellbeingResourcesForState`, `nationalResources`, `allCoveredJurisdictions`, `isNationalFallbackOnly`, `coverageManifest`) match between definitions and tests.
+
+```
+
 ```

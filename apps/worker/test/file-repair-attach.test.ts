@@ -162,7 +162,10 @@ async function seedCommittedFile(
     )
     .bind(versionId, fileId, r2Key, ISO)
     .run();
-  await firmDb.prepare("UPDATE file SET current_version_id = ?2 WHERE id = ?1").bind(fileId, versionId).run();
+  await firmDb
+    .prepare("UPDATE file SET current_version_id = ?2 WHERE id = ?1")
+    .bind(fileId, versionId)
+    .run();
   await env.R2.put(r2Key, "existing committed bytes");
   return { fileId };
 }
@@ -290,23 +293,25 @@ describe("POST /api/v1/file-repair/repair/attach", () => {
 
   it("returns 422 when the engine cannot reconstruct the file", async () => {
     const cookie = await ownerCookie("attach-unrep@example.com", "Attach Unrep");
-    const response = await postAttach(
-      "repair/attach",
-      cookie,
-      "hopeless UNREPAIRABLE bytes",
-      { matterId: poolMatterId },
-    );
+    const response = await postAttach("repair/attach", cookie, "hopeless UNREPAIRABLE bytes", {
+      matterId: poolMatterId,
+    });
     expect(response.status).toBe(422);
     expect(response.headers.get("content-type")).toContain("application/problem+json");
   });
 
   it("a flagged reconstruction is quarantined by the ingest gate (firm policy = block)", async () => {
     const cookie = await ownerCookie("attach-flagged@example.com", "Attach Flagged");
-    const response = await postAttach("repair/attach", cookie, "corrupt pdf TRIGGERMALWARE payload", {
-      matterId: poolMatterId,
-      folderId: poolFolderId,
-      fileName: "suspect.pdf",
-    });
+    const response = await postAttach(
+      "repair/attach",
+      cookie,
+      "corrupt pdf TRIGGERMALWARE payload",
+      {
+        matterId: poolMatterId,
+        folderId: poolFolderId,
+        fileName: "suspect.pdf",
+      },
+    );
     // The attach route persists the pending version + provenance and puts the reconstructed bytes to
     // R2 regardless of their content — the malware gate is not a second, parallel check here; the same
     // async ingest consumer that governs a direct upload governs this attach too.
@@ -334,7 +339,9 @@ describe("POST /api/v1/file-repair/carve/attach", () => {
       folderId: poolFolderId,
     });
     expect(res.status).toBe(202);
-    const body = (await res.json()) as { files: { fileId: string; versionId: string; name: string }[] };
+    const body = (await res.json()) as {
+      files: { fileId: string; versionId: string; name: string }[];
+    };
     expect(body.files.length).toBeGreaterThan(0);
     for (const f of body.files) {
       expect(await readRepairProvenance(firmDb, f.versionId)).not.toBeNull();

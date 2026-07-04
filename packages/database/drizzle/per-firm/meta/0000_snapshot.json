@@ -50,12 +50,8 @@
           "name": "account_balance_account_id_ledger_account_id_fk",
           "tableFrom": "account_balance",
           "tableTo": "ledger_account",
-          "columnsFrom": [
-            "account_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["account_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -146,9 +142,7 @@
       "indexes": {
         "ai_detection_usage_created_at_index": {
           "name": "ai_detection_usage_created_at_index",
-          "columns": [
-            "created_at"
-          ],
+          "columns": ["created_at"],
           "isUnique": false
         }
       },
@@ -206,16 +200,12 @@
       "indexes": {
         "audit_log_created_at_index": {
           "name": "audit_log_created_at_index",
-          "columns": [
-            "created_at"
-          ],
+          "columns": ["created_at"],
           "isUnique": false
         },
         "audit_log_event_index": {
           "name": "audit_log_event_index",
-          "columns": [
-            "event"
-          ],
+          "columns": ["event"],
           "isUnique": false
         }
       },
@@ -372,25 +362,17 @@
       "indexes": {
         "cost_entry_matter_status_index": {
           "name": "cost_entry_matter_status_index",
-          "columns": [
-            "matter_id",
-            "status"
-          ],
+          "columns": ["matter_id", "status"],
           "isUnique": false
         },
         "cost_entry_status_incurred_date_index": {
           "name": "cost_entry_status_incurred_date_index",
-          "columns": [
-            "status",
-            "incurred_date"
-          ],
+          "columns": ["status", "incurred_date"],
           "isUnique": false
         },
         "cost_entry_recovery_ref_unique": {
           "name": "cost_entry_recovery_ref_unique",
-          "columns": [
-            "recovery_ref"
-          ],
+          "columns": ["recovery_ref"],
           "isUnique": true,
           "where": "\"cost_entry\".\"recovery_ref\" IS NOT NULL"
         }
@@ -400,12 +382,8 @@
           "name": "cost_entry_matter_id_matter_id_fk",
           "tableFrom": "cost_entry",
           "tableTo": "matter",
-          "columnsFrom": [
-            "matter_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["matter_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -413,12 +391,8 @@
           "name": "cost_entry_utbms_expense_code_id_utbms_code_id_fk",
           "tableFrom": "cost_entry",
           "tableTo": "utbms_code",
-          "columnsFrom": [
-            "utbms_expense_code_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["utbms_expense_code_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -550,10 +524,7 @@
       "indexes": {
         "custom_field_scope_index": {
           "name": "custom_field_scope_index",
-          "columns": [
-            "target",
-            "attachment_id"
-          ],
+          "columns": ["target", "attachment_id"],
           "isUnique": false
         }
       },
@@ -661,33 +632,23 @@
       "indexes": {
         "custom_field_value_current_unique_index": {
           "name": "custom_field_value_current_unique_index",
-          "columns": [
-            "target_row_id",
-            "field_id"
-          ],
+          "columns": ["target_row_id", "field_id"],
           "isUnique": true,
           "where": "\"custom_field_value\".\"is_current\" = 1"
         },
         "custom_field_value_record_index": {
           "name": "custom_field_value_record_index",
-          "columns": [
-            "target_row_id",
-            "is_current"
-          ],
+          "columns": ["target_row_id", "is_current"],
           "isUnique": false
         },
         "custom_field_value_field_index": {
           "name": "custom_field_value_field_index",
-          "columns": [
-            "field_id"
-          ],
+          "columns": ["field_id"],
           "isUnique": false
         },
         "custom_field_value_reference_index": {
           "name": "custom_field_value_reference_index",
-          "columns": [
-            "value_reference_id"
-          ],
+          "columns": ["value_reference_id"],
           "isUnique": false
         }
       },
@@ -745,9 +706,7 @@
       "indexes": {
         "direct_grant_member_user_id_index": {
           "name": "direct_grant_member_user_id_index",
-          "columns": [
-            "member_user_id"
-          ],
+          "columns": ["member_user_id"],
           "isUnique": false
         }
       },
@@ -756,12 +715,8 @@
           "name": "direct_grant_member_user_id_member_user_id_fk",
           "tableFrom": "direct_grant",
           "tableTo": "member",
-          "columnsFrom": [
-            "member_user_id"
-          ],
-          "columnsTo": [
-            "user_id"
-          ],
+          "columnsFrom": ["member_user_id"],
+          "columnsTo": ["user_id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -876,9 +831,7 @@
       "indexes": {
         "directory_address_entity_id_index": {
           "name": "directory_address_entity_id_index",
-          "columns": [
-            "entity_id"
-          ],
+          "columns": ["entity_id"],
           "isUnique": false
         }
       },
@@ -1051,16 +1004,12 @@
       "indexes": {
         "directory_edge_from_entity_id_index": {
           "name": "directory_edge_from_entity_id_index",
-          "columns": [
-            "from_entity_id"
-          ],
+          "columns": ["from_entity_id"],
           "isUnique": false
         },
         "directory_edge_to_entity_id_index": {
           "name": "directory_edge_to_entity_id_index",
-          "columns": [
-            "to_entity_id"
-          ],
+          "columns": ["to_entity_id"],
           "isUnique": false
         }
       },
@@ -1152,9 +1101,7 @@
       "indexes": {
         "directory_email_entity_id_index": {
           "name": "directory_email_entity_id_index",
-          "columns": [
-            "entity_id"
-          ],
+          "columns": ["entity_id"],
           "isUnique": false
         }
       },
@@ -1196,22 +1143,15 @@
           "name": "directory_entity_category_category_id_directory_category_id_fk",
           "tableFrom": "directory_entity_category",
           "tableTo": "directory_category",
-          "columnsFrom": [
-            "category_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["category_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
         "directory_entity_category_entity_id_category_id_pk": {
-          "columns": [
-            "entity_id",
-            "category_id"
-          ],
+          "columns": ["entity_id", "category_id"],
           "name": "directory_entity_category_entity_id_category_id_pk"
         }
       },
@@ -1295,17 +1235,12 @@
       "indexes": {
         "directory_identifier_entity_id_index": {
           "name": "directory_identifier_entity_id_index",
-          "columns": [
-            "entity_id"
-          ],
+          "columns": ["entity_id"],
           "isUnique": false
         },
         "directory_identifier_type_blind_index_index": {
           "name": "directory_identifier_type_blind_index_index",
-          "columns": [
-            "identifier_type",
-            "value_blind_index"
-          ],
+          "columns": ["identifier_type", "value_blind_index"],
           "isUnique": false
         }
       },
@@ -1439,16 +1374,12 @@
       "indexes": {
         "directory_name_entity_id_index": {
           "name": "directory_name_entity_id_index",
-          "columns": [
-            "entity_id"
-          ],
+          "columns": ["entity_id"],
           "isUnique": false
         },
         "directory_name_normalized_display_index": {
           "name": "directory_name_normalized_display_index",
-          "columns": [
-            "normalized_display"
-          ],
+          "columns": ["normalized_display"],
           "isUnique": false
         }
       },
@@ -1498,17 +1429,12 @@
       "indexes": {
         "directory_name_phonetic_code_scheme_code_index": {
           "name": "directory_name_phonetic_code_scheme_code_index",
-          "columns": [
-            "scheme",
-            "code"
-          ],
+          "columns": ["scheme", "code"],
           "isUnique": false
         },
         "directory_name_phonetic_code_code_index": {
           "name": "directory_name_phonetic_code_code_index",
-          "columns": [
-            "code"
-          ],
+          "columns": ["code"],
           "isUnique": false
         }
       },
@@ -1517,22 +1443,15 @@
           "name": "directory_name_phonetic_code_name_id_directory_name_id_fk",
           "tableFrom": "directory_name_phonetic_code",
           "tableTo": "directory_name",
-          "columnsFrom": [
-            "name_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["name_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
         "directory_name_phonetic_code_name_id_scheme_pk": {
-          "columns": [
-            "name_id",
-            "scheme"
-          ],
+          "columns": ["name_id", "scheme"],
           "name": "directory_name_phonetic_code_name_id_scheme_pk"
         }
       },
@@ -1665,9 +1584,7 @@
       "indexes": {
         "directory_party_role_name_unique_index": {
           "name": "directory_party_role_name_unique_index",
-          "columns": [
-            "name"
-          ],
+          "columns": ["name"],
           "isUnique": true
         }
       },
@@ -1882,9 +1799,7 @@
       "indexes": {
         "directory_phone_entity_id_index": {
           "name": "directory_phone_entity_id_index",
-          "columns": [
-            "entity_id"
-          ],
+          "columns": ["entity_id"],
           "isUnique": false
         }
       },
@@ -1973,32 +1888,22 @@
       "indexes": {
         "document_checkout_file_id_index": {
           "name": "document_checkout_file_id_index",
-          "columns": [
-            "file_id"
-          ],
+          "columns": ["file_id"],
           "isUnique": false
         },
         "document_checkout_holder_member_id_index": {
           "name": "document_checkout_holder_member_id_index",
-          "columns": [
-            "holder_member_id"
-          ],
+          "columns": ["holder_member_id"],
           "isUnique": false
         },
         "document_checkout_status_last_activity_index": {
           "name": "document_checkout_status_last_activity_index",
-          "columns": [
-            "status",
-            "last_activity_at"
-          ],
+          "columns": ["status", "last_activity_at"],
           "isUnique": false
         },
         "document_checkout_status_idle_release_index": {
           "name": "document_checkout_status_idle_release_index",
-          "columns": [
-            "status",
-            "idle_release_at"
-          ],
+          "columns": ["status", "idle_release_at"],
           "isUnique": false
         }
       },
@@ -2007,12 +1912,8 @@
           "name": "document_checkout_file_id_file_id_fk",
           "tableFrom": "document_checkout",
           "tableTo": "file",
-          "columnsFrom": [
-            "file_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["file_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2020,12 +1921,8 @@
           "name": "document_checkout_holder_member_id_member_user_id_fk",
           "tableFrom": "document_checkout",
           "tableTo": "member",
-          "columnsFrom": [
-            "holder_member_id"
-          ],
-          "columnsTo": [
-            "user_id"
-          ],
+          "columnsFrom": ["holder_member_id"],
+          "columnsTo": ["user_id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2033,12 +1930,8 @@
           "name": "document_checkout_base_version_id_file_version_id_fk",
           "tableFrom": "document_checkout",
           "tableTo": "file_version",
-          "columnsFrom": [
-            "base_version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["base_version_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2106,16 +1999,12 @@
       "indexes": {
         "document_type_name_unique_index": {
           "name": "document_type_name_unique_index",
-          "columns": [
-            "name"
-          ],
+          "columns": ["name"],
           "isUnique": true
         },
         "document_type_code_unique_index": {
           "name": "document_type_code_unique_index",
-          "columns": [
-            "code"
-          ],
+          "columns": ["code"],
           "isUnique": true
         }
       },
@@ -2294,20 +2183,12 @@
       "indexes": {
         "file_matter_id_created_at_id_index": {
           "name": "file_matter_id_created_at_id_index",
-          "columns": [
-            "matter_id",
-            "created_at",
-            "id"
-          ],
+          "columns": ["matter_id", "created_at", "id"],
           "isUnique": false
         },
         "file_folder_id_created_at_id_index": {
           "name": "file_folder_id_created_at_id_index",
-          "columns": [
-            "folder_id",
-            "created_at",
-            "id"
-          ],
+          "columns": ["folder_id", "created_at", "id"],
           "isUnique": false
         }
       },
@@ -2316,12 +2197,8 @@
           "name": "file_matter_id_matter_id_fk",
           "tableFrom": "file",
           "tableTo": "matter",
-          "columnsFrom": [
-            "matter_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["matter_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2329,12 +2206,8 @@
           "name": "file_folder_id_folder_id_fk",
           "tableFrom": "file",
           "tableTo": "folder",
-          "columnsFrom": [
-            "folder_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["folder_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2342,12 +2215,8 @@
           "name": "file_document_type_id_document_type_id_fk",
           "tableFrom": "file",
           "tableTo": "document_type",
-          "columnsFrom": [
-            "document_type_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["document_type_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2355,12 +2224,8 @@
           "name": "file_current_version_id_file_version_id_fk",
           "tableFrom": "file",
           "tableTo": "file_version",
-          "columnsFrom": [
-            "current_version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["current_version_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2552,33 +2417,22 @@
       "indexes": {
         "file_version_r2_key_unique_index": {
           "name": "file_version_r2_key_unique_index",
-          "columns": [
-            "r2_key"
-          ],
+          "columns": ["r2_key"],
           "isUnique": true
         },
         "file_version_file_id_version_number_unique_index": {
           "name": "file_version_file_id_version_number_unique_index",
-          "columns": [
-            "file_id",
-            "version_number"
-          ],
+          "columns": ["file_id", "version_number"],
           "isUnique": true
         },
         "file_version_status_index": {
           "name": "file_version_status_index",
-          "columns": [
-            "status"
-          ],
+          "columns": ["status"],
           "isUnique": false
         },
         "file_version_tiering_index": {
           "name": "file_version_tiering_index",
-          "columns": [
-            "storage_class",
-            "status",
-            "committed_at"
-          ],
+          "columns": ["storage_class", "status", "committed_at"],
           "isUnique": false
         }
       },
@@ -2587,12 +2441,8 @@
           "name": "file_version_file_id_file_id_fk",
           "tableFrom": "file_version",
           "tableTo": "file",
-          "columnsFrom": [
-            "file_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["file_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2600,12 +2450,8 @@
           "name": "file_version_diverged_from_version_id_file_version_id_fk",
           "tableFrom": "file_version",
           "tableTo": "file_version",
-          "columnsFrom": [
-            "diverged_from_version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["diverged_from_version_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2613,12 +2459,8 @@
           "name": "file_version_checkout_id_document_checkout_id_fk",
           "tableFrom": "file_version",
           "tableTo": "document_checkout",
-          "columnsFrom": [
-            "checkout_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["checkout_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2698,9 +2540,7 @@
       "indexes": {
         "firm_secret_name_unique": {
           "name": "firm_secret_name_unique",
-          "columns": [
-            "name"
-          ],
+          "columns": ["name"],
           "isUnique": true
         }
       },
@@ -2758,20 +2598,12 @@
       "indexes": {
         "folder_matter_id_created_at_id_index": {
           "name": "folder_matter_id_created_at_id_index",
-          "columns": [
-            "matter_id",
-            "created_at",
-            "id"
-          ],
+          "columns": ["matter_id", "created_at", "id"],
           "isUnique": false
         },
         "folder_matter_id_parent_folder_id_name_unique": {
           "name": "folder_matter_id_parent_folder_id_name_unique",
-          "columns": [
-            "matter_id",
-            "parent_folder_id",
-            "name"
-          ],
+          "columns": ["matter_id", "parent_folder_id", "name"],
           "isUnique": true
         }
       },
@@ -2780,12 +2612,8 @@
           "name": "folder_matter_id_matter_id_fk",
           "tableFrom": "folder",
           "tableTo": "matter",
-          "columnsFrom": [
-            "matter_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["matter_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2793,12 +2621,8 @@
           "name": "folder_parent_folder_id_folder_id_fk",
           "tableFrom": "folder",
           "tableTo": "folder",
-          "columnsFrom": [
-            "parent_folder_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["parent_folder_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2868,16 +2692,12 @@
       "indexes": {
         "idempotency_key_key_unique_index": {
           "name": "idempotency_key_key_unique_index",
-          "columns": [
-            "key"
-          ],
+          "columns": ["key"],
           "isUnique": true
         },
         "idempotency_key_created_at_index": {
           "name": "idempotency_key_created_at_index",
-          "columns": [
-            "created_at"
-          ],
+          "columns": ["created_at"],
           "isUnique": false
         }
       },
@@ -3045,10 +2865,7 @@
       "indexes": {
         "integration_connection_principal_category_unique_index": {
           "name": "integration_connection_principal_category_unique_index",
-          "columns": [
-            "category",
-            "principal_ref"
-          ],
+          "columns": ["category", "principal_ref"],
           "isUnique": true
         }
       },
@@ -3114,9 +2931,7 @@
       "indexes": {
         "ledger_account_parent_account_id_index": {
           "name": "ledger_account_parent_account_id_index",
-          "columns": [
-            "parent_account_id"
-          ],
+          "columns": ["parent_account_id"],
           "isUnique": false
         }
       },
@@ -3125,12 +2940,8 @@
           "name": "ledger_account_parent_account_id_ledger_account_id_fk",
           "tableFrom": "ledger_account",
           "tableTo": "ledger_account",
-          "columnsFrom": [
-            "parent_account_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["parent_account_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3190,16 +3001,12 @@
       "indexes": {
         "ledger_entry_reverses_entry_id_unique_index": {
           "name": "ledger_entry_reverses_entry_id_unique_index",
-          "columns": [
-            "reverses_entry_id"
-          ],
+          "columns": ["reverses_entry_id"],
           "isUnique": true
         },
         "ledger_entry_effective_date_index": {
           "name": "ledger_entry_effective_date_index",
-          "columns": [
-            "effective_date"
-          ],
+          "columns": ["effective_date"],
           "isUnique": false
         }
       },
@@ -3208,12 +3015,8 @@
           "name": "ledger_entry_reverses_entry_id_ledger_entry_id_fk",
           "tableFrom": "ledger_entry",
           "tableTo": "ledger_entry",
-          "columnsFrom": [
-            "reverses_entry_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["reverses_entry_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3276,17 +3079,12 @@
       "indexes": {
         "ledger_line_entry_id_line_index_unique_index": {
           "name": "ledger_line_entry_id_line_index_unique_index",
-          "columns": [
-            "entry_id",
-            "line_index"
-          ],
+          "columns": ["entry_id", "line_index"],
           "isUnique": true
         },
         "ledger_line_account_id_index": {
           "name": "ledger_line_account_id_index",
-          "columns": [
-            "account_id"
-          ],
+          "columns": ["account_id"],
           "isUnique": false
         }
       },
@@ -3295,12 +3093,8 @@
           "name": "ledger_line_entry_id_ledger_entry_id_fk",
           "tableFrom": "ledger_line",
           "tableTo": "ledger_entry",
-          "columnsFrom": [
-            "entry_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["entry_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3308,12 +3102,8 @@
           "name": "ledger_line_account_id_ledger_account_id_fk",
           "tableFrom": "ledger_line",
           "tableTo": "ledger_account",
-          "columnsFrom": [
-            "account_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["account_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3409,9 +3199,7 @@
       "indexes": {
         "location_number_code_unique_index": {
           "name": "location_number_code_unique_index",
-          "columns": [
-            "number_code"
-          ],
+          "columns": ["number_code"],
           "isUnique": true
         }
       },
@@ -3506,9 +3294,7 @@
       "indexes": {
         "location_address_location_id_index": {
           "name": "location_address_location_id_index",
-          "columns": [
-            "location_id"
-          ],
+          "columns": ["location_id"],
           "isUnique": false
         }
       },
@@ -3517,12 +3303,8 @@
           "name": "location_address_location_id_location_id_fk",
           "tableFrom": "location_address",
           "tableTo": "location",
-          "columnsFrom": [
-            "location_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["location_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3656,34 +3438,23 @@
       "indexes": {
         "matter_matter_number_unique_index": {
           "name": "matter_matter_number_unique_index",
-          "columns": [
-            "matter_number"
-          ],
+          "columns": ["matter_number"],
           "isUnique": true,
           "where": "\"matter\".\"matter_number\" IS NOT NULL"
         },
         "matter_status_index": {
           "name": "matter_status_index",
-          "columns": [
-            "status"
-          ],
+          "columns": ["status"],
           "isUnique": false
         },
         "matter_responsible_member_id_created_at_id_index": {
           "name": "matter_responsible_member_id_created_at_id_index",
-          "columns": [
-            "responsible_member_id",
-            "created_at",
-            "id"
-          ],
+          "columns": ["responsible_member_id", "created_at", "id"],
           "isUnique": false
         },
         "matter_created_at_id_index": {
           "name": "matter_created_at_id_index",
-          "columns": [
-            "created_at",
-            "id"
-          ],
+          "columns": ["created_at", "id"],
           "isUnique": false
         }
       },
@@ -3692,12 +3463,8 @@
           "name": "matter_matter_type_id_matter_type_id_fk",
           "tableFrom": "matter",
           "tableTo": "matter_type",
-          "columnsFrom": [
-            "matter_type_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["matter_type_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3705,12 +3472,8 @@
           "name": "matter_location_id_location_id_fk",
           "tableFrom": "matter",
           "tableTo": "location",
-          "columnsFrom": [
-            "location_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["location_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3718,12 +3481,8 @@
           "name": "matter_responsible_member_id_member_user_id_fk",
           "tableFrom": "matter",
           "tableTo": "member",
-          "columnsFrom": [
-            "responsible_member_id"
-          ],
-          "columnsTo": [
-            "user_id"
-          ],
+          "columnsFrom": ["responsible_member_id"],
+          "columnsTo": ["user_id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3839,16 +3598,12 @@
       "indexes": {
         "matter_party_matter_id_index": {
           "name": "matter_party_matter_id_index",
-          "columns": [
-            "matter_id"
-          ],
+          "columns": ["matter_id"],
           "isUnique": false
         },
         "matter_party_entity_id_index": {
           "name": "matter_party_entity_id_index",
-          "columns": [
-            "entity_id"
-          ],
+          "columns": ["entity_id"],
           "isUnique": false
         }
       },
@@ -3857,12 +3612,8 @@
           "name": "matter_party_matter_id_matter_id_fk",
           "tableFrom": "matter_party",
           "tableTo": "matter",
-          "columnsFrom": [
-            "matter_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["matter_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3926,16 +3677,12 @@
       "indexes": {
         "matter_type_name_unique_index": {
           "name": "matter_type_name_unique_index",
-          "columns": [
-            "name"
-          ],
+          "columns": ["name"],
           "isUnique": true
         },
         "matter_type_code_unique_index": {
           "name": "matter_type_code_unique_index",
-          "columns": [
-            "code"
-          ],
+          "columns": ["code"],
           "isUnique": true
         }
       },
@@ -4039,17 +3786,12 @@
       "indexes": {
         "member_location_location_id_index": {
           "name": "member_location_location_id_index",
-          "columns": [
-            "location_id"
-          ],
+          "columns": ["location_id"],
           "isUnique": false
         },
         "member_location_member_user_id_location_id_unique": {
           "name": "member_location_member_user_id_location_id_unique",
-          "columns": [
-            "member_user_id",
-            "location_id"
-          ],
+          "columns": ["member_user_id", "location_id"],
           "isUnique": true
         }
       },
@@ -4058,12 +3800,8 @@
           "name": "member_location_member_user_id_member_user_id_fk",
           "tableFrom": "member_location",
           "tableTo": "member",
-          "columnsFrom": [
-            "member_user_id"
-          ],
-          "columnsTo": [
-            "user_id"
-          ],
+          "columnsFrom": ["member_user_id"],
+          "columnsTo": ["user_id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -4071,12 +3809,8 @@
           "name": "member_location_location_id_location_id_fk",
           "tableFrom": "member_location",
           "tableTo": "location",
-          "columnsFrom": [
-            "location_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["location_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -4113,10 +3847,7 @@
       "indexes": {
         "member_role_member_user_id_role_id_unique": {
           "name": "member_role_member_user_id_role_id_unique",
-          "columns": [
-            "member_user_id",
-            "role_id"
-          ],
+          "columns": ["member_user_id", "role_id"],
           "isUnique": true
         }
       },
@@ -4125,12 +3856,8 @@
           "name": "member_role_member_user_id_member_user_id_fk",
           "tableFrom": "member_role",
           "tableTo": "member",
-          "columnsFrom": [
-            "member_user_id"
-          ],
-          "columnsTo": [
-            "user_id"
-          ],
+          "columnsFrom": ["member_user_id"],
+          "columnsTo": ["user_id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -4138,12 +3865,8 @@
           "name": "member_role_role_id_role_id_fk",
           "tableFrom": "member_role",
           "tableTo": "role",
-          "columnsFrom": [
-            "role_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["role_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -4208,9 +3931,7 @@
       "indexes": {
         "narrative_template_utbms_task_code_index": {
           "name": "narrative_template_utbms_task_code_index",
-          "columns": [
-            "utbms_task_code_id"
-          ],
+          "columns": ["utbms_task_code_id"],
           "isUnique": false
         }
       },
@@ -4219,12 +3940,8 @@
           "name": "narrative_template_utbms_task_code_id_utbms_code_id_fk",
           "tableFrom": "narrative_template",
           "tableTo": "utbms_code",
-          "columnsFrom": [
-            "utbms_task_code_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["utbms_task_code_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -4400,10 +4117,7 @@
       "indexes": {
         "outbox_status_created_at_index": {
           "name": "outbox_status_created_at_index",
-          "columns": [
-            "status",
-            "created_at"
-          ],
+          "columns": ["status", "created_at"],
           "isUnique": false
         }
       },
@@ -4456,9 +4170,7 @@
       "indexes": {
         "picklist_option_field_id_index": {
           "name": "picklist_option_field_id_index",
-          "columns": [
-            "field_id"
-          ],
+          "columns": ["field_id"],
           "isUnique": false
         }
       },
@@ -4537,22 +4249,13 @@
       "indexes": {
         "rate_open_row_unique_index": {
           "name": "rate_open_row_unique_index",
-          "columns": [
-            "rate_card_id",
-            "tier",
-            "scoped_id"
-          ],
+          "columns": ["rate_card_id", "tier", "scoped_id"],
           "isUnique": true,
           "where": "\"rate\".\"valid_to\" IS NULL"
         },
         "rate_resolution_index": {
           "name": "rate_resolution_index",
-          "columns": [
-            "rate_card_id",
-            "tier",
-            "scoped_id",
-            "valid_from"
-          ],
+          "columns": ["rate_card_id", "tier", "scoped_id", "valid_from"],
           "isUnique": false
         }
       },
@@ -4561,12 +4264,8 @@
           "name": "rate_rate_card_id_rate_card_id_fk",
           "tableFrom": "rate",
           "tableTo": "rate_card",
-          "columnsFrom": [
-            "rate_card_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["rate_card_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -4662,9 +4361,7 @@
       "indexes": {
         "role_name_unique": {
           "name": "role_name_unique",
-          "columns": [
-            "name"
-          ],
+          "columns": ["name"],
           "isUnique": true
         }
       },
@@ -4701,10 +4398,7 @@
       "indexes": {
         "role_permission_role_id_permission_unique": {
           "name": "role_permission_role_id_permission_unique",
-          "columns": [
-            "role_id",
-            "permission"
-          ],
+          "columns": ["role_id", "permission"],
           "isUnique": true
         }
       },
@@ -4713,12 +4407,8 @@
           "name": "role_permission_role_id_role_id_fk",
           "tableFrom": "role_permission",
           "tableTo": "role",
-          "columnsFrom": [
-            "role_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["role_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -4763,10 +4453,7 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {
         "scan_cache_content_sha256_engine_version_pk": {
-          "columns": [
-            "content_sha256",
-            "engine_version"
-          ],
+          "columns": ["content_sha256", "engine_version"],
           "name": "scan_cache_content_sha256_engine_version_pk"
         }
       },
@@ -4816,11 +4503,7 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {
         "scoped_setting_key_scope_tier_scoped_id_pk": {
-          "columns": [
-            "key",
-            "scope_tier",
-            "scoped_id"
-          ],
+          "columns": ["key", "scope_tier", "scoped_id"],
           "name": "scoped_setting_key_scope_tier_scoped_id_pk"
         }
       },
@@ -4991,16 +4674,12 @@
       "indexes": {
         "shipment_matter_ref_index": {
           "name": "shipment_matter_ref_index",
-          "columns": [
-            "matter_ref"
-          ],
+          "columns": ["matter_ref"],
           "isUnique": false
         },
         "shipment_tracking_code_index": {
           "name": "shipment_tracking_code_index",
-          "columns": [
-            "tracking_code"
-          ],
+          "columns": ["tracking_code"],
           "isUnique": false
         }
       },
@@ -5009,12 +4688,8 @@
           "name": "shipment_matter_ref_matter_id_fk",
           "tableFrom": "shipment",
           "tableTo": "matter",
-          "columnsFrom": [
-            "matter_ref"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["matter_ref"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -5097,12 +4772,8 @@
           "name": "shipment_label_shipment_ref_shipment_id_fk",
           "tableFrom": "shipment_label",
           "tableTo": "shipment",
-          "columnsFrom": [
-            "shipment_ref"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["shipment_ref"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -5154,11 +4825,7 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {
         "storage_meter_storage_class_artifact_role_prefix_pk": {
-          "columns": [
-            "storage_class",
-            "artifact_role",
-            "prefix"
-          ],
+          "columns": ["storage_class", "artifact_role", "prefix"],
           "name": "storage_meter_storage_class_artifact_role_prefix_pk"
         }
       },
@@ -5340,33 +5007,22 @@
       "indexes": {
         "time_entry_timekeeper_work_date_index": {
           "name": "time_entry_timekeeper_work_date_index",
-          "columns": [
-            "timekeeper_user_id",
-            "work_date"
-          ],
+          "columns": ["timekeeper_user_id", "work_date"],
           "isUnique": false
         },
         "time_entry_matter_status_index": {
           "name": "time_entry_matter_status_index",
-          "columns": [
-            "matter_id",
-            "status"
-          ],
+          "columns": ["matter_id", "status"],
           "isUnique": false
         },
         "time_entry_status_work_date_index": {
           "name": "time_entry_status_work_date_index",
-          "columns": [
-            "status",
-            "work_date"
-          ],
+          "columns": ["status", "work_date"],
           "isUnique": false
         },
         "time_entry_live_run_id_unique_index": {
           "name": "time_entry_live_run_id_unique_index",
-          "columns": [
-            "live_run_id"
-          ],
+          "columns": ["live_run_id"],
           "isUnique": true,
           "where": "\"time_entry\".\"live_run_id\" IS NOT NULL"
         }
@@ -5376,12 +5032,8 @@
           "name": "time_entry_matter_id_matter_id_fk",
           "tableFrom": "time_entry",
           "tableTo": "matter",
-          "columnsFrom": [
-            "matter_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["matter_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5389,12 +5041,8 @@
           "name": "time_entry_timekeeper_user_id_member_user_id_fk",
           "tableFrom": "time_entry",
           "tableTo": "member",
-          "columnsFrom": [
-            "timekeeper_user_id"
-          ],
-          "columnsTo": [
-            "user_id"
-          ],
+          "columnsFrom": ["timekeeper_user_id"],
+          "columnsTo": ["user_id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5402,12 +5050,8 @@
           "name": "time_entry_non_billable_category_id_non_billable_category_id_fk",
           "tableFrom": "time_entry",
           "tableTo": "non_billable_category",
-          "columnsFrom": [
-            "non_billable_category_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["non_billable_category_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5415,12 +5059,8 @@
           "name": "time_entry_rate_card_id_rate_card_id_fk",
           "tableFrom": "time_entry",
           "tableTo": "rate_card",
-          "columnsFrom": [
-            "rate_card_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["rate_card_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5428,12 +5068,8 @@
           "name": "time_entry_utbms_task_code_id_utbms_code_id_fk",
           "tableFrom": "time_entry",
           "tableTo": "utbms_code",
-          "columnsFrom": [
-            "utbms_task_code_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["utbms_task_code_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5441,12 +5077,8 @@
           "name": "time_entry_utbms_activity_code_id_utbms_code_id_fk",
           "tableFrom": "time_entry",
           "tableTo": "utbms_code",
-          "columnsFrom": [
-            "utbms_activity_code_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["utbms_activity_code_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -5530,11 +5162,7 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {
         "token_usage_meter_day_slot_model_id_pk": {
-          "columns": [
-            "day",
-            "slot",
-            "model_id"
-          ],
+          "columns": ["day", "slot", "model_id"],
           "name": "token_usage_meter_day_slot_model_id_pk"
         }
       },
@@ -5604,10 +5232,7 @@
       "indexes": {
         "tracking_event_shipment_remote_unique_index": {
           "name": "tracking_event_shipment_remote_unique_index",
-          "columns": [
-            "shipment_ref",
-            "remote_id"
-          ],
+          "columns": ["shipment_ref", "remote_id"],
           "isUnique": true
         }
       },
@@ -5616,12 +5241,8 @@
           "name": "tracking_event_shipment_ref_shipment_id_fk",
           "tableFrom": "tracking_event",
           "tableTo": "shipment",
-          "columnsFrom": [
-            "shipment_ref"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["shipment_ref"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -5700,10 +5321,7 @@
       "indexes": {
         "upload_session_status_expires_at_index": {
           "name": "upload_session_status_expires_at_index",
-          "columns": [
-            "status",
-            "expires_at"
-          ],
+          "columns": ["status", "expires_at"],
           "isUnique": false
         }
       },
@@ -5712,12 +5330,8 @@
           "name": "upload_session_file_version_id_file_version_id_fk",
           "tableFrom": "upload_session",
           "tableTo": "file_version",
-          "columnsFrom": [
-            "file_version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["file_version_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -5785,10 +5399,7 @@
       "indexes": {
         "utbms_code_code_set_code_unique": {
           "name": "utbms_code_code_set_code_unique",
-          "columns": [
-            "code_set",
-            "code"
-          ],
+          "columns": ["code_set", "code"],
           "isUnique": true
         }
       },

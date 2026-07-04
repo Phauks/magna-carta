@@ -1,7 +1,13 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { insertAuditLogStatement } from "@magna-carta/data-access/audit-statements";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
-import { DecryptionError, detectFormat, ensureReady, extractHash, stripWithKey } from "@magna-carta/decryption";
+import {
+  DecryptionError,
+  detectFormat,
+  ensureReady,
+  extractHash,
+  stripWithKey,
+} from "@magna-carta/decryption";
 import decryptionWasmModule from "@magna-carta/decryption/src/pkg/decryption_core_bg.wasm";
 import { readInspectableSizeCap } from "@magna-carta/file-manager/upload-policy";
 import { newIdentifier } from "@magna-carta/identifiers/generate";

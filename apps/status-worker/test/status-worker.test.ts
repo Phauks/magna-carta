@@ -13,16 +13,39 @@ test("status.json is unauthenticated and merges both keys into a public snapshot
   await env.STATUS_KV.put(
     STATUS_KV_KEYS.derived,
     JSON.stringify({
-      schemaVersion: 1, generatedAt: NOW,
-      components: [{ id: "api", name: "API", group: "Core", status: "operational", source: "probe", lastChange: NOW }],
+      schemaVersion: 1,
+      generatedAt: NOW,
+      components: [
+        {
+          id: "api",
+          name: "API",
+          group: "Core",
+          status: "operational",
+          source: "probe",
+          lastChange: NOW,
+        },
+      ],
       providers: [],
     }),
   );
   await env.STATUS_KV.put(
     STATUS_KV_KEYS.authored,
     JSON.stringify({
-      schemaVersion: 1, updatedAt: NOW,
-      events: [{ id: "serviceEvent_1", title: "x", impact: "minor", lifecycle: "investigating", affectedComponentIds: [], authorUserId: "usr_secret", startedAt: NOW, resolvedAt: null, updates: [{ at: NOW, lifecycle: "investigating", body: "y", authorUserId: "usr_secret" }] }],
+      schemaVersion: 1,
+      updatedAt: NOW,
+      events: [
+        {
+          id: "serviceEvent_1",
+          title: "x",
+          impact: "minor",
+          lifecycle: "investigating",
+          affectedComponentIds: [],
+          authorUserId: "usr_secret",
+          startedAt: NOW,
+          resolvedAt: null,
+          updates: [{ at: NOW, lifecycle: "investigating", body: "y", authorUserId: "usr_secret" }],
+        },
+      ],
       overrides: [],
     }),
   );

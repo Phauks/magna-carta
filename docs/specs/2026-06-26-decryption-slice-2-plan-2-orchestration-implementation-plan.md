@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax.
 
-**Goal:** Make Rung-1 password recovery callable through the app and fan shards across the container fleet. Plan 1 built the shard-level *muscle* (`recover_shard`, `split_keyspace`, `recovery_tier`, the `recovery` container, `apps/recovery-worker`). This plan builds the *orchestration*: a `RecoveryJobCoordinator` Durable Object that splits the keyspace and fans one shard message per shard onto a recovery Queue, a consumer that dispatches each shard to `apps/recovery-worker` over a service binding and reports the outcome back, and the button-initiated `recover` / status / `cancel` routes that classify the tier and surface the result — first hit cancels the rest, nothing cracks automatically, and only the extracted hash (never the file) ever enters the job/queue/container.
+**Goal:** Make Rung-1 password recovery callable through the app and fan shards across the container fleet. Plan 1 built the shard-level _muscle_ (`recover_shard`, `split_keyspace`, `recovery_tier`, the `recovery` container, `apps/recovery-worker`). This plan builds the _orchestration_: a `RecoveryJobCoordinator` Durable Object that splits the keyspace and fans one shard message per shard onto a recovery Queue, a consumer that dispatches each shard to `apps/recovery-worker` over a service binding and reports the outcome back, and the button-initiated `recover` / status / `cancel` routes that classify the tier and surface the result — first hit cancels the rest, nothing cracks automatically, and only the extracted hash (never the file) ever enters the job/queue/container.
 
 **Architecture:** A new per-firm-namespaced `RecoveryJobCoordinator` DO (`${firmId}:${jobId}`) holds job state in DO storage (mirrors `BundleBuildCoordinator`/`ConversionJob`), extended with the one thing no existing DO does: **fan-out + aggregation**. On `start` it enqueues N `RecoveryShardMessage`s (one per shard) on the recovery Queue; the consumer dispatches each to `apps/recovery-worker` via the `RECOVERY_SERVICE` binding (addressing a **distinct container instance per shard** — Plan 1 pinned a single instance) and calls `reportShard` back on the DO; the DO aggregates progress and **first-hit-cancels** (the consumer checks job status before dispatching and skips once terminal — Queues cannot delete enqueued messages). Because the Worker's wasm surface exposes only `recoveryTier`/`extractHash`/`verifyGuess` (not `split_keyspace`/`recover_shard`, which are native-only), the coordinator does **not** compute word ranges: it passes `{ shardIndex, shardCount }` and each container self-splits its baked wordlist via `split_keyspace(wordlist_len, shardCount)` — keeping wordlist authority in the container and guaranteeing gap-free coverage.
 
@@ -14,7 +14,7 @@
 - **Button-initiated only.** Recovery runs solely on the explicit `POST /api/v1/decryption/recover` action. Nothing cracks on upload or inspect. There is no background/automatic pass anywhere.
 - **No panic / no 500 on untrusted input.** Routes and the container ingest attacker-influenced bytes/hashes/params — malformed → 400, never 500/panic. The container already clamps inverted/oob shard specs; keep that.
 - **Full names, no shorthand** (golden rule 12): `RecoveryJobCoordinator`, `recoveryTier`, `shardIndex`, `shardCount`, `candidatesTried` — no `rec`/`wl`/`idx`. The DO class is `RecoveryJobCoordinator` (the Rust crate already owns the name `RecoveryJob` — a struct — so the DO must NOT reuse the bare name).
-- **No process-doc references in source** (golden rule 13): explain *why* inline; no "slice/plan/ADR" citation in `.ts`/`.rs`/config. A forward-looking "the GPU-rung adapter plugs in here" note is allowed.
+- **No process-doc references in source** (golden rule 13): explain _why_ inline; no "slice/plan/ADR" citation in `.ts`/`.rs`/config. A forward-looking "the GPU-rung adapter plugs in here" note is allowed.
 - **Permission + attestation + audit on every recovery** (Slice-1 boundary): `permission: "tools:decryption"` (already registered; no new permission), per-job `attestation.authorized === true`, redacted audit through the standard pipeline.
 - **Contract regen is mandatory** when routes change: `pnpm --filter @magna-carta/worker emit-openapi` (regenerates the committed `apps/worker/openapi/openapi.json` snapshot the openapi-emission + conformance tests diff against) → `pnpm --filter @magna-carta/api-client generate` (regenerates the typed client). New operationIds must be added to the sorted union in `apps/worker/test/conformance.test.ts`.
 - **DO deploy rules:** a new DO class must be (a) re-exported from `apps/worker/src/index.ts`, (b) bound in `apps/worker/wrangler.jsonc` `durable_objects`, (c) introduced by a NEW `migrations` tag with `new_sqlite_classes` (never modify an applied tag — current highest is `v2-firm-database`; use `v3-recovery-job`). A declared queue consumer with no exported handler fails the deploy.
@@ -34,6 +34,7 @@ New home: **`apps/worker/src/recovery/`** (mirrors `apps/worker/src/downloads/` 
 - `apps/worker/src/routes/recovery.ts` — the `recover` / status / `cancel` routes (new file; keeps `routes/decryption.ts` focused on the synchronous inspect/unlock).
 
 Modified:
+
 - `containers/recovery/src/server.rs` (+ its tests + `tests/recover_e2e.sh`) — shard-by-count request contract.
 - `apps/recovery-worker/src/{index.ts,forward-recovery.ts}` (+ `test/forward-recovery.test.ts`) — per-shard container instance addressing.
 - `apps/worker/src/index.ts` — DO re-export + `queue()` routing.
@@ -51,10 +52,12 @@ Interfaces are declared once in Task 1 (Rust contract) and Task 3 (`recovery-typ
 The container is the only place that knows its baked wordlist length, so it (not the Worker) resolves a shard index into a word range. Replace the explicit `wordStart`/`wordEnd` request fields with `shardIndex` + `shardCount`; the handler computes its own range via `split_keyspace(wordlist_len, shardCount)[shardIndex]`.
 
 **Files:**
+
 - Modify: `containers/recovery/src/server.rs`
 - Modify: `containers/recovery/tests/*` (the server handler test) and `containers/recovery/tests/recover_e2e.sh` (acceptance script — update its JSON body)
 
 **Interfaces:**
+
 - Consumes: `split_keyspace(word_count, shard_count) -> Vec<ShardSpec>`, `recover_shard(job, words, spec, rules) -> ShardOutcome`, `parse_hash` (all `decryption-core`, Plan 1).
 - Produces (HTTP): `POST /recover-shard`, request `{ hash: string, format: string, hashcatMode: number, shardIndex: number, shardCount: number, ruleSet: "best64" | "none" }` → `{ found: string | null, candidatesTried: number }` (camelCase; unchanged response). `GET /ready` unchanged. Out-of-range `shardIndex` (`>= shardCount`) or `shardCount == 0` → 400 (caller error, no panic).
 
@@ -106,10 +109,12 @@ async fn rejects_out_of_range_shard() {
 Plan 1's `apps/recovery-worker` pins every request to one container instance (`getContainer(env.RECOVERY_ENGINE, "recovery")`). To actually fan shards across the fleet, the instance id must vary per shard. The app worker (Task 4) sets an `X-Recovery-Instance` header; the recovery worker uses it to select the container instance.
 
 **Files:**
+
 - Modify: `apps/recovery-worker/src/forward-recovery.ts`, `apps/recovery-worker/src/index.ts`
 - Modify: `apps/recovery-worker/test/forward-recovery.test.ts`
 
 **Interfaces:**
+
 - `routeRequest(request, resolveContainer)` where `resolveContainer(instanceId: string) => Fetcher` — `index.ts` passes `(id) => getContainer(env.RECOVERY_ENGINE, id)`. For `POST /recover-shard`, the instance id is `request.headers.get("X-Recovery-Instance")` (falling back to `"recovery"` when absent, preserving single-instance behavior for any direct/legacy caller). `GET /ready` uses the fixed `"recovery"` instance.
 
 - [ ] **Step 1: write the failing test** — `routeRequest` selects the container instance from the `X-Recovery-Instance` header. Mirror the existing `forward-recovery.test.ts` fake-container pattern; assert the resolver is called with the header value.
@@ -119,7 +124,9 @@ it("routes /recover-shard to the container instance named by X-Recovery-Instance
   const seen: string[] = [];
   const resolve = (id: string) => {
     seen.push(id);
-    return { fetch: async () => new Response('{"found":null,"candidatesTried":3}', { status: 200 }) };
+    return {
+      fetch: async () => new Response('{"found":null,"candidatesTried":3}', { status: 200 }),
+    };
   };
   const req = new Request("http://recovery/recover-shard", {
     method: "POST",
@@ -146,22 +153,23 @@ One home for the shapes the DO, consumer, adapter, and routes share (mirrors `do
 **Files:** Create `apps/worker/src/recovery/recovery-types.ts`
 
 **Interfaces (Produces):**
+
 ```ts
 // The extracted-hash job the coordinator fans out. NEVER carries file bytes or the password.
 export type RecoveryTierName = "cfCapable" | "gpuRequired";
 
 export type RecoveryJobStatus =
-  | "queued"      // shards enqueued, none reported yet
-  | "running"     // at least one shard reported, none found, not all done
-  | "found"       // a shard recovered the password (terminal)
-  | "exhausted"   // every shard reported, none found (terminal)
-  | "needsGpu"    // slow KDF — not attempted on CF (terminal; the GPU rung fills this seam)
-  | "cancelled";  // caller cancelled (terminal)
+  | "queued" // shards enqueued, none reported yet
+  | "running" // at least one shard reported, none found, not all done
+  | "found" // a shard recovered the password (terminal)
+  | "exhausted" // every shard reported, none found (terminal)
+  | "needsGpu" // slow KDF — not attempted on CF (terminal; the GPU rung fills this seam)
+  | "cancelled"; // caller cancelled (terminal)
 
 export interface RecoveryProgress {
   readonly candidatesTried: number; // summed across reported shards
-  readonly shardsDone: number;      // shards that have reported
-  readonly shardCount: number;      // total shards fanned out (0 for needsGpu)
+  readonly shardsDone: number; // shards that have reported
+  readonly shardCount: number; // total shards fanned out (0 for needsGpu)
 }
 
 export interface RecoveryJobState {
@@ -192,8 +200,8 @@ export interface ShardOutcome {
 
 // The parameters the route hands the coordinator to start a job.
 export interface RecoveryStartInput {
-  readonly tier: RecoveryTierName;   // gpuRequired => no shards enqueued, terminal needsGpu
-  readonly shardCount: number;       // the modest CF shard count (0 for gpuRequired)
+  readonly tier: RecoveryTierName; // gpuRequired => no shards enqueued, terminal needsGpu
+  readonly shardCount: number; // the modest CF shard count (0 for gpuRequired)
   readonly hash: string;
   readonly format: "pdf" | "zip" | "ooxml";
   readonly hashcatMode: number;
@@ -234,11 +242,13 @@ The fan-out + aggregation coordinator. Extends the single-flight pattern of `Bun
 **Files:** Create `apps/worker/src/recovery/recovery-coordinator.ts`
 
 **Interfaces:**
+
 - Consumes: `RecoveryStartInput`, `RecoveryJobState`, `ShardOutcome`, `RecoveryCoordinator` (Task 3); `env.RECOVERY_QUEUE.send(message)` (a `Queue<RecoveryShardMessage>`, wired in Task 8).
 - Produces: `export class RecoveryJobCoordinator extends DurableObject<Bindings> implements RecoveryCoordinator`.
 - State: a single `ctx.storage` key `"state"` holding `RecoveryJobState` (mirror the precedent — KV-style `get/put`; a per-shard SQL table is unnecessary since only summed counters + shardsDone are needed for first-hit-cancel). A stuck-job alarm mirrors the precedent.
 
 Behavior:
+
 - `start(input)`: if a state already exists, return it (idempotent). If `input.tier === "gpuRequired"` → persist terminal `{ status: "needsGpu", tier, progress: {0,0,0}, password: null, error: null }`, no enqueue, no alarm. Else persist `{ status: "queued", tier, progress: {0,0,shardCount}, password: null, error: null }`, arm the stuck alarm, and enqueue one `RecoveryShardMessage` per `shardIndex in 0..shardCount` via `this.env.RECOVERY_QUEUE.send(...)`.
 - `reportShard(shardIndex, outcome)`: load state; if already terminal (`found`/`exhausted`/`needsGpu`/`cancelled`) → return (first hit / cancel wins; late reports are dropped). Else: `candidatesTried += outcome.candidatesTried`, `shardsDone += 1`. If `outcome.found !== null` → terminal `found` + `password`, `deleteAlarm()`. Else if `shardsDone === shardCount` → terminal `exhausted`, `deleteAlarm()`. Else `status: "running"`, persist.
 - `cancel()`: if terminal → return; else persist `cancelled`, `deleteAlarm()`.
@@ -251,8 +261,16 @@ Behavior:
 it("fans out shardCount messages and aggregates to exhausted when no shard finds it", async () => {
   const sent: RecoveryShardMessage[] = [];
   const coord = newCoordinator({ send: async (m) => void sent.push(m) });
-  const state = await coord.start({ tier: "cfCapable", shardCount: 3, hash: H, format: "ooxml",
-    hashcatMode: 9600, ruleSet: "best64", firmId: "firm_x", jobId: "recoveryJob_1" });
+  const state = await coord.start({
+    tier: "cfCapable",
+    shardCount: 3,
+    hash: H,
+    format: "ooxml",
+    hashcatMode: 9600,
+    ruleSet: "best64",
+    firmId: "firm_x",
+    jobId: "recoveryJob_1",
+  });
   expect(state.status).toBe("queued");
   expect(sent.map((m) => m.shardIndex)).toEqual([0, 1, 2]);
 
@@ -268,7 +286,7 @@ it("fans out shardCount messages and aggregates to exhausted when no shard finds
 
 it("first hit wins and later shard reports are ignored", async () => {
   const coord = newCoordinator({ send: async () => {} });
-  await coord.start({ tier: "cfCapable", shardCount: 3, /* … */ });
+  await coord.start({ tier: "cfCapable", shardCount: 3 /* … */ });
   await coord.reportShard(1, { found: "hunter2", candidatesTried: 12 });
   await coord.reportShard(2, { found: "other", candidatesTried: 4 });
   const s = await coord.status();
@@ -279,7 +297,7 @@ it("first hit wins and later shard reports are ignored", async () => {
 it("gpuRequired start is terminal and enqueues nothing", async () => {
   const sent: RecoveryShardMessage[] = [];
   const coord = newCoordinator({ send: async (m) => void sent.push(m) });
-  const state = await coord.start({ tier: "gpuRequired", shardCount: 0, /* … */ });
+  const state = await coord.start({ tier: "gpuRequired", shardCount: 0 /* … */ });
   expect(state.status).toBe("needsGpu");
   expect(sent).toEqual([]);
 });
@@ -299,6 +317,7 @@ The one `RecoveryBackend` implementation this slice ships — a typed, zod-valid
 **Files:** Create `apps/worker/src/recovery/recovery-backend.ts`
 
 **Interfaces:**
+
 - Consumes: `RecoveryShardMessage`, `ShardOutcome`, `RecoveryBackend` (Task 3).
 - Produces:
   - `export function cloudflareRecoveryBackend(service: Fetcher, requestTimeoutMs?: number): RecoveryBackend` — its `recoverShard(message)` builds `new Request("http://recovery/recover-shard", { method: "POST", headers: { "content-type": "application/json", "X-Recovery-Instance": \`${message.jobId}:${message.shardIndex}\` }, body: JSON.stringify({ hash, format, hashcatMode, shardIndex, shardCount, ruleSet }), signal: AbortSignal.timeout(requestTimeoutMs) })`. Throws on non-200; zod-parses the JSON into `ShardOutcome` (an unrecognized body is a fault, never a silent miss).
@@ -309,11 +328,21 @@ The one `RecoveryBackend` implementation this slice ships — a typed, zod-valid
 ```ts
 it("dispatches a shard with the per-shard instance header and parses the outcome", async () => {
   let captured: Request | undefined;
-  const service = { fetch: async (r: Request) => { captured = r;
-    return new Response('{"found":"pw","candidatesTried":42}', { status: 200 }); } } as unknown as Fetcher;
+  const service = {
+    fetch: async (r: Request) => {
+      captured = r;
+      return new Response('{"found":"pw","candidatesTried":42}', { status: 200 });
+    },
+  } as unknown as Fetcher;
   const outcome = await cloudflareRecoveryBackend(service).recoverShard({
-    firmId: "firm_x", jobId: "recoveryJob_9", shardIndex: 2, shardCount: 4,
-    hash: "$pdf$...", format: "pdf", hashcatMode: 10500, ruleSet: "best64",
+    firmId: "firm_x",
+    jobId: "recoveryJob_9",
+    shardIndex: 2,
+    shardCount: 4,
+    hash: "$pdf$...",
+    format: "pdf",
+    hashcatMode: 10500,
+    ruleSet: "best64",
   });
   expect(outcome).toEqual({ found: "pw", candidatesTried: 42 });
   expect(captured!.headers.get("X-Recovery-Instance")).toBe("recoveryJob_9:2");
@@ -338,10 +367,11 @@ Dispatches each shard to the recovery service and reports the outcome back to th
 **Files:** Create `apps/worker/src/recovery/recovery-consumer.ts`
 
 **Interfaces:**
+
 - Consumes: `RecoveryShardMessage`, `RecoveryCoordinator`, `RecoveryBackend` (Task 3), `resolveRecoveryBackend` (Task 5), `env.RECOVERY_JOB` (the DO namespace).
 - Produces: `export async function recoveryQueue(batch: MessageBatch<RecoveryShardMessage>, env: Bindings, resolveBackend = resolveRecoveryBackend): Promise<void>` (the `resolveBackend` seam lets the test inject a fake backend without a real binding).
 
-Per message: resolve `coordinator = env.RECOVERY_JOB.get(idFromName(\`${firmId}:${jobId}\`))`. If `(await coordinator.status()).status` is terminal (`found`/`exhausted`/`needsGpu`/`cancelled`) → `message.ack()` and continue (skip — a peer shard already won, or the job was cancelled). Else: `const backend = resolveBackend(env)`. If `backend === null` → the service is unbound (pre-deploy) — `await coordinator.reportShard(shardIndex, { found: null, candidatesTried: 0 })` so the job still terminates as `exhausted` (honest no-engine, never a false hit) and `ack()`. Else `const outcome = await backend.recoverShard(message); await coordinator.reportShard(shardIndex, outcome); message.ack()`. On a thrown transport error → `message.retry()` (the shard is retried; the coordinator's terminal guard makes a duplicate report after a retried-then-succeeded dispatch idempotent — a late report on a done job is dropped).
+Per message: resolve `coordinator = env.RECOVERY_JOB.get(idFromName(\`${firmId}:${jobId}\`))`. If `(await coordinator.status()).status` is terminal (`found`/`exhausted`/`needsGpu`/`cancelled`) → `message.ack()`and continue (skip — a peer shard already won, or the job was cancelled). Else:`const backend = resolveBackend(env)`. If `backend === null`→ the service is unbound (pre-deploy) —`await coordinator.reportShard(shardIndex, { found: null, candidatesTried: 0 })`so the job still terminates as`exhausted`(honest no-engine, never a false hit) and`ack()`. Else `const outcome = await backend.recoverShard(message); await coordinator.reportShard(shardIndex, outcome); message.ack()`. On a thrown transport error → `message.retry()` (the shard is retried; the coordinator's terminal guard makes a duplicate report after a retried-then-succeeded dispatch idempotent — a late report on a done job is dropped).
 
 - [ ] **Step 1: write the failing test** — (a) a message whose job is already `found` is acked WITHOUT calling `dispatch`; (b) a message on a live job dispatches and calls `reportShard` with the outcome; (c) `RECOVERY_SERVICE` unbound reports a zero-count miss and acks. Use a fake coordinator namespace + fake dispatch.
 
@@ -349,7 +379,12 @@ Per message: resolve `coordinator = env.RECOVERY_JOB.get(idFromName(\`${firmId}:
 it("skips dispatch when the job is already terminal (first-hit-cancel)", async () => {
   let dispatched = 0;
   const env = fakeEnv({ jobStatus: "found" });
-  const backend = { recoverShard: async () => { dispatched++; return { found: null, candidatesTried: 0 }; } };
+  const backend = {
+    recoverShard: async () => {
+      dispatched++;
+      return { found: null, candidatesTried: 0 };
+    },
+  };
   await recoveryQueue(batchOf(shardMessage({ shardIndex: 2 })), env, () => backend);
   expect(dispatched).toBe(0);
   expect(env._acked).toBe(1);
@@ -375,11 +410,13 @@ The button-initiated surface. Mirrors the Slice-1 decryption routes' boundary (p
 **Files:** Create `apps/worker/src/routes/recovery.ts`
 
 **Interfaces:**
+
 - Consumes: `ensureReady`, `extractHash`, `recoveryTier`, `DecryptionError` (`@magna-carta/decryption`); the wasm module import (copy the `decryption_core_bg.wasm` import + `decryptionWasm` cast from `routes/decryption.ts`); `requireChokepointFirmContext`/`requireChokepointUserId`, `chokepointMiddleware`, `defineOpenAPIRoute`, `RouteMeta`, `Problem`/`problemJson`, `commitEffectBatch`, `insertAuditLogStatement`, `newIdentifier`; `env.RECOVERY_JOB`; `RecoveryStartInput`/`RecoveryJobState` (Task 3).
 - Produces: `export function registerRecoveryRoutes(app, chokepoint): void` with three operations. A module constant `const RECOVERY_SHARD_COUNT = 4;` (modest real sharding — a few containers — proves the coordinator; the comment states this is the CF-band fan-out width, tunable, not a keyspace bound).
 
 Operations (all `permission: "tools:decryption"`, `surface: "app"`, `authenticated: true`, `resource: "firm"`):
-- `decryption.recoverStart` — `POST /api/v1/decryption/recover`, body `{ fileBase64: string, attestation: { authorized: boolean } }` → `{ jobId, tier, status }`. Attestation-false → 400; over size-cap → 400; malformed base64 → 400 (mirror inspect). `await ensureReady(decryptionWasm)`; `extractHash(bytes)` (DecryptionError → 400, no content echo). `const tier = await recoveryTier(format, hashcatMode)`. `const jobId = newIdentifier("recoveryJob")`. `const coordinator = env.RECOVERY_JOB.get(env.RECOVERY_JOB.idFromName(\`${firm.firmId}:${jobId}\`))`. `const state = await coordinator.start({ tier, shardCount: tier === "cfCapable" ? RECOVERY_SHARD_COUNT : 0, hash, format, hashcatMode, ruleSet: "best64", firmId: firm.firmId, jobId })`. **Audit** `decryption.recovery_started` (actor, `fileSha256` of the ENCRYPTED input, format, tier — never the file/hash-secret/password). Return `{ jobId, tier, status: state.status }` (200). `rateLimit: "expensive"`, `idempotency: "optional"`.
+
+- `decryption.recoverStart` — `POST /api/v1/decryption/recover`, body `{ fileBase64: string, attestation: { authorized: boolean } }` → `{ jobId, tier, status }`. Attestation-false → 400; over size-cap → 400; malformed base64 → 400 (mirror inspect). `await ensureReady(decryptionWasm)`; `extractHash(bytes)` (DecryptionError → 400, no content echo). `const tier = await recoveryTier(format, hashcatMode)`. `const jobId = newIdentifier("recoveryJob")`. `const coordinator = env.RECOVERY_JOB.get(env.RECOVERY_JOB.idFromName(\`${firm.firmId}:${jobId}\`))`. `const state = await coordinator.start({ tier, shardCount: tier === "cfCapable" ? RECOVERY_SHARD_COUNT : 0, hash, format, hashcatMode, ruleSet: "best64", firmId: firm.firmId, jobId })`. **Audit** `decryption.recovery_started`(actor,`fileSha256`of the ENCRYPTED input, format, tier — never the file/hash-secret/password). Return`{ jobId, tier, status: state.status }`(200).`rateLimit: "expensive"`, `idempotency: "optional"`.
 - `decryption.recoverStatus` — `GET /api/v1/decryption/recover/{jobId}` → `{ status, tier, progress, result? }`. `coordinator.status()`; on `found` include `result: { password: state.password }` (surfaced once to the authorized requester — their file, they attested); other statuses omit `result`. Audit only on the first observation of a terminal state is optional; keep it simple — no audit on status reads (reads aren't mutations). `resource: "firm"`, not audited, `idempotency: "none"`.
 - `decryption.recoverCancel` — `DELETE /api/v1/decryption/recover/{jobId}` → 204. `coordinator.cancel()`. Audit `decryption.recovery_cancelled` (actor, jobId). `audited: true`.
 
@@ -399,6 +436,7 @@ Wire the new DO, queue, and service binding so the runtime can construct them. A
 **Files:** Modify `apps/worker/src/index.ts`, `apps/worker/src/app.ts`, `apps/worker/wrangler.jsonc`
 
 **Interfaces:**
+
 - Consumes: `RecoveryJobCoordinator` (Task 4), `recoveryQueue` (Task 6), `RecoveryShardMessage` (Task 3).
 - Produces: `env.RECOVERY_JOB` (DO namespace), `env.RECOVERY_QUEUE` (producer), `env.RECOVERY_SERVICE?` (Fetcher) on `Bindings`.
 
@@ -422,6 +460,7 @@ Close the contract loop and prove the whole orchestration end-to-end under Minif
 **Files:** Modify `apps/worker/test/conformance.test.ts`, the generated `apps/worker/openapi/openapi.json` + `packages/api-client/src/*` (regenerated), create `apps/worker/test/recovery-e2e.test.ts`.
 
 **Interfaces:**
+
 - Consumes: everything above; the DO/queue run in Miniflare; the recovery service is stubbed (bind a fake `RECOVERY_SERVICE` whose `fetch` returns a `ShardOutcome` JSON, or drive the consumer via its `resolveBackend` seam with a fake `RecoveryBackend` — a real container cannot run in the pool).
 
 - [ ] **Step 1: regenerate contracts.** `pnpm --filter @magna-carta/worker emit-openapi` then `pnpm --filter @magna-carta/api-client generate`. Confirm the emitted doc gained `decryption.recoverStart`/`decryption.recoverStatus`/`decryption.recoverCancel`.
@@ -440,6 +479,7 @@ Close the contract loop and prove the whole orchestration end-to-end under Minif
 ## Self-Review
 
 **Spec coverage (Slice-2 design §4 coordinator, §6 routes, §7 data model):**
+
 - `RecoveryJobCoordinator` DO = keyspace-split + first-hit-cancel coordinator → Tasks 3–4. ✓ (state machine `queued → running → found | exhausted | needsGpu | cancelled` + progress.)
 - Recovery Queue producer + consumer, dispatch to `apps/recovery-worker` via service binding, report back → Tasks 5–6, 8. ✓
 - Distinct container instance per shard (Plan-1 carry-forward) → Tasks 1–2, 5 (`X-Recovery-Instance`). ✓

@@ -1,32 +1,66 @@
 {
   "national": [
     {
-      "name": "988 Suicide & Crisis Lifeline", "operator": "SAMHSA / Vibrant Emotional Health",
-      "operatorType": "national", "scope": "national", "url": "https://988lifeline.org/",
-      "phones": [{"number": "988", "label": "Call, text, or chat", "availability": "aroundTheClock", "hoursNote": "24/7/365"}],
+      "name": "988 Suicide & Crisis Lifeline",
+      "operator": "SAMHSA / Vibrant Emotional Health",
+      "operatorType": "national",
+      "scope": "national",
+      "url": "https://988lifeline.org/",
+      "phones": [
+        {
+          "number": "988",
+          "label": "Call, text, or chat",
+          "availability": "aroundTheClock",
+          "hoursNote": "24/7/365"
+        }
+      ],
       "services": ["crisisLine", "mentalHealth"],
-      "confidential": "Free and confidential", "cost": "Free",
+      "confidential": "Free and confidential",
+      "cost": "Free",
       "description": "US national crisis line for anyone in emotional distress or thinking about suicide — call, text, or chat, 24/7.",
-      "confidence": "HIGH", "sourceUrl": "https://988lifeline.org/", "sourceTier": "primary-official", "verifiedOn": "2026-07-02"
+      "confidence": "HIGH",
+      "sourceUrl": "https://988lifeline.org/",
+      "sourceTier": "primary-official",
+      "verifiedOn": "2026-07-02"
     },
     {
-      "name": "SAMHSA National Helpline", "operator": "Substance Abuse and Mental Health Services Administration",
-      "operatorType": "national", "scope": "national", "url": "https://www.samhsa.gov/find-help/helplines/national-helpline",
-      "phones": [{"number": "1-800-662-4357", "label": "Treatment referral & information", "availability": "aroundTheClock", "hoursNote": "24/7/365, English & Spanish"}],
+      "name": "SAMHSA National Helpline",
+      "operator": "Substance Abuse and Mental Health Services Administration",
+      "operatorType": "national",
+      "scope": "national",
+      "url": "https://www.samhsa.gov/find-help/helplines/national-helpline",
+      "phones": [
+        {
+          "number": "1-800-662-4357",
+          "label": "Treatment referral & information",
+          "availability": "aroundTheClock",
+          "hoursNote": "24/7/365, English & Spanish"
+        }
+      ],
       "services": ["substanceUse", "mentalHealth"],
-      "confidential": "Free and confidential", "cost": "Free",
+      "confidential": "Free and confidential",
+      "cost": "Free",
       "description": "Confidential treatment referral and information service for mental-health and substance-use disorders.",
-      "confidence": "HIGH", "sourceUrl": "https://www.samhsa.gov/find-help/helplines/national-helpline", "sourceTier": "primary-official", "verifiedOn": "2026-07-02"
+      "confidence": "HIGH",
+      "sourceUrl": "https://www.samhsa.gov/find-help/helplines/national-helpline",
+      "sourceTier": "primary-official",
+      "verifiedOn": "2026-07-02"
     },
     {
       "name": "ABA Commission on Lawyer Assistance Programs (CoLAP) — Directory of state programs",
-      "operator": "American Bar Association", "operatorType": "national", "scope": "national",
+      "operator": "American Bar Association",
+      "operatorType": "national",
+      "scope": "national",
       "url": "https://www.americanbar.org/groups/lawyer_assistance/resources/lap_programs_by_state/",
       "phones": [],
       "services": ["peerSupport", "mentalHealth", "substanceUse"],
-      "confidential": "Routes to confidential state programs", "cost": "Free",
+      "confidential": "Routes to confidential state programs",
+      "cost": "Free",
       "description": "The ABA's maintained by-state directory of Lawyer Assistance Programs — the lawyer-specific fallback for finding a local program.",
-      "confidence": "HIGH", "sourceUrl": "https://www.americanbar.org/groups/lawyer_assistance/", "sourceTier": "primary-official", "verifiedOn": "2026-07-02"
+      "confidence": "HIGH",
+      "sourceUrl": "https://www.americanbar.org/groups/lawyer_assistance/",
+      "sourceTier": "primary-official",
+      "verifiedOn": "2026-07-02"
     }
   ]
 }

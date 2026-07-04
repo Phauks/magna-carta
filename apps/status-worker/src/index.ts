@@ -1,9 +1,4 @@
-import {
-  mergeSnapshot,
-  parseAuthored,
-  parseDerived,
-  STATUS_KV_KEYS,
-} from "@magna-carta/status";
+import { mergeSnapshot, parseAuthored, parseDerived, STATUS_KV_KEYS } from "@magna-carta/status";
 
 export type Bindings = {
   STATUS_KV: KVNamespace;
@@ -17,11 +12,15 @@ async function publicSnapshotJson(env: Bindings): Promise<Response> {
     env.STATUS_KV.get(STATUS_KV_KEYS.derived),
     env.STATUS_KV.get(STATUS_KV_KEYS.authored),
   ]);
-  const published = mergeSnapshot(parseDerived(derivedText, now), parseAuthored(authoredText, now), {
-    audience: "public",
-    now,
-    stalenessThresholdMs: STALENESS_THRESHOLD_MS,
-  });
+  const published = mergeSnapshot(
+    parseDerived(derivedText, now),
+    parseAuthored(authoredText, now),
+    {
+      audience: "public",
+      now,
+      stalenessThresholdMs: STALENESS_THRESHOLD_MS,
+    },
+  );
   return Response.json(published, {
     headers: { "cache-control": "public, max-age=30", "x-robots-tag": "all" },
   });
@@ -49,7 +48,10 @@ export default {
       return new Response("Not Found", { status: 404 });
     } catch {
       // Never surface a 500 on the public status path.
-      return new Response(FALLBACK_HTML, { status: 200, headers: { "content-type": "text/html; charset=utf-8" } });
+      return new Response(FALLBACK_HTML, {
+        status: 200,
+        headers: { "content-type": "text/html; charset=utf-8" },
+      });
     }
   },
 } satisfies ExportedHandler<Bindings>;

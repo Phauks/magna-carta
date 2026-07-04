@@ -50,10 +50,16 @@ describe("forwardFileRepair", () => {
       const container = {
         fetch: async (req: Request) => {
           capturedUrl = req.url;
-          return new Response("{}", { status: 200, headers: { "Content-Type": "application/json" } });
+          return new Response("{}", {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
         },
       };
-      const request = new Request(`http://file-repair-worker${op}`, { method: "POST", body: "bytes" });
+      const request = new Request(`http://file-repair-worker${op}`, {
+        method: "POST",
+        body: "bytes",
+      });
       await forwardFileRepair(request, op, container);
       expect(capturedUrl).toBe(`http://file-repair${op}`);
     }

@@ -217,7 +217,9 @@ describe("recovery end-to-end: cfCapable happy path (button -> tier router -> fa
   it("redaction: the recovery_started audit row exists; no decryption.recovery_* row leaks the password or the extracted hash-secret", async () => {
     const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, firmId);
     const startedCount = await firmDatabase
-      .prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event = 'decryption.recovery_started'")
+      .prepare(
+        "SELECT COUNT(*) AS count FROM audit_log WHERE event = 'decryption.recovery_started'",
+      )
       .first<{ count: number }>();
     expect(startedCount?.count).toBeGreaterThanOrEqual(1);
 

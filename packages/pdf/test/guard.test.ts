@@ -22,8 +22,6 @@ describe("decompression-bomb guard", () => {
   });
 
   it("throws a typed DecompressionBombError", async () => {
-    await expect(redactDocument(bombPdf(), [], {})).rejects.toBeInstanceOf(
-      DecompressionBombError,
-    );
+    await expect(redactDocument(bombPdf(), [], {})).rejects.toBeInstanceOf(DecompressionBombError);
   });
 });

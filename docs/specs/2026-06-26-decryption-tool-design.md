@@ -92,7 +92,7 @@ the in-house `verify_guess` can run it without hashcat). `verify_guess` is the b
 **OOXML** (`.docx`/`.xlsx`/`.pptx` agile encryption; standard/legacy as it falls out cheaply). **7-Zip** is
 the first follow-on slice; **legacy Office (.doc/.xls) and RAR** are deferred (hard container parsing → shell
 out or the Rung 4 forensic seam). Detection is by magic bytes, with the OOXML adapter recognizing the OLE2
-compound-file wrapper that distinguishes an *encrypted* office file from a plain zip.
+compound-file wrapper that distinguishes an _encrypted_ office file from a plain zip.
 
 ## 3. The escalation ladder — `RecoveryBackend` port
 
@@ -100,12 +100,12 @@ When the password is unknown, the `RecoveryJob` flows to a `RecoveryBackend`. Th
 adapter (the "rung") is chosen by caller/policy and hardware availability. Every rung consumes the same job
 and reports progress to the same job orchestrator (§4); adding a rung is one adapter, no core change.
 
-| Rung | Where | Engine | Role |
-| --- | --- | --- | --- |
-| **1 · Light** | Cloudflare **Container** (`apps/recovery-worker`) | our pure-Rust `verify_guess` loop (`rayon` + SHA-NI), wordlist sharded over a **Queue** | Always available, web floor. Clears fast-format and weak/known-shape passwords. CPU-only (Cloudflare has no GPU for our code). |
-| **2 · Local** | **Desktop** (Tauri sidecar) | bundled **hashcat** subprocess on the firm's own GPU | Optional local acceleration, $0 marginal, strongest confidentiality (file + hash both stay on the device). Web falls back to Rung 1 (delivery-model parity). Lands with the Tauri phase. |
-| **3 · Cloud** | rented on-demand GPU (RunPod / Vast.ai) | **hashcat** | "Go hard" on a strong KDF. Send **only the extracted hash**, never the document. ~$0.30–0.70/hr, live in 1–5 min; an 8-hour job ≈ $3. |
-| **4 · Vendor (seam)** | external forensic engine (Passware / Elcomsoft) | vendor SDK/API | Coverage our engine cannot reach (full-volume encryption, device backups, exotic formats). Ingests the whole file → least private → deliberate last resort. **Zero-cost documented extension point; never built or bought by the platform.** |
+| Rung                  | Where                                             | Engine                                                                                  | Role                                                                                                                                                                                                                                         |
+| --------------------- | ------------------------------------------------- | --------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **1 · Light**         | Cloudflare **Container** (`apps/recovery-worker`) | our pure-Rust `verify_guess` loop (`rayon` + SHA-NI), wordlist sharded over a **Queue** | Always available, web floor. Clears fast-format and weak/known-shape passwords. CPU-only (Cloudflare has no GPU for our code).                                                                                                               |
+| **2 · Local**         | **Desktop** (Tauri sidecar)                       | bundled **hashcat** subprocess on the firm's own GPU                                    | Optional local acceleration, $0 marginal, strongest confidentiality (file + hash both stay on the device). Web falls back to Rung 1 (delivery-model parity). Lands with the Tauri phase.                                                     |
+| **3 · Cloud**         | rented on-demand GPU (RunPod / Vast.ai)           | **hashcat**                                                                             | "Go hard" on a strong KDF. Send **only the extracted hash**, never the document. ~$0.30–0.70/hr, live in 1–5 min; an 8-hour job ≈ $3.                                                                                                        |
+| **4 · Vendor (seam)** | external forensic engine (Passware / Elcomsoft)   | vendor SDK/API                                                                          | Coverage our engine cannot reach (full-volume encryption, device backups, exotic formats). Ingests the whole file → least private → deliberate last resort. **Zero-cost documented extension point; never built or bought by the platform.** |
 
 **Why these tiers (evidence, summarized from the dependency research, 2026):** Cloudflare Containers cap at
 4 vCPU and expose **no GPU** to our code (Workers AI runs only its model catalog), so a modern KDF (Office
@@ -147,7 +147,7 @@ and select different vendors:
 A recovery is a long-running job, so it uses the conversion/timekeeping precedent:
 
 - **Durable Object per job** = the state machine + scheduler: `queued → running → (progress %) → found |
-  exhausted | cancelled`. It holds job state in its SQLite, advances via alarms, and **dispatches** work — it
+exhausted | cancelled`. It holds job state in its SQLite, advances via alarms, and **dispatches** work — it
   never cracks (a Durable Object caps at 5 minutes CPU per invocation).
 - **Queue** shards the wordlist keyspace across **`recovery-worker` Container** instances (Cloudflare's lever
   is horizontal fan-out, not a bigger box). Each shard runs the `verify_guess` loop and reports candidates
@@ -200,14 +200,14 @@ pinning.
 `cipher 0.5`) in early 2026, but `zip` and `lopdf` still ride the prior generation (`digest 0.10` / `cipher
 0.4`); we pin to the **0.10/0.4 generation** to keep a single trait stack and migrate when they do. Only the
 AES core is formally audited (NCC Group, 2020); the mode/hash crates are not — acceptable for a
-*decryption* library (we are not protecting secrets with them), recorded as a known gap.
+_decryption_ library (we are not protecting secrets with them), recorded as a known gap.
 
-| Format | Strip-with-key | Extract-hash | Crate(s) · license |
-| --- | --- | --- | --- |
-| **PDF** | `lopdf` `EncryptionState::decode(password)` (R2–R6) — already a workspace dep | read the `/Encrypt` dict + trailer `/ID`; model on the `pdf2john` crate; R6 per ISO 32000-2 Algorithm 2.A/2.B (hardened SHA-256/384/512 loop) | `lopdf` (MIT); `pdf` (pdf-rs) kept as a verification oracle |
-| **ZIP** | `zip` (decrypts ZipCrypto + WinZip-AES) | crate does not expose the verifier → parse the ~12-byte crypto headers ourselves (ZipCrypto CRC byte; WinZip PBKDF2-HMAC-SHA1×1000 salt + 2-byte verifier) | `zip` 8.x (MIT) |
-| **OOXML** | `cfb` (OLE2 reader) + `office-crypto` (agile/standard/legacy-RC4) | `office2john`-format extractor over `cfb` + RustCrypto (SHA-512 ×100k iterative hash, block-key derivation, AES-256-CBC verifier) | `cfb` (MIT), `office-crypto` (MIT) — adopt or fork; ~200–400 LOC to own if its SHA-1-agile gap bites |
-| **7-Zip** _(follow-on)_ | `sevenz-rust2` (`aes256` feature) | own header parser (StreamsInfo → 7zAES coder), model on `7z2hashcat` (public domain); SHA-256 ×2¹⁹ KDF | `sevenz-rust2` 0.20 (Apache-2.0) |
+| Format                  | Strip-with-key                                                                | Extract-hash                                                                                                                                               | Crate(s) · license                                                                                   |
+| ----------------------- | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| **PDF**                 | `lopdf` `EncryptionState::decode(password)` (R2–R6) — already a workspace dep | read the `/Encrypt` dict + trailer `/ID`; model on the `pdf2john` crate; R6 per ISO 32000-2 Algorithm 2.A/2.B (hardened SHA-256/384/512 loop)              | `lopdf` (MIT); `pdf` (pdf-rs) kept as a verification oracle                                          |
+| **ZIP**                 | `zip` (decrypts ZipCrypto + WinZip-AES)                                       | crate does not expose the verifier → parse the ~12-byte crypto headers ourselves (ZipCrypto CRC byte; WinZip PBKDF2-HMAC-SHA1×1000 salt + 2-byte verifier) | `zip` 8.x (MIT)                                                                                      |
+| **OOXML**               | `cfb` (OLE2 reader) + `office-crypto` (agile/standard/legacy-RC4)             | `office2john`-format extractor over `cfb` + RustCrypto (SHA-512 ×100k iterative hash, block-key derivation, AES-256-CBC verifier)                          | `cfb` (MIT), `office-crypto` (MIT) — adopt or fork; ~200–400 LOC to own if its SHA-1-agile gap bites |
+| **7-Zip** _(follow-on)_ | `sevenz-rust2` (`aes256` feature)                                             | own header parser (StreamsInfo → 7zAES coder), model on `7z2hashcat` (public domain); SHA-256 ×2¹⁹ KDF                                                     | `sevenz-rust2` 0.20 (Apache-2.0)                                                                     |
 
 **Cracking engine (GPU rungs):** **hashcat** (MIT) — confirmed best-in-class in 2026 with no challenger;
 invoked as an out-of-process subprocess (bundleable on desktop, run on rented boxes for cloud). **John the
@@ -244,7 +244,7 @@ liability even when the license permits it.
 - **Confidentiality keystone (restated):** strip-with-key and extract-hash run **client-side (WASM) or in our
   own perimeter**; only the extracted **hash** ever crosses to an external (rented) GPU, never the document.
   Rung 4 (vendor, ingests the whole file) is the sole exception and a deliberate, last-resort opt-in.
-- **Abuse boundary:** this is a recovery tool for *authorized* access, not a general attack service. The
+- **Abuse boundary:** this is a recovery tool for _authorized_ access, not a general attack service. The
   permission gate + per-job attestation + redacted audit are the controls; the tool operates only on
   user-supplied files, performs no network attack, and surfaces no third-party-system access.
 - **No password egress to logs.** Recovered passwords are surfaced once, optionally stored envelope-encrypted,
@@ -285,7 +285,7 @@ Each slice is a working vertical slice, perf-tested against the load-profile fix
 
 ## 12. Deferred seams & non-goals
 
-- **Lock/secure (PDF password & permissions)** — the *other* side of the coin, owned by the PDF engine
+- **Lock/secure (PDF password & permissions)** — the _other_ side of the coin, owned by the PDF engine
   (_PDF services_, the `pdf-engine-forms` stream), not this tool.
 - **7-Zip, legacy Office (.doc/.xls), RAR** — deferred adapters (7-Zip first; the OLE2/RAR pair are hard →
   shell out or Rung 4).

@@ -10,8 +10,8 @@
 
 ## Global Constraints
 
-- **Confidentiality keystone:** the benchmark uses public hashcat *example hashes* only — never a real firm file or hash. The harness and image must contain no firm/matter/client data. (Design §4.)
-- **Golden rule 14 (C/C++):** hashcat (C) runs *only inside the container on the rented rig*; no hashcat/C linkage enters the TypeScript harness or any first-party Worker. (Design ADR-FFFF.)
+- **Confidentiality keystone:** the benchmark uses public hashcat _example hashes_ only — never a real firm file or hash. The harness and image must contain no firm/matter/client data. (Design §4.)
+- **Golden rule 14 (C/C++):** hashcat (C) runs _only inside the container on the rented rig_; no hashcat/C linkage enters the TypeScript harness or any first-party Worker. (Design ADR-FFFF.)
 - **Golden rule 12 (full names):** no shorthand — `gpuName` not `gpu`, `dollarsPerHour` not `dph` in our own code (vast.ai's wire field `dph_total` is an external term, kept only at the API boundary).
 - **Golden rule 13 (no process-doc refs in source):** no "ADR-N", "slice N", "Stage N" in committed source/tests; explain reasoning inline or cite a file path.
 - **vast.ai key is a secret:** read from `VAST_API_KEY` env only; never committed, never logged. The harness redacts it.
@@ -25,6 +25,7 @@
 The committed profiles table and the pure functions that build it. Built first because it defines the shape everything else produces.
 
 **Files:**
+
 - Create: `packages/gpu-benchmark/src/profiles.ts`
 - Create: `packages/gpu-benchmark/test/profiles.test.ts`
 - Create: `packages/gpu-benchmark/package.json` (name `@magna-carta/gpu-benchmark`, `"private": true`, type module, vitest dep)
@@ -32,6 +33,7 @@ The committed profiles table and the pure functions that build it. Built first b
 - Create: `docs/research/gpu-recovery/rig-profiles.json` (seed: `{ "generatedAt": null, "profiles": [] }`)
 
 **Interfaces:**
+
 - Produces:
   - `interface ModeThroughput { readonly hashcatMode: number; readonly hashesPerSecond: number }`
   - `interface RigProfile { readonly gpuName: string; readonly gpuCount: number; readonly gpuRamMegabytes: number; readonly dollarsPerHour: number; readonly bootSeconds: number; readonly throughput: ReadonlyArray<ModeThroughput>; readonly measuredAt: string }`
@@ -43,11 +45,21 @@ The committed profiles table and the pure functions that build it. Built first b
 
 ```typescript
 import { describe, it, expect } from "vitest";
-import { dollarsPerBillionCandidates, rankByValue, upsertProfile, type RigProfile } from "../src/profiles.ts";
+import {
+  dollarsPerBillionCandidates,
+  rankByValue,
+  upsertProfile,
+  type RigProfile,
+} from "../src/profiles.ts";
 
 const rig = (gpuName: string, dollarsPerHour: number, hps: number): RigProfile => ({
-  gpuName, gpuCount: 1, gpuRamMegabytes: 24576, dollarsPerHour, bootSeconds: 120,
-  throughput: [{ hashcatMode: 9600, hashesPerSecond: hps }], measuredAt: "2026-07-03T00:00:00Z",
+  gpuName,
+  gpuCount: 1,
+  gpuRamMegabytes: 24576,
+  dollarsPerHour,
+  bootSeconds: 120,
+  throughput: [{ hashcatMode: 9600, hashesPerSecond: hps }],
+  measuredAt: "2026-07-03T00:00:00Z",
 });
 
 describe("profiles", () => {
@@ -83,13 +95,15 @@ git commit -m "feat(gpu-benchmark): rig-profiles schema + value ranking"
 
 ### Task 2: hashcat benchmark-output parser (`packages/gpu-benchmark/src/bench-parse.ts`)
 
-Parse the container's emitted benchmark JSON *and* raw hashcat machine-readable lines into `ModeThroughput[]`. The image entrypoint (Task 5) emits a JSON envelope, but we parse defensively so a raw-hashcat fallback also works.
+Parse the container's emitted benchmark JSON _and_ raw hashcat machine-readable lines into `ModeThroughput[]`. The image entrypoint (Task 5) emits a JSON envelope, but we parse defensively so a raw-hashcat fallback also works.
 
 **Files:**
+
 - Create: `packages/gpu-benchmark/src/bench-parse.ts`
 - Create: `packages/gpu-benchmark/test/bench-parse.test.ts`
 
 **Interfaces:**
+
 - Consumes: `ModeThroughput` (Task 1).
 - Produces:
   - `interface BenchmarkResult { readonly gpuName: string; readonly gpuCount: number; readonly gpuRamMegabytes: number; readonly throughput: ModeThroughput[] }`
@@ -105,12 +119,15 @@ import { parseBenchmarkJson, sumDeviceSpeeds, BenchmarkParseError } from "../src
 describe("bench-parse", () => {
   it("sums per-device SPEED fields from a machine-readable line", () => {
     // two devices: 1,000,000 + 500,000 H/s
-    const line = "STATUS 3 SPEED 1000000 1000 500000 1000 EXEC_RUNTIME 1.0 CURKU 0 PROGRESS 1 1 REJECTED 0";
+    const line =
+      "STATUS 3 SPEED 1000000 1000 500000 1000 EXEC_RUNTIME 1.0 CURKU 0 PROGRESS 1 1 REJECTED 0";
     expect(sumDeviceSpeeds(line)).toBe(1500000);
   });
   it("parses the entrypoint envelope", () => {
     const raw = JSON.stringify({
-      gpuName: "RTX_4090", gpuCount: 1, gpuRamMegabytes: 24576,
+      gpuName: "RTX_4090",
+      gpuCount: 1,
+      gpuRamMegabytes: 24576,
       throughput: [{ hashcatMode: 9600, hashesPerSecond: 68356 }],
     });
     expect(parseBenchmarkJson(raw).throughput[0].hashesPerSecond).toBe(68356);
@@ -133,10 +150,12 @@ describe("bench-parse", () => {
 A typed wrapper over the four vast.ai endpoints we use. Injectable `fetch` for testing; key redacted from all errors.
 
 **Files:**
+
 - Create: `packages/gpu-benchmark/src/vast-client.ts`
 - Create: `packages/gpu-benchmark/test/vast-client.test.ts`
 
 **Interfaces:**
+
 - Produces:
   - `interface VastOffer { readonly offerId: number; readonly gpuName: string; readonly gpuCount: number; readonly gpuRamMegabytes: number; readonly dollarsPerHour: number; readonly internetDownMbps: number; readonly reliability: number; readonly verified: boolean }`
   - `function createVastClient(apiKey: string, fetchImpl?: typeof fetch): VastClient`
@@ -155,16 +174,40 @@ const jsonResponse = (body: unknown) => new Response(JSON.stringify(body), { sta
 
 describe("vast-client", () => {
   it("maps offer wire fields to full names", async () => {
-    const fetchImpl = vi.fn().mockResolvedValue(jsonResponse({ offers: [
-      { id: 42, gpu_name: "RTX_4090", num_gpus: 1, gpu_ram: 24576, dph_total: 0.4, inet_down: 900, reliability: 0.99, verified: true },
-    ] }));
+    const fetchImpl = vi.fn().mockResolvedValue(
+      jsonResponse({
+        offers: [
+          {
+            id: 42,
+            gpu_name: "RTX_4090",
+            num_gpus: 1,
+            gpu_ram: 24576,
+            dph_total: 0.4,
+            inet_down: 900,
+            reliability: 0.99,
+            verified: true,
+          },
+        ],
+      }),
+    );
     const offers = await createVastClient("KEY", fetchImpl).searchOffers({});
-    expect(offers[0]).toMatchObject({ offerId: 42, gpuName: "RTX_4090", dollarsPerHour: 0.4, internetDownMbps: 900 });
+    expect(offers[0]).toMatchObject({
+      offerId: 42,
+      gpuName: "RTX_4090",
+      dollarsPerHour: 0.4,
+      internetDownMbps: 900,
+    });
   });
   it("returns new_contract as instanceId", async () => {
     const fetchImpl = vi.fn().mockResolvedValue(jsonResponse({ new_contract: 777 }));
-    expect(await createVastClient("KEY", fetchImpl).createInstance(42, { image: "x", label: "l", onstart: "", diskGb: 20 }))
-      .toEqual({ instanceId: 777 });
+    expect(
+      await createVastClient("KEY", fetchImpl).createInstance(42, {
+        image: "x",
+        label: "l",
+        onstart: "",
+        diskGb: 20,
+      }),
+    ).toEqual({ instanceId: 777 });
   });
   it("destroyInstance treats 404 as success", async () => {
     const fetchImpl = vi.fn().mockResolvedValue(new Response("", { status: 404 }));
@@ -172,8 +215,9 @@ describe("vast-client", () => {
   });
   it("never includes the api key in a thrown error", async () => {
     const fetchImpl = vi.fn().mockResolvedValue(new Response("boom", { status: 500 }));
-    await expect(createVastClient("SECRETKEY", fetchImpl).searchOffers({}))
-      .rejects.toThrow(expect.not.stringContaining("SECRETKEY"));
+    await expect(createVastClient("SECRETKEY", fetchImpl).searchOffers({})).rejects.toThrow(
+      expect.not.stringContaining("SECRETKEY"),
+    );
   });
 });
 ```
@@ -190,10 +234,12 @@ describe("vast-client", () => {
 The concrete benchmark shortlist (design §1) and a pure filter/selector over `VastOffer[]` — on real fields, never `dlperf`.
 
 **Files:**
+
 - Create: `packages/gpu-benchmark/src/offer-filter.ts`
 - Create: `packages/gpu-benchmark/test/offer-filter.test.ts`
 
 **Interfaces:**
+
 - Consumes: `VastOffer` (Task 3).
 - Produces:
   - `const BENCHMARK_SHORTLIST: ReadonlyArray<{ gpuName: string; gpuCount: number }>` — `RTX_4090×1`, `RTX_4090×2`, `RTX_4090×4`, `H100_SXM×1` (the datacenter comparison), `RTX_5090×1`.
@@ -207,23 +253,44 @@ import { cheapestVerifiedOffer, BENCHMARK_SHORTLIST } from "../src/offer-filter.
 import type { VastOffer } from "../src/vast-client.ts";
 
 const offer = (o: Partial<VastOffer>): VastOffer => ({
-  offerId: 1, gpuName: "RTX_4090", gpuCount: 1, gpuRamMegabytes: 24576,
-  dollarsPerHour: 0.4, internetDownMbps: 900, reliability: 0.99, verified: true, ...o,
+  offerId: 1,
+  gpuName: "RTX_4090",
+  gpuCount: 1,
+  gpuRamMegabytes: 24576,
+  dollarsPerHour: 0.4,
+  internetDownMbps: 900,
+  reliability: 0.99,
+  verified: true,
+  ...o,
 });
 
 describe("offer-filter", () => {
   it("shortlist is 4090-centric with a datacenter comparison", () => {
-    expect(BENCHMARK_SHORTLIST.some((s) => s.gpuName === "RTX_4090" && s.gpuCount === 1)).toBe(true);
+    expect(BENCHMARK_SHORTLIST.some((s) => s.gpuName === "RTX_4090" && s.gpuCount === 1)).toBe(
+      true,
+    );
     expect(BENCHMARK_SHORTLIST.some((s) => s.gpuName === "H100_SXM")).toBe(true);
   });
   it("picks cheapest verified reliable match", () => {
     const chosen = cheapestVerifiedOffer(
-      [offer({ offerId: 1, dollarsPerHour: 0.5 }), offer({ offerId: 2, dollarsPerHour: 0.3 }), offer({ offerId: 3, verified: false, dollarsPerHour: 0.1 })],
-      { gpuName: "RTX_4090", gpuCount: 1 }, 0.95);
+      [
+        offer({ offerId: 1, dollarsPerHour: 0.5 }),
+        offer({ offerId: 2, dollarsPerHour: 0.3 }),
+        offer({ offerId: 3, verified: false, dollarsPerHour: 0.1 }),
+      ],
+      { gpuName: "RTX_4090", gpuCount: 1 },
+      0.95,
+    );
     expect(chosen?.offerId).toBe(2);
   });
   it("returns null when nothing matches reliability floor", () => {
-    expect(cheapestVerifiedOffer([offer({ reliability: 0.5 })], { gpuName: "RTX_4090", gpuCount: 1 }, 0.95)).toBeNull();
+    expect(
+      cheapestVerifiedOffer(
+        [offer({ reliability: 0.5 })],
+        { gpuName: "RTX_4090", gpuCount: 1 },
+        0.95,
+      ),
+    ).toBeNull();
   });
 });
 ```
@@ -240,6 +307,7 @@ describe("offer-filter", () => {
 Our image: CUDA + hashcat + the clean-license wordlists/rules + a benchmark entrypoint that runs the full baseline mode set and emits the `BenchmarkResult` JSON envelope. Committed now, built/published in Task 7. No unit test (needs a GPU); a schema-conformance check guards the entrypoint's output shape.
 
 **Files:**
+
 - Create: `containers/recovery-gpu/Dockerfile`
 - Create: `containers/recovery-gpu/bench/run-benchmark.sh`
 - Create: `containers/recovery-gpu/bench/sample-output.json` (a hand-authored example emit for the contract test)
@@ -268,9 +336,15 @@ import { readFileSync } from "node:fs";
 import { parseBenchmarkJson } from "../src/bench-parse.ts";
 
 it("the image's sample output parses into the full baseline mode set", () => {
-  const raw = readFileSync(new URL("../../../containers/recovery-gpu/bench/sample-output.json", import.meta.url), "utf8");
-  expect(parseBenchmarkJson(raw).throughput.map((t) => t.hashcatMode).sort((a, b) => a - b))
-    .toEqual([9400, 9500, 9600, 10500, 10700, 11600, 13600, 17200]);
+  const raw = readFileSync(
+    new URL("../../../containers/recovery-gpu/bench/sample-output.json", import.meta.url),
+    "utf8",
+  );
+  expect(
+    parseBenchmarkJson(raw)
+      .throughput.map((t) => t.hashcatMode)
+      .sort((a, b) => a - b),
+  ).toEqual([9400, 9500, 9600, 10500, 10700, 11600, 13600, 17200]);
 });
 ```
 
@@ -284,10 +358,12 @@ it("the image's sample output parses into the full baseline mode set", () => {
 Orchestrates one rig's benchmark: select offer → rent → poll ready (timeout) → collect the JSON → **always destroy** → return a `RigProfile`. TDD the orchestration + the guaranteed-destroy with a fake client; the SSH/collection transport is injected so it's mockable.
 
 **Files:**
+
 - Create: `packages/gpu-benchmark/src/run.ts`
 - Create: `packages/gpu-benchmark/test/run.test.ts`
 
 **Interfaces:**
+
 - Consumes: `VastClient` (Task 3), `cheapestVerifiedOffer` (Task 4), `parseBenchmarkJson` (Task 2), `upsertProfile` (Task 1).
 - Produces:
   - `type CollectFn = (instance: { sshHost: string; sshPort: number }) => Promise<string>` — returns the raw benchmark JSON from the booted instance (real impl: SSH + read stdout; injected in tests).
@@ -301,25 +377,57 @@ import { benchmarkOneRig } from "../src/run.ts";
 
 function fakeClient(overrides = {}) {
   return {
-    searchOffers: vi.fn().mockResolvedValue([{ offerId: 42, gpuName: "RTX_4090", gpuCount: 1, gpuRamMegabytes: 24576, dollarsPerHour: 0.4, internetDownMbps: 900, reliability: 0.99, verified: true }]),
+    searchOffers: vi.fn().mockResolvedValue([
+      {
+        offerId: 42,
+        gpuName: "RTX_4090",
+        gpuCount: 1,
+        gpuRamMegabytes: 24576,
+        dollarsPerHour: 0.4,
+        internetDownMbps: 900,
+        reliability: 0.99,
+        verified: true,
+      },
+    ]),
     createInstance: vi.fn().mockResolvedValue({ instanceId: 777 }),
     getInstance: vi.fn().mockResolvedValue({ status: "running", sshHost: "h", sshPort: 22 }),
     destroyInstance: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
-const envelope = JSON.stringify({ gpuName: "RTX_4090", gpuCount: 1, gpuRamMegabytes: 24576, throughput: [{ hashcatMode: 9600, hashesPerSecond: 68356 }] });
+const envelope = JSON.stringify({
+  gpuName: "RTX_4090",
+  gpuCount: 1,
+  gpuRamMegabytes: 24576,
+  throughput: [{ hashcatMode: 9600, hashesPerSecond: 68356 }],
+});
 
 describe("benchmarkOneRig", () => {
   it("returns a profile and always destroys on success", async () => {
     const client = fakeClient();
-    const p = await benchmarkOneRig({ client: client as any, collect: async () => envelope, image: "img", want: { gpuName: "RTX_4090", gpuCount: 1 }, now: () => "2026-07-03T00:00:00Z" });
+    const p = await benchmarkOneRig({
+      client: client as any,
+      collect: async () => envelope,
+      image: "img",
+      want: { gpuName: "RTX_4090", gpuCount: 1 },
+      now: () => "2026-07-03T00:00:00Z",
+    });
     expect(p.dollarsPerHour).toBe(0.4);
     expect(client.destroyInstance).toHaveBeenCalledWith(777);
   });
   it("destroys the instance even when collection fails", async () => {
     const client = fakeClient();
-    await expect(benchmarkOneRig({ client: client as any, collect: async () => { throw new Error("ssh died"); }, image: "img", want: { gpuName: "RTX_4090", gpuCount: 1 }, now: () => "t" })).rejects.toThrow("ssh died");
+    await expect(
+      benchmarkOneRig({
+        client: client as any,
+        collect: async () => {
+          throw new Error("ssh died");
+        },
+        image: "img",
+        want: { gpuName: "RTX_4090", gpuCount: 1 },
+        now: () => "t",
+      }),
+    ).rejects.toThrow("ssh died");
     expect(client.destroyInstance).toHaveBeenCalledWith(777);
   });
 });
@@ -337,6 +445,7 @@ describe("benchmarkOneRig", () => {
 Wire the driver into a runnable CLI, document the image publish + run, then execute a real benchmark to populate the profiles. The build/publish/run steps need Docker, a registry, and the vast.ai key — they are **owner ops steps**, marked as such.
 
 **Files:**
+
 - Create: `packages/gpu-benchmark/src/cli.ts` (reads `VAST_API_KEY`, `--image`, iterates `BENCHMARK_SHORTLIST`, writes `rig-profiles.json` via `upsertProfile`; the real `CollectFn` = SSH poll-and-read of the result file)
 - Create: `packages/gpu-benchmark/src/ssh-collect.ts` (the real `CollectFn` implementation — isolated so the CLI orchestration stays unit-testable with a fake)
 - The runbook README is **controller-authored** (`packages/gpu-benchmark/README.md`, serverless-registry walk-through) — the implementer does not write it.

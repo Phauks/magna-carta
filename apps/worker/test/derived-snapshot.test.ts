@@ -5,7 +5,9 @@ import { buildAndStoreDerivedSnapshot } from "../src/status/derived-snapshot.ts"
 
 test("the cron builder writes a derived snapshot with components and providers", async () => {
   const fetchImpl = (async () =>
-    new Response(JSON.stringify({ status: { indicator: "none" } }), { status: 200 })) as unknown as typeof fetch;
+    new Response(JSON.stringify({ status: { indicator: "none" } }), {
+      status: 200,
+    })) as unknown as typeof fetch;
   const snapshot = await buildAndStoreDerivedSnapshot(env, "2026-07-02T00:00:00.000Z", fetchImpl);
   expect(snapshot.components.length).toBeGreaterThan(0);
   expect(snapshot.providers.some((p) => p.id === "cloudflare")).toBe(true);

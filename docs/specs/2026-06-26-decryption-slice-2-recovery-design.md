@@ -9,7 +9,7 @@
 
 Slice 1 made a locked file's recovery hash extractable and let you decrypt with a known password. This slice adds **Rung 1 — actually recovering an unknown password** on Cloudflare's own compute: a button-initiated dictionary attack over the bundled common-password wordlist, routed by format hardness, coordinated by a backend-agnostic job so the later GPU rungs plug in without rework.
 
-The honest frame (from the dependency research): Cloudflare Containers are CPU-only and weak — modern KDFs are weeks of brute-force there. So Rung 1 is **not** a real cracker; it is the always-available **common-password** tier. It clears forgotten *weak* passwords cheaply, and routes everything harder to the GPU rungs (next slices).
+The honest frame (from the dependency research): Cloudflare Containers are CPU-only and weak — modern KDFs are weeks of brute-force there. So Rung 1 is **not** a real cracker; it is the always-available **common-password** tier. It clears forgotten _weak_ passwords cheaply, and routes everything harder to the GPU rungs (next slices).
 
 ---
 
@@ -24,7 +24,7 @@ On a recover request, the Worker runs the Slice-1 `extract_hash` (wasm) to produ
 - **CF-capable band** — fast + medium KDFs: legacy PDF (RC4 R2–R4), ZipCrypto, old Office (RC4), and WinZip-AES (PBKDF2-HMAC-SHA1 ×1000). These finish a meaningful pass on CF in seconds-to-minutes for cents. → run on Rung 1.
 - **GPU-required band** — slow KDFs: PDF R6 (AES-256 hardened), OOXML agile (SHA-512 ×100k), 7-Zip (SHA-256 ×2¹⁹). A meaningful CF pass is hours-to-weeks. → the job is created in a terminal **`needs_gpu`** state with a clear status ("not in the common-password set reachable on this tier — deeper recovery requires the GPU rung"), the seam Rung 2/3 fill later.
 
-Classification derives from `RecoveryJob` (format + revision/mode), no new probing. This *is* the format separation — the band decides how deep CF goes and where the GPU handoff sits.
+Classification derives from `RecoveryJob` (format + revision/mode), no new probing. This _is_ the format separation — the band decides how deep CF goes and where the GPU handoff sits.
 
 ## 3. The CF recovery pass — coverage-bounded depth
 
@@ -34,7 +34,7 @@ The CF pass is bounded by **coverage**, not a magic candidate count: it always r
 - **Medium band** (WinZip-AES) → full `NCSC-100k × best64` — minutes single / seconds sharded, ~$0.01.
 - **(CF-capable, if ever a slower-but-still-CF KDF)** → full `NCSC-100k` straight (~$0.03), rules deferred to GPU.
 
-NCSC-100k alone recovers the large majority of weak human-chosen passwords; rules-amplification (the 60–80% band) is the GPU rung's job. The keyspace is finite, so a pass always terminates (no infinite run); a **max-shard / max-shard-wall-clock** cap is the safety bound. Wordlist policy (parent design §8): the bundled set is clean-license (NCSC-100k under OGL v3.0 with NOTICES attribution, `10k-most-common` MIT, `best64` MIT); big breach lists are *not* bundled (Rung 1 doesn't need them).
+NCSC-100k alone recovers the large majority of weak human-chosen passwords; rules-amplification (the 60–80% band) is the GPU rung's job. The keyspace is finite, so a pass always terminates (no infinite run); a **max-shard / max-shard-wall-clock** cap is the safety bound. Wordlist policy (parent design §8): the bundled set is clean-license (NCSC-100k under OGL v3.0 with NOTICES attribution, `10k-most-common` MIT, `best64` MIT); big breach lists are _not_ bundled (Rung 1 doesn't need them).
 
 ## 4. Backend-agnostic coordinator — `RecoveryBackend` port + `RecoveryJob` DO
 
@@ -44,7 +44,7 @@ The job is a **keyspace-split + first-hit-cancel** coordinator, built backend-ag
 - **`RecoveryBackend` port** = the adapter seam. Slice 2 ships **one adapter: the Cloudflare-CPU backend** (`apps/recovery-worker` Containers running the pure-Rust verify loop). Rung 3's rented-GPU adapter (next slice) plugs into the same coordinator with no rework; Rung 2's desktop adapter follows in the Tauri phase.
 - **CF v1 uses the coordinator with modest real sharding** (a few containers) — same total cost as one box, faster wall-clock, and it proves the split/cancel machinery end-to-end so the GPU adapter inherits tested coordination.
 
-**Deferred + mandated (ADR-EEEE):** the platform-generic cross-domain fan-out primitive (`@magna-carta/fan-out-jobs`, also for OCR-at-ingest-scale, Bates/redaction burn-in, batch conversion) is *not* built here — those carry a different termination rule (all-complete vs first-hit), so the generic shape only emerges with a second non-recovery consumer. The standing rule (recorded in `docs/conventions/`): the next non-recovery domain needing container fan-out **extracts the shared primitive from this coordinator**, rather than re-implementing.
+**Deferred + mandated (ADR-EEEE):** the platform-generic cross-domain fan-out primitive (`@magna-carta/fan-out-jobs`, also for OCR-at-ingest-scale, Bates/redaction burn-in, batch conversion) is _not_ built here — those carry a different termination rule (all-complete vs first-hit), so the generic shape only emerges with a second non-recovery consumer. The standing rule (recorded in `docs/conventions/`): the next non-recovery domain needing container fan-out **extracts the shared primitive from this coordinator**, rather than re-implementing.
 
 ## 5. `apps/recovery-worker` Container
 

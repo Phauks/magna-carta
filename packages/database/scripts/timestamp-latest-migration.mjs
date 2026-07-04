@@ -39,7 +39,10 @@ if (legacyMatch === null) {
 }
 
 const slug = legacyMatch[2];
-const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d+Z$/, ""); // YYYYMMDDThhmmss
+const stamp = new Date()
+  .toISOString()
+  .replace(/[-:]/g, "")
+  .replace(/\.\d+Z$/, ""); // YYYYMMDDThhmmss
 const newTag = `${stamp}_${slug}`;
 
 const oldSql = join(dir, `${latest.tag}.sql`);

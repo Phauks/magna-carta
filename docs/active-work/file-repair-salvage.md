@@ -32,19 +32,22 @@ Design (Plan 6, resolved): `docs/specs/2026-07-02-file-repair-salvage-plan-6-int
 Reuses the merged `engine-host` harness (SP1). Touches `packages/tools` (catalog), the access-control registry,
 and a per-firm seed migration — **coordinate with the other tools-area streams** (`decryption-tool`,
 `wellbeing-resources`) which likely add their own catalog rows + permissions + seed migrations:
+
 - **Migration numbering:** latest per-firm is `0034_seed-tools-ai-text-detection`; my seed is next-free (`0035` on this
   branch) — but re-check + renumber against `main` right before writing it, since a tools-area stream may merge first.
 - **`documents → files` rename** is a group-string change; whoever merges second rebases the trivial rename.
-Does NOT touch pdf-core/decryption-core (that is SP3). The decryption-tool rename ("File Unlock & Password
-Recovery") is a separate branch.
+  Does NOT touch pdf-core/decryption-core (that is SP3). The decryption-tool rename ("File Unlock & Password
+  Recovery") is a separate branch.
 
 ## Status — SP2 built (2026-07-03)
 
 Both plans landed on this branch:
+
 - **6a (stateless):** `containers/file-repair` + `apps/file-repair-worker` + `FILE_REPAIR_SERVICE` + `documents→files` rename + `tools:fileRepair` (seed `0035`) + stateless routes with re-scan-and-withhold; single Container lane (WASM dropped); `engine-host` R2 client gated behind an opt-in `r2` feature so recovery links no `ring` C dep.
 - **6b (attach-to-matter):** `file_repair_provenance` per-firm table (migration `0036`) + data-access statements + `{repair,carve}/attach` routes (server-side upload riding the ingest gate) + dual permission gate + `file.repaired`/`file.carved` audit + flagged→quarantine test + contract regen.
 
 **Owed at merge (this branch is ~68 behind `main` — several latent failures already surfaced and were fixed on-branch; a `main` sync is overdue before merge):**
+
 - **Sync `main` first.** The drift is the root of the latent test/typecheck breakage fixed on this branch (node-sqlite role seed, support-access mock). Sync + run a full `pnpm check` sweep to flush any remaining.
 - **STATUS reconciliation:** `main` adopted the `status.d/<slice>.md` fragment convention (not on this branch); the direct `STATUS.md` edits here become a `status.d/file-repair.md` fragment at merge.
 - **Migration `0036`:** absorbed by the in-flight migration-collapse (`monotonic-migration-ids` branch) at rebase, or renumbered if a tools/schema stream lands a `0036` first.

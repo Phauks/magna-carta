@@ -4,7 +4,7 @@
 
 **Goal:** Add a byte-level content-surgery path to the pure-Rust PDF engine so a page whose text is analyzable but whose content stream cannot survive lopdf's whole-stream re-encode (inline images, exotic constructs) has its marked glyphs surgically removed instead of being flattened.
 
-**Architecture:** Reuse the existing text-state walk, marking, and excision/compensation rebuild unchanged. Add a raw content-stream tokenizer that records each operator's byte span (inline images opaque). The new writer copies the original bytes verbatim and re-encodes *only* the edited show operators individually, splicing them in — the whole-stream re-encode (which mangles inline images) is never run. Reached as an additive fallback exactly where today's round-trip guard would flatten.
+**Architecture:** Reuse the existing text-state walk, marking, and excision/compensation rebuild unchanged. Add a raw content-stream tokenizer that records each operator's byte span (inline images opaque). The new writer copies the original bytes verbatim and re-encodes _only_ the edited show operators individually, splicing them in — the whole-stream re-encode (which mangles inline images) is never run. Reached as an additive fallback exactly where today's round-trip guard would flatten.
 
 **Tech Stack:** Rust, `lopdf` 0.41 (content model), `kurbo` (affine math). Crate `pdf-core` (`crates/pdf-core`); eval harness `pdf-eval` (`crates/pdf-eval`).
 
@@ -32,11 +32,13 @@
 ## Task 1: Raw content-stream tokenizer
 
 **Files:**
+
 - Create: `crates/pdf-core/src/content_tokens.rs`
 - Modify: `crates/pdf-core/src/lib.rs` (add `mod content_tokens;`)
 - Test: inline `#[cfg(test)]` module in `content_tokens.rs`
 
 **Interfaces:**
+
 - Produces: `pub(crate) struct RawToken { pub operator: Vec<u8>, pub start: usize, pub end: usize }` and `pub(crate) fn tokenize(bytes: &[u8]) -> Option<Vec<RawToken>>`. Tokens are one per operator in the **same order and count** as `lopdf::content::Content::decode` produces operations. `start` is the byte offset of the operator invocation's first operand (or the operator keyword itself when it has no operands); `end` is one past the operator keyword's last byte. `BI … ID <data> EI` is a single token with `operator == b"BI"` spanning the whole construct. Returns `None` on an unterminated string / dict / array / inline image.
 
 - [ ] **Step 1: Write the failing tests**
@@ -330,10 +332,12 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 Lift the two build steps of `apply_excision` into pure helpers so the byte-path can reuse them. The op-path keeps identical behavior — its existing tests are the regression guard.
 
 **Files:**
+
 - Modify: `crates/pdf-core/src/surgery.rs` (`apply_excision` ~843–978; add two helpers above it)
 - Test: existing tests in `surgery.rs` (`excise_both_leaves_only_compensation` and siblings) plus one new equality test.
 
 **Interfaces:**
+
 - Produces:
   - `pub(crate) fn op_replacements(content: &Content, slots: &[GlyphSlot], marked: &[usize], fonts: &BTreeMap<Vec<u8>, FontMetrics>) -> BTreeMap<usize, Vec<lopdf::content::Operation>>` — for each affected operation index, the replacement operations (a rebuilt `TJ`, preceded by a `T*` when the original operator was `'` or `"`).
   - `pub(crate) fn fill_box_operations(rects: &[Rect]) -> Vec<lopdf::content::Operation>` — the `q rg re f Q` operations, one box per rect.
@@ -544,10 +548,12 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ## Task 3: The byte splicer
 
 **Files:**
+
 - Modify: `crates/pdf-core/src/surgery.rs` (add `encode_operations` + `build_byte_splice` after `apply_excision`)
 - Test: inline `surgery.rs` test module.
 
 **Interfaces:**
+
 - Consumes: `content_tokens::tokenize`, `op_replacements`, `fill_box_operations` (Task 2), `Content`, `Operation`.
 - Produces:
   - `fn encode_operations(ops: &[lopdf::content::Operation]) -> Option<Vec<u8>>` — encode a small operation list to content bytes (`Content { operations }.encode()`).
@@ -727,10 +733,12 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 Reorder so glyph analysis runs before the round-trip guard, then branch: guard passes → op-path (unchanged); guard fails → byte-path.
 
 **Files:**
+
 - Modify: `crates/pdf-core/src/surgery.rs` (`try_build_surgery` ~1216–1271)
 - Test: inline `surgery.rs` test module.
 
 **Interfaces:**
+
 - Consumes: `enumerate_page_glyphs`, `mark_in_rects`, `op_replacements`, `fill_box_operations`, `build_byte_splice`, `apply_excision`.
 - Produces: `try_build_surgery` returns `Some(bytes)` for an inline-image page it previously flattened; return type unchanged (`Option<Vec<u8>>`).
 
@@ -844,11 +852,13 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 Expose an eval-only diagnostic that runs BOTH surgery writers on a page and reports their dispositions, then add a `pdf-eval` validation operation that aggregates the comparison across the corpus. This confirms bar A (TAMReview flips flatten→surger, zero regressions) and answers bar B (can the byte-path replace the op-path everywhere).
 
 **Files:**
+
 - Modify: `crates/pdf-core/src/surgery.rs` (add a `pub` diagnostic entry) and `crates/pdf-core/src/lib.rs` (re-export it).
 - Create: `crates/pdf-eval/src/validate/operations/surgery.rs`
 - Modify: `crates/pdf-eval/src/validate/operations/mod.rs`, `crates/pdf-eval/src/validate/mod.rs` (register).
 
 **Interfaces:**
+
 - Produces in `pdf-core`:
   - `#[derive(Debug, Clone, Copy, PartialEq)] pub enum SurgeryDisposition { Surgered, Flattened }`
   - `pub struct SurgeryPathComparison { pub op_path: SurgeryDisposition, pub byte_path: SurgeryDisposition }`
@@ -1080,4 +1090,4 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ## Follow-ups (out of scope here)
 
 - If the corpus shows zero `byte_path_regresses`, execute bar B: delete the op-path branch and route all surgery through `build_byte_splice`, keeping the outcome gate. Separate change.
-- Inline-image *editing* (removing a glyph that overlaps an inline image) remains flatten-only; this plan preserves inline images, it does not redact within them.
+- Inline-image _editing_ (removing a glyph that overlaps an inline image) remains flatten-only; this plan preserves inline images, it does not redact within them.

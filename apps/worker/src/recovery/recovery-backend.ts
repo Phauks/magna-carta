@@ -66,5 +66,7 @@ export function cloudflareRecoveryBackend(
 // binding to an unavailable service will not boot the pool) — the consumer treats null as an honest
 // zero-count miss, never a false hit.
 export function resolveRecoveryBackend(env: Bindings): RecoveryBackend | null {
-  return env.RECOVERY_SERVICE !== undefined ? cloudflareRecoveryBackend(env.RECOVERY_SERVICE) : null;
+  return env.RECOVERY_SERVICE !== undefined
+    ? cloudflareRecoveryBackend(env.RECOVERY_SERVICE)
+    : null;
 }

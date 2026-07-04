@@ -14,20 +14,20 @@ official page via the Wayback Machine (a citable primary source that bypasses th
 
 ## Upgrades MEDIUM → HIGH (archived/dedicated official page confirmed)
 
-| Jurisdiction | Resource | Confirmed via |
-|---|---|---|
-| IA | Iowa LAP (ILAP) | Wayback snapshot of iowalap.org (live TLS mismatch) |
-| IA | Esquire Assistance Program | Wayback snapshot of iowacourts.gov — **24/7/365 confirmed verbatim** |
-| MS | Mississippi LJAP | Wayback snapshot of msbar.org |
-| NV | NLAP + LCL | Wayback snapshots of nvbar.org (both pages) |
-| RI | Lawyers Helping Lawyers | Wayback snapshot of ribar.com — **24/7 confirmed verbatim** |
-| VA | VJLAP | Wayback snapshot of vjlap.org (own site) — 24-hour line + "without fee" confirmed |
-| AL | Alabama Lawyer Assistance Foundation | dedicated alabar.org ALAF page (live) |
-| KY | KYLAP Foundation | kylap.org/get-involved (live) |
-| NM | In This Together Fund | headless-browser load of the sbnm.org page |
-| ND | ND LAP | official SBAND brochure PDF (already HIGH; entry corrected — see below) |
-| OH | Toledo Bar MAP | search-index cache of the official toledobar.org page |
-| GA | Lawyers Helping Lawyers (peer) | georgialhl.org (renders fine; earlier fetch had truncated) |
+| Jurisdiction | Resource                             | Confirmed via                                                                     |
+| ------------ | ------------------------------------ | --------------------------------------------------------------------------------- |
+| IA           | Iowa LAP (ILAP)                      | Wayback snapshot of iowalap.org (live TLS mismatch)                               |
+| IA           | Esquire Assistance Program           | Wayback snapshot of iowacourts.gov — **24/7/365 confirmed verbatim**              |
+| MS           | Mississippi LJAP                     | Wayback snapshot of msbar.org                                                     |
+| NV           | NLAP + LCL                           | Wayback snapshots of nvbar.org (both pages)                                       |
+| RI           | Lawyers Helping Lawyers              | Wayback snapshot of ribar.com — **24/7 confirmed verbatim**                       |
+| VA           | VJLAP                                | Wayback snapshot of vjlap.org (own site) — 24-hour line + "without fee" confirmed |
+| AL           | Alabama Lawyer Assistance Foundation | dedicated alabar.org ALAF page (live)                                             |
+| KY           | KYLAP Foundation                     | kylap.org/get-involved (live)                                                     |
+| NM           | In This Together Fund                | headless-browser load of the sbnm.org page                                        |
+| ND           | ND LAP                               | official SBAND brochure PDF (already HIGH; entry corrected — see below)           |
+| OH           | Toledo Bar MAP                       | search-index cache of the official toledobar.org page                             |
+| GA           | Lawyers Helping Lawyers (peer)       | georgialhl.org (renders fine; earlier fetch had truncated)                        |
 
 ## Corrections made during verification (factual fixes, not just confidence bumps)
 

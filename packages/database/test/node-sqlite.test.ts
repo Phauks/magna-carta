@@ -187,9 +187,9 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
     raw
       .prepare("INSERT INTO firm (id, name, created_at) VALUES (?, ?, ?)")
       .run("firm_ddddddddddddddddddddd", "Active Firm", "2026-01-05T09:00:00.000Z");
-    const active = raw
-      .prepare("SELECT status FROM firm WHERE name = ?")
-      .get("Active Firm") as { status: string };
+    const active = raw.prepare("SELECT status FROM firm WHERE name = ?").get("Active Firm") as {
+      status: string;
+    };
     expect(active.status).toBe("active");
     // UNIQUE(name) holds.
     expect(() =>

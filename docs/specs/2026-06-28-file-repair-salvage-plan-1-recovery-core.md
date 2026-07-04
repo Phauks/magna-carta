@@ -23,11 +23,13 @@
 ### Task 1: Crate scaffold + workspace wiring
 
 **Files:**
+
 - Create: `crates/recovery-core/Cargo.toml`
 - Create: `crates/recovery-core/src/lib.rs`
 - Modify: `crates/Cargo.toml` (add `"recovery-core"` to `members`)
 
 **Interfaces:**
+
 - Produces: the `recovery-core` crate exposing modules `model`, `error`, `salvage`, `diagnose` (filled by later tasks).
 
 - [ ] **Step 1: Add to the workspace** — in `crates/Cargo.toml` change `members = ["engine-host", "pdf-core", "pdf-eval"]` to `members = ["engine-host", "pdf-core", "pdf-eval", "recovery-core"]`.
@@ -95,9 +97,11 @@ git commit -m "feat(recovery-core): crate scaffold on the engine-host harness"
 ### Task 2: The diagnose data model
 
 **Files:**
+
 - Modify: `crates/recovery-core/src/model.rs`
 
 **Interfaces:**
+
 - Produces:
   - `pub enum Recoverability { Intact, Repairable, Partial, Unrecoverable, Unknown }`
   - `pub enum CorruptionKind { Truncated, BrokenCentralDirectory, MissingEndOfCentralDirectory, BadLocalHeaders, MissingRequiredParts, BrokenCrossReference, Other }`
@@ -175,10 +179,12 @@ git commit -m "feat(recovery-core): the diagnose data model"
 ### Task 3: The repair result model + `RepairError` edge contract
 
 **Files:**
+
 - Modify: `crates/recovery-core/src/model.rs` (add the repair-result types)
 - Modify: `crates/recovery-core/src/error.rs`
 
 **Interfaces:**
+
 - Produces (in `model`):
   - `pub struct RecoveredItem { pub name: String, pub recovered: bool, pub detail: String }`
   - `pub struct LossManifest { pub items: Vec<RecoveredItem>, pub fully_recovered: bool }`
@@ -304,9 +310,11 @@ git commit -m "feat(recovery-core): repair-result model + RepairError edge codes
 ### Task 4: Compression-stream salvage primitive
 
 **Files:**
+
 - Modify: `crates/recovery-core/src/salvage.rs`
 
 **Interfaces:**
+
 - Produces:
   - `pub enum DeflateWrapper { Raw, Zlib, Gzip }`
   - `pub struct SalvageOutput { pub bytes: Vec<u8>, pub complete: bool }`
@@ -412,10 +420,12 @@ git commit -m "feat(recovery-core): DEFLATE partial-decode salvage primitive"
 ### Task 5: The diagnose dispatch framework
 
 **Files:**
+
 - Modify: `crates/recovery-core/src/diagnose.rs`
 - Modify: `crates/recovery-core/src/lib.rs` (re-export `diagnose`)
 
 **Interfaces:**
+
 - Consumes: `engine_host::format::detect`, `model::{DiagnosisReport, Recoverability}`.
 - Produces: `pub fn diagnose(bytes: &[u8]) -> DiagnosisReport` — identifies the format and returns a report. With no per-format diagnoser registered yet (Plans 2–5 add them), a recognized format reports `recoverability: Unknown, repair_supported: false`; unrecognized bytes report `detected_format: None, recoverability: Unrecoverable`; empty/too-short input reports `Unrecoverable` with `CorruptionKind::Truncated`.
 
@@ -496,7 +506,7 @@ pub use diagnose::diagnose;
   - `cargo test -p recovery-core`
   - `cargo fmt --manifest-path crates/Cargo.toml -p recovery-core -- --check`
   - `cargo clippy --manifest-path crates/Cargo.toml -p recovery-core --all-targets -- -D warnings`
-  Expected: all tests pass; fmt clean; no clippy warnings.
+    Expected: all tests pass; fmt clean; no clippy warnings.
 
 - [ ] **Step 4: Commit**
 
@@ -513,4 +523,7 @@ git commit -m "feat(recovery-core): diagnose dispatch framework"
 - **The harness is the dependency floor.** `engine_host::format::{detect, Format}` and `engine_host::wasm_edge::{EdgeError, allowed_code}` already exist and are tested — consume them, don't reimplement. The Cargo.toml dependency is renamed (`engine_host = { path = "../engine-host", package = "magna-carta-engine-host" }`), so source uses `engine_host::` directly — no `use ... as` needed.
 - **No wasm bindings, no routes, no container in this plan** — those are Plan 6. Keep `recovery-core` a pure engine.
 - The per-format pillars (ZIP/OOXML, CFB, PDF, carving) register their diagnosers/repairers in Plans 2–5; this plan only lays the framework and the one shared primitive.
+
+```
+
 ```

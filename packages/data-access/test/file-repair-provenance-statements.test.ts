@@ -9,7 +9,11 @@ import {
 describe("file_repair_provenance statements", () => {
   it("records a repair provenance row and reads it back parsed", async () => {
     const db = await freshFirmDatabase();
-    const manifest = { items: [{ name: "body", recovered: true, detail: "" }], fullyRecovered: true, synthesized: [] };
+    const manifest = {
+      items: [{ name: "body", recovered: true, detail: "" }],
+      fullyRecovered: true,
+      synthesized: [],
+    };
     await db.batch([
       recordRepairProvenanceStatement(db, {
         id: "repairProvenance_test0000000000000000001" as RepairProvenanceId,

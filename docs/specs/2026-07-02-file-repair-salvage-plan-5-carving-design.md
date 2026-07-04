@@ -6,7 +6,7 @@ Design output of a brainstorm (2026-07-02). This is the design; the implementati
 
 The **universal fallback**: when the format pillars cannot help — `detect()` returns None, or a pillar returns `Unrecoverable` — carving extracts recognizable **embedded known-type files** from the raw bytes by scanning for a header/footer signature table, then validates each candidate. It is format-agnostic: it does not repair a container, it recovers whole embedded files (a JPEG, a PNG, a PDF, a ZIP) that survive inside a damaged or unrecognized blob.
 
-Carving is inherently **best-effort and incomplete** — it cannot know how many files a blob was *supposed* to contain, and a signature match is not proof of a complete, valid file. The design's honesty stance follows from that: carving reports what it *found* and how well each candidate *validated*, and never claims completeness.
+Carving is inherently **best-effort and incomplete** — it cannot know how many files a blob was _supposed_ to contain, and a signature match is not proof of a complete, valid file. The design's honesty stance follows from that: carving reports what it _found_ and how well each candidate _validated_, and never claims completeness.
 
 ## Decisions (this brainstorm)
 
@@ -28,7 +28,7 @@ Carving is inherently **best-effort and incomplete** — it cannot know how many
 
 2. **Trigger — a separate explicit `carve(bytes)` operation.** `repair()` never silently returns carved fragments (it stays honest: an unrecognized blob is `Err(NotRecognized)`). `carve()` is its own top-level entry point, NOT part of the `detect()`-keyed dispatch. `diagnose()` gains a `carve_suggested` flag so the caller learns carving is worth trying when no pillar can help. Rationale: carving is lossy and false-positive-prone; on a legal-evidence tool the user opts into it deliberately.
 
-3. **Validation — pure-Rust, two layers; Magika deferred.** A carved candidate is validated by (a) an `infer`/`file-format` signature check, and (b) for images, a `zune-jpeg`/`zune-png` best-effort decode that confirms the run actually renders. Both are pure Rust, so the whole pillar rides the WASM default lane and the container lane alike. The **Magika ML validation layer is container-only** (ort/ONNX C dependency) and **deferred** — a documented seam and a later container-lane enhancement, exactly as the SP2 design frames it ("the container lane *may additionally* use Magika"). No GPL code (PhotoRec/Scalpel are study-only; signatures are facts).
+3. **Validation — pure-Rust, two layers; Magika deferred.** A carved candidate is validated by (a) an `infer`/`file-format` signature check, and (b) for images, a `zune-jpeg`/`zune-png` best-effort decode that confirms the run actually renders. Both are pure Rust, so the whole pillar rides the WASM default lane and the container lane alike. The **Magika ML validation layer is container-only** (ort/ONNX C dependency) and **deferred** — a documented seam and a later container-lane enhancement, exactly as the SP2 design frames it ("the container lane _may additionally_ use Magika"). No GPL code (PhotoRec/Scalpel are study-only; signatures are facts).
 
 ## Reusability / where it lives
 
@@ -38,7 +38,7 @@ Build carving **self-contained in `recovery-core`** — do NOT share into the `e
 - **No second consumer today.** The only plausible future reuser is discovery/e-discovery (embedded-file extraction), not on the near roadmap.
 - **The program's own discipline is promote-on-second-consumer,** not speculative sharing (the HttpClient seam "promote to standalone only when a non-integration consumer needs it"; engine-host itself was extracted only when duplication was real). Editing the shared merged `engine-host` crate for a single consumer would violate that and add coordination cost.
 
-**So: the signature table is the deliberate reuse seam.** Put it in a clean, standalone, dependency-free data module `crates/recovery-core/src/carve/signatures.rs` — rows of `{ media_type, header, footer }` — so it can be lifted into a future `engine_host::signatures` *verbatim* the day a second consumer appears. The carving *algorithm* (scan/extent/extract/validate) stays local; it is the genuinely carving-specific part. Note (do not act on): the table's PDF/ZIP header rows overlap `engine_host::format`'s facts by a few bytes each — not worth coupling now.
+**So: the signature table is the deliberate reuse seam.** Put it in a clean, standalone, dependency-free data module `crates/recovery-core/src/carve/signatures.rs` — rows of `{ media_type, header, footer }` — so it can be lifted into a future `engine_host::signatures` _verbatim_ the day a second consumer appears. The carving _algorithm_ (scan/extent/extract/validate) stays local; it is the genuinely carving-specific part. Note (do not act on): the table's PDF/ZIP header rows overlap `engine_host::format`'s facts by a few bytes each — not worth coupling now.
 
 ## Architecture
 
@@ -53,9 +53,9 @@ Not registered in `diagnose.rs`/`repair.rs` dispatch — carving is the format-a
 ### Algorithm
 
 1. **Scan.** An `aho-corasick` automaton over the signature table's header patterns finds every candidate start offset in one pass.
-2. **Extent.** For each candidate, determine the run's end: find the type's footer after the header (JPEG `FFD9`, PNG `IEND`+CRC, GIF `3B` trailer, PDF `%%EOF`, ZIP end-of-central-directory), else bound the run at the next candidate header or a per-type maximum size. A header with no footer within the cap → a *truncated* candidate (extracted to the bound, flagged).
+2. **Extent.** For each candidate, determine the run's end: find the type's footer after the header (JPEG `FFD9`, PNG `IEND`+CRC, GIF `3B` trailer, PDF `%%EOF`, ZIP end-of-central-directory), else bound the run at the next candidate header or a per-type maximum size. A header with no footer within the cap → a _truncated_ candidate (extracted to the bound, flagged).
 3. **Extract** the byte range as a candidate.
-4. **Validate.** `infer`/`file-format` signature check; for images, `zune-jpeg`/`zune-png` best-effort decode. The validation level sets the candidate's honesty flag: *decoded* (rendered) > *signature-confirmed* > *signature-only / truncated*.
+4. **Validate.** `infer`/`file-format` signature check; for images, `zune-jpeg`/`zune-png` best-effort decode. The validation level sets the candidate's honesty flag: _decoded_ (rendered) > _signature-confirmed_ > _signature-only / truncated_.
 5. **Emit.** One `SalvagedFile { name: "NNNN.<ext>", bytes, media_type }` and one `RecoveredItem` per candidate; `RecoveredItem.recovered` = "validated" (decoded or signature-confirmed), `detail` a FIXED literal stating the validation level and any truncation.
 
 ### Caps & limits
@@ -71,7 +71,7 @@ Reuse `crate::limits`: `MAX_ENTRY_COUNT` bounds the number of carved fragments; 
 
 ## v1 signature table
 
-JPEG, PNG, GIF, PDF, ZIP — each has a recognizable header *and* a footer/terminator so the extent is well-defined. (TIFF/BMP/others are a cheap later addition to the table; the table is data, not new logic.)
+JPEG, PNG, GIF, PDF, ZIP — each has a recognizable header _and_ a footer/terminator so the extent is well-defined. (TIFF/BMP/others are a cheap later addition to the table; the table is data, not new logic.)
 
 ## What's deferred (documented seams)
 

@@ -31,19 +31,19 @@ app worker  POST /api/v1/file-repair/{diagnose|repair|carve}   (defineOpenAPIRou
 
 ## Template map (clone these — do not reinvent)
 
-| Concern | Clone from |
-| --- | --- |
-| Container engine host (axum) | `crates/engine-host/src/host.rs` (`ready_app`/`with_panic_net`/`serve`); `containers/raster/{Cargo.toml,src/main.rs,src/lib.rs,Dockerfile}` for crate shape |
-| Container DO class | `apps/convert-worker/src/raster-engine-container.ts` (`RasterEngineContainer`) |
-| Worker getContainer dispatch | `apps/convert-worker/src/index.ts` |
-| container.fetch proxy | `apps/convert-worker/src/forward-convert.ts` |
-| Worker wrangler (container + DO + migration) | `apps/convert-worker/wrangler.jsonc` (no cron — recovery scales to zero, no baked data to refresh) |
-| App-worker service binding | `apps/worker/wrangler.jsonc` `services[]` (the `CONVERT` entry) |
-| Tool route (bytes → container over a service binding) | `apps/worker/src/routes/file-type.ts` (streams to `c.env.SCAN_SERVICE`) |
-| Route base64 JSON envelope | `apps/worker/src/routes/metadata.ts` (`decodeBase64`/`encodeBase64`, `failureProblem`, `RouteMeta`) |
-| Re-scan output | `apps/worker/src/files/scan-port-binding.ts` (`resolveScanPort`) + `apps/worker/src/routes/scan-diagnose.ts:110-125` (lazy `await import`, `computeVerdict`) |
-| Route registration | `apps/worker/src/app.ts` (import + `registerXRoutes(app, chokepoint)`) |
-| Permission + seed triple | the `tools:fileTypeVerifier` slice: `packages/access-control/src/registry.ts` + `packages/database/drizzle/per-firm/0032_seed-tools-file-type-verifier.sql` + `apps/worker/src/per-firm-migrations.ts` |
+| Concern                                               | Clone from                                                                                                                                                                                             |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Container engine host (axum)                          | `crates/engine-host/src/host.rs` (`ready_app`/`with_panic_net`/`serve`); `containers/raster/{Cargo.toml,src/main.rs,src/lib.rs,Dockerfile}` for crate shape                                            |
+| Container DO class                                    | `apps/convert-worker/src/raster-engine-container.ts` (`RasterEngineContainer`)                                                                                                                         |
+| Worker getContainer dispatch                          | `apps/convert-worker/src/index.ts`                                                                                                                                                                     |
+| container.fetch proxy                                 | `apps/convert-worker/src/forward-convert.ts`                                                                                                                                                           |
+| Worker wrangler (container + DO + migration)          | `apps/convert-worker/wrangler.jsonc` (no cron — recovery scales to zero, no baked data to refresh)                                                                                                     |
+| App-worker service binding                            | `apps/worker/wrangler.jsonc` `services[]` (the `CONVERT` entry)                                                                                                                                        |
+| Tool route (bytes → container over a service binding) | `apps/worker/src/routes/file-type.ts` (streams to `c.env.SCAN_SERVICE`)                                                                                                                                |
+| Route base64 JSON envelope                            | `apps/worker/src/routes/metadata.ts` (`decodeBase64`/`encodeBase64`, `failureProblem`, `RouteMeta`)                                                                                                    |
+| Re-scan output                                        | `apps/worker/src/files/scan-port-binding.ts` (`resolveScanPort`) + `apps/worker/src/routes/scan-diagnose.ts:110-125` (lazy `await import`, `computeVerdict`)                                           |
+| Route registration                                    | `apps/worker/src/app.ts` (import + `registerXRoutes(app, chokepoint)`)                                                                                                                                 |
+| Permission + seed triple                              | the `tools:fileTypeVerifier` slice: `packages/access-control/src/registry.ts` + `packages/database/drizzle/per-firm/0032_seed-tools-file-type-verifier.sql` + `apps/worker/src/per-firm-migrations.ts` |
 
 ---
 
@@ -52,6 +52,7 @@ app worker  POST /api/v1/file-repair/{diagnose|repair|carve}   (defineOpenAPIRou
 **Files:** create `containers/recovery/{Cargo.toml, Dockerfile, .gitignore, CLAUDE.md, src/main.rs, src/lib.rs, src/dto.rs}`.
 
 **Interfaces produced (the container HTTP contract, consumed by the recovery-worker and, through it, the app route):**
+
 - `GET /ready -> 200 "ok"` (from `engine_host::host::ready_app`).
 - `POST /diagnose` (body: raw file bytes, `application/octet-stream`) `-> 200 application/json` = `DiagnosisReportDto { detectedFormat: string|null, corruption: string[], recoverability: string, repairSupported: bool, carveSuggested: bool, detail: string }`.
 - `POST /repair` (body: raw bytes) `-> 200` = `RepairResultDto { files: [{ name, mediaType: string|null, contentBase64 }], loss: LossManifestDto }`; on `RepairError` `-> 422` = `{ code }` where `code` is `RepairError::code()` (a fixed, content-free string).
@@ -109,7 +110,7 @@ async fn main() -> std::io::Result<()> {
 - [ ] **Step 6: `Dockerfile` + repo-root build context (the reference pattern for ALL harness-hosted engine containers).** Unlike raster/scan (self-contained crates whose build context is their own dir), a harness-hosted engine container path-deps shared `crates/*` (here `engine-host` + `recovery-core`), so its build context MUST be a common ancestor — the repo root. This is a first-class, verified wrangler capability: the container object takes `image` (the Dockerfile path) and a sibling **`image_build_context`** (both string fields, confirmed in the wrangler config schema), so the Dockerfile can live in `containers/recovery/` while the build context is the repo root. Write:
   - `containers/recovery/Dockerfile` — `rust:1-bookworm` build stage with `WORKDIR /src`, then (paths RELATIVE TO REPO ROOT, the context): `COPY crates/engine-host crates/engine-host`, `COPY crates/recovery-core crates/recovery-core`, `COPY containers/recovery containers/recovery`, then `WORKDIR /src/containers/recovery && cargo build --release`; `debian:bookworm-slim` runtime, `EXPOSE 8080`, entrypoint the bin. (`containers/recovery` carries its own `Cargo.lock`, copied with it.)
   - A repo-root-scoped `.dockerignore` (or a `containers/recovery/.dockerignore` honored for its context) that excludes everything except those three trees — so the uploaded build context stays small even though it is rooted at the repo. This keeps the Cloudflare Workers Builds image build fast.
-  This is deliberately established as the **canonical engine-container build pattern** (see Task 8 Step 3): the next harness-hosted engine copies this Dockerfile + `image_build_context` shape rather than re-solving it.
+    This is deliberately established as the **canonical engine-container build pattern** (see Task 8 Step 3): the next harness-hosted engine copies this Dockerfile + `image_build_context` shape rather than re-solving it.
 
 - [ ] **Step 7: `containers/recovery/CLAUDE.md`** — local rules: pure-Rust only; engine stays serde-free (host marshals); `cargo test` runs without Docker; the `image_build_context` = repo-root pattern from Step 6, and that recovery is the reference container-on-`engine_host::host` implementation.
 
@@ -140,7 +141,8 @@ async fn main() -> std::io::Result<()> {
 ],
 ```
 
-  Note: `wrangler deploy --dry-run` on a container worker tries to build the image with local Docker even in dry-run and fails without it — pass `--containers-rollout=none` to validate the worker bundle + config without Docker (the image itself builds in Cloudflare Workers Builds on push).
+Note: `wrangler deploy --dry-run` on a container worker tries to build the image with local Docker even in dry-run and fails without it — pass `--containers-rollout=none` to validate the worker bundle + config without Docker (the image itself builds in Cloudflare Workers Builds on push).
+
 - [ ] **Step 5: `package.json`** (clone convert-worker): `@cloudflare/containers: "catalog:"`; scripts `build`/`dev`/`deploy`/`test`. `pnpm-workspace.yaml` `apps/*` glob auto-includes it.
 - [ ] **Step 6: Test** — clone convert-worker's forward test: inject a fake container fetcher, assert path forwarding + streamed body + verbatim response passthrough for each of the three paths.
 - [ ] **Step 7: Gate + commit** — `pnpm --filter magna-carta-recovery test`; `pnpm --filter magna-carta-recovery exec wrangler deploy --dry-run`. Commit `feat(recovery-worker): dedicated container worker for the repair engine`.

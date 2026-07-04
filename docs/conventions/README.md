@@ -22,7 +22,7 @@ References to the white paper below name the **area**, not a section number — 
 | [`ui-design.md`](ui-design.md)                           | Lucide-only icons, design tokens, design-system components                        | Design system                                           |
 | [`testing.md`](testing.md)                               | Test strategy, fixtures, determinism, visual regression                           | Synthetic data & fixtures                               |
 | [`security.md`](security.md)                             | Firm-scoping, RBAC/ethical walls, encryption, telemetry redaction, PCI            | Tenancy; Auth & encryption; Observability               |
-| [`compliance.md`](compliance.md)                         | Framework map: SOC 2 / GDPR / PCI DSS / ISO 27001 controls + gap register         | Tenancy; Auth & encryption; Payments; Observability      |
+| [`compliance.md`](compliance.md)                         | Framework map: SOC 2 / GDPR / PCI DSS / ISO 27001 controls + gap register         | Tenancy; Auth & encryption; Payments; Observability     |
 | [`api.md`](api.md)                                       | REST/OpenAPI code-as-contract, versioning, internal RPC                           | Delivery model                                          |
 | [`operations.md`](operations.md)                         | Deploy-time platform config: Logpush, email DNS, secrets, D1 bindings, audit      | Observability; Communications; Delivery model           |
 | [`third-party-trademarks.md`](third-party-trademarks.md) | Third-party brand/logo usage register: guidelines, assets, constraints, fallback  | Plugin / Add-on system; Distribution & IP (ADR-0090)    |

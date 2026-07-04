@@ -90,7 +90,10 @@ const baseMeta = {
   rateLimit: "expensive",
 } as const satisfies Omit<RouteMeta, "operationId">;
 
-export const fileRepairDiagnoseMeta: RouteMeta = { ...baseMeta, operationId: "fileRepair.diagnose" };
+export const fileRepairDiagnoseMeta: RouteMeta = {
+  ...baseMeta,
+  operationId: "fileRepair.diagnose",
+};
 export const fileRepairRepairMeta: RouteMeta = { ...baseMeta, operationId: "fileRepair.repair" };
 export const fileRepairCarveMeta: RouteMeta = { ...baseMeta, operationId: "fileRepair.carve" };
 
@@ -342,7 +345,8 @@ const salvageResponses = {
     content: { "application/json": { schema: RepairResultSchema } },
   },
   422: {
-    description: "The file could not be reconstructed, or the output was withheld by the malware gate",
+    description:
+      "The file could not be reconstructed, or the output was withheld by the malware gate",
     content: { "application/problem+json": { schema: Problem } },
   },
   ...problemResponses,
@@ -398,7 +402,8 @@ const attachResponses = {
     content: { "application/problem+json": { schema: Problem } },
   },
   404: {
-    description: "The target file, or its folder, is unknown in this firm, or belongs to another matter",
+    description:
+      "The target file, or its folder, is unknown in this firm, or belongs to another matter",
     content: { "application/problem+json": { schema: Problem } },
   },
   422: salvageResponses[422],
@@ -456,7 +461,10 @@ const carveAttachRoute = defineOpenAPIRoute(fileRepairCarveAttachMeta, {
     "Carve embedded files out of the uploaded input and save each as a new file in the matter folder. " +
     "Each carved file rides the ingest malware gate and carries the honest carve manifest. Returns 202.",
   request: {
-    query: z.object({ matterId: identifierField("matter"), folderId: identifierField("folder").optional() }),
+    query: z.object({
+      matterId: identifierField("matter"),
+      folderId: identifierField("folder").optional(),
+    }),
     body: { content: { "application/octet-stream": { schema: z.any() } }, required: true },
   },
   responses: carveAttachResponses,
@@ -514,7 +522,8 @@ export function registerFileRepairRoutes(
           type: "validation",
           title: "The reconstructed output was withheld",
           status: 422,
-          detail: "The reconstructed output was flagged by the malware scanner and was not returned.",
+          detail:
+            "The reconstructed output was flagged by the malware scanner and was not returned.",
         });
       }
       return c.json(result, 200);

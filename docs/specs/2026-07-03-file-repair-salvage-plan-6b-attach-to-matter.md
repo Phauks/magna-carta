@@ -4,7 +4,7 @@
 
 **Goal:** Let a user save the repair tool's output into a matter — a repaired file as a new version (or new file), carved files as N new files — with the honest loss manifest persisted per version.
 
-**Architecture:** Attach is a *server-side upload*. The worker sends the uploaded corrupt bytes to the `magna-carta-recovery` container, then for each output file calls the existing `initiateUpload` (pending version + R2 key), writes the bytes to R2 with `bucket.put`, and returns 202. The **existing async ingest queue consumer** (`ingest-consumer.ts` → `runIngest` → `commitVersion`/`quarantineVersion`) applies the scan gate + firm `flaggedTreatment` — `ingest-core.ts` and `ingest-consumer.ts` are never edited. The loss manifest is persisted in a new per-firm `file_repair_provenance` table in the same atomic batch that initiates the version.
+**Architecture:** Attach is a _server-side upload_. The worker sends the uploaded corrupt bytes to the `magna-carta-recovery` container, then for each output file calls the existing `initiateUpload` (pending version + R2 key), writes the bytes to R2 with `bucket.put`, and returns 202. The **existing async ingest queue consumer** (`ingest-consumer.ts` → `runIngest` → `commitVersion`/`quarantineVersion`) applies the scan gate + firm `flaggedTreatment` — `ingest-core.ts` and `ingest-consumer.ts` are never edited. The loss manifest is persisted in a new per-firm `file_repair_provenance` table in the same atomic batch that initiates the version.
 
 **Tech Stack:** TypeScript; Hono + `@hono/zod-openapi` routes; Drizzle per-firm schema (D1/DO-SQLite); `@magna-carta/file-manager` service functions; `@magna-carta/data-access` statement builders; Vitest (Miniflare worker pool). Design: `docs/specs/2026-07-03-file-repair-salvage-plan-6b-attach-to-matter-design.md`.
 
@@ -42,12 +42,14 @@
 ## Task 1: Provenance identifier, table, and migration
 
 **Files:**
+
 - Modify: `packages/identifiers/src/types.ts`, `packages/identifiers/src/registry.ts`
 - Modify: `packages/database/src/per-firm-schema.ts`
 - Create: `packages/database/drizzle/per-firm/0036_file-repair-provenance.sql` (+ snapshot + journal via generate)
 - Modify: `apps/worker/src/per-firm-migrations.ts`
 
 **Interfaces:**
+
 - Produces: `RepairProvenanceId` (`Identifier<"repairProvenance">`); the `file_repair_provenance` table with columns `id, file_version_id, operation, fully_recovered, manifest_json, source_media_type, created_at`.
 
 - [ ] **Step 1: Run `vp run worktrees` and confirm the migration number.** Verify `0036` is free on `main`; if not, use the next free number throughout this task and note it in the active-work file.
@@ -128,11 +130,13 @@ git commit -m "feat(database): file_repair_provenance per-firm table + repairPro
 ## Task 2: Data-access provenance statements
 
 **Files:**
+
 - Create: `packages/data-access/src/file-repair-provenance-statements.ts`
 - Modify: `packages/data-access/package.json` (exports)
 - Test: `packages/data-access/test/file-repair-provenance-statements.test.ts`
 
 **Interfaces:**
+
 - Consumes: `RepairProvenanceId`, `FileVersionId`.
 - Produces:
   - `recordRepairProvenanceStatement(database, row: RepairProvenanceInsert): SqlStatement`
@@ -153,7 +157,11 @@ import {
 describe("file_repair_provenance statements", () => {
   it("records a repair provenance row and reads it back parsed", async () => {
     const db = await freshFirmDatabase();
-    const manifest = { items: [{ name: "body", recovered: true, detail: "" }], fullyRecovered: true, synthesized: [] };
+    const manifest = {
+      items: [{ name: "body", recovered: true, detail: "" }],
+      fullyRecovered: true,
+      synthesized: [],
+    };
     await db.batch([
       recordRepairProvenanceStatement(db, {
         id: "repairProvenance_test0000000000000000001",
@@ -279,12 +287,14 @@ git commit -m "feat(data-access): file_repair_provenance record + read statement
 ## Task 3: `repair/attach` route (new version + new file) with provenance + audit
 
 **Files:**
+
 - Modify: `apps/worker/src/routes/file-repair.ts` (export `dispatchToRecovery`, `RepairResultSchema`; add the attach helper + `repair/attach` route)
 - Modify: `apps/worker/src/chokepoint/context-accessors.ts` (add `requireChokepointPermissions`)
 - Modify: the chokepoint middleware to stash the resolved permission set on context (near `chokepoint.ts:195`)
 - Test: `apps/worker/test/file-repair-attach.test.ts`
 
 **Interfaces:**
+
 - Consumes: `dispatchToRecovery(c, "repair")` (from Task's own export), `RepairResultSchema`, `initiateUpload` + `InitiateUploadInput` (`@magna-carta/file-manager/file-service`), `recordRepairProvenanceStatement` (Task 2), `fileAuditStatement` (`@magna-carta/file-manager/audit`), `runIdempotentEffect`, `requireBucket`, `requireChokepointFirmContext`, `requireChokepointUserId`, `newIdentifier`.
 - Produces: `POST /api/v1/file-repair/repair/attach` → 202 `{ fileId, versionId }`; the shared `attachOneFile(...)` helper reused by Task 4.
 
@@ -351,7 +361,9 @@ it("repair/attach rejects without files:upload even with tools:fileRepair", asyn
 
 it("repair/attach 422 when the engine cannot reconstruct", async () => {
   const cookie = await ownerCookie("attach-unrep@example.com", "Attach Unrep");
-  const res = await postAttach("repair/attach", cookie, "hopeless UNREPAIRABLE bytes", { matterId: poolMatterId });
+  const res = await postAttach("repair/attach", cookie, "hopeless UNREPAIRABLE bytes", {
+    matterId: poolMatterId,
+  });
   expect(res.status).toBe(422);
 });
 ```
@@ -375,7 +387,10 @@ const attachBaseMeta = {
   rateLimit: "expensive",
 } as const satisfies Omit<RouteMeta, "operationId">;
 
-export const fileRepairRepairAttachMeta: RouteMeta = { ...attachBaseMeta, operationId: "fileRepair.repairAttach" };
+export const fileRepairRepairAttachMeta: RouteMeta = {
+  ...attachBaseMeta,
+  operationId: "fileRepair.repairAttach",
+};
 
 // One salvaged file -> one attached version, riding the ingest gate. Returns the ids; the async ingest
 // consumer commits or quarantines the pending version. The provenance + audit commit atomically with the
@@ -411,7 +426,11 @@ async function attachOneFile(
       options,
     );
     const provenanceId = newIdentifier("repairProvenance", undefined);
-    const lm = manifest as { fullyRecovered: boolean; items: { recovered: boolean }[]; synthesized: unknown[] };
+    const lm = manifest as {
+      fullyRecovered: boolean;
+      items: { recovered: boolean }[];
+      synthesized: unknown[];
+    };
     return {
       write: {
         statements: [
@@ -425,12 +444,18 @@ async function attachOneFile(
             sourceMediaType: file.mediaType,
             createdAt: now(),
           }),
-          fileAuditStatement(firm.firmDatabase, options, operation === "repair" ? "file.repaired" : "file.carved", initiated.versionId, {
-            operation,
-            fullyRecovered: lm.fullyRecovered,
-            lostCount: lm.items.filter((i) => !i.recovered).length,
-            synthesizedCount: lm.synthesized.length,
-          }),
+          fileAuditStatement(
+            firm.firmDatabase,
+            options,
+            operation === "repair" ? "file.repaired" : "file.carved",
+            initiated.versionId,
+            {
+              operation,
+              fullyRecovered: lm.fullyRecovered,
+              lostCount: lm.items.filter((i) => !i.recovered).length,
+              synthesizedCount: lm.synthesized.length,
+            },
+          ),
         ],
         outboxMessages: initiated.effect.outboxMessages,
       },
@@ -465,31 +490,53 @@ const repairAttachRoute = defineOpenAPIRoute(fileRepairRepairAttachMeta, {
     }),
     body: { content: { "application/octet-stream": { schema: z.any() } }, required: true },
   },
-  responses: { 202: { description: "Attaching; version pending", content: { "application/json": { schema: z.object({ fileId: z.string(), versionId: z.string() }) } } }, 422: salvageResponses[422], ...problemResponses },
+  responses: {
+    202: {
+      description: "Attaching; version pending",
+      content: {
+        "application/json": { schema: z.object({ fileId: z.string(), versionId: z.string() }) },
+      },
+    },
+    422: salvageResponses[422],
+    ...problemResponses,
+  },
 });
 
-app.openapi({ ...repairAttachRoute, middleware: chokepointMiddleware(chokepoint, repairAttachRoute) }, async (c) => {
-  assertAlsoHasPermission(c, "tools:fileRepair");
-  const dispatched = await dispatchToRecovery(c, "repair");
-  if (!dispatched.ok) return dispatched.problem;
-  const { containerResponse } = dispatched;
-  if (containerResponse.status === 422) {
-    return problemJson(c, { type: "validation", title: "The file could not be repaired", status: 422, detail: "The recovery engine could not reconstruct usable content from this file." });
-  }
-  if (containerResponse.status !== 200) {
-    return problemJson(c, { type: "service-unavailable", title: "Recovery failed", status: 503, detail: "The recovery engine returned an error. Try again shortly." });
-  }
-  const result = RepairResultSchema.parse(await containerResponse.json());
-  const q = c.req.valid("query");
-  const file = result.files[0];
-  const attached = await attachOneFile(c, file, result.loss, "repair", {
-    matterId: q.matterId as MatterId,
-    fileId: q.fileId as FileId | undefined,
-    folderId: (q.folderId as FolderId | undefined) ?? null,
-    fileName: q.fileName ?? file.name,
-  });
-  return c.json(attached, 202);
-});
+app.openapi(
+  { ...repairAttachRoute, middleware: chokepointMiddleware(chokepoint, repairAttachRoute) },
+  async (c) => {
+    assertAlsoHasPermission(c, "tools:fileRepair");
+    const dispatched = await dispatchToRecovery(c, "repair");
+    if (!dispatched.ok) return dispatched.problem;
+    const { containerResponse } = dispatched;
+    if (containerResponse.status === 422) {
+      return problemJson(c, {
+        type: "validation",
+        title: "The file could not be repaired",
+        status: 422,
+        detail: "The recovery engine could not reconstruct usable content from this file.",
+      });
+    }
+    if (containerResponse.status !== 200) {
+      return problemJson(c, {
+        type: "service-unavailable",
+        title: "Recovery failed",
+        status: 503,
+        detail: "The recovery engine returned an error. Try again shortly.",
+      });
+    }
+    const result = RepairResultSchema.parse(await containerResponse.json());
+    const q = c.req.valid("query");
+    const file = result.files[0];
+    const attached = await attachOneFile(c, file, result.loss, "repair", {
+      matterId: q.matterId as MatterId,
+      fileId: q.fileId as FileId | undefined,
+      folderId: (q.folderId as FolderId | undefined) ?? null,
+      fileName: q.fileName ?? file.name,
+    });
+    return c.json(attached, 202);
+  },
+);
 ```
 
 - [ ] **Step 6: Run the tests.** Run: `pnpm --filter @magna-carta/worker test run file-repair-attach`. Expected: PASS (new-file, new-version, 403-without-upload, 422-unrepairable). Fix the RECOVERY_SERVICE stub if the new-version path needs a distinct output.
@@ -506,10 +553,12 @@ git commit -m "feat(worker): repair/attach route — new version or new file via
 ## Task 4: `carve/attach` route (N new files)
 
 **Files:**
+
 - Modify: `apps/worker/src/routes/file-repair.ts` (add `carve/attach` route + a name sanitizer)
 - Test: extend `apps/worker/test/file-repair-attach.test.ts`
 
 **Interfaces:**
+
 - Consumes: `attachOneFile` (Task 3), `dispatchToRecovery(c, "carve")`.
 - Produces: `POST /api/v1/file-repair/carve/attach` → 202 `{ files: { fileId, versionId, name }[] }`.
 
@@ -523,7 +572,9 @@ it("carve/attach creates N new files, each with provenance", async () => {
     folderId: poolFolderId,
   });
   expect(res.status).toBe(202);
-  const body = (await res.json()) as { files: { fileId: string; versionId: string; name: string }[] };
+  const body = (await res.json()) as {
+    files: { fileId: string; versionId: string; name: string }[];
+  };
   expect(body.files.length).toBeGreaterThan(0);
   for (const f of body.files) {
     expect(await readRepairProvenance(firmDb, f.versionId)).not.toBeNull();
@@ -545,7 +596,10 @@ function sanitizeCarvedName(name: string, index: number): string {
 ```
 
 ```ts
-export const fileRepairCarveAttachMeta: RouteMeta = { ...attachBaseMeta, operationId: "fileRepair.carveAttach" };
+export const fileRepairCarveAttachMeta: RouteMeta = {
+  ...attachBaseMeta,
+  operationId: "fileRepair.carveAttach",
+};
 
 const carveAttachRoute = defineOpenAPIRoute(fileRepairCarveAttachMeta, {
   method: "post",
@@ -557,34 +611,62 @@ const carveAttachRoute = defineOpenAPIRoute(fileRepairCarveAttachMeta, {
     query: z.object({ matterId: z.string(), folderId: z.string().optional() }),
     body: { content: { "application/octet-stream": { schema: z.any() } }, required: true },
   },
-  responses: { 202: { description: "Attaching carved files; versions pending", content: { "application/json": { schema: z.object({ files: z.array(z.object({ fileId: z.string(), versionId: z.string(), name: z.string() })) }) } } }, 422: salvageResponses[422], ...problemResponses },
+  responses: {
+    202: {
+      description: "Attaching carved files; versions pending",
+      content: {
+        "application/json": {
+          schema: z.object({
+            files: z.array(
+              z.object({ fileId: z.string(), versionId: z.string(), name: z.string() }),
+            ),
+          }),
+        },
+      },
+    },
+    422: salvageResponses[422],
+    ...problemResponses,
+  },
 });
 
-app.openapi({ ...carveAttachRoute, middleware: chokepointMiddleware(chokepoint, carveAttachRoute) }, async (c) => {
-  assertAlsoHasPermission(c, "tools:fileRepair");
-  const dispatched = await dispatchToRecovery(c, "carve");
-  if (!dispatched.ok) return dispatched.problem;
-  const { containerResponse } = dispatched;
-  if (containerResponse.status === 422) {
-    return problemJson(c, { type: "validation", title: "Nothing could be carved", status: 422, detail: "The recovery engine could not carve any valid embedded file from this input." });
-  }
-  if (containerResponse.status !== 200) {
-    return problemJson(c, { type: "service-unavailable", title: "Recovery failed", status: 503, detail: "The recovery engine returned an error. Try again shortly." });
-  }
-  const result = RepairResultSchema.parse(await containerResponse.json());
-  const q = c.req.valid("query");
-  const attached: { fileId: string; versionId: string; name: string }[] = [];
-  for (const [index, file] of result.files.entries()) {
-    const name = sanitizeCarvedName(file.name, index);
-    const one = await attachOneFile(c, file, result.loss, "carve", {
-      matterId: q.matterId as MatterId,
-      folderId: (q.folderId as FolderId | undefined) ?? null,
-      fileName: name,
-    });
-    attached.push({ ...one, name });
-  }
-  return c.json({ files: attached }, 202);
-});
+app.openapi(
+  { ...carveAttachRoute, middleware: chokepointMiddleware(chokepoint, carveAttachRoute) },
+  async (c) => {
+    assertAlsoHasPermission(c, "tools:fileRepair");
+    const dispatched = await dispatchToRecovery(c, "carve");
+    if (!dispatched.ok) return dispatched.problem;
+    const { containerResponse } = dispatched;
+    if (containerResponse.status === 422) {
+      return problemJson(c, {
+        type: "validation",
+        title: "Nothing could be carved",
+        status: 422,
+        detail: "The recovery engine could not carve any valid embedded file from this input.",
+      });
+    }
+    if (containerResponse.status !== 200) {
+      return problemJson(c, {
+        type: "service-unavailable",
+        title: "Recovery failed",
+        status: 503,
+        detail: "The recovery engine returned an error. Try again shortly.",
+      });
+    }
+    const result = RepairResultSchema.parse(await containerResponse.json());
+    const q = c.req.valid("query");
+    const attached: { fileId: string; versionId: string; name: string }[] = [];
+    for (const [index, file] of result.files.entries()) {
+      const name = sanitizeCarvedName(file.name, index);
+      const one = await attachOneFile(c, file, result.loss, "carve", {
+        matterId: q.matterId as MatterId,
+        folderId: (q.folderId as FolderId | undefined) ?? null,
+        fileName: name,
+      });
+      attached.push({ ...one, name });
+    }
+    return c.json({ files: attached }, 202);
+  },
+);
 ```
 
 - [ ] **Step 4: Run the tests.** Run: `pnpm --filter @magna-carta/worker test run file-repair-attach`. Expected: PASS.
@@ -601,6 +683,7 @@ git commit -m "feat(worker): carve/attach route — N carved files into a matter
 ## Task 5: Flagged-via-ingest integration test + contract regen
 
 **Files:**
+
 - Test: `apps/worker/test/file-repair-attach.test.ts` (add the flagged + quarantine assertions)
 - Modify: regenerated OpenAPI contract artifacts
 
@@ -612,7 +695,9 @@ git commit -m "feat(worker): carve/attach route — N carved files into a matter
 it("a flagged reconstruction is quarantined by the ingest gate (firm policy = block)", async () => {
   const cookie = await ownerCookie("attach-flagged@example.com", "Attach Flagged");
   const res = await postAttach("repair/attach", cookie, "corrupt pdf TRIGGERMALWARE payload", {
-    matterId: poolMatterId, folderId: poolFolderId, fileName: "suspect.pdf",
+    matterId: poolMatterId,
+    folderId: poolFolderId,
+    fileName: "suspect.pdf",
   });
   expect(res.status).toBe(202);
   const { versionId, r2Key } = (await res.json()) as any; // r2Key exposed only in the test build, or look it up

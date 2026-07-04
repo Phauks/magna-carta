@@ -6,7 +6,7 @@
 
 Text-preserving redaction ("surgery") removes marked glyphs from a page's content stream while leaving the rest of the page intact, then verifies the result with an outcome gate (re-observe the page; any surviving marked glyph → fall back to flatten). The current builder (`try_build_surgery` in `surgery.rs`) analyzes the page by decoding the content stream into an operation list, walking a text-state machine to locate every glyph, marking those inside the redaction rectangles, rewriting the show operators, and **re-encoding the whole operation list back to bytes**.
 
-That final whole-stream re-encode is the weak point. `lopdf`'s content decode/encode is **lossy for inline images** (`BI … ID <bytes> EI`) and some exotic constructs: re-encoding mangles or drops them. A round-trip guard up front (decode → encode → decode; flatten if the operation count changes) catches this and refuses the page — so a page whose *text* is perfectly analyzable is thrown away because an unrelated inline image cannot survive lopdf's re-serialization. On the current eval corpus this is the one remaining real flatten (TAMReview); more broadly it is a whole class of "the text is fine but the stream won't round-trip" failures.
+That final whole-stream re-encode is the weak point. `lopdf`'s content decode/encode is **lossy for inline images** (`BI … ID <bytes> EI`) and some exotic constructs: re-encoding mangles or drops them. A round-trip guard up front (decode → encode → decode; flatten if the operation count changes) catches this and refuses the page — so a page whose _text_ is perfectly analyzable is thrown away because an unrelated inline image cannot survive lopdf's re-serialization. On the current eval corpus this is the one remaining real flatten (TAMReview); more broadly it is a whole class of "the text is fine but the stream won't round-trip" failures.
 
 ## Goal
 
@@ -25,7 +25,7 @@ Add a second surgery path that edits the content stream **at the byte level**: c
 
 ### 1. Reorder `try_build_surgery`, then branch on the round-trip guard
 
-Today the round-trip guard sits *before* the glyph analysis, so it discards a page before that page's text is ever examined. Reorder so analysis runs first and the guard only selects which writer to use:
+Today the round-trip guard sits _before_ the glyph analysis, so it discards a page before that page's text is ever examined. Reorder so analysis runs first and the guard only selects which writer to use:
 
 ```
 decode → fonts → mediabox → rotate → enumerate_page_glyphs → mark_in_rects
@@ -33,9 +33,9 @@ decode → fonts → mediabox → rotate → enumerate_page_glyphs → mark_in_r
    └─ round-trip guard FAILS  → byte-path:  splice the original bytes              (new)
 ```
 
-`slots` (the located glyphs) and `marked` (those inside the rects) are computed once and shared by both writers. Rotation/MediaBox/font-support refusals are unchanged and still flatten before either writer. The byte-path is only *used* when the guard fails, so common pages are untouched — this is exactly bar A.
+`slots` (the located glyphs) and `marked` (those inside the rects) are computed once and shared by both writers. Rotation/MediaBox/font-support refusals are unchanged and still flatten before either writer. The byte-path is only _used_ when the guard fails, so common pages are untouched — this is exactly bar A.
 
-The glyph analysis is valid on a guard-failing page because the failure is in re-*encoding*, not in *decoding*: `enumerate_page_glyphs` walks the decoded operation list and produces correct `GlyphSlot`s (each carries `op` = operation index, `elem` = `TJ` array element, `byte_off`/`byte_len` = the glyph's range within the decoded string operand). Inline images do not advance text position, so they do not perturb the walk.
+The glyph analysis is valid on a guard-failing page because the failure is in re-_encoding_, not in _decoding_: `enumerate_page_glyphs` walks the decoded operation list and produces correct `GlyphSlot`s (each carries `op` = operation index, `elem` = `TJ` array element, `byte_off`/`byte_len` = the glyph's range within the decoded string operand). Inline images do not advance text position, so they do not perturb the walk.
 
 ### 2. New module `content_tokens.rs` — the raw tokenizer
 
@@ -44,19 +44,21 @@ A pure `&[u8] → Vec<RawToken>` scan of the original content stream, with **no 
 - the operator name, and
 - the full byte range `[start, end)` of that operator invocation (its operands plus the operator) in the original stream.
 
-`BI … ID <bytes> EI` is emitted as a single opaque `InlineImage` token spanning the whole construct — matching lopdf, which represents an inline image as one `"BI"` operation — and its bytes are never parsed. This is the core mechanism: an inline image survives because the writer only ever *copies* its span.
+`BI … ID <bytes> EI` is emitted as a single opaque `InlineImage` token spanning the whole construct — matching lopdf, which represents an inline image as one `"BI"` operation — and its bytes are never parsed. This is the core mechanism: an inline image survives because the writer only ever _copies_ its span.
 
-The tokenizer deliberately does **not** decode string operands. Decoded string bytes already come from lopdf's `operation.operands`, so the byte-path works in decoded space for string *content* and uses the tokenizer only to answer "where does each operator begin and end in the raw bytes." The tokenizer must still correctly *skip over* string operands (honoring `()` literal nesting/escapes and `<>` hex) so it finds operator boundaries, but it emits no per-byte map.
+The tokenizer deliberately does **not** decode string operands. Decoded string bytes already come from lopdf's `operation.operands`, so the byte-path works in decoded space for string _content_ and uses the tokenizer only to answer "where does each operator begin and end in the raw bytes." The tokenizer must still correctly _skip over_ string operands (honoring `()` literal nesting/escapes and `<>` hex) so it finds operator boundaries, but it emits no per-byte map.
 
 ### 3. The splicer — reuse the op-path's rebuild, encode per-operator
 
-The op-path already contains exactly the rewrite we want: for each show operator (`Tj` / `TJ` / `'` / `"`) with a marked glyph, `apply_excision` rebuilds it into an equivalent `TJ` whose surviving runs are verbatim `Literal` strings taken from the decoded operand (`source_bytes[byte_off..byte_off+byte_len]`) and whose removed runs collapse to a single numeric advance-compensation element, so glyphs surviving to the right of the rect **do not shift**. Its only failure is the final step: re-encoding the *whole* operation list, which forces lopdf to re-serialize the inline images it mangles.
+The op-path already contains exactly the rewrite we want: for each show operator (`Tj` / `TJ` / `'` / `"`) with a marked glyph, `apply_excision` rebuilds it into an equivalent `TJ` whose surviving runs are verbatim `Literal` strings taken from the decoded operand (`source_bytes[byte_off..byte_off+byte_len]`) and whose removed runs collapse to a single numeric advance-compensation element, so glyphs surviving to the right of the rect **do not shift**. Its only failure is the final step: re-encoding the _whole_ operation list, which forces lopdf to re-serialize the inline images it mangles.
 
 So the byte-path **reuses that rebuild verbatim** and changes only how bytes are produced. Factor the op-path's two build steps into pure helpers shared by both paths:
+
 - `op_replacements(content, slots, marked, fonts) -> BTreeMap<usize, Vec<Operation>>` — for each affected operation index, the replacement operations (a rebuilt `TJ`, preceded by `T*` when the original was `'`/`"`). This is the existing `apply_excision` logic lifted out unchanged; the op-path now consumes it to rebuild the operation list exactly as before (byte-identical op-path behavior, guarded by its existing tests).
 - `fill_box_operations(rects) -> Vec<Operation>` — the `q rg re f Q` boxes, likewise lifted out.
 
 The byte-path then:
+
 1. copies the original stream bytes verbatim, and
 2. for each affected operation index, encodes **just that operation's** replacement — `Content{operations: replacement}.encode()` — and splices those bytes over the operator's raw byte span (padded with surrounding spaces so it can't glue to a neighbor), and
 3. appends `fill_box_operations(rects)` encoded on their own.
@@ -67,7 +69,7 @@ This is strictly less new code than an independent splicer, and the compensation
 
 ### 4. Correlation self-check — the safety valve
 
-Zip lopdf's operation list against the tokenizer's tokens by index. If the operator names disagree at any position the writer intends to edit — a sign the tokenizer desynced from lopdf on some construct — the byte-path returns `None` and the page flattens. Because flatten is *today's* outcome for these pages, a tokenizer miss can only ever fall back to safe-flatten; it can never emit a corrupted stream. This runs beneath the existing outcome gate (re-observe the spliced page; any surviving marked glyph or parse failure → flatten), giving two independent nets under the new path.
+Zip lopdf's operation list against the tokenizer's tokens by index. If the operator names disagree at any position the writer intends to edit — a sign the tokenizer desynced from lopdf on some construct — the byte-path returns `None` and the page flattens. Because flatten is _today's_ outcome for these pages, a tokenizer miss can only ever fall back to safe-flatten; it can never emit a corrupted stream. This runs beneath the existing outcome gate (re-observe the spliced page; any surviving marked glyph or parse failure → flatten), giving two independent nets under the new path.
 
 ### 5. Error handling / safety
 
@@ -78,6 +80,7 @@ Zip lopdf's operation list against the tokenizer's tokens by index. If the opera
 ## Testing
 
 **Unit (`pdf-core`):**
+
 - Mid-string glyph removal preserves the position of glyphs to the right (advance compensation correct).
 - A survivor run from a `(...)` literal re-encodes to byte-exact hex.
 - A `TJ` operator carrying kerning numbers, partially removed, rebuilds correctly.

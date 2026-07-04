@@ -45,10 +45,12 @@ Every task's requirements implicitly include this section.
 ## Task 1: Async submit + task-status parsing (pure)
 
 **Files:**
+
 - Modify: `packages/ai-detection/src/adapters/pangram-response.ts`
 - Test: `packages/ai-detection/test/pangram-response.test.ts`
 
 **Interfaces:**
+
 - Consumes: existing `parsePangramResponse(json): PangramPrediction | null`, `PangramPrediction`.
 - Produces:
   - `parsePangramSubmit(json: unknown): { readonly taskId: string } | null` — reads the async submit response's `task_id`.
@@ -60,10 +62,7 @@ Every task's requirements implicitly include this section.
 Append to `packages/ai-detection/test/pangram-response.test.ts`:
 
 ```typescript
-import {
-  parsePangramSubmit,
-  parsePangramTaskStatus,
-} from "../src/adapters/pangram-response.ts";
+import { parsePangramSubmit, parsePangramTaskStatus } from "../src/adapters/pangram-response.ts";
 
 describe("parsePangramSubmit", () => {
   it("reads task_id from the async submit response", () => {
@@ -98,7 +97,9 @@ describe("parsePangramTaskStatus", () => {
   it("returns malformed for a non-object, or STAGE_SUCCESS with an invalid prediction", () => {
     expect(parsePangramTaskStatus(null).kind).toBe("malformed");
     expect(parsePangramTaskStatus("nope").kind).toBe("malformed");
-    expect(parsePangramTaskStatus({ stage: "STAGE_SUCCESS", fraction_ai: 5 }).kind).toBe("malformed");
+    expect(parsePangramTaskStatus({ stage: "STAGE_SUCCESS", fraction_ai: 5 }).kind).toBe(
+      "malformed",
+    );
     expect(parsePangramTaskStatus({ stage: "STAGE_SUCCESS" }).kind).toBe("malformed");
   });
 });
@@ -160,10 +161,12 @@ git commit -m "feat(ai-detection): parse Pangram async submit + task-status resp
 ## Task 2: Dual-mode adapter + provenance fix (pure)
 
 **Files:**
+
 - Modify: `packages/ai-detection/src/adapters/pangram.ts`
 - Test: `packages/ai-detection/test/pangram.test.ts`
 
 **Interfaces:**
+
 - Consumes: `parsePangramResponse`, `parsePangramSubmit`, `parsePangramTaskStatus`, `PangramPrediction` (Task 1); `normalize`, `AiTextDetectionPort`, `RawDetection`, `RawSegment`, `HttpClient`, `HttpResponse`, `ok`, `adapterError`, `integrationProblem`.
 - Produces:
   - `type PangramMode = "async-task" | "sync"`.
@@ -248,7 +251,12 @@ type FetchResult =
 
 async function fetchJson(
   http: HttpClient,
-  request: { method: "GET" | "POST"; url: string; headers: Readonly<Record<string, string>>; body?: string },
+  request: {
+    method: "GET" | "POST";
+    url: string;
+    headers: Readonly<Record<string, string>>;
+    body?: string;
+  },
 ): Promise<FetchResult> {
   let response: HttpResponse;
   try {
@@ -384,7 +392,10 @@ export function createPangramAdapter(config: PangramAdapterConfig): AiTextDetect
 Replace the `adapter()` helper and add flow tests in `packages/ai-detection/test/pangram.test.ts`. First, update the helper so existing sync-shaped tests pass `mode: "sync"` + an instant `sleep`:
 
 ```typescript
-function adapter(client: HttpClient, overrides: Partial<Parameters<typeof createPangramAdapter>[0]> = {}) {
+function adapter(
+  client: HttpClient,
+  overrides: Partial<Parameters<typeof createPangramAdapter>[0]> = {},
+) {
   return createPangramAdapter({
     http: client,
     apiKey: "test-key",
@@ -402,7 +413,10 @@ The six existing tests already exercise the sync path (a single POST returning t
 ```typescript
 // A queue-backed HttpClient: each call returns the next scripted response; POST vs GET is asserted by
 // the caller. Records the requests so we can assert the submit URL and the poll URL.
-function scriptedClient(responses: HttpResponse[]): { client: HttpClient; requests: HttpRequest[] } {
+function scriptedClient(responses: HttpResponse[]): {
+  client: HttpClient;
+  requests: HttpRequest[];
+} {
   const requests: HttpRequest[] = [];
   let i = 0;
   return {
@@ -427,7 +441,12 @@ describe("createPangramAdapter.detect — async task flow", () => {
       jsonResponse(200, { stage: "STAGE_SUCCESS", fraction_ai: 0.95, version: "3.3" }),
     ]);
     let slept = 0;
-    const port = adapter(client, { mode: "async-task", sleep: async () => { slept += 1; } });
+    const port = adapter(client, {
+      mode: "async-task",
+      sleep: async () => {
+        slept += 1;
+      },
+    });
     const result = await port.detect({ text: LONG_TEXT, firmId: FIRM });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -487,8 +506,8 @@ describe("createPangramAdapter.detect — async task flow", () => {
 Also, in the FIRST existing test (`maps a clean-AI response...`), update the provenance assertion: the terminal body `{ fraction_ai: 0.95, version: "v3", stage: "production" }` now maps `version` → `vendorVersion` and drops `stage`. Add:
 
 ```typescript
-    expect(result.value.provenance.vendorVersion).toBe("v3");
-    expect(result.value.provenance.vendorModel).toBeUndefined();
+expect(result.value.provenance.vendorVersion).toBe("v3");
+expect(result.value.provenance.vendorModel).toBeUndefined();
 ```
 
 - [ ] **Step 3: Run the package suite, verify green**
@@ -508,19 +527,22 @@ git commit -m "feat(ai-detection): dual-mode Pangram adapter (async task-poll + 
 ## Task 3: Worker wiring — mode + base URL + injected sleep
 
 **Files:**
+
 - Modify: `apps/worker/src/routes/ai-detection.ts`, `apps/worker/src/app.ts`, `apps/worker/wrangler.jsonc`
 
 **Interfaces:**
+
 - Consumes: `createPangramAdapter` with the new `mode`/`sleep`/poll config (Task 2).
 
 **Reference — current adapter construction in `ai-detection.ts` (post-consent-and-key-gate):**
+
 ```typescript
-      const port = createPangramAdapter({
-        http: fetchHttpClient(),
-        apiKey,
-        baseUrl: c.env.PANGRAM_BASE_URL ?? "https://text.api.pangram.com",
-        now: () => new Date().toISOString(),
-      });
+const port = createPangramAdapter({
+  http: fetchHttpClient(),
+  apiKey,
+  baseUrl: c.env.PANGRAM_BASE_URL ?? "https://text.api.pangram.com",
+  now: () => new Date().toISOString(),
+});
 ```
 
 - [ ] **Step 1: Add the mode binding**
@@ -539,19 +561,19 @@ In `apps/worker/src/app.ts` `Bindings`, beside `PANGRAM_API_KEY` / `PANGRAM_BASE
 In `apps/worker/src/routes/ai-detection.ts`, replace the adapter construction with:
 
 ```typescript
-      const mode = c.env.PANGRAM_MODE === "sync" ? ("sync" as const) : ("async-task" as const);
-      const defaultBaseUrl =
-        mode === "sync" ? "https://text.api.pangram.com/v3" : "https://text.external-api.pangram.com";
-      const port = createPangramAdapter({
-        http: fetchHttpClient(),
-        apiKey,
-        baseUrl: c.env.PANGRAM_BASE_URL ?? defaultBaseUrl,
-        mode,
-        now: () => new Date().toISOString(),
-        // The poll delay lives here (the pure adapter is timer-free). A queued microtask timer is
-        // enough — polling is I/O wait between fetches, not CPU.
-        sleep: (milliseconds) => new Promise<void>((resolve) => setTimeout(resolve, milliseconds)),
-      });
+const mode = c.env.PANGRAM_MODE === "sync" ? ("sync" as const) : ("async-task" as const);
+const defaultBaseUrl =
+  mode === "sync" ? "https://text.api.pangram.com/v3" : "https://text.external-api.pangram.com";
+const port = createPangramAdapter({
+  http: fetchHttpClient(),
+  apiKey,
+  baseUrl: c.env.PANGRAM_BASE_URL ?? defaultBaseUrl,
+  mode,
+  now: () => new Date().toISOString(),
+  // The poll delay lives here (the pure adapter is timer-free). A queued microtask timer is
+  // enough — polling is I/O wait between fetches, not CPU.
+  sleep: (milliseconds) => new Promise<void>((resolve) => setTimeout(resolve, milliseconds)),
+});
 ```
 
 Add the import if `createPangramAdapter` is not already imported (it is). No other route logic changes — the consent gate, the no-key 422, the failure mapping (`adapter-error` → 502), and the metering write are unchanged.
@@ -583,6 +605,7 @@ git commit -m "feat(worker): select Pangram mode + base URL; inject the poll sle
 ## Task 4: Docs + verification
 
 **Files:**
+
 - Create: `changelog.d/pangram-endpoint.md`, `docs/decisions/pending/pangram-endpoint-dual-mode.md`
 
 - [ ] **Step 1: Changelog fragment**

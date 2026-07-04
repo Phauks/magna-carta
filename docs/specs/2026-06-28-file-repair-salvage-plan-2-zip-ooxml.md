@@ -22,12 +22,14 @@
 ### Task 1: Add the `zip` dependency + the ZIP module skeleton
 
 **Files:**
+
 - Modify: `crates/recovery-core/Cargo.toml` (add `zip`, promote `flate2` to a real dep)
 - Create: `crates/recovery-core/src/zip_repair.rs`
 - Create: `crates/recovery-core/src/ooxml.rs`
 - Modify: `crates/recovery-core/src/lib.rs` (declare the two modules)
 
 **Interfaces:**
+
 - Produces: empty `zip_repair` and `ooxml` modules; the `zip` crate available.
 
 - [ ] **Step 1: Update `crates/recovery-core/Cargo.toml`** — change the `[dependencies]`/`[dev-dependencies]` so `zip` and `flate2` are real deps:
@@ -51,12 +53,14 @@ flate2 = { version = "1", default-features = false, features = ["rust_backend"] 
 - [ ] **Step 2: Create the module stubs**
 
 `crates/recovery-core/src/zip_repair.rs`:
+
 ```rust
 //! The ZIP archetype-family repair pillar: salvage entries from local file
 //! headers, re-emit a fresh archive, diagnose ZIP corruption.
 ```
 
 `crates/recovery-core/src/ooxml.rs`:
+
 ```rust
 //! Open Packaging Conventions reconstruction so a recovered OOXML package
 //! (docx/xlsx/pptx) reopens: regenerate [Content_Types].xml and the root _rels.
@@ -83,9 +87,11 @@ git commit -m "feat(recovery-core): add zip dep + ZIP/OOXML module skeleton"
 ### Task 2: Salvage entries from local file headers
 
 **Files:**
+
 - Modify: `crates/recovery-core/src/zip_repair.rs`
 
 **Interfaces:**
+
 - Produces:
   - `pub struct SalvagedEntry { pub name: String, pub data: Option<Vec<u8>>, pub recovered: bool, pub detail: String }`
   - `pub fn salvage_entries(bytes: &[u8]) -> Vec<SalvagedEntry>` — read each entry sequentially from its local header via `zip::read::read_zipfile_from_stream`; a fully-read entry is `recovered: true` with its decompressed `data`; an entry whose body errors (truncated/corrupt) is `recovered: false`, `data: None`. Stops at the central-directory signature or end of stream.
@@ -235,9 +241,11 @@ git commit -m "feat(recovery-core): salvage zip entries from local file headers"
 ### Task 3: Re-emit a fresh archive
 
 **Files:**
+
 - Modify: `crates/recovery-core/src/zip_repair.rs`
 
 **Interfaces:**
+
 - Produces: `pub fn rebuild_archive(entries: &[(String, Vec<u8>)]) -> Result<Vec<u8>, crate::error::RepairError>` — write a fresh valid zip (Deflated) from recovered (name, bytes) pairs via `zip::ZipWriter`. Returns `RepairError::Unrepairable` if the writer fails.
 
 - [ ] **Step 1: Write the failing test** — add to the test module in `zip_repair.rs`:
@@ -309,10 +317,12 @@ git commit -m "feat(recovery-core): re-emit a fresh zip from recovered entries"
 ### Task 4: Diagnose ZIP corruption + register the diagnoser
 
 **Files:**
+
 - Modify: `crates/recovery-core/src/zip_repair.rs`
 - Modify: `crates/recovery-core/src/diagnose.rs`
 
 **Interfaces:**
+
 - Produces (in `zip_repair`): `pub fn diagnose_zip(bytes: &[u8]) -> (Vec<crate::model::CorruptionKind>, crate::model::Recoverability)` — `ZipArchive::new` succeeds → (`[]`, `Intact`); fails but `salvage_entries` recovers ≥1 entry → (`[MissingEndOfCentralDirectory]`, `Repairable`); fails and recovers nothing → (`[Truncated]`, `Unrecoverable`).
 - Consumes (in `diagnose`): the `Zip` arm calls `diagnose_zip` and sets `repair_supported = true`.
 
@@ -444,9 +454,11 @@ git commit -m "feat(recovery-core): diagnose zip corruption + register the diagn
 ### Task 5: OOXML OPC reconstruction
 
 **Files:**
+
 - Modify: `crates/recovery-core/src/ooxml.rs`
 
 **Interfaces:**
+
 - Produces:
   - `pub fn is_ooxml(entries: &[(String, Vec<u8>)]) -> bool` — true if the entry set looks like an OOXML package (has a `word/`, `xl/`, or `ppt/` part, or a `[Content_Types].xml`).
   - `pub fn reconstruct_opc(entries: Vec<(String, Vec<u8>)>) -> Vec<(String, Vec<u8>)>` — ensure the OPC skeleton exists: if `[Content_Types].xml` is missing, synthesize a minimal one covering the present parts; if `_rels/.rels` is missing, synthesize the package relationship to the main document part. Existing valid parts are left untouched. v1 targets WordprocessingML (`word/document.xml`); xl/ppt get a best-effort content-type default.
@@ -616,11 +628,13 @@ git commit -m "feat(recovery-core): OOXML OPC reconstruction (content-types + ro
 ### Task 6: The ZIP repairer + top-level repair dispatch
 
 **Files:**
+
 - Create: `crates/recovery-core/src/repair.rs`
 - Modify: `crates/recovery-core/src/lib.rs` (declare + re-export `repair`)
 - Modify: `crates/recovery-core/src/zip_repair.rs` (the `repair_zip` entry point)
 
 **Interfaces:**
+
 - Produces (in `zip_repair`): `pub fn repair_zip(bytes: &[u8]) -> Result<RepairResult, RepairError>` — salvage entries; if none recovered → `Err(Unrepairable)`; if the recovered set is OOXML, run `reconstruct_opc`; rebuild the archive; build the `LossManifest` (one `RecoveredItem` per entry, recovered or lost).
 - Produces (in `repair`): `pub fn repair(bytes: &[u8]) -> Result<RepairResult, RepairError>` — dispatch by `engine_host::format::detect`: `Zip` → `repair_zip`; recognized-but-unsupported → `Err(Unsupported)`; unrecognized → `Err(NotRecognized)`.
 
@@ -742,7 +756,9 @@ mod tests {
 ```rust
 pub mod repair;
 ```
+
 and after the `pub use diagnose::diagnose;` line:
+
 ```rust
 pub use repair::repair;
 ```
@@ -752,7 +768,7 @@ pub use repair::repair;
   - `cargo fmt --manifest-path crates/Cargo.toml -p recovery-core -- --check` (run `cargo fmt` first if needed)
   - `cargo clippy --manifest-path crates/Cargo.toml -p recovery-core --all-targets -- -D warnings`
   - `grep -rniE "golden rule|ADR-[0-9]|spec §" crates/recovery-core/src` (returns nothing)
-  Expected: all pass, fmt clean, clippy clean, no citations.
+    Expected: all pass, fmt clean, clippy clean, no citations.
 
 - [ ] **Step 6: Commit**
 
@@ -768,7 +784,10 @@ git commit -m "feat(recovery-core): zip repairer + top-level repair dispatch"
 - **Verify the `zip` 8.6 API against docs.rs** (golden rule 11): `read_zipfile_from_stream<R: Read>(&mut R) -> ZipResult<Option<ZipFile<'_, R>>>` (loop until `Ok(None)`), `ZipFile` implements `Read` + has `.name()`/`.compression()`, `ZipWriter::new(W: Write+Seek)` + `start_file(name, SimpleFileOptions)` + `Write` + `finish() -> W`, `SimpleFileOptions::default().compression_method(CompressionMethod::Deflated)`, `ZipArchive::new(Cursor)` for the intact-read check. Adapt names if the resolved minor differs.
 - **Per-entry recovery is all-or-nothing here.** `read_zipfile_from_stream` does not expose partial decompressed bytes for a truncated entry — so a cut entry body is marked lost. Recovering the partial prefix of a truncated final entry (via manual local-header parse + `inflate_salvage` from Plan 1) is a deliberate later seam, not this plan.
 - **Streamed entries (general-purpose bit 3 with zeroed local-header sizes)** are not handled by `read_zipfile_from_stream` (it reads `compressed_size` from the local header). Real desktop archives almost always write real sizes; such an entry simply won't recover and is recorded lost. Do not add data-descriptor scanning in this plan.
-- **OOXML reconstruction is OPC-skeleton only** — it makes the package *openable* (content-types + root rels). Repairing a corrupt `word/document.xml`'s internal XML (well-forming) is a later enhancement; v1 reconstructs the packaging, not the body XML.
+- **OOXML reconstruction is OPC-skeleton only** — it makes the package _openable_ (content-types + root rels). Repairing a corrupt `word/document.xml`'s internal XML (well-forming) is a later enhancement; v1 reconstructs the packaging, not the body XML.
 - **Log-safety:** entry names live in `RecoveredItem.name`/`detail`. These flow to the file's owner via the receipt — never into the redacted error-log pipeline. Only `RepairError::code()` is log-safe.
 - The worker route, container, attach-to-matter, and the `files` catalog group are Plan 6 — this plan is the pure engine pillar only.
+
+```
+
 ```

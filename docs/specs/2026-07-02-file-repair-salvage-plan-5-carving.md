@@ -27,12 +27,14 @@ Build carving self-contained in `recovery-core`; do NOT share into `engine-host`
 ### Task 1: Refactor `RepairResult` to carry multiple output files
 
 **Files:**
+
 - Modify: `crates/recovery-core/src/model.rs` (add `SalvagedFile`; change `RepairResult`)
 - Modify: `crates/recovery-core/src/zip_repair.rs` (wrap output; fix test reads)
 - Modify: `crates/recovery-core/src/cfb_repair.rs` (wrap output; fix test reads)
 - Modify: `crates/recovery-core/src/pdf_repair.rs` (wrap output; fix test reads)
 
 **Interfaces:**
+
 - Produces:
   - `pub struct SalvagedFile { pub name: String, pub bytes: Vec<u8>, pub media_type: Option<String> }` (derives `Debug, Clone`)
   - `pub struct RepairResult { pub files: Vec<SalvagedFile>, pub loss: LossManifest }` (replaces the `salvaged: Vec<u8>` field; still no `PartialEq`)
@@ -110,7 +112,7 @@ Then in `pdf_repair.rs` tests, change the `Document::load_mem(&result.salvaged)`
   - `cargo test --manifest-path crates/Cargo.toml -p recovery-core` — ALL pass (61, unchanged count; the refactor preserves behavior).
   - `cargo fmt --manifest-path crates/Cargo.toml -p recovery-core` then `-- --check` (stage what it touches).
   - `cargo clippy --manifest-path crates/Cargo.toml -p recovery-core --all-targets -- -D warnings`.
-  Expected: all pass. If a `result.salvaged` reference remains, the compiler names it — fix each to `result.files[0].bytes`.
+    Expected: all pass. If a `result.salvaged` reference remains, the compiler names it — fix each to `result.files[0].bytes`.
 
 - [ ] **Step 6: Commit**
 
@@ -124,12 +126,14 @@ git commit -m "refactor(recovery-core): RepairResult carries multiple SalvagedFi
 ### Task 2: Add carving dependencies + the signature-table data module
 
 **Files:**
+
 - Modify: `crates/recovery-core/Cargo.toml` (add `aho-corasick`, `zune-jpeg`, `zune-png`)
 - Create: `crates/recovery-core/src/carve.rs` (module root; declares `mod signatures;`)
 - Create: `crates/recovery-core/src/carve/signatures.rs` (the standalone data table)
 - Modify: `crates/recovery-core/src/lib.rs` (declare `pub mod carve;`)
 
 **Interfaces:**
+
 - Produces:
   - `pub struct Signature { pub media_type: &'static str, pub extension: &'static str, pub header: &'static [u8], pub footer: Option<&'static [u8]>, pub max_len: usize, pub image: bool }`
   - `pub const SIGNATURES: &[Signature]` (JPEG, PNG, GIF, PDF, ZIP)
@@ -240,7 +244,7 @@ pub mod carve;
 - [ ] **Step 5: Verify it builds on both targets** — Run:
   - `cargo build --manifest-path crates/Cargo.toml -p recovery-core`
   - `cargo build --manifest-path crates/Cargo.toml -p recovery-core --target wasm32-unknown-unknown`
-  Expected: both compile (pulling `aho-corasick`, `zune-jpeg`, `zune-png`). If `zune-png = "0.4"` does not resolve, check the latest 0.x on the registry and pin it; its decode API is confirmed in Task 4.
+    Expected: both compile (pulling `aho-corasick`, `zune-jpeg`, `zune-png`). If `zune-png = "0.4"` does not resolve, check the latest 0.x on the registry and pin it; its decode API is confirmed in Task 4.
 
 - [ ] **Step 6: Commit**
 
@@ -254,9 +258,11 @@ git commit -m "feat(recovery-core): carving deps + signature-table data module"
 ### Task 3: Scan for candidates and bound their extent
 
 **Files:**
+
 - Modify: `crates/recovery-core/src/carve.rs`
 
 **Interfaces:**
+
 - Consumes: `SIGNATURES` / `Signature` (Task 2); `crate::limits::MAX_ENTRY_COUNT`.
 - Produces:
   - `pub struct Candidate { pub signature: usize, pub start: usize, pub end: usize, pub truncated: bool }` (index into `SIGNATURES`; byte range `start..end`; `truncated` = no footer found within the cap)
@@ -406,9 +412,11 @@ git commit -m "feat(recovery-core): scan a blob for embedded-file candidates"
 ### Task 4: Validate a candidate
 
 **Files:**
+
 - Modify: `crates/recovery-core/src/carve.rs`
 
 **Interfaces:**
+
 - Consumes: `Candidate`/`Signature` (Tasks 2–3).
 - Produces:
   - `pub enum Confidence { Decoded, Delimited, Unconfirmed }` (`Decoded` = image header decoded; `Delimited` = non-image with header+footer found; `Unconfirmed` = truncated, or an image that would not decode)
@@ -523,10 +531,12 @@ git commit -m "feat(recovery-core): validate carved candidates (image decode / s
 ### Task 5: The `carve` entry point + honest manifest
 
 **Files:**
+
 - Modify: `crates/recovery-core/src/carve.rs`
 - Modify: `crates/recovery-core/src/lib.rs` (re-export `carve`)
 
 **Interfaces:**
+
 - Consumes: `scan_candidates`, `validate`, `Confidence`, `Candidate`, `SIGNATURES`, `crate::limits::MAX_ENTRY_COUNT`, `crate::model::{RepairResult, SalvagedFile, LossManifest, RecoveredItem}`, `crate::error::RepairError`.
 - Produces: `pub fn carve(bytes: &[u8]) -> Result<RepairResult, RepairError>` — `Err(Unrepairable)` when nothing is carvable; otherwise a `RepairResult` whose `files` are the recovered fragments and whose `loss` lists every candidate (recovered iff `Decoded`/`Delimited`), with `fully_recovered = false` and `synthesized` empty.
 
@@ -678,7 +688,7 @@ pub use carve::carve;
   - `cargo build --manifest-path crates/Cargo.toml -p recovery-core --target wasm32-unknown-unknown`
   - `cargo fmt --manifest-path crates/Cargo.toml -p recovery-core -- --check` (fmt first; stage)
   - `cargo clippy --manifest-path crates/Cargo.toml -p recovery-core --all-targets -- -D warnings`
-  Expected: all pass, wasm compiles.
+    Expected: all pass, wasm compiles.
 
 - [ ] **Step 6: Commit**
 
@@ -692,10 +702,12 @@ git commit -m "feat(recovery-core): carve entry point with honest never-complete
 ### Task 6: `diagnose` suggests carving
 
 **Files:**
+
 - Modify: `crates/recovery-core/src/model.rs` (add `carve_suggested` to `DiagnosisReport`)
 - Modify: `crates/recovery-core/src/diagnose.rs` (set it)
 
 **Interfaces:**
+
 - Produces: `DiagnosisReport` gains `pub carve_suggested: bool` — `true` when the format is unrecognized (`None`) or a pillar's recoverability is `Unrecoverable`/`Unknown`, signalling the caller that carving may extract embedded files.
 
 - [ ] **Step 1: Add the field** — in `crates/recovery-core/src/model.rs`, add to the `DiagnosisReport` struct (after `repair_supported`):
@@ -748,7 +760,7 @@ and in the `None => DiagnosisReport { ... }` arm add:
   - `cargo fmt --manifest-path crates/Cargo.toml -p recovery-core -- --check` (fmt first; stage)
   - `cargo clippy --manifest-path crates/Cargo.toml -p recovery-core --all-targets -- -D warnings`
   - `grep -rniE "golden rule|ADR-[0-9]|spec §|slice [0-9]" crates/recovery-core/src` (returns nothing)
-  Expected: all pass; clean working tree after commit.
+    Expected: all pass; clean working tree after commit.
 
 - [ ] **Step 6: Commit**
 

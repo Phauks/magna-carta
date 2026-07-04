@@ -4,98 +4,98 @@ schemaVersion: 1
 sources:
   - jurisdiction: US-AK
     path: US-AK/US-AK-lac-alaskabar-2026.txt
-    publisher: 'Alaska Bar Association'
+    publisher: "Alaska Bar Association"
     sourceUrl: https://alaskabar.org/sections-committees/lawyers-assistance-committee/
     accessedOn: 2026-07-02
     accessGate: open
     sha256: d2ca67b06e421e9c9c4f94d86cd2000f9b44bf2b477f0f23e468825f0df7fe3f
   - jurisdiction: US-AL
     path: US-AL/US-AL-alap-alabar-2026.txt
-    publisher: 'Alabama State Bar'
+    publisher: "Alabama State Bar"
     sourceUrl: https://www.alabar.org/programs/alabama-lawyer-assistance-program/
     accessedOn: 2026-07-02
     accessGate: open
     sha256: 554b3d1f2edbbddcf4bcd5b663ac378cdbb7581041a8f1cc6802b4d33fb55af7
   - jurisdiction: US-AR
     path: US-AR/US-AR-jlap-arjlap-2026.txt
-    publisher: 'Arkansas Supreme Court (JLAP Committee)'
+    publisher: "Arkansas Supreme Court (JLAP Committee)"
     sourceUrl: https://www.arjlap.org/
     accessedOn: 2026-07-02
     accessGate: open
     sha256: ac9fb55ae14fa616a63880999c17ccbc8c1c3f16bffaeb9331329c1234a101f3
   - jurisdiction: US-AZ
     path: US-AZ/US-AZ-map-azbar-2026.txt
-    publisher: 'State Bar of Arizona'
+    publisher: "State Bar of Arizona"
     sourceUrl: https://azbar.org/for-legal-professionals/benefits-services/member-assistance-program-wellness-resource/support/
     accessedOn: 2026-07-02
     accessGate: open
     sha256: c47db1d4d69fdeae7dd5be95155e89eac8ee11c62e7550f67bc7ccc72d401e61
   - jurisdiction: US-CO
     path: US-CO/US-CO-colap-and-affiliates-2026.txt
-    publisher: 'Colorado Supreme Court (COLAP) + affiliated bodies'
+    publisher: "Colorado Supreme Court (COLAP) + affiliated bodies"
     sourceUrl: https://coloradolap.org/
     accessedOn: 2026-07-02
     accessGate: open
     sha256: fb6f93c53b83d7f1d8c1271b6444fd8dc54f1d4bfe3962e00642349e8d47e05a
   - jurisdiction: US-CT
     path: US-CT/US-CT-lclct-2026.txt
-    publisher: 'Lawyers Concerned for Lawyers — Connecticut, Inc.'
+    publisher: "Lawyers Concerned for Lawyers — Connecticut, Inc."
     sourceUrl: https://lclct.org/
     accessedOn: 2026-07-02
     accessGate: open
     sha256: c681d3b8a0361983f076cf6d7225f66290f4d26c7475380b272b7a861f04e067
   - jurisdiction: US-DC
     path: US-DC/US-DC-lap-dcbar-2026.txt
-    publisher: 'District of Columbia Bar'
+    publisher: "District of Columbia Bar"
     sourceUrl: https://www.dcbar.org/for-lawyers/lawyer-assistance-program
     accessedOn: 2026-07-02
     accessGate: open
     sha256: a27bbce02f014586fd1c8fa78a1d3c6006cc426da86d4fe40e0d97e82d591a2f
   - jurisdiction: US-DE
     path: US-DE/US-DE-delap-dsba-2026.txt
-    publisher: 'Delaware State Bar Association'
+    publisher: "Delaware State Bar Association"
     sourceUrl: https://www.dsba.org/resources/delaware-lawyers-assistance-program/
     accessedOn: 2026-07-02
     accessGate: open
     sha256: 3d3e971172c41f53d4ca457d5feaeca815e4946283ef7be2cd3be4dca235bd2b
   - jurisdiction: US-FL
     path: US-FL/US-FL-fla-and-helpline-2026.txt
-    publisher: 'Florida Lawyers Assistance, Inc. + The Florida Bar'
+    publisher: "Florida Lawyers Assistance, Inc. + The Florida Bar"
     sourceUrl: https://www.fla-lap.org/what-we-do
     accessedOn: 2026-07-02
     accessGate: open
     sha256: 103c9e7c6648765ea1f413f3151003dea6456d5c9d3463d0550273620fbfb788
   - jurisdiction: US-GA
     path: US-GA/US-GA-lap-gabar-2026.txt
-    publisher: 'State Bar of Georgia (administered by CuraLinc/SupportLinc)'
+    publisher: "State Bar of Georgia (administered by CuraLinc/SupportLinc)"
     sourceUrl: https://www.gabar.org/programs/lawyer-wellbeing/mental-wellbeing/lawyer-assistance-program
     accessedOn: 2026-07-02
     accessGate: open
     sha256: 0f1c636982be267f48915b5e083836be2dc20fa84853c31dc31cd9c9724a7991
   - jurisdiction: US-GU
     path: US-GU/US-GU-wellness-committee-2026.txt
-    publisher: 'Guam Bar Association'
+    publisher: "Guam Bar Association"
     sourceUrl: https://guambar.org/about-us/laws
     accessedOn: 2026-07-02
     accessGate: open
     sha256: f691b771f2c13456954a3ccae06733fbb16710ea9512c52656256f1a672db5a1
   - jurisdiction: US-HI
     path: US-HI/US-HI-aap-hawaiiaap-2026.txt
-    publisher: 'Hawaii Supreme Court (Attorneys and Judges Assistance Program)'
+    publisher: "Hawaii Supreme Court (Attorneys and Judges Assistance Program)"
     sourceUrl: http://hawaiiaap.com/contactus.html
     accessedOn: 2026-07-02
     accessGate: open
     sha256: d6e79aafdebd26e4365eaceae5610e73be976c5b8e9e0ed12d96a1f9ba534de6
   - jurisdiction: US-IA
     path: US-IA/US-IA-ilap-eap-2026.txt
-    publisher: 'Iowa Lawyers Assistance Program, Inc. + Iowa Judicial Branch OPR'
+    publisher: "Iowa Lawyers Assistance Program, Inc. + Iowa Judicial Branch OPR"
     sourceUrl: http://www.iowalap.org/
     accessedOn: 2026-07-02
     accessGate: open
     sha256: 1011e896abee709f956b979749829a08cc205dc68c542ab1b9d060a9a05dd77a
   - jurisdiction: US-ID
     path: US-ID/US-ID-lap-isb-2026.txt
-    publisher: 'Idaho State Bar (clinical services by Southworth Associates International)'
+    publisher: "Idaho State Bar (clinical services by Southworth Associates International)"
     sourceUrl: https://isb.idaho.gov/member-services/programs-resources/lap/
     accessedOn: 2026-07-02
     accessGate: open
@@ -109,63 +109,63 @@ sources:
     sha256: 93d6dff623b56785a01f63381d0b163ca79838513712b761576649cc907d5eb8
   - jurisdiction: US-IN
     path: US-IN/US-IN-jlap-incourts-2026.txt
-    publisher: 'Indiana Supreme Court (Judicial Branch)'
+    publisher: "Indiana Supreme Court (Judicial Branch)"
     sourceUrl: https://www.in.gov/courts/jlaphelps/how/
     accessedOn: 2026-07-02
     accessGate: open
     sha256: 90bf25e23e148ec886a250bc497604d8bbfaf43f4257945f646902a103f070df
   - jurisdiction: US-KS
     path: US-KS/US-KS-kalap-2026.txt
-    publisher: 'Kansas Supreme Court / Kansas Judicial Branch (KALAP)'
+    publisher: "Kansas Supreme Court / Kansas Judicial Branch (KALAP)"
     sourceUrl: https://kalapks.gov/
     accessedOn: 2026-07-02
     accessGate: open
     sha256: 5f4c084b0ca4e3ab30def9746fb89d18d6ee480aa67733fa0bc2e3cf8a4e0d7c
   - jurisdiction: US-KY
     path: US-KY/US-KY-kylap-2026.txt
-    publisher: 'Kentucky Bar Association / KYLAP'
+    publisher: "Kentucky Bar Association / KYLAP"
     sourceUrl: https://www.kylap.org/how-can-we-help/
     accessedOn: 2026-07-02
     accessGate: open
     sha256: 5e7a8ff9be251c61eecff737d13680ca7cc59775b26853f659bbb1c8c673e118
   - jurisdiction: US-LA
     path: US-LA/US-LA-jlap-2026.txt
-    publisher: 'Judges and Lawyers Assistance Program, Inc. (Louisiana)'
+    publisher: "Judges and Lawyers Assistance Program, Inc. (Louisiana)"
     sourceUrl: https://louisianajlap.com/faq/
     accessedOn: 2026-07-02
     accessGate: open
     sha256: ef840f31864e9eb8bff4eda32eef3107b51d960048fbb1cffffbf605bb888920
   - jurisdiction: US-MA
     path: US-MA/US-MA-lcl-2026.txt
-    publisher: 'Lawyers Concerned for Lawyers, Inc. (Massachusetts)'
+    publisher: "Lawyers Concerned for Lawyers, Inc. (Massachusetts)"
     sourceUrl: https://www.lclma.org/
     accessedOn: 2026-07-02
     accessGate: open
     sha256: 716e5ccdaff09f8545723f0c9ba255b24bc6ce0310bd2169978a50b32f764e16
   - jurisdiction: US-MD
     path: US-MD/US-MD-lap-msba-2026.txt
-    publisher: 'Maryland State Bar Association'
+    publisher: "Maryland State Bar Association"
     sourceUrl: https://www.msba.org/health-and-wellness/
     accessedOn: 2026-07-02
     accessGate: open
     sha256: 5cc43e7fbcfd78b030ee9b04499ac58602bd45698394d1ce8496767a86d792a5
   - jurisdiction: US-ME
     path: US-ME/US-ME-map-2026.txt
-    publisher: 'Maine Assistance Program for Lawyers and Judges, Inc.'
+    publisher: "Maine Assistance Program for Lawyers and Judges, Inc."
     sourceUrl: http://www.me-lap.org/
     accessedOn: 2026-07-02
     accessGate: open
     sha256: db01c1e80deffb574bc1b2cc00e350efe035a2e3ffd850c1e49a2aff5c7f85f9
   - jurisdiction: US-MI
     path: US-MI/US-MI-ljap-2026.txt
-    publisher: 'State Bar of Michigan (Lawyers and Judges Assistance Program)'
+    publisher: "State Bar of Michigan (Lawyers and Judges Assistance Program)"
     sourceUrl: https://www.michbar.org/generalinfo/ljap/home
     accessedOn: 2026-07-02
     accessGate: open
     sha256: 12cb0639ce936999b97dab981840aa10118c166c6f1b1284bed922ca6caa12e1
   - jurisdiction: US-MN
     path: US-MN/US-MN-lcl-allonehealth-2026.txt
-    publisher: 'Lawyers Concerned for Lawyers (Minnesota) + AllOne Health'
+    publisher: "Lawyers Concerned for Lawyers (Minnesota) + AllOne Health"
     sourceUrl: https://mnlcl.org/
     accessedOn: 2026-07-02
     accessGate: open
@@ -179,161 +179,161 @@ sources:
     sha256: 569945b64e59ebd647d27b3666bddfbfca28270540d841a7b1cb663c5d567b72
   - jurisdiction: US-MS
     path: US-MS/US-MS-ljap-2026.txt
-    publisher: 'The Mississippi Bar (Lawyers and Judges Assistance Program)'
+    publisher: "The Mississippi Bar (Lawyers and Judges Assistance Program)"
     sourceUrl: https://www.msbar.org/programs-affiliates/lawyers-judges-assistance-program/
     accessedOn: 2026-07-02
     accessGate: open
     sha256: ca156b7eebc0b6dc6e79b620804a252e9b468dae7abdefa677105b11c985d637
   - jurisdiction: US-MT
     path: US-MT/US-MT-lap-montanabar-2026.txt
-    publisher: 'State Bar of Montana (Lawyer Assistance Program)'
+    publisher: "State Bar of Montana (Lawyer Assistance Program)"
     sourceUrl: https://www.montanabar.org/For-Attorneys/Lawyer-Assistance-Program
     accessedOn: 2026-07-02
     accessGate: open
     sha256: 565ed8b58dec56108140d17089a16401b350d4bbbd7a63f2170ad7bfbfb275b1
   - jurisdiction: US-NC
     path: US-NC/US-NC-nclap-barcares-2026.txt
-    publisher: 'North Carolina State Bar (NC LAP) + NC Bar Association (BarCARES)'
+    publisher: "North Carolina State Bar (NC LAP) + NC Bar Association (BarCARES)"
     sourceUrl: https://www.nclap.org/contact/
     accessedOn: 2026-07-02
     accessGate: open
     sha256: bd4fe03154189d76823318198637f8d08d7f33ae62417704a380ee27caa2d9fe
   - jurisdiction: US-ND
     path: US-ND/US-ND-lap-sband-2026.txt
-    publisher: 'State Bar Association of North Dakota (Lawyer Assistance Program)'
+    publisher: "State Bar Association of North Dakota (Lawyer Assistance Program)"
     sourceUrl: https://cdn.ymaws.com/www.sband.org/resource/resmgr/docs/for_lawyers/LAP_Brochure.pdf
     accessedOn: 2026-07-02
     accessGate: open
     sha256: 3647fed279862492b455da39a0b52f3aba59647470398b4ab1d074f564699fc0
   - jurisdiction: US-NE
     path: US-NE/US-NE-nlap-2026.txt
-    publisher: 'Nebraska Supreme Court (Nebraska Lawyers Assistance Program)'
+    publisher: "Nebraska Supreme Court (Nebraska Lawyers Assistance Program)"
     sourceUrl: https://nebraskajudicial.gov/administration/attorneys/nebraska-lawyers-assistance-program
     accessedOn: 2026-07-02
     accessGate: open
     sha256: af270de0ea0d950e571373259dab10aeb0613fd9b34f372c1863d8ac3a1f3114
   - jurisdiction: US-NH
     path: US-NH/US-NH-nhlap-lapnh-2026.txt
-    publisher: 'New Hampshire Lawyers Assistance Program (LAPNH)'
+    publisher: "New Hampshire Lawyers Assistance Program (LAPNH)"
     sourceUrl: https://www.lapnh.org/
     accessedOn: 2026-07-02
     accessGate: open
     sha256: 467b88a8c73a73ee9df2c463800ed96de5006de2393a0e03b89228e9c9af89c6
   - jurisdiction: US-NJ
     path: US-NJ/US-NJ-njlap-2026.txt
-    publisher: 'New Jersey Lawyers Assistance Program (via NJ Judiciary)'
+    publisher: "New Jersey Lawyers Assistance Program (via NJ Judiciary)"
     sourceUrl: https://www.njcourts.gov/attorneys/attorney-ethics-and-discipline/attorney-resources
     accessedOn: 2026-07-02
     accessGate: open
     sha256: ef108c4c0ff59135f039bb6de1e6ae5f63fc7e00916115bf52d0e5dfdcc2db73
   - jurisdiction: US-NM
     path: US-NM/US-NM-nmlap-2026.txt
-    publisher: 'State Bar of New Mexico (New Mexico Lawyer Assistance Program)'
+    publisher: "State Bar of New Mexico (New Mexico Lawyer Assistance Program)"
     sourceUrl: https://www.sbnm.org/Member-Services/New-Mexico-Lawyer-Assistance-Program/For-Judges
     accessedOn: 2026-07-02
     accessGate: open
     sha256: ba7144b89dd19b96ab5c5834b50b4121cdcf2c8ce69791ced375694ba9444b55
   - jurisdiction: US-NV
     path: US-NV/US-NV-nlap-lcl-2026.txt
-    publisher: 'State Bar of Nevada (NLAP / LCL / Therapy Benefit)'
+    publisher: "State Bar of Nevada (NLAP / LCL / Therapy Benefit)"
     sourceUrl: https://nvbar.org/for-lawyers/resources/wellbeing/nlap/
     accessedOn: 2026-07-02
     accessGate: open
     sha256: 48faf096e15316681bc1b9e21a346ebffc2d19f429abaddcb4a1179ee2a5a168
   - jurisdiction: US-OH
     path: US-OH/US-OH-olap-2026.txt
-    publisher: 'Ohio Lawyers Assistance Program, Inc. (+ Toledo Bar MAP)'
+    publisher: "Ohio Lawyers Assistance Program, Inc. (+ Toledo Bar MAP)"
     sourceUrl: https://www.ohiolap.org/faq
     accessedOn: 2026-07-02
     accessGate: open
     sha256: 70bf49deff5100876eb98f5be0bd2f54eebcf58f352315e7e3802dc4f9f1357a
   - jurisdiction: US-OK
     path: US-OK/US-OK-lhl-2026.txt
-    publisher: 'Oklahoma Bar Association (Lawyers Helping Lawyers)'
+    publisher: "Oklahoma Bar Association (Lawyers Helping Lawyers)"
     sourceUrl: https://www.okbar.org/lhl/
     accessedOn: 2026-07-02
     accessGate: open
     sha256: 31536e849aa4a5203e7110d8cacf07ff2c174aafc140c32f394885b421d026ab
   - jurisdiction: US-OR
     path: US-OR/US-OR-oaap-2026.txt
-    publisher: 'Oregon Attorney Assistance Program (Oregon State Bar PLF)'
+    publisher: "Oregon Attorney Assistance Program (Oregon State Bar PLF)"
     sourceUrl: https://oaap.org/about/
     accessedOn: 2026-07-02
     accessGate: open
     sha256: 907a68eee91ab7db334ba58ff9fa45e0aa232aac263a96751f9e6a04e5a99d9d
   - jurisdiction: US-PA
     path: US-PA/US-PA-lclpa-2026.txt
-    publisher: 'Lawyers Concerned for Lawyers of Pennsylvania, Inc.'
+    publisher: "Lawyers Concerned for Lawyers of Pennsylvania, Inc."
     sourceUrl: https://www.lclpa.org/
     accessedOn: 2026-07-02
     accessGate: open
     sha256: 541716bd8b592e7956d99c3c4ed33d65b5c5fdc971ef69f98bbd467062866f2c
   - jurisdiction: US-RI
     path: US-RI/US-RI-lhl-2026.txt
-    publisher: 'Rhode Island Bar Association (Lawyers Helping Lawyers)'
+    publisher: "Rhode Island Bar Association (Lawyers Helping Lawyers)"
     sourceUrl: https://ribar.com/page.aspx?id=50
     accessedOn: 2026-07-02
     accessGate: open
     sha256: 2481559e9cb01c2f38f424610a7c1ae74ea40a6b5ffd5eec912cfa4795decfa1
   - jurisdiction: US-SC
     path: US-SC/US-SC-sclhl-2026.txt
-    publisher: 'South Carolina Bar (Lawyers Helping Lawyers)'
+    publisher: "South Carolina Bar (Lawyers Helping Lawyers)"
     sourceUrl: https://www.scbar.org/for-lawyers/membership/member-benefits/lawyers-helping-lawyers/
     accessedOn: 2026-07-02
     accessGate: open
     sha256: c8da025bc094ed73a38c0d86f8d20d1a93765f30ebd56b531b2001c72f6c69ea
   - jurisdiction: US-TN
     path: US-TN/US-TN-tlap-2026.txt
-    publisher: 'Tennessee Supreme Court / Administrative Office of the Courts (TLAP)'
+    publisher: "Tennessee Supreme Court / Administrative Office of the Courts (TLAP)"
     sourceUrl: https://www.tncourts.gov/press/2020/03/23/tennessee-lawyers-assistance-program-ready-assist-attorneys-need
     accessedOn: 2026-07-02
     accessGate: open
     sha256: 502a8f082affad8ec4d3573f98313ac91aecb4000403c82b27a7271e00a4613d
   - jurisdiction: US-UT
     path: US-UT/US-UT-lhl-tava-2026.txt
-    publisher: 'Utah State Bar (Lawyers Helping Lawyers + Tava Mental Health)'
+    publisher: "Utah State Bar (Lawyers Helping Lawyers + Tava Mental Health)"
     sourceUrl: https://www.utahbar.org/member-services/lawyers-helping-lawyers/
     accessedOn: 2026-07-02
     accessGate: open
     sha256: 170d96c2c0e3acca5a1f09d0dc27fdbb60e15dd8db8e7ea18b8f9eff95e9b9b9
   - jurisdiction: US-VA
     path: US-VA/US-VA-vjlap-2026.txt
-    publisher: 'Virginia Judges and Lawyers Assistance Program (via VA CLE)'
+    publisher: "Virginia Judges and Lawyers Assistance Program (via VA CLE)"
     sourceUrl: https://www.vacle.org/lawyers-helping-lawyers/
     accessedOn: 2026-07-02
     accessGate: open
     sha256: 7d6be369402a37531f647692a8d2bd440c37083eb30eff598a729173d40ce5f9
   - jurisdiction: US-VI
     path: US-VI/US-VI-lap-committee-2026.txt
-    publisher: 'Virgin Islands Bar Association'
+    publisher: "Virgin Islands Bar Association"
     sourceUrl: https://www.usvibar.org/page/Committees
     accessedOn: 2026-07-02
     accessGate: open
     sha256: 9c75abd78914dfab6c0669b7535108aa58a01e1ee26670a602de586e367f6c71
   - jurisdiction: US-VT
     path: US-VT/US-VT-lap-2026.txt
-    publisher: 'Vermont Bar Association attorney-wellness page (VT LAP + Bar Counsel)'
+    publisher: "Vermont Bar Association attorney-wellness page (VT LAP + Bar Counsel)"
     sourceUrl: https://www.vtbar.org/attorney-well-being/
     accessedOn: 2026-07-02
     accessGate: open
     sha256: cea93b5dd1777d383d849d5a8f496a6b8801736a50d71cc3f51f5b611eb449fd
   - jurisdiction: US-WA
     path: US-WA/US-WA-wsba-wellness-2026.txt
-    publisher: 'Washington State Bar Association (Member Wellness Program)'
+    publisher: "Washington State Bar Association (Member Wellness Program)"
     sourceUrl: https://www.wsba.org/for-legal-professionals/member-support/wellness
     accessedOn: 2026-07-02
     accessGate: open
     sha256: eaa5d09aab8b146840366e391631e69065b07d92683fcfa782e8e461f8e4089a
   - jurisdiction: US-WI
     path: US-WI/US-WI-wislap-2026.txt
-    publisher: 'State Bar of Wisconsin (Wisconsin Lawyers Assistance Program)'
+    publisher: "State Bar of Wisconsin (Wisconsin Lawyers Assistance Program)"
     sourceUrl: https://www.wisbar.org/formembers/wislap/pages/lawyer-assistance-program.aspx
     accessedOn: 2026-07-02
     accessGate: open
     sha256: b7ebfe7329954f466fab0d958d52d61e5b74c2d841c0e38e60127e098464d299
   - jurisdiction: US-WV
     path: US-WV/US-WV-wvjlap-2026.txt
-    publisher: 'Supreme Court of Appeals of West Virginia (WVJLAP)'
+    publisher: "Supreme Court of Appeals of West Virginia (WVJLAP)"
     sourceUrl: https://wvjlap.org/
     accessedOn: 2026-07-02
     accessGate: open

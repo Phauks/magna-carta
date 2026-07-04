@@ -18,7 +18,7 @@
 - **No process-doc references in source** (golden rule 13): no ADR/spec/phase citations in `.rs` files or committed report/manifest text. Explain reasoning inline.
 - **Build memory:** native builds on the dev machine can OOM. Build/test with `CARGO_BUILD_JOBS=1 CARGO_PROFILE_TEST_DEBUG=0 RUSTFLAGS="-C debuginfo=0"`.
 - **Corpus storage:** the large fetched corpus lives at `crates/pdf-eval/corpus-forms/` and is **gitignored**. Only the manifest (`corpus-forms.lock`) and the baseline (`validation-baseline.json`) are committed.
-- **Commits:** the repository owner performs all git commits. Each task below ends by *staging and describing* the commit; do not run `git commit` unless the owner directs it. Where a step shows a commit command, treat it as the message/scope to hand to the owner.
+- **Commits:** the repository owner performs all git commits. Each task below ends by _staging and describing_ the commit; do not run `git commit` unless the owner directs it. Where a step shows a commit command, treat it as the message/scope to hand to the owner.
 
 ---
 
@@ -42,12 +42,14 @@
 ### Task 1: Operation interface and outcome types
 
 **Files:**
+
 - Create: `crates/pdf-eval/src/validate/operation.rs`
 - Create: `crates/pdf-eval/src/validate/mod.rs`
 - Modify: `crates/pdf-eval/src/main.rs` (add `mod validate;` near the other module/use lines, top of file)
 - Modify: `crates/pdf-eval/Cargo.toml` (add serde/serde_json)
 
 **Interfaces:**
+
 - Produces:
   - `enum Outcome { Success{variant:String}, Fallback{reason:String}, Skipped{reason:String}, Error{detail:String}, Panicked{detail:String}, TimedOut }` (derives `Debug, Clone, PartialEq, serde::Serialize`)
   - `enum Safety { Upheld, Violated{detail:String}, NotApplicable }` (same derives)
@@ -173,11 +175,13 @@ git add crates/pdf-eval/src/validate/ crates/pdf-eval/src/main.rs crates/pdf-eva
 ### Task 2: Corpus manifest parser
 
 **Files:**
+
 - Create: `crates/pdf-eval/src/validate/corpus.rs`
 - Create: `crates/pdf-eval/corpus-forms.lock`
 - Modify: `crates/pdf-eval/src/validate/mod.rs` (add `pub mod corpus;`)
 
 **Interfaces:**
+
 - Consumes: nothing.
 - Produces:
   - `struct ManifestEntry { filename: String, url: String, license: String }`
@@ -302,12 +306,14 @@ git add crates/pdf-eval/src/validate/corpus.rs crates/pdf-eval/src/validate/mod.
 ### Task 3: Corpus fetch (feature-gated) + gitignore
 
 **Files:**
+
 - Modify: `crates/pdf-eval/src/validate/corpus.rs` (append feature-gated fetch)
 - Modify: `crates/pdf-eval/Cargo.toml` (optional reqwest + `corpus-fetch` feature)
 - Modify: `crates/pdf-eval/src/main.rs` (add `corpus-fetch` dispatch arm)
 - Modify: repo `.gitignore` (ignore `crates/pdf-eval/corpus-forms/`)
 
 **Interfaces:**
+
 - Consumes: `ManifestEntry`, `missing_documents` (Task 2).
 - Produces: `#[cfg(feature = "corpus-fetch")] fn fetch_missing(entries: &[ManifestEntry], dir: &Path) -> std::io::Result<usize>` — downloads absent files into `dir`, returns count fetched.
 
@@ -424,15 +430,18 @@ git add crates/pdf-eval/Cargo.toml crates/pdf-eval/src/validate/corpus.rs crates
 ### Task 4: Forms operation plug-in
 
 **Files:**
+
 - Create: `crates/pdf-eval/src/validate/operations/mod.rs`
 - Create: `crates/pdf-eval/src/validate/operations/forms.rs`
 - Modify: `crates/pdf-eval/src/validate/mod.rs` (add `pub mod operations;`)
 
 **Interfaces:**
+
 - Consumes: `Outcome`, `Safety`, `OperationVerdict`, `ValidationOperation` (Task 1); `pdf_core::{read_form, fill_form, flatten_form, FieldKind, FieldValue, FormFillOptions, FormError, Document}`.
 - Produces: `struct FormsOperation;` implementing `ValidationOperation` with `name() == "forms"`.
 
 Behavior of `run`:
+
 1. `read_form(bytes)` → `Err` ⇒ `Outcome::Error`. `Ok(fields)` with no text fields ⇒ `Outcome::Skipped{reason:"no fillable text field"}`.
 2. Build `values: BTreeMap<String, FieldValue>` mapping each non-read-only `FieldKind::Text` field name → `FieldValue::Text("VALIDATION_PROBE".into())`.
 3. `fill_form(bytes, &values, &FormFillOptions{flatten:false})` → `Err(NoAcroForm)` ⇒ `Skipped`; other `Err` ⇒ `Error`; `Ok(filled)` ⇒ continue.
@@ -629,11 +638,13 @@ git add crates/pdf-eval/src/validate/operations/ crates/pdf-eval/src/validate/mo
 ### Task 5: Runner — panic and timeout isolation
 
 **Files:**
+
 - Create: `crates/pdf-eval/src/validate/runner.rs`
 - Create: `crates/pdf-eval/src/validate/report.rs` (only the `DocumentReport` struct in this task; the summary/diff come in Tasks 6–7)
 - Modify: `crates/pdf-eval/src/validate/mod.rs` (add `pub mod runner;`, `pub mod report;`)
 
 **Interfaces:**
+
 - Consumes: `ValidationOperation`, `Outcome`, `Safety` (Task 1).
 - Produces:
   - `struct DocumentReport { document: String, operation: String, outcome: Outcome, safety: Safety }` (derives `Debug, Clone, serde::Serialize`) in `report.rs`.
@@ -809,9 +820,11 @@ git add crates/pdf-eval/src/validate/runner.rs crates/pdf-eval/src/validate/repo
 ### Task 6: Summary aggregation + JSONL
 
 **Files:**
+
 - Modify: `crates/pdf-eval/src/validate/report.rs`
 
 **Interfaces:**
+
 - Consumes: `DocumentReport` (Task 5), `Outcome`, `Safety`.
 - Produces:
   - `struct Summary { total: usize, outcomes: BTreeMap<String,usize>, fallback_reasons: BTreeMap<String,usize>, panicked: Vec<String>, timed_out: Vec<String>, safety_violations: Vec<String> }` (derives `Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize`).
@@ -940,10 +953,12 @@ git add crates/pdf-eval/src/validate/report.rs
 ### Task 7: Regression baseline + diff
 
 **Files:**
+
 - Modify: `crates/pdf-eval/src/validate/report.rs` (append diff)
 - Create: `crates/pdf-eval/validation-baseline.json` (created from a real run in Task 8; a placeholder-free stub is committed here and refreshed)
 
 **Interfaces:**
+
 - Consumes: `Summary` (Task 6).
 - Produces:
   - `struct Regression { kind: String, detail: String }`
@@ -1037,11 +1052,13 @@ git add crates/pdf-eval/src/validate/report.rs
 ### Task 8: `validate` mode — wire corpus → runner → report → baseline
 
 **Files:**
+
 - Modify: `crates/pdf-eval/src/validate/mod.rs` (add `validate_mode`)
 - Modify: `crates/pdf-eval/src/main.rs` (dispatch `validate`)
 - Create: `crates/pdf-eval/validation-baseline.json` (generated, then committed)
 
 **Interfaces:**
+
 - Consumes: everything above.
 - Produces: `pub fn validate_mode(dir: String)` and the `validate` CLI arm.
 
