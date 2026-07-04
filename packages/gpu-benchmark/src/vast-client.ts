@@ -30,6 +30,7 @@ export interface VastInstanceHandle {
 
 export interface VastInstanceStatus {
   readonly status: string;
+  readonly statusMsg: string | null;
   readonly sshHost: string | null;
   readonly sshPort: number | null;
 }
@@ -50,6 +51,12 @@ export interface VastClient {
   getInstance(instanceId: number): Promise<VastInstanceStatus>;
   listInstances(): Promise<VastInstanceSummary[]>;
   destroyInstance(instanceId: number): Promise<void>;
+  /**
+   * Requests a fresh capture of a rented instance's stdout/stderr and returns the S3 URL vast.ai
+   * hands back to fetch that capture's text from — the collection path the benchmark harness uses
+   * instead of SSH.
+   */
+  requestLogsUrl(instanceId: number): Promise<string>;
 }
 
 /**
@@ -88,6 +95,7 @@ const createInstanceResponseSchema = z.object({
 const vastInstanceWireSchema = z.object({
   id: z.number(),
   actual_status: z.string().nullish(),
+  status_msg: z.string().nullish(),
   ssh_host: z.string().nullish(),
   ssh_port: z.number().nullish(),
   label: z.string().nullish(),
@@ -95,6 +103,10 @@ const vastInstanceWireSchema = z.object({
 
 const listInstancesResponseSchema = z.object({
   instances: z.array(vastInstanceWireSchema),
+});
+
+const requestLogsResponseSchema = z.object({
+  result_url: z.string(),
 });
 
 function toVastOffer(wire: z.infer<typeof vastOfferWireSchema>): VastOffer {
@@ -167,6 +179,7 @@ export function createVastClient(apiKey: string, fetchImpl: typeof fetch = fetch
       }
       return {
         status: found.actual_status ?? "unknown",
+        statusMsg: found.status_msg ?? null,
         sshHost: found.ssh_host ?? null,
         sshPort: found.ssh_port ?? null,
       };
@@ -182,7 +195,9 @@ export function createVastClient(apiKey: string, fetchImpl: typeof fetch = fetch
     },
 
     async destroyInstance(instanceId) {
-      const path = `/api/v1/instances/${instanceId}/`;
+      // v0, not v1 — confirmed live: `DELETE /api/v1/instances/{id}/` silently returns "Not
+      // found" without destroying the instance, which would otherwise leak billing.
+      const path = `/api/v0/instances/${instanceId}/`;
       const response = await fetchImpl(`${BASE_URL}${path}`, {
         method: "DELETE",
         headers: {
@@ -193,6 +208,14 @@ export function createVastClient(apiKey: string, fetchImpl: typeof fetch = fetch
       throw new VastApiError(
         `vast.ai request to DELETE ${path} failed with status ${response.status}`,
       );
+    },
+
+    async requestLogsUrl(instanceId) {
+      const raw = await requestJson(`/api/v0/instances/request_logs/${instanceId}/`, "PUT", {
+        tail: "600",
+      });
+      const parsed = requestLogsResponseSchema.parse(raw);
+      return parsed.result_url;
     },
   };
 }

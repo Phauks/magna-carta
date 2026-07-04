@@ -94,10 +94,35 @@ describe("vast-client", () => {
       }),
     );
     const status = await createVastClient("KEY", fetchImpl).getInstance(777);
-    expect(status).toEqual({ status: "running", sshHost: "1.2.3.4", sshPort: 22222 });
+    expect(status).toEqual({
+      status: "running",
+      statusMsg: null,
+      sshHost: "1.2.3.4",
+      sshPort: 22222,
+    });
     expect(fetchImpl).toHaveBeenCalledWith(
       "https://console.vast.ai/api/v1/instances/",
       expect.objectContaining({ method: "GET" }),
+    );
+  });
+
+  it("maps a failed instance's status_msg", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      jsonResponse({
+        instances: [
+          {
+            id: 777,
+            actual_status: "exited",
+            status_msg: "OCI runtime create failed: unable to start container process",
+            ssh_host: null,
+            ssh_port: null,
+          },
+        ],
+      }),
+    );
+    const status = await createVastClient("KEY", fetchImpl).getInstance(777);
+    expect(status.statusMsg).toBe(
+      "OCI runtime create failed: unable to start container process",
     );
   });
 
@@ -110,7 +135,16 @@ describe("vast-client", () => {
     const fetchImpl = vi.fn().mockResolvedValue(new Response("", { status: 404 }));
     await expect(createVastClient("KEY", fetchImpl).destroyInstance(777)).resolves.toBeUndefined();
     expect(fetchImpl).toHaveBeenCalledWith(
-      "https://console.vast.ai/api/v1/instances/777/",
+      "https://console.vast.ai/api/v0/instances/777/",
+      expect.objectContaining({ method: "DELETE" }),
+    );
+  });
+
+  it("destroyInstance calls the v0 endpoint, not v1 (v1 silently returns Not found without destroying)", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(new Response("", { status: 200 }));
+    await createVastClient("KEY", fetchImpl).destroyInstance(42);
+    expect(fetchImpl).toHaveBeenCalledWith(
+      "https://console.vast.ai/api/v0/instances/42/",
       expect.objectContaining({ method: "DELETE" }),
     );
   });
@@ -141,5 +175,20 @@ describe("vast-client", () => {
     } catch (error) {
       expect((error as Error).message).not.toContain("SECRETKEY");
     }
+  });
+
+  it("requestLogsUrl PUTs to request_logs with a tail and returns the S3 result_url", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      jsonResponse({ result_url: "https://s3.example.com/logs/777.txt" }),
+    );
+    const url = await createVastClient("KEY", fetchImpl).requestLogsUrl(777);
+    expect(url).toBe("https://s3.example.com/logs/777.txt");
+    expect(fetchImpl).toHaveBeenCalledWith(
+      "https://console.vast.ai/api/v0/instances/request_logs/777/",
+      expect.objectContaining({
+        method: "PUT",
+        body: JSON.stringify({ tail: "600" }),
+      }),
+    );
   });
 });
