@@ -18,6 +18,11 @@ export interface BenchmarkOneRigDeps {
   readonly want: RigShape;
   readonly now: () => string;
   readonly onstart: string;
+  // The vast.ai geolocation country component(s) to restrict rigs to (e.g. `["US"]`). Data-residency
+  // seam: the production rung derives this from the firm's `data_region` setting so a rented rig — and
+  // therefore the extracted hash — stays in the firm's jurisdiction, matching where its R2/database
+  // live. The benchmark CLI passes `["US"]`.
+  readonly geolocationCountries: readonly string[];
 }
 
 /**
@@ -122,6 +127,10 @@ export async function benchmarkOneRig(deps: BenchmarkOneRigDeps): Promise<RigPro
     // The query filter field is `verified` (bool); the response field vast.ai returns per
     // offer is `verification` (a string) — see vast-client.ts's wire-schema mapping.
     verified: { eq: true },
+    // Data residency: the rig (and thus the extracted hash) stays in the caller's region. vast.ai's
+    // geolocation reads e.g. "California, US"; the `in` filter matches the country component.
+    // (Verified live: `["US"]` returns US offers only.)
+    geolocation: { in: [...deps.geolocationCountries] },
     limit: 64,
     order: [["dph_total", "asc"]],
   });

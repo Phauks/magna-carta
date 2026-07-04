@@ -13,7 +13,10 @@ import { createVastClient, type VastClient } from "./vast-client.ts";
  * custom image, build, or registry needed. `--image <ref>` overrides this for a one-off run
  * against a different image.
  */
-export const DEFAULT_BENCHMARK_IMAGE = "dizcza/docker-hashcat:latest";
+// Explicit CUDA tag rather than `:latest` — a specific tag avoids `:latest` ambiguity, and a host
+// that cannot pull it (e.g. Docker Hub anonymous rate-limits, which surface as a "failed to resolve
+// reference" / "not found" daemon error) is failed and retried on the next offer by the run driver.
+export const DEFAULT_BENCHMARK_IMAGE = "dizcza/docker-hashcat:cuda";
 
 /**
  * The command each rented instance runs on boot: prints the rig's GPU facts, then runs `hashcat
@@ -160,6 +163,10 @@ export async function main(argv: string[]): Promise<void> {
           want,
           now: () => new Date().toISOString(),
           onstart: BENCHMARK_ONSTART_COMMAND,
+          // The benchmark measures hardware and has no firm context, so it defaults to US. The
+          // production rung derives this from the firm's data_region setting (us -> ["US"],
+          // eu -> the EU country set) so the rig follows the firm's jurisdiction.
+          geolocationCountries: ["US"],
         });
         profilesFile = {
           generatedAt: new Date().toISOString(),

@@ -46,6 +46,7 @@ describe("benchmarkOneRig", () => {
       want: { gpuName: "RTX_4090", gpuCount: 1 },
       now: () => "2026-07-03T00:00:00Z",
       onstart: "test-onstart",
+      geolocationCountries: ["US"],
     });
     expect(profile.dollarsPerHour).toBe(0.4);
     expect(profile.gpuName).toBe("RTX_4090");
@@ -73,6 +74,7 @@ describe("benchmarkOneRig", () => {
         want: { gpuName: "RTX_4090", gpuCount: 1 },
         now: () => "t",
         onstart: "test-onstart",
+      geolocationCountries: ["US"],
       }),
     ).rejects.toThrow("ssh died");
     expect(client.destroyInstance).toHaveBeenCalledWith(777);
@@ -88,6 +90,7 @@ describe("benchmarkOneRig", () => {
         want: { gpuName: "RTX_4090", gpuCount: 1 },
         now: () => "t",
         onstart: "test-onstart",
+      geolocationCountries: ["US"],
       }),
     ).rejects.toThrow(/no verified offer/i);
     expect(client.createInstance).not.toHaveBeenCalled();
@@ -109,6 +112,7 @@ describe("benchmarkOneRig", () => {
         want: { gpuName: "RTX_4090", gpuCount: 1 },
         now: () => "t",
         onstart: "test-onstart",
+      geolocationCountries: ["US"],
       });
       const assertion = expect(result).rejects.toThrow(/running/i);
       await vi.runAllTimersAsync();
@@ -181,6 +185,7 @@ describe("benchmarkOneRig", () => {
       want: { gpuName: "RTX_4090", gpuCount: 1 },
       now: () => "t",
       onstart: "test-onstart",
+      geolocationCountries: ["US"],
     });
 
     // The winning (second, next-cheapest) offer's price is what gets recorded.
@@ -241,6 +246,7 @@ describe("benchmarkOneRig", () => {
         want: { gpuName: "RTX_4090", gpuCount: 1 },
         now: () => "t",
         onstart: "test-onstart",
+      geolocationCountries: ["US"],
       }),
     ).rejects.toThrow(/every offer tried/i);
     expect(destroyInstance).toHaveBeenCalledWith(1);
