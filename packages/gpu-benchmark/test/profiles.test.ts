@@ -20,6 +20,7 @@ describe("profiles", () => {
     const t1 = upsertProfile([], rig("RTX_4090", 0.4, 1000));
     const t2 = upsertProfile(t1, rig("RTX_4090", 0.5, 2000));
     expect(t2).toHaveLength(1);
-    expect(t2[0].dollarsPerHour).toBe(0.5);
+    const [first] = t2;
+    expect(first?.dollarsPerHour).toBe(0.5);
   });
 });

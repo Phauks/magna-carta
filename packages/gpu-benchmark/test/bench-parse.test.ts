@@ -12,7 +12,8 @@ describe("bench-parse", () => {
       gpuName: "RTX_4090", gpuCount: 1, gpuRamMegabytes: 24576,
       throughput: [{ hashcatMode: 9600, hashesPerSecond: 68356 }],
     });
-    expect(parseBenchmarkJson(raw).throughput[0].hashesPerSecond).toBe(68356);
+    const [first] = parseBenchmarkJson(raw).throughput;
+    expect(first?.hashesPerSecond).toBe(68356);
   });
   it("throws on malformed input, never partial", () => {
     expect(() => parseBenchmarkJson("{not json")).toThrow(BenchmarkParseError);
