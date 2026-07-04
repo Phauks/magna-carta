@@ -107,20 +107,24 @@ export default defineConfig({
       "typecheck-refs": {
         command: "node tooling/tsconfig-refs/index.mjs",
       },
-      // Build the pdf-core WASM artefact into packages/pdf/src/pkg — IN A PINNED RUST DOCKER IMAGE
-      // (crates/pdf-core/wasm.Dockerfile, mirroring containers/scan/Dockerfile), never on the host
+      // Build the WASM artefacts the app-worker build consumes — pdf-core into packages/pdf/src/pkg
+      // and decryption-core into packages/decryption/src/pkg — EACH IN A PINNED RUST DOCKER IMAGE
+      // (crates/<crate>/wasm.Dockerfile, mirroring containers/scan/Dockerfile), never on the host
       // toolchain. This is the one canonical wasm build, invoked identically in local builds and in
       // Cloudflare Workers Builds: the build environment needs only Docker (which the Workers Builds
       // runner provides — the same way the scan/bundle/convert container images build), never Rust or
       // wasm-pack on the bare machine. `--output type=local` exports exactly the wasm-pack output to
-      // the host package dir (the import path packages/pdf/src/index.ts expects). Build context is
-      // crates/. Like the container workers, this requires Docker available locally.
+      // each host package dir (the import paths packages/{pdf,decryption}/src expect). Both are built
+      // because build-all bundles both consumers: the SPA imports pdf-core, and apps/worker imports
+      // decryption-core (the decryption/recovery routes' strip_with_key/extract_hash/verify_guess) —
+      // omitting either makes the worker or SPA bundle fail with ENOENT on the missing .wasm. Build
+      // context is crates/. Like the container workers, this requires Docker available locally.
       // --network=host: the Workers Builds runner's Docker isolates RUN-step networking (image pulls
       // work, but RUN-step DNS fails), so the rustup/cargo downloads need the host network — which the
       // bare runner has (it clones the repo + runs pnpm install). Harmless locally.
       "rust-wasm-build": {
         command:
-          "docker build --network=host --output type=local,dest=packages/pdf/src/pkg -f crates/pdf-core/wasm.Dockerfile crates",
+          "docker build --network=host --output type=local,dest=packages/pdf/src/pkg -f crates/pdf-core/wasm.Dockerfile crates && docker build --network=host --output type=local,dest=packages/decryption/src/pkg -f crates/decryption-core/wasm.Dockerfile crates",
       },
       // The worker serves apps/web/build, so its build and dev both depend on the SPA build (cross-package package#task notation).
       // Named worker-build / worker-dev (not build / dev) so they do not collide with the root package.json build / dev scripts.
