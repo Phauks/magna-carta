@@ -52,10 +52,10 @@ describe("cli", () => {
   });
 
   it("selectTargets narrows to every shortlist entry matching the named GPU", () => {
-    const targets = selectTargets(BENCHMARK_SHORTLIST, "rtx_4090");
+    const targets = selectTargets(BENCHMARK_SHORTLIST, "rtx 4090");
     expect(targets.length).toBeGreaterThan(1);
     for (const target of targets) {
-      expect(target.gpuName).toBe("RTX_4090");
+      expect(target.gpuName).toBe("RTX 4090");
     }
   });
 

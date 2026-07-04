@@ -71,7 +71,10 @@ const vastOfferWireSchema = z.object({
   dph_total: z.number(),
   inet_down: z.number(),
   reliability: z.number(),
-  verified: z.boolean(),
+  // vast.ai's marketplace search does not return a `verified` boolean: it returns
+  // `verification`, a string that reads "verified" for a verified host. Some offers omit
+  // the field entirely, so it is tolerated as absent and treated as unverified.
+  verification: z.string().nullable().optional(),
 });
 
 const searchOffersResponseSchema = z.object({
@@ -103,7 +106,7 @@ function toVastOffer(wire: z.infer<typeof vastOfferWireSchema>): VastOffer {
     dollarsPerHour: wire.dph_total,
     internetDownMbps: wire.inet_down,
     reliability: wire.reliability,
-    verified: wire.verified,
+    verified: wire.verification === "verified",
   };
 }
 
@@ -136,12 +139,14 @@ export function createVastClient(apiKey: string, fetchImpl: typeof fetch = fetch
 
   return {
     async searchOffers(query) {
-      const raw = await requestJson("/api/v0/bundles/", "PUT", query);
+      const raw = await requestJson("/api/v0/bundles/", "POST", query);
       const parsed = searchOffersResponseSchema.parse(raw);
       return parsed.offers.map(toVastOffer);
     },
 
     async createInstance(offerId, params) {
+      // `PUT /api/v0/asks/{offerId}/` returning `new_contract` is confirmed live at the first
+      // real rent — unlike the other endpoints in this client, it was not stale.
       const raw = await requestJson(`/api/v0/asks/${offerId}/`, "PUT", {
         image: params.image,
         disk: params.diskGb,
@@ -154,7 +159,7 @@ export function createVastClient(apiKey: string, fetchImpl: typeof fetch = fetch
     },
 
     async getInstance(instanceId) {
-      const raw = await requestJson("/api/v0/instances/", "GET");
+      const raw = await requestJson("/api/v1/instances/", "GET");
       const parsed = listInstancesResponseSchema.parse(raw);
       const found = parsed.instances.find((instance) => instance.id === instanceId);
       if (found === undefined) {
@@ -168,7 +173,7 @@ export function createVastClient(apiKey: string, fetchImpl: typeof fetch = fetch
     },
 
     async listInstances() {
-      const raw = await requestJson("/api/v0/instances/", "GET");
+      const raw = await requestJson("/api/v1/instances/", "GET");
       const parsed = listInstancesResponseSchema.parse(raw);
       return parsed.instances.map((instance) => ({
         instanceId: instance.id,
@@ -177,7 +182,7 @@ export function createVastClient(apiKey: string, fetchImpl: typeof fetch = fetch
     },
 
     async destroyInstance(instanceId) {
-      const path = `/api/v0/instances/${instanceId}/`;
+      const path = `/api/v1/instances/${instanceId}/`;
       const response = await fetchImpl(`${BASE_URL}${path}`, {
         method: "DELETE",
         headers: {

@@ -18,11 +18,11 @@ export interface RigShape {
  * matrix. Extend deliberately, one rig at a time.
  */
 export const BENCHMARK_SHORTLIST: ReadonlyArray<RigShape> = [
-  { gpuName: "RTX_4090", gpuCount: 1 },
-  { gpuName: "RTX_4090", gpuCount: 2 },
-  { gpuName: "RTX_4090", gpuCount: 4 },
-  { gpuName: "H100_SXM", gpuCount: 1 },
-  { gpuName: "RTX_5090", gpuCount: 1 },
+  { gpuName: "RTX 4090", gpuCount: 1 },
+  { gpuName: "RTX 4090", gpuCount: 2 },
+  { gpuName: "RTX 4090", gpuCount: 4 },
+  { gpuName: "H100 SXM", gpuCount: 1 },
+  { gpuName: "RTX 5090", gpuCount: 1 },
 ];
 
 /**

@@ -80,10 +80,14 @@ async function pollUntilRunning(
  */
 export async function benchmarkOneRig(deps: BenchmarkOneRigDeps): Promise<RigProfile> {
   const offers = await deps.client.searchOffers({
-    gpu_name: deps.want.gpuName,
-    num_gpus: deps.want.gpuCount,
-    verified: true,
-    rentable: true,
+    gpu_name: { in: [deps.want.gpuName] },
+    num_gpus: { eq: deps.want.gpuCount },
+    rentable: { eq: true },
+    // The query filter field is `verified` (bool); the response field vast.ai returns per
+    // offer is `verification` (a string) — see vast-client.ts's wire-schema mapping.
+    verified: { eq: true },
+    limit: 64,
+    order: [["dph_total", "asc"]],
   });
   const offer = cheapestVerifiedOffer(offers, deps.want, MINIMUM_HOST_RELIABILITY);
   if (offer === null) {

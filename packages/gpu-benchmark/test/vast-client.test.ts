@@ -4,19 +4,19 @@ import { createVastClient } from "../src/vast-client.ts";
 const jsonResponse = (body: unknown) => new Response(JSON.stringify(body), { status: 200 });
 
 describe("vast-client", () => {
-  it("maps offer wire fields to full names", async () => {
+  it("maps offer wire fields to full names, deriving verified from the verification string", async () => {
     const fetchImpl = vi.fn().mockResolvedValue(
       jsonResponse({
         offers: [
           {
             id: 42,
-            gpu_name: "RTX_4090",
+            gpu_name: "RTX 4090",
             num_gpus: 1,
             gpu_ram: 24576,
             dph_total: 0.4,
             inet_down: 900,
             reliability: 0.99,
-            verified: true,
+            verification: "verified",
           },
         ],
       }),
@@ -25,7 +25,7 @@ describe("vast-client", () => {
     const [first] = offers;
     expect(first).toMatchObject({
       offerId: 42,
-      gpuName: "RTX_4090",
+      gpuName: "RTX 4090",
       gpuCount: 1,
       gpuRamMegabytes: 24576,
       dollarsPerHour: 0.4,
@@ -35,15 +35,36 @@ describe("vast-client", () => {
     });
   });
 
-  it("sends the query body and bearer auth header to the bundles endpoint", async () => {
+  it("derives verified as false when the verification string is not 'verified'", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      jsonResponse({
+        offers: [
+          {
+            id: 43,
+            gpu_name: "RTX 4090",
+            num_gpus: 1,
+            gpu_ram: 24576,
+            dph_total: 0.4,
+            inet_down: 900,
+            reliability: 0.99,
+            verification: "unverified",
+          },
+        ],
+      }),
+    );
+    const [first] = await createVastClient("KEY", fetchImpl).searchOffers({});
+    expect(first?.verified).toBe(false);
+  });
+
+  it("sends the query body via POST and the bearer auth header to the bundles endpoint", async () => {
     const fetchImpl = vi.fn().mockResolvedValue(jsonResponse({ offers: [] }));
-    await createVastClient("KEY", fetchImpl).searchOffers({ gpu_name: "RTX_4090" });
+    await createVastClient("KEY", fetchImpl).searchOffers({ gpu_name: { in: ["RTX 4090"] } });
     expect(fetchImpl).toHaveBeenCalledWith(
       "https://console.vast.ai/api/v0/bundles/",
       expect.objectContaining({
-        method: "PUT",
+        method: "POST",
         headers: expect.objectContaining({ Authorization: "Bearer KEY" }),
-        body: JSON.stringify({ gpu_name: "RTX_4090" }),
+        body: JSON.stringify({ gpu_name: { in: ["RTX 4090"] } }),
       }),
     );
   });
@@ -74,6 +95,10 @@ describe("vast-client", () => {
     );
     const status = await createVastClient("KEY", fetchImpl).getInstance(777);
     expect(status).toEqual({ status: "running", sshHost: "1.2.3.4", sshPort: 22222 });
+    expect(fetchImpl).toHaveBeenCalledWith(
+      "https://console.vast.ai/api/v1/instances/",
+      expect.objectContaining({ method: "GET" }),
+    );
   });
 
   it("throws when getInstance cannot find the id in the list", async () => {
@@ -85,7 +110,7 @@ describe("vast-client", () => {
     const fetchImpl = vi.fn().mockResolvedValue(new Response("", { status: 404 }));
     await expect(createVastClient("KEY", fetchImpl).destroyInstance(777)).resolves.toBeUndefined();
     expect(fetchImpl).toHaveBeenCalledWith(
-      "https://console.vast.ai/api/v0/instances/777/",
+      "https://console.vast.ai/api/v1/instances/777/",
       expect.objectContaining({ method: "DELETE" }),
     );
   });

@@ -4,7 +4,7 @@ import type { VastOffer } from "../src/vast-client.ts";
 
 const offer = (o: Partial<VastOffer>): VastOffer => ({
   offerId: 1,
-  gpuName: "RTX_4090",
+  gpuName: "RTX 4090",
   gpuCount: 1,
   gpuRamMegabytes: 24576,
   dollarsPerHour: 0.4,
@@ -16,10 +16,10 @@ const offer = (o: Partial<VastOffer>): VastOffer => ({
 
 describe("offer-filter", () => {
   it("shortlist is 4090-centric with a datacenter comparison", () => {
-    expect(BENCHMARK_SHORTLIST.some((s) => s.gpuName === "RTX_4090" && s.gpuCount === 1)).toBe(
+    expect(BENCHMARK_SHORTLIST.some((s) => s.gpuName === "RTX 4090" && s.gpuCount === 1)).toBe(
       true,
     );
-    expect(BENCHMARK_SHORTLIST.some((s) => s.gpuName === "H100_SXM")).toBe(true);
+    expect(BENCHMARK_SHORTLIST.some((s) => s.gpuName === "H100 SXM")).toBe(true);
   });
   it("picks cheapest verified reliable match", () => {
     const chosen = cheapestVerifiedOffer(
@@ -28,7 +28,7 @@ describe("offer-filter", () => {
         offer({ offerId: 2, dollarsPerHour: 0.3 }),
         offer({ offerId: 3, verified: false, dollarsPerHour: 0.1 }),
       ],
-      { gpuName: "RTX_4090", gpuCount: 1 },
+      { gpuName: "RTX 4090", gpuCount: 1 },
       0.95,
     );
     expect(chosen?.offerId).toBe(2);
@@ -37,7 +37,7 @@ describe("offer-filter", () => {
     expect(
       cheapestVerifiedOffer(
         [offer({ reliability: 0.5 })],
-        { gpuName: "RTX_4090", gpuCount: 1 },
+        { gpuName: "RTX 4090", gpuCount: 1 },
         0.95,
       ),
     ).toBeNull();
