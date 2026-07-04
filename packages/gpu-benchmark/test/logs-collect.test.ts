@@ -54,6 +54,29 @@ describe("collectViaLogs", () => {
     expect(fetchImpl).toHaveBeenCalledTimes(3);
   });
 
+  it("waits for the upload to settle before fetching — never fetches back-to-back with the request", async () => {
+    // Regression guard for the live 403 bug: vast.ai uploads the capture asynchronously, so a GET
+    // issued immediately after requestLogsUrl races the upload and 403s. There must be a settle
+    // delay between requesting the capture and fetching it.
+    vi.useFakeTimers();
+    const requestLogsUrl = vi.fn(async () => S3_URL);
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(new Response("BENCH_BEGIN\nBENCH_END", { status: 200 }));
+    vi.stubGlobal("fetch", fetchImpl);
+
+    const promise = collectViaLogs(clientReturningUrl(S3_URL, requestLogsUrl), 777);
+
+    // Flush microtasks so requestLogsUrl resolves, but do NOT advance the settle timer.
+    await vi.advanceTimersByTimeAsync(0);
+    expect(requestLogsUrl).toHaveBeenCalledTimes(1);
+    expect(fetchImpl).not.toHaveBeenCalled(); // settle window not elapsed → no fetch yet
+
+    await vi.runAllTimersAsync();
+    await promise;
+    expect(fetchImpl).toHaveBeenCalled(); // after the settle window → fetched
+  });
+
   it("times out (never abandons early) and leaks neither the signed URL nor a key into the error", async () => {
     vi.useFakeTimers();
     const fetchImpl = vi

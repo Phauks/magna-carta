@@ -10,6 +10,16 @@ import type { VastClient } from "./vast-client.ts";
 const MAX_LOG_POLL_ATTEMPTS = 15;
 const LOG_POLL_INTERVAL_MILLISECONDS = 15000;
 
+/**
+ * How long to wait between asking vast.ai to capture the instance's stdout (`requestLogsUrl`, a
+ * `PUT`) and fetching the resulting S3 object. vast.ai uploads the capture **asynchronously**, so
+ * a `GET` issued immediately after the request races the upload and returns 403 (S3 AccessDenied
+ * on a not-yet-existent object). Confirmed live: with no delay every fetch 403s; vast.ai's own
+ * guidance is to wait for logs to become available after requesting them. This settle window,
+ * inside the bounded poll loop, is what lets the fetch land after the upload completes.
+ */
+const LOG_UPLOAD_SETTLE_MILLISECONDS = 8000;
+
 /** The onstart command's final echo (see cli.ts's `BENCHMARK_ONSTART_COMMAND`) — its presence in the collected log means the benchmark ran to completion. */
 const COMPLETION_MARKER = "BENCH_END";
 
@@ -56,14 +66,18 @@ export const collectViaLogs: CollectFn = async (
   for (let attempt = 0; attempt < MAX_LOG_POLL_ATTEMPTS; attempt++) {
     try {
       const resultUrl = await client.requestLogsUrl(instanceId);
+      // Let vast.ai finish uploading the freshly-requested capture to S3 before fetching it —
+      // fetching immediately races the async upload and 403s every time (see
+      // LOG_UPLOAD_SETTLE_MILLISECONDS). A fresh capture is requested each iteration so the fetched
+      // log reflects the benchmark's latest progress, not a stale snapshot from before it finished.
+      await sleep(LOG_UPLOAD_SETTLE_MILLISECONDS);
       const text = await fetchText(resultUrl);
       if (text.includes(COMPLETION_MARKER)) return text;
     } catch (error) {
-      // vast.ai populates the logs capture asynchronously: before the S3 object exists the
-      // request-logs call or the fetch commonly returns 404/403 (and can 5xx transiently). That
-      // is "not ready yet", not a dead rig — swallow it and keep polling within the bounded
-      // budget rather than discarding an otherwise-healthy rented instance (which would force
-      // benchmarkOneRig to re-rent a fresh offer and burn money for nothing).
+      // Any residual transient failure (a slower-than-usual upload, a 5xx) is "not ready yet", not
+      // a dead rig — swallow it and keep polling within the bounded budget rather than discarding
+      // an otherwise-healthy rented instance (which would force benchmarkOneRig to re-rent a fresh
+      // offer and burn money for nothing).
       lastError = error;
     }
     if (attempt < MAX_LOG_POLL_ATTEMPTS - 1) {
