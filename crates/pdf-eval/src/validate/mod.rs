@@ -36,6 +36,7 @@ pub fn corpus_fetch_mode() {
 }
 
 use crate::validate::operations::forms::FormsOperation;
+use crate::validate::operations::surgery::SurgeryOperation;
 use crate::validate::report::{diff_baseline, summarize, write_jsonl, DocumentReport, Summary};
 use crate::validate::runner::run_document;
 use std::path::Path;
@@ -45,7 +46,8 @@ use std::time::Duration;
 /// Run every phase-1 operation over each PDF in `dir`, write a JSONL report, print a
 /// summary, and diff against the committed baseline. Exit code 1 on any regression.
 pub fn validate_mode(dir: String) {
-    let operations: Vec<Arc<dyn operation::ValidationOperation>> = vec![Arc::new(FormsOperation)];
+    let operations: Vec<Arc<dyn operation::ValidationOperation>> =
+        vec![Arc::new(FormsOperation), Arc::new(SurgeryOperation)];
     let timeout = Duration::from_secs(10);
 
     let mut reports: Vec<DocumentReport> = Vec::new();
