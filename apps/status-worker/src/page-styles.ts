@@ -6,8 +6,13 @@
 // This worker deliberately does not import the token pipeline (or any package beyond
 // @magna-carta/status) — fate isolation outweighs automatic palette sync, so a token change must
 // be re-copied here by hand. The values drift rarely; the isolation matters daily.
-export const PAGE_CSS = `
-:root {
+//
+// Scheme handling is CSS-first: readers without JavaScript get their system scheme via
+// prefers-color-scheme; the toggle (a small inline enhancement) overrides it by stamping
+// data-scheme on the root element, which must win in both directions.
+
+const LIGHT_VARIABLES = `
+  color-scheme: light;
   --paper: #faf9f5;
   --card: #ffffff;
   --sunken: #f2f0ea;
@@ -18,25 +23,72 @@ export const PAGE_CSS = `
   --gold: #c7a857;
   --gold-deep: #8a7434;
   --gold-wash: #fbf6e9;
+  /* On light paper the brand glyph needs the deep gold for contrast; the app's chrome shows the
+     bright accent on dark ink, which the dark scheme restores below. */
+  --brand-gold: #8a7434;
 
   --hair: rgba(35, 33, 26, 0.13);
   --hair-strong: rgba(35, 33, 26, 0.26);
 
   --ok-fg: #3d6b4f;
   --ok-bg: #eaf2ec;
-  --ok-band: #41724f;
   --warn-fg: #8a6a2f;
   --warn-bg: #f7efdc;
-  --warn-band: #9a763a;
   --danger-fg: #8f3d33;
   --danger-bg: #f7e7e3;
-  --danger-band: #93483d;
   --neutral-fg: #5d5a50;
   --neutral-bg: #eeede7;
+`;
+
+// Dark paper is the app's chrome ink; status foregrounds lighten to hold contrast, washes become
+// deep tints. The verdict-band backgrounds stay the same saturated mid-tones in both schemes —
+// they are the page's one-second read and they carry on light and dark paper alike.
+const DARK_VARIABLES = `
+  color-scheme: dark;
+  --paper: #191813;
+  --card: #23221b;
+  --sunken: #14130f;
+  --text: #e9e7df;
+  --muted: #a5a08c;
+  --subtle: #7d7968;
+
+  --gold: #c7a857;
+  --gold-deep: #c7a857;
+  --gold-wash: #2e2a1c;
+  --brand-gold: #e2c476;
+
+  --hair: rgba(233, 231, 223, 0.12);
+  --hair-strong: rgba(233, 231, 223, 0.26);
+
+  --ok-fg: #85b394;
+  --ok-bg: #223226;
+  --warn-fg: #cfa964;
+  --warn-bg: #332c1a;
+  --danger-fg: #d08276;
+  --danger-bg: #392019;
+  --neutral-fg: #a5a08c;
+  --neutral-bg: #2a2921;
+`;
+
+export const PAGE_CSS = `
+:root {
+${LIGHT_VARIABLES}
+  --ok-band: #41724f;
+  --warn-band: #9a763a;
+  --danger-band: #93483d;
+  --gilt-band: #8a7434;
 
   --serif: Georgia, "Times New Roman", serif;
   --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+:root[data-scheme="dark"] {
+${DARK_VARIABLES}
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-scheme="light"]) {
+${DARK_VARIABLES}
+  }
 }
 * { margin: 0; box-sizing: border-box; }
 body {
@@ -66,27 +118,67 @@ a { color: inherit; }
   .col { padding-left: 18px; padding-right: 18px; }
 }
 
-/* top bar — quiet brand, serif wordmark mark only */
+/* top bar — the app's brand lockup (inline-SVG glyph + letterspaced wordmark), quiet otherwise */
 .topbar { border-bottom: 1px solid var(--hair); margin-bottom: 26px; }
 .topbar .col {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding-top: 16px;
-  padding-bottom: 16px;
+  padding-top: 14px;
+  padding-bottom: 14px;
 }
-.topbar .mark {
-  font-family: var(--serif);
-  font-weight: 700;
-  font-size: 18px;
-  color: var(--gold-deep);
-  line-height: 1;
+.topbar .mark { display: flex; align-items: center; color: var(--brand-gold); }
+.brand-glyph { height: 20px; width: auto; display: block; }
+.topbar .word {
+  /* Mirrors the app's BrandMark wordmark: 0.75rem, semibold, uppercase, 0.125rem tracking. */
+  font-size: 12px;
+  letter-spacing: 0.125rem;
+  text-transform: uppercase;
+  font-weight: 600;
 }
-.topbar .word { font-size: 11.5px; letter-spacing: 0.18em; font-weight: 600; }
 .topbar .surface { color: var(--subtle); margin-left: 2px; }
-.topbar .right { margin-left: auto; display: flex; gap: 18px; font-size: 12px; color: var(--muted); }
-.topbar .right a { text-decoration: none; }
-.topbar .right a:hover { color: var(--text); }
+.topbar .right { margin-left: auto; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: flex-end; }
+
+/* dead affordances: a disabled control plus a Soon badge — never a live-looking dead link */
+.dead { display: inline-flex; align-items: center; gap: 6px; }
+.dead-link { color: var(--subtle); font-size: 12.5px; }
+.soon {
+  font-size: 9.5px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  font-weight: 600;
+  padding: 1px 6px;
+  border: 1px solid var(--hair-strong);
+  border-radius: 2px;
+  color: var(--subtle);
+}
+.btn-subscribe {
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--subtle);
+  background: var(--sunken);
+  border: 1px solid var(--hair-strong);
+  border-radius: 2px;
+  padding: 5px 12px;
+}
+.btn-subscribe:disabled { cursor: not-allowed; }
+
+/* scheme toggle — revealed by the enhancement script; absent for no-JS readers */
+.toggle {
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--muted);
+  background: none;
+  border: 1px solid var(--hair-strong);
+  border-radius: 2px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+.toggle:hover { color: var(--text); }
 
 /* the verdict band — constrained to the column so the page breathes on open paper */
 .band {
@@ -113,7 +205,7 @@ a { color: inherit; }
 .band.ok { background: var(--ok-band); }
 .band.warn { background: var(--warn-band); }
 .band.danger { background: var(--danger-band); }
-.band.gilt { background: var(--gold-deep); }
+.band.gilt { background: var(--gilt-band); }
 /* the one gilt moment on the page: a hairline of gold beneath the band */
 .band::after {
   content: "";
@@ -241,7 +333,7 @@ h2.section { font-size: 15px; font-weight: 650; margin: 34px 0 2px; }
 .hist h3 { font-size: 14px; font-weight: 650; margin-bottom: 4px; }
 .hist .meta { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; flex-wrap: wrap; }
 
-/* footer */
+/* footer — just the honesty paragraph, wrapping naturally across the full measure */
 .foot {
   border-top: 1px solid var(--hair-strong);
   margin-top: 30px;
@@ -249,10 +341,5 @@ h2.section { font-size: 15px; font-weight: 650; margin: 34px 0 2px; }
   padding-top: 16px;
   color: var(--muted);
   font-size: 12.5px;
-  display: flex;
-  justify-content: space-between;
-  gap: 24px;
-  flex-wrap: wrap;
 }
-.foot .notice { max-width: 540px; }
 `;

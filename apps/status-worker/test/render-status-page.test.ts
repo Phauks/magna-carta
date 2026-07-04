@@ -38,7 +38,7 @@ function snapshotFixture(overrides: Partial<PublishedSnapshot> = {}): PublishedS
 }
 
 describe("renderStatusPage", () => {
-  test("operational steady state: verdict, both groups, providers, footer, no script", () => {
+  test("operational steady state: verdict, both groups, providers, footer", () => {
     const html = renderStatusPage(snapshotFixture());
     expect(html).toContain("All systems operational");
     expect(html).toContain('class="band ok"');
@@ -46,14 +46,43 @@ describe("renderStatusPage", () => {
     expect(html).toContain("Document &amp; analysis engines");
     expect(html).toContain("Application API");
     expect(html).toContain("Document conversion");
-    expect(html).toContain("Cloudflare");
     expect(html).toContain("Checked 3 July 2026, 14:20 UTC");
-    // Fate-isolation honesty in the footer, and the exception-based-green explanation.
+    // Fate-isolation honesty in the footer, and the exception-based-green explanation. The dead
+    // "if this page is unreachable" advice is gone (a reader who cannot reach the page cannot
+    // read it), and the notice is a single naturally-wrapping paragraph.
     expect(html).toContain("kept separate from the application");
-    expect(html).toContain("services report\nby exception");
-    // Readable with zero JavaScript; a meta refresh keeps it current.
+    expect(html).toContain("services report by exception");
+    expect(html).not.toContain("If this page is unreachable");
+    // The Cloudflare provider row keeps its link-out (reachable exactly when it matters).
+    expect(html).toContain('<a href="https://www.cloudflarestatus.com">Cloudflare</a>');
+    // Complete with zero JavaScript: static countdown text plus the meta refresh; the inline
+    // scripts only enhance (live countdown, scheme toggle).
     expect(html).toContain('<meta http-equiv="refresh" content="60">');
-    expect(html).not.toContain("<script");
+    expect(html).toContain("Next check by 14:30 UTC");
+    expect(html).toContain('data-next-check="2026-07-03T14:30:00.000Z"');
+    expect(html).not.toContain("Reviewed every 10 minutes");
+    // The machine feed is unadvertised (still served; just not linked).
+    expect(html).not.toContain(">status.json<");
+    // The brand lockup is the app's: inline-SVG blackletter M plus the letterspaced wordmark.
+    expect(html).toContain('class="brand-glyph"');
+    expect(html).toContain('<span class="word">Magna Carta</span>');
+    // GitHub-style affordances, all dead-but-honest until their slices ship — and all in the
+    // HEADER (before the verdict band); the footer stays a lone honesty paragraph.
+    expect(html).toContain("Subscribe to updates");
+    expect(html).toContain("Help Desk");
+    expect(html).toContain("Forums");
+    expect(html).toContain("magna-carta.com");
+    expect(html).toContain(">Soon<");
+    const bandIndex = html.indexOf('class="band');
+    expect(html.indexOf("Subscribe to updates")).toBeLessThan(bandIndex);
+    expect(html.indexOf("Help Desk")).toBeLessThan(bandIndex);
+    expect(html.indexOf("magna-carta.com")).toBeLessThan(bandIndex);
+    expect(html).not.toContain("foot-links");
+    // Scheme support: CSS-first dark scheme plus the hidden toggle the script reveals.
+    expect(html).toContain("prefers-color-scheme: dark");
+    expect(html).toContain('[data-scheme="dark"]');
+    expect(html).toContain('id="scheme-toggle"');
+    expect(html).toMatch(/id="scheme-toggle"[^>]*hidden/);
     // No live-event card and an explicitly empty history in the steady state.
     expect(html).not.toContain('class="live');
     expect(html).toContain("No past service events recorded.");
