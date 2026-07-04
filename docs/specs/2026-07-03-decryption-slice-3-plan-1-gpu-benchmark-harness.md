@@ -237,12 +237,12 @@ describe("offer-filter", () => {
 
 ### Task 5: The GPU benchmark container image (`containers/recovery-gpu/`)
 
-Our image: CUDA + hashcat + the clean-license wordlists/rules + a benchmark entrypoint that runs our three modes and emits the `BenchmarkResult` JSON envelope. Committed now, built/published in Task 7. No unit test (needs a GPU); a schema-conformance check guards the entrypoint's output shape.
+Our image: CUDA + hashcat + the clean-license wordlists/rules + a benchmark entrypoint that runs the full baseline mode set and emits the `BenchmarkResult` JSON envelope. Committed now, built/published in Task 7. No unit test (needs a GPU); a schema-conformance check guards the entrypoint's output shape.
 
 **Files:**
 - Create: `containers/recovery-gpu/Dockerfile`
 - Create: `containers/recovery-gpu/bench/run-benchmark.sh`
-- Create: `containers/recovery-gpu/bench/example-hashes/` (the mode 9600/10700/11600 example hashes, password `hashcat`, copied from hashcat's published `example_hashes`)
+- Create: `containers/recovery-gpu/bench/sample-output.json` (a hand-authored example emit for the contract test)
 - Create: `containers/recovery-gpu/README.md` (build/publish/run notes + license attributions for the bundled wordlists)
 - Copy: reuse `containers/recovery/wordlists/` (NCSC-100k, best64.rule) — reference by build-context copy
 
@@ -258,7 +258,7 @@ COPY containers/recovery-gpu/bench/ ./bench/
 ENTRYPOINT ["/opt/recovery-gpu/bench/run-benchmark.sh"]
 ```
 
-- [ ] **Step 2: Write `run-benchmark.sh`** — runs, for each mode in the full baseline set **`9400 9500 9600 10500 10700 11600 13600 17200`** (the three GPU-band modes 9600/10700/11600 plus the CPU-band modes 9400/9500 older Office, 10500 old PDF, 13600 WinZip-AES, 17200 ZipCrypto — baselined even though they run on Rung-1 CPU in production, per the owner's "measure them all" call), both `hashcat -b -m $mode --machine-readable --quiet` (raw device speed) and a real-attack timing (`hashcat -m $mode -a 0 example-hashes/$mode.hash wordlists/ncsc-100k.txt -r wordlists/best64.rule --machine-readable --potfile-disable`), reads the GPU name/VRAM from `nvidia-smi --query-gpu=name,memory.total --format=csv,noheader`, and prints ONE JSON object matching `BenchmarkResult` to stdout. Redirect all hashcat cracking output to a file (never echo a recovered password). Include the exact `jq` assembly in the script. Provide one `example-hashes/<mode>.hash` per mode (password `hashcat`, from hashcat's published `example_hashes`).
+- [ ] **Step 2: Write `run-benchmark.sh`** — for each mode in the full baseline set **`9400 9500 9600 10500 10700 11600 13600 17200`** (the three GPU-band modes 9600/10700/11600 plus the CPU-band modes 9400/9500 older Office, 10500 old PDF, 13600 WinZip-AES, 17200 ZipCrypto — baselined even though they run on Rung-1 CPU in production, per the owner's "measure them all" call), run `hashcat -b -m $mode --machine-readable --quiet` (hashcat's built-in benchmark — the authoritative raw device H/s, and it needs **no hash input**, so there are no example-hash files to author or verify). Parse the `SPEED` field(s) with the same tokenizing rule `sumDeviceSpeeds` uses (sum per-device). Read the GPU name/VRAM from `nvidia-smi --query-gpu=name,memory.total --format=csv,noheader`. Print ONE JSON object matching `BenchmarkResult` (`{ gpuName, gpuCount, gpuRamMegabytes, throughput: [{ hashcatMode, hashesPerSecond }, ...] }`) to stdout — nothing else. The wordlists are baked into the image (used by the production recovery rung, not by this raw benchmark) but no password is ever cracked here, so nothing sensitive is produced or logged. Include the exact `jq` assembly in the script. (The full-pass wall-clock per mode is derivable downstream from H/s × candidate count via `dollarsPerBillionCandidates`, so no separate attack-timing run is needed.)
 
 - [ ] **Step 3: Verify the envelope shape against the parser** — add `packages/gpu-benchmark/test/envelope-contract.test.ts` that feeds a committed `containers/recovery-gpu/bench/sample-output.json` (a hand-authored example emit) through `parseBenchmarkJson` and asserts it yields three modes. Create `sample-output.json` alongside.
 
