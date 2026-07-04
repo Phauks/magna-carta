@@ -1,9 +1,17 @@
 <script lang="ts">
   /*
    * The assembled App Shell — the only fixed chrome (page-archetypes Layout A): the ink sidebar
-   * (brand corner + the destination registry) and the TopBar framing a light, calm routed
-   * canvas. The design system owns the parts; THIS composition, the registry filtering, and the
-   * palette wiring are the app's domain knowledge.
+   * (brand corner + the destination registry through the member's STAR layer) and the TopBar
+   * framing a light, calm routed canvas. The design system owns the parts; THIS composition,
+   * the registry filtering, and the palette wiring are the app's domain knowledge.
+   *
+   * THE SIDEBAR IS THE MEMBER'S: it renders pinned + starred destinations in the member's
+   * per-group order (sidebar-preferences.svelte.ts — stars govern the sidebar ONLY; the palette
+   * and the App Library always carry everything). Customize mode, entered from the footer,
+   * turns rows into reorderable entries with unstar controls; the App Library link there opens
+   * the full catalog. A destination newly arrived in the sidebar (starred elsewhere, or a new
+   * registry addition) carries a one-time gilt-draw highlight so the eye catches where
+   * reconciliation seated it.
    *
    * Top-bar seams stay seams: +New, the billable timer, and alerts render nothing until their
    * slices ship — the Actions region reserves their geometry; the shell never fakes function.
@@ -14,16 +22,28 @@
   import * as Tooltip from "@magna-carta/design-system/tooltip";
   import * as TopBar from "@magna-carta/design-system/top-bar";
   import { isPaletteChord } from "@magna-carta/design-system/internal/platform";
-  import Settings from "@lucide/svelte/icons/settings";
+  import Check from "@lucide/svelte/icons/check";
+  import Lock from "@lucide/svelte/icons/lock";
+  import SlidersHorizontal from "@lucide/svelte/icons/sliders-horizontal";
+  import StarOff from "@lucide/svelte/icons/star-off";
   import Timer from "@lucide/svelte/icons/timer";
   import CommandPalette from "$lib/components/command-palette.svelte";
   import ProfileMenu from "$lib/components/profile-menu.svelte";
   import Badge from "@magna-carta/design-system/badge";
+  import { DragReorderController } from "$lib/components/drag-reorder.svelte.ts";
   import {
-    DESTINATION_GROUPS,
+    DESTINATIONS,
     isCurrentDestination,
-    visibleDestinations,
+    type Destination,
   } from "$lib/navigation/destinations.ts";
+  import {
+    acknowledgeArrival,
+    isNewArrival,
+    moveDestination,
+    setStarred,
+    sidebarGroups,
+    type SidebarGroupView,
+  } from "$lib/navigation/sidebar-preferences.svelte.ts";
   import { developerPreferences } from "$lib/settings/developer-preferences.svelte.ts";
   import type { Snippet } from "svelte";
 
@@ -31,14 +51,75 @@
 
   let collapsed = $state(false);
   let paletteOpen = $state(false);
+  let customizing = $state(false);
+  let moveAnnouncement = $state("");
 
-  // Shipped destinations navigate; announced ones render as honest Soon rows (the owner is
-  // feeling out the ordering ahead of the builds — the registry documents the draft).
-  const destinations = visibleDestinations();
-  const groups = DESTINATION_GROUPS.map((group) => ({
-    ...group,
-    destinations: destinations.filter((destination) => destination.group === group.id),
-  })).filter((group) => group.destinations.length > 0);
+  const groups = $derived(sidebarGroups());
+
+  // Footer fixtures from the registry, so each row has one home.
+  const settingsDestination = DESTINATIONS.find(
+    (destination) => destination.footerPinned === true,
+  ) as Destination;
+  const libraryDestination = DESTINATIONS.find(
+    (destination) => destination.id === "library",
+  ) as Destination;
+  const LibraryIcon = libraryDestination.icon;
+  const SettingsIcon = settingsDestination.icon;
+
+  const drag = new DragReorderController();
+
+  /*
+   * Arrival acknowledgment: a newly arrived row keeps its gilt highlight long enough to be
+   * seen, then is recorded as known so the draw plays exactly once. Scheduled per id (the
+   * effect re-runs as groups change; the set keeps timers single).
+   */
+  const scheduledArrivals = new Set<string>();
+  $effect(() => {
+    for (const group of groups) {
+      for (const destination of group.destinations) {
+        if (!isNewArrival(destination.id) || scheduledArrivals.has(destination.id)) continue;
+        scheduledArrivals.add(destination.id);
+        setTimeout(() => acknowledgeArrival(destination.id), 4000);
+      }
+    }
+  });
+
+  function groupIds(group: SidebarGroupView): string[] {
+    return group.destinations.map((destination) => destination.id);
+  }
+
+  function beginDrag(event: PointerEvent, group: SidebarGroupView, destination: Destination): void {
+    if (destination.id === "home") return; // fixed leader — never dragged
+    drag.start(
+      event,
+      destination.id,
+      groupIds(group),
+      (id, toIndex) => moveDestination(group.id, id, toIndex),
+      group.id === "top" ? 1 : 0, // Home holds index 0 of its group
+    );
+  }
+
+  // The keyboard half of reorder: a focused row moves one slot per Alt+Arrow press (a bare
+  // arrow must keep meaning "move focus"). The keyed list moves the DOM node, so focus rides
+  // along; the live region narrates the landing.
+  function onEditKeydown(
+    event: KeyboardEvent,
+    group: SidebarGroupView,
+    destination: Destination,
+  ): void {
+    if (!event.altKey || (event.key !== "ArrowUp" && event.key !== "ArrowDown")) return;
+    if (destination.id === "home") return;
+    event.preventDefault();
+    const ids = groupIds(group);
+    const fromIndex = ids.indexOf(destination.id);
+    moveDestination(group.id, destination.id, fromIndex + (event.key === "ArrowUp" ? -1 : 1));
+    const updated = sidebarGroups().find((candidate) => candidate.id === group.id);
+    const landedIndex =
+      updated?.destinations.findIndex((candidate) => candidate.id === destination.id) ?? -1;
+    if (landedIndex !== -1 && updated !== undefined) {
+      moveAnnouncement = `${destination.label} moved to position ${landedIndex + 1} of ${updated.destinations.length}`;
+    }
+  }
 
   function onKeydown(event: KeyboardEvent): void {
     if (!isPaletteChord(event)) return;
@@ -74,12 +155,62 @@
                 {@const Icon = destination.icon}
                 {@const current = isCurrentDestination(destination, page.url.pathname)}
                 <Sidebar.MenuItem>
-                  {#if destination.shipped}
+                  {#if customizing}
+                    <!-- Customize mode: navigation yields to arrangement. The row splits into
+                         the movable button (drag from anywhere on it; Alt+Arrow moves it by
+                         keyboard) and its unstar control — two SIBLING buttons, never nested.
+                         The dragged row follows the pointer on a transform (runtime geometry;
+                         compositor-only) and floats on elevation; the list reflows instantly
+                         on drop. Pinned rows show the lock instead of an unstar. -->
+                    <div
+                      class="flex items-center gap-4 {drag.draggingId === destination.id
+                        ? 'relative z-sticky shadow-elevation-2'
+                        : ''}"
+                      style={drag.draggingId === destination.id
+                        ? `transform: translateY(${drag.offsetY}px)`
+                        : ""}
+                    >
+                      <Sidebar.MenuButton
+                        class="touch-none select-none {destination.id === 'home'
+                          ? 'cursor-default'
+                          : 'cursor-grab'}"
+                        tooltip={destination.label}
+                        aria-roledescription="Reorderable sidebar destination"
+                        aria-label="{destination.label} — Alt plus Arrow Up or Arrow Down moves it"
+                        onpointerdown={(event) => beginDrag(event, group, destination)}
+                        onkeydown={(event) => onEditKeydown(event, group, destination)}
+                      >
+                        {#snippet icon()}<Icon
+                            class="mc-sidebar-icon"
+                            aria-hidden="true"
+                          />{/snippet}
+                        {destination.label}
+                      </Sidebar.MenuButton>
+                      {#if destination.pinned === true}
+                        <Lock
+                          class="size-16 shrink-0"
+                          style="color: var(--mc-chrome-text-muted)"
+                          aria-hidden="true"
+                        />
+                      {:else}
+                        <button
+                          type="button"
+                          class="shrink-0 rounded-md p-4"
+                          style="color: var(--mc-chrome-text-muted)"
+                          aria-label="Remove {destination.label} from your sidebar"
+                          onclick={() => setStarred(destination.id, false)}
+                        >
+                          <StarOff class="size-16" aria-hidden="true" />
+                        </button>
+                      {/if}
+                    </div>
+                  {:else if destination.shipped}
                     <Sidebar.MenuButton
                       href={destination.href}
                       tooltip={destination.label}
                       isActive={current}
                       aria-current={current ? "page" : undefined}
+                      data-arrived={isNewArrival(destination.id) ? "true" : undefined}
                     >
                       {#snippet icon()}<Icon class="mc-sidebar-icon" aria-hidden="true" />{/snippet}
                       {destination.label}
@@ -93,6 +224,7 @@
                       disabled
                       tooltip="{destination.label} — coming soon"
                       class="cursor-default"
+                      data-arrived={isNewArrival(destination.id) ? "true" : undefined}
                     >
                       {#snippet icon()}<Icon class="mc-sidebar-icon" aria-hidden="true" />{/snippet}
                       {destination.label}
@@ -106,16 +238,52 @@
         {/each}
       </Sidebar.Content>
       <Sidebar.Footer>
+        <!-- Keyboard reorders narrate here (polite: never steals focus from the row). -->
+        <span class="sr-only" role="status">{moveAnnouncement}</span>
         <Sidebar.Menu>
+          {#if customizing}
+            <Sidebar.MenuItem>
+              <Sidebar.MenuButton href={libraryDestination.href} tooltip={libraryDestination.label}>
+                {#snippet icon()}<LibraryIcon
+                    class="mc-sidebar-icon"
+                    aria-hidden="true"
+                  />{/snippet}
+                {libraryDestination.label}
+              </Sidebar.MenuButton>
+            </Sidebar.MenuItem>
+          {/if}
           <Sidebar.MenuItem>
             <Sidebar.MenuButton
-              href="/settings/theme"
-              tooltip="Settings"
+              href={settingsDestination.href}
+              tooltip={settingsDestination.label}
               isActive={page.url.pathname.startsWith("/settings")}
               aria-current={page.url.pathname.startsWith("/settings") ? "page" : undefined}
             >
-              {#snippet icon()}<Settings class="mc-sidebar-icon" aria-hidden="true" />{/snippet}
-              Settings
+              {#snippet icon()}<SettingsIcon class="mc-sidebar-icon" aria-hidden="true" />{/snippet}
+              {settingsDestination.label}
+            </Sidebar.MenuButton>
+          </Sidebar.MenuItem>
+          <Sidebar.MenuItem>
+            <!-- In-place customization (owner-preferred over any settings page): the same rows
+                 rearrange where they live. -->
+            <Sidebar.MenuButton
+              tooltip={customizing ? "Done customizing" : "Customize sidebar"}
+              aria-pressed={customizing}
+              onclick={() => {
+                customizing = !customizing;
+                // Arranging needs the labels (and the collapsed rail's tooltip wrapper owns
+                // pointer events that would swallow the drag), so entering edit expands.
+                if (customizing) collapsed = false;
+              }}
+            >
+              {#snippet icon()}
+                {#if customizing}
+                  <Check class="mc-sidebar-icon" aria-hidden="true" />
+                {:else}
+                  <SlidersHorizontal class="mc-sidebar-icon" aria-hidden="true" />
+                {/if}
+              {/snippet}
+              {customizing ? "Done" : "Customize"}
             </Sidebar.MenuButton>
           </Sidebar.MenuItem>
         </Sidebar.Menu>

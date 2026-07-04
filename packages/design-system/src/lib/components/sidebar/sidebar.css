@@ -160,6 +160,32 @@
     outline: var(--mc-focus-ring-width) solid var(--mc-chrome-accent);
     outline-offset: var(--mc-focus-ring-offset);
   }
+  /*
+   * A NEW ARRIVAL — a destination just seated in this member's sidebar (starred elsewhere, or
+   * a new registry addition placed by reconciliation): a one-time gilt bar DRAWS down the
+   * row's start edge (mc-draw-y — gold never fades, it draws) so the eye catches where it
+   * landed. The shell holds data-arrived briefly, then acknowledges it away; a pseudo-element
+   * rather than the active row's inset box-shadow, because a box-shadow cannot ride the draw
+   * animation.
+   */
+  .mc-sidebar-menu-button[data-arrived="true"] {
+    position: relative;
+  }
+  .mc-sidebar-menu-button[data-arrived="true"]::before {
+    content: "";
+    position: absolute;
+    inset-block: var(--mc-space-4);
+    inset-inline-start: var(--mc-space-0);
+    inline-size: var(--mc-focus-ring-width);
+    background-color: var(--mc-chrome-accent);
+    transform-origin: center top;
+    animation: mc-draw-y var(--mc-duration-signature) var(--mc-easing-standard);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .mc-sidebar-menu-button[data-arrived="true"]::before {
+      animation-duration: var(--mc-duration-instant);
+    }
+  }
   /* Active destination: the identity moment — a gilt left bar (inset box-shadow, so the rounded
      corners stay clean) + a gold icon + bright text on the raised ink fill. */
   .mc-sidebar-menu-button[data-active="true"] {
