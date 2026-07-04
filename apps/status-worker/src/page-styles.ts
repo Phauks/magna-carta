@@ -28,7 +28,10 @@ const LIGHT_VARIABLES = `
   --sunken: #f2f0ea;
   --text: #22211c;
   --muted: #5d5a50;
-  --subtle: #8b877a;
+  /* The quietest ink still used for real text, so it must clear WCAG AA on its own: about
+     4.7:1 on the paper and 5.0:1 on the card (the old #8b877a sat near 3.4:1). Kept as its own
+     step rather than promoted to --muted so the three-ink hierarchy survives. */
+  --subtle: #74705f;
 
   /* On light paper the brand glyph needs the deep gold for contrast; the app's chrome shows the
      bright accent on dark ink, which the dark scheme restores below. */
@@ -66,7 +69,9 @@ const DARK_VARIABLES = `
   --sunken: #14130f;
   --text: #e9e7df;
   --muted: #a5a08c;
-  --subtle: #7d7968;
+  /* About 5.3:1 on the dark paper and 4.8:1 on the raised card (the old #7d7968 sat near 4.1:1
+     on paper and under 4.5:1 on the card). */
+  --subtle: #918d7b;
 
   --brand-gold: #e2c476;
 

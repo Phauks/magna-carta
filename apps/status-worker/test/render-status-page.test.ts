@@ -89,7 +89,7 @@ describe("renderStatusPage", () => {
     expect(html).toContain("mc-status-text");
     const bandIndex = html.indexOf('class="band');
     expect(html.indexOf("Help Desk")).toBeLessThan(bandIndex);
-    expect(html.indexOf('class="icon-bell"')).toBeLessThan(bandIndex);
+    expect(html.indexOf('id="subscribe-bell"')).toBeLessThan(bandIndex);
     // The lamp: static solid dot over the breathing halo, both markup children present.
     expect(html).toContain('<span class="lamp-halo"></span><span class="lamp-dot"></span>');
     // The page's single color key sits on the first component section rule, No data included.
@@ -97,11 +97,14 @@ describe("renderStatusPage", () => {
     expect((html.match(/aria-label="Color key"/g) ?? []).length).toBe(1);
     expect(html).toContain(">No data</span>");
     expect(html).toContain('style="background: var(--nodata-fg)"');
-    // Scheme and channel controls exist for the enhancement script to reveal/wire.
+    // Scheme and channel controls exist for the enhancement script to reveal/wire; the toggle
+    // announces its current scheme and the action on every flip.
     expect(html).toContain('id="scheme-toggle"');
     expect(html).toMatch(/id="scheme-toggle"[^>]*hidden/);
     expect(html).toContain('class="icon-sun"');
     expect(html).toContain('class="icon-moon"');
+    expect(html).toContain("relabelScheme");
+    expect(html).toContain('"Color scheme: " + scheme');
     // No live-event card and an explicitly empty history in the steady state.
     expect(html).not.toContain('class="live');
     expect(html).toContain("No past service events recorded.");
@@ -149,6 +152,11 @@ describe("renderStatusPage", () => {
     expect(html).toContain('replace(/\\D/g, "")');
     expect(html).toContain("subscribe-country-button");
     expect(html).toContain('setAttribute("role", "listbox")');
+    expect(html).toContain('setAttribute("aria-label", "Country codes")');
+    // Home/End jump the listbox; Escape closes ONLY the listbox (stopPropagation keeps the
+    // document-level handler from also closing the subscribe panel).
+    expect(html).toContain('keyboardEvent.key === "Home"');
+    expect(html).toContain("stopPropagation");
     // The no-JS select keeps a readable title for its truncated closed state.
     expect(html).toMatch(/id="subscribe-country"[^>]*title="United States \(\+1\)"/);
     // The submit is the only Soon left in the panel.
@@ -399,6 +407,17 @@ describe("renderStatusPage", () => {
         components: [
           { id: "api", name: hostile, group: "Core", status: "degraded", note: hostile },
         ],
+        providers: [
+          {
+            id: "hostile-provider",
+            name: hostile,
+            status: "operational",
+            // Not a parseable URL, so the provider renders unlinked — and still escaped.
+            upstreamUrl: "not a url",
+            fetchedAt: GENERATED_AT,
+            reachable: true,
+          },
+        ],
         events: [
           {
             id: "serviceEvent_6",
@@ -408,7 +427,11 @@ describe("renderStatusPage", () => {
             affectedComponentIds: ["not-a-component-<b>"],
             startedAt: GENERATED_AT,
             resolvedAt: null,
-            updates: [{ at: GENERATED_AT, lifecycle: "investigating", body: hostile }],
+            updates: [
+              { at: GENERATED_AT, lifecycle: "investigating", body: hostile },
+              // An unparseable timestamp falls back to rendering the raw string — escaped.
+              { at: "<b>not-a-date</b>", lifecycle: "investigating", body: "Fallback date." },
+            ],
           },
         ],
       }),
@@ -417,6 +440,9 @@ describe("renderStatusPage", () => {
     expect(html).toContain("&lt;script&gt;alert(1)&lt;/script&gt;");
     // An unknown affected id stays visible (escaped) instead of silently vanishing.
     expect(html).toContain("not-a-component-&lt;b&gt;");
+    // The date-fallback path escapes too.
+    expect(html).not.toContain("<b>not-a-date</b>");
+    expect(html).toContain("&lt;b&gt;not-a-date&lt;/b&gt;");
   });
 });
 

@@ -157,10 +157,10 @@ function minutesBetween(earlierIso: string, laterIso: string): number | null {
 const BRAND_GLYPH_SVG = `<svg class="brand-glyph" viewBox="51 -1436 2158 1467" aria-hidden="true" focusable="false"><path transform="scale(1 -1)" fill="currentColor" d="M564 553Q566 609 537.5 622.5Q509 636 417 615Q275 581 163.0 678.0Q51 775 51 967Q52 1158 190.0 1297.0Q328 1436 520 1436Q607 1436 709.0 1393.0Q811 1350 883 1265Q889 1257 896.0 1258.0Q903 1259 908 1267Q952 1339 1021.5 1388.0Q1091 1437 1206 1434Q1355 1427 1473 1250Q1479 1241 1488.0 1241.0Q1497 1241 1502 1251Q1544 1329 1608.0 1379.0Q1672 1429 1768 1429Q1891 1427 1971.0 1354.0Q2051 1281 2087 1109Q2109 990 2179 983Q2199 982 2200.5 966.0Q2202 950 2176 942Q1982 876 1909.0 730.5Q1836 585 1915 360Q1950 258 2015.5 216.5Q2081 175 2159 223Q2188 240 2202.5 222.5Q2217 205 2197 188Q2129 134 2062.5 80.5Q1996 27 1929 -26Q1918 -34 1908 -26Q1695 145 1651.5 354.0Q1608 563 1927 849Q1934 856 1933.5 863.0Q1933 870 1924 875Q1854 922 1821 1116Q1786 1308 1665 1310Q1579 1312 1519 1184Q1515 1177 1519 1170Q1558 1087 1575.5 985.0Q1593 883 1577 769Q1537 493 1458.5 352.5Q1380 212 1272 72Q1129 -107 1002 33Q966 73 926.5 85.0Q887 97 836 57Q817 41 803.5 53.5Q790 66 805 85Q933 263 1008.5 288.0Q1084 313 1156 246Q1215 191 1264.5 187.0Q1314 183 1342 261Q1396 411 1380.5 680.5Q1365 950 1271.5 1094.0Q1178 1238 1093.5 1263.5Q1009 1289 940 1219Q930 1209 939 1198Q1058 1033 1067 816Q1073 638 998.0 474.5Q923 311 805 161Q676 -3 560.5 -27.0Q445 -51 349 90Q265 216 178 121Q157 103 140.5 120.0Q124 137 145 159Q418 437 574 232Q599 198 621.5 169.0Q644 140 689 142Q747 144 811.0 269.0Q875 394 875 584Q873 833 745.0 1020.5Q617 1208 452 1226Q287 1243 192.0 1164.0Q97 1085 100 977Q103 867 158.5 801.0Q214 735 364 774Q653 848 615 561Q611 531 587.5 530.5Q564 530 564 553Z"/></svg>`;
 
 // Lucide-style outline icons, inlined (self-containment law: no icon font, no sprite fetch).
-const BELL_ICON_SVG = `<svg class="icon-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>`;
+const BELL_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>`;
 const SUN_ICON_SVG = `<svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>`;
 const MOON_ICON_SVG = `<svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>`;
-const TYPE_ICON_SVG = `<svg class="icon-type" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" x2="15" y1="20" y2="20"/><line x1="12" x2="12" y1="4" y2="20"/></svg>`;
+const TYPE_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" x2="15" y1="20" y2="20"/><line x1="12" x2="12" y1="4" y2="20"/></svg>`;
 
 // ---------------------------------------------------------------------------
 // fragments
@@ -221,7 +221,9 @@ function renderSubscribeControl(activeEvent: PublishedEvent | null): string {
   //   panel.
   // - The phone field pairs a full ITU dial-code control (country-dial-codes.ts) with a
   //   national-number input. The no-JS baseline is the plain select below (full country names;
-  //   only its closed state truncates, and the title attribute keeps the selection readable);
+  //   only its closed state truncates — the static title is accurate only for the untouched
+  //   default selection, since without script nothing can update it; the enhancement path keeps
+  //   its own label current);
   //   the enhancement script replaces it with a compact listbox — closed control shows only
   //   "ISO dial" (for example "US +1") so nothing overflows, the open list shows full names at
   //   content width. Flag artwork is deliberately NOT shipped: an accurate all-countries SVG
@@ -517,14 +519,24 @@ const ENHANCEMENT_SCRIPT = `<script>
       return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
     };
     // The button holds both sun and moon SVGs; CSS shows the right one per scheme, so this
-    // handler only stamps the scheme — it never rewrites the button's contents.
+    // handler only stamps the scheme — it never rewrites the button's contents. The label and
+    // title announce the current scheme and the action on every toggle (the text-size button's
+    // relabel pattern), so assistive tech hears state, not just "switch".
+    var relabelScheme = function () {
+      var scheme = currentScheme();
+      var nextScheme = scheme === "dark" ? "light" : "dark";
+      toggle.setAttribute("aria-label", "Color scheme: " + scheme + " (switch to " + nextScheme + ")");
+      toggle.title = "Color scheme: " + scheme + " (switch to " + nextScheme + ")";
+    };
     toggle.hidden = false;
+    relabelScheme();
     toggle.addEventListener("click", function () {
       var nextScheme = currentScheme() === "dark" ? "light" : "dark";
       root.setAttribute("data-scheme", nextScheme);
       try {
         localStorage.setItem("mc-status-scheme", nextScheme);
       } catch (error) {}
+      relabelScheme();
     });
   }
 
@@ -656,6 +668,7 @@ const ENHANCEMENT_SCRIPT = `<script>
       countryList.id = "subscribe-country-listbox";
       countryList.className = "country-listbox";
       countryList.setAttribute("role", "listbox");
+      countryList.setAttribute("aria-label", "Country codes");
       countryList.tabIndex = -1;
       countryList.hidden = true;
       var countryRows = [];
@@ -725,11 +738,20 @@ const ENHANCEMENT_SCRIPT = `<script>
           countrySelect.selectedIndex = index;
           relabelCountry();
           countryRows[index].scrollIntoView({ block: "nearest" });
+        } else if (keyboardEvent.key === "Home" || keyboardEvent.key === "End") {
+          keyboardEvent.preventDefault();
+          index = keyboardEvent.key === "Home" ? 0 : countryRows.length - 1;
+          countrySelect.selectedIndex = index;
+          relabelCountry();
+          countryRows[index].scrollIntoView({ block: "nearest" });
         } else if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
           keyboardEvent.preventDefault();
           chooseCountry(index);
         } else if (keyboardEvent.key === "Escape") {
           keyboardEvent.preventDefault();
+          // Close ONLY the listbox: without this, the document-level Escape handler would also
+          // close the whole subscribe panel in the same keystroke.
+          keyboardEvent.stopPropagation();
           closeCountryList(true);
         } else if (keyboardEvent.key.length === 1 && keyboardEvent.key !== " ") {
           // Type-to-jump on the visible names.
