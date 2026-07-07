@@ -10,6 +10,12 @@ theme/mode/density/motion axes.
 boot + cascade), `packages/design-system/**` (small part additions as the shell demands — TopBar
 parts, register polish), design-lab mockups (untracked working artifacts in this worktree).
 
+**Added 2026-07-06 — matter detail screen skeleton** (spec:
+`docs/specs/2026-07-06-matter-detail-skeleton-design.md`): new routes under
+`apps/web/src/routes/(app)/matters/[id]/` (header + section nav layout, overview, twelve
+section pages), matter fixtures + header/nav components in `apps/web/src/lib/`. Fixture-driven
+only — no worker/schema/data-access edits.
+
 **Coordination:** backend is read-only for this stream (UI brief); auth consumes the committed
 contract as-is. No cross-cutting edits expected beyond this note, ROADMAP stage updates, and the
 STATUS 0·7b row.
