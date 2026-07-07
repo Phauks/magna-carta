@@ -52,6 +52,16 @@ pub(crate) fn resolve_dict<'a>(
     }
 }
 
+/// Resolve an object through indirection, following reference chains to the
+/// underlying direct object. A non-reference passes through unchanged; a
+/// dangling reference yields `None`. Values like `/Widths` and `/FirstChar` are
+/// routinely stored as indirect references, so callers that only accept a
+/// concrete `Array`/number must resolve first or they misread the reference as
+/// unsupported.
+fn resolve_object<'a>(doc: &'a lopdf::Document, obj: &'a Object) -> Option<&'a Object> {
+    doc.dereference(obj).ok().map(|(_, resolved)| resolved)
+}
+
 // ── Width array parsers ───────────────────────────────────────────────────────
 
 /// Parse the `/W` array of a CIDFont descendant into a CID → width map.
@@ -236,12 +246,20 @@ fn resolve_simple_font_metrics(
     font_dict: &lopdf::Dictionary,
 ) -> Option<FontMetrics> {
     // When the font carries an explicit `/Widths` array, use it directly.
-    // Standard-14 fonts omit `/Widths`; for those, fall through to the
-    // standard_font_widths resolver below.
+    // `/Widths` and `/FirstChar` (and each width element) are frequently stored
+    // as indirect references — including on base-14-named fonts — so resolve
+    // each through indirection before reading it. A present-but-indirect
+    // `/Widths` read without dereferencing would look like a non-array and be
+    // mistaken for an unsupported font. Standard-14 fonts omit `/Widths`; for
+    // those, fall through to the standard_font_widths resolver below.
     if let Ok(widths_obj) = font_dict.get(b"Widths") {
-        let first_char = font_dict.get(b"FirstChar").ok().and_then(integer_value)? as u32;
+        let first_char = font_dict
+            .get(b"FirstChar")
+            .ok()
+            .and_then(|obj| resolve_object(doc, obj))
+            .and_then(integer_value)? as u32;
 
-        let width_objects = match widths_obj {
+        let width_objects = match resolve_object(doc, widths_obj)? {
             Object::Array(arr) => arr,
             _ => return None,
         };
@@ -249,7 +267,11 @@ fn resolve_simple_font_metrics(
         let widths: BTreeMap<u32, f32> = width_objects
             .iter()
             .enumerate()
-            .filter_map(|(offset, obj)| number_value(obj).map(|w| (first_char + offset as u32, w)))
+            .filter_map(|(offset, obj)| {
+                resolve_object(doc, obj)
+                    .and_then(number_value)
+                    .map(|w| (first_char + offset as u32, w))
+            })
             .collect();
 
         // `/MissingWidth` lives in the `/FontDescriptor` subdictionary.
@@ -829,12 +851,93 @@ pub(crate) fn apply_excision(
         return;
     }
 
+    let replacements = op_replacements(content, slots, marked, fonts);
+
+    // Rebuild content.operations, splicing in the replacement ops (T* + TJ) for
+    // each affected operation and keeping everything else as-is.
+    let original_operations = std::mem::take(&mut content.operations);
+    let mut new_operations: Vec<lopdf::content::Operation> =
+        Vec::with_capacity(original_operations.len() + replacements.len());
+
+    for (op_index, op) in original_operations.into_iter().enumerate() {
+        match replacements.get(&op_index) {
+            Some(repl) => new_operations.extend(repl.iter().cloned()),
+            None => new_operations.push(op),
+        }
+    }
+
+    new_operations.extend(fill_box_operations(rects));
+    content.operations = new_operations;
+}
+
+/// Encode a small operation list to content-stream bytes.
+fn encode_operations(ops: &[lopdf::content::Operation]) -> Option<Vec<u8>> {
+    let content = Content { operations: ops.to_vec() };
+    content.encode().ok()
+}
+
+/// Produce edited content bytes by copying `raw` verbatim and re-encoding only the
+/// operators named in `replacements`, splicing them over their raw byte spans. The
+/// whole-stream re-encode is never run, so inline images and every untouched operator
+/// stay byte-identical. Returns `None` if the raw tokenization disagrees with
+/// `operations` (a desync) — the caller then falls back to flatten.
+pub(crate) fn build_byte_splice(
+    raw: &[u8],
+    operations: &[lopdf::content::Operation],
+    replacements: &BTreeMap<usize, Vec<lopdf::content::Operation>>,
+    boxes: &[lopdf::content::Operation],
+) -> Option<Vec<u8>> {
+    let tokens = crate::content_tokens::tokenize(raw)?;
+    // Self-check: token count and operator names must match the decoded operation list.
+    if tokens.len() != operations.len() {
+        return None;
+    }
+    for (token, op) in tokens.iter().zip(operations.iter()) {
+        if token.operator.as_slice() != op.operator.as_bytes() {
+            return None;
+        }
+    }
+
+    // Apply splices right-to-left so earlier offsets stay valid. `replacements`
+    // is a `BTreeMap`, so `.keys()` already yields ascending order; `.rev()`
+    // walks it right-to-left without a separate sort.
+    let mut out = raw.to_vec();
+    for op_index in replacements.keys().rev() {
+        if *op_index >= tokens.len() {
+            return None;
+        }
+        let token = &tokens[*op_index];
+        let repl_ops = &replacements[op_index];
+        let encoded = encode_operations(repl_ops)?;
+        let mut padded = Vec::with_capacity(encoded.len() + 2);
+        padded.push(b' ');
+        padded.extend_from_slice(&encoded);
+        padded.push(b' ');
+        out.splice(token.start..token.end, padded);
+    }
+
+    if !boxes.is_empty() {
+        let encoded = encode_operations(boxes)?;
+        out.push(b' ');
+        out.extend_from_slice(&encoded);
+    }
+    Some(out)
+}
+
+/// For each text-show operation containing a marked glyph, the operations that replace
+/// it: a rebuilt `TJ` (marked glyphs dropped, each contiguous dropped run collapsed to a
+/// numeric advance-compensation so following glyphs keep position), preceded by a `T*`
+/// when the original operator was `'` or `"` (whose implicit line-advance must be preserved).
+pub(crate) fn op_replacements(
+    content: &Content,
+    slots: &[GlyphSlot],
+    marked: &[usize],
+    fonts: &BTreeMap<Vec<u8>, FontMetrics>,
+) -> BTreeMap<usize, Vec<lopdf::content::Operation>> {
     // Build a set of marked slot indices for O(log n) lookup.
     let marked_set: BTreeSet<usize> = marked.iter().copied().collect();
 
-    // Group marked slot indices by (op_index, elem_index) so we know which
-    // operations need rewriting and which string elements within them are affected.
-    // key = op_index; value = set of slot indices belonging to that operation.
+    // Group marked slot indices by op_index so we know which operations need rewriting.
     let mut ops_with_marked: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
     for &slot_index in marked {
         let op_index = slots[slot_index].op;
@@ -846,7 +949,7 @@ pub(crate) fn apply_excision(
 
     // Collect all slots for each affected operation (including non-marked ones in
     // the same operand, so we know what to keep).
-    let mut rewrite_map: BTreeMap<usize, OpRewrite> = BTreeMap::new();
+    let mut replacements: BTreeMap<usize, Vec<lopdf::content::Operation>> = BTreeMap::new();
     for &op_index in ops_with_marked.keys() {
         // Gather all slots that belong to this op_index.
         let all_slots_for_op: Vec<usize> = slots
@@ -879,80 +982,56 @@ pub(crate) fn apply_excision(
             _ => (None, None),
         };
 
-        rewrite_map.insert(
-            op_index,
-            OpRewrite {
-                all_slots: all_slots_for_op,
-                original_operator,
-                original_array,
-                single_string_bytes,
-            },
-        );
-    }
-
-    // Now rebuild content.operations, inserting T* before rewrites of '/'" ops.
-    let original_operations = std::mem::take(&mut content.operations);
-    let mut new_operations: Vec<lopdf::content::Operation> = Vec::with_capacity(
-        original_operations.len() + rewrite_map.len(), // at most one T* per '/" op
-    );
-
-    for (op_index, op) in original_operations.into_iter().enumerate() {
-        let Some(rewrite) = rewrite_map.get(&op_index) else {
-            // Not an op we need to rewrite; keep as-is.
-            new_operations.push(op);
-            continue;
+        let rewrite = OpRewrite {
+            all_slots: all_slots_for_op,
+            original_operator: original_operator.clone(),
+            original_array,
+            single_string_bytes,
         };
+        let rebuilt_array = rebuild_tj_array(&rewrite, slots, &marked_set, fonts);
 
-        // If the original operator was ' or ", emit T* first to carry the line advance.
-        if rewrite.original_operator == "'" || rewrite.original_operator == "\"" {
-            new_operations.push(lopdf::content::Operation::new("T*", vec![]));
+        let mut ops = Vec::new();
+        if original_operator == "'" || original_operator == "\"" {
+            // Emit T* first to carry the line advance the original operator implied.
+            ops.push(lopdf::content::Operation::new("T*", vec![]));
         }
-
-        // Rebuild the TJ array for this operation.
-        let rebuilt_array = rebuild_tj_array(rewrite, slots, &marked_set, fonts);
-
-        new_operations.push(lopdf::content::Operation::new(
+        ops.push(lopdf::content::Operation::new(
             "TJ",
             vec![Object::Array(rebuilt_array)],
         ));
+        replacements.insert(op_index, ops);
     }
+    replacements
+}
 
-    content.operations = new_operations;
-
-    // Append one opaque black redaction box per rect.
-    // Normalise corners before computing width/height so the rectangle is always
-    // drawn with positive dimensions, regardless of caller-supplied corner order.
+/// One opaque black redaction box per rect, as `q rg re f Q` operations in page space.
+/// Corners are normalised so width/height are positive regardless of caller order.
+pub(crate) fn fill_box_operations(rects: &[Rect]) -> Vec<lopdf::content::Operation> {
+    let mut ops = Vec::new();
     for rect in rects {
         let x0 = rect.x0.min(rect.x1);
         let y0 = rect.y0.min(rect.y1);
         let x1 = rect.x0.max(rect.x1);
         let y1 = rect.y0.max(rect.y1);
-        let width = x1 - x0;
-        let height = y1 - y0;
 
-        content
-            .operations
-            .push(lopdf::content::Operation::new("q", vec![]));
-        content.operations.push(lopdf::content::Operation::new(
+        ops.push(lopdf::content::Operation::new("q", vec![]));
+        ops.push(lopdf::content::Operation::new(
             "rg",
             vec![Object::Integer(0), Object::Integer(0), Object::Integer(0)],
         ));
-        content.operations.push(lopdf::content::Operation::new(
+        ops.push(lopdf::content::Operation::new(
             "re",
             vec![
                 Object::Real(x0),
                 Object::Real(y0),
-                Object::Real(width),
-                Object::Real(height),
+                Object::Real(x1 - x0),
+                Object::Real(y1 - y0),
             ],
         ));
-        content
-            .operations
-            .push(lopdf::content::Operation::new("f", vec![]));
-        content
-            .operations
-            .push(lopdf::content::Operation::new("Q", vec![]));
+        ops.push(lopdf::content::Operation::new("f", vec![]));
+        ops.push(lopdf::content::Operation::new("Q", vec![]));
     }
+    ops
 }
 
 /// Rebuild the TJ array for one affected operation.
@@ -1197,18 +1276,33 @@ pub(crate) fn resolve_rotate(doc: &lopdf::Document, page_id: lopdf::ObjectId) ->
     0
 }
 
+/// Whether lopdf can faithfully re-encode this content stream: encode, then re-decode,
+/// and the operation count is preserved. A re-encode that fails to re-decode counts as
+/// non-round-tripping. This is the production decision for op-path (round-trips) vs
+/// byte-path (does not).
+fn content_roundtrips(content: &Content) -> bool {
+    content
+        .encode()
+        .ok()
+        .and_then(|enc| Content::decode(&enc).ok())
+        .map(|c| c.operations.len() == content.operations.len())
+        .unwrap_or(false)
+}
+
 /// Attempt to surgically redact `rects` from the content stream of `page_id`.
 ///
-/// Returns `Some(bytes)` when the page's content stream can be decoded,
-/// round-tripped without loss, and re-encoded after excision. Returns `None`
-/// when the page structure prevents reliable surgery — for example when:
-/// - The content stream cannot be decoded or the decode-encode round-trip loses
-///   operations (a sign that lopdf does not faithfully represent the stream).
+/// Returns `Some(bytes)` when the page's content stream can be decoded and its glyphs
+/// enumerated. Whether the stream then round-trips through lopdf whole picks the path:
+/// when it does, the operation list is rewritten and the whole stream re-encoded; when
+/// it does not (e.g. an inline image lopdf cannot faithfully re-encode), the original
+/// bytes are copied and only the edited operators are re-encoded and spliced in, so the
+/// unrepresentable parts pass through byte-identical. Returns `None` when the page
+/// structure prevents reliable surgery either way — for example when:
+/// - The content stream cannot be decoded, or a font/encoding it uses is not supported
+///   by the glyph-position walker.
 /// - The page's MediaBox cannot be resolved from the page tree.
 /// - The page carries a non-zero `/Rotate` value (rotated pages require
 ///   coordinate-frame adjustments that are handled by a flatten fallback).
-/// - A font or encoding encountered in a show operator is not supported by the
-///   glyph-position walker.
 ///
 /// Returning `Some` does not guarantee that all glyphs within `rects` were
 /// removed — an outcome gate in the caller verifies that. This function only
@@ -1218,56 +1312,172 @@ pub(crate) fn try_build_surgery(
     page_id: lopdf::ObjectId,
     rects: &[crate::redact::Rect],
 ) -> Option<Vec<u8>> {
-    // Step 1: obtain the raw content stream bytes for the page.
+    // Obtain and decode the content stream.
     let raw = doc.get_page_content(page_id).ok()?;
-
-    // Step 2: decode the content stream into a structured operation list.
     let content = lopdf::content::Content::decode(&raw).ok()?;
 
-    // Step 3: round-trip guard — re-encode and decode back; if the operation
-    // count differs, lopdf cannot faithfully represent this stream and we
-    // must fall back to flatten rather than risk silent data loss.
-    let encoded_check = content.encode().ok()?;
-    let operation_count_after_roundtrip = lopdf::content::Content::decode(&encoded_check)
-        .ok()?
-        .operations
-        .len();
-    if operation_count_after_roundtrip != content.operations.len() {
-        return None;
-    }
-
-    // Step 4: resolve per-page font metrics.
+    // Resolve page geometry and fonts.
     let fonts = page_fonts(doc, page_id);
-
-    // Step 5: resolve the MediaBox to build the initial CTM.
-    // The redaction Rect frame has the page's lower-left at (0, 0). When the
-    // MediaBox lower-left is not at the origin (llx != 0 or lly != 0) we seed
-    // the CTM with a translation that maps the MediaBox lower-left to (0, 0).
     let [llx, lly, _urx, _ury] = resolve_mediabox(doc, page_id)?;
     let initial_ctm = kurbo::Affine::translate((-llx as f64, -lly as f64));
 
-    // Step 6: check page rotation. Non-zero rotations require a coordinate-frame
-    // adjustment that is not handled here; those pages fall back to flatten.
-    let rotate_raw = resolve_rotate(doc, page_id);
-    let rotate_normalized = rotate_raw.rem_euclid(360);
-    if rotate_normalized != 0 {
+    // Non-zero rotation needs a coordinate-frame adjustment not handled here.
+    if resolve_rotate(doc, page_id).rem_euclid(360) != 0 {
         return None;
     }
 
-    // Step 7: enumerate glyph positions.
+    // Locate glyphs and mark those inside the rectangles. This runs before the
+    // round-trip guard: a stream lopdf cannot re-encode (inline images) may still have
+    // perfectly analyzable text, and the byte-path below rewrites it without a re-encode.
     let slots = enumerate_page_glyphs(&content, &fonts, initial_ctm).ok()?;
-
-    // Step 8: find which glyphs fall inside the redaction rectangles.
     let marked = mark_in_rects(&slots, rects);
 
-    // Step 9: rewrite the content stream, dropping marked glyphs and appending
-    // black fill boxes for each rectangle.
-    let mut edited = content;
-    apply_excision(&mut edited, &slots, &marked, &fonts, rects);
+    // Round-trip guard: can lopdf faithfully re-encode this whole stream? A re-encode
+    // that fails to re-decode counts as "does not round-trip", same as a differing
+    // operation count — both mean lopdf cannot faithfully represent this stream whole.
+    if content_roundtrips(&content) {
+        // Op-path: rewrite the operation list and re-encode the whole stream.
+        op_path_write(&content, &slots, &marked, &fonts, rects)
+    } else {
+        // Byte-path: copy the original bytes and re-encode only the edited operators,
+        // so inline images and exotic constructs pass through byte-identical.
+        byte_path_write(&raw, &content, &slots, &marked, &fonts, rects)
+    }
+}
 
-    // Step 10: encode the edited stream back to bytes.
-    let out = edited.encode().ok()?;
-    Some(out)
+/// Run the op-path writer (whole-stream re-encode) on one page, ignoring the round-trip
+/// guard. Returns the surgered bytes, or None if it cannot produce a stream.
+fn op_path_write(
+    content: &Content,
+    slots: &[GlyphSlot],
+    marked: &[usize],
+    fonts: &BTreeMap<Vec<u8>, FontMetrics>,
+    rects: &[Rect],
+) -> Option<Vec<u8>> {
+    let mut edited = content.clone();
+    apply_excision(&mut edited, slots, marked, fonts, rects);
+    edited.encode().ok()
+}
+
+/// Run the byte-path writer on one page. Returns the spliced bytes, or None on desync.
+fn byte_path_write(
+    raw: &[u8],
+    content: &Content,
+    slots: &[GlyphSlot],
+    marked: &[usize],
+    fonts: &BTreeMap<Vec<u8>, FontMetrics>,
+    rects: &[Rect],
+) -> Option<Vec<u8>> {
+    let replacements = op_replacements(content, slots, marked, fonts);
+    let boxes = fill_box_operations(rects);
+    build_byte_splice(raw, &content.operations, &replacements, &boxes)
+}
+
+/// Whether one writer's candidate stream ended up preserving live text/vectors
+/// (`Surgered`) or had to be treated as unusable by the caller (`Flattened`). Used
+/// only by the diagnostic below — production redaction falls back to a real raster
+/// flatten, this enum just names the two outcomes for comparison purposes.
+///
+/// Diagnostic-only, not a supported engine type: eval-harness internal, hidden from docs.
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[doc(hidden)]
+pub enum SurgeryDisposition {
+    Surgered,
+    Flattened,
+}
+
+/// The op-path and byte-path writers' dispositions for one page, run independently
+/// of each other and of production `redact`'s single chosen path.
+///
+/// Diagnostic-only, not a supported engine type: eval-harness internal, hidden from docs.
+#[doc(hidden)]
+pub struct SurgeryPathComparison {
+    pub op_path: SurgeryDisposition,
+    pub byte_path: SurgeryDisposition,
+}
+
+/// Diagnostic: run BOTH writers on one page and report whether each produced a
+/// gate-passing stream. The op-path/byte-path recovery comparison and the
+/// full-replacement-safety decision are read off the aggregate of these across a
+/// corpus. `Surgered` = the writer produced a stream that passes the surgery outcome
+/// gate; otherwise `Flattened`. Returns `None` if the page cannot be loaded or
+/// enumerated at all (not a disposition — no comparison to make).
+///
+/// Scope of what a green comparison actually proves: it rests on (a) gate-pass
+/// equivalence per page, checked independently for each writer, and (b) the fact
+/// that surviving-glyph layout is identical BY CONSTRUCTION whenever both writers
+/// surger the same page — both call the shared `op_replacements` to build the
+/// replacement operators, so a kept glyph ends up at the position that same
+/// replacement data dictates in the op-path and in the byte-spliced output alike.
+/// This function does not independently diff surviving-glyph positions between the
+/// two outputs. A `Surgered`/`Surgered` or `Flattened`/`Surgered` verdict means
+/// "the byte-path gate-passes wherever the op-path does, and shares the rewrite" —
+/// not "pixel-diffed equivalent."
+///
+/// Diagnostic-only, not a supported engine type: eval-harness internal, hidden from docs.
+#[doc(hidden)]
+pub fn compare_surgery_paths(
+    pdf_bytes: &[u8],
+    page: usize,
+    rects: &[Rect],
+) -> Option<SurgeryPathComparison> {
+    let doc = lopdf::Document::load_mem(pdf_bytes).ok()?;
+    let page_id = *doc.get_pages().get(&((page + 1) as u32))?;
+    let raw = doc.get_page_content(page_id).ok()?;
+    let content = lopdf::content::Content::decode(&raw).ok()?;
+    let fonts = page_fonts(&doc, page_id);
+    let [llx, lly, _, _] = resolve_mediabox(&doc, page_id)?;
+    if resolve_rotate(&doc, page_id).rem_euclid(360) != 0 {
+        return None;
+    }
+    let slots = enumerate_page_glyphs(
+        &content,
+        &fonts,
+        kurbo::Affine::translate((-llx as f64, -lly as f64)),
+    )
+    .ok()?;
+    let marked = mark_in_rects(&slots, rects);
+
+    // Assemble a hayro probe by installing `candidate` as the page's content stream.
+    let build_probe = |candidate: &[u8]| -> Option<hayro::hayro_syntax::Pdf> {
+        let mut probe_doc = doc.clone(); // lopdf Document::clone is deep
+        let content_id = probe_doc.add_object(lopdf::Stream::new(
+            lopdf::Dictionary::new(),
+            candidate.to_vec(),
+        ));
+        probe_doc
+            .get_dictionary_mut(page_id)
+            .ok()?
+            .set("Contents", lopdf::Object::Reference(content_id));
+        let mut bytes = Vec::new();
+        probe_doc.save_to(&mut bytes).ok()?;
+        hayro::hayro_syntax::Pdf::new(bytes).ok()
+    };
+    let disposition = |candidate: Option<Vec<u8>>| -> SurgeryDisposition {
+        match candidate.as_deref().and_then(build_probe) {
+            Some(probe) if crate::redact::surgery_candidate_passes_gate(&probe, page, rects) => {
+                SurgeryDisposition::Surgered
+            }
+            _ => SurgeryDisposition::Flattened,
+        }
+    };
+    // Production only ever runs the op-path when the round-trip guard passes; on a
+    // guard-failing page it never runs the op-path at all (byte_path_write handles it
+    // instead). Mirror that here: a guard failure forces op_path to Flattened rather
+    // than gating whatever op_path_write happens to produce, so a stream lopdf silently
+    // truncated (and which the gate then can't see past) doesn't get misreported as
+    // Surgered.
+    let op_path = if content_roundtrips(&content) {
+        disposition(op_path_write(&content, &slots, &marked, &fonts, rects))
+    } else {
+        SurgeryDisposition::Flattened
+    };
+    Some(SurgeryPathComparison {
+        op_path,
+        byte_path: disposition(byte_path_write(
+            &raw, &content, &slots, &marked, &fonts, rects,
+        )),
+    })
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -1310,6 +1520,41 @@ mod tests {
                 assert_eq!(widths.get(&67), None);
             }
             _ => panic!("expected Supported"),
+        }
+    }
+
+    #[test]
+    fn simple_font_indirect_widths_are_resolved() {
+        // `/Widths` and `/FirstChar` as indirect references (the common real-world
+        // form, seen on non-embedded TrueType and base-14-named fonts). Reading
+        // `/Widths` without dereferencing would misclassify the font as unsupported.
+        let mut d = Document::with_version("1.5");
+        let widths_id = d.add_object(Object::Array(vec![
+            Object::Integer(500),
+            Object::Integer(600),
+        ]));
+        let first_char_id = d.add_object(Object::Integer(65));
+        let font = dictionary! {
+            "Type" => "Font", "Subtype" => "TrueType", "BaseFont" => "TimesNewRomanPSMT",
+            "FirstChar" => Object::Reference(first_char_id),
+            "Widths" => Object::Reference(widths_id),
+        };
+        let fid = d.add_object(font);
+        let page = d.add_object(dictionary! {
+            "Type" => "Page",
+            "Resources" => dictionary! { "Font" => dictionary! { "F0" => Object::Reference(fid) } },
+        });
+        match page_fonts(&d, page).get(b"F0".as_ref()).unwrap() {
+            FontMetrics::Supported {
+                bytes_per_code,
+                widths,
+                ..
+            } => {
+                assert_eq!(*bytes_per_code, 1);
+                assert_eq!(widths.get(&65), Some(&500.0));
+                assert_eq!(widths.get(&66), Some(&600.0));
+            }
+            _ => panic!("expected Supported for indirect /Widths"),
         }
     }
 
@@ -1718,6 +1963,55 @@ mod tests {
     }
 
     #[test]
+    fn op_replacements_and_boxes_match_apply_excision() {
+        // Building a Content two ways — via the factored helpers vs. apply_excision —
+        // must yield identical operations. This pins that the refactor is behavior-preserving.
+        let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/fixtures/surgery_simple.pdf");
+        let doc = lopdf::Document::load(&fixture).unwrap();
+        let page_id = *doc.get_pages().values().next().unwrap();
+        let raw = doc.get_page_content(page_id).unwrap();
+        let content = lopdf::content::Content::decode(&raw).unwrap();
+        let fonts = page_fonts(&doc, page_id);
+        let [llx, lly, _, _] = resolve_mediabox(&doc, page_id).unwrap();
+        let slots = enumerate_page_glyphs(
+            &content,
+            &fonts,
+            kurbo::Affine::translate((-llx as f64, -lly as f64)),
+        )
+        .unwrap();
+        let rects = [Rect {
+            x0: 0.0,
+            y0: 0.0,
+            x1: 200.0,
+            y1: 50.0,
+        }];
+        let marked = mark_in_rects(&slots, &rects);
+
+        // Path A: apply_excision on a clone.
+        let mut via_excision = content.clone();
+        apply_excision(&mut via_excision, &slots, &marked, &fonts, &rects);
+
+        // Path B: rebuild from the factored helpers.
+        let replacements = op_replacements(&content, &slots, &marked, &fonts);
+        let mut rebuilt = Vec::new();
+        for (idx, op) in content.operations.iter().enumerate() {
+            if let Some(repl) = replacements.get(&idx) {
+                rebuilt.extend(repl.iter().cloned());
+            } else {
+                rebuilt.push(op.clone());
+            }
+        }
+        rebuilt.extend(fill_box_operations(&rects));
+
+        assert_eq!(via_excision.operations.len(), rebuilt.len());
+        for (a, b) in via_excision.operations.iter().zip(rebuilt.iter()) {
+            assert_eq!(a.operator, b.operator);
+            assert_eq!(a.operands, b.operands);
+        }
+    }
+
+    #[test]
     fn excise_draws_redaction_box() {
         // Empty content + one rect: verify q, rg, re (correct dimensions), f, Q appended.
         let mut content = Content { operations: vec![] };
@@ -2079,5 +2373,245 @@ mod tests {
             fonts.is_empty(),
             "page_fonts must return an empty map for a cyclic /Parent chain"
         );
+    }
+
+    // ── Byte-level splice ────────────────────────────────────────────────────
+
+    /// Build a one-page document whose page content stream is exactly `content_bytes`,
+    /// with a single standard-14 font resource named `F1`. Returns the doc and page id.
+    pub(super) fn doc_with_content(
+        content_bytes: &[u8],
+        base_font: &str,
+    ) -> (lopdf::Document, lopdf::ObjectId) {
+        use lopdf::{dictionary, Object, Stream};
+        let mut doc = lopdf::Document::with_version("1.5");
+        let font_id = doc.add_object(dictionary! {
+            "Type" => Object::Name(b"Font".to_vec()),
+            "Subtype" => Object::Name(b"Type1".to_vec()),
+            "BaseFont" => Object::Name(base_font.as_bytes().to_vec()),
+        });
+        let resources_id = doc.add_object(dictionary! {
+            "Font" => dictionary! { "F1" => font_id },
+        });
+        let content_id = doc.add_object(Stream::new(dictionary! {}, content_bytes.to_vec()));
+        let pages_id = doc.new_object_id();
+        let page_id = doc.add_object(dictionary! {
+            "Type" => Object::Name(b"Page".to_vec()),
+            "Parent" => pages_id,
+            "Contents" => content_id,
+            "MediaBox" => Object::Array(vec![0.into(), 0.into(), 200.into(), 200.into()]),
+            "Resources" => resources_id,
+        });
+        doc.objects.insert(pages_id, Object::Dictionary(dictionary! {
+            "Type" => Object::Name(b"Pages".to_vec()),
+            "Kids" => Object::Array(vec![page_id.into()]),
+            "Count" => 1,
+        }));
+        let catalog_id = doc.add_object(dictionary! {
+            "Type" => Object::Name(b"Catalog".to_vec()),
+            "Pages" => pages_id,
+        });
+        doc.trailer.set("Root", catalog_id);
+        (doc, page_id)
+    }
+
+    #[test]
+    fn byte_splice_preserves_inline_image_and_removes_text() {
+        // A page with text followed by an inline image whose colorspace lopdf drops on
+        // decode (tripping the round-trip guard). The byte splice must remove the text,
+        // keep the inline-image bytes byte-identical, and still parse.
+        let raw: &[u8] =
+            b"BT /F1 12 Tf 0 0 Td (Hello) Tj ET\nq BI /W 2 /H 2 /CS /Weird /BPC 8 ID \x01\x02\x03\x04 EI Q";
+        // Build a tiny doc whose page content is `raw`, with an F1 standard-14 font.
+        let (doc, page_id) = crate::surgery::tests::doc_with_content(raw, "Helvetica");
+        let content = lopdf::content::Content::decode(raw).unwrap();
+
+        // Pin the premise this test relies on: the fixture must actually trip the
+        // round-trip guard (encode-then-decode losing operations, or failing outright —
+        // `try_build_surgery`'s guard treats a decode failure the same as a count
+        // mismatch), otherwise it stops exercising the byte-splice path and silently
+        // degrades to testing nothing new.
+        let reencoded = content.encode().unwrap();
+        let after = lopdf::content::Content::decode(&reencoded)
+            .ok()
+            .map(|c| c.operations.len());
+        assert_ne!(
+            after,
+            Some(content.operations.len()),
+            "fixture must trip the round-trip guard (else it is not exercising the byte path)"
+        );
+
+        let fonts = page_fonts(&doc, page_id);
+        let slots = enumerate_page_glyphs(&content, &fonts, kurbo::Affine::IDENTITY).unwrap();
+        let rects = [Rect { x0: -1.0, y0: -1.0, x1: 1000.0, y1: 1000.0 }];
+        let marked = mark_in_rects(&slots, &rects);
+        assert!(!marked.is_empty(), "the text must be inside the rect");
+
+        let replacements = op_replacements(&content, &slots, &marked, &fonts);
+        let boxes = fill_box_operations(&rects);
+        let out = build_byte_splice(raw, &content.operations, &replacements, &boxes)
+            .expect("byte splice must succeed");
+
+        // Inline-image bytes survive verbatim.
+        assert!(out.windows(4).any(|w| w == b"\x01\x02\x03\x04"), "inline image data must be preserved");
+        assert!(out.windows(2).any(|w| w == b"BI"), "BI operator preserved");
+        assert!(out.windows(2).any(|w| w == b"EI"), "EI terminator preserved");
+        // The literal "Hello" no longer appears as a shown string.
+        assert!(!out.windows(5).any(|w| w == b"Hello"), "marked text must be gone");
+        // Output still decodes.
+        lopdf::content::Content::decode(&out).expect("spliced stream must decode");
+    }
+
+    #[test]
+    fn byte_splice_self_check_flattens_on_operator_desync() {
+        // If the operations list disagrees with the raw bytes, the splice must refuse.
+        let raw: &[u8] = b"BT (Hi) Tj ET";
+        let mut bogus = lopdf::content::Content::decode(raw).unwrap().operations;
+        bogus.push(lopdf::content::Operation::new("Tj", vec![])); // extra op, not in raw
+        let out = build_byte_splice(raw, &bogus, &BTreeMap::new(), &[]);
+        assert!(out.is_none(), "count mismatch must return None");
+    }
+
+    #[test]
+    fn byte_splice_self_check_flattens_on_operator_name_desync() {
+        // Same operation COUNT as `raw` (so the count check alone would pass), but one
+        // operator's name has been changed from what the tokenizer sees in `raw` — the
+        // per-index operator-name comparison must catch this desync on its own.
+        let raw: &[u8] = b"BT (Hi) Tj ET";
+        let mut mutated = lopdf::content::Content::decode(raw).unwrap().operations;
+        let tj_index = mutated
+            .iter()
+            .position(|op| op.operator == "Tj")
+            .expect("raw must contain a Tj operator");
+        mutated[tj_index].operator = "TJ".to_string();
+
+        let out = build_byte_splice(raw, &mutated, &BTreeMap::new(), &[]);
+        assert!(
+            out.is_none(),
+            "operator-name mismatch at equal length must return None"
+        );
+    }
+
+    #[test]
+    fn byte_splice_boxes_only_appends_without_replacements() {
+        // No glyph marked (empty replacements), but a redaction box must still be
+        // drawn — the path used when a rect covers no text (e.g. an image region).
+        let raw: &[u8] = b"BT (Hi) Tj ET";
+        let content = lopdf::content::Content::decode(raw).unwrap();
+        let rects = [Rect { x0: 10.0, y0: 10.0, x1: 20.0, y1: 20.0 }];
+        let boxes = fill_box_operations(&rects);
+        let encoded_boxes = encode_operations(&boxes).unwrap();
+
+        let out = build_byte_splice(raw, &content.operations, &BTreeMap::new(), &boxes)
+            .expect("byte splice must succeed with no replacements");
+
+        let mut expected = raw.to_vec();
+        expected.push(b' ');
+        expected.extend_from_slice(&encoded_boxes);
+        assert_eq!(
+            out, expected,
+            "output must equal raw bytes plus the encoded boxes appended"
+        );
+
+        lopdf::content::Content::decode(&out).expect("spliced stream must decode");
+    }
+
+    #[test]
+    fn inline_image_page_surgers_via_byte_path() {
+        // The same inline-image page as the byte-splice test above, end-to-end through
+        // try_build_surgery. Previously this flattened (round-trip guard); now it must
+        // return Some via the byte-path branch.
+        let raw: &[u8] =
+            b"BT /F1 12 Tf 0 0 Td (Hello) Tj ET\nq BI /W 2 /H 2 /CS /Weird /BPC 8 ID \x01\x02\x03\x04 EI Q";
+        let (doc, page_id) = crate::surgery::tests::doc_with_content(raw, "Helvetica");
+
+        // Confirm the round-trip guard would have tripped (precondition for the byte-path).
+        // This fixture's re-encoded bytes fail to re-decode outright (not merely a
+        // differing operation count), which content_roundtrips treats as non-round-tripping.
+        let content = lopdf::content::Content::decode(raw).unwrap();
+        assert!(!content_roundtrips(&content), "guard must trip for this fixture");
+
+        let rects = [Rect { x0: -1.0, y0: -1.0, x1: 1000.0, y1: 1000.0 }];
+        let out = try_build_surgery(&doc, page_id, &rects).expect("byte-path must surger");
+        assert!(out.windows(4).any(|w| w == b"\x01\x02\x03\x04"), "inline image preserved");
+        assert!(!out.windows(5).any(|w| w == b"Hello"), "text removed");
+    }
+
+    #[test]
+    fn compare_surgery_paths_reports_both_writers() {
+        // Same inline-image fixture as the byte-splice tests above, redacted with a
+        // full-page rect so the image also falls inside the redaction target.
+        //
+        // The round-trip guard fails for this fixture (lopdf's whole-stream
+        // `Content::encode()` cannot faithfully re-serialize this inline image), so
+        // production would never run the op-path here — it forces a raster flatten
+        // instead. The diagnostic now mirrors that: op_path is reported as Flattened
+        // rather than gating whatever `op_path_write` happens to produce (which, left
+        // ungated, silently collapses the inline image to a bare `BI` operator that
+        // hayro's reader can't parse past — a truncation, not a safe removal — and
+        // could otherwise be misread by the gate as a clean, "Surgered" page).
+        //
+        // byte_path == Flattened: the byte-splice faithfully preserves the inline
+        // image untouched, so the surgered candidate still has a real image sitting
+        // under the redaction box. The outcome gate's image-cover check correctly
+        // rejects this as recoverable (the pixels survive; deleting the box would
+        // reveal them), so byte_path legitimately fails the gate here.
+        //
+        // Net result: an inline image inside the redaction rect has no safe surgical
+        // path — both writers correctly fall back to Flattened, matching production's
+        // raster-flatten behavior for this page.
+        let raw: &[u8] =
+            b"BT /F1 12 Tf 0 0 Td (Hello) Tj ET\nq BI /W 2 /H 2 /CS /Weird /BPC 8 ID \x01\x02\x03\x04 EI Q";
+        let (doc, _page_id) = crate::surgery::tests::doc_with_content(raw, "Helvetica");
+        let mut pdf = Vec::new();
+        {
+            let mut d = doc;
+            d.save_to(&mut pdf).unwrap();
+        }
+        let rects = [Rect {
+            x0: -1.0,
+            y0: -1.0,
+            x1: 1000.0,
+            y1: 1000.0,
+        }];
+        let cmp = crate::surgery::compare_surgery_paths(&pdf, 0, &rects).unwrap();
+        assert_eq!(cmp.op_path, crate::surgery::SurgeryDisposition::Flattened);
+        assert_eq!(cmp.byte_path, crate::surgery::SurgeryDisposition::Flattened);
+    }
+
+    #[test]
+    fn compare_surgery_paths_recovers_when_image_is_outside_the_target() {
+        // The realistic case where the byte-path recovers a page the op-path would
+        // flatten: redact only a name-sized region of text; an
+        // unrelated inline image lives elsewhere on the page (translated away from the
+        // target via `cm`), so it is neither excised nor covered by the redaction box.
+        //
+        // The round-trip guard still fails for this fixture (same inline image lopdf
+        // cannot faithfully re-encode), so op_path == Flattened — production would
+        // never run the op-path here either. But the byte-path surgers cleanly: text
+        // in the rect is removed, the unrelated image outside the rect is preserved
+        // byte-identical, and the gate passes because nothing covering the redaction
+        // rect survives. This is the real `byte_path_recovers` case the byte-splice
+        // exists for — a page that used to force a full-page raster flatten (because
+        // ANY inline image tripped the round-trip guard) now keeps its live text and
+        // its unrelated image intact via the byte-path alone.
+        let raw: &[u8] =
+            b"BT /F1 12 Tf 0 0 Td (Hello) Tj ET\nq 1 0 0 1 300 300 cm BI /W 2 /H 2 /CS /Weird /BPC 8 ID \x01\x02\x03\x04 EI Q";
+        let (doc, _page_id) = crate::surgery::tests::doc_with_content(raw, "Helvetica");
+        let mut pdf = Vec::new();
+        {
+            let mut d = doc;
+            d.save_to(&mut pdf).unwrap();
+        }
+        // Cover only the "Hello" text near the origin; well clear of the image at (300,300).
+        let rects = [Rect {
+            x0: -1.0,
+            y0: -1.0,
+            x1: 50.0,
+            y1: 20.0,
+        }];
+        let cmp = crate::surgery::compare_surgery_paths(&pdf, 0, &rects).unwrap();
+        assert_eq!(cmp.op_path, crate::surgery::SurgeryDisposition::Flattened);
+        assert_eq!(cmp.byte_path, crate::surgery::SurgeryDisposition::Surgered);
     }
 }

@@ -43,6 +43,7 @@ describe("problem-type URI registry", () => {
         "upload-not-allowed",
         "malware-flagged",
         "unsupported-conversion",
+        "wrong-password",
         "internal",
         "not-implemented",
         "beta-consent-required",

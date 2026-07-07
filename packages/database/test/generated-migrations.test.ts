@@ -19,77 +19,111 @@ async function loadLineage(lineage: "control-plane" | "per-firm") {
   return migrationsFromJournal(journal, sqlByTag);
 }
 
-describe("generated migrations (committed artifacts)", () => {
-  it("control-plane lineage loads, starts at the firm registry, and statements are non-empty", async () => {
-    const migrations = await loadLineage("control-plane");
-    expect(migrations.length).toBeGreaterThanOrEqual(1);
-    expect(migrations[0]?.tag).toMatch(/^0000_/);
-    expect(migrations[0]?.statements.join("\n")).toContain("firm");
-    for (const migration of migrations) {
-      expect(migration.statements.length).toBeGreaterThan(0);
-    }
-  });
+// A monotonic timestamp migration id: YYYYMMDDThhmmss_slug.
+const TIMESTAMP_TAG = /^\d{8}T\d{6}_/u;
 
-  it("control-plane 0001 adds the auth tables, auth_audit, outbox + idempotency, and the firm lifecycle columns", async () => {
+describe("collapsed migration baselines (committed artifacts)", () => {
+  it("control-plane is a single timestamp-id baseline with the auth + firm tables and firm lifecycle columns", async () => {
     const migrations = await loadLineage("control-plane");
-    expect(migrations.length).toBeGreaterThanOrEqual(2);
-    expect(migrations[1]?.tag).toMatch(/^0001_/);
-    const allSql = migrations.flatMap((migration) => migration.statements).join("\n");
+    expect(migrations).toHaveLength(1);
+    expect(migrations[0]?.tag).toMatch(TIMESTAMP_TAG);
+    const sql = migrations[0]?.statements.join("\n") ?? "";
+    expect(migrations[0]?.statements.length ?? 0).toBeGreaterThan(0);
     for (const tableName of [
       ...BETTER_AUTH_TABLE_NAMES,
       "auth_audit",
       "outbox",
       "idempotency_key",
+      "firm",
     ]) {
-      expect(allSql, tableName).toContain(`CREATE TABLE \`${tableName}\``);
-    }
-    // The firm lifecycle lands as a table rebuild (database_identifier loses NOT NULL, name gains
-    // UNIQUE — both provisioning-resume requirements) with the lifecycle columns in the new shape.
-    // The rebuild's copy backfills the new columns ('active'/NULL/NULL) rather than selecting them
-    // from the 0000-era table, and uses the D1-compatible defer_foreign_keys pragma — the two
-    // hand-corrections documented in the migration file itself.
-    expect(allSql).toContain("`status` text DEFAULT 'active' NOT NULL");
-    expect(allSql).toContain("`bucket_name` text");
-    expect(allSql).toContain("`owner_user_id` text");
-    expect(allSql).toContain("CREATE UNIQUE INDEX `firm_name_unique` ON `firm` (`name`)");
-    expect(allSql).toContain(
-      'SELECT "id", "name", "database_identifier", "per_firm_schema_version", \'active\', NULL, NULL, "created_at" FROM `firm`',
-    );
-    expect(allSql).toContain("PRAGMA defer_foreign_keys = on");
-    expect(allSql).not.toContain("PRAGMA foreign_keys"); // not in D1's compatible-PRAGMA set
-  });
-
-  it("per-firm lineage loads and creates idempotency_key and outbox", async () => {
-    const migrations = await loadLineage("per-firm");
-    const allSql = migrations.flatMap((migration) => migration.statements).join("\n");
-    expect(allSql).toContain("idempotency_key");
-    expect(allSql).toContain("outbox");
-    expect(allSql).toContain("ledger_account");
-    expect(allSql).toContain("ledger_entry");
-    expect(allSql).toContain("ledger_line");
-    expect(allSql).toContain("account_balance");
-    // The CHECKs are the point — bounds enforcement and positive amounts must exist in the DDL.
-    expect(allSql).toContain("account_balance_bounds_check");
-    expect(allSql).toContain("ledger_line_amount_minor_positive_check");
-    expect(allSql).toContain("ledger_line_direction_check");
-    expect(allSql).toContain("ledger_account_name_nonempty_check");
-    expect(allSql).toContain("ledger_entry_description_nonempty_check");
-  });
-
-  it("per-firm 0002 creates the RBAC tables and seeds the five default roles", async () => {
-    const migrations = await loadLineage("per-firm");
-    expect(migrations.length).toBeGreaterThanOrEqual(3);
-    expect(migrations[2]?.tag).toMatch(/^0002_/);
-    const statements = migrations[2]?.statements ?? [];
-    const sql = statements.join("\n");
-    for (const tableName of ["member", "role", "role_permission", "member_role", "direct_grant"]) {
       expect(sql, tableName).toContain(`CREATE TABLE \`${tableName}\``);
     }
+    // Firm lifecycle columns land in the baseline's final shape (the collapse removed the
+    // incremental table-rebuild that historically introduced them).
+    expect(sql).toContain("`status` text DEFAULT 'active' NOT NULL");
+    expect(sql).toContain("`bucket_name` text");
+    expect(sql).toContain("`owner_user_id` text");
+    expect(sql).toContain("CREATE UNIQUE INDEX `firm_name_unique` ON `firm` (`name`)");
+    // A clean baseline never rebuilds a table: no shadow tables, no defer_foreign_keys dance.
+    expect(sql).not.toMatch(/__new_/u);
+    expect(sql).not.toContain("defer_foreign_keys");
+  });
+
+  it("per-firm starts with a single timestamp-id baseline carrying the ledger/matters/files/RBAC/directory tables and their CHECKs", async () => {
+    const migrations = await loadLineage("per-firm");
+    // The first migration is the collapsed timestamp-id baseline; features that land after the collapse
+    // append their own timestamp-id migrations after it (File Repair's seed + provenance table are the
+    // first). Every migration id — the baseline and everything after — is a monotonic timestamp.
+    expect(migrations.length).toBeGreaterThanOrEqual(1);
+    for (const migration of migrations) {
+      expect(migration.tag).toMatch(TIMESTAMP_TAG);
+    }
+    const sql = migrations[0]?.statements.join("\n") ?? "";
+    for (const tableName of [
+      "idempotency_key",
+      "outbox",
+      "ledger_account",
+      "ledger_entry",
+      "ledger_line",
+      "account_balance",
+      "member",
+      "role",
+      "role_permission",
+      "member_role",
+      "direct_grant",
+      "location",
+      "matter",
+      "matter_type",
+      "folder",
+      "file",
+      "file_version",
+      "audit_log",
+      "directory_name",
+      "custom_field",
+    ]) {
+      expect(sql, tableName).toContain(`CREATE TABLE \`${tableName}\``);
+    }
+    // The CHECKs are the point — bounds/status/positive-amount gates must survive the collapse.
+    for (const check of [
+      "account_balance_bounds_check",
+      "ledger_line_amount_minor_positive_check",
+      "ledger_line_direction_check",
+      "ledger_account_name_nonempty_check",
+      "ledger_entry_description_nonempty_check",
+      "matter_status_check",
+      "file_version_status_check",
+      "location_status_check",
+    ]) {
+      expect(sql, check).toContain(check);
+    }
+    // The frozen-number partial UNIQUE index (a duplicate number within a firm is impossible).
+    expect(sql).toContain(`WHERE "matter"."matter_number" IS NOT NULL`);
+    expect(sql).not.toMatch(/__new_/u);
+  });
+
+  it("per-firm baseline preserves the directory full-text-search virtual table and its sync triggers", async () => {
+    // The FTS5 table + its triggers are raw SQL, not part of the drizzle schema, so a naive
+    // re-baseline would silently drop them — this guards that the collapse re-expressed them.
+    const migrations = await loadLineage("per-firm");
+    const sql = migrations[0]?.statements.join("\n") ?? "";
+    expect(sql).toContain("CREATE VIRTUAL TABLE `directory_name_fts` USING fts5");
+    for (const trigger of [
+      "directory_name_fts_insert",
+      "directory_name_fts_delete",
+      "directory_name_fts_update",
+    ]) {
+      expect(sql, trigger).toContain(`CREATE TRIGGER \`${trigger}\``);
+    }
+  });
+
+  it("per-firm baseline seeds the five default roles and the folded permission grants", async () => {
+    const migrations = await loadLineage("per-firm");
+    const statements = migrations[0]?.statements ?? [];
+
     const roleSeeds = statements
       .filter((statement) => statement.includes("INSERT INTO `role`"))
       .map(parseSingleRowInsert);
-    const seededRoleNames = roleSeeds.map((seed) => String(seed.name));
-    seededRoleNames.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+    const seededRoleNames = roleSeeds.map((seed) => String(seed.name)).sort();
     expect(seededRoleNames).toEqual([
       "Attorney",
       "Billing",
@@ -98,173 +132,38 @@ describe("generated migrations (committed artifacts)", () => {
       "Read-only",
     ]);
     for (const seed of roleSeeds) {
-      // Seeded handles are committed literals — see drizzle/per-firm/0002_member-rbac.sql.
       expect(isIdentifier(seed.id, "role"), String(seed.id)).toBe(true);
       expect(seed.created_at).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/); // ISO-8601 instant
     }
-    const ownerAdmin = roleSeeds.find((seed) => seed.name === "Owner/Admin");
-    const permissionSeeds = statements
+    const ownerAdminId = roleSeeds.find((seed) => seed.name === "Owner/Admin")?.id;
+
+    const grants = statements
       .filter((statement) => statement.includes("INSERT INTO `role_permission`"))
       .map(parseSingleRowInsert);
-    // firm:manageMembers goes to Owner/Admin ONLY — the other four defaults start permissionless.
-    expect(permissionSeeds).toHaveLength(1);
-    expect(permissionSeeds[0]?.role_id).toBe(ownerAdmin?.id);
-    expect(permissionSeeds[0]?.permission).toBe("firm:manageMembers");
-    expect(isIdentifier(permissionSeeds[0]?.id, "rolePermission")).toBe(true);
-  });
-
-  it("per-firm 0004 creates the matters/locations/file-manager tables with their CHECKs, and leaves ledger_account alone", async () => {
-    const migrations = await loadLineage("per-firm");
-    expect(migrations.length).toBeGreaterThanOrEqual(5);
-    expect(migrations[4]?.tag).toMatch(/^0004_/);
-    const sql = (migrations[4]?.statements ?? []).join("\n");
-    for (const tableName of [
-      "location",
-      "location_address",
-      "member_location",
-      "matter_type",
-      "document_type",
-      "numbering_scheme",
-      "matter_number_counter",
-      "matter",
-      "folder",
-      "file",
-      "file_version",
-      "upload_session",
-      "storage_meter",
-      "setting",
-      "audit_log",
+    const permissions = new Set(grants.map((grant) => String(grant.permission)));
+    // Representative grants proving the folded seed migrations survived the collapse: RBAC (was
+    // 0002), matters/files (was 0004), and the tools:* grants (was 0010 firmUsage … 0034 aiText).
+    for (const permission of [
+      "firm:manageMembers",
+      "matters:create",
+      "files:upload",
+      "tools:firmUsage",
+      "tools:aiTextDetection",
     ]) {
-      expect(sql, tableName).toContain(`CREATE TABLE \`${tableName}\``);
+      expect(permissions.has(permission), permission).toBe(true);
     }
-    // The CHECKs are the point — the status gates must exist in the DDL.
-    expect(sql).toContain("matter_status_check");
-    expect(sql).toContain("file_version_status_check");
-    expect(sql).toContain("location_status_check");
-    // The frozen-number partial UNIQUE index (a duplicate number within a firm is impossible).
-    expect(sql).toContain(`WHERE "matter"."matter_number" IS NOT NULL`);
-    // 0004 (regenerated atop 0003 incident-intake) adds only the matters/locations/file tables: no
-    // spurious ledger_account table-rebuild.
-    expect(sql).not.toContain("__new_ledger_account");
-    expect(sql).not.toContain("DROP TABLE `ledger_account`");
+    // firm:manageMembers is Owner/Admin only; tools:aiTextDetection went to all five roles.
+    const manageMembers = grants.filter((grant) => grant.permission === "firm:manageMembers");
+    expect(manageMembers).toHaveLength(1);
+    expect(manageMembers[0]?.role_id).toBe(ownerAdminId);
+    expect(grants.filter((grant) => grant.permission === "tools:aiTextDetection")).toHaveLength(5);
   });
 
-  it("per-firm 0004 seeds the matters/locations/files role grants per the default-role policy", async () => {
+  it("per-firm baseline never creates the auth tables — they are control-plane only", async () => {
     const migrations = await loadLineage("per-firm");
-    const statements0002 = migrations[2]?.statements ?? [];
-    const statements0004 = migrations[4]?.statements ?? [];
-
-    // Role ids are seeded in 0002; map name -> id so the 0004 grant assertions read by role NAME.
-    const roleIdByName = new Map<string, string>(
-      statements0002
-        .filter((statement) => statement.includes("INSERT INTO `role`"))
-        .map(parseSingleRowInsert)
-        .map((seed) => [String(seed.name), String(seed.id)]),
-    );
-
-    // Collect 0004's role_permission grants, grouped by role name.
-    const grantsByRole = new Map<string, Set<string>>();
-    for (const statement of statements0004) {
-      if (!statement.includes("INSERT INTO `role_permission`")) continue;
-      const seed = parseSingleRowInsert(statement);
-      expect(isIdentifier(seed.id, "rolePermission"), String(seed.id)).toBe(true);
-      const roleName = [...roleIdByName].find(([, id]) => id === seed.role_id)?.[0];
-      expect(
-        roleName,
-        `grant role_id ${String(seed.role_id)} resolves to a seeded role`,
-      ).toBeDefined();
-      const set = grantsByRole.get(roleName as string) ?? new Set<string>();
-      set.add(String(seed.permission));
-      grantsByRole.set(roleName as string, set);
-    }
-
-    const sorted = (name: string) => [...(grantsByRole.get(name) ?? new Set())].sort();
-    // Owner/Admin gets every new permission; Attorney/Paralegal a curated subset; Billing/Read-only none.
-    expect(sorted("Owner/Admin")).toEqual(
-      [
-        "files:delete",
-        "files:manageDocumentTypes",
-        "files:organize",
-        "files:upload",
-        "locations:manage",
-        "matters:close",
-        "matters:create",
-        "matters:edit",
-        "matters:manageNumbering",
-        "matters:manageTypes",
-        "matters:open",
-        "matters:renumber",
-        "matters:reopen",
-      ].sort(),
-    );
-    expect(sorted("Attorney")).toEqual(
-      [
-        "matters:create",
-        "matters:open",
-        "matters:close",
-        "matters:edit",
-        "files:upload",
-        "files:organize",
-        "files:delete",
-      ].sort(),
-    );
-    expect(sorted("Paralegal")).toEqual(
-      ["matters:create", "files:upload", "files:organize"].sort(),
-    );
-    expect(grantsByRole.get("Billing")).toBeUndefined();
-    expect(grantsByRole.get("Read-only")).toBeUndefined();
-  });
-
-  it("per-firm 0005 only swaps list indexes (drop + create), never rebuilds a table", async () => {
-    const migrations = await loadLineage("per-firm");
-    expect(migrations.length).toBeGreaterThanOrEqual(6);
-    expect(migrations[5]?.tag).toMatch(/^0005_/);
-    const statements = migrations[5]?.statements ?? [];
-    const sql = statements.join("\n");
-    // The composite list-keyset indexes are the point: filter column first, then (created_at, id) so
-    // one ASC index serves both the filter and the reversed keyset sort with no temporary B-tree.
-    for (const indexName of [
-      "file_matter_id_created_at_id_index",
-      "file_folder_id_created_at_id_index",
-      "folder_matter_id_created_at_id_index",
-      "matter_responsible_member_id_created_at_id_index",
-      "matter_created_at_id_index",
-    ]) {
-      expect(sql, indexName).toContain(`CREATE INDEX \`${indexName}\``);
-    }
-    // The single-column FK indexes the composites replace are dropped (the composites cover them).
-    for (const droppedIndex of [
-      "file_matter_id_index",
-      "file_folder_id_index",
-      "folder_matter_id_index",
-      "matter_responsible_member_id_index",
-    ]) {
-      expect(sql, droppedIndex).toContain(`DROP INDEX \`${droppedIndex}\``);
-    }
-    // An index swap must never trigger a table rebuild — no new shadow table, no table drop.
-    for (const statement of statements) {
-      expect(statement).toMatch(/^\s*(?:DROP INDEX|CREATE INDEX)\b/u);
-    }
-  });
-
-  it("per-firm 0010 seeds tools:firmUsage onto the Owner/Admin role only", async () => {
-    const migrations = await loadLineage("per-firm");
-    const migration = migrations.find((m) => m.tag === "0010_seed-tools-firm-usage");
-    expect(migration, "0010_seed-tools-firm-usage missing from the per-firm lineage").toBeDefined();
-    const seeds = (migration?.statements ?? [])
-      .filter((statement) => statement.includes("INSERT INTO `role_permission`"))
-      .map(parseSingleRowInsert);
-    expect(seeds).toHaveLength(1);
-    expect(seeds[0]?.permission).toBe("tools:firmUsage");
-    expect(seeds[0]?.role_id).toBe("role_Gw-zKO8hOHQuNv2bWokMp"); // the Owner/Admin role (0002)
-    expect(isIdentifier(seeds[0]?.id, "rolePermission")).toBe(true);
-  });
-
-  it("per-firm lineage never creates the auth tables — they are control-plane only", async () => {
-    const migrations = await loadLineage("per-firm");
-    const allSql = migrations.flatMap((migration) => migration.statements).join("\n");
+    const sql = migrations[0]?.statements.join("\n") ?? "";
     for (const tableName of BETTER_AUTH_TABLE_NAMES) {
-      expect(allSql, tableName).not.toContain(`CREATE TABLE \`${tableName}\``);
+      expect(sql, tableName).not.toContain(`CREATE TABLE \`${tableName}\``);
     }
   });
 });
@@ -328,4 +227,31 @@ describe("seed permission values stay inside the registry (fitness function)", (
     }
     expect(seedCount).toBeGreaterThanOrEqual(1); // the parse actually covered the committed seed
   });
+});
+
+describe("migration ids stay monotonic and collision-free (fitness function)", () => {
+  // Guards the timestamp-id scheme against a future hand-authored migration: every tag must be a
+  // YYYYMMDDThhmmss_slug id, tags must be unique within a lineage, and lexical (tag) order must
+  // agree with the dense drizzle idx order — which is what the loader and worker bundles rely on to
+  // apply migrations in authored order. `scripts/timestamp-latest-migration.mjs` keeps generated
+  // migrations conformant; this catches a stamp edited or added by hand.
+  for (const lineage of ["control-plane", "per-firm"] as const) {
+    it(`${lineage}: tags are unique, timestamp-formatted, and monotonic with idx`, async () => {
+      const journal = JSON.parse(
+        await readFile(join(DRIZZLE, lineage, "meta", "_journal.json"), "utf8"),
+      ) as MigrationJournal;
+      const entries = journal.entries;
+      expect(entries.length).toBeGreaterThan(0);
+
+      const tags = entries.map((entry) => entry.tag);
+      expect(new Set(tags).size, `${lineage} has duplicate migration tags`).toBe(tags.length);
+      for (const tag of tags) {
+        expect(tag, `${lineage} migration ${tag} is not a timestamp id`).toMatch(TIMESTAMP_TAG);
+      }
+
+      const byIdx = [...entries].sort((a, b) => a.idx - b.idx).map((entry) => entry.tag);
+      const byTag = [...tags].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+      expect(byTag, `${lineage} lexical tag order disagrees with idx order`).toEqual(byIdx);
+    });
+  }
 });

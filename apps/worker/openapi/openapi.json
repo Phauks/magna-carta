@@ -396,6 +396,133 @@
           "links"
         ]
       },
+      "DecryptionInspectResponse": {
+        "type": "object",
+        "properties": {
+          "format": {
+            "type": "string",
+            "enum": [
+              "pdf",
+              "zip",
+              "ooxml"
+            ]
+          },
+          "hash": {
+            "type": "string"
+          },
+          "hashcatMode": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "format",
+          "hash",
+          "hashcatMode"
+        ]
+      },
+      "DecryptionUnlockResponse": {
+        "type": "object",
+        "properties": {
+          "decryptedBase64": {
+            "type": "string"
+          },
+          "filenameHint": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "decryptedBase64"
+        ]
+      },
+      "RecoveryStartResponse": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "type": "string"
+          },
+          "tier": {
+            "type": "string",
+            "enum": [
+              "cfCapable",
+              "gpuRequired"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "found",
+              "exhausted",
+              "needsGpu",
+              "cancelled"
+            ]
+          }
+        },
+        "required": [
+          "jobId",
+          "tier",
+          "status"
+        ]
+      },
+      "RecoveryStatusResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "found",
+              "exhausted",
+              "needsGpu",
+              "cancelled"
+            ]
+          },
+          "tier": {
+            "type": "string",
+            "enum": [
+              "cfCapable",
+              "gpuRequired"
+            ]
+          },
+          "progress": {
+            "type": "object",
+            "properties": {
+              "candidatesTried": {
+                "type": "integer"
+              },
+              "shardsDone": {
+                "type": "integer"
+              },
+              "shardCount": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "candidatesTried",
+              "shardsDone",
+              "shardCount"
+            ]
+          },
+          "result": {
+            "type": "object",
+            "properties": {
+              "password": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "password"
+            ]
+          }
+        },
+        "required": [
+          "status",
+          "tier",
+          "progress"
+        ]
+      },
       "FileIntegrityHashResponse": {
         "type": "object",
         "properties": {
@@ -512,6 +639,231 @@
           "baselineSha256",
           "comparison",
           "computedAt"
+        ]
+      },
+      "FileRepairDiagnosis": {
+        "type": "object",
+        "properties": {
+          "detectedFormat": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "corruption": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "recoverability": {
+            "type": "string"
+          },
+          "repairSupported": {
+            "type": "boolean"
+          },
+          "carveSuggested": {
+            "type": "boolean"
+          },
+          "detail": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "detectedFormat",
+          "corruption",
+          "recoverability",
+          "repairSupported",
+          "carveSuggested",
+          "detail"
+        ]
+      },
+      "FileRepairResult": {
+        "type": "object",
+        "properties": {
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "mediaType": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "contentBase64": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name",
+                "mediaType",
+                "contentBase64"
+              ]
+            }
+          },
+          "loss": {
+            "type": "object",
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "recovered": {
+                      "type": "boolean"
+                    },
+                    "detail": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "recovered",
+                    "detail"
+                  ]
+                }
+              },
+              "fullyRecovered": {
+                "type": "boolean"
+              },
+              "synthesized": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "items",
+              "fullyRecovered",
+              "synthesized"
+            ]
+          }
+        },
+        "required": [
+          "files",
+          "loss"
+        ]
+      },
+      "AiDetectionReport": {
+        "type": "object",
+        "properties": {
+          "band": {
+            "type": "string",
+            "enum": [
+              "unlikely",
+              "mixed",
+              "likely",
+              "inconclusive"
+            ]
+          },
+          "score": {
+            "type": "number"
+          },
+          "reliability": {
+            "type": "string",
+            "enum": [
+              "high",
+              "moderate",
+              "low"
+            ]
+          },
+          "caveats": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "segments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "startCharacter": {
+                  "type": "number"
+                },
+                "endCharacter": {
+                  "type": "number"
+                },
+                "score": {
+                  "type": "number"
+                },
+                "band": {
+                  "type": "string",
+                  "enum": [
+                    "unlikely",
+                    "mixed",
+                    "likely",
+                    "inconclusive"
+                  ]
+                }
+              },
+              "required": [
+                "startCharacter",
+                "endCharacter",
+                "score",
+                "band"
+              ]
+            }
+          },
+          "provenance": {
+            "type": "object",
+            "properties": {
+              "adapterId": {
+                "type": "string"
+              },
+              "vendorModel": {
+                "type": "string"
+              },
+              "vendorVersion": {
+                "type": "string"
+              },
+              "detectedAt": {
+                "type": "string"
+              },
+              "egressedTo": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "adapterId",
+              "detectedAt",
+              "egressedTo"
+            ]
+          }
+        },
+        "required": [
+          "band",
+          "score",
+          "reliability",
+          "caveats",
+          "provenance"
+        ]
+      },
+      "AiDetectionDetectRequest": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "minLength": 1
+          },
+          "languageHint": {
+            "type": "string"
+          },
+          "matterId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
         ]
       },
       "MetadataReport": {
@@ -791,6 +1143,128 @@
         },
         "required": [
           "channel"
+        ]
+      },
+      "ServiceEventResult": {
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "eventId"
+        ]
+      },
+      "DeclareServiceEvent": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "impact": {
+            "type": "string",
+            "enum": [
+              "minor",
+              "major",
+              "critical",
+              "maintenance"
+            ]
+          },
+          "affectedComponentIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "body": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "title",
+          "impact",
+          "affectedComponentIds",
+          "body"
+        ]
+      },
+      "PostServiceEventUpdate": {
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string"
+          },
+          "lifecycle": {
+            "type": "string",
+            "enum": [
+              "investigating",
+              "identified",
+              "monitoring",
+              "resolved"
+            ]
+          },
+          "body": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "eventId",
+          "lifecycle",
+          "body"
+        ]
+      },
+      "ComponentOverrideResult": {
+        "type": "object",
+        "properties": {
+          "componentId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "componentId"
+        ]
+      },
+      "SetComponentOverride": {
+        "type": "object",
+        "properties": {
+          "componentId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "operational",
+              "maintenance",
+              "degraded",
+              "partial_outage",
+              "major_outage"
+            ]
+          },
+          "note": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "componentId",
+          "status",
+          "note"
+        ]
+      },
+      "ClearComponentOverride": {
+        "type": "object",
+        "properties": {
+          "componentId": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "componentId"
         ]
       },
       "ReportIncidentResponse": {
@@ -6170,6 +6644,472 @@
         }
       }
     },
+    "/api/v1/decryption/inspect": {
+      "post": {
+        "description": "Detect the encrypted format of an uploaded file (base64) and extract a hashcat-compatible recovery hash for offline password recovery. Requires explicit attestation that the requester holds the file legitimately. Nothing is stored; only a redacted audit record is written.",
+        "operationId": "decryption.inspect",
+        "tags": [
+          "decryption"
+        ],
+        "x-mc-operationId": "decryption.inspect",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tools:decryption",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "expensive",
+        "x-mc-tags": [
+          "decryption"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "fileBase64": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "attestation": {
+                    "type": "object",
+                    "properties": {
+                      "authorized": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "authorized"
+                    ]
+                  }
+                },
+                "required": [
+                  "fileBase64",
+                  "attestation"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Detected format, hashcat-compatible hash string, and hashcat mode number",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DecryptionInspectResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Attestation not authorised, file is not encrypted, format is unsupported, or bytes are malformed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but the member lacks tools:decryption",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/decryption/unlock": {
+      "post": {
+        "description": "Decrypt a password-protected file (PDF, ZIP, or OOXML) using the supplied key and return the decrypted bytes as base64. Requires explicit attestation that the requester holds the file legitimately. Nothing is stored; only a redacted audit record is written.",
+        "operationId": "decryption.unlock",
+        "tags": [
+          "decryption"
+        ],
+        "x-mc-operationId": "decryption.unlock",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tools:decryption",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "expensive",
+        "x-mc-tags": [
+          "decryption"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "fileBase64": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "attestation": {
+                    "type": "object",
+                    "properties": {
+                      "authorized": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "authorized"
+                    ]
+                  }
+                },
+                "required": [
+                  "fileBase64",
+                  "password",
+                  "attestation"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Decrypted file bytes encoded as base64, with an optional filename hint",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DecryptionUnlockResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Attestation not authorised, wrong password, file is not encrypted, format unsupported, or bytes are malformed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but the member lacks tools:decryption",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/decryption/recover": {
+      "post": {
+        "description": "Starts an offline password-recovery job for an encrypted file (base64): extracts a hashcat-compatible hash and hands it to the recovery coordinator, which fans the search out across containers on the Cloudflare-CPU tier (or reports needsGpu for a slow key-derivation function outside that tier). Requires explicit attestation that the requester holds the file legitimately. The file is never stored; only the extracted hash reaches the coordinator.",
+        "operationId": "decryption.recoverStart",
+        "tags": [
+          "decryption"
+        ],
+        "x-mc-operationId": "decryption.recoverStart",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tools:decryption",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "expensive",
+        "x-mc-tags": [
+          "decryption"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "fileBase64": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "attestation": {
+                    "type": "object",
+                    "properties": {
+                      "authorized": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "authorized"
+                    ]
+                  }
+                },
+                "required": [
+                  "fileBase64",
+                  "attestation"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The started job's id, recovery tier, and initial status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecoveryStartResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Attestation not authorised, file is not encrypted, format is unsupported, or bytes are malformed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but the member lacks tools:decryption",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/decryption/recover/{jobId}": {
+      "get": {
+        "description": "Polls a password-recovery job's current state. On status found, the response carries result.password — surfaced once to the user who started the job (retrieval is bound to that identity; the password is purged after a retention window), then every later poll omits result. Every non-found status omits result.",
+        "operationId": "decryption.recoverStatus",
+        "tags": [
+          "decryption"
+        ],
+        "x-mc-operationId": "decryption.recoverStatus",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tools:decryption",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "decryption"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "jobId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The job's current status, tier, progress, and (when found) the password",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecoveryStatusResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but the member lacks tools:decryption",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No recovery job with that id was started by the requesting user",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "description": "Cancels a password-recovery job. A no-op if the job is already terminal (found, exhausted, needsGpu, or already cancelled) — cancel never overwrites an outcome already reached.",
+        "operationId": "decryption.recoverCancel",
+        "tags": [
+          "decryption"
+        ],
+        "x-mc-operationId": "decryption.recoverCancel",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tools:decryption",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "decryption"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "jobId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The job was cancelled (or was already terminal — a no-op either way)"
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but the member lacks tools:decryption",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/file-integrity/hash": {
       "post": {
         "description": "Compute MD5, SHA-1, SHA-256, SHA-384 and SHA-512 digests of the request body in a single pass. Optionally report which algorithm matches an expected digest. Nothing is stored.",
@@ -6518,6 +7458,761 @@
           },
           "503": {
             "description": "Identification engine unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/file-repair/diagnose": {
+      "post": {
+        "description": "Diagnose a possibly-corrupt uploaded file: detect its format, describe the corruption, and report whether it can be repaired (and whether carving may recover embedded files). Nothing is stored.",
+        "operationId": "fileRepair.diagnose",
+        "tags": [
+          "fileRepair"
+        ],
+        "x-mc-operationId": "fileRepair.diagnose",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tools:fileRepair",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "expensive",
+        "x-mc-tags": [
+          "fileRepair"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Diagnosis report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileRepairDiagnosis"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Empty request body",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing tools:fileRepair",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "File exceeds the inspectable-size cap",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Recovery engine unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/file-repair/repair": {
+      "post": {
+        "description": "Repair a structurally corrupted uploaded file by reconstructing its format (ZIP/OOXML, CFB/OLE2, or a PDF cross-reference), returning the salvaged file plus an honest manifest of what could not be recovered. The reconstructed output is re-scanned for malware before it is returned. Nothing is stored.",
+        "operationId": "fileRepair.repair",
+        "tags": [
+          "fileRepair"
+        ],
+        "x-mc-operationId": "fileRepair.repair",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tools:fileRepair",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "expensive",
+        "x-mc-tags": [
+          "fileRepair"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The reconstructed files and the honest loss manifest",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileRepairResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Empty request body",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing tools:fileRepair",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "File exceeds the inspectable-size cap",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The file could not be reconstructed, or the output was withheld by the malware gate",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Recovery engine unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/file-repair/carve": {
+      "post": {
+        "description": "Carve embedded known-type files (e.g. JPEG, PNG, PDF, ZIP) out of an unrecognized or severely damaged uploaded file by scanning its raw bytes, validating each candidate by actually decoding it. Every carved file is re-scanned for malware before it is returned. Nothing is stored.",
+        "operationId": "fileRepair.carve",
+        "tags": [
+          "fileRepair"
+        ],
+        "x-mc-operationId": "fileRepair.carve",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tools:fileRepair",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "expensive",
+        "x-mc-tags": [
+          "fileRepair"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The reconstructed files and the honest loss manifest",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileRepairResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Empty request body",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing tools:fileRepair",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "File exceeds the inspectable-size cap",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The file could not be reconstructed, or the output was withheld by the malware gate",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Recovery engine unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/file-repair/repair/attach": {
+      "post": {
+        "description": "Repair the uploaded corrupt file and save the result into a matter: a new version of an existing file (when fileId is given) or a new file. The reconstruction rides the ingest malware gate; the honest loss manifest is stored with the version. Returns 202 — the version is pending until ingest resolves.",
+        "operationId": "fileRepair.repairAttach",
+        "tags": [
+          "fileRepair"
+        ],
+        "x-mc-operationId": "fileRepair.repairAttach",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "files:upload",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "expensive",
+        "x-mc-tags": [
+          "fileRepair"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^file_[A-Za-z0-9_-]{21}$"
+            },
+            "required": false,
+            "name": "fileId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^folder_[A-Za-z0-9_-]{21}$"
+            },
+            "required": false,
+            "name": "folderId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "fileName",
+            "in": "query"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {}
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Attaching: the pending file/version rows and the provenance were committed and the bytes were put to R2. The version is pending until the ingest queue consumer commits or quarantines it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "fileId": {
+                      "type": "string"
+                    },
+                    "versionId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "fileId",
+                    "versionId"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Empty request body",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing files:upload, or missing tools:fileRepair",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The target file, or its folder, is unknown in this firm, or belongs to another matter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "File exceeds the inspectable-size cap",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The file could not be reconstructed, or the output was withheld by the malware gate",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Recovery engine unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/file-repair/carve/attach": {
+      "post": {
+        "description": "Carve embedded files out of the uploaded input and save each as a new file in the matter folder. Each carved file rides the ingest malware gate and carries the honest carve manifest. Returns 202.",
+        "operationId": "fileRepair.carveAttach",
+        "tags": [
+          "fileRepair"
+        ],
+        "x-mc-operationId": "fileRepair.carveAttach",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "files:upload",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "expensive",
+        "x-mc-tags": [
+          "fileRepair"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^folder_[A-Za-z0-9_-]{21}$"
+            },
+            "required": false,
+            "name": "folderId",
+            "in": "query"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {}
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Attaching carved files; versions pending. Each carved file's metadata was committed and bytes were put to R2. Versions are pending until ingest resolves.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "files": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "fileId": {
+                            "type": "string"
+                          },
+                          "versionId": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "fileId",
+                          "versionId",
+                          "name"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "files"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Empty request body",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing files:upload, or missing tools:fileRepair",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The target folder, or the matter, is unknown in this firm",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "File exceeds the inspectable-size cap",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The file could not be reconstructed, or the output was withheld by the malware gate",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Recovery engine unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ai-detection/detect": {
+      "post": {
+        "description": "Estimate the likelihood that pasted text was machine-generated. Returns a coarse likelihood band with an explicit reliability grade and the reasons to hesitate — a signal, not proof. Requires the firm to have enabled external detection; text is sent to the configured provider and is not retained. Nothing is stored except a usage meter entry.",
+        "operationId": "aiDetection.detect",
+        "tags": [
+          "aiDetection"
+        ],
+        "x-mc-operationId": "aiDetection.detect",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tools:aiTextDetection",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "expensive",
+        "x-mc-tags": [
+          "aiDetection"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AiDetectionDetectRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The detection report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiDetectionReport"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks tools:aiTextDetection",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "External detection is disabled for this firm, or detection is unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The detection provider rejected the request or is unavailable",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -7182,6 +8877,441 @@
           },
           "422": {
             "description": "Validation failed (channel value outside the allowed set); or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/platform/status/events": {
+      "post": {
+        "description": "A platform operator declares a service event (a disruption) with an opening update.",
+        "operationId": "platformStatus.declareEvent",
+        "tags": [
+          "platformStatus"
+        ],
+        "x-mc-operationId": "platformStatus.declareEvent",
+        "x-mc-surface": "public",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:provision",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "auth",
+        "x-mc-tags": [
+          "platformStatus"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeclareServiceEvent"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The declared event id",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceEventResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a platform operator, or 2FA not enabled",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid body",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/platform/status/events/updates": {
+      "post": {
+        "description": "A platform operator posts a rolling update to an existing service event.",
+        "operationId": "platformStatus.postUpdate",
+        "tags": [
+          "platformStatus"
+        ],
+        "x-mc-operationId": "platformStatus.postUpdate",
+        "x-mc-surface": "public",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:provision",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "auth",
+        "x-mc-tags": [
+          "platformStatus"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PostServiceEventUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The updated event id",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceEventResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a platform operator, or 2FA not enabled",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such event",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid body",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/platform/status/events/resolve": {
+      "post": {
+        "description": "A platform operator resolves a service event (marks it resolved with a final update).",
+        "operationId": "platformStatus.resolveEvent",
+        "tags": [
+          "platformStatus"
+        ],
+        "x-mc-operationId": "platformStatus.resolveEvent",
+        "x-mc-surface": "public",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:provision",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "auth",
+        "x-mc-tags": [
+          "platformStatus"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PostServiceEventUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The resolved event id",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceEventResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a platform operator, or 2FA not enabled",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such event",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid body",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/platform/status/overrides": {
+      "post": {
+        "description": "A platform operator sets a component status override (including a maintenance window, via status maintenance), upserted by componentId.",
+        "operationId": "platformStatus.setComponentOverride",
+        "tags": [
+          "platformStatus"
+        ],
+        "x-mc-operationId": "platformStatus.setComponentOverride",
+        "x-mc-surface": "public",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:provision",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "auth",
+        "x-mc-tags": [
+          "platformStatus"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetComponentOverride"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The overridden component id",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComponentOverrideResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a platform operator, or 2FA not enabled",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid body",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/platform/status/overrides/clear": {
+      "post": {
+        "description": "A platform operator clears a component status override by componentId.",
+        "operationId": "platformStatus.clearComponentOverride",
+        "tags": [
+          "platformStatus"
+        ],
+        "x-mc-operationId": "platformStatus.clearComponentOverride",
+        "x-mc-surface": "public",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:provision",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "auth",
+        "x-mc-tags": [
+          "platformStatus"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClearComponentOverride"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The cleared component id",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComponentOverrideResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a platform operator, or 2FA not enabled",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid body",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -23246,6 +25376,9 @@
   "webhooks": {},
   "tags": [
     {
+      "name": "aiDetection"
+    },
+    {
       "name": "conversions"
     },
     {
@@ -23253,6 +25386,9 @@
     },
     {
       "name": "customFields"
+    },
+    {
+      "name": "decryption"
     },
     {
       "name": "directory"
@@ -23268,6 +25404,9 @@
     },
     {
       "name": "fileIntegrity"
+    },
+    {
+      "name": "fileRepair"
     },
     {
       "name": "fileType"
@@ -23325,6 +25464,9 @@
     },
     {
       "name": "platform"
+    },
+    {
+      "name": "platformStatus"
     },
     {
       "name": "rateCards"

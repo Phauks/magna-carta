@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { ConversionsStatusData, ConversionsStatusErrors, ConversionsStatusResponses, ConversionsSubmitData, ConversionsSubmitErrors, ConversionsSubmitResponses, ConversionsUploadData, ConversionsUploadErrors, ConversionsUploadResponses, CostsApproveData, CostsApproveErrors, CostsApproveResponses, CostsAttachReceiptData, CostsAttachReceiptErrors, CostsAttachReceiptResponses, CostsBatchData, CostsBatchErrors, CostsBatchResponses, CostsCreateData, CostsCreateErrors, CostsCreateResponses, CostsDetachReceiptData, CostsDetachReceiptErrors, CostsDetachReceiptResponses, CostsGetData, CostsGetErrors, CostsGetResponses, CostsKickBackData, CostsKickBackErrors, CostsKickBackResponses, CostsListData, CostsListErrors, CostsListResponses, CostsSubmitData, CostsSubmitErrors, CostsSubmitResponses, CostsUpdateData, CostsUpdateErrors, CostsUpdateResponses, CostsVoidData, CostsVoidErrors, CostsVoidResponses, CustomFieldsApplyConvertData, CustomFieldsApplyConvertErrors, CustomFieldsApplyConvertResponses, CustomFieldsArchiveFieldData, CustomFieldsArchiveFieldErrors, CustomFieldsArchiveFieldResponses, CustomFieldsArchiveOptionData, CustomFieldsArchiveOptionErrors, CustomFieldsArchiveOptionResponses, CustomFieldsClearValueData, CustomFieldsClearValueErrors, CustomFieldsClearValueResponses, CustomFieldsCreateOptionData, CustomFieldsCreateOptionErrors, CustomFieldsCreateOptionResponses, CustomFieldsDefineFieldData, CustomFieldsDefineFieldErrors, CustomFieldsDefineFieldResponses, CustomFieldsHardDeleteFieldData, CustomFieldsHardDeleteFieldErrors, CustomFieldsHardDeleteFieldResponses, CustomFieldsHardDeleteOptionData, CustomFieldsHardDeleteOptionErrors, CustomFieldsHardDeleteOptionResponses, CustomFieldsListRecordValuesData, CustomFieldsListRecordValuesErrors, CustomFieldsListRecordValuesResponses, CustomFieldsPreviewConvertData, CustomFieldsPreviewConvertErrors, CustomFieldsPreviewConvertResponses, CustomFieldsPurgeFieldData, CustomFieldsPurgeFieldErrors, CustomFieldsPurgeFieldResponses, CustomFieldsRenameFieldData, CustomFieldsRenameFieldErrors, CustomFieldsRenameFieldResponses, CustomFieldsRenameOptionData, CustomFieldsRenameOptionErrors, CustomFieldsRenameOptionResponses, CustomFieldsReorderFieldData, CustomFieldsReorderFieldErrors, CustomFieldsReorderFieldResponses, CustomFieldsReorderOptionData, CustomFieldsReorderOptionErrors, CustomFieldsReorderOptionResponses, CustomFieldsResolveFieldData, CustomFieldsResolveFieldErrors, CustomFieldsResolveFieldResponses, CustomFieldsSetRequiredData, CustomFieldsSetRequiredErrors, CustomFieldsSetRequiredResponses, CustomFieldsSetValueData, CustomFieldsSetValueErrors, CustomFieldsSetValueResponses, CustomFieldsUnarchiveFieldData, CustomFieldsUnarchiveFieldErrors, CustomFieldsUnarchiveFieldResponses, CustomFieldsValueHistoryData, CustomFieldsValueHistoryErrors, CustomFieldsValueHistoryResponses, DirectoryAddIdentifierData, DirectoryAddIdentifierErrors, DirectoryAddIdentifierResponses, DirectoryAddNameData, DirectoryAddNameErrors, DirectoryAddNameResponses, DirectoryAssignCategoryData, DirectoryAssignCategoryErrors, DirectoryAssignCategoryResponses, DirectoryCreateCategoryData, DirectoryCreateCategoryErrors, DirectoryCreateCategoryResponses, DirectoryCreateEdgeData, DirectoryCreateEdgeErrors, DirectoryCreateEdgeResponses, DirectoryCreateOrganizationData, DirectoryCreateOrganizationErrors, DirectoryCreateOrganizationResponses, DirectoryCreatePersonData, DirectoryCreatePersonErrors, DirectoryCreatePersonResponses, DirectoryDuplicateCandidatesData, DirectoryDuplicateCandidatesErrors, DirectoryDuplicateCandidatesResponses, DirectoryGetOrganizationData, DirectoryGetOrganizationErrors, DirectoryGetOrganizationResponses, DirectoryGetPersonData, DirectoryGetPersonErrors, DirectoryGetPersonResponses, DirectoryLinkMatterPartyData, DirectoryLinkMatterPartyErrors, DirectoryLinkMatterPartyResponses, DirectoryMergeData, DirectoryMergeErrors, DirectoryMergeResponses, DirectoryReadIdentifierData, DirectoryReadIdentifierErrors, DirectoryReadIdentifierResponses, DirectorySearchData, DirectorySearchErrors, DirectorySearchResponses, DocumentsCheckinData, DocumentsCheckinErrors, DocumentsCheckinResponses, DocumentsCheckoutData, DocumentsCheckoutErrors, DocumentsCheckoutResponses, DocumentsEditSessionData, DocumentsEditSessionErrors, DocumentsEditSessionResponses, DocumentsForceReleaseData, DocumentsForceReleaseErrors, DocumentsForceReleaseResponses, DocumentsReconcileData, DocumentsReconcileErrors, DocumentsReconcileResponses, DocumentsViewSessionData, DocumentsViewSessionErrors, DocumentsViewSessionResponses, DocumentTypesCreateData, DocumentTypesCreateErrors, DocumentTypesCreateResponses, DocumentTypesDeactivateData, DocumentTypesDeactivateErrors, DocumentTypesDeactivateResponses, DocumentTypesListData, DocumentTypesListErrors, DocumentTypesListResponses, DocumentTypesUpdateData, DocumentTypesUpdateErrors, DocumentTypesUpdateResponses, DownloadsBundleStatusData, DownloadsBundleStatusErrors, DownloadsBundleStatusResponses, DownloadsZipData, DownloadsZipErrors, DownloadsZipResponses, FileIntegrityHashData, FileIntegrityHashErrors, FileIntegrityHashResponses, FileIntegrityVerifyData, FileIntegrityVerifyErrors, FileIntegrityVerifyResponses, FilesDeleteData, FilesDeleteErrors, FilesDeleteResponses, FilesDownloadData, FilesDownloadErrors, FilesGetData, FilesGetErrors, FilesGetResponses, FilesListData, FilesListErrors, FilesListResponses, FilesPreviewData, FilesPreviewErrors, FilesPreviewResponses, FilesUpdateData, FilesUpdateErrors, FilesUpdateResponses, FilesVersionsData, FilesVersionsErrors, FilesVersionsResponses, FileTypeVerifyData, FileTypeVerifyErrors, FileTypeVerifyResponses, FirmSetReleaseChannelData, FirmSetReleaseChannelErrors, FirmSetReleaseChannelResponses, FirmsProvisionData, FirmsProvisionErrors, FirmsProvisionResponses, FirmUsageGetData, FirmUsageGetErrors, FirmUsageGetResponses, FoldersCreateData, FoldersCreateErrors, FoldersCreateResponses, FoldersDeleteData, FoldersDeleteErrors, FoldersDeleteResponses, FoldersUpdateData, FoldersUpdateErrors, FoldersUpdateResponses, HealthReadData, HealthReadErrors, HealthReadResponses, IncidentsReportData, IncidentsReportErrors, IncidentsReportResponses, LocationsAssignMemberData, LocationsAssignMemberErrors, LocationsAssignMemberResponses, LocationsCloseData, LocationsCloseErrors, LocationsCloseResponses, LocationsCreateData, LocationsCreateErrors, LocationsCreateResponses, LocationsGetData, LocationsGetErrors, LocationsGetResponses, LocationsListData, LocationsListErrors, LocationsListResponses, LocationsSetAddressesData, LocationsSetAddressesErrors, LocationsSetAddressesResponses, LocationsUpdateData, LocationsUpdateErrors, LocationsUpdateResponses, MattersCloseData, MattersCloseErrors, MattersCloseResponses, MattersCreateData, MattersCreateErrors, MattersCreateResponses, MattersGetData, MattersGetErrors, MattersGetResponses, MattersListConsultationsData, MattersListConsultationsErrors, MattersListConsultationsResponses, MattersListData, MattersListErrors, MattersListResponses, MattersOpenData, MattersOpenErrors, MattersOpenResponses, MattersRenumberData, MattersRenumberErrors, MattersRenumberResponses, MattersReopenData, MattersReopenErrors, MattersReopenResponses, MattersUpdateData, MattersUpdateErrors, MattersUpdateResponses, MatterTypesCreateData, MatterTypesCreateErrors, MatterTypesCreateResponses, MatterTypesDeactivateData, MatterTypesDeactivateErrors, MatterTypesDeactivateResponses, MatterTypesListData, MatterTypesListErrors, MatterTypesListResponses, MatterTypesUpdateData, MatterTypesUpdateErrors, MatterTypesUpdateResponses, MeGetData, MeGetErrors, MeGetResponses, MembersInviteData, MembersInviteErrors, MembersInviteResponses, MetadataInspectData, MetadataInspectErrors, MetadataInspectResponses, MetadataScrubData, MetadataScrubErrors, MetadataScrubResponses, MyDayGetData, MyDayGetErrors, MyDayGetResponses, NarrativeTemplatesCreateData, NarrativeTemplatesCreateErrors, NarrativeTemplatesCreateResponses, NarrativeTemplatesListData, NarrativeTemplatesListErrors, NarrativeTemplatesListResponses, NarrativeTemplatesRecentNarrativesData, NarrativeTemplatesRecentNarrativesErrors, NarrativeTemplatesRecentNarrativesResponses, NonBillableCategoriesArchiveData, NonBillableCategoriesArchiveErrors, NonBillableCategoriesArchiveResponses, NonBillableCategoriesCreateData, NonBillableCategoriesCreateErrors, NonBillableCategoriesCreateResponses, NonBillableCategoriesListData, NonBillableCategoriesListErrors, NonBillableCategoriesListResponses, NonBillableCategoriesUpdateData, NonBillableCategoriesUpdateErrors, NonBillableCategoriesUpdateResponses, NumberingGetData, NumberingGetErrors, NumberingGetResponses, NumberingPreviewData, NumberingPreviewErrors, NumberingPreviewResponses, NumberingSetData, NumberingSetErrors, NumberingSetResponses, PlatformSetFirmReleaseChannelData, PlatformSetFirmReleaseChannelErrors, PlatformSetFirmReleaseChannelResponses, RateCardsCreateData, RateCardsCreateErrors, RateCardsCreateResponses, RateCardsListData, RateCardsListErrors, RateCardsListResponses, RatesAppendData, RatesAppendErrors, RatesAppendResponses, RatesReRateDraftsData, RatesReRateDraftsErrors, RatesReRateDraftsResponses, SafeBrowsePostData, SafeBrowsePostErrors, SafeBrowsePostResponses, ScanDiagnoseData, ScanDiagnoseErrors, ScanDiagnoseResponses, ScanMatterData, ScanMatterErrors, ScanMatterResponses, ScanPolicyGetData, ScanPolicyGetErrors, ScanPolicyGetResponses, ScanPolicyScoreHistogramData, ScanPolicyScoreHistogramErrors, ScanPolicyScoreHistogramResponses, ScanPolicyUpdateData, ScanPolicyUpdateErrors, ScanPolicyUpdateResponses, ShippingConnectData, ShippingConnectErrors, ShippingConnectResponses, ShippingCreateShipmentData, ShippingCreateShipmentErrors, ShippingCreateShipmentResponses, ShippingLabelData, ShippingLabelErrors, ShippingLabelResponses, ShippingPurchaseData, ShippingPurchaseErrors, ShippingPurchaseResponses, ShippingRateShipmentData, ShippingRateShipmentErrors, ShippingRateShipmentResponses, ShippingRefundData, ShippingRefundErrors, ShippingRefundResponses, ShippingTrackingData, ShippingTrackingErrors, ShippingTrackingResponses, SupportDiagnosticsOverviewData, SupportDiagnosticsOverviewErrors, SupportDiagnosticsOverviewResponses, SupportGrantsCosignData, SupportGrantsCosignErrors, SupportGrantsCosignResponses, SupportGrantsListData, SupportGrantsListErrors, SupportGrantsListResponses, SupportGrantsRequestData, SupportGrantsRequestErrors, SupportGrantsRequestResponses, SupportGrantsRevokeData, SupportGrantsRevokeErrors, SupportGrantsRevokeResponses, SupportSessionsRedeemData, SupportSessionsRedeemErrors, SupportSessionsRedeemResponses, TimeEntriesApproveData, TimeEntriesApproveErrors, TimeEntriesApproveResponses, TimeEntriesCreateData, TimeEntriesCreateErrors, TimeEntriesCreateResponses, TimeEntriesGetData, TimeEntriesGetErrors, TimeEntriesGetResponses, TimeEntriesGridBatchData, TimeEntriesGridBatchErrors, TimeEntriesGridBatchResponses, TimeEntriesKickBackData, TimeEntriesKickBackErrors, TimeEntriesKickBackResponses, TimeEntriesListData, TimeEntriesListErrors, TimeEntriesListResponses, TimeEntriesPreviewQuickAddData, TimeEntriesPreviewQuickAddErrors, TimeEntriesPreviewQuickAddResponses, TimeEntriesSubmitData, TimeEntriesSubmitErrors, TimeEntriesSubmitResponses, TimeEntriesUpdateData, TimeEntriesUpdateErrors, TimeEntriesUpdateResponses, TimeEntriesVoidData, TimeEntriesVoidErrors, TimeEntriesVoidResponses, TimerBindData, TimerBindErrors, TimerBindResponses, TimerDiscardData, TimerDiscardErrors, TimerDiscardResponses, TimerPauseData, TimerPauseErrors, TimerPauseResponses, TimerReadData, TimerReadErrors, TimerReadResponses, TimerResumeData, TimerResumeErrors, TimerResumeResponses, TimerStartData, TimerStartErrors, TimerStartResponses, TimerStopCommitData, TimerStopCommitErrors, TimerStopCommitResponses, UploadsAbortData, UploadsAbortErrors, UploadsAbortResponses, UploadsCompleteData, UploadsCompleteErrors, UploadsCompleteResponses, UploadsInitiateData, UploadsInitiateErrors, UploadsInitiateResponses, UploadsSignPartData, UploadsSignPartErrors, UploadsSignPartResponses, UtbmsCodesDisableData, UtbmsCodesDisableErrors, UtbmsCodesDisableResponses, UtbmsCodesEnableData, UtbmsCodesEnableErrors, UtbmsCodesEnableResponses, UtbmsCodesListData, UtbmsCodesListErrors, UtbmsCodesListResponses, WhoisGetData, WhoisGetErrors, WhoisGetResponses } from './types.gen';
+import type { AiDetectionDetectData, AiDetectionDetectErrors, AiDetectionDetectResponses, ConversionsStatusData, ConversionsStatusErrors, ConversionsStatusResponses, ConversionsSubmitData, ConversionsSubmitErrors, ConversionsSubmitResponses, ConversionsUploadData, ConversionsUploadErrors, ConversionsUploadResponses, CostsApproveData, CostsApproveErrors, CostsApproveResponses, CostsAttachReceiptData, CostsAttachReceiptErrors, CostsAttachReceiptResponses, CostsBatchData, CostsBatchErrors, CostsBatchResponses, CostsCreateData, CostsCreateErrors, CostsCreateResponses, CostsDetachReceiptData, CostsDetachReceiptErrors, CostsDetachReceiptResponses, CostsGetData, CostsGetErrors, CostsGetResponses, CostsKickBackData, CostsKickBackErrors, CostsKickBackResponses, CostsListData, CostsListErrors, CostsListResponses, CostsSubmitData, CostsSubmitErrors, CostsSubmitResponses, CostsUpdateData, CostsUpdateErrors, CostsUpdateResponses, CostsVoidData, CostsVoidErrors, CostsVoidResponses, CustomFieldsApplyConvertData, CustomFieldsApplyConvertErrors, CustomFieldsApplyConvertResponses, CustomFieldsArchiveFieldData, CustomFieldsArchiveFieldErrors, CustomFieldsArchiveFieldResponses, CustomFieldsArchiveOptionData, CustomFieldsArchiveOptionErrors, CustomFieldsArchiveOptionResponses, CustomFieldsClearValueData, CustomFieldsClearValueErrors, CustomFieldsClearValueResponses, CustomFieldsCreateOptionData, CustomFieldsCreateOptionErrors, CustomFieldsCreateOptionResponses, CustomFieldsDefineFieldData, CustomFieldsDefineFieldErrors, CustomFieldsDefineFieldResponses, CustomFieldsHardDeleteFieldData, CustomFieldsHardDeleteFieldErrors, CustomFieldsHardDeleteFieldResponses, CustomFieldsHardDeleteOptionData, CustomFieldsHardDeleteOptionErrors, CustomFieldsHardDeleteOptionResponses, CustomFieldsListRecordValuesData, CustomFieldsListRecordValuesErrors, CustomFieldsListRecordValuesResponses, CustomFieldsPreviewConvertData, CustomFieldsPreviewConvertErrors, CustomFieldsPreviewConvertResponses, CustomFieldsPurgeFieldData, CustomFieldsPurgeFieldErrors, CustomFieldsPurgeFieldResponses, CustomFieldsRenameFieldData, CustomFieldsRenameFieldErrors, CustomFieldsRenameFieldResponses, CustomFieldsRenameOptionData, CustomFieldsRenameOptionErrors, CustomFieldsRenameOptionResponses, CustomFieldsReorderFieldData, CustomFieldsReorderFieldErrors, CustomFieldsReorderFieldResponses, CustomFieldsReorderOptionData, CustomFieldsReorderOptionErrors, CustomFieldsReorderOptionResponses, CustomFieldsResolveFieldData, CustomFieldsResolveFieldErrors, CustomFieldsResolveFieldResponses, CustomFieldsSetRequiredData, CustomFieldsSetRequiredErrors, CustomFieldsSetRequiredResponses, CustomFieldsSetValueData, CustomFieldsSetValueErrors, CustomFieldsSetValueResponses, CustomFieldsUnarchiveFieldData, CustomFieldsUnarchiveFieldErrors, CustomFieldsUnarchiveFieldResponses, CustomFieldsValueHistoryData, CustomFieldsValueHistoryErrors, CustomFieldsValueHistoryResponses, DecryptionInspectData, DecryptionInspectErrors, DecryptionInspectResponses, DecryptionRecoverCancelData, DecryptionRecoverCancelErrors, DecryptionRecoverCancelResponses, DecryptionRecoverStartData, DecryptionRecoverStartErrors, DecryptionRecoverStartResponses, DecryptionRecoverStatusData, DecryptionRecoverStatusErrors, DecryptionRecoverStatusResponses, DecryptionUnlockData, DecryptionUnlockErrors, DecryptionUnlockResponses, DirectoryAddIdentifierData, DirectoryAddIdentifierErrors, DirectoryAddIdentifierResponses, DirectoryAddNameData, DirectoryAddNameErrors, DirectoryAddNameResponses, DirectoryAssignCategoryData, DirectoryAssignCategoryErrors, DirectoryAssignCategoryResponses, DirectoryCreateCategoryData, DirectoryCreateCategoryErrors, DirectoryCreateCategoryResponses, DirectoryCreateEdgeData, DirectoryCreateEdgeErrors, DirectoryCreateEdgeResponses, DirectoryCreateOrganizationData, DirectoryCreateOrganizationErrors, DirectoryCreateOrganizationResponses, DirectoryCreatePersonData, DirectoryCreatePersonErrors, DirectoryCreatePersonResponses, DirectoryDuplicateCandidatesData, DirectoryDuplicateCandidatesErrors, DirectoryDuplicateCandidatesResponses, DirectoryGetOrganizationData, DirectoryGetOrganizationErrors, DirectoryGetOrganizationResponses, DirectoryGetPersonData, DirectoryGetPersonErrors, DirectoryGetPersonResponses, DirectoryLinkMatterPartyData, DirectoryLinkMatterPartyErrors, DirectoryLinkMatterPartyResponses, DirectoryMergeData, DirectoryMergeErrors, DirectoryMergeResponses, DirectoryReadIdentifierData, DirectoryReadIdentifierErrors, DirectoryReadIdentifierResponses, DirectorySearchData, DirectorySearchErrors, DirectorySearchResponses, DocumentsCheckinData, DocumentsCheckinErrors, DocumentsCheckinResponses, DocumentsCheckoutData, DocumentsCheckoutErrors, DocumentsCheckoutResponses, DocumentsEditSessionData, DocumentsEditSessionErrors, DocumentsEditSessionResponses, DocumentsForceReleaseData, DocumentsForceReleaseErrors, DocumentsForceReleaseResponses, DocumentsReconcileData, DocumentsReconcileErrors, DocumentsReconcileResponses, DocumentsViewSessionData, DocumentsViewSessionErrors, DocumentsViewSessionResponses, DocumentTypesCreateData, DocumentTypesCreateErrors, DocumentTypesCreateResponses, DocumentTypesDeactivateData, DocumentTypesDeactivateErrors, DocumentTypesDeactivateResponses, DocumentTypesListData, DocumentTypesListErrors, DocumentTypesListResponses, DocumentTypesUpdateData, DocumentTypesUpdateErrors, DocumentTypesUpdateResponses, DownloadsBundleStatusData, DownloadsBundleStatusErrors, DownloadsBundleStatusResponses, DownloadsZipData, DownloadsZipErrors, DownloadsZipResponses, FileIntegrityHashData, FileIntegrityHashErrors, FileIntegrityHashResponses, FileIntegrityVerifyData, FileIntegrityVerifyErrors, FileIntegrityVerifyResponses, FileRepairCarveAttachData, FileRepairCarveAttachErrors, FileRepairCarveAttachResponses, FileRepairCarveData, FileRepairCarveErrors, FileRepairCarveResponses, FileRepairDiagnoseData, FileRepairDiagnoseErrors, FileRepairDiagnoseResponses, FileRepairRepairAttachData, FileRepairRepairAttachErrors, FileRepairRepairAttachResponses, FileRepairRepairData, FileRepairRepairErrors, FileRepairRepairResponses, FilesDeleteData, FilesDeleteErrors, FilesDeleteResponses, FilesDownloadData, FilesDownloadErrors, FilesGetData, FilesGetErrors, FilesGetResponses, FilesListData, FilesListErrors, FilesListResponses, FilesPreviewData, FilesPreviewErrors, FilesPreviewResponses, FilesUpdateData, FilesUpdateErrors, FilesUpdateResponses, FilesVersionsData, FilesVersionsErrors, FilesVersionsResponses, FileTypeVerifyData, FileTypeVerifyErrors, FileTypeVerifyResponses, FirmSetReleaseChannelData, FirmSetReleaseChannelErrors, FirmSetReleaseChannelResponses, FirmsProvisionData, FirmsProvisionErrors, FirmsProvisionResponses, FirmUsageGetData, FirmUsageGetErrors, FirmUsageGetResponses, FoldersCreateData, FoldersCreateErrors, FoldersCreateResponses, FoldersDeleteData, FoldersDeleteErrors, FoldersDeleteResponses, FoldersUpdateData, FoldersUpdateErrors, FoldersUpdateResponses, HealthReadData, HealthReadErrors, HealthReadResponses, IncidentsReportData, IncidentsReportErrors, IncidentsReportResponses, LocationsAssignMemberData, LocationsAssignMemberErrors, LocationsAssignMemberResponses, LocationsCloseData, LocationsCloseErrors, LocationsCloseResponses, LocationsCreateData, LocationsCreateErrors, LocationsCreateResponses, LocationsGetData, LocationsGetErrors, LocationsGetResponses, LocationsListData, LocationsListErrors, LocationsListResponses, LocationsSetAddressesData, LocationsSetAddressesErrors, LocationsSetAddressesResponses, LocationsUpdateData, LocationsUpdateErrors, LocationsUpdateResponses, MattersCloseData, MattersCloseErrors, MattersCloseResponses, MattersCreateData, MattersCreateErrors, MattersCreateResponses, MattersGetData, MattersGetErrors, MattersGetResponses, MattersListConsultationsData, MattersListConsultationsErrors, MattersListConsultationsResponses, MattersListData, MattersListErrors, MattersListResponses, MattersOpenData, MattersOpenErrors, MattersOpenResponses, MattersRenumberData, MattersRenumberErrors, MattersRenumberResponses, MattersReopenData, MattersReopenErrors, MattersReopenResponses, MattersUpdateData, MattersUpdateErrors, MattersUpdateResponses, MatterTypesCreateData, MatterTypesCreateErrors, MatterTypesCreateResponses, MatterTypesDeactivateData, MatterTypesDeactivateErrors, MatterTypesDeactivateResponses, MatterTypesListData, MatterTypesListErrors, MatterTypesListResponses, MatterTypesUpdateData, MatterTypesUpdateErrors, MatterTypesUpdateResponses, MeGetData, MeGetErrors, MeGetResponses, MembersInviteData, MembersInviteErrors, MembersInviteResponses, MetadataInspectData, MetadataInspectErrors, MetadataInspectResponses, MetadataScrubData, MetadataScrubErrors, MetadataScrubResponses, MyDayGetData, MyDayGetErrors, MyDayGetResponses, NarrativeTemplatesCreateData, NarrativeTemplatesCreateErrors, NarrativeTemplatesCreateResponses, NarrativeTemplatesListData, NarrativeTemplatesListErrors, NarrativeTemplatesListResponses, NarrativeTemplatesRecentNarrativesData, NarrativeTemplatesRecentNarrativesErrors, NarrativeTemplatesRecentNarrativesResponses, NonBillableCategoriesArchiveData, NonBillableCategoriesArchiveErrors, NonBillableCategoriesArchiveResponses, NonBillableCategoriesCreateData, NonBillableCategoriesCreateErrors, NonBillableCategoriesCreateResponses, NonBillableCategoriesListData, NonBillableCategoriesListErrors, NonBillableCategoriesListResponses, NonBillableCategoriesUpdateData, NonBillableCategoriesUpdateErrors, NonBillableCategoriesUpdateResponses, NumberingGetData, NumberingGetErrors, NumberingGetResponses, NumberingPreviewData, NumberingPreviewErrors, NumberingPreviewResponses, NumberingSetData, NumberingSetErrors, NumberingSetResponses, PlatformSetFirmReleaseChannelData, PlatformSetFirmReleaseChannelErrors, PlatformSetFirmReleaseChannelResponses, PlatformStatusClearComponentOverrideData, PlatformStatusClearComponentOverrideErrors, PlatformStatusClearComponentOverrideResponses, PlatformStatusDeclareEventData, PlatformStatusDeclareEventErrors, PlatformStatusDeclareEventResponses, PlatformStatusPostUpdateData, PlatformStatusPostUpdateErrors, PlatformStatusPostUpdateResponses, PlatformStatusResolveEventData, PlatformStatusResolveEventErrors, PlatformStatusResolveEventResponses, PlatformStatusSetComponentOverrideData, PlatformStatusSetComponentOverrideErrors, PlatformStatusSetComponentOverrideResponses, RateCardsCreateData, RateCardsCreateErrors, RateCardsCreateResponses, RateCardsListData, RateCardsListErrors, RateCardsListResponses, RatesAppendData, RatesAppendErrors, RatesAppendResponses, RatesReRateDraftsData, RatesReRateDraftsErrors, RatesReRateDraftsResponses, SafeBrowsePostData, SafeBrowsePostErrors, SafeBrowsePostResponses, ScanDiagnoseData, ScanDiagnoseErrors, ScanDiagnoseResponses, ScanMatterData, ScanMatterErrors, ScanMatterResponses, ScanPolicyGetData, ScanPolicyGetErrors, ScanPolicyGetResponses, ScanPolicyScoreHistogramData, ScanPolicyScoreHistogramErrors, ScanPolicyScoreHistogramResponses, ScanPolicyUpdateData, ScanPolicyUpdateErrors, ScanPolicyUpdateResponses, ShippingConnectData, ShippingConnectErrors, ShippingConnectResponses, ShippingCreateShipmentData, ShippingCreateShipmentErrors, ShippingCreateShipmentResponses, ShippingLabelData, ShippingLabelErrors, ShippingLabelResponses, ShippingPurchaseData, ShippingPurchaseErrors, ShippingPurchaseResponses, ShippingRateShipmentData, ShippingRateShipmentErrors, ShippingRateShipmentResponses, ShippingRefundData, ShippingRefundErrors, ShippingRefundResponses, ShippingTrackingData, ShippingTrackingErrors, ShippingTrackingResponses, SupportDiagnosticsOverviewData, SupportDiagnosticsOverviewErrors, SupportDiagnosticsOverviewResponses, SupportGrantsCosignData, SupportGrantsCosignErrors, SupportGrantsCosignResponses, SupportGrantsListData, SupportGrantsListErrors, SupportGrantsListResponses, SupportGrantsRequestData, SupportGrantsRequestErrors, SupportGrantsRequestResponses, SupportGrantsRevokeData, SupportGrantsRevokeErrors, SupportGrantsRevokeResponses, SupportSessionsRedeemData, SupportSessionsRedeemErrors, SupportSessionsRedeemResponses, TimeEntriesApproveData, TimeEntriesApproveErrors, TimeEntriesApproveResponses, TimeEntriesCreateData, TimeEntriesCreateErrors, TimeEntriesCreateResponses, TimeEntriesGetData, TimeEntriesGetErrors, TimeEntriesGetResponses, TimeEntriesGridBatchData, TimeEntriesGridBatchErrors, TimeEntriesGridBatchResponses, TimeEntriesKickBackData, TimeEntriesKickBackErrors, TimeEntriesKickBackResponses, TimeEntriesListData, TimeEntriesListErrors, TimeEntriesListResponses, TimeEntriesPreviewQuickAddData, TimeEntriesPreviewQuickAddErrors, TimeEntriesPreviewQuickAddResponses, TimeEntriesSubmitData, TimeEntriesSubmitErrors, TimeEntriesSubmitResponses, TimeEntriesUpdateData, TimeEntriesUpdateErrors, TimeEntriesUpdateResponses, TimeEntriesVoidData, TimeEntriesVoidErrors, TimeEntriesVoidResponses, TimerBindData, TimerBindErrors, TimerBindResponses, TimerDiscardData, TimerDiscardErrors, TimerDiscardResponses, TimerPauseData, TimerPauseErrors, TimerPauseResponses, TimerReadData, TimerReadErrors, TimerReadResponses, TimerResumeData, TimerResumeErrors, TimerResumeResponses, TimerStartData, TimerStartErrors, TimerStartResponses, TimerStopCommitData, TimerStopCommitErrors, TimerStopCommitResponses, UploadsAbortData, UploadsAbortErrors, UploadsAbortResponses, UploadsCompleteData, UploadsCompleteErrors, UploadsCompleteResponses, UploadsInitiateData, UploadsInitiateErrors, UploadsInitiateResponses, UploadsSignPartData, UploadsSignPartErrors, UploadsSignPartResponses, UtbmsCodesDisableData, UtbmsCodesDisableErrors, UtbmsCodesDisableResponses, UtbmsCodesEnableData, UtbmsCodesEnableErrors, UtbmsCodesEnableResponses, UtbmsCodesListData, UtbmsCodesListErrors, UtbmsCodesListResponses, WhoisGetData, WhoisGetErrors, WhoisGetResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -51,6 +51,52 @@ export const safeBrowsePost = <ThrowOnError extends boolean = false>(options: Op
 });
 
 /**
+ * Detect the encrypted format of an uploaded file (base64) and extract a hashcat-compatible recovery hash for offline password recovery. Requires explicit attestation that the requester holds the file legitimately. Nothing is stored; only a redacted audit record is written.
+ */
+export const decryptionInspect = <ThrowOnError extends boolean = false>(options: Options<DecryptionInspectData, ThrowOnError>): RequestResult<DecryptionInspectResponses, DecryptionInspectErrors, ThrowOnError> => (options.client ?? client).post<DecryptionInspectResponses, DecryptionInspectErrors, ThrowOnError>({
+    url: '/api/v1/decryption/inspect',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Decrypt a password-protected file (PDF, ZIP, or OOXML) using the supplied key and return the decrypted bytes as base64. Requires explicit attestation that the requester holds the file legitimately. Nothing is stored; only a redacted audit record is written.
+ */
+export const decryptionUnlock = <ThrowOnError extends boolean = false>(options: Options<DecryptionUnlockData, ThrowOnError>): RequestResult<DecryptionUnlockResponses, DecryptionUnlockErrors, ThrowOnError> => (options.client ?? client).post<DecryptionUnlockResponses, DecryptionUnlockErrors, ThrowOnError>({
+    url: '/api/v1/decryption/unlock',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Starts an offline password-recovery job for an encrypted file (base64): extracts a hashcat-compatible hash and hands it to the recovery coordinator, which fans the search out across containers on the Cloudflare-CPU tier (or reports needsGpu for a slow key-derivation function outside that tier). Requires explicit attestation that the requester holds the file legitimately. The file is never stored; only the extracted hash reaches the coordinator.
+ */
+export const decryptionRecoverStart = <ThrowOnError extends boolean = false>(options: Options<DecryptionRecoverStartData, ThrowOnError>): RequestResult<DecryptionRecoverStartResponses, DecryptionRecoverStartErrors, ThrowOnError> => (options.client ?? client).post<DecryptionRecoverStartResponses, DecryptionRecoverStartErrors, ThrowOnError>({
+    url: '/api/v1/decryption/recover',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Cancels a password-recovery job. A no-op if the job is already terminal (found, exhausted, needsGpu, or already cancelled) — cancel never overwrites an outcome already reached.
+ */
+export const decryptionRecoverCancel = <ThrowOnError extends boolean = false>(options: Options<DecryptionRecoverCancelData, ThrowOnError>): RequestResult<DecryptionRecoverCancelResponses, DecryptionRecoverCancelErrors, ThrowOnError> => (options.client ?? client).delete<DecryptionRecoverCancelResponses, DecryptionRecoverCancelErrors, ThrowOnError>({ url: '/api/v1/decryption/recover/{jobId}', ...options });
+
+/**
+ * Polls a password-recovery job's current state. On status found, the response carries result.password — surfaced once to the user who started the job (retrieval is bound to that identity; the password is purged after a retention window), then every later poll omits result. Every non-found status omits result.
+ */
+export const decryptionRecoverStatus = <ThrowOnError extends boolean = false>(options: Options<DecryptionRecoverStatusData, ThrowOnError>): RequestResult<DecryptionRecoverStatusResponses, DecryptionRecoverStatusErrors, ThrowOnError> => (options.client ?? client).get<DecryptionRecoverStatusResponses, DecryptionRecoverStatusErrors, ThrowOnError>({ url: '/api/v1/decryption/recover/{jobId}', ...options });
+
+/**
  * Compute MD5, SHA-1, SHA-256, SHA-384 and SHA-512 digests of the request body in a single pass. Optionally report which algorithm matches an expected digest. Nothing is stored.
  */
 export const fileIntegrityHash = <ThrowOnError extends boolean = false>(options?: Options<FileIntegrityHashData, ThrowOnError>): RequestResult<FileIntegrityHashResponses, FileIntegrityHashErrors, ThrowOnError> => (options?.client ?? client).post<FileIntegrityHashResponses, FileIntegrityHashErrors, ThrowOnError>({ url: '/api/v1/file-integrity/hash', ...options });
@@ -76,6 +122,83 @@ export const fileTypeVerify = <ThrowOnError extends boolean = false>(options: Op
     ...options,
     headers: {
         'Content-Type': 'application/octet-stream',
+        ...options.headers
+    }
+});
+
+/**
+ * Diagnose a possibly-corrupt uploaded file: detect its format, describe the corruption, and report whether it can be repaired (and whether carving may recover embedded files). Nothing is stored.
+ */
+export const fileRepairDiagnose = <ThrowOnError extends boolean = false>(options: Options<FileRepairDiagnoseData, ThrowOnError>): RequestResult<FileRepairDiagnoseResponses, FileRepairDiagnoseErrors, ThrowOnError> => (options.client ?? client).post<FileRepairDiagnoseResponses, FileRepairDiagnoseErrors, ThrowOnError>({
+    bodySerializer: null,
+    url: '/api/v1/file-repair/diagnose',
+    ...options,
+    headers: {
+        'Content-Type': 'application/octet-stream',
+        ...options.headers
+    }
+});
+
+/**
+ * Repair a structurally corrupted uploaded file by reconstructing its format (ZIP/OOXML, CFB/OLE2, or a PDF cross-reference), returning the salvaged file plus an honest manifest of what could not be recovered. The reconstructed output is re-scanned for malware before it is returned. Nothing is stored.
+ */
+export const fileRepairRepair = <ThrowOnError extends boolean = false>(options: Options<FileRepairRepairData, ThrowOnError>): RequestResult<FileRepairRepairResponses, FileRepairRepairErrors, ThrowOnError> => (options.client ?? client).post<FileRepairRepairResponses, FileRepairRepairErrors, ThrowOnError>({
+    bodySerializer: null,
+    url: '/api/v1/file-repair/repair',
+    ...options,
+    headers: {
+        'Content-Type': 'application/octet-stream',
+        ...options.headers
+    }
+});
+
+/**
+ * Carve embedded known-type files (e.g. JPEG, PNG, PDF, ZIP) out of an unrecognized or severely damaged uploaded file by scanning its raw bytes, validating each candidate by actually decoding it. Every carved file is re-scanned for malware before it is returned. Nothing is stored.
+ */
+export const fileRepairCarve = <ThrowOnError extends boolean = false>(options: Options<FileRepairCarveData, ThrowOnError>): RequestResult<FileRepairCarveResponses, FileRepairCarveErrors, ThrowOnError> => (options.client ?? client).post<FileRepairCarveResponses, FileRepairCarveErrors, ThrowOnError>({
+    bodySerializer: null,
+    url: '/api/v1/file-repair/carve',
+    ...options,
+    headers: {
+        'Content-Type': 'application/octet-stream',
+        ...options.headers
+    }
+});
+
+/**
+ * Repair the uploaded corrupt file and save the result into a matter: a new version of an existing file (when fileId is given) or a new file. The reconstruction rides the ingest malware gate; the honest loss manifest is stored with the version. Returns 202 — the version is pending until ingest resolves.
+ */
+export const fileRepairRepairAttach = <ThrowOnError extends boolean = false>(options: Options<FileRepairRepairAttachData, ThrowOnError>): RequestResult<FileRepairRepairAttachResponses, FileRepairRepairAttachErrors, ThrowOnError> => (options.client ?? client).post<FileRepairRepairAttachResponses, FileRepairRepairAttachErrors, ThrowOnError>({
+    bodySerializer: null,
+    url: '/api/v1/file-repair/repair/attach',
+    ...options,
+    headers: {
+        'Content-Type': 'application/octet-stream',
+        ...options.headers
+    }
+});
+
+/**
+ * Carve embedded files out of the uploaded input and save each as a new file in the matter folder. Each carved file rides the ingest malware gate and carries the honest carve manifest. Returns 202.
+ */
+export const fileRepairCarveAttach = <ThrowOnError extends boolean = false>(options: Options<FileRepairCarveAttachData, ThrowOnError>): RequestResult<FileRepairCarveAttachResponses, FileRepairCarveAttachErrors, ThrowOnError> => (options.client ?? client).post<FileRepairCarveAttachResponses, FileRepairCarveAttachErrors, ThrowOnError>({
+    bodySerializer: null,
+    url: '/api/v1/file-repair/carve/attach',
+    ...options,
+    headers: {
+        'Content-Type': 'application/octet-stream',
+        ...options.headers
+    }
+});
+
+/**
+ * Estimate the likelihood that pasted text was machine-generated. Returns a coarse likelihood band with an explicit reliability grade and the reasons to hesitate — a signal, not proof. Requires the firm to have enabled external detection; text is sent to the configured provider and is not retained. Nothing is stored except a usage meter entry.
+ */
+export const aiDetectionDetect = <ThrowOnError extends boolean = false>(options: Options<AiDetectionDetectData, ThrowOnError>): RequestResult<AiDetectionDetectResponses, AiDetectionDetectErrors, ThrowOnError> => (options.client ?? client).post<AiDetectionDetectResponses, AiDetectionDetectErrors, ThrowOnError>({
+    url: '/api/v1/ai-detection/detect',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
         ...options.headers
     }
 });
@@ -145,6 +268,66 @@ export const firmsProvision = <ThrowOnError extends boolean = false>(options: Op
  */
 export const platformSetFirmReleaseChannel = <ThrowOnError extends boolean = false>(options: Options<PlatformSetFirmReleaseChannelData, ThrowOnError>): RequestResult<PlatformSetFirmReleaseChannelResponses, PlatformSetFirmReleaseChannelErrors, ThrowOnError> => (options.client ?? client).post<PlatformSetFirmReleaseChannelResponses, PlatformSetFirmReleaseChannelErrors, ThrowOnError>({
     url: '/api/v1/platform/firms/{firmId}/release-channel',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * A platform operator declares a service event (a disruption) with an opening update.
+ */
+export const platformStatusDeclareEvent = <ThrowOnError extends boolean = false>(options: Options<PlatformStatusDeclareEventData, ThrowOnError>): RequestResult<PlatformStatusDeclareEventResponses, PlatformStatusDeclareEventErrors, ThrowOnError> => (options.client ?? client).post<PlatformStatusDeclareEventResponses, PlatformStatusDeclareEventErrors, ThrowOnError>({
+    url: '/api/v1/platform/status/events',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * A platform operator posts a rolling update to an existing service event.
+ */
+export const platformStatusPostUpdate = <ThrowOnError extends boolean = false>(options: Options<PlatformStatusPostUpdateData, ThrowOnError>): RequestResult<PlatformStatusPostUpdateResponses, PlatformStatusPostUpdateErrors, ThrowOnError> => (options.client ?? client).post<PlatformStatusPostUpdateResponses, PlatformStatusPostUpdateErrors, ThrowOnError>({
+    url: '/api/v1/platform/status/events/updates',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * A platform operator resolves a service event (marks it resolved with a final update).
+ */
+export const platformStatusResolveEvent = <ThrowOnError extends boolean = false>(options: Options<PlatformStatusResolveEventData, ThrowOnError>): RequestResult<PlatformStatusResolveEventResponses, PlatformStatusResolveEventErrors, ThrowOnError> => (options.client ?? client).post<PlatformStatusResolveEventResponses, PlatformStatusResolveEventErrors, ThrowOnError>({
+    url: '/api/v1/platform/status/events/resolve',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * A platform operator sets a component status override (including a maintenance window, via status maintenance), upserted by componentId.
+ */
+export const platformStatusSetComponentOverride = <ThrowOnError extends boolean = false>(options: Options<PlatformStatusSetComponentOverrideData, ThrowOnError>): RequestResult<PlatformStatusSetComponentOverrideResponses, PlatformStatusSetComponentOverrideErrors, ThrowOnError> => (options.client ?? client).post<PlatformStatusSetComponentOverrideResponses, PlatformStatusSetComponentOverrideErrors, ThrowOnError>({
+    url: '/api/v1/platform/status/overrides',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * A platform operator clears a component status override by componentId.
+ */
+export const platformStatusClearComponentOverride = <ThrowOnError extends boolean = false>(options: Options<PlatformStatusClearComponentOverrideData, ThrowOnError>): RequestResult<PlatformStatusClearComponentOverrideResponses, PlatformStatusClearComponentOverrideErrors, ThrowOnError> => (options.client ?? client).post<PlatformStatusClearComponentOverrideResponses, PlatformStatusClearComponentOverrideErrors, ThrowOnError>({
+    url: '/api/v1/platform/status/overrides/clear',
     ...options,
     headers: {
         'Content-Type': 'application/json',

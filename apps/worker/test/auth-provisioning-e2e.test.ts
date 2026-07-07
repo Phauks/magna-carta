@@ -241,7 +241,8 @@ describe("end-to-end", () => {
       // tools:fileTypeVerifier (0032_seed-tools-file-type-verifier.sql, seeded onto every default role) +
       // firm:manageScanPolicy (0030_seed-scan-policy-permission, Owner/Admin only) + the support:
       // grants (0031_support-access-permissions: support:request onto every default role,
-      // support:cosign / support:manage onto Owner/Admin).
+      // support:cosign / support:manage onto Owner/Admin) +
+      // tools:decryption (0035_seed-tools-decryption.sql, seeded onto every default role).
       // Sorted.
       permissions: [
         "costs:approve",
@@ -280,8 +281,11 @@ describe("end-to-end", () => {
         "time:manageUtbms",
         "time:track",
         "time:viewFirm",
+        "tools:aiTextDetection",
+        "tools:decryption",
         "tools:fileConverter",
         "tools:fileIntegrity",
+        "tools:fileRepair",
         "tools:fileTypeVerifier",
         "tools:firmUsage",
         "tools:metadataScrubber",
@@ -436,6 +440,9 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
       "fileIntegrity.hash",
       // Streams the bytes to the scan Container for identification; nothing is stored.
       "fileType.verify",
+      // Analysis POST: the only write is one incidental ai_detection_usage meter row (telemetry),
+      // not an auditable firm-domain mutation; auditing every detection would flood audit_log.
+      "aiDetection.detect",
     ]);
 
     for (const { operation, label } of mutatingV1) {

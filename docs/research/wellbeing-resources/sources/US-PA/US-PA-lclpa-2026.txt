@@ -1,0 +1,17 @@
+---
+jurisdiction: US-PA
+publisher: Lawyers Concerned for Lawyers of Pennsylvania, Inc.
+sourceUrl: https://www.lclpa.org/
+accessedOn: 2026-07-02
+accessGate: open
+method: web search + direct fetch
+---
+[Lawyers Concerned for Lawyers of Pennsylvania (LCLPA)]
+QUOTE: "LCLPA's services are 100% confidential. We are not affiliated with the Disciplinary Board, licensing authorities, or any employer, and we do not report participation of any kind."
+
+Helpline (24/7): 1-888-999-1941; Administrative Office 1-800-335-2572 (Mon-Fri business hours);
+info@lclpa.org. "The LCLPA Helpline is available 24/7/365 and is completely confidential." 100% free
+and confidential support; confidential referrals to qualified mental-health professionals for
+private evaluations covered by LCLPA. Peer support, intervention assistance, crisis support, and CLE
+for lawyers, judges, law students, and family members. Independent 501(c)(3), founded 1988,
+IOLTA-funded.

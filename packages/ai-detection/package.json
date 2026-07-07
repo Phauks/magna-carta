@@ -10,14 +10,18 @@
     "./normalize": "./src/normalize.ts",
     "./consent": "./src/consent.ts",
     "./manifest": "./src/manifest.ts",
-    "./adapters/deferred": "./src/adapters/deferred.ts"
+    "./settings": "./src/settings.ts",
+    "./adapters/deferred": "./src/adapters/deferred.ts",
+    "./adapters/pangram": "./src/adapters/pangram.ts"
   },
   "scripts": {
     "test": "vp test run"
   },
   "dependencies": {
+    "@magna-carta/data-access": "workspace:*",
     "@magna-carta/identifiers": "workspace:*",
-    "@magna-carta/integrations": "workspace:*"
+    "@magna-carta/integrations": "workspace:*",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@magna-carta/tsconfig": "workspace:*",

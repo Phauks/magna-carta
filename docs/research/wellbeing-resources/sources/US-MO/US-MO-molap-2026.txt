@@ -1,0 +1,17 @@
+---
+jurisdiction: US-MO
+publisher: The Missouri Bar (Missouri Lawyers' Assistance Program)
+sourceUrl: https://publicdefender.mo.gov/wp-content/uploads/2019/07/MOLAP-Brochure.pdf
+accessedOn: 2026-07-02
+accessGate: open
+method: official MOLAP brochure PDF loaded (mobar.org 403 this session)
+---
+[Missouri Lawyers' Assistance Program (MOLAP)]
+QUOTE: "There are no fees for MOLAP services. MOLAP is funded from the general revenue of The Missouri Bar, with substantial support from The Bar Plan Insurance Company."
+
+"Always Free and Always Confidential." Confidential services to lawyers, judges, law students, and
+families. Staffed by a licensed mental health professional. MOLAP does NOT report to the Disciplinary
+Counsel's Office, the Board of Law Examiners, or other Bar staff. Toll-free 800-688-7859. "If
+concerns are urgent, the MOLAP Director is available and accessible after normal business hours by
+cell phone." Email MOLAP@mobar.org / achambers@mobar.org. Phone availability recorded as
+businessHours (after-hours via director cell, not a 24/7 line).

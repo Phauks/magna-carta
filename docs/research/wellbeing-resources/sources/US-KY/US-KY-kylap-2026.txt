@@ -1,0 +1,26 @@
+---
+jurisdiction: US-KY
+publisher: Kentucky Bar Association / KYLAP
+sourceUrl: https://www.kylap.org/how-can-we-help/
+accessedOn: 2026-07-02
+accessGate: open
+method: web search + direct fetch
+---
+[Kentucky Lawyer Assistance Program (KYLAP)]
+QUOTE (hours): "Contact us 24 hours a day at (502) 226-9373 to get help for any Kentucky lawyer in need."
+Confidentiality: "Pursuant to Supreme Court Rule 3.990, all communication with KYLAP is
+confidential." Broad-brush program for addiction, substance abuse, and mental/emotional illness;
+assessment and treatment referrals, peer support, monitoring/compliance contracts, recovery
+meetings, and financial assistance. Director Yvette Hourigan, yhourigan@kylap.org. P.O. Box 1437,
+Frankfort, KY.
+
+[Kentucky Bar Association EAP] — kybar.org/.../Employee-Assistance-Program
+QUOTE: "If you are unable to pay, you will receive up to four (4) clinical sessions at no charge to you."
+"Someone will be available to you 24 hours a day, 7 days a week" via the KYLAP direct line
+502-226-9373 (after hours routes to the EAP). Appointment within 24-48 hours from a statewide
+provider network.
+
+[KYLAP Foundation] (corroborated)
+QUOTE: "additional assistance may be available through the KYLAP Foundation's forgivable loan program."
+Nonprofit funding arm (www.kylap.org/foundation) — forgivable-loan aid for care beyond the free EAP
+sessions. Own foundation page not loaded this session.

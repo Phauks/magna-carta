@@ -1,0 +1,1719 @@
+{
+  "generatedBy": "vp run status-build",
+  "slices": [
+    {
+      "slice": "0·1 — Walking skeleton",
+      "group": "phase-0",
+      "order": 1,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "done"
+        },
+        "plan": {
+          "state": "done"
+        },
+        "built": {
+          "state": "done"
+        },
+        "ui": {
+          "state": "n/a"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "done"
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": null,
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "Monorepo + `vp`, Hono Worker serving the SPA + `/api/health`; shipped."
+    },
+    {
+      "slice": "0·2 — Foundational data (money · identifiers · database · data-access)",
+      "group": "phase-0",
+      "order": 2,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "done"
+        },
+        "plan": {
+          "state": "done"
+        },
+        "built": {
+          "state": "done"
+        },
+        "ui": {
+          "state": "n/a"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "done"
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": null,
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "Four packages: Money/Rate, opaque identifiers, two-lineage Drizzle + fleet runner, idempotency + outbox."
+    },
+    {
+      "slice": "0·3 — Ledger core + fixtures",
+      "group": "phase-0",
+      "order": 3,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "done"
+        },
+        "plan": {
+          "state": "done"
+        },
+        "built": {
+          "state": "done"
+        },
+        "ui": {
+          "state": "n/a"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "done"
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": null,
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "Double-entry append-only ledger + deterministic fixtures harness."
+    },
+    {
+      "slice": "0·4 — Auth + RBAC skeleton + firm provisioning",
+      "group": "phase-0",
+      "order": 4,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "done"
+        },
+        "plan": {
+          "state": "done"
+        },
+        "built": {
+          "state": "done",
+          "by": "Opus 4.8",
+          "awaiting": true
+        },
+        "ui": {
+          "state": "todo"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "todo"
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": null,
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "Better Auth + RBAC registry + idempotent provisioning; secrets-gated deploy. Demo-firm provisioning → 0·7b."
+    },
+    {
+      "slice": "0·5a — API contract foundation",
+      "group": "phase-0",
+      "order": 5,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "done"
+        },
+        "plan": {
+          "state": "done"
+        },
+        "built": {
+          "state": "done",
+          "gap": true
+        },
+        "ui": {
+          "state": "n/a"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "todo"
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": null,
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "Contracts layer (problem module, fragments, RouteMeta, rate-limiter seam); unwired, merged additively."
+    },
+    {
+      "slice": "0·5b — API contract enforcement + pipeline",
+      "group": "phase-0",
+      "order": 6,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "done"
+        },
+        "plan": {
+          "state": "done"
+        },
+        "built": {
+          "state": "done",
+          "gap": true
+        },
+        "ui": {
+          "state": "n/a"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "todo"
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": null,
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "The ADR-0067 ordered chokepoint + committed OpenAPI snapshot + §3.5 conformance suite + CI contract gates. Slice 0·5 complete."
+    },
+    {
+      "slice": "0·6 — Telemetry baseline + platform closeout",
+      "group": "phase-0",
+      "order": 7,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "done"
+        },
+        "plan": {
+          "state": "done"
+        },
+        "built": {
+          "state": "done",
+          "by": "Opus 4.8",
+          "gap": true
+        },
+        "ui": {
+          "state": "todo"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "todo"
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": null,
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "`@magna-carta/telemetry`, incident table + `POST /v1/incidents`, Email Service adapter. Closes Phase 0's backend."
+    },
+    {
+      "slice": "0·7a — Design-system foundation",
+      "group": "phase-0",
+      "order": 8,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "done"
+        },
+        "plan": {
+          "state": "done"
+        },
+        "built": {
+          "state": "done",
+          "by": "Fable 5"
+        },
+        "ui": {
+          "state": "in-progress",
+          "by": "Fable 5"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "todo"
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": null,
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "Token pipeline + Bits-UI component layer + the Engraved Ledger register; **merged to main 2026-07-02** after the Fable craft pass + architecture-audit hardening (motion/density axes proven, anime.js seam). Remaining before close-out: NVDA passes, owner Storybook sign-off, first container VRT baselines, dark design pass."
+    },
+    {
+      "slice": "0·7b — Auth UI + deferred surfaces",
+      "group": "phase-0",
+      "order": 9,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "todo"
+        },
+        "plan": {
+          "state": "todo"
+        },
+        "built": {
+          "state": "todo"
+        },
+        "ui": {
+          "state": "todo"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "todo"
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": null,
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "First human-operable surface; own design cycle when it starts."
+    },
+    {
+      "slice": "1·1 — Matters + Locations + File Manager",
+      "group": "phase-1",
+      "order": 1,
+      "stages": {
+        "research": {
+          "state": "done"
+        },
+        "spec": {
+          "state": "done"
+        },
+        "plan": {
+          "state": "in-progress"
+        },
+        "built": {
+          "state": "done",
+          "by": "Opus 4.8",
+          "gap": true
+        },
+        "ui": {
+          "state": "todo"
+        },
+        "load-profile": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "tested": {
+          "state": "todo"
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": null,
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "Three domain packages + upload/ingest/zip/metering Worker surface + crons; on main. UI plan → 0·7."
+    },
+    {
+      "slice": "1·2 — `protected()` crypto module",
+      "group": "phase-1",
+      "order": 2,
+      "stages": {
+        "research": {
+          "state": "done"
+        },
+        "spec": {
+          "state": "done"
+        },
+        "plan": {
+          "state": "done"
+        },
+        "built": {
+          "state": "done",
+          "by": "Opus 4.8",
+          "gap": true
+        },
+        "ui": {
+          "state": "n/a"
+        },
+        "load-profile": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "tested": {
+          "state": "todo"
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": null,
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "Envelope AES-KW + HKDF key hierarchy, blind index, data-access chokepoint + worker wiring."
+    },
+    {
+      "slice": "1·3 — Directory",
+      "group": "phase-1",
+      "order": 3,
+      "stages": {
+        "research": {
+          "state": "done"
+        },
+        "spec": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "plan": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "built": {
+          "state": "done",
+          "by": "Opus 4.8",
+          "gap": true
+        },
+        "ui": {
+          "state": "todo"
+        },
+        "load-profile": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "tested": {
+          "state": "done",
+          "by": "Opus 4.8",
+          "gap": true
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": null,
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "Person/Org graph, phonetic + FTS search, protected identifiers, non-destructive merge; on main."
+    },
+    {
+      "slice": "1·4 — Custom-fields engine",
+      "group": "phase-1",
+      "order": 4,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "plan": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "built": {
+          "state": "done",
+          "by": "Opus 4.8",
+          "gap": true
+        },
+        "ui": {
+          "state": "todo"
+        },
+        "load-profile": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "tested": {
+          "state": "todo"
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": null,
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "Typed-EAV, temporal history, non-destructive Convert, archive/gated-purge; migration 0013. Practice-area templates deferred (before first client)."
+    },
+    {
+      "slice": "2·1 — Inbound upload + untrusted-file pipeline + async bulk download",
+      "group": "phase-2",
+      "order": 1,
+      "stages": {
+        "research": {
+          "state": "done"
+        },
+        "spec": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "plan": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "built": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "ui": {
+          "state": "todo"
+        },
+        "load-profile": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "tested": {
+          "state": "todo"
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": null,
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "Direct-to-R2 ingest + scan pipeline + async bulk download (first DO). Deployed (`magna-carta-scan`, `SCAN_SERVICE`); YARA Forge rules + raw-facts engine + per-firm scan policy + score-histogram seam landed. EICAR live check deferred (no prod users)."
+    },
+    {
+      "slice": "2·2 — Editing + versioning & storage tiering",
+      "group": "phase-2",
+      "order": 2,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "done"
+        },
+        "plan": {
+          "state": "done"
+        },
+        "built": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "ui": {
+          "state": "todo"
+        },
+        "load-profile": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "tested": {
+          "state": "todo"
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": null,
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "Collabora, one container per open document; `magna-carta-edit` deployed; reconciled onto the FirmDatabase DO. Stage-2 doc-open verify + editor UI pending."
+    },
+    {
+      "slice": "2·3 — Inline preview + safe-delivery sandbox",
+      "group": "phase-2",
+      "order": 3,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "plan": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "built": {
+          "state": "done",
+          "by": "Opus 4.8",
+          "gap": true
+        },
+        "ui": {
+          "state": "todo"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "done",
+          "by": "Opus 4.8",
+          "gap": true
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": null,
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "Cookieless `files.*` subresource delivery under a first-party HMAC token; backend on main. Player UI → 0·7."
+    },
+    {
+      "slice": "2·4 — In-app conversion",
+      "group": "phase-2",
+      "order": 4,
+      "stages": {
+        "research": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "spec": {
+          "state": "in-progress",
+          "by": "Opus 4.8"
+        },
+        "plan": {
+          "state": "in-progress",
+          "by": "Opus 4.8"
+        },
+        "built": {
+          "state": "in-progress",
+          "by": "Sonnet 4.6"
+        },
+        "ui": {
+          "state": "n/a"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "todo"
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": null,
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "In-house-only core: `ConversionPort` + registry + pathfinding + pure-Rust raster engine + image→PDF; full slice gated on the 2·1/2·2 execution substrate."
+    },
+    {
+      "slice": "2·5 — PDF services + e-signature core",
+      "group": "phase-2",
+      "order": 5,
+      "stages": {
+        "research": {
+          "state": "in-progress"
+        },
+        "spec": {
+          "state": "in-progress"
+        },
+        "plan": {
+          "state": "in-progress"
+        },
+        "built": {
+          "state": "in-progress"
+        },
+        "ui": {
+          "state": "todo"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "todo"
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": null,
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "The pure-Rust PDF **engine** substrate is built (see _PDF render engine_, cross-cutting); the slice's e-signature/PAdES + consumer surfaces are not started."
+    },
+    {
+      "slice": "2·6 — Document automation",
+      "group": "phase-2",
+      "order": 6,
+      "stages": {
+        "research": {
+          "state": "todo"
+        },
+        "spec": {
+          "state": "todo"
+        },
+        "plan": {
+          "state": "todo"
+        },
+        "built": {
+          "state": "todo"
+        },
+        "ui": {
+          "state": "todo"
+        },
+        "load-profile": {
+          "state": "todo"
+        },
+        "tested": {
+          "state": "todo"
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": null,
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "Not started."
+    },
+    {
+      "slice": "Load-profile harness",
+      "group": "cross-cutting",
+      "order": 1,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "done"
+        },
+        "plan": {
+          "state": "done"
+        },
+        "built": {
+          "state": "done"
+        },
+        "ui": {
+          "state": "n/a"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "todo"
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": null,
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "Volume profiles + query measurement runner; every later domain slice extends it in-area (the Load-profile column audits this)."
+    },
+    {
+      "slice": "Per-firm database → Durable Object",
+      "group": "cross-cutting",
+      "order": 2,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "plan": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "built": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "ui": {
+          "state": "n/a"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "todo"
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": null,
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "Per-firm D1 → firmId-addressed `FirmDatabase` SQLite Durable Object (binding-free); supersedes the per-firm-D1 half of ADR-0003. On main."
+    },
+    {
+      "slice": "Integration port system",
+      "group": "cross-cutting",
+      "order": 3,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "plan": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "built": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "ui": {
+          "state": "n/a"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "todo"
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": null,
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "Pure ports-and-adapters framework (`@magna-carta/integrations`); `parcels` first adapter. Connection persistence/OAuth deferred to the first credentialed adapter (gated on 1·2 + Google CASA / Microsoft verification)."
+    },
+    {
+      "slice": "Integration platform foundation",
+      "group": "cross-cutting",
+      "order": 4,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "plan": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "built": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "ui": {
+          "state": "n/a"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "todo"
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": null,
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "Manifest-driven plugin mounting refactor; C-transition (in-process → service-binding → Workers-for-Platforms) named-not-built."
+    },
+    {
+      "slice": "Shipping & postage (backend)",
+      "group": "cross-cutting",
+      "order": 5,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "plan": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "built": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "ui": {
+          "state": "todo"
+        },
+        "load-profile": {
+          "state": "done"
+        },
+        "tested": {
+          "state": "todo"
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": null,
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "`@magna-carta/shipping` + EasyPost adapter; shipment/label/tracking tables, idempotent purchase, `shipment.purchased` cost-recovery seam. Webhook + live `firm_secret` + UI deferred."
+    },
+    {
+      "slice": "Property external-links",
+      "group": "cross-cutting",
+      "order": 6,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "plan": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "built": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "ui": {
+          "state": "todo"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "todo"
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": null,
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "`@magna-carta/property-links` — Zillow/Redfin/Maps/Realtor deep-links. UI rides the Locations surface."
+    },
+    {
+      "slice": "Tools area",
+      "group": "cross-cutting",
+      "order": 7,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "plan": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "built": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "ui": {
+          "state": "todo"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "todo"
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": null,
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "`@magna-carta/tools` catalog + firm-usage diagnostics (`GET /api/v1/firm-usage`). Per-tool UIs → 0·7a shell."
+    },
+    {
+      "slice": "PDF render engine",
+      "group": "cross-cutting",
+      "order": 8,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "plan": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "built": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "ui": {
+          "state": "n/a"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "todo"
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": null,
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "Pure-Rust engine (`crates/pdf-core` → WASM): render, redaction, scrub, bad-redaction detector, surgery (v1, 3/10 corpus), Bates, AcroForm forms, secure/encrypt, generate-primitives, decompression-bomb guard (raw-bytes pre-flight; deflate-rigorous, encrypted-stream bodies a disclosed residual). Remaining: surgery completion → OCR → PAdES. Tool UIs gated on wasm-opt + 0·7."
+    },
+    {
+      "slice": "AI inference foundation",
+      "group": "cross-cutting",
+      "order": 9,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "plan": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "built": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "ui": {
+          "state": "n/a"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "todo"
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": null,
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "`@magna-carta/inference` (AI Gateway, per-firm token meter, fail-closed ZDR guard). Consent ADR-0109 **Proposed** (owner decision before the first AI feature). BYOK deferred."
+    },
+    {
+      "slice": "Usage analytics",
+      "group": "cross-cutting",
+      "order": 10,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "plan": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "built": {
+          "state": "in-progress",
+          "by": "Opus 4.8"
+        },
+        "ui": {
+          "state": "todo"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "todo"
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": null,
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "`usage.feature` events + HMAC pseudonymizer + consent resolver + Analytics Engine counters. Beacon + Iceberg deferred."
+    },
+    {
+      "slice": "File Hash & Integrity",
+      "group": "cross-cutting",
+      "order": 11,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "done",
+          "by": "Sonnet 4.6"
+        },
+        "plan": {
+          "state": "done",
+          "by": "Sonnet 4.6"
+        },
+        "built": {
+          "state": "done",
+          "by": "Sonnet 4.6"
+        },
+        "ui": {
+          "state": "todo"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "done",
+          "by": "Sonnet 4.6",
+          "awaiting": true
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": null,
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "`@magna-carta/file-integrity` — five-algo streaming hash + ingest-baseline compare + receipt; introduced the `file` context tag."
+    },
+    {
+      "slice": "Metadata Inspector & Scrubber",
+      "group": "cross-cutting",
+      "order": 12,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "done",
+          "by": "Sonnet 4.6"
+        },
+        "plan": {
+          "state": "done",
+          "by": "Sonnet 4.6"
+        },
+        "built": {
+          "state": "done",
+          "by": "Sonnet 4.6"
+        },
+        "ui": {
+          "state": "todo"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "done",
+          "by": "Sonnet 4.6",
+          "awaiting": true
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": null,
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "`@magna-carta/metadata` — OOXML + image (JPEG/PNG/TIFF) inspect/scrub; stateless. HEIC/PDF/Container engine deferred."
+    },
+    {
+      "slice": "File Type Verifier",
+      "group": "cross-cutting",
+      "order": 13,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "done",
+          "by": "Sonnet 4.6"
+        },
+        "plan": {
+          "state": "done",
+          "by": "Sonnet 4.6"
+        },
+        "built": {
+          "state": "done",
+          "by": "Sonnet 4.6"
+        },
+        "ui": {
+          "state": "todo"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "done",
+          "by": "Sonnet 4.6",
+          "awaiting": true
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": null,
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "`@magna-carta/file-type` + Magika identify in the scan container (`ort`/ONNX, GR14-consented); `POST /api/v1/file-type/verify`."
+    },
+    {
+      "slice": "AI-Text Detection",
+      "group": "cross-cutting",
+      "order": 14,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "plan": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "built": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "ui": {
+          "state": "todo"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "todo"
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": null,
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "`@magna-carta/ai-detection` vendor-agnostic core (signal-not-proof, `LikelihoodBand`). Pangram first vendor wired 2026-07-02 (Opus 4.8): platform-managed adapter (`credential: none`, one platform key), per-firm consent setting (`aiDetection.externalDetectionEnabled`, default off) enforced at the chokepoint, `POST /api/v1/ai-detection/detect` (paste-text; 422 when consent off or no key), per-firm `ai_detection_usage` metering (migrations 0033/0034). Deferred: UI (0·7), BYO-key, billing pass-through, document text-extraction, bulk endpoint, matter-action."
+    },
+    {
+      "slice": "Wellbeing resources",
+      "group": "cross-cutting",
+      "order": 15,
+      "stages": {
+        "research": {
+          "state": "done"
+        },
+        "spec": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "plan": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "built": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "ui": {
+          "state": "todo"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "todo"
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": null,
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "**Phase A research corpus complete + Phase B package built 2026-07-02.** Per-jurisdiction lawyer mental-health/emotional-support resources (State Bar Lawyer Assistance Programs + affiliated hotlines, peer networks, clinical vendors) across all 50 states, DC, and five territories, plus a permanent national safety net (988, SAMHSA, ABA CoLAP) returned for every jurisdiction. `@magna-carta/wellbeing-resources`: typed model (`WellbeingResource`/`JurisdictionEntry`), data generated from the provenance-tracked research corpus (`docs/research/wellbeing-resources/profiles.json`) via `build:data` + a `verify:data` drift guard, registry accessors (`wellbeingResourcesForState`, `nationalResources`, `allCoveredJurisdictions`, `isNationalFallbackOnly`), a coverage manifest, invariant tests, and a coverage-directory mockup. Load profile `[-]`: compiled reference data, no per-firm data surface (same footing as `@magna-carta/government-links`). **Deferred:** the in-app UI surface and extracting the mass-state research pattern to `docs/conventions/`. Spec: [`docs/superpowers/specs/2026-07-02-wellbeing-resources-design.md`](docs/superpowers/specs/2026-07-02-wellbeing-resources-design.md); plans: [Phase A](docs/superpowers/plans/2026-07-02-wellbeing-resources-phase-a.md), [Phase B](docs/superpowers/plans/2026-07-02-wellbeing-resources-phase-b.md)."
+    },
+    {
+      "slice": "Enhanced bundling",
+      "group": "cross-cutting",
+      "order": 16,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "plan": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "built": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "ui": {
+          "state": "todo"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "todo"
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": null,
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "Enhances the matter bundle path: format/compression/AES-256/multi-volume (`containers/bundle` Rust + `bundle-worker`); two lanes. Heavy/encrypted lanes 503 until the image is deployed + `BUNDLE_SERVICE` binds. UI deferred."
+    },
+    {
+      "slice": "Release channels (backend rails)",
+      "group": "cross-cutting",
+      "order": 17,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "done",
+          "by": "Sonnet 4.6"
+        },
+        "plan": {
+          "state": "done",
+          "by": "Sonnet 4.6"
+        },
+        "built": {
+          "state": "done",
+          "by": "Sonnet 4.6"
+        },
+        "ui": {
+          "state": "todo"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "todo"
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": null,
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "`firm.release_channel` + beta/alpha doors + `@magna-carta/feature-flags` (Flagship) + control-plane migration auto-applier. Frontend (Plan 2) deferred past 0·7."
+    },
+    {
+      "slice": "Engine-host harness",
+      "group": "cross-cutting",
+      "order": 18,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "done",
+          "by": "Sonnet 4.6"
+        },
+        "plan": {
+          "state": "done",
+          "by": "Sonnet 4.6"
+        },
+        "built": {
+          "state": "done",
+          "by": "Sonnet 4.6"
+        },
+        "ui": {
+          "state": "n/a"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "todo"
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": null,
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "`crates/engine-host` — shared hosting seam for the pure-Rust engines (format / wasm_edge / host). SP2 File Repair & Salvage + SP3 retrofit to follow."
+    },
+    {
+      "slice": "Support access framework",
+      "group": "cross-cutting",
+      "order": 19,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "plan": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "built": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "ui": {
+          "state": "todo"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "todo"
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": null,
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "Pull-not-push help-desk access; time-boxed audited `support_grant`; diagnostic vs privileged-self tiers. Dormant until `platform_staff` is seeded. UI deferred."
+    },
+    {
+      "slice": "Service status",
+      "group": "cross-cutting",
+      "order": 20,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "plan": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "built": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "ui": {
+          "state": "todo"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "done",
+          "by": "Opus 4.8"
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": null,
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "`@magna-carta/status` + `apps/status-worker` (isolated, `STATUS_KV`-only) + the new `platform_operator` principal; extends ADR-0048. UI deferred."
+    },
+    {
+      "slice": "3·1 — Time tracking + WIP + rate engine",
+      "group": "phase-3",
+      "order": 1,
+      "stages": {
+        "research": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "spec": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "plan": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "built": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "ui": {
+          "state": "todo"
+        },
+        "load-profile": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "tested": {
+          "state": "done",
+          "by": "Opus 4.8"
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": null,
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "`@magna-carta/timekeeping`; first Durable Object (live timer); scoped-setting resolver; UTBMS catalog. AI narrative/UTBMS seam ships dark."
+    },
+    {
+      "slice": "3·2 — Trust accounting + jurisdiction compliance",
+      "group": "phase-3",
+      "order": 2,
+      "stages": {
+        "research": {
+          "state": "in-progress"
+        },
+        "spec": {
+          "state": "in-progress"
+        },
+        "plan": {
+          "state": "todo"
+        },
+        "built": {
+          "state": "todo"
+        },
+        "ui": {
+          "state": "todo"
+        },
+        "load-profile": {
+          "state": "todo"
+        },
+        "tested": {
+          "state": "todo"
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": null,
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "**Current focus** — design in progress. Tier-1 rigor (always) vs Tier-2 restriction (per-state, default-off); ledger-based, structural owner of _fees-never-touch-trust_; NV baseline."
+    },
+    {
+      "slice": "3·3 — Costs & expenses (disbursements)",
+      "group": "phase-3",
+      "order": 3,
+      "stages": {
+        "research": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "spec": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "plan": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "built": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "ui": {
+          "state": "todo"
+        },
+        "load-profile": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "tested": {
+          "state": "done",
+          "by": "Opus 4.8"
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": null,
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "`@magna-carta/costs` + `@magna-carta/billing-core` (shared WIP lifecycle); first per-firm queue consumer; recoverable-charge seam. cost→A/R + LEDES → 3·4."
+    }
+  ]
+}

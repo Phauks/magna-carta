@@ -1,0 +1,19 @@
+---
+jurisdiction: US-AR
+publisher: Arkansas Supreme Court (JLAP Committee)
+sourceUrl: https://www.arjlap.org/
+accessedOn: 2026-07-02
+accessGate: open
+method: web search + direct fetch
+---
+[Arkansas Judges and Lawyers Assistance Program (JLAP)]
+QUOTE: "their involvement with JLAP and their conversations with JLAP staff, committee, agents (referrals), or volunteers are confidential"
+
+Phone: 501-907-2529. Email: confidential@arjlap.org. Address: 101 E Capitol Ave, Little Rock, AR
+72201. JLAP offers a free and confidential assessment. Confidentiality is protected by Arkansas
+Judges and Lawyers Assistance Program Rule 10. Serves Arkansas judges, lawyers, law
+students/applicants, and immediate adult family members. Services: mental-health counseling,
+substance-abuse assistance, stress/burnout support, anxiety and depression, anger management,
+process addiction, grief and loss, work transition, peer support, and family-member services.
+Established 2000 as a committee of the Arkansas Supreme Court (the Arkansas Bar Association is
+voluntary and runs no separate program). Hours not stated → availability unspecified.

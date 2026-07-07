@@ -11,7 +11,10 @@ const allowedPackages = new Set([
   "@magna-carta/integrations/problem",
   "@magna-carta/integrations/port",
   "@magna-carta/integrations/manifest",
+  "@magna-carta/integrations/http", // the HttpClient interface type — a pure transport seam, no network here
   "@magna-carta/identifiers/types",
+  "@magna-carta/data-access/setting-statements", // FirmSettingDefinition type only — pure data, no D1
+  "zod", // pure boundary/settings validation — no I/O, not a vendor SDK
 ]);
 
 function tsFiles(dir: string): string[] {

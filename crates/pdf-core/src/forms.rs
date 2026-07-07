@@ -74,6 +74,8 @@ pub enum FormError {
     Reassemble(String),
     /// No AcroForm is present; only returned by fill/flatten, not read.
     NoAcroForm,
+    /// The input exceeds the size cap or contains a decompression bomb.
+    Rejected,
 }
 
 // ── Crate-internal resolved field ─────────────────────────────────────────────
@@ -623,6 +625,8 @@ pub(crate) fn text_appearance(
 /// Returns an empty vec (not an error) when the document carries no AcroForm.
 /// Returns `FormError::Parse` when the bytes are not a valid PDF.
 pub fn read_form(bytes: &[u8]) -> Result<Vec<FormField>, FormError> {
+    crate::guard::guard_input(bytes, &crate::guard::GuardLimits::default())
+        .map_err(|_| FormError::Rejected)?;
     let doc = Document::load_mem(bytes).map_err(|e| FormError::Parse(e.to_string()))?;
 
     if catalog_subdict(&doc, b"AcroForm").is_none() {
@@ -772,6 +776,8 @@ pub fn fill_form(
     values: &BTreeMap<String, FieldValue>,
     opts: &FormFillOptions,
 ) -> Result<Vec<u8>, FormError> {
+    crate::guard::guard_input(bytes, &crate::guard::GuardLimits::default())
+        .map_err(|_| FormError::Rejected)?;
     let mut doc = Document::load_mem(bytes).map_err(|e| FormError::Parse(e.to_string()))?;
 
     if catalog_subdict(&doc, b"AcroForm").is_none() {
@@ -948,6 +954,8 @@ pub fn fill_form(
 ///
 /// Returns `FormError::NoAcroForm` when the document has no AcroForm.
 pub fn flatten_form(bytes: &[u8]) -> Result<Vec<u8>, FormError> {
+    crate::guard::guard_input(bytes, &crate::guard::GuardLimits::default())
+        .map_err(|_| FormError::Rejected)?;
     let mut doc = Document::load_mem(bytes).map_err(|e| FormError::Parse(e.to_string()))?;
 
     if catalog_subdict(&doc, b"AcroForm").is_none() {
@@ -2701,6 +2709,13 @@ mod tests {
                 "every field must have a non-empty name; field: {f:?}"
             );
         }
+    }
+
+    #[test]
+    fn forms_reject_oversize_input() {
+        let big = vec![0u8; crate::guard::GuardLimits::default().max_input_bytes + 1];
+        assert!(matches!(read_form(&big), Err(FormError::Rejected)));
+        assert!(matches!(flatten_form(&big), Err(FormError::Rejected)));
     }
 
     #[test]

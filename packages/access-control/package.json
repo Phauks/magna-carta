@@ -6,7 +6,8 @@
   "sideEffects": false,
   "exports": {
     "./registry": "./src/registry.ts",
-    "./resolver": "./src/resolver.ts"
+    "./resolver": "./src/resolver.ts",
+    "./platform-operator": "./src/platform-operator.ts"
   },
   "scripts": {
     "test": "vp test run"

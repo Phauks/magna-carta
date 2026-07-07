@@ -1,0 +1,18 @@
+---
+jurisdiction: US-MA
+publisher: Lawyers Concerned for Lawyers, Inc. (Massachusetts)
+sourceUrl: https://www.lclma.org/
+accessedOn: 2026-07-02
+accessGate: open
+method: browser-agent fetch (WebFetch hit a TLS-chain error)
+---
+[Lawyers Concerned for Lawyers, Inc. (LCL)]
+QUOTE: "FREE & CONFIDENTIAL SUPPORT — LCL: WHERE WELL-BEING MATTERS FOR A THRIVING LEGAL COMMUNITY."
+
+Private nonprofit founded 1978, Massachusetts' sole LAP. PO BOX 240845, Dorchester, MA 02124.
+617-482-9600; email@lclma.org. Free and confidential mental-health resources, addiction-recovery
+support, and practice-management services. What We Do: consultations for individuals &
+organizations; Clinical Mental Health & Well-Being; Practice Management; Third-Party Directed
+(BBO/BBE/Courts/CPCS); peer support groups; individual peer monitoring. Massachusetts RPC 1.6(d)
+protects communications with LCL. After-hours crises directed to 988 (24/7/365). LCL's own line hours
+not stated → unspecified.

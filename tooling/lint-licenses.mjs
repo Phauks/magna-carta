@@ -38,6 +38,13 @@ const ALLOWED = new Set([
   "BlueOak-1.0.0",
   "Zlib",
   "Python-2.0",
+  // SIL Open Font License 1.1 — the permissive open-font license the bundled UI webfonts declare
+  // (@fontsource-variable/atkinson-hyperlegible-next, @fontsource-variable/fraunces,
+  // @fontsource/unifrakturmaguntia). OFL explicitly permits embedding + redistribution inside
+  // software; its only restriction is selling the font files on their own, which does not affect
+  // bundling a webfont into the app. A font license, not a general-purpose code license — but the
+  // gate classifies by SPDX id and OFL-only packages here are all fonts.
+  "OFL-1.1",
 ]);
 
 // Non-SPDX license strings some older packages emit, mapped to their SPDX equivalent.
@@ -119,6 +126,11 @@ function selfTest() {
   expect(!classifyLicense("p", "1", "UNLICENSED").allowed, "UNLICENSED denied");
   expect(!classifyLicense("p", "1", "Frobnicate-1.0").allowed, "unknown license denied");
   expect(classifyLicense("p", "1", "BSD").allowed, "BSD alias allowed");
+  expect(classifyLicense("p", "1", "OFL-1.1").allowed, "OFL-1.1 font license allowed");
+  expect(
+    !classifyLicense("p", "1", "Limited W3 License").allowed,
+    "apca-w3's field-restricted 'Limited W3 License' stays denied (not the permissive W3C license)",
+  );
 }
 
 function main() {

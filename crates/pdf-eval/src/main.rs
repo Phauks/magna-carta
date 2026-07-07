@@ -9,6 +9,8 @@
 //   surgery-coverage  <corpus_dir>                          — non-gating: per-file surgery-vs-flatten disposition over the corpus
 //   fidelity          <corpus_dir> <pdfium.dll> [dpi]       — hayro-vs-PDFium MSSIM per page (needs pdfium dll at runtime)
 //   pdfium            <input.pdf> <pdfium.dll> <out_dir> [dpi] — dump PDFium renders to PNG (needs pdfium dll at runtime)
+//   corpus-fetch                                             — fetch missing forms-corpus files (needs --features corpus-fetch)
+//   validate          <corpus_dir>                          — run the validation harness over a corpus dir; diffs against validation-baseline.json
 use hayro::hayro_interpret::InterpreterSettings;
 use hayro::hayro_syntax::Pdf;
 use hayro::{render, RenderCache, RenderSettings};
@@ -20,6 +22,8 @@ use image_compare::Algorithm;
 use pdfium_render::prelude::*;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::{Path, PathBuf};
+
+mod validate;
 
 #[cfg(feature = "pdfium")]
 const MAX_PAGES_PER_DOC: usize = 3;
@@ -39,6 +43,10 @@ fn main() {
         Some("surgery-coverage") => {
             surgery_coverage_mode(args.next().expect("usage: surgery-coverage <corpus_dir>"))
         }
+        Some("corpus-fetch") => validate::corpus_fetch_mode(),
+        Some("validate") => {
+            validate::validate_mode(args.next().expect("usage: validate <corpus_dir>"))
+        }
         #[cfg(feature = "pdfium")]
         Some("fidelity") => fidelity_mode(args.collect()),
         #[cfg(feature = "pdfium")]
@@ -50,7 +58,7 @@ fn main() {
         }
         other => {
             eprintln!(
-                "unknown mode {other:?}; use smoke | redact-smoke | sanitize-smoke | detect | detect-smoke | render | parse | surgery-coverage | fidelity | pdfium"
+                "unknown mode {other:?}; use smoke | redact-smoke | sanitize-smoke | detect | detect-smoke | render | parse | surgery-coverage | fidelity | pdfium | corpus-fetch | validate"
             );
             std::process::exit(2);
         }
@@ -426,23 +434,43 @@ fn luma_on_white(img: &image::RgbaImage) -> GrayImage {
     })
 }
 
-/// Informational reporter: for each PDF in `dir`, run `redact` in Surgery mode with a
-/// generous full-page-covering redaction rectangle on page 0 and record whether the
-/// page was surgered (content-stream excision succeeded) or flattened (fallback to
-/// rasterisation) or whether the run errored.  Prints a per-file line and a SUMMARY
-/// line.  Exits 0 regardless of the surgery ratio — this is a coverage measurement,
-/// not a gate.
+/// Union of the first `limit` glyph rectangles into one redaction rectangle,
+/// padded outward by `pad` points. Modelling a realistic redaction — a name or a
+/// field, a handful of characters — rather than a whole page, so that raster
+/// images elsewhere on the page do not force a flatten. Corner order is
+/// normalised because glyph rects may arrive un-normalised.
+fn text_target_rect(rects: &[pdf_core::Rect], limit: usize, pad: f32) -> Option<pdf_core::Rect> {
+    let taken = &rects[..rects.len().min(limit)];
+    if taken.is_empty() {
+        return None;
+    }
+    let mut x0 = f32::MAX;
+    let mut y0 = f32::MAX;
+    let mut x1 = f32::MIN;
+    let mut y1 = f32::MIN;
+    for r in taken {
+        x0 = x0.min(r.x0.min(r.x1));
+        y0 = y0.min(r.y0.min(r.y1));
+        x1 = x1.max(r.x0.max(r.x1));
+        y1 = y1.max(r.y0.max(r.y1));
+    }
+    Some(pdf_core::Rect {
+        x0: x0 - pad,
+        y0: y0 - pad,
+        x1: x1 + pad,
+        y1: y1 + pad,
+    })
+}
+
+/// Informational reporter: for each PDF in `dir`, run `redact` in Surgery mode over
+/// a realistic small rectangle covering the first run of text on page 0 (not the
+/// whole page), and record whether the page was surgered (content-stream excision
+/// succeeded), flattened (fallback to rasterisation), skipped (page 0 has no
+/// visible text to target), or errored. A small text-targeted rectangle reflects
+/// how redaction is actually used and avoids penalising a page merely for holding
+/// an image somewhere off the redaction target. Prints a per-file line and a
+/// SUMMARY line. Exits 0 regardless of ratio — a coverage measurement, not a gate.
 fn surgery_coverage_mode(dir: String) {
-    let full_page_region = pdf_core::RedactionRegion {
-        page: 0,
-        rect: pdf_core::Rect {
-            x0: 0.0,
-            y0: 0.0,
-            x1: 1_000.0,
-            y1: 1_000.0,
-        },
-        reason: None,
-    };
     let opts = pdf_core::RedactionOptions {
         mode: pdf_core::RedactionMode::Surgery,
         // Use a low DPI so flatten fallbacks are faster; this is informational, not production.
@@ -452,6 +480,7 @@ fn surgery_coverage_mode(dir: String) {
 
     let mut surgered_count: u32 = 0;
     let mut flattened_count: u32 = 0;
+    let mut skipped_count: u32 = 0;
     let mut errored_count: u32 = 0;
 
     for path in pdfs_in(&dir) {
@@ -465,7 +494,30 @@ fn surgery_coverage_mode(dir: String) {
             }
         };
 
-        match pdf_core::redact(bytes, std::slice::from_ref(&full_page_region), &opts) {
+        // Locate real text on page 0 and target a name-sized region over it.
+        let text_rects =
+            match pdf_core::Document::load(bytes.clone()).and_then(|doc| doc.page_text_rects(0)) {
+                Ok(rects) => rects,
+                Err(e) => {
+                    println!("error    {name}  (text-locate: {e:?})");
+                    errored_count += 1;
+                    continue;
+                }
+            };
+        let region = match text_target_rect(&text_rects, 12, 2.0) {
+            Some(rect) => pdf_core::RedactionRegion {
+                page: 0,
+                rect,
+                reason: None,
+            },
+            None => {
+                println!("skip     {name}  (no visible text on page 0)");
+                skipped_count += 1;
+                continue;
+            }
+        };
+
+        match pdf_core::redact(bytes, std::slice::from_ref(&region), &opts) {
             Ok(outcome) => {
                 let page_0_surgered = outcome.report.pages_surgered.contains(&0);
                 let page_0_flattened = outcome.report.pages_flattened.contains(&0);
@@ -488,9 +540,9 @@ fn surgery_coverage_mode(dir: String) {
         }
     }
 
-    let total = surgered_count + flattened_count + errored_count;
+    let total = surgered_count + flattened_count + skipped_count + errored_count;
     println!(
-        "\nSUMMARY: surgered {surgered_count} / flattened {flattened_count} / errored {errored_count} of {total}"
+        "\nSUMMARY: surgered {surgered_count} / flattened {flattened_count} / skipped {skipped_count} / errored {errored_count} of {total}"
     );
 }
 

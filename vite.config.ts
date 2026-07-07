@@ -26,28 +26,42 @@ export default defineConfig({
       "**/tsconfig.build.json",
       "packages/design-tokens/generated/**",
       "packages/design-tokens/test/golden/**",
+      // Assembled build outputs, not hand-authored: CHANGELOG.md is folded from changelog.d/* by
+      // tooling/doc-fragments/build-changelog.mjs, and docs/Decision-Log.md is the register emitted by
+      // build-decisions.mjs. Formatter reflow would fight those assemblers (same case as docs/decisions/**).
+      "CHANGELOG.md",
+      "docs/Decision-Log.md",
+      // Assembled by tooling/doc-fragments/build-status.mjs from status.d/* — same case: the generator
+      // owns the exact bytes (tables are emitted width-independent so a note edit can't re-pad, and diff,
+      // every row) and CI re-derives + diff-gates them. Never hand-edit; never let the formatter reflow.
+      "STATUS.md",
+      "STATUS.json",
     ],
   },
-  // typeCheck makes `vp check` run tsgolint TS type-checks (not just fmt+lint); a real `.ts` type error now fails the gate.
-  // tsgolint does not parse `.svelte`, so the full gate (`pnpm check`) also runs svelte-check. See conventions/typescript.md.
+  // Type-errors are owned by `vp run typecheck` (`tsc -b` over the project-references graph — fast,
+  // incremental, complete), wired into the root `check`. So `typeCheck` is OFF here: vp check does NOT
+  // repeat a whole-repo type-error pass (that whole-repo pass was too slow to complete, which let real
+  // type errors slip — see docs/research/vp-check-typecheck-coverage-gap.md). `typeAware` stays ON so
+  // the type-aware LINT rules (e.g. no-floating-promises) still run; scope them to changed files in the
+  // local loop (`vp check <paths>`) — see docs/conventions/build-performance.md. tsgolint does not parse
+  // `.svelte`, so the full gate (`pnpm check`) also runs svelte-check. See conventions/typescript.md.
   lint: {
     // The Hey API generated client is not our code to lint (its barrel index and codegen idioms trip
-    // our rules); exclude it. NOTE: vp's type-check runs through this lint pass, so excluding the
-    // generated client here also drops it from tsgolint — so the "generated client compiles" gate is
-    // provided separately by the api-client `typecheck` script (a dedicated `tsc -p`, wired into the
-    // root `check`), which type-checks every generated file. The OpenAPI snapshot is data, not source.
+    // our rules); exclude it. It is type-checked by its own `tsc -p` (api-client `typecheck`, wired into
+    // the root `check`), and the project-references graph excludes it too. The OpenAPI snapshot is data.
     ignorePatterns: ["packages/api-client/src/**"],
     options: {
       typeAware: true,
-      typeCheck: true,
+      typeCheck: false,
     },
   },
-  // Per-package test projects. apps/worker runs its tests inside Miniflare via @cloudflare/vitest-pool-workers, which only activates when its own config (apps/worker/vitest.config.ts) is loaded, so it is registered as a Vitest project here; otherwise root `vp test` would run the worker test under the default pool and `cloudflare:test` would not resolve.
+  // Per-package test projects. apps/worker and apps/status-worker run their tests inside Miniflare via @cloudflare/vitest-pool-workers, which only activates when their own config (apps/worker/vitest.config.ts, apps/status-worker/vitest.config.ts) is loaded, so each is registered as a Vitest project here; otherwise root `vp test` would run the worker test under the default pool and `cloudflare:test` would not resolve.
   // The design-system Storybook story tests (browser-mode Chromium via Playwright + per-story axe) are registered explicitly: Vitest ignores `test.projects` nested inside a config loaded as a project, so the glob entry alone would silently skip them at the root (the package's vitest.config.ts then only contributes its unit tests). Requires the Chromium binary: `pnpm --filter @magna-carta/design-system exec playwright install chromium` (CI too).
   test: {
     projects: [
       "apps/web/vitest.config.ts",
       "apps/worker/vitest.config.ts",
+      "apps/status-worker/vitest.config.ts",
       "packages/*/vitest.config.ts",
       "packages/design-system/vitest.storybook.config.ts",
       "tooling/doc-fragments/vitest.config.ts",
@@ -94,20 +108,24 @@ export default defineConfig({
       "typecheck-refs": {
         command: "node tooling/tsconfig-refs/index.mjs",
       },
-      // Build the pdf-core WASM artefact into packages/pdf/src/pkg — IN A PINNED RUST DOCKER IMAGE
-      // (crates/pdf-core/wasm.Dockerfile, mirroring containers/scan/Dockerfile), never on the host
+      // Build the WASM artefacts the app-worker build consumes — pdf-core into packages/pdf/src/pkg
+      // and decryption-core into packages/decryption/src/pkg — EACH IN A PINNED RUST DOCKER IMAGE
+      // (crates/<crate>/wasm.Dockerfile, mirroring containers/scan/Dockerfile), never on the host
       // toolchain. This is the one canonical wasm build, invoked identically in local builds and in
       // Cloudflare Workers Builds: the build environment needs only Docker (which the Workers Builds
       // runner provides — the same way the scan/bundle/convert container images build), never Rust or
       // wasm-pack on the bare machine. `--output type=local` exports exactly the wasm-pack output to
-      // the host package dir (the import path packages/pdf/src/index.ts expects). Build context is
-      // crates/. Like the container workers, this requires Docker available locally.
+      // each host package dir (the import paths packages/{pdf,decryption}/src expect). Both are built
+      // because build-all bundles both consumers: the SPA imports pdf-core, and apps/worker imports
+      // decryption-core (the decryption/recovery routes' strip_with_key/extract_hash/verify_guess) —
+      // omitting either makes the worker or SPA bundle fail with ENOENT on the missing .wasm. Build
+      // context is crates/. Like the container workers, this requires Docker available locally.
       // --network=host: the Workers Builds runner's Docker isolates RUN-step networking (image pulls
       // work, but RUN-step DNS fails), so the rustup/cargo downloads need the host network — which the
       // bare runner has (it clones the repo + runs pnpm install). Harmless locally.
       "rust-wasm-build": {
         command:
-          "docker build --network=host --output type=local,dest=packages/pdf/src/pkg -f crates/pdf-core/wasm.Dockerfile crates",
+          "docker build --network=host --output type=local,dest=packages/pdf/src/pkg -f crates/pdf-core/wasm.Dockerfile crates && docker build --network=host --output type=local,dest=packages/decryption/src/pkg -f crates/decryption-core/wasm.Dockerfile crates",
       },
       // The worker serves apps/web/build, so its build and dev both depend on the SPA build (cross-package package#task notation).
       // Named worker-build / worker-dev (not build / dev) so they do not collide with the root package.json build / dev scripts.
@@ -127,6 +145,11 @@ export default defineConfig({
       // Fold changelog.d/* fragments into CHANGELOG.md [Unreleased] and consume them.
       "changelog-build": {
         command: "node tooling/doc-fragments/build-changelog.mjs",
+      },
+      // Regenerate STATUS.md + STATUS.json from status.d/* fragments (persistent — NOT consumed, since
+      // a slice's status keeps moving across the pipeline). See docs/conventions/documentation.md.
+      "status-build": {
+        command: "node tooling/doc-fragments/build-status.mjs",
       },
       // Print the active-work registry: git worktrees + docs/active-work notes + touch-overlaps.
       // Run before starting a stream or editing a cross-cutting file (see docs/active-work/README.md).

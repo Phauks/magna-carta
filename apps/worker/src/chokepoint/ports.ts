@@ -50,10 +50,21 @@ export interface ChokepointVariables {
 // chokepoint): every downstream guard/handler emits events through the request-scoped `logger`
 // against the request's `correlationId`, and problemJson reads correlationId to stamp every reply.
 // Both optional: a code path running before the middleware (none today) would see neither.
+//
+// permissions is stashed by the chokepoint's own RBAC step (chokepoint.ts step 3b) alongside the
+// tenancy variables above, but ONLY when the route names a non-null permission (the common case) —
+// hence optional, unlike the ChokepointVariables that are unconditionally present on the
+// session-present path. A handler reads it via requireChokepointPermissions/assertAlsoHasPermission
+// (context-accessors.ts) to require a SECOND capability beyond the route's declared primary one.
 export type AppVariables = ChokepointVariables & {
   idempotency?: IdempotencyContext;
   correlationId?: string;
   logger?: Logger;
+  permissions?: ReadonlySet<Permission>;
+  // Set by platformOperatorGuard on allow: the platform-operator route-specific guard's own
+  // authorized-principal handle, parallel to chokepointUserId but for the "public" surface routes
+  // that skip the per-firm chokepoint entirely (see platform-operator-guard.ts).
+  platformOperatorUserId?: import("@magna-carta/identifiers/types").UserId;
 };
 
 // resolveSession port: the cookie → { userId, firmId } resolver, bound to the per-env Better Auth

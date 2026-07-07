@@ -10,7 +10,9 @@ import { ingestQueue, type R2EventMessage } from "./files/ingest-consumer.ts";
 import { inferenceQueue, type InferenceJob } from "./inference/inference-consumer.ts";
 import { runIdleCheckoutSweep } from "./editing/idle-checkout-sweep.ts";
 import { runTieringSweep } from "./editing/tiering-sweep.ts";
-import { runScheduledSweep, runStorageReconciliation } from "./scheduled.ts";
+import { recoveryQueue } from "./recovery/recovery-consumer.ts";
+import type { RecoveryShardMessage } from "./recovery/recovery-types.ts";
+import { runScheduledSweep, runStatusSnapshot, runStorageReconciliation } from "./scheduled.ts";
 import { LiveTimerDurableObject } from "./timer/live-timer-durable-object.ts";
 
 // The async bulk-download coordinator Durable Object must be exported from the Worker's main entrypoint
@@ -25,6 +27,11 @@ export { ConversionJob } from "./conversions/conversion-coordinator.ts";
 // self-migrating on wake. Must be exported here so the runtime can instantiate the class named in
 // wrangler.jsonc's durable_objects binding.
 export { FirmDatabase } from "./firm-database/firm-database-object.ts";
+
+// The password-recovery job coordinator Durable Object: fans a recovery job out across shards and
+// aggregates outcomes. Exported so the runtime can instantiate the class named in wrangler.jsonc's
+// durable_objects binding.
+export { RecoveryJobCoordinator } from "./recovery/recovery-coordinator.ts";
 
 // The bundle-build queue's name (wrangler.jsonc queues.consumers) — the queue() handler routes its
 // batches to the bundle consumer, every other queue to the files-ingest consumer.
@@ -42,6 +49,11 @@ const CONVERSION_QUEUE = "magna-carta-production-conversion";
 // queue() handler routes its batches to the per-firm cost-recovery consumer.
 const PER_FIRM_JOB_QUEUE = "magna-carta-production-platform-jobs";
 
+// The password-recovery shard queue's name — the queue() handler routes its batches to the recovery
+// consumer, which runs one shard of a dictionary/rule search and reports its outcome back to the
+// coordinator Durable Object.
+const RECOVERY_QUEUE = "magna-carta-production-recovery-shard";
+
 // createApp defaults the plugin runtime to the production seam — the firm_secret credential store
 // throws until the marketplace wires the live credential read; carrier calls use a fetch-backed
 // EasyPost client. Plugins mount from the registry; the core names none directly.
@@ -50,6 +62,11 @@ const app = createApp();
 // The daily reconciliation Cron expression (wrangler.jsonc triggers.crons), distinct from the */5
 // sweep — a full R2 LIST per firm is too heavy to run every five minutes.
 const RECONCILIATION_CRON = "0 3 * * *";
+
+// The status-snapshot Cron expression (wrangler.jsonc triggers.crons): probes the core primitives
+// and polls the upstream provider feeds every ten minutes, independent of both the */5 outbox sweep
+// and the daily reconciliation pass.
+const STATUS_SNAPSHOT_CRON = "*/10 * * * *";
 
 // fetch + scheduled + queue: the Hono app serves requests; the Cron triggers run the outbox relay
 // sweeps + idempotency TTL purge + stale-pending upload sweep every 5 minutes, the storage
@@ -73,7 +90,9 @@ export default {
               await runIdleCheckoutSweep(env);
             },
           }
-        : { operation: "cron:scheduled-sweep", run: () => runScheduledSweep(env) };
+        : controller.cron === STATUS_SNAPSHOT_CRON
+          ? { operation: "cron:status-snapshot", run: () => runStatusSnapshot(env) }
+          : { operation: "cron:scheduled-sweep", run: () => runScheduledSweep(env) };
     executionContext.waitUntil(
       pass.run().catch((caught: unknown) => {
         logOperationFailed(createWorkersLogger(env.TELEMETRY), pass.operation, caught);
@@ -100,6 +119,10 @@ export default {
     // production until then.)
     if (batch.queue === PER_FIRM_JOB_QUEUE) {
       return perFirmQueue(batch as MessageBatch<PerFirmQueueMessage>, env);
+    }
+    // The recovery shard queue routes to the recovery consumer (one dictionary/rule shard per message).
+    if (batch.queue === RECOVERY_QUEUE) {
+      return recoveryQueue(batch as MessageBatch<RecoveryShardMessage>, env);
     }
     // Both the interactive files-ingest queue and the bulk files-ingest-bulk queue route to the
     // same ingest handler — the lane separation is entirely in queue topology and concurrency.

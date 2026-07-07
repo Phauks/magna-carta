@@ -11,6 +11,7 @@ import {
 import type { AnySQLiteColumn } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 import type {
+  AiDetectionUsageId,
   AuditLogId,
   CostEntryId,
   CustomFieldId,
@@ -53,6 +54,7 @@ import type {
   PicklistOptionId,
   RateCardId,
   RateId,
+  RepairProvenanceId,
   RoleId,
   RolePermissionId,
   ShipmentId,
@@ -792,6 +794,44 @@ export const tokenUsageMeter = sqliteTable(
     requestCount: integer("request_count").notNull(),
   },
   (table) => [primaryKey({ columns: [table.day, table.slot, table.modelId] })],
+);
+
+// Authoritative per-firm AI-text-detection usage — one row per successful detection. Word count is the
+// billing-relevant unit (the provider bills by words); cost_minor is an indicative snapshot. matter_id
+// is the matter-action seam (nullable — Tools detection is matter-less today). Handle PK.
+export const aiDetectionUsage = sqliteTable(
+  "ai_detection_usage",
+  {
+    id: text("id").primaryKey().$type<AiDetectionUsageId>(),
+    requestedBy: text("requested_by").notNull(),
+    wordCount: integer("word_count").notNull(),
+    mode: text("mode", { enum: ["realtime", "bulk"] }).notNull(),
+    costMinor: integer("cost_minor").notNull(),
+    adapterId: text("adapter_id").notNull(),
+    vendorVersion: text("vendor_version"),
+    resultBand: text("result_band"),
+    matterId: text("matter_id").$type<MatterId>(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [index("ai_detection_usage_created_at_index").on(table.createdAt)],
+);
+
+// The honest provenance of a machine-reconstructed file version: the operation and the verbatim loss
+// manifest, so viewing the file surfaces "reconstructed — here is what was lost/synthesized". Firm
+// data (access-gated like the version it describes), never the redacted log pipeline. Keyed by the
+// file version it belongs to; a row's existence IS the "this version is a reconstruction" marker.
+export const fileRepairProvenance = sqliteTable(
+  "file_repair_provenance",
+  {
+    id: text("id").primaryKey().$type<RepairProvenanceId>(),
+    fileVersionId: text("file_version_id").notNull().$type<FileVersionId>(),
+    operation: text("operation", { enum: ["repair", "carve"] }).notNull(),
+    fullyRecovered: integer("fully_recovered").notNull(),
+    manifestJson: text("manifest_json").notNull(),
+    sourceMediaType: text("source_media_type"),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [index("file_repair_provenance_version_index").on(table.fileVersionId)],
 );
 
 // Per-firm key/value config (JSON values), read through a typed accessor with defaults in code: a

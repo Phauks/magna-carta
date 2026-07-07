@@ -8,6 +8,7 @@ import {
 } from "@magna-carta/data-access/idempotency-statements";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import type { IdempotencyRecordId } from "@magna-carta/identifiers/types";
+import type { DurableObjectId } from "@cloudflare/workers-types";
 import { firmDatabaseFor } from "../../src/firm-database/firm-database-proxy.ts";
 
 const record = (key: string) => ({
@@ -63,5 +64,34 @@ describe("firmDatabaseProxy", () => {
     expect((await selectIdempotencyRecordStatement(database, "dupe").all()).results).toHaveLength(
       0,
     );
+  });
+
+  it("addresses the DO under the eu jurisdiction when given one", () => {
+    const seen: string[] = [];
+    const euSub = {
+      idFromName: (name: string) => ({ name, jurisdiction: "eu" }) as unknown as DurableObjectId,
+      get: (id: unknown) => ({ id }),
+    };
+    const namespace = {
+      idFromName: (name: string) => ({ name }) as unknown as DurableObjectId,
+      get: (id: unknown) => ({ id }),
+      jurisdiction: (j: string) => {
+        seen.push(j);
+        return euSub;
+      },
+    };
+    firmDatabaseFor(namespace as never, "firm_1", "eu");
+    expect(seen).toEqual(["eu"]);
+  });
+
+  it("uses the bare namespace when no jurisdiction is given (unchanged for us firms)", () => {
+    const namespace = {
+      idFromName: (name: string) => ({ name }) as unknown as DurableObjectId,
+      get: (id: unknown) => ({ id }),
+      jurisdiction: () => {
+        throw new Error("must not be called");
+      },
+    };
+    expect(() => firmDatabaseFor(namespace as never, "firm_1")).not.toThrow();
   });
 });

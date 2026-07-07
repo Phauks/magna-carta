@@ -1,4 +1,9 @@
 import type { FirmId } from "@magna-carta/identifiers/types";
+import {
+  jurisdictionForRegion,
+  locationHintForRegion,
+  type DataRegion,
+} from "@magna-carta/database/data-region";
 
 // The provisioning port: how the firm provisioner obtains a firm's physical resources. The
 // per-firm database needs none — it is the firmId-addressed FirmDatabase Durable Object, which
@@ -6,11 +11,12 @@ import type { FirmId } from "@magna-carta/identifiers/types";
 // below — the dev adapter (Miniflare cannot create R2 at runtime) and the Cloudflare REST adapter
 // (real resource creation, deploy-time credentials).
 export interface FirmResourceProvider {
-  createBucket(firmId: FirmId): Promise<{ bucketName: string }>;
+  createBucket(firmId: FirmId, region: DataRegion): Promise<{ bucketName: string }>;
   // Configure the firm bucket's object-create event notification to feed the files-ingest queue
   // (prefix files/). Idempotent and re-runnable: provisioning calls it on every run that reaches the
   // bucket step, so a run that created the bucket but crashed before this still configures on retry.
-  configureBucketNotifications(firmId: FirmId): Promise<void>;
+  // The region must match what createBucket used — the notification PUTs target the SAME bucket.
+  configureBucketNotifications(firmId: FirmId, region: DataRegion): Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -27,13 +33,13 @@ export function createDevFirmResourceProvider(): FirmResourceProvider {
     // name). The stored name is per-firm UNIQUE — the SAME deterministic shape production uses — so
     // the ingest consumer's `WHERE bucket_name = ?` event→firm resolution stays unambiguous with
     // more than one dev firm; locally it only marks the provisioning step complete.
-    async createBucket(firmId: FirmId): Promise<{ bucketName: string }> {
+    async createBucket(firmId: FirmId, _region: DataRegion): Promise<{ bucketName: string }> {
       return { bucketName: await firmResourceName(firmId) };
     },
 
     // Miniflare delivers no R2 event notifications, so there is nothing to configure locally — the
     // ingest consumer is driven by synthetic events in dev/tests. A no-op marks the step complete.
-    configureBucketNotifications(): Promise<void> {
+    configureBucketNotifications(_firmId: FirmId, _region: DataRegion): Promise<void> {
       return Promise.resolve();
     },
   };
@@ -133,10 +139,11 @@ export function createCloudflareRestFirmResourceProvider(
     method: "GET" | "POST" | "PUT",
     url: string,
     body?: unknown,
+    extraHeaders?: Record<string, string>,
   ): Promise<{ status: number; envelope: CloudflareApiEnvelope<Result> }> {
     const response = await fetchImplementation(url, {
       method,
-      headers,
+      headers: { ...headers, ...extraHeaders },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });
     // Text first, parse second: an HTML edge error page (502/520) must surface as a described
@@ -157,19 +164,31 @@ export function createCloudflareRestFirmResourceProvider(
 
   return {
     // Find-first, same shape: probe the bucket (its name IS its identifier), create only when
-    // the probe misses; already-exists on the create is the same benign probe-create race.
-    async createBucket(firmId: FirmId): Promise<{ bucketName: string }> {
+    // the probe misses; already-exists on the create is the same benign probe-create race. The
+    // eu jurisdiction header must ride BOTH the probe and the create — the bucket lives under
+    // that jurisdiction's namespace, so a probe without it queries the wrong jurisdiction and
+    // always misses.
+    async createBucket(firmId: FirmId, region: DataRegion): Promise<{ bucketName: string }> {
       const name = await firmResourceName(firmId);
+      const jurisdiction = jurisdictionForRegion(region);
+      const extraHeaders = jurisdiction ? { "cf-r2-jurisdiction": jurisdiction } : undefined;
       const probed = await callApi<unknown>(
         "createBucket",
         "GET",
         `${accountBase}/r2/buckets/${name}`,
+        undefined,
+        extraHeaders,
       );
       if (probed.envelope.success) return { bucketName: name };
 
-      const created = await callApi<unknown>("createBucket", "POST", `${accountBase}/r2/buckets`, {
-        name,
-      });
+      const locationHint = locationHintForRegion(region);
+      const created = await callApi<unknown>(
+        "createBucket",
+        "POST",
+        `${accountBase}/r2/buckets`,
+        locationHint ? { name, locationHint } : { name },
+        extraHeaders,
+      );
       if (created.envelope.success || isAlreadyExists(created.envelope)) {
         return { bucketName: name };
       }
@@ -179,7 +198,7 @@ export function createCloudflareRestFirmResourceProvider(
     // PUT the object-create notification rule onto the firm's bucket, targeting the files-ingest
     // queue. PUT is idempotent — re-running replaces the same rule set, so a resumed provisioning is
     // safe. The bucket name is its deterministic resource name (createBucket's identifier).
-    async configureBucketNotifications(firmId: FirmId): Promise<void> {
+    async configureBucketNotifications(firmId: FirmId, region: DataRegion): Promise<void> {
       if (
         options.eventNotificationQueueId === undefined ||
         options.eventNotificationQueueId === ""
@@ -190,6 +209,11 @@ export function createCloudflareRestFirmResourceProvider(
         );
       }
       const bucketName = await firmResourceName(firmId);
+      // The jurisdiction header must ride every bucket-scoped operation against a jurisdiction-
+      // restricted bucket (same requirement as createBucket's probe/create) — an unheadered PUT
+      // resolves against the default jurisdiction and misses the bucket entirely.
+      const jurisdiction = jurisdictionForRegion(region);
+      const extraHeaders = jurisdiction ? { "cf-r2-jurisdiction": jurisdiction } : undefined;
       const configured = await callApi<unknown>(
         "configureBucketNotifications",
         "PUT",
@@ -202,6 +226,7 @@ export function createCloudflareRestFirmResourceProvider(
             },
           ],
         },
+        extraHeaders,
       );
       if (!configured.envelope.success) {
         throw describeFailure(
@@ -226,6 +251,7 @@ export function createCloudflareRestFirmResourceProvider(
               },
             ],
           },
+          extraHeaders,
         );
         if (!configuredBulk.envelope.success) {
           throw describeFailure(

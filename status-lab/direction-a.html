@@ -1,0 +1,790 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Direction A — The Ledger of Record</title>
+    <style>
+      /* Palette approximated from the design lab; production uses design-system tokens.
+         Fonts fall back (Fraunces -> Georgia, Atkinson Hyperlegible Next -> system sans)
+         because this mockup is self-contained. */
+      :root {
+        --chrome: #191813;
+        --chrome-raised: #23221b;
+        --chrome-hair: rgba(255, 255, 255, 0.08);
+        --chrome-text: #e9e7df;
+        --chrome-muted: #97937f;
+
+        --paper: #faf9f5;
+        --card: #ffffff;
+        --sunken: #f2f0ea;
+        --text: #22211c;
+        --muted: #5d5a50;
+        --subtle: #8b877a;
+
+        --gold: #c7a857;
+        --gold-bright: #e2c476;
+        --gold-deep: #8a7434;
+        --gold-wash: #fbf6e9;
+
+        --hair: rgba(35, 33, 26, 0.13);
+        --hair-strong: rgba(35, 33, 26, 0.26);
+
+        --ok-fg: #3d6b4f;
+        --ok-bg: #eaf2ec;
+        --warn-fg: #8a6a2f;
+        --warn-bg: #f7efdc;
+        --danger-fg: #8f3d33;
+        --danger-bg: #f7e7e3;
+        --neutral-fg: #5d5a50;
+        --neutral-bg: #eeede7;
+
+        --serif: "Fraunces", Georgia, "Times New Roman", serif;
+        --sans: "Atkinson Hyperlegible Next", system-ui, -apple-system, sans-serif;
+        --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+      }
+      * { margin: 0; box-sizing: border-box; }
+      body {
+        font-family: var(--sans);
+        font-size: 14px;
+        line-height: 1.45;
+        color: var(--text);
+        background: var(--sunken);
+      }
+      a { color: inherit; }
+      .caps {
+        font-size: 11px;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        font-weight: 600;
+      }
+      .num { font-variant-numeric: tabular-nums; }
+
+      /* ————— lab scaffolding (not part of the design) ————— */
+      .lab-note {
+        max-width: 920px;
+        margin: 18px auto 0;
+        padding: 10px 14px;
+        border: 1px dashed var(--hair-strong);
+        color: var(--muted);
+        font-size: 12px;
+        background: var(--paper);
+      }
+      .lab-note b { color: var(--text); }
+      .lab-note a { margin-right: 10px; }
+      .state-label {
+        max-width: 920px;
+        margin: 40px auto 10px;
+        color: var(--muted);
+        font-size: 11px;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        font-weight: 600;
+      }
+
+      /* ————— page frame ————— */
+      .page {
+        max-width: 920px;
+        margin: 0 auto 8px;
+        background: var(--paper);
+        border: 1px solid var(--hair);
+        box-shadow: 0 1px 3px rgba(35, 33, 26, 0.07);
+      }
+
+      /* chrome band — grain lives here only */
+      .chrome {
+        background: var(--chrome);
+        color: var(--chrome-text);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 0 22px;
+        height: 54px;
+        position: relative;
+      }
+      .chrome::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        opacity: 0.05;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
+      }
+      .chrome .m {
+        font-family: var(--serif);
+        font-weight: 700;
+        font-size: 22px;
+        color: var(--gold-bright);
+        line-height: 1;
+      }
+      .chrome .word { font-size: 12.5px; letter-spacing: 0.18em; font-weight: 600; }
+      .chrome .divider { width: 1px; height: 18px; background: var(--chrome-hair); }
+      .chrome .surface { color: var(--chrome-muted); }
+      .chrome .right {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        font-size: 12px;
+        color: var(--chrome-muted);
+        position: relative;
+        z-index: 1;
+      }
+      .chrome .right a { text-decoration: none; }
+      .chrome .right a:hover { color: var(--chrome-text); }
+
+      .body { padding: 30px 40px 36px; }
+
+      /* ————— the holding (verdict) ————— */
+      .holding {
+        border-top: 2px solid var(--gold);
+        padding: 22px 0 20px;
+        border-bottom: 1px solid var(--hair);
+        margin-bottom: 26px;
+      }
+      .holding .line {
+        font-family: var(--serif);
+        font-weight: 450;
+        font-size: 27px;
+        line-height: 1.25;
+        letter-spacing: 0.002em;
+        display: flex;
+        align-items: baseline;
+        gap: 14px;
+      }
+      .holding .seal {
+        width: 11px;
+        height: 11px;
+        border-radius: 50%;
+        flex: none;
+        transform: translateY(-1px);
+      }
+      .holding .cite {
+        margin-top: 10px;
+        color: var(--muted);
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      .holding .cite .sep { color: var(--subtle); font-weight: 400; }
+      .holding.ok { border-top-color: var(--gold); }
+      .holding.ok .seal { background: var(--ok-fg); box-shadow: 0 0 0 3px var(--ok-bg); }
+      .holding.warn {
+        border-top-color: var(--warn-fg);
+        background: linear-gradient(var(--warn-bg), transparent 78%);
+        padding-left: 18px;
+        padding-right: 18px;
+        margin-left: -18px;
+        margin-right: -18px;
+      }
+      .holding.warn .seal { background: var(--warn-fg); box-shadow: 0 0 0 3px rgba(138, 106, 47, 0.16); }
+      .holding.danger {
+        border-top-color: var(--danger-fg);
+        background: linear-gradient(var(--danger-bg), transparent 82%);
+        padding-left: 18px;
+        padding-right: 18px;
+        margin-left: -18px;
+        margin-right: -18px;
+      }
+      .holding.danger .seal { background: var(--danger-fg); box-shadow: 0 0 0 3px rgba(143, 61, 51, 0.16); }
+      .holding.gilt {
+        border-top-color: var(--gold);
+        background: linear-gradient(var(--gold-wash), transparent 82%);
+        padding-left: 18px;
+        padding-right: 18px;
+        margin-left: -18px;
+        margin-right: -18px;
+      }
+      .holding.gilt .seal { background: var(--gold-deep); box-shadow: 0 0 0 3px rgba(199, 168, 87, 0.22); }
+
+      .stale-note {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 2px 8px;
+        background: var(--neutral-bg);
+        color: var(--neutral-fg);
+        border: 1px solid var(--hair);
+        font-size: 11px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        font-weight: 600;
+      }
+
+      /* ————— ledger table ————— */
+      .ledger { margin-bottom: 30px; }
+      .ledger-head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        color: var(--muted);
+        padding-bottom: 7px;
+        border-bottom: 1px solid var(--hair-strong);
+      }
+      .row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 4px 16px;
+        padding: 11px 0 12px;
+        border-bottom: 1px solid var(--hair);
+      }
+      .row .name { font-weight: 600; }
+      .row .name small {
+        display: block;
+        font-weight: 400;
+        color: var(--subtle);
+        font-size: 12px;
+      }
+      .row .status {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        justify-self: end;
+        align-self: start;
+      }
+      .row .status .dot { width: 8px; height: 8px; border-radius: 50%; }
+      .st-ok { color: var(--ok-fg); }
+      .st-ok .dot { background: var(--ok-fg); }
+      .st-warn { color: var(--warn-fg); }
+      .st-warn .dot { background: var(--warn-fg); }
+      .st-danger { color: var(--danger-fg); }
+      .st-danger .dot { background: var(--danger-fg); }
+      .st-gilt { color: var(--gold-deep); }
+      .st-gilt .dot { background: var(--gold-deep); }
+      .st-neutral { color: var(--neutral-fg); }
+      .st-neutral .dot { background: var(--subtle); }
+
+      /* 90-day record ticks (data seam: no history store yet — see NOTES.md) */
+      .ticks-wrap { grid-column: 1 / -1; }
+      .ticks {
+        position: relative;
+        height: 22px;
+        background: repeating-linear-gradient(90deg, #cfe0d4 0 4px, transparent 4px 7px);
+      }
+      .ticks i { position: absolute; top: 0; bottom: 0; width: 4px; }
+      .ticks i.warn { background: var(--warn-fg); }
+      .ticks i.danger { background: var(--danger-fg); }
+      .ticks i.gilt { background: var(--gold); }
+      .ticks-cap {
+        display: flex;
+        justify-content: space-between;
+        color: var(--subtle);
+        font-size: 11px;
+        margin-top: 4px;
+      }
+      .ticks-cap .pct { color: var(--muted); font-weight: 600; }
+
+      /* note line under an excepted component */
+      .exception-note {
+        grid-column: 1 / -1;
+        color: var(--muted);
+        font-size: 12.5px;
+        padding-left: 14px;
+        border-left: 2px solid var(--warn-fg);
+      }
+      .exception-note.danger { border-left-color: var(--danger-fg); }
+      .exception-note.gilt { border-left-color: var(--gold); }
+
+      /* ————— providers ————— */
+      .provider-row {
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--hair);
+      }
+      .provider-row .name { font-weight: 600; }
+      .provider-row .consulted { color: var(--subtle); font-size: 12px; }
+      .provider-row .status { margin-left: auto; display: inline-flex; align-items: center; gap: 7px; }
+      .provider-row .status .dot { width: 8px; height: 8px; border-radius: 50%; }
+      .provider-foot { color: var(--subtle); font-size: 12px; margin-top: 8px; }
+
+      /* ————— event register (dated ledger entries) ————— */
+      .entry {
+        display: grid;
+        grid-template-columns: 128px 1fr;
+        gap: 0 26px;
+        padding: 18px 0 16px;
+        border-bottom: 1px solid var(--hair);
+      }
+      .entry.closed { border-bottom: 3px double var(--hair-strong); }
+      .entry .when { color: var(--muted); padding-top: 3px; }
+      .entry .when .yr { display: block; color: var(--subtle); font-weight: 400; letter-spacing: 0.09em; font-size: 11px; }
+      .entry h3 {
+        font-family: var(--serif);
+        font-weight: 520;
+        font-size: 18.5px;
+        line-height: 1.3;
+        margin-bottom: 6px;
+      }
+      .entry .meta { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+      .chip {
+        font-size: 10.5px;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        font-weight: 600;
+        padding: 2px 8px;
+        border: 1px solid var(--hair-strong);
+        color: var(--muted);
+      }
+      .chip.live-warn { border-color: var(--warn-fg); color: var(--warn-fg); background: var(--warn-bg); }
+      .chip.live-danger { border-color: var(--danger-fg); color: var(--danger-fg); background: var(--danger-bg); }
+      .chip.live-gilt { border-color: var(--gold-deep); color: var(--gold-deep); background: var(--gold-wash); }
+      .chip.resolved { border-color: var(--ok-fg); color: var(--ok-fg); background: var(--ok-bg); }
+      .entry .affected { color: var(--subtle); font-size: 12px; }
+      .update { display: grid; grid-template-columns: 92px 108px 1fr; gap: 14px; padding: 7px 0; }
+      .update + .update { border-top: 1px solid var(--hair); }
+      .update .t { font-family: var(--mono); font-size: 12px; color: var(--muted); padding-top: 1px; }
+      .update .phase { padding-top: 2px; color: var(--muted); }
+      .update .body { color: var(--text); }
+
+      /* ————— section masthead ————— */
+      h2.mast {
+        font-family: var(--serif);
+        font-weight: 480;
+        font-size: 19px;
+        margin: 34px 0 2px;
+      }
+      h2.mast + .rule {
+        border: 0;
+        border-top: 1px solid var(--hair-strong);
+        margin: 8px 0 0;
+      }
+      .mast-sub { color: var(--subtle); font-size: 12.5px; margin-top: 6px; }
+
+      /* ————— colophon ————— */
+      .colophon {
+        margin-top: 40px;
+        padding-top: 16px;
+        border-top: 1px solid var(--hair-strong);
+        color: var(--muted);
+        font-size: 12.5px;
+        display: flex;
+        gap: 30px;
+        justify-content: space-between;
+        flex-wrap: wrap;
+      }
+      .colophon .notice { max-width: 520px; }
+      .colophon .actions { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
+      .colophon .actions .caps { color: var(--gold-deep); }
+      .colophon .actions .soon { color: var(--subtle); font-size: 11px; }
+    </style>
+  </head>
+  <body>
+    <div class="lab-note">
+      <b>Direction A — The Ledger of Record.</b> The Engraved Ledger register applied to the
+      status-page genre. Four canonical states rendered below:
+      <a href="#state-operational">operational</a> <a href="#state-degraded">degraded</a>
+      <a href="#state-outage">major outage</a> <a href="#state-maintenance">maintenance</a>.
+      The 90-day record ticks are a design seam — the feed carries no history yet (NOTES.md).
+      All data below is representative fake data.
+    </div>
+
+    <!-- ==================================================================== -->
+    <div class="state-label" id="state-operational">State 1 of 4 — Operational (steady state, full anatomy)</div>
+    <div class="page">
+      <header class="chrome">
+        <span class="m">M</span>
+        <span class="word">MAGNA CARTA</span>
+        <span class="divider"></span>
+        <span class="caps surface">Service Register</span>
+        <span class="right">
+          <a href="#">status.json</a>
+          <a href="#">Return to the application</a>
+        </span>
+      </header>
+
+      <main class="body">
+        <section class="holding ok">
+          <p class="line"><span class="seal"></span>All services are in good standing.</p>
+          <p class="cite caps num">
+            So entered <span class="sep">·</span> 3 July 2026, 14:20 UTC
+            <span class="sep">·</span> reviewed every 10 minutes
+            <span class="sep">·</span> this page refreshes every 30 seconds
+          </p>
+        </section>
+
+        <section class="ledger">
+          <div class="ledger-head">
+            <span class="caps">Core services</span>
+            <span class="caps">Standing</span>
+          </div>
+          <div class="row">
+            <span class="name">Application API</span>
+            <span class="status st-ok"><span class="dot"></span><span class="caps">Operational</span></span>
+            <div class="ticks-wrap">
+              <div class="ticks"></div>
+              <div class="ticks-cap num"><span>90 days ago</span><span class="pct">100.00% recorded</span><span>today</span></div>
+            </div>
+          </div>
+          <div class="row">
+            <span class="name">Control-plane database</span>
+            <span class="status st-ok"><span class="dot"></span><span class="caps">Operational</span></span>
+            <div class="ticks-wrap">
+              <div class="ticks"><i class="warn" style="left: 31%"></i></div>
+              <div class="ticks-cap num"><span>90 days ago</span><span class="pct">99.97% recorded</span><span>today</span></div>
+            </div>
+          </div>
+          <div class="row">
+            <span class="name">Object storage</span>
+            <span class="status st-ok"><span class="dot"></span><span class="caps">Operational</span></span>
+            <div class="ticks-wrap">
+              <div class="ticks"></div>
+              <div class="ticks-cap num"><span>90 days ago</span><span class="pct">100.00% recorded</span><span>today</span></div>
+            </div>
+          </div>
+          <div class="row">
+            <span class="name">Status store</span>
+            <span class="status st-ok"><span class="dot"></span><span class="caps">Operational</span></span>
+            <div class="ticks-wrap">
+              <div class="ticks"></div>
+              <div class="ticks-cap num"><span>90 days ago</span><span class="pct">100.00% recorded</span><span>today</span></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="ledger">
+          <div class="ledger-head">
+            <span class="caps">Document &amp; analysis engines</span>
+            <span class="caps">Standing</span>
+          </div>
+          <div class="row">
+            <span class="name">Document editing</span>
+            <span class="status st-ok"><span class="dot"></span><span class="caps">Operational</span></span>
+            <div class="ticks-wrap">
+              <div class="ticks"><i class="danger" style="left: 64%"></i><i class="warn" style="left: 65.2%"></i></div>
+              <div class="ticks-cap num"><span>90 days ago</span><span class="pct">99.89% recorded</span><span>today</span></div>
+            </div>
+          </div>
+          <div class="row">
+            <span class="name">Document conversion</span>
+            <span class="status st-ok"><span class="dot"></span><span class="caps">Operational</span></span>
+            <div class="ticks-wrap">
+              <div class="ticks"></div>
+              <div class="ticks-cap num"><span>90 days ago</span><span class="pct">100.00% recorded</span><span>today</span></div>
+            </div>
+          </div>
+          <div class="row">
+            <span class="name">Search indexing</span>
+            <span class="status st-ok"><span class="dot"></span><span class="caps">Operational</span></span>
+            <div class="ticks-wrap">
+              <div class="ticks"></div>
+              <div class="ticks-cap num"><span>90 days ago</span><span class="pct">100.00% recorded</span><span>today</span></div>
+            </div>
+          </div>
+          <div class="row">
+            <span class="name">OCR</span>
+            <span class="status st-ok"><span class="dot"></span><span class="caps">Operational</span></span>
+            <div class="ticks-wrap">
+              <div class="ticks"></div>
+              <div class="ticks-cap num"><span>90 days ago</span><span class="pct">100.00% recorded</span><span>today</span></div>
+            </div>
+          </div>
+          <div class="row">
+            <span class="name">Malware scanning</span>
+            <span class="status st-ok"><span class="dot"></span><span class="caps">Operational</span></span>
+            <div class="ticks-wrap">
+              <div class="ticks"><i class="gilt" style="left: 88%"></i></div>
+              <div class="ticks-cap num"><span>90 days ago</span><span class="pct">99.98% recorded</span><span>today</span></div>
+            </div>
+          </div>
+        </section>
+
+        <h2 class="mast">Upstream providers</h2>
+        <hr class="rule" />
+        <p class="mast-sub">
+          What the services this platform stands on publish about themselves. A provider whose own
+          feed is unreachable is noted as such — it is never counted against this record.
+        </p>
+        <section class="ledger" style="margin-top: 6px">
+          <div class="provider-row">
+            <span class="name">Cloudflare</span>
+            <span class="consulted num">consulted 14:18 UTC</span>
+            <span class="status st-ok"><span class="dot"></span><span class="caps">Operational</span></span>
+          </div>
+          <div class="provider-row">
+            <span class="name">GitHub</span>
+            <span class="consulted num">their feed unreachable since 13:50 UTC</span>
+            <span class="status st-neutral"><span class="dot"></span><span class="caps">Status unavailable</span></span>
+          </div>
+        </section>
+
+        <h2 class="mast">Register of service events</h2>
+        <hr class="rule" />
+        <p class="mast-sub">Entries are permanent. Updates within an entry read newest first; times are UTC.</p>
+
+        <article class="entry closed">
+          <div class="when">
+            <span class="caps">28 June</span>
+            <span class="yr caps">2026</span>
+          </div>
+          <div>
+            <h3>Document editing sessions were slow to open</h3>
+            <div class="meta">
+              <span class="chip resolved">Resolved</span>
+              <span class="chip">Minor impact</span>
+              <span class="affected">Affected: Document editing</span>
+            </div>
+            <div class="update">
+              <span class="t num">16:42</span>
+              <span class="phase caps">Resolved</span>
+              <span class="body">Session start times returned to normal and held for thirty minutes. The register is closed on this matter.</span>
+            </div>
+            <div class="update">
+              <span class="t num">16:10</span>
+              <span class="phase caps">Monitoring</span>
+              <span class="body">A fix is in place; new editing sessions are opening promptly. We are watching before closing the entry.</span>
+            </div>
+            <div class="update">
+              <span class="t num">15:31</span>
+              <span class="phase caps">Identified</span>
+              <span class="body">Cause identified: editing containers were starting slowly after a platform update. Remedy in progress.</span>
+            </div>
+            <div class="update">
+              <span class="t num">15:07</span>
+              <span class="phase caps">Investigating</span>
+              <span class="body">Some documents are taking longer than usual to open for editing. We are investigating.</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="entry closed">
+          <div class="when">
+            <span class="caps">14 June</span>
+            <span class="yr caps">2026</span>
+          </div>
+          <div>
+            <h3>Scheduled maintenance — malware-scanning rule refresh</h3>
+            <div class="meta">
+              <span class="chip resolved">Completed</span>
+              <span class="chip">Maintenance</span>
+              <span class="affected">Affected: Malware scanning</span>
+            </div>
+            <div class="update">
+              <span class="t num">03:24</span>
+              <span class="phase caps">Resolved</span>
+              <span class="body">Maintenance completed ahead of the window. Scanning resumed with the refreshed rule set.</span>
+            </div>
+            <div class="update">
+              <span class="t num">03:00</span>
+              <span class="phase caps">Monitoring</span>
+              <span class="body">The scanning service is paused while detection rules are refreshed. Files queue and scan on resume; nothing is skipped.</span>
+            </div>
+          </div>
+        </article>
+
+        <footer class="colophon">
+          <p class="notice">
+            This register is served from infrastructure kept apart from the application, so it
+            remains readable when the application is not. A quiet green means no known problem —
+            services report by exception, and silence is good standing. If this page itself cannot
+            be reached, consult the
+            <a href="https://www.cloudflarestatus.com/">Cloudflare status page</a>.
+          </p>
+          <div class="actions">
+            <span class="caps">Receive notice of entries</span>
+            <span class="soon">Email and feed subscriptions arrive with a later release.</span>
+          </div>
+        </footer>
+      </main>
+    </div>
+
+    <!-- ==================================================================== -->
+    <div class="state-label" id="state-degraded">State 2 of 4 — Degraded (verdict + exception excerpt; also shows the stale note)</div>
+    <div class="page">
+      <header class="chrome">
+        <span class="m">M</span>
+        <span class="word">MAGNA CARTA</span>
+        <span class="divider"></span>
+        <span class="caps surface">Service Register</span>
+        <span class="right"><a href="#">status.json</a><a href="#">Return to the application</a></span>
+      </header>
+      <main class="body">
+        <section class="holding warn">
+          <p class="line"><span class="seal"></span>A service is impaired. The register notes the exception below.</p>
+          <p class="cite caps num">
+            So entered <span class="sep">·</span> 3 July 2026, 14:20 UTC
+            <span class="sep">·</span> <span class="stale-note">Snapshot aged — last review 41 minutes ago</span>
+          </p>
+        </section>
+
+        <article class="entry" style="border-top: 1px solid var(--hair)">
+          <div class="when">
+            <span class="caps">3 July</span>
+            <span class="yr caps">2026</span>
+          </div>
+          <div>
+            <h3>Document conversion is running slowly</h3>
+            <div class="meta">
+              <span class="chip live-warn">Identified</span>
+              <span class="chip">Minor impact</span>
+              <span class="affected">Affected: Document conversion</span>
+            </div>
+            <div class="update">
+              <span class="t num">14:05</span>
+              <span class="phase caps">Identified</span>
+              <span class="body">Cause identified: conversions of very large files are queuing longer than usual. Smaller conversions are unaffected. A remedy is being applied.</span>
+            </div>
+            <div class="update">
+              <span class="t num">13:41</span>
+              <span class="phase caps">Investigating</span>
+              <span class="body">Some document conversions are taking longer than normal to complete. We are investigating.</span>
+            </div>
+          </div>
+        </article>
+
+        <section class="ledger" style="margin-top: 26px">
+          <div class="ledger-head">
+            <span class="caps">Document &amp; analysis engines</span>
+            <span class="caps">Standing</span>
+          </div>
+          <div class="row">
+            <span class="name">Document editing</span>
+            <span class="status st-ok"><span class="dot"></span><span class="caps">Operational</span></span>
+          </div>
+          <div class="row">
+            <span class="name">Document conversion</span>
+            <span class="status st-warn"><span class="dot"></span><span class="caps">Degraded</span></span>
+            <span class="exception-note">Large conversions are queuing longer than usual — entry of 3 July, above.</span>
+          </div>
+          <div class="row">
+            <span class="name">Search indexing</span>
+            <span class="status st-ok"><span class="dot"></span><span class="caps">Operational</span></span>
+          </div>
+        </section>
+        <p class="mast-sub">(Remaining groups, providers, and the register continue as in the steady state.)</p>
+      </main>
+    </div>
+
+    <!-- ==================================================================== -->
+    <div class="state-label" id="state-outage">State 3 of 4 — Major outage (the verdict transformation)</div>
+    <div class="page">
+      <header class="chrome">
+        <span class="m">M</span>
+        <span class="word">MAGNA CARTA</span>
+        <span class="divider"></span>
+        <span class="caps surface">Service Register</span>
+        <span class="right"><a href="#">status.json</a><a href="#">Return to the application</a></span>
+      </header>
+      <main class="body">
+        <section class="holding danger">
+          <p class="line"><span class="seal"></span>A major disruption is in effect.</p>
+          <p class="cite caps num">
+            So entered <span class="sep">·</span> 3 July 2026, 09:12 UTC
+            <span class="sep">·</span> updates below as they are entered
+          </p>
+        </section>
+
+        <article class="entry" style="border-top: 1px solid var(--hair)">
+          <div class="when">
+            <span class="caps">3 July</span>
+            <span class="yr caps">2026</span>
+          </div>
+          <div>
+            <h3>The application is unavailable</h3>
+            <div class="meta">
+              <span class="chip live-danger">Investigating</span>
+              <span class="chip">Critical impact</span>
+              <span class="affected">Affected: Application API, Control-plane database</span>
+            </div>
+            <div class="update">
+              <span class="t num">09:12</span>
+              <span class="phase caps">Investigating</span>
+              <span class="body">Sign-in and all application requests are failing. We are investigating with the highest urgency. Your documents and records are safe; this is an availability problem, not a data problem.</span>
+            </div>
+          </div>
+        </article>
+
+        <section class="ledger" style="margin-top: 26px">
+          <div class="ledger-head">
+            <span class="caps">Core services</span>
+            <span class="caps">Standing</span>
+          </div>
+          <div class="row">
+            <span class="name">Application API</span>
+            <span class="status st-danger"><span class="dot"></span><span class="caps">Major outage</span></span>
+            <span class="exception-note danger">All requests failing — entry of 3 July, above.</span>
+          </div>
+          <div class="row">
+            <span class="name">Control-plane database</span>
+            <span class="status st-danger"><span class="dot"></span><span class="caps">Partial outage</span></span>
+          </div>
+          <div class="row">
+            <span class="name">Object storage</span>
+            <span class="status st-ok"><span class="dot"></span><span class="caps">Operational</span></span>
+          </div>
+          <div class="row">
+            <span class="name">Status store</span>
+            <span class="status st-ok"><span class="dot"></span><span class="caps">Operational</span></span>
+          </div>
+        </section>
+        <p class="mast-sub">(Engines, providers, and the register continue as in the steady state.)</p>
+      </main>
+    </div>
+
+    <!-- ==================================================================== -->
+    <div class="state-label" id="state-maintenance">State 4 of 4 — Maintenance (gilt, planned, unalarming)</div>
+    <div class="page">
+      <header class="chrome">
+        <span class="m">M</span>
+        <span class="word">MAGNA CARTA</span>
+        <span class="divider"></span>
+        <span class="caps surface">Service Register</span>
+        <span class="right"><a href="#">status.json</a><a href="#">Return to the application</a></span>
+      </header>
+      <main class="body">
+        <section class="holding gilt">
+          <p class="line"><span class="seal"></span>Scheduled maintenance is under way.</p>
+          <p class="cite caps num">
+            So entered <span class="sep">·</span> 3 July 2026, 03:00 UTC
+            <span class="sep">·</span> planned window 03:00 – 04:00 UTC
+          </p>
+        </section>
+
+        <article class="entry" style="border-top: 1px solid var(--hair)">
+          <div class="when">
+            <span class="caps">3 July</span>
+            <span class="yr caps">2026</span>
+          </div>
+          <div>
+            <h3>Scheduled maintenance — search index rebuild</h3>
+            <div class="meta">
+              <span class="chip live-gilt">Monitoring</span>
+              <span class="chip">Maintenance</span>
+              <span class="affected">Affected: Search indexing</span>
+            </div>
+            <div class="update">
+              <span class="t num">03:00</span>
+              <span class="phase caps">Monitoring</span>
+              <span class="body">Search indexing is paused while the index is rebuilt. Searches keep working against the existing index; new documents appear in results after the window closes.</span>
+            </div>
+          </div>
+        </article>
+
+        <section class="ledger" style="margin-top: 26px">
+          <div class="ledger-head">
+            <span class="caps">Document &amp; analysis engines</span>
+            <span class="caps">Standing</span>
+          </div>
+          <div class="row">
+            <span class="name">Document editing</span>
+            <span class="status st-ok"><span class="dot"></span><span class="caps">Operational</span></span>
+          </div>
+          <div class="row">
+            <span class="name">Search indexing</span>
+            <span class="status st-gilt"><span class="dot"></span><span class="caps">Maintenance</span></span>
+            <span class="exception-note gilt">Index rebuild in progress — planned window closes 04:00 UTC.</span>
+          </div>
+          <div class="row">
+            <span class="name">OCR</span>
+            <span class="status st-ok"><span class="dot"></span><span class="caps">Operational</span></span>
+          </div>
+        </section>
+        <p class="mast-sub">(Remaining groups, providers, and the register continue as in the steady state.)</p>
+      </main>
+    </div>
+
+    <div style="height: 60px"></div>
+  </body>
+</html>

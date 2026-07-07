@@ -1,0 +1,34 @@
+---
+jurisdiction: US-CO
+publisher: Colorado Supreme Court (COLAP) + affiliated bodies
+sourceUrl: https://coloradolap.org/
+accessedOn: 2026-07-02
+accessGate: open
+method: web search + direct fetch
+---
+[Colorado Lawyer Assistance Program (COLAP)]
+QUOTE: "All communications with COLAP are privileged and held in the strictest confidence."
+Phone (303) 986-3345; info@coloradolap.org. Free and confidential; information cannot be used in
+complaints, investigations, or disciplinary proceedings. Also the Judicial Assistance Program.
+Services: individual/workplace consultations, vetted referrals, peer support, education, voluntary
+monitoring agreements. Crisis resources it points to (24/7): Colorado Crisis Services
+1-844-493-8255 / text TALK to 38255; 988.
+
+[Colorado Lawyers Helping Lawyers (CLHL)] — colhl.org/about-us
+QUOTE: "CLHL is a confidential resource for lawyers and law students"
+Free, confidential court-approved nonprofit peer program: education, peer-support meetings, and
+referrals. No dedicated CLHL phone/email published; routes urgent needs to Colorado Crisis Services
+844-493-8255 and 988.
+
+[The Waterman Fund] — denbar.org/Members/Waterman-Fund
+QUOTE: "THE WATERMAN FUND is a charitable trust that provides financial assistance to Colorado lawyers."
+Assists aged, infirm, or incapacitated Colorado bar members in good standing (practiced in CO >= 10
+years). One-time to renewable six-month awards. Applicant/award info confidential. Contact (303)
+824-5331.
+
+[Colorado Crisis Services] (corroborated; own page not loaded)
+Listed on the COLAP homepage under "Crisis Resources (24/7)": Colorado Crisis Services
+1-844-493-8255 or text "TALK" to 38255. General statewide crisis line the lawyer programs route to.
+
+NOTE: Colorado has no mandatory unified bar; regulation via the Colorado Supreme Court Office of
+Attorney Regulation. CLHL domain spelling is colhl.org.

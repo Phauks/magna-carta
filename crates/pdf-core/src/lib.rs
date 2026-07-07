@@ -3,6 +3,7 @@ mod wasm;
 
 mod standard_fonts;
 mod standard_fonts_data;
+mod guard;
 
 mod forms;
 pub use forms::{
@@ -35,6 +36,9 @@ mod secure;
 pub use secure::{secure, SecureOptions, WriteAlgorithm};
 
 mod surgery;
+pub use surgery::{compare_surgery_paths, SurgeryDisposition, SurgeryPathComparison};
+
+mod content_tokens;
 
 mod generate;
 pub use generate::{merge, rotate, split, GenerateError, PageRange, PageSelection, Rotation};
@@ -52,6 +56,8 @@ pub enum PdfError {
     Parse,
     PageOutOfRange,
     Render,
+    /// Input rejected by the decompression-bomb guard (oversize or a bomb).
+    Rejected,
 }
 
 /// A parsed PDF held in memory.
@@ -60,21 +66,37 @@ pub struct Document {
 }
 
 impl Document {
-    pub fn load(bytes: Vec<u8>) -> Result<Self, PdfError> {
+    /// Parse without the bomb guard. Callers that already ran `guard_input` on the
+    /// same bytes use this to avoid scanning twice.
+    pub(crate) fn load_unguarded(bytes: Vec<u8>) -> Result<Self, PdfError> {
         Pdf::new(bytes)
             .map(|pdf| Document { pdf })
             .map_err(|_| PdfError::Parse)
+    }
+
+    pub fn load(bytes: Vec<u8>) -> Result<Self, PdfError> {
+        crate::guard::guard_input(&bytes, &crate::guard::GuardLimits::default())
+            .map_err(|_| PdfError::Rejected)?;
+        Self::load_unguarded(bytes)
     }
 
     /// Load a possibly-encrypted PDF, decrypting with `password` first so the render
     /// path sees plaintext. An unencrypted input loads normally; a wrong password
     /// yields [`SecureError::WrongPassword`].
     pub fn load_protected(bytes: Vec<u8>, password: &str) -> Result<Self, SecureError> {
-        match decrypt(&bytes, password) {
-            Ok(plain) => Self::load(plain).map_err(|_| SecureError::Parse),
+        crate::guard::guard_input(&bytes, &crate::guard::GuardLimits::default())
+            .map_err(|_| SecureError::Rejected)?;
+        match crate::decrypt::decrypt_unguarded(&bytes, password) {
+            Ok(plain) => {
+                // `plain` is different bytes than the (already-guarded) ciphertext, so
+                // re-guard the decrypted output before the render parser inflates it.
+                crate::guard::guard_input(&plain, &crate::guard::GuardLimits::default())
+                    .map_err(|_| SecureError::Rejected)?;
+                Self::load_unguarded(plain).map_err(|_| SecureError::Parse)
+            }
             // The model parser could not read it at all — it may still be a valid
             // unencrypted document the render parser accepts. Try it directly.
-            Err(SecureError::Parse) => Self::load(bytes).map_err(|_| SecureError::Parse),
+            Err(SecureError::Parse) => Self::load_unguarded(bytes).map_err(|_| SecureError::Parse),
             Err(other) => Err(other),
         }
     }
@@ -157,6 +179,24 @@ impl Document {
             png: false,
         })
     }
+
+    /// The bounding rectangle of every non-whitespace text glyph rendered on page
+    /// `index`, in redaction [`Rect`] coordinates (PDF user space, bottom-left
+    /// origin). Observation runs through the same path as the redaction outcome
+    /// gate, so the rectangles reflect what a viewer actually sees — text drawn
+    /// directly on the page, by Form XObjects, and by annotation appearance
+    /// streams alike. Whitespace glyphs are excluded (they carry no visible ink).
+    /// Returns an empty vector for a page with no visible text; `PageOutOfRange`
+    /// if the page cannot be observed. Locates text to redact or inspect.
+    pub fn page_text_rects(&self, index: usize) -> Result<Vec<Rect>, PdfError> {
+        let obs = crate::textpos::observe_page(&self.pdf, index).ok_or(PdfError::PageOutOfRange)?;
+        Ok(obs
+            .glyphs
+            .iter()
+            .filter(|g| !crate::redact::is_whitespace_glyph(&g.text))
+            .map(|g| crate::detect::to_display_rect(g.bbox, obs.height_pt))
+            .collect())
+    }
 }
 
 #[cfg(test)]
@@ -191,6 +231,19 @@ mod tests {
     }
 
     #[test]
+    fn page_text_rects_locates_visible_text() {
+        let doc = Document::load(include_bytes!("../tests/fixtures/hello.pdf").to_vec()).unwrap();
+        let rects = doc.page_text_rects(0).unwrap();
+        assert!(!rects.is_empty(), "hello.pdf page 0 has visible text");
+    }
+
+    #[test]
+    fn page_text_rects_empty_for_blank_page() {
+        let doc = Document::load(blank()).unwrap();
+        assert!(doc.page_text_rects(0).unwrap().is_empty());
+    }
+
+    #[test]
     fn renders_rgba_at_dpi() {
         let doc = Document::load(blank()).unwrap();
         let page = doc.render_page(0, 72.0, false).unwrap();
@@ -207,6 +260,24 @@ mod tests {
         let page = doc.render_page(0, 72.0, true).unwrap();
         assert!(page.png);
         assert_eq!(&page.data[1..4], b"PNG");
+    }
+
+    #[test]
+    fn load_rejects_oversize_input() {
+        let limits = crate::guard::GuardLimits::default();
+        let big = vec![0u8; limits.max_input_bytes + 1];
+        // Document doesn't implement PartialEq/Debug (it wraps an opaque parser type),
+        // so use matches! as the existing tests do for this result shape.
+        assert!(matches!(Document::load(big), Err(PdfError::Rejected)));
+    }
+
+    #[test]
+    fn load_protected_rejects_oversize_input() {
+        let limits = crate::guard::GuardLimits::default();
+        let big = vec![0u8; limits.max_input_bytes + 1];
+        // Document doesn't implement PartialEq/Debug (it wraps an opaque parser type),
+        // so use matches! rather than assert_eq! — same pattern as load_rejects_oversize_input.
+        assert!(matches!(Document::load_protected(big, "pw"), Err(SecureError::Rejected)));
     }
 
     #[test]

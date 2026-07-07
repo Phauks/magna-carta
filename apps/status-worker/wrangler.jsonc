@@ -1,0 +1,28 @@
+{
+  // The isolated, read-only, public status surface. Deliberately its own deployable, separate from
+  // the main app worker: it binds ONLY the platform-status KV namespace below — no D1, no R2, no
+  // per-firm binding, no service binding into the app. That fate-isolation is the whole point: an
+  // app-wide outage (a bad D1 migration, a Durable Object incident, a queue backlog) must never take
+  // the status page down with it, since the status page is exactly where operators and customers look
+  // during such an outage.
+  "name": "magna-carta-status",
+  "main": "./src/index.ts",
+  "compatibility_date": "2026-06-05",
+  "compatibility_flags": ["nodejs_compat"],
+  // The public home of this page. The magnacarta.esq zone must exist in the Cloudflare account
+  // for deploys to attach the custom domain. workers_dev stays deliberately true alongside it:
+  // a status page wants MORE reachable paths during an incident, not fewer, so the workers.dev
+  // URL remains a second door.
+  "routes": [{ "pattern": "status.magnacarta.esq", "custom_domain": true }],
+  "workers_dev": true,
+  "preview_urls": false,
+  // Same namespace the app worker's cron writes status:derived / status:authored into (see
+  // apps/worker/wrangler.jsonc) — this worker only ever reads it. This id MUST stay identical to the
+  // STATUS_KV id in apps/worker/wrangler.jsonc; both bind the one real "Magna_Carta_Status" namespace.
+  "kv_namespaces": [{ "binding": "STATUS_KV", "id": "6746720bd1ad4638ad00370197f49788" }],
+  // Bundle the page's font (Atkinson Hyperlegible Next, latin variable woff2) into the worker as
+  // a binary module, served same-origin from /assets — the page depends on nothing but this
+  // worker and KV (no font CDN, no external asset).
+  "rules": [{ "type": "Data", "globs": ["**/*.woff2"], "fallthrough": true }],
+  "observability": { "enabled": true, "head_sampling_rate": 1 },
+}
