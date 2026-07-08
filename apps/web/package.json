@@ -13,7 +13,8 @@
   "dependencies": {
     "@lucide/svelte": "catalog:",
     "@magna-carta/design-system": "workspace:*",
-    "@magna-carta/design-tokens": "workspace:*"
+    "@magna-carta/design-tokens": "workspace:*",
+    "@magna-carta/tools": "workspace:*"
   },
   "devDependencies": {
     "@sveltejs/adapter-static": "catalog:",

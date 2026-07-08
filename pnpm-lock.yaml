@@ -414,6 +414,9 @@ importers:
       '@magna-carta/design-tokens':
         specifier: workspace:*
         version: link:../../packages/design-tokens
+      '@magna-carta/tools':
+        specifier: workspace:*
+        version: link:../../packages/tools
     devDependencies:
       '@sveltejs/adapter-static':
         specifier: 'catalog:'
