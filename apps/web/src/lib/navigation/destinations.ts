@@ -26,6 +26,7 @@
  * Stars never touch the palette: hiding must never remove capability.
  */
 import type { Component } from "svelte";
+import type { MaturityStage } from "$lib/maturity/maturity.ts";
 import House from "@lucide/svelte/icons/house";
 import Bell from "@lucide/svelte/icons/bell";
 import FolderOpen from "@lucide/svelte/icons/folder-open";
@@ -82,6 +83,18 @@ export interface Destination {
    * renderer skips it; the footer renders it from this entry so the row has one home.
    */
   readonly footerPinned?: true;
+  /**
+   * Where this destination's surface is on the build ladder (maturity.ts), shown as a badge on
+   * its sidebar row (or a dot on an icon-only control). Optional: when omitted it derives from
+   * `shipped` — an unshipped destination reads "soon", a shipped one reads "ready" (no mark).
+   * Set it explicitly to mark a shipped-but-still-maturing surface (e.g. "alpha").
+   */
+  readonly stage?: MaturityStage;
+}
+
+/** The destination's effective maturity stage — explicit when set, else derived from `shipped`. */
+export function destinationStage(destination: Destination): MaturityStage {
+  return destination.stage ?? (destination.shipped ? "ready" : "soon");
 }
 
 /*
@@ -113,6 +126,7 @@ export const DESTINATIONS: readonly Destination[] = [
     description: "Your day at a glance — tasks, deadlines, and the matters you touch.",
     group: "top",
     shipped: true,
+    stage: "alpha",
     pinned: true,
     defaultStarred: true,
   },
@@ -126,6 +140,7 @@ export const DESTINATIONS: readonly Destination[] = [
     description: "Alerts, mentions, and updates across your matters.",
     group: "top",
     shipped: true,
+    stage: "alpha",
     defaultStarred: true,
   },
   {
@@ -161,6 +176,7 @@ export const DESTINATIONS: readonly Destination[] = [
     description: "Every matter the firm holds — the work's home.",
     group: "top",
     shipped: true,
+    stage: "alpha",
     pinned: true,
     defaultStarred: true,
   },
@@ -189,7 +205,7 @@ export const DESTINATIONS: readonly Destination[] = [
   },
   {
     id: "contacts",
-    label: "Contacts",
+    label: "Directory",
     href: "/contacts",
     icon: Users,
     description: "Clients, parties, counsel, and courts in one book.",
@@ -324,6 +340,7 @@ export const DESTINATIONS: readonly Destination[] = [
     description: "Preferences for you; policy for the firm.",
     group: "firm",
     shipped: true,
+    stage: "alpha",
     pinned: true,
     defaultStarred: true,
     footerPinned: true,

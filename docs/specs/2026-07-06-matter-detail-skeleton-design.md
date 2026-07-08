@@ -24,17 +24,23 @@ and matter creation are explicitly out of scope (they arrive with the list strea
 5. **Tab strip + overflow.** Horizontal, route-driven tab strip under the header; core
    sections stay visible, the rest fold into a trailing "More" menu, measurement-driven
    at narrow widths.
+6. **Status showcases, never gates.** Open, prospective, and closed matters get the
+   identical screen flow — every section present and reachable in every status. Status
+   changes only what the header showcases (the seal, number vs. "Consultation"
+   designation, which lifecycle action is offered). Any future status-driven behavior
+   (e.g. billing treatment) belongs to that section's own slice, not to navigation or
+   access.
 
 ## Routes
 
 All under `apps/web/src/routes/(app)/matters/`:
 
-| File | Role |
-| --- | --- |
-| `[id]/+layout.ts` | Resolve the matter from fixtures; unknown id → 404 |
-| `[id]/+layout.svelte` | Matter header + section nav + page slot |
-| `[id]/+page.svelte` | Overview (landing) |
-| `[id]/<section>/+page.svelte` | The twelve section pages |
+| File                          | Role                                               |
+| ----------------------------- | -------------------------------------------------- |
+| `[id]/+layout.ts`             | Resolve the matter from fixtures; unknown id → 404 |
+| `[id]/+layout.svelte`         | Matter header + section nav + page slot            |
+| `[id]/+page.svelte`           | Overview (landing)                                 |
+| `[id]/<section>/+page.svelte` | The twelve section pages                           |
 
 Fixture ids: `matter-fixture-open`, `matter-fixture-consultation`, `matter-fixture-closed`.
 

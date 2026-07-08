@@ -19,6 +19,11 @@
     class: className,
     sideOffset = 6,
     collisionPadding = 8,
+    // A dropdown menu is anchored, not modal: it should not freeze the page beneath it. Default to
+    // leaving background scroll alone (Bits locks it otherwise) so the sidebar and work canvas stay
+    // scrollable while a menu is open; the floating layer re-anchors as the page moves. A caller
+    // that genuinely needs the lock can still pass preventScroll.
+    preventScroll = false,
     ...restProps
   }: WithoutChild<DropdownMenuPrimitive.ContentProps> = $props();
 </script>
@@ -28,6 +33,7 @@
     bind:ref
     {sideOffset}
     {collisionPadding}
+    {preventScroll}
     class={mergeClasses(
       floatingContentClasses("anchored", PRESENCE_SCALE_FADE),
       "mc-dropdown-menu-content",

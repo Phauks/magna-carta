@@ -23,7 +23,6 @@
    */
   import { page } from "$app/state";
   import BrandMark from "@magna-carta/design-system/brand-mark";
-  import Badge from "@magna-carta/design-system/badge";
   import * as Popover from "@magna-carta/design-system/popover";
   import * as Sidebar from "@magna-carta/design-system/sidebar";
   import * as Tooltip from "@magna-carta/design-system/tooltip";
@@ -36,10 +35,13 @@
   import Star from "@lucide/svelte/icons/star";
   import Timer from "@lucide/svelte/icons/timer";
   import CommandPalette from "$lib/components/command-palette.svelte";
+  import MaturityBadge from "$lib/maturity/maturity-badge.svelte";
+  import MaturityDot from "$lib/maturity/maturity-dot.svelte";
   import ProfileMenu from "$lib/components/profile-menu.svelte";
   import { DragReorderController } from "$lib/components/drag-reorder.svelte.ts";
   import {
     DESTINATIONS,
+    destinationStage,
     isCurrentDestination,
     type Destination,
   } from "$lib/navigation/destinations.ts";
@@ -55,11 +57,24 @@
     type SidebarEditingGroupView,
   } from "$lib/navigation/sidebar-preferences.svelte.ts";
   import { developerPreferences } from "$lib/settings/developer-preferences.svelte.ts";
+  import { applyStaticSkeletons, readStaticSkeletons } from "$lib/developer/static-skeletons.ts";
   import type { Snippet } from "svelte";
 
   let { children }: { children: Snippet } = $props();
 
+  // Dev-only: re-assert the "static loading placeholders" preference on every load, so a page set
+  // to freeze its skeletons stays frozen across reloads without opening the console. Compiled out
+  // of production (the import.meta.env.DEV branch is statically dead there).
+  $effect(() => {
+    if (import.meta.env.DEV) {
+      applyStaticSkeletons(readStaticSkeletons());
+    }
+  });
+
   let collapsed = $state(false);
+  // Whether the collapsed rail is currently hover-peeked open (component-owned; the shell reads it
+  // so a maturity dot yields to the label badge while the rail is peeked wide).
+  let peeking = $state(false);
   let paletteOpen = $state(false);
   let notificationsOpen = $state(false);
   let customizing = $state(false);
@@ -84,6 +99,12 @@
     (destination) => destination.footerPinned === true,
   ) as Destination;
   const SettingsIcon = settingsDestination.icon;
+
+  // The notification bell is the top-bar entry to the Notifications destination, so its maturity
+  // dot reads the same stage as that destination's sidebar row.
+  const notificationsDestination = DESTINATIONS.find(
+    (destination) => destination.id === "notifications",
+  ) as Destination;
 
   const drag = new DragReorderController();
 
@@ -166,6 +187,7 @@
   <div class="flex h-screen overflow-hidden bg-surface-default">
     <Sidebar.Root
       bind:collapsed
+      bind:peeking
       editing={customizing}
       expandOnHover={hoverExpand}
       aria-label="Primary"
@@ -212,9 +234,7 @@
                       >
                         {#snippet icon()}<Icon class="mc-sidebar-icon" aria-hidden="true" />{/snippet}
                         {destination.label}
-                        {#if !destination.shipped}
-                          <Badge variant="neutral" class="ms-8">Soon</Badge>
-                        {/if}
+                        <MaturityBadge stage={destinationStage(destination)} class="ms-8" />
                       </Sidebar.MenuButton>
                       {#if destination.pinned === true}
                         <span
@@ -256,9 +276,7 @@
                       >
                         {#snippet icon()}<Icon class="mc-sidebar-icon" aria-hidden="true" />{/snippet}
                         {destination.label}
-                        {#if !destination.shipped}
-                          <Badge variant="neutral" class="ms-8">Soon</Badge>
-                        {/if}
+                        <MaturityBadge stage={destinationStage(destination)} class="ms-8" />
                       </Sidebar.MenuButton>
                       <button
                         type="button"
@@ -290,11 +308,21 @@
                         href={destination.href}
                         tooltip={destination.label}
                         isActive={current}
+                        class="relative"
                         aria-current={current ? "page" : undefined}
                         data-arrived={isNewArrival(destination.id) ? "true" : undefined}
                       >
                         {#snippet icon()}<Icon class="mc-sidebar-icon" aria-hidden="true" />{/snippet}
                         {destination.label}
+                        <!-- Expanded: the labelled badge. Collapsed icon rail: the badge's label is
+                             hidden, so a dot of the same colour carries the stage over the icon. -->
+                        <MaturityBadge stage={destinationStage(destination)} class="ms-8" />
+                        {#if collapsed && !peeking}
+                          <MaturityDot
+                            stage={destinationStage(destination)}
+                            class="absolute end-4 top-4"
+                          />
+                        {/if}
                       </Sidebar.MenuButton>
                     {:else}
                       <!-- An announced Soon row: no destination yet, so no href and disabled —
@@ -304,12 +332,18 @@
                       <Sidebar.MenuButton
                         disabled
                         tooltip="{destination.label} — coming soon"
-                        class="cursor-default"
+                        class="relative cursor-default"
                         data-arrived={isNewArrival(destination.id) ? "true" : undefined}
                       >
                         {#snippet icon()}<Icon class="mc-sidebar-icon" aria-hidden="true" />{/snippet}
                         {destination.label}
-                        <Badge variant="neutral" class="ms-8">Soon</Badge>
+                        <MaturityBadge stage={destinationStage(destination)} class="ms-8" />
+                        {#if collapsed && !peeking}
+                          <MaturityDot
+                            stage={destinationStage(destination)}
+                            class="absolute end-4 top-4"
+                          />
+                        {/if}
                       </Sidebar.MenuButton>
                     {/if}
                   </Sidebar.MenuItem>
@@ -328,17 +362,21 @@
         <div class="mc-sidebar-controls">
           <a
             href={settingsDestination.href}
-            class="mc-sidebar-control-button"
+            class="mc-sidebar-control-button relative"
             title={settingsDestination.label}
             aria-label={settingsDestination.label}
             aria-current={settingsActive ? "page" : undefined}
             data-active={settingsActive ? "true" : undefined}
           >
             <SettingsIcon class="mc-sidebar-icon" aria-hidden="true" />
+            <MaturityDot
+              stage={destinationStage(settingsDestination)}
+              class="absolute end-4 top-4"
+            />
           </a>
           <Tooltip.Root>
             <Tooltip.Trigger
-              class="mc-sidebar-control-button"
+              class="mc-sidebar-control-button relative"
               aria-pressed={customizing}
               aria-label={customizing ? "Done customizing sidebar" : "Customize sidebar"}
               onclick={toggleCustomize}
@@ -348,6 +386,9 @@
               {:else}
                 <SlidersHorizontal class="mc-sidebar-icon" aria-hidden="true" />
               {/if}
+              <!-- The adjustment cluster is itself still maturing; a dot marks it where a label
+                   won't fit. -->
+              <MaturityDot stage="alpha" class="absolute end-4 top-4" />
             </Tooltip.Trigger>
             <Tooltip.Content side="top">{customizing ? "Done" : "Customize"}</Tooltip.Content>
           </Tooltip.Root>
@@ -382,8 +423,12 @@
                no count badge). Its popover states the truth and offers the center; live alerts
                arrive with the notifications machinery. -->
           <Popover.Root bind:open={notificationsOpen}>
-            <Popover.Trigger class="mc-top-bar-icon-button" aria-label="Notifications">
+            <Popover.Trigger class="mc-top-bar-icon-button relative" aria-label="Notifications">
               <Bell class="size-16" aria-hidden="true" />
+              <MaturityDot
+                stage={destinationStage(notificationsDestination)}
+                class="absolute end-4 top-4"
+              />
             </Popover.Trigger>
             <Popover.Content
               align="end"
@@ -443,7 +488,14 @@
         </TopBar.Actions>
       </TopBar.Root>
 
-      <main class="grow overflow-auto p-24">
+      <!-- The work canvas — the single scroll region every page renders into. It scrolls
+           vertically; it never scrolls horizontally, so no page can grow a phantom sideways
+           scrollbar. Content wider than the canvas (data tables, wide diagrams) carries its own
+           overflow-x container and scrolls within itself (e.g. the design-system table's
+           mc-table-scroll wrapper) — the page body stays put. scrollbar-gutter: stable always
+           reserves the vertical scrollbar's track, so a short (no-scroll) page and a long
+           (scrolling) page frame their content at the exact same width — no reflow on navigation. -->
+      <main class="grow overflow-x-hidden overflow-y-auto p-24 [scrollbar-gutter:stable]">
         {@render children()}
       </main>
     </div>
