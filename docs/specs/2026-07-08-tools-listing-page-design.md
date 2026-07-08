@@ -5,7 +5,8 @@
 ## Purpose
 
 Give the Tools area its first screen: a `/tools` page that lists every tool the firm
-offers, grouped by subject, as tiles that read honestly against the maturity system.
+offers, grouped by subject, in either a tile grid or a dense list (owner's choice via a
+toggle), each entry reading honestly against the maturity system.
 This is the announced-but-unbuilt `tools` destination made real. It is a directory of
 what the Tools area holds — not yet a workbench: there is no file drop, no per-tool page,
 and no run surface in this slice. Those arrive tool-by-tool as each tool's own page is
@@ -33,25 +34,34 @@ matter. The listing page states that plainly and never implies otherwise.
    (`soon`/`alpha`/`beta`/`ready`) rendered with the existing `MaturityBadge`. A `ready`
    tool wears no badge and links to its page; anything below `ready` shows its stage
    badge and is inert. This is the same vocabulary the sidebar and matter nav already use.
-5. **Honest first state.** No tool has a UI page yet, so every tile is `soon` today. As
+5. **Honest first state.** No tool has a UI page yet, so every entry is `soon` today. As
    each tool's page is built in a later slice, its presentation entry advances and the
-   tile becomes launchable. Nothing is faked — the Home-page principle.
+   entry becomes launchable. Nothing is faked — the Home-page principle.
 6. **Permission-gated through the shared selector.** The page renders
    `toolsByGroup(CATALOG, permissions)` — the same gate the contextual surfaces use — so
    a member only sees tools their grants allow, groups render in the fixed
    `SUBJECT_GROUP_ORDER`, and empty groups are omitted. Permissions come from the shell's
    existing permission seam (today a mock granting the managing partner everything, the
    same posture as Settings).
+7. **Two views, one toggle.** The same grouped, permission-gated data renders in either a
+   **tiles** view (the card grid) or a **list** view (dense rows), chosen by a segmented
+   toggle in the masthead. This lets the owner compare the two treatments directly. The
+   choice is a persisted per-member preference (default **tiles**), modelled on the
+   existing sidebar preference store. The two views differ only in presentation — same
+   grouping, same tile/row content, same launchable seam — so if the owner later settles
+   on one, the other view and the toggle drop out with no data or logic change.
 
 ## Route & files
 
 Under `apps/web/`:
 
-| File                                          | Role                                                      |
-| --------------------------------------------- | --------------------------------------------------------- |
-| `src/routes/(app)/tools/+page.svelte`         | The listing page — masthead, grouped tile grid            |
-| `src/lib/tools/tool-presentation.ts`          | id → `{ description, stage }` record; subject-group labels |
-| `src/lib/tools/tool-presentation.test.ts`     | Completeness: every catalog id has a presentation entry   |
+| File                                            | Role                                                       |
+| ----------------------------------------------- | ---------------------------------------------------------- |
+| `src/routes/(app)/tools/+page.svelte`           | The listing page — masthead, view toggle, grouped views    |
+| `src/lib/tools/tool-presentation.ts`            | id → `{ description, stage }`; group labels; icon map; `visibleToolGroups()` |
+| `src/lib/tools/tools-view-preference.svelte.ts` | Persisted `"tiles" \| "list"` view preference (default tiles) |
+| `src/lib/tools/tool-tile.svelte`                | One tool as a card tile                                     |
+| `src/lib/tools/tool-row.svelte`                 | One tool as a dense list row                                |
 
 Building this page flips `tools` from `shipped: false` to `shipped: true` (with a `stage`)
 in `navigation/destinations.ts`. Ready-tool links target `/tools/<id>` — a defined seam;
@@ -82,6 +92,15 @@ export const SUBJECT_GROUP_LABELS: Record<SubjectGroup, string> = {
   documents: "Documents & Files",
   diagnostics: "Diagnostics",
 };
+
+// Catalog icon-name string → imported Lucide component (explicit imports, no dynamic
+// import). A covering test asserts every catalog icon appears here.
+export const TOOL_ICONS: Record<string, Component> = { house: House, /* … */ };
+
+// The page's data: permitted tools grouped in fixed order. The mock permission set (the
+// managing partner sees everything) is derived from the catalog; the real member grants
+// replace it when auth lands, leaving this call site unchanged.
+export function visibleToolGroups(): GroupedTools[] { /* toolsByGroup(CATALOG, mockPermissions) */ }
 ```
 
 Descriptors (all `stage: "soon"` at this slice):
@@ -104,32 +123,48 @@ Descriptors (all `stage: "soon"` at this slice):
 | File Type Verifier                | Confirm what a file really is, whatever its extension says.    |
 | AI-Text Detection                 | Estimate whether a passage was written by AI.                 |
 
-## Layout & tile anatomy
+## Layout & anatomy
 
 Canvas voice throughout (standard tokens, no chrome register — theming stays at the edges).
 
 - **Masthead.** "Tools" with the standing line *"Runs outside any matter."* — the ethereal
-  principle stated at the page's ceremonial edge, in the Engraved Ledger register.
-- **Sections.** One per non-empty subject group, in `SUBJECT_GROUP_ORDER`. Each opens with
-  a small-caps engraved group label over a responsive tile grid.
-- **Tile** (`card` + `MaturityBadge`):
-  - Lucide icon (resolved from `manifest.icon`).
-  - Title Case name (`manifest.name`).
-  - One-line descriptor.
-  - `MaturityBadge` for the stage — absent when `ready`.
-  - `ready` → the whole tile is a link to `/tools/<id>`; below `ready` → inert, visibly
-    quieter, with the badge carrying the "not yet" meaning (no separate disabled styling
-    that reads as broken).
+  principle stated at the page's ceremonial edge, in the Engraved Ledger register. The
+  **view toggle** sits in `Masthead.Actions`: a two-option segmented control (Tiles /
+  List) built from design-system `Button`s with Lucide `layout-grid` / `list` icons,
+  `aria-pressed` reflecting the active view, bound to the persisted preference.
+- **Sections.** One per non-empty subject group, in `SUBJECT_GROUP_ORDER`, each opening
+  with a small-caps engraved group label. The same sections render in both views; only the
+  child layout changes — a responsive grid of `ToolTile` (tiles) or a hairline-separated
+  stack of `ToolRow` (list).
+- **Icon resolution.** `manifest.icon` is a Lucide name string; a `TOOL_ICONS` map in
+  `tool-presentation.ts` resolves each catalog icon name to its imported component (the
+  explicit-import idiom `destinations.ts` uses — no dynamic import). A covering test
+  asserts every catalog icon has a map entry.
+- **Tool tile** (`tool-tile.svelte` — `card` + `MaturityBadge`): icon, Title Case name,
+  one-line descriptor, and the stage badge (absent when `ready`).
+- **Tool row** (`tool-row.svelte`): a denser single line — leading icon, name, descriptor
+  (muted, trailing off the name), stage badge at the row's end; hairline rule between rows.
+- **Launchable seam (both shapes).** `ready` → the whole tile/row is a link to
+  `/tools/<id>`; below `ready` → inert and visibly quieter, the badge carrying the "not
+  yet" meaning (no disabled styling that reads as broken). Each component owns this branch
+  so the page body stays declarative.
 
 ## Testing
 
-- **Completeness** (`tool-presentation.test.ts`): every `CATALOG` id has exactly one
-  `TOOL_PRESENTATION` entry and vice versa; every `SubjectGroup` has a label.
-- **Render**: with the mock all-permissions principal, every catalog group with tools
-  renders its section and the right tile count; a restricted principal omits gated tiles
-  and any now-empty group.
-- **Maturity**: a `ready` fixture tool renders no badge and a link; a `soon` tool renders
-  the "Soon" badge and no link.
+Pure-logic tests under `apps/web/test/` (the established pattern — no component-render
+harness exists in `apps/web`; the rendered page is checked in the browser). 
+
+- **Completeness** (`apps/web/test/tools-presentation.test.ts`): the `TOOL_PRESENTATION`
+  key set exactly matches the `CATALOG` ids (no missing, no extra); every catalog
+  `manifest.icon` has a `TOOL_ICONS` entry; every `SubjectGroup` has a `SUBJECT_GROUP_LABELS`
+  entry.
+- **Grouping** (`visibleToolGroups()`): with the mock all-permissions set, returns every
+  catalog group that has tools, in `SUBJECT_GROUP_ORDER`, with the right tool counts; a
+  restricted set omits gated tools and any now-empty group.
+- **View preference**: defaults to `"tiles"`; setting to `"list"` persists and reloads.
+- **Browser verification** (owner-facing, the point of this slice): both views render, the
+  toggle switches between them and the choice survives a reload, every tile/row reads
+  `soon`, and nothing is launchable yet.
 
 ## Out of scope (named, not forgotten)
 
