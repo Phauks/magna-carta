@@ -9,6 +9,7 @@ import MotionModule from "./modules/motion/motion-module.svelte";
 import AppearanceModule from "./modules/appearance/appearance-module.svelte";
 import PerformanceModule from "./modules/performance/performance-module.svelte";
 import SitemapModule from "./modules/sitemap/sitemap-module.svelte";
+import FixturesModule from "./modules/fixtures/fixtures-module.svelte";
 import ResourcesModule from "./modules/resources/resources-module.svelte";
 
 export const DEVELOPER_CONSOLE_MODULES: readonly DeveloperConsoleModule[] = [
@@ -16,5 +17,6 @@ export const DEVELOPER_CONSOLE_MODULES: readonly DeveloperConsoleModule[] = [
   { id: "appearance", title: "Appearance", component: AppearanceModule },
   { id: "performance", title: "Performance", component: PerformanceModule },
   { id: "sitemap", title: "Sitemap", component: SitemapModule },
+  { id: "fixtures", title: "Fixtures", component: FixturesModule },
   { id: "resources", title: "Resources", component: ResourcesModule },
 ];
