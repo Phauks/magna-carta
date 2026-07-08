@@ -8,11 +8,13 @@ import type { DeveloperConsoleModule } from "./developer-console-module.ts";
 import MotionModule from "./modules/motion/motion-module.svelte";
 import AppearanceModule from "./modules/appearance/appearance-module.svelte";
 import PerformanceModule from "./modules/performance/performance-module.svelte";
+import SitemapModule from "./modules/sitemap/sitemap-module.svelte";
 import ResourcesModule from "./modules/resources/resources-module.svelte";
 
 export const DEVELOPER_CONSOLE_MODULES: readonly DeveloperConsoleModule[] = [
   { id: "motion", title: "Motion", component: MotionModule },
   { id: "appearance", title: "Appearance", component: AppearanceModule },
   { id: "performance", title: "Performance", component: PerformanceModule },
+  { id: "sitemap", title: "Sitemap", component: SitemapModule },
   { id: "resources", title: "Resources", component: ResourcesModule },
 ];

@@ -13,15 +13,25 @@
    * The shell mounts via an `import.meta.env.DEV`-gated dynamic import in the app shell, so none
    * of it reaches a production bundle.
    */
+  import { buttonClasses } from "@magna-carta/design-system/button";
   import * as Popover from "@magna-carta/design-system/popover";
-  import * as Tabs from "@magna-carta/design-system/tabs";
+  import * as Tooltip from "@magna-carta/design-system/tooltip";
   import FlaskConical from "@lucide/svelte/icons/flask-conical";
-  import { DEVELOPER_CONSOLE_MODULES } from "./developer-console-registry.ts";
+  import PanelRightOpen from "@lucide/svelte/icons/panel-right-open";
+  import DeveloperConsolePanel from "./developer-console-panel.svelte";
 
-  let activeModuleId = $state(DEVELOPER_CONSOLE_MODULES[0]!.id);
+  let open = $state(false);
+
+  // Pop the console out into its own window so the main window is left clear. It renders the same
+  // module rail at a dedicated dev route; opening it closes this popover. Named, so a second
+  // pop-out reuses the one window rather than stacking.
+  function popOut(): void {
+    window.open("/developer-console", "mc-developer-console", "popup,width=480,height=780");
+    open = false;
+  }
 </script>
 
-<Popover.Root>
+<Popover.Root bind:open>
   <Popover.Trigger class="mc-top-bar-icon-button" aria-label="Developer console">
     <FlaskConical class="size-20" aria-hidden="true" />
   </Popover.Trigger>
@@ -34,23 +44,21 @@
       <p class="text-xs font-semibold text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
         Developer console
       </p>
-      <p class="text-xs text-text-muted">Dev builds only · saved in this browser</p>
+      <div class="flex items-center gap-8">
+        <p class="text-xs text-text-muted">Dev builds only · saved in this browser</p>
+        <Tooltip.Root>
+          <Tooltip.Trigger
+            class={buttonClasses({ variant: "ghost", size: "icon" })}
+            onclick={popOut}
+            aria-label="Open developer console in a new window"
+          >
+            <PanelRightOpen class="size-16" aria-hidden="true" />
+          </Tooltip.Trigger>
+          <Tooltip.Content side="bottom">Open in a new window</Tooltip.Content>
+        </Tooltip.Root>
+      </div>
     </div>
 
-    <!-- Vertical tabs: the recipe lays the rail beside the panel and moves the gilt indicator to
-         the rail edge; the rail keeps its natural label width and the panel takes the rest. -->
-    <Tabs.Root bind:value={activeModuleId} orientation="vertical">
-      <Tabs.List class="shrink-0">
-        {#each DEVELOPER_CONSOLE_MODULES as module (module.id)}
-          <Tabs.Trigger value={module.id}>{module.title}</Tabs.Trigger>
-        {/each}
-      </Tabs.List>
-      {#each DEVELOPER_CONSOLE_MODULES as module (module.id)}
-        {@const ModuleComponent = module.component}
-        <Tabs.Content value={module.id} class="min-w-0 grow">
-          <ModuleComponent />
-        </Tabs.Content>
-      {/each}
-    </Tabs.Root>
+    <DeveloperConsolePanel />
   </Popover.Content>
 </Popover.Root>
