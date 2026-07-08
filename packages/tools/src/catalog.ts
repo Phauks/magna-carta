@@ -130,7 +130,7 @@ export const CATALOG: readonly ToolManifest[] = [
     id: "file-decryption",
     name: "File Decryption & Recovery",
     icon: "lock-open",
-    subjectGroup: "documents",
+    subjectGroup: "files",
     permission: assertPermission("tools:decryption"),
     contextTags: ["file"],
     backing: { kind: "library" },
