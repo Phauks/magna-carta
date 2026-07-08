@@ -16,10 +16,15 @@ export function readStaticSkeletons(): boolean {
   }
 }
 
-export function applyStaticSkeletons(on: boolean): void {
+/** Set (or clear) the attribute on this window's document — the live effect, no persistence. */
+function applyToDocument(on: boolean): void {
   if (typeof document !== "undefined") {
     document.documentElement.toggleAttribute(ROOT_ATTRIBUTE, on);
   }
+}
+
+export function applyStaticSkeletons(on: boolean): void {
+  applyToDocument(on);
   try {
     if (on) {
       localStorage.setItem(STORAGE_KEY, "true");
@@ -29,4 +34,19 @@ export function applyStaticSkeletons(on: boolean): void {
   } catch {
     // Storage unavailable (private mode, quota); the live attribute still applies for the session.
   }
+}
+
+/*
+ * CROSS-WINDOW FOLLOW (mirrors the appearance cross-tab follow in theme-preference.ts): the browser
+ * fires "storage" in every OTHER same-origin window when the key changes, so toggling this in the
+ * popped-out console re-applies it here — the console drives the main window. The re-apply is
+ * DOM-only (no persist), so it cannot ping-pong with the window that wrote. Registered once at
+ * module scope, guarded for SSR/tests where `window` is absent; `event.key === null` is
+ * `storage.clear()`, so re-apply then too.
+ */
+if (typeof window !== "undefined") {
+  window.addEventListener("storage", (event) => {
+    if (event.key !== null && event.key !== STORAGE_KEY) return;
+    applyToDocument(readStaticSkeletons());
+  });
 }

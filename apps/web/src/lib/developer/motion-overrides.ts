@@ -96,9 +96,24 @@ export function readMotionBaseline(): MotionBaseline {
   return { durations, easings };
 }
 
+/*
+ * The document the overrides land on. From the popped-out console (window.opener set) that is the
+ * MAIN window — so tuning drives the app you are watching and leaves the console window itself
+ * alone; in the top-bar popover (no opener) it is simply this document. Both windows share the
+ * same appearance (the appearance axes follow across windows), so the baseline the console reads
+ * from its own document is the baseline the target renders — the computed override values match.
+ */
+function motionTargetRoot(): HTMLElement {
+  if (typeof window !== "undefined") {
+    const opener = window.opener as Window | null;
+    if (opener && !opener.closed) return opener.document.documentElement;
+  }
+  return document.documentElement;
+}
+
 /** Write the overrides inline on <html>; every token-fed animation follows immediately. */
 export function applyMotionOverrides(baseline: MotionBaseline, overrides: MotionOverrides): void {
-  const style = document.documentElement.style;
+  const style = motionTargetRoot().style;
   for (const rung of DURATION_RUNGS) {
     style.setProperty(
       durationProperty(rung),
@@ -112,7 +127,7 @@ export function applyMotionOverrides(baseline: MotionBaseline, overrides: Motion
 
 /** Remove the inline overrides so the shipped tokens resolve again. */
 export function clearMotionOverrides(): void {
-  const style = document.documentElement.style;
+  const style = motionTargetRoot().style;
   for (const rung of DURATION_RUNGS) {
     style.removeProperty(durationProperty(rung));
   }

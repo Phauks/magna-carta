@@ -17,7 +17,7 @@
   import * as Popover from "@magna-carta/design-system/popover";
   import * as Tooltip from "@magna-carta/design-system/tooltip";
   import FlaskConical from "@lucide/svelte/icons/flask-conical";
-  import PanelRightOpen from "@lucide/svelte/icons/panel-right-open";
+  import SquareArrowOutUpRight from "@lucide/svelte/icons/square-arrow-out-up-right";
   import DeveloperConsolePanel from "./developer-console-panel.svelte";
 
   let open = $state(false);
@@ -52,7 +52,7 @@
             onclick={popOut}
             aria-label="Open developer console in a new window"
           >
-            <PanelRightOpen class="size-16" aria-hidden="true" />
+            <SquareArrowOutUpRight class="size-16" aria-hidden="true" />
           </Tooltip.Trigger>
           <Tooltip.Content side="bottom">Open in a new window</Tooltip.Content>
         </Tooltip.Root>
