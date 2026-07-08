@@ -16,6 +16,13 @@ parts, register polish), design-lab mockups (untracked working artifacts in this
 section pages), matter fixtures + header/nav components in `apps/web/src/lib/`. Fixture-driven
 only — no worker/schema/data-access edits.
 
+**Added 2026-07-08 — Tools listing page** (spec:
+`docs/specs/2026-07-08-tools-listing-page-design.md`): new `apps/web/src/routes/(app)/tools/`
+listing page + `apps/web/src/lib/tools/` presentation seam (descriptor + maturity stage per
+tool, subject-group labels). Renders `packages/tools` `CATALOG` via `toolsByGroup`; domain
+package untouched. Flips the `tools` destination to shipped in `navigation/destinations.ts`.
+Listing only — no drop zone, per-tool pages, or run surface.
+
 **Coordination:** backend is read-only for this stream (UI brief); auth consumes the committed
 contract as-is. No cross-cutting edits expected beyond this note, ROADMAP stage updates, and the
 STATUS 0·7b row.
