@@ -69,8 +69,9 @@
   "r2_buckets": [{ "binding": "R2", "bucket_name": "magna-carta-production-platform-files" }],
   // The platform-status KV namespace: holds the operator-authored document (status:authored, written by
   // the platform-status routes) and the cron-derived document (status:derived); the read path merges
-  // both. Placeholder id — the real namespace id is filled in when it is created in the dashboard.
-  "kv_namespaces": [{ "binding": "STATUS_KV", "id": "00000000000000000000000000000000" }],
+  // both. This id MUST stay identical to the STATUS_KV id in apps/status-worker/wrangler.jsonc; both
+  // bind the one real "Magna_Carta_Status" namespace.
+  "kv_namespaces": [{ "binding": "STATUS_KV", "id": "6746720bd1ad4638ad00370197f49788" }],
   // Workers AI — the authenticated binding the inference foundation reaches the AI Gateway through.
   // No per-firm provider key at launch (Unified Billing, Cloudflare-managed credentials).
   "ai": { "binding": "AI" },
@@ -165,11 +166,14 @@
   //   SCAN_SERVICE: the malware-scan worker (resolveScanPort falls back to the no-engine adapter).
   //   BUNDLE_SERVICE: the bundle-build worker (POST /build); the bundle lanes 503 until it is bound.
   //   CONVERT: the conversion engine worker (resolveEnginePort returns the deferred port while unbound).
+  //   FILE_REPAIR_SERVICE: the file-repair engine worker (POST /diagnose|/repair|/carve); the file-repair
+  //     routes 503 until it is bound.
   //   RECOVERY_SERVICE: the password-recovery worker; optional, falls back when absent.
   "services": [
     { "binding": "SCAN_SERVICE", "service": "magna-carta-scan" },
     { "binding": "BUNDLE_SERVICE", "service": "magna-carta-bundle" },
     { "binding": "CONVERT", "service": "magna-carta-convert" },
+    { "binding": "FILE_REPAIR_SERVICE", "service": "magna-carta-file-repair" },
     { "binding": "RECOVERY_SERVICE", "service": "magna-carta-recovery" },
   ],
   // Browser Rendering Workers binding — used by POST /api/v1/safe-browse to render suspect URLs

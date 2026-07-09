@@ -20,7 +20,10 @@ function jsonResponse(status: number, body: unknown): HttpResponse {
   return { status, json: async () => body };
 }
 
-function adapter(client: HttpClient, overrides: Partial<Parameters<typeof createPangramAdapter>[0]> = {}) {
+function adapter(
+  client: HttpClient,
+  overrides: Partial<Parameters<typeof createPangramAdapter>[0]> = {},
+) {
   return createPangramAdapter({
     http: client,
     apiKey: "test-key",
@@ -34,7 +37,10 @@ function adapter(client: HttpClient, overrides: Partial<Parameters<typeof create
 
 // A queue-backed HttpClient: each call returns the next scripted response; POST vs GET is asserted by
 // the caller. Records the requests so we can assert the submit URL and the poll URL.
-function scriptedClient(responses: HttpResponse[]): { client: HttpClient; requests: HttpRequest[] } {
+function scriptedClient(responses: HttpResponse[]): {
+  client: HttpClient;
+  requests: HttpRequest[];
+} {
   const requests: HttpRequest[] = [];
   let i = 0;
   return {
@@ -168,7 +174,12 @@ describe("createPangramAdapter.detect — async task flow", () => {
       jsonResponse(200, { stage: "STAGE_SUCCESS", fraction_ai: 0.95, version: "3.3" }),
     ]);
     let slept = 0;
-    const port = adapter(client, { mode: "async-task", sleep: async () => { slept += 1; } });
+    const port = adapter(client, {
+      mode: "async-task",
+      sleep: async () => {
+        slept += 1;
+      },
+    });
     const result = await port.detect({ text: LONG_TEXT, firmId: FIRM });
     expect(result.ok).toBe(true);
     if (!result.ok) return;

@@ -18,7 +18,9 @@ import type { Bindings } from "../app.ts";
 async function probeCore(env: Bindings): Promise<Record<string, ProbeOutcome>> {
   const probes: Record<string, ProbeOutcome> = {};
   probes["api"] = { ok: true }; // reached only if this worker is running
-  probes["control-plane-database"] = { ok: await tryOk(() => env.DB_CONTROL.prepare("SELECT 1").first()) };
+  probes["control-plane-database"] = {
+    ok: await tryOk(() => env.DB_CONTROL.prepare("SELECT 1").first()),
+  };
   // Reachability, not presence, is the signal: a HEAD on a missing key still proves the bucket is
   // reachable. Verified empirically under Miniflare (apps/worker/test/derived-snapshot.test.ts) —
   // env.R2.head on an absent key RESOLVES to null rather than throwing, so tryOk's plain try/await
@@ -51,7 +53,12 @@ export async function buildAndStoreDerivedSnapshot(
     degradedThreshold: 0.1,
     outageThreshold: 1,
   });
-  const snapshot: DerivedSnapshot = { schemaVersion: SCHEMA_VERSION, generatedAt: now, components, providers };
+  const snapshot: DerivedSnapshot = {
+    schemaVersion: SCHEMA_VERSION,
+    generatedAt: now,
+    components,
+    providers,
+  };
   // Guard against a partial build clobbering a good snapshot with nothing: deriveComponents always
   // maps the full COMPONENT_REGISTRY (never partial — a probe failure is a status value, not a
   // thrown error), so an empty components array can only mean the registry itself is empty; in that

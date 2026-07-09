@@ -6,17 +6,17 @@
 export type RecoveryTierName = "cfCapable" | "gpuRequired";
 
 export type RecoveryJobStatus =
-  | "queued"      // shards enqueued, none reported yet
-  | "running"     // at least one shard reported, none found, not all done
-  | "found"       // a shard recovered the password (terminal)
-  | "exhausted"   // every shard reported, none found (terminal)
-  | "needsGpu"    // slow KDF — not attempted on CF (terminal; the GPU rung fills this seam)
-  | "cancelled";  // caller cancelled (terminal)
+  | "queued" // shards enqueued, none reported yet
+  | "running" // at least one shard reported, none found, not all done
+  | "found" // a shard recovered the password (terminal)
+  | "exhausted" // every shard reported, none found (terminal)
+  | "needsGpu" // slow KDF — not attempted on CF (terminal; the GPU rung fills this seam)
+  | "cancelled"; // caller cancelled (terminal)
 
 export interface RecoveryProgress {
   readonly candidatesTried: number; // summed across reported shards
-  readonly shardsDone: number;      // shards that have reported
-  readonly shardCount: number;      // total shards fanned out (0 for needsGpu)
+  readonly shardsDone: number; // shards that have reported
+  readonly shardCount: number; // total shards fanned out (0 for needsGpu)
 }
 
 export interface RecoveryJobState {
@@ -51,8 +51,8 @@ export interface ShardOutcome {
 
 // The parameters the route hands the coordinator to start a job.
 export interface RecoveryStartInput {
-  readonly tier: RecoveryTierName;   // gpuRequired => no shards enqueued, terminal needsGpu
-  readonly shardCount: number;       // the modest CF shard count (0 for gpuRequired)
+  readonly tier: RecoveryTierName; // gpuRequired => no shards enqueued, terminal needsGpu
+  readonly shardCount: number; // the modest CF shard count (0 for gpuRequired)
   readonly hash: string;
   readonly format: "pdf" | "zip" | "ooxml";
   readonly hashcatMode: number;

@@ -15,7 +15,7 @@
 - `flate2` is already a transitive dependency (via lopdf) at the version in `crates/Cargo.lock`. Adding it as a direct dependency must NOT change `Cargo.lock` — verify with `git diff -- crates/Cargo.lock` (expect empty).
 - No process-doc references in source/tests (no "ADR", "slice", "spec §" — golden rule 13). Explain reasoning inline or cite a file path.
 - Passwords/plaintext never logged or placed in errors (the guard runs before decrypt, but keep the rule in mind for decrypt.rs edits).
-- Native `cargo test` on this machine can OOM while *linking* pdf-core; build/test with: `CARGO_BUILD_JOBS=1 CARGO_PROFILE_TEST_DEBUG=0 RUSTFLAGS="-C debuginfo=0 -C codegen-units=1" cargo test -p pdf-core --lib`. This is a build-memory workaround, unrelated to runtime.
+- Native `cargo test` on this machine can OOM while _linking_ pdf-core; build/test with: `CARGO_BUILD_JOBS=1 CARGO_PROFILE_TEST_DEBUG=0 RUSTFLAGS="-C debuginfo=0 -C codegen-units=1" cargo test -p pdf-core --lib`. This is a build-memory workaround, unrelated to runtime.
 - All `cargo` commands run from `crates/` (the workspace root); paths below are relative to the repo root.
 
 ---
@@ -23,11 +23,13 @@
 ### Task 1: `guard.rs` — limits, pre-flight, bounded inflate
 
 **Files:**
+
 - Create: `crates/pdf-core/src/guard.rs`
 - Modify: `crates/pdf-core/src/lib.rs` (add `mod guard;` near the other `mod` lines, e.g. after `mod standard_fonts_data;`)
 - Modify: `crates/pdf-core/Cargo.toml` (add `flate2 = "1"` under `[dependencies]`)
 
 **Interfaces:**
+
 - Produces:
   - `pub(crate) struct GuardLimits { pub max_input_bytes: usize, pub max_stream_inflated: usize, pub max_total_inflated: u64 }` with `Default` (256 MiB / 256 MiB / 1 GiB).
   - `pub(crate) enum BombError { InputTooLarge, StreamTooLarge, TotalTooLarge }` (derives `Debug, Clone, Copy, PartialEq, Eq`).
@@ -363,10 +365,12 @@ git commit -m "feat(pdf): decompression-bomb guard module (input cap + deflate p
 ### Task 2: Wire the guard into `Document::load` / `load_protected`
 
 **Files:**
+
 - Modify: `crates/pdf-core/src/lib.rs` (`PdfError`, `Document::load`, `Document::load_protected`)
 - Modify: `crates/pdf-core/src/redact.rs:313` (switch internal load to the unguarded path)
 
 **Interfaces:**
+
 - Consumes: `crate::guard::{guard_input, GuardLimits}`, `crate::guard::BombError` (Task 1).
 - Produces: `PdfError::Rejected`; `pub(crate) fn Document::load_unguarded(bytes: Vec<u8>) -> Result<Self, PdfError>`.
 
@@ -447,7 +451,9 @@ Replace the existing `Document::load` and `Document::load_protected` bodies in `
 ```rust
     let render_doc = Document::load(bytes.clone()).map_err(|_| RedactError::Parse)?; // hayro, for rendering
 ```
+
 to:
+
 ```rust
     let render_doc = Document::load_unguarded(bytes.clone()).map_err(|_| RedactError::Parse)?; // hayro, for rendering
 ```
@@ -469,10 +475,12 @@ git commit -m "feat(pdf): guard Document::load/load_protected; unguarded interna
 ### Task 3: Wire the guard into `decrypt`, `inspect_security`, `secure`
 
 **Files:**
+
 - Modify: `crates/pdf-core/src/decrypt.rs` (`SecureError`, `decrypt`, `inspect_security`, add `decrypt_unguarded`)
 - Modify: `crates/pdf-core/src/secure.rs` (`secure`)
 
 **Interfaces:**
+
 - Consumes: `crate::guard::{guard_input, GuardLimits}`.
 - Produces: `SecureError::Rejected`; `pub(crate) fn decrypt::decrypt_unguarded(bytes: &[u8], password: &str) -> Result<Vec<u8>, SecureError>`.
 
@@ -575,6 +583,7 @@ git commit -m "feat(pdf): guard decrypt/inspect_security/secure entrypoints"
 ### Task 4: Wire the guard into the transforms (redact, scrub, generate, watermark, bates)
 
 **Files:**
+
 - Modify: `crates/pdf-core/src/redact.rs` (`RedactError`, `redact`)
 - Modify: `crates/pdf-core/src/scrub.rs` (`ScrubError`, `sanitize`)
 - Modify: `crates/pdf-core/src/generate.rs` (`GenerateError`, `merge`, `split`, `rotate`)
@@ -582,6 +591,7 @@ git commit -m "feat(pdf): guard decrypt/inspect_security/secure entrypoints"
 - Modify: `crates/pdf-core/src/bates.rs` (`BatesError`, `stamp_document`)
 
 **Interfaces:**
+
 - Consumes: `crate::guard::{guard_input, GuardLimits}`.
 - Produces: `RedactError::Rejected`, `ScrubError::Rejected`, `GenerateError::Rejected`, `BatesError::Rejected`.
 
@@ -590,6 +600,7 @@ git commit -m "feat(pdf): guard decrypt/inspect_security/secure entrypoints"
 Add one rejection test per module, each feeding an oversize input. `RedactError`/`ScrubError`/`BatesError` derive only `Debug`, so assert with `matches!`; `GenerateError` derives `PartialEq`, so `assert_eq!` is fine.
 
 In `crates/pdf-core/src/redact.rs` tests:
+
 ```rust
     #[test]
     fn redact_rejects_oversize_input() {
@@ -600,9 +611,11 @@ In `crates/pdf-core/src/redact.rs` tests:
         ));
     }
 ```
+
 > `redact`'s first parameter is `bytes: Vec<u8>`; `RedactionOptions` derives/impls `Default` (see `redact.rs`).
 
 In `crates/pdf-core/src/scrub.rs` tests:
+
 ```rust
     #[test]
     fn sanitize_rejects_oversize_input() {
@@ -615,6 +628,7 @@ In `crates/pdf-core/src/scrub.rs` tests:
 ```
 
 In `crates/pdf-core/src/generate.rs` tests:
+
 ```rust
     #[test]
     fn generate_ops_reject_oversize_input() {
@@ -629,6 +643,7 @@ In `crates/pdf-core/src/generate.rs` tests:
 ```
 
 In `crates/pdf-core/src/watermark.rs` tests:
+
 ```rust
     #[test]
     fn watermark_rejects_oversize_input() {
@@ -640,6 +655,7 @@ In `crates/pdf-core/src/watermark.rs` tests:
 ```
 
 In `crates/pdf-core/src/bates.rs` tests:
+
 ```rust
     #[test]
     fn stamp_rejects_oversize_input() {
@@ -662,6 +678,7 @@ Expected: compile errors — the `Rejected` variants don't exist yet.
 - `crates/pdf-core/src/scrub.rs` `ScrubError` — add `Rejected,`
 - `crates/pdf-core/src/bates.rs` `BatesError` — add `Rejected,`
 - `crates/pdf-core/src/generate.rs` `GenerateError` — add:
+
   ```rust
       /// Input rejected by the decompression-bomb guard (oversize or a bomb).
       Rejected,
@@ -672,32 +689,42 @@ Expected: compile errors — the `Rejected` variants don't exist yet.
 Insert as the FIRST statement of each function (use `&bytes` where the param is `Vec<u8>`, `bytes` where it is `&[u8]`):
 
 `redact` (`bytes: Vec<u8>`):
+
 ```rust
     crate::guard::guard_input(&bytes, &crate::guard::GuardLimits::default())
         .map_err(|_| RedactError::Rejected)?;
 ```
+
 `sanitize` (`bytes: Vec<u8>`):
+
 ```rust
     crate::guard::guard_input(&bytes, &crate::guard::GuardLimits::default())
         .map_err(|_| ScrubError::Rejected)?;
 ```
+
 `split` / `rotate` (`bytes: &[u8]`) and `watermark` (`bytes: &[u8]`):
+
 ```rust
     crate::guard::guard_input(bytes, &crate::guard::GuardLimits::default())
         .map_err(|_| GenerateError::Rejected)?;
 ```
+
 `merge` (`documents: &[&[u8]]`) — guard each input:
+
 ```rust
     for doc in documents {
         crate::guard::guard_input(doc, &crate::guard::GuardLimits::default())
             .map_err(|_| GenerateError::Rejected)?;
     }
 ```
+
 `stamp_document` (`bytes: &[u8]`):
+
 ```rust
     crate::guard::guard_input(bytes, &crate::guard::GuardLimits::default())
         .map_err(|_| BatesError::Rejected)?;
 ```
+
 > `stamp_set` calls `stamp_document` per document, so it inherits the guard — do NOT add a separate call there.
 
 - [ ] **Step 5: Run the tests to verify they pass**
@@ -717,16 +744,19 @@ git commit -m "feat(pdf): guard redact/scrub/generate/watermark/bates entrypoint
 ### Task 5: Wire the guard into forms and detect
 
 **Files:**
+
 - Modify: `crates/pdf-core/src/forms.rs` (`FormError`, `read_form`, `fill_form`, `flatten_form`)
 - Modify: `crates/pdf-core/src/detect.rs` (`DetectError`, `detect`)
 
 **Interfaces:**
+
 - Consumes: `crate::guard::{guard_input, GuardLimits}`.
 - Produces: `FormError::Rejected`, `DetectError::Rejected`.
 
 - [ ] **Step 1: Write the failing tests**
 
 In `crates/pdf-core/src/forms.rs` tests (`FormError` derives only `Debug`):
+
 ```rust
     #[test]
     fn forms_reject_oversize_input() {
@@ -737,6 +767,7 @@ In `crates/pdf-core/src/forms.rs` tests (`FormError` derives only `Debug`):
 ```
 
 In `crates/pdf-core/src/detect.rs` tests (`DetectError` derives only `Debug`):
+
 ```rust
     #[test]
     fn detect_rejects_oversize_input() {
@@ -758,11 +789,14 @@ Expected: compile errors — `FormError::Rejected` / `DetectError::Rejected` mis
 - [ ] **Step 4: Add the guard calls**
 
 First statement of `read_form`, `fill_form`, `flatten_form` (`bytes: &[u8]`):
+
 ```rust
     crate::guard::guard_input(bytes, &crate::guard::GuardLimits::default())
         .map_err(|_| FormError::Rejected)?;
 ```
+
 First statement of `detect` (`bytes: Vec<u8>`):
+
 ```rust
     crate::guard::guard_input(&bytes, &crate::guard::GuardLimits::default())
         .map_err(|_| DetectError::Rejected)?;
@@ -790,9 +824,11 @@ git commit -m "feat(pdf): guard read_form/fill_form/flatten_form/detect entrypoi
 ### Task 6: End-to-end integration test — real deflate bomb at default limits
 
 **Files:**
+
 - Create: `crates/pdf-core/tests/bomb_guard.rs`
 
 **Interfaces:**
+
 - Consumes: the public crate API (`pdf_core::{detect, secure, inspect_security, decrypt, merge, split, read_form, flatten_form, Document, ...}`) and the public error types.
 
 - [ ] **Step 1: Write the test**
@@ -895,9 +931,11 @@ git commit -m "test(pdf): end-to-end deflate-bomb rejection at default limits"
 ### Task 7: Map the guard error to a stable WASM token
 
 **Files:**
+
 - Modify: `crates/pdf-core/src/wasm.rs` (8 `From<…Error> for JsError` impls)
 
 **Interfaces:**
+
 - Consumes: every `…Error::Rejected` variant from Tasks 2–5.
 - Produces: WASM error message token `"decompression-bomb"` for all of them.
 
@@ -933,10 +971,12 @@ git commit -m "feat(pdf): map guard rejection to the decompression-bomb wasm tok
 ### Task 8: Typed `DecompressionBombError` across the TS surface
 
 **Files:**
+
 - Modify: `packages/pdf/src/index.ts` (add the error class + a guard-mapping helper; apply it to the public wrappers)
 - Test: `packages/pdf/test/guard.test.ts` (new)
 
 **Interfaces:**
+
 - Consumes: the `"decompression-bomb"` token thrown by the wasm layer (Task 7).
 - Produces: `export class DecompressionBombError extends Error` (`code = "decompression-bomb"`).
 
@@ -972,9 +1012,7 @@ describe("decompression-bomb guard", () => {
   });
 
   it("throws a typed DecompressionBombError", async () => {
-    await expect(redactDocument(bombPdf(), [], {})).rejects.toBeInstanceOf(
-      DecompressionBombError,
-    );
+    await expect(redactDocument(bombPdf(), [], {})).rejects.toBeInstanceOf(DecompressionBombError);
   });
 });
 ```
@@ -1015,6 +1053,7 @@ function mapGuardError(error: unknown): never {
 Each wrapper that calls a wasm function on caller bytes must route failures through `mapGuardError`. Apply this transformation to every wrapper below — wrap the wasm call in `try { … } catch (error) { mapGuardError(error); }`.
 
 Example — `detectDocument` becomes:
+
 ```ts
 export async function detectDocument(bytes: Uint8Array): Promise<DetectionReport> {
   await ensureReady();
@@ -1027,6 +1066,7 @@ export async function detectDocument(bytes: Uint8Array): Promise<DetectionReport
 ```
 
 Example — `decryptDocument` already has a catch; fold the guard into it:
+
 ```ts
   } catch (error) {
     if (error instanceof Error && error.message === "wrong-password") {
@@ -1063,6 +1103,7 @@ git commit -m "feat(pdf): typed DecompressionBombError across the TS wrappers"
 ### Task 9: Documentation and process fragments
 
 **Files:**
+
 - Modify: `packages/pdf/README.md` (a short "Decompression-bomb guard" subsection)
 - Create: `changelog.d/pdf-decompression-guard.md`
 - Create: `docs/decisions/pending/pdf-decompression-guard.md`

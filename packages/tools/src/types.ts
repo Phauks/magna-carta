@@ -8,7 +8,7 @@ export const SUBJECT_GROUP_ORDER = [
   "mailing-shipping",
   "printing",
   "web-domains", // website/domain subjects — WHOIS lookup, safe website viewer
-  "documents", // file utilities — e.g. the general file converter
+  "files", // file utilities — inspect / repair / convert / hash / verify a file, matter-free
   "diagnostics", // connectivity / system tests — no legal subject (e.g. a network speed test)
 ] as const;
 

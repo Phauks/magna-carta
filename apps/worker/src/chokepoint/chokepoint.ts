@@ -205,6 +205,11 @@ export function createChokepoint<FirmContext>(ports: ChokepointPorts<FirmContext
                 requestAccess: true,
               });
             }
+            // Stash the resolved permission set too — a handler whose route names ONE capability
+            // (the primary gate above) but must ALSO require a second, unrelated capability (a dual
+            // gate) reads it via requireChokepointPermissions/assertAlsoHasPermission
+            // (context-accessors.ts) instead of re-deriving it with a second loadPermissions call.
+            c.set("permissions", permissions);
           }
 
           // Stash the resolved tenancy for the handler and the rate-limit key (the context

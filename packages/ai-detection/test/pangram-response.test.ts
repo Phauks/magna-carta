@@ -97,7 +97,9 @@ describe("parsePangramTaskStatus", () => {
   it("returns malformed for a non-object, or STAGE_SUCCESS with an invalid prediction", () => {
     expect(parsePangramTaskStatus(null).kind).toBe("malformed");
     expect(parsePangramTaskStatus("nope").kind).toBe("malformed");
-    expect(parsePangramTaskStatus({ stage: "STAGE_SUCCESS", fraction_ai: 5 }).kind).toBe("malformed");
+    expect(parsePangramTaskStatus({ stage: "STAGE_SUCCESS", fraction_ai: 5 }).kind).toBe(
+      "malformed",
+    );
     expect(parsePangramTaskStatus({ stage: "STAGE_SUCCESS" }).kind).toBe("malformed");
   });
 });

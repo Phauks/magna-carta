@@ -1,0 +1,42 @@
+[package]
+name = "recovery-core"
+version = "0.0.0"
+edition.workspace = true
+publish = false
+
+[lib]
+name = "recovery_core"
+
+[dependencies]
+# The engine-host harness, RENAMED to `engine_host` so source reads `engine_host::format::detect` etc.
+# (the package's lib name is `magna_carta_engine_host`; the rename keeps call sites short and consistent).
+engine_host = { path = "../engine-host", package = "magna-carta-engine-host" }
+# Pure-Rust DEFLATE/zlib/gzip decoder that returns the decoded prefix together with the error on a
+# truncated/corrupt stream — the compression-stream salvage primitive.
+zune-inflate = "0.2"
+# Read damaged archives from local file headers (no central directory) and re-emit a fresh archive.
+# Lean pure-Rust features only — deflate via flate2/miniz_oxide, no bzip2/zstd/lzma C deps.
+zip = { version = "8.6", default-features = false, features = ["deflate-flate2"] }
+# The DEFLATE backend zip's `deflate-flate2` selects — declared directly to pin the pure-Rust
+# miniz_oxide backend (never a C zlib backend).
+flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
+# Read/write CFB (OLE2 compound files) — the container behind legacy .doc/.xls/.ppt, .msg, MSI.
+# Pure Rust; open() reads damaged files best-effort (validates header/FAT/directory, reads stream
+# sectors lazily) so a truncated file's intact streams are still recoverable.
+cfb = "0.14"
+# Compound-file storage identity (CLSID) type. `cfb` takes and returns `uuid::Uuid` for
+# `set_storage_clsid`/`Entry::clsid`, so a faithful rebuild that carries those CLSIDs must name
+# the type directly. Version unified with cfb's own `uuid` requirement.
+uuid = "1"
+# Read/write PDF object model. The recovery pillar cannot brute-force a broken
+# xref through lopdf (its reader errors on an unparseable xref and its object
+# parser is private), so it synthesizes a fresh xref and reloads; lopdf then
+# parses the objects and re-emits a clean file. default-features=false drops the
+# date/parallelism features (chrono/jiff/rayon/time) the load/save path never needs.
+lopdf = { version = "0.41", default-features = false }
+# Single-pass multi-pattern search for embedded-file header signatures (carving scan). Pure Rust.
+aho-corasick = "1"
+# Best-effort image header validation for carved candidates (confirm a signature match is a real
+# image without a full pixel decode). Pure Rust; zune-jpeg is already in the tree transitively.
+zune-jpeg = "0.5"
+zune-png = "0.4"

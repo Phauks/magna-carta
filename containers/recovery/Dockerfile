@@ -9,10 +9,15 @@ FROM rust:1-bookworm AS build
 
 WORKDIR /workspace
 
-# Copy decryption-core (the path dependency) and the recovery crate.
-# The recovery Cargo.toml references it as "../../crates/decryption-core", which from
-# /workspace/containers/recovery resolves to /workspace/crates/decryption-core.
-COPY crates/decryption-core crates/decryption-core
+# Copy the WHOLE crates/ workspace, not just decryption-core. The recovery crate path-deps
+# `../../crates/decryption-core`, and that crate inherits its `edition` and dependency versions from
+# the crates/ workspace root (`crates/Cargo.toml`, via `workspace = true`). Cargo must load that
+# workspace root and its member manifests to resolve the inheritance, so copying decryption-core
+# alone fails with "failed to find a workspace root". Only decryption-core actually compiles — it is
+# the sole crate in magna-carta-recovery's dependency graph; the other members are read as manifests
+# (for workspace resolution) but never built, so this stays cheap. The root .dockerignore keeps
+# every crate's `target/` out of the context.
+COPY crates crates
 COPY containers/recovery/Cargo.toml containers/recovery/Cargo.toml
 COPY containers/recovery/Cargo.lock containers/recovery/Cargo.lock
 COPY containers/recovery/src containers/recovery/src

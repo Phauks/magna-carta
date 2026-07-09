@@ -198,6 +198,53 @@ describe("initiateUpload", () => {
       ),
     ).rejects.toMatchObject({ code: "upload-policy-size" });
   });
+
+  it("refuses a NEW file whose folder belongs to another matter", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const otherMatterId = await seedSecondMatter(database);
+    const { folderId, effect } = await createFolder(
+      database,
+      { matterId: otherMatterId, name: "Foreign" },
+      options,
+    );
+    await commitEffectBatch(database, effect, { now });
+    await expect(
+      initiateUpload(
+        database,
+        {
+          matterId,
+          folderId,
+          name: "report.pdf",
+          declaredSize: 10,
+          declaredContentType: "application/pdf",
+          uploadedBy: ACTOR,
+          mode: "put",
+        },
+        options,
+      ),
+    ).rejects.toMatchObject({ code: "file-cross-matter" });
+  });
+
+  it("refuses a NEW file in an unknown folder", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    await expect(
+      initiateUpload(
+        database,
+        {
+          matterId,
+          folderId: "folder_missing" as FolderId,
+          name: "report.pdf",
+          declaredSize: 10,
+          declaredContentType: "application/pdf",
+          uploadedBy: ACTOR,
+          mode: "put",
+        },
+        options,
+      ),
+    ).rejects.toMatchObject({ code: "unknown-folder" });
+  });
 });
 
 describe("commitVersion", () => {

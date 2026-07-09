@@ -16,8 +16,8 @@ Flat frontmatter (no nested YAML) + a one-line Notes body:
 ```markdown
 ---
 slice: 3·2 — Trust accounting + jurisdiction compliance
-group: phase-3            # phase-0 | phase-1 | phase-2 | cross-cutting | phase-3
-order: 2                  # position within the group's table
+group: phase-3 # phase-0 | phase-1 | phase-2 | cross-cutting | phase-3
+order: 2 # position within the group's table
 research: in-progress
 spec: in-progress
 plan: todo
@@ -25,13 +25,13 @@ built: todo
 ui: todo
 load-profile: todo
 tested: todo
-branch: trust-accounting  # where the work lives (main once landed)
-active-work: docs/active-work/trust-accounting.md   # when in flight, else empty
+branch: trust-accounting # where the work lives (main once landed)
+active-work: docs/active-work/trust-accounting.md # when in flight, else empty
 next: Finish the spec, then write the implementation plan
-link-spec: docs/specs/2026-...-trust.md             # empty until it exists
+link-spec: docs/specs/2026-...-trust.md # empty until it exists
 link-plan:
-adrs: ADR-0009            # comma-separated, empty if none
-blocked-by:               # comma-separated slice ids, empty if none
+adrs: ADR-0009 # comma-separated, empty if none
+blocked-by: # comma-separated slice ids, empty if none
 ---
 
 **Current focus** — design in progress. Tier-1 rigor vs Tier-2 restriction; NV baseline.

@@ -15,10 +15,7 @@
           "hoursNote": "24/7/365"
         }
       ],
-      "services": [
-        "crisisLine",
-        "mentalHealth"
-      ],
+      "services": ["crisisLine", "mentalHealth"],
       "confidential": "Free and confidential",
       "cost": "Free",
       "description": "US national crisis line for anyone in emotional distress or thinking about suicide — call, text, or chat, 24/7.",
@@ -41,10 +38,7 @@
           "hoursNote": "24/7/365, English & Spanish"
         }
       ],
-      "services": [
-        "substanceUse",
-        "mentalHealth"
-      ],
+      "services": ["substanceUse", "mentalHealth"],
       "confidential": "Free and confidential",
       "cost": "Free",
       "description": "Confidential treatment referral and information service for mental-health and substance-use disorders.",
@@ -60,11 +54,7 @@
       "scope": "national",
       "url": "https://www.americanbar.org/groups/lawyer_assistance/resources/lap_programs_by_state/",
       "phones": [],
-      "services": [
-        "peerSupport",
-        "mentalHealth",
-        "substanceUse"
-      ],
+      "services": ["peerSupport", "mentalHealth", "substanceUse"],
       "confidential": "Routes to confidential state programs",
       "cost": "Free",
       "description": "The ABA's maintained by-state directory of Lawyer Assistance Programs — the lawyer-specific fallback for finding a local program.",
@@ -96,12 +86,7 @@
               "hoursNote": "Bar general office line; hours not stated"
             }
           ],
-          "services": [
-            "counseling",
-            "substanceUse",
-            "mentalHealth",
-            "peerSupport"
-          ],
+          "services": ["counseling", "substanceUse", "mentalHealth", "peerSupport"],
           "confidential": "Respectful, confidential assistance and referrals",
           "cost": "Not stated on page",
           "description": "Alaska Bar Association committee providing education, confidential assistance, and referrals (with a vetted provider list) for members, families, and colleagues affected by mental health or substance-use issues.",
@@ -138,13 +123,7 @@
               "availability": "unspecified"
             }
           ],
-          "services": [
-            "counseling",
-            "substanceUse",
-            "mentalHealth",
-            "peerSupport",
-            "monitoring"
-          ],
+          "services": ["counseling", "substanceUse", "mentalHealth", "peerSupport", "monitoring"],
           "confidential": "Anonymity preserved; not disclosed to other departments within the state bar",
           "cost": "Free",
           "description": "Alabama State Bar program: confidential help for law students, lawyers, and judges facing mental health, substance use, cognitive impairment, stress, or burnout — peer support, mentorship, referrals to vetted providers, and monitoring.",
@@ -160,11 +139,7 @@
           "scope": "statewide",
           "url": "https://www.alabar.org/programs/alabama-lawyer-assistance-program/alap-foundation/",
           "phones": [],
-          "services": [
-            "financialAid",
-            "substanceUse",
-            "mentalHealth"
-          ],
+          "services": ["financialAid", "substanceUse", "mentalHealth"],
           "confidential": "Operates in support of the confidential ALAP program",
           "cost": "Revolving loan fund — loans paid to treatment providers, repaid once the lawyer recovers",
           "description": "501(c)(3) revolving loan fund (distinct from the Alabama Law Foundation) that funds addiction/mental-health treatment for AL lawyers, judges, and law students who cannot pay; works alongside ALAP. Verified on its dedicated alabar.org page.",
@@ -226,9 +201,7 @@
           "scope": "national",
           "url": "https://www.americanbar.org/groups/lawyer_assistance/resources/lap_programs_by_state/",
           "phones": [],
-          "services": [
-            "mentalHealth"
-          ],
+          "services": ["mentalHealth"],
           "confidential": "Resolves to the national safety net",
           "cost": "—",
           "description": "No territory-specific lawyer-assistance program located (American Samoa has public Legal Aid, not an attorney wellness program); resolves to the national safety net (988, SAMHSA, ABA CoLAP).",
@@ -259,11 +232,7 @@
               "hoursNote": "Hours not stated on page"
             }
           ],
-          "services": [
-            "peerSupport",
-            "mentalHealth",
-            "substanceUse"
-          ],
+          "services": ["peerSupport", "mentalHealth", "substanceUse"],
           "confidential": "Confidential under Arizona Supreme Court rule (LAP privilege / Rule 1.6)",
           "cost": "Free",
           "description": "State Bar of Arizona peer-support wellness program: trained volunteer lawyers support lawyers, judges, law students, and families facing addiction, mental-health challenges, stress, or work/life issues; also CLE and a monthly support group.",
@@ -334,13 +303,7 @@
               "hoursNote": "Confidential program line; not stated 24/7"
             }
           ],
-          "services": [
-            "counseling",
-            "substanceUse",
-            "mentalHealth",
-            "peerSupport",
-            "monitoring"
-          ],
+          "services": ["counseling", "substanceUse", "mentalHealth", "peerSupport", "monitoring"],
           "confidential": "Privileged; cannot be used in disciplinary proceedings",
           "cost": "Free",
           "description": "Free, confidential, independent program of the Colorado Supreme Court for judges, lawyers, and law students — well-being consultations, tailored referrals, and voluntary monitoring for stress, mental health, and substance use.",
@@ -356,12 +319,7 @@
           "scope": "statewide",
           "url": "https://colhl.org/",
           "phones": [],
-          "services": [
-            "peerSupport",
-            "substanceUse",
-            "mentalHealth",
-            "counseling"
-          ],
+          "services": ["peerSupport", "substanceUse", "mentalHealth", "counseling"],
           "confidential": "Confidential peer resource",
           "cost": "Free",
           "description": "Court-approved nonprofit peer-assistance program: free confidential peer-support meetings, education, and referrals for lawyers and law students facing substance use, mental health, or well-being issues.",
@@ -384,9 +342,7 @@
               "hoursNote": "Administrative/applications contact"
             }
           ],
-          "services": [
-            "financialAid"
-          ],
+          "services": ["financialAid"],
           "confidential": "Applicant and award information kept confidential",
           "cost": "Financial grants",
           "description": "Charitable trust (Denver Bar Association) providing confidential financial assistance to aged, infirm, or incapacitated Colorado lawyers in good standing who have practiced in Colorado at least 10 years.",
@@ -409,10 +365,7 @@
               "hoursNote": "Listed under COLAP 'Crisis Resources (24/7)'"
             }
           ],
-          "services": [
-            "crisisLine",
-            "mentalHealth"
-          ],
+          "services": ["crisisLine", "mentalHealth"],
           "confidential": "Confidential crisis support",
           "cost": "Free",
           "description": "Statewide 24/7 crisis line that COLAP and CLHL direct lawyers to for urgent mental-health/suicide crises. Not lawyer-specific; included as the referred crisis line. Own page not loaded this session.",
@@ -527,13 +480,7 @@
               "hoursNote": "Hours not stated; toll-free 877-243-3527 seen in search but not confirmed on a primary page"
             }
           ],
-          "services": [
-            "counseling",
-            "substanceUse",
-            "mentalHealth",
-            "peerSupport",
-            "monitoring"
-          ],
+          "services": ["counseling", "substanceUse", "mentalHealth", "peerSupport", "monitoring"],
           "confidential": "Strictly confidential; committee relationship treated as attorney-client privileged",
           "cost": "Free",
           "description": "Delaware State Bar Association program: a confidential, free, non-disciplinary path for judges and lawyers facing substance use or mental/physical health problems (depression, stress, gambling) to get help. Verified via the DSBA-hosted page (de-lap.org served a mismatched TLS cert).",
@@ -605,13 +552,7 @@
               "hoursNote": "Page states 24/7/365 access to therapists"
             }
           ],
-          "services": [
-            "teletherapy",
-            "counseling",
-            "mentalHealth",
-            "crisisLine",
-            "familySupport"
-          ],
+          "services": ["teletherapy", "counseling", "mentalHealth", "crisisLine", "familySupport"],
           "confidential": "Completely anonymous / confidential",
           "cost": "Free — up to five counseling sessions per year",
           "description": "EAP-style member benefit of The Florida Bar operated by CuraLinc Health Care: 24/7/365 access to counselors and therapists (in-person or teletherapy), up to five free sessions annually.",
@@ -673,10 +614,7 @@
               "hoursNote": "Shares the LAP 24/7 hotline number"
             }
           ],
-          "services": [
-            "peerSupport",
-            "mentalHealth"
-          ],
+          "services": ["peerSupport", "mentalHealth"],
           "confidential": "Confidential peer-to-peer program (disclosures held in an encrypted database)",
           "cost": "Free",
           "description": "Confidential volunteer peer-support program of the State Bar of Georgia's Lawyer Assistance Committee, pairing a member with a fellow Bar member via an online matching database. Verified on georgialhl.org.",
@@ -700,11 +638,7 @@
           "scope": "statewide",
           "url": "https://guambar.org/about-us/laws",
           "phones": [],
-          "services": [
-            "peerSupport",
-            "mentalHealth",
-            "substanceUse"
-          ],
+          "services": ["peerSupport", "mentalHealth", "substanceUse"],
           "confidential": "Not stated on the bylaws page",
           "cost": "Not stated (bar-member committee)",
           "description": "Standing committee of the Guam Bar Association (added 2024) that manages Rule 11 disability referrals and promotes attorney well-being through education, peer-to-peer support, and resources in mental health, emotional balance, stress management, and addiction. No dedicated hotline is published; access is via the bar.",
@@ -784,13 +718,7 @@
               "availability": "unspecified"
             }
           ],
-          "services": [
-            "counseling",
-            "substanceUse",
-            "mentalHealth",
-            "peerSupport",
-            "monitoring"
-          ],
+          "services": ["counseling", "substanceUse", "mentalHealth", "peerSupport", "monitoring"],
           "confidential": "Free and confidential; no identifying information disclosed; no reporting relationship",
           "cost": "Free",
           "description": "Private nonprofit helping Iowa judges, attorneys, and law students obtain treatment for substance use, addiction, and mental-health issues, with monitoring. Verified via an archived snapshot of iowalap.org (live site has a TLS cert mismatch).",
@@ -813,13 +741,7 @@
               "hoursNote": "24/7/365 confirmed verbatim on the official (archived) page"
             }
           ],
-          "services": [
-            "counseling",
-            "mentalHealth",
-            "teletherapy",
-            "crisisLine",
-            "familySupport"
-          ],
+          "services": ["counseling", "mentalHealth", "teletherapy", "crisisLine", "familySupport"],
           "confidential": "Confidential; not shared with the OPR, employer, or judiciary except as required by law",
           "cost": "Free (up to 3 in-person/telehealth sessions per concern + 24/7 phone counseling)",
           "description": "License benefit for all Iowa-licensed lawyers, judges, and court reporters (and families): three free counseling/telehealth sessions plus 24/7 phone access, via a third-party EAP vendor. Verified via an archived snapshot of the official iowacourts.gov page.",
@@ -976,12 +898,7 @@
               "hoursNote": "Business hours; often by appointment"
             }
           ],
-          "services": [
-            "counseling",
-            "substanceUse",
-            "mentalHealth",
-            "peerSupport"
-          ],
+          "services": ["counseling", "substanceUse", "mentalHealth", "peerSupport"],
           "confidential": "Confidential by Kansas Supreme Court Rule 233",
           "cost": "Free",
           "description": "Statewide program of the Kansas Supreme Court (Rule 233): confidential counseling, support groups, mentoring, interventions, and referrals for lawyers, judges, and law students. A companion Judges Assistance Committee serves judges via the same office.",
@@ -1004,11 +921,7 @@
               "hoursNote": "Page: 'KALAP has a 24/7 helpline staffed with trained mental health professionals'"
             }
           ],
-          "services": [
-            "counseling",
-            "crisisLine",
-            "mentalHealth"
-          ],
+          "services": ["counseling", "crisisLine", "mentalHealth"],
           "confidential": "Confidential",
           "cost": "Free",
           "description": "After-hours confidential helpline staffed by an outsourced EAP provider, giving Kansas lawyers 24/7 support when KALAP staff are out of office.",
@@ -1071,12 +984,7 @@
               "hoursNote": "Page: 'Someone will be available to you 24 hours a day, 7 days a week'"
             }
           ],
-          "services": [
-            "counseling",
-            "mentalHealth",
-            "crisisLine",
-            "financialAid"
-          ],
+          "services": ["counseling", "mentalHealth", "crisisLine", "financialAid"],
           "confidential": "Completely confidential under SCR 3.990",
           "cost": "Free (up to 4 clinical sessions, no income test)",
           "description": "KBA/KYLAP-partnered EAP giving lawyers and judges up to four free clinical sessions and referral to a statewide provider network (appointment in 24-48 hours), reachable 24/7 via the KYLAP direct line.",
@@ -1098,9 +1006,7 @@
               "availability": "unspecified"
             }
           ],
-          "services": [
-            "financialAid"
-          ],
+          "services": ["financialAid"],
           "confidential": "Part of the confidential KYLAP program",
           "cost": "Forgivable loans for mental-health/addiction treatment (incl. medications)",
           "description": "501(c)(3) providing financial assistance to lawyers for mental-health treatment (incl. medications and addiction treatment) as forgivable loans; may also make loans for disciplinary/bar-dues costs. Verified on kylap.org/get-involved/ (the /foundation URL 404s).",
@@ -1175,13 +1081,7 @@
               "hoursNote": "After-hours crises directed to 988"
             }
           ],
-          "services": [
-            "counseling",
-            "mentalHealth",
-            "substanceUse",
-            "peerSupport",
-            "monitoring"
-          ],
+          "services": ["counseling", "mentalHealth", "substanceUse", "peerSupport", "monitoring"],
           "confidential": "Confidential; protected under Massachusetts RPC 1.6(d)",
           "cost": "Free",
           "description": "Private nonprofit (est. 1978), Massachusetts' sole LAP: free confidential consultations, clinical mental-health services, addiction-recovery and peer-support groups, practice-management help, and peer monitoring for lawyers, judges, law students, and families.",
@@ -1211,13 +1111,7 @@
               "availability": "unspecified"
             }
           ],
-          "services": [
-            "counseling",
-            "mentalHealth",
-            "substanceUse",
-            "peerSupport",
-            "financialAid"
-          ],
+          "services": ["counseling", "mentalHealth", "substanceUse", "peerSupport", "financialAid"],
           "confidential": "Free and confidential",
           "cost": "Free (financial assistance for treatment available)",
           "description": "MSBA program for Maryland lawyers, judges, law students, and support staff: virtual/in-person assessment, referral, short-term counseling, peer support, and financial assistance for mental-health and addiction treatment.",
@@ -1248,12 +1142,7 @@
               "availability": "unspecified"
             }
           ],
-          "services": [
-            "counseling",
-            "substanceUse",
-            "mentalHealth",
-            "peerSupport"
-          ],
+          "services": ["counseling", "substanceUse", "mentalHealth", "peerSupport"],
           "confidential": "Confidential under Maine Rev. Stat. Title 14 §164-A(3)",
           "cost": "Free",
           "description": "Independent 501(c)(3) (est. 2002 by rule of Maine's Supreme Judicial Court): confidential peer assistance, referral, and support groups for the bench, bar, law students, and applicants.",
@@ -1363,12 +1252,7 @@
               "hoursNote": "Page: 'available by phone 24 hours a day, seven days a week'"
             }
           ],
-          "services": [
-            "counseling",
-            "teletherapy",
-            "mentalHealth",
-            "substanceUse"
-          ],
+          "services": ["counseling", "teletherapy", "mentalHealth", "substanceUse"],
           "confidential": "Confidential; nothing revealed to LCL without written permission (except imminent-danger exceptions)",
           "cost": "Up to 4 free sessions through LCL",
           "description": "LCL's outsourced clinical/EAP counseling partner: confidential face-to-face and 24/7 phone counseling with addiction-specialized clinicians; first four sessions free through LCL.",
@@ -1431,9 +1315,7 @@
           "scope": "national",
           "url": "https://www.americanbar.org/groups/lawyer_assistance/resources/lap_programs_by_state/",
           "phones": [],
-          "services": [
-            "mentalHealth"
-          ],
+          "services": ["mentalHealth"],
           "confidential": "Resolves to the national safety net",
           "cost": "—",
           "description": "No territory-specific lawyer-assistance program located (the CNMI Bar's charitable focus is funding Micronesian Legal Services); resolves to the national safety net (988, SAMHSA, ABA CoLAP).",
@@ -1585,11 +1467,7 @@
               "availability": "unspecified"
             }
           ],
-          "services": [
-            "counseling",
-            "mentalHealth",
-            "familySupport"
-          ],
+          "services": ["counseling", "mentalHealth", "familySupport"],
           "confidential": "Calls and email are confidential",
           "cost": "Cost-free to members of participating bar groups and law schools",
           "description": "Confidential short-term counseling/assessment/referral program of the NC Bar Association, delivered by HRC Behavioral Health (typically a three-session assessment/referral benefit). BarCARES and NC LAP cross-refer.",
@@ -1659,13 +1537,7 @@
               "hoursNote": "Page: '24HRS, 7 DAYS A WEEK'"
             }
           ],
-          "services": [
-            "counseling",
-            "substanceUse",
-            "mentalHealth",
-            "peerSupport",
-            "crisisLine"
-          ],
+          "services": ["counseling", "substanceUse", "mentalHealth", "peerSupport", "crisisLine"],
           "confidential": "Attorney-client-equivalent under Neb. Rule of Prof. Conduct §3-501.6(c)",
           "cost": "Free (funded by Supreme Court through mandatory dues; NSBA voluntary dues not required)",
           "description": "Statewide program (Nebraska Supreme Court) for lawyers, judges, and law students: assessment and referral, formal interventions, a geographically matched peer-support network, and education for substance abuse, stress, depression, and cognitive decline.",
@@ -1783,13 +1655,7 @@
               "availability": "unspecified"
             }
           ],
-          "services": [
-            "counseling",
-            "substanceUse",
-            "mentalHealth",
-            "peerSupport",
-            "crisisLine"
-          ],
+          "services": ["counseling", "substanceUse", "mentalHealth", "peerSupport", "crisisLine"],
           "confidential": "Communications to the program are statutorily privileged",
           "cost": "Free",
           "description": "Free, confidential State Bar program for judges, attorneys, law students, and legal staff: a confidential helpline, substance-use assessments, peer support, and referrals. Formerly the Judges and Lawyers Assistance Program.",
@@ -1811,12 +1677,7 @@
               "availability": "unspecified"
             }
           ],
-          "services": [
-            "counseling",
-            "mentalHealth",
-            "teletherapy",
-            "familySupport"
-          ],
+          "services": ["counseling", "mentalHealth", "teletherapy", "familySupport"],
           "confidential": "Confidential member benefit",
           "cost": "Free (up to four counseling sessions per issue per year; session count corroborated from search)",
           "description": "The State Bar's outsourced EAP, delivered by The Solutions Group (solutionsbiz.com): free confidential counseling for any mental/behavioral-health issue for members and families, part of NM LAP.",
@@ -1832,9 +1693,7 @@
           "scope": "statewide",
           "url": "https://www.sbnm.org/Member-Services/New-Mexico-Lawyer-Assistance-Program/In-This-Together-Fund-Donations",
           "phones": [],
-          "services": [
-            "financialAid"
-          ],
+          "services": ["financialAid"],
           "confidential": "Associated with the confidential NM LAP",
           "cost": "Temporary financial assistance for NM LAP clients requiring treatment (donation-supported)",
           "description": "Donation-supported fund operated by NM LAP providing TEMPORARY financial assistance to NM LAP clients requiring treatment, plus augmentation of program services and client-support events. Eligibility is limited to NM LAP clients (not an open grant). Verified via headless browser.",
@@ -1865,12 +1724,7 @@
               "hoursNote": "No 24/7 stated on the official page"
             }
           ],
-          "services": [
-            "counseling",
-            "substanceUse",
-            "mentalHealth",
-            "monitoring"
-          ],
+          "services": ["counseling", "substanceUse", "mentalHealth", "monitoring"],
           "confidential": "The program is confidential; voluntary self-report or Bar Counsel referral",
           "cost": "Initial physician-led assessment funded by NLAP at no charge",
           "description": "State Bar of Nevada clinical program for attorneys/judges: a physician-led initial assessment (funded by NLAP, no charge), treatment referral to contracted providers, and ongoing monitoring. Verified via an archived snapshot of the official nvbar.org page (no fixed 'five free sessions' or 24/7 claim on the page).",
@@ -1893,12 +1747,7 @@
               "hoursNote": "Leave first name and phone number; a peer calls back — not a live 24/7 line"
             }
           ],
-          "services": [
-            "peerSupport",
-            "substanceUse",
-            "counseling",
-            "mentalHealth"
-          ],
+          "services": ["peerSupport", "substanceUse", "counseling", "mentalHealth"],
           "confidential": "Confidential under Nevada Supreme Court Rule 106.5; not reported outside LCL",
           "cost": "Free (no charge)",
           "description": "Peer-support program (est. mid-1980s) of attorneys in recovery: one-on-one peer help (callback model), statewide closed-door AA meetings, and therapist referrals. Verified via an archived snapshot of the official nvbar.org page.",
@@ -1964,12 +1813,7 @@
               "hoursNote": "24/7"
             }
           ],
-          "services": [
-            "counseling",
-            "substanceUse",
-            "mentalHealth",
-            "peerSupport"
-          ],
+          "services": ["counseling", "substanceUse", "mentalHealth", "peerSupport"],
           "confidential": "Free and confidential (Judiciary Law §499)",
           "cost": "Free",
           "description": "NYC-area program (no bar membership required) for lawyers, judges, law students, and families in the five boroughs and Westchester.",
@@ -2031,12 +1875,7 @@
               "availability": "unspecified"
             }
           ],
-          "services": [
-            "counseling",
-            "teletherapy",
-            "mentalHealth",
-            "substanceUse"
-          ],
+          "services": ["counseling", "teletherapy", "mentalHealth", "substanceUse"],
           "confidential": "Confidential and completely voluntary",
           "cost": "TBA pays up to six one-hour appointments/year; member pays beyond six",
           "description": "Metro member benefit for Toledo Bar Association members: confidential professional counseling via Lighthouse Telehealth for stress, marital problems, substance abuse, and job burnout (up to six one-hour sessions/year, TBA-paid). Verified via the search-index cache of the official page (live page 403'd).",
@@ -2099,9 +1938,7 @@
               "availability": "unspecified"
             }
           ],
-          "services": [
-            "financialAid"
-          ],
+          "services": ["financialAid"],
           "confidential": "Part of the confidential LHL program",
           "cost": "Grants to help pay for treatment or medication",
           "description": "Nonprofit funding trust affiliated with the OBA's LHL program that awards grants for treatment or medication beyond the six free counseling hours.",
@@ -2215,9 +2052,7 @@
           "scope": "national",
           "url": "https://www.americanbar.org/groups/lawyer_assistance/resources/lap_programs_by_state/",
           "phones": [],
-          "services": [
-            "mentalHealth"
-          ],
+          "services": ["mentalHealth"],
           "confidential": "Resolves to the national safety net",
           "cost": "—",
           "description": "No standing territory-specific lawyer-assistance program located; resolves to the national safety net (988, SAMHSA, ABA CoLAP). The Colegio de Abogados y Abogadas de Puerto Rico has emerging wellbeing initiatives (a 2025 wellness event, nascent commissions) but no dedicated program with counseling/hotline services.",
@@ -2412,13 +2247,7 @@
               "hoursNote": "24/7"
             }
           ],
-          "services": [
-            "counseling",
-            "substanceUse",
-            "mentalHealth",
-            "peerSupport",
-            "crisisLine"
-          ],
+          "services": ["counseling", "substanceUse", "mentalHealth", "peerSupport", "crisisLine"],
           "confidential": "Confidential by statute",
           "cost": "Free",
           "description": "State Bar of Texas program: confidential 24/7 support, peer assistance, and referrals for lawyers, judges, and law students.",
@@ -2434,11 +2263,7 @@
           "scope": "statewide",
           "url": "https://www.sheerancrowley.org/get-help",
           "phones": [],
-          "services": [
-            "financialAid",
-            "substanceUse",
-            "mentalHealth"
-          ],
+          "services": ["financialAid", "substanceUse", "mentalHealth"],
           "confidential": "Works with TLAP",
           "cost": "Grants toward treatment for those in need",
           "description": "Nonprofit trust that funds treatment (paid to providers) for Texas legal professionals working with TLAP.",
@@ -2470,11 +2295,7 @@
               "hoursNote": "24/7 not stated"
             }
           ],
-          "services": [
-            "peerSupport",
-            "mentalHealth",
-            "substanceUse"
-          ],
+          "services": ["peerSupport", "mentalHealth", "substanceUse"],
           "confidential": "Under Utah RPC Rule 8.3 — 'what you say to LHL stays with LHL'",
           "cost": "Free",
           "description": "Utah State Bar peer-support committee matching lawyers with one-on-one volunteer peer mentors for professional problems, substance use, mental illness, grief, and trauma. Provides confidential peer support (not treatment or evaluation).",
@@ -2490,11 +2311,7 @@
           "scope": "statewide",
           "url": "https://www.tavahealth.com/",
           "phones": [],
-          "services": [
-            "teletherapy",
-            "counseling",
-            "mentalHealth"
-          ],
+          "services": ["teletherapy", "counseling", "mentalHealth"],
           "confidential": "Free, confidential member benefit",
           "cost": "Free (reported up to 6 sessions annually)",
           "description": "Free, confidential teletherapy benefit sponsored by the Utah State Bar: video sessions with licensed clinicians via Tava's platform for active lawyers, Licensed Paralegal Practitioners, and Paralegal Division members.",
@@ -2571,12 +2388,7 @@
               "hoursNote": "General bar line; the LAP committee has no separately published number"
             }
           ],
-          "services": [
-            "substanceUse",
-            "mentalHealth",
-            "counseling",
-            "peerSupport"
-          ],
+          "services": ["substanceUse", "mentalHealth", "counseling", "peerSupport"],
           "confidential": "Not stated on the committees page",
           "cost": "Not stated (bar-member benefit)",
           "description": "Standing committee of the Virgin Islands Bar Association implementing a program to assist members with substance abuse and addiction; corroborating reports indicate partnerships with local providers (Insight Psychological Services, Island Therapy Solutions) for expedited referrals (partner detail not on the official page).",
@@ -2607,12 +2419,7 @@
               "hoursNote": "Number confirmed via the VBA wellness page; hours/cost not primary-verified"
             }
           ],
-          "services": [
-            "counseling",
-            "substanceUse",
-            "mentalHealth",
-            "peerSupport"
-          ],
+          "services": ["counseling", "substanceUse", "mentalHealth", "peerSupport"],
           "confidential": "Confidential support (per VBA wellness page)",
           "cost": "Not primary-verified",
           "description": "Vermont's dedicated lawyer-assistance program (802-355-4352) for judges, lawyers, and law students, listed on the Vermont Bar Association's attorney-well-being page. NOTE: the former lapvt.org domain is DEFUNCT/parked (do not link it); operator identity, cost, and hours could not be primary-verified.",
@@ -2635,9 +2442,7 @@
               "hoursNote": "Staffed office line; hours not printed"
             }
           ],
-          "services": [
-            "peerSupport"
-          ],
+          "services": ["peerSupport"],
           "confidential": "Confidential guidance/referral",
           "cost": "Free",
           "description": "Vermont Bar Counsel, via the Supreme Court's Professional Responsibility Program, provides attorneys and judges with wellness guidance, referrals, and educational materials (not clinical treatment). Distinct from the clinical VT LAP.",
@@ -2674,12 +2479,7 @@
               "availability": "unspecified"
             }
           ],
-          "services": [
-            "counseling",
-            "substanceUse",
-            "mentalHealth",
-            "peerSupport"
-          ],
+          "services": ["counseling", "substanceUse", "mentalHealth", "peerSupport"],
           "confidential": "All services confidential (references Washington court rule APR 19)",
           "cost": "Free of charge to WSBA members, law students, and those concerned about an attorney",
           "description": "In-house wellness program with WSBA's own licensed clinicians: free confidential consultation/short-term therapy, ~50 attorney peer advisors statewide, substance-use referrals, job-seeker groups, and education. Includes a Judicial Assistance Service Program track for judicial officers.",
@@ -2716,13 +2516,7 @@
               "availability": "unspecified"
             }
           ],
-          "services": [
-            "counseling",
-            "substanceUse",
-            "mentalHealth",
-            "peerSupport",
-            "monitoring"
-          ],
+          "services": ["counseling", "substanceUse", "mentalHealth", "peerSupport", "monitoring"],
           "confidential": "Confidential; callers need not disclose identity; exempt from reporting to the Office of Lawyer Regulation",
           "cost": "Free as a benefit of State Bar membership",
           "description": "State Bar of Wisconsin program on a 'Lawyers Helping Lawyers / Judges Helping Judges' model with 150+ trained volunteers: initial evaluation, referrals, consultation, monitoring, CLE/education, and well-being presentations for lawyers, judges, law students, and legal professionals.",
@@ -2797,12 +2591,7 @@
               "hoursNote": "Not a 24/7 crisis line"
             }
           ],
-          "services": [
-            "peerSupport",
-            "substanceUse",
-            "mentalHealth",
-            "financialAid"
-          ],
+          "services": ["peerSupport", "substanceUse", "mentalHealth", "financialAid"],
           "confidential": "Strictly confidential",
           "cost": "Free intake",
           "description": "Wyoming State Bar program: confidential peer support and referrals; clinical services via a contracted provider (WPAP).",
@@ -2824,12 +2613,7 @@
               "availability": "unspecified"
             }
           ],
-          "services": [
-            "counseling",
-            "substanceUse",
-            "mentalHealth",
-            "monitoring"
-          ],
+          "services": ["counseling", "substanceUse", "mentalHealth", "monitoring"],
           "confidential": "Anonymous, confidential, voluntary",
           "cost": "Free evaluation/consultation",
           "description": "Independent professional-assistance program (serves multiple licensed professions) contracted for WyLAP's clinical evaluation, referral, and monitoring.",

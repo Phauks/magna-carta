@@ -13,8 +13,13 @@
 // required-idempotency route reaches it without a resolved firm. A throw → Hono's default 500
 // (fail-closed: the handler's tenant-scoped work never runs), the regression contract documented in
 // chokepoint.ts.
+import { assertPermission } from "@magna-carta/access-control/registry";
+import type { Permission } from "@magna-carta/access-control/registry";
 import type { IdempotencyContext } from "@magna-carta/data-access/hono-idempotency-middleware";
 import type { FirmId } from "@magna-carta/identifiers/types";
+import type { Context } from "hono";
+import type { Bindings } from "../app.ts";
+import { problemJson, type ProblemResponse } from "../contracts/problem.ts";
 import type { AppVariables, FirmContext } from "./ports.ts";
 import type { SessionContext } from "../session-context.ts";
 
@@ -76,6 +81,40 @@ export function optionalChokepointFirmId(c: AppContext): FirmId | undefined {
 }
 export function optionalChokepointFirmContext(c: AppContext): FirmContext | undefined {
   return c.get("chokepointFirmContext") as FirmContext | undefined;
+}
+
+// The permission set the chokepoint resolved for the route's primary gate (RBAC step 3b), or a throw
+// if absent. Only populated when the route names a non-null permission (routeMeta.permission), which
+// every route reaching for this accessor does (it exists to require a SECOND capability beyond that
+// declared one). Use in place of a raw c.get("permissions").
+export function requireChokepointPermissions(c: AppContext): ReadonlySet<Permission> {
+  const permissions = c.get("permissions") as ReadonlySet<Permission> | undefined;
+  if (permissions === undefined) throw chokepointContextError("permissions");
+  return permissions;
+}
+
+// A DUAL permission gate: asserts the principal ALSO holds `permission`, beyond the route's declared
+// primary one (RouteMeta.permission — enforced by the chokepoint before the handler runs). For a
+// route whose primary gate is a broad capability (e.g. files:upload, the matter-write gate) but whose
+// handler performs an action that additionally requires a narrower tool capability (e.g.
+// tools:fileRepair), call this FIRST in the handler. Returns the identical 403 problem shape the
+// chokepoint's own primary-gate denial returns (chokepoint.ts step 3b) — a caller cannot distinguish
+// which gate refused them — or null when the capability is present.
+export function assertAlsoHasPermission(
+  c: Context<{ Bindings: Bindings; Variables: AppVariables }>,
+  permission: string,
+): ProblemResponse<403> | null {
+  const required = assertPermission(permission);
+  if (!requireChokepointPermissions(c).has(required)) {
+    return problemJson(c, {
+      type: "permission-denied",
+      status: 403,
+      title: "Permission denied",
+      detail: "Your role does not grant this action in this firm.",
+      requestAccess: true,
+    });
+  }
+  return null;
 }
 
 // The idempotency context the chokepoint's idempotency gate stashed on a required-idempotency route,

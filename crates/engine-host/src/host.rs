@@ -2,6 +2,7 @@
 //! (/ready, body cap, serve), an R2 client helper, and a panic-net layer.
 //! No engine logic — engines bring their own routes and state.
 
+#[cfg(feature = "r2")]
 use std::time::Duration;
 
 use axum::extract::DefaultBodyLimit;
@@ -36,7 +37,9 @@ pub async fn serve(router: Router) -> std::io::Result<()> {
 /// A reqwest client for R2 GET/PUT against `R2_BASE_URL`: a bounded connect
 /// timeout turns a wedged host into a prompt error, but no overall request
 /// timeout, so a legitimately large transfer is never cut short. No credentials
-/// and no general egress live in the container.
+/// and no general egress live in the container. Behind the off-by-default `r2`
+/// feature so engines that never touch R2 link no HTTP/TLS stack.
+#[cfg(feature = "r2")]
 pub fn r2_client() -> reqwest::Result<reqwest::Client> {
     reqwest::Client::builder()
         .connect_timeout(Duration::from_secs(10))
@@ -95,6 +98,7 @@ mod tests {
         assert_eq!(status, reqwest::StatusCode::PAYLOAD_TOO_LARGE);
     }
 
+    #[cfg(feature = "r2")]
     #[test]
     fn r2_client_builds() {
         // The helper must produce a client without panicking or erroring.

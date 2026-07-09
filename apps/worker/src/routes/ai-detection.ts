@@ -147,7 +147,9 @@ export function registerAiDetectionRoutes(
 
       const mode = c.env.PANGRAM_MODE === "sync" ? ("sync" as const) : ("async-task" as const);
       const defaultBaseUrl =
-        mode === "sync" ? "https://text.api.pangram.com/v3" : "https://text.external-api.pangram.com";
+        mode === "sync"
+          ? "https://text.api.pangram.com/v3"
+          : "https://text.external-api.pangram.com";
       const port = createPangramAdapter({
         http: fetchHttpClient(),
         apiKey,

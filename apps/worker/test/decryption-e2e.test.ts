@@ -111,7 +111,9 @@ beforeAll(async () => {
     .bind(nopermRoleId, "E2E No Decryption", new Date().toISOString())
     .run();
   await firmDatabase
-    .prepare("INSERT INTO member (user_id, display_name, status, created_at) VALUES (?1, ?2, ?3, ?4)")
+    .prepare(
+      "INSERT INTO member (user_id, display_name, status, created_at) VALUES (?1, ?2, ?3, ?4)",
+    )
     .bind(nopermUserId, "No Decryption Permission", "active", new Date().toISOString())
     .run();
   await firmDatabase

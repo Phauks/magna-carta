@@ -23,7 +23,9 @@ test("mutateAuthored appends an event and stamps updatedAt", async () => {
         authorUserId: "usr_op",
         startedAt: NOW,
         resolvedAt: null,
-        updates: [{ at: NOW, lifecycle: "investigating", body: "Investigating.", authorUserId: "usr_op" }],
+        updates: [
+          { at: NOW, lifecycle: "investigating", body: "Investigating.", authorUserId: "usr_op" },
+        ],
       },
     ],
   }));

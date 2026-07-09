@@ -9,7 +9,9 @@ beforeEach(async () => env.STATUS_KV.delete(STATUS_KV_KEYS.authored));
 test("an override is stored then cleared", async () => {
   await mutateAuthored(env.STATUS_KV, NOW, (c) => ({
     ...c,
-    overrides: [{ componentId: "scan", status: "degraded", note: "slow", setAt: NOW, authorUserId: "usr_op" }],
+    overrides: [
+      { componentId: "scan", status: "degraded", note: "slow", setAt: NOW, authorUserId: "usr_op" },
+    ],
   }));
   expect((await readAuthored(env.STATUS_KV, NOW)).overrides).toHaveLength(1);
   await mutateAuthored(env.STATUS_KV, NOW, (c) => ({

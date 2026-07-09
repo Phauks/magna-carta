@@ -47,8 +47,8 @@ function fakeState(): DurableObjectState {
   let alarmTime: number | null = null;
   let setAlarmCount = 0;
   const storage = {
-    get: async <T,>(key: string): Promise<T | undefined> => values.get(key) as T | undefined,
-    put: async <T,>(key: string, value: T): Promise<void> => void values.set(key, value),
+    get: async <T>(key: string): Promise<T | undefined> => values.get(key) as T | undefined,
+    put: async <T>(key: string, value: T): Promise<void> => void values.set(key, value),
     setAlarm: async (time: number): Promise<void> => {
       alarmTime = time;
       setAlarmCount += 1;

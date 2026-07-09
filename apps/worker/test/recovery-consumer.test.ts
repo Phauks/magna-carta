@@ -103,7 +103,11 @@ describe("recoveryQueue", () => {
         return { found: null, candidatesTried: 0 };
       },
     };
-    await recoveryQueue(batchOf(shardMessage({ shardIndex: 2 })), env as unknown as Bindings, () => backend);
+    await recoveryQueue(
+      batchOf(shardMessage({ shardIndex: 2 })),
+      env as unknown as Bindings,
+      () => backend,
+    );
     expect(dispatched).toBe(0);
     expect(env._acked).toBe(1);
     expect(env._reported).toEqual([]);
@@ -112,15 +116,27 @@ describe("recoveryQueue", () => {
   it("dispatches a live shard and reports the outcome back", async () => {
     const env = fakeEnv({ jobStatus: "running" });
     const backend = { recoverShard: async () => ({ found: null, candidatesTried: 9 }) };
-    await recoveryQueue(batchOf(shardMessage({ shardIndex: 1 })), env as unknown as Bindings, () => backend);
-    expect(env._reported).toEqual([{ shardIndex: 1, outcome: { found: null, candidatesTried: 9 } }]);
+    await recoveryQueue(
+      batchOf(shardMessage({ shardIndex: 1 })),
+      env as unknown as Bindings,
+      () => backend,
+    );
+    expect(env._reported).toEqual([
+      { shardIndex: 1, outcome: { found: null, candidatesTried: 9 } },
+    ]);
     expect(env._acked).toBe(1);
   });
 
   it("reports an honest zero-count miss and acks when the backend is unbound (pre-deploy)", async () => {
     const env = fakeEnv({ jobStatus: "running" });
-    await recoveryQueue(batchOf(shardMessage({ shardIndex: 3 })), env as unknown as Bindings, () => null);
-    expect(env._reported).toEqual([{ shardIndex: 3, outcome: { found: null, candidatesTried: 0 } }]);
+    await recoveryQueue(
+      batchOf(shardMessage({ shardIndex: 3 })),
+      env as unknown as Bindings,
+      () => null,
+    );
+    expect(env._reported).toEqual([
+      { shardIndex: 3, outcome: { found: null, candidatesTried: 0 } },
+    ]);
     expect(env._acked).toBe(1);
   });
 
@@ -131,7 +147,11 @@ describe("recoveryQueue", () => {
         throw new Error("container unreachable");
       },
     };
-    await recoveryQueue(batchOf(shardMessage({ shardIndex: 0 })), env as unknown as Bindings, () => backend);
+    await recoveryQueue(
+      batchOf(shardMessage({ shardIndex: 0 })),
+      env as unknown as Bindings,
+      () => backend,
+    );
     expect(env._reported).toEqual([]);
     expect(env._acked).toBe(0);
     expect(retriedCount).toBe(1);

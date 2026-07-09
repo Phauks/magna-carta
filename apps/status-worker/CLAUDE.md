@@ -6,14 +6,15 @@
 
 ## Key files / entry points
 
-- `src/index.ts` — the entire Worker: `GET /api/status.json` (the machine-readable feed) and `GET /` (a placeholder page — styled HTML is deferred). Both read `STATUS_KV`, parse the two stored snapshots, and call `mergeSnapshot()` from `@magna-carta/status` with `audience: "public"`.
+- `src/index.ts` — the Worker's routes: `GET /api/status.json` (the machine-readable feed), `GET /` (the public status page), and the two immutable same-origin `/assets` routes (the content-hashed stylesheet and the bundled Atkinson woff2 — the page loads nothing from anywhere else). The feed and the page read `STATUS_KV`, parse the two stored snapshots, and call `mergeSnapshot()` from `@magna-carta/status` with `audience: "public"`.
+- `src/render-status-page.ts` — the pure page renderer (snapshot -> HTML string). The page is server-rendered and COMPLETE with zero JavaScript (a meta refresh keeps it current); the inline scripts are progressive enhancement only (countdown, scheme toggle, text-size ladder, the subscribe panel). **Every snapshot-sourced string is HTML-escaped at the sink** — operator and upstream text is untrusted; keep that property for any new interpolation. `src/page-styles.ts` (stylesheet + hashed asset path) and `src/country-dial-codes.ts` (dial codes + the unit-tested phone formatter injected verbatim into the page script) support it.
 - `wrangler.jsonc` — the binding set. Read this file before adding anything to it; see "Invariants" below.
 - `../worker/src/routes/platform-status.ts` — the sibling write side (a different worker, a different app): the cron that populates `status:derived` and the operator-gated endpoints that populate `status:authored`. This worker never writes either key.
 - `../../packages/status/src/` — the shared, pure package both this worker and `apps/worker` import: the snapshot schema, the provider registry/adapter, health derivation, and `mergeSnapshot()`. Any change to merge semantics or the snapshot shape belongs there, not here.
 
 ## Local conventions
 
-- This worker has no routes beyond the two above and takes no request body. If a task asks for a third endpoint here, ask whether it is actually a read (belongs here) or a write (belongs in `apps/worker`) before adding it.
+- This worker serves only the routes above (the feed, the page, and the page's own two assets) and takes no request body. If a task asks for another endpoint here, ask whether it is actually a read that serves this page (belongs here) or a write (belongs in `apps/worker`) before adding it.
 - Every response path returns `200` or a `4xx` for a malformed request path — never a `5xx`. A KV read failure or a parse failure falls back to the static `FALLBACK_HTML` in `src/index.ts`, not a thrown error. Keep new code inside the existing `try`/`catch` shape in `fetch`.
 
 ## Invariants that apply here
@@ -30,4 +31,4 @@
 
 - **This is a separate deployable with its own Workers Build — it is deliberately not part of `build-all`** (`vp run build-all` in the repo root `vite.config.ts` is scoped to `@magna-carta/worker` only, the same posture as `apps/scan-worker`/`apps/bundle-worker`/`apps/convert-worker`). Building or deploying it is its own step; do not assume it rides along with the main app's deploy.
 - `apps/worker` and this worker share exactly one KV namespace and nothing else. If a change here seems to need data that only `apps/worker` has, that is a sign the data belongs in `STATUS_KV` (written by the cron or the operator routes), not a signal to add a binding.
-- The `wrangler.jsonc` `STATUS_KV` id is a placeholder until the namespace exists in the dashboard; the deploy runbook covers filling it in on both this worker and `apps/worker` (they must point at the same namespace).
+- The `wrangler.jsonc` `STATUS_KV` id binds the real `Magna_Carta_Status` namespace and MUST stay identical to the `STATUS_KV` id in `apps/worker/wrangler.jsonc` — both this worker (read side) and `apps/worker` (cron/operator write side) bind the one shared namespace. Changing it in one place without the other silently splits the read and write sides.

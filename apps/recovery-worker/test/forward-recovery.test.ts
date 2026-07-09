@@ -92,7 +92,10 @@ describe("forwardReady", () => {
 describe("routeRequest routing", () => {
   it("returns 404 for unknown routes", async () => {
     const container = fakeContainer(new Response("ok", { status: 200 }));
-    const response = await routeRequest(new Request("http://recovery-worker/unknown"), () => container);
+    const response = await routeRequest(
+      new Request("http://recovery-worker/unknown"),
+      () => container,
+    );
     expect(response.status).toBe(404);
     expect(await response.text()).toBe("Not Found");
   });
@@ -125,7 +128,7 @@ describe("routeRequest routing", () => {
     expect(response.status).toBe(200);
   });
 
-  it("routes /recover-shard to the fallback \"recovery\" instance when X-Recovery-Instance is absent", async () => {
+  it('routes /recover-shard to the fallback "recovery" instance when X-Recovery-Instance is absent', async () => {
     const seen: string[] = [];
     const resolve = (id: string) => {
       seen.push(id);
@@ -152,7 +155,9 @@ describe("routeRequest routing", () => {
     const seen: string[] = [];
     const resolve = (id: string) => {
       seen.push(id);
-      return { fetch: async () => new Response('{"found":null,"candidatesTried":3}', { status: 200 }) };
+      return {
+        fetch: async () => new Response('{"found":null,"candidatesTried":3}', { status: 200 }),
+      };
     };
     const req = new Request("http://recovery/recover-shard", {
       method: "POST",
