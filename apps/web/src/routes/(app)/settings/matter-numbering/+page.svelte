@@ -57,7 +57,7 @@
 <!-- The middle story: the one scroll area, reaching the canvas's true edges (the breathing
      room rides INSIDE it); scrollbar-gutter keeps pages that scroll and pages that do not at
      identical width. Full canvas width (owner-directed): the table uses the space. -->
-<div class="min-h-0 grow overflow-y-auto" style="scrollbar-gutter: stable">
+<div class="mc-scrollbar min-h-0 grow overflow-y-auto" style="scrollbar-gutter: stable">
   <div class="flex flex-col gap-24 p-24">
   <SettingsPlate heading="Scheme">
     <SettingsRow definition={NUMBERING_SCHEME_DEFINITION}>

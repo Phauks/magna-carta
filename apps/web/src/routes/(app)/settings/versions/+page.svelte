@@ -112,7 +112,7 @@
 <!-- The middle story: the one scroll area, reaching the canvas's true edges (the breathing
      room rides INSIDE it); scrollbar-gutter keeps pages that scroll and pages that do not at
      identical width. Full canvas width (owner-directed): the table uses the space. -->
-<div class="min-h-0 grow overflow-y-auto" style="scrollbar-gutter: stable">
+<div class="mc-scrollbar min-h-0 grow overflow-y-auto" style="scrollbar-gutter: stable">
   <div class="flex flex-col gap-24 p-24">
   {#snippet row(component: string, version: string | null, asOf: string | null)}
     <!-- The shared table grid: the (empty) marker gutter, the flexible label, and the value at
