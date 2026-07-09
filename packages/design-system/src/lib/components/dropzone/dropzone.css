@@ -1,0 +1,51 @@
+@layer components {
+  /*
+   * Dropzone (Tier 1). A dashed drop surface wrapped around the FileInput control. Calm at rest (a
+   * sunken panel, muted text, a dashed hairline); on drag-over it lifts to the accent register so the
+   * target reads clearly. Only colour transitions — never layout — so the surface never reflows as a
+   * pointer crosses it. The inner FileInput carries its own recipe; this styles the surrounding zone.
+   * Width is a utility on the element (w-full), not the recipe.
+   */
+  .mc-dropzone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--mc-space-12);
+    padding-block: var(--mc-space-24);
+    padding-inline: var(--mc-space-24);
+    border-style: dashed;
+    border-width: var(--mc-border-width-default);
+    border-color: var(--mc-border-default);
+    border-radius: var(--mc-radius-lg);
+    background-color: var(--mc-surface-sunken);
+    color: var(--mc-text-muted);
+    text-align: center;
+    transition-property: border-color, background-color, color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+  }
+  /* Drag-over — lift to the accent register so the drop target is unmistakable. */
+  .mc-dropzone[data-dragover="true"] {
+    border-color: var(--mc-accent-default);
+    background-color: var(--mc-accent-subtle);
+    color: var(--mc-accent-subtle-foreground);
+  }
+  /* Disabled — muted, and drops are ignored in the component. */
+  .mc-dropzone[data-disabled="true"] {
+    background-color: var(--mc-action-disabled);
+    color: var(--mc-action-disabled-foreground);
+    border-color: var(--mc-border-default);
+  }
+  .mc-dropzone-icon {
+    inline-size: var(--mc-space-32);
+    block-size: var(--mc-space-32);
+  }
+  .mc-dropzone-prompt {
+    margin-block: var(--mc-space-0);
+    margin-inline: var(--mc-space-0);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    line-height: var(--mc-leading-normal);
+  }
+}

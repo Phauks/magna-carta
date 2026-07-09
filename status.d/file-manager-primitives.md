@@ -1,5 +1,5 @@
 ---
-slice: File-manager UI primitives (FileIcon · Breadcrumb)
+slice: File-manager UI primitives (FileIcon · Breadcrumb · ContextMenu · Tree · Dropzone)
 group: cross-cutting
 order: 22
 research: n/a
@@ -18,4 +18,4 @@ adrs:
 blocked-by:
 ---
 
-`@magna-carta/design-system/file-icon` + `/breadcrumb` — file-type iconography (content-type/extension → Lucide glyph, folder variant, recipe-sized) and folder-path navigation (nav landmark, `aria-current` leaf, middle-collapse behind an ellipsis). Token-pure recipes; behaviour tests wrapped in named `step()` calls.
+`@magna-carta/design-system/file-icon` + `/breadcrumb` — file-type iconography (content-type/extension → Lucide glyph, folder variant, recipe-sized) and folder-path navigation (nav landmark, `aria-current` leaf, middle-collapse behind an ellipsis). `/context-menu` — the right-click sibling of DropdownMenu over the Bits UI ContextMenu primitive (same part shape, floating presence, and recipe look). `/tree` — a folder tree with the full WAI-ARIA tree view keyboard model (roving tabindex, arrows to expand/collapse/descend/ascend, Home/End, typeahead), built without a Bits primitive because bits-ui 2.18.1 ships none; expansion is a bindable controlled set. `/dropzone` — the drag-and-drop upload surface over the FileInput primitive (drag-over state, drop forwarded to the consumer, keyboard/SR-operable through the underlying input, rejects nothing). Token-pure recipes; behaviour tests wrapped in named `step()` calls, including explicit Tree keyboard coverage and Dropzone drag/drop.

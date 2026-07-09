@@ -25,6 +25,7 @@
     "./dialog": "./src/lib/components/dialog/index.ts",
     "./form": "./src/lib/components/form/index.ts",
     "./dropdown-menu": "./src/lib/components/dropdown-menu/index.ts",
+    "./dropzone": "./src/lib/components/dropzone/index.ts",
     "./file-icon": "./src/lib/components/file-icon/index.ts",
     "./file-input": "./src/lib/components/file-input/index.ts",
     "./input": "./src/lib/components/input/index.ts",

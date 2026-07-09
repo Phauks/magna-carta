@@ -14,6 +14,7 @@
 @import "../components/input/input.css";
 @import "../components/textarea/textarea.css";
 @import "../components/file-input/file-input.css";
+@import "../components/dropzone/dropzone.css";
 @import "../components/badge/badge.css";
 @import "../components/file-icon/file-icon.css";
 @import "../components/brand-mark/brand-mark.css";
