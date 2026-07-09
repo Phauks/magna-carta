@@ -76,7 +76,7 @@
   -->
   <nav
     aria-label="Settings sections"
-    class="flex h-full shrink-0 flex-col gap-32 overflow-y-auto p-24"
+    class="mc-scrollbar flex h-full shrink-0 flex-col gap-32 overflow-y-auto p-24"
     style="inline-size: calc(var(--mc-size-popover) + var(--mc-space-48))"
   >
     {#each bands as band (band.id)}

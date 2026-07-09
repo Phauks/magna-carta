@@ -37,7 +37,7 @@
   </Popover.Trigger>
   <Popover.Content
     align="end"
-    class="flex flex-col gap-12 overflow-y-auto"
+    class="mc-scrollbar flex flex-col gap-12 overflow-y-auto"
     style="inline-size: var(--mc-size-prose); max-block-size: var(--bits-popover-content-available-height)"
   >
     <div class="flex items-baseline justify-between gap-8">

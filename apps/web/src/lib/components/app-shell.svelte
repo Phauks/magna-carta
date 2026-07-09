@@ -504,7 +504,7 @@
            reserves the vertical scrollbar's track, so a short (no-scroll) page and a long
            (scrolling) page frame their content at the exact same width — no reflow on navigation. -->
       <main
-        class="grow overflow-x-hidden overflow-y-auto rounded-ss-lg bg-surface-default p-24 [scrollbar-gutter:stable]"
+        class="mc-scrollbar grow overflow-x-hidden overflow-y-auto rounded-ss-lg bg-surface-default p-24 [scrollbar-gutter:stable]"
       >
         {@render children()}
       </main>
