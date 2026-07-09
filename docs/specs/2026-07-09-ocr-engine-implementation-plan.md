@@ -545,9 +545,11 @@ mod tests {
     /// test self-contained: no font file, no fixture image, no network.
     pub(super) fn render_word(word: &str) -> RgbImage {
         use image::Rgb;
-        // 5x7 glyphs for the letters used by the tests, row-major, 1 = ink.
+        // 5x7 glyphs for the letters used by the tests, row-major, 1 = ink. Every glyph must
+        // occupy the full five columns: a narrower one leaves blank columns inside its cell,
+        // and the recognizer reads that gap as a word break.
         const GLYPHS: &[(char, [u8; 7])] = &[
-            ('I', [0b111, 0b010, 0b010, 0b010, 0b010, 0b010, 0b111]),
+            ('I', [0b11111, 0b00100, 0b00100, 0b00100, 0b00100, 0b00100, 0b11111]),
             ('N', [0b10001, 0b11001, 0b10101, 0b10011, 0b10001, 0b10001, 0b10001]),
             ('V', [0b10001, 0b10001, 0b10001, 0b10001, 0b01010, 0b01010, 0b00100]),
             ('O', [0b01110, 0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b01110]),
