@@ -24,5 +24,23 @@
   // a binary module, served same-origin from /assets — the page depends on nothing but this
   // worker and KV (no font CDN, no external asset).
   "rules": [{ "type": "Data", "globs": ["**/*.woff2"], "fallthrough": true }],
+  // An edge cache in front of this worker's entrypoint. Safe HERE and nowhere else in this repo:
+  // every response this worker serves is byte-identical for every reader — there is no session, no
+  // cookie, no per-firm content, and no `Authorization` header in play — so the cache key (entrypoint
+  // + path + query + worker version) fully determines the body. Contrast apps/worker, where the firm
+  // comes from a session cookie that is NOT part of that key: caching its default entrypoint would
+  // serve one firm's /api/v1 reply to the next firm asking for the same path, which is why a fitness
+  // guard there rejects this very key. Reasoning: docs/conventions/security.md (response cache-control).
+  //
+  // The payoff is the incident: a status page takes its traffic spike exactly when its dependencies
+  // are least healthy, and on a hit the edge answers without invoking this worker or reading
+  // STATUS_KV. That strengthens the fate-isolation this worker exists for rather than weakening it,
+  // and it adds no binding.
+  //
+  // Every response either opts in with an explicit max-age or opts out with no-store (src/index.ts):
+  // a response with NO Cache-Control is cached anyway, under heuristic freshness. Deliberately no
+  // cross_version_cache: the worker version stays in the cache key, so a deploy starts cold and can
+  // never serve a page rendered by superseded code.
+  "cache": { "enabled": true },
   "observability": { "enabled": true, "head_sampling_rate": 1 },
 }

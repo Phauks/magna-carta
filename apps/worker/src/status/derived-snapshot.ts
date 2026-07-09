@@ -1,12 +1,17 @@
 // The cron-owned status:derived snapshot: probes the cheap, always-warm core primitives (never
 // boots a container just to check it — see COMPONENT_REGISTRY's core-probe/engine split), polls
 // the upstream provider feeds, derives every component's status, and writes the result to
-// STATUS_KV. The read path (the merge with status:authored) lives at
-// @magna-carta/status — this module is the one writer of status:derived.
+// STATUS_KV. It also appends this run's observation to the cron-owned status:history document (the
+// 90-day uptime record). The read path (the merge with status:authored) lives at
+// @magna-carta/status — this module is the one writer of status:derived and status:history.
 import {
+  appendSample,
   type DerivedSnapshot,
   deriveComponents,
+  effectiveComponentStatuses,
   emptyDerived,
+  parseAuthored,
+  parseHistory,
   pollProviders,
   type ProbeOutcome,
   SCHEMA_VERSION,
@@ -65,5 +70,28 @@ export async function buildAndStoreDerivedSnapshot(
   // case write the explicit empty doc rather than a snapshot claiming zero known components.
   const safe = components.length > 0 ? snapshot : emptyDerived(now);
   await env.STATUS_KV.put(STATUS_KV_KEYS.derived, JSON.stringify(safe));
+  await appendHistorySample(env, safe, now);
   return safe;
+}
+
+// One sample per component per run, recorded against the status a reader would SEE — the probe,
+// raised by any operator override or any active event naming that component (effectiveComponentStatuses).
+// Recording the bare probe result instead would paint an operator-declared outage green on the very
+// bar meant to remember it.
+//
+// A run that writes nothing (the empty-registry guard above) records nothing: a missing sample is a
+// no-data tick, which is the honest rendering of a run that never observed anything.
+async function appendHistorySample(
+  env: Bindings,
+  derived: DerivedSnapshot,
+  now: string,
+): Promise<void> {
+  if (derived.components.length === 0) return;
+  const [authoredText, historyText] = await Promise.all([
+    env.STATUS_KV.get(STATUS_KV_KEYS.authored),
+    env.STATUS_KV.get(STATUS_KV_KEYS.history),
+  ]);
+  const statuses = effectiveComponentStatuses(derived, parseAuthored(authoredText, now));
+  const appended = appendSample(parseHistory(historyText, now), statuses, now);
+  await env.STATUS_KV.put(STATUS_KV_KEYS.history, JSON.stringify(appended));
 }

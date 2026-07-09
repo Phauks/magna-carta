@@ -11,6 +11,7 @@
     "./provider-registry": "./src/provider-registry.ts",
     "./statuspage-adapter": "./src/statuspage-adapter.ts",
     "./derive": "./src/derive.ts",
+    "./history": "./src/history.ts",
     "./merge": "./src/merge.ts",
     ".": "./src/index.ts"
   },
