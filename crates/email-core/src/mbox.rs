@@ -1,11 +1,11 @@
 //! The mbox lane. An mbox is not a message — it is a `From_`-delimited concatenation
 //! of RFC 5322 messages, so this is a framing iterator over the `.eml` lane, not a parser.
 //!
-//! `mail_parser::mailbox::mbox::MessageIterator` was checked first (golden rule: reuse
-//! before building) and set aside: it takes `T: std::io::BufRead`, which would drag I/O
-//! into this I/O-free crate, and it also rewrites escaped `>From ` lines in place while
-//! reading, which this lane leaves verbatim in the member bytes it hands to the `.eml`
-//! lane. Framing here stays a byte-range scan over `&[u8]`.
+//! An upstream reader exists at `mail_parser::mailbox::mbox::MessageIterator`, but it
+//! takes `T: std::io::BufRead`, which would drag I/O into this I/O-free crate, and it
+//! also rewrites escaped `>From ` lines in place while reading, whereas this lane
+//! leaves member bytes verbatim for the `.eml` lane to parse. So framing here stays a
+//! byte-range scan over `&[u8]` instead.
 
 use crate::eml::from_mail_parser_message;
 use crate::model::{ParsedMessage, SourceFormat};
