@@ -12,17 +12,39 @@ pub fn parse_eml(bytes: &[u8]) -> Result<ParsedMessage, EmailError> {
         .parse(bytes)
         .ok_or(EmailError::Malformed)?;
 
-    // `parse` is best-effort and returns `Some` for almost any input, including
-    // bytes with no RFC 5322 structure at all (no header colon, no CRLF) — it folds
-    // the whole input into one bogus header rather than failing. When that recovery
-    // path is taken on the root part, `is_encoding_problem` is the flag mail-parser
-    // itself sets to record it, so it doubles as the "this was not a message" signal
-    // `Option` alone no longer carries.
-    if message.root_part().is_encoding_problem {
+    // `parse` is lenient by design: when it cannot find any real header, it folds
+    // whatever bytes it read into a single fallback header rather than failing, so
+    // `Option` alone cannot separate "not a message" from "a message with an
+    // imperfect body". The same leniency is exactly what we want to keep, because it
+    // is also what lets the parser recover headers, addresses, and the DKIM
+    // signature from a body that fails to transfer-decode cleanly (a stray byte in
+    // base64, a literal `==` in quoted-printable text) — and for evidence, those
+    // headers are the point, so a body-decode fault must never discard them.
+    //
+    // What genuinely marks "not a message" is the fallback header itself: it is
+    // built from whatever raw bytes were read before the parser gave up, with no
+    // regard for whether they are printable. A real RFC 5322 field name is one or
+    // more printable US-ASCII characters other than colon; junk input yields a name
+    // that fails that test — non-ASCII bytes, control bytes, or both. So a message
+    // is only rejected here when none of its headers carry a legitimate field name.
+    if !message
+        .headers()
+        .iter()
+        .any(|header| is_legitimate_field_name(header.name()))
+    {
         return Err(EmailError::Malformed);
     }
 
     Ok(from_mail_parser_message(&message, SourceFormat::Eml))
+}
+
+/// A field name recoverable mail actually carries: one or more printable
+/// US-ASCII characters, none of them the colon that terminates the name.
+fn is_legitimate_field_name(name: &str) -> bool {
+    !name.is_empty()
+        && name
+            .bytes()
+            .all(|byte| byte.is_ascii_graphic() && byte != b':')
 }
 
 /// Shared by the `.eml` lane and each mbox member.
@@ -194,6 +216,34 @@ mod tests {
     #[test]
     fn rejects_bytes_that_are_not_a_message() {
         assert!(parse_eml(&[0xFF, 0xFE, 0x00]).is_err());
+    }
+
+    #[test]
+    fn an_encoding_fault_in_the_body_does_not_discard_the_message() {
+        // A single-part message with real, well-formed headers, but a
+        // quoted-printable body containing a literal "====" — not a valid escape,
+        // so the transfer decoder gives up partway through the body. The headers
+        // are fully parsed before the decoder ever runs, and must survive.
+        let raw = concat!(
+            "Message-ID: <fault@example.test>\r\n",
+            "From: Alice Attorney <alice@example.test>\r\n",
+            "To: Bob Client <bob@example.test>\r\n",
+            "Subject: Retainer\r\n",
+            "DKIM-Signature: v=1; a=rsa-sha256; d=example.test; s=sel; b=AAAA\r\n",
+            "Content-Type: text/plain; charset=utf-8\r\n",
+            "Content-Transfer-Encoding: quoted-printable\r\n",
+            "\r\n",
+            "Retainer terms follow.\r\n",
+            "====\r\n",
+            "The remainder of the body.\r\n",
+        )
+        .as_bytes();
+
+        let message = parse_eml(raw).expect("a body encoding fault must not discard the message");
+
+        assert_eq!(message.subject.as_deref(), Some("Retainer"));
+        assert_eq!(message.integrity.dkim_signatures.len(), 1);
+        assert!(message.integrity.dkim_signatures[0].contains("d=example.test"));
     }
 
     #[test]
