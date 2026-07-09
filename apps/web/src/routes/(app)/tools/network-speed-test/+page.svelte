@@ -210,7 +210,9 @@
       </a>
     </InfoPopover>
   </h2>
-  <QualityScores scores={results?.getScores()} />
+  <!-- The engine rescores on every sample, so a rating shown mid-run climbs and falls before the
+       measurements it weighs even exist. A verdict is worth showing only once it is final. -->
+  <QualityScores scores={store.phase === "finished" ? results?.getScores() : undefined} />
 </section>
 
 <section class="mb-24">
