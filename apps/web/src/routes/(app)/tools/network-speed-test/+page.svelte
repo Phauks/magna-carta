@@ -13,6 +13,8 @@
   import { onDestroy } from "svelte";
   import Button from "@magna-carta/design-system/button";
   import * as Masthead from "@magna-carta/design-system/masthead";
+  import BandwidthChart from "$lib/tools/speed-test/bandwidth-chart.svelte";
+  import LatencyChart from "$lib/tools/speed-test/latency-chart.svelte";
   import MetricTile from "$lib/tools/speed-test/metric-tile.svelte";
   import QualityScores from "$lib/tools/speed-test/quality-scores.svelte";
   import ServerPanel from "$lib/tools/speed-test/server-panel.svelte";
@@ -113,4 +115,38 @@
     Your connection
   </h2>
   <ServerPanel meta={store.meta} probe={store.probe} />
+</section>
+
+<section class="mb-24">
+  <h2
+    class="mb-16 border-b border-border-strong pb-8 text-xs text-text-muted uppercase"
+    style="letter-spacing: var(--mc-tracking-caps)"
+  >
+    Latency measurements
+  </h2>
+  <div class="grid grid-cols-1 gap-16 lg:grid-cols-3">
+    <LatencyChart title="Idle" points={results?.getUnloadedLatencyPoints() ?? []} />
+    <LatencyChart title="During download" points={results?.getDownLoadedLatencyPoints() ?? []} />
+    <LatencyChart title="During upload" points={results?.getUpLoadedLatencyPoints() ?? []} />
+  </div>
+</section>
+
+<section class="mb-24">
+  <h2
+    class="mb-16 border-b border-border-strong pb-8 text-xs text-text-muted uppercase"
+    style="letter-spacing: var(--mc-tracking-caps)"
+  >
+    Download measurements
+  </h2>
+  <BandwidthChart title="Download" points={results?.getDownloadBandwidthPoints() ?? []} />
+</section>
+
+<section class="mb-24">
+  <h2
+    class="mb-16 border-b border-border-strong pb-8 text-xs text-text-muted uppercase"
+    style="letter-spacing: var(--mc-tracking-caps)"
+  >
+    Upload measurements
+  </h2>
+  <BandwidthChart title="Upload" points={results?.getUploadBandwidthPoints() ?? []} />
 </section>
