@@ -91,13 +91,17 @@ function mountedApp(
   chokepoint: ReturnType<typeof createChokepoint>,
   meta: RouteMeta,
   trace: Trace,
-  options: { method?: "get" | "post"; path?: string } = {},
+  options: {
+    method?: "get" | "post";
+    path?: string;
+    handler?: (c: Context) => Response | Promise<Response>;
+  } = {},
 ): Hono {
   const app = new Hono();
   const path = options.path ?? "/api/v1/members";
   const handler = (c: Context) => {
     trace.steps.push("handler");
-    return c.json({ ok: true }, 200);
+    return options.handler !== undefined ? options.handler(c) : c.json({ ok: true }, 200);
   };
   const middleware = chokepoint.forRoute(meta) as MiddlewareHandler;
   if ((options.method ?? "post") === "get") {
@@ -544,5 +548,65 @@ describe("createChokepoint — real in-memory limiter integration", () => {
       lastStatus = (await app.request("/api/v1/members", { method: "POST" })).status;
     }
     expect(lastStatus).toBe(429);
+  });
+});
+
+describe("createChokepoint — default cache-control (tenant isolation)", () => {
+  it("stamps private, no-store on a handler reply that declares no policy", async () => {
+    const { chokepoint, trace } = buildChokepoint();
+    const app = mountedApp(chokepoint, authedMeta, trace);
+    const response = await app.request("/api/v1/members", { method: "POST" });
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Cache-Control")).toBe("private, no-store");
+  });
+
+  it("stamps every gate short-circuit — a 401/404/403/429 must not be cacheable either", async () => {
+    const unauthenticated = buildChokepoint({ session: null });
+    const absentFirm = buildChokepoint({ firmContext: null });
+    const denied = buildChokepoint({ permissions: new Set<Permission>() });
+    const limited = buildChokepoint({ rateLimitAllowed: false });
+
+    for (const [expectedStatus, built] of [
+      [401, unauthenticated],
+      [404, absentFirm],
+      [403, denied],
+      [429, limited],
+    ] as const) {
+      const app = mountedApp(built.chokepoint, authedMeta, built.trace);
+      const response = await app.request("/api/v1/members", { method: "POST" });
+      expect(response.status).toBe(expectedStatus);
+      expect(response.headers.get("Cache-Control")).toBe("private, no-store");
+    }
+  });
+
+  it("leaves an explicit policy alone — a route that reasoned about cacheability opts out", async () => {
+    const { chokepoint, trace } = buildChokepoint();
+    const app = mountedApp(chokepoint, authedMeta, trace, {
+      handler: (c) => c.json({ ok: true }, 200, { "Cache-Control": "public, max-age=60" }),
+    });
+    const response = await app.request("/api/v1/members", { method: "POST" });
+    expect(response.headers.get("Cache-Control")).toBe("public, max-age=60");
+  });
+
+  it("stamps an idempotency-gate short-circuit reply", async () => {
+    const trace: Trace = { steps: [] };
+    const ports: ChokepointPorts<FakeFirmContext> = {
+      resolveSession: async () => ({ userId: USER_ONE, firmId: FIRM_ALPHA }),
+      resolveFirmContext: async () => ({ firmId: FIRM_ALPHA }),
+      loadPermissions: async () => new Set<Permission>([MANAGE_MEMBERS]),
+      // A required-idempotency route whose gate short-circuits (the missing-key 400 shape): it
+      // returns a Response without ever calling its next(), so the reply never passes through the
+      // handler path — the stamp has to cover this exit too.
+      idempotency: {
+        middlewareFor: () => async (c) => c.json({ replay: true }, 400),
+      },
+      rateLimiter: { check: () => ({ allowed: true }) },
+    };
+    const chokepoint = createChokepoint(ports);
+    const meta: RouteMeta = { ...authedMeta, idempotency: "required" };
+    const app = mountedApp(chokepoint, meta, trace);
+    const response = await app.request("/api/v1/members", { method: "POST" });
+    expect(response.status).toBe(400);
+    expect(response.headers.get("Cache-Control")).toBe("private, no-store");
   });
 });

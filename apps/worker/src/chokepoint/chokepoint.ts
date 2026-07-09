@@ -15,6 +15,9 @@
 //                                      middleware — see the seam below)
 //   5. rate-limit                     (over the bucket → 429 + Retry-After), keyed TENANT-SCOPED
 //   6. handler
+//   7. cache-control                  (every reply without an explicit policy → `private, no-store`;
+//                                      an edge cache keys on path, not on the session cookie that
+//                                      carries the firm — see cache-control.ts)
 //
 // A request failing an earlier gate NEVER touches a later port (fail-closed, short-circuit at the
 // first failure). The chokepoint is a factory over injected ports so it is testable with fakes
@@ -26,6 +29,7 @@ import type { Permission } from "@magna-carta/access-control/registry";
 import type { FirmId, UserId } from "@magna-carta/identifiers/types";
 import { problemJson } from "../contracts/problem.ts";
 import { routeMetaOf, type ResolvedRouteMeta, type RouteMeta } from "../contracts/route-meta.ts";
+import { applyDefaultCacheControl } from "./cache-control.ts";
 import type { RateLimiter } from "./rate-limiter.ts";
 
 // What resolveSession yields: the authenticated principal and the firm it is scoped to (from the
@@ -147,7 +151,7 @@ export function createChokepoint<FirmContext>(ports: ChokepointPorts<FirmContext
       );
     }
 
-    return async (c, next) => {
+    const enforce: MiddlewareHandler = async (c, next) => {
       const isPublicSurface = meta.surface === "public";
 
       // Steps 1–3 — session, authn, RBAC — apply ONLY to non-public surfaces. A public route
@@ -276,6 +280,20 @@ export function createChokepoint<FirmContext>(ports: ChokepointPorts<FirmContext
         return await idempotencyMiddleware(c, idempotencyTail);
       }
       return await idempotencyTail();
+    };
+
+    // Step 7: stamp the default cache-control on whatever reply leaves the chokepoint — the
+    // handler's, a gate's short-circuit (401/403/404/429), or an idempotency replay. A gate returns
+    // its Response (Hono's short-circuit signal); every other path publishes through c.res, which
+    // Hono has already assigned by the time next() resolves. Both are covered here so no reply can
+    // escape uncovered, whichever way the chokepoint exited. A handler that set its own
+    // Cache-Control keeps it (cache-control.ts).
+    return async (c, next) => {
+      const shortCircuitResponse = await enforce(c, next);
+      applyDefaultCacheControl(
+        shortCircuitResponse instanceof Response ? shortCircuitResponse : c.res,
+      );
+      return shortCircuitResponse;
     };
   }
 
