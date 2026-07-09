@@ -11,9 +11,13 @@ crate-type = ["cdylib", "rlib"]
 # Empty default features upstream; full_encoding buys the 41-charset decoder set
 # (including the legacy encodings real correspondence still arrives in).
 mail-parser = { version = "0.11.5", default-features = false, features = ["full_encoding"] }
-# Reads .msg (CFB/OLE2 + MAPI property streams). Owns its own CFB layer, so this
-# crate takes no direct `cfb` dependency.
-msg_parser = "0.3.6"
+# The CFB/OLE2 container layer behind .msg. Pure Rust, and defensive against
+# untrusted input: open()/walk()/stream reads propagate every structural fault as
+# an io::Error rather than panicking, bounds-check every persisted index against
+# the real input, detect FAT/directory cycles, and cap the stream read buffer — so
+# no crafted .msg can abort the isolate (which has no unwinding). The MAPI property
+# streams inside the container are decoded above this crate, bounded ourselves.
+cfb = "0.14"
 engine_host = { path = "../engine-host", package = "magna-carta-engine-host" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]

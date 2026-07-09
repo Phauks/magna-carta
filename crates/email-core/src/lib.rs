@@ -8,6 +8,7 @@ pub mod eml;
 pub mod error;
 pub mod mbox;
 pub mod model;
+pub mod msg;
 
 pub use eml::parse_eml;
 pub use error::{EmailError, EMAIL_ERROR_CODES};
