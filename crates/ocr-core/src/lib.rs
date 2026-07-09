@@ -12,12 +12,22 @@ pub use facts::{PageFacts, Provenance, Quad, RecognizedPage, SkipReason, TextLin
 
 /// Engine failures. `code` is a stable, content-free label safe to log and to put
 /// on the wire — it never carries a fragment of the document.
+///
+/// `DocumentUnreadable` and `DocumentRejected` are the caller's problem: the document
+/// itself is permanently bad, and retrying with the same bytes will not help. Every
+/// other variant is ours — a transient or environmental fault worth retrying.
 #[derive(Debug)]
 pub enum OcrError {
     ModelDictionaryMissing,
     ModelDictionaryUnreadable,
     ModelLoadFailed,
     InferenceFailed,
+    /// The document could not be parsed, or its declared text layer could not be
+    /// read back to check for existing text. Not retryable with the same bytes.
+    DocumentUnreadable,
+    /// The document was refused by the decompression-bomb guard before parsing.
+    /// Not retryable with the same bytes.
+    DocumentRejected,
 }
 
 impl OcrError {
@@ -27,6 +37,8 @@ impl OcrError {
             Self::ModelDictionaryUnreadable => "model-dictionary-unreadable",
             Self::ModelLoadFailed => "model-load-failed",
             Self::InferenceFailed => "inference-failed",
+            Self::DocumentUnreadable => "document-unreadable",
+            Self::DocumentRejected => "document-rejected",
         }
     }
 }

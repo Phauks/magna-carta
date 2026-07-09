@@ -2,7 +2,7 @@
 //! type the worker validates. Every string label is a `&'static str` literal: no
 //! document content ever reaches the wire except the recognized text itself.
 
-use ocr_core::{PageFacts, Provenance, Quad, TextLine};
+use ocr_core::{PageFacts, Provenance, Quad, SkipReason, TextLine};
 use serde::Serialize;
 
 #[derive(Serialize)]
@@ -54,13 +54,22 @@ pub struct PageDto {
     pub orientation_degrees: Option<f32>,
 }
 
+/// The wire label for a skip reason. A `match` (rather than a constant label applied
+/// to any `Some`) means a future `SkipReason` variant fails to compile here instead of
+/// silently inheriting the wrong label.
+fn skip_reason_label(reason: SkipReason) -> &'static str {
+    match reason {
+        SkipReason::AlreadyHasTextLayer => "already-has-text-layer",
+    }
+}
+
 impl From<PageFacts> for PageDto {
     fn from(facts: PageFacts) -> Self {
         Self {
             page_index: facts.page_index,
             lines: facts.lines.into_iter().map(TextLineDto::from).collect(),
             undecoded_regions: facts.undecoded_regions,
-            skipped: facts.skipped.map(|_| "already-has-text-layer"),
+            skipped: facts.skipped.map(skip_reason_label),
             orientation_degrees: facts.orientation_degrees,
         }
     }
