@@ -56,6 +56,9 @@ Retention is measured in **hours**: the session plus a short grace. The surface 
 until when, and offers a Discard that deletes now. Enforced by **both** a lifecycle rule on the scratch
 prefix and a cron reaper — belt and braces, because see the defect below.
 
+**The hours rule holds only because nothing here waits days. One capability would break it — and it does
+not belong in the workbench.** See "Decryption splits in two", below.
+
 ## Capabilities are not peers
 
 Flattening every tool into an equal verb in a row is the one thing that would do real harm here.
@@ -65,10 +68,41 @@ Flattening every tool into an equal verb in a row is the one thing that would do
 | Cheap, in-house, reversible | Type, Hash, **Malware Scan**, Metadata inspect | Run automatically on arrival |
 | In-house, produces a new artifact | Convert, Repair, Metadata scrub | One click; result is a new object, the original is untouched |
 | **Discloses content outside the firm** | AI Text (sends text to Pangram, billed per document) | **Explicit consent, per file. Never in bulk.** |
-| **Spends real compute, needs a secret** | Unlock (password, GPU) | **Explicit consent, per file. Never in bulk.** |
+| **Decrypt with a known password** | Unlock | **Explicit consent, per file.** Fast — reads the scratch object, produces a decrypted result within the session. |
+| **Recover an unknown password** | Password recovery | **Not a workbench capability — it hands off.** See below. |
 
 Consent for AI Text and Unlock is required. The disclosure sits at the point of action, not in a
 preference read once.
+
+## Decryption splits in two
+
+The backend already draws this line, and the first draft of this spec wrongly flattened it into one
+"Unlock" tab. There are two distinct operations, and only one fits a workbench:
+
+- **Decrypt with a known password.** The user has the password. The result is produced in milliseconds.
+  This is a workbench capability: it reads the scratch object, decrypts, done. Fine within the hours-long
+  session.
+- **Recover an unknown password.** A crack. `decryption.recover` mints a job, fans the search across the
+  `RecoveryJobCoordinator` Durable Object, and the client polls; it runs on a GPU-cost tier ladder and
+  **can take days.** This cannot live in the workbench: the workbench holds bytes for hours and reaps
+  them, but a multi-day job would either force the scratch object to persist past its lifetime — breaking
+  the ephemeral rule — or outlive its own input.
+
+The backend already resolved exactly this tension: `decryption.recover` **takes the extracted hashcat hash,
+not the file bytes**, and identifies the target by digest so it never retains content. The workbench does
+the same. "Recover the password" is therefore **not a tab that runs inside the workbench** — it is a
+**handoff**: extract the hash from the scratch object, start the recovery job, and route the user to a
+dedicated recovery screen. The workbench never waits on it, and the scratch object is reaped on the normal
+hours schedule while the job — carrying only the digest — continues on its own.
+
+### The dedicated recovery screen (its own surface, later)
+
+A recovery job needs a home a workbench file cannot be: it is addressed by `jobId`, survives reload, shows
+the tier ladder, progress, cost, and teardown, and drives the poll loop. Because a recovery job is a
+durable, auditable thing (`decryption.recover_started` writes a chain-of-custody row — who started it,
+against which file by digest, never the password), **it is exactly the entrypoint that legitimately has a
+history**, unlike an ad-hoc inspection. This screen is out of scope for the first workbench build; the
+handoff seam is what the workbench provides, and it launches into a surface the recovery tool already owns.
 
 ### Malware scan gates everything else
 
