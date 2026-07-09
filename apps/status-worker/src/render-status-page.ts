@@ -9,12 +9,15 @@
 // everything a reader needs has a working static fallback. Every snapshot-sourced string is
 // operator- or upstream-authored and is HTML-escaped here.
 import type {
+  ComponentHistory,
   ComponentStatus,
   EventImpact,
   PublishedSnapshot,
   Provider,
   ProviderStatus,
+  UpstreamAdvisory,
 } from "@magna-carta/status";
+import { historyDayKeys } from "@magna-carta/status";
 import {
   COUNTRY_DIAL_CODES,
   examplePlaceholderFor,
@@ -365,18 +368,54 @@ ${renderEventUpdates(event)}
 </article>`;
 }
 
-function renderComponentRow(component: PublishedComponent): string {
+// The uptime figure. A ratio short of a perfect record can never round up to "100%" — a page that
+// rounds away its only outage is worse than one that shows no number at all. Percentages carry two
+// decimals, the genre convention, so a single 10-minute sample in ninety days stays visible.
+function formatUptime(uptimeRatio: number | null): string | null {
+  if (uptimeRatio === null) return null;
+  if (uptimeRatio >= 1) return "100% uptime";
+  const percent = Math.min(uptimeRatio * 100, 99.99);
+  return `${percent.toFixed(2)}% uptime`;
+}
+
+// One tick per day in the window, oldest first, colored by the worst status observed that day; a day
+// with no samples is a no-data tick, never a green one. The bar is a single labelled image to
+// assistive technology — ninety announced ticks would be unusable — and each tick carries a title
+// for the sighted reader's hover.
+function renderUptimeBar(
+  component: PublishedComponent,
+  history: ComponentHistory | undefined,
+  dayKeys: readonly string[],
+): string {
+  if (history === undefined || history.ticks.length === 0) return "";
+  const uptime = formatUptime(history.uptimeRatio);
+  const summary = uptime === null ? "no uptime data yet" : uptime;
+  const ticks = history.ticks
+    .map((status, index) => {
+      const hue = status === null ? "nodata" : STATUS_PRESENTATION[status].hue;
+      const label = status === null ? "No data" : STATUS_PRESENTATION[status].label;
+      const day = dayKeys[index];
+      const title = day === undefined ? label : `${formatUtcDate(day)} — ${label}`;
+      return `<span class="tick t-${hue}" title="${escapeHtml(title)}" aria-hidden="true"></span>`;
+    })
+    .join("");
+  return `
+<div class="bar" role="img" aria-label="${escapeHtml(`${component.name}: ${summary} over the last ${history.ticks.length} days`)}">${ticks}</div>
+<div class="bar-axis"><span>${history.ticks.length} days ago</span><span class="uptime num">${escapeHtml(uptime ?? "No data")}</span><span>Today</span></div>`;
+}
+
+function renderComponentRow(
+  component: PublishedComponent,
+  history: ComponentHistory | undefined,
+  dayKeys: readonly string[],
+): string {
   const presentation = STATUS_PRESENTATION[component.status];
   const note =
     component.note === undefined || component.note === ""
       ? ""
       : `\n<div class="note">${escapeHtml(component.note)}</div>`;
-  // Uptime-bar seam: a 90-day per-component history bar renders here once a history store
-  // exists (the cron appending a per-day worst-status record to STATUS_KV). The snapshot
-  // carries no history today, and fabricating ticks would be exactly the false greenness this
-  // page exists to avoid — so the slot stays empty until the data is real.
   return `<div class="row ${presentation.hue}-row">
-<div class="line"><span class="dot" aria-hidden="true"></span><span class="name">${escapeHtml(component.name)}</span><span class="st">${escapeHtml(presentation.label)}</span></div>${note}
+<div class="line"><span class="dot" aria-hidden="true"></span><span class="name">${escapeHtml(component.name)}</span><span class="st">${escapeHtml(presentation.label)}</span></div>${note}${renderUptimeBar(component, history, dayKeys)}
 </div>`;
 }
 
@@ -395,7 +434,7 @@ const COLOR_KEY_HTML = `<span class="legend" role="note" aria-label="Color key">
 <span><span class="dot" style="background: var(--nodata-fg)"></span>No data</span>
 </span>`;
 
-function renderComponentGroups(snapshot: PublishedSnapshot): string {
+function renderComponentGroups(snapshot: PublishedSnapshot, dayKeys: readonly string[]): string {
   if (snapshot.components.length === 0) {
     return `<div class="group-head"><span class="caps">Services</span>${COLOR_KEY_HTML}</div>
 <p class="empty-note">No component data has been published yet.</p>`;
@@ -413,7 +452,11 @@ function renderComponentGroups(snapshot: PublishedSnapshot): string {
   return groupOrder
     .map((group, index) => {
       const heading = GROUP_HEADINGS[group] ?? group;
-      const rows = (grouped.get(group) ?? []).map(renderComponentRow).join("\n");
+      const rows = (grouped.get(group) ?? [])
+        .map((component) =>
+          renderComponentRow(component, snapshot.history.components[component.id], dayKeys),
+        )
+        .join("\n");
       return `<div class="group-head"><span class="caps">${escapeHtml(heading)}</span>${index === 0 ? COLOR_KEY_HTML : ""}</div>
 <div class="grid">
 ${rows}
@@ -433,6 +476,49 @@ function providerStatusPageUrl(upstreamUrl: string): string | null {
   }
 }
 
+// What a provider is reporting, as a phrase that completes "X is reporting ___". The status LABELS
+// ("Degraded", "Partial outage") are column headings, not sentence fragments — dropping one into
+// prose reads as a stutter. Only the statuses that can raise an advisory appear: an operational
+// provider raises nothing, and an unreachable feed is uncertainty about them, not a report by them.
+const ADVISORY_PHRASE: Partial<Record<ProviderStatus, string>> = {
+  degraded: "degraded performance",
+  partial_outage: "a partial outage",
+  major_outage: "a major outage",
+  maintenance: "scheduled maintenance",
+};
+
+// The upstream advisory: a provider in trouble is context, never a verdict about this platform. It
+// gets its own surface in neutral ink — deliberately outside the warn/danger family the verdict band
+// owns, so a Cloudflare incident can never be mistaken for a Magna Carta one — carrying the
+// provider's own severity dot and a link to the status page that is actually authoritative for it.
+function renderUpstreamAdvisory(advisory: UpstreamAdvisory | null): string {
+  if (advisory === null) return "";
+  const clauses = advisory.providers.map((provider: Provider) => {
+    const statusPage = providerStatusPageUrl(provider.upstreamUrl);
+    const name =
+      statusPage === null
+        ? escapeHtml(provider.name)
+        : `<a href="${escapeHtml(statusPage)}">${escapeHtml(provider.name)}</a>`;
+    const phrase = ADVISORY_PHRASE[provider.status] ?? "a problem";
+    return `${name} is reporting ${escapeHtml(phrase)}`;
+  });
+  // "A is reporting X" / "A is reporting X and B is reporting Y" / "…, B …, and C …"
+  const sentence =
+    clauses.length === 1
+      ? (clauses[0] as string)
+      : clauses.length === 2
+        ? clauses.join(" and ")
+        : `${clauses.slice(0, -1).join(", ")}, and ${clauses[clauses.length - 1]}`;
+  const plural = advisory.providers.length > 1;
+  return `<section class="advisory" role="note" aria-label="Upstream provider advisory">
+<span class="dot ${STATUS_PRESENTATION[advisory.worst].hue}-dot" aria-hidden="true"></span>
+<div>
+<div class="advisory-head caps">Upstream advisory</div>
+<p>${sentence} on ${plural ? "their own status pages" : "its own status page"}. This is ${plural ? "their" : "the provider&#39;s"} status, not ours &mdash; our own services report separately below, and you may still see slowness while ${plural ? "they recover" : "it recovers"}.</p>
+</div>
+</section>`;
+}
+
 function renderProviders(snapshot: PublishedSnapshot): string {
   if (snapshot.providers.length === 0) return "";
   const rows = snapshot.providers
@@ -450,14 +536,33 @@ function renderProviders(snapshot: PublishedSnapshot): string {
 <div class="providers">
 ${rows}
 </div>
-<p class="prov-note">&quot;Status unavailable&quot; means the provider&#39;s own status feed could not be reached; it never counts against this platform.</p>`;
+<p class="prov-note">These are the platforms this service is built on, reporting their own status. A provider&#39;s status never sets the verdict above &mdash; only our own checks do. &quot;Status unavailable&quot; means the provider&#39;s own status feed could not be reached.</p>`;
 }
 
-function renderHistory(snapshot: PublishedSnapshot, resolvedEvents: PublishedEvent[]): string {
+// The archive covers the same window as the uptime bars, so the two tell one story. Only days that
+// had an event are listed; the remainder is accounted for in a single line rather than in dozens of
+// empty rows. The count comes from the days actually covered, never from a blanket "89" — a page
+// three weeks old must not claim ninety quiet days it never observed.
+function renderHistory(
+  snapshot: PublishedSnapshot,
+  resolvedEvents: PublishedEvent[],
+  dayKeys: readonly string[],
+): string {
+  const windowDays = snapshot.history.windowDays;
+  const inWindow = new Set(dayKeys);
+  const windowed = resolvedEvents.filter((event) =>
+    inWindow.has((event.resolvedAt ?? event.startedAt).slice(0, 10)),
+  );
+  const eventDays = new Set(windowed.map((event) => event.startedAt.slice(0, 10)));
+  const quietDays = Math.max(windowDays - eventDays.size, 0);
+  const quietLine =
+    windowed.length === 0
+      ? `<div class="day"><div class="none">No service events recorded in the last ${windowDays} days.</div></div>`
+      : `<p class="quiet-note">No incidents reported on the other ${quietDays} ${quietDays === 1 ? "day" : "days"}.</p>`;
   const entries =
-    resolvedEvents.length === 0
-      ? `<div class="day"><div class="none">No past service events recorded.</div></div>`
-      : resolvedEvents
+    windowed.length === 0
+      ? ""
+      : windowed
           .map(
             (event) => `<div class="day">
 <div class="d num">${formatUtcDate(event.startedAt)}</div>
@@ -474,8 +579,9 @@ ${renderEventUpdates(event)}
           )
           .join("\n");
   return `<h2 class="section">Past service events</h2>
-<p class="section-sub">Updates newest first &middot; times UTC</p>
-${entries}`;
+<p class="section-sub">Last ${windowDays} days &middot; newest first &middot; times UTC</p>
+${entries}
+${quietLine}`;
 }
 
 // No footer: the owner removed the closing paragraph outright; the footer region develops
@@ -799,6 +905,11 @@ export function renderStatusPage(
     .filter((event) => event.lifecycle === "resolved")
     .sort((a, b) => (b.resolvedAt ?? b.startedAt).localeCompare(a.resolvedAt ?? a.startedAt));
 
+  // The tick dates. The window ends at the render moment when one is supplied, and otherwise at the
+  // snapshot's own generatedAt, so the bars stay aligned with the data they describe rather than
+  // with a clock the snapshot never saw.
+  const dayKeys = historyDayKeys(options.now ?? snapshot.generatedAt, snapshot.history.windowDays);
+
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -814,10 +925,11 @@ ${renderTopBar(activeEvents[0] ?? null)}
 <main class="col">
 ${renderVerdictBand(snapshot, options.now)}
 ${renderStaleStrip(snapshot, options.now)}
+${renderUpstreamAdvisory(snapshot.upstreamAdvisory)}
 ${activeEvents.map((event) => renderActiveEvent(snapshot, event)).join("\n")}
-${renderComponentGroups(snapshot)}
+${renderComponentGroups(snapshot, dayKeys)}
 ${renderProviders(snapshot)}
-${renderHistory(snapshot, resolvedEvents)}
+${renderHistory(snapshot, resolvedEvents, dayKeys)}
 </main>
 ${ENHANCEMENT_SCRIPT}
 </body>
