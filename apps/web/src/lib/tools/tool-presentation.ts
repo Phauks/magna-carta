@@ -59,8 +59,8 @@ export const TOOL_PRESENTATION: Record<string, ToolPresentation> = {
   },
   shipping: { description: "Rate and buy postage for a mailing.", stage: "soon" },
   "network-speed-test": {
-    description: "Measure this connection's speed to the platform.",
-    stage: "soon",
+    description: "Measure this connection's download, upload, latency, and quality.",
+    stage: "beta",
   },
   "firm-usage": { description: "See the firm's storage and platform consumption.", stage: "soon" },
   "whois-lookup": { description: "Look up who registered a domain, and when.", stage: "soon" },
