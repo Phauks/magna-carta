@@ -1,0 +1,108 @@
+@layer components {
+  /*
+   * Breadcrumb (Tier 1). A calm horizontal path: muted links, a chevron separator, and a stronger
+   * current-page leaf. The list never wraps — a deep path collapses its middle behind the ellipsis
+   * (the component), and an over-long intermediate label truncates with an ellipsis so the leaf keeps
+   * its space. The leaf (`mc-breadcrumb-page`) never shrinks or truncates: the current folder must
+   * always be readable. Identity stays at the edges, so the trail is quiet on the work surface.
+   */
+  .mc-breadcrumb-list {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: var(--mc-space-8);
+    margin-block: var(--mc-space-0);
+    margin-inline: var(--mc-space-0);
+    padding-block: var(--mc-space-0);
+    padding-inline: var(--mc-space-0);
+    list-style: none;
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    line-height: var(--mc-leading-normal);
+  }
+  .mc-breadcrumb-item {
+    display: flex;
+    align-items: center;
+    min-inline-size: var(--mc-space-0);
+  }
+
+  /* Navigable segments — muted, underline-on-hover, a flush focus ring (the house focus shape). */
+  .mc-breadcrumb-link,
+  .mc-breadcrumb-text {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-inline-size: var(--mc-space-0);
+    color: var(--mc-text-muted);
+  }
+  .mc-breadcrumb-link {
+    border-radius: var(--mc-radius-sm);
+    text-decoration-line: none;
+    cursor: pointer;
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-space-0);
+  }
+  .mc-breadcrumb-link:hover {
+    color: var(--mc-text-default);
+    text-decoration-line: underline;
+  }
+  .mc-breadcrumb-link:focus-visible {
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+  }
+
+  /* The current folder — stronger, and never shrunk or truncated (it must stay readable). */
+  .mc-breadcrumb-page {
+    flex: none;
+    white-space: nowrap;
+    color: var(--mc-text-default);
+    font-weight: var(--mc-weight-medium);
+  }
+
+  .mc-breadcrumb-separator {
+    display: inline-flex;
+    align-items: center;
+    flex: none;
+    color: var(--mc-text-subtle);
+  }
+  .mc-breadcrumb-separator-icon {
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+  }
+
+  /* The overflow affordance — a quiet ellipsis button that reveals the collapsed middle in place. */
+  .mc-breadcrumb-ellipsis {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    inline-size: var(--mc-space-24);
+    block-size: var(--mc-space-20);
+    padding-block: var(--mc-space-0);
+    padding-inline: var(--mc-space-0);
+    color: var(--mc-text-muted);
+    background-color: transparent;
+    border-style: none;
+    border-radius: var(--mc-radius-sm);
+    cursor: pointer;
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-space-0);
+  }
+  .mc-breadcrumb-ellipsis:hover {
+    color: var(--mc-text-default);
+    background-color: var(--mc-surface-sunken);
+  }
+  .mc-breadcrumb-ellipsis:focus-visible {
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+  }
+  .mc-breadcrumb-ellipsis-icon {
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+  }
+}
