@@ -4031,6 +4031,120 @@ git commit -m "fix(tools): one sentence for a measurement not taken"
 
 ---
 
+### Task 18: No em dash where there is no measurement
+
+Owner: remove the em dash from the null-data states.
+
+Today an unmeasured number renders `—`. It was chosen so absence could never be misread as zero. That job is now done in prose — Task 17 gave the page one sentence for "Not measured yet." — and the dash is left saying nothing twice.
+
+**Two things the dash was quietly doing. Both must survive its removal.**
+
+1. **It held the line's height.** An empty `<span>` has no height, so deleting the character collapses the value line, the tile shrinks, and the page moves again — undoing Task 9. The value element must keep its line box.
+2. **It stopped an absent value reading as zero.** Nothing may replace it with `0`, `0 Mbps`, or `0 ms`. Absent stays absent; it simply stays *silent*.
+
+**Files:**
+- Modify: `apps/web/src/lib/tools/speed-test/speed-test-format.ts`
+- Modify: `apps/web/src/lib/tools/speed-test/metric-tile.svelte`
+- Modify: `apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte` (the `statRows` placeholders)
+- Modify: `apps/web/src/lib/tools/speed-test/quality-scores.svelte` (the placeholder rating)
+- Test: `apps/web/test/speed-test-format.test.ts`
+
+**Depends on Task 17** (the `NOT_MEASURED_YET` constant). Do it after.
+
+- [ ] **Step 1: Change the failing test first**
+
+In `apps/web/test/speed-test-format.test.ts`, every assertion that expects `"—"` now expects `""`. Rewrite them and add the guard that matters:
+
+```ts
+describe("an absent measurement", () => {
+  it("renders as nothing, not as an em dash", () => {
+    expect(formatBandwidth(undefined)).toBe("");
+    expect(formatMilliseconds(undefined)).toBe("");
+    expect(formatRatio(undefined)).toBe("");
+  });
+
+  it("never renders as zero", () => {
+    expect(formatBandwidth(undefined)).not.toMatch(/0/);
+    expect(formatMilliseconds(undefined)).not.toMatch(/0/);
+    expect(formatRatio(undefined)).not.toMatch(/0/);
+  });
+
+  it("still distinguishes a measured zero from an absent one", () => {
+    expect(formatRatio(0)).toBe("0%");
+    expect(formatRatio(undefined)).toBe("");
+  });
+});
+```
+
+That last case is the whole point: a packet-loss reading of exactly zero is a real, good measurement and must keep saying `0%`.
+
+- [ ] **Step 2: Run it to verify it fails**
+
+Run: `vp test speed-test-format`
+Expected: FAIL — the formatters still return `"—"`.
+
+- [ ] **Step 3: Retire the dash**
+
+In `speed-test-format.ts`, replace the `ABSENT` constant's value with the empty string and explain why the constant survives at all:
+
+```ts
+/*
+ * An unmeasured value renders as nothing. It once rendered as an em dash, to keep absence from being
+ * read as zero; the page now says "Not measured yet." in prose where it matters, so the dash was
+ * saying nothing twice. The constant remains because every formatter must agree on what silence is —
+ * and because nothing may ever replace it with a zero.
+ */
+const ABSENT = "";
+```
+
+Every formatter keeps returning `ABSENT` for an absent input. Change no other behaviour.
+
+- [ ] **Step 4: Run it to verify it passes**
+
+Run: `vp test speed-test-format`
+Expected: PASS.
+
+- [ ] **Step 5: Keep the line boxes**
+
+An empty string collapses its line. In `metric-tile.svelte`, the value element must retain its height whether or not it has content. Render a non-breaking space when the value is empty:
+
+```svelte
+<!-- The value's line box must survive an empty value, or the tile shrinks when nothing has been
+     measured and the page moves. The space is doing structural work, not decorative work. -->
+<div class="mt-4 {size === 'large' ? 'text-3xl' : 'text-2xl'}">{value === "" ? " " : value}</div>
+```
+
+Use whatever text-size classes the tile already uses — do not change its type scale. Apply the same treatment to the `stats` row values.
+
+Then update the placeholders that hardcode the dash:
+- `statRows`'s null branch returns `""` for each of Median, 95th, Peak, Samples, and Transferred — not `"—"`.
+- `quality-scores.svelte`'s placeholder rating renders `""` (with its line box preserved the same way) rather than `—`. Its `NOT_MEASURED_YET` line stays and now carries the whole meaning.
+
+- [ ] **Step 6: Prove nothing collapsed**
+
+Run: `pnpm --filter @magna-carta/web run check`
+Expected: 0 errors, 0 warnings.
+
+Run: `vp test speed-test-format run-progress bandwidth-stats chart-scale measurement-ladder turn-capability`
+Expected: PASS.
+
+Then grep for stragglers — no em dash may remain as a data placeholder:
+
+```bash
+grep -rn "—" apps/web/src/lib/tools/speed-test "apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte"
+```
+
+Hits are permitted only in prose and comments, never as a rendered value. Report every hit and why it is allowed.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add apps/web/src/lib/tools/speed-test apps/web/test/speed-test-format.test.ts "apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte"
+git commit -m "fix(tools): an unmeasured value says nothing, not an em dash"
+```
+
+---
+
 ### Task 6: Documentation (definition of done)
 
 No feature is done until its docs, roadmap, and changelog fragment land. Branches never hand-edit `CHANGELOG.md` or `STATUS.md` — they commit fragments.
