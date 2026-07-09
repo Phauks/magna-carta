@@ -3096,6 +3096,108 @@ git commit -m "fix(tools): the speed-test page holds its shape from load to resu
 
 ---
 
+### Task 10: A run you can pause, resume, abandon, or start over
+
+The controls today are one button per phase: Start, then Pause, then Resume, then Retest. A run that has begun can be paused but never abandoned, and a paused run can only be continued, never started over. Owner asked for both.
+
+The control set, by phase:
+
+| Phase                | Controls                                     |
+| -------------------- | -------------------------------------------- |
+| `idle`               | **Start**                                     |
+| `running`            | **Pause** · **Cancel**                        |
+| `paused`             | **Resume** · **Restart**                      |
+| `finished` / `failed`| **Retest**                                    |
+
+**Cancel abandons the run and returns the page to `idle`** — results, probe, capability, step, phase label, bytes used, and the finished-at time are all cleared, and the engine is disposed so the next Start re-checks whether relay credentials can be had. It is not "pause and hide"; a cancelled run leaves nothing behind. This is the ethereal principle: nothing is persisted, and an abandoned measurement is not a measurement.
+
+**Restart** (from `paused`) starts the ladder from the beginning: the engine's own `restart()`, with the same clearing `start()` does.
+
+**Files:**
+- Modify: `apps/web/src/lib/tools/speed-test/speed-test-engine.svelte.ts`
+- Modify: `apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte`
+
+**Interfaces:**
+- The store gains `cancel(): void`.
+
+- [ ] **Step 1: Add `cancel()` to the store**
+
+`cancel()` must leave the store exactly as a freshly created one, except that `meta` (the measurement server, loaded once at creation and independent of any run) is kept — re-fetching it would blank the server panel for no reason.
+
+```ts
+/*
+ * Abandon the run. The engine is disposed rather than paused, so the next Start re-probes whether
+ * relay credentials can be had and rebuilds the ladder from that answer. Every trace of the run
+ * goes with it — an abandoned measurement is not a measurement, and nothing here is persisted.
+ * `meta` survives: it describes the measurement server, not the run.
+ */
+function cancel(): void {
+  engine?.pause();
+  engine = null;
+  results = null;
+  error = null;
+  probe = null;
+  turn = null;
+  stepIndex = null;
+  currentPhase = null;
+  finishedAt = null;
+  phase = "idle";
+}
+```
+
+Export it beside `start` / `pause` / `resume` / `restart` / `dispose`.
+
+Note `dispose()` (called on navigate-away) already pauses the engine; leave it as it is. `cancel()` is the user-facing abandon, `dispose()` the lifecycle one.
+
+- [ ] **Step 2: Render the four control sets**
+
+In the page's `Masthead.Actions`:
+
+```svelte
+{#if store.phase === "idle"}
+  <Button variant="primary" onclick={() => store.start()}>Start</Button>
+{:else if store.phase === "running"}
+  <!-- the progress region from Task 8 sits here, then the controls -->
+  <Button variant="secondary" onclick={() => store.pause()}>Pause</Button>
+  <Button variant="ghost" onclick={() => store.cancel()}>Cancel</Button>
+{:else if store.phase === "paused"}
+  <Button variant="primary" onclick={() => store.resume()}>Resume</Button>
+  <Button variant="secondary" onclick={() => store.restart()}>Restart</Button>
+{:else}
+  <Button variant="primary" onclick={() => store.restart()}>Retest</Button>
+{/if}
+```
+
+Confirm `ghost` and `secondary` are real `ButtonVariant` members (they are: `primary | accent | secondary | destructive | ghost`). Cancel is **not** `destructive` — that register is reserved for actions that lose real work, and a speed test stores nothing.
+
+- [ ] **Step 3: Prove the state machine by hand**
+
+Run the app and confirm each transition:
+
+1. Start → the run begins; **Pause** and **Cancel** are both present.
+2. Pause → **Resume** and **Restart** appear; the transfer stops (the browser network panel goes quiet).
+3. Resume → the run continues from where it stopped, not from the beginning.
+4. Restart from paused → the run begins again at step 1 of the ladder.
+5. Cancel mid-run → the page returns to its `idle` appearance: Start alone, every metric an em dash, no timestamp, no scores. The server panel keeps its facts.
+6. Cancel, then Start → the run works, and the packet-loss capability is checked again.
+
+- [ ] **Step 4: Verify the gates**
+
+Run: `pnpm --filter @magna-carta/web run check`
+Expected: 0 errors, 0 warnings.
+
+Run: `vp test run-progress bandwidth-stats speed-test-format chart-scale measurement-ladder turn-capability`
+Expected: PASS.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add apps/web/src/lib/tools/speed-test "apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte"
+git commit -m "feat(tools): pause, cancel, resume, and restart a run"
+```
+
+---
+
 ### Task 6: Documentation (definition of done)
 
 No feature is done until its docs, roadmap, and changelog fragment land. Branches never hand-edit `CHANGELOG.md` or `STATUS.md` — they commit fragments.
