@@ -15,7 +15,7 @@ erasure certificate (an append-only `audit_log` row + the same record returned i
 report. Both subject axes (entity + user). Tested.
 
 **Not in scope:** UI (deferred to the general erasure UX); automated sub-processor erase calls (the
-residue *lists* sub-processors for the controller to instruct); content-level PII discovery in free
+residue _lists_ sub-processors for the controller to instruct); content-level PII discovery in free
 text (surfaced in the residue, never auto-edited); a first-class `legal_hold` construct (retention-by-
 default via `retain-under-matter` is the boundary, unchanged from the prior design); control-plane
 account deletion (a member's core identity lives in Better Auth `user`, handled by account
@@ -79,25 +79,25 @@ between the read and the write is still caught by the keyed write).
   (`name_prefix`, `name_given`, `name_middle`, `name_family`, `name_suffix`, `display_name`; org:
   `legal_name`, `display_name`), set `deleted_at = now`. **Keep** `id`, `status`, `merged_into_id`,
   `member_id`, timestamps as a tombstone so referential integrity holds (`matter_party`, `entity_merge`,
-  and matter links still resolve the id). The node's *child* PII tables (`directory_name` / `_email` /
+  and matter links still resolve the id). The node's _child_ PII tables (`directory_name` / `_email` /
   `_phone` / `_address` / `_identifier` / phonetic code / categories / edges) are hard-deleted, so no
   personal data survives on the node or its children.
 - **Pseudonymize-keep** in append-only rows — two cases, to avoid a foreign-key hazard:
   - **User-axis actor columns** (`audit_log.actor_user_id`, `incident.reported_by`,
     `ai_detection_usage.requested_by`): the value is a control-plane `UserId` stored as plain text (no
-    per-firm FK), and the member's control-plane account is *not* anonymized here — so replace it with a
+    per-firm FK), and the member's control-plane account is _not_ anonymized here — so replace it with a
     reserved **sentinel `UserId`** constant (e.g. `ERASED_USER`), breaking the link while keeping the
     append-only row.
   - **Entity-axis references** (`entity_merge.subordinate_id`, `audit_log.subject_id` when it holds an
     entity id): the entity's Directory node is anonymized to a tombstone whose `id` persists, so these
-    references already resolve to a scrubbed, PII-free node — the tombstone *is* the pseudonymization.
+    references already resolve to a scrubbed, PII-free node — the tombstone _is_ the pseudonymization.
     No sentinel write (which could violate a FK to a now-nonexistent row); the certificate records the
     entry as pseudonymize-keep-via-tombstone. The plan enumerates exactly which columns take the
     sentinel vs. rely on the tombstone.
 
 ## 4. Certificate + residue
 
-- **Certificate:** one `audit_log` row written *inside* the erasure batch —
+- **Certificate:** one `audit_log` row written _inside_ the erasure batch —
   `event: "directory.subject_erased"`, `actor_user_id` = the initiating admin, `subject_id` = the erased
   subject, `metadata` (redacted JSON) = `{ subject, erasedAt, perTable: [{ table, action, rowCount, reason? }], residue: […] }`.
   The route returns the same object inline.
@@ -106,7 +106,7 @@ between the read and the write is still caught by the keyed write).
   (what was kept and why, Art. 17(3)), the control-plane account note (user axis), and the
   sub-processor-instruction list. The controller (firm) acts on the residue; the platform surfaces it.
 - **Closes a Track A follow-up:** add `audit_log.subject_id` to the pseudonymize-keep set, so erasing
-  subject X also pseudonymizes prior audit rows *about* X (today the registry handles only
+  subject X also pseudonymizes prior audit rows _about_ X (today the registry handles only
   `actor_user_id`).
 
 ## 5. Both axes & the boundaries
@@ -114,7 +114,7 @@ between the read and the write is still caught by the keyed write).
 - **Entity axis** — the primary DSAR case (clients, contacts, opposing parties, witnesses, vendors):
   the full cascade over the Directory tables, with `matter_party` / `cost_entry` / `file` retained under
   matter and `custom_field_value` anonymized.
-- **User axis** — a firm member's *per-firm activity* references only (`time_entry` retained under
+- **User axis** — a firm member's _per-firm activity_ references only (`time_entry` retained under
   matter; `incident` / `ai_detection_usage` / `audit_log` actor refs pseudonymized). **Hard boundary:**
   the member's core account identity is control-plane (Better Auth `user`) and is **not** touched here —
   that is account deactivation, a separate control-plane operation, and it is stated in the residue.

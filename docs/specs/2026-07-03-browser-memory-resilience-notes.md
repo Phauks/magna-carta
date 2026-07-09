@@ -1,10 +1,10 @@
 # Browser memory (OOM) resilience — pickup notes
 
 **Status:** notes only, no code changes. Written 2026-07-03.
-**Scope:** the *client* SPA falling over on big data — not Worker/Container OOM (that's a separate surface with its own guards, e.g. the PDF decompression-bomb guard and `runIngest`'s single-read tee).
+**Scope:** the _client_ SPA falling over on big data — not Worker/Container OOM (that's a separate surface with its own guards, e.g. the PDF decompression-bomb guard and `runIngest`'s single-read tee).
 
 Audit-then-act was the intent. The audit result flipped the plan: the expensive-to-retrofit
-foundations are **already built and enforced**, so what remains is small and better landed *with*
+foundations are **already built and enforced**, so what remains is small and better landed _with_
 its first consumer than as empty seams now. This note records the verified state so nobody
 re-audits, and lists the remaining work with the trigger that should pull it in.
 
@@ -20,13 +20,13 @@ re-audits, and lists the remaining work with the trigger that should pull it in.
 
 The "prevent by construction" layer is mostly done, and guarded as invariants rather than convention:
 
-| Foundation | Where | Note |
-| --- | --- | --- |
-| Keyset/cursor pagination | `packages/data-access/src/cursor-pagination.ts`; contract in `apps/worker/src/contracts/pagination.ts` | Uniform opaque-cursor envelope, `DEFAULT_PAGE_SIZE = 50`, `LIMIT pageSize + 1` has-more probe. Lists are paged, not unbounded. |
-| Streaming ingest / upload | `packages/file-manager/src/ingest-core.ts` | `runIngest` tees one stream (head→magic-byte sniff, full→`DigestStream`+scan); *"a multi-GB object never buffers."* Bytes bypass the Worker (direct-to-R2 presigned), so the browser streams a `File` body — never `readAsArrayBuffer`. |
-| Streaming download / export | `packages/file-manager/src/zip-composition.ts` + `BundleBuildCoordinator` DO | Bulk ZIP streams R2→`client-zip`→R2 multipart; over `liveMaxFileCount`/`liveMaxTotalBytes` it hands off to a background build and returns 202. |
-| Virtualization primitive | `packages/design-system/src/lib/internal/virtual-list.svelte` | Windowed list over `virtua`; already wired into Combobox. |
-| Bounded bulk selection | `packages/file-manager` (`zip-composition.ts`, `upload-policy.ts`) | Selection→entries resolved server-side; live thresholds cap inline vs. background. |
+| Foundation                  | Where                                                                                                  | Note                                                                                                                                                                                                                                    |
+| --------------------------- | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Keyset/cursor pagination    | `packages/data-access/src/cursor-pagination.ts`; contract in `apps/worker/src/contracts/pagination.ts` | Uniform opaque-cursor envelope, `DEFAULT_PAGE_SIZE = 50`, `LIMIT pageSize + 1` has-more probe. Lists are paged, not unbounded.                                                                                                          |
+| Streaming ingest / upload   | `packages/file-manager/src/ingest-core.ts`                                                             | `runIngest` tees one stream (head→magic-byte sniff, full→`DigestStream`+scan); _"a multi-GB object never buffers."_ Bytes bypass the Worker (direct-to-R2 presigned), so the browser streams a `File` body — never `readAsArrayBuffer`. |
+| Streaming download / export | `packages/file-manager/src/zip-composition.ts` + `BundleBuildCoordinator` DO                           | Bulk ZIP streams R2→`client-zip`→R2 multipart; over `liveMaxFileCount`/`liveMaxTotalBytes` it hands off to a background build and returns 202.                                                                                          |
+| Virtualization primitive    | `packages/design-system/src/lib/internal/virtual-list.svelte`                                          | Windowed list over `virtua`; already wired into Combobox.                                                                                                                                                                               |
+| Bounded bulk selection      | `packages/file-manager` (`zip-composition.ts`, `upload-policy.ts`)                                     | Selection→entries resolved server-side; live thresholds cap inline vs. background.                                                                                                                                                      |
 
 ## Genuine gaps + when to build them
 
@@ -41,7 +41,7 @@ The "prevent by construction" layer is mostly done, and guarded as invariants ra
    `performance.measureUserAgentSpecificMemory()` reading, no memory-pressure event in
    `packages/telemetry`.
    **Do NOT build now** (empty seam, no producer/consumer — cuts against YAGNI / "build when in the
-   area"). **Trigger:** lands *with* the first heavy surface (paged PDF viewer or first big grid).
+   area"). **Trigger:** lands _with_ the first heavy surface (paged PDF viewer or first big grid).
    Two design decisions to make then:
    - A per-device-tier memory budget helper (`deviceMemory` low → smaller PDF-preview ceiling, etc.).
    - A memory-pressure telemetry event through the standard error pipeline (golden rule 4;
@@ -63,11 +63,11 @@ The "prevent by construction" layer is mostly done, and guarded as invariants ra
 
 Architectural, not additive — flag for dedicated attention when the doc-discovery/search core moves in-browser:
 
-- **WASM / doc-discovery-core memory model** — run it in a *terminable* Web Worker, fresh worker per
+- **WASM / doc-discovery-core memory model** — run it in a _terminable_ Web Worker, fresh worker per
   heavy job so linear memory is actually reclaimed (WASM heap never shrinks). Also keeps it off the
   main thread (golden rule 10).
 - **Cross-origin isolation (COOP/COEP) decision** — gates the live pressure API + `SharedArrayBuffer`
-  + WASM threads; make it once, deliberately (ADR).
+  - WASM threads; make it once, deliberately (ADR).
 
 ## If picking this up
 
