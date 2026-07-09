@@ -21,6 +21,7 @@
 @import "../components/card/card.css";
 @import "../components/separator/separator.css";
 @import "../components/breadcrumb/breadcrumb.css";
+@import "../components/tree/tree.css";
 @import "../components/skeleton/skeleton.css";
 @import "../components/alert/alert.css";
 @import "../components/keyboard/keyboard.css";

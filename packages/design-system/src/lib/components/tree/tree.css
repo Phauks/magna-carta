@@ -1,0 +1,92 @@
+@layer components {
+  /*
+   * Tree (Tier 1). A quiet folder tree on a work surface: muted rows, a chevron twisty, a folder
+   * glyph, and a calm selected state (a filled row, no loud chrome — identity stays at the edges).
+   * Indentation is structural: each nested role="group" adds one step of padding-inline-start, so
+   * depth compounds naturally through the DOM nesting with no per-level length math. The focus ring
+   * is the house flush shape, drawn on the row of the focused treeitem. Expansion is instant (the
+   * design language forbids animating layout); only the twisty glyph swaps between chevrons.
+   */
+  .mc-tree,
+  .mc-tree-group {
+    list-style: none;
+    margin-block: var(--mc-space-0);
+    margin-inline: var(--mc-space-0);
+    padding-block: var(--mc-space-0);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    line-height: var(--mc-leading-normal);
+  }
+  .mc-tree {
+    padding-inline: var(--mc-space-0);
+    outline-style: none;
+  }
+  /* One indent step per nesting level — depth accumulates through the nested groups. */
+  .mc-tree-group {
+    padding-inline-start: var(--mc-space-16);
+    padding-inline-end: var(--mc-space-0);
+  }
+
+  /* The treeitem is a block; its focus ring and selected fill live on the row, so children (the
+     nested group) are never covered by the parent's state. */
+  .mc-tree-item {
+    display: block;
+    outline-style: none;
+  }
+  .mc-tree-item-row {
+    display: flex;
+    align-items: center;
+    gap: var(--mc-space-8);
+    min-inline-size: var(--mc-space-0);
+    padding-block: var(--mc-space-4);
+    padding-inline: var(--mc-space-8);
+    border-radius: var(--mc-radius-sm);
+    color: var(--mc-text-default);
+    cursor: pointer;
+    user-select: none;
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-space-0);
+  }
+  .mc-tree-item-row:hover {
+    background-color: var(--mc-surface-sunken);
+  }
+  /* Selected — a calm filled row with a slightly stronger label; no gold wash on the work surface. */
+  .mc-tree-item[aria-selected="true"] > .mc-tree-item-row {
+    background-color: var(--mc-surface-selected);
+    color: var(--mc-text-default);
+    font-weight: var(--mc-weight-medium);
+  }
+  /* The house flush focus ring, on the focused treeitem's row. */
+  .mc-tree-item:focus-visible > .mc-tree-item-row {
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+  }
+
+  .mc-tree-item-twisty {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+    color: var(--mc-text-subtle);
+  }
+  .mc-tree-item-twisty-icon {
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+  }
+  .mc-tree-item-icon {
+    flex: none;
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+    color: var(--mc-text-muted);
+  }
+  .mc-tree-item-label {
+    overflow: hidden;
+    min-inline-size: var(--mc-space-0);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
