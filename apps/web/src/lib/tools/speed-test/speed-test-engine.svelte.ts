@@ -232,6 +232,25 @@ export function createSpeedTestStore() {
     await beginRun();
   }
 
+  /*
+   * Abandon the run. The engine is disposed rather than paused, so the next Start re-probes whether
+   * relay credentials can be had and rebuilds the ladder from that answer. Every trace of the run
+   * goes with it — an abandoned measurement is not a measurement, and nothing here is persisted.
+   * `meta` survives: it describes the measurement server, not the run.
+   */
+  function cancel(): void {
+    engine?.pause();
+    engine = null;
+    results = null;
+    error = null;
+    probe = null;
+    turn = null;
+    stepIndex = null;
+    currentPhase = null;
+    finishedAt = null;
+    phase = "idle";
+  }
+
   /** Leaving the page must stop the transfer — a background tab never keeps spending bandwidth. */
   function dispose(): void {
     engine?.pause();
@@ -279,6 +298,7 @@ export function createSpeedTestStore() {
     pause,
     resume,
     restart,
+    cancel,
     dispose,
   };
 }

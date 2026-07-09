@@ -97,9 +97,11 @@
         </span>
         <Progress value={progressPercent} class="w-96" aria-label="Test progress" />
         <Button variant="secondary" onclick={() => store.pause()}>Pause</Button>
+        <Button variant="ghost" onclick={() => store.cancel()}>Cancel</Button>
       </div>
     {:else if store.phase === "paused"}
       <Button variant="primary" onclick={() => store.resume()}>Resume</Button>
+      <Button variant="secondary" onclick={() => store.restart()}>Restart</Button>
     {:else}
       <Button variant="primary" onclick={() => store.restart()}>Retest</Button>
     {/if}
