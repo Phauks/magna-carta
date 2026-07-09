@@ -130,9 +130,13 @@ export const CATALOG: readonly ToolManifest[] = [
     id: "file-decryption",
     name: "File Decryption & Recovery",
     icon: "lock-open",
-    subjectGroup: "documents",
+    subjectGroup: "files",
     permission: assertPermission("tools:decryption"),
     contextTags: ["file"],
+    // The workbench for removing password protection. Today: unlock a file with a known password and
+    // recover a lost one. A future operation strips a PDF's owner/permissions ("editing") restrictions
+    // from a document that opens without a prompt — the engine already does this via pdf-core's
+    // decryptDocument on an owner-only document; only this tool's UI and route seam remain.
     backing: { kind: "library" },
     matterContext: "none",
   },
