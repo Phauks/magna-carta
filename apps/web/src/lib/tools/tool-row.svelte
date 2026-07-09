@@ -29,5 +29,5 @@
 {#if launchable}
   <a href={`/tools/${tool.id}`} class="block hover:bg-surface-raised">{@render body()}</a>
 {:else}
-  <div aria-disabled="true">{@render body()}</div>
+  <div>{@render body()}</div>
 {/if}

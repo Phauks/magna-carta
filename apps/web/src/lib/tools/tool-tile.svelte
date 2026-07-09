@@ -35,7 +35,7 @@
 {/snippet}
 
 {#if launchable}
-  <a href={`/tools/${tool.id}`} class="block h-full rounded-lg">{@render body()}</a>
+  <a href={`/tools/${tool.id}`} class="block h-full rounded-lg hover:bg-surface-raised">{@render body()}</a>
 {:else}
-  <div class="h-full" aria-disabled="true">{@render body()}</div>
+  <div class="h-full">{@render body()}</div>
 {/if}
