@@ -110,6 +110,8 @@ Neither is available today: `email-core` is parse-only and is imported nowhere o
 
 A new `@magna-carta/conflicts` package, following the Directory pattern exactly: validates in memory, composes statements into `composeEffectBatch`, holds no D1 binding, performs no I/O of its own. It reads the corpus through the Directory package's existing readers rather than reimplementing blocking.
 
+**The Directory write path is untouched; its read path takes two additive changes.** `findDuplicateCandidates` returns only `{entityId, signalCount}`, so evidence tiering cannot tell which channel matched — channel provenance must travel with each candidate. And its phonetic channel applies no scheme filter while neither name channel filters `is_current`, so both Double Metaphone schemes and every alias/former name are *already* always searched. Balanced strictness therefore cannot be layered on top of the current signature; it needs a scheme filter and a name-role filter that do not exist. Both are added as optional parameters, so omitting them preserves today's behaviour exactly and the merge and entry-time-duplicate callers are unaffected.
+
 ```
 apps/worker/src/routes/conflicts.ts    owns env, actor, crypto context (mirrors routes/directory.ts)
   └── packages/conflicts/

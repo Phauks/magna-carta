@@ -14,7 +14,7 @@ Design: [`docs/specs/2026-07-09-slice-4-1-conflicts-design.md`](../specs/2026-07
 
 ## Status
 
-Design written. Implementation plan not yet written. Implementation not started.
+Design accepted; implementation plan written ([`docs/specs/2026-07-09-slice-4-1-conflicts-implementation-plan.md`](../specs/2026-07-09-slice-4-1-conflicts-implementation-plan.md)). Implementation not started.
 
 The headline decision: **no scorer.** Every candidate the blocking channels surface is shown, ranked by evidence tier, never suppressed by a threshold. Strictness is redefined from a score cutoff into a recall knob. This closes research open decisions H.3 and H.5 and diverges from research §D — recorded in the ADR fragment.
 
@@ -35,7 +35,7 @@ Resolves the firm-personnel question ADR-0085 reserved for this cycle: personnel
 
 - **Reads `packages/directory` but does not write it.** Consumes `findDuplicateCandidates`, `readEdges`, `readMatterParties`. No Directory stream is currently in flight, but any change to `search.ts`'s channel semantics or merge-resolution is load-bearing here.
 - **`packages/database/src/per-firm-schema.ts`** is a shared file — additive tables only, appended at the end. Sync `main` before touching it.
-- **`monotonic-migration-ids`** is in flight and rewrites migration IDs. Do not author the migration until that branch lands, or the ID will need restamping. Coordinate before adding `drizzle/per-firm/`.
+- **`monotonic-migration-ids`** is **already fully merged into `main`** (`git merge-base --is-ancestor monotonic-migration-ids main`), and per-firm migrations already carry timestamp IDs. The migration can be authored immediately — no restamping risk. Its lingering worktree is stale.
 - **`slice-3-5-operating-general-ledger`** also adds per-firm tables and append-only discipline. No file overlap beyond `per-firm-schema.ts`; worth reading its append-only trigger approach for consistency rather than inventing a second pattern.
 - **`access-triggered-rescan`** (worktree `magna-carta-2-1-dev`) — name suggests the malware-scan re-scan, not conflicts. Confirm before touching anything named `rescan`.
 - Does **not** touch `crates/`, the Rust workspace, or `email-core`.
