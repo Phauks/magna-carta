@@ -3,6 +3,7 @@
 //! owns every wire concern.
 
 pub mod dictionary;
+pub mod engine;
 pub mod facts;
 
 use image::RgbImage;
