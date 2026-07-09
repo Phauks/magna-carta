@@ -313,6 +313,21 @@
           "country"
         ]
       },
+      "TurnCredentials": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string"
+          },
+          "credential": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "credential"
+        ]
+      },
       "WhoisResponse": {
         "type": "object",
         "properties": {
@@ -6535,6 +6550,89 @@
           },
           "429": {
             "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tools/turn-credentials": {
+      "get": {
+        "description": "Short-lived relay credentials used to measure packet loss. Answers 503 when relay measurement is not configured.",
+        "operationId": "toolsTurnCredentials.get",
+        "tags": [
+          "toolsTurnCredentials"
+        ],
+        "x-mc-operationId": "toolsTurnCredentials.get",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tools:speedTest",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "expensive",
+        "x-mc-tags": [
+          "toolsTurnCredentials"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "Short-lived relay credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TurnCredentials"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated, but the member lacks tools:speedTest",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The relay credential service refused",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Relay measurement is not configured for this deployment",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -25593,6 +25691,9 @@
     },
     {
       "name": "toolsConnection"
+    },
+    {
+      "name": "toolsTurnCredentials"
     },
     {
       "name": "uploads"

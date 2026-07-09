@@ -83,6 +83,11 @@ export type ToolsConnectionResponse = {
     country: string;
 };
 
+export type TurnCredentials = {
+    username: string;
+    credential: string;
+};
+
 export type WhoisResponse = {
     source: 'rdap' | 'whois-43';
     target: string;
@@ -1683,6 +1688,47 @@ export type ToolsConnectionGetResponses = {
 };
 
 export type ToolsConnectionGetResponse = ToolsConnectionGetResponses[keyof ToolsConnectionGetResponses];
+
+export type ToolsTurnCredentialsGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/tools/turn-credentials';
+};
+
+export type ToolsTurnCredentialsGetErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks tools:speedTest
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+    /**
+     * The relay credential service refused
+     */
+    502: Problem;
+    /**
+     * Relay measurement is not configured for this deployment
+     */
+    503: Problem;
+};
+
+export type ToolsTurnCredentialsGetError = ToolsTurnCredentialsGetErrors[keyof ToolsTurnCredentialsGetErrors];
+
+export type ToolsTurnCredentialsGetResponses = {
+    /**
+     * Short-lived relay credentials
+     */
+    200: TurnCredentials;
+};
+
+export type ToolsTurnCredentialsGetResponse = ToolsTurnCredentialsGetResponses[keyof ToolsTurnCredentialsGetResponses];
 
 export type WhoisGetData = {
     body?: never;

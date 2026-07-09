@@ -49,6 +49,7 @@ import { registerMatterTypesRoutes } from "./routes/matter-types.ts";
 import { registerMattersRoutes } from "./routes/matters.ts";
 import { registerFirmUsageRoute } from "./routes/firm-usage.ts";
 import { registerToolsConnectionRoute } from "./routes/tools-connection.ts";
+import { registerToolsTurnCredentialsRoute } from "./routes/tools-turn-credentials.ts";
 import { registerWhoisRoute, type WhoisRouteDeps } from "./routes/whois.ts";
 import { registerSafeBrowseRoute, type SafeBrowseRouteDeps } from "./routes/safe-browse.ts";
 import { registerDecryptionRoutes } from "./routes/decryption.ts";
@@ -229,6 +230,13 @@ export type Bindings = {
   // returns a task to poll) or "sync". Optional; defaults to "async-task". A public config value, not
   // a secret — bound via wrangler vars.
   PANGRAM_MODE?: "async-task" | "sync";
+  // Cloudflare Realtime TURN key credentials — mint short-lived relay credentials for the
+  // packet-loss measurement in the Network Speed Test tool. Optional: absent in tests and until the
+  // owner provisions a Realtime TURN key, in which case the route answers 503 and the tile states
+  // that packet loss is not configured. Production sets both with `wrangler secret put`. Never
+  // logged, and never echoed back to a caller.
+  REALTIME_TURN_TOKEN_ID?: string;
+  REALTIME_TURN_TOKEN_SECRET?: string;
 };
 
 // One Better Auth instance per worker env: the env object is stable across requests within an
@@ -363,6 +371,7 @@ export function createApp(options: CreateAppOptions = {}) {
   registerMeRoute(app, chokepoint);
   registerFirmUsageRoute(app, chokepoint);
   registerToolsConnectionRoute(app, chokepoint);
+  registerToolsTurnCredentialsRoute(app, chokepoint);
 
   // The WHOIS route: RDAP-first domain/IP registration lookup with a port-43 fallback. All outbound
   // effects go through injected deps so tests substitute fakes without touching global fetch or sockets.
