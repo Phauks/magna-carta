@@ -28,6 +28,7 @@
     readPaletteEntranceVariant,
   } from "$lib/developer/palette-entrance.ts";
   import { visibleDestinations } from "$lib/navigation/destinations.ts";
+  import { toolDestinations } from "$lib/navigation/tool-destinations.ts";
   import { SEARCH_PLACEHOLDER } from "$lib/navigation/search.ts";
   import { ECOSYSTEM_SITES } from "$lib/navigation/ecosystem-sites.ts";
   import { bandedSettingsSections } from "$lib/settings/settings-sections.ts";
@@ -47,6 +48,10 @@
     label: band.label,
     sections: band.groups.flatMap((group) => group.sections),
   }));
+  // Individual tools, derived from the tool catalog + its web presentation layer — the same
+  // registry the Tools listing renders. A built tool navigates to its page; a not-yet-built one
+  // surfaces as a disabled "— soon" row, exactly as an announced destination does.
+  const tools = toolDestinations();
 
   // The dialog recipe centers via `inset: 0; margin: auto`; starting the inset past the rail
   // centers the palette over the WORK CANVAS, not the screen (owner review 2026-07-02). This is
@@ -200,6 +205,27 @@
               </Command.Group>
             {/if}
           {/each}
+          <!-- Individual tools, so "speed" reaches the Network Speed Test and "whois" the WHOIS
+               lookup — not just the Tools destination. Each item's keywords fold in the tool's
+               description, subject, and lay synonyms so it is findable by more than its name
+               ("bandwidth" → speed test, "domain" → WHOIS). A tool with no page yet renders
+               disabled with the same "— soon" voice the destinations group uses. -->
+          <Command.Group>
+            <Command.GroupHeading>Tools</Command.GroupHeading>
+            <Command.GroupItems>
+              {#each tools as tool (tool.id)}
+                {#if tool.launchable}
+                  <Command.Item keywords={[...tool.keywords]} onSelect={() => navigateTo(tool.href)}>
+                    {tool.name}
+                  </Command.Item>
+                {:else}
+                  <Command.Item keywords={[...tool.keywords]} disabled>
+                    {tool.name} — soon
+                  </Command.Item>
+                {/if}
+              {/each}
+            </Command.GroupItems>
+          </Command.Group>
           <!-- Everything under the profile icon is searchable too (owner directive): the bug
                report action, and the ecosystem sites from their registry — not-yet-wired sites
                render disabled with the same "Soon" voice as the menu, so search tells the truth
