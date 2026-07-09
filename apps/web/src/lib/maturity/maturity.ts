@@ -50,3 +50,16 @@ export const MATURITY_PRESENTATION: Record<MaturityStage, MaturityPresentation |
   },
   ready: null,
 };
+
+/**
+ * Whether a stage implies a surface a member can actually open. `soon` is the one stage that
+ * means no surface exists yet; everything above it is reachable and states its own maturity
+ * through the badge. The sidebar already depends on this distinction — Settings ships at
+ * `alpha` and is a live link.
+ *
+ * Whether a stage is reachable is a fact about the stage, so it lives here beside the model
+ * rather than being re-derived by each consumer.
+ */
+export function hasSurface(stage: MaturityStage): boolean {
+  return stage !== "soon";
+}

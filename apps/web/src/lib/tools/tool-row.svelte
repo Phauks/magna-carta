@@ -6,6 +6,7 @@
   import type { Component } from "svelte";
   import type { ToolManifest } from "@magna-carta/tools/types";
   import MaturityBadge from "$lib/maturity/maturity-badge.svelte";
+  import { hasSurface } from "$lib/maturity/maturity.ts";
   import type { ToolPresentation } from "./tool-presentation.ts";
 
   let {
@@ -14,7 +15,7 @@
     icon: Icon,
   }: { tool: ToolManifest; presentation: ToolPresentation; icon: Component } = $props();
 
-  const launchable = $derived(presentation.stage === "ready");
+  const launchable = $derived(hasSurface(presentation.stage));
 </script>
 
 {#snippet body()}
