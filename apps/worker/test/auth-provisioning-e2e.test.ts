@@ -290,6 +290,7 @@ describe("end-to-end", () => {
         "tools:firmUsage",
         "tools:metadataScrubber",
         "tools:safeBrowse",
+        "tools:speedTest",
         "tools:whois",
       ],
     });
