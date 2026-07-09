@@ -25,21 +25,31 @@ Touches a cross-cutting file (`docs/conventions/operations.md`) — §12 only, n
 another stream. **Every other stream is affected once this lands:** merging to `main` stops
 deploying, so anyone expecting a merge to ship must fast-forward `release`.
 
-## Owner steps (dashboard — cannot be done from here; the Cloudflare token in-repo is read-only)
+## Owner steps
 
-Order matters. Do 1 before 2, or the flip queues a build of unshipped trunk work.
+1. ~~Create `release` at the currently-deployed commit.~~ **Done 2026-07-09** — `release` exists on
+   origin at `0988844` (= `origin/main`, at or ahead of every Worker's last successful deploy).
+   Creating it triggered no build: `previews_enabled` is false on all seven.
+2. **OWED — owner must do this.** For each of `magna-carta`, `magna-carta-scan`,
+   `magna-carta-bundle`, `magna-carta-recovery`, `magna-carta-file-repair`, `magna-carta-status`,
+   `magna-carta-edit`: set the production branch to `release`
+   (**Settings → Build → Branch control**). _Builds for non-production branches_ is already off
+   everywhere; leave it off. The repo's Cloudflare API token is **read-only** — `GET` on
+   `/accounts/{account_id}/builds/workers/{script_tag}` reads the config, but the `PATCH` that
+   writes `{"git_repository":{"branch":"release"}}` returns `10000: Authentication error`. Either
+   use the dashboard or run the PATCH with a token carrying Workers Builds write scope.
+3. Only then push `main` freely. **Until step 2 is done, a push to `main` still deploys** — and
+   local `main` is one commit ahead of origin.
 
-1. Create `release` at the currently-deployed commit: `git push origin <deployed-sha>:refs/heads/release`
-   (as of this writing the deployed commit is `0988844`, which is `origin/main`).
-2. For each of `magna-carta`, `magna-carta-scan`, `magna-carta-bundle`, `magna-carta-recovery`,
-   `magna-carta-file-repair`, `magna-carta-status`, `magna-carta-edit`:
-   **Settings → Build → Branch control** → production branch `release`; uncheck
-   _Builds for non-production branches_ (verify, do not assume — `magna-carta-edit` has a recorded
-   build from branch `slice-2-2-editing`).
-3. Only then push `main` freely.
+## Found while auditing the live build configuration (not fixed here)
 
-## Found while auditing (not fixed here)
-
-- `magna-carta-edit` has **failed every `main` build since 2026-06-28** (eight consecutive; last
-  success 2026-06-26). The live editing Worker is older than the trunk. Needs its own diagnosis.
+- `magna-carta-edit`'s production branch is **`slice-2-2-editing`**, not `main`, and it has failed
+  every build since 2026-06-28 (eight consecutive; last success 2026-06-26). The live editing Worker
+  is older than the trunk. Needs its own diagnosis.
+- `magna-carta-file-repair` watch paths include `containers/file-repair-worker/*` — **that directory
+  does not exist** (it is `containers/file-repair/`), so the container never rebuilds on a change.
+- `magna-carta-recovery` watch paths omit `crates/decryption-core/*`, a path dependency of its
+  Dockerfile, so a change to that crate alone never rebuilds the recovery container.
 - `magna-carta-convert` is not connected to Workers Builds at all (zero builds recorded).
+- `status-lab/` was committed unformatted in `b0b00d5`, so `pnpm check` — and therefore the
+  `pre-push` hook — has been failing on `main` for every worktree. Fixed on this branch.
