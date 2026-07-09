@@ -120,6 +120,33 @@ pub struct RenderedPage {
     pub png: bool,
 }
 
+impl RenderedPage {
+    /// Composite this page's straight-alpha RGBA8 over a white background and return
+    /// RGB8. The renderer leaves pages with no background content fully transparent, so
+    /// discarding alpha instead of compositing would turn a blank page black. Returns
+    /// `None` for a PNG-encoded buffer (which is not raw pixels) or a truncated one.
+    pub fn to_rgb_image(&self) -> Option<image::RgbImage> {
+        if self.png {
+            return None;
+        }
+        let pixels = (self.width as usize).checked_mul(self.height as usize)?;
+        if self.data.len() < pixels.checked_mul(4)? {
+            return None;
+        }
+        let mut rgb = Vec::with_capacity(pixels * 3);
+        for pixel in self.data.chunks_exact(4) {
+            let alpha = pixel[3] as f32 / 255.0;
+            // Porter-Duff over white: out = src_alpha * src + (1 - src_alpha) * 255
+            let composite =
+                |channel: u8| ((alpha * channel as f32) + ((1.0 - alpha) * 255.0)).round() as u8;
+            rgb.push(composite(pixel[0]));
+            rgb.push(composite(pixel[1]));
+            rgb.push(composite(pixel[2]));
+        }
+        image::RgbImage::from_raw(self.width, self.height, rgb)
+    }
+}
+
 impl Document {
     pub fn page_size(&self, index: usize) -> Result<PageSize, PdfError> {
         let pages = self.pdf.pages();
@@ -286,5 +313,69 @@ mod tests {
         // also exercises load_protected's fallback to the plain render-path load.
         let doc = Document::load_protected(blank(), "").expect("loads unencrypted via protected");
         assert_eq!(doc.page_count(), 1);
+    }
+
+    #[test]
+    fn to_rgb_image_composites_transparent_pixels_over_white() {
+        // Straight alpha: a fully transparent pixel carries RGB 0. Dropping alpha would
+        // render it black; compositing over white renders it white, which is what a blank
+        // region of a page actually looks like.
+        let page = RenderedPage {
+            data: vec![0, 0, 0, 0],
+            width: 1,
+            height: 1,
+            png: false,
+        };
+        let image = page.to_rgb_image().unwrap();
+        assert_eq!(image.get_pixel(0, 0).0, [255, 255, 255]);
+    }
+
+    #[test]
+    fn to_rgb_image_preserves_opaque_pixels() {
+        let page = RenderedPage {
+            data: vec![10, 20, 30, 255],
+            width: 1,
+            height: 1,
+            png: false,
+        };
+        assert_eq!(page.to_rgb_image().unwrap().get_pixel(0, 0).0, [10, 20, 30]);
+    }
+
+    #[test]
+    fn to_rgb_image_composites_a_half_transparent_pixel() {
+        // out = alpha * src + (1 - alpha) * 255, with alpha = 128/255.
+        let page = RenderedPage {
+            data: vec![0, 0, 0, 128],
+            width: 1,
+            height: 1,
+            png: false,
+        };
+        let value = page.to_rgb_image().unwrap().get_pixel(0, 0).0[0];
+        assert!(
+            (126..=128).contains(&value),
+            "expected mid-grey, got {value}"
+        );
+    }
+
+    #[test]
+    fn to_rgb_image_rejects_a_png_buffer_rather_than_reinterpreting_it() {
+        let page = RenderedPage {
+            data: vec![0x89, b'P', b'N', b'G'],
+            width: 1,
+            height: 1,
+            png: true,
+        };
+        assert!(page.to_rgb_image().is_none());
+    }
+
+    #[test]
+    fn to_rgb_image_rejects_a_truncated_buffer() {
+        let page = RenderedPage {
+            data: vec![10, 20, 30],
+            width: 2,
+            height: 1,
+            png: false,
+        };
+        assert!(page.to_rgb_image().is_none());
     }
 }

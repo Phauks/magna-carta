@@ -171,17 +171,13 @@ pub(crate) fn render_redacted_page(
     // The renderer returns straight RGBA8; pages with no background content are transparent
     // (alpha=0). Compositing alpha-over-white gives the correct white-page appearance and
     // ensures redaction boxes (alpha=255, RGB=0) stay fully black.
-    let mut rgb = Vec::with_capacity((w * h * 3) as usize);
-    for px in rgba.chunks_exact(4) {
-        let a = px[3] as f32 / 255.0;
-        let composite = |channel: u8| -> u8 {
-            // Porter-Duff over white: out = src_alpha * src + (1 - src_alpha) * 255
-            ((a * channel as f32) + ((1.0 - a) * 255.0)).round() as u8
-        };
-        rgb.push(composite(px[0]));
-        rgb.push(composite(px[1]));
-        rgb.push(composite(px[2]));
-    }
+    let boxed = crate::RenderedPage {
+        data: rgba,
+        width: w,
+        height: h,
+        png: false,
+    };
+    let rgb = boxed.to_rgb_image().ok_or(RedactError::Render)?.into_raw();
     Ok((rgb, w, h))
 }
 
