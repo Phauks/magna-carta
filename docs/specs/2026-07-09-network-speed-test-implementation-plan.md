@@ -3337,6 +3337,360 @@ git commit -m "feat(tools): show what the test spent, in each direction"
 
 ---
 
+### Task 12: Download the run as a plain-text report
+
+Owner asked to save a run as a file. Plain text: a speed-test result is a handful of numbers and a timestamp, and a lawyer forwarding it to an ISP or an office manager should be able to read it in the body of an email without a viewer.
+
+**This does not break the ethereal principle.** Nothing is persisted *by us* — no history, no server round trip, no matter attachment. The file is assembled in the browser from the run in front of you and handed to the operating system. When the page is closed the run is gone, exactly as before.
+
+**Files:**
+- Create: `apps/web/src/lib/tools/speed-test/speed-test-report.ts`
+- Modify: `apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte`
+- Test: `apps/web/test/speed-test-report.test.ts`
+
+**Interfaces:**
+- Produces: `ReportInput` and `renderReport(input: ReportInput): string`; `reportFilename(finishedAt: Date): string`.
+- The download itself (Blob → object URL → click → revoke) lives in the page, not the pure module, so the module stays node-testable.
+
+- [ ] **Step 1: Write the failing test**
+
+Create `apps/web/test/speed-test-report.test.ts`:
+
+```ts
+/*
+ * The report is the run, written down. It must never invent a measurement: an absent value reads
+ * as "not measured", never as zero, and the packet-loss line states WHY it is absent.
+ */
+import { describe, expect, it } from "vitest";
+import { renderReport, reportFilename } from "../src/lib/tools/speed-test/speed-test-report.ts";
+
+const AT = new Date("2026-07-09T20:40:21.000Z");
+
+const FULL = {
+  finishedAt: AT,
+  downloadBps: 138_000_000,
+  uploadBps: 68_100_000,
+  latencyMs: 29.2,
+  jitterMs: 12.5,
+  packetLoss: { measured: false as const, reason: "Sign in to measure packet loss." },
+  scores: { streaming: "good", gaming: "average", rtc: "average" },
+  server: {
+    clientIp: "24.234.27.182",
+    asOrganization: "Cox Communications Inc.",
+    asn: 22773,
+    coloCity: "Las Vegas",
+    coloIata: "LAS",
+  },
+  roundTrip: { reachable: false as const, note: "You are not signed in." },
+  bytesDown: 118_000_000,
+  bytesUp: 24_000_000,
+};
+
+describe("reportFilename", () => {
+  it("is sortable and names the tool", () => {
+    expect(reportFilename(AT)).toMatch(/^network-speed-test-2026-07-09T\d{2}-\d{2}-\d{2}\.txt$/);
+  });
+});
+
+describe("renderReport", () => {
+  it("states every measured value", () => {
+    const text = renderReport(FULL);
+    expect(text).toContain("Download: 138 Mbps");
+    expect(text).toContain("Upload: 68.1 Mbps");
+    expect(text).toContain("Latency: 29.2 ms");
+    expect(text).toContain("Jitter: 12.5 ms");
+  });
+
+  it("says why packet loss is absent rather than printing a zero", () => {
+    const text = renderReport(FULL);
+    expect(text).toContain("Packet loss: not measured");
+    expect(text).toContain("Sign in to measure packet loss.");
+    expect(text).not.toMatch(/Packet loss: 0/);
+  });
+
+  it("records the measurement server and the data the test spent", () => {
+    const text = renderReport(FULL);
+    expect(text).toContain("Las Vegas (LAS)");
+    expect(text).toContain("Cox Communications Inc. (AS22773)");
+    expect(text).toContain("Downloaded: 118 MB");
+    expect(text).toContain("Uploaded: 24 MB");
+  });
+
+  it("renders an unmeasured value as 'not measured', never as zero", () => {
+    const text = renderReport({ ...FULL, downloadBps: undefined, latencyMs: undefined });
+    expect(text).toContain("Download: not measured");
+    expect(text).toContain("Latency: not measured");
+    expect(text).not.toContain("Download: 0");
+  });
+
+  it("notes that the ratings are incomplete without packet loss", () => {
+    expect(renderReport(FULL)).toContain("incomplete");
+  });
+});
+```
+
+- [ ] **Step 2: Run it to verify it fails**
+
+Run: `vp test speed-test-report`
+Expected: FAIL — module not found.
+
+- [ ] **Step 3: Implement the report**
+
+Create `apps/web/src/lib/tools/speed-test/speed-test-report.ts`. Reuse `formatBandwidth` / `formatMilliseconds` from `speed-test-format.ts` and `formatBytes` from `run-progress.ts` — do not re-implement them. An absent measurement renders `not measured`, never `0` and never an em dash (an em dash means nothing in a text file).
+
+Shape the file so it reads as a record someone could paste into an email:
+
+```
+Network Speed Test — Magna Carta
+Run at 2026-07-09 20:40:21 UTC
+
+Download: 138 Mbps
+Upload: 68.1 Mbps
+Latency: 29.2 ms
+Jitter: 12.5 ms
+Packet loss: not measured — Sign in to measure packet loss.
+
+Network quality (Cloudflare AIM)
+  Video streaming: good
+  Online gaming: average
+  Video calls: average
+  These ratings are incomplete: packet loss feeds all three and was not measured.
+
+Measurement server
+  Served from: Las Vegas (LAS)
+  Your network: Cox Communications Inc. (AS22773)
+  Your address: 24.234.27.182
+  Round trip to Magna Carta: not measured — You are not signed in.
+
+Data used by this test
+  Downloaded: 118 MB
+  Uploaded: 24 MB
+  Total: 142 MB
+
+Measured with Cloudflare's speed-test engine. Nothing was saved.
+```
+
+Bandwidth headline figures are the engine's 90th percentile and latency its median — state that once, in a closing line, so a reader of the file is not misled the way a reader of the page would be without the popover.
+
+- [ ] **Step 4: Run it to verify it passes**
+
+Run: `vp test speed-test-report`
+Expected: PASS (6 tests).
+
+- [ ] **Step 5: Offer the download**
+
+On the page, when `store.phase === "finished"`, add a **Download report** button beside **Retest** in `Masthead.Actions`. It builds a `Blob` of `renderReport(...)` with type `text/plain;charset=utf-8`, creates an object URL, clicks a temporary anchor with `download={reportFilename(finishedAt)}`, then **revokes the object URL** (a leaked URL pins the blob for the page's life).
+
+The button is absent in every other phase — there is nothing to report on. Use `variant="secondary"`.
+
+Do not add the report to any other phase, do not persist it, and do not send it anywhere.
+
+- [ ] **Step 6: Verify the gates**
+
+Run: `pnpm --filter @magna-carta/web run check`
+Expected: 0 errors, 0 warnings.
+
+Run: `vp test speed-test-report run-progress bandwidth-stats speed-test-format`
+Expected: PASS.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add apps/web/src/lib/tools/speed-test/speed-test-report.ts apps/web/test/speed-test-report.test.ts "apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte"
+git commit -m "feat(tools): download the run as a plain-text report"
+```
+
+---
+
+### Task 13: The bandwidth chart belongs under its own number, and it is a line
+
+Owner: the download and upload measurement graphs are hard to read, they should be a line rather than loose points, and they belong in the Download and Upload areas at the top — combining the number with the evidence for it and shortening the page.
+
+**Observed on `speed.cloudflare.com` (screenshot: `scratch/cf-charts-full.png`) — this is the target:**
+- Under the big **Download** figure sits a filled **area/line chart** of throughput across the run, with a horizontal reference line labelled **"90th percentile"** drawn across it. Same under **Upload**. This is why their headline is trustworthy: the number and its evidence share one glance, and the line explains what the number is.
+- Their bottom "Download Measurements" panels are **box plots per payload size** (`100kB download test (10/10)`, `1MB (8/8)`, `10MB (6/6)`, `25MB (4/4)`) — not scattered dots.
+
+**What we build:**
+1. A **sparkline** (line + soft area fill) inside each of the Download and Upload tiles, plotting each bandwidth sample in the order measured, with a labelled 90th-percentile rule.
+2. **Delete the bottom "Download measurements" and "Upload measurements" sections.** The chart now lives with its number; a second copy is page weight for nothing.
+3. Keep the **Latency measurements** section as it is. It is not what the owner objected to, and reworking it into box plots is a separate decision.
+
+Still a single series per chart, so the dataviz rules hold unchanged: no legend, no categorical palette, recessive axes, a table view, and a hover affordance.
+
+**Files:**
+- Create: `apps/web/src/lib/tools/speed-test/bandwidth-sparkline.svelte`
+- Delete: `apps/web/src/lib/tools/speed-test/bandwidth-chart.svelte`
+- Modify: `apps/web/src/lib/tools/speed-test/metric-tile.svelte` (accept a `chart` snippet)
+- Modify: `apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte`
+- Modify: `apps/web/src/lib/tools/speed-test/chart-scale.ts` (add `linePath`)
+- Test: `apps/web/test/chart-scale.test.ts` (extend)
+
+- [ ] **Step 1: Extend the failing scale test**
+
+Add to `apps/web/test/chart-scale.test.ts`:
+
+```ts
+describe("linePath", () => {
+  it("draws a polyline through every sample, left to right", () => {
+    expect(linePath([0, 50, 100], 100, 200, 100)).toBe("M0,100 L100,50 L200,0");
+  });
+
+  it("plants a single sample at the left edge", () => {
+    expect(linePath([50], 100, 200, 100)).toBe("M0,50");
+  });
+
+  it("returns an empty path for an empty series", () => {
+    expect(linePath([], 100, 200, 100)).toBe("");
+  });
+});
+```
+
+- [ ] **Step 2: Run it to verify it fails**
+
+Run: `vp test chart-scale`
+Expected: FAIL — `linePath` is not exported.
+
+- [ ] **Step 3: Implement `linePath`**
+
+In `chart-scale.ts`, keep `niceMax` and `scaleLinear` exactly as they are and add:
+
+```ts
+/*
+ * An SVG path through every sample, evenly spaced left to right and scaled against `domainMax`.
+ * y is inverted because SVG's origin is the top-left: the fastest sample must sit highest.
+ * A single sample yields a move with no line — one observation is a point, not a trend.
+ */
+export function linePath(
+  values: readonly number[],
+  domainMax: number,
+  width: number,
+  height: number,
+): string {
+  if (values.length === 0) return "";
+  const scale = scaleLinear(domainMax, height);
+  const step = values.length > 1 ? width / (values.length - 1) : 0;
+  return values
+    .map((value, index) => {
+      const x = Math.round(index * step * 100) / 100;
+      const y = Math.round((height - scale(value)) * 100) / 100;
+      return `${index === 0 ? "M" : "L"}${x},${y}`;
+    })
+    .join(" ");
+}
+```
+
+- [ ] **Step 4: Run it to verify it passes**
+
+Run: `vp test chart-scale`
+Expected: PASS.
+
+- [ ] **Step 5: Build the sparkline**
+
+Create `apps/web/src/lib/tools/speed-test/bandwidth-sparkline.svelte`. Requirements:
+
+- Props: `points: ReadonlyArray<{ bps: number }>`, `label: string` (for the accessible name, e.g. "Download").
+- Plot `bps / 1e6` (Mbps) in measured order. Domain `0 → niceMax(values)`.
+- Draw, in this order: the **area** (the line path closed to the baseline, filled with the accent token at a low `fill-opacity`), then the **line** (`fill="none"`, `stroke="var(--mc-accent-default)"`, 2px), then the **90th-percentile rule** — a horizontal line at that value, in a muted token stroke, with a small `<text>` reading `90th percentile`, exactly as Cloudflare labels it. Compute the percentile with the existing `percentile(values, 0.9)` from `bandwidth-stats.ts`; do not write a second percentile.
+- **Fixed height in every state** (Task 9's rule): the `<svg>` and the `<details>` table view render even with no points. With no points, draw the baseline only and one muted line of text; do not collapse.
+- Hover: a transparent `<rect>` per sample carrying a `<title>` of `"Sample N: 94.5 Mbps"`. Never convey a value by geometry alone.
+- Verify `--mc-accent-default` and any muted stroke token exist in `packages/design-tokens/generated/tailwind-theme.css`. No raw hex.
+
+- [ ] **Step 6: Put the chart under the number**
+
+Give `metric-tile.svelte` an optional `chart?: Snippet`, rendered between the value and the `stats` row. Structure and `note` rendering stay as they are.
+
+On the page, pass the sparkline into the Download and Upload tiles:
+
+```svelte
+<MetricTile size="large" label="Download" value={formatBandwidth(results?.getDownloadBandwidth())} stats={statRows(downloadStats, downloadPoints)}>
+  {#snippet chart()}
+    <BandwidthSparkline label="Download" points={downloadPoints} />
+  {/snippet}
+</MetricTile>
+```
+
+- [ ] **Step 7: Delete the bottom bandwidth sections**
+
+Remove the "Download measurements" and "Upload measurements" `<section>`s and the `bandwidth-chart.svelte` import. Delete `bandwidth-chart.svelte`. Leave the "Latency measurements" section untouched.
+
+Confirm nothing else imports `bandwidth-chart.svelte` before deleting it.
+
+- [ ] **Step 8: Verify the gates**
+
+Run: `pnpm --filter @magna-carta/web run check`
+Expected: 0 errors, 0 warnings.
+
+Run: `vp test chart-scale bandwidth-stats run-progress speed-test-format measurement-ladder`
+Expected: PASS.
+
+Re-check Task 9's promise: `main.scrollHeight` before Start must still equal it after the run finishes.
+
+- [ ] **Step 9: Commit**
+
+```bash
+git add -A apps/web/src/lib/tools/speed-test apps/web/test/chart-scale.test.ts "apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte"
+git commit -m "feat(tools): the bandwidth chart is a line, and it lives under its number"
+```
+
+(`git add -A` because this task deletes a file — never list a deleted path explicitly.)
+
+---
+
+### Task 14: Info on hover, and a link you can actually reach
+
+Owner: the info icons should reveal on hover rather than on click, and the button should be smaller.
+
+The reason they are click-popovers today is that I put a link *inside* them, and a link inside a hover tooltip is unreachable — the tooltip closes as the pointer travels to it. Cloudflare solves this by separating the two: the `(i)` is a hover tooltip carrying prose only, and **"Learn more" is a plain visible link beside the heading**. Adopt that.
+
+**Files:**
+- Create: `apps/web/src/lib/tools/speed-test/info-hint.svelte`
+- Delete: `apps/web/src/lib/tools/speed-test/info-popover.svelte`
+- Modify: `apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte`
+
+- [ ] **Step 1: Replace the popover with a tooltip**
+
+Create `info-hint.svelte` using the design system's `tooltip` (`Tooltip.Root/Trigger/Content`). It must:
+
+- Open on **hover and on keyboard focus** (Bits UI's tooltip does both; confirm the trigger is a real focusable `<button type="button">`).
+- Carry an accessible name (`aria-label`) naming what it explains, e.g. `About the download figure`.
+- Contain **prose only — no links, no interactive content.**
+- Use a **smaller icon**: the current `size-16` becomes `size-12`. Confirm `size-12` exists on this project's closed spacing scale (0/4/8/12/16/20/24/32/40/48/64/96) before using it.
+
+Delete `info-popover.svelte` once nothing imports it.
+
+- [ ] **Step 2: Move the AIM link out of the tooltip**
+
+Beside the **Network quality score** heading, next to the `(i)`, render a visible link — the same arrangement Cloudflare uses:
+
+```svelte
+<a
+  href="https://blog.cloudflare.com/aim-database-for-internet-quality/"
+  target="_blank"
+  rel="noreferrer noopener"
+  class="text-sm underline"
+>
+  Learn more
+</a>
+```
+
+The tooltip keeps the explanatory prose written in Task 7 (points per metric, which metrics feed which rating, and that packet loss is unmeasured so the ratings are incomplete). It loses only the anchor.
+
+- [ ] **Step 3: Verify the gates**
+
+Run: `pnpm --filter @magna-carta/web run check`
+Expected: 0 errors, 0 warnings.
+
+Confirm by keyboard: Tab reaches each `(i)` and the tooltip appears on focus; Tab reaches the "Learn more" link. If focus does not open the tooltip, fix it — a hover-only hint is invisible to a keyboard user.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add -A apps/web/src/lib/tools/speed-test "apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte"
+git commit -m "feat(tools): explanations on hover, with the link beside the heading"
+```
+
+---
+
 ### Task 6: Documentation (definition of done)
 
 No feature is done until its docs, roadmap, and changelog fragment land. Branches never hand-edit `CHANGELOG.md` or `STATUS.md` — they commit fragments.
