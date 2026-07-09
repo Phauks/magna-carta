@@ -3841,6 +3841,12 @@ Create `apps/web/src/lib/tools/speed-test/run-progress-panel.svelte`:
   );
 </script>
 
+<!--
+  Every row renders in every phase. Before a run the counter and the size are empty strings, not
+  absent elements: an element that disappears takes its height with it, and the controls beside this
+  panel would move twice per run.
+-->
+
 <div class="grid gap-4">
   <div class="flex items-baseline justify-between gap-16 text-xs tabular-nums text-text-muted">
     <span>
@@ -3871,7 +3877,27 @@ Verify `h-4` (4px), `gap-4`, `gap-16`, `invisible`, `tabular-nums`, `col-start-1
 
 In the page:
 
-- Replace the inline running-state markup in `Masthead.Actions` with `<RunProgressPanel …/>` followed by the Pause and Cancel buttons.
+- **The panel is rendered in every phase — before, during, paused, and after a run.** It is a permanent region that has nothing to say yet, not a thing that appears and disappears. A panel that only exists while running would move the controls beside it twice per run, which is the defect this task exists to remove. Only the **controls** beside it change with the phase.
+- On **pause**, the panel keeps showing everything it showed while running: the step reached, the phase it stopped in, the data spent, and the bar at its current position. A paused run has not un-measured anything.
+
+Derive the descriptor once, on the page, so the panel stays dumb:
+
+```ts
+  // The panel is always present; only what it can honestly say changes.
+  const phaseText = $derived(
+    store.phase === "idle"
+      ? "Not started"
+      : store.phase === "finished"
+        ? "Complete"
+        : store.phase === "failed"
+          ? "Stopped"
+          : (store.currentPhase ?? "Starting"),
+  );
+```
+
+A finished run shows its final step (`14 of 14`), its total data, and a full bar — the record of what just happened, not a cleared slate.
+
+- Replace the inline running-state markup in `Masthead.Actions` with `<RunProgressPanel …/>`, then the phase-appropriate controls beside it.
 - **Delete** `<span>Runs outside any matter</span>` from `Masthead.Meta`.
 - `Masthead.Meta` must still render in every phase, or the masthead changes height and the page moves (Task 9). Before a run it reads `Not run yet`; once finished it reads the timestamp and the data transferred.
 
@@ -3917,6 +3943,90 @@ Then confirm, by construction, that within a run: the counter's left edge, the s
 ```bash
 git add apps/web/src/lib/tools/speed-test/run-progress-panel.svelte apps/web/src/lib/tools/speed-test/run-progress.ts apps/web/test/run-progress.test.ts "apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte"
 git commit -m "feat(tools): a progress panel whose parts hold their places"
+```
+
+---
+
+### Task 17: Absence reads the same way everywhere
+
+Owner: the network-quality panel and the round-trip line should show the same no-data state as the latency charts — "Not measured yet."
+
+Today the page says the same thing four different ways: the charts say "Not measured yet.", the quality panel says "Scored once a run finishes.", the round-trip line says "The round trip to Magna Carta has not been measured yet.", and the packet-loss tile says "Measured when a test runs." A reader learns four phrasings for one fact. One phrase, one meaning.
+
+**One phrase, one home.** The em dash for an absent *number* already lives in `speed-test-format.ts`; the sentence for an absent *measurement* belongs beside it.
+
+**Do not flatten the states that are not "not yet".** The round-trip line has four outcomes and only one of them is "we have not measured": `unauthenticated`, `forbidden`, and `unreachable` each keep their own specific sentence, because each tells the reader something different and actionable. Only `probe === null` — nothing attempted yet — becomes the shared phrase.
+
+**Files:**
+- Modify: `apps/web/src/lib/tools/speed-test/speed-test-format.ts` (export the phrase)
+- Modify: `apps/web/src/lib/tools/speed-test/quality-scores.svelte`
+- Modify: `apps/web/src/lib/tools/speed-test/server-panel.svelte`
+- Modify: `apps/web/src/lib/tools/speed-test/latency-chart.svelte`, `bandwidth-chart.svelte` (consume the constant instead of a literal)
+- Modify: `apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte` (the packet-loss idle note)
+- Test: `apps/web/test/speed-test-format.test.ts` (extend)
+
+- [ ] **Step 1: Extend the failing test**
+
+Add to `apps/web/test/speed-test-format.test.ts`:
+
+```ts
+describe("NOT_MEASURED_YET", () => {
+  it("is the one sentence the page uses for a measurement not taken", () => {
+    expect(NOT_MEASURED_YET).toBe("Not measured yet.");
+  });
+});
+```
+
+Import it alongside the existing imports.
+
+- [ ] **Step 2: Run it to verify it fails**
+
+Run: `vp test speed-test-format`
+Expected: FAIL — `NOT_MEASURED_YET` is not exported.
+
+- [ ] **Step 3: Give the phrase a home**
+
+In `speed-test-format.ts`, beside the `ABSENT` em dash:
+
+```ts
+/*
+ * How an untaken measurement reads, in prose. The em dash above says the same thing where a number
+ * belongs; this says it where a sentence belongs. Both live here so the page never invents a fifth
+ * way to say "we have not measured this."
+ */
+export const NOT_MEASURED_YET = "Not measured yet.";
+```
+
+- [ ] **Step 4: Use it in all four places**
+
+1. `quality-scores.svelte` — the placeholder line under each em-dashed rating becomes `NOT_MEASURED_YET` (replacing "Scored once a run finishes.").
+2. `server-panel.svelte` — when `probe === null`, the round-trip line reads `NOT_MEASURED_YET` (replacing the long sentence). **Leave the `unauthenticated`, `forbidden`, and `unreachable` branches exactly as they are** — they are not "not yet", they are "here is why not", and each is actionable.
+3. `latency-chart.svelte` and `bandwidth-chart.svelte` — replace the hardcoded `"Not measured yet."` string with the imported constant, so the four sites cannot drift apart later.
+4. The page's packet-loss tile, in its `store.turn === null` branch, uses `NOT_MEASURED_YET` as its `note` (replacing "Measured when a test runs.").
+
+Do not change the `aria-label` text of a chart that already describes its state; if it embeds the literal, have it consume the constant too.
+
+- [ ] **Step 5: Verify the gates**
+
+Run: `pnpm --filter @magna-carta/web run check`
+Expected: 0 errors, 0 warnings.
+
+Run: `vp test speed-test-format run-progress bandwidth-stats chart-scale`
+Expected: PASS.
+
+Then grep the tool for stragglers — there must be no remaining literal:
+
+```bash
+grep -rn "Not measured yet\|Scored once a run finishes\|Measured when a test runs\|has not been measured yet" apps/web/src/lib/tools/speed-test "apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte"
+```
+
+Every hit must be the constant's definition or an import of it.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add apps/web/src/lib/tools/speed-test apps/web/test/speed-test-format.test.ts "apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte"
+git commit -m "fix(tools): one sentence for a measurement not taken"
 ```
 
 ---
