@@ -11,11 +11,14 @@ publish.workspace = true
 serde_yaml_ng = "0.10"
 serde = { version = "1", features = ["derive"] }
 image = { workspace = true }
-# The OCR pipeline: PaddleOCR PP-OCR models over ONNX Runtime via `ort`. Default features are
-# off because they enable `ort/tls-native` (a native-TLS C dependency) for a runtime model
-# download this engine never performs -- its models are baked into the image. `download-binaries`
-# is still required: it statically links the ONNX Runtime the crate needs at build time. Turning
-# off defaults also drops the crate's `simd` feature, which dispatches preprocessing across
-# different code paths depending on the host CPU's feature set; a re-run of a production on a
-# different machine has to reproduce the same output, so the engine forgoes that dispatch.
+# The OCR pipeline: PaddleOCR PP-OCR models over ONNX Runtime via `ort`. `download-binaries` is
+# required to statically link the ONNX Runtime the crate needs at build time, and it pulls in
+# `ort/tls-native` unconditionally (Cargo feature unification is additive, so turning off default
+# features cannot remove it) -- that native-TLS path is exercised only by `ort-sys`'s build
+# script, to fetch the ONNX Runtime archive over HTTPS at build time; it is compiled for the host,
+# never linked into the shipped binary, and this crate performs no runtime model download. Default
+# features are still off because that drops the crate's `simd` feature (`multiversion` runtime CPU
+# dispatch): different host CPUs would otherwise take different preprocessing code paths and
+# produce different rounding before the model runs, and a re-run of a production has to reproduce
+# its own earlier output exactly.
 oar-ocr = { version = "0.8", default-features = false, features = ["download-binaries"] }

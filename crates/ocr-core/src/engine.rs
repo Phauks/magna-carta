@@ -11,7 +11,7 @@ use oar_ocr::core::config::{OrtGraphOptimizationLevel, OrtSessionConfig};
 use oar_ocr::oarocr::{OAROCRBuilder, OAROCR};
 
 use crate::dictionary::character_dictionary_from_inference_yaml;
-use crate::facts::{Provenance, Quad, TextLine};
+use crate::facts::{Provenance, Quad, RecognizedPage, TextLine};
 use crate::{OcrError, Recognizer};
 
 /// The pinned, baked-in model artifacts. Each model is an `inference.onnx` beside the
@@ -84,21 +84,26 @@ fn to_quad(bounding_box: &oar_ocr::processors::BoundingBox) -> Quad {
 }
 
 impl Recognizer for PaddleRecognizer {
-    fn recognize(&self, image: &RgbImage) -> Result<Vec<TextLine>, OcrError> {
+    fn recognize(&self, image: &RgbImage) -> Result<RecognizedPage, OcrError> {
         let results = self
             .pipeline
             .predict(vec![image.clone()])
             .map_err(|_| OcrError::InferenceFailed)?;
         let Some(page) = results.into_iter().next() else {
-            return Ok(Vec::new());
+            return Ok(RecognizedPage {
+                lines: Vec::new(),
+                undecoded_regions: 0,
+            });
         };
 
-        Ok(page
-            .text_regions
-            .iter()
-            .filter_map(|region| {
-                let (text, confidence) = region.text_with_confidence()?;
-                Some(TextLine {
+        // Partition rather than filter: a region detection found but recognition could
+        // not decode is lost information, and this crate never lets a caller mistake
+        // that loss for a page that genuinely had no text on it.
+        let mut lines = Vec::new();
+        let mut undecoded_regions = 0;
+        for region in &page.text_regions {
+            match region.text_with_confidence() {
+                Some((text, confidence)) => lines.push(TextLine {
                     text: text.to_string(),
                     confidence,
                     quad: to_quad(&region.bounding_box),
@@ -108,9 +113,15 @@ impl Recognizer for PaddleRecognizer {
                         .as_ref()
                         .map(|boxes| boxes.iter().map(to_quad).collect())
                         .unwrap_or_default(),
-                })
-            })
-            .collect())
+                }),
+                None => undecoded_regions += 1,
+            }
+        }
+
+        Ok(RecognizedPage {
+            lines,
+            undecoded_regions,
+        })
     }
 
     fn page_orientation(&self, _image: &RgbImage) -> Option<f32> {
@@ -171,10 +182,12 @@ mod tests {
         let engine = PaddleRecognizer::load(models()).unwrap();
         // A white page with the word INVOICE drawn in black, 300 DPI-ish scale.
         let image = crate::engine::tests::render_word("INVOICE");
-        let lines = engine.recognize(&image).unwrap();
-        let joined: String = lines.iter().map(|line| line.text.as_str()).collect();
+        let page = engine.recognize(&image).unwrap();
+        let joined: String = page.lines.iter().map(|line| line.text.as_str()).collect();
         assert!(joined.to_uppercase().contains("INVOICE"), "got {joined:?}");
-        assert!(lines[0].confidence > 0.5);
+        assert!(page.lines[0].confidence > 0.5);
+        // Every region detection found on this clean synthetic render should decode.
+        assert_eq!(page.undecoded_regions, 0);
     }
 
     #[test]

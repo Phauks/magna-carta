@@ -8,7 +8,7 @@ pub mod facts;
 
 use image::RgbImage;
 
-pub use facts::{PageFacts, Provenance, Quad, SkipReason, TextLine};
+pub use facts::{PageFacts, Provenance, Quad, RecognizedPage, SkipReason, TextLine};
 
 /// Engine failures. `code` is a stable, content-free label safe to log and to put
 /// on the wire — it never carries a fragment of the document.
@@ -43,7 +43,7 @@ impl std::error::Error for OcrError {}
 /// on the concrete engine, so its page-walking and wire logic are testable without
 /// loading a 139 MB model.
 pub trait Recognizer: Send + Sync {
-    fn recognize(&self, image: &RgbImage) -> Result<Vec<TextLine>, OcrError>;
+    fn recognize(&self, image: &RgbImage) -> Result<RecognizedPage, OcrError>;
     /// Whole-page orientation, when a classifier is configured.
     fn page_orientation(&self, image: &RgbImage) -> Option<f32>;
     fn provenance(&self) -> Provenance;

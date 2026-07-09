@@ -37,6 +37,17 @@ pub struct TextLine {
     pub word_quads: Vec<Quad>,
 }
 
+/// One page's recognition output: the lines that decoded, and a count of the
+/// regions that did not. Detection can find a text region that recognition then
+/// fails to read; reporting only the decoded lines would make a page of unreadable
+/// text indistinguishable from a blank one.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct RecognizedPage {
+    pub lines: Vec<TextLine>,
+    /// Regions detection found but recognition could not decode.
+    pub undecoded_regions: usize,
+}
+
 /// Why a page was not recognized. A skipped page is never reported as an empty
 /// page: the caller cannot otherwise tell "no words here" from "we gave up".
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -75,6 +86,8 @@ pub struct PageFacts {
     pub skipped: Option<SkipReason>,
     /// Whole-page orientation in degrees, when the document orientation classifier ran.
     pub orientation_degrees: Option<f32>,
+    /// Regions detection found but recognition could not decode.
+    pub undecoded_regions: usize,
 }
 
 #[cfg(test)]
@@ -87,6 +100,26 @@ mod tests {
             points: [(10.0, 0.0), (20.0, 10.0), (10.0, 20.0), (0.0, 10.0)],
         };
         assert_eq!(quad.bounds(), (0.0, 0.0, 20.0, 20.0));
+    }
+
+    #[test]
+    fn a_page_of_undecoded_regions_is_not_the_same_as_a_blank_page() {
+        let blank = RecognizedPage {
+            lines: Vec::new(),
+            undecoded_regions: 0,
+        };
+        let unreadable = RecognizedPage {
+            lines: Vec::new(),
+            undecoded_regions: 20,
+        };
+        // Both report zero decoded lines, but only one of them means "no text here".
+        assert_eq!(blank.lines, unreadable.lines);
+        assert_ne!(
+            blank, unreadable,
+            "a page where detection found regions recognition could not read must not equal a genuinely blank page"
+        );
+        assert_eq!(blank.undecoded_regions, 0);
+        assert_eq!(unreadable.undecoded_regions, 20);
     }
 
     #[test]
