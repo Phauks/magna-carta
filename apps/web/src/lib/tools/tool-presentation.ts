@@ -63,7 +63,7 @@ export const TOOL_PRESENTATION: Record<string, ToolPresentation> = {
     stage: "alpha",
   },
   "firm-usage": { description: "See the firm's storage and platform consumption.", stage: "soon" },
-  "whois-lookup": { description: "Look up who registered a domain, and when.", stage: "soon" },
+  "whois-lookup": { description: "Look up who registered a domain, and when.", stage: "alpha" },
   "safe-website-viewer": {
     description: "Open an untrusted website at arm's length.",
     stage: "soon",
