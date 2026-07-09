@@ -1143,6 +1143,160 @@ git commit -m "feat(tools): network speed test page on the Cloudflare engine"
 
 ---
 
+### Task 4b: The Network Quality Score panel (a gap in Task 4)
+
+The design spec lists "Network Quality Score" as a rendered section, and Task 4's goal line promised it, but Task 4's literal page code never included it. That is a plan defect, not an implementer oversight. Task 4 typed `getScores(): Scores` honestly against the shipped `.d.ts`, so the shape is known and nothing needs re-deriving.
+
+From `apps/web/node_modules/@cloudflare/speedtest/dist/speedtest.d.ts`:
+
+```ts
+type ClassificationName = "bad" | "poor" | "average" | "good" | "great";
+interface ExperienceScore { points: number; classificationIdx: number; classificationName: ClassificationName }
+type Scores = Record<string, ExperienceScore>;
+```
+
+The keys are use-case names the library chooses (`streaming`, `gaming`, `rtc` today). Because the type is `Record<string, …>`, the panel must **label the keys it knows and fall back to the raw key** — never assume a fixed set, and never drop a use-case the library adds.
+
+**Files:**
+- Create: `apps/web/src/lib/tools/speed-test/quality-scores.svelte`
+- Create: `apps/web/src/lib/tools/speed-test/quality-labels.ts`
+- Modify: `apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte`
+- Test: `apps/web/test/quality-labels.test.ts`
+
+**Interfaces:**
+- Produces: `useCaseLabel(key: string): string`.
+
+- [ ] **Step 1: Write the failing test**
+
+Create `apps/web/test/quality-labels.test.ts`:
+
+```ts
+/*
+ * The library types its scores as Record<string, ExperienceScore>, so the set of use-cases is the
+ * library's to change. A key we do not recognize must still render under its own name rather than
+ * vanish from the panel.
+ */
+import { describe, expect, it } from "vitest";
+import { useCaseLabel } from "../src/lib/tools/speed-test/quality-labels.ts";
+
+describe("useCaseLabel", () => {
+  it("labels the use-cases the engine reports today", () => {
+    expect(useCaseLabel("streaming")).toBe("Video streaming");
+    expect(useCaseLabel("gaming")).toBe("Online gaming");
+    expect(useCaseLabel("rtc")).toBe("Video calls");
+  });
+
+  it("falls back to the raw key for a use-case it does not know", () => {
+    expect(useCaseLabel("teleportation")).toBe("teleportation");
+  });
+});
+```
+
+- [ ] **Step 2: Run it to verify it fails**
+
+Run: `vp test quality-labels`
+Expected: FAIL — module not found.
+
+- [ ] **Step 3: Implement the labels**
+
+Create `apps/web/src/lib/tools/speed-test/quality-labels.ts`:
+
+```ts
+/*
+ * The engine scores the connection per use-case and types the set as Record<string, …>, so the
+ * use-cases are its to choose. We name the ones it reports today and pass anything else through
+ * under its own key: an unlabelled score is still a score, and dropping it would hide a fact.
+ */
+const USE_CASE_LABELS: Record<string, string> = {
+  streaming: "Video streaming",
+  gaming: "Online gaming",
+  rtc: "Video calls",
+};
+
+export function useCaseLabel(key: string): string {
+  return USE_CASE_LABELS[key] ?? key;
+}
+```
+
+- [ ] **Step 4: Run it to verify it passes**
+
+Run: `vp test quality-labels`
+Expected: PASS (2 tests).
+
+- [ ] **Step 5: Write the panel**
+
+Create `apps/web/src/lib/tools/speed-test/quality-scores.svelte`:
+
+```svelte
+<script lang="ts">
+  /*
+   * The engine's per-use-case verdict on this connection. The classification word carries the
+   * meaning, so it is never conveyed by colour alone; the point total sits beside it for anyone
+   * who wants the number. Renders nothing until a run has produced scores.
+   */
+  import type { Scores } from "@cloudflare/speedtest";
+  import { useCaseLabel } from "./quality-labels.ts";
+
+  let { scores }: { scores: Scores | undefined } = $props();
+
+  const entries = $derived(Object.entries(scores ?? {}));
+</script>
+
+{#if entries.length > 0}
+  <dl class="grid grid-cols-1 gap-8 text-sm sm:grid-cols-3">
+    {#each entries as [key, score] (key)}
+      <div>
+        <dt class="text-text-muted">{useCaseLabel(key)}</dt>
+        <dd class="mt-4 text-lg capitalize">{score.classificationName}</dd>
+        <dd class="text-xs text-text-muted">{score.points} points</dd>
+      </div>
+    {/each}
+  </dl>
+{:else}
+  <p class="text-sm text-text-muted">Scored once a run finishes.</p>
+{/if}
+```
+
+Confirm `Scores` is importable from `@cloudflare/speedtest` (the `.d.ts` exports it at line 435). If the runtime entry does not re-export the type, import it from the store's structural interface instead — never `any`.
+
+- [ ] **Step 6: Mount it on the page**
+
+In `apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte`, import it:
+
+```ts
+  import QualityScores from "$lib/tools/speed-test/quality-scores.svelte";
+```
+
+and add this section immediately after the headline-metrics grid and before the "Your connection" section (reuse the exact `<h2>` classes the sibling sections on this page already use — do not invent new ones):
+
+```svelte
+<section class="mb-12">
+  <h2 class="mb-8 border-b border-border-strong pb-8 text-xs text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
+    Network quality score
+  </h2>
+  <QualityScores scores={results?.getScores()} />
+</section>
+```
+
+If `border-border-strong` or `--mc-tracking-caps` is not what the sibling sections on this page actually use, copy whatever they use verbatim rather than the above.
+
+- [ ] **Step 7: Verify the gates**
+
+Run: `pnpm --filter @magna-carta/web run check`
+Expected: 0 errors, 0 warnings.
+
+Run: `vp test quality-labels speed-test-format connection-probe`
+Expected: PASS.
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add apps/web/src/lib/tools/speed-test/quality-labels.ts apps/web/src/lib/tools/speed-test/quality-scores.svelte apps/web/test/quality-labels.test.ts "apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte"
+git commit -m "feat(tools): network quality score panel"
+```
+
+---
+
 ### Task 5: Measurement charts
 
 **Files:**
