@@ -11,11 +11,17 @@
 //! reaches a caller) and gives the panic-safety regression tests below a single,
 //! stable surface to hold `cfb` to.
 
-use std::io::Cursor;
+use std::io::{Cursor, Read};
+use std::path::{Component, Path, PathBuf};
 
 use cfb::CompoundFile;
+use mail_parser::MessageParser;
 
 use crate::error::EmailError;
+use crate::model::{
+    Address, Disposition, IntegrityFacts, MessageIdentifier, ParsedMessage, PartDescriptor,
+    PartLocator, SourceFormat,
+};
 
 /// The container-open seam for `.msg`: open a compound-file wrapper over an
 /// in-memory cursor, without copying the input. Any structural fault `cfb`
@@ -45,6 +51,621 @@ use crate::error::EmailError;
 /// this path directly and the `rlib` scaffold stops mattering.
 pub fn open_compound_file(bytes: &[u8]) -> Result<CompoundFile<Cursor<&[u8]>>, EmailError> {
     CompoundFile::open(Cursor::new(bytes)).map_err(|_| EmailError::Malformed)
+}
+
+/// A `.msg` is a compound file of MAPI property streams. This reads the sender,
+/// recipients, subject, bodies, and attachment descriptors out of one, per
+/// [MS-OXMSG] / [MS-OXPROPS], and returns the same [`ParsedMessage`] the `.eml`
+/// lane produces so a caller need not know which container an email arrived in.
+///
+/// The bytes are attacker-controlled and legally privileged, and this runs in an
+/// isolate that cannot unwind, so every value derived from the input is
+/// bounds-checked: no slice is indexed without a length test, no allocation is
+/// sized by an attacker-declared length, no `unwrap`/`expect`/`panic` touches
+/// input-derived data. Every malformed structure becomes [`EmailError::Malformed`].
+pub fn parse_msg(bytes: &[u8]) -> Result<ParsedMessage, EmailError> {
+    let mut compound = open_compound_file(bytes)?;
+    // Walk the whole directory tree once into owned paths. `cfb`'s walk is
+    // bounds-checked and cycle-guarded, and collecting it up front releases the
+    // immutable borrow so the property streams can then be opened for reading.
+    let nodes: Vec<Node> = compound
+        .walk()
+        .map(|entry| Node {
+            path: entry.path().to_path_buf(),
+            is_stream: entry.is_stream(),
+            length: entry.len(),
+        })
+        .collect();
+    read_message(&mut compound, &nodes, Path::new("/"), HEADER_TOP_LEVEL, 0)
+}
+
+/// The container this decoder runs against: an in-memory cursor over borrowed input.
+type Msg<'a> = CompoundFile<Cursor<&'a [u8]>>;
+
+/// One directory entry, captured as owned data so reading a stream (which needs a
+/// mutable borrow of the container) does not conflict with tree traversal.
+struct Node {
+    path: PathBuf,
+    is_stream: bool,
+    length: u64,
+}
+
+/// A variable-length property, stored in its own `__substg1.0_<id><type>` stream.
+struct SubStream {
+    id: u16,
+    property_type: u16,
+    path: PathBuf,
+    length: u64,
+}
+
+/// A fixed-length property, stored inline in the `__properties_version1.0` stream.
+struct FixedProperty {
+    id: u16,
+    property_type: u16,
+    value: [u8; 8],
+}
+
+// Property identifiers ([MS-OXPROPS]). Names spelled out; the numeric tags are the
+// wire identifiers the format defines.
+const PID_TRANSPORT_MESSAGE_HEADERS: u16 = 0x007D;
+const PID_INTERNET_MESSAGE_ID: u16 = 0x1035;
+const PID_SUBJECT: u16 = 0x0037;
+const PID_SENDER_NAME: u16 = 0x0C1A;
+const PID_SENDER_SMTP_ADDRESS: u16 = 0x0C1F;
+const PID_SENDER_SMTP_ADDRESS_FALLBACK: u16 = 0x5D01;
+const PID_MESSAGE_DELIVERY_TIME: u16 = 0x0E06;
+const PID_BODY: u16 = 0x1000;
+const PID_HTML: u16 = 0x1013;
+const PID_RECIPIENT_DISPLAY_NAME: u16 = 0x3001;
+const PID_RECIPIENT_SMTP_ADDRESS: u16 = 0x39FE;
+const PID_RECIPIENT_EMAIL_ADDRESS_FALLBACK: u16 = 0x3003;
+const PID_RECIPIENT_TYPE: u16 = 0x0C15;
+const PID_ATTACH_LONG_FILENAME: u16 = 0x3707;
+const PID_ATTACH_FILENAME_FALLBACK: u16 = 0x3704;
+const PID_ATTACH_MIME_TAG: u16 = 0x370E;
+const PID_ATTACH_CONTENT_ID: u16 = 0x3712;
+const PID_ATTACH_DATA: u16 = 0x3701;
+const PID_ATTACH_METHOD: u16 = 0x3705;
+
+// Property types ([MS-OXCDATA]).
+const PTYPE_INT32: u16 = 0x0003;
+const PTYPE_FILETIME: u16 = 0x0040;
+const PTYPE_STRING8: u16 = 0x001E;
+const PTYPE_UNICODE: u16 = 0x001F;
+const PTYPE_BINARY: u16 = 0x0102;
+
+// Recipient classes ([MS-OXOMSG] PidTagRecipientType).
+const RECIPIENT_TYPE_CC: i32 = 2;
+const RECIPIENT_TYPE_BCC: i32 = 3;
+
+// PidTagAttachMethod value that marks an attachment as an embedded message object.
+const ATTACH_METHOD_EMBEDDED_MESSAGE: i32 = 0x05;
+
+// The `__properties_version1.0` stream begins with a reserved header whose size
+// depends on the object it describes ([MS-OXMSG] 2.4.1): 32 bytes for the top-level
+// message, 24 for an embedded message, 8 for a recipient or attachment object.
+const HEADER_TOP_LEVEL: usize = 32;
+const HEADER_EMBEDDED_MESSAGE: usize = 24;
+const HEADER_SUBOBJECT: usize = 8;
+
+/// A stream read is clamped to this many bytes. `cfb` never yields more than the
+/// real sector chain holds (so this cannot be inflated past the input), and this
+/// engine only reads small property streams — a body, a header block — not the
+/// attachment payloads, whose sizes it takes from the directory without reading
+/// them. The clamp is a second wall so no crafted directory entry can turn a
+/// property read into an unbounded allocation.
+const MAX_PROPERTY_STREAM_BYTES: u64 = 64 * 1024 * 1024;
+
+/// An attachment can itself be an embedded `.msg`, which can embed another, without
+/// limit. This engine runs where the stack cannot unwind, so an over-deep chain is a
+/// stack-exhaustion bomb rather than real correspondence: a forwarded-as-attachment
+/// thread is a handful of levels, never dozens. Descending past this bound is refused
+/// with [`EmailError::LimitExceeded`]. (Breadth caps — total part/recipient counts —
+/// are a separate concern; only the recursion this decoder introduces is bounded here.)
+const MAX_EMBEDDED_MESSAGE_DEPTH: usize = 16;
+
+/// Parse the message object rooted at `prefix` (the container root for a top-level
+/// `.msg`, or an embedded-message sub-storage on a recursive call). `header_size` is
+/// the property-stream header for this object class; `depth` counts embedding.
+fn read_message(
+    compound: &mut Msg,
+    nodes: &[Node],
+    prefix: &Path,
+    header_size: usize,
+    depth: usize,
+) -> Result<ParsedMessage, EmailError> {
+    if depth > MAX_EMBEDDED_MESSAGE_DEPTH {
+        return Err(EmailError::LimitExceeded);
+    }
+
+    let substreams = substreams_of(nodes, prefix);
+    let fixed = read_fixed_properties(compound, nodes, prefix, header_size)?;
+
+    let subject = read_string(compound, &substreams, PID_SUBJECT)?;
+
+    // The sender is a display name and an SMTP address, either of which may be
+    // absent; the SMTP address has a documented fallback tag.
+    let sender_name = read_string(compound, &substreams, PID_SENDER_NAME)?;
+    let sender_address = match read_string(compound, &substreams, PID_SENDER_SMTP_ADDRESS)? {
+        Some(address) => Some(address),
+        None => read_string(compound, &substreams, PID_SENDER_SMTP_ADDRESS_FALLBACK)?,
+    };
+    let from = if sender_name.is_some() || sender_address.is_some() {
+        vec![Address {
+            display_name: sender_name,
+            address: sender_address,
+        }]
+    } else {
+        Vec::new()
+    };
+
+    let date_raw = fixed_filetime_iso(&fixed, PID_MESSAGE_DELIVERY_TIME);
+
+    // Bodies. The RTF body (PidTagRtfCompressed, 0x1009) is LZFu-compressed and is
+    // not decoded here, so a `.msg` whose only body is RTF currently yields no body
+    // text at all; `rtf_body` stays `None` rather than pretending otherwise. Plain
+    // text and HTML are read directly.
+    let text_bodies: Vec<String> = read_string(compound, &substreams, PID_BODY)?
+        .into_iter()
+        .collect();
+    let html_bodies: Vec<String> = read_binary_as_text(compound, &substreams, PID_HTML)?
+        .into_iter()
+        .collect();
+    let references_remote_content = html_bodies.iter().any(|body| {
+        let lowered = body.to_ascii_lowercase();
+        lowered.contains("src=\"http://") || lowered.contains("src=\"https://")
+    });
+
+    let (to, cc, bcc) = read_recipients(compound, nodes, prefix)?;
+    let parts = read_attachments(compound, nodes, prefix, depth)?;
+
+    // Header provenance is load-bearing. A `.msg` carries RFC 5322 headers only when
+    // PidTagTransportMessageHeaders survived export; when it did, its Message-ID is a
+    // real header value. When it did not, an identifier can still be recovered from
+    // PidTagInternetMessageId, but that is a MAPI value, not a header one, and must be
+    // marked as such so downstream dedup never treats the two as interchangeable.
+    let header_block = read_string(compound, &substreams, PID_TRANSPORT_MESSAGE_HEADERS)?;
+    let header_derived = header_block.as_deref().and_then(parse_header_block);
+    let mapi_message_id = read_string(compound, &substreams, PID_INTERNET_MESSAGE_ID)?;
+
+    let (raw_headers, integrity, in_reply_to, references, header_identifier) = match header_derived
+    {
+        Some(derived) => (
+            derived.raw_headers,
+            derived.integrity,
+            derived.in_reply_to,
+            derived.references,
+            derived.message_identifier,
+        ),
+        None => (
+            Vec::new(),
+            IntegrityFacts::default(),
+            None,
+            Vec::new(),
+            MessageIdentifier::Absent,
+        ),
+    };
+    let message_identifier = match header_identifier {
+        MessageIdentifier::FromHeader(value) => MessageIdentifier::FromHeader(value),
+        // No header-sourced Message-ID: fall back to the MAPI value, tagged as MAPI.
+        _ => match mapi_message_id {
+            Some(value) => MessageIdentifier::FromMapi(value),
+            None => MessageIdentifier::Absent,
+        },
+    };
+
+    Ok(ParsedMessage {
+        message_identifier,
+        in_reply_to,
+        references,
+        subject,
+        date_raw,
+        from,
+        to,
+        cc,
+        bcc,
+        raw_headers,
+        text_bodies,
+        html_bodies,
+        // PidTagRtfCompressed (0x1009) uses LZFu compression and is decoded elsewhere.
+        rtf_body: None,
+        parts,
+        integrity,
+        source_format: SourceFormat::Msg,
+        references_remote_content,
+    })
+}
+
+/// Recipients live in `__recip_version1.0_#XXXXXXXX` sub-storages; each carries its
+/// own display name, SMTP address (with a fallback tag), and recipient class.
+#[allow(clippy::type_complexity)]
+fn read_recipients(
+    compound: &mut Msg,
+    nodes: &[Node],
+    prefix: &Path,
+) -> Result<(Vec<Address>, Vec<Address>, Vec<Address>), EmailError> {
+    let mut to = Vec::new();
+    let mut cc = Vec::new();
+    let mut bcc = Vec::new();
+
+    for storage in storages_named(nodes, prefix, "__recip_version1.0_") {
+        let substreams = substreams_of(nodes, &storage);
+        let fixed = read_fixed_properties(compound, nodes, &storage, HEADER_SUBOBJECT)?;
+
+        let display_name = read_string(compound, &substreams, PID_RECIPIENT_DISPLAY_NAME)?;
+        let address = match read_string(compound, &substreams, PID_RECIPIENT_SMTP_ADDRESS)? {
+            Some(value) => Some(value),
+            None => read_string(compound, &substreams, PID_RECIPIENT_EMAIL_ADDRESS_FALLBACK)?,
+        };
+        if display_name.is_none() && address.is_none() {
+            continue;
+        }
+        let recipient = Address {
+            display_name,
+            address,
+        };
+        match fixed_int32(&fixed, PID_RECIPIENT_TYPE) {
+            Some(RECIPIENT_TYPE_CC) => cc.push(recipient),
+            Some(RECIPIENT_TYPE_BCC) => bcc.push(recipient),
+            // To (1), Originator (0), or anything unrecognized: treat as a To recipient.
+            _ => to.push(recipient),
+        }
+    }
+
+    Ok((to, cc, bcc))
+}
+
+/// Attachments live in `__attach_version1.0_#XXXXXXXX` sub-storages. Each becomes a
+/// [`PartDescriptor`] pointing back at its storage — never at an input range, since a
+/// `.msg` part's bytes are reassembled from scattered sectors, not a span of the input.
+fn read_attachments(
+    compound: &mut Msg,
+    nodes: &[Node],
+    prefix: &Path,
+    depth: usize,
+) -> Result<Vec<PartDescriptor>, EmailError> {
+    let mut parts = Vec::new();
+
+    for storage in storages_named(nodes, prefix, "__attach_version1.0_") {
+        let substreams = substreams_of(nodes, &storage);
+        let fixed = read_fixed_properties(compound, nodes, &storage, HEADER_SUBOBJECT)?;
+
+        let filename = match read_string(compound, &substreams, PID_ATTACH_LONG_FILENAME)? {
+            Some(name) => Some(name),
+            None => read_string(compound, &substreams, PID_ATTACH_FILENAME_FALLBACK)?,
+        };
+        let media_type = read_string(compound, &substreams, PID_ATTACH_MIME_TAG)?;
+        let content_identifier = read_string(compound, &substreams, PID_ATTACH_CONTENT_ID)?;
+        // Size comes from the directory-recorded stream length, not from reading the
+        // payload: a part is described here, materialized only on demand.
+        let size = substream_length(&substreams, PID_ATTACH_DATA, PTYPE_BINARY).unwrap_or(0);
+        let is_embedded_message =
+            fixed_int32(&fixed, PID_ATTACH_METHOD) == Some(ATTACH_METHOD_EMBEDDED_MESSAGE);
+        let disposition = if content_identifier.is_some() {
+            Disposition::Inline
+        } else {
+            Disposition::Attachment
+        };
+
+        parts.push(PartDescriptor {
+            filename,
+            media_type,
+            content_identifier,
+            disposition,
+            size: clamp_to_usize(size),
+            locator: PartLocator::MapiStream {
+                name: storage_locator_name(&storage),
+            },
+            is_embedded_message,
+        });
+
+        // An embedded message object is a nested compound-file sub-storage. Descend it
+        // to bound the embedding depth and to reject a malformed nested message rather
+        // than trusting bytes we did not validate. Its decoded content is not surfaced
+        // as a nested record yet; that is a later slice. The recursion guard lives here
+        // because this descent is the recursion.
+        if let Some(embedded) = embedded_message_storage(nodes, &storage) {
+            read_message(
+                compound,
+                nodes,
+                &embedded,
+                HEADER_EMBEDDED_MESSAGE,
+                depth + 1,
+            )?;
+        }
+    }
+
+    Ok(parts)
+}
+
+/// Parse an RFC 5322 header block recovered from PidTagTransportMessageHeaders,
+/// reusing the `.eml` lane's tested header extraction so the ordered verbatim
+/// headers, the Message-ID provenance, and the integrity facts are read exactly as
+/// they are from a standalone `.eml`. `None` when the block parses to nothing.
+fn parse_header_block(block: &str) -> Option<ParsedMessage> {
+    // A bare header block has no body separator; append one so the parser treats
+    // every line as a header rather than folding a trailing line into a body. The
+    // appended bytes sit past the header region and do not shift any header offset.
+    let mut buffer = block.as_bytes().to_vec();
+    buffer.extend_from_slice(b"\r\n\r\n");
+    let message = MessageParser::default().parse(&buffer)?;
+    Some(crate::eml::from_mail_parser_message(
+        &message,
+        SourceFormat::Msg,
+    ))
+}
+
+/// The variable-length property streams that are direct children of `prefix`.
+fn substreams_of(nodes: &[Node], prefix: &Path) -> Vec<SubStream> {
+    nodes
+        .iter()
+        .filter(|node| node.is_stream && node.path.parent() == Some(prefix))
+        .filter_map(|node| {
+            let name = node.path.file_name()?.to_str()?;
+            let (id, property_type) = parse_substg_name(name)?;
+            Some(SubStream {
+                id,
+                property_type,
+                path: node.path.clone(),
+                length: node.length,
+            })
+        })
+        .collect()
+}
+
+/// Sub-storages directly under `prefix` whose name begins with `name_prefix`.
+fn storages_named(nodes: &[Node], prefix: &Path, name_prefix: &str) -> Vec<PathBuf> {
+    nodes
+        .iter()
+        .filter(|node| !node.is_stream && node.path.parent() == Some(prefix))
+        .filter(|node| {
+            node.path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name.starts_with(name_prefix))
+        })
+        .map(|node| node.path.clone())
+        .collect()
+}
+
+/// The embedded-message sub-storage of an attachment, if present. [MS-OXMSG] stores
+/// an embedded message object under the attachment-data tag with the object type.
+fn embedded_message_storage(nodes: &[Node], attachment: &Path) -> Option<PathBuf> {
+    nodes
+        .iter()
+        .find(|node| {
+            !node.is_stream
+                && node.path.parent() == Some(attachment)
+                && node.path.file_name().and_then(|name| name.to_str())
+                    == Some("__substg1.0_3701000D")
+        })
+        .map(|node| node.path.clone())
+}
+
+/// Split a `__substg1.0_<id><type>` stream name into its property id and type. The
+/// eight characters after the prefix are hex: four of property id, four of type.
+/// A name that is not exactly that shape yields `None` and is ignored.
+fn parse_substg_name(name: &str) -> Option<(u16, u16)> {
+    let hex = name.strip_prefix("__substg1.0_")?;
+    if hex.len() != 8 {
+        return None;
+    }
+    let id = u16::from_str_radix(&hex[0..4], 16).ok()?;
+    let property_type = u16::from_str_radix(&hex[4..8], 16).ok()?;
+    Some((id, property_type))
+}
+
+/// Read a string property, preferring the Unicode (UTF-16LE) form and falling back
+/// to the 8-bit form. `Err` only when a present Unicode stream is malformed.
+fn read_string(
+    compound: &mut Msg,
+    substreams: &[SubStream],
+    property_id: u16,
+) -> Result<Option<String>, EmailError> {
+    if let Some(stream) = find_substream(substreams, property_id, PTYPE_UNICODE) {
+        let bytes = read_stream_bounded(compound, &stream.path)?;
+        return Ok(Some(decode_utf16le(&bytes)?));
+    }
+    if let Some(stream) = find_substream(substreams, property_id, PTYPE_STRING8) {
+        let bytes = read_stream_bounded(compound, &stream.path)?;
+        return Ok(Some(decode_string8(&bytes)));
+    }
+    Ok(None)
+}
+
+/// Read a binary property (e.g. PidTagHtml) as text. HTML bytes are decoded
+/// UTF-8-lossily; the byte-exact form remains available through the part descriptors.
+fn read_binary_as_text(
+    compound: &mut Msg,
+    substreams: &[SubStream],
+    property_id: u16,
+) -> Result<Option<String>, EmailError> {
+    if let Some(stream) = find_substream(substreams, property_id, PTYPE_BINARY) {
+        let bytes = read_stream_bounded(compound, &stream.path)?;
+        return Ok(Some(String::from_utf8_lossy(&bytes).into_owned()));
+    }
+    Ok(None)
+}
+
+fn find_substream(
+    substreams: &[SubStream],
+    property_id: u16,
+    property_type: u16,
+) -> Option<&SubStream> {
+    substreams
+        .iter()
+        .find(|stream| stream.id == property_id && stream.property_type == property_type)
+}
+
+fn substream_length(substreams: &[SubStream], property_id: u16, property_type: u16) -> Option<u64> {
+    find_substream(substreams, property_id, property_type).map(|stream| stream.length)
+}
+
+/// Read the fixed-length properties out of the `__properties_version1.0` stream of
+/// the object at `prefix`, if it has one. Absence is not an error.
+fn read_fixed_properties(
+    compound: &mut Msg,
+    nodes: &[Node],
+    prefix: &Path,
+    header_size: usize,
+) -> Result<Vec<FixedProperty>, EmailError> {
+    let path = nodes.iter().find(|node| {
+        node.is_stream
+            && node.path.parent() == Some(prefix)
+            && node.path.file_name().and_then(|name| name.to_str())
+                == Some("__properties_version1.0")
+    });
+    match path {
+        Some(node) => {
+            let bytes = read_stream_bounded(compound, &node.path)?;
+            Ok(parse_fixed_properties(&bytes, header_size))
+        }
+        None => Ok(Vec::new()),
+    }
+}
+
+/// Decode the fixed 16-byte property records that follow the reserved header. Each
+/// record is a tag (property id and type), flags, then an 8-byte value. A trailing
+/// partial record is ignored — `chunks_exact` never yields short slices, so no read
+/// runs off the end.
+fn parse_fixed_properties(bytes: &[u8], header_size: usize) -> Vec<FixedProperty> {
+    if bytes.len() <= header_size {
+        return Vec::new();
+    }
+    bytes[header_size..]
+        .chunks_exact(16)
+        .map(|record| {
+            let tag = u32::from_le_bytes([record[0], record[1], record[2], record[3]]);
+            let mut value = [0u8; 8];
+            value.copy_from_slice(&record[8..16]);
+            FixedProperty {
+                id: (tag >> 16) as u16,
+                property_type: (tag & 0xFFFF) as u16,
+                value,
+            }
+        })
+        .collect()
+}
+
+fn fixed_int32(properties: &[FixedProperty], property_id: u16) -> Option<i32> {
+    properties
+        .iter()
+        .find(|property| property.id == property_id && property.property_type == PTYPE_INT32)
+        .map(|property| {
+            i32::from_le_bytes([
+                property.value[0],
+                property.value[1],
+                property.value[2],
+                property.value[3],
+            ])
+        })
+}
+
+fn fixed_filetime_iso(properties: &[FixedProperty], property_id: u16) -> Option<String> {
+    properties
+        .iter()
+        .find(|property| property.id == property_id && property.property_type == PTYPE_FILETIME)
+        .and_then(|property| filetime_to_iso(property.value))
+}
+
+/// Read a stream fully but bounded. The buffer grows only as real bytes arrive
+/// (never pre-sized from a declared length), and the read is clamped so a crafted
+/// directory entry cannot turn this into an unbounded allocation.
+fn read_stream_bounded(compound: &mut Msg, path: &Path) -> Result<Vec<u8>, EmailError> {
+    let stream = compound
+        .open_stream(path)
+        .map_err(|_| EmailError::Malformed)?;
+    let mut buffer = Vec::new();
+    stream
+        .take(MAX_PROPERTY_STREAM_BYTES)
+        .read_to_end(&mut buffer)
+        .map_err(|_| EmailError::Malformed)?;
+    Ok(buffer)
+}
+
+/// Decode UTF-16LE. An odd-length buffer cannot be whole 16-bit units, so it is
+/// rejected rather than read past its end; a trailing NUL terminator (which Outlook
+/// writes) is dropped.
+fn decode_utf16le(bytes: &[u8]) -> Result<String, EmailError> {
+    if !bytes.len().is_multiple_of(2) {
+        return Err(EmailError::Malformed);
+    }
+    let units: Vec<u16> = bytes
+        .chunks_exact(2)
+        .map(|pair| u16::from_le_bytes([pair[0], pair[1]]))
+        .collect();
+    let decoded = String::from_utf16_lossy(&units);
+    Ok(decoded.trim_end_matches('\u{0}').to_owned())
+}
+
+/// Decode an 8-bit string property. Its code page is not carried in the stream, so
+/// this reads it UTF-8-lossily — correct for the ASCII and UTF-8 that dominate these
+/// fields, and lossy (never a panic) for anything else.
+fn decode_string8(bytes: &[u8]) -> String {
+    String::from_utf8_lossy(bytes)
+        .trim_end_matches('\u{0}')
+        .to_owned()
+}
+
+/// Convert a FILETIME (100-nanosecond ticks since 1601-01-01 UTC) to an ISO 8601
+/// UTC timestamp. Pure integer arithmetic, so no input value can panic it; a zero
+/// FILETIME (an unset time) yields `None`.
+fn filetime_to_iso(value: [u8; 8]) -> Option<String> {
+    let ticks = u64::from_le_bytes(value);
+    if ticks == 0 {
+        return None;
+    }
+    // FILETIME epoch (1601-01-01) precedes the Unix epoch by 11,644,473,600 seconds.
+    let unix_seconds = (ticks / 10_000_000) as i64 - 11_644_473_600;
+    let days = unix_seconds.div_euclid(86_400);
+    let second_of_day = unix_seconds.rem_euclid(86_400);
+    let (year, month, day) = civil_from_days(days);
+    let hour = second_of_day / 3_600;
+    let minute = (second_of_day % 3_600) / 60;
+    let second = second_of_day % 60;
+    Some(format!(
+        "{year:04}-{month:02}-{day:02}T{hour:02}:{minute:02}:{second:02}Z"
+    ))
+}
+
+/// Days since the Unix epoch to a civil (year, month, day), by Howard Hinnant's
+/// branch-free algorithm. Integer-only; total across the FILETIME range without panic.
+fn civil_from_days(days: i64) -> (i64, u32, u32) {
+    let z = days + 719_468;
+    let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
+    let day_of_era = (z - era * 146_097) as u64; // [0, 146_096]
+    let year_of_era =
+        (day_of_era - day_of_era / 1_460 + day_of_era / 36_524 - day_of_era / 146_096) / 365; // [0, 399]
+    let year = year_of_era as i64 + era * 400;
+    let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100); // [0, 365]
+    let month_position = (5 * day_of_year + 2) / 153; // [0, 11]
+    let day = (day_of_year - (153 * month_position + 2) / 5 + 1) as u32; // [1, 31]
+    let month = if month_position < 10 {
+        month_position + 3
+    } else {
+        month_position - 9
+    } as u32; // [1, 12]
+    let year = if month <= 2 { year + 1 } else { year };
+    (year, month, day)
+}
+
+/// A stable, platform-independent handle for a `.msg` part's storage: the directory
+/// path with forward slashes, so a later extractor can navigate back to its streams.
+fn storage_locator_name(path: &Path) -> String {
+    let components: Vec<&str> = path
+        .components()
+        .filter_map(|component| match component {
+            Component::Normal(name) => name.to_str(),
+            _ => None,
+        })
+        .collect();
+    format!("/{}", components.join("/"))
+}
+
+/// Saturating narrowing of a directory-recorded 64-bit length to the pointer width,
+/// so a 32-bit (wasm) target cannot wrap an over-large declared size.
+fn clamp_to_usize(value: u64) -> usize {
+    usize::try_from(value).unwrap_or(usize::MAX)
 }
 
 #[cfg(test)]
@@ -197,5 +818,476 @@ mod tests {
                 }
             }
         }
+    }
+}
+
+/// Programmatic `.msg` construction. `.msg` is a binary compound file, so fixtures are
+/// built here in Rust rather than committed as binaries. Test-only: never shipped.
+#[cfg(test)]
+mod fixtures {
+    use super::*;
+    use std::io::Write as _;
+
+    /// UTF-16LE encode a string with the trailing NUL terminator Outlook writes.
+    pub fn utf16le(text: &str) -> Vec<u8> {
+        let mut bytes: Vec<u8> = text
+            .encode_utf16()
+            .flat_map(|unit| unit.to_le_bytes())
+            .collect();
+        bytes.extend_from_slice(&[0, 0]);
+        bytes
+    }
+
+    /// The `__properties_version1.0` stream: a reserved header of `header_size` zero
+    /// bytes followed by 16-byte fixed-property records.
+    pub struct PropertiesStream {
+        header_size: usize,
+        records: Vec<u8>,
+    }
+
+    impl PropertiesStream {
+        pub fn new(header_size: usize) -> Self {
+            Self {
+                header_size,
+                records: Vec::new(),
+            }
+        }
+
+        pub fn fixed(mut self, id: u16, property_type: u16, value: [u8; 8]) -> Self {
+            let tag = ((id as u32) << 16) | (property_type as u32);
+            self.records.extend_from_slice(&tag.to_le_bytes());
+            self.records.extend_from_slice(&[0u8; 4]); // flags
+            self.records.extend_from_slice(&value);
+            self
+        }
+
+        pub fn int32(self, id: u16, value: i32) -> Self {
+            let mut bytes = [0u8; 8];
+            bytes[0..4].copy_from_slice(&value.to_le_bytes());
+            self.fixed(id, PTYPE_INT32, bytes)
+        }
+
+        pub fn build(self) -> Vec<u8> {
+            let mut out = vec![0u8; self.header_size];
+            out.extend_from_slice(&self.records);
+            out
+        }
+    }
+
+    /// Assemble a compound file from a set of streams. Parent storages are created as
+    /// needed, so a caller lists only the streams it wants.
+    pub struct MsgBuilder {
+        streams: Vec<(String, Vec<u8>)>,
+        storages: Vec<String>,
+    }
+
+    impl MsgBuilder {
+        pub fn new() -> Self {
+            Self {
+                streams: Vec::new(),
+                storages: Vec::new(),
+            }
+        }
+
+        /// Add a variable-length property stream `__substg1.0_<id><type>` under a
+        /// storage path (`""` for the message root).
+        pub fn substg(self, storage: &str, id: u16, property_type: u16, content: Vec<u8>) -> Self {
+            let path = format!("{storage}/__substg1.0_{id:04X}{property_type:04X}");
+            self.stream(&path, content)
+        }
+
+        pub fn stream(mut self, path: &str, content: Vec<u8>) -> Self {
+            self.streams.push((path.to_owned(), content));
+            self
+        }
+
+        pub fn build(self) -> Vec<u8> {
+            let mut compound = CompoundFile::create(Cursor::new(Vec::new())).unwrap();
+            for storage in &self.storages {
+                compound.create_storage_all(storage).unwrap();
+            }
+            for (path, content) in &self.streams {
+                if let Some(parent) = Path::new(path).parent() {
+                    if parent != Path::new("/") {
+                        compound.create_storage_all(parent).unwrap();
+                    }
+                }
+                compound
+                    .create_stream(path)
+                    .unwrap()
+                    .write_all(content)
+                    .unwrap();
+            }
+            compound.flush().unwrap();
+            compound.into_inner().into_inner()
+        }
+    }
+
+    /// A chain of embedded-message containers, `levels` deep, with no other content.
+    /// Used to drive the recursion guard.
+    pub fn deeply_nested_embedded(levels: usize) -> Vec<u8> {
+        let mut compound = CompoundFile::create(Cursor::new(Vec::new())).unwrap();
+        let mut path = String::new();
+        for _ in 0..levels {
+            path.push_str("/__attach_version1.0_#00000000/__substg1.0_3701000D");
+        }
+        compound.create_storage_all(&path).unwrap();
+        compound.flush().unwrap();
+        compound.into_inner().into_inner()
+    }
+}
+
+#[cfg(test)]
+mod mapi_tests {
+    use super::fixtures::{deeply_nested_embedded, utf16le, MsgBuilder, PropertiesStream};
+    use super::*;
+
+    const HEADER_BLOCK: &str = concat!(
+        "Message-ID: <header-sourced@example.test>\r\n",
+        "From: Alice Attorney <alice@example.test>\r\n",
+        "To: Bob Client <bob@example.test>\r\n",
+        "Subject: Retainer\r\n",
+        "DKIM-Signature: v=1; a=rsa-sha256; d=example.test; s=sel; b=AAAA\r\n",
+        "Authentication-Results: mx.example.test; dkim=pass\r\n",
+        "Received: from mail.example.test by mx.example.test\r\n",
+    );
+
+    /// When the transport header block survived export, the Message-ID is a real
+    /// header value and the identifier records that provenance; the DKIM signature and
+    /// the rest of the integrity evidence are captured verbatim from the block.
+    #[test]
+    fn a_header_block_yields_a_header_sourced_identifier_and_integrity() {
+        let bytes = MsgBuilder::new()
+            .substg(
+                "",
+                PID_TRANSPORT_MESSAGE_HEADERS,
+                PTYPE_UNICODE,
+                utf16le(HEADER_BLOCK),
+            )
+            .substg("", PID_SUBJECT, PTYPE_UNICODE, utf16le("Retainer"))
+            .build();
+
+        let message = parse_msg(&bytes).expect("a well-formed .msg parses");
+
+        assert_eq!(
+            message.message_identifier,
+            MessageIdentifier::FromHeader("header-sourced@example.test".to_owned())
+        );
+        assert_eq!(message.integrity.dkim_signatures.len(), 1);
+        assert!(message.integrity.dkim_signatures[0].contains("d=example.test"));
+        assert_eq!(message.integrity.authentication_results.len(), 1);
+        assert_eq!(message.integrity.received_chain.len(), 1);
+        assert!(!message.raw_headers.is_empty());
+        assert_eq!(message.source_format, SourceFormat::Msg);
+    }
+
+    /// Outlook frequently drops the header block. With no headers but a
+    /// PidTagInternetMessageId, the identifier is recovered from MAPI and tagged as
+    /// such. A naive engine that stored a bare `String` would lose this distinction;
+    /// this asserts the value is `FromMapi`, never `FromHeader`, and that no
+    /// authenticity evidence is invented from a `.msg` that carries none.
+    #[test]
+    fn a_mapi_identifier_is_never_mistaken_for_a_header_one() {
+        let bytes = MsgBuilder::new()
+            .substg(
+                "",
+                PID_INTERNET_MESSAGE_ID,
+                PTYPE_UNICODE,
+                utf16le("<mapi-synthesized@example.test>"),
+            )
+            .build();
+
+        let message = parse_msg(&bytes).expect("a headerless .msg still parses");
+
+        assert_eq!(
+            message.message_identifier,
+            MessageIdentifier::FromMapi("<mapi-synthesized@example.test>".to_owned())
+        );
+        assert!(!matches!(
+            message.message_identifier,
+            MessageIdentifier::FromHeader(_)
+        ));
+        assert_eq!(message.integrity, IntegrityFacts::default());
+        assert!(message.raw_headers.is_empty());
+    }
+
+    /// A header block present but carrying no Message-ID must not be back-filled from
+    /// the MAPI value as if it were header-sourced: the MAPI value wins, tagged MAPI.
+    #[test]
+    fn a_header_block_without_a_message_id_falls_back_to_the_mapi_value() {
+        let header_without_id = "From: Alice <alice@example.test>\r\nSubject: No identifier\r\n";
+        let bytes = MsgBuilder::new()
+            .substg(
+                "",
+                PID_TRANSPORT_MESSAGE_HEADERS,
+                PTYPE_UNICODE,
+                utf16le(header_without_id),
+            )
+            .substg(
+                "",
+                PID_INTERNET_MESSAGE_ID,
+                PTYPE_UNICODE,
+                utf16le("<from-mapi@example.test>"),
+            )
+            .build();
+
+        let message = parse_msg(&bytes).expect("parses");
+        assert_eq!(
+            message.message_identifier,
+            MessageIdentifier::FromMapi("<from-mapi@example.test>".to_owned())
+        );
+    }
+
+    /// Neither a header block nor a MAPI identifier: the identifier is `Absent`, not
+    /// an empty string masquerading as a value.
+    #[test]
+    fn no_identifier_source_yields_absent() {
+        let bytes = MsgBuilder::new()
+            .substg(
+                "",
+                PID_SUBJECT,
+                PTYPE_UNICODE,
+                utf16le("No identifier here"),
+            )
+            .build();
+
+        let message = parse_msg(&bytes).expect("parses");
+        assert_eq!(message.message_identifier, MessageIdentifier::Absent);
+        assert_eq!(message.subject.as_deref(), Some("No identifier here"));
+    }
+
+    /// Subject, sender, delivery time, and bodies are decoded from their property
+    /// streams; a remote-content reference in the HTML body is surfaced as a fact.
+    #[test]
+    fn decodes_envelope_bodies_and_delivery_time() {
+        // FILETIME for 2021-01-01T00:00:00Z.
+        let delivery_time: u64 = 132_539_328_000_000_000;
+        let bytes = MsgBuilder::new()
+            .substg("", PID_SUBJECT, PTYPE_UNICODE, utf16le("Quarterly review"))
+            .substg(
+                "",
+                PID_SENDER_NAME,
+                PTYPE_UNICODE,
+                utf16le("Alice Attorney"),
+            )
+            .substg(
+                "",
+                PID_SENDER_SMTP_ADDRESS,
+                PTYPE_UNICODE,
+                utf16le("alice@example.test"),
+            )
+            .substg("", PID_BODY, PTYPE_UNICODE, utf16le("Plain text body."))
+            .substg(
+                "",
+                PID_HTML,
+                PTYPE_BINARY,
+                b"<html><img src=\"https://tracker.example/pixel.gif\"></html>".to_vec(),
+            )
+            .stream(
+                "/__properties_version1.0",
+                PropertiesStream::new(HEADER_TOP_LEVEL)
+                    .fixed(
+                        PID_MESSAGE_DELIVERY_TIME,
+                        PTYPE_FILETIME,
+                        delivery_time.to_le_bytes(),
+                    )
+                    .build(),
+            )
+            .build();
+
+        let message = parse_msg(&bytes).expect("parses");
+        assert_eq!(message.subject.as_deref(), Some("Quarterly review"));
+        assert_eq!(message.from.len(), 1);
+        assert_eq!(
+            message.from[0].display_name.as_deref(),
+            Some("Alice Attorney")
+        );
+        assert_eq!(
+            message.from[0].address.as_deref(),
+            Some("alice@example.test")
+        );
+        assert_eq!(message.text_bodies, vec!["Plain text body.".to_owned()]);
+        assert_eq!(message.html_bodies.len(), 1);
+        assert!(message.references_remote_content);
+        assert_eq!(message.date_raw.as_deref(), Some("2021-01-01T00:00:00Z"));
+        // The RTF body is not decoded; a .msg with only an RTF body has no body text.
+        assert_eq!(message.rtf_body, None);
+    }
+
+    /// Recipients are routed to To/Cc/Bcc by their recipient-type property.
+    #[test]
+    fn routes_recipients_by_type() {
+        let recip = "/__recip_version1.0_#00000000";
+        let bytes = MsgBuilder::new()
+            .substg(
+                recip,
+                PID_RECIPIENT_DISPLAY_NAME,
+                PTYPE_UNICODE,
+                utf16le("Carol Counsel"),
+            )
+            .substg(
+                recip,
+                PID_RECIPIENT_SMTP_ADDRESS,
+                PTYPE_UNICODE,
+                utf16le("carol@example.test"),
+            )
+            .stream(
+                &format!("{recip}/__properties_version1.0"),
+                PropertiesStream::new(HEADER_SUBOBJECT)
+                    .int32(PID_RECIPIENT_TYPE, RECIPIENT_TYPE_CC)
+                    .build(),
+            )
+            .build();
+
+        let message = parse_msg(&bytes).expect("parses");
+        assert!(message.to.is_empty());
+        assert_eq!(message.cc.len(), 1);
+        assert_eq!(message.cc[0].address.as_deref(), Some("carol@example.test"));
+    }
+
+    /// Each attachment becomes a descriptor located by its MAPI storage — never an
+    /// input range — with size from the real stream length; a content-identifier makes
+    /// it inline, its absence an attachment.
+    #[test]
+    fn describes_attachments_by_storage_never_by_input_range() {
+        let plain = "/__attach_version1.0_#00000000";
+        let inline = "/__attach_version1.0_#00000001";
+        let bytes = MsgBuilder::new()
+            .substg(
+                plain,
+                PID_ATTACH_LONG_FILENAME,
+                PTYPE_UNICODE,
+                utf16le("engagement-letter.pdf"),
+            )
+            .substg(
+                plain,
+                PID_ATTACH_MIME_TAG,
+                PTYPE_UNICODE,
+                utf16le("application/pdf"),
+            )
+            .substg(plain, PID_ATTACH_DATA, PTYPE_BINARY, vec![0u8; 100])
+            .substg(
+                inline,
+                PID_ATTACH_CONTENT_ID,
+                PTYPE_UNICODE,
+                utf16le("logo@example.test"),
+            )
+            .substg(
+                inline,
+                PID_ATTACH_MIME_TAG,
+                PTYPE_UNICODE,
+                utf16le("image/png"),
+            )
+            .substg(inline, PID_ATTACH_DATA, PTYPE_BINARY, vec![0u8; 50])
+            .build();
+
+        let message = parse_msg(&bytes).expect("parses");
+        assert_eq!(message.parts.len(), 2);
+
+        let letter = message
+            .parts
+            .iter()
+            .find(|part| part.filename.as_deref() == Some("engagement-letter.pdf"))
+            .expect("the attachment part is present");
+        assert_eq!(letter.media_type.as_deref(), Some("application/pdf"));
+        assert_eq!(letter.disposition, Disposition::Attachment);
+        assert_eq!(letter.size, 100);
+        assert!(!letter.is_embedded_message);
+        assert!(matches!(&letter.locator, PartLocator::MapiStream { .. }));
+        assert!(!matches!(&letter.locator, PartLocator::InputRange(_)));
+
+        let logo = message
+            .parts
+            .iter()
+            .find(|part| part.content_identifier.is_some())
+            .expect("the inline part is present");
+        assert_eq!(logo.disposition, Disposition::Inline);
+        assert_eq!(logo.size, 50);
+    }
+
+    /// An attachment whose method marks it an embedded message is flagged, and the
+    /// nested message is descended (here shallow, well within the depth bound).
+    #[test]
+    fn flags_and_descends_an_embedded_message() {
+        let attach = "/__attach_version1.0_#00000000";
+        let embedded = format!("{attach}/__substg1.0_3701000D");
+        let bytes = MsgBuilder::new()
+            .stream(
+                &format!("{attach}/__properties_version1.0"),
+                PropertiesStream::new(HEADER_SUBOBJECT)
+                    .int32(PID_ATTACH_METHOD, ATTACH_METHOD_EMBEDDED_MESSAGE)
+                    .build(),
+            )
+            // The embedded message carries its own subject property.
+            .substg(&embedded, PID_SUBJECT, PTYPE_UNICODE, utf16le("Forwarded"))
+            .build();
+
+        let message = parse_msg(&bytes).expect("parses");
+        assert_eq!(message.parts.len(), 1);
+        assert!(message.parts[0].is_embedded_message);
+    }
+
+    /// A pathological embedding chain is refused, not run until the stack aborts the
+    /// isolate. Deeper than the bound yields `LimitExceeded`.
+    #[test]
+    fn a_deep_embedding_chain_is_refused() {
+        let bytes = deeply_nested_embedded(MAX_EMBEDDED_MESSAGE_DEPTH + 2);
+        assert!(matches!(parse_msg(&bytes), Err(EmailError::LimitExceeded)));
+    }
+
+    /// An odd-length UTF-16 property is not a whole sequence of 16-bit units. It must
+    /// be rejected as malformed, never read past its end or panicked on.
+    #[test]
+    fn an_odd_length_unicode_property_is_rejected_not_panicked_on() {
+        let bytes = MsgBuilder::new()
+            // Three bytes: cannot be whole UTF-16LE code units.
+            .substg("", PID_SUBJECT, PTYPE_UNICODE, vec![0x41, 0x00, 0x42])
+            .build();
+        assert!(matches!(parse_msg(&bytes), Err(EmailError::Malformed)));
+    }
+
+    /// A structurally corrupt container is a clean error, never a panic. Every
+    /// truncated prefix of a real `.msg` must return.
+    #[test]
+    fn a_corrupt_container_is_an_error_not_a_panic() {
+        let bytes = MsgBuilder::new()
+            .substg("", PID_SUBJECT, PTYPE_UNICODE, utf16le("Retainer"))
+            .build();
+        for len in 0..bytes.len() {
+            // The result is unimportant; the requirement is that it returns.
+            let _ = parse_msg(&bytes[..len]);
+        }
+        assert!(parse_msg(&bytes[..bytes.len() / 2]).is_err());
+    }
+
+    /// A properties stream shorter than its own reserved header, and stream names that
+    /// are not valid property tags, must not panic — they are simply ignored.
+    #[test]
+    fn a_truncated_properties_stream_and_junk_names_are_ignored() {
+        let bytes = MsgBuilder::new()
+            .substg("", PID_SUBJECT, PTYPE_UNICODE, utf16le("Present"))
+            // A properties stream far shorter than the 32-byte top-level header.
+            .stream("/__properties_version1.0", vec![0u8; 4])
+            // A stream whose name is not a __substg1.0_<8 hex> tag.
+            .stream("/not_a_property_stream", vec![1, 2, 3])
+            // A substg-shaped name with non-hex characters.
+            .stream("/__substg1.0_ZZZZZZZZ", vec![9, 9])
+            .build();
+
+        let message = parse_msg(&bytes).expect("parses despite the junk");
+        assert_eq!(message.subject.as_deref(), Some("Present"));
+        assert_eq!(message.date_raw, None);
+    }
+
+    #[test]
+    fn filetime_decodes_a_known_instant() {
+        // 2021-01-01T00:00:00Z in FILETIME ticks.
+        let ticks: u64 = 132_539_328_000_000_000;
+        assert_eq!(
+            filetime_to_iso(ticks.to_le_bytes()).as_deref(),
+            Some("2021-01-01T00:00:00Z")
+        );
+        // A zero FILETIME is an unset time, not the 1601 epoch.
+        assert_eq!(filetime_to_iso([0u8; 8]), None);
     }
 }
