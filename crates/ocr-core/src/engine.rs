@@ -194,7 +194,12 @@ mod tests {
         use image::Rgb;
         // 5x7 glyphs for the letters used by the tests, row-major, 1 = ink.
         const GLYPHS: &[(char, [u8; 7])] = &[
-            ('I', [0b111, 0b010, 0b010, 0b010, 0b010, 0b010, 0b111]),
+            (
+                'I',
+                [
+                    0b11111, 0b00100, 0b00100, 0b00100, 0b00100, 0b00100, 0b11111,
+                ],
+            ),
             (
                 'N',
                 [
