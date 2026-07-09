@@ -2510,6 +2510,229 @@ git commit -m "feat(tools): single-series bandwidth and latency charts"
 
 ---
 
+### Task 7: Explain the scores, and show the distribution behind the headline
+
+Owner asked for two things: an affordance explaining what Cloudflare's scores mean and how they are derived, and richer statistics beside Download and Upload.
+
+**Verified facts — do not re-derive:**
+- The headline Download and Upload figures are the **90th percentile** of the sample set (`bandwidthPercentile` defaults to `0.9`). The headline Latency is the **median** (`latencyPercentile: 0.5`). Most readers assume a mean; say otherwise.
+- One run produces **33 download samples and 25 upload samples** (sum the `count` fields of `MEASUREMENT_LADDER`). At n=33 a 99th percentile is the maximum wearing decimals — do **not** render a p99. Median, 95th percentile, peak, and the sample count are honest at this size.
+- `getDownloadBandwidthPoints()` / `getUploadBandwidthPoints()` return `BandwidthPoint[]` with a `bps` field.
+- **AIM** is Cloudflare's *Aggregated Internet Measurement*. Three categories (streaming, gaming, webchat/RTC), five classifications (bad, poor, average, good, great), six inputs: latency, packet loss, download speed, upload speed, loaded latency, jitter. **Cloudflare does not publish the weighting.** Documentation: `https://developers.cloudflare.com/fundamentals/speed/aim/`
+- **Packet loss is one of those six inputs and we currently cannot measure it**, so the scores are computed without it. The popover must say so — an unqualified verdict would claim more authority than the measurement has.
+- The design system exports `popover` (`Popover.Root/Trigger/Content/Close`). A tooltip is the wrong vessel: this content contains a link and must be keyboard-reachable.
+
+**Files:**
+- Create: `apps/web/src/lib/tools/speed-test/bandwidth-stats.ts`
+- Create: `apps/web/src/lib/tools/speed-test/info-popover.svelte`
+- Modify: `apps/web/src/lib/tools/speed-test/metric-tile.svelte` (optional `stats` + `info` snippet)
+- Modify: `apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte`
+- Test: `apps/web/test/bandwidth-stats.test.ts`
+
+**Interfaces:**
+- Produces: `percentile(values: readonly number[], fraction: number): number | null`; `BandwidthStats { median: number; p95: number; peak: number; samples: number }`; `bandwidthStats(points: ReadonlyArray<{ bps: number }>): BandwidthStats | null`.
+
+- [ ] **Step 1: Write the failing test**
+
+Create `apps/web/test/bandwidth-stats.test.ts`:
+
+```ts
+/*
+ * The distribution behind the headline. The headline itself is the engine's 90th percentile; these
+ * are the numbers that let a reader judge it. A 99th percentile is deliberately absent: one run
+ * yields ~33 download samples, and at that size p99 is the maximum with decorations.
+ */
+import { describe, expect, it } from "vitest";
+import { bandwidthStats, percentile } from "../src/lib/tools/speed-test/bandwidth-stats.ts";
+
+describe("percentile", () => {
+  it("returns the median at 0.5", () => {
+    expect(percentile([1, 2, 3, 4, 5], 0.5)).toBe(3);
+  });
+
+  it("uses nearest-rank, so p95 of ten values is the tenth", () => {
+    expect(percentile([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 0.95)).toBe(10);
+  });
+
+  it("returns the single value for a one-element set", () => {
+    expect(percentile([7], 0.95)).toBe(7);
+  });
+
+  it("returns null for an empty set", () => {
+    expect(percentile([], 0.5)).toBeNull();
+  });
+
+  it("does not care about input order", () => {
+    expect(percentile([5, 1, 4, 2, 3], 0.5)).toBe(3);
+  });
+});
+
+describe("bandwidthStats", () => {
+  it("summarizes the sample set", () => {
+    const points = [10, 20, 30, 40].map((bps) => ({ bps }));
+    expect(bandwidthStats(points)).toEqual({ median: 20, p95: 40, peak: 40, samples: 4 });
+  });
+
+  it("returns null when nothing was measured", () => {
+    expect(bandwidthStats([])).toBeNull();
+  });
+});
+```
+
+- [ ] **Step 2: Run it to verify it fails**
+
+Run: `vp test bandwidth-stats`
+Expected: FAIL — module not found.
+
+- [ ] **Step 3: Implement**
+
+Create `apps/web/src/lib/tools/speed-test/bandwidth-stats.ts`:
+
+```ts
+/*
+ * The distribution behind the headline figure.
+ *
+ * The engine reports bandwidth at the 90th percentile of its samples, not the mean — so a single
+ * number hides how consistent the connection was. Median, 95th percentile and peak, shown with the
+ * sample count, let a reader judge that for themselves.
+ *
+ * There is deliberately no 99th percentile: a run yields about thirty download samples, and at that
+ * size the 99th percentile is simply the maximum. Reporting it would dress a single observation up
+ * as a distribution.
+ *
+ * Nearest-rank, not interpolation: every value returned is a bandwidth this connection actually
+ * achieved, never one it never reached.
+ */
+export interface BandwidthStats {
+  readonly median: number;
+  readonly p95: number;
+  readonly peak: number;
+  readonly samples: number;
+}
+
+export function percentile(values: readonly number[], fraction: number): number | null {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((left, right) => left - right);
+  const rank = Math.ceil(fraction * sorted.length);
+  const index = Math.min(Math.max(rank, 1), sorted.length) - 1;
+  return sorted[index] ?? null;
+}
+
+export function bandwidthStats(
+  points: ReadonlyArray<{ bps: number }>,
+): BandwidthStats | null {
+  if (points.length === 0) return null;
+  const values = points.map((point) => point.bps);
+  const median = percentile(values, 0.5);
+  const p95 = percentile(values, 0.95);
+  const peak = percentile(values, 1);
+  if (median === null || p95 === null || peak === null) return null;
+  return { median, p95, peak, samples: values.length };
+}
+```
+
+- [ ] **Step 4: Run it to verify it passes**
+
+Run: `vp test bandwidth-stats`
+Expected: PASS (7 tests).
+
+- [ ] **Step 5: Build the info popover**
+
+Create `apps/web/src/lib/tools/speed-test/info-popover.svelte`. A small icon button opens a popover holding explanatory prose and, optionally, a link out. It must be keyboard reachable and carry an accessible name.
+
+```svelte
+<script lang="ts">
+  /*
+   * The "what does this number mean" affordance. A popover, not a tooltip: the content carries a
+   * link and must be reachable by keyboard, which a hover tooltip is not.
+   */
+  import Info from "@lucide/svelte/icons/info";
+  import * as Popover from "@magna-carta/design-system/popover";
+  import type { Snippet } from "svelte";
+
+  let {
+    label,
+    children,
+  }: { label: string; children: Snippet } = $props();
+</script>
+
+<Popover.Root>
+  <Popover.Trigger aria-label={label} class="text-text-muted">
+    <Info class="size-16" aria-hidden="true" />
+  </Popover.Trigger>
+  <Popover.Content class="max-w-96 text-sm">
+    {@render children()}
+  </Popover.Content>
+</Popover.Root>
+```
+
+Verify `size-16` is the icon size this project uses (the codebase-wide convention) and that `max-w-96` exists on the closed scale; substitute real classes otherwise. Confirm `Popover.Trigger` forwards `aria-label` and `class`; if it does not, wrap a `Button variant="ghost"` inside it instead.
+
+- [ ] **Step 6: Extend the metric tile**
+
+In `apps/web/src/lib/tools/speed-test/metric-tile.svelte`, add two optional props without disturbing the existing structure:
+
+- `info?: Snippet` — rendered beside the label.
+- `stats?: ReadonlyArray<{ label: string; value: string }>` — rendered under the value as a quiet row (small-caps label over value), using existing text tokens only.
+
+- [ ] **Step 7: Mount both on the page**
+
+Import `bandwidthStats`, `formatBandwidth`, and `InfoPopover`. Derive:
+
+```ts
+  const downloadStats = $derived(bandwidthStats(results?.getDownloadBandwidthPoints() ?? []));
+  const uploadStats = $derived(bandwidthStats(results?.getUploadBandwidthPoints() ?? []));
+
+  function statRows(stats: ReturnType<typeof bandwidthStats>) {
+    if (stats === null) return undefined;
+    return [
+      { label: "Median", value: formatBandwidth(stats.median) },
+      { label: "95th", value: formatBandwidth(stats.p95) },
+      { label: "Peak", value: formatBandwidth(stats.peak) },
+      { label: "Samples", value: String(stats.samples) },
+    ];
+  }
+```
+
+Pass `stats={statRows(downloadStats)}` and `stats={statRows(uploadStats)}` to the two large tiles, and give each an `info` snippet:
+
+> The headline figure is the 90th percentile of this run's samples, not an average — nine measurements in ten were at least this fast. The median, 95th percentile and peak below show how consistent the connection was.
+
+Give the **Latency** tile an info snippet too:
+
+> The median of this run's latency samples, measured while the connection was idle.
+
+And put an `InfoPopover` beside the **Network quality score** heading:
+
+> Cloudflare's Aggregated Internet Measurement scores this connection for video streaming, online gaming, and video calls, rating each bad, poor, average, good, or great. It weighs six things: latency, jitter, loaded latency, download speed, upload speed, and packet loss. Cloudflare does not publish the exact weighting.
+>
+> Packet loss is one of those six, and it is not measured here, so these scores are calculated without it.
+
+with a link, opening in a new tab and carrying `rel="noreferrer noopener"`:
+
+```svelte
+<a href="https://developers.cloudflare.com/fundamentals/speed/aim/" target="_blank" rel="noreferrer noopener" class="underline">
+  How Cloudflare calculates these scores
+</a>
+```
+
+- [ ] **Step 8: Verify the gates**
+
+Run: `pnpm --filter @magna-carta/web run check`
+Expected: 0 errors, 0 warnings.
+
+Run: `vp test bandwidth-stats speed-test-format chart-scale turn-capability measurement-ladder`
+Expected: PASS.
+
+- [ ] **Step 9: Commit**
+
+```bash
+git add apps/web/src/lib/tools/speed-test apps/web/test/bandwidth-stats.test.ts "apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte"
+git commit -m "feat(tools): explain the scores, and show the distribution behind the headline"
+```
+
+---
+
 ### Task 6: Documentation (definition of done)
 
 No feature is done until its docs, roadmap, and changelog fragment land. Branches never hand-edit `CHANGELOG.md` or `STATUS.md` — they commit fragments.
