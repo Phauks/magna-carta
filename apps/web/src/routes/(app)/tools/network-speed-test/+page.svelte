@@ -25,6 +25,7 @@
   import { createSpeedTestStore } from "$lib/tools/speed-test/speed-test-engine.svelte.ts";
   import SteadyLabel from "$lib/tools/speed-test/steady-label.svelte";
   import {
+    ABSENT,
     formatBandwidth,
     formatMilliseconds,
     formatRatio,
@@ -131,13 +132,13 @@
     points: ReadonlyArray<{ bytes: number }>,
   ) {
     const spent = bytesInDirection(points);
-    const transferred = { label: "Transferred", value: spent > 0 ? formatBytes(spent) : "" };
+    const transferred = { label: "Transferred", value: spent > 0 ? formatBytes(spent) : ABSENT };
     if (stats === null) {
       return [
-        { label: "Median", value: "" },
-        { label: "95th", value: "" },
-        { label: "Peak", value: "" },
-        { label: "Samples", value: "" },
+        { label: "Median", value: ABSENT },
+        { label: "95th", value: ABSENT },
+        { label: "Peak", value: ABSENT },
+        { label: "Samples", value: ABSENT },
         transferred,
       ];
     }
@@ -250,7 +251,7 @@
   {:else if store.turn}
     <MetricTile label="Packet loss" value="Unavailable" note={turnUnavailableNote(store.turn.reason)} />
   {:else}
-    <MetricTile label="Packet loss" value="" note={NOT_MEASURED_YET} />
+    <MetricTile label="Packet loss" value={ABSENT} note={NOT_MEASURED_YET} />
   {/if}
 </section>
 

@@ -8,7 +8,7 @@
    * moment the page loads so the page never jumps once a run finishes.
    */
   import type { Scores } from "@cloudflare/speedtest";
-  import { NOT_MEASURED_YET } from "./speed-test-format.ts";
+  import { ABSENT, NOT_MEASURED_YET } from "./speed-test-format.ts";
   import { useCaseLabel } from "./quality-labels.ts";
 
   let { scores }: { scores: Scores | undefined } = $props();
@@ -35,9 +35,9 @@
     {#each PLACEHOLDER_KEYS as key (key)}
       <div>
         <dt class="text-text-muted">{useCaseLabel(key)}</dt>
-        <!-- The rating is absent, not zero — it renders nothing. A non-breaking space keeps this
-             line's box from collapsing; NOT_MEASURED_YET below carries the actual meaning. -->
-        <dd class="mt-4 text-lg">&nbsp;</dd>
+        <!-- The rating is absent, not zero — N/A shows a field waiting for data; NOT_MEASURED_YET
+             below carries the sentence. -->
+        <dd class="mt-4 text-lg">{ABSENT}</dd>
         <dd class="text-xs text-text-muted">{NOT_MEASURED_YET}</dd>
       </div>
     {/each}

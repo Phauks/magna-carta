@@ -1,10 +1,10 @@
 /*
- * An unmeasured value renders as nothing. It once rendered as an em dash, to keep absence from being
- * read as zero; the page now says "Not measured yet." in prose where it matters, so the dash was
- * saying nothing twice. The constant remains because every formatter must agree on what silence is —
- * and because nothing may ever replace it with a zero.
+ * How an unmeasured value reads in a value slot. It was an em dash (which said nothing twice, once
+ * the page gained a sentence for absence), then nothing (which read as broken). `N/A` shows a field
+ * waiting for data. Where a SENTENCE belongs, the page says "Not measured yet." instead — see
+ * NOT_MEASURED_YET below. Nothing may ever replace this with a zero: a measured zero is a result.
  */
-const ABSENT = "";
+export const ABSENT = "N/A";
 
 /*
  * How an untaken measurement reads, in prose. The em dash above says the same thing where a number

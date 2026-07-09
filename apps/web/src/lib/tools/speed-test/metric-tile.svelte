@@ -39,11 +39,9 @@
         {@render info()}
       {/if}
     </div>
-    <!-- The value's line box must survive an empty value, or the tile shrinks when nothing has
-         been measured and the page moves. A non-breaking space does structural work here — a
-         plain space would collapse away since it is both the leading and trailing (i.e. only)
-         content of the element. -->
-    <div class={["mt-4", size === "large" ? "text-3xl" : "text-2xl"]}>{value === "" ? " " : value}</div>
+    <!-- Every caller now passes a formatted value or the ABSENT constant ("N/A") — never an empty
+         string — so the line box always has content and never needs a non-breaking-space guard. -->
+    <div class={["mt-4", size === "large" ? "text-3xl" : "text-2xl"]}>{value}</div>
     {#if note}
       <div class="mt-4 text-xs text-text-muted">{note}</div>
     {/if}
@@ -57,7 +55,7 @@
             >
               {stat.label}
             </div>
-            <div class="text-sm">{stat.value === "" ? " " : stat.value}</div>
+            <div class="text-sm">{stat.value}</div>
           </div>
         {/each}
       </div>

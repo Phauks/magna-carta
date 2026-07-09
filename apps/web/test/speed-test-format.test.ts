@@ -1,5 +1,5 @@
 /*
- * Result formatting, pinned. An absent measurement renders as nothing — never as zero, which
+ * Result formatting, pinned. An absent measurement renders as "N/A" — never as zero, which
  * would be a measurement claim we did not make.
  */
 import { describe, expect, it } from "vitest";
@@ -23,8 +23,8 @@ describe("formatBandwidth", () => {
     expect(formatBandwidth(1_240_000_000)).toBe("1.24 Gbps");
   });
 
-  it("renders an absent measurement as nothing", () => {
-    expect(formatBandwidth(undefined)).toBe("");
+  it("renders an absent measurement as N/A", () => {
+    expect(formatBandwidth(undefined)).toBe("N/A");
   });
 });
 
@@ -33,8 +33,8 @@ describe("formatMilliseconds", () => {
     expect(formatMilliseconds(12.44)).toBe("12.4 ms");
   });
 
-  it("renders an absent measurement as nothing", () => {
-    expect(formatMilliseconds(undefined)).toBe("");
+  it("renders an absent measurement as N/A", () => {
+    expect(formatMilliseconds(undefined)).toBe("N/A");
   });
 });
 
@@ -47,27 +47,26 @@ describe("formatRatio", () => {
     expect(formatRatio(0)).toBe("0%");
   });
 
-  it("renders an absent measurement as nothing", () => {
-    expect(formatRatio(undefined)).toBe("");
+  it("renders an absent measurement as N/A", () => {
+    expect(formatRatio(undefined)).toBe("N/A");
   });
 });
 
 describe("an absent measurement", () => {
-  it("renders as nothing, not as an em dash", () => {
-    expect(formatBandwidth(undefined)).toBe("");
-    expect(formatMilliseconds(undefined)).toBe("");
-    expect(formatRatio(undefined)).toBe("");
+  it("reads N/A, so an empty field does not read as broken", () => {
+    expect(formatBandwidth(undefined)).toBe("N/A");
+    expect(formatMilliseconds(undefined)).toBe("N/A");
+    expect(formatRatio(undefined)).toBe("N/A");
   });
 
-  it("never renders as zero", () => {
-    expect(formatBandwidth(undefined)).not.toMatch(/0/);
+  it("is never an em dash and never a zero", () => {
+    expect(formatBandwidth(undefined)).not.toContain("—");
     expect(formatMilliseconds(undefined)).not.toMatch(/0/);
-    expect(formatRatio(undefined)).not.toMatch(/0/);
   });
 
   it("still distinguishes a measured zero from an absent one", () => {
     expect(formatRatio(0)).toBe("0%");
-    expect(formatRatio(undefined)).toBe("");
+    expect(formatRatio(undefined)).toBe("N/A");
   });
 });
 
