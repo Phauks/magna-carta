@@ -70,8 +70,26 @@ opens. A rejected file must say so where the user dropped it.
 The dev presigner returns a URL at the Worker itself. A development-only route accepts the `PUT`,
 writes to the Miniflare `R2` binding, and enqueues the ingest message directly, standing in for the
 R2 event notification that local storage does not emit. The client performs the identical four-step
-ceremony against both environments; nothing is stubbed on the client, and no production code path
-carries a bypass.
+ceremony against both environments; nothing is stubbed on the client.
+
+The route writes bytes to object storage, so it is guarded three ways, all of which must hold:
+
+1. **It registers only when a development-only binding is present**, and that binding is not declared
+   in the production wrangler configuration. Absence of a binding cannot be undone by setting an
+   environment variable, which a boolean feature flag can.
+2. **It sits behind the normal chokepoint** — session, then `files:upload` — so even reachable, it is
+   not an unauthenticated write.
+3. **It validates the object key against the upload session** that minted it, so it can only write the
+   exact object `uploads.initiate` created, never an arbitrary key.
+
+**What this route cannot prove.** It is same-origin, so it exercises no CORS. The most likely
+production failure — a bucket with no `AllowedOrigins`, or multipart unable to read the `ETag`
+response header — is invisible to every local test run against it. The dev route is therefore not the
+acceptance gate for upload.
+
+**The acceptance gate is one real upload against a real bucket in a preview environment**, including
+a file large enough to take the multipart path and exercise `uploads.signPart`. Until that passes,
+CORS is unverified no matter how green the local suite is.
 
 ### Views are modular; the shell is shared
 
