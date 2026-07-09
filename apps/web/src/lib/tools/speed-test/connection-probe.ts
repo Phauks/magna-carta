@@ -14,15 +14,27 @@ export interface ConnectionFacts {
   readonly country: string;
 }
 
+/**
+ * Why the probe can fail, kept apart on purpose. A diagnostic tool that reports our own refusal
+ * as the caller's network failure sends someone to debug a firewall that was never at fault.
+ */
+export type ProbeStatus = "reachable" | "unauthenticated" | "forbidden" | "unreachable";
+
 export interface ProbeOutcome {
-  /** Null when every sample failed — the platform could not be reached. */
+  readonly status: ProbeStatus;
+  /** Present only when reachable. */
   readonly facts: ConnectionFacts | null;
   readonly medianRoundTripMs: number | null;
   readonly successfulSamples: number;
 }
 
+/** `status: null` means the request never got an answer — a transport failure, not a refusal. */
+export type FetchResult =
+  | { readonly ok: true; readonly facts: ConnectionFacts }
+  | { readonly ok: false; readonly status: number | null };
+
 export interface ProbeDeps {
-  readonly fetchJson: (url: string) => Promise<ConnectionFacts>;
+  readonly fetchJson: (url: string) => Promise<FetchResult>;
   readonly now: () => number;
 }
 
@@ -41,21 +53,36 @@ export function median(values: readonly number[]): number | null {
   return (lower + upper) / 2;
 }
 
+function refused(status: ProbeStatus): ProbeOutcome {
+  return { status, facts: null, medianRoundTripMs: null, successfulSamples: 0 };
+}
+
 export async function probeConnection(deps: ProbeDeps): Promise<ProbeOutcome> {
   const durations: number[] = [];
   let facts: ConnectionFacts | null = null;
 
   for (let sample = 0; sample < PROBE_SAMPLES; sample += 1) {
     const started = deps.now();
-    try {
-      facts = await deps.fetchJson(CONNECTION_URL);
+    const result = await deps.fetchJson(CONNECTION_URL);
+
+    if (result.ok) {
+      facts = result.facts;
       durations.push(deps.now() - started);
-    } catch {
-      // A failed sample contributes nothing. If every sample fails the platform is unreachable,
-      // which the outcome states rather than implying a very fast zero.
+      continue;
     }
+
+    // A refusal is an answer: the platform is reachable and said no. Retrying cannot change it.
+    if (result.status === 401) return refused("unauthenticated");
+    if (result.status === 403) return refused("forbidden");
+
+    // Anything else (a transport failure, or a server error) is an excluded sample.
   }
 
-  if (durations.length === 0) return { facts: null, medianRoundTripMs: null, successfulSamples: 0 };
-  return { facts, medianRoundTripMs: median(durations), successfulSamples: durations.length };
+  if (durations.length === 0) return refused("unreachable");
+  return {
+    status: "reachable",
+    facts,
+    medianRoundTripMs: median(durations),
+    successfulSamples: durations.length,
+  };
 }
