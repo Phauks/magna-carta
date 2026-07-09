@@ -10,6 +10,8 @@
 
 **Design:** [`docs/specs/2026-07-09-ocr-engine-design.md`](2026-07-09-ocr-engine-design.md). **Decision:** [`docs/decisions/pending/ocr-engine-model-and-determinism.md`](../decisions/pending/ocr-engine-model-and-determinism.md).
 
+**Execute tasks in numeric order.** Task 9 (the Dockerfile) appears in this file before Tasks 5 through 8, because it was written before the tier benchmark was moved ahead of it. It runs last, so the image bakes the tier the benchmark chose.
+
 ## Global Constraints
 
 These bind every task. Do not restate them; do not violate them.
@@ -61,18 +63,20 @@ These bind every task. Do not restate them; do not violate them.
 
 **Modified**
 
-| File                                             | Change                                            |
-| ------------------------------------------------ | ------------------------------------------------- |
-| `crates/Cargo.toml`                              | Add `ocr-core` to `members`.                      |
-| `apps/worker/wrangler.jsonc`                     | Add `OCR_SERVICE` to the single `services` array. |
-| `apps/worker/src/app.ts`                         | `OCR_SERVICE?` binding; call `registerOcrRoutes`. |
-| `apps/worker/src/routes/ocr.ts`                  | New route `POST /api/v1/ocr`.                     |
-| `apps/worker/src/per-firm-migrations.ts`         | Register the seed migration.                      |
-| `packages/access-control/src/registry.ts`        | Add `tools:ocr`.                                  |
-| `packages/tools/src/catalog.ts`                  | Add the catalog entry.                            |
-| `packages/database/drizzle/per-firm/`            | Seed migration + journal entry.                   |
-| `crates/pdf-eval/src/validate/operations/ocr.rs` | New validation operation.                         |
-| `crates/pdf-eval/src/bench/`                     | Model-tier benchmark.                             |
+| File                                             | Change                                                              |
+| ------------------------------------------------ | ------------------------------------------------------------------- |
+| `crates/Cargo.toml`                              | Add `ocr-core` to `members`.                                        |
+| `crates/pdf-core/src/lib.rs`                     | `RenderedPage::to_rgb_image` — composite straight alpha over white. |
+| `crates/pdf-core/src/redact.rs`                  | Call it instead of keeping an inline copy of the same rule.         |
+| `apps/worker/wrangler.jsonc`                     | Add `OCR_SERVICE` to the single `services` array.                   |
+| `apps/worker/src/app.ts`                         | `OCR_SERVICE?` binding; call `registerOcrRoutes`.                   |
+| `apps/worker/src/routes/ocr.ts`                  | New route `POST /api/v1/ocr`.                                       |
+| `apps/worker/src/per-firm-migrations.ts`         | Register the seed migration.                                        |
+| `packages/access-control/src/registry.ts`        | Add `tools:ocr`.                                                    |
+| `packages/tools/src/catalog.ts`                  | Add the catalog entry.                                              |
+| `packages/database/drizzle/per-firm/`            | Seed migration + journal entry.                                     |
+| `crates/pdf-eval/src/validate/operations/ocr.rs` | New validation operation.                                           |
+| `crates/pdf-eval/src/bench/`                     | Model-tier benchmark.                                               |
 
 ---
 
@@ -480,17 +484,21 @@ impl PaddleRecognizer {
 mod tests {
     use super::*;
 
-    /// The models are 139 MB and are baked into the container image, not committed. When
-    /// they are absent (a plain `cargo test` on a dev box) these tests skip rather than
-    /// fail; the container CI job sets the variable and they run for real.
-    fn models_or_skip() -> Option<ModelPaths> {
-        let root = PathBuf::from(std::env::var("MAGNA_CARTA_OCR_MODELS").ok()?);
-        Some(ModelPaths {
+    /// The models are large and are baked into the container image, not committed. The
+    /// tests that need them are `#[ignore]`d: `cargo test` reports them as ignored rather
+    /// than as passed, so a green suite can never mean "the models were never present".
+    /// The container CI job runs them with `--ignored` and `MAGNA_CARTA_OCR_MODELS` set.
+    fn models() -> ModelPaths {
+        let root = PathBuf::from(
+            std::env::var("MAGNA_CARTA_OCR_MODELS")
+                .expect("MAGNA_CARTA_OCR_MODELS must point at the model directory"),
+        );
+        ModelPaths {
             detection_onnx: root.join("detection/inference.onnx"),
             recognition_onnx: root.join("recognition/inference.onnx"),
             recognition_yaml: root.join("recognition/inference.yml"),
             model_version: "test".to_string(),
-        })
+        }
     }
 
     #[test]
@@ -507,16 +515,16 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "needs the baked-in models; run with --ignored and MAGNA_CARTA_OCR_MODELS set"]
     fn provenance_reports_the_configured_model_version() {
-        let Some(models) = models_or_skip() else { return };
-        let engine = PaddleRecognizer::load(models).unwrap();
+        let engine = PaddleRecognizer::load(models()).unwrap();
         assert_eq!(engine.provenance().model_version, "test");
     }
 
     #[test]
+    #[ignore = "needs the baked-in models; run with --ignored and MAGNA_CARTA_OCR_MODELS set"]
     fn recognizes_rendered_text() {
-        let Some(models) = models_or_skip() else { return };
-        let engine = PaddleRecognizer::load(models).unwrap();
+        let engine = PaddleRecognizer::load(models()).unwrap();
         // A white page with the word INVOICE drawn in black, 300 DPI-ish scale.
         let image = crate::engine::tests::render_word("INVOICE");
         let lines = engine.recognize(&image).unwrap();
@@ -526,9 +534,9 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "needs the baked-in models; run with --ignored and MAGNA_CARTA_OCR_MODELS set"]
     fn the_same_image_recognizes_identically_twice() {
-        let Some(models) = models_or_skip() else { return };
-        let engine = PaddleRecognizer::load(models).unwrap();
+        let engine = PaddleRecognizer::load(models()).unwrap();
         let image = crate::engine::tests::render_word("INVOICE");
         assert_eq!(engine.recognize(&image).unwrap(), engine.recognize(&image).unwrap());
     }
@@ -583,7 +591,7 @@ cd C:/dev/magna-carta-worktrees/ocr-engine/crates
 CARGO_BUILD_JOBS=1 RUSTFLAGS="-C debuginfo=0" cargo test -p ocr-core
 ```
 
-Expected: FAIL — `todo!()` panics in `a_missing_model_file_fails_loudly`. The three model-backed tests skip (no `MAGNA_CARTA_OCR_MODELS`). This build downloads ONNX Runtime and takes several minutes; run it in the foreground.
+Expected: FAIL — `todo!()` panics in `a_missing_model_file_fails_loudly`. The three model-backed tests report as **ignored**, not passed. This build downloads ONNX Runtime and takes several minutes; run it in the foreground.
 
 - [ ] **Step 4: Implement `load` and the `Recognizer` impl**
 
@@ -686,11 +694,11 @@ cd C:/dev/magna-carta-worktrees/ocr-engine/crates
 CARGO_BUILD_JOBS=1 RUSTFLAGS="-C debuginfo=0" cargo test -p ocr-core
 ```
 
-Expected: PASS. `a_missing_model_file_fails_loudly` runs; the three model-backed tests skip.
+Expected: PASS. `a_missing_model_file_fails_loudly` runs; the three model-backed tests are reported as ignored.
 
 - [ ] **Step 6: Run the model-backed tests for real, once**
 
-Download the tiny tier (6 MB, fast) purely to prove the pipeline wires up. The medium models get baked into the image by the Dockerfile in Task 4.
+Download the tiny tier (6 MB, fast) purely to prove the pipeline wires up. The winning tier gets baked into the image by the Dockerfile in the last task.
 
 ```bash
 mkdir -p /tmp/ocr-models/detection /tmp/ocr-models/recognition
@@ -698,7 +706,7 @@ curl -sL -o /tmp/ocr-models/detection/inference.onnx "https://huggingface.co/Pad
 curl -sL -o /tmp/ocr-models/recognition/inference.onnx "https://huggingface.co/PaddlePaddle/PP-OCRv6_tiny_rec_onnx/resolve/main/inference.onnx"
 curl -sL -o /tmp/ocr-models/recognition/inference.yml "https://huggingface.co/PaddlePaddle/PP-OCRv6_tiny_rec_onnx/resolve/main/inference.yml"
 cd C:/dev/magna-carta-worktrees/ocr-engine/crates
-MAGNA_CARTA_OCR_MODELS=/tmp/ocr-models CARGO_BUILD_JOBS=1 cargo test -p ocr-core -- --nocapture
+MAGNA_CARTA_OCR_MODELS=/tmp/ocr-models CARGO_BUILD_JOBS=1 cargo test -p ocr-core -- --ignored --nocapture
 ```
 
 Expected: PASS, including `recognizes_rendered_text` and `the_same_image_recognizes_identically_twice`.
@@ -715,7 +723,129 @@ cd .. && git add crates/ocr-core && git commit -m "feat(ocr-core): PaddleOCR rec
 
 ---
 
-### Task 3: The container — page walk, wire types, routes
+### Task 3: `pdf-core` — one correct composite-to-RGB
+
+`render_page` returns **straight** RGBA8, and a page with no background content is fully transparent (alpha 0, RGB 0). Simply dropping the alpha channel therefore turns such a page **solid black** — which is what the OCR engine would then try to read. `redact.rs` already gets this right by compositing alpha over white, inline. Give that conversion one home, beside the function that produces the buffer, so the container and the harness cannot get it wrong differently.
+
+**Files:**
+
+- Modify: `crates/pdf-core/src/lib.rs`
+- Modify: `crates/pdf-core/src/redact.rs:170-182`
+
+**Interfaces:**
+
+- Consumes: `pdf_core::RenderedPage` (existing, `lib.rs:116`).
+- Produces: `pdf_core::RenderedPage::to_rgb_image(&self) -> Option<image::RgbImage>` — composites straight-alpha RGBA8 over white and returns RGB8. `None` when the buffer is PNG-encoded or truncated.
+
+- [ ] **Step 1: Write the failing tests**
+
+Add to `crates/pdf-core/src/lib.rs`'s test module:
+
+```rust
+    #[test]
+    fn to_rgb_image_composites_transparent_pixels_over_white() {
+        // Straight alpha: a fully transparent pixel carries RGB 0. Dropping alpha would
+        // render it black; compositing over white renders it white, which is what a blank
+        // region of a page actually looks like.
+        let page = RenderedPage { data: vec![0, 0, 0, 0], width: 1, height: 1, png: false };
+        let image = page.to_rgb_image().unwrap();
+        assert_eq!(image.get_pixel(0, 0).0, [255, 255, 255]);
+    }
+
+    #[test]
+    fn to_rgb_image_preserves_opaque_pixels() {
+        let page = RenderedPage { data: vec![10, 20, 30, 255], width: 1, height: 1, png: false };
+        assert_eq!(page.to_rgb_image().unwrap().get_pixel(0, 0).0, [10, 20, 30]);
+    }
+
+    #[test]
+    fn to_rgb_image_composites_a_half_transparent_pixel() {
+        // out = alpha * src + (1 - alpha) * 255, with alpha = 128/255.
+        let page = RenderedPage { data: vec![0, 0, 0, 128], width: 1, height: 1, png: false };
+        let value = page.to_rgb_image().unwrap().get_pixel(0, 0).0[0];
+        assert!((126..=128).contains(&value), "expected mid-grey, got {value}");
+    }
+
+    #[test]
+    fn to_rgb_image_rejects_a_png_buffer_rather_than_reinterpreting_it() {
+        let page = RenderedPage { data: vec![0x89, b'P', b'N', b'G'], width: 1, height: 1, png: true };
+        assert!(page.to_rgb_image().is_none());
+    }
+
+    #[test]
+    fn to_rgb_image_rejects_a_truncated_buffer() {
+        let page = RenderedPage { data: vec![10, 20, 30], width: 2, height: 1, png: false };
+        assert!(page.to_rgb_image().is_none());
+    }
+```
+
+- [ ] **Step 2: Run to verify failure**
+
+```bash
+cd C:/dev/magna-carta-worktrees/ocr-engine/crates
+CARGO_BUILD_JOBS=1 RUSTFLAGS="-C debuginfo=0" cargo test -p pdf-core to_rgb_image
+```
+
+Expected: FAIL — no method `to_rgb_image`.
+
+- [ ] **Step 3: Implement it**
+
+In `crates/pdf-core/src/lib.rs`, beside `RenderedPage`:
+
+```rust
+impl RenderedPage {
+    /// Composite this page's straight-alpha RGBA8 over a white background and return
+    /// RGB8. The renderer leaves pages with no background content fully transparent, so
+    /// discarding alpha instead of compositing would turn a blank page black. Returns
+    /// `None` for a PNG-encoded buffer (which is not raw pixels) or a truncated one.
+    pub fn to_rgb_image(&self) -> Option<image::RgbImage> {
+        if self.png {
+            return None;
+        }
+        let pixels = (self.width as usize).checked_mul(self.height as usize)?;
+        if self.data.len() < pixels.checked_mul(4)? {
+            return None;
+        }
+        let mut rgb = Vec::with_capacity(pixels * 3);
+        for pixel in self.data.chunks_exact(4) {
+            let alpha = pixel[3] as f32 / 255.0;
+            // Porter-Duff over white: out = src_alpha * src + (1 - src_alpha) * 255
+            let composite =
+                |channel: u8| ((alpha * channel as f32) + ((1.0 - alpha) * 255.0)).round() as u8;
+            rgb.push(composite(pixel[0]));
+            rgb.push(composite(pixel[1]));
+            rgb.push(composite(pixel[2]));
+        }
+        image::RgbImage::from_raw(self.width, self.height, rgb)
+    }
+}
+```
+
+- [ ] **Step 4: Replace the inline copy in `redact.rs`**
+
+`redact.rs` currently builds the same RGB buffer by hand at lines 170-182. Rewrite that block to call `to_rgb_image()` on the rendered page and take `.into_raw()`, so there is exactly one implementation of the compositing rule. Keep the surrounding image-XObject construction unchanged.
+
+Run the full `pdf-core` suite afterwards — redaction has the strictest safety tests in the repo, and they are the check that this refactor changed nothing:
+
+```bash
+cd C:/dev/magna-carta-worktrees/ocr-engine/crates
+CARGO_BUILD_JOBS=1 RUSTFLAGS="-C debuginfo=0" cargo test -p pdf-core
+```
+
+Expected: PASS, all 207+ tests, including every redaction test. If any redaction test fails, the refactor is wrong — revert it and leave `redact.rs` alone rather than adjusting the test.
+
+- [ ] **Step 5: Lint, format, commit**
+
+```bash
+cd C:/dev/magna-carta-worktrees/ocr-engine/crates
+cargo fmt -p pdf-core && CARGO_BUILD_JOBS=1 cargo clippy -p pdf-core -- -D warnings
+cd .. && git add crates/pdf-core
+git commit -m "feat(pdf-core): RenderedPage::to_rgb_image composites straight alpha over white"
+```
+
+---
+
+### Task 4: The container — page walk, wire types, routes
 
 **Files:**
 
@@ -723,7 +853,7 @@ cd .. && git add crates/ocr-core && git commit -m "feat(ocr-core): PaddleOCR rec
 
 **Interfaces:**
 
-- Consumes: `ocr_core::{Recognizer, PageFacts, TextLine, Quad, SkipReason, Provenance, OcrError}` (Tasks 1-2); `pdf_core::Document::{render_page, page_text_rects, page_size}`; `engine_host::host::{ready_app, with_panic_net, serve}`.
+- Consumes: `ocr_core::{Recognizer, PageFacts, TextLine, Quad, SkipReason, Provenance, OcrError}` (Tasks 1-2); `pdf_core::Document::{render_page, page_text_rects, page_size}` and `pdf_core::RenderedPage::to_rgb_image` (Task 3); `engine_host::host::{ready_app, with_panic_net, serve}`.
 - Produces: `magna_carta_ocr::router(state: AppState) -> Router`; `magna_carta_ocr::pages::{to_user_space, RENDER_DPI}`.
 
 - [ ] **Step 1: Write `containers/ocr/Cargo.toml`**
@@ -771,7 +901,6 @@ Create `containers/ocr/src/pages.rs`:
 //! which way y grows, and getting that wrong puts every word box on the wrong half
 //! of the page.
 
-use image::RgbImage;
 use ocr_core::Quad;
 
 /// Rasterization density. 300 DPI is the floor at which small print in a scanned
@@ -781,11 +910,6 @@ pub const RENDER_DPI: f32 = 300.0;
 /// Convert a quad in render-pixel coordinates (origin top-left, y grows downward) to
 /// PDF user space (origin bottom-left, y grows upward, 72 units per inch).
 pub fn to_user_space(quad: Quad, page_height_points: f32) -> Quad {
-    todo!()
-}
-
-/// Drop the alpha channel from `render_page`'s straight-alpha RGBA8 output.
-pub fn rgba_to_rgb(data: &[u8], width: u32, height: u32) -> Option<RgbImage> {
     todo!()
 }
 
@@ -812,19 +936,6 @@ mod tests {
         assert!((x_min - 0.0).abs() < 0.01);
         assert!((x_max - 72.0).abs() < 0.01, "300px at 300dpi is 72pt, got {x_max}");
     }
-
-    #[test]
-    fn rgba_drops_alpha_and_preserves_colour() {
-        let data = vec![10, 20, 30, 255, 40, 50, 60, 128];
-        let image = rgba_to_rgb(&data, 2, 1).unwrap();
-        assert_eq!(image.get_pixel(0, 0).0, [10, 20, 30]);
-        assert_eq!(image.get_pixel(1, 0).0, [40, 50, 60]);
-    }
-
-    #[test]
-    fn a_truncated_buffer_is_rejected_rather_than_padded() {
-        assert!(rgba_to_rgb(&[10, 20, 30], 2, 1).is_none());
-    }
 }
 ```
 
@@ -835,7 +946,7 @@ cd C:/dev/magna-carta-worktrees/ocr-engine/containers/ocr
 CARGO_BUILD_JOBS=1 RUSTFLAGS="-C debuginfo=0" cargo test
 ```
 
-Expected: FAIL, `todo!()` panics in four tests.
+Expected: FAIL, `todo!()` panics in two tests.
 
 - [ ] **Step 4: Implement the transform**
 
@@ -846,16 +957,9 @@ pub fn to_user_space(quad: Quad, page_height_points: f32) -> Quad {
         points: quad.points.map(|(x, y)| (x * scale, page_height_points - y * scale)),
     }
 }
-
-pub fn rgba_to_rgb(data: &[u8], width: u32, height: u32) -> Option<RgbImage> {
-    let pixels = (width as usize).checked_mul(height as usize)?;
-    if data.len() < pixels.checked_mul(4)? {
-        return None;
-    }
-    let rgb: Vec<u8> = data.chunks_exact(4).flat_map(|p| [p[0], p[1], p[2]]).collect();
-    RgbImage::from_raw(width, height, rgb)
-}
 ```
+
+The RGBA-to-RGB conversion lives on `pdf_core::RenderedPage::to_rgb_image` (Task 3), which composites straight alpha over white. Do not reimplement it here: dropping the alpha channel instead of compositing turns a transparent (blank-background) page solid black.
 
 - [ ] **Step 5: Run to verify pass**
 
@@ -864,7 +968,7 @@ cd C:/dev/magna-carta-worktrees/ocr-engine/containers/ocr
 CARGO_BUILD_JOBS=1 RUSTFLAGS="-C debuginfo=0" cargo test
 ```
 
-Expected: PASS, 4 tests.
+Expected: PASS, 2 tests.
 
 - [ ] **Step 6: Write the wire types**
 
@@ -1060,8 +1164,9 @@ fn recognize_pdf(state: &AppState, bytes: &[u8]) -> Result<Vec<PageFacts>, OcrEr
         let rendered = document
             .render_page(page_index, pages::RENDER_DPI, false)
             .map_err(|_| OcrError::InferenceFailed)?;
-        let image = pages::rgba_to_rgb(&rendered.data, rendered.width, rendered.height)
-            .ok_or(OcrError::InferenceFailed)?;
+        // Composite over white rather than discarding alpha: a page with no background
+        // content is fully transparent, and dropping alpha would hand the engine a black page.
+        let image = rendered.to_rgb_image().ok_or(OcrError::InferenceFailed)?;
         let (_, page_height_points) =
             document.page_size(page_index).map_err(|_| OcrError::InferenceFailed)?;
 
@@ -1290,7 +1395,9 @@ cd ../.. && git add containers/ocr && git commit -m "feat(ocr): container routes
 
 ---
 
-### Task 4: The Dockerfile — trixie, pinned models, verified hashes
+### Task 9: The Dockerfile — trixie, hash-verified models
+
+Executed **last**, after the benchmark, so the image bakes the tier the measurement chose rather than a tier we guessed and then rewrote.
 
 **Files:**
 
@@ -1298,7 +1405,7 @@ cd ../.. && git add containers/ocr && git commit -m "feat(ocr): container routes
 
 **Interfaces:**
 
-- Consumes: the binary `magna-carta-ocr` (Task 3).
+- Consumes: the binary `magna-carta-ocr` (Task 4); the winning tier's revisions and hashes (Task 8).
 - Produces: an image serving `:8080` with models at `/models` and `MAGNA_CARTA_OCR_MODEL_VERSION` set.
 
 - [ ] **Step 1: Write the Dockerfile**
@@ -1379,11 +1486,25 @@ docker rm -f ocr-smoke
 
 Expected: `ok`. A boot failure here means the models did not load — read the container logs; do not paper over it by making `PaddleRecognizer::load` lenient.
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 4: Write the documentation fragments**
+
+No feature is done until its docs ship in the same commit. Never hand-edit the rendered `CHANGELOG.md`, `STATUS.md`, or the Decision-Log register on a branch — write fragments:
+
+- `changelog.d/ocr-engine.md`
+- `status.d/<slice>.md` — mirror the shape of an existing fragment in that directory.
+- `docs/operating-costs.md` — add the OCR container's cost line beside the other engine containers. It scales to zero, with a slower cold start than the others because the models load at boot.
+
+- [ ] **Step 5: Final gate and commit**
 
 ```bash
-git add containers/ocr/Dockerfile && git commit -m "build(ocr): trixie image with hash-verified PP-OCRv6 models baked in"
+cd C:/dev/magna-carta-worktrees/ocr-engine
+pnpm run lint:process-refs && pnpm check
+cd crates && CARGO_BUILD_JOBS=1 cargo test && CARGO_BUILD_JOBS=1 cargo clippy -- -D warnings
+cd .. && git add -A
+git commit -m "build(ocr): trixie image with hash-verified PP-OCRv6 models baked in"
 ```
+
+`pnpm check` is a long, memory-heavy build; run it in the foreground and let it finish.
 
 ---
 
@@ -1395,7 +1516,7 @@ git add containers/ocr/Dockerfile && git commit -m "build(ocr): trixie image wit
 
 **Interfaces:**
 
-- Consumes: the container's `POST /ocr` (Task 3).
+- Consumes: the container's `POST /ocr` (Task 4).
 - Produces: a deployed worker named `magna-carta-ocr`, bound from the app worker as `OCR_SERVICE`.
 
 - [ ] **Step 1: Copy the scaffold from file-repair-worker**
@@ -2041,7 +2162,7 @@ impl ValidationOperation for OcrOperation {
                 safety: Safety::NotApplicable,
             };
         };
-        let Some(image) = rgba_to_rgb(&rendered.data, rendered.width, rendered.height) else {
+        let Some(image) = rendered.to_rgb_image() else {
             return OperationVerdict {
                 outcome: Outcome::Error { detail: "raster conversion failed".to_string() },
                 safety: Safety::NotApplicable,
@@ -2071,17 +2192,9 @@ impl ValidationOperation for OcrOperation {
     }
 }
 
-fn rgba_to_rgb(data: &[u8], width: u32, height: u32) -> Option<image::RgbImage> {
-    let pixels = (width as usize).checked_mul(height as usize)?;
-    if data.len() < pixels.checked_mul(4)? {
-        return None;
-    }
-    let rgb: Vec<u8> = data.chunks_exact(4).flat_map(|p| [p[0], p[1], p[2]]).collect();
-    image::RgbImage::from_raw(width, height, rgb)
-}
 ```
 
-Add `pub mod ocr;` to `crates/pdf-eval/src/validate/operations/mod.rs` and add `ocr-core` plus `image` to `crates/pdf-eval/Cargo.toml`.
+Add `pub mod ocr;` to `crates/pdf-eval/src/validate/operations/mod.rs` and add `ocr-core` plus `image` to `crates/pdf-eval/Cargo.toml`. The RGBA-to-RGB conversion comes from `pdf_core::RenderedPage::to_rgb_image` (Task 3) — do not write a second one.
 
 - [ ] **Step 4: Run to verify pass, lint, commit**
 
@@ -2274,23 +2387,19 @@ cd C:/dev/magna-carta-worktrees/ocr-engine/crates
 MAGNA_CARTA_OCR_TIERS=/tmp/ocr-tiers CARGO_BUILD_JOBS=1 cargo run -p pdf-eval --release -- ocr-benchmark
 ```
 
-Expected: a table of three rows. Record the winner in `crates/pdf-eval/ocr-benchmark-baseline.json` and set `MAGNA_CARTA_OCR_MODEL_VERSION` and the Dockerfile's revisions and hashes to that tier's models.
+Expected: a table of three rows. Record the winner in `crates/pdf-eval/ocr-benchmark-baseline.json`. Task 9 then bakes that tier's revisions and hashes into the Dockerfile; the constants in Global Constraints are the medium tier's, and must be replaced if the measurement picks another.
 
 If medium does not beat small by a margin that justifies 4.5x the image size and its cold-start cost, say so plainly and take small. The measurement decides; report what it says, including if it says something inconvenient.
 
 - [ ] **Step 7: Update the design and decision documents with the measured result**
 
-Both currently say the tier is pinned by measurement. Replace that with the number. Then write the changelog and status fragments:
+Both currently say the tier is pinned by measurement. Replace that with the number.
 
-- `changelog.d/ocr-engine.md`
-- `status.d/<slice>.md` (mirror an existing fragment's shape)
-
-- [ ] **Step 8: Final gate and commit**
+- [ ] **Step 8: Commit**
 
 ```bash
-cd C:/dev/magna-carta-worktrees/ocr-engine
-pnpm run lint:process-refs && pnpm check
-cd crates && CARGO_BUILD_JOBS=1 cargo test && CARGO_BUILD_JOBS=1 cargo clippy -- -D warnings
+cd C:/dev/magna-carta-worktrees/ocr-engine/crates
+CARGO_BUILD_JOBS=1 cargo test -p pdf-eval && CARGO_BUILD_JOBS=1 cargo clippy -p pdf-eval -- -D warnings
 cd .. && git add -A
 git commit -m "feat(ocr): model-tier benchmark, baseline, and the measured tier pin"
 ```
@@ -2299,7 +2408,9 @@ git commit -m "feat(ocr): model-tier benchmark, baseline, and the measured tier 
 
 ## Self-Review
 
-**Spec coverage.** Every section of the design maps to a task: architecture and the three units (Tasks 1-5); the engine contract, image-and-PDF input, skip-if-text-layer, user-space boxes, never-fabricate (Task 3); provenance and determinism (Tasks 1-2, asserted in tests); the two-file model artifact, hash verification, trixie (Task 4); reachability and the registration surface (Task 6); validation (Task 7); the tier benchmark, manufactured ground truth, and the regression baseline (Task 8). The recognizer-swappability seam is carried by the `Recognizer` trait from Task 1, which is what a per-script v5 model registers behind later.
+**Spec coverage.** Every section of the design maps to a task: architecture and the three units (Tasks 1-5); the engine contract, image-and-PDF input, skip-if-text-layer, user-space boxes, never-fabricate (Task 4); provenance and determinism (Tasks 1-2, asserted in tests); the two-file model artifact, hash verification, trixie (Task 9); reachability and the registration surface (Task 6); validation (Task 7); the tier benchmark, manufactured ground truth, and the regression baseline (Task 8). The recognizer-swappability seam is carried by the `Recognizer` trait from Task 1, which is what a per-script v5 model registers behind later.
+
+**One correctness fix found while reviewing this plan against the codebase.** An earlier draft had the container and the harness each drop the alpha channel from `render_page`'s output. That output is _straight_ alpha, and a page with no background content is fully transparent with RGB 0 — so dropping alpha would have handed the engine a solid black page for exactly those documents. `pdf-core/src/redact.rs` already composited over white, inline. Task 3 gives that rule one home and both consumers call it.
 
 **Known gaps, stated rather than hidden.** Three API details could not be closed from documentation and must be verified against docs.rs at implementation time, each flagged inline at its use site: whether `oar_ocr`'s `Point` exposes `.x`/`.y` or tuple fields (Task 2, Step 4); whether `download-binaries` can be enabled without `tls-native` (Task 2, Step 1); and the exact `pdf-core` signatures for `Document::load`, `page_count`, and `page_size`, which the container calls (Task 3, Step 9). None of these change the design; each changes a line of code.
 
