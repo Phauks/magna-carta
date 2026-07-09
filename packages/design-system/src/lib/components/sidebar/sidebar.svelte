@@ -7,10 +7,10 @@
    * defaults to "Main"; pass `aria-label` to override (e.g. a second nav on the page).
    *
    * THE PANEL WRAPPER: the header/content/footer live inside `.mc-sidebar-panel`, a full-size flex
-   * column that normally fills the rail. It exists so the HOVER PEEK can float open WITHOUT reflow:
-   * when a collapsed rail is peeked, the nav keeps its icon-rail width in flow (the canvas never
-   * shifts) while the panel lifts to `position: absolute` at the expanded width, elevated over the
-   * canvas. See the peek + panel rules in sidebar.css.
+   * column that fills the rail. It is a plain wrapper — the HOVER PEEK widens the whole rail in flow
+   * (an actual inline-size change on the nav) rather than floating this panel: when a collapsed rail
+   * is peeked, the nav grows back to the expanded width and PUSHES the work canvas aside, so the
+   * peeked labels never overlap content. See the peek + panel rules in sidebar.css.
    *
    * `editing` widens the rail to a comfortable arranging width and forces it expanded — the shell's
    * Customize mode. `expandOnHover` opts the rail into the peek; the peek only fires while the rail
@@ -125,10 +125,9 @@
 </script>
 
 <!-- The peek handlers ride the <nav> (a landmark, so no bare-element a11y role is needed). The
-     floated panel is a DESCENDANT of the nav, so moving the pointer onto it — even where it
-     overflows past the rail's in-flow box, over the canvas — never triggers the nav's
-     pointerleave; only leaving the whole subtree does, which is exactly when the peek should
-     fold back. -->
+     peek widens the whole nav in flow, so the pointer stays within the nav's own box while it is
+     peeked open; the nav's pointerleave fires only when the pointer genuinely leaves the widened
+     rail, which is exactly when the peek should fold back. -->
 <nav
   bind:this={ref}
   data-state={collapsed ? "collapsed" : "expanded"}
@@ -140,8 +139,8 @@
   onpointerleave={closePeekSoon}
   {...restProps}
 >
-  <!-- The floatable panel: fills the rail normally; lifts to an absolute overlay while peeking so
-       the canvas never reflows (the nav keeps its in-flow rail width; only the panel moves). -->
+  <!-- The panel: a plain flex-column wrapper that fills the rail. The hover peek widens the nav
+       itself in flow (pushing the canvas aside), so this wrapper does not move independently. -->
   <div class="mc-sidebar-panel">
     {@render children?.()}
   </div>
