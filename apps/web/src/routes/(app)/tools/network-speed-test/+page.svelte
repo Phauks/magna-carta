@@ -57,20 +57,20 @@
     store.phase === "finished" && store.stepCount > 0 ? store.stepCount - 1 : store.stepIndex,
   );
 
-  // Always returns five rows — with em dashes before a run has data — so the tile occupies its
-  // final height from the moment the page loads rather than growing when a run finishes.
+  // Always returns five rows — empty before a run has data — so the tile occupies its final
+  // height from the moment the page loads rather than growing when a run finishes.
   function statRows(
     stats: ReturnType<typeof bandwidthStats>,
     points: ReadonlyArray<{ bytes: number }>,
   ) {
     const spent = bytesInDirection(points);
-    const transferred = { label: "Transferred", value: spent > 0 ? formatBytes(spent) : "—" };
+    const transferred = { label: "Transferred", value: spent > 0 ? formatBytes(spent) : "" };
     if (stats === null) {
       return [
-        { label: "Median", value: "—" },
-        { label: "95th", value: "—" },
-        { label: "Peak", value: "—" },
-        { label: "Samples", value: "—" },
+        { label: "Median", value: "" },
+        { label: "95th", value: "" },
+        { label: "Peak", value: "" },
+        { label: "Samples", value: "" },
         transferred,
       ];
     }
@@ -185,7 +185,7 @@
   {:else if store.turn}
     <MetricTile label="Packet loss" value="Unavailable" note={turnUnavailableNote(store.turn.reason)} />
   {:else}
-    <MetricTile label="Packet loss" value="—" note={NOT_MEASURED_YET} />
+    <MetricTile label="Packet loss" value="" note={NOT_MEASURED_YET} />
   {/if}
 </section>
 

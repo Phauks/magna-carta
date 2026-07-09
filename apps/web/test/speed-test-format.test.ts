@@ -1,5 +1,5 @@
 /*
- * Result formatting, pinned. An absent measurement reads as an em dash — never as zero, which
+ * Result formatting, pinned. An absent measurement renders as nothing — never as zero, which
  * would be a measurement claim we did not make.
  */
 import { describe, expect, it } from "vitest";
@@ -23,8 +23,8 @@ describe("formatBandwidth", () => {
     expect(formatBandwidth(1_240_000_000)).toBe("1.24 Gbps");
   });
 
-  it("renders an absent measurement as an em dash", () => {
-    expect(formatBandwidth(undefined)).toBe("—");
+  it("renders an absent measurement as nothing", () => {
+    expect(formatBandwidth(undefined)).toBe("");
   });
 });
 
@@ -33,8 +33,8 @@ describe("formatMilliseconds", () => {
     expect(formatMilliseconds(12.44)).toBe("12.4 ms");
   });
 
-  it("renders an absent measurement as an em dash", () => {
-    expect(formatMilliseconds(undefined)).toBe("—");
+  it("renders an absent measurement as nothing", () => {
+    expect(formatMilliseconds(undefined)).toBe("");
   });
 });
 
@@ -47,8 +47,27 @@ describe("formatRatio", () => {
     expect(formatRatio(0)).toBe("0%");
   });
 
-  it("renders an absent measurement as an em dash", () => {
-    expect(formatRatio(undefined)).toBe("—");
+  it("renders an absent measurement as nothing", () => {
+    expect(formatRatio(undefined)).toBe("");
+  });
+});
+
+describe("an absent measurement", () => {
+  it("renders as nothing, not as an em dash", () => {
+    expect(formatBandwidth(undefined)).toBe("");
+    expect(formatMilliseconds(undefined)).toBe("");
+    expect(formatRatio(undefined)).toBe("");
+  });
+
+  it("never renders as zero", () => {
+    expect(formatBandwidth(undefined)).not.toMatch(/0/);
+    expect(formatMilliseconds(undefined)).not.toMatch(/0/);
+    expect(formatRatio(undefined)).not.toMatch(/0/);
+  });
+
+  it("still distinguishes a measured zero from an absent one", () => {
+    expect(formatRatio(0)).toBe("0%");
+    expect(formatRatio(undefined)).toBe("");
   });
 });
 

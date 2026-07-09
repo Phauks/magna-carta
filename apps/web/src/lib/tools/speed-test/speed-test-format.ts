@@ -1,8 +1,10 @@
 /*
- * Turning engine numbers into the ledger voice. An absent measurement is an em dash, never a
- * zero: zero is a claim the connection carried nothing, and we did not measure that.
+ * An unmeasured value renders as nothing. It once rendered as an em dash, to keep absence from being
+ * read as zero; the page now says "Not measured yet." in prose where it matters, so the dash was
+ * saying nothing twice. The constant remains because every formatter must agree on what silence is —
+ * and because nothing may ever replace it with a zero.
  */
-const ABSENT = "—";
+const ABSENT = "";
 
 /*
  * How an untaken measurement reads, in prose. The em dash above says the same thing where a number

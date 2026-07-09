@@ -35,7 +35,9 @@
     {#each PLACEHOLDER_KEYS as key (key)}
       <div>
         <dt class="text-text-muted">{useCaseLabel(key)}</dt>
-        <dd class="mt-4 text-lg">—</dd>
+        <!-- The rating is absent, not zero — it renders nothing. A non-breaking space keeps this
+             line's box from collapsing; NOT_MEASURED_YET below carries the actual meaning. -->
+        <dd class="mt-4 text-lg">&nbsp;</dd>
         <dd class="text-xs text-text-muted">{NOT_MEASURED_YET}</dd>
       </div>
     {/each}
