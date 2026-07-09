@@ -4145,6 +4145,413 @@ git commit -m "fix(tools): an unmeasured value says nothing, not an em dash"
 
 ---
 
+### Task 19: The control area is the same size in every phase
+
+Owner: Pause/Resume and Cancel/Restart resize when pressed, because the words are different lengths. A fresh page shows only Start, so pressing it adds a second button and the progress area, moving everything. And the progress panel grows downward as information arrives.
+
+**One cause, three symptoms: an element with no content has no size.** The panel's counter/size row is empty before a run, so it has no height; the secondary button does not exist at idle, so it has no width; and a button's width is whatever its current word needs.
+
+The whole control region — panel, primary button, secondary button — must occupy identical space in every phase. Nothing appears, nothing disappears, nothing resizes. Only the words and the bar change.
+
+**Files:**
+- Create: `apps/web/src/lib/tools/speed-test/steady-label.svelte`
+- Modify: `apps/web/src/lib/tools/speed-test/run-progress-panel.svelte`
+- Modify: `apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte`
+
+**Depends on Task 18** (which introduces the same line-box technique). Do it after.
+
+- [ ] **Step 1: A label that reserves the width of every word it might become**
+
+Create `apps/web/src/lib/tools/speed-test/steady-label.svelte`. It stacks every candidate label invisibly in one grid cell and lays the current one over them, so the cell is exactly as wide as the widest candidate — measured by the browser, never guessed at, and correct in any font.
+
+```svelte
+<script lang="ts">
+  /*
+   * A label whose box is as wide as the widest word it could ever hold.
+   *
+   * The buttons here swap words as the run changes phase — Pause becomes Resume, Cancel becomes
+   * Restart — and a button sized to its current word resizes when the word changes, shoving
+   * everything beside it. Rendering every candidate invisibly in the same grid cell lets the
+   * browser measure the widest one in the real font; the visible word then sits on top of that
+   * reservation and never moves it.
+   */
+  let { labels, current }: { labels: readonly string[]; current: string } = $props();
+</script>
+
+<span class="grid">
+  {#each labels as label (label)}
+    <span aria-hidden="true" class="invisible col-start-1 row-start-1 whitespace-nowrap">{label}</span>
+  {/each}
+  <span class="col-start-1 row-start-1 whitespace-nowrap">{current}</span>
+</span>
+```
+
+The invisible copies are `aria-hidden` — a screen reader must hear one word, not four.
+
+- [ ] **Step 2: Keep the panel's rows from collapsing**
+
+In `run-progress-panel.svelte`, the counter and size spans are empty before a run, so their row has no height and the panel grows when values arrive. Give that row a line box that exists whether or not it has content — render a non-breaking space when a value is absent, exactly as Task 18 does for the metric values:
+
+```svelte
+<div class="flex items-baseline justify-between gap-16 text-xs tabular-nums text-text-muted">
+  <span>{stepIndex !== null ? `Step ${stepIndex + 1} of ${stepCount}` : " "}</span>
+  <span>{bytesUsed > 0 ? `${formatBytes(bytesUsed)} used` : " "}</span>
+</div>
+```
+
+Confirm the panel's total height is identical at idle, running, paused, and finished. It has three rows in every phase.
+
+- [ ] **Step 3: Two button slots, always present**
+
+The control region is always: the panel, then a **primary** slot, then a **secondary** slot.
+
+| Phase      | Primary   | Secondary         |
+| ---------- | --------- | ----------------- |
+| `idle`     | Start     | *(reserved, invisible)* |
+| `running`  | Pause     | Cancel            |
+| `paused`   | Resume    | Restart           |
+| `finished` | Retest    | Download report¹  |
+| `failed`   | Retest    | *(reserved, invisible)* |
+
+¹ Task 12 adds the report button; reserve its width now so adding it later moves nothing.
+
+Both slots use `SteadyLabel` with the full set of words that slot can ever show:
+
+```svelte
+<script lang="ts">
+  const PRIMARY_LABELS = ["Start", "Pause", "Resume", "Retest"] as const;
+  const SECONDARY_LABELS = ["Cancel", "Restart", "Download report"] as const;
+</script>
+```
+
+The secondary slot at idle and after a failure renders the button with `class="invisible"`. `visibility: hidden` keeps the box — and removes it from the tab order, so a keyboard user is never sent to a button that does nothing. Do **not** use a disabled button labelled "Cancel": a control that names an action it will not perform is a lie.
+
+Sketch:
+
+```svelte
+<Masthead.Actions>
+  <RunProgressPanel … />
+
+  <Button variant="primary" onclick={primaryAction}>
+    <SteadyLabel labels={PRIMARY_LABELS} current={primaryLabel} />
+  </Button>
+
+  <Button
+    variant={store.phase === "paused" ? "secondary" : "ghost"}
+    class={secondaryVisible ? undefined : "invisible"}
+    tabindex={secondaryVisible ? undefined : -1}
+    aria-hidden={secondaryVisible ? undefined : "true"}
+    onclick={secondaryAction}
+  >
+    <SteadyLabel labels={SECONDARY_LABELS} current={secondaryLabel} />
+  </Button>
+</Masthead.Actions>
+```
+
+Derive `primaryLabel`, `primaryAction`, `secondaryLabel`, `secondaryAction`, and `secondaryVisible` from `store.phase` on the page. Keep Cancel as `ghost` and Restart as `secondary`, as Task 10 established; Cancel is still never `destructive`.
+
+- [ ] **Step 4: Verify the gates**
+
+Run: `pnpm --filter @magna-carta/web run check`
+Expected: 0 errors, 0 warnings.
+
+Run: `vp test run-progress speed-test-format bandwidth-stats chart-scale measurement-ladder turn-capability`
+Expected: PASS.
+
+- [ ] **Step 5: Prove the region does not resize**
+
+State in the report, for each of idle → running → paused → finished, that the control region's width and height are unchanged, and how you established it. The invisible reservations are what make this true; if you find yourself computing a pixel value, you have taken the wrong path.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add apps/web/src/lib/tools/speed-test "apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte"
+git commit -m "fix(tools): the control area is the same size in every phase"
+```
+
+---
+
+### Task 20: An `outline` button variant (design system)
+
+Owner: a `ghost` button does not read as a button, because it has no outline until you hover it. This recurs elsewhere in the app, so it is a design-system gap, not a page-level patch.
+
+**Do not give `ghost` a border.** `variant="ghost"` is used in twelve places across eight files — settings rows, back-links, dialog dismissals — where a borderless affordance is the intent. Changing it would restyle all of them. Add a variant instead: additive, no blast radius, and it names what is wanted.
+
+**Do not add a real `border` either.** The base `.mc-button` has no border, and every size maps to `min-block-size` plus padding. A 1px border on one variant would make it two pixels taller than the buttons beside it. Draw the edge as an **inset ring**, which occupies no layout.
+
+**Files (design-system package — a shared surface; keep the change small and additive):**
+- Modify: `packages/design-system/src/lib/components/button/variants.ts`
+- Modify: `packages/design-system/src/lib/components/button/button.css`
+- Modify: `packages/design-system/src/stories/button.stories.svelte`
+
+- [ ] **Step 1: Widen the union and the record**
+
+In `variants.ts`, add `"outline"` to `ButtonVariant` and `outline: "mc-button-outline"` to `VARIANT`. The record is `Record<ButtonVariant, string>`, so TypeScript will demand the new key — that is the intended guard. Grep the package for any other exhaustive switch or record over `ButtonVariant` and satisfy it.
+
+- [ ] **Step 2: Add the recipe**
+
+In `button.css`, beside `.mc-button-ghost`:
+
+```css
+  /*
+   * Outline — a quiet action that still reads as a control. Ghost carries no edge until hover, which
+   * leaves the affordance invisible at rest; this variant states its boundary at rest and reserves
+   * fill for the moment it is hovered.
+   *
+   * The edge is an INSET RING, not a border: the base recipe has no border, and sizes map to
+   * min-block-size plus padding, so a real border would make this variant two pixels taller than the
+   * buttons beside it. A ring costs no layout.
+   */
+  .mc-button-outline {
+    background-color: transparent;
+    color: var(--mc-text-default);
+    box-shadow: inset var(--mc-space-0) var(--mc-space-0) var(--mc-space-0)
+      var(--mc-border-width-default) var(--mc-border-strong);
+  }
+  .mc-button-outline:hover {
+    background-color: var(--mc-action-secondary);
+  }
+```
+
+**The token-purity gate (`packages/design-system/test/fitness/boundaries.test.ts`) rejects any literal length, colour, or number** — including a bare `0`. That is why the ring's offsets are `var(--mc-space-0)`. Confirm `--mc-space-0`, `--mc-border-width-default`, and `--mc-border-strong` all exist before using them; substitute real tokens if any does not.
+
+Confirm `:disabled` still reads correctly for this variant — the base `.mc-button:disabled` sets a fill and a muted foreground, and an inset ring beneath it must not fight that. If it does, neutralize the ring under `:disabled`.
+
+- [ ] **Step 3: Story it**
+
+Add `outline` to `button.stories.svelte` beside the other variants, so the variant is visible in Storybook and in the visual record. Follow the file's existing shape exactly; do not restructure it.
+
+Storybook note: running more than one story file in a single `vp test run` exhausts V8's heap in this repo. If you run stories, run this one alone.
+
+- [ ] **Step 4: Verify the gates**
+
+Run: `pnpm --filter @magna-carta/design-system check`
+Expected: clean.
+
+Run: `vp test boundaries off-token`
+Expected: PASS — the token-purity and off-token fitness tests must accept the new recipe. If `boundaries` rejects the `box-shadow`, read its rule and comply; do not weaken the test.
+
+Run: `pnpm --filter @magna-carta/web run check`
+Expected: 0 errors, 0 warnings (the widened union must not break any consumer).
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add packages/design-system/src/lib/components/button packages/design-system/src/stories/button.stories.svelte
+git commit -m "feat(design-system): an outline button variant that states its edge at rest"
+```
+
+---
+
+### Task 19: The control area is the same size in every phase
+
+Owner: Pause/Resume and Cancel/Restart resize when pressed, because the words differ in length. A fresh page shows only Start, so pressing it adds a second button and the progress area, moving everything. After a successful test it collapses back to one button. And the progress panel grows downward as information arrives.
+
+**One cause, four symptoms: an element with no content has no size.** The panel's counter/size row is empty before a run, so it has no height. The secondary button does not exist at idle or after a run, so it has no width. A button's width is whatever its current word needs.
+
+The whole control region — panel, primary button, secondary button — must occupy identical space in every phase. Nothing appears, nothing disappears, nothing resizes. Only the words and the bar change.
+
+**Depends on Task 18** (the U+00A0 line-box technique) and **Task 20** (the `outline` variant).
+
+**Files:**
+- Create: `apps/web/src/lib/tools/speed-test/steady-label.svelte`
+- Modify: `apps/web/src/lib/tools/speed-test/run-progress-panel.svelte`
+- Modify: `apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte`
+
+- [ ] **Step 1: A label that reserves the width of every word it might become**
+
+Create `steady-label.svelte`. It stacks every candidate label invisibly in one grid cell and lays the current one over them, so the cell is exactly as wide as the widest candidate — measured by the browser in the real font, never guessed.
+
+```svelte
+<script lang="ts">
+  /*
+   * A label whose box is as wide as the widest word it could ever hold.
+   *
+   * These buttons swap words as the run changes phase — Pause becomes Resume, Cancel becomes
+   * Restart — and a button sized to its current word resizes when the word changes, shoving
+   * everything beside it. Rendering every candidate invisibly in the same grid cell lets the browser
+   * measure the widest in the real font; the visible word sits over that reservation and never
+   * moves it.
+   */
+  let { labels, current }: { labels: readonly string[]; current: string } = $props();
+</script>
+
+<span class="grid">
+  {#each labels as label (label)}
+    <span aria-hidden="true" class="invisible col-start-1 row-start-1 whitespace-nowrap">{label}</span>
+  {/each}
+  <span class="col-start-1 row-start-1 whitespace-nowrap">{current}</span>
+</span>
+```
+
+The invisible copies are `aria-hidden` — a screen reader must hear one word, not four.
+
+- [ ] **Step 2: Keep the panel's rows from collapsing**
+
+In `run-progress-panel.svelte`, the counter and size spans are empty before a run, so that row has no height and the panel grows when values arrive. Give the row a line box in every phase, using the same non-breaking space Task 18 established (a plain space collapses when it is an element's only content):
+
+```svelte
+<div class="flex items-baseline justify-between gap-16 text-xs tabular-nums text-text-muted">
+  <span>{stepIndex !== null ? `Step ${stepIndex + 1} of ${stepCount}` : " "}</span>
+  <span>{bytesUsed > 0 ? `${formatBytes(bytesUsed)} used` : " "}</span>
+</div>
+```
+
+The panel has three rows of fixed height in every phase.
+
+- [ ] **Step 3: Two button slots, always present**
+
+The control region is always: panel, then a **primary** slot, then a **secondary** slot.
+
+| Phase      | Primary | Secondary               |
+| ---------- | ------- | ----------------------- |
+| `idle`     | Start   | *(reserved, invisible)* |
+| `running`  | Pause   | Cancel                  |
+| `paused`   | Resume  | Restart                 |
+| `finished` | Retest  | Download report¹        |
+| `failed`   | Retest  | *(reserved, invisible)* |
+
+¹ Task 12 adds the report button; reserving its width now means adding it later moves nothing.
+
+Both slots use `SteadyLabel` with every word that slot can show:
+
+```ts
+  const PRIMARY_LABELS = ["Start", "Pause", "Resume", "Retest"] as const;
+  const SECONDARY_LABELS = ["Cancel", "Restart", "Download report"] as const;
+```
+
+The secondary slot at idle and after a failure renders with `class="invisible"`. `visibility: hidden` keeps the box **and** removes it from the tab order, so a keyboard user is never sent to a control that does nothing. Do **not** render a disabled button labelled "Cancel": a control naming an action it will not perform is a lie.
+
+**Cancel uses `variant="outline"`** (Task 20) so it reads as a button at rest. Restart stays `secondary`. Cancel is still never `destructive` — a speed test stores nothing to lose.
+
+Derive `primaryLabel`, `primaryAction`, `secondaryLabel`, `secondaryAction`, and `secondaryVisible` from `store.phase` on the page.
+
+- [ ] **Step 4: Stop saying the same number twice**
+
+The masthead meta prints `{formatBytes(bytesUsed)} transferred`, and the progress panel now prints `… used`. Delete it from the masthead. Keep the timestamp, and keep the meta rendering in every phase — an empty meta collapses the masthead and moves the page:
+
+```svelte
+<Masthead.Meta>
+  {#if store.finishedAt}
+    <span>Run at {store.finishedAt.toLocaleTimeString()} on {store.finishedAt.toLocaleDateString()}</span>
+  {:else}
+    <span>Not run yet</span>
+  {/if}
+</Masthead.Meta>
+```
+
+- [ ] **Step 5: Verify the gates**
+
+Run: `pnpm --filter @magna-carta/web run check`
+Expected: 0 errors, 0 warnings.
+
+Run: `vp test run-progress speed-test-format bandwidth-stats chart-scale measurement-ladder turn-capability`
+Expected: PASS.
+
+- [ ] **Step 6: Prove the region does not resize**
+
+State in the report, for idle → running → paused → finished → failed, that the control region's width and height are unchanged, and how you established it. The invisible reservations are what make this true. **If you find yourself computing a pixel value, you have taken the wrong path.**
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add apps/web/src/lib/tools/speed-test "apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte"
+git commit -m "fix(tools): the control area is the same size in every phase"
+```
+
+---
+
+### Task 21: An unmeasured value reads `N/A`
+
+Owner: blank reads as broken. Put `N/A` where a measurement has not been taken, so a reader sees a field waiting for data rather than an empty box.
+
+This supersedes Task 18's empty string. The em dash is still gone; the constant now carries `N/A`.
+
+**What must not regress:**
+- `N/A` must never appear where a *sentence* belongs. The panels and charts keep `NOT_MEASURED_YET` ("Not measured yet."). `N/A` is for a value slot only.
+- Absence must still never read as zero. `formatRatio(0)` is `0%` — a real, good packet-loss reading. `formatRatio(undefined)` is `N/A`.
+- The line-box guards from Task 18 become unnecessary for these values, because `N/A` has content. **Leave them in place anyway** where a value could still be empty for another reason, but do not let a non-breaking space and an `N/A` both render.
+
+**Files:**
+- Modify: `apps/web/src/lib/tools/speed-test/speed-test-format.ts`
+- Modify: `apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte` (`statRows` null branch)
+- Modify: `apps/web/src/lib/tools/speed-test/quality-scores.svelte` (placeholder rating)
+- Modify: `apps/web/src/lib/tools/speed-test/metric-tile.svelte` (retire the now-dead empty-value branch if it can no longer be reached)
+- Test: `apps/web/test/speed-test-format.test.ts`
+
+- [ ] **Step 1: Change the assertions first**
+
+```ts
+describe("an absent measurement", () => {
+  it("reads N/A, so an empty field does not read as broken", () => {
+    expect(formatBandwidth(undefined)).toBe("N/A");
+    expect(formatMilliseconds(undefined)).toBe("N/A");
+    expect(formatRatio(undefined)).toBe("N/A");
+  });
+
+  it("is never an em dash and never a zero", () => {
+    expect(formatBandwidth(undefined)).not.toContain("—");
+    expect(formatMilliseconds(undefined)).not.toMatch(/0/);
+  });
+
+  it("still distinguishes a measured zero from an absent one", () => {
+    expect(formatRatio(0)).toBe("0%");
+    expect(formatRatio(undefined)).toBe("N/A");
+  });
+});
+```
+
+- [ ] **Step 2: Run it to verify it fails**
+
+Run: `vp test speed-test-format`
+Expected: FAIL — the formatters return `""`.
+
+- [ ] **Step 3: Change the constant**
+
+```ts
+/*
+ * How an unmeasured value reads in a value slot. It was an em dash (which said nothing twice, once
+ * the page gained a sentence for absence), then nothing (which read as broken). `N/A` shows a field
+ * waiting for data. Where a SENTENCE belongs, the page says "Not measured yet." instead — see
+ * NOT_MEASURED_YET below. Nothing may ever replace this with a zero: a measured zero is a result.
+ */
+const ABSENT = "N/A";
+```
+
+- [ ] **Step 4: Run it to verify it passes, then sweep the placeholders**
+
+Run: `vp test speed-test-format`
+Expected: PASS.
+
+- `statRows`'s null branch returns `"N/A"` for Median, 95th, Peak, Samples, and Transferred.
+- `quality-scores.svelte`'s placeholder rating renders `N/A` (its `NOT_MEASURED_YET` line stays).
+- In `metric-tile.svelte`, if the empty-value branch is now unreachable for every call site, remove it rather than leave a dead nbsp; if any caller can still pass `""`, keep it and say so in the report.
+
+- [ ] **Step 5: Verify the gates**
+
+Run: `pnpm --filter @magna-carta/web run check`
+Expected: 0 errors, 0 warnings.
+
+Run: `vp test speed-test-format run-progress bandwidth-stats chart-scale measurement-ladder turn-capability`
+Expected: PASS.
+
+Then grep and report every hit, justifying each:
+
+```bash
+grep -rn "N/A\|Not measured yet\|—" apps/web/src/lib/tools/speed-test "apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte"
+```
+
+No em dash may remain as a rendered value. No `N/A` may sit where a sentence belongs.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add apps/web/src/lib/tools/speed-test apps/web/test/speed-test-format.test.ts "apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte"
+git commit -m "fix(tools): an unmeasured value reads N/A"
+```
+
+---
+
 ### Task 6: Documentation (definition of done)
 
 No feature is done until its docs, roadmap, and changelog fragment land. Branches never hand-edit `CHANGELOG.md` or `STATUS.md` — they commit fragments.
