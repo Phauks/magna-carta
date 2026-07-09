@@ -29,12 +29,20 @@ use crate::error::EmailError;
 /// Mapping every fault to one plain, static-string error variant is what
 /// keeps a malformed attachment a normal `Err` instead of a crash.
 ///
-/// Kept `pub` (not crate-private) on purpose: a concrete, non-generic
-/// function that is part of the crate's public surface is compiled into the
-/// output unconditionally, which is what forces the compiler to actually
-/// generate `cfb`'s generic open/read path for `Cursor<&[u8]>` in every
-/// build, including wasm — rather than that path silently going uncompiled
-/// because its only caller happened to be test-only code.
+/// Kept `pub` (not crate-private) on purpose. Monomorphization is lazy: a
+/// crate-private function whose only caller is test-only code is never
+/// generated, and neither is anything it calls — so `cfb`'s open/read path
+/// would silently go uncompiled on wasm, and a build that never touched it
+/// would still look green. Being `pub` makes it an `rlib` export, which is a
+/// codegen root, so the compiler really does generate `cfb`'s generic open
+/// path for `Cursor<&[u8]>`.
+///
+/// That root comes from the `rlib` half of this crate's `crate-type`, not
+/// from `pub` alone: a plain Rust function is not a `cdylib` export, so
+/// trimming `crate-type` to `["cdylib"]` would drop `cfb` from the artifact
+/// again (measurably — it nearly halves it). Once the MAPI decoder is
+/// reachable from a `#[wasm_bindgen]` entry point, that export graph roots
+/// this path directly and the `rlib` scaffold stops mattering.
 pub fn open_compound_file(bytes: &[u8]) -> Result<CompoundFile<Cursor<&[u8]>>, EmailError> {
     CompoundFile::open(Cursor::new(bytes)).map_err(|_| EmailError::Malformed)
 }
