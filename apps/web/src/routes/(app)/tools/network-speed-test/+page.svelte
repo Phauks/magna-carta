@@ -60,14 +60,14 @@
   );
 
   /*
-   * The control region is always: panel, primary slot, secondary slot. Every word either slot could
-   * ever show is listed here so SteadyLabel can reserve the widest one's width in the real font —
-   * see steady-label.svelte. "Download report" is not wired to anything yet (that button lands
-   * separately); it is listed so its width is already reserved and adding the real button later
-   * moves nothing.
+   * Every word either control button can show. BOTH buttons reserve the width of the widest of
+   * them, so the pair is symmetric and neither resizes when its word changes. Reserving each slot
+   * against only its own words would still leave them unequal — "Resume" is shorter than "Restart".
+   *
+   * "Download report" is deliberately absent: it is not a run control, it lives in the overflow
+   * menu, and reserving its width here would make both buttons far wider than they need to be.
    */
-  const PRIMARY_LABELS = ["Start", "Pause", "Resume", "Retest"] as const;
-  const SECONDARY_LABELS = ["Cancel", "Restart", "Download report"] as const;
+  const CONTROL_LABELS = ["Start", "Pause", "Resume", "Retest", "Cancel", "Restart"] as const;
 
   const primaryLabel = $derived(
     store.phase === "idle"
@@ -102,15 +102,7 @@
   // disabled button naming an action it will not perform.
   const secondaryVisible = $derived(store.phase === "running" || store.phase === "paused");
 
-  const secondaryLabel = $derived(
-    store.phase === "running"
-      ? "Cancel"
-      : store.phase === "paused"
-        ? "Restart"
-        : store.phase === "finished"
-          ? "Download report"
-          : "Cancel",
-  );
+  const secondaryLabel = $derived(store.phase === "paused" ? "Restart" : "Cancel");
 
   function secondaryAction(): void {
     switch (store.phase) {
@@ -175,7 +167,7 @@
       bytesUsed={store.bytesUsed}
     />
     <Button variant="primary" onclick={primaryAction}>
-      <SteadyLabel labels={PRIMARY_LABELS} current={primaryLabel} />
+      <SteadyLabel labels={CONTROL_LABELS} current={primaryLabel} />
     </Button>
 
     <Button
@@ -185,7 +177,7 @@
       aria-hidden={secondaryVisible ? undefined : "true"}
       onclick={secondaryAction}
     >
-      <SteadyLabel labels={SECONDARY_LABELS} current={secondaryLabel} />
+      <SteadyLabel labels={CONTROL_LABELS} current={secondaryLabel} />
     </Button>
   </Masthead.Actions>
 </Masthead.Root>
