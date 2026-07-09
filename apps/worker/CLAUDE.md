@@ -60,6 +60,14 @@ routes requests through the chokepoint into those packages.
 - **Bulk bytes never buffer in the Worker.** Streaming only: R2 bodies flow straight through `client-zip`
   and out; an archive of unknown length is written to R2 as a **multipart** upload, never a single
   length-bound `put`.
+- **Never enable Workers Cache on this Worker's default entrypoint.** An edge cache keys on
+  entrypoint + path + query + version — not on the host and not on the `Cookie` header — and this
+  Worker resolves the firm from the session cookie, so one firm's `/api/v1/*` response would be
+  served to the next firm that asks for the same path. The chokepoint's `private, no-store` stamp
+  (`src/chokepoint/cache-control.ts`) is the structural guard; caching an API response requires
+  carrying `firmId` in `ctx.props` behind an uncached gateway entrypoint. Enabling it also makes
+  `ASSETS` requests and the four service-binding calls billable. Rules:
+  [`docs/conventions/security.md`](../../docs/conventions/security.md) (response cache-control).
 
 ## Async bulk-download flow (slice 2·1 Plan 3 — the codebase's first Durable Object)
 
