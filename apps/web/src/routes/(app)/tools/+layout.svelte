@@ -20,8 +20,10 @@
 
 {#if !onToolsListing}
   <!-- Named for what it is. One link back to the listing is not a breadcrumb trail, and a landmark
-       that announces itself as one sends a reader looking for a path that is not there. -->
-  <nav aria-label="Back to Tools" class="mb-16">
+       that announces itself as one sends a reader looking for a path that is not there.
+       The gap sits tight to the masthead below so the link reads as the title's eyebrow, not a
+       separate band above the page. -->
+  <nav aria-label="Back to Tools" class="mb-4">
     <BackLink href={toolsListingHref} label="Tools" />
   </nav>
 {/if}
