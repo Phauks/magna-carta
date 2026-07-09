@@ -74,8 +74,10 @@ function memberConfig(member, members) {
       noEmit: false,
       emitDeclarationOnly: true,
       declaration: true,
-      // Off: tsgo's RC does not yet support declaration maps, and the build graph is not the editor
-      // surface (the editor uses the main tsconfig.json / source). Keeps tsc/tsgo output identical.
+      // Off: the build graph is not the editor surface. Packages export TypeScript source directly
+      // (`"./money": "./src/money.ts"`), so cross-package go-to-definition already lands on the
+      // source and never reads these declarations — a declaration map would have nothing to
+      // redirect. Turn this on only if a package starts publishing built `.d.ts` as its entry point.
       declarationMap: false,
       outDir: ".tsbuild",
       rootDir: "src",

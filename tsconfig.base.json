@@ -1,5 +1,10 @@
 {
   "compilerOptions": {
+    // Ambient @types are opt-in, never auto-discovered: an unpinned `types` pulls in every @types
+    // package that happens to be resolvable, so an unrelated dependency can silently widen the
+    // global scope of every project that extends this. Each project names what it needs
+    // (`"types": ["node"]`, or `["@cloudflare/workers-types"]` for a Worker).
+    "types": [],
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "bundler",
