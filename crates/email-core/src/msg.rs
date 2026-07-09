@@ -671,7 +671,7 @@ fn clamp_to_usize(value: u64) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::{Read as _, Write};
+    use std::io::Write;
 
     /// Build a valid version-4 CFB carrying the given streams, the way a real
     /// `.msg` is structured (a compound file of property streams). Returned as
@@ -738,7 +738,7 @@ mod tests {
     #[test]
     fn valid_magic_then_garbage_header_is_malformed() {
         let mut bytes = vec![0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1];
-        bytes.extend(std::iter::repeat(0xFFu8).take(512 - 8));
+        bytes.extend(std::iter::repeat_n(0xFFu8, 512 - 8));
         assert!(matches!(
             open_compound_file(&bytes),
             Err(EmailError::Malformed)
