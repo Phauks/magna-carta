@@ -58,6 +58,11 @@ export default defineConfig({
   // Per-package test projects. apps/worker and apps/status-worker run their tests inside Miniflare via @cloudflare/vitest-pool-workers, which only activates when their own config (apps/worker/vitest.config.ts, apps/status-worker/vitest.config.ts) is loaded, so each is registered as a Vitest project here; otherwise root `vp test` would run the worker test under the default pool and `cloudflare:test` would not resolve.
   // The design-system Storybook story tests (browser-mode Chromium via Playwright + per-story axe) are registered explicitly: Vitest ignores `test.projects` nested inside a config loaded as a project, so the glob entry alone would silently skip them at the root (the package's vitest.config.ts then only contributes its unit tests). Requires the Chromium binary: `pnpm --filter @magna-carta/design-system exec playwright install chromium` (CI too).
   test: {
+    // Cap the global test worker-fork pool. Vitest defaults to one fork per CPU core; on a 16-core /
+    // ~16 GB machine that fans ~16 Node processes out across the ~30 package projects at once and
+    // exhausts RAM. 4 bounds peak to roughly 4 x per-fork heap. A host with more RAM (CI) can raise
+    // it via MC_TEST_MAX_WORKERS. Per-project configs (e.g. apps/worker) still cap their own pools.
+    maxWorkers: Number(process.env.MC_TEST_MAX_WORKERS) || 4,
     projects: [
       "apps/worker/vitest.config.ts",
       "apps/status-worker/vitest.config.ts",
