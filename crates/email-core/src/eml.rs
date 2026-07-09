@@ -2,7 +2,7 @@
 
 use crate::model::{
     Address, Disposition, IntegrityFacts, MessageIdentifier, ParsedMessage, PartDescriptor,
-    SourceFormat,
+    PartLocator, SourceFormat,
 };
 use crate::EmailError;
 use mail_parser::{MessageParser, MimeHeaders};
@@ -176,7 +176,7 @@ fn descriptor(part: &mail_parser::MessagePart<'_>) -> PartDescriptor {
         content_identifier: part.content_id().map(str::to_owned),
         disposition,
         size: byte_range.len(),
-        byte_range,
+        locator: PartLocator::InputRange(byte_range),
         is_embedded_message: matches!(part.body, mail_parser::PartType::Message(_)),
     }
 }
@@ -184,7 +184,7 @@ fn descriptor(part: &mail_parser::MessagePart<'_>) -> PartDescriptor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Disposition, MessageIdentifier, SourceFormat};
+    use crate::{Disposition, MessageIdentifier, PartLocator, SourceFormat};
 
     const SIMPLE: &[u8] = include_bytes!("../tests/fixtures/simple.eml");
     const WITH_ATTACHMENT: &[u8] = include_bytes!("../tests/fixtures/with-attachment.eml");
@@ -268,12 +268,16 @@ mod tests {
         assert_eq!(part.media_type.as_deref(), Some("application/pdf"));
         assert_eq!(part.disposition, Disposition::Attachment);
         assert!(!part.is_embedded_message);
-        assert!(part.byte_range.start < part.byte_range.end);
-        assert_eq!(part.byte_range.end - part.byte_range.start, part.size);
+
+        let PartLocator::InputRange(byte_range) = &part.locator else {
+            panic!("an .eml attachment must locate its bytes as an input range");
+        };
+        assert!(byte_range.start < byte_range.end);
+        assert_eq!(byte_range.end - byte_range.start, part.size);
 
         // The byte range indexes the original input directly (including the
         // trailing CRLF that precedes the next MIME boundary line).
-        let attachment_slice = &WITH_ATTACHMENT[part.byte_range.clone()];
+        let attachment_slice = &WITH_ATTACHMENT[byte_range.clone()];
         assert_eq!(attachment_slice, b"JVBERi0xLjQKJeLjz9MK\r\n");
     }
 }

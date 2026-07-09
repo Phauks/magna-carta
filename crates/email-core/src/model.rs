@@ -45,8 +45,19 @@ pub enum Disposition {
     Inline,
 }
 
-/// A part is described, never materialized, by `parse`. `byte_range` indexes the
-/// original input buffer; `extract_part` turns one descriptor into bytes on demand.
+/// Where a part's bytes actually live, which differs by container.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PartLocator {
+    /// A contiguous slice of the original input buffer. MIME parts in an RFC 5322
+    /// message (and in each mbox member) are literally spans of the bytes handed in.
+    InputRange(core::ops::Range<usize>),
+    /// A named stream inside a compound file. Its bytes are reassembled from
+    /// scattered sectors, so no span of the input buffer denotes them.
+    MapiStream { name: String },
+}
+
+/// A part is described, never materialized, by `parse`. `locator` says where its
+/// bytes live; `extract_part` turns one descriptor into bytes on demand.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PartDescriptor {
     pub filename: Option<String>,
@@ -54,7 +65,7 @@ pub struct PartDescriptor {
     pub content_identifier: Option<String>,
     pub disposition: Disposition,
     pub size: usize,
-    pub byte_range: core::ops::Range<usize>,
+    pub locator: PartLocator,
     pub is_embedded_message: bool,
 }
 
@@ -109,5 +120,28 @@ mod tests {
         assert_ne!(from_header, from_mapi);
         assert_eq!(from_header.value(), Some("<a@b.example>"));
         assert_eq!(MessageIdentifier::Absent.value(), None);
+    }
+
+    #[test]
+    fn a_mapi_stream_locator_exposes_no_input_range() {
+        let descriptor = PartDescriptor {
+            filename: Some("engagement-letter.pdf".to_owned()),
+            media_type: Some("application/pdf".to_owned()),
+            content_identifier: None,
+            disposition: Disposition::Attachment,
+            size: 0,
+            locator: PartLocator::MapiStream {
+                name: "__substg1.0_37010102".to_owned(),
+            },
+            is_embedded_message: false,
+        };
+
+        // A caller that only knows how to read an `InputRange` must come away
+        // with nothing rather than a wrong slice: there is no range to hand it.
+        let range = match &descriptor.locator {
+            PartLocator::InputRange(range) => Some(range.clone()),
+            PartLocator::MapiStream { .. } => None,
+        };
+        assert_eq!(range, None);
     }
 }
