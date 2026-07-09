@@ -3691,6 +3691,48 @@ git commit -m "feat(tools): explanations on hover, with the link beside the head
 
 ---
 
+### Task 15: Do not rate a connection before the run has finished
+
+Owner: the quality scores should not appear until scanning is complete, or they climb and fall before the data means anything.
+
+The engine recomputes `getScores()` on every `onResultsChange`, so a rating visibly moves from "poor" to "average" to "good" as samples land. A rating that changes while you watch it is not a rating; it is noise wearing a verdict's clothes. Worse, AIM weighs metrics the run has not reached yet — early on, upload has not been measured at all.
+
+**This applies only to the ratings.** The headline metrics (Download, Upload, Latency, Jitter) *must* keep updating live during a run; a fix exists specifically to make them do that, and the owner has seen and accepted it. Do not touch them.
+
+**Files:**
+- Modify: `apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte`
+
+- [ ] **Step 1: Withhold the scores until the run is finished**
+
+The score panel receives scores only in the `finished` phase:
+
+```svelte
+<QualityScores scores={store.phase === "finished" ? results?.getScores() : undefined} />
+```
+
+In every other phase — idle, running, paused, failed, and after a cancel — it receives `undefined` and renders the placeholder built in Task 9: three columns, em dashes, "Scored once a run finishes."
+
+That placeholder now carries meaning rather than merely holding space. Add a short comment on the call site saying so, because the next reader will otherwise "simplify" the guard away:
+
+```svelte
+<!-- The engine rescores on every sample, so a rating shown mid-run climbs and falls before the
+     measurements it weighs even exist. A verdict is worth showing only once it is final. -->
+```
+
+- [ ] **Step 2: Verify the gates**
+
+Run: `pnpm --filter @magna-carta/web run check`
+Expected: 0 errors, 0 warnings.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add "apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte"
+git commit -m "fix(tools): rate the connection only once the run is finished"
+```
+
+---
+
 ### Task 6: Documentation (definition of done)
 
 No feature is done until its docs, roadmap, and changelog fragment land. Branches never hand-edit `CHANGELOG.md` or `STATUS.md` — they commit fragments.
