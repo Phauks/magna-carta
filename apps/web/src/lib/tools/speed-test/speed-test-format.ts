@@ -16,3 +16,10 @@ export function formatMilliseconds(milliseconds: number | undefined): string {
   if (milliseconds === undefined || !Number.isFinite(milliseconds)) return ABSENT;
   return `${milliseconds.toFixed(1)} ms`;
 }
+
+/** A 0–1 ratio (packet loss) as a percentage; a whole percentage keeps no decimal. */
+export function formatRatio(ratio: number | undefined): string {
+  if (ratio === undefined || !Number.isFinite(ratio)) return ABSENT;
+  const percentage = ratio * 100;
+  return Number.isInteger(percentage) ? `${percentage}%` : `${percentage.toFixed(1)}%`;
+}

@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import {
   formatBandwidth,
   formatMilliseconds,
+  formatRatio,
 } from "../src/lib/tools/speed-test/speed-test-format.ts";
 
 describe("formatBandwidth", () => {
@@ -33,5 +34,19 @@ describe("formatMilliseconds", () => {
 
   it("renders an absent measurement as an em dash", () => {
     expect(formatMilliseconds(undefined)).toBe("—");
+  });
+});
+
+describe("formatRatio", () => {
+  it("renders a loss ratio as a percentage", () => {
+    expect(formatRatio(0.004)).toBe("0.4%");
+  });
+
+  it("renders zero loss as 0%", () => {
+    expect(formatRatio(0)).toBe("0%");
+  });
+
+  it("renders an absent measurement as an em dash", () => {
+    expect(formatRatio(undefined)).toBe("—");
   });
 });

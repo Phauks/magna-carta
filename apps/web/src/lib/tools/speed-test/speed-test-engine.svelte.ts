@@ -3,15 +3,14 @@
  * the first run: it is browser-only (it reads PerformanceResourceTiming) and there is no reason to
  * ship it to anyone who never presses Start.
  *
- * The engine runs Cloudflare's own measurement ladder minus its `packetLoss` step (see
- * measurement-ladder.ts) — that step needs a WebRTC TURN server we do not run, and its failure
- * used to abort the whole test. Every remaining phase is Cloudflare's, unchanged, which is what
- * keeps these numbers comparable to speed.cloudflare.com. A run transfers a lot of data, which is
- * why nothing starts without an explicit press, and why dispose() pauses the engine when the page
- * goes away: a backgrounded tab must never keep spending the firm's bandwidth.
- *
- * Packet loss is deliberately not measured. It requires a WebRTC TURN server, and the public one
- * Cloudflare offered is deprecated; the page states that rather than showing a fabricated zero.
+ * The engine runs Cloudflare's own measurement ladder, with its `packetLoss` step included only
+ * when the TURN relay credentials behind it are actually obtainable (see turn-capability.ts) —
+ * asked BEFORE the engine is built, never mid-run. That step needs a WebRTC TURN server; a refused
+ * credential mid-run used to abort the whole test, taking the bandwidth and latency results with
+ * it. Every other phase is Cloudflare's, unchanged, which is what keeps these numbers comparable to
+ * speed.cloudflare.com. A run transfers a lot of data, which is why nothing starts without an
+ * explicit press, and why dispose() pauses the engine when the page goes away: a backgrounded tab
+ * must never keep spending the firm's bandwidth.
  */
 import type { BandwidthPoint, Results, Scores } from "@cloudflare/speedtest";
 import {
@@ -20,8 +19,9 @@ import {
   type FetchResult,
   type ProbeOutcome,
 } from "./connection-probe.ts";
-import { MEASUREMENT_LADDER } from "./measurement-ladder.ts";
+import { LADDER_WITH_PACKET_LOSS, MEASUREMENT_LADDER } from "./measurement-ladder.ts";
 import { fetchMeasurementServer, type MeasurementServer } from "./speed-test-meta.ts";
+import { probeTurnCapability, TURN_CREDENTIALS_URL, type TurnCapability } from "./turn-capability.ts";
 
 export type SpeedTestPhase = "idle" | "running" | "paused" | "finished" | "failed";
 
@@ -40,6 +40,7 @@ export interface SpeedTestResults {
   getDownLoadedLatencyPoints(): readonly number[];
   getUpLoadedLatencyPoints(): readonly number[];
   getScores(): Scores;
+  getPacketLoss(): number | undefined;
 }
 
 /*
@@ -67,6 +68,7 @@ function snapshotResults(source: Results): SpeedTestResults {
     getDownLoadedLatencyPoints: () => source.getDownLoadedLatencyPoints(),
     getUpLoadedLatencyPoints: () => source.getUpLoadedLatencyPoints(),
     getScores: () => source.getScores(),
+    getPacketLoss: () => source.getPacketLoss(),
   };
 }
 
@@ -90,6 +92,13 @@ async function fetchMeta(url: string): Promise<unknown> {
   return response.json();
 }
 
+// probeTurnCapability reads only the status: a transport failure is distinguished by `fetch`
+// itself throwing, never by an inspected response.
+async function fetchTurnStatus(url: string): Promise<number> {
+  const response = await fetch(url, { headers: { accept: "application/json" } });
+  return response.status;
+}
+
 export function createSpeedTestStore() {
   let phase = $state<SpeedTestPhase>("idle");
   let results = $state<SpeedTestResults | null>(null);
@@ -98,15 +107,19 @@ export function createSpeedTestStore() {
   let meta = $state<MeasurementServer | null>(null);
   // Cleared at the top of every run: this is the run in front of you, never a history.
   let finishedAt = $state<Date | null>(null);
+  // Whether the relay credentials packet loss needs could be had — decided BEFORE the engine is
+  // built (see turn-capability.ts), never discovered mid-run. Null until the first run asks it.
+  let turn = $state<TurnCapability | null>(null);
 
   // The engine instance, once the module has been fetched. Not reactive: nothing renders it
   // directly — only its published (snapshotted) results and phase matter to the template. The
   // callbacks are wired once on `instance` at construction time (below), so this narrower type
-  // only needs to cover what is called on `engine` afterwards.
+  // only needs to cover what is called on `engine` afterwards. The ladder is fixed at construction
+  // (measurements is a constructor-only option), so a capability change is never applied by mutating
+  // an existing instance — only by disposing it and building a fresh one (see restart()).
   let engine: {
     play(): void;
     pause(): void;
-    restart(): void;
   } | null = null;
 
   function runProbe(): void {
@@ -125,13 +138,22 @@ export function createSpeedTestStore() {
     meta = server;
   });
 
-  async function ensureEngine(): Promise<void> {
+  // capability is decided BEFORE the engine is built (in start()/restart()) — never inside here —
+  // because the ladder is a constructor-only option: it cannot be changed on a live instance.
+  async function ensureEngine(capability: TurnCapability): Promise<void> {
     if (engine !== null) return;
     const { default: SpeedTest } = await import("@cloudflare/speedtest");
     // autoStart is false: a run spends the firm's bandwidth and only a press may begin it.
-    // measurements: the ladder minus packetLoss (measurement-ladder.ts) — the TURN-dependent
-    // step that used to abort the entire run on a credential failure.
-    const instance = new SpeedTest({ autoStart: false, measurements: MEASUREMENT_LADDER });
+    const options = capability.available
+      ? {
+          autoStart: false,
+          measurements: LADDER_WITH_PACKET_LOSS,
+          // The default points at Cloudflare's discontinued public relay; ours is the Realtime one.
+          turnServerUri: "turn.cloudflare.com:3478",
+          turnServerCredsApiUrl: TURN_CREDENTIALS_URL,
+        }
+      : { autoStart: false, measurements: MEASUREMENT_LADDER };
+    const instance = new SpeedTest(options);
     instance.onResultsChange = () => {
       results = snapshotResults(instance.results);
     };
@@ -147,18 +169,25 @@ export function createSpeedTestStore() {
     engine = instance;
   }
 
-  async function start(): Promise<void> {
-    error = null;
-    finishedAt = null;
+  async function beginRun(): Promise<void> {
     phase = "running";
     runProbe();
     try {
-      await ensureEngine();
+      // Ask BEFORE building the engine: a credential refusal discovered mid-run would abort the
+      // entire test, taking the bandwidth and latency results with it.
+      turn = await probeTurnCapability(fetchTurnStatus);
+      await ensureEngine(turn);
       engine?.play();
     } catch (cause) {
       error = cause instanceof Error ? cause.message : String(cause);
       phase = "failed";
     }
+  }
+
+  async function start(): Promise<void> {
+    error = null;
+    finishedAt = null;
+    await beginRun();
   }
 
   function pause(): void {
@@ -171,14 +200,16 @@ export function createSpeedTestStore() {
     phase = "running";
   }
 
-  function restart(): void {
+  async function restart(): Promise<void> {
     results = null;
     error = null;
     probe = null;
     finishedAt = null;
-    engine?.restart();
-    phase = "running";
-    runProbe();
+    // Disposed rather than reused: the capability may have changed (a member who signed in mid-
+    // session), and the ladder can only be set when a new instance is constructed.
+    engine?.pause();
+    engine = null;
+    await beginRun();
   }
 
   /** Leaving the page must stop the transfer — a background tab never keeps spending bandwidth. */
@@ -205,6 +236,9 @@ export function createSpeedTestStore() {
     },
     get finishedAt() {
       return finishedAt;
+    },
+    get turn() {
+      return turn;
     },
     start,
     pause,

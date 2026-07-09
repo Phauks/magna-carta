@@ -1,8 +1,10 @@
 <script lang="ts">
   /*
-   * Network Speed Test — Cloudflare's own measurement engine, on their ladder minus the
-   * TURN-dependent packet-loss step, so the numbers stay comparable to speed.cloudflare.com. Runs
-   * outside any matter and stores nothing.
+   * Network Speed Test — Cloudflare's own measurement engine, on their ladder, so the numbers stay
+   * comparable to speed.cloudflare.com. The packet-loss step only joins the ladder when the relay
+   * credentials behind it can actually be had (asked before the engine is built — see
+   * speed-test-engine.svelte.ts); otherwise the tile says why. Runs outside any matter and stores
+   * nothing.
    *
    * Nothing begins without a press: a full run transfers a large amount of data, and the caller's
    * address reaches Cloudflare's measurement endpoints. Both facts are stated before Start. Run
@@ -18,7 +20,9 @@
   import {
     formatBandwidth,
     formatMilliseconds,
+    formatRatio,
   } from "$lib/tools/speed-test/speed-test-format.ts";
+  import { turnUnavailableNote } from "$lib/tools/speed-test/turn-capability.ts";
 
   const store = createSpeedTestStore();
   onDestroy(() => store.dispose());
@@ -82,11 +86,13 @@
 <section class="mb-24 grid grid-cols-1 gap-16 sm:grid-cols-3">
   <MetricTile label="Latency" value={formatMilliseconds(results?.getUnloadedLatency())} />
   <MetricTile label="Jitter" value={formatMilliseconds(results?.getUnloadedJitter())} />
-  <MetricTile
-    label="Packet loss"
-    value="Unavailable"
-    note="Measuring packet loss needs a TURN server; the public one Cloudflare offered is discontinued."
-  />
+  {#if store.turn?.available}
+    <MetricTile label="Packet loss" value={formatRatio(results?.getPacketLoss())} />
+  {:else if store.turn}
+    <MetricTile label="Packet loss" value="Unavailable" note={turnUnavailableNote(store.turn.reason)} />
+  {:else}
+    <MetricTile label="Packet loss" value="—" note="Measured when a test runs." />
+  {/if}
 </section>
 
 <section class="mb-24">

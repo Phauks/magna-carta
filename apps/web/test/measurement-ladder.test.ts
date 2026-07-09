@@ -4,7 +4,10 @@
  * error. This test is the guard against someone "restoring the defaults".
  */
 import { describe, expect, it } from "vitest";
-import { MEASUREMENT_LADDER } from "../src/lib/tools/speed-test/measurement-ladder.ts";
+import {
+  LADDER_WITH_PACKET_LOSS,
+  MEASUREMENT_LADDER,
+} from "../src/lib/tools/speed-test/measurement-ladder.ts";
 
 describe("MEASUREMENT_LADDER", () => {
   it("never asks the engine to measure packet loss", () => {
@@ -25,5 +28,13 @@ describe("MEASUREMENT_LADDER", () => {
     );
     expect(Math.max(...downloadBytes)).toBe(2.5e8);
     expect(Math.max(...uploadBytes)).toBe(5e7);
+  });
+});
+
+describe("LADDER_WITH_PACKET_LOSS", () => {
+  it("adds exactly one packet-loss phase and changes nothing else", () => {
+    expect(LADDER_WITH_PACKET_LOSS.filter((step) => step.type === "packetLoss")).toHaveLength(1);
+    const withoutPacketLoss = LADDER_WITH_PACKET_LOSS.filter((step) => step.type !== "packetLoss");
+    expect(withoutPacketLoss).toEqual(MEASUREMENT_LADDER);
   });
 });

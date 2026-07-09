@@ -25,3 +25,26 @@ export const MEASUREMENT_LADDER: MeasurementConfig[] = [
   { type: "upload", bytes: 5e7, count: 3 },
   { type: "download", bytes: 2.5e8, count: 2 },
 ];
+
+/*
+ * Cloudflare's ladder with the packet-loss phase restored, in the position their own default puts
+ * it: after the first upload round. Used only when credentials for the relay were actually obtained
+ * — see turn-capability.ts. The batch figures are the library's documented defaults.
+ */
+export const LADDER_WITH_PACKET_LOSS: MeasurementConfig[] = [
+  { type: "latency", numPackets: 1 },
+  { type: "download", bytes: 1e5, count: 1, bypassMinDuration: true },
+  { type: "latency", numPackets: 20 },
+  { type: "download", bytes: 1e5, count: 9 },
+  { type: "download", bytes: 1e6, count: 8 },
+  { type: "upload", bytes: 1e5, count: 8 },
+  { type: "packetLoss", numPackets: 1e3, batchSize: 10, batchWaitTime: 10, responsesWaitTime: 3000 },
+  { type: "upload", bytes: 1e6, count: 6 },
+  { type: "download", bytes: 1e7, count: 6 },
+  { type: "upload", bytes: 1e7, count: 4 },
+  { type: "download", bytes: 2.5e7, count: 4 },
+  { type: "upload", bytes: 2.5e7, count: 4 },
+  { type: "download", bytes: 1e8, count: 3 },
+  { type: "upload", bytes: 5e7, count: 3 },
+  { type: "download", bytes: 2.5e8, count: 2 },
+];
