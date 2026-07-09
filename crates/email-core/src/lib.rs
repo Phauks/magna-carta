@@ -4,9 +4,11 @@
 //! crate rather than inside it: the record carries authenticity evidence verbatim and
 //! attaches no verdict to it.
 
+pub mod eml;
 pub mod error;
 pub mod model;
 
+pub use eml::parse_eml;
 pub use error::{EmailError, EMAIL_ERROR_CODES};
 pub use model::{
     Address, Disposition, IntegrityFacts, MessageIdentifier, ParsedMessage, PartDescriptor,

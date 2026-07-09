@@ -1,0 +1,21 @@
+Message-ID: <second@example.test>
+From: Alice Attorney <alice@example.test>
+To: Bob Client <bob@example.test>
+Subject: Retainer with attachment
+Date: Tue, 07 Jul 2026 10:05:00 -0700
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="boundary42"
+
+--boundary42
+Content-Type: text/plain; charset=utf-8
+
+Please see the attached engagement letter.
+
+--boundary42
+Content-Type: application/pdf; name="engagement-letter.pdf"
+Content-Disposition: attachment; filename="engagement-letter.pdf"
+Content-Transfer-Encoding: base64
+
+JVBERi0xLjQKJeLjz9MK
+
+--boundary42--

@@ -1,0 +1,9 @@
+Message-ID: <first@example.test>
+From: Alice Attorney <alice@example.test>
+To: Bob Client <bob@example.test>
+Subject: Retainer
+Date: Tue, 07 Jul 2026 10:00:00 -0700
+DKIM-Signature: v=1; a=rsa-sha256; d=example.test; s=sel; b=AAAA
+Content-Type: text/plain; charset=utf-8
+
+The retainer is attached.
