@@ -48,6 +48,7 @@ import { firmSecretStoreNotYetAvailable } from "./plugins/secret-store.ts";
 import { registerMatterTypesRoutes } from "./routes/matter-types.ts";
 import { registerMattersRoutes } from "./routes/matters.ts";
 import { registerFirmUsageRoute } from "./routes/firm-usage.ts";
+import { registerToolsConnectionRoute } from "./routes/tools-connection.ts";
 import { registerWhoisRoute, type WhoisRouteDeps } from "./routes/whois.ts";
 import { registerSafeBrowseRoute, type SafeBrowseRouteDeps } from "./routes/safe-browse.ts";
 import { registerDecryptionRoutes } from "./routes/decryption.ts";
@@ -361,6 +362,7 @@ export function createApp(options: CreateAppOptions = {}) {
   // middleware, run before the chokepoint's idempotency/rate-limit gates (see routes/firms.ts).
   registerMeRoute(app, chokepoint);
   registerFirmUsageRoute(app, chokepoint);
+  registerToolsConnectionRoute(app, chokepoint);
 
   // The WHOIS route: RDAP-first domain/IP registration lookup with a port-43 fallback. All outbound
   // effects go through injected deps so tests substitute fakes without touching global fetch or sockets.

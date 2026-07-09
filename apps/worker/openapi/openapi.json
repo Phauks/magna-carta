@@ -286,6 +286,33 @@
           "counts"
         ]
       },
+      "ToolsConnectionResponse": {
+        "type": "object",
+        "properties": {
+          "ip": {
+            "type": "string"
+          },
+          "asn": {
+            "type": "number"
+          },
+          "asOrganization": {
+            "type": "string"
+          },
+          "colo": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ip",
+          "asn",
+          "asOrganization",
+          "colo",
+          "country"
+        ]
+      },
       "WhoisResponse": {
         "type": "object",
         "properties": {
@@ -6435,6 +6462,69 @@
           },
           "404": {
             "description": "The session's firm is not reachable, or the member is deactivated (absent)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tools/connection": {
+      "get": {
+        "description": "What the edge sees about this caller's connection: public address, network operator, and the edge location serving the request.",
+        "operationId": "toolsConnection.get",
+        "tags": [
+          "toolsConnection"
+        ],
+        "x-mc-operationId": "toolsConnection.get",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tools:speedTest",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "toolsConnection"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The caller's connection as the edge sees it",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ToolsConnectionResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated, but the member lacks tools:speedTest",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -25500,6 +25590,9 @@
     },
     {
       "name": "timer"
+    },
+    {
+      "name": "toolsConnection"
     },
     {
       "name": "uploads"

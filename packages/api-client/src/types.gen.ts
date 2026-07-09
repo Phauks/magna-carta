@@ -75,6 +75,14 @@ export type FirmUsageResponse = {
     };
 };
 
+export type ToolsConnectionResponse = {
+    ip: string;
+    asn: number;
+    asOrganization: string;
+    colo: string;
+    country: string;
+};
+
 export type WhoisResponse = {
     source: 'rdap' | 'whois-43';
     target: string;
@@ -1642,6 +1650,39 @@ export type FirmUsageGetResponses = {
 };
 
 export type FirmUsageGetResponse = FirmUsageGetResponses[keyof FirmUsageGetResponses];
+
+export type ToolsConnectionGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/tools/connection';
+};
+
+export type ToolsConnectionGetErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks tools:speedTest
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ToolsConnectionGetError = ToolsConnectionGetErrors[keyof ToolsConnectionGetErrors];
+
+export type ToolsConnectionGetResponses = {
+    /**
+     * The caller's connection as the edge sees it
+     */
+    200: ToolsConnectionResponse;
+};
+
+export type ToolsConnectionGetResponse = ToolsConnectionGetResponses[keyof ToolsConnectionGetResponses];
 
 export type WhoisGetData = {
     body?: never;
