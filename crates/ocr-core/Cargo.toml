@@ -1,0 +1,13 @@
+[package]
+name = "ocr-core"
+version = "0.1.0"
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+# Pure-Rust YAML. The recognition model's character dictionary ships inside PaddleOCR's
+# inference.yml, so the engine parses that file rather than carrying a second copy of the
+# dictionary that could drift from the model it belongs to.
+serde_yaml_ng = "0.10"
+serde = { version = "1", features = ["derive"] }
+image = { workspace = true }
