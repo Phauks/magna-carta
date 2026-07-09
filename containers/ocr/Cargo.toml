@@ -1,0 +1,30 @@
+[package]
+name = "magna-carta-ocr"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[lib]
+name = "magna_carta_ocr"
+path = "src/lib.rs"
+
+[[bin]]
+name = "magna-carta-ocr"
+path = "src/main.rs"
+
+[dependencies]
+# The shared container host skeleton (/ready, body cap, panic net, :8080 serve).
+engine_host = { path = "../../crates/engine-host", package = "magna-carta-engine-host" }
+# The OCR engine -- pure, I/O-free; this host owns all HTTP/JSON.
+ocr-core = { path = "../../crates/ocr-core" }
+# Page rasterization and the existing-text-layer check. Pure Rust parses the untrusted
+# document; only decoded pixels reach the ONNX Runtime.
+pdf-core = { path = "../../crates/pdf-core" }
+image = "0.25"
+tokio = { version = "1", features = ["full"] }
+axum = "0.8"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[dev-dependencies]
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
