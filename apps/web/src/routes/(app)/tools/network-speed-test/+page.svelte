@@ -13,7 +13,9 @@
   import { onDestroy } from "svelte";
   import Button from "@magna-carta/design-system/button";
   import * as Masthead from "@magna-carta/design-system/masthead";
+  import { bandwidthStats } from "$lib/tools/speed-test/bandwidth-stats.ts";
   import BandwidthChart from "$lib/tools/speed-test/bandwidth-chart.svelte";
+  import InfoPopover from "$lib/tools/speed-test/info-popover.svelte";
   import LatencyChart from "$lib/tools/speed-test/latency-chart.svelte";
   import MetricTile from "$lib/tools/speed-test/metric-tile.svelte";
   import QualityScores from "$lib/tools/speed-test/quality-scores.svelte";
@@ -30,6 +32,18 @@
   onDestroy(() => store.dispose());
 
   const results = $derived(store.results);
+  const downloadStats = $derived(bandwidthStats(results?.getDownloadBandwidthPoints() ?? []));
+  const uploadStats = $derived(bandwidthStats(results?.getUploadBandwidthPoints() ?? []));
+
+  function statRows(stats: ReturnType<typeof bandwidthStats>) {
+    if (stats === null) return undefined;
+    return [
+      { label: "Median", value: formatBandwidth(stats.median) },
+      { label: "95th", value: formatBandwidth(stats.p95) },
+      { label: "Peak", value: formatBandwidth(stats.peak) },
+      { label: "Samples", value: String(stats.samples) },
+    ];
+  }
 </script>
 
 <svelte:head><title>Network Speed Test · Magna Carta</title></svelte:head>
@@ -81,12 +95,44 @@
     size="large"
     label="Download"
     value={formatBandwidth(results?.getDownloadBandwidth())}
-  />
-  <MetricTile size="large" label="Upload" value={formatBandwidth(results?.getUploadBandwidth())} />
+    stats={statRows(downloadStats)}
+  >
+    {#snippet info()}
+      <InfoPopover label="What does Download mean?">
+        <p>
+          The headline figure is the 90th percentile of this run's samples, not an average — nine
+          measurements in ten were at least this fast. The median, 95th percentile and peak below
+          show how consistent the connection was.
+        </p>
+      </InfoPopover>
+    {/snippet}
+  </MetricTile>
+  <MetricTile
+    size="large"
+    label="Upload"
+    value={formatBandwidth(results?.getUploadBandwidth())}
+    stats={statRows(uploadStats)}
+  >
+    {#snippet info()}
+      <InfoPopover label="What does Upload mean?">
+        <p>
+          The headline figure is the 90th percentile of this run's samples, not an average — nine
+          measurements in ten were at least this fast. The median, 95th percentile and peak below
+          show how consistent the connection was.
+        </p>
+      </InfoPopover>
+    {/snippet}
+  </MetricTile>
 </section>
 
 <section class="mb-24 grid grid-cols-1 gap-16 sm:grid-cols-3">
-  <MetricTile label="Latency" value={formatMilliseconds(results?.getUnloadedLatency())} />
+  <MetricTile label="Latency" value={formatMilliseconds(results?.getUnloadedLatency())}>
+    {#snippet info()}
+      <InfoPopover label="What does Latency mean?">
+        <p>The median of this run's latency samples, measured while the connection was idle.</p>
+      </InfoPopover>
+    {/snippet}
+  </MetricTile>
   <MetricTile label="Jitter" value={formatMilliseconds(results?.getUnloadedJitter())} />
   {#if store.turn?.available}
     <MetricTile label="Packet loss" value={formatRatio(results?.getPacketLoss())} />
@@ -99,10 +145,35 @@
 
 <section class="mb-24">
   <h2
-    class="mb-16 border-b border-border-strong pb-8 text-xs text-text-muted uppercase"
+    class="mb-16 flex items-center gap-4 border-b border-border-strong pb-8 text-xs text-text-muted uppercase"
     style="letter-spacing: var(--mc-tracking-caps)"
   >
-    Network quality score
+    <span>Network quality score</span>
+    <InfoPopover label="What do these scores mean?">
+      <p>
+        Cloudflare's Aggregated Internet Measurement scores this connection for video streaming,
+        online gaming, and video calls, rating each bad, poor, average, good, or great.
+      </p>
+      <p class="mt-8">
+        Each measurement earns points against published thresholds — for example, unloaded latency
+        scores 20 points under 10ms and nothing over 100ms. Streaming weighs download speed,
+        latency, packet loss, and how much latency rises under load; gaming weighs packet loss,
+        latency, and that same rise; video calls add jitter. The points behind each rating are
+        published; the exact cutoffs between the five ratings are not.
+      </p>
+      <p class="mt-8">
+        Packet loss is not measured here, and it feeds all three ratings — online gaming draws on
+        only three measurements, one of them packet loss. Read these ratings as incomplete.
+      </p>
+      <a
+        href="https://blog.cloudflare.com/aim-database-for-internet-quality/"
+        target="_blank"
+        rel="noreferrer noopener"
+        class="mt-8 block underline"
+      >
+        How Cloudflare scores a connection
+      </a>
+    </InfoPopover>
   </h2>
   <QualityScores scores={results?.getScores()} />
 </section>

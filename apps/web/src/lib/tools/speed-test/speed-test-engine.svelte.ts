@@ -21,7 +21,11 @@ import {
 } from "./connection-probe.ts";
 import { LADDER_WITH_PACKET_LOSS, MEASUREMENT_LADDER } from "./measurement-ladder.ts";
 import { fetchMeasurementServer, type MeasurementServer } from "./speed-test-meta.ts";
-import { probeTurnCapability, TURN_CREDENTIALS_URL, type TurnCapability } from "./turn-capability.ts";
+import {
+  probeTurnCapability,
+  TURN_CREDENTIALS_URL,
+  type TurnCapability,
+} from "./turn-capability.ts";
 
 export type SpeedTestPhase = "idle" | "running" | "paused" | "finished" | "failed";
 
