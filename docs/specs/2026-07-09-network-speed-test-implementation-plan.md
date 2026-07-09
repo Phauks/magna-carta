@@ -314,9 +314,13 @@ git commit -m "feat(tools): connection route reporting the edge's view of the ca
   - `formatMilliseconds(ms: number | undefined): string` — e.g. `"12.4 ms"`, `"—"`.
   - `median(values: readonly number[]): number | null`.
   - `ConnectionFacts { ip, asn, asOrganization, colo, country }`.
-  - `ProbeOutcome { facts: ConnectionFacts | null; medianRoundTripMs: number | null; successfulSamples: number }`.
+  - `ProbeStatus = "reachable" | "unauthenticated" | "forbidden" | "unreachable"`.
+  - `ProbeOutcome { status: ProbeStatus; facts: ConnectionFacts | null; medianRoundTripMs: number | null; successfulSamples: number }`.
+  - `FetchResult = { ok: true; facts: ConnectionFacts } | { ok: false; status: number | null }` (`status: null` = transport failure).
   - `PROBE_SAMPLES: number` (= 5).
-  - `probeConnection(deps: ProbeDeps): Promise<ProbeOutcome>` where `ProbeDeps = { fetchJson: (url: string) => Promise<ConnectionFacts>; now: () => number }`.
+  - `probeConnection(deps: ProbeDeps): Promise<ProbeOutcome>` where `ProbeDeps = { fetchJson: (url: string) => Promise<FetchResult>; now: () => number }`.
+
+> **Amended after Task 3 landed.** The first draft collapsed every failure into "unreachable". That is a lie a diagnostic tool must never tell: the app has no authenticated session yet, so the route answers `401`, and the panel would have blamed the firm's network for our own missing sign-in. The outcome now distinguishes *not signed in* and *not permitted* from *genuinely unreachable*, and an auth refusal stops the sampling loop immediately rather than retrying four more times.
 
 - [ ] **Step 1: Write the failing formatting test**
 
@@ -574,6 +578,195 @@ git commit -m "feat(tools): speed-test formatting and connection-probe math"
 
 ---
 
+### Task 3b: The probe must not blame the network for our own refusal
+
+Task 3 shipped a probe that maps every failure to "unreachable". The application has no authenticated session yet, so the connection route answers `401` — and the panel would have told a lawyer their network was blocking Magna Carta when in fact they simply were not signed in. Separately, `tools:speedTest` is currently granted to **no seeded role**, so once auth lands the honest answer for most members is `403`. Neither is a network fault, and neither may be reported as one.
+
+**Files:**
+- Modify: `apps/web/src/lib/tools/speed-test/connection-probe.ts`
+- Modify: `apps/web/test/connection-probe.test.ts`
+
+- [ ] **Step 1: Rewrite the probe test**
+
+Replace the `probeConnection` describe block in `apps/web/test/connection-probe.test.ts` with:
+
+```ts
+describe("probeConnection", () => {
+  const reachable = async () => ({ ok: true as const, facts: FACTS });
+
+  it("takes PROBE_SAMPLES samples and reports their median", async () => {
+    let call = 0;
+    let clock = 0;
+    const durations = [10, 20, 30, 40, 50];
+    const outcome = await probeConnection({
+      fetchJson: async () => {
+        clock += durations[call] ?? 0;
+        call += 1;
+        return { ok: true as const, facts: FACTS };
+      },
+      now: () => clock,
+    });
+    expect(call).toBe(PROBE_SAMPLES);
+    expect(outcome.status).toBe("reachable");
+    expect(outcome.medianRoundTripMs).toBe(30);
+    expect(outcome.successfulSamples).toBe(PROBE_SAMPLES);
+    expect(outcome.facts).toEqual(FACTS);
+  });
+
+  it("excludes a transport failure rather than counting it as zero", async () => {
+    let call = 0;
+    let clock = 0;
+    const outcome = await probeConnection({
+      fetchJson: async () => {
+        call += 1;
+        if (call === 1) return { ok: false as const, status: null };
+        clock += 20;
+        return { ok: true as const, facts: FACTS };
+      },
+      now: () => clock,
+    });
+    expect(outcome.status).toBe("reachable");
+    expect(outcome.successfulSamples).toBe(PROBE_SAMPLES - 1);
+    expect(outcome.medianRoundTripMs).toBe(20);
+  });
+
+  it("reports unreachable when every sample fails in transport", async () => {
+    const outcome = await probeConnection({
+      fetchJson: async () => ({ ok: false as const, status: null }),
+      now: () => 0,
+    });
+    expect(outcome.status).toBe("unreachable");
+    expect(outcome.facts).toBeNull();
+    expect(outcome.medianRoundTripMs).toBeNull();
+    expect(outcome.successfulSamples).toBe(0);
+  });
+
+  // The bug this whole task exists to prevent: a 401 is OUR missing session, never the firm's network.
+  it("reports unauthenticated on a 401 and stops sampling immediately", async () => {
+    let call = 0;
+    const outcome = await probeConnection({
+      fetchJson: async () => {
+        call += 1;
+        return { ok: false as const, status: 401 };
+      },
+      now: () => 0,
+    });
+    expect(outcome.status).toBe("unauthenticated");
+    expect(call).toBe(1);
+    expect(outcome.medianRoundTripMs).toBeNull();
+  });
+
+  it("reports forbidden on a 403 and stops sampling immediately", async () => {
+    let call = 0;
+    const outcome = await probeConnection({
+      fetchJson: async () => {
+        call += 1;
+        return { ok: false as const, status: 403 };
+      },
+      now: () => 0,
+    });
+    expect(outcome.status).toBe("forbidden");
+    expect(call).toBe(1);
+  });
+
+  it("treats a server error as a transport failure, not a refusal", async () => {
+    const outcome = await probeConnection({
+      fetchJson: async () => ({ ok: false as const, status: 500 }),
+      now: () => 0,
+    });
+    expect(outcome.status).toBe("unreachable");
+  });
+
+  it("still succeeds when reachable", async () => {
+    const outcome = await probeConnection({ fetchJson: reachable, now: () => 0 });
+    expect(outcome.status).toBe("reachable");
+  });
+});
+```
+
+- [ ] **Step 2: Run it to verify it fails**
+
+Run: `vp test connection-probe`
+Expected: FAIL — `ProbeOutcome` has no `status`, and `fetchJson` no longer throws.
+
+- [ ] **Step 3: Rewrite the probe**
+
+Replace the exported types and `probeConnection` in `apps/web/src/lib/tools/speed-test/connection-probe.ts` (keep `ConnectionFacts`, `PROBE_SAMPLES`, `CONNECTION_URL`, and `median` exactly as they are):
+
+```ts
+/**
+ * Why the probe can fail, kept apart on purpose. A diagnostic tool that reports our own refusal
+ * as the caller's network failure sends someone to debug a firewall that was never at fault.
+ */
+export type ProbeStatus = "reachable" | "unauthenticated" | "forbidden" | "unreachable";
+
+export interface ProbeOutcome {
+  readonly status: ProbeStatus;
+  /** Present only when reachable. */
+  readonly facts: ConnectionFacts | null;
+  readonly medianRoundTripMs: number | null;
+  readonly successfulSamples: number;
+}
+
+/** `status: null` means the request never got an answer — a transport failure, not a refusal. */
+export type FetchResult =
+  | { readonly ok: true; readonly facts: ConnectionFacts }
+  | { readonly ok: false; readonly status: number | null };
+
+export interface ProbeDeps {
+  readonly fetchJson: (url: string) => Promise<FetchResult>;
+  readonly now: () => number;
+}
+
+function refused(status: ProbeStatus): ProbeOutcome {
+  return { status, facts: null, medianRoundTripMs: null, successfulSamples: 0 };
+}
+
+export async function probeConnection(deps: ProbeDeps): Promise<ProbeOutcome> {
+  const durations: number[] = [];
+  let facts: ConnectionFacts | null = null;
+
+  for (let sample = 0; sample < PROBE_SAMPLES; sample += 1) {
+    const started = deps.now();
+    const result = await deps.fetchJson(CONNECTION_URL);
+
+    if (result.ok) {
+      facts = result.facts;
+      durations.push(deps.now() - started);
+      continue;
+    }
+
+    // A refusal is an answer: the platform is reachable and said no. Retrying cannot change it.
+    if (result.status === 401) return refused("unauthenticated");
+    if (result.status === 403) return refused("forbidden");
+
+    // Anything else (a transport failure, or a server error) is an excluded sample.
+  }
+
+  if (durations.length === 0) return refused("unreachable");
+  return {
+    status: "reachable",
+    facts,
+    medianRoundTripMs: median(durations),
+    successfulSamples: durations.length,
+  };
+}
+```
+
+- [ ] **Step 4: Run it to verify it passes**
+
+Run: `vp test connection-probe`
+Expected: PASS (10 tests: 3 for `median`, 7 for `probeConnection`).
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add apps/web/src/lib/tools/speed-test/connection-probe.ts apps/web/test/connection-probe.test.ts
+git commit -m "fix(tools): the probe distinguishes a refusal from an unreachable platform"
+```
+
+---
+
 ### Task 4: The engine store, the page, and the launchable tool
 
 Delivers a working, runnable tool page: masthead, disclosures, Start/Pause/Retest, headline metrics, the Packet Loss statement, the connection panel, and the AIM scores. Charts arrive in Task 5.
@@ -629,7 +822,12 @@ Create `apps/web/src/lib/tools/speed-test/speed-test-engine.svelte.ts`:
  * Packet loss is deliberately not measured. It requires a WebRTC TURN server, and the public one
  * Cloudflare offered is deprecated; the page states that rather than showing a fabricated zero.
  */
-import { probeConnection, type ProbeOutcome } from "./connection-probe.ts";
+import {
+  probeConnection,
+  type ConnectionFacts,
+  type FetchResult,
+  type ProbeOutcome,
+} from "./connection-probe.ts";
 
 export type SpeedTestPhase = "idle" | "running" | "paused" | "finished" | "failed";
 
@@ -650,10 +848,16 @@ export interface SpeedTestResults {
   getScores(): unknown;
 }
 
-async function fetchConnectionFacts(url: string) {
-  const response = await fetch(url, { headers: { accept: "application/json" } });
-  if (!response.ok) throw new Error(`connection route responded ${response.status}`);
-  return (await response.json()) as Awaited<ReturnType<typeof probeConnection>>["facts"] & object;
+// Never throws: the probe needs to tell a refusal (the platform answered "no") apart from a
+// transport failure (nothing answered at all), and an exception erases that distinction.
+async function fetchConnectionFacts(url: string): Promise<FetchResult> {
+  try {
+    const response = await fetch(url, { headers: { accept: "application/json" } });
+    if (!response.ok) return { ok: false, status: response.status };
+    return { ok: true, facts: (await response.json()) as ConnectionFacts };
+  } catch {
+    return { ok: false, status: null };
+  }
 }
 
 export function createSpeedTestStore() {
@@ -875,12 +1079,22 @@ Create `apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte`:
   </h2>
   {#if probe === null}
     <p class="text-sm text-text-muted">Not measured yet.</p>
-  {:else if probe.facts === null}
+  {:else if probe.status === "unauthenticated"}
+    <p class="text-sm text-text-muted">
+      You are not signed in, so the round trip to Magna Carta was not measured. This says nothing
+      about your connection — the measurements above still describe it.
+    </p>
+  {:else if probe.status === "forbidden"}
+    <p class="text-sm text-text-muted">
+      Your account does not carry permission to run this check, so the round trip to Magna Carta
+      was not measured. Your connection is unaffected.
+    </p>
+  {:else if probe.status === "unreachable"}
     <p class="text-sm text-text-muted">
       Magna Carta could not be reached from this network. The measurements above, if present,
       still describe your internet connection.
     </p>
-  {:else}
+  {:else if probe.facts !== null}
     <dl class="grid grid-cols-1 gap-8 text-sm sm:grid-cols-2">
       <div><dt class="text-text-muted">Public address</dt><dd>{probe.facts.ip}</dd></div>
       <div><dt class="text-text-muted">Network</dt><dd>{probe.facts.asOrganization} (AS{probe.facts.asn})</dd></div>
