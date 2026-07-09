@@ -28,7 +28,7 @@ import ScanText from "@lucide/svelte/icons/scan-text";
 import Wrench from "@lucide/svelte/icons/wrench";
 import { CATALOG } from "@magna-carta/tools/catalog";
 import { toolsByGroup, type GroupedTools } from "@magna-carta/tools/select";
-import type { SubjectGroup } from "@magna-carta/tools/types";
+import type { SubjectGroup, ToolManifest } from "@magna-carta/tools/types";
 // Type-only: elided at build, so the plugin-less test config never resolves the $lib alias.
 import type { MaturityStage } from "$lib/maturity/maturity.ts";
 
@@ -127,6 +127,30 @@ export const TOOL_ICONS: Record<string, Component> = {
   "scan-text": ScanText,
   wrench: Wrench,
 };
+
+// Both lookups are keyed by a plain string (Record<string, T>), so an indexed read types as
+// possibly-undefined under this project's noUncheckedIndexedAccess — even though the
+// completeness test above guarantees every catalog tool resolves both. These two accessors are
+// the one place that guarantee is asserted, so call sites (tool-tile.svelte, tool-row.svelte,
+// the /tools page) read a plain ToolPresentation/Component, never an optional.
+
+/** A catalog tool's presentation entry. Throws only if the catalog outran this module's table. */
+export function toolPresentation(tool: ToolManifest): ToolPresentation {
+  const presentation = TOOL_PRESENTATION[tool.id];
+  if (presentation === undefined) {
+    throw new Error(`No presentation entry for tool "${tool.id}".`);
+  }
+  return presentation;
+}
+
+/** A catalog tool's icon component. Throws only if the catalog outran this module's icon map. */
+export function toolIcon(tool: ToolManifest): Component {
+  const icon = TOOL_ICONS[tool.icon];
+  if (icon === undefined) {
+    throw new Error(`No icon component for icon "${tool.icon}".`);
+  }
+  return icon;
+}
 
 // Mock permission seam: the managing partner sees everything, so grant every permission the
 // catalog declares. The member's real grants replace this set when auth lands; the

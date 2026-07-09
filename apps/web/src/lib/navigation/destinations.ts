@@ -317,8 +317,8 @@ export const DESTINATIONS: readonly Destination[] = [
     icon: Wrench,
     description: "Standalone utilities — inspect, verify, repair, and convert files.",
     group: "firm",
-    shipped: false,
-    announced: true,
+    shipped: true,
+    stage: "alpha",
     defaultStarred: true,
   },
   {
