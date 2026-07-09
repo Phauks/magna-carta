@@ -22,8 +22,12 @@
   <!-- Named for what it is. One link back to the listing is not a breadcrumb trail, and a landmark
        that announces itself as one sends a reader looking for a path that is not there.
        The gap sits tight to the masthead below so the link reads as the title's eyebrow, not a
-       separate band above the page. -->
-  <nav aria-label="Back to Tools" class="mb-4">
+       separate band above the page.
+       The nav is a flex container so the inline-flex link is a flex item rather than a line-box
+       inhabitant: a block nav would lead the link down by half the difference between its own
+       line-height and the link's, indenting the arrow from the canvas's block-start edge while its
+       inline-start edge stayed flush. -->
+  <nav aria-label="Back to Tools" class="mb-4 flex">
     <BackLink href={toolsListingHref} label="Tools" />
   </nav>
 {/if}

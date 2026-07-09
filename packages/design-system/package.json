@@ -24,6 +24,7 @@
     "./form": "./src/lib/components/form/index.ts",
     "./dropdown-menu": "./src/lib/components/dropdown-menu/index.ts",
     "./empty-state": "./src/lib/components/empty-state/index.ts",
+    "./eyebrow-link": "./src/lib/components/eyebrow-link/index.ts",
     "./file-input": "./src/lib/components/file-input/index.ts",
     "./input": "./src/lib/components/input/index.ts",
     "./keyboard": "./src/lib/components/keyboard/index.ts",

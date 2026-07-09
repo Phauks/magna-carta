@@ -1,0 +1,65 @@
+@layer components {
+  /*
+   * EyebrowLink — a masthead eyebrow that is also a link. It wears the exact eyebrow register of
+   * .mc-masthead-eyebrow (masthead.css): the subtle, letterspaced small-caps kicker at the xs step.
+   * The difference from that span is that this one navigates — so it reads as a quiet supra-title
+   * label attached to the heading beneath it, not as a control floating above the page.
+   *
+   * It is a LABEL that happens to be clickable, not a control, so it carries NO min-block-size. The
+   * box hugs its ink and, with align-items: flex-start, the leading icon's box sits flush against
+   * the block-start edge — so a consumer that frames the link with equal inset (a page canvas'
+   * padding) reads symmetrically: the arrow's ink lands the same distance from the frame's top as
+   * from its inline start. A control height would re-introduce the very top slack this replaces.
+   *
+   * WCAG 2.5.8 (a 24x24 pointer target) is met by a transparent ::before overlay that enlarges the
+   * hit area WITHOUT enlarging the box the ink lives in. This is chosen over padding + a negative
+   * margin because a negative margin needs calc() / a negative length, which the token grammar
+   * cannot express (the recipe gate admits only whole var(--mc-...) references and keywords). The
+   * overlay centres on the short box via inset-block: 0 + margin-block: auto against a
+   * min-block-size, so it grows equally above and below and never shifts the visible ink.
+   */
+  .mc-eyebrow-link {
+    position: relative;
+    display: inline-flex;
+    align-items: flex-start;
+    gap: var(--mc-space-4);
+    color: var(--mc-text-subtle);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-xs);
+    font-weight: var(--mc-weight-semibold);
+    letter-spacing: var(--mc-tracking-caps);
+    line-height: var(--mc-leading-tight);
+    text-transform: uppercase;
+    text-decoration-line: none;
+    cursor: pointer;
+    transition-property: color, outline-color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+    /* Flush focus edge (offset 0), matching the bordered controls — no detached ring. */
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-eyebrow-link:hover {
+    color: var(--mc-text-default);
+  }
+  .mc-eyebrow-link:focus-visible {
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+    outline-offset: var(--mc-space-0);
+  }
+  /*
+   * The pointer target — a transparent overlay reaching the 24px minimum without touching the box.
+   * inset-block: 0 with margin-block: auto against a min-block-size centres it on the short box, so
+   * it overflows equally above and below; inset-inline: 0 spans the (always wider) box inline.
+   */
+  .mc-eyebrow-link::before {
+    content: "";
+    position: absolute;
+    inset-block: var(--mc-space-0);
+    inset-inline: var(--mc-space-0);
+    margin-block: auto;
+    min-block-size: var(--mc-space-24);
+  }
+}
