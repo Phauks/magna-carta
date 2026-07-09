@@ -20,6 +20,7 @@ import {
   type ProbeOutcome,
 } from "./connection-probe.ts";
 import { LADDER_WITH_PACKET_LOSS, MEASUREMENT_LADDER } from "./measurement-ladder.ts";
+import { bytesTransferred, phaseLabel } from "./run-progress.ts";
 import { fetchMeasurementServer, type MeasurementServer } from "./speed-test-meta.ts";
 import {
   probeTurnCapability,
@@ -114,6 +115,12 @@ export function createSpeedTestStore() {
   // Whether the relay credentials packet loss needs could be had — decided BEFORE the engine is
   // built (see turn-capability.ts), never discovered mid-run. Null until the first run asks it.
   let turn = $state<TurnCapability | null>(null);
+  // Where the ladder is right now. Cleared alongside `results` so a finished or cancelled run
+  // never shows a stale step; `stepCount` is captured at construction because the packet-loss
+  // ladder is longer than the plain one, and only the instance actually built knows which it got.
+  let stepIndex = $state<number | null>(null);
+  let currentPhase = $state<string | null>(null);
+  let stepCount = $state<number>(0);
 
   // The engine instance, once the module has been fetched. Not reactive: nothing renders it
   // directly — only its published (snapshotted) results and phase matter to the template. The
@@ -157,14 +164,21 @@ export function createSpeedTestStore() {
           turnServerCredsApiUrl: TURN_CREDENTIALS_URL,
         }
       : { autoStart: false, measurements: MEASUREMENT_LADDER };
+    stepCount = options.measurements.length;
     const instance = new SpeedTest(options);
     instance.onResultsChange = () => {
       results = snapshotResults(instance.results);
+    };
+    instance.onPhaseChange = ({ measurementId, measurement }) => {
+      stepIndex = measurementId;
+      currentPhase = phaseLabel(measurement);
     };
     instance.onFinish = (finished) => {
       results = snapshotResults(finished);
       phase = "finished";
       finishedAt = new Date();
+      stepIndex = null;
+      currentPhase = null;
     };
     instance.onError = (message) => {
       error = message;
@@ -175,6 +189,8 @@ export function createSpeedTestStore() {
 
   async function beginRun(): Promise<void> {
     phase = "running";
+    stepIndex = null;
+    currentPhase = null;
     runProbe();
     try {
       // Ask BEFORE building the engine: a credential refusal discovered mid-run would abort the
@@ -243,6 +259,21 @@ export function createSpeedTestStore() {
     },
     get turn() {
       return turn;
+    },
+    get stepIndex() {
+      return stepIndex;
+    },
+    get stepCount() {
+      return stepCount;
+    },
+    get currentPhase() {
+      return currentPhase;
+    },
+    get bytesUsed() {
+      return bytesTransferred(
+        results?.getDownloadBandwidthPoints() ?? [],
+        results?.getUploadBandwidthPoints() ?? [],
+      );
     },
     start,
     pause,

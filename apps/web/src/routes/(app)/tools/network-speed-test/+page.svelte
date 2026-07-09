@@ -13,12 +13,14 @@
   import { onDestroy } from "svelte";
   import Button from "@magna-carta/design-system/button";
   import * as Masthead from "@magna-carta/design-system/masthead";
+  import Progress from "@magna-carta/design-system/progress";
   import { bandwidthStats } from "$lib/tools/speed-test/bandwidth-stats.ts";
   import BandwidthChart from "$lib/tools/speed-test/bandwidth-chart.svelte";
   import InfoPopover from "$lib/tools/speed-test/info-popover.svelte";
   import LatencyChart from "$lib/tools/speed-test/latency-chart.svelte";
   import MetricTile from "$lib/tools/speed-test/metric-tile.svelte";
   import QualityScores from "$lib/tools/speed-test/quality-scores.svelte";
+  import { formatBytes } from "$lib/tools/speed-test/run-progress.ts";
   import ServerPanel from "$lib/tools/speed-test/server-panel.svelte";
   import { createSpeedTestStore } from "$lib/tools/speed-test/speed-test-engine.svelte.ts";
   import {
@@ -34,6 +36,11 @@
   const results = $derived(store.results);
   const downloadStats = $derived(bandwidthStats(results?.getDownloadBandwidthPoints() ?? []));
   const uploadStats = $derived(bandwidthStats(results?.getUploadBandwidthPoints() ?? []));
+  // A truthful progress fraction: `stepIndex` is the monotonic index of the current step within
+  // the ladder the engine was actually built with, never an estimate of time or bytes remaining.
+  const progressPercent = $derived(
+    store.stepIndex === null ? 0 : ((store.stepIndex + 1) / store.stepCount) * 100,
+  );
 
   function statRows(stats: ReturnType<typeof bandwidthStats>) {
     if (stats === null) return undefined;
@@ -58,6 +65,10 @@
         <span>
           Run at {store.finishedAt.toLocaleTimeString()} on {store.finishedAt.toLocaleDateString()}
         </span>
+        {#if store.bytesUsed > 0}
+          <Masthead.MetaSeparator />
+          <span>{formatBytes(store.bytesUsed)} transferred</span>
+        {/if}
       {/if}
     </Masthead.Meta>
   </Masthead.Heading>
@@ -65,8 +76,19 @@
     {#if store.phase === "idle"}
       <Button variant="primary" onclick={() => store.start()}>Start</Button>
     {:else if store.phase === "running"}
-      <span class="mr-8 text-sm text-text-muted">Measuring…</span>
-      <Button variant="secondary" onclick={() => store.pause()}>Pause</Button>
+      <div class="flex items-center gap-8">
+        <span class="text-sm text-text-muted">
+          {store.currentPhase ?? "Starting"}
+          {#if store.stepIndex !== null}
+            · step {store.stepIndex + 1} of {store.stepCount}
+          {/if}
+          {#if store.bytesUsed > 0}
+            · {formatBytes(store.bytesUsed)} used
+          {/if}
+        </span>
+        <Progress value={progressPercent} class="w-96" aria-label="Test progress" />
+        <Button variant="secondary" onclick={() => store.pause()}>Pause</Button>
+      </div>
     {:else if store.phase === "paused"}
       <Button variant="primary" onclick={() => store.resume()}>Resume</Button>
     {:else}
