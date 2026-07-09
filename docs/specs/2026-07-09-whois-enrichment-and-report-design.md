@@ -124,17 +124,57 @@ This is a backend slice with a UI tail, not a UI change.
    print view and raw download.
 4. A status-code module with the RDAP→EPP mapping, its own unit tests, and an explicit unknown path.
 
-## Open questions for the owner
+## Decided (owner, 2026-07-09)
 
-- **Is this an exhibit?** If yes, the timestamp, responding server, and response hash are mandatory and
-  the raw payload must be embedded rather than linked. If it is a convenience summary, the report is
-  lighter and the hash is noise.
-- **Contacts.** Registrant/administrative/technical entities are usually redacted, but not always for
-  ccTLDs and never for some legacy records. Do we display them when present? A registration record naming
-  a private individual is personal data, and the page currently has no session, no permission check, and
-  no audit trail. `whois.get` is not audited today.
-- **Legacy port-43 parsing.** Six ccTLDs answer only in free text. Do we parse it into fields (fragile,
-  registry-specific) or keep presenting it verbatim (honest, less useful in a report)?
+- **The report is an exhibit.** The UTC timestamp of the lookup, the responding server, and the complete
+  unmodified response are mandatory, and the response is hashed so the document authenticates itself.
+- **Contacts are displayed when the registry provides them.** Most are redacted; some ccTLDs publish a
+  full postal address. Two consequences follow. A record naming a natural person is personal data, so the
+  read should be audited (`whois.get` sets `audited: false` today) and the report must carry the
+  registry's own redaction language where present rather than silently omitting a contact. And the page
+  must never imply a contact is absent when it was withheld.
+
+## The legacy port-43 registries — measured, not remembered
+
+`lookup.ts:31` tries RDAP first and falls back to port 43, so the fallback only fires for a TLD IANA's
+bootstrap does not list. Checked against the live bootstrap (published 2026-07-09): **`.nl` and `.fr` now
+have RDAP** (`https://rdap.sidn.nl/`, `https://rdap.nic.fr/`), so their rows in `WHOIS_HOSTS` are dead.
+Four registries actually reach port 43, and their responses were captured directly:
+
+| TLD | Host | What it publishes |
+| --- | --- | --- |
+| `.de` | `whois.denic.de` | Two lines: `Domain`, `Status`. No dates, registrar, nameservers, or contacts. |
+| `.eu` | `whois.eu` | Registrant `NOT DISCLOSED!`, technical contact, registrar, nameservers **with glue IPs**. **No dates at all.** |
+| `.it` | `whois.nic.it` | `Status`, `Signed` (DNSSEC), `Created`, `Last Update`, `Expire Date`, full registrant postal address, admin and technical contacts, registrar, nameservers. |
+| `.be` | `whois.dns.be` | Tab-separated. `Status: NOT AVAILABLE`, `Registered`, registrar contacts, nameservers with glue IPs, DNSSEC `Keys:`. |
+
+**These are not parsed into fields, and the reason is `.be`.** Its `Status: NOT AVAILABLE` means the
+domain *is* registered. Normalising that string into the shared status field would print the opposite of
+the truth into an exhibit. The four formats share no grammar, no key names, and no semantics.
+
+**Their dates cannot be rendered in UTC, because they carry no timezone.** `.it` publishes
+`1997-08-27 00:00:00`; `.be` publishes `Wed Jun 13 2012`. There is nothing to convert. They are shown as
+the registry published them, labelled as such, with the timezone stated to be unspecified. Guessing a zone
+would put a wrong instant in a document offered as evidence.
+
+The raw text is therefore the record for these four, presented verbatim. A per-registry parser may come
+later, driven by captured fixtures with tests. If one is ever written, a parse miss must never render as
+"not provided by the registry" — a failure to read and a genuine absence are different facts, and only one
+of them is true.
+
+## A robustness defect found while checking the above
+
+`resolveRdapBase` returns `null` both when the bootstrap document has no entry for a TLD **and** when the
+bootstrap fetch itself returns a non-200. `lookupRegistration` reads that `null` as "this TLD has no RDAP"
+and falls through to port 43, which throws for any TLD not in the static table. So an IANA outage turns
+every `.com` lookup into a 500. A transport failure is being interpreted as a fact about the registry.
+These two conditions must be distinguishable.
+
+## Open question that remains
+
+- **Auditing.** If a WHOIS lookup can surface a natural person's postal address, the read is a
+  privileged one. `whois.get` is declared `audited: false`. Making it audited is a contract-meta change
+  and belongs with this work, not after it.
 
 ## What this does not do
 
