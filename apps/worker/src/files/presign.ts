@@ -1,4 +1,6 @@
 import { AwsClient } from "aws4fetch";
+import { BULK_PREFIX } from "@magna-carta/file-manager/file-statements";
+import type { R2EventMessage } from "./ingest-consumer.ts";
 
 // The R2 presigner: every byte of an upload or download flows DIRECTLY between the client and R2's
 // S3-compatible endpoint, never through the Worker (the Worker only mints the credential). Each URL
@@ -153,32 +155,116 @@ export function createR2Presigner(options: R2PresignerOptions): R2Presigner {
   };
 }
 
-// The local/test presigner: the way the dev FirmResourceProvider stands in for the REST one. It
-// mints deterministic non-network URLs (the bytes never leave the test) and treats the multipart
-// server-side calls as no-ops — selected when the real credential set is incomplete (presignerForEnv
-// in presigner-wiring.ts; CLOUDFLARE_ACCOUNT_ID is absent off-production).
-export function createDevR2Presigner(): R2Presigner {
+// A minimal view of the runtime env the development upload emulation needs: the R2 bucket the ingest
+// consumer reads (env.R2 — the exact handle, so a dev-written object IS the object ingest loads) and
+// the two files-ingest queues. Structural so this module stays free of the app's full Bindings type.
+export interface DevUploadEnv {
+  readonly R2: R2Bucket;
+  readonly FILES_INGEST?: Queue;
+  readonly FILES_INGEST_BULK?: Queue;
+}
+
+// The R2 key prefix multipart parts are staged under before completion assembles them into the final
+// object. It is never a firm object key (never enqueued for ingest); complete and abort delete it.
+const DEV_MULTIPART_STAGING_PREFIX = "__dev-multipart";
+
+// Stands in for the R2 object-create event notification that local object storage does not emit:
+// enqueues one files-ingest message so the ingest consumer runs against the just-written object,
+// exactly as a real R2 event would. A bulk/ key routes to the bulk lane, mirroring the production
+// queue topology. Shared by the single-shot PUT route and the multipart completion below.
+export async function enqueueDevIngestEvent(
+  env: DevUploadEnv,
+  bucket: string,
+  key: string,
+  size: number,
+): Promise<void> {
+  const message: R2EventMessage = { bucket, object: { key, size }, action: "PutObject" };
+  const queue = key.startsWith(`${BULK_PREFIX}/`)
+    ? (env.FILES_INGEST_BULK ?? env.FILES_INGEST)
+    : (env.FILES_INGEST ?? env.FILES_INGEST_BULK);
+  if (queue === undefined) {
+    throw new Error("dev upload: no files-ingest queue is bound to drive ingest");
+  }
+  await queue.send(message);
+}
+
+// The development/local presigner — the upload twin of the dev pool-claiming FirmResourceProvider,
+// selected by presignerForEnv (presigner-wiring.ts) whenever the real R2 S3 credential set is absent
+// (off production). The UPLOAD URLs point back at the Worker itself (a same-origin path the
+// development upload route serves): `wrangler dev` resolves no presigned R2 host and R2 emits no
+// object-create event locally, so the identical four-step client ceremony would otherwise land no
+// bytes and never trigger ingest. Here the server-side multipart calls do the create/assemble/abort
+// work against env.R2 that R2 would do remotely, then enqueue the ingest event the R2 notification
+// would have fired. All object writes go through env.R2 — the exact handle the ingest consumer reads —
+// so a dev-written object is unambiguously the one ingest loads.
+//
+// SAME-ORIGIN, so the upload path here exercises NO CORS: it cannot prove the production cross-origin
+// browser upload (a bucket missing AllowedOrigins, or multipart unable to read the ETag response
+// header). That gate is one real upload against a real bucket in a preview environment — see the R2
+// bucket CORS runbook in docs/conventions/operations.md.
+export function createDevR2Presigner(env: DevUploadEnv): R2Presigner {
+  const stagingKey = (uploadId: string, partNumber: number): string =>
+    `${DEV_MULTIPART_STAGING_PREFIX}/${uploadId}/${partNumber}`;
   return {
-    presignPut(bucket, key) {
-      return Promise.resolve(`https://r2.dev.local/${bucket}/${key}?dev-presigned=put`);
+    presignPut(_bucket, key) {
+      return Promise.resolve(`/api/__dev/r2/object?key=${encodeURIComponent(key)}`);
     },
+    // Download/preview is out of scope for the development upload path (its player needs a bound
+    // FILES_ORIGIN), so the GET presigner keeps the deterministic non-network stub the local download
+    // and preview tests pin — it never resolves, and no dev route serves it. Only the UPLOAD leg is
+    // rerouted to the Worker; a dev download degrades rather than reaching R2.
     presignGet(bucket, key) {
       return Promise.resolve(`https://r2.dev.local/${bucket}/${key}?dev-presigned=get`);
     },
-    presignUploadPart(bucket, key, uploadId, partNumber) {
+    presignUploadPart(_bucket, key, uploadId, partNumber) {
       return Promise.resolve(
-        `https://r2.dev.local/${bucket}/${key}?uploadId=${encodeURIComponent(uploadId)}` +
-          `&partNumber=${partNumber}&dev-presigned=part`,
+        `/api/__dev/r2/part?key=${encodeURIComponent(key)}` +
+          `&uploadId=${encodeURIComponent(uploadId)}&partNumber=${partNumber}`,
       );
     },
-    createMultipartUpload(_bucket, key) {
-      return Promise.resolve({ uploadId: `dev-multipart-${key}` });
+    createMultipartUpload(_bucket, _key) {
+      // No R2 state is created here — parts are staged lazily as they arrive and complete assembles
+      // them, so a lost idempotency race can leave no orphaned upload. The synthetic id namespaces
+      // this session's staged parts; it stands in for R2's UploadId.
+      return Promise.resolve({ uploadId: `dev-multipart-${crypto.randomUUID()}` });
     },
-    completeMultipartUpload() {
-      return Promise.resolve();
+    async completeMultipartUpload(bucket, key, uploadId, parts) {
+      // Assemble the staged parts in ascending part-number order into the final object — written where
+      // the ingest consumer reads it (env.R2 at key) — then drop the staging objects and enqueue the
+      // ingest event (the R2 notification stand-in).
+      const ordered = [...parts].sort((a, b) => a.partNumber - b.partNumber);
+      const chunks: Uint8Array[] = [];
+      let total = 0;
+      for (const part of ordered) {
+        const staged = await env.R2.get(stagingKey(uploadId, part.partNumber));
+        if (staged === null) {
+          throw new Error(
+            `dev upload: staged part missing (uploadId ${uploadId}, part ${part.partNumber})`,
+          );
+        }
+        const bytes = new Uint8Array(await staged.arrayBuffer());
+        chunks.push(bytes);
+        total += bytes.byteLength;
+      }
+      const combined = new Uint8Array(total);
+      let offset = 0;
+      for (const chunk of chunks) {
+        combined.set(chunk, offset);
+        offset += chunk.byteLength;
+      }
+      await env.R2.put(key, combined);
+      for (const part of ordered) {
+        await env.R2.delete(stagingKey(uploadId, part.partNumber));
+      }
+      await enqueueDevIngestEvent(env, bucket, key, total);
     },
-    abortMultipartUpload() {
-      return Promise.resolve();
+    async abortMultipartUpload(_bucket, _key, uploadId) {
+      // Drop every staged part for the session (complete never ran). LIST is used because abort does
+      // not carry the part manifest.
+      const listed = await env.R2.list({ prefix: `${DEV_MULTIPART_STAGING_PREFIX}/${uploadId}/` });
+      for (const object of listed.objects) {
+        await env.R2.delete(object.key);
+      }
     },
   };
 }

@@ -61,6 +61,7 @@ import { registerSupportGrantsRoutes } from "./routes/support-grants.ts";
 import { registerSupportSessionsRoute } from "./routes/support-sessions.ts";
 import { registerSupportDiagnosticsRoute } from "./routes/support-diagnostics.ts";
 import { registerDevWebToolsDemoRoute } from "./routes/dev-web-tools-demo.ts";
+import { registerDevR2UploadRoute } from "./routes/dev-r2-upload.ts";
 import { registerMeRoute } from "./routes/me.ts";
 import { registerMembersRoute } from "./routes/members.ts";
 import { registerReleaseChannelRoute } from "./routes/release-channel.ts";
@@ -520,6 +521,14 @@ export function createApp(options: CreateAppOptions = {}) {
   // Throwaway dev-only demo page for the Websites & Domains tools (gated on DEV_DEMO_TOOLS; 404 in
   // production). A bare route, so it never enters the OpenAPI contract. Remove with the demo file.
   registerDevWebToolsDemoRoute(app);
+
+  // The development-only R2 upload target: stands in for direct-to-R2 uploads under `wrangler dev`
+  // (where no presigned R2 host resolves and no R2 event fires). It serves its route only when the
+  // real R2 S3 credential set is absent — the same fail-closed signal that makes presignerForEnv
+  // return the dev presigner (routes/dev-r2-upload.ts, presigner-wiring.ts) — so it answers a bare 404
+  // in production. Behind the chokepoint (session -> files:upload) and validates the object key against
+  // the firm's upload session. A bare route under /api/__dev, so it never enters the OpenAPI contract.
+  registerDevR2UploadRoute(app, chokepoint);
 
   // Everything not handled above falls through to the static-asset SPA (Workers Static Assets binding).
   app.get("*", (c) => c.env.ASSETS.fetch(c.req.raw));
