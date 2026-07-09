@@ -1297,6 +1297,448 @@ git commit -m "feat(tools): network quality score panel"
 
 ---
 
+### Task 4c: Kill the packet-loss error, move the controls, add the server panel, rank the metrics
+
+Owner ran the page and hit a fatal error:
+
+> The measurement stopped: Error while measuring packet loss: unable to get turn server credentials.
+
+**Root cause.** The engine's built-in measurement ladder contains a `packetLoss` step. Nothing disabled it, so the engine attempted it, failed to obtain TURN credentials, and fired `onError` — which the store treats as fatal, ending the whole run. The error copy then blamed the firm's network for filtering `speed.cloudflare.com`, which was never true. **The fix is to stop asking the engine to measure packet loss at all**, not to soften the message. The Packet Loss tile keeps stating that the measurement is unavailable.
+
+**Verified facts (from the shipped `.d.ts` and a live browser check — do not re-derive):**
+- `ConfigOptions.measurements: MeasurementConfig[]`, and **no default ladder is exported**, so it must be written out explicitly, minus the `packetLoss` step.
+- `BandwidthMeasurementConfig = { type: "download" | "upload"; bytes: number; count: number; bypassMinDuration?: boolean }`.
+- `LatencyMeasurementConfig = { type: "latency"; numPackets: number }`.
+- `https://speed.cloudflare.com/meta` is **CORS-open** and returns `{ clientIp, asn, asOrganization, country, city, region, httpProtocol, colo: { iata, city } }`. This is the source for the server panel; it needs no session, so it works even though our own connection route currently answers `401`.
+
+**Files:**
+- Modify: `apps/web/src/lib/tools/speed-test/speed-test-engine.svelte.ts`
+- Modify: `apps/web/src/lib/tools/speed-test/metric-tile.svelte`
+- Modify: `apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte`
+- Create: `apps/web/src/lib/tools/speed-test/measurement-ladder.ts`
+- Create: `apps/web/src/lib/tools/speed-test/speed-test-meta.ts`
+- Create: `apps/web/src/lib/tools/speed-test/server-panel.svelte`
+- Test: `apps/web/test/measurement-ladder.test.ts`
+- Test: `apps/web/test/speed-test-meta.test.ts`
+
+**Interfaces:**
+- Produces: `MEASUREMENT_LADDER: MeasurementConfig[]`; `MeasurementServer`, `META_URL`, `parseMeasurementServer(raw: unknown): MeasurementServer | null`, `ipVersion(clientIp: string): "IPv4" | "IPv6"`, `fetchMeasurementServer(fetchJson): Promise<MeasurementServer | null>`.
+- The store gains `meta: MeasurementServer | null` and loads it on creation (before any run), as `speed.cloudflare.com` does.
+
+- [ ] **Step 1: Write the failing ladder test**
+
+Create `apps/web/test/measurement-ladder.test.ts`:
+
+```ts
+/*
+ * The ladder is Cloudflare's own, minus the packetLoss step. Packet loss needs a WebRTC TURN
+ * server we do not run; leaving the step in makes the engine fail the ENTIRE run on a credential
+ * error. This test is the guard against someone "restoring the defaults".
+ */
+import { describe, expect, it } from "vitest";
+import { MEASUREMENT_LADDER } from "../src/lib/tools/speed-test/measurement-ladder.ts";
+
+describe("MEASUREMENT_LADDER", () => {
+  it("never asks the engine to measure packet loss", () => {
+    expect(MEASUREMENT_LADDER.some((step) => step.type === "packetLoss")).toBe(false);
+  });
+
+  it("keeps latency, download and upload phases", () => {
+    const types = new Set(MEASUREMENT_LADDER.map((step) => step.type));
+    expect(types).toEqual(new Set(["latency", "download", "upload"]));
+  });
+
+  it("climbs to Cloudflare's largest payloads so results stay comparable", () => {
+    const downloadBytes = MEASUREMENT_LADDER.filter((s) => s.type === "download").map((s) =>
+      "bytes" in s ? s.bytes : 0,
+    );
+    const uploadBytes = MEASUREMENT_LADDER.filter((s) => s.type === "upload").map((s) =>
+      "bytes" in s ? s.bytes : 0,
+    );
+    expect(Math.max(...downloadBytes)).toBe(2.5e8);
+    expect(Math.max(...uploadBytes)).toBe(5e7);
+  });
+});
+```
+
+- [ ] **Step 2: Run it to verify it fails**
+
+Run: `vp test measurement-ladder`
+Expected: FAIL — module not found.
+
+- [ ] **Step 3: Write the ladder**
+
+Create `apps/web/src/lib/tools/speed-test/measurement-ladder.ts`:
+
+```ts
+/*
+ * Cloudflare's measurement ladder, written out because the library exports no default to borrow
+ * from — and with its `packetLoss` step deliberately removed.
+ *
+ * Packet loss is measured by relaying UDP through a WebRTC TURN server. Cloudflare's public TURN
+ * server is discontinued and we run none, so the step can only fail — and a failure there aborts
+ * the whole run, taking the bandwidth and latency results with it. Every other phase is theirs,
+ * unchanged, which is what keeps these numbers comparable to speed.cloudflare.com.
+ */
+import type { MeasurementConfig } from "@cloudflare/speedtest";
+
+export const MEASUREMENT_LADDER: MeasurementConfig[] = [
+  { type: "latency", numPackets: 1 },
+  { type: "download", bytes: 1e5, count: 1, bypassMinDuration: true },
+  { type: "latency", numPackets: 20 },
+  { type: "download", bytes: 1e5, count: 9 },
+  { type: "download", bytes: 1e6, count: 8 },
+  { type: "upload", bytes: 1e5, count: 8 },
+  { type: "upload", bytes: 1e6, count: 6 },
+  { type: "download", bytes: 1e7, count: 6 },
+  { type: "upload", bytes: 1e7, count: 4 },
+  { type: "download", bytes: 2.5e7, count: 4 },
+  { type: "upload", bytes: 2.5e7, count: 4 },
+  { type: "download", bytes: 1e8, count: 3 },
+  { type: "upload", bytes: 5e7, count: 3 },
+  { type: "download", bytes: 2.5e8, count: 2 },
+];
+```
+
+- [ ] **Step 4: Run it to verify it passes**
+
+Run: `vp test measurement-ladder`
+Expected: PASS (3 tests).
+
+- [ ] **Step 5: Write the failing meta test**
+
+Create `apps/web/test/speed-test-meta.test.ts`:
+
+```ts
+/*
+ * The measurement server, as Cloudflare's own page reports it. A malformed body must yield null
+ * rather than a half-filled panel of undefineds.
+ */
+import { describe, expect, it } from "vitest";
+import {
+  fetchMeasurementServer,
+  ipVersion,
+  parseMeasurementServer,
+} from "../src/lib/tools/speed-test/speed-test-meta.ts";
+
+const RAW = {
+  clientIp: "24.234.27.182",
+  asn: 22773,
+  asOrganization: "Cox Communications Inc.",
+  country: "US",
+  city: "Las Vegas",
+  region: "Nevada",
+  httpProtocol: "HTTP/1.1",
+  colo: { iata: "LAS", city: "Las Vegas" },
+};
+
+describe("ipVersion", () => {
+  it("reads a dotted address as IPv4", () => {
+    expect(ipVersion("24.234.27.182")).toBe("IPv4");
+  });
+
+  it("reads a colonned address as IPv6", () => {
+    expect(ipVersion("2606:4700:4700::1111")).toBe("IPv6");
+  });
+});
+
+describe("parseMeasurementServer", () => {
+  it("reads the fields Cloudflare's meta endpoint returns", () => {
+    expect(parseMeasurementServer(RAW)).toEqual({
+      clientIp: "24.234.27.182",
+      asn: 22773,
+      asOrganization: "Cox Communications Inc.",
+      city: "Las Vegas",
+      region: "Nevada",
+      country: "US",
+      coloIata: "LAS",
+      coloCity: "Las Vegas",
+    });
+  });
+
+  it("returns null for a body that is not the shape we expect", () => {
+    expect(parseMeasurementServer({ clientIp: 42 })).toBeNull();
+    expect(parseMeasurementServer(null)).toBeNull();
+    expect(parseMeasurementServer("nope")).toBeNull();
+  });
+});
+
+describe("fetchMeasurementServer", () => {
+  it("returns null rather than throwing when the endpoint is unreachable", async () => {
+    const server = await fetchMeasurementServer(async () => {
+      throw new Error("offline");
+    });
+    expect(server).toBeNull();
+  });
+
+  it("parses a good response", async () => {
+    const server = await fetchMeasurementServer(async () => RAW);
+    expect(server?.coloIata).toBe("LAS");
+  });
+});
+```
+
+- [ ] **Step 6: Run it to verify it fails**
+
+Run: `vp test speed-test-meta`
+Expected: FAIL — module not found.
+
+- [ ] **Step 7: Write the meta module**
+
+Create `apps/web/src/lib/tools/speed-test/speed-test-meta.ts`:
+
+```ts
+/*
+ * Who served the measurement, and who you are to them. Cloudflare's own speed test reads this from
+ * a CORS-open endpoint that needs no session — which is why this panel fills in even when our own
+ * connection route refuses us.
+ *
+ * Parsing is defensive: a body that is not the shape we expect yields null, so the panel says
+ * nothing rather than showing a row of undefineds.
+ */
+export const META_URL = "https://speed.cloudflare.com/meta";
+
+export interface MeasurementServer {
+  readonly clientIp: string;
+  readonly asn: number;
+  readonly asOrganization: string;
+  readonly city: string;
+  readonly region: string;
+  readonly country: string;
+  /** The Cloudflare edge airport code that served the measurement, e.g. "LAS". */
+  readonly coloIata: string;
+  readonly coloCity: string;
+}
+
+/** An IPv6 address contains a colon; an IPv4 address never does. */
+export function ipVersion(clientIp: string): "IPv4" | "IPv6" {
+  return clientIp.includes(":") ? "IPv6" : "IPv4";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+export function parseMeasurementServer(raw: unknown): MeasurementServer | null {
+  if (!isRecord(raw) || !isRecord(raw["colo"])) return null;
+  const colo = raw["colo"];
+  const clientIp = raw["clientIp"];
+  const asn = raw["asn"];
+  const asOrganization = raw["asOrganization"];
+  const city = raw["city"];
+  const region = raw["region"];
+  const country = raw["country"];
+  const coloIata = colo["iata"];
+  const coloCity = colo["city"];
+
+  if (
+    typeof clientIp !== "string" ||
+    typeof asn !== "number" ||
+    typeof asOrganization !== "string" ||
+    typeof city !== "string" ||
+    typeof region !== "string" ||
+    typeof country !== "string" ||
+    typeof coloIata !== "string" ||
+    typeof coloCity !== "string"
+  ) {
+    return null;
+  }
+
+  return { clientIp, asn, asOrganization, city, region, country, coloIata, coloCity };
+}
+
+/** Never throws: an unreachable endpoint simply means the panel has nothing to say. */
+export async function fetchMeasurementServer(
+  fetchJson: (url: string) => Promise<unknown>,
+): Promise<MeasurementServer | null> {
+  try {
+    return parseMeasurementServer(await fetchJson(META_URL));
+  } catch {
+    return null;
+  }
+}
+```
+
+- [ ] **Step 8: Run it to verify it passes**
+
+Run: `vp test speed-test-meta measurement-ladder`
+Expected: PASS (2 files, 9 tests).
+
+- [ ] **Step 9: Wire the ladder and the meta into the store**
+
+In `apps/web/src/lib/tools/speed-test/speed-test-engine.svelte.ts`:
+
+1. Import `MEASUREMENT_LADDER` and pass it to the engine constructor alongside `autoStart: false`:
+
+```ts
+const instance = new SpeedTest({ autoStart: false, measurements: MEASUREMENT_LADDER });
+```
+
+2. Import `fetchMeasurementServer` and `type MeasurementServer`. Add reactive state `let meta = $state<MeasurementServer | null>(null);`, load it once when the store is created (not on Start — Cloudflare shows the server before you run), and expose it via a `get meta()` accessor:
+
+```ts
+void fetchMeasurementServer(async (url) => {
+  const response = await fetch(url, { headers: { accept: "application/json" } });
+  if (!response.ok) throw new Error(`meta responded ${response.status}`);
+  return response.json();
+}).then((server) => {
+  meta = server;
+});
+```
+
+3. Keep `onError` as-is, but it must no longer be reachable for packet loss. Do not change its behaviour otherwise.
+
+- [ ] **Step 10: Give the metric tile a rank**
+
+In `apps/web/src/lib/tools/speed-test/metric-tile.svelte`, add a `size` prop (`"large" | "small"`, default `"small"`). Large tiles render the value at the page's largest metric size; small tiles a step down. Use only the project's existing text-size utilities — verify each exists. Do not change the tile's structure, and keep `note` rendering exactly as it is.
+
+- [ ] **Step 11: Write the server panel**
+
+Create `apps/web/src/lib/tools/speed-test/server-panel.svelte`:
+
+```svelte
+<script lang="ts">
+  /*
+   * Who served the measurement, and who you are to them — the same four facts Cloudflare's own
+   * speed test states. The round trip to Magna Carta sits beside them because that is the one
+   * thing their page cannot tell you.
+   */
+  import { formatMilliseconds } from "./speed-test-format.ts";
+  import { ipVersion, type MeasurementServer } from "./speed-test-meta.ts";
+  import type { ProbeOutcome } from "./connection-probe.ts";
+
+  let {
+    meta,
+    probe,
+  }: { meta: MeasurementServer | null; probe: ProbeOutcome | null } = $props();
+</script>
+
+{#if meta === null}
+  <p class="text-sm text-text-muted">The measurement server has not identified itself.</p>
+{:else}
+  <dl class="grid grid-cols-1 gap-8 text-sm sm:grid-cols-2">
+    <div><dt class="text-text-muted">Connected via</dt><dd>{ipVersion(meta.clientIp)}</dd></div>
+    <div><dt class="text-text-muted">Server location</dt><dd>{meta.coloCity} ({meta.coloIata})</dd></div>
+    <div><dt class="text-text-muted">Your network</dt><dd>{meta.asOrganization} (AS{meta.asn})</dd></div>
+    <div><dt class="text-text-muted">Your IP address</dt><dd>{meta.clientIp}</dd></div>
+  </dl>
+{/if}
+
+<div class="mt-16">
+  {#if probe === null}
+    <p class="text-sm text-text-muted">The round trip to Magna Carta has not been measured yet.</p>
+  {:else if probe.status === "unauthenticated"}
+    <p class="text-sm text-text-muted">
+      You are not signed in, so the round trip to Magna Carta was not measured. This says nothing
+      about your connection.
+    </p>
+  {:else if probe.status === "forbidden"}
+    <p class="text-sm text-text-muted">
+      Your account does not carry permission to run this check, so the round trip to Magna Carta was
+      not measured. Your connection is unaffected.
+    </p>
+  {:else if probe.status === "unreachable"}
+    <p class="text-sm text-text-muted">
+      Magna Carta could not be reached from this network. The measurements above still describe your
+      internet connection.
+    </p>
+  {:else}
+    <p class="text-sm">
+      <span class="text-text-muted">Round trip to Magna Carta</span>
+      <span class="ml-8">{formatMilliseconds(probe.medianRoundTripMs ?? undefined)}</span>
+    </p>
+    <p class="mt-4 text-xs text-text-muted">
+      Measured as a real authenticated request, median of {probe.successfulSamples} samples. A healthy
+      round trip here alongside poor bandwidth means the connection, not the platform, is the
+      constraint.
+    </p>
+  {/if}
+</div>
+```
+
+- [ ] **Step 12: Restructure the page**
+
+In `apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte`:
+
+1. **Move the run controls into `Masthead.Actions`** so starting a test never reflows the page. The masthead becomes:
+
+```svelte
+<Masthead.Root class="mb-12">
+  <Masthead.Heading>
+    <Masthead.Title>Network Speed Test</Masthead.Title>
+    <Masthead.Meta><span>Runs outside any matter</span></Masthead.Meta>
+  </Masthead.Heading>
+  <Masthead.Actions>
+    {#if store.phase === "idle"}
+      <Button variant="primary" onclick={() => store.start()}>Start</Button>
+    {:else if store.phase === "running"}
+      <span class="mr-8 text-sm text-text-muted">Measuring…</span>
+      <Button variant="secondary" onclick={() => store.pause()}>Pause</Button>
+    {:else if store.phase === "paused"}
+      <Button variant="primary" onclick={() => store.resume()}>Resume</Button>
+    {:else}
+      <Button variant="primary" onclick={() => store.restart()}>Retest</Button>
+    {/if}
+  </Masthead.Actions>
+</Masthead.Root>
+```
+
+The "Measuring…" text occupies the space the Pause button already reserves, so nothing below it moves.
+
+2. The disclosures stay as a paragraph above the metrics, shown only while `store.phase === "idle"`.
+
+3. **The error paragraph must no longer blame the network.** Replace it with:
+
+```svelte
+{#if store.error}
+  <p class="mt-8 text-sm text-status-danger-subtle-foreground">
+    The measurement stopped: {store.error}
+  </p>
+{/if}
+```
+
+4. **Rank the metrics.** Download and Upload are what the test is for; latency, jitter and packet loss describe the connection's character. Two rows:
+
+```svelte
+<section class="mb-12 grid grid-cols-1 gap-16 sm:grid-cols-2">
+  <MetricTile size="large" label="Download" value={formatBandwidth(results?.getDownloadBandwidth())} />
+  <MetricTile size="large" label="Upload" value={formatBandwidth(results?.getUploadBandwidth())} />
+</section>
+
+<section class="mb-12 grid grid-cols-1 gap-16 sm:grid-cols-3">
+  <MetricTile label="Latency" value={formatMilliseconds(results?.getUnloadedLatency())} />
+  <MetricTile label="Jitter" value={formatMilliseconds(results?.getUnloadedJitter())} />
+  <MetricTile
+    label="Packet loss"
+    value="Unavailable"
+    note="Measuring packet loss needs a TURN server; the public one Cloudflare offered is discontinued."
+  />
+</section>
+```
+
+5. Replace the old inline "Your connection" markup with the new panel, keeping the section heading markup already on the page:
+
+```svelte
+<ServerPanel meta={store.meta} probe={store.probe} />
+```
+
+- [ ] **Step 13: Verify the gates**
+
+Run: `pnpm --filter @magna-carta/web run check`
+Expected: 0 errors, 0 warnings.
+
+Run: `vp test measurement-ladder speed-test-meta speed-test-format connection-probe quality-labels`
+Expected: PASS.
+
+- [ ] **Step 14: Commit**
+
+```bash
+git add apps/web/src/lib/tools/speed-test apps/web/test/measurement-ladder.test.ts apps/web/test/speed-test-meta.test.ts "apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte"
+git commit -m "fix(tools): drop the packet-loss phase, rank the metrics, name the measurement server"
+```
+
+---
+
 ### Task 5: Measurement charts
 
 **Files:**
