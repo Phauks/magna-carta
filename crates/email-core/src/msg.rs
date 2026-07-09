@@ -445,9 +445,19 @@ fn embedded_message_storage(nodes: &[Node], attachment: &Path) -> Option<PathBuf
 /// Split a `__substg1.0_<id><type>` stream name into its property id and type. The
 /// eight characters after the prefix are hex: four of property id, four of type.
 /// A name that is not exactly that shape yields `None` and is ignored.
+///
+/// A CFB directory entry name is arbitrary Unicode by the time `cfb` hands it back
+/// as a `&str` — it started life as UTF-16 in the container and can decode to any
+/// scalar value, not just the ASCII this tag shape expects. `hex.len()` counts
+/// bytes, not characters, so an 8-*byte* string can still contain a multi-byte
+/// character; slicing at a fixed byte offset like `4` would then land inside that
+/// character instead of on a boundary between two of them, which panics. Checking
+/// `is_ascii()` first rules that out: once every byte is one of the 128 ASCII
+/// scalars, each byte *is* one character, so byte offsets and char boundaries are
+/// the same thing and the fixed-offset slices below are always safe.
 fn parse_substg_name(name: &str) -> Option<(u16, u16)> {
     let hex = name.strip_prefix("__substg1.0_")?;
-    if hex.len() != 8 {
+    if hex.len() != 8 || !hex.is_ascii() {
         return None;
     }
     let id = u16::from_str_radix(&hex[0..4], 16).ok()?;
@@ -1277,6 +1287,85 @@ mod mapi_tests {
         let message = parse_msg(&bytes).expect("parses despite the junk");
         assert_eq!(message.subject.as_deref(), Some("Present"));
         assert_eq!(message.date_raw, None);
+    }
+
+    /// A `__substg1.0_` stream name whose eight-byte suffix contains a three-byte
+    /// character straddling the halfway byte offset (`AAA` + `€` + `AA` is eight
+    /// bytes, with `€` occupying bytes 3..6) must be ignored as junk, not panicked
+    /// on when the property splitter tries to slice at byte offset 4.
+    #[test]
+    fn a_substg_name_with_a_multibyte_character_is_rejected_not_panicked_on() {
+        let bytes = MsgBuilder::new()
+            .substg("", PID_SUBJECT, PTYPE_UNICODE, utf16le("Present"))
+            .stream("/__substg1.0_AAA\u{20AC}AA", vec![0x41, 0x00])
+            .build();
+
+        let message = parse_msg(&bytes).expect("the multibyte junk name is ignored");
+        assert_eq!(message.subject.as_deref(), Some("Present"));
+    }
+
+    /// A two-byte character also straddling the same halfway byte offset (`AAA`,
+    /// then `é`, then `AAA` is eight bytes, with `é` occupying bytes 3..5) must be
+    /// rejected the same way — the boundary hazard is not specific to three-byte
+    /// characters.
+    #[test]
+    fn a_substg_name_with_a_two_byte_character_straddling_the_split_is_rejected_not_panicked_on() {
+        let bytes = MsgBuilder::new()
+            .substg("", PID_SUBJECT, PTYPE_UNICODE, utf16le("Present"))
+            .stream("/__substg1.0_AAA\u{00E9}AAA", vec![0x41, 0x00])
+            .build();
+
+        let message = parse_msg(&bytes).expect("the multibyte junk name is ignored");
+        assert_eq!(message.subject.as_deref(), Some("Present"));
+    }
+
+    /// The same multibyte-name hazard, reached through a recipient storage's child
+    /// streams rather than the message root, proving the fix covers every call site
+    /// `substreams_of` is used from, not just the top level.
+    #[test]
+    fn a_multibyte_substg_name_inside_a_recipient_storage_is_rejected_not_panicked_on() {
+        let recip = "/__recip_version1.0_#00000000";
+        let bytes = MsgBuilder::new()
+            .substg(
+                recip,
+                PID_RECIPIENT_SMTP_ADDRESS,
+                PTYPE_UNICODE,
+                utf16le("carol@example.test"),
+            )
+            .stream(
+                &format!("{recip}/__substg1.0_AAA\u{20AC}AA"),
+                vec![0x41, 0x00],
+            )
+            .build();
+
+        let message = parse_msg(&bytes).expect("the multibyte junk name is ignored");
+        assert_eq!(message.to[0].address.as_deref(), Some("carol@example.test"));
+    }
+
+    /// The same hazard again, this time inside an attachment storage's child
+    /// streams — attachments walk the same `substreams_of` path as recipients and
+    /// the message root, and each call site must be equally panic-safe.
+    #[test]
+    fn a_multibyte_substg_name_inside_an_attachment_storage_is_rejected_not_panicked_on() {
+        let attach = "/__attach_version1.0_#00000000";
+        let bytes = MsgBuilder::new()
+            .substg(
+                attach,
+                PID_ATTACH_LONG_FILENAME,
+                PTYPE_UNICODE,
+                utf16le("engagement-letter.pdf"),
+            )
+            .stream(
+                &format!("{attach}/__substg1.0_AAA\u{20AC}AA"),
+                vec![0x41, 0x00],
+            )
+            .build();
+
+        let message = parse_msg(&bytes).expect("the multibyte junk name is ignored");
+        assert_eq!(
+            message.parts[0].filename.as_deref(),
+            Some("engagement-letter.pdf")
+        );
     }
 
     #[test]
