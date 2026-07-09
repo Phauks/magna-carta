@@ -1588,6 +1588,8 @@ void fetchMeasurementServer(async (url) => {
 
 3. Keep `onError` as-is, but it must no longer be reachable for packet loss. Do not change its behaviour otherwise.
 
+4. **Record when the run finished.** Add `let finishedAt = $state<Date | null>(null);` and a `get finishedAt()` accessor. Set it to `new Date()` inside `onFinish`. Clear it to `null` at the top of `start()` and `restart()`, so a stale timestamp never sits above a fresh run. Nothing is persisted — this is the run in front of you, not a history.
+
 - [ ] **Step 10: Give the metric tile a rank**
 
 In `apps/web/src/lib/tools/speed-test/metric-tile.svelte`, add a `size` prop (`"large" | "small"`, default `"small"`). Large tiles render the value at the page's largest metric size; small tiles a step down. Use only the project's existing text-size utilities — verify each exists. Do not change the tile's structure, and keep `note` rendering exactly as it is.
@@ -1666,7 +1668,13 @@ In `apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte`:
 <Masthead.Root class="mb-12">
   <Masthead.Heading>
     <Masthead.Title>Network Speed Test</Masthead.Title>
-    <Masthead.Meta><span>Runs outside any matter</span></Masthead.Meta>
+    <Masthead.Meta>
+      <span>Runs outside any matter</span>
+      {#if store.finishedAt}
+        <Masthead.MetaSeparator />
+        <span>Run at {store.finishedAt.toLocaleTimeString()} on {store.finishedAt.toLocaleDateString()}</span>
+      {/if}
+    </Masthead.Meta>
   </Masthead.Heading>
   <Masthead.Actions>
     {#if store.phase === "idle"}
