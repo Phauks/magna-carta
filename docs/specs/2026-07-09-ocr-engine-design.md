@@ -24,7 +24,7 @@ The only memory-unsafe code in this design is ONNX Runtime, reached through the 
 
 It adds no new C++ surface. `containers/scan/Cargo.toml` already pins `ort` to run Magika for file-type verification, under an existing consent. This is the same library, the same version line, the same statically-linked build, the same base image.
 
-There is no Rust alternative at the required breadth. `ocrs`, on the pure-Rust RTen runtime, is the one credible memory-safe engine, and it recognizes Latin script only. Discovery will meet Chinese, Korean, and Spanish documents. It remains the named escape hatch should a C++-free build ever become a hard requirement.
+There is no Rust alternative at the required breadth. `ocrs`, on the pure-Rust RTen runtime, is the one credible memory-safe engine, and it recognizes Latin script only. Discovery will meet Chinese, Japanese, and Greek documents, all of which the chosen engine reads and `ocrs` cannot. It remains the named escape hatch should a C++-free build ever become a hard requirement.
 
 The unsafe code never parses untrusted bytes. ONNX Runtime reads exactly two things: our own model file, pinned and baked in at build time, and a decoded pixel buffer. The untrusted document is parsed by pure Rust — `hayro` inside `pdf-core::render_page`, or the `image` crate — and what crosses into C++ is a flat array of pixel values with no structure left to exploit. This inverts the exposure golden rule 14 exists to prevent. Tesseract fails the same test, since its C++ reaches image decoding through Leptonica.
 
@@ -72,7 +72,27 @@ This preserves what ADR-0060 wanted — reproducible discovery output, accurate 
 
 The official `PaddlePaddle/PP-OCRv6_*_onnx` repositories, pinned to an exact revision and verified by SHA-256 during the Docker build, baked into the image. This mirrors how the scan container fetches YARA Forge rules and runs `freshclam` at build time: the build stage has network access, the runtime stage has none. Weights never enter git, and nothing is fetched at request time.
 
-The model's ONNX operator set must be validated against the pinned ONNX Runtime version before the model choice is final. If v6 proves incompatible, the fallback is to self-export PP-OCRv5 from the official Paddle-format weights, so that we own the export rather than trusting a community republisher.
+**The artifact is two files per model, not one.** Alongside `inference.onnx`, each repository ships an `inference.yml` carrying the pre- and post-processing transform configuration and, for the recognition model, the character dictionary. That dictionary is not decoration: without it the model emits class indices with nothing to map them onto. Both files are pinned by revision and verified by SHA-256.
+
+**Compatibility is verified, not assumed.** Reading the operator-set declarations directly out of the published protobufs: detection is opset 14 (IR version 10), recognition is opset 11 (IR version 6). Every operator across all four graphs is a standard ONNX core operator — `Conv`, `ConvTranspose`, `Resize`, `MatMul`, `Softmax`, and the like — with no custom domain, and none of the `deformable_conv` or `fake_quantize_*` operators that are the documented failure mode for PaddlePaddle exports on ONNX Runtime. ONNX Runtime supports every opset back to 7 and never drops support, so opset 14 loads on the ONNX Runtime 1.24 the pinned `ort` ships, with wide headroom. No self-export fallback is needed.
+
+**Tier: measured, not asserted.** PP-OCRv6 publishes three tiers, and medium is the ceiling — there is no larger model hiding in v5, since v6 medium is both smaller than and more accurate than v5's server-tier recognizer.
+
+| tier   | detection | recognition | total    |
+| ------ | --------- | ----------- | -------- |
+| tiny   | 1.8 MB    | 4.5 MB      | 6.2 MB   |
+| small  | 9.9 MB    | 21.2 MB     | 31.0 MB  |
+| medium | 62.0 MB   | 76.6 MB     | 138.6 MB |
+
+The vendor publishes no clean CPU benchmark separating these tiers on documents shaped like ours, so the tier is pinned by measurement rather than by the marketing numbers. The engine takes the model path as configuration and all three tiers are pinned by revision and content hash in a manifest; the benchmark decides which pair the image bakes in. Until it runs, no tier is written into `modelVersion`.
+
+**Ground truth without a labelled corpus.** We have no corpus of scanned legal exhibits with known-correct text, and hand-labelling one is not proportionate. The PDF engine can manufacture ground truth instead: take born-digital documents that already carry real text layers — the court forms and government filings already in the validation corpus — render each page to raster at 300 DPI through `render_page`, degrade it the way a scanner does (skew, noise, JPEG artefacts, resampling), then OCR the raster and compare against the text and glyph boxes the observer path extracts from the _original_. That gives exact per-glyph ground truth on our own document shapes, at zero labelling cost, and it exercises the whole rasterize-and-recognize path rather than the model alone.
+
+The benchmark reports character error rate, word-box overlap against the true glyph boxes, pages per second, cold-start model-load time, and image size, for each of the three tiers. The tier that wins on error rate at acceptable throughput is baked in and stamped. The measurement is worth having beyond this choice: it is the regression baseline for every later model upgrade, which is what makes the re-OCR discipline enforceable rather than aspirational.
+
+**Recognition covers Latin, CJK, and Greek — and nothing else.** Read directly from the v6 recognition dictionary: 18,707 entries, of which 15,565 are CJK ideographs, the remainder Latin, Greek, Japanese kana, and punctuation. Cyrillic, Arabic, Hebrew, Devanagari, Hangul, and Thai are absent entirely — zero codepoints from each. PP-OCRv6's "50 languages" means fifty Latin-script and CJK languages. PaddlePaddle ships per-script recognizers (`korean_`, `cyrillic_`, `arabic_`, `devanagari_`, `th_`, `latin_`, `el_`, Tamil, Telugu) only for **v5**; there is no v6 equivalent.
+
+Detection is script-agnostic, so the recognizer — not the detector — is the component that varies. The engine treats the recognizer as a swappable unit selected per text line, and registers exactly one today. When a matter demands Cyrillic or Arabic, a v5 per-script recognizer is registered behind the same seam and stamps its own `modelVersion`, so a document is never silently read by a model that cannot represent its script. Building the seam now is cheap; retrofitting it around a hardcoded recognizer is not.
 
 ## Reachability
 
@@ -87,6 +107,8 @@ The route validates the container's JSON at the trust boundary with zod before m
 The safety invariant is that OCR is strictly additive and non-destructive. A page that already carried real text still carries it afterward. No privileged content reaches a log, an error label, or a `Problem` response. A page we declined to process is reported as `Skipped` with a reason rather than silently returning empty text — because a caller cannot distinguish "this page has no words" from "we gave up" unless we tell them.
 
 Because the OCR container cannot run under the worker test pool (the same constraint the scan container has, where `ort` linkage fails outside the image), the acceptance gate is a container CI job that builds the image and boots it, plus the worker proxy tested against a fake container.
+
+The model benchmark is part of this slice and lives beside the validation harness, since it reuses the same corpus and reporting core. It sweeps the three tiers over the degraded-render corpus and reports character error rate, word-box overlap, pages per second, cold-start model-load time, and image size. Its output pins the tier, and its baseline is committed so that a later model upgrade must demonstrate it did not regress rather than assert it.
 
 ## Explicitly out of scope
 
