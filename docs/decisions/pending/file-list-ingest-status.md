@@ -20,12 +20,11 @@ summary: Expose ingest outcome on files.list rather than a separate quarantine r
 
 The quarantine gate is a status gate enforced redundantly at each consumer, as `packages/file-manager/CLAUDE.md` requires; the list read adds a sixth consumer that projects status for display and reaches no bytes. The display-version resolution in the include mode targets a version gated to `pending`/`quarantined` in a `COALESCE` subquery, and the projected `currentVersionId` still comes from the clean pointer alone.
 
-**Why a rejected row cannot render a download link.** The guarantee is structural, not a rule a future contributor must remember. `current_version_id` only ever advances to a clean version:
+**Why a rejected row cannot render a download link.** The guarantee is structural, not a rule a future contributor must remember. Exactly one live statement advances `current_version_id` to a non-null value: `bumpFileCurrentVersionStatement`, whose four callers in `file-service.ts` each pair it with a clean commit of the same version. Reconciling a diverged copy does not bypass this — it routes through `restoreVersion`, which cuts a fresh clean version and then bumps.
 
-- `bumpFileCurrentVersionStatement` — the ingest-commit writer, whose every caller in `file-service.ts` pairs it with a clean commit of the same version. This is the only statement that can set the pointer on a *first* upload.
-- `setFileCurrentVersionStatement` — the human-reconciliation override, which promotes only an already-committed (`clean`) `conflict_pending` copy, and so can only ever apply to a file that already has version history.
+A pending or quarantined first upload is therefore never pointed at, and its `currentVersionId` is `null` — there is nothing to link to, in any list mode. A row can announce "rejected"; it cannot offer the bytes.
 
-Neither path touches a pending or quarantined first upload, so its `currentVersionId` is `null` — there is nothing to link to, in any list mode. A row can announce "rejected"; it cannot offer the bytes.
+`setFileCurrentVersionStatement` also exists in `file-statements.ts` and would set the pointer *unconditionally*, with no status predicate. It has no callers anywhere in the repository. It is dead code and a latent hazard: wiring it up would break the guarantee above. It should be deleted, or gated on `status = 'clean'`, before any caller is added.
 
 **Considered and rejected: a separate `/matters/{id}/quarantine` route.** It would answer "did my upload get rejected?" on a page nobody opens. A rejected file must say so where the user dropped it — inline in the folder they uploaded into — so the answer was folded into the list the user is already looking at, behind an explicit opt-in, rather than exiled to a quarantine console. This keeps one file surface, not two, and no client has to reconcile a file's presence in a list against its absence-plus-a-separate-feed.
 
