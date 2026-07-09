@@ -1,16 +1,19 @@
 <script lang="ts">
   /*
-   * Network Speed Test — Cloudflare's own measurement engine, on their default ladder, so the
-   * numbers are comparable to speed.cloudflare.com. Runs outside any matter and stores nothing.
+   * Network Speed Test — Cloudflare's own measurement engine, on their ladder minus the
+   * TURN-dependent packet-loss step, so the numbers stay comparable to speed.cloudflare.com. Runs
+   * outside any matter and stores nothing.
    *
    * Nothing begins without a press: a full run transfers a large amount of data, and the caller's
-   * address reaches Cloudflare's measurement endpoints. Both facts are stated before Start.
+   * address reaches Cloudflare's measurement endpoints. Both facts are stated before Start. Run
+   * controls live in the masthead so starting a run never reflows the page body.
    */
   import { onDestroy } from "svelte";
   import Button from "@magna-carta/design-system/button";
   import * as Masthead from "@magna-carta/design-system/masthead";
   import MetricTile from "$lib/tools/speed-test/metric-tile.svelte";
   import QualityScores from "$lib/tools/speed-test/quality-scores.svelte";
+  import ServerPanel from "$lib/tools/speed-test/server-panel.svelte";
   import { createSpeedTestStore } from "$lib/tools/speed-test/speed-test-engine.svelte.ts";
   import {
     formatBandwidth,
@@ -21,7 +24,6 @@
   onDestroy(() => store.dispose());
 
   const results = $derived(store.results);
-  const probe = $derived(store.probe);
 </script>
 
 <svelte:head><title>Network Speed Test · Magna Carta</title></svelte:head>
@@ -29,8 +31,28 @@
 <Masthead.Root class="mb-24">
   <Masthead.Heading>
     <Masthead.Title>Network Speed Test</Masthead.Title>
-    <Masthead.Meta><span>Runs outside any matter</span></Masthead.Meta>
+    <Masthead.Meta>
+      <span>Runs outside any matter</span>
+      {#if store.finishedAt}
+        <Masthead.MetaSeparator />
+        <span>
+          Run at {store.finishedAt.toLocaleTimeString()} on {store.finishedAt.toLocaleDateString()}
+        </span>
+      {/if}
+    </Masthead.Meta>
   </Masthead.Heading>
+  <Masthead.Actions>
+    {#if store.phase === "idle"}
+      <Button variant="primary" onclick={() => store.start()}>Start</Button>
+    {:else if store.phase === "running"}
+      <span class="mr-8 text-sm text-text-muted">Measuring…</span>
+      <Button variant="secondary" onclick={() => store.pause()}>Pause</Button>
+    {:else if store.phase === "paused"}
+      <Button variant="primary" onclick={() => store.resume()}>Resume</Button>
+    {:else}
+      <Button variant="primary" onclick={() => store.restart()}>Retest</Button>
+    {/if}
+  </Masthead.Actions>
 </Masthead.Root>
 
 <section class="mb-24">
@@ -39,27 +61,25 @@
       A full test can transfer around 200 MB of data. Your public address is shared with
       Cloudflare's measurement endpoints to run it. Nothing is saved.
     </p>
-    <Button variant="primary" onclick={() => store.start()}>Start</Button>
-  {:else if store.phase === "running"}
-    <p class="mb-16 text-sm text-text-muted">Measuring…</p>
-    <Button variant="secondary" onclick={() => store.pause()}>Pause</Button>
-  {:else if store.phase === "paused"}
-    <Button variant="primary" onclick={() => store.resume()}>Resume</Button>
-  {:else}
-    <Button variant="primary" onclick={() => store.restart()}>Retest</Button>
   {/if}
 
   {#if store.error}
     <p class="mt-16 text-sm text-status-danger-subtle-foreground">
-      The measurement stopped: {store.error}. If this network filters
-      speed.cloudflare.com, the test cannot run from here.
+      The measurement stopped: {store.error}
     </p>
   {/if}
 </section>
 
-<section class="mb-24 grid grid-cols-1 gap-16 sm:grid-cols-2 lg:grid-cols-3">
-  <MetricTile label="Download" value={formatBandwidth(results?.getDownloadBandwidth())} />
-  <MetricTile label="Upload" value={formatBandwidth(results?.getUploadBandwidth())} />
+<section class="mb-24 grid grid-cols-1 gap-16 sm:grid-cols-2">
+  <MetricTile
+    size="large"
+    label="Download"
+    value={formatBandwidth(results?.getDownloadBandwidth())}
+  />
+  <MetricTile size="large" label="Upload" value={formatBandwidth(results?.getUploadBandwidth())} />
+</section>
+
+<section class="mb-24 grid grid-cols-1 gap-16 sm:grid-cols-3">
   <MetricTile label="Latency" value={formatMilliseconds(results?.getUnloadedLatency())} />
   <MetricTile label="Jitter" value={formatMilliseconds(results?.getUnloadedJitter())} />
   <MetricTile
@@ -86,40 +106,5 @@
   >
     Your connection
   </h2>
-  {#if probe === null}
-    <p class="text-sm text-text-muted">Not measured yet.</p>
-  {:else if probe.status === "unauthenticated"}
-    <p class="text-sm text-text-muted">
-      You are not signed in, so the round trip to Magna Carta was not measured. This says nothing
-      about your connection — the measurements above still describe it.
-    </p>
-  {:else if probe.status === "forbidden"}
-    <p class="text-sm text-text-muted">
-      Your account does not carry permission to run this check, so the round trip to Magna Carta
-      was not measured. Your connection is unaffected.
-    </p>
-  {:else if probe.status === "unreachable"}
-    <p class="text-sm text-text-muted">
-      Magna Carta could not be reached from this network. The measurements above, if present,
-      still describe your internet connection.
-    </p>
-  {:else if probe.facts !== null}
-    <dl class="grid grid-cols-1 gap-16 text-sm sm:grid-cols-2">
-      <div><dt class="text-text-muted">Public address</dt><dd>{probe.facts.ip}</dd></div>
-      <div>
-        <dt class="text-text-muted">Network</dt>
-        <dd>{probe.facts.asOrganization} (AS{probe.facts.asn})</dd>
-      </div>
-      <div><dt class="text-text-muted">Served from</dt><dd>{probe.facts.colo}</dd></div>
-      <div>
-        <dt class="text-text-muted">Round trip to Magna Carta</dt>
-        <dd>{formatMilliseconds(probe.medianRoundTripMs ?? undefined)}</dd>
-      </div>
-    </dl>
-    <p class="mt-16 text-xs text-text-muted">
-      Measured as a real authenticated request, median of {probe.successfulSamples} samples. A
-      healthy round trip here alongside poor bandwidth above means the connection, not the
-      platform, is the constraint.
-    </p>
-  {/if}
+  <ServerPanel meta={store.meta} probe={store.probe} />
 </section>

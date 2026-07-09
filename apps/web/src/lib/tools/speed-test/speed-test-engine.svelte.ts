@@ -3,10 +3,12 @@
  * the first run: it is browser-only (it reads PerformanceResourceTiming) and there is no reason to
  * ship it to anyone who never presses Start.
  *
- * Cloudflare's default measurement ladder is used unmodified — that is what makes these numbers
- * comparable to speed.cloudflare.com. It transfers a lot of data, which is why nothing starts
- * without an explicit press, and why dispose() pauses the engine when the page goes away: a
- * backgrounded tab must never keep spending the firm's bandwidth.
+ * The engine runs Cloudflare's own measurement ladder minus its `packetLoss` step (see
+ * measurement-ladder.ts) — that step needs a WebRTC TURN server we do not run, and its failure
+ * used to abort the whole test. Every remaining phase is Cloudflare's, unchanged, which is what
+ * keeps these numbers comparable to speed.cloudflare.com. A run transfers a lot of data, which is
+ * why nothing starts without an explicit press, and why dispose() pauses the engine when the page
+ * goes away: a backgrounded tab must never keep spending the firm's bandwidth.
  *
  * Packet loss is deliberately not measured. It requires a WebRTC TURN server, and the public one
  * Cloudflare offered is deprecated; the page states that rather than showing a fabricated zero.
@@ -18,6 +20,8 @@ import {
   type FetchResult,
   type ProbeOutcome,
 } from "./connection-probe.ts";
+import { MEASUREMENT_LADDER } from "./measurement-ladder.ts";
+import { fetchMeasurementServer, type MeasurementServer } from "./speed-test-meta.ts";
 
 export type SpeedTestPhase = "idle" | "running" | "paused" | "finished" | "failed";
 
@@ -78,11 +82,22 @@ async function fetchConnectionFacts(url: string): Promise<FetchResult> {
   }
 }
 
+// fetchMeasurementServer treats a thrown error as "nothing to say", so a non-OK response is
+// thrown here rather than swallowed silently.
+async function fetchMeta(url: string): Promise<unknown> {
+  const response = await fetch(url, { headers: { accept: "application/json" } });
+  if (!response.ok) throw new Error(`meta responded ${response.status}`);
+  return response.json();
+}
+
 export function createSpeedTestStore() {
   let phase = $state<SpeedTestPhase>("idle");
   let results = $state<SpeedTestResults | null>(null);
   let error = $state<string | null>(null);
   let probe = $state<ProbeOutcome | null>(null);
+  let meta = $state<MeasurementServer | null>(null);
+  // Cleared at the top of every run: this is the run in front of you, never a history.
+  let finishedAt = $state<Date | null>(null);
 
   // The engine instance, once the module has been fetched. Not reactive: nothing renders it
   // directly — only its published (snapshotted) results and phase matter to the template. The
@@ -104,17 +119,26 @@ export function createSpeedTestStore() {
     );
   }
 
+  // Loaded once, at store creation — not on Start. Cloudflare's own page names the measurement
+  // server before a run begins, and the meta endpoint needs no session to answer.
+  void fetchMeasurementServer(fetchMeta).then((server) => {
+    meta = server;
+  });
+
   async function ensureEngine(): Promise<void> {
     if (engine !== null) return;
     const { default: SpeedTest } = await import("@cloudflare/speedtest");
     // autoStart is false: a run spends the firm's bandwidth and only a press may begin it.
-    const instance = new SpeedTest({ autoStart: false });
+    // measurements: the ladder minus packetLoss (measurement-ladder.ts) — the TURN-dependent
+    // step that used to abort the entire run on a credential failure.
+    const instance = new SpeedTest({ autoStart: false, measurements: MEASUREMENT_LADDER });
     instance.onResultsChange = () => {
       results = snapshotResults(instance.results);
     };
     instance.onFinish = (finished) => {
       results = snapshotResults(finished);
       phase = "finished";
+      finishedAt = new Date();
     };
     instance.onError = (message) => {
       error = message;
@@ -125,6 +149,7 @@ export function createSpeedTestStore() {
 
   async function start(): Promise<void> {
     error = null;
+    finishedAt = null;
     phase = "running";
     runProbe();
     try {
@@ -150,6 +175,7 @@ export function createSpeedTestStore() {
     results = null;
     error = null;
     probe = null;
+    finishedAt = null;
     engine?.restart();
     phase = "running";
     runProbe();
@@ -173,6 +199,12 @@ export function createSpeedTestStore() {
     },
     get probe() {
       return probe;
+    },
+    get meta() {
+      return meta;
+    },
+    get finishedAt() {
+      return finishedAt;
     },
     start,
     pause,
