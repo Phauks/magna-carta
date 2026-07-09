@@ -4,6 +4,10 @@
    * and no legend appears; the axis is recessive and the value labels wear text tokens, never the
    * mark's color. A table view accompanies the chart so the values are never conveyed by mark
    * geometry alone.
+   *
+   * The frame — the `<svg>` and the `<details>` — renders in every state, at its final height, so
+   * the page never jumps when a run starts or finishes. Only the marks and the table body are
+   * conditional on there being points to show.
    */
   import { niceMax, scaleLinear } from "./chart-scale.ts";
   import { formatBandwidth } from "./speed-test-format.ts";
@@ -16,11 +20,14 @@
   const HEIGHT = 96;
   const BAR = 16;
   const GAP = 8;
+  // Before there are points to space out, the frame still needs a plausible width to center the
+  // placeholder text in — this has no bearing on the fixed pixel HEIGHT that keeps the page still.
+  const EMPTY_WIDTH = 240;
 
   const megabits = $derived(points.map((point) => point.bps / 1e6));
   const ceiling = $derived(niceMax(megabits));
   const scale = $derived(scaleLinear(ceiling, HEIGHT));
-  const width = $derived(Math.max(points.length * (BAR + GAP), BAR));
+  const width = $derived(points.length > 0 ? points.length * (BAR + GAP) : EMPTY_WIDTH);
   const peakBps = $derived(
     points.length > 0 ? Math.max(...points.map((point) => point.bps)) : undefined,
   );
@@ -34,16 +41,16 @@
     {title}
   </figcaption>
 
-  {#if points.length === 0}
-    <p class="text-sm text-text-muted">Not measured yet.</p>
-  {:else}
-    <svg
-      viewBox={`0 0 ${width} ${HEIGHT}`}
-      width="100%"
-      height={HEIGHT}
-      role="img"
-      aria-label={`${title}: ${points.length} measurements, peak ${formatBandwidth(peakBps)}`}
-    >
+  <svg
+    viewBox={`0 0 ${width} ${HEIGHT}`}
+    width="100%"
+    height={HEIGHT}
+    role="img"
+    aria-label={points.length > 0
+      ? `${title}: ${points.length} measurements, peak ${formatBandwidth(peakBps)}`
+      : `${title}: not measured yet`}
+  >
+    {#if points.length > 0}
       {#each points as point, index (index)}
         {@const barHeight = scale(point.bps / 1e6)}
         <rect
@@ -57,10 +64,23 @@
           <title>{formatBandwidth(point.bps)}</title>
         </rect>
       {/each}
-    </svg>
+    {:else}
+      <text
+        x="50%"
+        y="50%"
+        text-anchor="middle"
+        dominant-baseline="middle"
+        fill="var(--mc-text-muted)"
+        style="font-size: 12px"
+      >
+        Not measured yet.
+      </text>
+    {/if}
+  </svg>
 
-    <details class="mt-8">
-      <summary class="cursor-pointer text-xs text-text-muted">Table view</summary>
+  <details class="mt-8">
+    <summary class="cursor-pointer text-xs text-text-muted">Table view</summary>
+    {#if points.length > 0}
       <table class="mt-8 w-full text-left text-sm">
         <thead>
           <tr>
@@ -77,6 +97,8 @@
           {/each}
         </tbody>
       </table>
-    </details>
-  {/if}
+    {:else}
+      <p class="mt-8 text-sm text-text-muted">Nothing measured yet.</p>
+    {/if}
+  </details>
 </figure>

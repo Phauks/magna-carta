@@ -42,8 +42,17 @@
     store.stepIndex === null ? 0 : ((store.stepIndex + 1) / store.stepCount) * 100,
   );
 
+  // Always returns four rows — with em dashes before a run has data — so the tile occupies its
+  // final height from the moment the page loads rather than growing when a run finishes.
   function statRows(stats: ReturnType<typeof bandwidthStats>) {
-    if (stats === null) return undefined;
+    if (stats === null) {
+      return [
+        { label: "Median", value: "—" },
+        { label: "95th", value: "—" },
+        { label: "Peak", value: "—" },
+        { label: "Samples", value: "—" },
+      ];
+    }
     return [
       { label: "Median", value: formatBandwidth(stats.median) },
       { label: "95th", value: formatBandwidth(stats.p95) },
@@ -98,12 +107,10 @@
 </Masthead.Root>
 
 <section class="mb-24">
-  {#if store.phase === "idle"}
-    <p class="mb-16 text-sm text-text-muted">
-      A full test can transfer around 200 MB of data. Your public address is shared with
-      Cloudflare's measurement endpoints to run it. Nothing is saved.
-    </p>
-  {/if}
+  <p class="mb-16 text-sm text-text-muted">
+    A full test can transfer around 200 MB of data. Your public address is shared with
+    Cloudflare's measurement endpoints to run it. Nothing is saved.
+  </p>
 
   {#if store.error}
     <p class="mt-16 text-sm text-status-danger-subtle-foreground">
@@ -157,7 +164,11 @@
   </MetricTile>
   <MetricTile label="Jitter" value={formatMilliseconds(results?.getUnloadedJitter())} />
   {#if store.turn?.available}
-    <MetricTile label="Packet loss" value={formatRatio(results?.getPacketLoss())} />
+    <MetricTile
+      label="Packet loss"
+      value={formatRatio(results?.getPacketLoss())}
+      note="Measured through a TURN relay."
+    />
   {:else if store.turn}
     <MetricTile label="Packet loss" value="Unavailable" note={turnUnavailableNote(store.turn.reason)} />
   {:else}
