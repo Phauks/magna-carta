@@ -26,15 +26,17 @@
 
 ### Task 1: `hasSurface` in the maturity module (the launchable-rule fix)
 
-The Tools listing gates launchability on `stage === "ready"`. That is wrong: the maturity model measures how *finished* a surface is, not whether it *exists* — `destinations.ts` ships `Settings` as `shipped: true, stage: "alpha"` and it is a live link wearing an "Alpha" badge. Under the current rule a working `alpha`/`beta` tool renders inert and unreachable. The rule belongs in `maturity.ts`, which declares itself the one home for the stage model.
+The Tools listing gates launchability on `stage === "ready"`. That is wrong: the maturity model measures how _finished_ a surface is, not whether it _exists_ — `destinations.ts` ships `Settings` as `shipped: true, stage: "alpha"` and it is a live link wearing an "Alpha" badge. Under the current rule a working `alpha`/`beta` tool renders inert and unreachable. The rule belongs in `maturity.ts`, which declares itself the one home for the stage model.
 
 **Files:**
+
 - Modify: `apps/web/src/lib/maturity/maturity.ts`
 - Modify: `apps/web/src/lib/tools/tool-tile.svelte:19`
 - Modify: `apps/web/src/lib/tools/tool-row.svelte:17`
 - Test: `apps/web/test/maturity-has-surface.test.ts`
 
 **Interfaces:**
+
 - Consumes: `MaturityStage` (`maturity.ts`).
 - Produces: `hasSurface(stage: MaturityStage): boolean`.
 
@@ -49,7 +51,11 @@ Create `apps/web/test/maturity-has-surface.test.ts`:
  * be silently unclassified — the guard that keeps a working alpha tool from rendering inert.
  */
 import { describe, expect, it } from "vitest";
-import { MATURITY_PRESENTATION, hasSurface, type MaturityStage } from "../src/lib/maturity/maturity.ts";
+import {
+  MATURITY_PRESENTATION,
+  hasSurface,
+  type MaturityStage,
+} from "../src/lib/maturity/maturity.ts";
 
 const ALL_STAGES = Object.keys(MATURITY_PRESENTATION) as MaturityStage[];
 
@@ -133,6 +139,7 @@ git commit -m "fix(tools): a built tool is launchable at any stage above soon"
 ### Task 2: The `connection` Worker route
 
 **Files:**
+
 - Create: `apps/worker/src/routes/tools-connection.ts`
 - Modify: `apps/worker/src/app.ts` (one import, one registration call)
 - Modify: `apps/worker/openapi/openapi.json` (regenerated, not hand-edited)
@@ -140,6 +147,7 @@ git commit -m "fix(tools): a built tool is launchable at any stage above soon"
 - Test: `apps/worker/test/tools-connection.test.ts`
 
 **Interfaces:**
+
 - Consumes: `defineOpenAPIRoute`, `RouteMeta` (`../contracts/route-meta.ts`), `chokepointMiddleware` (`../chokepoint/register.ts`), `Problem` (`../contracts/problem.ts`).
 - Produces: `GET /api/v1/tools/connection` → `{ ip: string; asn: number; asOrganization: string; colo: string; country: string }`; exports `toolsConnectionMeta`, `toolsConnectionRoute`, `registerToolsConnectionRoute`.
 
@@ -275,7 +283,7 @@ import { registerToolsConnectionRoute } from "./routes/tools-connection.ts";
 and the registration beside `registerFirmUsageRoute(app, chokepoint);`:
 
 ```ts
-  registerToolsConnectionRoute(app, chokepoint);
+registerToolsConnectionRoute(app, chokepoint);
 ```
 
 - [ ] **Step 5: Re-emit the contract and regenerate the client**
@@ -303,12 +311,14 @@ git commit -m "feat(tools): connection route reporting the edge's view of the ca
 ### Task 3: Pure frontend logic — formatting and probe math
 
 **Files:**
+
 - Create: `apps/web/src/lib/tools/speed-test/speed-test-format.ts`
 - Create: `apps/web/src/lib/tools/speed-test/connection-probe.ts`
 - Test: `apps/web/test/speed-test-format.test.ts`
 - Test: `apps/web/test/connection-probe.test.ts`
 
 **Interfaces:**
+
 - Produces:
   - `formatBandwidth(bps: number | undefined): string` — e.g. `"94.5 Mbps"`, `"1.24 Gbps"`, `"—"`.
   - `formatMilliseconds(ms: number | undefined): string` — e.g. `"12.4 ms"`, `"—"`.
@@ -320,7 +330,7 @@ git commit -m "feat(tools): connection route reporting the edge's view of the ca
   - `PROBE_SAMPLES: number` (= 5).
   - `probeConnection(deps: ProbeDeps): Promise<ProbeOutcome>` where `ProbeDeps = { fetchJson: (url: string) => Promise<FetchResult>; now: () => number }`.
 
-> **Amended after Task 3 landed.** The first draft collapsed every failure into "unreachable". That is a lie a diagnostic tool must never tell: the app has no authenticated session yet, so the route answers `401`, and the panel would have blamed the firm's network for our own missing sign-in. The outcome now distinguishes *not signed in* and *not permitted* from *genuinely unreachable*, and an auth refusal stops the sampling loop immediately rather than retrying four more times.
+> **Amended after Task 3 landed.** The first draft collapsed every failure into "unreachable". That is a lie a diagnostic tool must never tell: the app has no authenticated session yet, so the route answers `401`, and the panel would have blamed the firm's network for our own missing sign-in. The outcome now distinguishes _not signed in_ and _not permitted_ from _genuinely unreachable_, and an auth refusal stops the sampling loop immediately rather than retrying four more times.
 
 - [ ] **Step 1: Write the failing formatting test**
 
@@ -583,6 +593,7 @@ git commit -m "feat(tools): speed-test formatting and connection-probe math"
 Task 3 shipped a probe that maps every failure to "unreachable". The application has no authenticated session yet, so the connection route answers `401` — and the panel would have told a lawyer their network was blocking Magna Carta when in fact they simply were not signed in. Separately, `tools:speedTest` is currently granted to **no seeded role**, so once auth lands the honest answer for most members is `403`. Neither is a network fault, and neither may be reported as one.
 
 **Files:**
+
 - Modify: `apps/web/src/lib/tools/speed-test/connection-probe.ts`
 - Modify: `apps/web/test/connection-probe.test.ts`
 
@@ -772,6 +783,7 @@ git commit -m "fix(tools): the probe distinguishes a refusal from an unreachable
 Delivers a working, runnable tool page: masthead, disclosures, Start/Pause/Retest, headline metrics, the Packet Loss statement, the connection panel, and the AIM scores. Charts arrive in Task 5.
 
 **Files:**
+
 - Modify: `pnpm-workspace.yaml` (catalog pin)
 - Modify: `apps/web/package.json` (dependency)
 - Create: `apps/web/src/lib/tools/speed-test/speed-test-engine.svelte.ts`
@@ -780,6 +792,7 @@ Delivers a working, runnable tool page: masthead, disclosures, Start/Pause/Retes
 - Modify: `apps/web/src/lib/tools/tool-presentation.ts` (the `network-speed-test` entry)
 
 **Interfaces:**
+
 - Consumes: `formatBandwidth`, `formatMilliseconds`, `formatRatio` (Task 3); `probeConnection`, `CONNECTION_URL`, `type ProbeOutcome` (Task 3); `hasSurface` (Task 1, already wired).
 - Produces: `createSpeedTestStore()` returning `{ phase, results, error, probe, start(), pause(), resume(), restart(), dispose() }`.
 
@@ -788,7 +801,7 @@ Delivers a working, runnable tool page: masthead, disclosures, Start/Pause/Retes
 In `pnpm-workspace.yaml`, add an exact pin under `catalog:` (match the quoting of the neighbouring scoped entries):
 
 ```yaml
-  "@cloudflare/speedtest": 1.11.0
+"@cloudflare/speedtest": 1.11.0
 ```
 
 In `apps/web/package.json` `dependencies`, add:
@@ -1151,19 +1164,25 @@ From `apps/web/node_modules/@cloudflare/speedtest/dist/speedtest.d.ts`:
 
 ```ts
 type ClassificationName = "bad" | "poor" | "average" | "good" | "great";
-interface ExperienceScore { points: number; classificationIdx: number; classificationName: ClassificationName }
+interface ExperienceScore {
+  points: number;
+  classificationIdx: number;
+  classificationName: ClassificationName;
+}
 type Scores = Record<string, ExperienceScore>;
 ```
 
 The keys are use-case names the library chooses (`streaming`, `gaming`, `rtc` today). Because the type is `Record<string, …>`, the panel must **label the keys it knows and fall back to the raw key** — never assume a fixed set, and never drop a use-case the library adds.
 
 **Files:**
+
 - Create: `apps/web/src/lib/tools/speed-test/quality-scores.svelte`
 - Create: `apps/web/src/lib/tools/speed-test/quality-labels.ts`
 - Modify: `apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte`
 - Test: `apps/web/test/quality-labels.test.ts`
 
 **Interfaces:**
+
 - Produces: `useCaseLabel(key: string): string`.
 
 - [ ] **Step 1: Write the failing test**
@@ -1264,7 +1283,7 @@ Confirm `Scores` is importable from `@cloudflare/speedtest` (the `.d.ts` exports
 In `apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte`, import it:
 
 ```ts
-  import QualityScores from "$lib/tools/speed-test/quality-scores.svelte";
+import QualityScores from "$lib/tools/speed-test/quality-scores.svelte";
 ```
 
 and add this section immediately after the headline-metrics grid and before the "Your connection" section (reuse the exact `<h2>` classes the sibling sections on this page already use — do not invent new ones):
@@ -1306,12 +1325,14 @@ Owner ran the page and hit a fatal error:
 **Root cause.** The engine's built-in measurement ladder contains a `packetLoss` step. Nothing disabled it, so the engine attempted it, failed to obtain TURN credentials, and fired `onError` — which the store treats as fatal, ending the whole run. The error copy then blamed the firm's network for filtering `speed.cloudflare.com`, which was never true. **The fix is to stop asking the engine to measure packet loss at all**, not to soften the message. The Packet Loss tile keeps stating that the measurement is unavailable.
 
 **Verified facts (from the shipped `.d.ts` and a live browser check — do not re-derive):**
+
 - `ConfigOptions.measurements: MeasurementConfig[]`, and **no default ladder is exported**, so it must be written out explicitly, minus the `packetLoss` step.
 - `BandwidthMeasurementConfig = { type: "download" | "upload"; bytes: number; count: number; bypassMinDuration?: boolean }`.
 - `LatencyMeasurementConfig = { type: "latency"; numPackets: number }`.
 - `https://speed.cloudflare.com/meta` is **CORS-open** and returns `{ clientIp, asn, asOrganization, country, city, region, httpProtocol, colo: { iata, city } }`. This is the source for the server panel; it needs no session, so it works even though our own connection route currently answers `401`.
 
 **Files:**
+
 - Modify: `apps/web/src/lib/tools/speed-test/speed-test-engine.svelte.ts`
 - Modify: `apps/web/src/lib/tools/speed-test/metric-tile.svelte`
 - Modify: `apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte`
@@ -1322,6 +1343,7 @@ Owner ran the page and hit a fatal error:
 - Test: `apps/web/test/speed-test-meta.test.ts`
 
 **Interfaces:**
+
 - Produces: `MEASUREMENT_LADDER: MeasurementConfig[]`; `MeasurementServer`, `META_URL`, `parseMeasurementServer(raw: unknown): MeasurementServer | null`, `ipVersion(clientIp: string): "IPv4" | "IPv6"`, `fetchMeasurementServer(fetchJson): Promise<MeasurementServer | null>`.
 - The store gains `meta: MeasurementServer | null` and loads it on creation (before any run), as `speed.cloudflare.com` does.
 
@@ -1756,6 +1778,7 @@ Owner asked for packet loss. It is buildable: Cloudflare Realtime mints short-li
 So the engine is told to measure packet loss **only when credentials are actually obtainable**. Ask first; choose the ladder from the answer. This works today (no session → no credentials → the ladder without packet loss, and the tile says why), and it begins measuring on its own the moment the secrets exist and a session is present. Nothing has to be remembered and switched on.
 
 **Verified facts (from the shipped `.d.ts` and Cloudflare's docs — do not re-derive):**
+
 - `ConfigOptions.turnServerUri` defaults to `turn.speed.cloudflare.com:50000`, the **deprecated public server**. With our own key it MUST be overridden to `turn.cloudflare.com:3478`.
 - `ConfigOptions.turnServerCredsApiUrl` is a URL the engine fetches; it must answer `{ username, credential }`. `turnServerUser` / `turnServerPass` stay `null` so credentials are fetched dynamically.
 - `PacketLossMeasurementConfig` requires `type`, `numPackets`, `batchSize`, `batchWaitTime`, `responsesWaitTime` (`connectionTimeout` optional).
@@ -1765,6 +1788,7 @@ So the engine is told to measure packet loss **only when credentials are actuall
 **Owner action required (I cannot do this):** create a Realtime TURN key in the Cloudflare dashboard and set two Worker secrets, `REALTIME_TURN_TOKEN_ID` and `REALTIME_TURN_TOKEN_SECRET`. Until then the route answers `503` and the tile states that packet loss is not configured.
 
 **Files:**
+
 - Create: `apps/worker/src/routes/tools-turn-credentials.ts`
 - Modify: `apps/worker/src/app.ts` (one import, one registration)
 - Modify: `apps/worker/openapi/openapi.json`, `packages/api-client/**` (regenerated, never hand-edited)
@@ -1777,6 +1801,7 @@ So the engine is told to measure packet loss **only when credentials are actuall
 - Test: `apps/web/test/turn-capability.test.ts`, `apps/web/test/measurement-ladder.test.ts` (extend), `apps/web/test/speed-test-format.test.ts` (extend)
 
 **Interfaces:**
+
 - Worker produces: `GET /api/v1/tools/turn-credentials` → `200 { username, credential }` · `401` · `403` · `503` (TURN key not configured) · `502` (upstream refused).
 - Frontend produces: `TurnCapability`, `probeTurnCapability(fetchStatus)`, `LADDER_WITH_PACKET_LOSS`, `formatRatio`.
 
@@ -1838,12 +1863,18 @@ export const toolsTurnCredentialsRoute = defineOpenAPIRoute(toolsTurnCredentials
       description: "Short-lived relay credentials",
       content: { "application/json": { schema: TurnCredentials } },
     },
-    401: { description: "No valid session", content: { "application/problem+json": { schema: Problem } } },
+    401: {
+      description: "No valid session",
+      content: { "application/problem+json": { schema: Problem } },
+    },
     403: {
       description: "Authenticated, but the member lacks tools:speedTest",
       content: { "application/problem+json": { schema: Problem } },
     },
-    429: { description: "Rate limit exceeded", content: { "application/problem+json": { schema: Problem } } },
+    429: {
+      description: "Rate limit exceeded",
+      content: { "application/problem+json": { schema: Problem } },
+    },
     502: {
       description: "The relay credential service refused",
       content: { "application/problem+json": { schema: Problem } },
@@ -2101,7 +2132,13 @@ export const LADDER_WITH_PACKET_LOSS: MeasurementConfig[] = [
   { type: "download", bytes: 1e5, count: 9 },
   { type: "download", bytes: 1e6, count: 8 },
   { type: "upload", bytes: 1e5, count: 8 },
-  { type: "packetLoss", numPackets: 1e3, batchSize: 10, batchWaitTime: 10, responsesWaitTime: 3000 },
+  {
+    type: "packetLoss",
+    numPackets: 1e3,
+    batchSize: 10,
+    batchWaitTime: 10,
+    responsesWaitTime: 3000,
+  },
   { type: "upload", bytes: 1e6, count: 6 },
   { type: "download", bytes: 1e7, count: 6 },
   { type: "upload", bytes: 1e7, count: 4 },
@@ -2220,6 +2257,7 @@ git commit -m "feat(tools): measure packet loss when the relay credentials can b
 ### Task 5: Measurement charts
 
 **Files:**
+
 - Create: `apps/web/src/lib/tools/speed-test/bandwidth-chart.svelte`
 - Create: `apps/web/src/lib/tools/speed-test/latency-chart.svelte`
 - Create: `apps/web/src/lib/tools/speed-test/chart-scale.ts`
@@ -2227,6 +2265,7 @@ git commit -m "feat(tools): measure packet loss when the relay credentials can b
 - Test: `apps/web/test/chart-scale.test.ts`
 
 **Interfaces:**
+
 - Produces: `scaleLinear(domainMax: number, rangeMax: number): (value: number) => number`; `niceMax(values: readonly number[]): number`.
 
 Every series here is single-series, so: no legend, no categorical palette, no cycled hues. The three latency phases render as three small multiples, exactly as Cloudflare renders them, which avoids overlaying series on one axis.
@@ -2464,8 +2503,8 @@ Create `apps/web/src/lib/tools/speed-test/latency-chart.svelte`:
 In `apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte`, add the imports:
 
 ```ts
-  import BandwidthChart from "$lib/tools/speed-test/bandwidth-chart.svelte";
-  import LatencyChart from "$lib/tools/speed-test/latency-chart.svelte";
+import BandwidthChart from "$lib/tools/speed-test/bandwidth-chart.svelte";
+import LatencyChart from "$lib/tools/speed-test/latency-chart.svelte";
 ```
 
 and append two sections after the "Your connection" section:
@@ -2515,14 +2554,20 @@ git commit -m "feat(tools): single-series bandwidth and latency charts"
 Owner asked for two things: an affordance explaining what Cloudflare's scores mean and how they are derived, and richer statistics beside Download and Upload.
 
 **Verified facts — do not re-derive:**
+
 - The headline Download and Upload figures are the **90th percentile** of the sample set (`bandwidthPercentile` defaults to `0.9`). The headline Latency is the **median** (`latencyPercentile: 0.5`). Most readers assume a mean; say otherwise.
 - One run produces **33 download samples and 25 upload samples** (sum the `count` fields of `MEASUREMENT_LADDER`). At n=33 a 99th percentile is the maximum wearing decimals — do **not** render a p99. Median, 95th percentile, peak, and the sample count are honest at this size.
 - `getDownloadBandwidthPoints()` / `getUploadBandwidthPoints()` return `BandwidthPoint[]` with a `bps` field.
-- **AIM** is Cloudflare's *Aggregated Internet Measurement*. Three categories (streaming, gaming, webchat/RTC), five classifications (bad, poor, average, good, great), six inputs: latency, packet loss, download speed, upload speed, loaded latency, jitter. **Cloudflare does not publish the weighting.** Documentation: `https://developers.cloudflare.com/fundamentals/speed/aim/`
-- **Packet loss is one of those six inputs and we currently cannot measure it**, so the scores are computed without it. The popover must say so — an unqualified verdict would claim more authority than the measurement has.
+- **AIM** is Cloudflare's _Aggregated Internet Measurement_. Three categories (streaming, gaming, webchat/RTC), five classifications (bad, poor, average, good, great).
+- **The rubric IS published** — in the blog post, not the fundamentals page. Link to `https://blog.cloudflare.com/aim-database-for-internet-quality/`.
+  - Points by threshold: packet loss `>5%`→0, `<5%`→5, `<1%`→10 · jitter `>20ms`→0, `<20ms`→5, `<10ms`→10 · unloaded latency `>100ms`→0, `<50ms`→5, `<20ms`→10, `<10ms`→20 · loaded-minus-unloaded latency difference `>50ms`→0, `<50ms`→5, `<20ms`→10, `<10ms`→20 · download and upload throughput `<1Mbps`→0, `<10`→5, `<50`→10, `<100`→20, `<1000`→30.
+  - Which metrics feed which category: **streaming** = download + unloaded latency + packet loss + loaded-latency difference; **gaming** = packet loss + unloaded latency + loaded-latency difference; **video calls (RTC)** = packet loss + jitter + unloaded latency + loaded-latency difference.
+  - The point ranges that map onto the five classifications are **not** published. That, and only that, may be called undisclosed.
+- **Packet loss feeds all three categories, and we do not measure it.** Online gaming draws on only three metrics in total, one of them packet loss. Every score is therefore computed with an input missing, and gaming with a third of its inputs missing. The popover must say this plainly — an unqualified verdict would claim more authority than the measurement has.
 - The design system exports `popover` (`Popover.Root/Trigger/Content/Close`). A tooltip is the wrong vessel: this content contains a link and must be keyboard-reachable.
 
 **Files:**
+
 - Create: `apps/web/src/lib/tools/speed-test/bandwidth-stats.ts`
 - Create: `apps/web/src/lib/tools/speed-test/info-popover.svelte`
 - Modify: `apps/web/src/lib/tools/speed-test/metric-tile.svelte` (optional `stats` + `info` snippet)
@@ -2530,6 +2575,7 @@ Owner asked for two things: an affordance explaining what Cloudflare's scores me
 - Test: `apps/web/test/bandwidth-stats.test.ts`
 
 **Interfaces:**
+
 - Produces: `percentile(values: readonly number[], fraction: number): number | null`; `BandwidthStats { median: number; p95: number; peak: number; samples: number }`; `bandwidthStats(points: ReadonlyArray<{ bps: number }>): BandwidthStats | null`.
 
 - [ ] **Step 1: Write the failing test**
@@ -2618,9 +2664,7 @@ export function percentile(values: readonly number[], fraction: number): number 
   return sorted[index] ?? null;
 }
 
-export function bandwidthStats(
-  points: ReadonlyArray<{ bps: number }>,
-): BandwidthStats | null {
+export function bandwidthStats(points: ReadonlyArray<{ bps: number }>): BandwidthStats | null {
   if (points.length === 0) return null;
   const values = points.map((point) => point.bps);
   const median = percentile(values, 0.5);
@@ -2680,18 +2724,18 @@ In `apps/web/src/lib/tools/speed-test/metric-tile.svelte`, add two optional prop
 Import `bandwidthStats`, `formatBandwidth`, and `InfoPopover`. Derive:
 
 ```ts
-  const downloadStats = $derived(bandwidthStats(results?.getDownloadBandwidthPoints() ?? []));
-  const uploadStats = $derived(bandwidthStats(results?.getUploadBandwidthPoints() ?? []));
+const downloadStats = $derived(bandwidthStats(results?.getDownloadBandwidthPoints() ?? []));
+const uploadStats = $derived(bandwidthStats(results?.getUploadBandwidthPoints() ?? []));
 
-  function statRows(stats: ReturnType<typeof bandwidthStats>) {
-    if (stats === null) return undefined;
-    return [
-      { label: "Median", value: formatBandwidth(stats.median) },
-      { label: "95th", value: formatBandwidth(stats.p95) },
-      { label: "Peak", value: formatBandwidth(stats.peak) },
-      { label: "Samples", value: String(stats.samples) },
-    ];
-  }
+function statRows(stats: ReturnType<typeof bandwidthStats>) {
+  if (stats === null) return undefined;
+  return [
+    { label: "Median", value: formatBandwidth(stats.median) },
+    { label: "95th", value: formatBandwidth(stats.p95) },
+    { label: "Peak", value: formatBandwidth(stats.peak) },
+    { label: "Samples", value: String(stats.samples) },
+  ];
+}
 ```
 
 Pass `stats={statRows(downloadStats)}` and `stats={statRows(uploadStats)}` to the two large tiles, and give each an `info` snippet:
@@ -2704,15 +2748,17 @@ Give the **Latency** tile an info snippet too:
 
 And put an `InfoPopover` beside the **Network quality score** heading:
 
-> Cloudflare's Aggregated Internet Measurement scores this connection for video streaming, online gaming, and video calls, rating each bad, poor, average, good, or great. It weighs six things: latency, jitter, loaded latency, download speed, upload speed, and packet loss. Cloudflare does not publish the exact weighting.
+> Cloudflare's Aggregated Internet Measurement scores this connection for video streaming, online gaming, and video calls, rating each bad, poor, average, good, or great.
 >
-> Packet loss is one of those six, and it is not measured here, so these scores are calculated without it.
+> Each measurement earns points against published thresholds — unloaded latency, for instance, scores 20 points under 10ms and nothing over 100ms. Streaming weighs download speed, latency, packet loss, and how far latency rises under load; gaming weighs packet loss, latency, and that same rise; video calls add jitter. The points are published; the exact cutoffs between the five ratings are not.
+>
+> Packet loss is not measured here, and it feeds all three ratings — online gaming draws on only three measurements, one of them packet loss. Read these ratings as incomplete.
 
 with a link, opening in a new tab and carrying `rel="noreferrer noopener"`:
 
 ```svelte
-<a href="https://developers.cloudflare.com/fundamentals/speed/aim/" target="_blank" rel="noreferrer noopener" class="underline">
-  How Cloudflare calculates these scores
+<a href="https://blog.cloudflare.com/aim-database-for-internet-quality/" target="_blank" rel="noreferrer noopener" class="underline">
+  How Cloudflare scores a connection
 </a>
 ```
 
@@ -2733,11 +2779,208 @@ git commit -m "feat(tools): explain the scores, and show the distribution behind
 
 ---
 
+### Task 8: Say what the run is doing, not just that it is running
+
+"Measuring…" tells the reader nothing. Replace it with the phase, the step, and the data actually used.
+
+**Verified facts — do not re-derive, and do not exceed them:**
+- The engine exposes `onPhaseChange(payload: PhaseChangePayload)` where `PhaseChangePayload = { measurementId: number; measurement: MeasurementConfig }`. `measurementId` is the index of the current step within the configured `measurements` array. It is monotonic, so `measurementId + 1` of `ladder.length` is a truthful progress fraction.
+- **A remaining-bytes or remaining-time countdown is not knowable and must not be invented.** The ladder's worst case is **1,266 MB**, yet a run typically transfers far less: the engine stops climbing a bandwidth type once one request takes `bandwidthFinishRequestDuration` (1000 ms). How much data a run sends depends on the connection's speed. Report data **already used**, never data remaining.
+- Bytes actually transferred are recoverable: sum `bytes` across `getDownloadBandwidthPoints()` and `getUploadBandwidthPoints()`.
+- The design system exports `progress`.
+
+**Files:**
+- Create: `apps/web/src/lib/tools/speed-test/run-progress.ts`
+- Modify: `apps/web/src/lib/tools/speed-test/speed-test-engine.svelte.ts`
+- Modify: `apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte`
+- Test: `apps/web/test/run-progress.test.ts`
+
+**Interfaces:**
+- Produces: `phaseLabel(measurement: MeasurementConfig): string`; `formatBytes(bytes: number): string`; `bytesTransferred(download: ReadonlyArray<{ bytes: number }>, upload: ReadonlyArray<{ bytes: number }>): number`.
+- The store gains `stepIndex: number | null`, `stepCount: number`, `currentPhase: string | null`, `bytesUsed: number`.
+
+- [ ] **Step 1: Write the failing test**
+
+Create `apps/web/test/run-progress.test.ts`:
+
+```ts
+/*
+ * What the run is doing, said honestly. There is deliberately no "time remaining" and no
+ * "data remaining": the engine stops climbing a bandwidth type once a single request grows slow,
+ * so how much a run will transfer depends on the connection. Only data ALREADY used is knowable.
+ */
+import { describe, expect, it } from "vitest";
+import { bytesTransferred, formatBytes, phaseLabel } from "../src/lib/tools/speed-test/run-progress.ts";
+
+describe("phaseLabel", () => {
+  it("names each phase in plain language", () => {
+    expect(phaseLabel({ type: "latency", numPackets: 20 })).toBe("Measuring latency");
+    expect(phaseLabel({ type: "download", bytes: 1e6, count: 8 })).toBe("Measuring download speed");
+    expect(phaseLabel({ type: "upload", bytes: 1e6, count: 6 })).toBe("Measuring upload speed");
+    expect(
+      phaseLabel({ type: "packetLoss", numPackets: 1e3, batchSize: 10, batchWaitTime: 10, responsesWaitTime: 3000 }),
+    ).toBe("Measuring packet loss");
+  });
+});
+
+describe("formatBytes", () => {
+  it("renders megabytes without false precision", () => {
+    expect(formatBytes(84_000_000)).toBe("84 MB");
+  });
+
+  it("renders under a megabyte in kilobytes", () => {
+    expect(formatBytes(100_000)).toBe("100 kB");
+  });
+
+  it("renders nothing used as zero", () => {
+    expect(formatBytes(0)).toBe("0 kB");
+  });
+});
+
+describe("bytesTransferred", () => {
+  it("sums both directions", () => {
+    expect(bytesTransferred([{ bytes: 100 }, { bytes: 200 }], [{ bytes: 50 }])).toBe(350);
+  });
+
+  it("is zero before anything is measured", () => {
+    expect(bytesTransferred([], [])).toBe(0);
+  });
+});
+```
+
+- [ ] **Step 2: Run it to verify it fails**
+
+Run: `vp test run-progress`
+Expected: FAIL — module not found.
+
+- [ ] **Step 3: Implement**
+
+Create `apps/web/src/lib/tools/speed-test/run-progress.ts`:
+
+```ts
+/*
+ * Describing a run in flight.
+ *
+ * There is no countdown here, deliberately. The engine abandons the rest of a bandwidth type once
+ * one of its requests grows slow, so the data a run will transfer — and therefore how long it will
+ * take — depends on the connection being measured. A remaining-time or remaining-megabytes figure
+ * would be invented. What IS knowable: which phase is running, how far through the ladder it is,
+ * and how much data has already crossed the wire.
+ */
+import type { MeasurementConfig } from "@cloudflare/speedtest";
+
+export function phaseLabel(measurement: MeasurementConfig): string {
+  switch (measurement.type) {
+    case "latency":
+      return "Measuring latency";
+    case "download":
+      return "Measuring download speed";
+    case "upload":
+      return "Measuring upload speed";
+    case "packetLoss":
+      return "Measuring packet loss";
+  }
+}
+
+/** Whole units only: a byte count measured across a network is not precise to three decimals. */
+export function formatBytes(bytes: number): string {
+  if (bytes >= 1e6) return `${Math.round(bytes / 1e6)} MB`;
+  return `${Math.round(bytes / 1e3)} kB`;
+}
+
+export function bytesTransferred(
+  download: ReadonlyArray<{ bytes: number }>,
+  upload: ReadonlyArray<{ bytes: number }>,
+): number {
+  const sum = (points: ReadonlyArray<{ bytes: number }>) =>
+    points.reduce((carry, point) => carry + point.bytes, 0);
+  return sum(download) + sum(upload);
+}
+```
+
+If `MeasurementConfig`'s union makes the `switch` non-exhaustive under `strict`, keep it exhaustive rather than adding a `default` that could silently mislabel a phase the library adds later.
+
+- [ ] **Step 4: Run it to verify it passes**
+
+Run: `vp test run-progress`
+Expected: PASS (6 tests).
+
+- [ ] **Step 5: Wire the store**
+
+In `speed-test-engine.svelte.ts`:
+
+1. Add `let stepIndex = $state<number | null>(null);` and `let currentPhase = $state<string | null>(null);`, with `get stepIndex()`, `get currentPhase()`, and `get stepCount()` (the length of the ladder the engine was actually constructed with — capture it when you build the engine, since the packet-loss ladder is longer).
+2. Register the engine callback:
+
+```ts
+instance.onPhaseChange = ({ measurementId, measurement }) => {
+  stepIndex = measurementId;
+  currentPhase = phaseLabel(measurement);
+};
+```
+
+3. Add `get bytesUsed()` returning `bytesTransferred(results?.getDownloadBandwidthPoints() ?? [], results?.getUploadBandwidthPoints() ?? [])`.
+4. Clear `stepIndex`, `currentPhase` on `start()` and `restart()`, and on `onFinish`.
+
+- [ ] **Step 6: Replace "Measuring…" on the page**
+
+While `store.phase === "running"`, the masthead actions show the phase, the step, the data used, and a progress bar — then Pause:
+
+```svelte
+{:else if store.phase === "running"}
+  <div class="flex items-center gap-8">
+    <span class="text-sm text-text-muted">
+      {store.currentPhase ?? "Starting"}
+      {#if store.stepIndex !== null}
+        · step {store.stepIndex + 1} of {store.stepCount}
+      {/if}
+      {#if store.bytesUsed > 0}
+        · {formatBytes(store.bytesUsed)} used
+      {/if}
+    </span>
+    <Progress value={progressPercent} class="w-64" />
+    <Button variant="secondary" onclick={() => store.pause()}>Pause</Button>
+  </div>
+{:else if store.phase === "paused"}
+```
+
+with `const progressPercent = $derived(store.stepIndex === null ? 0 : ((store.stepIndex + 1) / store.stepCount) * 100);`
+
+Check the design-system `Progress` component's actual prop name and value range (0–100 or 0–1) before using it, and confirm `w-64` exists on the closed scale — substitute a real width otherwise. The bar must carry an accessible name (e.g. `aria-label="Test progress"`).
+
+- [ ] **Step 7: Report what a finished run cost**
+
+Beside the run timestamp in `Masthead.Meta`, when `store.phase === "finished"` and `store.bytesUsed > 0`, add another `Masthead.MetaSeparator` and:
+
+```svelte
+<span>{formatBytes(store.bytesUsed)} transferred</span>
+```
+
+This is the honest counterpart to the up-front disclosure: the page said a test can use a lot of data; afterwards it says how much it actually used.
+
+- [ ] **Step 8: Verify the gates**
+
+Run: `pnpm --filter @magna-carta/web run check`
+Expected: 0 errors, 0 warnings.
+
+Run: `vp test run-progress bandwidth-stats speed-test-format chart-scale measurement-ladder turn-capability`
+Expected: PASS.
+
+- [ ] **Step 9: Commit**
+
+```bash
+git add apps/web/src/lib/tools/speed-test apps/web/test/run-progress.test.ts "apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte"
+git commit -m "feat(tools): name the phase, the step, and the data a run has used"
+```
+
+---
+
 ### Task 6: Documentation (definition of done)
 
 No feature is done until its docs, roadmap, and changelog fragment land. Branches never hand-edit `CHANGELOG.md` or `STATUS.md` — they commit fragments.
 
 **Files:**
+
 - Create: `changelog.d/network-speed-test.md`
 - Create: `docs/user/network-speed-test.md`
 - Modify: `status.d/tools-area.md`
