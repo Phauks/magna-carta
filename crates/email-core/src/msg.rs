@@ -17,16 +17,25 @@ use cfb::CompoundFile;
 
 use crate::error::EmailError;
 
-/// Open a `.msg`'s compound-file container over an in-memory cursor, without
-/// copying the input. Any structural fault `cfb` reports while reading the
-/// header, DIFAT/FAT, directory, or MiniFAT collapses to [`EmailError::Malformed`]
-/// — the underlying `io::Error` text is dropped so no fragment of the input can
-/// ride out on an error path.
-// Until the MAPI property-stream decoder that reads the message out of the opened
-// container lands, the only caller of this gate is the panic-safety test suite
-// below; the non-test build therefore sees it as unused.
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn open_compound_file(bytes: &[u8]) -> Result<CompoundFile<Cursor<&[u8]>>, EmailError> {
+/// The container-open seam for `.msg`: open a compound-file wrapper over an
+/// in-memory cursor, without copying the input. Any structural fault `cfb`
+/// reports while reading the header, DIFAT/FAT, directory, or MiniFAT
+/// collapses to [`EmailError::Malformed`] — the underlying `io::Error` text is
+/// dropped so no fragment of the input can ride out on an error path.
+///
+/// That collapse matters beyond tidiness: this parser ends up running in a
+/// wasm isolate that cannot unwind, so a `cfb` panic on hostile input would
+/// abort the whole isolate rather than hand the caller a recoverable result.
+/// Mapping every fault to one plain, static-string error variant is what
+/// keeps a malformed attachment a normal `Err` instead of a crash.
+///
+/// Kept `pub` (not crate-private) on purpose: a concrete, non-generic
+/// function that is part of the crate's public surface is compiled into the
+/// output unconditionally, which is what forces the compiler to actually
+/// generate `cfb`'s generic open/read path for `Cursor<&[u8]>` in every
+/// build, including wasm — rather than that path silently going uncompiled
+/// because its only caller happened to be test-only code.
+pub fn open_compound_file(bytes: &[u8]) -> Result<CompoundFile<Cursor<&[u8]>>, EmailError> {
     CompoundFile::open(Cursor::new(bytes)).map_err(|_| EmailError::Malformed)
 }
 
