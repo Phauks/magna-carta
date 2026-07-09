@@ -12,6 +12,8 @@
 
 **Execute tasks in numeric order.** Task 9 (the Dockerfile) appears in this file before Tasks 5 through 8, because it was written before the tier benchmark was moved ahead of it. It runs last, so the image bakes the tier the benchmark chose.
 
+**Amendment, after Tasks 1 and 2 shipped.** Review found that `recognize` silently discarded detected regions whose text failed to decode, which would make a page of unreadable text indistinguishable from a blank page. `Recognizer::recognize` therefore returns `Result<RecognizedPage, OcrError>`, not `Result<Vec<TextLine>, OcrError>`, where `RecognizedPage { lines: Vec<TextLine>, undecoded_regions: usize }`. `PageFacts` carries `undecoded_regions` through to the wire. The trait signatures shown inside Tasks 1 and 2 below are the originals as written; the shipped code has the amended signature. Tasks 4, 6, and 7 are written against the amended one.
+
 ## Global Constraints
 
 These bind every task. Do not restate them; do not violate them.
@@ -855,7 +857,7 @@ git commit -m "feat(pdf-core): RenderedPage::to_rgb_image composites straight al
 
 **Interfaces:**
 
-- Consumes: `ocr_core::{Recognizer, PageFacts, TextLine, Quad, SkipReason, Provenance, OcrError}` (Tasks 1-2); `pdf_core::Document::{render_page, page_text_rects, page_size}` and `pdf_core::RenderedPage::to_rgb_image` (Task 3); `engine_host::host::{ready_app, with_panic_net, serve}`.
+- Consumes: `ocr_core::{Recognizer, RecognizedPage, PageFacts, TextLine, Quad, SkipReason, Provenance, OcrError}` (Tasks 1-2). Note `Recognizer::recognize` returns `Result<RecognizedPage, OcrError>`, where `RecognizedPage { lines: Vec<TextLine>, undecoded_regions: usize }` — the count of regions detection found but recognition could not read. Also `pdf_core::Document::{render_page, page_text_rects, page_size}` and `pdf_core::RenderedPage::to_rgb_image` (Task 3); `engine_host::host::{ready_app, with_panic_net, serve}`.
 - Produces: `magna_carta_ocr::router(state: AppState) -> Router`; `magna_carta_ocr::pages::{to_user_space, RENDER_DPI}`.
 
 - [ ] **Step 1: Write `containers/ocr/Cargo.toml`**
@@ -1023,6 +1025,9 @@ impl From<TextLine> for TextLineDto {
 pub struct PageDto {
     pub page_index: usize,
     pub lines: Vec<TextLineDto>,
+    /// Regions detection found but recognition could not read. A page of unreadable
+    /// text must not reach a caller looking like a page that had no text on it.
+    pub undecoded_regions: usize,
     /// Present only when the page was not recognized, naming why.
     pub skipped: Option<&'static str>,
     pub orientation_degrees: Option<f32>,
@@ -1033,6 +1038,7 @@ impl From<PageFacts> for PageDto {
         Self {
             page_index: facts.page_index,
             lines: facts.lines.into_iter().map(TextLineDto::from).collect(),
+            undecoded_regions: facts.undecoded_regions,
             skipped: facts.skipped.map(|_| "already-has-text-layer"),
             orientation_degrees: facts.orientation_degrees,
         }
@@ -1137,10 +1143,11 @@ fn recognize_image(state: &AppState, bytes: &[u8]) -> Result<Vec<PageFacts>, Ocr
     reader.limits(limits);
     let image = reader.decode().map_err(|_| OcrError::InferenceFailed)?.to_rgb8();
 
-    let lines = state.recognizer.recognize(&image)?;
+    let page = state.recognizer.recognize(&image)?;
     Ok(vec![PageFacts {
         page_index: 0,
-        lines,
+        lines: page.lines,
+        undecoded_regions: page.undecoded_regions,
         skipped: None,
         orientation_degrees: state.recognizer.page_orientation(&image),
     }])
@@ -1158,6 +1165,7 @@ fn recognize_pdf(state: &AppState, bytes: &[u8]) -> Result<Vec<PageFacts>, OcrEr
             pages.push(PageFacts {
                 page_index,
                 lines: Vec::new(),
+                undecoded_regions: 0,
                 skipped: Some(SkipReason::AlreadyHasTextLayer),
                 orientation_degrees: None,
             });
@@ -1172,9 +1180,9 @@ fn recognize_pdf(state: &AppState, bytes: &[u8]) -> Result<Vec<PageFacts>, OcrEr
         let (_, page_height_points) =
             document.page_size(page_index).map_err(|_| OcrError::InferenceFailed)?;
 
-        let lines = state
-            .recognizer
-            .recognize(&image)?
+        let recognized = state.recognizer.recognize(&image)?;
+        let lines = recognized
+            .lines
             .into_iter()
             .map(|mut line| {
                 line.quad = pages::to_user_space(line.quad, page_height_points);
@@ -1189,6 +1197,9 @@ fn recognize_pdf(state: &AppState, bytes: &[u8]) -> Result<Vec<PageFacts>, OcrEr
         pages.push(PageFacts {
             page_index,
             lines,
+            // Detection found these regions; recognition could not read them. Carrying the
+            // count is what stops a page of unreadable text looking like a blank page.
+            undecoded_regions: recognized.undecoded_regions,
             skipped: None,
             orientation_degrees: state.recognizer.page_orientation(&image),
         });
@@ -1215,17 +1226,20 @@ mod tests {
     }
 
     impl Recognizer for StubRecognizer {
-        fn recognize(&self, _image: &RgbImage) -> Result<Vec<TextLine>, OcrError> {
+        fn recognize(&self, _image: &RgbImage) -> Result<RecognizedPage, OcrError> {
             if self.fail {
                 return Err(OcrError::InferenceFailed);
             }
-            Ok(vec![TextLine {
-                text: "INVOICE".to_string(),
-                confidence: 0.99,
-                quad: Quad { points: [(0.0, 0.0), (300.0, 0.0), (300.0, 60.0), (0.0, 60.0)] },
-                orientation_degrees: None,
-                word_quads: Vec::new(),
-            }])
+            Ok(RecognizedPage {
+                lines: vec![TextLine {
+                    text: "INVOICE".to_string(),
+                    confidence: 0.99,
+                    quad: Quad { points: [(0.0, 0.0), (300.0, 0.0), (300.0, 60.0), (0.0, 60.0)] },
+                    orientation_degrees: None,
+                    word_quads: Vec::new(),
+                }],
+                undecoded_regions: 0,
+            })
         }
         fn page_orientation(&self, _image: &RgbImage) -> Option<f32> {
             None
@@ -1278,6 +1292,15 @@ mod tests {
         // Three separable provenance fields, always present.
         assert!(json["provenance"]["engineVersion"].is_string());
         assert!(json["provenance"]["platform"].is_string());
+    }
+
+    #[tokio::test]
+    async fn a_page_reports_its_undecoded_region_count_on_the_wire() {
+        let base = spawn(false).await;
+        let (_, json) = post(&base, png_bytes()).await;
+        // A caller must be able to tell a page with no text from a page whose text could
+        // not be read. The count travels; it is not an internal detail.
+        assert_eq!(json["pages"][0]["undecodedRegions"], 0);
     }
 
     #[tokio::test]
@@ -1893,6 +1916,9 @@ const TextLineSchema = z.object({
 const PageSchema = z.object({
   pageIndex: z.number().int(),
   lines: z.array(TextLineSchema),
+  // Regions detection found but recognition could not read. Surfaced so a caller can tell a
+  // page with no text from a page whose text was unreadable.
+  undecodedRegions: z.number().int(),
   skipped: z.string().nullable().optional(),
   orientationDegrees: z.number().nullable().optional(),
 });
@@ -2171,14 +2197,20 @@ impl ValidationOperation for OcrOperation {
             };
         };
         match self.recognizer.recognize(&image) {
-            Ok(lines) => {
+            Ok(recognized) => {
                 // Additive-only: reload and confirm the source document is unchanged.
                 let unchanged = pdf_core::Document::load(bytes)
                     .and_then(|reloaded| reloaded.page_text_rects(0))
                     .map(|after| after.is_empty())
                     .unwrap_or(false);
                 OperationVerdict {
-                    outcome: Outcome::Success { variant: format!("{} lines", lines.len()) },
+                    outcome: Outcome::Success {
+                        variant: format!(
+                            "{} lines, {} undecoded",
+                            recognized.lines.len(),
+                            recognized.undecoded_regions
+                        ),
+                    },
                     safety: if unchanged {
                         Safety::Upheld
                     } else {
