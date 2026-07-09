@@ -22,6 +22,7 @@
    * notification bell IS a real (if empty) surface — its honesty is the empty state, not a badge.
    */
   import { page } from "$app/state";
+  import { installCanvasScrollRestoration } from "$lib/navigation/canvas-scroll-restoration.ts";
   import BrandMark from "@magna-carta/design-system/brand-mark";
   import * as Popover from "@magna-carta/design-system/popover";
   import * as Sidebar from "@magna-carta/design-system/sidebar";
@@ -61,6 +62,14 @@
   import type { Snippet } from "svelte";
 
   let { children }: { children: Snippet } = $props();
+
+  // The work canvas — the shell's only scroll region. SvelteKit resets scroll by moving the
+  // WINDOW, which never scrolls here, so without this the canvas keeps the previous page's offset.
+  // This resets it to the top on a forward navigation and restores the saved offset on
+  // back/forward, keyed per history entry. Registered during init (the getter defers reading the
+  // element until a navigation fires, by which point bind:this has populated it).
+  let canvas: HTMLElement | undefined = $state();
+  installCanvasScrollRestoration(() => canvas);
 
   // Dev-only: re-assert the "static loading placeholders" preference on every load, so a page set
   // to freeze its skeletons stays frozen across reloads without opening the console. Compiled out
@@ -504,6 +513,7 @@
            reserves the vertical scrollbar's track, so a short (no-scroll) page and a long
            (scrolling) page frame their content at the exact same width — no reflow on navigation. -->
       <main
+        bind:this={canvas}
         class="mc-scrollbar grow overflow-x-hidden overflow-y-auto rounded-ss-lg bg-surface-default p-24 [scrollbar-gutter:stable]"
       >
         {@render children()}
