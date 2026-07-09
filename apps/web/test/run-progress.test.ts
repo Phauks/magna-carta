@@ -8,6 +8,7 @@ import {
   bytesInDirection,
   bytesTransferred,
   formatBytes,
+  LONGEST_PHASE_LABEL,
   phaseLabel,
 } from "../src/lib/tools/speed-test/run-progress.ts";
 
@@ -63,5 +64,29 @@ describe("bytesTransferred", () => {
     expect(bytesTransferred(download, upload)).toBe(
       bytesInDirection(download) + bytesInDirection(upload),
     );
+  });
+});
+
+describe("LONGEST_PHASE_LABEL", () => {
+  it("is at least as long as every label the engine can produce", () => {
+    const labels = [
+      phaseLabel({ type: "latency", numPackets: 1 }),
+      phaseLabel({ type: "download", bytes: 1e6, count: 1 }),
+      phaseLabel({ type: "upload", bytes: 1e6, count: 1 }),
+      phaseLabel({
+        type: "packetLoss",
+        numPackets: 1,
+        batchSize: 1,
+        batchWaitTime: 1,
+        responsesWaitTime: 1,
+      }),
+    ];
+    for (const label of labels) {
+      expect(LONGEST_PHASE_LABEL.length).toBeGreaterThanOrEqual(label.length);
+    }
+  });
+
+  it("is one of the labels, not an invented string", () => {
+    expect(LONGEST_PHASE_LABEL).toBe("Measuring download speed");
   });
 });

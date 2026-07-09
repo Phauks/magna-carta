@@ -13,7 +13,6 @@
   import { onDestroy } from "svelte";
   import Button from "@magna-carta/design-system/button";
   import * as Masthead from "@magna-carta/design-system/masthead";
-  import Progress from "@magna-carta/design-system/progress";
   import { bandwidthStats } from "$lib/tools/speed-test/bandwidth-stats.ts";
   import BandwidthChart from "$lib/tools/speed-test/bandwidth-chart.svelte";
   import InfoPopover from "$lib/tools/speed-test/info-popover.svelte";
@@ -21,6 +20,7 @@
   import MetricTile from "$lib/tools/speed-test/metric-tile.svelte";
   import QualityScores from "$lib/tools/speed-test/quality-scores.svelte";
   import { bytesInDirection, formatBytes } from "$lib/tools/speed-test/run-progress.ts";
+  import RunProgressPanel from "$lib/tools/speed-test/run-progress-panel.svelte";
   import ServerPanel from "$lib/tools/speed-test/server-panel.svelte";
   import { createSpeedTestStore } from "$lib/tools/speed-test/speed-test-engine.svelte.ts";
   import {
@@ -38,10 +38,22 @@
   const uploadPoints = $derived(results?.getUploadBandwidthPoints() ?? []);
   const downloadStats = $derived(bandwidthStats(downloadPoints));
   const uploadStats = $derived(bandwidthStats(uploadPoints));
-  // A truthful progress fraction: `stepIndex` is the monotonic index of the current step within
-  // the ladder the engine was actually built with, never an estimate of time or bytes remaining.
-  const progressPercent = $derived(
-    store.stepIndex === null ? 0 : ((store.stepIndex + 1) / store.stepCount) * 100,
+
+  // The panel is always present; only what it can honestly say changes.
+  const phaseText = $derived(
+    store.phase === "idle"
+      ? "Not started"
+      : store.phase === "finished"
+        ? "Complete"
+        : store.phase === "failed"
+          ? "Stopped"
+          : (store.currentPhase ?? "Starting"),
+  );
+  // `onFinish` clears the live step counter (it has no meaning once the ladder is done), but a
+  // finished run must still show its FINAL step and a full bar — not a cleared slate. Presentation
+  // only: the store's own stepIndex stays null after finishing.
+  const displayStepIndex = $derived(
+    store.phase === "finished" && store.stepCount > 0 ? store.stepCount - 1 : store.stepIndex,
   );
 
   // Always returns five rows — with em dashes before a run has data — so the tile occupies its
@@ -77,9 +89,7 @@
   <Masthead.Heading>
     <Masthead.Title>Network Speed Test</Masthead.Title>
     <Masthead.Meta>
-      <span>Runs outside any matter</span>
       {#if store.finishedAt}
-        <Masthead.MetaSeparator />
         <span>
           Run at {store.finishedAt.toLocaleTimeString()} on {store.finishedAt.toLocaleDateString()}
         </span>
@@ -87,27 +97,23 @@
           <Masthead.MetaSeparator />
           <span>{formatBytes(store.bytesUsed)} transferred</span>
         {/if}
+      {:else}
+        <span>Not run yet</span>
       {/if}
     </Masthead.Meta>
   </Masthead.Heading>
   <Masthead.Actions>
+    <RunProgressPanel
+      phaseText={phaseText}
+      stepIndex={displayStepIndex}
+      stepCount={store.stepCount}
+      bytesUsed={store.bytesUsed}
+    />
     {#if store.phase === "idle"}
       <Button variant="primary" onclick={() => store.start()}>Start</Button>
     {:else if store.phase === "running"}
-      <div class="flex items-center gap-8">
-        <span class="text-sm text-text-muted">
-          {store.currentPhase ?? "Starting"}
-          {#if store.stepIndex !== null}
-            · step {store.stepIndex + 1} of {store.stepCount}
-          {/if}
-          {#if store.bytesUsed > 0}
-            · {formatBytes(store.bytesUsed)} used
-          {/if}
-        </span>
-        <Progress value={progressPercent} class="w-96" aria-label="Test progress" />
-        <Button variant="secondary" onclick={() => store.pause()}>Pause</Button>
-        <Button variant="ghost" onclick={() => store.cancel()}>Cancel</Button>
-      </div>
+      <Button variant="secondary" onclick={() => store.pause()}>Pause</Button>
+      <Button variant="ghost" onclick={() => store.cancel()}>Cancel</Button>
     {:else if store.phase === "paused"}
       <Button variant="primary" onclick={() => store.resume()}>Resume</Button>
       <Button variant="secondary" onclick={() => store.restart()}>Restart</Button>
@@ -117,18 +123,13 @@
   </Masthead.Actions>
 </Masthead.Root>
 
-<section class="mb-24">
-  <p class="mb-16 text-sm text-text-muted">
-    A full test can transfer around 200 MB of data. Your public address is shared with
-    Cloudflare's measurement endpoints to run it. Nothing is saved.
-  </p>
-
-  {#if store.error}
-    <p class="mt-16 text-sm text-status-danger-subtle-foreground">
+{#if store.error}
+  <section class="mb-24">
+    <p class="text-sm text-status-danger-subtle-foreground">
       The measurement stopped: {store.error}
     </p>
-  {/if}
-</section>
+  </section>
+{/if}
 
 <section class="mb-24 grid grid-cols-1 gap-16 sm:grid-cols-2">
   <MetricTile
@@ -267,3 +268,8 @@
   </h2>
   <BandwidthChart title="Upload" points={uploadPoints} />
 </section>
+
+<footer class="mt-40 border-t border-border-default pt-16 text-xs text-text-muted">
+  A full test can transfer around 200 MB of data. Your public address is shared with Cloudflare's
+  measurement endpoints to run it. This tool runs outside any matter, and nothing is saved.
+</footer>
