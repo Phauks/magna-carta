@@ -4,7 +4,11 @@
  * be silently unclassified — the guard that keeps a working alpha tool from rendering inert.
  */
 import { describe, expect, it } from "vitest";
-import { MATURITY_PRESENTATION, hasSurface, type MaturityStage } from "../src/lib/maturity/maturity.ts";
+import {
+  MATURITY_PRESENTATION,
+  hasSurface,
+  type MaturityStage,
+} from "../src/lib/maturity/maturity.ts";
 
 const ALL_STAGES = Object.keys(MATURITY_PRESENTATION) as MaturityStage[];
 
