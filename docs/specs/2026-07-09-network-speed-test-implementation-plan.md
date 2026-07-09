@@ -3198,6 +3198,145 @@ git commit -m "feat(tools): pause, cancel, resume, and restart a run"
 
 ---
 
+### Task 11: Say what the test itself cost, in each direction
+
+Task 8 reports the total data a run used. Owner asked to see it broken down: how much went down, and how much went up, beside the Download and Upload figures that spent it.
+
+**Depends on Task 8** (`run-progress.ts`, `bytesTransferred`) and **Task 7** (`metric-tile.svelte`'s `stats` prop, `statRows` on the page). Do it after both.
+
+**A measurement honesty note, to be stated in the code, not hidden:** `BandwidthPoint` carries `bytes` (the payload) and `transferSize` (the wire cost, from `PerformanceResourceTiming`). `transferSize` measures only the **response**, so it is right for a download and nearly zero for an upload. Summing whichever is larger would silently undercount uploads. Use `bytes` for both directions, and call it what it is: data transferred, excluding protocol overhead.
+
+**Files:**
+- Modify: `apps/web/src/lib/tools/speed-test/run-progress.ts`
+- Modify: `apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte`
+- Test: `apps/web/test/run-progress.test.ts`
+
+**Interfaces:**
+- Produces: `bytesInDirection(points: ReadonlyArray<{ bytes: number }>): number`.
+- `bytesTransferred(download, upload)` stays exactly as Task 8 defined it, and is re-expressed in terms of `bytesInDirection` rather than duplicating the sum.
+
+- [ ] **Step 1: Extend the failing test**
+
+Add to `apps/web/test/run-progress.test.ts`:
+
+```ts
+describe("bytesInDirection", () => {
+  it("sums one direction's payloads", () => {
+    expect(bytesInDirection([{ bytes: 1e5 }, { bytes: 1e6 }])).toBe(1_100_000);
+  });
+
+  it("is zero before anything is measured", () => {
+    expect(bytesInDirection([])).toBe(0);
+  });
+});
+
+describe("bytesTransferred", () => {
+  it("is the sum of both directions", () => {
+    const download = [{ bytes: 1e6 }];
+    const upload = [{ bytes: 5e5 }];
+    expect(bytesTransferred(download, upload)).toBe(
+      bytesInDirection(download) + bytesInDirection(upload),
+    );
+  });
+});
+```
+
+Import `bytesInDirection` alongside the existing imports.
+
+- [ ] **Step 2: Run it to verify it fails**
+
+Run: `vp test run-progress`
+Expected: FAIL — `bytesInDirection` is not exported.
+
+- [ ] **Step 3: Implement**
+
+In `apps/web/src/lib/tools/speed-test/run-progress.ts`, export `bytesInDirection` and express `bytesTransferred` through it:
+
+```ts
+/*
+ * What a run actually spent, one direction at a time.
+ *
+ * `bytes` is the payload, not the wire cost. BandwidthPoint also carries `transferSize` from
+ * PerformanceResourceTiming, which is the true bytes-on-the-wire — but only for the RESPONSE, so it
+ * measures a download honestly and an upload not at all. Rather than mix two meanings and undercount
+ * uploads, both directions are counted in payload bytes. Protocol overhead is excluded; on a
+ * hundred-megabyte transfer it is noise.
+ */
+export function bytesInDirection(points: ReadonlyArray<{ bytes: number }>): number {
+  return points.reduce((carry, point) => carry + point.bytes, 0);
+}
+
+export function bytesTransferred(
+  download: ReadonlyArray<{ bytes: number }>,
+  upload: ReadonlyArray<{ bytes: number }>,
+): number {
+  return bytesInDirection(download) + bytesInDirection(upload);
+}
+```
+
+- [ ] **Step 4: Run it to verify it passes**
+
+Run: `vp test run-progress`
+Expected: PASS.
+
+- [ ] **Step 5: Show each direction's cost on its own tile**
+
+On the page, the Download and Upload tiles each gain a fifth statistic naming what that direction spent. Extend `statRows` to take the direction's points, and keep the em-dash placeholders Task 9 requires so the tile never changes height:
+
+```ts
+  const downloadPoints = $derived(results?.getDownloadBandwidthPoints() ?? []);
+  const uploadPoints = $derived(results?.getUploadBandwidthPoints() ?? []);
+
+  function statRows(
+    stats: ReturnType<typeof bandwidthStats>,
+    points: ReadonlyArray<{ bytes: number }>,
+  ) {
+    const spent = bytesInDirection(points);
+    const transferred = { label: "Transferred", value: spent > 0 ? formatBytes(spent) : "—" };
+    if (stats === null) {
+      return [
+        { label: "Median", value: "—" },
+        { label: "95th", value: "—" },
+        { label: "Peak", value: "—" },
+        { label: "Samples", value: "—" },
+        transferred,
+      ];
+    }
+    return [
+      { label: "Median", value: formatBandwidth(stats.median) },
+      { label: "95th", value: formatBandwidth(stats.p95) },
+      { label: "Peak", value: formatBandwidth(stats.peak) },
+      { label: "Samples", value: String(stats.samples) },
+      transferred,
+    ];
+  }
+```
+
+Pass `stats={statRows(downloadStats, downloadPoints)}` and `stats={statRows(uploadStats, uploadPoints)}`.
+
+If five statistics crowd the tile at narrow widths, let the stat row wrap — do not drop one, and do not shrink the type below the smallest text token in use on this page.
+
+- [ ] **Step 6: The total already exists — check it reads as the sum**
+
+Task 8 renders the run's total ("N MB transferred") beside the timestamp in `Masthead.Meta`. Confirm by inspection that it now equals the two tile figures added together, since all three flow from `bytesInDirection`. Do not add a second total.
+
+- [ ] **Step 7: Verify the gates**
+
+Run: `pnpm --filter @magna-carta/web run check`
+Expected: 0 errors, 0 warnings.
+
+Run: `vp test run-progress bandwidth-stats speed-test-format chart-scale measurement-ladder turn-capability`
+Expected: PASS.
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add apps/web/src/lib/tools/speed-test/run-progress.ts apps/web/test/run-progress.test.ts "apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte"
+git commit -m "feat(tools): show what the test spent, in each direction"
+```
+
+---
+
 ### Task 6: Documentation (definition of done)
 
 No feature is done until its docs, roadmap, and changelog fragment land. Branches never hand-edit `CHANGELOG.md` or `STATUS.md` — they commit fragments.
