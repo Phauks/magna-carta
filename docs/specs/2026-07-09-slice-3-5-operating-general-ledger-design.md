@@ -243,8 +243,10 @@ Sync, never system of record. A Workflow step history is not a ledger (ADR-0150)
 Reads are gated separately from writes. A bookkeeper who may read a trial balance must not thereby be
 able to post to the ledger, and the firm's accountant typically reads far more than they write.
 
-**Settings.** `ledger.fiscal_year_start` is firm-level configuration (a `FirmSettingDefinition`,
-default `01-01`) defining period boundaries. The lock state itself is not a setting (§3.3).
+**Settings.** None. A `ledger.fiscal_year_start` setting was specified and then cut: enforcement is
+the scalar lock date, and nothing in this slice reads a fiscal-year boundary. It lands with the
+consumer that needs it — 3·6, which renders period boundaries. The lock state itself is not a setting
+either (§3.3).
 
 **Identifiers** (`packages/identifiers/src/registry.ts`): `vendorBill`, `vendorBillLine`,
 `periodCloseEvent` — prefixes spelled out in full.
@@ -291,7 +293,8 @@ profile joins the existing set. Determinism: one seed, fixed clock, seeded ident
 
 ## 12. Seams & deferrals
 
-Deferred with a named home: the QuickBooks adapter Worker and bank feed (Phase 7·2); vendor payment
+Deferred with a named home: the `ledger.fiscal_year_start` firm setting, which lands with 3·6, its
+first reader; the QuickBooks adapter Worker and bank feed (Phase 7·2); vendor payment
 runs and payment execution (Phase 6 rails, a Workflows saga); posted closing entries and materialized
 period-end snapshots (only if measured); `hard_locked_through` enforcement (a future inalterability
 jurisdiction); denormalized `matter_type_id` on the line (only if practice-area roll-ups measure slow);
