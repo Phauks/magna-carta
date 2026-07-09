@@ -11,7 +11,7 @@ pub mod model;
 
 pub use eml::parse_eml;
 pub use error::{EmailError, EMAIL_ERROR_CODES};
-pub use mbox::{mbox_member_ranges, parse_mbox};
+pub use mbox::{mbox_member_ranges, parse_mbox, MboxParseOutcome, MemberFailure};
 pub use model::{
     Address, Disposition, IntegrityFacts, MessageIdentifier, ParsedMessage, PartDescriptor,
     SourceFormat,

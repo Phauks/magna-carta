@@ -6,11 +6,16 @@
 //! also rewrites escaped `>From ` lines in place while reading, whereas this lane
 //! leaves member bytes verbatim for the `.eml` lane to parse. So framing here stays a
 //! byte-range scan over `&[u8]` instead.
+//!
+//! Framing and parsing are kept separate for a second reason: a single malformed
+//! member (garbage bytes, or an empty member from two consecutive separator lines)
+//! must not cost the archive every message around it. Each member is parsed
+//! independently and a failure is recorded against its own index rather than
+//! propagated to abort the whole mbox.
 
-use crate::eml::from_mail_parser_message;
+use crate::eml::parse_eml_with_source_format;
 use crate::model::{ParsedMessage, SourceFormat};
 use crate::EmailError;
-use mail_parser::MessageParser;
 
 const SEPARATOR: &[u8] = b"From ";
 
@@ -44,25 +49,51 @@ pub fn mbox_member_ranges(bytes: &[u8]) -> Vec<core::ops::Range<usize>> {
         .collect()
 }
 
-/// Parses every member of an mbox, reusing the `.eml` lane's record builder for each.
-pub fn parse_mbox(bytes: &[u8]) -> Result<Vec<ParsedMessage>, EmailError> {
-    let parser = MessageParser::default();
-    mbox_member_ranges(bytes)
-        .into_iter()
-        .map(|range| {
-            // Skip the separator line itself; the RFC 5322 message starts after it.
-            let member = &bytes[range];
-            let body_start = member
-                .iter()
-                .position(|&byte| byte == b'\n')
-                .map(|newline| newline + 1)
-                .unwrap_or(member.len());
-            let message = parser
-                .parse(&member[body_start..])
-                .ok_or(EmailError::Malformed)?;
-            Ok(from_mail_parser_message(&message, SourceFormat::MboxMember))
-        })
-        .collect()
+/// A member that could not be parsed. Its byte range is retained so the raw bytes
+/// remain recoverable from the original buffer for inspection.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MemberFailure {
+    pub index: usize,
+    pub byte_range: core::ops::Range<usize>,
+    pub error: EmailError,
+}
+
+/// The outcome of framing and parsing an mbox. A malformed member never discards a
+/// well-formed one, and every failure is recorded rather than silently dropped.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MboxParseOutcome {
+    pub messages: Vec<ParsedMessage>,
+    pub failures: Vec<MemberFailure>,
+}
+
+/// Parses every member of an mbox, reusing the `.eml` lane's not-a-message guard and
+/// record builder for each. A garbage or empty member is recorded as a `MemberFailure`
+/// against its own index, never discarding the messages already recovered from its
+/// well-formed siblings.
+pub fn parse_mbox(bytes: &[u8]) -> MboxParseOutcome {
+    let mut messages = Vec::new();
+    let mut failures = Vec::new();
+
+    for (index, range) in mbox_member_ranges(bytes).into_iter().enumerate() {
+        // Skip the separator line itself; the RFC 5322 message starts after it.
+        let member = &bytes[range.clone()];
+        let body_start = member
+            .iter()
+            .position(|&byte| byte == b'\n')
+            .map(|newline| newline + 1)
+            .unwrap_or(member.len());
+
+        match parse_eml_with_source_format(&member[body_start..], SourceFormat::MboxMember) {
+            Ok(message) => messages.push(message),
+            Err(error) => failures.push(MemberFailure {
+                index,
+                byte_range: range,
+                error,
+            }),
+        }
+    }
+
+    MboxParseOutcome { messages, failures }
 }
 
 #[cfg(test)]
@@ -84,18 +115,73 @@ mod tests {
 
     #[test]
     fn each_member_parses_and_is_tagged_as_an_mbox_member() {
-        let messages = parse_mbox(MBOX).expect("fixture parses");
-        assert_eq!(messages.len(), 2);
+        let outcome = parse_mbox(MBOX);
+        assert!(outcome.failures.is_empty());
+        assert_eq!(outcome.messages.len(), 2);
         assert_eq!(
-            messages[0].message_identifier,
+            outcome.messages[0].message_identifier,
             MessageIdentifier::FromHeader("one@example.test".to_owned())
         );
-        assert_eq!(messages[1].subject.as_deref(), Some("Second"));
-        assert_eq!(messages[1].source_format, SourceFormat::MboxMember);
+        assert_eq!(outcome.messages[1].subject.as_deref(), Some("Second"));
+        assert_eq!(outcome.messages[1].source_format, SourceFormat::MboxMember);
     }
 
     #[test]
     fn an_empty_buffer_yields_no_members() {
         assert!(mbox_member_ranges(b"").is_empty());
+    }
+
+    #[test]
+    fn a_garbage_member_is_recorded_as_a_failure_not_a_message() {
+        // The same bytes the `.eml` lane rejects standalone must be rejected here too,
+        // rather than folded into a record whose only header name is raw junk bytes.
+        let outcome = parse_mbox(b"From a b\n\xFF\xFE\x00");
+
+        assert!(outcome.messages.is_empty());
+        assert_eq!(outcome.failures.len(), 1);
+        assert_eq!(outcome.failures[0].index, 0);
+        assert_eq!(outcome.failures[0].error, EmailError::Malformed);
+    }
+
+    #[test]
+    fn one_bad_member_does_not_discard_its_well_formed_siblings() {
+        // A good member, then a garbage member, then another good member. Against the
+        // old `collect::<Result<Vec<_>, _>>()` shape, the garbage member's `Err` would
+        // short-circuit the whole collect and both good messages would be lost along
+        // with it; this asserts they survive and the failure is attributed to its own
+        // index instead.
+        let mut bytes: Vec<u8> = Vec::new();
+        bytes.extend_from_slice(b"From alice@example.test Mon Jan  1 00:00:00 2024\n");
+        bytes.extend_from_slice(b"Message-ID: <one@example.test>\n");
+        bytes.extend_from_slice(b"From: Alice <alice@example.test>\n");
+        bytes.extend_from_slice(b"Subject: One\n");
+        bytes.extend_from_slice(b"\n");
+        bytes.extend_from_slice(b"Body one.\n");
+        bytes.extend_from_slice(b"From b\n");
+        bytes.extend_from_slice(&[0xFF, 0xFE, 0x00, b'\n']);
+        bytes.extend_from_slice(b"From carol@example.test Mon Jan  1 00:00:00 2024\n");
+        bytes.extend_from_slice(b"Message-ID: <two@example.test>\n");
+        bytes.extend_from_slice(b"From: Carol <carol@example.test>\n");
+        bytes.extend_from_slice(b"Subject: Two\n");
+        bytes.extend_from_slice(b"\n");
+        bytes.extend_from_slice(b"Body two.\n");
+
+        let outcome = parse_mbox(&bytes);
+
+        assert_eq!(outcome.messages.len(), 2);
+        assert_eq!(outcome.failures.len(), 1);
+        assert_eq!(outcome.failures[0].index, 1);
+    }
+
+    #[test]
+    fn an_empty_member_is_recorded_as_a_failure() {
+        // Two consecutive separator lines: each member is only its own separator line,
+        // with no RFC 5322 content following it before the next separator.
+        let outcome = parse_mbox(b"From a\nFrom b\n");
+
+        assert!(outcome.messages.is_empty());
+        assert_eq!(outcome.failures.len(), 2);
+        assert_eq!(outcome.failures[0].index, 0);
+        assert_eq!(outcome.failures[1].index, 1);
     }
 }

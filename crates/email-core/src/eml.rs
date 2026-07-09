@@ -8,6 +8,18 @@ use crate::EmailError;
 use mail_parser::{MessageParser, MimeHeaders};
 
 pub fn parse_eml(bytes: &[u8]) -> Result<ParsedMessage, EmailError> {
+    parse_eml_with_source_format(bytes, SourceFormat::Eml)
+}
+
+/// Shared by the `.eml` lane and each mbox member so both apply the same
+/// not-a-message guard and build records through the same path: an mbox member
+/// carrying junk bytes must be rejected exactly as those bytes would be rejected
+/// standalone, not silently recorded because it happened to arrive framed inside a
+/// mailbox rather than as its own file.
+pub(crate) fn parse_eml_with_source_format(
+    bytes: &[u8],
+    source_format: SourceFormat,
+) -> Result<ParsedMessage, EmailError> {
     let message = MessageParser::default()
         .parse(bytes)
         .ok_or(EmailError::Malformed)?;
@@ -35,7 +47,7 @@ pub fn parse_eml(bytes: &[u8]) -> Result<ParsedMessage, EmailError> {
         return Err(EmailError::Malformed);
     }
 
-    Ok(from_mail_parser_message(&message, SourceFormat::Eml))
+    Ok(from_mail_parser_message(&message, source_format))
 }
 
 /// A field name recoverable mail actually carries: one or more printable
