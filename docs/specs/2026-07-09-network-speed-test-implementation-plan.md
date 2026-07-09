@@ -3733,6 +3733,194 @@ git commit -m "fix(tools): rate the connection only once the run is finished"
 
 ---
 
+### Task 16: A progress panel whose parts do not shove each other
+
+Owner: the step counter, descriptor, data used, and bar all sit on one line and constantly move as they change. Stack them — counter and size on one line, descriptor beneath, the bar as an underline under both — and make each part immune to the others changing.
+
+Also: move the disclosure paragraph to the bottom of the page, and delete "Runs outside any matter" from the masthead.
+
+**Why things move today, and the three fixes:**
+1. **The descriptor changes length** ("Measuring latency" → "Measuring download speed"), so the panel widens and the buttons beside it slide. → Reserve the panel's width with the **longest label**, rendered invisibly in the same grid cell. No magic number, and it re-reserves itself if a phase label is ever added.
+2. **The numbers change width** (`step 6 of 14` → `step 14 of 14`; `9 MB` → `118 MB`). → `tabular-nums` so every digit is the same width, and anchor each value to its **own** edge: the counter to the left, the size to the right, with the slack between them absorbing growth. Neither edge moves.
+3. **The bar shares the line**, so it is squeezed as its neighbours grow. → It becomes a full-width underline beneath the block.
+
+**Files:**
+- Create: `apps/web/src/lib/tools/speed-test/run-progress-panel.svelte`
+- Modify: `apps/web/src/lib/tools/speed-test/run-progress.ts` (export `LONGEST_PHASE_LABEL`)
+- Modify: `apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte`
+- Test: `apps/web/test/run-progress.test.ts` (extend)
+
+- [ ] **Step 1: Extend the failing test**
+
+Add to `apps/web/test/run-progress.test.ts`:
+
+```ts
+describe("LONGEST_PHASE_LABEL", () => {
+  it("is at least as long as every label the engine can produce", () => {
+    const labels = [
+      phaseLabel({ type: "latency", numPackets: 1 }),
+      phaseLabel({ type: "download", bytes: 1e6, count: 1 }),
+      phaseLabel({ type: "upload", bytes: 1e6, count: 1 }),
+      phaseLabel({ type: "packetLoss", numPackets: 1, batchSize: 1, batchWaitTime: 1, responsesWaitTime: 1 }),
+    ];
+    for (const label of labels) {
+      expect(LONGEST_PHASE_LABEL.length).toBeGreaterThanOrEqual(label.length);
+    }
+  });
+
+  it("is one of the labels, not an invented string", () => {
+    expect(LONGEST_PHASE_LABEL).toBe("Measuring download speed");
+  });
+});
+```
+
+- [ ] **Step 2: Run it to verify it fails**
+
+Run: `vp test run-progress`
+Expected: FAIL — `LONGEST_PHASE_LABEL` is not exported.
+
+- [ ] **Step 3: Export the reservation string**
+
+In `run-progress.ts`, derive it from the labels rather than hardcoding, so a new phase widens the reservation automatically:
+
+```ts
+/*
+ * The widest label the panel can ever show. The descriptor cell reserves this width invisibly, so a
+ * phase change never resizes the panel and never shoves the controls beside it. Derived, not typed
+ * by hand: adding a phase widens the reservation on its own.
+ */
+const ALL_PHASE_LABELS = [
+  phaseLabel({ type: "latency", numPackets: 1 }),
+  phaseLabel({ type: "download", bytes: 1, count: 1 }),
+  phaseLabel({ type: "upload", bytes: 1, count: 1 }),
+  phaseLabel({ type: "packetLoss", numPackets: 1, batchSize: 1, batchWaitTime: 1, responsesWaitTime: 1 }),
+];
+
+export const LONGEST_PHASE_LABEL = ALL_PHASE_LABELS.reduce((longest, label) =>
+  label.length > longest.length ? label : longest,
+);
+```
+
+- [ ] **Step 4: Run it to verify it passes**
+
+Run: `vp test run-progress`
+Expected: PASS.
+
+- [ ] **Step 5: Build the panel**
+
+Create `apps/web/src/lib/tools/speed-test/run-progress-panel.svelte`:
+
+```svelte
+<script lang="ts">
+  /*
+   * What the run is doing, arranged so that nothing moves when anything changes.
+   *
+   * The counter is anchored left and the data-used figure right, with slack between them, so each
+   * grows into the gap rather than pushing the other. Figures are tabular, so a digit changing
+   * width cannot jitter the line. The descriptor sits in a cell whose width is reserved by the
+   * longest label the engine can emit — rendered invisibly beneath it — so a phase change never
+   * resizes the panel or shoves the controls beside it. The bar underlines the whole block.
+   */
+  import Progress from "@magna-carta/design-system/progress";
+  import { LONGEST_PHASE_LABEL, formatBytes } from "./run-progress.ts";
+
+  let {
+    phaseText,
+    stepIndex,
+    stepCount,
+    bytesUsed,
+  }: {
+    phaseText: string | null;
+    stepIndex: number | null;
+    stepCount: number;
+    bytesUsed: number;
+  } = $props();
+
+  const percent = $derived(
+    stepIndex === null || stepCount === 0 ? 0 : ((stepIndex + 1) / stepCount) * 100,
+  );
+</script>
+
+<div class="grid gap-4">
+  <div class="flex items-baseline justify-between gap-16 text-xs tabular-nums text-text-muted">
+    <span>
+      {#if stepIndex !== null}Step {stepIndex + 1} of {stepCount}{/if}
+    </span>
+    <span>
+      {#if bytesUsed > 0}{formatBytes(bytesUsed)} used{/if}
+    </span>
+  </div>
+
+  <!-- The invisible copy reserves the cell's width; the visible label overlays it. -->
+  <div class="grid">
+    <span class="invisible col-start-1 row-start-1 text-sm whitespace-nowrap">
+      {LONGEST_PHASE_LABEL}
+    </span>
+    <span class="col-start-1 row-start-1 text-sm whitespace-nowrap text-text-muted">
+      {phaseText ?? "Starting"}
+    </span>
+  </div>
+
+  <Progress value={percent} max={100} aria-label="Test progress" class="h-4" />
+</div>
+```
+
+Verify `h-4` (4px), `gap-4`, `gap-16`, `invisible`, `tabular-nums`, `col-start-1`, `row-start-1` all exist. The spacing scale is CLOSED — `h-4` is 4 pixels here, which is the intended hairline underline. Confirm `mc-progress` does not impose a conflicting height; if it does, respect the design system and use its smallest supported height rather than overriding with a raw value.
+
+- [ ] **Step 6: Use it, and clear the masthead**
+
+In the page:
+
+- Replace the inline running-state markup in `Masthead.Actions` with `<RunProgressPanel …/>` followed by the Pause and Cancel buttons.
+- **Delete** `<span>Runs outside any matter</span>` from `Masthead.Meta`.
+- `Masthead.Meta` must still render in every phase, or the masthead changes height and the page moves (Task 9). Before a run it reads `Not run yet`; once finished it reads the timestamp and the data transferred.
+
+```svelte
+<Masthead.Meta>
+  {#if store.finishedAt}
+    <span>Run at {store.finishedAt.toLocaleTimeString()} on {store.finishedAt.toLocaleDateString()}</span>
+    {#if store.bytesUsed > 0}
+      <Masthead.MetaSeparator />
+      <span>{formatBytes(store.bytesUsed)} transferred</span>
+    {/if}
+  {:else}
+    <span>Not run yet</span>
+  {/if}
+</Masthead.Meta>
+```
+
+- [ ] **Step 7: Move the disclosure to the foot of the page**
+
+Remove the disclosure `<section>` from above the metrics. Render it, unconditionally, as the last thing on the page — after the Latency measurements section. It absorbs the ethereal statement that the masthead line used to carry:
+
+```svelte
+<footer class="mt-40 border-t border-border-default pt-16 text-xs text-text-muted">
+  A full test can transfer around 200 MB of data. Your public address is shared with Cloudflare's
+  measurement endpoints to run it. This tool runs outside any matter, and nothing is saved.
+</footer>
+```
+
+It stays rendered in every phase — it was true before the run and it is still true after.
+
+- [ ] **Step 8: Verify the gates and the promise**
+
+Run: `pnpm --filter @magna-carta/web run check`
+Expected: 0 errors, 0 warnings.
+
+Run: `vp test run-progress bandwidth-stats speed-test-format chart-scale measurement-ladder turn-capability`
+Expected: PASS.
+
+Then confirm, by construction, that within a run: the counter's left edge, the size's right edge, the descriptor's left edge, and the controls beside the panel all stay fixed as `stepIndex`, `phaseText`, and `bytesUsed` change. State in the report how you established it.
+
+- [ ] **Step 9: Commit**
+
+```bash
+git add apps/web/src/lib/tools/speed-test/run-progress-panel.svelte apps/web/src/lib/tools/speed-test/run-progress.ts apps/web/test/run-progress.test.ts "apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte"
+git commit -m "feat(tools): a progress panel whose parts hold their places"
+```
+
+---
+
 ### Task 6: Documentation (definition of done)
 
 No feature is done until its docs, roadmap, and changelog fragment land. Branches never hand-edit `CHANGELOG.md` or `STATUS.md` — they commit fragments.
