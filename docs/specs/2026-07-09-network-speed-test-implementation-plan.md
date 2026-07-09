@@ -1122,7 +1122,7 @@ In `apps/web/src/lib/tools/tool-presentation.ts`, change the `network-speed-test
 ```ts
   "network-speed-test": {
     description: "Measure this connection's download, upload, latency, and quality.",
-    stage: "beta",
+    stage: "alpha",
   },
 ```
 
@@ -1669,7 +1669,7 @@ next: remaining per-tool pages
 Body sentence to use:
 
 ```
-`@magna-carta/tools` catalog + firm-usage diagnostics (`GET /api/v1/firm-usage`) on `main`. The `/tools` listing page renders the catalog grouped by subject, as tiles or a dense list, each entry badged with its maturity stage. Network Speed Test is the first tool with its own page (stage `beta`); the rest still read "Soon" and land one at a time.
+`@magna-carta/tools` catalog + firm-usage diagnostics (`GET /api/v1/firm-usage`) on `main`. The `/tools` listing page renders the catalog grouped by subject, as tiles or a dense list, each entry badged with its maturity stage. Network Speed Test is the first tool with its own page (stage `alpha`); the rest still read "Soon" and land one at a time.
 ```
 
 - [ ] **Step 4: Update the roadmap**
@@ -1713,7 +1713,7 @@ git commit -m "docs(tools): changelog, user guide, status, and roadmap for the s
 
 ## Self-Review
 
-**Spec coverage.** Engine + default ladder → Task 4. No autostart + both disclosures → Task 4 Step 5. Packet loss stated unavailable → Task 4 Step 5 (`MetricTile` `note`). Connection route → Task 2. Probe median / independent failure → Task 3 + Task 4 Step 3. Nothing persisted → no storage anywhere in the plan. Charts token-styled, single-series, table view → Task 5. Launchable-rule fix in the maturity module → Task 1. Stage `beta` + new descriptor → Task 4 Step 6. Error handling (engine error, blocked endpoints, unreachable platform, navigate-away abort) → Task 4 Steps 3+5. Testing (format, probe math, `hasSurface`, worker route, browser) → Tasks 1, 2, 3, 5 + the browser verification below. Definition of done incl. `docs/user/` → Task 6. Coordination amendment → Task 6 Step 5. Contract obligations (snapshot + client regen) → Task 2 Step 5.
+**Spec coverage.** Engine + default ladder → Task 4. No autostart + both disclosures → Task 4 Step 5. Packet loss stated unavailable → Task 4 Step 5 (`MetricTile` `note`). Connection route → Task 2. Probe median / independent failure → Task 3 + Task 4 Step 3. Nothing persisted → no storage anywhere in the plan. Charts token-styled, single-series, table view → Task 5. Launchable-rule fix in the maturity module → Task 1. Stage `alpha` + new descriptor → Task 4 Step 6. Error handling (engine error, blocked endpoints, unreachable platform, navigate-away abort) → Task 4 Steps 3+5. Testing (format, probe math, `hasSurface`, worker route, browser) → Tasks 1, 2, 3, 5 + the browser verification below. Definition of done incl. `docs/user/` → Task 6. Coordination amendment → Task 6 Step 5. Contract obligations (snapshot + client regen) → Task 2 Step 5.
 
 **Placeholder scan.** No TBD/TODO. The one "read the `.d.ts`" instruction (Task 4 Step 2) is a concrete action with a named file, and the code that follows is complete and reconcilable — not a blank to fill. Two token-name verifications (`--mc-accent-default`, `text-status-critical-subtle-foreground`, `border-border-strong`) name the exact file to check against.
 

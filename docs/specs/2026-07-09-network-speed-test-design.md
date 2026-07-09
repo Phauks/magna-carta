@@ -87,8 +87,10 @@ export function hasSurface(stage: MaturityStage): boolean {
 the model is classified in exactly one place.
 
 `ready` continues to wear no badge (`MATURITY_PRESENTATION.ready` is `null`).
-`alpha`/`beta` are launchable **and** badged. The Network Speed Test ships at **`beta`**:
-functionally complete, newly built.
+`alpha`/`beta` are launchable **and** badged. The Network Speed Test ships at **`alpha`**:
+`alpha` means just built, with a long road ahead, and that is where a newly built surface lands
+however complete it looks. `beta` means closing in. Promotion between stages is the owner's call,
+never the implementer's.
 
 Its descriptor is also corrected — the tool benchmarks the connection generally, not
 only the path to us:
@@ -110,7 +112,7 @@ Frontend, under `apps/web/`:
 | `src/lib/tools/speed-test/latency-chart.svelte`            | Single-series point chart (one latency phase)         |
 | `src/lib/maturity/maturity.ts`                             | `hasSurface(stage)` — the one home for the rule        |
 | `src/lib/tools/tool-tile.svelte`, `tool-row.svelte`        | Consume `hasSurface`, replacing the `=== "ready"` test |
-| `src/lib/tools/tool-presentation.ts`                       | `network-speed-test` → stage `beta`, new descriptor   |
+| `src/lib/tools/tool-presentation.ts`                       | `network-speed-test` → stage `alpha`, new descriptor  |
 
 Backend, under `apps/worker/`:
 
