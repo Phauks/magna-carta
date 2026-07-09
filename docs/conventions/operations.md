@@ -273,7 +273,26 @@ The scan worker is **built, connected to Workers Builds, and deployed** as of 20
 
 ## 12. Cloudflare Workers Builds — CI/CD pipeline + fast-build settings
 
-The build-and-deploy pipeline is **Cloudflare Workers Builds** (the deploy model; ADR-0075 as amended), not GitHub Actions. Each Worker (`magna-carta`, `magna-carta-scan`, `magna-carta-bundle`) is connected to the GitHub repository and builds + deploys on push to `main`. Build-time performance is a standing requirement — see [`build-performance.md`](build-performance.md).
+The build-and-deploy pipeline is **Cloudflare Workers Builds** (the deploy model; ADR-0075 as amended), not GitHub Actions. Seven Workers are connected to the GitHub repository — `magna-carta`, `magna-carta-scan`, `magna-carta-bundle`, `magna-carta-recovery`, `magna-carta-file-repair`, `magna-carta-status`, `magna-carta-edit` — and each builds + deploys on a push to its **production branch**. (`magna-carta-convert` exists but is not connected; it is deployed by hand.) Build-time performance is a standing requirement — see [`build-performance.md`](build-performance.md).
+
+### Branch control — the production branch is `release`, not `main`
+
+**A push to `main` deploys nothing.** The production branch on every connected Worker is **`release`**, and _Builds for non-production branches_ (`previews_enabled`) is **off** on all seven — it always has been, so a feature branch never built. Ordinary pushes and merges to `main` therefore reach GitHub without touching the live environment. Deploying is a separate, deliberate act:
+
+```
+git push origin main:release        # fast-forward release to main — this is the deploy
+```
+
+That push is the only thing that triggers a build. Watch Paths (below) then decide which of the seven Workers actually rebuild; the rest are untouched. `release` must stay a strict fast-forward of `main` — never commit to it directly, so the deployed tree is always a commit that exists on the trunk.
+
+Consequences to keep in mind:
+
+- **`main` can be ahead of production.** `git log --oneline release..main` is the undeployed queue. What is live is `release`, not the trunk.
+- The `pre-push` hook (below) runs on both pushes, so the gate still fires before a deploy.
+- The scan Worker's nightly signature-refresh **deploy hook** is unaffected — it triggers a build of the production branch, which is now `release`. That is the intent: a nightly rebuild refreshes signatures without shipping untested trunk code.
+- Deploy order still matters on a first deploy of a new Worker: a Worker targeted by a service binding must exist before the app Worker's deploy will succeed (see `magna-carta-recovery` below).
+
+To change it, **per Worker** — dashboard **Settings → Build → Branch control**, or `PATCH /accounts/{account_id}/builds/workers/{script_tag}` with `{"git_repository":{"branch":"release"}}` — set the production branch to `release`. Create `release` at the currently-deployed commit **before** flipping the setting, so the flip itself does not queue a build of unshipped work. `GET` on the same path reads the whole build configuration (branch, commands, caching, watch paths) and is the fastest way to check the live settings against what this file claims.
 
 ### Per-Worker build configuration (dashboard: **Workers & Pages → _the Worker_ → Settings → Builds**)
 
@@ -285,9 +304,17 @@ Build and deploy commands are already set (do not change without cause) — reco
 - `magna-carta-recovery` — root directory `apps/recovery-worker`; build `pnpm install --frozen-lockfile && pnpm run build`; deploy `npx wrangler deploy`. Deploying builds and pushes the `containers/recovery` image (the pure-Rust password-recovery engine) referenced by its Container binding, and applies its `RecoveryEngineContainer` DO migration. **Its build context is the repo ROOT** — the Dockerfile COPYs both `crates/decryption-core` (a path dependency) and `containers/recovery/...`, so `wrangler.jsonc` sets `image_build_context: "../../"`; the root `.dockerignore` allowlists only `crates` + `containers`. Without the explicit context, wrangler builds against a narrower default and the `COPY containers/recovery/wordlists` step fails on the runner with `"containers/recovery/wordlists": not found` (a local `docker build … .` masks it by using the root). The app Worker's `RECOVERY_SERVICE` binding **requires this Worker to exist first**: wrangler rejects a deploy whose service binding targets a missing Worker (`Service binding … references Worker … which was not found [code: 10143]`), so this Worker must be connected + deployed before the app Worker can deploy — the code's graceful fallback is runtime-only, not a deploy-time exemption. **Build Watch Paths (inclusion):** `apps/recovery-worker/*`, `containers/recovery/*`, `crates/recovery-core/*`, `crates/decryption-core/*`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`. No warm-poke cron, so the `standard-1` container scales to zero at idle.
 - `magna-carta-file-repair` — root directory `apps/file-repair-worker`; build `pnpm install --frozen-lockfile && pnpm run build`; deploy `npx wrangler deploy`. Deploying builds and pushes the `containers/file-repair` image (the Rust file-repair/salvage engine) and applies its `FileRepairEngineContainer` DO migration. **Same crates-sharing pattern as `magna-carta-recovery`** — `image_build_context: "../../"` plus the Dockerfile's `COPY crates crates`: the binary compiles `engine-host` + `recovery-core`, which inherit `edition` from the `crates/` workspace root, so the whole workspace must be in the build context (only those two crates actually compile). The app Worker's `FILE_REPAIR_SERVICE` binding requires this Worker to exist (same `code: 10143` rule as recovery above). **Build Watch Paths (inclusion):** `apps/file-repair-worker/*`, `containers/file-repair/*`, `crates/engine-host/*`, `crates/recovery-core/*`, `crates/Cargo.toml`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`. No warm-poke cron, so the `standard-1` container scales to zero at idle.
 
+- `magna-carta-status` — root directory `apps/status-worker`; build `pnpm run build`; deploy `npx wrangler deploy`. The public status page Worker. **Build Watch Paths (inclusion):** `apps/status-worker/*`, `packages/status/*`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`.
+- `magna-carta-edit` — root directory `/`; build `pnpm install --frozen-lockfile`; deploy `pnpm --filter @magna-carta/edit-worker run deploy`. The Collabora editing Worker. **Its production branch is still `slice-2-2-editing`, not the trunk** — a leftover from the editing slice's test deploys — and **every build it has attempted since 2026-06-28 has failed** (eight consecutive; last success 2026-06-26, on that branch). Nothing has deployed from it in that window, so the live editing Worker is older than the trunk. Point it at `release` with the others and diagnose the build failure from its logs before relying on an editing deploy. **Build Watch Paths (inclusion):** `apps/magna-carta-edit/*`, `containers/collabora/*`, `pnpm-lock.yaml`.
+
+**Two Watch Path settings drift from what this file used to claim** — read from the live build configuration, 2026-07-09, and both silently suppress rebuilds:
+
+- `magna-carta-file-repair` includes `containers/file-repair-worker/*`, but the container lives at `containers/file-repair/`. **No path matches it**, so a change to the file-repair container image never triggers a rebuild. Correct it to `containers/file-repair/*`.
+- `magna-carta-recovery` does **not** include `crates/decryption-core/*`, though its Dockerfile COPYs that crate as a path dependency. A change to `decryption-core` alone never rebuilds the recovery container.
+
 Two settings to **enable/set** (the fast-build levers — see [`build-performance.md`](build-performance.md)):
 
-- **Build Caching — turn ON for both Workers.** Caches dependencies and build outputs across builds (a project-wide cache), so a build does not re-download the pnpm store or rebuild unchanged outputs every run. This is the primary fast-build lever and the analog of a CI dependency cache.
+- **Build Caching — turn ON for every connected Worker.** Caches dependencies and build outputs across builds (a project-wide cache), so a build does not re-download the pnpm store or rebuild unchanged outputs every run. This is the primary fast-build lever and the analog of a CI dependency cache.
 - **Build Watch Paths — set per Worker** so an unrelated change does not rebuild every Worker. Patterns are repo-root-relative; a single `*` matches zero or more characters across directories; excludes are filtered first, then a build runs only if a changed path still matches an include. (Workers Builds always builds regardless of paths when a push has 0 changes, 3000+ changes, or 20+ commits.)
   - `magna-carta` (depends on most of the repo — scope by exclusion): **Include** `*` · **Exclude** `docs/*`, `containers/*`, `spikes/*`, `*.md`. So a docs- or scan-only change no longer rebuilds and redeploys the app Worker.
   - `magna-carta-scan` (depends only on its own package + the scan image — scope by inclusion): **Include** `apps/scan-worker/*`, `containers/scan/*`, `pnpm-lock.yaml`, `pnpm-workspace.yaml` · **Exclude** (none). So a change to `apps/web` or any `packages/*` no longer triggers a scan rebuild — the largest waste today.
@@ -295,11 +322,16 @@ Two settings to **enable/set** (the fast-build levers — see [`build-performanc
 
 ### Quality gates (no separate CI runner) — the `pre-push` hook
 
-With GitHub Actions retired, Workers Builds builds and deploys but runs no checks. The gates live in the tracked **`pre-push` git hook** (`tooling/git-hooks/pre-push`): it runs `pnpm audit`, `pnpm check`, the governance lints, `vp test`, the OpenAPI contract drift/Spectral gates, and — when `containers/scan/**` changed and Docker is available — the scan EICAR acceptance test (§11), blocking the push on any failure. Activate it once per clone with **`vp run setup-hooks`** (the same step that installs the post-merge auto-clean hook; `core.hooksPath` → `tooling/git-hooks`). `SKIP_PREPUSH=1 git push` bypasses it in a genuine emergency — fix forward. `oasdiff` (breaking-change vs. the base) and the Prism mock smoke are not in the hook (they are review-time / base-branch checks); run them in review if needed.
+With GitHub Actions retired, Workers Builds builds and deploys but runs no checks. The gates live in the tracked **`pre-push` git hook** (`tooling/git-hooks/pre-push`): it runs `pnpm audit`, `pnpm check`, the governance lints, `vp test`, the OpenAPI contract drift/Spectral gates, and — when `containers/scan/**` changed and Docker is available — the scan EICAR acceptance test (§11), blocking the push on any failure. It runs on every push, so it gates both the ordinary push to `main` (which deploys nothing) and the `main:release` fast-forward that does. Activate it once per clone with **`vp run setup-hooks`** (the same step that installs the post-merge auto-clean hook; `core.hooksPath` → `tooling/git-hooks`). `SKIP_PREPUSH=1 git push` bypasses it in a genuine emergency — fix forward. `oasdiff` (breaking-change vs. the base) and the Prism mock smoke are not in the hook (they are review-time / base-branch checks); run them in review if needed.
 
-### Container image cache (scan Worker)
+### Container image cache — which images comply
 
-The scan image build uses BuildKit cache mounts (`containers/scan/Dockerfile`) so an unchanged Cargo dependency graph is not recompiled. Mounts are build-local; if cold Rust dependency compiles in the Workers Build become the bottleneck, a cache-mount export is the documented upgrade path ([`build-performance.md`](build-performance.md)).
+Every Rust Container image is required to build with BuildKit cache mounts on the Cargo registry, the git cache, and the crate `target/`, so an unchanged dependency graph is not recompiled ([`build-performance.md`](build-performance.md)). Mounts are build-local; if cold Rust dependency compiles in the Workers Build become the bottleneck, a cache-mount export is the documented upgrade path.
+
+- `containers/scan/Dockerfile` and `containers/recovery/Dockerfile` — compliant. Both mount the caches and `cp` the built binary to `/artifacts/` inside the same `RUN`, because a cache mount is not part of an image layer and a later `COPY --from=build …/target/release/…` would find nothing.
+- `containers/file-repair/Dockerfile` — **not compliant.** It runs a bare `cargo build --release`, so every rebuild re-downloads the crates.io index and recompiles the whole `engine-host` + `recovery-core` closure (about 55 s of Rust in the 2026-07-04 build). Fixing it means adding the three mounts _and_ switching the runtime stage to copy from a non-mounted `/artifacts/` path, exactly as recovery does. Owed by the `file-repair-salvage` stream, which owns `containers/file-repair/**`.
+
+Verify a container's build cost from its build log rather than assuming: a warm build shows `CACHED` on the `cargo build` step; a cold one shows `Updating crates.io index` followed by `Compiling …`.
 
 ### Testing a container on Cloudflare (post-deploy self-test)
 

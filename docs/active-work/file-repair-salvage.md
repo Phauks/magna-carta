@@ -53,3 +53,20 @@ Both plans landed on this branch:
 - **Migration `0036`:** absorbed by the in-flight migration-collapse (`monotonic-migration-ids` branch) at rebase, or renumbered if a tools/schema stream lands a `0036` first.
 - **Fragments assembled on `main`:** `vp run changelog-build` + `vp run decisions-build` for the engine-host, `file-repair-single-container-lane`, `engine-host-r2-optional`, and `file-repair-attach` fragments.
 - **Worker `tsc -b`:** the full worker typecheck is a ~10-15 min cold build locally (memory-heavy); CI/warm-env is the authoritative gate. Route code verified by tests + the 6a route's clean `tsc`; the carve route mirrors it.
+
+- **BuildKit cache mounts on `containers/file-repair/Dockerfile`** (filed by the `deploy-release-branch`
+  stream, 2026-07-09 — this stream owns the file, so it is not fixed there). The Dockerfile runs a bare
+  `cargo build --release`, so every Workers Build re-downloads the crates.io index and recompiles the whole
+  `engine-host` + `recovery-core` closure (~55 s in the 2026-07-04 build). `build-performance.md` requires
+  cache mounts on `/usr/local/cargo/registry`, `/usr/local/cargo/git`, and the crate `target/` for every
+  Rust Container. **The trap:** a cache mount is not part of an image layer, so once `target/` is mounted the
+  runtime stage's `COPY --from=build /src/containers/file-repair/target/release/…` finds nothing — `cp` the
+  binary to `/artifacts/` inside the same `RUN` and copy from there. `containers/recovery/Dockerfile` is the
+  working template. Both scan and recovery already comply; file-repair is the only Rust container that does not.
+
+- **Two Workers Builds config fixes** (Cloudflare-side, not in the repo — need a write-scoped API token or the
+  dashboard). `magna-carta-file-repair`'s Build Watch Paths include `containers/file-repair-worker/*`, a
+  directory that **does not exist** — the real path is `containers/file-repair/`, so a change to the container
+  image never triggers a rebuild. Correct it to `containers/file-repair/*`. Separately, the production branch
+  for all connected Workers is moving from `main` to `release`, so merging this branch will no longer deploy;
+  see `docs/conventions/operations.md` (Branch control).
