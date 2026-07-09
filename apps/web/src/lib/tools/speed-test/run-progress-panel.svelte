@@ -34,8 +34,8 @@
 
 <div class="grid gap-4">
   <div class="flex items-baseline justify-between gap-16 text-xs tabular-nums text-text-muted">
-    <span>{stepIndex !== null ? `Step ${stepIndex + 1} of ${stepCount}` : ""}</span>
-    <span>{bytesUsed > 0 ? `${formatBytes(bytesUsed)} used` : ""}</span>
+    <span>{stepIndex !== null ? `Step ${stepIndex + 1} of ${stepCount}` : " "}</span>
+    <span>{bytesUsed > 0 ? `${formatBytes(bytesUsed)} used` : " "}</span>
   </div>
 
   <!-- The invisible copy reserves the cell's width; the visible label overlays it. -->

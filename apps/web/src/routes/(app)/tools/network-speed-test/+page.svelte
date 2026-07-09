@@ -23,6 +23,7 @@
   import RunProgressPanel from "$lib/tools/speed-test/run-progress-panel.svelte";
   import ServerPanel from "$lib/tools/speed-test/server-panel.svelte";
   import { createSpeedTestStore } from "$lib/tools/speed-test/speed-test-engine.svelte.ts";
+  import SteadyLabel from "$lib/tools/speed-test/steady-label.svelte";
   import {
     formatBandwidth,
     formatMilliseconds,
@@ -56,6 +57,72 @@
   const displayStepIndex = $derived(
     store.phase === "finished" && store.stepCount > 0 ? store.stepCount - 1 : store.stepIndex,
   );
+
+  /*
+   * The control region is always: panel, primary slot, secondary slot. Every word either slot could
+   * ever show is listed here so SteadyLabel can reserve the widest one's width in the real font —
+   * see steady-label.svelte. "Download report" is not wired to anything yet (that button lands
+   * separately); it is listed so its width is already reserved and adding the real button later
+   * moves nothing.
+   */
+  const PRIMARY_LABELS = ["Start", "Pause", "Resume", "Retest"] as const;
+  const SECONDARY_LABELS = ["Cancel", "Restart", "Download report"] as const;
+
+  const primaryLabel = $derived(
+    store.phase === "idle"
+      ? "Start"
+      : store.phase === "running"
+        ? "Pause"
+        : store.phase === "paused"
+          ? "Resume"
+          : "Retest",
+  );
+
+  function primaryAction(): void {
+    switch (store.phase) {
+      case "idle":
+        store.start();
+        break;
+      case "running":
+        store.pause();
+        break;
+      case "paused":
+        store.resume();
+        break;
+      case "finished":
+      case "failed":
+        store.restart();
+        break;
+    }
+  }
+
+  // Only running and paused have a real secondary action; idle, finished, and failed reserve the
+  // slot's width but render it `invisible` (see the Masthead.Actions markup below) rather than a
+  // disabled button naming an action it will not perform.
+  const secondaryVisible = $derived(store.phase === "running" || store.phase === "paused");
+
+  const secondaryLabel = $derived(
+    store.phase === "running"
+      ? "Cancel"
+      : store.phase === "paused"
+        ? "Restart"
+        : store.phase === "finished"
+          ? "Download report"
+          : "Cancel",
+  );
+
+  function secondaryAction(): void {
+    switch (store.phase) {
+      case "running":
+        store.cancel();
+        break;
+      case "paused":
+        store.restart();
+        break;
+      default:
+        break;
+    }
+  }
 
   // Always returns five rows — empty before a run has data — so the tile occupies its final
   // height from the moment the page loads rather than growing when a run finishes.
@@ -94,10 +161,6 @@
         <span>
           Run at {store.finishedAt.toLocaleTimeString()} on {store.finishedAt.toLocaleDateString()}
         </span>
-        {#if store.bytesUsed > 0}
-          <Masthead.MetaSeparator />
-          <span>{formatBytes(store.bytesUsed)} transferred</span>
-        {/if}
       {:else}
         <span>Not run yet</span>
       {/if}
@@ -110,17 +173,19 @@
       stepCount={store.stepCount}
       bytesUsed={store.bytesUsed}
     />
-    {#if store.phase === "idle"}
-      <Button variant="primary" onclick={() => store.start()}>Start</Button>
-    {:else if store.phase === "running"}
-      <Button variant="secondary" onclick={() => store.pause()}>Pause</Button>
-      <Button variant="ghost" onclick={() => store.cancel()}>Cancel</Button>
-    {:else if store.phase === "paused"}
-      <Button variant="primary" onclick={() => store.resume()}>Resume</Button>
-      <Button variant="secondary" onclick={() => store.restart()}>Restart</Button>
-    {:else}
-      <Button variant="primary" onclick={() => store.restart()}>Retest</Button>
-    {/if}
+    <Button variant="primary" onclick={primaryAction}>
+      <SteadyLabel labels={PRIMARY_LABELS} current={primaryLabel} />
+    </Button>
+
+    <Button
+      variant={store.phase === "paused" ? "secondary" : "ghost"}
+      class={secondaryVisible ? undefined : "invisible"}
+      tabindex={secondaryVisible ? undefined : -1}
+      aria-hidden={secondaryVisible ? undefined : "true"}
+      onclick={secondaryAction}
+    >
+      <SteadyLabel labels={SECONDARY_LABELS} current={secondaryLabel} />
+    </Button>
   </Masthead.Actions>
 </Masthead.Root>
 
