@@ -10,6 +10,7 @@
   import Button from "@magna-carta/design-system/button";
   import * as Masthead from "@magna-carta/design-system/masthead";
   import MetricTile from "$lib/tools/speed-test/metric-tile.svelte";
+  import QualityScores from "$lib/tools/speed-test/quality-scores.svelte";
   import { createSpeedTestStore } from "$lib/tools/speed-test/speed-test-engine.svelte.ts";
   import {
     formatBandwidth,
@@ -66,6 +67,16 @@
     value="Unavailable"
     note="Measuring packet loss needs a TURN server; the public one Cloudflare offered is discontinued."
   />
+</section>
+
+<section class="mb-24">
+  <h2
+    class="mb-16 border-b border-border-strong pb-8 text-xs text-text-muted uppercase"
+    style="letter-spacing: var(--mc-tracking-caps)"
+  >
+    Network quality score
+  </h2>
+  <QualityScores scores={results?.getScores()} />
 </section>
 
 <section class="mb-24">
