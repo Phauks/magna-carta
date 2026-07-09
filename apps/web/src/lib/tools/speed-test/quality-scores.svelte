@@ -8,6 +8,7 @@
    * moment the page loads so the page never jumps once a run finishes.
    */
   import type { Scores } from "@cloudflare/speedtest";
+  import { NOT_MEASURED_YET } from "./speed-test-format.ts";
   import { useCaseLabel } from "./quality-labels.ts";
 
   let { scores }: { scores: Scores | undefined } = $props();
@@ -35,7 +36,7 @@
       <div>
         <dt class="text-text-muted">{useCaseLabel(key)}</dt>
         <dd class="mt-4 text-lg">—</dd>
-        <dd class="text-xs text-text-muted">Scored once a run finishes.</dd>
+        <dd class="text-xs text-text-muted">{NOT_MEASURED_YET}</dd>
       </div>
     {/each}
   {/if}

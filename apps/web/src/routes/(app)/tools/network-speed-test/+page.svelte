@@ -27,6 +27,7 @@
     formatBandwidth,
     formatMilliseconds,
     formatRatio,
+    NOT_MEASURED_YET,
   } from "$lib/tools/speed-test/speed-test-format.ts";
   import { turnUnavailableNote } from "$lib/tools/speed-test/turn-capability.ts";
 
@@ -184,7 +185,7 @@
   {:else if store.turn}
     <MetricTile label="Packet loss" value="Unavailable" note={turnUnavailableNote(store.turn.reason)} />
   {:else}
-    <MetricTile label="Packet loss" value="—" note="Measured when a test runs." />
+    <MetricTile label="Packet loss" value="—" note={NOT_MEASURED_YET} />
   {/if}
 </section>
 

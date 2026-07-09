@@ -4,7 +4,7 @@
    * speed test states. The round trip to Magna Carta sits beside them because that is the one
    * thing their page cannot tell you.
    */
-  import { formatMilliseconds } from "./speed-test-format.ts";
+  import { formatMilliseconds, NOT_MEASURED_YET } from "./speed-test-format.ts";
   import { ipVersion, type MeasurementServer } from "./speed-test-meta.ts";
   import type { ProbeOutcome } from "./connection-probe.ts";
 
@@ -33,7 +33,7 @@
 
 <div class="mt-16">
   {#if probe === null}
-    <p class="text-sm text-text-muted">The round trip to Magna Carta has not been measured yet.</p>
+    <p class="text-sm text-text-muted">{NOT_MEASURED_YET}</p>
   {:else if probe.status === "unauthenticated"}
     <p class="text-sm text-text-muted">
       You are not signed in, so the round trip to Magna Carta was not measured. This says nothing

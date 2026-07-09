@@ -10,7 +10,7 @@
    * conditional on there being points to show.
    */
   import { niceMax, scaleLinear } from "./chart-scale.ts";
-  import { formatBandwidth } from "./speed-test-format.ts";
+  import { formatBandwidth, NOT_MEASURED_YET } from "./speed-test-format.ts";
 
   let {
     title,
@@ -73,7 +73,7 @@
         fill="var(--mc-text-muted)"
         style="font-size: 12px"
       >
-        Not measured yet.
+        {NOT_MEASURED_YET}
       </text>
     {/if}
   </svg>

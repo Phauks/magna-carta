@@ -4,6 +4,13 @@
  */
 const ABSENT = "—";
 
+/*
+ * How an untaken measurement reads, in prose. The em dash above says the same thing where a number
+ * belongs; this says it where a sentence belongs. Both live here so the page never invents a fifth
+ * way to say "we have not measured this."
+ */
+export const NOT_MEASURED_YET = "Not measured yet.";
+
 /** Bits per second → the largest unit that keeps the number readable. */
 export function formatBandwidth(bitsPerSecond: number | undefined): string {
   if (bitsPerSecond === undefined || !Number.isFinite(bitsPerSecond)) return ABSENT;

@@ -9,7 +9,7 @@
    * conditional on there being points to show.
    */
   import { niceMax, scaleLinear } from "./chart-scale.ts";
-  import { formatMilliseconds } from "./speed-test-format.ts";
+  import { formatMilliseconds, NOT_MEASURED_YET } from "./speed-test-format.ts";
 
   let { title, points }: { title: string; points: readonly number[] } = $props();
 
@@ -63,7 +63,7 @@
         fill="var(--mc-text-muted)"
         style="font-size: 12px"
       >
-        Not measured yet.
+        {NOT_MEASURED_YET}
       </text>
     {/if}
   </svg>

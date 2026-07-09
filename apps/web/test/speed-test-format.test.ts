@@ -7,6 +7,7 @@ import {
   formatBandwidth,
   formatMilliseconds,
   formatRatio,
+  NOT_MEASURED_YET,
 } from "../src/lib/tools/speed-test/speed-test-format.ts";
 
 describe("formatBandwidth", () => {
@@ -48,5 +49,11 @@ describe("formatRatio", () => {
 
   it("renders an absent measurement as an em dash", () => {
     expect(formatRatio(undefined)).toBe("—");
+  });
+});
+
+describe("NOT_MEASURED_YET", () => {
+  it("is the one sentence the page uses for a measurement not taken", () => {
+    expect(NOT_MEASURED_YET).toBe("Not measured yet.");
   });
 });
