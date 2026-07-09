@@ -1747,6 +1747,476 @@ git commit -m "fix(tools): drop the packet-loss phase, rank the metrics, name th
 
 ---
 
+### Task 4d: Packet loss, by capability detection
+
+Owner asked for packet loss. It is buildable: Cloudflare Realtime mints short-lived TURN credentials, TURN shares a 1,000 GB free tier with SFU, and a packet-loss run relays about a thousand small UDP packets — under a megabyte. Bandwidth is not the constraint.
+
+**The constraint is that the credential route must be authenticated, and the application has no session yet.** An open TURN-credential endpoint is a free relay vending machine billed to the firm's account, so it is gated on `tools:speedTest`. If we simply restored the `packetLoss` step, the engine would request credentials, receive `401`, and abort the entire run — exactly the failure Task 4c fixed.
+
+So the engine is told to measure packet loss **only when credentials are actually obtainable**. Ask first; choose the ladder from the answer. This works today (no session → no credentials → the ladder without packet loss, and the tile says why), and it begins measuring on its own the moment the secrets exist and a session is present. Nothing has to be remembered and switched on.
+
+**Verified facts (from the shipped `.d.ts` and Cloudflare's docs — do not re-derive):**
+- `ConfigOptions.turnServerUri` defaults to `turn.speed.cloudflare.com:50000`, the **deprecated public server**. With our own key it MUST be overridden to `turn.cloudflare.com:3478`.
+- `ConfigOptions.turnServerCredsApiUrl` is a URL the engine fetches; it must answer `{ username, credential }`. `turnServerUser` / `turnServerPass` stay `null` so credentials are fetched dynamically.
+- `PacketLossMeasurementConfig` requires `type`, `numPackets`, `batchSize`, `batchWaitTime`, `responsesWaitTime` (`connectionTimeout` optional).
+- `Results.getPacketLoss(): number | undefined`.
+- Cloudflare mints credentials at `POST https://rtc.live.cloudflare.com/v1/turn/keys/{TURN_KEY_ID}/credentials/generate-ice-servers`, `Authorization: Bearer {TURN_KEY_API_TOKEN}`, body `{"ttl": <seconds>}`, answering `201` with `{ iceServers: [ { urls: [...] }, { urls: [...], username, credential } ] }`. The `username`/`credential` live on the entry that has them — not necessarily the first.
+
+**Owner action required (I cannot do this):** create a Realtime TURN key in the Cloudflare dashboard and set two Worker secrets, `REALTIME_TURN_TOKEN_ID` and `REALTIME_TURN_TOKEN_SECRET`. Until then the route answers `503` and the tile states that packet loss is not configured.
+
+**Files:**
+- Create: `apps/worker/src/routes/tools-turn-credentials.ts`
+- Modify: `apps/worker/src/app.ts` (one import, one registration)
+- Modify: `apps/worker/openapi/openapi.json`, `packages/api-client/**` (regenerated, never hand-edited)
+- Test: `apps/worker/test/tools-turn-credentials.test.ts`
+- Create: `apps/web/src/lib/tools/speed-test/turn-capability.ts`
+- Modify: `apps/web/src/lib/tools/speed-test/measurement-ladder.ts`
+- Modify: `apps/web/src/lib/tools/speed-test/speed-test-format.ts` (restore `formatRatio` — it now has a consumer)
+- Modify: `apps/web/src/lib/tools/speed-test/speed-test-engine.svelte.ts`
+- Modify: `apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte`
+- Test: `apps/web/test/turn-capability.test.ts`, `apps/web/test/measurement-ladder.test.ts` (extend), `apps/web/test/speed-test-format.test.ts` (extend)
+
+**Interfaces:**
+- Worker produces: `GET /api/v1/tools/turn-credentials` → `200 { username, credential }` · `401` · `403` · `503` (TURN key not configured) · `502` (upstream refused).
+- Frontend produces: `TurnCapability`, `probeTurnCapability(fetchStatus)`, `LADDER_WITH_PACKET_LOSS`, `formatRatio`.
+
+#### Part A — the Worker route
+
+- [ ] **Step 1: Write the failing test**
+
+Create `apps/worker/test/tools-turn-credentials.test.ts`. Mirror the session/permission seeding harness of `apps/worker/test/tools-connection.test.ts` exactly (read it first). Assert:
+
+1. `401` for an unauthenticated caller, with `content-type: application/problem+json`.
+2. `403` for an authenticated member lacking `tools:speedTest`.
+3. `503` for a permitted member when the TURN secrets are absent from the test environment (they are), and that the problem body does **not** contain the words "token" or "secret".
+4. The path appears in the emitted OpenAPI contract.
+
+- [ ] **Step 2: Run it to verify it fails**
+
+Run: `vp test tools-turn-credentials`
+Expected: FAIL — the path 404s.
+
+- [ ] **Step 3: Write the route**
+
+Create `apps/worker/src/routes/tools-turn-credentials.ts`, following `apps/worker/src/routes/tools-connection.ts` for structure:
+
+```ts
+import { z, type OpenAPIHono } from "@hono/zod-openapi";
+import type { Bindings } from "../app.ts";
+import type { Chokepoint } from "../chokepoint/chokepoint.ts";
+import type { AppVariables } from "../chokepoint/ports.ts";
+import { chokepointMiddleware } from "../chokepoint/register.ts";
+import { Problem } from "../contracts/problem.ts";
+import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
+
+// Minted per run and short-lived on purpose. A TURN credential is a relay authorization billed to
+// this account, so it is never long-lived and never handed to an unauthenticated caller.
+const CREDENTIAL_TTL_SECONDS = 600;
+
+const TurnCredentials = z
+  .object({ username: z.string(), credential: z.string() })
+  .openapi("TurnCredentials");
+
+export const toolsTurnCredentialsMeta: RouteMeta = {
+  operationId: "toolsTurnCredentials.get",
+  surface: "app",
+  authenticated: true,
+  permission: "tools:speedTest",
+  resource: "firm",
+  audited: false,
+  idempotency: "optional",
+  rateLimit: "expensive",
+};
+
+export const toolsTurnCredentialsRoute = defineOpenAPIRoute(toolsTurnCredentialsMeta, {
+  method: "get",
+  path: "/api/v1/tools/turn-credentials",
+  description:
+    "Short-lived relay credentials used to measure packet loss. Answers 503 when relay measurement is not configured.",
+  responses: {
+    200: {
+      description: "Short-lived relay credentials",
+      content: { "application/json": { schema: TurnCredentials } },
+    },
+    401: { description: "No valid session", content: { "application/problem+json": { schema: Problem } } },
+    403: {
+      description: "Authenticated, but the member lacks tools:speedTest",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    429: { description: "Rate limit exceeded", content: { "application/problem+json": { schema: Problem } } },
+    502: {
+      description: "The relay credential service refused",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    503: {
+      description: "Relay measurement is not configured for this deployment",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+  },
+});
+
+// Cloudflare answers with a list of ICE servers; only one entry carries credentials. Find it by the
+// fields we need rather than by position.
+function credentialsFrom(payload: unknown): { username: string; credential: string } | null {
+  if (typeof payload !== "object" || payload === null) return null;
+  const servers = (payload as { iceServers?: unknown }).iceServers;
+  if (!Array.isArray(servers)) return null;
+  for (const server of servers) {
+    if (typeof server !== "object" || server === null) continue;
+    const { username, credential } = server as { username?: unknown; credential?: unknown };
+    if (typeof username === "string" && typeof credential === "string") {
+      return { username, credential };
+    }
+  }
+  return null;
+}
+
+export function registerToolsTurnCredentialsRoute(
+  app: OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>,
+  chokepoint: Chokepoint,
+): void {
+  app.openapi(
+    {
+      ...toolsTurnCredentialsRoute,
+      middleware: chokepointMiddleware(chokepoint, toolsTurnCredentialsRoute),
+    },
+    async (c) => {
+      const keyId = c.env.REALTIME_TURN_TOKEN_ID;
+      const apiToken = c.env.REALTIME_TURN_TOKEN_SECRET;
+
+      // Not an error to report upstream: this deployment simply does not measure packet loss. The
+      // caller-facing detail never names the secrets.
+      if (!keyId || !apiToken) {
+        return c.json(
+          {
+            type: "about:blank",
+            title: "Relay measurement is not configured",
+            status: 503,
+            detail: "This deployment cannot measure packet loss.",
+          },
+          503,
+        );
+      }
+
+      const upstream = await fetch(
+        `https://rtc.live.cloudflare.com/v1/turn/keys/${keyId}/credentials/generate-ice-servers`,
+        {
+          method: "POST",
+          headers: { authorization: `Bearer ${apiToken}`, "content-type": "application/json" },
+          body: JSON.stringify({ ttl: CREDENTIAL_TTL_SECONDS }),
+        },
+      );
+
+      // Never surface the upstream body: it may echo the key id.
+      if (!upstream.ok) {
+        return c.json(
+          {
+            type: "about:blank",
+            title: "The relay credential service refused",
+            status: 502,
+            detail: "Packet loss could not be measured.",
+          },
+          502,
+        );
+      }
+
+      const credentials = credentialsFrom(await upstream.json());
+      if (credentials === null) {
+        return c.json(
+          {
+            type: "about:blank",
+            title: "The relay credential service refused",
+            status: 502,
+            detail: "Packet loss could not be measured.",
+          },
+          502,
+        );
+      }
+
+      return c.json(credentials, 200);
+    },
+  );
+}
+```
+
+Add `REALTIME_TURN_TOKEN_ID` and `REALTIME_TURN_TOKEN_SECRET` to the `Bindings` type in `apps/worker/src/app.ts` as optional strings, beside the other secrets. **Never log either value, and never log the minted credential.**
+
+- [ ] **Step 4: Register, re-emit, regenerate**
+
+Add the import and `registerToolsTurnCredentialsRoute(app, chokepoint);` beside `registerToolsConnectionRoute`.
+
+Run: `pnpm --filter @magna-carta/worker run emit-openapi`
+Run: `pnpm run generate-client`
+
+- [ ] **Step 5: Run the worker tests**
+
+Run: `vp test tools-turn-credentials tools-connection openapi-snapshot`
+Expected: PASS.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add apps/worker/src/routes/tools-turn-credentials.ts apps/worker/src/app.ts apps/worker/openapi/openapi.json apps/worker/test/tools-turn-credentials.test.ts packages/api-client
+git commit -m "feat(tools): short-lived relay credentials for packet-loss measurement"
+```
+
+#### Part B — capability detection in the client
+
+- [ ] **Step 7: Write the failing capability test**
+
+Create `apps/web/test/turn-capability.test.ts`:
+
+```ts
+/*
+ * Whether packet loss can be measured at all. Asking first is what keeps a missing session or an
+ * unprovisioned key from aborting the whole run — the engine is only ever told to measure packet
+ * loss when the credentials behind it actually exist.
+ */
+import { describe, expect, it } from "vitest";
+import { probeTurnCapability } from "../src/lib/tools/speed-test/turn-capability.ts";
+
+describe("probeTurnCapability", () => {
+  it("is available when credentials are issued", async () => {
+    expect(await probeTurnCapability(async () => 200)).toEqual({ available: true });
+  });
+
+  it("names a missing session", async () => {
+    expect(await probeTurnCapability(async () => 401)).toEqual({
+      available: false,
+      reason: "unauthenticated",
+    });
+  });
+
+  it("names a missing permission", async () => {
+    expect(await probeTurnCapability(async () => 403)).toEqual({
+      available: false,
+      reason: "forbidden",
+    });
+  });
+
+  it("names an unconfigured deployment", async () => {
+    expect(await probeTurnCapability(async () => 503)).toEqual({
+      available: false,
+      reason: "not-configured",
+    });
+  });
+
+  it("falls back to unavailable for any other answer", async () => {
+    expect(await probeTurnCapability(async () => 502)).toEqual({
+      available: false,
+      reason: "unavailable",
+    });
+  });
+
+  it("treats a transport failure as unavailable rather than throwing", async () => {
+    const capability = await probeTurnCapability(async () => {
+      throw new Error("offline");
+    });
+    expect(capability).toEqual({ available: false, reason: "unavailable" });
+  });
+});
+```
+
+- [ ] **Step 8: Run it to verify it fails**
+
+Run: `vp test turn-capability`
+Expected: FAIL — module not found.
+
+- [ ] **Step 9: Write the capability module**
+
+Create `apps/web/src/lib/tools/speed-test/turn-capability.ts`:
+
+```ts
+/*
+ * Packet loss is relayed through a TURN server, and the credentials for it are minted by an
+ * authenticated route. Ask whether they can be had BEFORE telling the engine to measure: a refused
+ * credential mid-run aborts the entire test, taking the bandwidth and latency results with it.
+ *
+ * Each refusal names itself, so the page can say which of them happened instead of showing a blank.
+ */
+export const TURN_CREDENTIALS_URL = "/api/v1/tools/turn-credentials";
+
+export type TurnUnavailableReason =
+  | "unauthenticated"
+  | "forbidden"
+  | "not-configured"
+  | "unavailable";
+
+export type TurnCapability =
+  | { readonly available: true }
+  | { readonly available: false; readonly reason: TurnUnavailableReason };
+
+/** `fetchStatus` answers the HTTP status, or throws on a transport failure. */
+export async function probeTurnCapability(
+  fetchStatus: (url: string) => Promise<number>,
+): Promise<TurnCapability> {
+  let status: number;
+  try {
+    status = await fetchStatus(TURN_CREDENTIALS_URL);
+  } catch {
+    return { available: false, reason: "unavailable" };
+  }
+
+  if (status === 200) return { available: true };
+  if (status === 401) return { available: false, reason: "unauthenticated" };
+  if (status === 403) return { available: false, reason: "forbidden" };
+  if (status === 503) return { available: false, reason: "not-configured" };
+  return { available: false, reason: "unavailable" };
+}
+
+/** What the Packet loss tile says when the measurement could not be attempted. */
+export function turnUnavailableNote(reason: TurnUnavailableReason): string {
+  switch (reason) {
+    case "unauthenticated":
+      return "Sign in to measure packet loss.";
+    case "forbidden":
+      return "Your account does not carry permission to measure packet loss.";
+    case "not-configured":
+      return "This deployment is not set up to measure packet loss.";
+    case "unavailable":
+      return "The relay needed to measure packet loss could not be reached.";
+  }
+}
+```
+
+- [ ] **Step 10: Run it to verify it passes**
+
+Run: `vp test turn-capability`
+Expected: PASS (6 tests).
+
+- [ ] **Step 11: Extend the ladder**
+
+In `apps/web/src/lib/tools/speed-test/measurement-ladder.ts`, keep `MEASUREMENT_LADDER` exactly as it is and add:
+
+```ts
+/*
+ * Cloudflare's ladder with the packet-loss phase restored, in the position their own default puts
+ * it: after the first upload round. Used only when credentials for the relay were actually obtained
+ * — see turn-capability.ts. The batch figures are the library's documented defaults.
+ */
+export const LADDER_WITH_PACKET_LOSS: MeasurementConfig[] = [
+  { type: "latency", numPackets: 1 },
+  { type: "download", bytes: 1e5, count: 1, bypassMinDuration: true },
+  { type: "latency", numPackets: 20 },
+  { type: "download", bytes: 1e5, count: 9 },
+  { type: "download", bytes: 1e6, count: 8 },
+  { type: "upload", bytes: 1e5, count: 8 },
+  { type: "packetLoss", numPackets: 1e3, batchSize: 10, batchWaitTime: 10, responsesWaitTime: 3000 },
+  { type: "upload", bytes: 1e6, count: 6 },
+  { type: "download", bytes: 1e7, count: 6 },
+  { type: "upload", bytes: 1e7, count: 4 },
+  { type: "download", bytes: 2.5e7, count: 4 },
+  { type: "upload", bytes: 2.5e7, count: 4 },
+  { type: "download", bytes: 1e8, count: 3 },
+  { type: "upload", bytes: 5e7, count: 3 },
+  { type: "download", bytes: 2.5e8, count: 2 },
+];
+```
+
+Add to `apps/web/test/measurement-ladder.test.ts`:
+
+```ts
+describe("LADDER_WITH_PACKET_LOSS", () => {
+  it("adds exactly one packet-loss phase and changes nothing else", () => {
+    expect(LADDER_WITH_PACKET_LOSS.filter((step) => step.type === "packetLoss")).toHaveLength(1);
+    const withoutPacketLoss = LADDER_WITH_PACKET_LOSS.filter((step) => step.type !== "packetLoss");
+    expect(withoutPacketLoss).toEqual(MEASUREMENT_LADDER);
+  });
+});
+```
+
+- [ ] **Step 12: Restore `formatRatio`**
+
+In `apps/web/src/lib/tools/speed-test/speed-test-format.ts` add back:
+
+```ts
+/** A 0–1 ratio (packet loss) as a percentage; a whole percentage keeps no decimal. */
+export function formatRatio(ratio: number | undefined): string {
+  if (ratio === undefined || !Number.isFinite(ratio)) return ABSENT;
+  const percentage = ratio * 100;
+  return Number.isInteger(percentage) ? `${percentage}%` : `${percentage.toFixed(1)}%`;
+}
+```
+
+and to `apps/web/test/speed-test-format.test.ts`:
+
+```ts
+describe("formatRatio", () => {
+  it("renders a loss ratio as a percentage", () => {
+    expect(formatRatio(0.004)).toBe("0.4%");
+  });
+
+  it("renders zero loss as 0%", () => {
+    expect(formatRatio(0)).toBe("0%");
+  });
+
+  it("renders an absent measurement as an em dash", () => {
+    expect(formatRatio(undefined)).toBe("—");
+  });
+});
+```
+
+- [ ] **Step 13: Wire it into the store**
+
+In `apps/web/src/lib/tools/speed-test/speed-test-engine.svelte.ts`:
+
+1. Add `let turn = $state<TurnCapability | null>(null);` with a `get turn()` accessor, and `getPacketLoss()` to the structural `SpeedTestResults` interface and to `snapshotResults`.
+2. In `start()`, determine the capability **before** building the engine:
+
+```ts
+turn = await probeTurnCapability(async (url) => {
+  const response = await fetch(url, { headers: { accept: "application/json" } });
+  return response.status;
+});
+```
+
+3. Build the engine from that capability. Because the ladder is fixed at construction, `ensureEngine` takes it as an argument, and `restart()` disposes and rebuilds so a member who signs in mid-session gets packet loss on the next run:
+
+```ts
+const options = turn.available
+  ? {
+      autoStart: false,
+      measurements: LADDER_WITH_PACKET_LOSS,
+      // The default points at Cloudflare's discontinued public relay; ours is the Realtime one.
+      turnServerUri: "turn.cloudflare.com:3478",
+      turnServerCredsApiUrl: TURN_CREDENTIALS_URL,
+    }
+  : { autoStart: false, measurements: MEASUREMENT_LADDER };
+```
+
+Leave `turnServerUser` / `turnServerPass` unset so the engine fetches credentials dynamically.
+
+- [ ] **Step 14: Render the tile honestly**
+
+In the page, the Packet loss tile becomes:
+
+```svelte
+{#if store.turn?.available}
+  <MetricTile label="Packet loss" value={formatRatio(results?.getPacketLoss())} />
+{:else if store.turn}
+  <MetricTile label="Packet loss" value="Unavailable" note={turnUnavailableNote(store.turn.reason)} />
+{:else}
+  <MetricTile label="Packet loss" value="—" note="Measured when a test runs." />
+{/if}
+```
+
+- [ ] **Step 15: Verify the gates**
+
+Run: `pnpm --filter @magna-carta/web run check`
+Expected: 0 errors, 0 warnings.
+
+Run: `vp test turn-capability measurement-ladder speed-test-format speed-test-meta connection-probe quality-labels`
+Expected: PASS.
+
+- [ ] **Step 16: Commit**
+
+```bash
+git add apps/web/src/lib/tools/speed-test apps/web/test/turn-capability.test.ts apps/web/test/measurement-ladder.test.ts apps/web/test/speed-test-format.test.ts "apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte"
+git commit -m "feat(tools): measure packet loss when the relay credentials can be had"
+```
+
+---
+
 ### Task 5: Measurement charts
 
 **Files:**
