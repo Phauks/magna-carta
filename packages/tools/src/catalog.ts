@@ -102,7 +102,7 @@ export const CATALOG: readonly ToolManifest[] = [
     icon: "file-cog",
     subjectGroup: "files",
     permission: assertPermission("tools:fileConverter"),
-    contextTags: ["none"],
+    contextTags: ["file", "none"],
     backing: { kind: "library" },
     matterContext: "none",
   },
@@ -112,7 +112,7 @@ export const CATALOG: readonly ToolManifest[] = [
     icon: "file-search",
     subjectGroup: "files",
     permission: assertPermission("tools:metadataScrubber"),
-    contextTags: ["none"],
+    contextTags: ["file", "none"],
     backing: { kind: "library" },
     matterContext: "none",
   },
@@ -168,5 +168,17 @@ export const CATALOG: readonly ToolManifest[] = [
     // the "optional" matter context is the seam for the opt-in attach-to-matter path.
     backing: { kind: "library" },
     matterContext: "optional",
+  },
+  {
+    id: "malware-scan",
+    name: "Malware Scan",
+    icon: "shield-check",
+    subjectGroup: "files",
+    // Gated on the same capability the scan diagnostic route requires (POST /api/v1/scan/diagnose),
+    // seeded to every default role. A one-off, matter-less diagnostic: the file is not stored.
+    permission: assertPermission("firm:scanFile"),
+    contextTags: ["file"],
+    backing: { kind: "library" },
+    matterContext: "none",
   },
 ];
