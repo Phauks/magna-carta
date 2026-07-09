@@ -6,6 +6,9 @@ import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { Problem } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 
+// Cloudflare populates `request.cf` on every production request; the empty-string / zero values
+// below are the local-runtime (Miniflare) degradation the handler substitutes when `cf` is
+// absent, not meaningful field values a caller should read as real edge data.
 const ConnectionResponse = z
   .object({
     ip: z.string(),
