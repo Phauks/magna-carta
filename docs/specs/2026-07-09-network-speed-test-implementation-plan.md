@@ -2975,6 +2975,127 @@ git commit -m "feat(tools): name the phase, the step, and the data a run has use
 
 ---
 
+### Task 9: The page must not move when a run starts or finishes
+
+Owner: the quality-score and measurement boxes should already be on screen before the test begins, even empty, so nothing shifts once it starts.
+
+They *are* rendered — but they change **height**, and the disclosure paragraph disappears entirely, so the page reflows twice per run. Every result region must occupy its final height from the moment the page loads. An empty region states that it is empty; it does not collapse.
+
+**The four sources of reflow, each to be removed:**
+
+1. **The disclosure paragraph is `{#if store.phase === "idle"}`.** When a run starts it vanishes and everything below jumps up. It is true at every phase — a test *does* transfer that data and *does* share the address. **Render it unconditionally.**
+2. **`quality-scores.svelte`** renders a single-line paragraph when empty and a three-column definition list when scored.
+3. **`bandwidth-chart.svelte` / `latency-chart.svelte`** render a one-line paragraph when empty and a fixed-height `<svg>` plus a `<details>` table view when populated.
+4. **`metric-tile.svelte`** grows when Task 7's `stats` rows arrive after a run.
+
+**Files:**
+- Modify: `apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte`
+- Modify: `apps/web/src/lib/tools/speed-test/quality-scores.svelte`
+- Modify: `apps/web/src/lib/tools/speed-test/bandwidth-chart.svelte`
+- Modify: `apps/web/src/lib/tools/speed-test/latency-chart.svelte`
+- Modify: `apps/web/src/lib/tools/speed-test/metric-tile.svelte`
+
+- [ ] **Step 1: Keep the disclosure always**
+
+In the page, remove the `{#if store.phase === "idle"}` guard around the disclosure paragraph. It renders in every phase.
+
+- [ ] **Step 2: The quality-score panel keeps its shape**
+
+In `quality-scores.svelte`, always render the three-column definition list. When `scores` is absent or empty, render the three use-cases the engine reports today with an em dash for the rating and no point line, so the grid holds its height:
+
+```svelte
+<script lang="ts">
+  import type { Scores } from "@cloudflare/speedtest";
+  import { useCaseLabel } from "./quality-labels.ts";
+
+  let { scores }: { scores: Scores | undefined } = $props();
+
+  // Before a run there are no scores, but the panel must already occupy its full height or the
+  // page will jump the moment one finishes. These three are the use-cases the engine reports
+  // today; once it answers, its own keys replace them.
+  const PLACEHOLDER_KEYS = ["streaming", "gaming", "rtc"];
+
+  const entries = $derived(Object.entries(scores ?? {}));
+  const scored = $derived(entries.length > 0);
+</script>
+
+<dl class="grid grid-cols-1 gap-8 text-sm sm:grid-cols-3">
+  {#if scored}
+    {#each entries as [key, score] (key)}
+      <div>
+        <dt class="text-text-muted">{useCaseLabel(key)}</dt>
+        <dd class="mt-4 text-lg capitalize">{score.classificationName}</dd>
+        <dd class="text-xs text-text-muted">{score.points} points</dd>
+      </div>
+    {/each}
+  {:else}
+    {#each PLACEHOLDER_KEYS as key (key)}
+      <div>
+        <dt class="text-text-muted">{useCaseLabel(key)}</dt>
+        <dd class="mt-4 text-lg">—</dd>
+        <dd class="text-xs text-text-muted">Scored once a run finishes.</dd>
+      </div>
+    {/each}
+  {/if}
+</dl>
+```
+
+- [ ] **Step 3: The charts keep their frame**
+
+In both chart components, the `<svg>` and the table-view affordance render in **every** state. Keep the exact same `viewBox`, `height`, and the `<details>` element; only the marks are conditional. When there are no points, draw no marks and place one muted line of text where the marks would be, and let the `<details>` open to "Nothing measured yet."
+
+The structural rule: **no `{#if points.length === 0}` may wrap the `<svg>` or the `<details>`.** Guard only the `{#each}` blocks inside them. Verify the rendered height of an empty chart equals the height of a populated one.
+
+Keep `niceMax`'s empty-set guard doing its job — an empty series must still yield a domain of 1 and draw a baseline, never divide by zero.
+
+- [ ] **Step 4: The metric tiles keep their height**
+
+In `metric-tile.svelte`, when the `stats` prop is supported by a tile but has no data yet, render the same stat row with em dashes rather than omitting it. The simplest honest form: the page always passes a `stats` array for Download and Upload; `statRows` returns the four labels with `—` values when `bandwidthStats` is null.
+
+Update `statRows` on the page:
+
+```ts
+  function statRows(stats: ReturnType<typeof bandwidthStats>) {
+    if (stats === null) {
+      return [
+        { label: "Median", value: "—" },
+        { label: "95th", value: "—" },
+        { label: "Peak", value: "—" },
+        { label: "Samples", value: "—" },
+      ];
+    }
+    return [
+      { label: "Median", value: formatBandwidth(stats.median) },
+      { label: "95th", value: formatBandwidth(stats.p95) },
+      { label: "Peak", value: formatBandwidth(stats.peak) },
+      { label: "Samples", value: String(stats.samples) },
+    ];
+  }
+```
+
+- [ ] **Step 5: Prove it does not move**
+
+Run the app (`vp run worker-dev`), open `/tools/network-speed-test`, and in the browser console record `document.querySelector("main").scrollHeight` before pressing Start and again after the run finishes. **The two numbers must be equal.** If they differ, a region is still collapsing — find it and reserve its height. Report both numbers.
+
+(The masthead's actions region may change width as controls swap; that is horizontal and does not move the page body. The error paragraph appears only on failure and is exempt.)
+
+- [ ] **Step 6: Verify the gates**
+
+Run: `pnpm --filter @magna-carta/web run check`
+Expected: 0 errors, 0 warnings.
+
+Run: `vp test bandwidth-stats run-progress chart-scale speed-test-format measurement-ladder`
+Expected: PASS.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add apps/web/src/lib/tools/speed-test "apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte"
+git commit -m "fix(tools): the speed-test page holds its shape from load to result"
+```
+
+---
+
 ### Task 6: Documentation (definition of done)
 
 No feature is done until its docs, roadmap, and changelog fragment land. Branches never hand-edit `CHANGELOG.md` or `STATUS.md` — they commit fragments.
