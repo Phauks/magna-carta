@@ -4576,6 +4576,176 @@ git commit -m "fix(tools): an unmeasured value reads N/A"
 
 ---
 
+### Task 22: A low-data mode, an auto-start preference, and one fewer "not yet"
+
+Owner: three things.
+1. The masthead says "Not run yet" while the panel says "Not started". Duplicative — drop the masthead's.
+2. A **low-internet-usage mode** that runs only the lower-bandwidth measurements, to save data.
+3. An **auto-start on opening the page** preference.
+
+Both preferences live in a `…` overflow menu on the page, and both default to **off**.
+
+**Low-data mode is not free, and the page must say so.** Capping the payloads at 1 MB yields roughly a **16 MB** run instead of ~200 MB. But every request then completes in well under a second, so the connection never reaches steady state and a fast line measures *slower than it is*. It also forfeits the comparability with `speed.cloudflare.com` that justified running their unmodified ladder, and it skews the network-quality ratings, because download and upload speed feed them. Disclose all of this where the switch lives — a mode that quietly returns a wrong number is worse than no mode.
+
+**Auto-start spends the firm's bandwidth on navigation.** That is exactly what "no autostart" was protecting against, which is why it is opt-in, off by default, and only ever fires when the page opens with no run in progress.
+
+**Files:**
+- Create: `apps/web/src/lib/tools/speed-test/speed-test-preferences.ts` (pure: shape, defaults, parse)
+- Create: `apps/web/src/lib/tools/speed-test/speed-test-preferences.svelte.ts` (the rune store)
+- Create: `apps/web/src/lib/tools/speed-test/speed-test-menu.svelte`
+- Modify: `apps/web/src/lib/tools/speed-test/measurement-ladder.ts` (a builder, not four constants)
+- Modify: `apps/web/src/lib/tools/speed-test/speed-test-engine.svelte.ts`
+- Modify: `apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte`
+- Test: `apps/web/test/speed-test-preferences.test.ts`, `apps/web/test/measurement-ladder.test.ts`
+
+**Depends on Tasks 19–21.** Do it after them.
+
+#### Part A — the ladder becomes a builder
+
+Four exported constants (full, full+loss, light, light+loss) is a combinatorial mess. One builder, two booleans.
+
+- [ ] **Step 1: Rewrite the ladder test**
+
+Replace `apps/web/test/measurement-ladder.test.ts`'s body with tests over `buildLadder`:
+
+```ts
+import { describe, expect, it } from "vitest";
+import { LOW_DATA_MAX_BYTES, buildLadder } from "../src/lib/tools/speed-test/measurement-ladder.ts";
+
+const bytesOf = (ladder: ReturnType<typeof buildLadder>) =>
+  ladder.reduce((total, step) => ("bytes" in step ? total + step.bytes * step.count : total), 0);
+
+describe("buildLadder", () => {
+  it("never measures packet loss unless asked", () => {
+    const ladder = buildLadder({ lowData: false, packetLoss: false });
+    expect(ladder.some((step) => step.type === "packetLoss")).toBe(false);
+  });
+
+  it("adds exactly one packet-loss phase when asked", () => {
+    const ladder = buildLadder({ lowData: false, packetLoss: true });
+    expect(ladder.filter((step) => step.type === "packetLoss")).toHaveLength(1);
+  });
+
+  it("climbs to Cloudflare's largest payloads in full mode, so results stay comparable", () => {
+    const ladder = buildLadder({ lowData: false, packetLoss: false });
+    const downloads = ladder.filter((s) => s.type === "download");
+    expect(Math.max(...downloads.map((s) => ("bytes" in s ? s.bytes : 0)))).toBe(2.5e8);
+  });
+
+  it("caps every payload in low-data mode", () => {
+    const ladder = buildLadder({ lowData: true, packetLoss: false });
+    for (const step of ladder) {
+      if ("bytes" in step) expect(step.bytes).toBeLessThanOrEqual(LOW_DATA_MAX_BYTES);
+    }
+  });
+
+  it("keeps latency, download and upload phases in low-data mode", () => {
+    const types = new Set(buildLadder({ lowData: true, packetLoss: false }).map((s) => s.type));
+    expect(types).toEqual(new Set(["latency", "download", "upload"]));
+  });
+
+  it("transfers far less in low-data mode", () => {
+    const light = bytesOf(buildLadder({ lowData: true, packetLoss: false }));
+    const full = bytesOf(buildLadder({ lowData: false, packetLoss: false }));
+    expect(light).toBeLessThan(full / 10);
+    expect(light).toBeLessThan(2e7); // under 20 MB
+  });
+
+  it("still measures packet loss in low-data mode when asked — it is a few kilobytes", () => {
+    const ladder = buildLadder({ lowData: true, packetLoss: true });
+    expect(ladder.filter((s) => s.type === "packetLoss")).toHaveLength(1);
+  });
+});
+```
+
+- [ ] **Step 2: Run it to verify it fails, then implement**
+
+Run: `vp test measurement-ladder` → FAIL.
+
+Rewrite `measurement-ladder.ts` around one builder. Keep Cloudflare's rounds and their order exactly; low-data mode **drops** the rounds whose payload exceeds the cap rather than inventing new ones, so the light run is a prefix of the real one and not a different experiment.
+
+```ts
+/** Above this payload size a round is dropped in low-data mode. */
+export const LOW_DATA_MAX_BYTES = 1e6;
+
+export function buildLadder(options: { lowData: boolean; packetLoss: boolean }): MeasurementConfig[] {
+  // …Cloudflare's rounds, filtered by `options.lowData`, with the packetLoss phase spliced in at
+  // Cloudflare's own position (after the first upload round) only when `options.packetLoss`.
+}
+```
+
+Delete `MEASUREMENT_LADDER` and `LADDER_WITH_PACKET_LOSS` once nothing imports them.
+
+#### Part B — the preferences
+
+- [ ] **Step 3: Write the failing preferences test**
+
+`apps/web/test/speed-test-preferences.test.ts` covers `parsePreferences`: an absent or malformed value yields both flags **false**; a stored object with only one flag keeps the other's default; unknown keys are ignored. Both defaults are false — assert that explicitly, because a default of `true` on either would spend a firm's bandwidth without being asked.
+
+- [ ] **Step 4: Implement, mirroring `tools-view-preference`**
+
+`speed-test-preferences.ts` (pure): `SpeedTestPreferences { lowData: boolean; autoStart: boolean }`, `DEFAULT_PREFERENCES` (both `false`), `SPEED_TEST_PREFERENCES_KEY = "mc-speed-test-preferences"`, `parsePreferences(raw: string | null): SpeedTestPreferences`.
+
+`speed-test-preferences.svelte.ts` (rune store): the localStorage read/write and cross-tab `storage` listener, SSR-safe, exactly as `tools-view-preference.svelte.ts` does it. Exports `preferences()`, `setLowData(value)`, `setAutoStart(value)`.
+
+#### Part C — the menu, the engine, the masthead
+
+- [ ] **Step 5: The `…` menu**
+
+Create `speed-test-menu.svelte`: a `DropdownMenu` triggered by an icon button (Lucide `ellipsis`, `aria-label="Test options"`), containing two `DropdownMenu.CheckboxItem`s. Follow the overflow-menu precedent in `apps/web/src/lib/matters/matter-header.svelte`.
+
+Each item states its cost beneath its label, in the muted text token:
+
+- **Low internet usage** — "Transfers about 16 MB instead of 200 MB. Uses small transfers, so a fast connection will measure slower than it is, and the results are not comparable to other speed tests."
+- **Start automatically** — "Begins a test as soon as this page opens, spending data without asking."
+
+Disable the menu while a run is in progress (`running` or `paused`): changing the ladder mid-run would silently mismatch the results on screen. Say why in a comment.
+
+- [ ] **Step 6: The engine honours the preferences**
+
+In `speed-test-engine.svelte.ts`, build the engine from `buildLadder({ lowData, packetLoss: turn.available })`. The ladder is fixed at construction, so **`start()` must build the engine after reading the current preference**, and `cancel()` already disposes it. If `lowData` changes while idle, nothing more is needed; if it could change while an engine exists, dispose it.
+
+Expose `lowData` on the store's snapshot so the page and the report can state which mode produced a result.
+
+- [ ] **Step 7: Auto-start**
+
+On the page, in `onMount`: if the preference is set **and** `store.phase === "idle"`, call `store.start()`. Nowhere else. Never re-fire on a preference change, and never after a cancel — a person who cancelled a run did not ask for another.
+
+- [ ] **Step 8: Drop the duplicate "not yet"**
+
+`Masthead.Meta` currently reads "Not run yet" while the panel reads "Not started". Remove the masthead's. **It must still hold its line box**, or the masthead shrinks and the page moves (Task 9), so render a non-breaking space rather than nothing:
+
+```svelte
+<Masthead.Meta>
+  {#if store.finishedAt}
+    <span>Run at {store.finishedAt.toLocaleTimeString()} on {store.finishedAt.toLocaleDateString()}</span>
+  {:else}
+    <span> </span>
+  {/if}
+</Masthead.Meta>
+```
+
+- [ ] **Step 9: The footer tells the truth about both modes**
+
+The page-foot disclosure names the mode in force:
+
+> A full test transfers around 200 MB of data; low internet usage mode transfers about 16 MB, and measures a fast connection as slower than it is. Your public address is shared with Cloudflare's measurement endpoints to run it. This tool runs outside any matter, and nothing is saved.
+
+- [ ] **Step 10: Verify the gates**
+
+Run: `pnpm --filter @magna-carta/web run check` → 0 errors, 0 warnings.
+
+Run: `vp test measurement-ladder speed-test-preferences run-progress speed-test-format bandwidth-stats chart-scale turn-capability` → PASS.
+
+- [ ] **Step 11: Commit**
+
+```bash
+git add -A apps/web/src/lib/tools/speed-test apps/web/test "apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte"
+git commit -m "feat(tools): low-data mode, auto-start, and one fewer not-yet"
+```
+
+---
+
 ### Task 6: Documentation (definition of done)
 
 No feature is done until its docs, roadmap, and changelog fragment land. Branches never hand-edit `CHANGELOG.md` or `STATUS.md` — they commit fragments.
