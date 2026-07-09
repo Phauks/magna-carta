@@ -4,7 +4,12 @@
  * so how much a run will transfer depends on the connection. Only data ALREADY used is knowable.
  */
 import { describe, expect, it } from "vitest";
-import { bytesTransferred, formatBytes, phaseLabel } from "../src/lib/tools/speed-test/run-progress.ts";
+import {
+  bytesInDirection,
+  bytesTransferred,
+  formatBytes,
+  phaseLabel,
+} from "../src/lib/tools/speed-test/run-progress.ts";
 
 describe("phaseLabel", () => {
   it("names each phase in plain language", () => {
@@ -38,5 +43,25 @@ describe("bytesTransferred", () => {
 
   it("is zero before anything is measured", () => {
     expect(bytesTransferred([], [])).toBe(0);
+  });
+});
+
+describe("bytesInDirection", () => {
+  it("sums one direction's payloads", () => {
+    expect(bytesInDirection([{ bytes: 1e5 }, { bytes: 1e6 }])).toBe(1_100_000);
+  });
+
+  it("is zero before anything is measured", () => {
+    expect(bytesInDirection([])).toBe(0);
+  });
+});
+
+describe("bytesTransferred", () => {
+  it("is the sum of both directions", () => {
+    const download = [{ bytes: 1e6 }];
+    const upload = [{ bytes: 5e5 }];
+    expect(bytesTransferred(download, upload)).toBe(
+      bytesInDirection(download) + bytesInDirection(upload),
+    );
   });
 });

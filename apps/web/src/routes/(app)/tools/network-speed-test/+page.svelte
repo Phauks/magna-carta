@@ -20,7 +20,7 @@
   import LatencyChart from "$lib/tools/speed-test/latency-chart.svelte";
   import MetricTile from "$lib/tools/speed-test/metric-tile.svelte";
   import QualityScores from "$lib/tools/speed-test/quality-scores.svelte";
-  import { formatBytes } from "$lib/tools/speed-test/run-progress.ts";
+  import { bytesInDirection, formatBytes } from "$lib/tools/speed-test/run-progress.ts";
   import ServerPanel from "$lib/tools/speed-test/server-panel.svelte";
   import { createSpeedTestStore } from "$lib/tools/speed-test/speed-test-engine.svelte.ts";
   import {
@@ -34,23 +34,31 @@
   onDestroy(() => store.dispose());
 
   const results = $derived(store.results);
-  const downloadStats = $derived(bandwidthStats(results?.getDownloadBandwidthPoints() ?? []));
-  const uploadStats = $derived(bandwidthStats(results?.getUploadBandwidthPoints() ?? []));
+  const downloadPoints = $derived(results?.getDownloadBandwidthPoints() ?? []);
+  const uploadPoints = $derived(results?.getUploadBandwidthPoints() ?? []);
+  const downloadStats = $derived(bandwidthStats(downloadPoints));
+  const uploadStats = $derived(bandwidthStats(uploadPoints));
   // A truthful progress fraction: `stepIndex` is the monotonic index of the current step within
   // the ladder the engine was actually built with, never an estimate of time or bytes remaining.
   const progressPercent = $derived(
     store.stepIndex === null ? 0 : ((store.stepIndex + 1) / store.stepCount) * 100,
   );
 
-  // Always returns four rows — with em dashes before a run has data — so the tile occupies its
+  // Always returns five rows — with em dashes before a run has data — so the tile occupies its
   // final height from the moment the page loads rather than growing when a run finishes.
-  function statRows(stats: ReturnType<typeof bandwidthStats>) {
+  function statRows(
+    stats: ReturnType<typeof bandwidthStats>,
+    points: ReadonlyArray<{ bytes: number }>,
+  ) {
+    const spent = bytesInDirection(points);
+    const transferred = { label: "Transferred", value: spent > 0 ? formatBytes(spent) : "—" };
     if (stats === null) {
       return [
         { label: "Median", value: "—" },
         { label: "95th", value: "—" },
         { label: "Peak", value: "—" },
         { label: "Samples", value: "—" },
+        transferred,
       ];
     }
     return [
@@ -58,6 +66,7 @@
       { label: "95th", value: formatBandwidth(stats.p95) },
       { label: "Peak", value: formatBandwidth(stats.peak) },
       { label: "Samples", value: String(stats.samples) },
+      transferred,
     ];
   }
 </script>
@@ -126,7 +135,7 @@
     size="large"
     label="Download"
     value={formatBandwidth(results?.getDownloadBandwidth())}
-    stats={statRows(downloadStats)}
+    stats={statRows(downloadStats, downloadPoints)}
   >
     {#snippet info()}
       <InfoPopover label="What does Download mean?">
@@ -142,7 +151,7 @@
     size="large"
     label="Upload"
     value={formatBandwidth(results?.getUploadBandwidth())}
-    stats={statRows(uploadStats)}
+    stats={statRows(uploadStats, uploadPoints)}
   >
     {#snippet info()}
       <InfoPopover label="What does Upload mean?">
@@ -246,7 +255,7 @@
   >
     Download measurements
   </h2>
-  <BandwidthChart title="Download" points={results?.getDownloadBandwidthPoints() ?? []} />
+  <BandwidthChart title="Download" points={downloadPoints} />
 </section>
 
 <section class="mb-24">
@@ -256,5 +265,5 @@
   >
     Upload measurements
   </h2>
-  <BandwidthChart title="Upload" points={results?.getUploadBandwidthPoints() ?? []} />
+  <BandwidthChart title="Upload" points={uploadPoints} />
 </section>

@@ -28,11 +28,22 @@ export function formatBytes(bytes: number): string {
   return `${Math.round(bytes / 1e3)} kB`;
 }
 
+/*
+ * What a run actually spent, one direction at a time.
+ *
+ * `bytes` is the payload, not the wire cost. BandwidthPoint also carries `transferSize` from
+ * PerformanceResourceTiming, which is the true bytes-on-the-wire — but only for the RESPONSE, so it
+ * measures a download honestly and an upload not at all. Rather than mix two meanings and undercount
+ * uploads, both directions are counted in payload bytes. Protocol overhead is excluded; on a
+ * hundred-megabyte transfer it is noise.
+ */
+export function bytesInDirection(points: ReadonlyArray<{ bytes: number }>): number {
+  return points.reduce((carry, point) => carry + point.bytes, 0);
+}
+
 export function bytesTransferred(
   download: ReadonlyArray<{ bytes: number }>,
   upload: ReadonlyArray<{ bytes: number }>,
 ): number {
-  const sum = (points: ReadonlyArray<{ bytes: number }>) =>
-    points.reduce((carry, point) => carry + point.bytes, 0);
-  return sum(download) + sum(upload);
+  return bytesInDirection(download) + bytesInDirection(upload);
 }
