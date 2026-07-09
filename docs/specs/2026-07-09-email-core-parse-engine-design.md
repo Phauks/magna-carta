@@ -23,7 +23,7 @@ This design builds that engine, and one visible consumer to prove it end to end.
 
 ## 1. Scope
 
-**In scope.** A pure-Rust parse core reading `.eml` (RFC 5322 / MIME), `.msg` (CFB / MAPI), and mbox; its WASM edge and container host; and an **Email Inspector** surface in the Tools area.
+**In scope.** A pure-Rust parse core reading `.eml` (RFC 5322 / MIME), `.msg` (CFB / MAPI), and mbox; its WASM edge and TypeScript wrapper; and an **Email Inspector** surface in the Tools area.
 
 **Out of scope, deliberately.** Rendering (`email→pdf`), DKIM signature verification, storage, matter linkage, and classification. Each is a consumer standing on this core, not part of it. The conversion registry's `email` engine edges **remain unimplemented** after this slice — closing them is a render slice, and no reader of this document should expect PDFs from it.
 
@@ -34,9 +34,11 @@ This design builds that engine, and one visible consumer to prove it end to end.
 **Two lanes, one crate**, per the engine-host seam:
 
 - The **WASM edge** (`wasm.rs`, marshalling only — no engine logic) is the default lane. A Worker streams a message from R2 and parses it inline.
-- The **native lane** (`containers/email`) is entered only when input size or CPU exceeds the Worker budget — a large mbox, or an attachment set too big to hold in an isolate. Heavy work goes through a Queue and a per-job Durable Object.
+- The **native lane** is entered only when input size or CPU exceeds the Worker budget — a large mbox, or an attachment set too big to hold in an isolate.
 
-Placement is a routing decision, not a rewrite. This satisfies golden rule 10 (no heavy work in a request handler) and ADR-0039 (compute placement).
+**The native lane is deferred, not built here.** A container is not a subdirectory: it is a separate deployable Worker, a Durable Object class, a `new_sqlite_classes` migration tag, a service binding, and a Dockerfile with a repo-root build context. Nothing in this work consumes it — the Inspector reads one message at a time, and bulk mbox iteration belongs to Discovery. Because the crate is pure and I/O-free, the lane stays one compile target away. **Flip condition:** Discovery's bulk mbox parsing, or an attachment set that exceeds the isolate budget in practice.
+
+Placement is therefore a routing decision, not a rewrite. This satisfies golden rule 10 (no heavy work in a request handler) and ADR-0039 (compute placement).
 
 **Dispatch.** `engine_host::format::detect` already returns `Ole2` at the magic-byte level, which is the `.msg` container signature; the seam's convention text anticipates exactly this case. `email-core` composes on top of `detect` rather than re-reading magic bytes:
 
@@ -52,7 +54,7 @@ Placement is a routing decision, not a rewrite. This satisfies golden rule 10 (n
 | --- | --- | --- |
 | `mail-parser` | RFC 5322 + MIME 2045–2049 | 100% safe Rust, no external dependencies; zero-copy `Cow<str>`; 41 character sets; returns the RFC 8621 flattened body/attachment shape |
 | `msg_parser` | `.msg` per [MS-OXMSG] / [MS-OXPROPS] | MAPI named properties, embedded `.msg`, RTF bodies |
-| `cfb` | OLE2 compound container | Already pinned at 0.14 in `recovery-core` and `containers/scan` — one workspace pin |
+| `cfb` | OLE2 compound container | **Not a direct dependency** — `msg_parser` owns the CFB layer. Reached for only if `msg_parser` fails its audit. Note `cfb` is *not* a workspace pin: `decryption-core` pins 0.10 while `recovery-core` and `containers/scan` pin 0.14 |
 
 mbox needs no crate: it is a `From_`-delimited concatenation of RFC 5322 messages, so it is a framing iterator over the `.eml` lane, not a parser.
 
@@ -107,7 +109,7 @@ A Tools-area surface, following the tools-area ethereal principle (matter-grade 
 
 Drop in a `.eml` or `.msg`; get back headers, participants, dates, the attachment list, and the integrity facts as raw structured data. Attachments are listed, not extracted onto a matter — extraction into the File Manager belongs to the capture subsystem, which owns the ingest chokepoint.
 
-Shape follows the `file-repair` precedent: the Rust crate, a container host, and a worker route beside its siblings in `apps/worker/src/routes/`.
+Shape follows the `decryption` precedent (the WASM engine, not the container one): the Rust crate, a `wasm-pack` build into a thin TypeScript package, and a worker route beside its siblings in `apps/worker/src/routes/`. The permission is seeded onto the default roles — otherwise it exists but nobody holds it and the tool is invisible in-product.
 
 ## 6. Verification
 
