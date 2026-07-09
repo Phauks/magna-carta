@@ -403,11 +403,19 @@
     </Sidebar.Root>
 
     <!-- Named so the work canvas resizes as its own view-transition group when the rail
-         collapses. It paints its OWN surface: the collapse animation layers the old and new
-         canvas snapshots without a crossfade, so a transparent-background snapshot would let the
-         outgoing text show through the incoming one (the owner caught the double-exposure). -->
+         collapses. It paints the CHROME surface, continuous with the top bar above it and the
+         sidebar beside it — one unbroken ink band with no hairline (the surface contrast is the
+         edge; see sidebar.css). The light work surface and the rounded top-inline-start corner
+         live on <main> below, which tucks under this chrome; what shows in the corner's arc is
+         this chrome. This div stays RECTANGULAR and full-bleed on purpose: rounding it would make
+         the mc-app-canvas snapshot non-rectangular, and animations.css records that clipping the
+         canvas pair once exposed a one-device-pixel column where the root's light page background
+         showed through the dark header, flashing a white line on every collapse/expand/peek. It
+         also paints its OWN opaque surface: the collapse animation layers the old and new canvas
+         snapshots without a crossfade, so a transparent-background snapshot would let the outgoing
+         text show through the incoming one (the owner caught the double-exposure). -->
     <div
-      class="flex grow flex-col overflow-hidden bg-surface-default"
+      class="flex grow flex-col overflow-hidden bg-chrome-surface"
       style="view-transition-name: mc-app-canvas"
     >
       <TopBar.Root>
@@ -495,7 +503,9 @@
            mc-table-scroll wrapper) — the page body stays put. scrollbar-gutter: stable always
            reserves the vertical scrollbar's track, so a short (no-scroll) page and a long
            (scrolling) page frame their content at the exact same width — no reflow on navigation. -->
-      <main class="grow overflow-x-hidden overflow-y-auto p-24 [scrollbar-gutter:stable]">
+      <main
+        class="grow overflow-x-hidden overflow-y-auto rounded-ss-lg bg-surface-default p-24 [scrollbar-gutter:stable]"
+      >
         {@render children()}
       </main>
     </div>
