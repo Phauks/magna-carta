@@ -3477,13 +3477,15 @@ Bandwidth headline figures are the engine's 90th percentile and latency its medi
 Run: `vp test speed-test-report`
 Expected: PASS (6 tests).
 
-- [ ] **Step 5: Offer the download**
+- [ ] **Step 5: Offer the download from the `…` menu**
 
-On the page, when `store.phase === "finished"`, add a **Download report** button beside **Retest** in `Masthead.Actions`. It builds a `Blob` of `renderReport(...)` with type `text/plain;charset=utf-8`, creates an object URL, clicks a temporary anchor with `download={reportFilename(finishedAt)}`, then **revokes the object URL** (a leaked URL pins the blob for the page's life).
+**Not a button beside Retest.** A report download is not a run control, and a fifteen-character label beside "Pause" forces the whole control region to reserve that width — which is exactly the asymmetry Task 23 removes. It belongs in the overflow menu built in Task 22, where Cloudflare keeps theirs too.
 
-The button is absent in every other phase — there is nothing to report on. Use `variant="secondary"`.
+Add a `DropdownMenu.Item` labelled **Download report** to `speed-test-menu.svelte`, beneath the two preference checkboxes and a `DropdownMenu.Separator`. It is **disabled unless `store.phase === "finished"`** — there is nothing to report on before a run completes.
 
-Do not add the report to any other phase, do not persist it, and do not send it anywhere.
+Choosing it builds a `Blob` of `renderReport(...)` with type `text/plain;charset=utf-8`, creates an object URL, clicks a temporary anchor with `download={reportFilename(finishedAt)}`, then **revokes the object URL** (a leaked URL pins the blob for the page's life).
+
+Do not persist the report, and do not send it anywhere.
 
 - [ ] **Step 6: Verify the gates**
 
@@ -4636,6 +4638,71 @@ Run: `vp test measurement-ladder speed-test-preferences run-progress speed-test-
 ```bash
 git add -A apps/web/src/lib/tools/speed-test apps/web/test "apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte"
 git commit -m "feat(tools): low-data mode, auto-start, and one fewer not-yet"
+```
+
+---
+
+### Task 23: The two control buttons are the same size
+
+Owner: Pause/Resume is not the same size as Cancel/Restart.
+
+The reservation mechanism from Task 19 worked exactly as designed; the design was wrong. Each slot reserves the width of the widest word **it** can show, and the two sets are not the same size:
+
+| Slot      | Words                                | Widest                 |
+| --------- | ------------------------------------ | ---------------------- |
+| Primary   | Start, Pause, Resume, Retest         | `Resume` (6)           |
+| Secondary | Cancel, Restart, **Download report** | `Download report` (15) |
+
+Two independent fixes, and both are wanted.
+
+**1. `Download report` does not belong beside `Pause`.** It is not a run control, and reserving fifteen characters for it in the control row is what made the buttons unequal. Task 12 now places it in the `…` overflow menu instead. Remove it from the control labels.
+
+**2. The two slots share one reservation.** Reserving each slot independently would still leave them unequal — `Resume` is 6 characters, `Restart` is 7. A single shared set of every word either button can show makes both exactly as wide as `Restart`: symmetric, and self-maintaining if a word is ever added.
+
+**Files:**
+- Modify: `apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte`
+
+**Depends on Task 19.** Do it after. Task 12 assumes it (its report action lives in the menu).
+
+- [ ] **Step 1: One reservation for both slots**
+
+Replace the two label sets with one, and pass it to both `SteadyLabel`s:
+
+```ts
+  /*
+   * Every word either control button can show. BOTH buttons reserve the width of the widest of
+   * them, so the pair is symmetric and neither resizes when its word changes. Reserving each slot
+   * against only its own words would still leave them unequal — "Resume" is shorter than "Restart".
+   *
+   * "Download report" is deliberately absent: it is not a run control, it lives in the overflow
+   * menu, and reserving its width here would make both buttons far wider than they need to be.
+   */
+  const CONTROL_LABELS = ["Start", "Pause", "Resume", "Retest", "Cancel", "Restart"] as const;
+```
+
+Both call sites become `<SteadyLabel labels={CONTROL_LABELS} current={...} />`. Delete `PRIMARY_LABELS` and `SECONDARY_LABELS`.
+
+- [ ] **Step 2: The secondary slot's word set shrinks**
+
+`secondaryLabel` now only ever yields `Cancel` (running) or `Restart` (paused); the slot is `invisible` in every other phase. Confirm no phase asks it for `Download report`.
+
+- [ ] **Step 3: Verify the gates**
+
+Run: `pnpm --filter @magna-carta/web run check`
+Expected: 0 errors, 0 warnings.
+
+Run: `vp test run-progress speed-test-format bandwidth-stats chart-scale measurement-ladder turn-capability`
+Expected: PASS.
+
+- [ ] **Step 4: State the property you have established**
+
+In your report, confirm: both buttons render at the same width in every phase, because both reserve the same word set; and neither changes width when its word changes. **If you find yourself setting a `min-width`, you have taken the wrong path** — the reservation is done by the browser measuring invisible copies, never by a number.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add "apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte"
+git commit -m "fix(tools): both control buttons reserve the same words, so both are the same size"
 ```
 
 ---
