@@ -1,0 +1,29 @@
+<script lang="ts">
+  /*
+   * Tools layout — gives every tool page a way back to the listing without the browser's back
+   * button. The back affordance sits above the page content, so each present and future tool page
+   * inherits it for free rather than remembering to add its own.
+   *
+   * The listing itself needs no link to itself, so the affordance is suppressed on the `/tools`
+   * index: a layout wraps its index route too, and the index is the one pathname that equals the
+   * listing's own URL.
+   */
+  import { page } from "$app/state";
+  import BackLink from "$lib/navigation/back-link.svelte";
+  import type { Snippet } from "svelte";
+
+  let { children }: { children: Snippet } = $props();
+
+  const toolsListingHref = "/tools";
+  const onToolsListing = $derived(page.url.pathname === toolsListingHref);
+</script>
+
+{#if !onToolsListing}
+  <!-- Named for what it is. One link back to the listing is not a breadcrumb trail, and a landmark
+       that announces itself as one sends a reader looking for a path that is not there. -->
+  <nav aria-label="Back to Tools" class="mb-16">
+    <BackLink href={toolsListingHref} label="Tools" />
+  </nav>
+{/if}
+
+{@render children()}
