@@ -324,9 +324,14 @@ Two settings to **enable/set** (the fast-build levers — see [`build-performanc
 
 With GitHub Actions retired, Workers Builds builds and deploys but runs no checks. The gates live in the tracked **`pre-push` git hook** (`tooling/git-hooks/pre-push`): it runs `pnpm audit`, `pnpm check`, the governance lints, `vp test`, the OpenAPI contract drift/Spectral gates, and — when `containers/scan/**` changed and Docker is available — the scan EICAR acceptance test (§11), blocking the push on any failure. It runs on every push, so it gates both the ordinary push to `main` (which deploys nothing) and the `main:release` fast-forward that does. Activate it once per clone with **`vp run setup-hooks`** (the same step that installs the post-merge auto-clean hook; `core.hooksPath` → `tooling/git-hooks`). `SKIP_PREPUSH=1 git push` bypasses it in a genuine emergency — fix forward. `oasdiff` (breaking-change vs. the base) and the Prism mock smoke are not in the hook (they are review-time / base-branch checks); run them in review if needed.
 
-### Container image cache (scan Worker)
+### Container image cache — which images comply
 
-The scan image build uses BuildKit cache mounts (`containers/scan/Dockerfile`) so an unchanged Cargo dependency graph is not recompiled. Mounts are build-local; if cold Rust dependency compiles in the Workers Build become the bottleneck, a cache-mount export is the documented upgrade path ([`build-performance.md`](build-performance.md)).
+Every Rust Container image is required to build with BuildKit cache mounts on the Cargo registry, the git cache, and the crate `target/`, so an unchanged dependency graph is not recompiled ([`build-performance.md`](build-performance.md)). Mounts are build-local; if cold Rust dependency compiles in the Workers Build become the bottleneck, a cache-mount export is the documented upgrade path.
+
+- `containers/scan/Dockerfile` and `containers/recovery/Dockerfile` — compliant. Both mount the caches and `cp` the built binary to `/artifacts/` inside the same `RUN`, because a cache mount is not part of an image layer and a later `COPY --from=build …/target/release/…` would find nothing.
+- `containers/file-repair/Dockerfile` — **not compliant.** It runs a bare `cargo build --release`, so every rebuild re-downloads the crates.io index and recompiles the whole `engine-host` + `recovery-core` closure (about 55 s of Rust in the 2026-07-04 build). Fixing it means adding the three mounts _and_ switching the runtime stage to copy from a non-mounted `/artifacts/` path, exactly as recovery does. Owed by the `file-repair-salvage` stream, which owns `containers/file-repair/**`.
+
+Verify a container's build cost from its build log rather than assuming: a warm build shows `CACHED` on the `cargo build` step; a cold one shows `Updating crates.io index` followed by `Compiling …`.
 
 ### Testing a container on Cloudflare (post-deploy self-test)
 

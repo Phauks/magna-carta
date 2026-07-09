@@ -48,6 +48,10 @@ deploying, so anyone expecting a merge to ship must fast-forward `release`.
   is older than the trunk. Needs its own diagnosis.
 - `magna-carta-file-repair` watch paths include `containers/file-repair-worker/*` — **that directory
   does not exist** (it is `containers/file-repair/`), so the container never rebuilds on a change.
+- `containers/file-repair/Dockerfile` runs a bare `cargo build --release` — no BuildKit cache mounts,
+  against the `build-performance.md` standard that scan and recovery both meet. Not fixed here: the
+  `file-repair-salvage` stream owns that file. Filed on its note as an owed-at-merge item, with the
+  copy-the-binary-out-to-`/artifacts/` trap spelled out.
 - `magna-carta-recovery` watch paths omit `crates/decryption-core/*`, a path dependency of its
   Dockerfile, so a change to that crate alone never rebuilds the recovery container.
 - `magna-carta-convert` is not connected to Workers Builds at all (zero builds recorded).
