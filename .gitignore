@@ -21,6 +21,9 @@ docs/research/trust-rules/_tmp_*
 # Ignoring them keeps gitignore-respecting walkers (oxlint/oxfmt/tsgolint via vp check) out of
 # their mid-build states, which used to fail the main tree's quality gate.
 .claude/worktrees/
+# Hookify rules: per-machine agent guardrails, not repo policy. The `.local.md` suffix is
+# required by the plugin's loader, which globs `.claude/hookify.*.local.md`.
+.claude/hookify.*.local.md
 
 # Rust build artifacts (crates workspace + throwaway spikes)
 /crates/target/
