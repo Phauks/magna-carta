@@ -4585,7 +4585,9 @@ Owner: three things.
 
 Both preferences live in a `…` overflow menu on the page, and both default to **off**.
 
-**Low-data mode is not free, and the page must say so.** Capping the payloads at 1 MB yields roughly a **16 MB** run instead of ~200 MB. But every request then completes in well under a second, so the connection never reaches steady state and a fast line measures *slower than it is*. It also forfeits the comparability with `speed.cloudflare.com` that justified running their unmodified ladder, and it skews the network-quality ratings, because download and upload speed feed them. Disclose all of this where the switch lives — a mode that quietly returns a wrong number is worse than no mode.
+**Low-data mode is not free, and the page must say so.** Capping the payloads at 1 MB keeps 5 of the 12 rounds. Every request then completes in well under a second, so the connection never reaches steady state and a fast line measures *slower than it is*. It also forfeits comparability with `speed.cloudflare.com`, and it skews the network-quality ratings, because download and upload speed feed them. Disclose this where the switch lives. The owner has accepted the trade — a person who turns it on learns the risk — but the risk must be there to learn.
+
+**The figure to print is 20 MB, and it is an honest ceiling.** The ladder's payloads sum to **15.8 MB** (9.0 down, 6.8 up), but that sum excludes protocol overhead — the same exclusion the per-direction "Transferred" statistic makes. Twenty megabytes covers headers, TLS, and the latency probes, and it is a round tenth of the ~200 MB full run. Print the ceiling, not the payload sum, and **pin it with a test** so the copy cannot quietly become false if the rounds change.
 
 **Auto-start spends the firm's bandwidth on navigation.** That is exactly what "no autostart" was protecting against, which is why it is opt-in, off by default, and only ever fires when the page opens with no run in progress.
 
@@ -4610,7 +4612,11 @@ Replace `apps/web/test/measurement-ladder.test.ts`'s body with tests over `build
 
 ```ts
 import { describe, expect, it } from "vitest";
-import { LOW_DATA_MAX_BYTES, buildLadder } from "../src/lib/tools/speed-test/measurement-ladder.ts";
+import {
+  LOW_DATA_DISCLOSED_CEILING_BYTES,
+  LOW_DATA_MAX_BYTES,
+  buildLadder,
+} from "../src/lib/tools/speed-test/measurement-ladder.ts";
 
 const bytesOf = (ladder: ReturnType<typeof buildLadder>) =>
   ladder.reduce((total, step) => ("bytes" in step ? total + step.bytes * step.count : total), 0);
@@ -4648,7 +4654,14 @@ describe("buildLadder", () => {
     const light = bytesOf(buildLadder({ lowData: true, packetLoss: false }));
     const full = bytesOf(buildLadder({ lowData: false, packetLoss: false }));
     expect(light).toBeLessThan(full / 10);
-    expect(light).toBeLessThan(2e7); // under 20 MB
+  });
+
+  // The page prints "under 20 MB". That sentence is a promise; this test is what keeps it true if
+  // the rounds ever change. The payload sum is ~15.8 MB, and the headroom covers protocol overhead.
+  it("stays under the ceiling the page discloses", () => {
+    expect(bytesOf(buildLadder({ lowData: true, packetLoss: true }))).toBeLessThan(
+      LOW_DATA_DISCLOSED_CEILING_BYTES,
+    );
   });
 
   it("still measures packet loss in low-data mode when asked — it is a few kilobytes", () => {
@@ -4667,6 +4680,13 @@ Rewrite `measurement-ladder.ts` around one builder. Keep Cloudflare's rounds and
 ```ts
 /** Above this payload size a round is dropped in low-data mode. */
 export const LOW_DATA_MAX_BYTES = 1e6;
+
+/*
+ * The figure the page prints for a low-data run. The payloads sum to about 15.8 MB; this ceiling
+ * covers protocol overhead, which the payload sum excludes, and lands on a round tenth of the full
+ * run. A test pins the ladder beneath it, so the sentence on the page cannot quietly go false.
+ */
+export const LOW_DATA_DISCLOSED_CEILING_BYTES = 2e7;
 
 export function buildLadder(options: { lowData: boolean; packetLoss: boolean }): MeasurementConfig[] {
   // …Cloudflare's rounds, filtered by `options.lowData`, with the packetLoss phase spliced in at
@@ -4696,7 +4716,7 @@ Create `speed-test-menu.svelte`: a `DropdownMenu` triggered by an icon button (L
 
 Each item states its cost beneath its label, in the muted text token:
 
-- **Low internet usage** — "Transfers about 16 MB instead of 200 MB. Uses small transfers, so a fast connection will measure slower than it is, and the results are not comparable to other speed tests."
+- **Low internet usage** — "Transfers under 20 MB instead of about 200 MB. Uses small transfers, so a fast connection will measure slower than it is, and the results are not comparable to other speed tests."
 - **Start automatically** — "Begins a test as soon as this page opens, spending data without asking."
 
 Disable the menu while a run is in progress (`running` or `paused`): changing the ladder mid-run would silently mismatch the results on screen. Say why in a comment.
@@ -4729,7 +4749,7 @@ On the page, in `onMount`: if the preference is set **and** `store.phase === "id
 
 The page-foot disclosure names the mode in force:
 
-> A full test transfers around 200 MB of data; low internet usage mode transfers about 16 MB, and measures a fast connection as slower than it is. Your public address is shared with Cloudflare's measurement endpoints to run it. This tool runs outside any matter, and nothing is saved.
+> A full test transfers around 200 MB of data; low internet usage mode transfers under 20 MB, and measures a fast connection as slower than it is. Your public address is shared with Cloudflare's measurement endpoints to run it. This tool runs outside any matter, and nothing is saved.
 
 - [ ] **Step 10: Verify the gates**
 
