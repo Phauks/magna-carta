@@ -4271,74 +4271,98 @@ git commit -m "fix(tools): the control area is the same size in every phase"
 
 ---
 
-### Task 20: An `outline` button variant (design system)
+### Task 20: Every ghost button states its edge at rest (design system)
 
-Owner: a `ghost` button does not read as a button, because it has no outline until you hover it. This recurs elsewhere in the app, so it is a design-system gap, not a page-level patch.
+Owner: a `ghost` button does not read as a button, because it shows no edge until hover. This recurs across the app. **Give them all an edge, and the owner will judge the result across every surface at once.**
 
-**Do not give `ghost` a border.** `variant="ghost"` is used in twelve places across eight files — settings rows, back-links, dialog dismissals — where a borderless affordance is the intent. Changing it would restyle all of them. Add a variant instead: additive, no blast radius, and it names what is wanted.
+An earlier draft of this task added a separate `outline` variant on the reasoning that the eleven existing `ghost` call sites *intended* to be borderless. That was an inference from usage, not evidence — nobody wrote it down, and the owner has said so. Do not assume intent. Change `ghost` itself, look at every consumer, and let the owner decide what to keep.
 
-**Do not add a real `border` either.** The base `.mc-button` has no border, and every size maps to `min-block-size` plus padding. A 1px border on one variant would make it two pixels taller than the buttons beside it. Draw the edge as an **inset ring**, which occupies no layout.
+**This is a deliberate, visible change across the app.** It is one CSS rule, so it is trivially revertible. Do not soften it by adding a second variant, and do not exempt any call site.
 
-**Files (design-system package — a shared surface; keep the change small and additive):**
-- Modify: `packages/design-system/src/lib/components/button/variants.ts`
+**Do not use a real `border`.** The base `.mc-button` has no border, and every size maps to `min-block-size` plus padding, so a 1px border would make ghost buttons two pixels taller than the buttons beside them — trading the outline problem for an alignment problem. Draw the edge as an **inset ring**, which costs no layout.
+
+**Files:**
 - Modify: `packages/design-system/src/lib/components/button/button.css`
-- Modify: `packages/design-system/src/stories/button.stories.svelte`
+- Modify: `packages/design-system/src/stories/button.stories.svelte` (only if the ghost story needs a caption change)
 
-- [ ] **Step 1: Widen the union and the record**
+`variants.ts` is **not** modified: no new variant is added.
 
-In `variants.ts`, add `"outline"` to `ButtonVariant` and `outline: "mc-button-outline"` to `VARIANT`. The record is `Record<ButtonVariant, string>`, so TypeScript will demand the new key — that is the intended guard. Grep the package for any other exhaustive switch or record over `ButtonVariant` and satisfy it.
+- [ ] **Step 1: Give ghost its edge**
 
-- [ ] **Step 2: Add the recipe**
+In `button.css`, the current recipe is:
 
-In `button.css`, beside `.mc-button-ghost`:
+```css
+  .mc-button-ghost {
+    background-color: transparent;
+    color: var(--mc-text-default);
+  }
+  .mc-button-ghost:hover {
+    background-color: var(--mc-action-secondary);
+  }
+```
+
+Add the ring at rest, keeping the hover fill:
 
 ```css
   /*
-   * Outline — a quiet action that still reads as a control. Ghost carries no edge until hover, which
-   * leaves the affordance invisible at rest; this variant states its boundary at rest and reserves
-   * fill for the moment it is hovered.
+   * Ghost — a quiet action that still reads as a control. It carried no edge at rest, which left the
+   * affordance invisible until the pointer found it; a control the eye cannot find is not quiet, it
+   * is hidden.
    *
    * The edge is an INSET RING, not a border: the base recipe has no border, and sizes map to
-   * min-block-size plus padding, so a real border would make this variant two pixels taller than the
-   * buttons beside it. A ring costs no layout.
+   * min-block-size plus padding, so a real border would make every ghost button two pixels taller
+   * than the buttons beside it. A ring costs no layout.
    */
-  .mc-button-outline {
+  .mc-button-ghost {
     background-color: transparent;
     color: var(--mc-text-default);
     box-shadow: inset var(--mc-space-0) var(--mc-space-0) var(--mc-space-0)
       var(--mc-border-width-default) var(--mc-border-strong);
   }
-  .mc-button-outline:hover {
+  .mc-button-ghost:hover {
     background-color: var(--mc-action-secondary);
+  }
+  /* The disabled recipe sets an opaque fill; the ring beneath would otherwise show as a seam around
+     a control that no longer takes input. */
+  .mc-button-ghost:disabled {
+    box-shadow: none;
   }
 ```
 
-**The token-purity gate (`packages/design-system/test/fitness/boundaries.test.ts`) rejects any literal length, colour, or number** — including a bare `0`. That is why the ring's offsets are `var(--mc-space-0)`. Confirm `--mc-space-0`, `--mc-border-width-default`, and `--mc-border-strong` all exist before using them; substitute real tokens if any does not.
+**The token-purity gate (`packages/design-system/test/fitness/boundaries.test.ts`) rejects any literal length, colour, or number** — including a bare `0`. That is why the ring's offsets are `var(--mc-space-0)`. Confirm `--mc-space-0`, `--mc-border-width-default`, and `--mc-border-strong` exist before using them; substitute real tokens if any does not. `none` is a structural keyword and is permitted.
 
-Confirm `:disabled` still reads correctly for this variant — the base `.mc-button:disabled` sets a fill and a muted foreground, and an inset ring beneath it must not fight that. If it does, neutralize the ring under `:disabled`.
+Consider whether `--mc-border-strong` or `--mc-border-default` is the right weight for a *quiet* action. Pick one, say which and why in your report, and do not split the difference with a new token.
 
-- [ ] **Step 3: Story it**
+- [ ] **Step 2: Find every consumer, so the owner can judge them together**
 
-Add `outline` to `button.stories.svelte` beside the other variants, so the variant is visible in Storybook and in the visual record. Follow the file's existing shape exactly; do not restructure it.
+`variant="ghost"` currently appears in these files. **Read each one and describe, in your report, what that button looks like now that it has an edge** — one line each. Do not change any of them.
 
-Storybook note: running more than one story file in a single `vp test run` exhausts V8's heap in this repo. If you run stories, run this one alone.
+```bash
+grep -rn 'variant="ghost"' apps/web/src packages/design-system/src --include=*.svelte
+```
 
-- [ ] **Step 4: Verify the gates**
+At the time of writing: `bug-report-dialog`, `motion-module`, `request-change-dialog`, `settings-commit-footer`, `settings-ledger`, `settings-row`, the speed-test page, `data-table-column-filter`, and `card.stories`. Re-run the grep — a merge recently changed the set, so do not trust this list.
+
+Flag any call site where the new edge looks actively wrong (for example, a ghost button used as a table-cell affordance, or several in a row forming a visual grid). The owner decides; your job is to surface them, not to special-case them.
+
+- [ ] **Step 3: Verify the gates**
+
+Run: `vp test boundaries off-token`
+Expected: PASS. If `boundaries` rejects the `box-shadow`, read its rule and comply; **do not weaken the test.**
 
 Run: `pnpm --filter @magna-carta/design-system check`
 Expected: clean.
 
-Run: `vp test boundaries off-token`
-Expected: PASS — the token-purity and off-token fitness tests must accept the new recipe. If `boundaries` rejects the `box-shadow`, read its rule and comply; do not weaken the test.
-
 Run: `pnpm --filter @magna-carta/web run check`
-Expected: 0 errors, 0 warnings (the widened union must not break any consumer).
+Expected: 0 errors, 0 warnings.
 
-- [ ] **Step 5: Commit**
+Storybook note: running more than one story file in a single `vp test run` exhausts V8's heap in this repo. If you run stories, run one file alone.
+
+- [ ] **Step 4: Commit**
 
 ```bash
-git add packages/design-system/src/lib/components/button packages/design-system/src/stories/button.stories.svelte
-git commit -m "feat(design-system): an outline button variant that states its edge at rest"
+git add packages/design-system/src/lib/components/button
+git commit -m "feat(design-system): a ghost button states its edge at rest"
 ```
 
 ---
@@ -4351,7 +4375,7 @@ Owner: Pause/Resume and Cancel/Restart resize when pressed, because the words di
 
 The whole control region — panel, primary button, secondary button — must occupy identical space in every phase. Nothing appears, nothing disappears, nothing resizes. Only the words and the bar change.
 
-**Depends on Task 18** (the U+00A0 line-box technique) and **Task 20** (the `outline` variant).
+**Depends on Task 18** (the U+00A0 line-box technique) and **Task 20** (ghost gains an edge at rest).
 
 **Files:**
 - Create: `apps/web/src/lib/tools/speed-test/steady-label.svelte`
@@ -4422,7 +4446,7 @@ Both slots use `SteadyLabel` with every word that slot can show:
 
 The secondary slot at idle and after a failure renders with `class="invisible"`. `visibility: hidden` keeps the box **and** removes it from the tab order, so a keyboard user is never sent to a control that does nothing. Do **not** render a disabled button labelled "Cancel": a control naming an action it will not perform is a lie.
 
-**Cancel uses `variant="outline"`** (Task 20) so it reads as a button at rest. Restart stays `secondary`. Cancel is still never `destructive` — a speed test stores nothing to lose.
+**Cancel stays `variant="ghost"`.** Task 20 gives every ghost button an edge at rest, so it now reads as a button without a new variant. Restart stays `secondary`. Cancel is still never `destructive` — a speed test stores nothing to lose.
 
 Derive `primaryLabel`, `primaryAction`, `secondaryLabel`, `secondaryAction`, and `secondaryVisible` from `store.phase` on the page.
 
