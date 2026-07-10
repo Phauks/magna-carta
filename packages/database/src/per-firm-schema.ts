@@ -13,6 +13,9 @@ import { sql } from "drizzle-orm";
 import type {
   AiDetectionUsageId,
   AuditLogId,
+  ConflictsCheckId,
+  ConflictsDispositionId,
+  ConflictsHitId,
   CostEntryId,
   CustomFieldId,
   CustomFieldValueId,
@@ -1683,4 +1686,60 @@ export const costEntry = sqliteTable(
       .on(table.recoveryRef)
       .where(sql`${table.recoveryRef} IS NOT NULL`),
   ],
+);
+
+// The conflicts log. Three append-only tables: no UPDATE and no DELETE ever touches them, enforced
+// by RAISE(ABORT) triggers in the migration. The log is the compliance artifact a malpractice defense
+// rests on — a reviewer who clears a hit and later reverses must leave both acts visible, so a
+// reversal is a second disposition row rather than an edit.
+export const conflictsCheck = sqliteTable("conflicts_check", {
+  id: text("id").primaryKey().$type<ConflictsCheckId>(),
+  trigger: text("trigger").notNull(),
+  // Null for a pre-consult check against a prospective party set that has no matter yet.
+  subjectMatterId: text("subject_matter_id").$type<MatterId>(),
+  subjectPartiesJson: text("subject_parties_json").notNull(), // JSON array of entity ids
+  // The scope in force: each source class with its availability. An auditor must be able to tell
+  // "searched and clean" apart from "never searched".
+  scopeJson: text("scope_json").notNull(),
+  strictness: text("strictness").notNull(),
+  depth: integer("depth").notNull(),
+  // Identifiers recorded BY REFERENCE (directory_identifier.id) — never a plaintext value.
+  // Also records identifier types skipped as non-indexable, so the log never implies they were searched.
+  inputsJson: text("inputs_json").notNull(),
+  // 1 when the requested scope fell below the firm floor and was raised to it.
+  floorRaised: integer("floor_raised", { mode: "boolean" }).notNull().default(false),
+  actorUserId: text("actor_user_id").$type<UserId>(),
+  createdAt: text("created_at").notNull(),
+});
+
+export const conflictsHit = sqliteTable(
+  "conflicts_hit",
+  {
+    id: text("id").primaryKey().$type<ConflictsHitId>(),
+    checkId: text("check_id").notNull().$type<ConflictsCheckId>().references(() => conflictsCheck.id),
+    // The merge-resolved master entity, never an archived subordinate.
+    entityId: text("entity_id").notNull(),
+    sourceClass: text("source_class").notNull(),
+    // 1 exact identifier, 2 exact normalized name, 3 phonetic code, 4 trigram overlap only.
+    // Ordering only — never a threshold. Nothing is suppressed by tier.
+    evidenceTier: integer("evidence_tier").notNull(),
+    matchedFieldsJson: text("matched_fields_json").notNull(),
+    // The connecting edge path, '[]' when the entity was reached directly.
+    graphPathJson: text("graph_path_json").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [index("conflicts_hit_check_id_index").on(table.checkId)],
+);
+
+export const conflictsDisposition = sqliteTable(
+  "conflicts_disposition",
+  {
+    id: text("id").primaryKey().$type<ConflictsDispositionId>(),
+    hitId: text("hit_id").notNull().$type<ConflictsHitId>().references(() => conflictsHit.id),
+    kind: text("kind").notNull(),
+    rationale: text("rationale").notNull(),
+    reviewerUserId: text("reviewer_user_id").notNull().$type<UserId>(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [index("conflicts_disposition_hit_id_created_at_index").on(table.hitId, table.createdAt)],
 );
