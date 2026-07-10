@@ -75,7 +75,7 @@ pub(crate) fn parse_eml_with_source_format(
 /// iteratively and stops descending into embedded messages after a few levels, so
 /// the tree handed here is already finite; these caps make the acceptance policy
 /// this engine's own rather than a byproduct of the parser's internals.
-fn enforce_structural_limits(
+pub(crate) fn enforce_structural_limits(
     message: &mail_parser::Message<'_>,
     limits: &Limits,
 ) -> Result<(), EmailError> {

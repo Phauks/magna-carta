@@ -30,6 +30,28 @@ pub struct Limits {
     /// forwarded as one email is at most a few hundred recipients) while still
     /// refusing a directory built to be many orders of magnitude larger than that.
     pub max_recipient_count: usize,
+    /// The total number of CFB directory entries the `.msg` walk will materialize
+    /// into owned nodes. A compound-file directory entry's path repeats every one
+    /// of its ancestors, so a crafted file built from deeply nested storages makes
+    /// the walk's aggregate path-byte cost grow one order faster than the entry
+    /// count itself — a small input can otherwise be turned into an allocation far
+    /// larger than the input ever was. Enforcing this cap by counting entries
+    /// *during* the walk, before the owned node list is fully materialized, is what
+    /// keeps that growth from ever amplifying past a few thousand small
+    /// allocations. 4096 is generous: a real `.msg` (the root, the version and
+    /// properties streams, one storage per recipient, one per attachment) sits in
+    /// the low hundreds of entries even for a message with many recipients and
+    /// attachments.
+    pub max_compound_file_nodes: usize,
+    /// The deepest a single CFB directory entry's path may nest before the walk
+    /// refuses it. A real `.msg` nests two or three storages deep; an embedded
+    /// message pushes that a little further. This is a secondary, belt-and-
+    /// suspenders bound — the node-count cap above is what actually closes the
+    /// amplification, since a directory this deep already costs entries fast — but
+    /// it refuses a pathologically deep chain even where an attacker keeps the raw
+    /// entry count under the node cap by nesting narrowly rather than broadly. 64
+    /// is far beyond any legitimate nesting.
+    pub max_compound_file_depth: usize,
 }
 
 impl Default for Limits {
@@ -43,6 +65,8 @@ impl Default for Limits {
             max_mbox_member_count: 100_000,
             max_mbox_member_bytes: 128 * 1024 * 1024,
             max_recipient_count: 1024,
+            max_compound_file_nodes: 4096,
+            max_compound_file_depth: 64,
         }
     }
 }
@@ -60,6 +84,8 @@ mod tests {
         assert_eq!(limits.max_embedded_message_depth, 8);
         assert_eq!(limits.max_mbox_member_count, 100_000);
         assert_eq!(limits.max_recipient_count, 1024);
+        assert_eq!(limits.max_compound_file_nodes, 4096);
+        assert_eq!(limits.max_compound_file_depth, 64);
     }
 
     #[test]

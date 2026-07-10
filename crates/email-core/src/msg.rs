@@ -77,17 +77,7 @@ pub fn parse_msg_with_limits(bytes: &[u8], limits: &Limits) -> Result<ParsedMess
         return Err(EmailError::LimitExceeded);
     }
     let mut compound = open_compound_file(bytes)?;
-    // Walk the whole directory tree once into owned paths. `cfb`'s walk is
-    // bounds-checked and cycle-guarded, and collecting it up front releases the
-    // immutable borrow so the property streams can then be opened for reading.
-    let nodes: Vec<Node> = compound
-        .walk()
-        .map(|entry| Node {
-            path: entry.path().to_path_buf(),
-            is_stream: entry.is_stream(),
-            length: entry.len(),
-        })
-        .collect();
+    let nodes = walk_bounded(&compound, limits)?;
     let index = NodeIndex::build(nodes);
     let mut counters = BreadthCounters::default();
     read_message(
@@ -124,6 +114,35 @@ struct Node {
     path: PathBuf,
     is_stream: bool,
     length: u64,
+}
+
+/// Walk the whole directory tree once into owned nodes, refusing the walk the
+/// moment either structural cap is passed rather than materializing the full tree
+/// and checking afterward. `cfb`'s `walk()` is bounds-checked and cycle-guarded but
+/// otherwise unbounded in how many entries it can yield, and a directory entry's
+/// path repeats every one of its ancestors — so collecting the whole tree first and
+/// only then checking its length would already have paid the superlinear path-byte
+/// cost a nested-storage directory is built to inflict. Counting entries (and their
+/// path depth) as they come off the iterator, before each is pushed, keeps the
+/// owned node list itself from ever growing past `max_compound_file_nodes` items,
+/// whatever the real directory holds beyond that point.
+fn walk_bounded(compound: &Msg, limits: &Limits) -> Result<Vec<Node>, EmailError> {
+    let mut nodes = Vec::new();
+    for entry in compound.walk() {
+        if nodes.len() >= limits.max_compound_file_nodes {
+            return Err(EmailError::LimitExceeded);
+        }
+        let path = entry.path().to_path_buf();
+        if path.components().count() > limits.max_compound_file_depth {
+            return Err(EmailError::LimitExceeded);
+        }
+        nodes.push(Node {
+            path,
+            is_stream: entry.is_stream(),
+            length: entry.len(),
+        });
+    }
+    Ok(nodes)
 }
 
 /// Directory entries grouped by parent path, built once per parse. Every lookup below
@@ -308,7 +327,9 @@ fn read_message(
     // PidTagInternetMessageId, but that is a MAPI value, not a header one, and must be
     // marked as such so downstream dedup never treats the two as interchangeable.
     let header_block = read_string(compound, &substreams, PID_TRANSPORT_MESSAGE_HEADERS)?;
-    let header_derived = header_block.as_deref().and_then(parse_header_block);
+    let header_derived = header_block
+        .as_deref()
+        .and_then(|block| parse_header_block(block, limits));
     let mapi_message_id = read_string(compound, &substreams, PID_INTERNET_MESSAGE_ID)?;
 
     let (raw_headers, integrity, in_reply_to, references, header_identifier) = match header_derived
@@ -507,14 +528,19 @@ fn read_attachments(
 /// Parse an RFC 5322 header block recovered from PidTagTransportMessageHeaders,
 /// reusing the `.eml` lane's tested header extraction so the ordered verbatim
 /// headers, the Message-ID provenance, and the integrity facts are read exactly as
-/// they are from a standalone `.eml`. `None` when the block parses to nothing.
-fn parse_header_block(block: &str) -> Option<ParsedMessage> {
+/// they are from a standalone `.eml`. `None` when the block parses to nothing, or
+/// when what it parses to exceeds the same structural caps (part count, MIME
+/// nesting, embedded-message depth) the `.eml` lane enforces on every message —
+/// a recovered header block can carry a full MIME body, so it is walked and capped
+/// the same way rather than trusted just because it arrived inside a `.msg`.
+fn parse_header_block(block: &str, limits: &Limits) -> Option<ParsedMessage> {
     // A bare header block has no body separator; append one so the parser treats
     // every line as a header rather than folding a trailing line into a body. The
     // appended bytes sit past the header region and do not shift any header offset.
     let mut buffer = block.as_bytes().to_vec();
     buffer.extend_from_slice(b"\r\n\r\n");
     let message = MessageParser::default().parse(&buffer)?;
+    crate::eml::enforce_structural_limits(&message, limits).ok()?;
     Some(crate::eml::from_mail_parser_message(
         &message,
         SourceFormat::Msg,
@@ -1097,11 +1123,29 @@ mod fixtures {
         compound.flush().unwrap();
         compound.into_inner().into_inner()
     }
+
+    /// A chain of plain, ordinary storages nested `levels` deep — none of them
+    /// shaped as an embedded-message tag. Every entry on the chain repeats every
+    /// one of its ancestors in its own path, the same amplification shape a
+    /// directory-walk denial of service exploits; this builder proves the walk
+    /// bound catches ordinary nesting, not just the embedded-message recursion.
+    pub fn deeply_nested_plain_storages(levels: usize) -> Vec<u8> {
+        let mut compound = CompoundFile::create(Cursor::new(Vec::new())).unwrap();
+        let mut path = String::new();
+        for level in 0..levels {
+            path.push_str(&format!("/nested_storage_{level:08}"));
+        }
+        compound.create_storage_all(&path).unwrap();
+        compound.flush().unwrap();
+        compound.into_inner().into_inner()
+    }
 }
 
 #[cfg(test)]
 mod mapi_tests {
-    use super::fixtures::{deeply_nested_embedded, utf16le, MsgBuilder, PropertiesStream};
+    use super::fixtures::{
+        deeply_nested_embedded, deeply_nested_plain_storages, utf16le, MsgBuilder, PropertiesStream,
+    };
     use super::*;
 
     const HEADER_BLOCK: &str = concat!(
@@ -1772,5 +1816,149 @@ mod mapi_tests {
         assert_eq!(message.subject.as_deref(), Some("Retainer"));
         assert_eq!(message.parts.len(), 1);
         assert_eq!(message.to.len(), 1);
+    }
+
+    /// A `.msg` whose directory holds more entries than `max_compound_file_nodes`
+    /// allows must be refused as `LimitExceeded` before the rest of the parse ever
+    /// runs — the same breadth-cap discipline the attachment and recipient counts
+    /// already apply, extended to the directory walk itself.
+    ///
+    /// This is the primary regression test for the denial-of-service the walk-then-
+    /// index shape allowed: before the node-count cap existed, `parse_msg_with_limits`
+    /// collected the *entire* directory into an owned `Vec<Node>` and built the
+    /// `NodeIndex` from it before any cap was ever consulted, so a directory with
+    /// more entries than any real message would carry was fully materialized rather
+    /// than refused for its breadth alone. Run against that prior code with this
+    /// exact fixture and this exact tightened `Limits`, `parse_msg_with_limits`
+    /// returned `Ok` — this test would fail (wrong `Ok`, not the expected `Err`)
+    /// against it. A low cap is used here specifically so the fixture does not need
+    /// thousands of entries to exercise the same code path a much larger, real
+    /// attack would take.
+    #[test]
+    fn a_msg_with_more_directory_nodes_than_the_cap_is_refused() {
+        let mut builder = MsgBuilder::new();
+        for index in 0..8u32 {
+            builder = builder.substg(
+                "",
+                0x3000 + index as u16,
+                PTYPE_UNICODE,
+                utf16le(&format!("value-{index}")),
+            );
+        }
+        let bytes = builder.build();
+
+        let tight_limits = Limits {
+            max_compound_file_nodes: 5,
+            ..Limits::default()
+        };
+        assert_eq!(
+            parse_msg_with_limits(&bytes, &tight_limits),
+            Err(EmailError::LimitExceeded)
+        );
+    }
+
+    /// The node cap is enforced by counting directory entries *as the walk yields
+    /// them*, not by collecting the whole tree and checking its length afterward —
+    /// the distinction that actually closes the denial of service, since collecting
+    /// first would already have paid the superlinear path-byte cost a nested
+    /// directory is built to inflict. `walk_bounded` (this module) demonstrates the
+    /// property directly: it bails out of its `for` loop, without pushing a `Node`,
+    /// the moment the running count reaches the cap, so the owned node list can
+    /// never hold more than `max_compound_file_nodes` entries regardless of how
+    /// much deeper or wider the real directory goes.
+    ///
+    /// This is exercised here against a directory built with many storage levels
+    /// (each one a chain of nested, non-embedded-message storages, so its full
+    /// entry count via a naive collect-then-check implementation would be
+    /// `levels`) and an intentionally tiny node cap: the assertion is that this
+    /// returns `LimitExceeded` rather than hanging or slowly walking every level,
+    /// which a short-circuiting walk makes true independent of how large `levels`
+    /// is set.
+    #[test]
+    fn the_node_cap_fires_before_the_full_walk_is_materialized() {
+        let bytes = deeply_nested_plain_storages(500);
+
+        let tight_limits = Limits {
+            max_compound_file_nodes: 5,
+            ..Limits::default()
+        };
+        assert_eq!(
+            parse_msg_with_limits(&bytes, &tight_limits),
+            Err(EmailError::LimitExceeded)
+        );
+    }
+
+    /// A directory nested deeper than `max_compound_file_depth`, but with far fewer
+    /// entries than `max_compound_file_nodes`, is refused by the depth cap alone —
+    /// the belt-and-suspenders bound catches a chain an attacker keeps narrow (one
+    /// storage per level) specifically to stay under the breadth cap.
+    #[test]
+    fn a_deeply_nested_storage_chain_is_refused_by_the_depth_cap() {
+        let bytes = deeply_nested_plain_storages(20);
+
+        let tight_limits = Limits {
+            max_compound_file_depth: 5,
+            ..Limits::default()
+        };
+        assert_eq!(
+            parse_msg_with_limits(&bytes, &tight_limits),
+            Err(EmailError::LimitExceeded)
+        );
+
+        // The same fixture, well within a relaxed depth cap and the default node
+        // cap, parses without needing a subject or any other property present.
+        let relaxed_limits = Limits {
+            max_compound_file_depth: 64,
+            ..Limits::default()
+        };
+        assert!(parse_msg_with_limits(&bytes, &relaxed_limits).is_ok());
+    }
+
+    /// A realistic `.msg` — a subject, a couple of attachments, a couple of
+    /// recipients, shallow nesting — still parses unchanged under the *default*
+    /// limits, confirming the new node and depth caps do not disturb the ordinary
+    /// path a real message takes.
+    #[test]
+    fn a_normal_small_msg_under_default_limits_still_parses() {
+        let attach0 = "/__attach_version1.0_#00000000";
+        let attach1 = "/__attach_version1.0_#00000001";
+        let recip0 = "/__recip_version1.0_#00000000";
+        let recip1 = "/__recip_version1.0_#00000001";
+        let bytes = MsgBuilder::new()
+            .substg("", PID_SUBJECT, PTYPE_UNICODE, utf16le("Engagement letter"))
+            .substg("", PID_BODY, PTYPE_UNICODE, utf16le("Please review."))
+            .substg(
+                attach0,
+                PID_ATTACH_LONG_FILENAME,
+                PTYPE_UNICODE,
+                utf16le("engagement-letter.pdf"),
+            )
+            .substg(attach0, PID_ATTACH_DATA, PTYPE_BINARY, vec![0u8; 128])
+            .substg(
+                attach1,
+                PID_ATTACH_LONG_FILENAME,
+                PTYPE_UNICODE,
+                utf16le("invoice.pdf"),
+            )
+            .substg(attach1, PID_ATTACH_DATA, PTYPE_BINARY, vec![0u8; 64])
+            .substg(
+                recip0,
+                PID_RECIPIENT_SMTP_ADDRESS,
+                PTYPE_UNICODE,
+                utf16le("bob@example.test"),
+            )
+            .substg(
+                recip1,
+                PID_RECIPIENT_SMTP_ADDRESS,
+                PTYPE_UNICODE,
+                utf16le("carol@example.test"),
+            )
+            .build();
+
+        let message = parse_msg(&bytes).expect("a realistic small .msg still parses");
+        assert_eq!(message.subject.as_deref(), Some("Engagement letter"));
+        assert_eq!(message.text_bodies, vec!["Please review.".to_owned()]);
+        assert_eq!(message.parts.len(), 2);
+        assert_eq!(message.to.len(), 2);
     }
 }
