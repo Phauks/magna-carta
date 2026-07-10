@@ -32,6 +32,8 @@ export interface ReportInput {
   roundTrip: { reachable: true; medianMs: number } | { reachable: false; note: string };
   bytesDown: number;
   bytesUp: number;
+  /** Whether low-internet-usage mode produced this run — its figures understate a fast line. */
+  lowData: boolean;
 }
 
 // The use-cases the AIM panel rates, in the order the page shows them. useCaseLabel names each.
@@ -66,6 +68,11 @@ export function renderReport(input: ReportInput): string {
 
   lines.push("Network Speed Test - Magna Carta");
   lines.push(`Run at ${runAt(input.finishedAt)}`);
+  if (input.lowData) {
+    lines.push(
+      "Low internet usage mode: small transfers, so a fast connection reads slower than it is.",
+    );
+  }
   lines.push("");
 
   lines.push(`Download: ${bandwidth(input.downloadBps)}`);

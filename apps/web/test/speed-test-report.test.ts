@@ -25,6 +25,7 @@ const FULL = {
   roundTrip: { reachable: false as const, note: "You are not signed in." },
   bytesDown: 118_000_000,
   bytesUp: 24_000_000,
+  lowData: false,
 };
 
 describe("reportFilename", () => {
@@ -66,5 +67,10 @@ describe("renderReport", () => {
 
   it("notes that the ratings are incomplete without packet loss", () => {
     expect(renderReport(FULL)).toContain("incomplete");
+  });
+
+  it("flags a low-internet-usage run so its figures are not misread as the true speed", () => {
+    expect(renderReport({ ...FULL, lowData: true })).toContain("Low internet usage mode");
+    expect(renderReport(FULL)).not.toContain("Low internet usage mode");
   });
 });

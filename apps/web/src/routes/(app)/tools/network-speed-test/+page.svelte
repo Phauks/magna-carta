@@ -192,19 +192,24 @@
           }
         : undefined;
 
-    // Packet loss is a real reading only when the relay was reachable AND a sample landed; otherwise
-    // the report states why it is absent, in the same words the Packet loss tile uses.
+    // Packet loss is a real reading only when the relay was reachable AND a sample landed. The three
+    // not-measured reasons are distinct: relay reachable but no sample, relay unavailable (with its
+    // specific cause), and no probe at all — never conflate the first with "sign in", which would
+    // tell a signed-in user to sign in and contradict the on-screen tile.
     const lossRatio = turn?.available ? runResults?.getPacketLoss() : undefined;
-    const packetLoss: ReportInput["packetLoss"] =
-      turn?.available && typeof lossRatio === "number"
-        ? { measured: true, ratio: lossRatio }
-        : {
-            measured: false,
-            reason:
-              turn && !turn.available
-                ? turnUnavailableNote(turn.reason)
-                : "Sign in to measure packet loss.",
-          };
+    let packetLoss: ReportInput["packetLoss"];
+    if (turn?.available && typeof lossRatio === "number") {
+      packetLoss = { measured: true, ratio: lossRatio };
+    } else if (turn?.available) {
+      packetLoss = {
+        measured: false,
+        reason: "The relay was reachable, but no packet-loss sample completed.",
+      };
+    } else if (turn) {
+      packetLoss = { measured: false, reason: turnUnavailableNote(turn.reason) };
+    } else {
+      packetLoss = { measured: false, reason: "Sign in to measure packet loss." };
+    }
 
     // The round trip mirrors what the connection panel shows for this probe status. A reachable probe
     // always carries a median; every other status is not-measured with the panel's reason.
@@ -249,6 +254,7 @@
       roundTrip,
       bytesDown: bytesInDirection(downloadPoints),
       bytesUp: bytesInDirection(uploadPoints),
+      lowData: store.lowData,
     };
 
     const url = URL.createObjectURL(
