@@ -1,4 +1,4 @@
-# File Inspector — the file workbench
+# The file surface — one headerless file manager, many hosts
 
 **Date:** 2026-07-09 · **Status:** design agreed in substance; **the visual design is still in development**
 
@@ -6,7 +6,16 @@ Seven tools in the `files` subject group each demand their own upload of the sam
 metadata, hash, unlock, verify type, detect AI text, repair. The user's question is never "which of seven
 tools do I need." It is "I have a file — what can I do with it, and what is it?"
 
-This is the workbench that answers that. One surface, one upload, many capabilities.
+The first draft of this spec answered that with a standalone tool, the "File Inspector." That was too
+small a frame. The same question — *what is this file, and what can I do with it* — is asked of a file
+**inside a matter** just as often as of an ad-hoc upload in the Tools area. Answering it twice, in two
+screens, would be building the same thing twice and letting the two drift.
+
+So the design is inverted: there is **one file-management surface**, and the inspector is not a screen
+beside it — **it is the detail view of it.** Select a file in the collection and its capabilities populate
+the detail region. That surface is **headerless**: it renders no masthead of its own and makes no
+assumption about where its files come from or whether they persist. Its host supplies those. The Tools-area
+"File Inspector" is simply the **first host** of that surface; a file inside a matter is another.
 
 It resumes the tools-workbench thread deferred on 2026-07-03 (capability registry with a `kind` axis;
 tiles that recede when they do not apply) and settles the question that thread left open: what happens to
@@ -15,6 +24,39 @@ the bytes.
 **The visuals are not settled.** Two mockups exist (`file-inspector-mockup.html`,
 `file-inspector-mockup-2.html`, served locally, not part of the app). They establish the shape, not the
 finish. Everything below about layout is a starting position, explicitly open to change.
+
+## One surface, two axes of "view", N hosts
+
+Two different things get called a "view," and the design only holds if they stay distinct:
+
+- **Collection views** — how you look at *many* files: List, Tiles, Gallery. This is the shared multi-view
+  shell already built ("duplicated three times, full stop"). Under this design it is not duplicated — it is
+  **one body instanced per host.**
+- **Capability views** — what you look at for *one* file: Overview, Hash, Type, Metadata, Scan, Convert,
+  Unlock. This is the inspector's tab strip, now the surface's **detail pane.**
+
+The body is therefore: a **collection region** (multi-view) + a **detail region** (the capability tabs).
+It renders no chrome above itself. It depends on a **`FileSource`**, never on a `matterId`.
+
+**Why `FileSource` and not `matterId` — the seam is real, not cosmetic.** The file-manager data plane
+(`packages/file-manager/src/queries.ts`) is matter-scoped by identity: `listFiles` *requires* a `matterId`,
+and the whole `file` / `file_version` / `folder` model presupposes a matter as the container, with durable
+rows, versions, folders, scan verdicts, and an audit trail. The Tools-area upload has none of that — it is
+an ephemeral scratch object reaped in hours (see byte disciplines below). The difference between the two is
+**not the header. It is the data source and the lifecycle.** The body must not know which it is.
+
+| | **Matter host** (later) | **Tools host** (first build) |
+| --- | --- | --- |
+| Source | durable `file` records — `listFiles(matterId)` | ephemeral scratch-object list, session-scoped |
+| Collection | folders, versions, search over thousands | a handful of dropped files, no folders |
+| Capabilities | inspection **+ Versions + History** | inspection only |
+| Chrome | matter masthead / breadcrumb | "Tools" eyebrow / "File Inspector" masthead |
+| Lifecycle | filed, permanent, audited | reaped on the hours schedule |
+| History of inspections | **legitimate** (hangs off a filed record) | **forbidden** (see the ethereal principle) |
+
+The Tools host is the **degenerate case** — few files, no folders, no history — which is why it is the
+first build: it exercises the body without the matter machinery. The matter host is the general case and
+reuses the body wholesale, switching on the capabilities the Tools host leaves off.
 
 ## Decided
 
@@ -145,11 +187,14 @@ A blank cell says none of these.
 
 ## Layout — a starting position, still in development
 
-The current thinking, drawn but not settled:
+The body is a **collection region** + a **detail region**; the notes below are how each might look in the
+Tools host. The same two regions serve the matter host — the collection region there is denser (folders,
+versions, thousands of files) and the detail region gains the History and Versions tabs, but the split is
+the same. Drawn but not settled:
 
-- File **selection** is navigation, not content. It wants to be scannable and out of the way, and to scale
-  from four files to sixty. A narrow rail (thumbnail, name, scan dot, checkbox) rather than a pane. With a
-  single file it collapses entirely.
+- The **collection region** is navigation, not content. It wants to be scannable and out of the way, and to
+  scale from four files to sixty (and, in the matter host, to thousands). In the Tools host: a narrow rail
+  (thumbnail, name, scan dot, checkbox) rather than a pane. With a single file it collapses entirely.
 - **Preview** is the subject and takes the larger share. Target: never shorter than roughly 60% of viewport
   height when it is showing.
 - **Analysis** is dense but bounded — eight rows for Overview, a long table for Metadata.
@@ -166,18 +211,25 @@ around eight files.
 Selection semantics: focusing one file shows its details; checking several offers the bulk actions that
 apply to all of them, minus any that are flagged, minus the two that require per-file consent.
 
-## Two entrypoints, and only one of them may have a history
+## The confidentiality boundary lives in the host, not in two screens
 
-**From the tools area** (today): an ad-hoc upload. No matter, no filing, nothing retained past the session.
-Giving *this* a history would mean retaining information about files the firm never filed — exactly what
-the ethereal principle forbids.
+The earlier draft called these "two features wearing one name" and warned the difference was a
+confidentiality boundary, not an implementation detail. That was right about the boundary and wrong about
+the remedy. The remedy is not two screens — it is **one body whose host supplies the boundary.**
+
+**From the tools area** (first build): an ad-hoc upload. No matter, no filing, nothing retained past the
+session. Giving *this* a history would mean retaining information about files the firm never filed — exactly
+what the ethereal principle forbids. The Tools host therefore wires in **no history source and no version
+source.** History is absent *by construction*, not by a screen remembering to omit it.
 
 **From a file inside a matter** (later): the document already has an identity, a version, a scan verdict,
 and an audit trail. Inspecting it needs no upload at all, and **a history of inspections is legitimate**,
-because it hangs off a record that already exists.
+because it hangs off a record that already exists. The matter host wires those capabilities *in.*
 
-These are two features wearing one name. The spec says so deliberately, because the difference is a
-confidentiality boundary and not an implementation detail.
+This is the whole payoff of the headerless model: the two hosts behave **identically** for everything that
+is not the confidentiality-differentiated part — same collection views, same capability tabs, same typed
+absence, same preview sandbox — and they differ **only** where they must, at the `FileSource` and the
+capability set the host hands the body. A guarantee, where the old framing had a discipline.
 
 ## Defects and corrections found while writing this
 
