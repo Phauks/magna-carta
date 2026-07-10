@@ -55,6 +55,8 @@ import {
   listCleanVersionsStatement,
   listFilesStatement,
   selectCurrentCleanVersionStatement,
+  selectFileSummaryStatement,
+  selectUploadSessionStatusStatement,
 } from "../src/queries.ts";
 
 function stubDatabase(): SqlDatabase {
@@ -200,10 +202,21 @@ describe("schema name sync (file-manager SQL pinned to @magna-carta/database)", 
     const allowed = new Set([
       FILE_TABLE,
       FILE_VERSION_TABLE,
+      UPLOAD_SESSION_TABLE,
+      // Statement aliases: f=file, v/dv=file_version (dv is the "display version" the summary JOIN
+      // resolves), lv=the latest pending/quarantined version in the include-mode COALESCE subquery,
+      // s=upload_session.
       "f",
       "v",
+      "dv",
+      "lv",
+      "s",
+      // SELECT-list projection aliases (dv.status AS version_status, s.status AS session_status).
+      "version_status",
+      "session_status",
       ...columnsOf(file),
       ...columnsOf(fileVersion),
+      ...columnsOf(uploadSession),
     ]);
     const sql = [
       sqlOf(
@@ -214,8 +227,20 @@ describe("schema name sync (file-manager SQL pinned to @magna-carta/database)", 
           10,
         ),
       ),
+      // Include mode resolves the display version through the pending/quarantined COALESCE subquery
+      // (the `lv` alias); guard its SQL against schema drift too.
+      sqlOf(
+        listFilesStatement(
+          stub,
+          { matterId: M, folderId: FOLD, includePendingAndQuarantined: true },
+          undefined,
+          10,
+        ),
+      ),
+      sqlOf(selectFileSummaryStatement(stub, F)),
       sqlOf(selectCurrentCleanVersionStatement(stub, F)),
       sqlOf(listCleanVersionsStatement(stub, F)),
+      sqlOf(selectUploadSessionStatusStatement(stub, "uploadSession_x" as never)),
     ].join("\n");
     expectKnown(sql, allowed, "queries");
   });

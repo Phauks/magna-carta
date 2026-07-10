@@ -22,6 +22,7 @@ import type {
   FirmId,
   FolderId,
   MatterId,
+  UploadSessionId,
   UserId,
 } from "@magna-carta/identifiers/types";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -313,6 +314,309 @@ describe("file list / get / patch / delete", () => {
   it("403s a Read-only member patching a file", async () => {
     const { fileId } = await seedCleanFile("guarded.txt", null, "bytes");
     const response = await patch(`/api/v1/files/${fileId}`, { name: "hacked.txt" }, readOnlyCookie);
+    expect(response.status).toBe(403);
+  });
+});
+
+// Seeds a file whose only version sits at a non-clean status with NO current_version_id — a first
+// upload still processing (pending) or rejected as malware (quarantined). scan_detail carries the
+// quarantine reason when given.
+async function seedNonCleanFile(
+  name: string,
+  folderId: FolderId | null,
+  status: "pending" | "quarantined",
+  scanDetail: string | null = null,
+): Promise<{ fileId: FileId; versionId: FileVersionId }> {
+  const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, poolFirmId);
+  const fileId = newIdentifier("file");
+  const versionId = newIdentifier("fileVersion");
+  const r2Key = `files/${fileId}/${versionId}`;
+  await firmDatabase
+    .prepare(
+      "INSERT INTO file (id, matter_id, folder_id, name, current_version_id, deleted_at, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, NULL, NULL, ?5, ?5)",
+    )
+    .bind(fileId, matterId, folderId, name, ISO)
+    .run();
+  await firmDatabase
+    .prepare(
+      "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, sniffed_content_type, status, scan_detail, created_at) VALUES (?1, ?2, 1, ?3, NULL, NULL, ?4, ?5, ?6)",
+    )
+    .bind(versionId, fileId, r2Key, status, scanDetail, ISO)
+    .run();
+  return { fileId, versionId };
+}
+
+interface EnrichedRow {
+  id: string;
+  name: string;
+  currentVersionId: string | null;
+  updatedAt: string;
+  versionNumber: number;
+  sizeBytes: number | null;
+  sniffedContentType: string | null;
+  scanVerdict: string | null;
+  status: string;
+  quarantineReason: string | null;
+}
+
+describe("FileSummary enrichment", () => {
+  it("files.list paints the display version's facts (no per-row versions fan-out)", async () => {
+    const folderId = await seedFolder("Enriched");
+    const { fileId, versionId } = await seedCleanFile("enriched.txt", folderId, "hello", ISO, {
+      sniffedContentType: "text/plain",
+    });
+    const response = await get(`/api/v1/files?matterId=${matterId}&folderId=${folderId}`);
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { data: EnrichedRow[] };
+    const row = body.data.find((entry) => entry.id === fileId);
+    expect(row).toBeDefined();
+    expect(row?.status).toBe("clean");
+    expect(row?.versionNumber).toBe(1);
+    expect(row?.sizeBytes).toBe("hello".length);
+    expect(row?.sniffedContentType).toBe("text/plain");
+    expect(row?.scanVerdict).toBeNull();
+    expect(row?.currentVersionId).toBe(versionId);
+    expect(row?.updatedAt).toBe(ISO);
+    expect(row?.quarantineReason).toBeNull();
+  });
+
+  it("files.get carries the same enriched fields", async () => {
+    const { fileId, versionId } = await seedCleanFile("get-enriched.txt", null, "abcd");
+    const response = await get(`/api/v1/files/${fileId}`);
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as EnrichedRow;
+    expect(body.status).toBe("clean");
+    expect(body.versionNumber).toBe(1);
+    expect(body.sizeBytes).toBe(4);
+    expect(body.currentVersionId).toBe(versionId);
+    expect(body.quarantineReason).toBeNull();
+  });
+});
+
+describe("files.list opt-in status include", () => {
+  it("default excludes pending/quarantined; the include surfaces them with a null currentVersionId", async () => {
+    const folderId = await seedFolder("IncludeScope");
+    const clean = await seedCleanFile("clean.txt", folderId, "x");
+    const pending = await seedNonCleanFile("pending.txt", folderId, "pending");
+    const quarantined = await seedNonCleanFile(
+      "quarantined.txt",
+      folderId,
+      "quarantined",
+      "Eicar-Test",
+    );
+
+    // Default: clean only — the historical behaviour, unchanged.
+    const def = await get(`/api/v1/files?matterId=${matterId}&folderId=${folderId}`);
+    const defBody = (await def.json()) as { data: EnrichedRow[] };
+    const defNames = defBody.data.map((row) => row.name);
+    expect(defNames).toContain("clean.txt");
+    expect(defNames).not.toContain("pending.txt");
+    expect(defNames).not.toContain("quarantined.txt");
+
+    // Include: all three, each carrying its status.
+    const inc = await get(
+      `/api/v1/files?matterId=${matterId}&folderId=${folderId}&includePendingAndQuarantined=true`,
+    );
+    const incBody = (await inc.json()) as { data: EnrichedRow[] };
+    const byId = new Map(incBody.data.map((row) => [row.id, row]));
+    expect(byId.get(clean.fileId)?.status).toBe("clean");
+    const pendingRow = byId.get(pending.fileId);
+    expect(pendingRow?.status).toBe("pending");
+    expect(pendingRow?.currentVersionId).toBeNull();
+    expect(pendingRow?.quarantineReason).toBeNull();
+    const quarantinedRow = byId.get(quarantined.fileId);
+    expect(quarantinedRow?.status).toBe("quarantined");
+    expect(quarantinedRow?.currentVersionId).toBeNull();
+    expect(quarantinedRow?.quarantineReason).toBe("Eicar-Test");
+  });
+});
+
+describe("GET /api/v1/folders", () => {
+  it("lists a matter's folder tree in adjacency-list form", async () => {
+    const foldersMatterId = newIdentifier("matter");
+    await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare(
+        "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'Folders Matter', 'open', ?2, ?3, ?3)",
+      )
+      .bind(foldersMatterId, ownerUserId, ISO)
+      .run();
+    const savedMatter = matterId;
+    matterId = foldersMatterId;
+    try {
+      const parent = await seedFolder("Pleadings");
+      const child = await seedFolder("Drafts", parent);
+      const response = await get(`/api/v1/folders?matterId=${foldersMatterId}`);
+      expect(response.status).toBe(200);
+      const body = (await response.json()) as {
+        data: { id: string; parentFolderId: string | null; name: string }[];
+      };
+      expect(body.data.length).toBe(2);
+      const byId = new Map(body.data.map((folder) => [folder.id, folder]));
+      expect(byId.get(parent)?.parentFolderId).toBeNull();
+      expect(byId.get(parent)?.name).toBe("Pleadings");
+      expect(byId.get(child)?.parentFolderId).toBe(parent);
+      expect(byId.get(child)?.name).toBe("Drafts");
+    } finally {
+      matterId = savedMatter;
+    }
+  });
+
+  it("a Read-only member can list folders (permission null)", async () => {
+    const response = await get(`/api/v1/folders?matterId=${matterId}`, readOnlyCookie);
+    expect(response.status).toBe(200);
+  });
+
+  it("firm scoping: a firm-A session sees none of firm-B's folders", async () => {
+    const firmBDatabase = firmDatabaseFor(env.FIRM_DATABASE, firmBId);
+    const memberId = newIdentifier("user");
+    await insertMemberStatement(firmBDatabase, {
+      userId: memberId,
+      displayName: "Firm B Folder Member",
+      now: ISO,
+    }).run();
+    const firmBMatterId = newIdentifier("matter");
+    await firmBDatabase
+      .prepare(
+        "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'Firm B Folder Matter', 'open', ?2, ?3, ?3)",
+      )
+      .bind(firmBMatterId, memberId, ISO)
+      .run();
+    await firmBDatabase
+      .prepare(
+        "INSERT INTO folder (id, matter_id, parent_folder_id, name, created_at, updated_at) VALUES (?1, ?2, NULL, 'Firm B Folder', ?3, ?3)",
+      )
+      .bind(newIdentifier("folder"), firmBMatterId, ISO)
+      .run();
+    // Firm A (ownerCookie) queries firm B's matter id — its own physically-isolated database has no
+    // such matter, so the tree is empty. No cross-tenant leak.
+    const response = await get(`/api/v1/folders?matterId=${firmBMatterId}`);
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { data: unknown[] };
+    expect(body.data).toEqual([]);
+  });
+});
+
+describe("GET /api/v1/uploads/{id}", () => {
+  async function seedUploadSession(options: {
+    versionStatus: "pending" | "clean" | "quarantined" | "abandoned";
+    sessionStatus: "open" | "completed" | "aborted" | "expired";
+    firmId?: FirmId;
+    matterId?: MatterId;
+    scanDetail?: string | null;
+  }): Promise<UploadSessionId> {
+    const firmId = options.firmId ?? poolFirmId;
+    const targetMatterId = options.matterId ?? matterId;
+    const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, firmId);
+    const fileId = newIdentifier("file");
+    const versionId = newIdentifier("fileVersion");
+    const sessionId = newIdentifier("uploadSession");
+    const r2Key = `files/${fileId}/${versionId}`;
+    await firmDatabase
+      .prepare(
+        "INSERT INTO file (id, matter_id, folder_id, name, current_version_id, deleted_at, created_at, updated_at) VALUES (?1, ?2, NULL, ?3, NULL, NULL, ?4, ?4)",
+      )
+      .bind(fileId, targetMatterId, `upload-${options.versionStatus}.bin`, ISO)
+      .run();
+    await firmDatabase
+      .prepare(
+        "INSERT INTO file_version (id, file_id, version_number, r2_key, status, scan_detail, created_at) VALUES (?1, ?2, 1, ?3, ?4, ?5, ?6)",
+      )
+      .bind(versionId, fileId, r2Key, options.versionStatus, options.scanDetail ?? null, ISO)
+      .run();
+    await firmDatabase
+      .prepare(
+        "INSERT INTO upload_session (id, file_version_id, mode, r2_upload_id, declared_size, declared_content_type, status, created_at, expires_at) VALUES (?1, ?2, 'put', NULL, NULL, NULL, ?3, ?4, NULL)",
+      )
+      .bind(sessionId, versionId, options.sessionStatus, ISO)
+      .run();
+    return sessionId as UploadSessionId;
+  }
+
+  interface UploadStatusBody {
+    sessionStatus: string;
+    versionStatus: string;
+    quarantineReason: string | null;
+  }
+
+  it("reports an open session over a pending version", async () => {
+    const sessionId = await seedUploadSession({ versionStatus: "pending", sessionStatus: "open" });
+    const response = await get(`/api/v1/uploads/${sessionId}`);
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as UploadStatusBody;
+    expect(body.sessionStatus).toBe("open");
+    expect(body.versionStatus).toBe("pending");
+    expect(body.quarantineReason).toBeNull();
+  });
+
+  it("reports a completed session over a clean committed version", async () => {
+    const sessionId = await seedUploadSession({
+      versionStatus: "clean",
+      sessionStatus: "completed",
+    });
+    const body = (await (await get(`/api/v1/uploads/${sessionId}`)).json()) as UploadStatusBody;
+    expect(body.sessionStatus).toBe("completed");
+    expect(body.versionStatus).toBe("clean");
+    expect(body.quarantineReason).toBeNull();
+  });
+
+  it("reports a quarantined version with its reason", async () => {
+    const sessionId = await seedUploadSession({
+      versionStatus: "quarantined",
+      sessionStatus: "completed",
+      scanDetail: "Eicar-Test-Signature",
+    });
+    const body = (await (await get(`/api/v1/uploads/${sessionId}`)).json()) as UploadStatusBody;
+    expect(body.versionStatus).toBe("quarantined");
+    expect(body.quarantineReason).toBe("Eicar-Test-Signature");
+  });
+
+  it("reports an aborted session over an abandoned version", async () => {
+    const sessionId = await seedUploadSession({
+      versionStatus: "abandoned",
+      sessionStatus: "aborted",
+    });
+    const body = (await (await get(`/api/v1/uploads/${sessionId}`)).json()) as UploadStatusBody;
+    expect(body.sessionStatus).toBe("aborted");
+    expect(body.versionStatus).toBe("abandoned");
+    expect(body.quarantineReason).toBeNull();
+  });
+
+  it("404s an unknown session id", async () => {
+    const response = await get(`/api/v1/uploads/${newIdentifier("uploadSession")}`);
+    expect(response.status).toBe(404);
+  });
+
+  it("404s (never 403) a session that belongs to another firm", async () => {
+    const firmBDatabase = firmDatabaseFor(env.FIRM_DATABASE, firmBId);
+    const memberId = newIdentifier("user");
+    await insertMemberStatement(firmBDatabase, {
+      userId: memberId,
+      displayName: "Firm B Uploader",
+      now: ISO,
+    }).run();
+    const firmBMatterId = newIdentifier("matter");
+    await firmBDatabase
+      .prepare(
+        "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'Firm B Upload Matter', 'open', ?2, ?3, ?3)",
+      )
+      .bind(firmBMatterId, memberId, ISO)
+      .run();
+    const sessionId = await seedUploadSession({
+      versionStatus: "pending",
+      sessionStatus: "open",
+      firmId: firmBId,
+      matterId: firmBMatterId,
+    });
+    // Firm A (ownerCookie) holds files:upload, so RBAC passes; the session simply is not in firm A's
+    // database, so the answer is 404 — never 403, and never an existence oracle.
+    const response = await get(`/api/v1/uploads/${sessionId}`);
+    expect(response.status).toBe(404);
+    expect(response.status).not.toBe(403);
+  });
+
+  it("403s a Read-only member (lacks files:upload)", async () => {
+    const sessionId = await seedUploadSession({ versionStatus: "pending", sessionStatus: "open" });
+    const response = await get(`/api/v1/uploads/${sessionId}`, readOnlyCookie);
     expect(response.status).toBe(403);
   });
 });

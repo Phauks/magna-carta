@@ -1536,6 +1536,40 @@
           "declaredContentType"
         ]
       },
+      "UploadStatusResponse": {
+        "type": "object",
+        "properties": {
+          "sessionStatus": {
+            "type": "string",
+            "enum": [
+              "open",
+              "completed",
+              "aborted",
+              "expired"
+            ]
+          },
+          "versionStatus": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "clean",
+              "quarantined",
+              "abandoned"
+            ]
+          },
+          "quarantineReason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "sessionStatus",
+          "versionStatus",
+          "quarantineReason"
+        ]
+      },
       "SignUploadPartResponse": {
         "type": "object",
         "properties": {
@@ -2688,6 +2722,42 @@
           "segments"
         ]
       },
+      "FolderListResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FolderSummary"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "FolderSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "parentFolderId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "parentFolderId",
+          "name"
+        ]
+      },
       "CreateFolderResponse": {
         "type": "object",
         "properties": {
@@ -2803,6 +2873,50 @@
           },
           "createdAt": {
             "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "versionNumber": {
+            "type": "integer"
+          },
+          "sizeBytes": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "sniffedContentType": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "scanVerdict": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "unscanned",
+              "clean",
+              "flagged",
+              null
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "clean",
+              "pending",
+              "quarantined"
+            ]
+          },
+          "quarantineReason": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
@@ -2812,7 +2926,14 @@
           "name",
           "documentTypeId",
           "currentVersionId",
-          "createdAt"
+          "createdAt",
+          "updatedAt",
+          "versionNumber",
+          "sizeBytes",
+          "sniffedContentType",
+          "scanVerdict",
+          "status",
+          "quarantineReason"
         ]
       },
       "FileVersionsResponse": {
@@ -9738,6 +9859,90 @@
         }
       }
     },
+    "/api/v1/uploads/{id}": {
+      "get": {
+        "description": "Reports an upload session's progress: the session status (open, completed, aborted, expired), its version's ingest status (pending, clean, quarantined, abandoned), and — when the bytes were rejected as malware — the quarantine reason. A session that belongs to another firm is 404.",
+        "operationId": "uploads.get",
+        "tags": [
+          "uploads"
+        ],
+        "x-mc-operationId": "uploads.get",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "files:upload",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "uploads"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^uploadSession_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The upload session's status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadStatusResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks files:upload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such upload session in this firm",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/uploads/{id}/parts/{partNumber}": {
       "get": {
         "description": "Signs one part of an open multipart upload session, returning a short-TTL presigned PUT URL the client uploads the part to. The session must be open and multipart.",
@@ -13032,6 +13237,78 @@
       }
     },
     "/api/v1/folders": {
+      "get": {
+        "description": "Lists a matter's folder tree in adjacency-list form (each node carries its parent link and name). Folders carry no clean/pending status — every folder in the matter is returned.",
+        "operationId": "folders.list",
+        "tags": [
+          "folders"
+        ],
+        "x-mc-operationId": "folders.list",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "folders"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The matter's folders",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FolderListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the folder/matter is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
       "post": {
         "description": "Creates a folder under a matter (optionally nested under a parent folder). A folder is pure metadata — file bytes are keyed independently, so this moves nothing in storage.",
         "operationId": "folders.create",
@@ -13411,7 +13688,7 @@
     },
     "/api/v1/files": {
       "get": {
-        "description": "Lists a matter's files (optionally a single folder), clean and undeleted only, cursor-paginated. A file appears once it has a committed clean version; pending, quarantined, and soft-deleted files are excluded.",
+        "description": "Lists a matter's files (optionally a single folder), cursor-paginated. Each row carries its display version's number, size, sniffed type, scan verdict, and status, so one call paints a file table with no per-row fan-out to the version history. By default only files with a committed clean version appear (soft-deleted files are always excluded). Set includePendingAndQuarantined=true to also surface files whose latest version is still processing (pending) or was rejected as malware (quarantined); those rows carry a null currentVersionId and cannot be downloaded.",
         "operationId": "files.list",
         "tags": [
           "files"
@@ -13463,6 +13740,17 @@
             },
             "required": false,
             "name": "pageSize",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true"
+              ]
+            },
+            "required": false,
+            "name": "includePendingAndQuarantined",
             "in": "query"
           }
         ],

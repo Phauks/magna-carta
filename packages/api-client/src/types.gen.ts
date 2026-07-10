@@ -384,6 +384,12 @@ export type InitiateUploadRequest = {
     uploadKind?: 'interactive' | 'bulk';
 };
 
+export type UploadStatusResponse = {
+    sessionStatus: 'open' | 'completed' | 'aborted' | 'expired';
+    versionStatus: 'pending' | 'clean' | 'quarantined' | 'abandoned';
+    quarantineReason: string | null;
+};
+
 export type SignUploadPartResponse = {
     url: string;
 };
@@ -656,6 +662,16 @@ export type NumberingPreviewRequest = {
     };
 };
 
+export type FolderListResponse = {
+    data: Array<FolderSummary>;
+};
+
+export type FolderSummary = {
+    id: string;
+    parentFolderId: string | null;
+    name: string;
+};
+
 export type CreateFolderResponse = {
     folderId: string;
 };
@@ -688,6 +704,13 @@ export type FileSummary = {
     documentTypeId: string | null;
     currentVersionId: string | null;
     createdAt: string;
+    updatedAt: string;
+    versionNumber: number;
+    sizeBytes: number | null;
+    sniffedContentType: string | null;
+    scanVerdict: 'unscanned' | 'clean' | 'flagged' | null;
+    status: 'clean' | 'pending' | 'quarantined';
+    quarantineReason: string | null;
 };
 
 export type FileVersionsResponse = {
@@ -3027,6 +3050,45 @@ export type UploadsInitiateResponses = {
 
 export type UploadsInitiateResponse = UploadsInitiateResponses[keyof UploadsInitiateResponses];
 
+export type UploadsGetData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/uploads/{id}';
+};
+
+export type UploadsGetErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks files:upload
+     */
+    403: Problem;
+    /**
+     * No such upload session in this firm
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type UploadsGetError = UploadsGetErrors[keyof UploadsGetErrors];
+
+export type UploadsGetResponses = {
+    /**
+     * The upload session's status
+     */
+    200: UploadStatusResponse;
+};
+
+export type UploadsGetResponse = UploadsGetResponses[keyof UploadsGetResponses];
+
 export type UploadsSignPartData = {
     body?: never;
     path: {
@@ -4443,6 +4505,41 @@ export type NumberingPreviewResponses = {
 
 export type NumberingPreviewResponse2 = NumberingPreviewResponses[keyof NumberingPreviewResponses];
 
+export type FoldersListData = {
+    body?: never;
+    path?: never;
+    query: {
+        matterId: string;
+    };
+    url: '/api/v1/folders';
+};
+
+export type FoldersListErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the folder/matter is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FoldersListError = FoldersListErrors[keyof FoldersListErrors];
+
+export type FoldersListResponses = {
+    /**
+     * The matter's folders
+     */
+    200: FolderListResponse;
+};
+
+export type FoldersListResponse = FoldersListResponses[keyof FoldersListResponses];
+
 export type FoldersCreateData = {
     body: CreateFolderRequest;
     headers: {
@@ -4611,6 +4708,7 @@ export type FilesListData = {
         folderId?: string;
         cursor?: string;
         pageSize?: number;
+        includePendingAndQuarantined?: 'true';
     };
     url: '/api/v1/files';
 };
