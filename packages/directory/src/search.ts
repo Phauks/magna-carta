@@ -166,9 +166,10 @@ export async function searchNames(database: SqlDatabase, query: string): Promise
 //      skipped; they are too low-entropy for a standalone equality probe and are resolved by
 //      decrypt-and-compare over a candidate set, not here.
 //
-// The three result sets are unioned by entity id. Each entity accumulates a signalCount: the
-// number of distinct channels that returned it. The list is sorted descending by signalCount
-// so entities that hit more channels appear first (they are stronger duplicate candidates).
+// The three result sets are unioned by entity id. Each entity accumulates a signalCount (the number
+// of distinct channels that returned it), the set of channels that fired, and — for the identifier
+// channel — the identifier types that matched. The list is sorted descending by signalCount so
+// entities that hit more channels appear first (they are stronger duplicate candidates).
 //
 // Merge-resolution: duplicate detection is the conflicts corpus, so a merged-away entity's still-alive
 // name/identifier rows must keep matching — but resolve to the surviving master, never the archived
@@ -177,7 +178,20 @@ export async function searchNames(database: SqlDatabase, query: string): Promise
 // resolveMergedId). A hit on the subordinate's old name thus surfaces the master; the subordinate id
 // itself never appears as a candidate. This is the deliberate divergence from searchNames, which is
 // ordinary search and still excludes merged entities outright. The blind-index identifier channel
-// resolves the same way via resolveEntityIds.
+// resolves the same way via resolveMergedId.
+
+// Which blocking channel surfaced a candidate. Consumers rank a candidate by what kind of thing
+// matched — an exact identifier is categorically stronger evidence than trigram overlap — so the
+// channel that fired travels with the result rather than being collapsed into a count.
+export type MatchChannel = "phonetic" | "trigram" | "identifier";
+
+// Narrows the name channels. Omitted means "every scheme, every name role", which is the behaviour
+// this function has always had: all phonetic schemes are blended and alias/former names are always
+// searched. Supplying these restricts recall — it can only remove candidates, never add them.
+export interface MatchOptions {
+  readonly schemes?: readonly string[];
+  readonly nameRoles?: readonly string[];
+}
 
 // The caller-supplied name and identifier facts to match against. Either given+family (for persons)
 // or legalName (for organizations) drives the name channels; identifiers drives the blind-index
@@ -195,14 +209,20 @@ export interface FindDuplicateCandidatesInput {
   // candidate list. The exclusion is applied after the union so it is consistent across all
   // three channels.
   readonly excludeEntityId?: string;
+  // Narrows the phonetic scheme set and/or the name roles the name channels search. Omitted
+  // preserves today's behaviour exactly: every scheme, every name role.
+  readonly matchOptions?: MatchOptions;
 }
 
 // A single entry in the ranked duplicate-candidate list. entityId is the directory entity;
 // signalCount is the number of distinct channels (phonetic, trigram, identifier) that returned
-// this entity — higher is a stronger candidate.
+// this entity — higher is a stronger candidate. channels names which of those channels fired;
+// identifierTypes lists which identifier types matched (empty unless the identifier channel fired).
 export interface DuplicateCandidate {
   readonly entityId: string;
   readonly signalCount: number;
+  readonly channels: readonly MatchChannel[];
+  readonly identifierTypes: readonly string[];
 }
 
 // Derive the primary display name string from the input, for use in the trigram channel.
@@ -242,9 +262,38 @@ async function phoneticChannel(
   const codes = phoneticCodes(token);
   if (codes.length === 0) return new Set();
 
-  // Build a parameterized IN list for the code values. Each code is bound as a separate parameter
-  // because D1/SQLite prepared-statement binding does not accept array values natively.
-  const placeholders = codes.map((_, i) => `?${i + 2}`).join(", ");
+  // Build parameterized IN lists positionally. Each value is bound as a separate parameter because
+  // D1/SQLite prepared-statement binding does not accept array values natively; bindings accumulates
+  // in bind order so the optional filters below can append without disturbing earlier placeholders.
+  const bindings: unknown[] = [input.kind];
+  const codePlaceholders = codes.map((code) => {
+    bindings.push(code.code);
+    return `?${bindings.length}`;
+  });
+
+  // matchOptions.schemes narrows which Double Metaphone scheme(s) count as a match — omitted means
+  // every scheme (today's behaviour: primary and secondary are always blended).
+  let schemeFilter = "";
+  const schemes = input.matchOptions?.schemes;
+  if (schemes !== undefined && schemes.length > 0) {
+    const schemePlaceholders = schemes.map((scheme) => {
+      bindings.push(scheme);
+      return `?${bindings.length}`;
+    });
+    schemeFilter = `AND pc.scheme IN (${schemePlaceholders.join(", ")})`;
+  }
+
+  // matchOptions.nameRoles narrows which name rows are searched (e.g. 'current' only) — omitted
+  // means every role (today's behaviour: alias/former names are always searched).
+  let nameRoleFilter = "";
+  const nameRoles = input.matchOptions?.nameRoles;
+  if (nameRoles !== undefined && nameRoles.length > 0) {
+    const nameRolePlaceholders = nameRoles.map((role) => {
+      bindings.push(role);
+      return `?${bindings.length}`;
+    });
+    nameRoleFilter = `AND dn.name_role IN (${nameRolePlaceholders.join(", ")})`;
+  }
 
   // The JOIN path: phonetic_code → name → entity. Deleted entities are excluded, but merged-away
   // entities are KEPT and resolved to their master (merged_into_id) — see the merge-resolution note
@@ -261,8 +310,10 @@ async function phoneticChannel(
       ON dn.entity_kind = 'organization'
       AND do.id = dn.entity_id
     WHERE dn.entity_kind = ?1
-      AND pc.code IN (${placeholders})
+      AND pc.code IN (${codePlaceholders.join(", ")})
       AND dn.deleted_at IS NULL
+      ${schemeFilter}
+      ${nameRoleFilter}
       AND (
         (dn.entity_kind = 'person'       AND dp.deleted_at IS NULL)
         OR
@@ -272,7 +323,7 @@ async function phoneticChannel(
 
   const { results } = await database
     .prepare(sql)
-    .bind(input.kind, ...codes.map((c) => c.code))
+    .bind(...bindings)
     .all<{ entity_id: string }>();
 
   return new Set(results.map((row) => row.entity_id));
@@ -291,6 +342,20 @@ async function trigramChannel(
 
   const ftsMatchExpression = buildTrigramOrExpression(normalizedQuery);
 
+  const bindings: unknown[] = [ftsMatchExpression, input.kind];
+
+  // matchOptions.nameRoles narrows which name rows are searched (e.g. 'current' only) — omitted
+  // means every role (today's behaviour: alias/former names are always searched).
+  let nameRoleFilter = "";
+  const nameRoles = input.matchOptions?.nameRoles;
+  if (nameRoles !== undefined && nameRoles.length > 0) {
+    const nameRolePlaceholders = nameRoles.map((role) => {
+      bindings.push(role);
+      return `?${bindings.length}`;
+    });
+    nameRoleFilter = `AND dn.name_role IN (${nameRolePlaceholders.join(", ")})`;
+  }
+
   // Deleted entities are excluded; merged-away entities are kept and resolved to their master via
   // COALESCE(merged_into_id, id) — see the merge-resolution note above.
   const sql = `
@@ -307,6 +372,7 @@ async function trigramChannel(
     WHERE directory_name_fts MATCH ?1
       AND dn.entity_kind = ?2
       AND dn.deleted_at IS NULL
+      ${nameRoleFilter}
       AND (
         (dn.entity_kind = 'person'       AND dp.deleted_at IS NULL)
         OR
@@ -316,7 +382,7 @@ async function trigramChannel(
 
   const { results } = await database
     .prepare(sql)
-    .bind(ftsMatchExpression, input.kind)
+    .bind(...bindings)
     .all<{ entity_id: string }>();
 
   return new Set(results.map((row) => row.entity_id));
@@ -326,87 +392,100 @@ async function trigramChannel(
 // indexable, delegates to findByIdentifier to probe value_blind_index equality. Non-indexable
 // types (dob, ssn_last_four) are caught via IdentifierNotIndexableError and silently skipped —
 // those types are resolved by decrypt-and-compare over the full candidate set, not here.
+// Returns a map from resolved entity id to the identifier types that matched it, so the type
+// survives merge-resolution and travels to the DuplicateCandidate.identifierTypes field.
 async function identifierChannel(
   context: DirectoryIdentifierContext,
   input: FindDuplicateCandidatesInput,
-): Promise<Set<string>> {
+): Promise<Map<string, string[]>> {
   const identifiers = input.identifiers ?? [];
-  if (identifiers.length === 0) return new Set();
+  if (identifiers.length === 0) return new Map();
 
-  const entityIdSets = await Promise.all(
+  // Collect raw (pre-merge-resolution) hits: for each identifier type, which entity ids matched.
+  // Keyed by the raw entity id, not yet resolved to a master, so a type hitting the same raw id
+  // twice (unlikely but possible with multiple identifiers) is deduplicated before resolution.
+  const rawHits = new Map<string, Set<string>>();
+  await Promise.all(
     identifiers.map(async (identifier) => {
       try {
         const entityIds = await findByIdentifier(context, {
           type: identifier.type,
           value: identifier.value,
         });
-        return new Set(entityIds);
+        for (const entityId of entityIds) {
+          const types = rawHits.get(entityId) ?? new Set<string>();
+          types.add(identifier.type);
+          rawHits.set(entityId, types);
+        }
       } catch (error) {
         if (error instanceof IdentifierNotIndexableError) {
           // Non-indexable type (dob, ssn_last_four): silently skip — see function doc above.
-          return new Set<string>();
+          return;
         }
         throw error;
       }
     }),
   );
 
-  // Union all identifier matches into one set, then resolve any merged-away subordinate to its
-  // master. Identifier rows stay alive on the subordinate after a merge (the conflicts-corpus rule),
-  // so an exact-identifier hit can land on a subordinate; it must surface the surviving master, like
-  // the name channels do in SQL.
-  const union = new Set<string>();
-  for (const set of entityIdSets) {
-    for (const entityId of set) {
-      union.add(entityId);
-    }
+  // Resolve every raw hit to its merge-surviving master (or drop it if soft-deleted / not found),
+  // then union the matched identifier types onto the resolved id — a subordinate and its master
+  // never appear as separate candidates, so their matched types combine under the one surfaced id.
+  // Identifier rows stay alive on the subordinate after a merge (the conflicts-corpus rule), so an
+  // exact-identifier hit can land on a subordinate; it must surface the surviving master, like the
+  // name channels do in SQL.
+  const resolvedHits = new Map<string, Set<string>>();
+  await Promise.all(
+    [...rawHits.entries()].map(async ([entityId, types]) => {
+      const resolvedId = await resolveMergedId(context.database, entityId);
+      if (resolvedId === null) return;
+      const existing = resolvedHits.get(resolvedId) ?? new Set<string>();
+      for (const type of types) existing.add(type);
+      resolvedHits.set(resolvedId, existing);
+    }),
+  );
+
+  const result = new Map<string, string[]>();
+  for (const [entityId, types] of resolvedHits) {
+    result.set(entityId, [...types]);
   }
-  return resolveMergedIds(context.database, union);
+  return result;
 }
 
-// Resolve a set of entity ids through merged_into_id and apply the same deleted_at exclusion
-// the name channels apply in SQL. For each id:
-//   - If the node row has merged_into_id set, the id is a subordinate; resolve to the master.
-//   - If the resolved (or original) node row has deleted_at set, the entity is soft-deleted;
-//     drop it from the result — mirroring the `dp.deleted_at IS NULL` predicate in the name channels.
-//   - Otherwise pass the id through unchanged.
+// Resolve a single entity id through merged_into_id and apply the same deleted_at exclusion the
+// name channels apply in SQL:
+//   - If the node row has merged_into_id set, the id is a subordinate; resolve to the master and
+//     check the master's deleted_at.
+//   - If the resolved (or original) node row has deleted_at set, the entity is soft-deleted; return
+//     null — mirroring the `dp.deleted_at IS NULL` predicate in the name channels.
+//   - Otherwise return the id unchanged.
 // The name channels resolve in SQL (COALESCE + deleted_at predicate on the joined node row); this
 // is the in-code equivalent for ids that did not arrive through a node-table join.
-async function resolveMergedIds(
-  database: SqlDatabase,
-  entityIds: Set<string>,
-): Promise<Set<string>> {
-  if (entityIds.size === 0) return entityIds;
-  const resolved = new Set<string>();
-  for (const entityId of entityIds) {
-    const table = nodeTableForEntityId(entityId);
-    const { results } = await database
-      .prepare(`SELECT merged_into_id, deleted_at FROM ${table} WHERE id = ?1`)
-      .bind(entityId)
-      .all<{ merged_into_id: string | null; deleted_at: string | null }>();
-    const row = results[0];
-    if (row === undefined) continue; // entity not found — skip
+async function resolveMergedId(database: SqlDatabase, entityId: string): Promise<string | null> {
+  const table = nodeTableForEntityId(entityId);
+  const { results } = await database
+    .prepare(`SELECT merged_into_id, deleted_at FROM ${table} WHERE id = ?1`)
+    .bind(entityId)
+    .all<{ merged_into_id: string | null; deleted_at: string | null }>();
+  const row = results[0];
+  if (row === undefined) return null; // entity not found
 
-    if (row.merged_into_id !== null) {
-      // Subordinate: resolve to the master and check the master's deleted_at.
-      const masterId = row.merged_into_id;
-      const masterTable = nodeTableForEntityId(masterId);
-      const { results: masterResults } = await database
-        .prepare(`SELECT deleted_at FROM ${masterTable} WHERE id = ?1`)
-        .bind(masterId)
-        .all<{ deleted_at: string | null }>();
-      const masterRow = masterResults[0];
-      if (masterRow !== undefined && masterRow.deleted_at === null) {
-        resolved.add(masterId);
-      }
-      // If master is soft-deleted or not found, drop the candidate entirely.
-    } else if (row.deleted_at === null) {
-      // Non-merged, non-deleted: pass through.
-      resolved.add(entityId);
+  if (row.merged_into_id !== null) {
+    // Subordinate: resolve to the master and check the master's deleted_at.
+    const masterId = row.merged_into_id;
+    const masterTable = nodeTableForEntityId(masterId);
+    const { results: masterResults } = await database
+      .prepare(`SELECT deleted_at FROM ${masterTable} WHERE id = ?1`)
+      .bind(masterId)
+      .all<{ deleted_at: string | null }>();
+    const masterRow = masterResults[0];
+    if (masterRow !== undefined && masterRow.deleted_at === null) {
+      return masterId;
     }
-    // If deleted_at is set, drop the candidate — mirrors the name channel predicate.
+    return null; // master soft-deleted or not found — drop the candidate entirely.
   }
-  return resolved;
+
+  if (row.deleted_at === null) return entityId; // non-merged, non-deleted: pass through.
+  return null; // soft-deleted — drop the candidate, mirrors the name channel predicate.
 }
 
 export async function findDuplicateCandidates(
@@ -422,35 +501,48 @@ export async function findDuplicateCandidates(
   if (!hasName && !hasIdentifiers) return [];
 
   // Run all three channels in parallel.
-  const [phoneticSet, trigramSet, identifierSet] = await Promise.all([
+  const [phoneticSet, trigramSet, identifierMap] = await Promise.all([
     phoneticChannel(context.database, input),
     trigramChannel(context.database, input),
     identifierChannel(context, input),
   ]);
 
-  // Union the three sets and count how many channels contributed each entity id.
-  const signalCounts = new Map<string, number>();
+  // Union the three channels' results, tracking per entity id which channels fired and (for the
+  // identifier channel) which identifier types matched.
+  const signals = new Map<string, { channels: Set<MatchChannel>; identifierTypes: Set<string> }>();
 
-  function tally(set: Set<string>): void {
-    for (const entityId of set) {
-      signalCounts.set(entityId, (signalCounts.get(entityId) ?? 0) + 1);
+  function signalFor(entityId: string): { channels: Set<MatchChannel>; identifierTypes: Set<string> } {
+    let signal = signals.get(entityId);
+    if (signal === undefined) {
+      signal = { channels: new Set<MatchChannel>(), identifierTypes: new Set<string>() };
+      signals.set(entityId, signal);
     }
+    return signal;
   }
 
-  tally(phoneticSet);
-  tally(trigramSet);
-  tally(identifierSet);
+  for (const entityId of phoneticSet) signalFor(entityId).channels.add("phonetic");
+  for (const entityId of trigramSet) signalFor(entityId).channels.add("trigram");
+  for (const [entityId, types] of identifierMap) {
+    const signal = signalFor(entityId);
+    signal.channels.add("identifier");
+    for (const type of types) signal.identifierTypes.add(type);
+  }
 
   // Apply excludeEntityId after union — consistent exclusion across all channels.
   if (input.excludeEntityId !== undefined) {
-    signalCounts.delete(input.excludeEntityId);
+    signals.delete(input.excludeEntityId);
   }
 
   // Sort descending by signal count (most channels first = strongest candidate first), with a
   // stable secondary sort on the entity id so equal-signal candidates have a deterministic order
   // regardless of channel completion order (otherwise the ordering varies with DB result order).
-  const candidates: DuplicateCandidate[] = [...signalCounts.entries()]
-    .map(([entityId, signalCount]) => ({ entityId, signalCount }))
+  const candidates: DuplicateCandidate[] = [...signals.entries()]
+    .map(([entityId, signal]) => ({
+      entityId,
+      signalCount: signal.channels.size,
+      channels: [...signal.channels].sort(),
+      identifierTypes: [...signal.identifierTypes].sort(),
+    }))
     .sort((a, b) => b.signalCount - a.signalCount || a.entityId.localeCompare(b.entityId));
 
   return candidates;
