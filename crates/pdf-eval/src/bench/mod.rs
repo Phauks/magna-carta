@@ -18,7 +18,7 @@ use pdf_core::Document;
 use serde::Serialize;
 
 use crate::bench::degrade::degrade;
-use crate::bench::score::character_error_rate;
+use crate::bench::score::{character_error_rate, median, reading_order_text, PositionedText};
 
 /// Rasterization density. Matches `RENDER_DPI` in `validate::operations::ocr` -- the
 /// floor the production recognition container renders at, so this benchmark exercises
@@ -39,7 +39,19 @@ const DEGRADE_SEED: u64 = 20260709;
 #[derive(Debug, Clone, Serialize)]
 pub struct DocumentResult {
     pub document: String,
+    /// Character error rate between the ground truth and the recognized text, with
+    /// both put into the same canonical top-to-bottom, left-to-right reading order
+    /// first (see `score::reading_order_text`). This is what makes the number a
+    /// recognition-quality measurement: a page whose glyphs paint in a different
+    /// order than they read visually no longer inflates the edit distance just for
+    /// being reordered.
     pub character_error_rate: f64,
+    /// The same character error rate computed the old way: ground truth and
+    /// recognized text concatenated in their raw paint/detection order, with no
+    /// reading-order normalization. Kept alongside `character_error_rate` so a report
+    /// shows how much the normalization changed each document's score, not as a
+    /// metric to optimize against.
+    pub character_error_rate_raw: f64,
     /// Mean, over every true glyph box, of the largest overlap fraction it has with
     /// any recognized word or line box in the same page-pixel space. 1.0 means every
     /// true glyph sits fully inside some recognized box; 0.0 means recognition found
@@ -143,8 +155,9 @@ fn score_one_document(
     let glyphs = document
         .page_text_glyphs(0)
         .map_err(|e| format!("text extraction: {e:?}"))?;
-    let truth_text: String = glyphs.iter().map(|g| g.text.as_str()).collect();
-    if truth_text.trim().is_empty() {
+    if glyphs.is_empty() {
+        // page_text_glyphs already drops whitespace-only glyphs, so an empty vector
+        // means the page carried no visible text at all -- nothing to score against.
         return Ok(None);
     }
 
@@ -171,8 +184,78 @@ fn score_one_document(
         .map_err(|e| format!("recognize: {}", e.code()))?;
     let recognition_millis = recognition_started.elapsed().as_millis();
 
-    let recognized_text: String = recognized.lines.iter().map(|l| l.text.as_str()).collect();
+    // The raw paint/detection-order text, kept only to report how much reading-order
+    // normalization changes the score (character_error_rate_raw below).
+    let truth_text_raw: String = glyphs.iter().map(|g| g.text.as_str()).collect();
+    let recognized_text_raw: String = recognized.lines.iter().map(|l| l.text.as_str()).collect();
+
+    // Reading-order normalization. `TextGlyph::rect` is in redaction Rect space --
+    // display points, bottom-left origin, y increasing UPWARD (see
+    // `pdf_core::detect::to_display_rect`: y1 is a glyph's top edge and is the larger
+    // value, y0 its bottom edge and the smaller value). `reading_order_text` sorts on
+    // a y that increases DOWNWARD, so each glyph's vertical center is flipped here via
+    // `page_size.height_pt - center_y`. The recognized `Quad.bounds()`, by contrast,
+    // is already in the render's pixel space (top-left origin, y increasing downward)
+    // -- no flip needed there.
+    let truth_tolerance = {
+        let heights: Vec<f32> = glyphs.iter().map(|g| g.rect.y1 - g.rect.y0).collect();
+        let m = median(&heights);
+        if m > 0.0 {
+            m
+        } else {
+            1.0
+        }
+    };
+    let truth_units: Vec<PositionedText> = glyphs
+        .iter()
+        .map(|g| {
+            let center_y_up = (g.rect.y0 + g.rect.y1) / 2.0;
+            PositionedText {
+                text: g.text.clone(),
+                x: g.rect.x0,
+                y: page_size.height_pt - center_y_up,
+            }
+        })
+        .collect();
+    let truth_text = reading_order_text(&truth_units, truth_tolerance);
+
+    // Each recognized line is already internally left-to-right (the recognizer reads
+    // words within a line in order), so it is treated as one reading-order unit
+    // positioned at its box's top-left corner -- only the line-to-line order is
+    // normalized, never the words within a line.
+    let recognized_tolerance = {
+        let heights: Vec<f32> = recognized
+            .lines
+            .iter()
+            .map(|l| {
+                let (_, y_min, _, y_max) = l.quad.bounds();
+                y_max - y_min
+            })
+            .collect();
+        let m = median(&heights);
+        if m > 0.0 {
+            m
+        } else {
+            1.0
+        }
+    };
+    let recognized_units: Vec<PositionedText> = recognized
+        .lines
+        .iter()
+        .map(|l| {
+            let (x_min, y_min, _, _) = l.quad.bounds();
+            PositionedText {
+                text: l.text.clone(),
+                x: x_min,
+                y: y_min,
+            }
+        })
+        .collect();
+    let recognized_text = reading_order_text(&recognized_units, recognized_tolerance);
+
     let character_error_rate = character_error_rate(&truth_text, &recognized_text);
+    let character_error_rate_raw =
+        crate::bench::score::character_error_rate(&truth_text_raw, &recognized_text_raw);
 
     // Convert each true glyph's display-point rect (bottom-left origin, matching
     // `page_size`) into the same top-left-origin pixel space `render_page` produces
@@ -210,6 +293,7 @@ fn score_one_document(
     Ok(Some(DocumentResult {
         document: name.to_string(),
         character_error_rate,
+        character_error_rate_raw,
         word_box_overlap,
         recognized_lines: recognized.lines.len(),
         undecoded_regions: recognized.undecoded_regions,
@@ -270,6 +354,7 @@ pub fn write_jsonl(runs: &[TierRun], path: &Path) -> std::io::Result<()> {
                 "tier": run.summary.tier,
                 "document": document.document,
                 "character_error_rate": document.character_error_rate,
+                "character_error_rate_raw": document.character_error_rate_raw,
                 "word_box_overlap": document.word_box_overlap,
                 "recognized_lines": document.recognized_lines,
                 "undecoded_regions": document.undecoded_regions,
@@ -298,21 +383,29 @@ pub fn model_paths_for(root: &Path, tier: &str) -> ModelPaths {
 
 /// The born-digital, text-bearing PDFs already committed to the repository that this
 /// benchmark manufactures ground truth from. Anchored on `CARGO_MANIFEST_DIR` so the
-/// mode works regardless of the process's working directory. `pdf-core`'s own
-/// `tests/fixtures/hello.pdf` is byte-identical to this crate's copy, so it is left
-/// out rather than counted as a second document.
+/// mode works regardless of the process's working directory.
+///
+/// Every `.pdf` under `corpus-ci/` (see `corpus-ci/SOURCES.md` for what each one is
+/// and where it came from) plus this crate's own `tests/fixtures/hello.pdf`, so a
+/// future addition to `corpus-ci/` is picked up automatically rather than needing a
+/// second edit here. `tests/fixtures/scanned.pdf` is deliberately never added: it is
+/// image-only, so `page_text_glyphs` finds nothing on it and it would only ever show
+/// up as a skip. `pdf-core`'s own `tests/fixtures/hello.pdf` fixture is byte-identical
+/// to this crate's copy and lives outside `corpus-ci/`, so there is no risk of this
+/// crate's copy being counted twice.
 pub fn default_corpus() -> Vec<PathBuf> {
     let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
-    [
-        "tests/fixtures/hello.pdf",
-        "corpus-ci/basicapi.pdf",
-        "corpus-ci/gov_irs_w9_acroform.pdf",
-        "corpus-ci/pdfjs_franz_image.pdf",
-    ]
-    .iter()
-    .map(|relative| manifest_dir.join(relative))
-    .filter(|path| path.exists())
-    .collect()
+    let mut corpus: Vec<PathBuf> = std::fs::read_dir(manifest_dir.join("corpus-ci"))
+        .map(|entries| {
+            entries
+                .filter_map(|entry| entry.ok().map(|entry| entry.path()))
+                .filter(|path| path.extension().map(|ext| ext == "pdf").unwrap_or(false))
+                .collect()
+        })
+        .unwrap_or_default();
+    corpus.sort();
+    corpus.push(manifest_dir.join("tests/fixtures/hello.pdf"));
+    corpus.into_iter().filter(|path| path.exists()).collect()
 }
 
 /// `ocr-benchmark` CLI mode. Reads `MAGNA_CARTA_OCR_TIERS` for the directory holding
@@ -388,5 +481,42 @@ pub fn ocr_benchmark_mode() {
             }
         }
         Err(e) => eprintln!("warning: could not create {}: {e}", baseline_path.display()),
+    }
+}
+
+#[cfg(test)]
+mod corpus_tests {
+    use super::*;
+
+    #[test]
+    fn default_corpus_enumerates_corpus_ci_and_adds_hello_once() {
+        let corpus = default_corpus();
+        let names: Vec<String> = corpus
+            .iter()
+            .map(|p| p.file_name().unwrap().to_string_lossy().to_string())
+            .collect();
+
+        // Every PDF actually present under corpus-ci/ shows up without a second edit
+        // to this file being needed.
+        let corpus_ci_pdf_count =
+            std::fs::read_dir(Path::new(env!("CARGO_MANIFEST_DIR")).join("corpus-ci"))
+                .unwrap()
+                .filter_map(|e| e.ok().map(|e| e.path()))
+                .filter(|p| p.extension().map(|x| x == "pdf").unwrap_or(false))
+                .count();
+        assert!(
+            corpus_ci_pdf_count >= 10,
+            "expected the widened corpus-ci/ to hold at least 10 PDFs, found {corpus_ci_pdf_count}"
+        );
+
+        // hello.pdf is added exactly once (this crate's tests/fixtures copy, not
+        // pdf-core's separate fixture of the same name).
+        assert_eq!(names.iter().filter(|n| *n == "hello.pdf").count(), 1);
+
+        // scanned.pdf is image-only and must never appear.
+        assert!(!names.iter().any(|n| n == "scanned.pdf"));
+
+        // corpus-ci/ contents plus hello.pdf, no more and no less.
+        assert_eq!(corpus.len(), corpus_ci_pdf_count + 1);
     }
 }
