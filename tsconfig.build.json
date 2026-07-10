@@ -17,6 +17,9 @@
       "path": "apps/magna-carta-edit/tsconfig.build.json"
     },
     {
+      "path": "apps/recovery-worker/tsconfig.build.json"
+    },
+    {
       "path": "apps/scan-worker/tsconfig.build.json"
     },
     {
@@ -50,6 +53,9 @@
       "path": "packages/database/tsconfig.build.json"
     },
     {
+      "path": "packages/decryption/tsconfig.build.json"
+    },
+    {
       "path": "packages/design-system/tsconfig.build.json"
     },
     {
@@ -57,6 +63,9 @@
     },
     {
       "path": "packages/directory/tsconfig.build.json"
+    },
+    {
+      "path": "packages/email/tsconfig.build.json"
     },
     {
       "path": "packages/encryption/tsconfig.build.json"

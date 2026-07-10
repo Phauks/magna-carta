@@ -1,0 +1,20 @@
+{
+  "name": "@magna-carta/email",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./src/pkg/email_core_bg.wasm": "./src/pkg/email_core_bg.wasm"
+  },
+  "scripts": {
+    "test": "vp test run",
+    "build:wasm": "wasm-pack build ../../crates/email-core --target web --out-dir ../../packages/email/src/pkg --release --no-opt"
+  },
+  "devDependencies": {
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
+  }
+}
