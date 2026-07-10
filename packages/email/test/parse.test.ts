@@ -1,13 +1,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { beforeAll, describe, expect, it } from "vitest";
-import {
-  EmailError,
-  ensureReady,
-  extractPart,
-  parseMailbox,
-  parseMessage,
-} from "../src/index.js";
+import { EmailError, ensureReady, extractPart, parseMailbox, parseMessage } from "../src/index.js";
 
 const wasmBytes = readFileSync(
   fileURLToPath(new URL("../src/pkg/email_core_bg.wasm", import.meta.url)),
@@ -16,9 +10,7 @@ const wasmBytes = readFileSync(
 function fixture(name: string): Uint8Array {
   return new Uint8Array(
     readFileSync(
-      fileURLToPath(
-        new URL(`../../../crates/email-core/tests/fixtures/${name}`, import.meta.url),
-      ),
+      fileURLToPath(new URL(`../../../crates/email-core/tests/fixtures/${name}`, import.meta.url)),
     ),
   );
 }

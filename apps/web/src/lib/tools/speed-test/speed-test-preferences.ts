@@ -37,8 +37,11 @@ export function parsePreferences(raw: string | null): SpeedTestPreferences {
   if (typeof parsed !== "object" || parsed === null) return DEFAULT_PREFERENCES;
   const candidate = parsed as Record<string, unknown>;
   return {
-    lowData: typeof candidate.lowData === "boolean" ? candidate.lowData : DEFAULT_PREFERENCES.lowData,
+    lowData:
+      typeof candidate.lowData === "boolean" ? candidate.lowData : DEFAULT_PREFERENCES.lowData,
     autoStart:
-      typeof candidate.autoStart === "boolean" ? candidate.autoStart : DEFAULT_PREFERENCES.autoStart,
+      typeof candidate.autoStart === "boolean"
+        ? candidate.autoStart
+        : DEFAULT_PREFERENCES.autoStart,
   };
 }

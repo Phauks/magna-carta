@@ -92,11 +92,14 @@ describe("guard 1 — real-credential absence", () => {
 
 describe("guard 2 — the chokepoint", () => {
   it("401s an unauthenticated request even where the route is active", async () => {
-    const response = await SELF.fetch("https://example.com/api/__dev/r2/object?key=files/anything", {
-      method: "PUT",
-      headers: { origin: "https://example.com" },
-      body: new Uint8Array([1, 2, 3]),
-    });
+    const response = await SELF.fetch(
+      "https://example.com/api/__dev/r2/object?key=files/anything",
+      {
+        method: "PUT",
+        headers: { origin: "https://example.com" },
+        body: new Uint8Array([1, 2, 3]),
+      },
+    );
     expect(response.status).toBe(401);
   });
 });

@@ -18,7 +18,13 @@ describe("phaseLabel", () => {
     expect(phaseLabel({ type: "download", bytes: 1e6, count: 8 })).toBe("Measuring download speed");
     expect(phaseLabel({ type: "upload", bytes: 1e6, count: 6 })).toBe("Measuring upload speed");
     expect(
-      phaseLabel({ type: "packetLoss", numPackets: 1e3, batchSize: 10, batchWaitTime: 10, responsesWaitTime: 3000 }),
+      phaseLabel({
+        type: "packetLoss",
+        numPackets: 1e3,
+        batchSize: 10,
+        batchWaitTime: 10,
+        responsesWaitTime: 3000,
+      }),
     ).toBe("Measuring packet loss");
   });
 });

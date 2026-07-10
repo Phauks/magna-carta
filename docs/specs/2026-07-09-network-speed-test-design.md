@@ -7,7 +7,7 @@
 Give the Network Speed Test tool its page: a benchmark of the firm's connection with
 the same measurements a user would get from `speed.cloudflare.com` — download, upload,
 latency (idle and under load), jitter, and Cloudflare's network-quality (AIM) scores —
-plus one thing that site cannot answer: *is the slowness the internet, or is it us?*
+plus one thing that site cannot answer: _is the slowness the internet, or is it us?_
 
 This is the **first per-tool page**, so it also establishes the composition every later
 tool copies: the masthead with the standing "Runs outside any matter" line, a run
@@ -101,25 +101,25 @@ only the path to us:
 
 Frontend, under `apps/web/`:
 
-| File                                                       | Role                                                  |
-| ---------------------------------------------------------- | ----------------------------------------------------- |
-| `src/routes/(app)/tools/network-speed-test/+page.svelte`   | The tool page — masthead, run surface, results        |
-| `src/lib/tools/speed-test/speed-test-engine.svelte.ts`     | Rune store wrapping the engine's lifecycle + results  |
-| `src/lib/tools/speed-test/speed-test-format.ts`            | Pure formatting (bps → Mbps, ms, ratios) — unit-tested |
-| `src/lib/tools/speed-test/connection-probe.ts`             | Fetches the connection route; N samples → median RTT  |
-| `src/lib/tools/speed-test/metric-tile.svelte`              | One headline metric (label, value, unit)              |
-| `src/lib/tools/speed-test/bandwidth-chart.svelte`          | Single-series bar chart over the scaling buckets      |
-| `src/lib/tools/speed-test/latency-chart.svelte`            | Single-series point chart (one latency phase)         |
-| `src/lib/maturity/maturity.ts`                             | `hasSurface(stage)` — the one home for the rule        |
-| `src/lib/tools/tool-tile.svelte`, `tool-row.svelte`        | Consume `hasSurface`, replacing the `=== "ready"` test |
-| `src/lib/tools/tool-presentation.ts`                       | `network-speed-test` → stage `alpha`, new descriptor  |
+| File                                                     | Role                                                   |
+| -------------------------------------------------------- | ------------------------------------------------------ |
+| `src/routes/(app)/tools/network-speed-test/+page.svelte` | The tool page — masthead, run surface, results         |
+| `src/lib/tools/speed-test/speed-test-engine.svelte.ts`   | Rune store wrapping the engine's lifecycle + results   |
+| `src/lib/tools/speed-test/speed-test-format.ts`          | Pure formatting (bps → Mbps, ms, ratios) — unit-tested |
+| `src/lib/tools/speed-test/connection-probe.ts`           | Fetches the connection route; N samples → median RTT   |
+| `src/lib/tools/speed-test/metric-tile.svelte`            | One headline metric (label, value, unit)               |
+| `src/lib/tools/speed-test/bandwidth-chart.svelte`        | Single-series bar chart over the scaling buckets       |
+| `src/lib/tools/speed-test/latency-chart.svelte`          | Single-series point chart (one latency phase)          |
+| `src/lib/maturity/maturity.ts`                           | `hasSurface(stage)` — the one home for the rule        |
+| `src/lib/tools/tool-tile.svelte`, `tool-row.svelte`      | Consume `hasSurface`, replacing the `=== "ready"` test |
+| `src/lib/tools/tool-presentation.ts`                     | `network-speed-test` → stage `alpha`, new descriptor   |
 
 Backend, under `apps/worker/`:
 
-| File                                     | Role                                            |
-| ---------------------------------------- | ----------------------------------------------- |
-| `src/routes/tools-connection.ts`         | The connection route (pattern: `firm-usage.ts`) |
-| `src/app.ts`                             | One registration line                           |
+| File                             | Role                                            |
+| -------------------------------- | ----------------------------------------------- |
+| `src/routes/tools-connection.ts` | The connection route (pattern: `firm-usage.ts`) |
+| `src/app.ts`                     | One registration line                           |
 
 **Contract obligations.** A new route changes the emitted OpenAPI document, so
 `apps/worker/test/contracts/openapi-snapshot.test.ts` must be updated and the typed API
@@ -139,11 +139,11 @@ Response body:
 
 ```ts
 {
-  ip: string;              // CF-Connecting-IP — the caller's own public address
-  asn: number;             // request.cf.asn
-  asOrganization: string;  // request.cf.asOrganization — the ISP's name
-  colo: string;            // request.cf.colo — the Cloudflare edge that served this request
-  country: string;         // request.cf.country
+  ip: string; // CF-Connecting-IP — the caller's own public address
+  asn: number; // request.cf.asn
+  asOrganization: string; // request.cf.asOrganization — the ISP's name
+  colo: string; // request.cf.colo — the Cloudflare edge that served this request
+  country: string; // request.cf.country
 }
 ```
 
@@ -163,7 +163,7 @@ constant in `connection-probe.ts`, not a knob.
 
 Canvas voice throughout; theming stays at the edges.
 
-- **Masthead.** "Network Speed Test", with the standing line *"Runs outside any matter."*
+- **Masthead.** "Network Speed Test", with the standing line _"Runs outside any matter."_
 - **Run surface.** Before the first run: the two disclosures (up to ~200 MB of data;
   your IP address is shared with Cloudflare) and a **Start** button. During a run: a
   progress indication of the current phase, plus **Pause**. After: **Retest**.

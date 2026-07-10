@@ -92,9 +92,7 @@ export function renderReport(input: ReportInput): string {
     lines.push(`  ${useCaseLabel(key)}: ${rating}`);
   }
   if (!input.packetLoss.measured) {
-    lines.push(
-      "  These ratings are incomplete: packet loss feeds all three and was not measured.",
-    );
+    lines.push("  These ratings are incomplete: packet loss feeds all three and was not measured.");
   }
   lines.push("");
 

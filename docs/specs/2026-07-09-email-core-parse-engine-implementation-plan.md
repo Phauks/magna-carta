@@ -29,25 +29,25 @@ Every task's requirements implicitly include this section.
 
 **New:**
 
-| Path | Responsibility |
-| --- | --- |
-| `crates/email-core/Cargo.toml` | Crate manifest; `crate-type = ["cdylib", "rlib"]` |
-| `crates/email-core/src/lib.rs` | Public API: `parse`, `extract_part`, re-exports |
-| `crates/email-core/src/model.rs` | `ParsedMessage`, `PartDescriptor`, `MessageIdentifier`, `Address` |
-| `crates/email-core/src/error.rs` | `EmailError` + its fixed `&'static str` code set |
-| `crates/email-core/src/limits.rs` | Untrusted-input caps |
-| `crates/email-core/src/eml.rs` | RFC 5322 / MIME lane |
-| `crates/email-core/src/mbox.rs` | mbox framing iterator |
-| `crates/email-core/src/msg.rs` | CFB / MAPI lane |
-| `crates/email-core/src/wasm.rs` | wasm32-only JS marshalling edge |
-| `crates/email-core/wasm.Dockerfile` | Pinned wasm-pack build image |
-| `crates/email-core/CLAUDE.md` | Local engine rules |
-| `crates/email-core/fuzz/` | `cargo-fuzz` targets, one per lane |
-| `crates/email-core/tests/fixtures/` | Committed corpus |
-| `packages/email/` | TypeScript wrapper (`package.json`, `tsconfig.json`, `vitest.config.ts`, `src/index.ts`) |
-| `apps/worker/src/routes/email-inspector.ts` | The Inspector route |
-| `apps/worker/test/seed-tools-email-inspector.test.ts` | Seed guard |
-| `packages/database/drizzle/per-firm/<timestamp>_seed-tools-email-inspector.sql` | Role seed |
+| Path                                                                            | Responsibility                                                                           |
+| ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `crates/email-core/Cargo.toml`                                                  | Crate manifest; `crate-type = ["cdylib", "rlib"]`                                        |
+| `crates/email-core/src/lib.rs`                                                  | Public API: `parse`, `extract_part`, re-exports                                          |
+| `crates/email-core/src/model.rs`                                                | `ParsedMessage`, `PartDescriptor`, `MessageIdentifier`, `Address`                        |
+| `crates/email-core/src/error.rs`                                                | `EmailError` + its fixed `&'static str` code set                                         |
+| `crates/email-core/src/limits.rs`                                               | Untrusted-input caps                                                                     |
+| `crates/email-core/src/eml.rs`                                                  | RFC 5322 / MIME lane                                                                     |
+| `crates/email-core/src/mbox.rs`                                                 | mbox framing iterator                                                                    |
+| `crates/email-core/src/msg.rs`                                                  | CFB / MAPI lane                                                                          |
+| `crates/email-core/src/wasm.rs`                                                 | wasm32-only JS marshalling edge                                                          |
+| `crates/email-core/wasm.Dockerfile`                                             | Pinned wasm-pack build image                                                             |
+| `crates/email-core/CLAUDE.md`                                                   | Local engine rules                                                                       |
+| `crates/email-core/fuzz/`                                                       | `cargo-fuzz` targets, one per lane                                                       |
+| `crates/email-core/tests/fixtures/`                                             | Committed corpus                                                                         |
+| `packages/email/`                                                               | TypeScript wrapper (`package.json`, `tsconfig.json`, `vitest.config.ts`, `src/index.ts`) |
+| `apps/worker/src/routes/email-inspector.ts`                                     | The Inspector route                                                                      |
+| `apps/worker/test/seed-tools-email-inspector.test.ts`                           | Seed guard                                                                               |
+| `packages/database/drizzle/per-firm/<timestamp>_seed-tools-email-inspector.sql` | Role seed                                                                                |
 
 **Modified:** `crates/Cargo.toml` (members) · `vite.config.ts` (`rust-wasm-build`) · `apps/worker/wasm-modules.d.ts` · `apps/worker/package.json` · `apps/worker/src/app.ts` · `apps/worker/test/conformance.test.ts` · `packages/access-control/src/registry.ts` · `packages/tools/src/catalog.ts` · `apps/worker/src/per-firm-migrations.ts` · `packages/database/drizzle/per-firm/meta/_journal.json` · `docs/specs/2026-06-16-email-filing-design.md` · `ROADMAP.md`
 
@@ -58,10 +58,12 @@ Every task's requirements implicitly include this section.
 No parsing yet. This task locks the types every later task consumes.
 
 **Files:**
+
 - Create: `crates/email-core/Cargo.toml`, `crates/email-core/src/lib.rs`, `crates/email-core/src/model.rs`, `crates/email-core/src/error.rs`
 - Modify: `crates/Cargo.toml:3`
 
 **Interfaces:**
+
 - Produces: `ParsedMessage`, `PartDescriptor`, `MessageIdentifier`, `Address`, `SourceFormat`, `EmailError`, `EmailError::code() -> &'static str`, and the `ALLOWED_ERROR_CODES: &[&str]` constant.
 
 - [ ] **Step 1: Add the crate to the workspace**
@@ -348,10 +350,12 @@ git commit -m "feat(email-core): scaffold the parse engine with its record model
 ### Task 2: The `.eml` lane
 
 **Files:**
+
 - Create: `crates/email-core/src/eml.rs`, `crates/email-core/tests/fixtures/simple.eml`, `crates/email-core/tests/fixtures/with-attachment.eml`
 - Modify: `crates/email-core/src/lib.rs`
 
 **Interfaces:**
+
 - Consumes: `ParsedMessage`, `EmailError` (Task 1).
 - Produces: `pub fn parse_eml(bytes: &[u8]) -> Result<ParsedMessage, EmailError>`.
 
@@ -581,10 +585,12 @@ git commit -m "feat(email-core): read RFC 5322 messages, capturing headers and a
 ### Task 3: The mbox lane
 
 **Files:**
+
 - Create: `crates/email-core/src/mbox.rs`, `crates/email-core/tests/fixtures/two-messages.mbox`
 - Modify: `crates/email-core/src/lib.rs`
 
 **Interfaces:**
+
 - Consumes: `from_mail_parser_message` (Task 2), `Limits` is not yet available — caps arrive in Task 5.
 - Produces: `pub fn parse_mbox(bytes: &[u8]) -> Result<Vec<ParsedMessage>, EmailError>` and `pub fn mbox_member_ranges(bytes: &[u8]) -> Vec<core::ops::Range<usize>>`.
 
@@ -744,10 +750,12 @@ git commit -m "feat(email-core): frame mbox members without splitting on escaped
 ### Task 4: The `.msg` lane and identifier provenance
 
 **Files:**
+
 - Create: `crates/email-core/src/msg.rs`, `crates/email-core/tests/fixtures/README.md`
 - Modify: `crates/email-core/src/lib.rs`
 
 **Interfaces:**
+
 - Consumes: `ParsedMessage`, `MessageIdentifier`, `EmailError`.
 - Produces: `pub fn parse_msg(bytes: &[u8]) -> Result<ParsedMessage, EmailError>`.
 
@@ -756,12 +764,14 @@ git commit -m "feat(email-core): frame mbox members without splitting on escaped
 This is the one dependency taking untrusted bytes whose maturity is unestablished. Gate adoption on evidence, not on the crates.io blurb.
 
 Run:
+
 ```bash
 cargo tree -p email-core --manifest-path crates/Cargo.toml | grep -i msg_parser
 ```
+
 Then review `https://github.com/marirs/msg-parser-rs`: last commit date, open issue count, whether it has tests, and — critically — whether it panics or returns `Err` on truncated input.
 
-Record the verdict in `crates/email-core/CLAUDE.md` (Task 8). **If it panics on malformed input**, wrap every call site in `std::panic::catch_unwind` is *not* available on wasm32 — instead, reject the dependency and read the MAPI property streams directly over `cfb = "0.14"` (the version `recovery-core` already pins). Do not adopt a panicking parser on the wasm edge.
+Record the verdict in `crates/email-core/CLAUDE.md` (Task 8). **If it panics on malformed input**, wrap every call site in `std::panic::catch_unwind` is _not_ available on wasm32 — instead, reject the dependency and read the MAPI property streams directly over `cfb = "0.14"` (the version `recovery-core` already pins). Do not adopt a panicking parser on the wasm edge.
 
 - [ ] **Step 2: Generate the `.msg` fixtures**
 
@@ -958,10 +968,12 @@ git commit -m "feat(email-core): read .msg via MAPI, keeping synthesized identif
 ### Task 5: Untrusted-input limits, two-phase extraction, and fuzz targets
 
 **Files:**
+
 - Create: `crates/email-core/src/limits.rs`, `crates/email-core/fuzz/Cargo.toml`, `crates/email-core/fuzz/fuzz_targets/parse_eml.rs`, `crates/email-core/fuzz/fuzz_targets/parse_msg.rs`, `crates/email-core/fuzz/fuzz_targets/parse_mbox.rs`
 - Modify: `crates/email-core/src/lib.rs`, `crates/email-core/src/eml.rs`, `crates/email-core/src/mbox.rs`
 
 **Interfaces:**
+
 - Produces: `Limits` (with `Default`), `parse_with_limits`, `parse_mbox_with_limits`, `extract_part(bytes, &PartDescriptor) -> Result<Vec<u8>, EmailError>`.
 
 - [ ] **Step 1: Write the failing limits tests**
@@ -1129,10 +1141,12 @@ git commit -m "feat(email-core): bound untrusted input with typed limits and ext
 ### Task 6: The WASM edge and the Docker build
 
 **Files:**
+
 - Create: `crates/email-core/src/wasm.rs`, `crates/email-core/wasm.Dockerfile`
 - Modify: `vite.config.ts` (the `rust-wasm-build` task)
 
 **Interfaces:**
+
 - Produces the JS-visible functions `parse(bytes) -> object`, `parseMbox(bytes) -> array`, `extractPart(bytes, byteStart, byteEnd) -> Uint8Array`.
 
 - [ ] **Step 1: Write the failing allowed-code test**
@@ -1229,10 +1243,12 @@ git commit -m "feat(email-core): marshal the parse record across the wasm edge"
 ### Task 7: The `@magna-carta/email` TypeScript package
 
 **Files:**
+
 - Create: `packages/email/package.json`, `packages/email/tsconfig.json`, `packages/email/vitest.config.ts`, `packages/email/src/index.ts`, `packages/email/.gitignore`, `packages/email/test/parse.test.ts`
 - Modify: (generated) `packages/email/tsconfig.build.json`, root + worker `tsconfig.build.json`
 
 **Interfaces:**
+
 - Consumes: the wasm-pack output from Task 6.
 - Produces: `ensureReady(wasmInput?)`, `parseMessage(bytes)`, `parseMailbox(bytes)`, `extractPart(bytes, byteStart, byteEnd)`, `EmailError`, `EmailErrorCode`, `ParsedMessage` (TS interface mirroring the Rust record).
 
@@ -1296,7 +1312,9 @@ const wasm = readFileSync(new URL("../src/pkg/email_core_bg.wasm", import.meta.u
 describe("parseMessage", () => {
   it("returns a header-sourced identifier for an eml message", async () => {
     await ensureReady(wasm);
-    const eml = readFileSync(new URL("../../../crates/email-core/tests/fixtures/simple.eml", import.meta.url));
+    const eml = readFileSync(
+      new URL("../../../crates/email-core/tests/fixtures/simple.eml", import.meta.url),
+    );
     const message = await parseMessage(new Uint8Array(eml));
 
     expect(message.messageIdentifier.provenance).toBe("header");
@@ -1362,10 +1380,12 @@ git commit -m "feat(email): wrap the parse engine for TypeScript consumers"
 ### Task 8: Permission, catalog row, and the engine's local rules
 
 **Files:**
+
 - Modify: `packages/access-control/src/registry.ts`, `packages/tools/src/catalog.ts`
 - Create: `crates/email-core/CLAUDE.md`
 
 **Interfaces:**
+
 - Produces: the permission key `tools:emailInspector` and the catalog id `email-inspector`.
 
 - [ ] **Step 1: Register the permission**
@@ -1420,10 +1440,12 @@ git commit -m "feat(tools): register the Email Inspector permission and catalog 
 ### Task 9: The Email Inspector route
 
 **Files:**
+
 - Create: `apps/worker/src/routes/email-inspector.ts`
 - Modify: `apps/worker/package.json`, `apps/worker/wasm-modules.d.ts`, `apps/worker/src/app.ts`
 
 **Interfaces:**
+
 - Consumes: `@magna-carta/email` (Task 7), `tools:emailInspector` (Task 8).
 - Produces: operationId `emailInspector.inspect` at `POST /api/v1/email/inspect`.
 
@@ -1480,10 +1502,14 @@ The handler:
 ```ts
 const firm = requireChokepointFirmContext(c);
 const body = c.req.raw.body;
-if (body === null) { /* 400 problemJson, type: "validation" */ }
+if (body === null) {
+  /* 400 problemJson, type: "validation" */
+}
 const sizeBytes = Number(c.req.header("content-length") ?? "0");
 const cap = await readInspectableSizeCap(firm.firmDatabase);
-if (sizeBytes > cap) { await body.cancel(); /* 413 problemJson */ }
+if (sizeBytes > cap) {
+  await body.cancel(); /* 413 problemJson */
+}
 
 await ensureReady(emailWasm);
 try {
@@ -1532,6 +1558,7 @@ git commit -m "feat(worker): expose the Email Inspector route over the parse eng
 ### Task 10: Contract regeneration and conformance
 
 **Files:**
+
 - Modify: `apps/worker/openapi/openapi.json` (generated), `packages/api-client/src/*` (generated), `apps/worker/test/conformance.test.ts`
 
 - [ ] **Step 1: Add the operationId to the non-vacuous list**
@@ -1569,6 +1596,7 @@ git commit -m "feat(worker): publish the Email Inspector operation in the API co
 Without this the permission exists but nobody holds it, so the tool is invisible in-product. This is the only database change — there are no tables.
 
 **Files:**
+
 - Create: `packages/database/drizzle/per-firm/<timestamp>_seed-tools-email-inspector.sql`, `apps/worker/test/seed-tools-email-inspector.test.ts`
 - Modify: `apps/worker/src/per-firm-migrations.ts`, `packages/database/drizzle/per-firm/meta/_journal.json`
 
@@ -1616,18 +1644,21 @@ git commit -m "feat(database): grant the Email Inspector permission to the defau
 ### Task 12: Documentation, spec reconciliation, and the full gate
 
 **Files:**
+
 - Modify: `docs/specs/2026-06-16-email-filing-design.md`, `docs/specs/2026-07-09-email-core-parse-engine-design.md`, `ROADMAP.md`
 - Create: `changelog.d/email-core-parse-engine.md`, `status.d/` fragment
 
 - [ ] **Step 1: Amend the capture design**
 
 In `docs/specs/2026-06-16-email-filing-design.md`:
+
 - §2 — replace the PostalMime assumption: the forward/CC Email Worker parses through `email-core`'s wasm edge.
 - Header — its reserved **ADR-0104 / ADR-0105 / ADR-0106** were all subsequently assigned to unrelated decisions (the fragment convention, worktree coordination, and product-usage analytics). Strike the reservation and note the numbers are assigned at merge.
 
 - [ ] **Step 2: Correct two claims in this slice's own design**
 
 In `docs/specs/2026-07-09-email-core-parse-engine-design.md`:
+
 - §2 dependency table — `cfb` is **not** a workspace pin. `crates/Cargo.toml` carries only `hayro`, `image`, `lopdf`; `decryption-core` pins `0.10` and `recovery-core` pins `0.14`. `email-core` takes no direct `cfb` dependency because `msg_parser` owns the CFB layer.
 - §2 and §5 — the native container lane (`containers/email`) is **deferred**, not built here. A container is a separate deployable Worker plus a Durable Object class and a service binding, and nothing in this work consumes it. The crate stays pure, so the lane remains a compile target away. Record the flip condition: Discovery's bulk mbox parsing.
 

@@ -15,7 +15,7 @@
 - **Motion.** Animate only transform/opacity; wrap any unavoidable layout change in `runViewTransition`. (No motion is required by this plan.)
 - **Full names, no shorthand.** `@magna-carta/tools`, "the data-access layer", etc.
 - **No process-doc references in source.** No ADR/spec/slice citations in code or consumer strings; explain reasoning inline or cite a file path. A forward-looking "when tool pages are built" schedule note is allowed.
-- **Tests live in `apps/web/test/**/*.test.ts`** (the web vitest config includes only that glob) and import app modules by **relative path** (no `$lib` alias in the test config).
+- **Tests live in `apps/web/test/**/\*.test.ts`** (the web vitest config includes only that glob) and import app modules by **relative path** (no `$lib` alias in the test config).
 - **Domain package `packages/tools` is not modified** by this plan.
 
 ---
@@ -23,11 +23,13 @@
 ### Task 1: Tool presentation module + dependency wiring
 
 **Files:**
+
 - Modify: `apps/web/package.json` (add the `@magna-carta/tools` workspace dependency)
 - Create: `apps/web/src/lib/tools/tool-presentation.ts`
 - Test: `apps/web/test/tools-presentation.test.ts`
 
 **Interfaces:**
+
 - Consumes: `CATALOG` (`@magna-carta/tools/catalog`), `toolsByGroup` + `GroupedTools` (`@magna-carta/tools/select`), `SubjectGroup` + `SUBJECT_GROUP_ORDER` (`@magna-carta/tools/types`), `MaturityStage` (`$lib/maturity/maturity.ts`, type-only).
 - Produces: `ToolPresentation` interface; `TOOL_PRESENTATION: Record<string, ToolPresentation>`; `SUBJECT_GROUP_LABELS: Record<SubjectGroup, string>`; `TOOL_ICONS: Record<string, Component>`; `visibleToolGroups(): GroupedTools[]`.
 
@@ -265,11 +267,13 @@ git commit -m "feat(tools): presentation layer for the tools listing"
 ### Task 2: Persisted view preference
 
 **Files:**
+
 - Create: `apps/web/src/lib/tools/tools-view-preference.ts` (pure — parsing/defaults)
 - Create: `apps/web/src/lib/tools/tools-view-preference.svelte.ts` (the rune store)
 - Test: `apps/web/test/tools-view-preference.test.ts`
 
 **Interfaces:**
+
 - Produces (pure): `type ToolsView = "tiles" | "list"`; `DEFAULT_VIEW: ToolsView`; `TOOLS_VIEW_STORAGE_KEY: string`; `parseToolsView(raw: string | null): ToolsView`.
 - Produces (store): `toolsView(): ToolsView`; `setToolsView(view: ToolsView): void`.
 
@@ -409,12 +413,14 @@ git commit -m "feat(tools): persisted tiles/list view preference"
 No unit test — `apps/web` has no component-render harness (its vitest is a plain node pool for data-module checks). This task's deliverable is verified in the browser (Step 8), the point of the slice: the owner compares the two views.
 
 **Files:**
+
 - Create: `apps/web/src/lib/tools/tool-tile.svelte`
 - Create: `apps/web/src/lib/tools/tool-row.svelte`
 - Create: `apps/web/src/routes/(app)/tools/+page.svelte`
 - Modify: `apps/web/src/lib/navigation/destinations.ts` (the `tools` entry)
 
 **Interfaces:**
+
 - Consumes: `ToolManifest` (`@magna-carta/tools/types`), `ToolPresentation` + `TOOL_PRESENTATION` + `TOOL_ICONS` + `SUBJECT_GROUP_LABELS` + `visibleToolGroups` (`$lib/tools/tool-presentation.ts`), `toolsView` + `setToolsView` (`$lib/tools/tools-view-preference.svelte.ts`), `MaturityBadge` (`$lib/maturity/maturity-badge.svelte`), design-system `Card` / `Button` / `Masthead`.
 - Both components take the same props: `{ tool: ToolManifest; presentation: ToolPresentation; icon: Component }`.
 

@@ -52,7 +52,7 @@ ever reaches a caller.
 ## A byte-length check never licenses a byte-index slice on a `&str`
 
 A CFB directory entry name is arbitrary Unicode once `cfb` decodes it from UTF-16 — not guaranteed
-ASCII. `hex.len() == 8` counts bytes, not characters, so an 8-*byte* string can still contain a
+ASCII. `hex.len() == 8` counts bytes, not characters, so an 8-_byte_ string can still contain a
 multi-byte character; slicing at a fixed byte offset like `&hex[0..4]` then risks landing inside that
 character instead of on a boundary between two of them, which panics. `parse_substg_name` in
 `src/msg.rs` gates on `is_ascii()` before any fixed-offset slice — once every byte is one of the 128

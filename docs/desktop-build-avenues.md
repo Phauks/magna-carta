@@ -2,10 +2,10 @@
 
 A running list of concrete build opportunities that are **only feasible, or materially better, on the Tauri desktop shell** — captured as they surface during web development so they are not lost, and picked up when the desktop build begins (after the web MVP; see the white paper, _Delivery model_).
 
-**This list does not weaken the parity rule.** Web/desktop parity is enforced: no *feature* is desktop-exclusive, and the desktop runs the identical bundle + API (white paper, _Delivery model_ → "Web/desktop parity"). Two kinds of entry belong here, and neither breaks that:
+**This list does not weaken the parity rule.** Web/desktop parity is enforced: no _feature_ is desktop-exclusive, and the desktop runs the identical bundle + API (white paper, _Delivery model_ → "Web/desktop parity"). Two kinds of entry belong here, and neither breaks that:
 
-- **Parity-preserving accelerations** — the work has a *complete web path*; desktop only makes it faster, local, or offline (the "Desktop enhancements" table in the white paper: bulk ingest, on-device OCR, local Tantivy, native filesystem, etc.). New ones discovered mid-build go here first, then graduate into that table.
-- **Environmental readouts** — a piece of *information* about the machine that the browser sandbox cannot see, shown as a small extra fact, never gating a feature. The speed test works identically on both platforms; desktop can simply *also* display something web cannot know. This is the same category as the "direct local scanner access" asymmetry the white paper already calls out — an informational/trigger difference, not a feature gap.
+- **Parity-preserving accelerations** — the work has a _complete web path_; desktop only makes it faster, local, or offline (the "Desktop enhancements" table in the white paper: bulk ingest, on-device OCR, local Tantivy, native filesystem, etc.). New ones discovered mid-build go here first, then graduate into that table.
+- **Environmental readouts** — a piece of _information_ about the machine that the browser sandbox cannot see, shown as a small extra fact, never gating a feature. The speed test works identically on both platforms; desktop can simply _also_ display something web cannot know. This is the same category as the "direct local scanner access" asymmetry the white paper already calls out — an informational/trigger difference, not a feature gap.
 
 Each entry: what, why it is desktop-only (with the evidence), how the desktop would do it, and the web behaviour (which must remain honest — show nothing rather than guess).
 

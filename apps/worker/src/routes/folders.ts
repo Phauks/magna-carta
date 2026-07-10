@@ -66,9 +66,7 @@ const FolderSummary = z
   })
   .openapi("FolderSummary");
 
-const FolderListResponse = z
-  .object({ data: z.array(FolderSummary) })
-  .openapi("FolderListResponse");
+const FolderListResponse = z.object({ data: z.array(FolderSummary) }).openapi("FolderListResponse");
 
 const folderParam = z.object({ id: identifierPathParam("folder", "id") });
 

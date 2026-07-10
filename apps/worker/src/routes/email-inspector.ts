@@ -118,7 +118,8 @@ const inspectRoute = defineOpenAPIRoute(emailInspectMeta, {
       content: { "application/problem+json": { schema: Problem } },
     },
     422: {
-      description: "The bytes could not be read as an email, or are not a format this tool supports",
+      description:
+        "The bytes could not be read as an email, or are not a format this tool supports",
       content: { "application/problem+json": { schema: Problem } },
     },
     429: {

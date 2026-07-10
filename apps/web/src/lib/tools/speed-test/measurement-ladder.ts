@@ -54,7 +54,10 @@ const PACKET_LOSS_PHASE: MeasurementConfig = {
   responsesWaitTime: 3000,
 };
 
-export function buildLadder(options: { lowData: boolean; packetLoss: boolean }): MeasurementConfig[] {
+export function buildLadder(options: {
+  lowData: boolean;
+  packetLoss: boolean;
+}): MeasurementConfig[] {
   const rounds = options.lowData
     ? BASE_ROUNDS.filter((round) => !("bytes" in round) || round.bytes <= LOW_DATA_MAX_BYTES)
     : BASE_ROUNDS;

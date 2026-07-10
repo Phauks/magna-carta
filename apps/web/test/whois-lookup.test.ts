@@ -48,9 +48,9 @@ describe("hasRegistrationDetail", () => {
   });
 
   it("treats empty arrays as absent", () => {
-    expect(hasRegistrationDetail({ source: "rdap", target: "x", nameservers: [], statuses: [] })).toBe(
-      false,
-    );
+    expect(
+      hasRegistrationDetail({ source: "rdap", target: "x", nameservers: [], statuses: [] }),
+    ).toBe(false);
   });
 });
 

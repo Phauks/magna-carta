@@ -31,8 +31,8 @@ contract.
 **Ingest outcome is unobservable.** After `uploads.complete` the version is `pending` until the
 async queue commits it. `files.get` returns 404 for a pending-only file; `files.list` gates on
 `current_version_id IS NOT NULL`; no endpoint projects the `status` column; there is no
-`uploads.get`. A client cannot distinguish *still processing* from *quarantined as malware* from
-*abandoned*. A file the scanner flags never appears, with no message to anyone. `quarantineVersion`
+`uploads.get`. A client cannot distinguish _still processing_ from _quarantined as malware_ from
+_abandoned_. A file the scanner flags never appears, with no message to anyone. `quarantineVersion`
 does write a `file.quarantined` audit row and emit a `file.quarantined` outbox message — but the
 per-firm queue has no handler for that topic and acks it into an `unhandled_topic` counter.
 
@@ -99,7 +99,7 @@ toggle — it appears while work is in flight and retires when the queue drains.
 
 Four content views read one selection: **list** (the dense sortable table), **tiles** (an icon grid),
 **timeline** (chronological, flattening folders), and **gallery**. Gallery renders true thumbnails
-for image types, whose presigned object *is* the image, and a large file-type icon otherwise; it
+for image types, whose presigned object _is_ the image, and a large file-type icon otherwise; it
 carries an `alpha` maturity badge until a rendition pipeline exists. It does not pretend to preview
 what it cannot render.
 

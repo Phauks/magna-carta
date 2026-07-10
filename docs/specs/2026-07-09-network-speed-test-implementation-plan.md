@@ -2784,18 +2784,21 @@ git commit -m "feat(tools): explain the scores, and show the distribution behind
 "Measuring…" tells the reader nothing. Replace it with the phase, the step, and the data actually used.
 
 **Verified facts — do not re-derive, and do not exceed them:**
+
 - The engine exposes `onPhaseChange(payload: PhaseChangePayload)` where `PhaseChangePayload = { measurementId: number; measurement: MeasurementConfig }`. `measurementId` is the index of the current step within the configured `measurements` array. It is monotonic, so `measurementId + 1` of `ladder.length` is a truthful progress fraction.
 - **A remaining-bytes or remaining-time countdown is not knowable and must not be invented.** The ladder's worst case is **1,266 MB**, yet a run typically transfers far less: the engine stops climbing a bandwidth type once one request takes `bandwidthFinishRequestDuration` (1000 ms). How much data a run sends depends on the connection's speed. Report data **already used**, never data remaining.
 - Bytes actually transferred are recoverable: sum `bytes` across `getDownloadBandwidthPoints()` and `getUploadBandwidthPoints()`.
 - The design system exports `progress`.
 
 **Files:**
+
 - Create: `apps/web/src/lib/tools/speed-test/run-progress.ts`
 - Modify: `apps/web/src/lib/tools/speed-test/speed-test-engine.svelte.ts`
 - Modify: `apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte`
 - Test: `apps/web/test/run-progress.test.ts`
 
 **Interfaces:**
+
 - Produces: `phaseLabel(measurement: MeasurementConfig): string`; `formatBytes(bytes: number): string`; `bytesTransferred(download: ReadonlyArray<{ bytes: number }>, upload: ReadonlyArray<{ bytes: number }>): number`.
 - The store gains `stepIndex: number | null`, `stepCount: number`, `currentPhase: string | null`, `bytesUsed: number`.
 
@@ -2810,7 +2813,11 @@ Create `apps/web/test/run-progress.test.ts`:
  * so how much a run will transfer depends on the connection. Only data ALREADY used is knowable.
  */
 import { describe, expect, it } from "vitest";
-import { bytesTransferred, formatBytes, phaseLabel } from "../src/lib/tools/speed-test/run-progress.ts";
+import {
+  bytesTransferred,
+  formatBytes,
+  phaseLabel,
+} from "../src/lib/tools/speed-test/run-progress.ts";
 
 describe("phaseLabel", () => {
   it("names each phase in plain language", () => {
@@ -2818,7 +2825,13 @@ describe("phaseLabel", () => {
     expect(phaseLabel({ type: "download", bytes: 1e6, count: 8 })).toBe("Measuring download speed");
     expect(phaseLabel({ type: "upload", bytes: 1e6, count: 6 })).toBe("Measuring upload speed");
     expect(
-      phaseLabel({ type: "packetLoss", numPackets: 1e3, batchSize: 10, batchWaitTime: 10, responsesWaitTime: 3000 }),
+      phaseLabel({
+        type: "packetLoss",
+        numPackets: 1e3,
+        batchSize: 10,
+        batchWaitTime: 10,
+        responsesWaitTime: 3000,
+      }),
     ).toBe("Measuring packet loss");
   });
 });
@@ -2979,16 +2992,17 @@ git commit -m "feat(tools): name the phase, the step, and the data a run has use
 
 Owner: the quality-score and measurement boxes should already be on screen before the test begins, even empty, so nothing shifts once it starts.
 
-They *are* rendered — but they change **height**, and the disclosure paragraph disappears entirely, so the page reflows twice per run. Every result region must occupy its final height from the moment the page loads. An empty region states that it is empty; it does not collapse.
+They _are_ rendered — but they change **height**, and the disclosure paragraph disappears entirely, so the page reflows twice per run. Every result region must occupy its final height from the moment the page loads. An empty region states that it is empty; it does not collapse.
 
 **The four sources of reflow, each to be removed:**
 
-1. **The disclosure paragraph is `{#if store.phase === "idle"}`.** When a run starts it vanishes and everything below jumps up. It is true at every phase — a test *does* transfer that data and *does* share the address. **Render it unconditionally.**
+1. **The disclosure paragraph is `{#if store.phase === "idle"}`.** When a run starts it vanishes and everything below jumps up. It is true at every phase — a test _does_ transfer that data and _does_ share the address. **Render it unconditionally.**
 2. **`quality-scores.svelte`** renders a single-line paragraph when empty and a three-column definition list when scored.
 3. **`bandwidth-chart.svelte` / `latency-chart.svelte`** render a one-line paragraph when empty and a fixed-height `<svg>` plus a `<details>` table view when populated.
 4. **`metric-tile.svelte`** grows when Task 7's `stats` rows arrive after a run.
 
 **Files:**
+
 - Modify: `apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte`
 - Modify: `apps/web/src/lib/tools/speed-test/quality-scores.svelte`
 - Modify: `apps/web/src/lib/tools/speed-test/bandwidth-chart.svelte`
@@ -3055,22 +3069,22 @@ In `metric-tile.svelte`, when the `stats` prop is supported by a tile but has no
 Update `statRows` on the page:
 
 ```ts
-  function statRows(stats: ReturnType<typeof bandwidthStats>) {
-    if (stats === null) {
-      return [
-        { label: "Median", value: "—" },
-        { label: "95th", value: "—" },
-        { label: "Peak", value: "—" },
-        { label: "Samples", value: "—" },
-      ];
-    }
+function statRows(stats: ReturnType<typeof bandwidthStats>) {
+  if (stats === null) {
     return [
-      { label: "Median", value: formatBandwidth(stats.median) },
-      { label: "95th", value: formatBandwidth(stats.p95) },
-      { label: "Peak", value: formatBandwidth(stats.peak) },
-      { label: "Samples", value: String(stats.samples) },
+      { label: "Median", value: "—" },
+      { label: "95th", value: "—" },
+      { label: "Peak", value: "—" },
+      { label: "Samples", value: "—" },
     ];
   }
+  return [
+    { label: "Median", value: formatBandwidth(stats.median) },
+    { label: "95th", value: formatBandwidth(stats.p95) },
+    { label: "Peak", value: formatBandwidth(stats.peak) },
+    { label: "Samples", value: String(stats.samples) },
+  ];
+}
 ```
 
 - [ ] **Step 5: Prove it does not move**
@@ -3102,22 +3116,24 @@ The controls today are one button per phase: Start, then Pause, then Resume, the
 
 The control set, by phase:
 
-| Phase                | Controls                                     |
-| -------------------- | -------------------------------------------- |
-| `idle`               | **Start**                                     |
-| `running`            | **Pause** · **Cancel**                        |
-| `paused`             | **Resume** · **Restart**                      |
-| `finished` / `failed`| **Retest**                                    |
+| Phase                 | Controls                 |
+| --------------------- | ------------------------ |
+| `idle`                | **Start**                |
+| `running`             | **Pause** · **Cancel**   |
+| `paused`              | **Resume** · **Restart** |
+| `finished` / `failed` | **Retest**               |
 
 **Cancel abandons the run and returns the page to `idle`** — results, probe, capability, step, phase label, bytes used, and the finished-at time are all cleared, and the engine is disposed so the next Start re-checks whether relay credentials can be had. It is not "pause and hide"; a cancelled run leaves nothing behind. This is the ethereal principle: nothing is persisted, and an abandoned measurement is not a measurement.
 
 **Restart** (from `paused`) starts the ladder from the beginning: the engine's own `restart()`, with the same clearing `start()` does.
 
 **Files:**
+
 - Modify: `apps/web/src/lib/tools/speed-test/speed-test-engine.svelte.ts`
 - Modify: `apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte`
 
 **Interfaces:**
+
 - The store gains `cancel(): void`.
 
 - [ ] **Step 1: Add `cancel()` to the store**
@@ -3207,11 +3223,13 @@ Task 8 reports the total data a run used. Owner asked to see it broken down: how
 **A measurement honesty note, to be stated in the code, not hidden:** `BandwidthPoint` carries `bytes` (the payload) and `transferSize` (the wire cost, from `PerformanceResourceTiming`). `transferSize` measures only the **response**, so it is right for a download and nearly zero for an upload. Summing whichever is larger would silently undercount uploads. Use `bytes` for both directions, and call it what it is: data transferred, excluding protocol overhead.
 
 **Files:**
+
 - Modify: `apps/web/src/lib/tools/speed-test/run-progress.ts`
 - Modify: `apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte`
 - Test: `apps/web/test/run-progress.test.ts`
 
 **Interfaces:**
+
 - Produces: `bytesInDirection(points: ReadonlyArray<{ bytes: number }>): number`.
 - `bytesTransferred(download, upload)` stays exactly as Task 8 defined it, and is re-expressed in terms of `bytesInDirection` rather than duplicating the sum.
 
@@ -3284,32 +3302,32 @@ Expected: PASS.
 On the page, the Download and Upload tiles each gain a fifth statistic naming what that direction spent. Extend `statRows` to take the direction's points, and keep the em-dash placeholders Task 9 requires so the tile never changes height:
 
 ```ts
-  const downloadPoints = $derived(results?.getDownloadBandwidthPoints() ?? []);
-  const uploadPoints = $derived(results?.getUploadBandwidthPoints() ?? []);
+const downloadPoints = $derived(results?.getDownloadBandwidthPoints() ?? []);
+const uploadPoints = $derived(results?.getUploadBandwidthPoints() ?? []);
 
-  function statRows(
-    stats: ReturnType<typeof bandwidthStats>,
-    points: ReadonlyArray<{ bytes: number }>,
-  ) {
-    const spent = bytesInDirection(points);
-    const transferred = { label: "Transferred", value: spent > 0 ? formatBytes(spent) : "—" };
-    if (stats === null) {
-      return [
-        { label: "Median", value: "—" },
-        { label: "95th", value: "—" },
-        { label: "Peak", value: "—" },
-        { label: "Samples", value: "—" },
-        transferred,
-      ];
-    }
+function statRows(
+  stats: ReturnType<typeof bandwidthStats>,
+  points: ReadonlyArray<{ bytes: number }>,
+) {
+  const spent = bytesInDirection(points);
+  const transferred = { label: "Transferred", value: spent > 0 ? formatBytes(spent) : "—" };
+  if (stats === null) {
     return [
-      { label: "Median", value: formatBandwidth(stats.median) },
-      { label: "95th", value: formatBandwidth(stats.p95) },
-      { label: "Peak", value: formatBandwidth(stats.peak) },
-      { label: "Samples", value: String(stats.samples) },
+      { label: "Median", value: "—" },
+      { label: "95th", value: "—" },
+      { label: "Peak", value: "—" },
+      { label: "Samples", value: "—" },
       transferred,
     ];
   }
+  return [
+    { label: "Median", value: formatBandwidth(stats.median) },
+    { label: "95th", value: formatBandwidth(stats.p95) },
+    { label: "Peak", value: formatBandwidth(stats.peak) },
+    { label: "Samples", value: String(stats.samples) },
+    transferred,
+  ];
+}
 ```
 
 Pass `stats={statRows(downloadStats, downloadPoints)}` and `stats={statRows(uploadStats, uploadPoints)}`.
@@ -3341,14 +3359,16 @@ git commit -m "feat(tools): show what the test spent, in each direction"
 
 Owner asked to save a run as a file. Plain text: a speed-test result is a handful of numbers and a timestamp, and a lawyer forwarding it to an ISP or an office manager should be able to read it in the body of an email without a viewer.
 
-**This does not break the ethereal principle.** Nothing is persisted *by us* — no history, no server round trip, no matter attachment. The file is assembled in the browser from the run in front of you and handed to the operating system. When the page is closed the run is gone, exactly as before.
+**This does not break the ethereal principle.** Nothing is persisted _by us_ — no history, no server round trip, no matter attachment. The file is assembled in the browser from the run in front of you and handed to the operating system. When the page is closed the run is gone, exactly as before.
 
 **Files:**
+
 - Create: `apps/web/src/lib/tools/speed-test/speed-test-report.ts`
 - Modify: `apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte`
 - Test: `apps/web/test/speed-test-report.test.ts`
 
 **Interfaces:**
+
 - Produces: `ReportInput` and `renderReport(input: ReportInput): string`; `reportFilename(finishedAt: Date): string`.
 - The download itself (Blob → object URL → click → revoke) lives in the page, not the pure module, so the module stays node-testable.
 
@@ -3509,10 +3529,12 @@ git commit -m "feat(tools): download the run as a plain-text report"
 Owner: the download and upload measurement graphs are hard to read, they should be a line rather than loose points, and they belong in the Download and Upload areas at the top — combining the number with the evidence for it and shortening the page.
 
 **Observed on `speed.cloudflare.com` (screenshot: `scratch/cf-charts-full.png`) — this is the target:**
+
 - Under the big **Download** figure sits a filled **area/line chart** of throughput across the run, with a horizontal reference line labelled **"90th percentile"** drawn across it. Same under **Upload**. This is why their headline is trustworthy: the number and its evidence share one glance, and the line explains what the number is.
 - Their bottom "Download Measurements" panels are **box plots per payload size** (`100kB download test (10/10)`, `1MB (8/8)`, `10MB (6/6)`, `25MB (4/4)`) — not scattered dots.
 
 **What we build:**
+
 1. A **sparkline** (line + soft area fill) inside each of the Download and Upload tiles, plotting each bandwidth sample in the order measured, with a labelled 90th-percentile rule.
 2. **Delete the bottom "Download measurements" and "Upload measurements" sections.** The chart now lives with its number; a second copy is page weight for nothing.
 3. Keep the **Latency measurements** section as it is. It is not what the owner objected to, and reworking it into box plots is a separate decision.
@@ -3520,6 +3542,7 @@ Owner: the download and upload measurement graphs are hard to read, they should 
 Still a single series per chart, so the dataviz rules hold unchanged: no legend, no categorical palette, recessive axes, a table view, and a hover affordance.
 
 **Files:**
+
 - Create: `apps/web/src/lib/tools/speed-test/bandwidth-sparkline.svelte`
 - Delete: `apps/web/src/lib/tools/speed-test/bandwidth-chart.svelte`
 - Modify: `apps/web/src/lib/tools/speed-test/metric-tile.svelte` (accept a `chart` snippet)
@@ -3642,9 +3665,10 @@ git commit -m "feat(tools): the bandwidth chart is a line, and it lives under it
 
 Owner: the info icons should reveal on hover rather than on click, and the button should be smaller.
 
-The reason they are click-popovers today is that I put a link *inside* them, and a link inside a hover tooltip is unreachable — the tooltip closes as the pointer travels to it. Cloudflare solves this by separating the two: the `(i)` is a hover tooltip carrying prose only, and **"Learn more" is a plain visible link beside the heading**. Adopt that.
+The reason they are click-popovers today is that I put a link _inside_ them, and a link inside a hover tooltip is unreachable — the tooltip closes as the pointer travels to it. Cloudflare solves this by separating the two: the `(i)` is a hover tooltip carrying prose only, and **"Learn more" is a plain visible link beside the heading**. Adopt that.
 
 **Files:**
+
 - Create: `apps/web/src/lib/tools/speed-test/info-hint.svelte`
 - Delete: `apps/web/src/lib/tools/speed-test/info-popover.svelte`
 - Modify: `apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte`
@@ -3699,9 +3723,10 @@ Owner: the quality scores should not appear until scanning is complete, or they 
 
 The engine recomputes `getScores()` on every `onResultsChange`, so a rating visibly moves from "poor" to "average" to "good" as samples land. A rating that changes while you watch it is not a rating; it is noise wearing a verdict's clothes. Worse, AIM weighs metrics the run has not reached yet — early on, upload has not been measured at all.
 
-**This applies only to the ratings.** The headline metrics (Download, Upload, Latency, Jitter) *must* keep updating live during a run; a fix exists specifically to make them do that, and the owner has seen and accepted it. Do not touch them.
+**This applies only to the ratings.** The headline metrics (Download, Upload, Latency, Jitter) _must_ keep updating live during a run; a fix exists specifically to make them do that, and the owner has seen and accepted it. Do not touch them.
 
 **Files:**
+
 - Modify: `apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte`
 
 - [ ] **Step 1: Withhold the scores until the run is finished**
@@ -3742,11 +3767,13 @@ Owner: the step counter, descriptor, data used, and bar all sit on one line and 
 Also: move the disclosure paragraph to the bottom of the page, and delete "Runs outside any matter" from the masthead.
 
 **Why things move today, and the three fixes:**
+
 1. **The descriptor changes length** ("Measuring latency" → "Measuring download speed"), so the panel widens and the buttons beside it slide. → Reserve the panel's width with the **longest label**, rendered invisibly in the same grid cell. No magic number, and it re-reserves itself if a phase label is ever added.
 2. **The numbers change width** (`step 6 of 14` → `step 14 of 14`; `9 MB` → `118 MB`). → `tabular-nums` so every digit is the same width, and anchor each value to its **own** edge: the counter to the left, the size to the right, with the slack between them absorbing growth. Neither edge moves.
 3. **The bar shares the line**, so it is squeezed as its neighbours grow. → It becomes a full-width underline beneath the block.
 
 **Files:**
+
 - Create: `apps/web/src/lib/tools/speed-test/run-progress-panel.svelte`
 - Modify: `apps/web/src/lib/tools/speed-test/run-progress.ts` (export `LONGEST_PHASE_LABEL`)
 - Modify: `apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte`
@@ -3763,7 +3790,13 @@ describe("LONGEST_PHASE_LABEL", () => {
       phaseLabel({ type: "latency", numPackets: 1 }),
       phaseLabel({ type: "download", bytes: 1e6, count: 1 }),
       phaseLabel({ type: "upload", bytes: 1e6, count: 1 }),
-      phaseLabel({ type: "packetLoss", numPackets: 1, batchSize: 1, batchWaitTime: 1, responsesWaitTime: 1 }),
+      phaseLabel({
+        type: "packetLoss",
+        numPackets: 1,
+        batchSize: 1,
+        batchWaitTime: 1,
+        responsesWaitTime: 1,
+      }),
     ];
     for (const label of labels) {
       expect(LONGEST_PHASE_LABEL.length).toBeGreaterThanOrEqual(label.length);
@@ -3795,7 +3828,13 @@ const ALL_PHASE_LABELS = [
   phaseLabel({ type: "latency", numPackets: 1 }),
   phaseLabel({ type: "download", bytes: 1, count: 1 }),
   phaseLabel({ type: "upload", bytes: 1, count: 1 }),
-  phaseLabel({ type: "packetLoss", numPackets: 1, batchSize: 1, batchWaitTime: 1, responsesWaitTime: 1 }),
+  phaseLabel({
+    type: "packetLoss",
+    numPackets: 1,
+    batchSize: 1,
+    batchWaitTime: 1,
+    responsesWaitTime: 1,
+  }),
 ];
 
 export const LONGEST_PHASE_LABEL = ALL_PHASE_LABELS.reduce((longest, label) =>
@@ -3885,16 +3924,16 @@ In the page:
 Derive the descriptor once, on the page, so the panel stays dumb:
 
 ```ts
-  // The panel is always present; only what it can honestly say changes.
-  const phaseText = $derived(
-    store.phase === "idle"
-      ? "Not started"
-      : store.phase === "finished"
-        ? "Complete"
-        : store.phase === "failed"
-          ? "Stopped"
-          : (store.currentPhase ?? "Starting"),
-  );
+// The panel is always present; only what it can honestly say changes.
+const phaseText = $derived(
+  store.phase === "idle"
+    ? "Not started"
+    : store.phase === "finished"
+      ? "Complete"
+      : store.phase === "failed"
+        ? "Stopped"
+        : (store.currentPhase ?? "Starting"),
+);
 ```
 
 A finished run shows its final step (`14 of 14`), its total data, and a full bar — the record of what just happened, not a cleared slate.
@@ -3955,11 +3994,12 @@ Owner: the network-quality panel and the round-trip line should show the same no
 
 Today the page says the same thing four different ways: the charts say "Not measured yet.", the quality panel says "Scored once a run finishes.", the round-trip line says "The round trip to Magna Carta has not been measured yet.", and the packet-loss tile says "Measured when a test runs." A reader learns four phrasings for one fact. One phrase, one meaning.
 
-**One phrase, one home.** The em dash for an absent *number* already lives in `speed-test-format.ts`; the sentence for an absent *measurement* belongs beside it.
+**One phrase, one home.** The em dash for an absent _number_ already lives in `speed-test-format.ts`; the sentence for an absent _measurement_ belongs beside it.
 
 **Do not flatten the states that are not "not yet".** The round-trip line has four outcomes and only one of them is "we have not measured": `unauthenticated`, `forbidden`, and `unreachable` each keep their own specific sentence, because each tells the reader something different and actionable. Only `probe === null` — nothing attempted yet — becomes the shared phrase.
 
 **Files:**
+
 - Modify: `apps/web/src/lib/tools/speed-test/speed-test-format.ts` (export the phrase)
 - Modify: `apps/web/src/lib/tools/speed-test/quality-scores.svelte`
 - Modify: `apps/web/src/lib/tools/speed-test/server-panel.svelte`
@@ -4042,9 +4082,10 @@ Today an unmeasured number renders `—`. It was chosen so absence could never b
 **Two things the dash was quietly doing. Both must survive its removal.**
 
 1. **It held the line's height.** An empty `<span>` has no height, so deleting the character collapses the value line, the tile shrinks, and the page moves again — undoing Task 9. The value element must keep its line box.
-2. **It stopped an absent value reading as zero.** Nothing may replace it with `0`, `0 Mbps`, or `0 ms`. Absent stays absent; it simply stays *silent*.
+2. **It stopped an absent value reading as zero.** Nothing may replace it with `0`, `0 Mbps`, or `0 ms`. Absent stays absent; it simply stays _silent_.
 
 **Files:**
+
 - Modify: `apps/web/src/lib/tools/speed-test/speed-test-format.ts`
 - Modify: `apps/web/src/lib/tools/speed-test/metric-tile.svelte`
 - Modify: `apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte` (the `statRows` placeholders)
@@ -4119,6 +4160,7 @@ An empty string collapses its line. In `metric-tile.svelte`, the value element m
 Use whatever text-size classes the tile already uses — do not change its type scale. Apply the same treatment to the `stats` row values.
 
 Then update the placeholders that hardcode the dash:
+
 - `statRows`'s null branch returns `""` for each of Median, 95th, Peak, Samples, and Transferred — not `"—"`.
 - `quality-scores.svelte`'s placeholder rating renders `""` (with its line box preserved the same way) rather than `—`. Its `NOT_MEASURED_YET` line stays and now carries the whole meaning.
 
@@ -4151,13 +4193,14 @@ git commit -m "fix(tools): an unmeasured value says nothing, not an em dash"
 
 Owner: a `ghost` button does not read as a button, because it shows no edge until hover. This recurs across the app. **Give them all an edge, and the owner will judge the result across every surface at once.**
 
-An earlier draft of this task added a separate `outline` variant on the reasoning that the eleven existing `ghost` call sites *intended* to be borderless. That was an inference from usage, not evidence — nobody wrote it down, and the owner has said so. Do not assume intent. Change `ghost` itself, look at every consumer, and let the owner decide what to keep.
+An earlier draft of this task added a separate `outline` variant on the reasoning that the eleven existing `ghost` call sites _intended_ to be borderless. That was an inference from usage, not evidence — nobody wrote it down, and the owner has said so. Do not assume intent. Change `ghost` itself, look at every consumer, and let the owner decide what to keep.
 
 **This is a deliberate, visible change across the app.** It is one CSS rule, so it is trivially revertible. Do not soften it by adding a second variant, and do not exempt any call site.
 
 **Do not use a real `border`.** The base `.mc-button` has no border, and every size maps to `min-block-size` plus padding, so a 1px border would make ghost buttons two pixels taller than the buttons beside them — trading the outline problem for an alignment problem. Draw the edge as an **inset ring**, which costs no layout.
 
 **Files:**
+
 - Modify: `packages/design-system/src/lib/components/button/button.css`
 - Modify: `packages/design-system/src/stories/button.stories.svelte` (only if the ghost story needs a caption change)
 
@@ -4168,19 +4211,19 @@ An earlier draft of this task added a separate `outline` variant on the reasonin
 In `button.css`, the current recipe is:
 
 ```css
-  .mc-button-ghost {
-    background-color: transparent;
-    color: var(--mc-text-default);
-  }
-  .mc-button-ghost:hover {
-    background-color: var(--mc-action-secondary);
-  }
+.mc-button-ghost {
+  background-color: transparent;
+  color: var(--mc-text-default);
+}
+.mc-button-ghost:hover {
+  background-color: var(--mc-action-secondary);
+}
 ```
 
 Add the ring at rest, keeping the hover fill:
 
 ```css
-  /*
+/*
    * Ghost — a quiet action that still reads as a control. It carried no edge at rest, which left the
    * affordance invisible until the pointer found it; a control the eye cannot find is not quiet, it
    * is hidden.
@@ -4189,25 +4232,25 @@ Add the ring at rest, keeping the hover fill:
    * min-block-size plus padding, so a real border would make every ghost button two pixels taller
    * than the buttons beside it. A ring costs no layout.
    */
-  .mc-button-ghost {
-    background-color: transparent;
-    color: var(--mc-text-default);
-    box-shadow: inset var(--mc-space-0) var(--mc-space-0) var(--mc-space-0)
-      var(--mc-border-width-default) var(--mc-border-strong);
-  }
-  .mc-button-ghost:hover {
-    background-color: var(--mc-action-secondary);
-  }
-  /* The disabled recipe sets an opaque fill; the ring beneath would otherwise show as a seam around
+.mc-button-ghost {
+  background-color: transparent;
+  color: var(--mc-text-default);
+  box-shadow: inset var(--mc-space-0) var(--mc-space-0) var(--mc-space-0)
+    var(--mc-border-width-default) var(--mc-border-strong);
+}
+.mc-button-ghost:hover {
+  background-color: var(--mc-action-secondary);
+}
+/* The disabled recipe sets an opaque fill; the ring beneath would otherwise show as a seam around
      a control that no longer takes input. */
-  .mc-button-ghost:disabled {
-    box-shadow: none;
-  }
+.mc-button-ghost:disabled {
+  box-shadow: none;
+}
 ```
 
 **The token-purity gate (`packages/design-system/test/fitness/boundaries.test.ts`) rejects any literal length, colour, or number** — including a bare `0`. That is why the ring's offsets are `var(--mc-space-0)`. Confirm `--mc-space-0`, `--mc-border-width-default`, and `--mc-border-strong` exist before using them; substitute real tokens if any does not. `none` is a structural keyword and is permitted.
 
-Consider whether `--mc-border-strong` or `--mc-border-default` is the right weight for a *quiet* action. Pick one, say which and why in your report, and do not split the difference with a new token.
+Consider whether `--mc-border-strong` or `--mc-border-default` is the right weight for a _quiet_ action. Pick one, say which and why in your report, and do not split the difference with a new token.
 
 - [ ] **Step 2: Find every consumer, so the owner can judge them together**
 
@@ -4254,6 +4297,7 @@ The whole control region — panel, primary button, secondary button — must oc
 **Depends on Task 18** (the U+00A0 line-box technique) and **Task 20** (ghost gains an edge at rest).
 
 **Files:**
+
 - Create: `apps/web/src/lib/tools/speed-test/steady-label.svelte`
 - Modify: `apps/web/src/lib/tools/speed-test/run-progress-panel.svelte`
 - Modify: `apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte`
@@ -4305,19 +4349,19 @@ The control region is always: panel, then a **primary** slot, then a **secondary
 
 | Phase      | Primary | Secondary               |
 | ---------- | ------- | ----------------------- |
-| `idle`     | Start   | *(reserved, invisible)* |
+| `idle`     | Start   | _(reserved, invisible)_ |
 | `running`  | Pause   | Cancel                  |
 | `paused`   | Resume  | Restart                 |
 | `finished` | Retest  | Download report¹        |
-| `failed`   | Retest  | *(reserved, invisible)* |
+| `failed`   | Retest  | _(reserved, invisible)_ |
 
 ¹ Task 12 adds the report button; reserving its width now means adding it later moves nothing.
 
 Both slots use `SteadyLabel` with every word that slot can show:
 
 ```ts
-  const PRIMARY_LABELS = ["Start", "Pause", "Resume", "Retest"] as const;
-  const SECONDARY_LABELS = ["Cancel", "Restart", "Download report"] as const;
+const PRIMARY_LABELS = ["Start", "Pause", "Resume", "Retest"] as const;
+const SECONDARY_LABELS = ["Cancel", "Restart", "Download report"] as const;
 ```
 
 The secondary slot at idle and after a failure renders with `class="invisible"`. `visibility: hidden` keeps the box **and** removes it from the tab order, so a keyboard user is never sent to a control that does nothing. Do **not** render a disabled button labelled "Cancel": a control naming an action it will not perform is a lie.
@@ -4368,11 +4412,13 @@ Owner: blank reads as broken. Put `N/A` where a measurement has not been taken, 
 This supersedes Task 18's empty string. The em dash is still gone; the constant now carries `N/A`.
 
 **What must not regress:**
-- `N/A` must never appear where a *sentence* belongs. The panels and charts keep `NOT_MEASURED_YET` ("Not measured yet."). `N/A` is for a value slot only.
+
+- `N/A` must never appear where a _sentence_ belongs. The panels and charts keep `NOT_MEASURED_YET` ("Not measured yet."). `N/A` is for a value slot only.
 - Absence must still never read as zero. `formatRatio(0)` is `0%` — a real, good packet-loss reading. `formatRatio(undefined)` is `N/A`.
 - The line-box guards from Task 18 become unnecessary for these values, because `N/A` has content. **Leave them in place anyway** where a value could still be empty for another reason, but do not let a non-breaking space and an `N/A` both render.
 
 **Files:**
+
 - Modify: `apps/web/src/lib/tools/speed-test/speed-test-format.ts`
 - Modify: `apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte` (`statRows` null branch)
 - Modify: `apps/web/src/lib/tools/speed-test/quality-scores.svelte` (placeholder rating)
@@ -4455,19 +4501,21 @@ git commit -m "fix(tools): an unmeasured value reads N/A"
 ### Task 22: A low-data mode, an auto-start preference, and one fewer "not yet"
 
 Owner: three things.
+
 1. The masthead says "Not run yet" while the panel says "Not started". Duplicative — drop the masthead's.
 2. A **low-internet-usage mode** that runs only the lower-bandwidth measurements, to save data.
 3. An **auto-start on opening the page** preference.
 
 Both preferences live in a `…` overflow menu on the page, and both default to **off**.
 
-**Low-data mode is not free, and the page must say so.** Capping the payloads at 1 MB keeps 5 of the 12 rounds. Every request then completes in well under a second, so the connection never reaches steady state and a fast line measures *slower than it is*. It also forfeits comparability with `speed.cloudflare.com`, and it skews the network-quality ratings, because download and upload speed feed them. Disclose this where the switch lives. The owner has accepted the trade — a person who turns it on learns the risk — but the risk must be there to learn.
+**Low-data mode is not free, and the page must say so.** Capping the payloads at 1 MB keeps 5 of the 12 rounds. Every request then completes in well under a second, so the connection never reaches steady state and a fast line measures _slower than it is_. It also forfeits comparability with `speed.cloudflare.com`, and it skews the network-quality ratings, because download and upload speed feed them. Disclose this where the switch lives. The owner has accepted the trade — a person who turns it on learns the risk — but the risk must be there to learn.
 
 **The figure to print is 20 MB, and it is an honest ceiling.** The ladder's payloads sum to **15.8 MB** (9.0 down, 6.8 up), but that sum excludes protocol overhead — the same exclusion the per-direction "Transferred" statistic makes. Twenty megabytes covers headers, TLS, and the latency probes, and it is a round tenth of the ~200 MB full run. Print the ceiling, not the payload sum, and **pin it with a test** so the copy cannot quietly become false if the rounds change.
 
 **Auto-start spends the firm's bandwidth on navigation.** That is exactly what "no autostart" was protecting against, which is why it is opt-in, off by default, and only ever fires when the page opens with no run in progress.
 
 **Files:**
+
 - Create: `apps/web/src/lib/tools/speed-test/speed-test-preferences.ts` (pure: shape, defaults, parse)
 - Create: `apps/web/src/lib/tools/speed-test/speed-test-preferences.svelte.ts` (the rune store)
 - Create: `apps/web/src/lib/tools/speed-test/speed-test-menu.svelte`
@@ -4564,7 +4612,10 @@ export const LOW_DATA_MAX_BYTES = 1e6;
  */
 export const LOW_DATA_DISCLOSED_CEILING_BYTES = 2e7;
 
-export function buildLadder(options: { lowData: boolean; packetLoss: boolean }): MeasurementConfig[] {
+export function buildLadder(options: {
+  lowData: boolean;
+  packetLoss: boolean;
+}): MeasurementConfig[] {
   // …Cloudflare's rounds, filtered by `options.lowData`, with the packetLoss phase spliced in at
   // Cloudflare's own position (after the first upload round) only when `options.packetLoss`.
 }
@@ -4660,6 +4711,7 @@ Two independent fixes, and both are wanted.
 **2. The two slots share one reservation.** Reserving each slot independently would still leave them unequal — `Resume` is 6 characters, `Restart` is 7. A single shared set of every word either button can show makes both exactly as wide as `Restart`: symmetric, and self-maintaining if a word is ever added.
 
 **Files:**
+
 - Modify: `apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte`
 
 **Depends on Task 19.** Do it after. Task 12 assumes it (its report action lives in the menu).
@@ -4669,15 +4721,15 @@ Two independent fixes, and both are wanted.
 Replace the two label sets with one, and pass it to both `SteadyLabel`s:
 
 ```ts
-  /*
-   * Every word either control button can show. BOTH buttons reserve the width of the widest of
-   * them, so the pair is symmetric and neither resizes when its word changes. Reserving each slot
-   * against only its own words would still leave them unequal — "Resume" is shorter than "Restart".
-   *
-   * "Download report" is deliberately absent: it is not a run control, it lives in the overflow
-   * menu, and reserving its width here would make both buttons far wider than they need to be.
-   */
-  const CONTROL_LABELS = ["Start", "Pause", "Resume", "Retest", "Cancel", "Restart"] as const;
+/*
+ * Every word either control button can show. BOTH buttons reserve the width of the widest of
+ * them, so the pair is symmetric and neither resizes when its word changes. Reserving each slot
+ * against only its own words would still leave them unequal — "Resume" is shorter than "Restart".
+ *
+ * "Download report" is deliberately absent: it is not a run control, it lives in the overflow
+ * menu, and reserving its width here would make both buttons far wider than they need to be.
+ */
+const CONTROL_LABELS = ["Start", "Pause", "Resume", "Retest", "Cancel", "Restart"] as const;
 ```
 
 Both call sites become `<SteadyLabel labels={CONTROL_LABELS} current={...} />`. Delete `PRIMARY_LABELS` and `SECONDARY_LABELS`.
@@ -4723,6 +4775,7 @@ Owner: the page shows `N/A` in some places and "Not measured yet." in others. Us
 **What must not regress:** a measured zero is a result. `formatRatio(0)` is `0%`; `formatRatio(undefined)` is the marker. Every value's line box must survive — the marker has content, so that is free — but do not remove the guards protecting rows that can still be genuinely empty (the progress panel's counter row).
 
 **Files:**
+
 - Create: `apps/web/src/lib/tools/speed-test/absence.ts`
 - Create: `apps/web/test/absence.test.ts`
 - Modify: `apps/web/src/lib/tools/speed-test/speed-test-format.ts` (consume the marker; delete `ABSENT` and `NOT_MEASURED_YET`)
@@ -4775,7 +4828,7 @@ export const ABSENT_DESCRIPTION = "not measured";
 
 - `speed-test-format.ts`: import `ABSENT_MARKER` and return it from `formatBandwidth`, `formatMilliseconds`, and `formatRatio`. **Delete `ABSENT` and `NOT_MEASURED_YET`.** Update the module comment: it formats numbers; absence lives elsewhere now.
 - `quality-scores.svelte`: the placeholder renders the marker **once**, as the rating. The points line beneath renders a non-breaking space so the row keeps its height — it does not repeat the marker, and it carries no sentence.
-- `server-panel.svelte`: when `probe === null`, render the same labelled round-trip row that the reachable branch renders, with the marker as its value — not a standalone sentence. **Leave the `unauthenticated`, `forbidden`, and `unreachable` branches exactly as they are.** Those say *why not*, which is actionable, and they are not absence.
+- `server-panel.svelte`: when `probe === null`, render the same labelled round-trip row that the reachable branch renders, with the marker as its value — not a standalone sentence. **Leave the `unauthenticated`, `forbidden`, and `unreachable` branches exactly as they are.** Those say _why not_, which is actionable, and they are not absence.
 - `bandwidth-chart.svelte` and `latency-chart.svelte`: the empty state renders the marker where the marks would be. Their `aria-label` uses `ABSENT_DESCRIPTION`.
 - `metric-tile.svelte`: a `note` with nothing to say renders a non-breaking space, so a tile's height never depends on whether it has a note.
 - The page: the packet-loss tile's idle branch passes no note text — the marker in the value slot already says it — while the `forbidden`, `unauthenticated`, and `not-configured` branches keep their specific notes.

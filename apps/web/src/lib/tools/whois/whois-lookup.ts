@@ -59,12 +59,12 @@ const WHOIS_ENDPOINT = "/api/v1/whois";
 export function hasRegistrationDetail(result: WhoisResult): boolean {
   return Boolean(
     result.registrar ||
-      result.registeredAt ||
-      result.expiresAt ||
-      result.lastChangedAt ||
-      result.registrant ||
-      (result.nameservers && result.nameservers.length > 0) ||
-      (result.statuses && result.statuses.length > 0),
+    result.registeredAt ||
+    result.expiresAt ||
+    result.lastChangedAt ||
+    result.registrant ||
+    (result.nameservers && result.nameservers.length > 0) ||
+    (result.statuses && result.statuses.length > 0),
   );
 }
 

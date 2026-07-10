@@ -42,18 +42,18 @@ Placement is therefore a routing decision, not a rewrite. This satisfies golden 
 
 **Dispatch.** `engine_host::format::detect` already returns `Ole2` at the magic-byte level, which is the `.msg` container signature; the seam's convention text anticipates exactly this case. `email-core` composes on top of `detect` rather than re-reading magic bytes:
 
-| Detection | Lane |
-| --- | --- |
-| `Ole2` | MAPI (`.msg`) |
-| mbox `From_` separator at offset 0 | mbox stream |
-| otherwise | RFC 5322 (`.eml`) |
+| Detection                          | Lane              |
+| ---------------------------------- | ----------------- |
+| `Ole2`                             | MAPI (`.msg`)     |
+| mbox `From_` separator at offset 0 | mbox stream       |
+| otherwise                          | RFC 5322 (`.eml`) |
 
 **Dependencies**, all pure Rust:
 
-| Crate | Role | Note |
-| --- | --- | --- |
-| `mail-parser` | RFC 5322 + MIME 2045–2049 | 100% safe Rust, no external dependencies; zero-copy `Cow<str>`; 41 character sets; returns the RFC 8621 flattened body/attachment shape |
-| `cfb` | OLE2 compound container for `.msg` | The `.msg` MAPI property-stream decoding ([MS-OXMSG] / [MS-OXPROPS]) is written on top of `cfb` by us, not delegated to a crate. Pinned per-crate at 0.14 (matching `recovery-core`); *not* a workspace pin — `decryption-core` separately pins 0.10 |
+| Crate         | Role                               | Note                                                                                                                                                                                                                                                 |
+| ------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `mail-parser` | RFC 5322 + MIME 2045–2049          | 100% safe Rust, no external dependencies; zero-copy `Cow<str>`; 41 character sets; returns the RFC 8621 flattened body/attachment shape                                                                                                              |
+| `cfb`         | OLE2 compound container for `.msg` | The `.msg` MAPI property-stream decoding ([MS-OXMSG] / [MS-OXPROPS]) is written on top of `cfb` by us, not delegated to a crate. Pinned per-crate at 0.14 (matching `recovery-core`); _not_ a workspace pin — `decryption-core` separately pins 0.10 |
 
 mbox needs no crate: it is a `From_`-delimited concatenation of RFC 5322 messages, so it is a framing iterator over the `.eml` lane, not a parser.
 
@@ -130,10 +130,10 @@ Shipped in the same commits as the code (golden rules 5 and 8):
 
 ## 8. What this unblocks
 
-| Consumer | Gains |
-| --- | --- |
-| File Manager | `.eml`/`.msg` stop being inert blobs — headers, participants, attachments become inspectable |
-| Conversion | `ParsedMessage` becomes the render engine's input; the registry edges stay unimplemented until that slice |
-| Email capture | The Email Worker and add-in both parse through one core; `ParsedMessage` is the raw material for the `email_message` / `email_thread` / `email_attachment` tables |
-| Metadata & forensics | An email surface for the Inspector; verbatim headers and bodies make the capture design's tamper-diff tractable |
-| Discovery | Bulk mbox iteration with headers-and-text-only extraction — what the two-phase API buys |
+| Consumer             | Gains                                                                                                                                                             |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| File Manager         | `.eml`/`.msg` stop being inert blobs — headers, participants, attachments become inspectable                                                                      |
+| Conversion           | `ParsedMessage` becomes the render engine's input; the registry edges stay unimplemented until that slice                                                         |
+| Email capture        | The Email Worker and add-in both parse through one core; `ParsedMessage` is the raw material for the `email_message` / `email_thread` / `email_attachment` tables |
+| Metadata & forensics | An email surface for the Inspector; verbatim headers and bodies make the capture design's tamper-diff tractable                                                   |
+| Discovery            | Bulk mbox iteration with headers-and-text-only extraction — what the two-phase API buys                                                                           |
