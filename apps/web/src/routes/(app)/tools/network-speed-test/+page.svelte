@@ -114,10 +114,10 @@
     }
   }
 
-  // Only running and paused have a real secondary action; idle, finished, and failed reserve the
-  // slot's width but render it `invisible` (see the Masthead.Actions markup below) rather than a
-  // disabled button naming an action it will not perform.
-  const secondaryVisible = $derived(store.phase === "running" || store.phase === "paused");
+  // Only running and paused have a real secondary action; idle, finished, and failed keep the button
+  // present but disabled, so the control pair is a constant fixture rather than one that appears the
+  // moment a run starts and collapses to a single button the moment it ends.
+  const secondaryEnabled = $derived(store.phase === "running" || store.phase === "paused");
 
   const secondaryLabel = $derived(store.phase === "paused" ? "Restart" : "Cancel");
 
@@ -296,9 +296,7 @@
 
     <Button
       variant={store.phase === "paused" ? "secondary" : "ghost"}
-      class={secondaryVisible ? undefined : "invisible"}
-      tabindex={secondaryVisible ? undefined : -1}
-      aria-hidden={secondaryVisible ? undefined : "true"}
+      disabled={!secondaryEnabled}
       onclick={secondaryAction}
     >
       <SteadyLabel labels={CONTROL_LABELS} current={secondaryLabel} />

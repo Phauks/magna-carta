@@ -40,7 +40,13 @@
   >
     <Ellipsis class="size-16" aria-hidden="true" />
   </DropdownMenu.Trigger>
-  <DropdownMenu.Content align="end" style="min-inline-size: var(--mc-size-popover)">
+  <!-- min holds a floor so the panel never pinches; max-w-xs caps it so the toggle rows' helper
+       text wraps to a readable column instead of stretching the panel across the viewport. -->
+  <DropdownMenu.Content
+    align="end"
+    class="max-w-xs"
+    style="min-inline-size: var(--mc-size-popover)"
+  >
     <DropdownMenu.CheckboxItem
       checked={lowData}
       onCheckedChange={(value) => onLowDataChange(value)}
