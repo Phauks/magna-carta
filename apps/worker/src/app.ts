@@ -54,6 +54,7 @@ import { registerDecryptionRoutes } from "./routes/decryption.ts";
 import { registerRecoveryRoutes } from "./routes/recovery.ts";
 import { registerFileIntegrityRoutes } from "./routes/file-integrity.ts";
 import { registerFileTypeRoutes } from "./routes/file-type.ts";
+import { registerEmailInspectorRoutes } from "./routes/email-inspector.ts";
 import { registerFileRepairRoutes } from "./routes/file-repair.ts";
 import { registerAiDetectionRoutes } from "./routes/ai-detection.ts";
 import { registerMetadataRoutes } from "./routes/metadata.ts";
@@ -416,6 +417,7 @@ export function createApp(options: CreateAppOptions = {}) {
   registerRecoveryRoutes(app, chokepoint);
   registerFileIntegrityRoutes(app, chokepoint);
   registerFileTypeRoutes(app, chokepoint);
+  registerEmailInspectorRoutes(app, chokepoint);
   registerFileRepairRoutes(app, chokepoint);
   registerAiDetectionRoutes(app, chokepoint);
   registerMetadataRoutes(app, chokepoint);

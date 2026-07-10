@@ -45,6 +45,9 @@
       "path": "../../packages/directory/tsconfig.build.json"
     },
     {
+      "path": "../../packages/email/tsconfig.build.json"
+    },
+    {
       "path": "../../packages/encryption/tsconfig.build.json"
     },
     {

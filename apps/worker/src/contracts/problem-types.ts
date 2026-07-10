@@ -37,6 +37,11 @@ export const PROBLEM_TYPES = {
   // the conversion graph — either the format is unknown or no engine covers the pair. DISTINCT from
   // `validation` (request-shape) — the request is well-formed; the registry has no path.
   "unsupported-conversion": "unsupported-conversion",
+  // An uploaded file whose container format a byte-level inspector cannot parse (HTTP 415): the
+  // bytes are not one of the formats this tool understands (for example, an email inspector handed
+  // something that is neither .eml nor .msg). DISTINCT from `validation` (request-shape) — the
+  // request is well-formed; the content itself is a media type the engine does not support.
+  "unsupported-media-type": "unsupported-media-type",
   // A decryption attempt that failed because the supplied password did not open the file (HTTP 400).
   // Generic — does not reveal whether the file or its format was otherwise valid; only that the
   // password was wrong. The client can retry with a different password without re-uploading.
