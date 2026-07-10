@@ -11,6 +11,10 @@
  * speed.cloudflare.com. A run transfers a lot of data, which is why nothing starts without an
  * explicit press, and why dispose() pauses the engine when the page goes away: a backgrounded tab
  * must never keep spending the firm's bandwidth.
+ *
+ * The ladder is also narrowed by the low-data preference (speed-test-preferences.svelte.ts), read
+ * at the moment a run begins — never mid-run, because `measurements` is a constructor-only option
+ * on the library's engine (see measurement-ladder.ts's buildLadder).
  */
 import type { BandwidthPoint, Results, Scores } from "@cloudflare/speedtest";
 import {
@@ -19,9 +23,10 @@ import {
   type FetchResult,
   type ProbeOutcome,
 } from "./connection-probe.ts";
-import { LADDER_WITH_PACKET_LOSS, MEASUREMENT_LADDER } from "./measurement-ladder.ts";
+import { buildLadder } from "./measurement-ladder.ts";
 import { bytesTransferred, phaseLabel } from "./run-progress.ts";
 import { fetchMeasurementServer, type MeasurementServer } from "./speed-test-meta.ts";
+import { preferences } from "./speed-test-preferences.svelte.ts";
 import {
   probeTurnCapability,
   TURN_CREDENTIALS_URL,
@@ -121,6 +126,10 @@ export function createSpeedTestStore() {
   let stepIndex = $state<number | null>(null);
   let currentPhase = $state<string | null>(null);
   let stepCount = $state<number>(0);
+  // Which mode produced the ladder currently in play (or last played) — captured at construction,
+  // not read live off the preference, so a report or the page can state what actually ran even if
+  // the preference is flipped again afterwards.
+  let runLowData = $state<boolean>(preferences().lowData);
 
   // The engine instance, once the module has been fetched. Not reactive: nothing renders it
   // directly — only its published (snapshotted) results and phase matter to the template. The
@@ -149,22 +158,25 @@ export function createSpeedTestStore() {
     meta = server;
   });
 
-  // capability is decided BEFORE the engine is built (in start()/restart()) — never inside here —
-  // because the ladder is a constructor-only option: it cannot be changed on a live instance.
-  async function ensureEngine(capability: TurnCapability): Promise<void> {
+  // capability and lowData are both decided BEFORE the engine is built (in start()/restart()) —
+  // never inside here — because the ladder is a constructor-only option: it cannot be changed on a
+  // live instance.
+  async function ensureEngine(capability: TurnCapability, lowData: boolean): Promise<void> {
     if (engine !== null) return;
     const { default: SpeedTest } = await import("@cloudflare/speedtest");
+    const measurements = buildLadder({ lowData, packetLoss: capability.available });
     // autoStart is false: a run spends the firm's bandwidth and only a press may begin it.
     const options = capability.available
       ? {
           autoStart: false,
-          measurements: LADDER_WITH_PACKET_LOSS,
+          measurements,
           // The default points at Cloudflare's discontinued public relay; ours is the Realtime one.
           turnServerUri: "turn.cloudflare.com:3478",
           turnServerCredsApiUrl: TURN_CREDENTIALS_URL,
         }
-      : { autoStart: false, measurements: MEASUREMENT_LADDER };
+      : { autoStart: false, measurements };
     stepCount = options.measurements.length;
+    runLowData = lowData;
     const instance = new SpeedTest(options);
     instance.onResultsChange = () => {
       results = snapshotResults(instance.results);
@@ -194,9 +206,10 @@ export function createSpeedTestStore() {
     runProbe();
     try {
       // Ask BEFORE building the engine: a credential refusal discovered mid-run would abort the
-      // entire test, taking the bandwidth and latency results with it.
+      // entire test, taking the bandwidth and latency results with it. The low-data preference is
+      // read here for the same reason — the ladder cannot change once the engine exists.
       turn = await probeTurnCapability(fetchTurnStatus);
-      await ensureEngine(turn);
+      await ensureEngine(turn, preferences().lowData);
       engine?.play();
     } catch (cause) {
       error = cause instanceof Error ? cause.message : String(cause);
@@ -287,6 +300,9 @@ export function createSpeedTestStore() {
     },
     get currentPhase() {
       return currentPhase;
+    },
+    get lowData() {
+      return runLowData;
     },
     get bytesUsed() {
       return bytesTransferred(

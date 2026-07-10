@@ -10,7 +10,7 @@
    * address reaches Cloudflare's measurement endpoints. Both facts are stated before Start. Run
    * controls live in the masthead so starting a run never reflows the page body.
    */
-  import { onDestroy } from "svelte";
+  import { onDestroy, onMount } from "svelte";
   import Button from "@magna-carta/design-system/button";
   import * as Masthead from "@magna-carta/design-system/masthead";
   import { bandwidthStats } from "$lib/tools/speed-test/bandwidth-stats.ts";
@@ -23,6 +23,12 @@
   import RunProgressPanel from "$lib/tools/speed-test/run-progress-panel.svelte";
   import ServerPanel from "$lib/tools/speed-test/server-panel.svelte";
   import { createSpeedTestStore } from "$lib/tools/speed-test/speed-test-engine.svelte.ts";
+  import SpeedTestMenu from "$lib/tools/speed-test/speed-test-menu.svelte";
+  import {
+    preferences,
+    setLowData,
+    setAutoStart,
+  } from "$lib/tools/speed-test/speed-test-preferences.svelte.ts";
   import SteadyLabel from "$lib/tools/speed-test/steady-label.svelte";
   import {
     ABSENT,
@@ -35,6 +41,13 @@
 
   const store = createSpeedTestStore();
   onDestroy(() => store.dispose());
+
+  // Auto-start is opt-in and off by default. It only ever fires on a fresh page open with no run in
+  // progress — never on a preference change, never after a cancel: a person who cancelled a run did
+  // not ask for another. onMount runs client-only, so a prerender never spends bandwidth.
+  onMount(() => {
+    if (preferences().autoStart && store.phase === "idle") store.start();
+  });
 
   const results = $derived(store.results);
   const downloadPoints = $derived(results?.getDownloadBandwidthPoints() ?? []);
@@ -155,7 +168,7 @@
           Run at {store.finishedAt.toLocaleTimeString()} on {store.finishedAt.toLocaleDateString()}
         </span>
       {:else}
-        <span>Not run yet</span>
+        <span>&nbsp;</span>
       {/if}
     </Masthead.Meta>
   </Masthead.Heading>
@@ -179,6 +192,14 @@
     >
       <SteadyLabel labels={CONTROL_LABELS} current={secondaryLabel} />
     </Button>
+
+    <SpeedTestMenu
+      lowData={preferences().lowData}
+      autoStart={preferences().autoStart}
+      disabled={store.phase === "running" || store.phase === "paused"}
+      onLowDataChange={setLowData}
+      onAutoStartChange={setAutoStart}
+    />
   </Masthead.Actions>
 </Masthead.Root>
 
@@ -329,6 +350,7 @@
 </section>
 
 <footer class="mt-40 border-t border-border-default pt-16 text-xs text-text-muted">
-  A full test can transfer around 200 MB of data. Your public address is shared with Cloudflare's
+  A full test transfers around 200 MB of data; low internet usage mode transfers under 20 MB, and
+  measures a fast connection as slower than it is. Your public address is shared with Cloudflare's
   measurement endpoints to run it. This tool runs outside any matter, and nothing is saved.
 </footer>

@@ -1,40 +1,58 @@
-/*
- * The ladder is Cloudflare's own, minus the packetLoss step. Packet loss needs a WebRTC TURN
- * server we do not run; leaving the step in makes the engine fail the ENTIRE run on a credential
- * error. This test is the guard against someone "restoring the defaults".
- */
 import { describe, expect, it } from "vitest";
 import {
-  LADDER_WITH_PACKET_LOSS,
-  MEASUREMENT_LADDER,
+  LOW_DATA_DISCLOSED_CEILING_BYTES,
+  LOW_DATA_MAX_BYTES,
+  buildLadder,
 } from "../src/lib/tools/speed-test/measurement-ladder.ts";
 
-describe("MEASUREMENT_LADDER", () => {
-  it("never asks the engine to measure packet loss", () => {
-    expect(MEASUREMENT_LADDER.some((step) => step.type === "packetLoss")).toBe(false);
+const bytesOf = (ladder: ReturnType<typeof buildLadder>) =>
+  ladder.reduce((total, step) => ("bytes" in step ? total + step.bytes * step.count : total), 0);
+
+describe("buildLadder", () => {
+  it("never measures packet loss unless asked", () => {
+    const ladder = buildLadder({ lowData: false, packetLoss: false });
+    expect(ladder.some((step) => step.type === "packetLoss")).toBe(false);
   });
 
-  it("keeps latency, download and upload phases", () => {
-    const types = new Set(MEASUREMENT_LADDER.map((step) => step.type));
+  it("adds exactly one packet-loss phase when asked", () => {
+    const ladder = buildLadder({ lowData: false, packetLoss: true });
+    expect(ladder.filter((step) => step.type === "packetLoss")).toHaveLength(1);
+  });
+
+  it("climbs to Cloudflare's largest payloads in full mode, so results stay comparable", () => {
+    const ladder = buildLadder({ lowData: false, packetLoss: false });
+    const downloads = ladder.filter((s) => s.type === "download");
+    expect(Math.max(...downloads.map((s) => ("bytes" in s ? s.bytes : 0)))).toBe(2.5e8);
+  });
+
+  it("caps every payload in low-data mode", () => {
+    const ladder = buildLadder({ lowData: true, packetLoss: false });
+    for (const step of ladder) {
+      if ("bytes" in step) expect(step.bytes).toBeLessThanOrEqual(LOW_DATA_MAX_BYTES);
+    }
+  });
+
+  it("keeps latency, download and upload phases in low-data mode", () => {
+    const types = new Set(buildLadder({ lowData: true, packetLoss: false }).map((s) => s.type));
     expect(types).toEqual(new Set(["latency", "download", "upload"]));
   });
 
-  it("climbs to Cloudflare's largest payloads so results stay comparable", () => {
-    const downloadBytes = MEASUREMENT_LADDER.filter((s) => s.type === "download").map((s) =>
-      "bytes" in s ? s.bytes : 0,
-    );
-    const uploadBytes = MEASUREMENT_LADDER.filter((s) => s.type === "upload").map((s) =>
-      "bytes" in s ? s.bytes : 0,
-    );
-    expect(Math.max(...downloadBytes)).toBe(2.5e8);
-    expect(Math.max(...uploadBytes)).toBe(5e7);
+  it("transfers far less in low-data mode", () => {
+    const light = bytesOf(buildLadder({ lowData: true, packetLoss: false }));
+    const full = bytesOf(buildLadder({ lowData: false, packetLoss: false }));
+    expect(light).toBeLessThan(full / 10);
   });
-});
 
-describe("LADDER_WITH_PACKET_LOSS", () => {
-  it("adds exactly one packet-loss phase and changes nothing else", () => {
-    expect(LADDER_WITH_PACKET_LOSS.filter((step) => step.type === "packetLoss")).toHaveLength(1);
-    const withoutPacketLoss = LADDER_WITH_PACKET_LOSS.filter((step) => step.type !== "packetLoss");
-    expect(withoutPacketLoss).toEqual(MEASUREMENT_LADDER);
+  // The page prints "under 20 MB". That sentence is a promise; this test is what keeps it true if
+  // the rounds ever change. The payload sum is ~15.8 MB, and the headroom covers protocol overhead.
+  it("stays under the ceiling the page discloses", () => {
+    expect(bytesOf(buildLadder({ lowData: true, packetLoss: true }))).toBeLessThan(
+      LOW_DATA_DISCLOSED_CEILING_BYTES,
+    );
+  });
+
+  it("still measures packet loss in low-data mode when asked — it is a few kilobytes", () => {
+    const ladder = buildLadder({ lowData: true, packetLoss: true });
+    expect(ladder.filter((s) => s.type === "packetLoss")).toHaveLength(1);
   });
 });
