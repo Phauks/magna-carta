@@ -1,9 +1,8 @@
-import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import type { BatchDatabase, EffectWrite } from "@magna-carta/data-access/effect-batch";
 import {
-  runIdempotentEffect,
-  type IdempotentEffectResult,
-} from "@magna-carta/data-access/run-idempotent-effect";
+  IdempotencyConflictError,
+  runDomainEffect,
+} from "@magna-carta/data-access/run-domain-effect";
 import type { IdempotencyRecordId } from "@magna-carta/identifiers/types";
 
 // The route's idempotency context, threaded into the committed batch through runIdempotentEffect.
@@ -53,39 +52,13 @@ export async function runDirectoryEffect<T>(
   clock: { now(): string },
   build: () => BuiltDirectoryMutation<T>,
 ): Promise<T> {
-  const built = build();
-  const result = await runIdempotentEffect({
-    database,
-    key: idempotency?.key,
-    fingerprint: idempotency?.fingerprint ?? "",
-    newRecordId: idempotency?.newRecordId,
-    now: () => clock.now(),
-    effect: () =>
-      Promise.resolve({
-        write: { statements: built.statements, outboxMessages: built.outboxMessages },
-        responseCode: built.responseCode,
-        responseBody: canonicalJsonStringify(built.responseBody),
-      }),
-  });
-  return finishDirectoryResult<T>(result, built);
-}
-
-// Translates the idempotent-effect outcome into the caller's value, or throws the conflict the route
-// maps to a problem. On an executed commit the freshly-built value is returned; on a replay (the rare
-// handler-race; the common one is served by the middleware) the WINNER's value is recovered from the
-// stored response body so the returned handle matches what the first commit recorded.
-function finishDirectoryResult<T>(
-  result: IdempotentEffectResult,
-  built: BuiltDirectoryMutation<T>,
-): T {
-  switch (result.kind) {
-    case "executed":
-      return built.value;
-    case "replayed":
-      return built.fromBody(JSON.parse(result.responseBody ?? "{}"));
-    case "in-progress":
-      throw new DirectoryIdempotencyConflictError("in-progress");
-    case "fingerprint-mismatch":
-      throw new DirectoryIdempotencyConflictError("fingerprint-mismatch");
+  try {
+    const { value } = await runDomainEffect(database, idempotency, clock, "directory", build);
+    return value;
+  } catch (error) {
+    if (error instanceof IdempotencyConflictError) {
+      throw new DirectoryIdempotencyConflictError(error.kind);
+    }
+    throw error;
   }
 }
