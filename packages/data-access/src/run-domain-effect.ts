@@ -54,6 +54,13 @@ export async function runDomainEffect<T>(
   domain: string,
   build: () => BuiltEffect<T>,
 ): Promise<DomainEffectOutcome<T>> {
+  // build() runs eagerly, before runIdempotentEffect decides execute-vs-replay, because the replayed
+  // branch below needs built.fromBody to recover the winner's value from the stored body — and on a
+  // replay the effect closure never runs, so fromBody has to be captured up front. The cost: on a
+  // replay or conflict outcome the built statements are discarded unexecuted, and any id a build()
+  // mints (e.g. an audit-log id) is a wasted draw. Harmless with default crypto-random ids; a caller
+  // that threads one deterministic, sequential RandomSource across several idempotent calls and hits a
+  // replay would see that discarded draw shift its later ids — pass such callers independent sources.
   const built = build();
   const result: IdempotentEffectResult = await runIdempotentEffect({
     database,
