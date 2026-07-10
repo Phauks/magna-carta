@@ -40,12 +40,12 @@
   >
     <Ellipsis class="size-16" aria-hidden="true" />
   </DropdownMenu.Trigger>
-  <!-- min holds a floor so the panel never pinches; max-w-xs caps it so the toggle rows' helper
-       text wraps to a readable column instead of stretching the panel across the viewport. -->
+  <!-- Fixed at the popover width: a menu hanging off a small icon should be a compact column, not a
+       panel stretched across the page. The helper text is kept to a short line so the fixed width
+       does not force it tall; the full low-data caveat lives in the page footer. -->
   <DropdownMenu.Content
     align="end"
-    class="max-w-xs"
-    style="min-inline-size: var(--mc-size-popover)"
+    style="inline-size: var(--mc-size-popover)"
   >
     <DropdownMenu.CheckboxItem
       checked={lowData}
@@ -54,8 +54,7 @@
       <div class="grid gap-4 py-4">
         <span>Low internet usage</span>
         <span class="text-xs text-text-muted">
-          Transfers under 20 MB instead of about 200 MB. Uses small transfers, so a fast connection
-          will measure slower than it is, and the results are not comparable to other speed tests.
+          About 16 MB, not 200. Reads a fast line slower than it is.
         </span>
       </div>
     </DropdownMenu.CheckboxItem>
@@ -65,9 +64,7 @@
     >
       <div class="grid gap-4 py-4">
         <span>Start automatically</span>
-        <span class="text-xs text-text-muted">
-          Begins a test as soon as this page opens, spending data without asking.
-        </span>
+        <span class="text-xs text-text-muted">Runs as soon as the page opens.</span>
       </div>
     </DropdownMenu.CheckboxItem>
     <!--

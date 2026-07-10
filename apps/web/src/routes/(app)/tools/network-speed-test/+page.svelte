@@ -294,8 +294,13 @@
       <SteadyLabel labels={CONTROL_LABELS} current={primaryLabel} />
     </Button>
 
+    <!-- A bordered ghost, the same outline treatment as the overflow trigger beside it, so the
+         button reads as a real control in every phase. `disabled:bg-transparent` drops the default
+         disabled fill: a grey blob reads as absent, but a transparent panel with a visible border
+         and muted label reads as a present-but-inactive button. -->
     <Button
-      variant={store.phase === "paused" ? "secondary" : "ghost"}
+      variant="ghost"
+      class="border border-border-default disabled:bg-transparent disabled:opacity-60"
       disabled={!secondaryEnabled}
       onclick={secondaryAction}
     >
