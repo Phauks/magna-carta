@@ -14,7 +14,7 @@
   import Button from "@magna-carta/design-system/button";
   import * as Masthead from "@magna-carta/design-system/masthead";
   import { bandwidthStats } from "$lib/tools/speed-test/bandwidth-stats.ts";
-  import BandwidthChart from "$lib/tools/speed-test/bandwidth-chart.svelte";
+  import BandwidthSparkline from "$lib/tools/speed-test/bandwidth-sparkline.svelte";
   import InfoPopover from "$lib/tools/speed-test/info-popover.svelte";
   import LatencyChart from "$lib/tools/speed-test/latency-chart.svelte";
   import MetricTile from "$lib/tools/speed-test/metric-tile.svelte";
@@ -229,6 +229,9 @@
         </p>
       </InfoPopover>
     {/snippet}
+    {#snippet chart()}
+      <BandwidthSparkline label="Download" points={downloadPoints} />
+    {/snippet}
   </MetricTile>
   <MetricTile
     size="large"
@@ -244,6 +247,9 @@
           show how consistent the connection was.
         </p>
       </InfoPopover>
+    {/snippet}
+    {#snippet chart()}
+      <BandwidthSparkline label="Upload" points={uploadPoints} />
     {/snippet}
   </MetricTile>
 </section>
@@ -329,26 +335,6 @@
     <LatencyChart title="During download" points={results?.getDownLoadedLatencyPoints() ?? []} />
     <LatencyChart title="During upload" points={results?.getUpLoadedLatencyPoints() ?? []} />
   </div>
-</section>
-
-<section class="mb-24">
-  <h2
-    class="mb-16 border-b border-border-strong pb-8 text-xs text-text-muted uppercase"
-    style="letter-spacing: var(--mc-tracking-caps)"
-  >
-    Download measurements
-  </h2>
-  <BandwidthChart title="Download" points={downloadPoints} />
-</section>
-
-<section class="mb-24">
-  <h2
-    class="mb-16 border-b border-border-strong pb-8 text-xs text-text-muted uppercase"
-    style="letter-spacing: var(--mc-tracking-caps)"
-  >
-    Upload measurements
-  </h2>
-  <BandwidthChart title="Upload" points={uploadPoints} />
 </section>
 
 <footer class="mt-40 border-t border-border-default pt-16 text-xs text-text-muted">
