@@ -2,31 +2,31 @@
   {
     "tier": "tiny",
     "model_version": "PP-OCRv6_tiny@benchmark",
-    "model_load_millis": 299,
+    "model_load_millis": 580,
     "total_model_bytes": 6298800,
-    "documents_scored": 4,
+    "documents_scored": 13,
     "documents_skipped": 0,
-    "mean_character_error_rate": 0.3651108593734006,
-    "mean_word_box_overlap": 0.6892135545168239
+    "mean_character_error_rate": 0.5201035238087817,
+    "mean_word_box_overlap": 0.7370196971173317
   },
   {
     "tier": "small",
     "model_version": "PP-OCRv6_small@benchmark",
-    "model_load_millis": 405,
+    "model_load_millis": 573,
     "total_model_bytes": 31190469,
-    "documents_scored": 4,
+    "documents_scored": 13,
     "documents_skipped": 0,
-    "mean_character_error_rate": 0.3623607007104008,
-    "mean_word_box_overlap": 0.7278889341386161
+    "mean_character_error_rate": 0.516237905112366,
+    "mean_word_box_overlap": 0.7536204805378449
   },
   {
     "tier": "medium",
     "model_version": "PP-OCRv6_medium@benchmark",
-    "model_load_millis": 678,
+    "model_load_millis": 1050,
     "total_model_bytes": 138738396,
-    "documents_scored": 4,
-    "documents_skipped": 0,
-    "mean_character_error_rate": 0.35762776636617377,
-    "mean_word_box_overlap": 0.7237665164943126
+    "documents_scored": 12,
+    "documents_skipped": 1,
+    "mean_character_error_rate": 0.5099974218153277,
+    "mean_word_box_overlap": 0.7501825431351814
   }
 ]
