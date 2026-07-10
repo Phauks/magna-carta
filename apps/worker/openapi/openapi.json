@@ -8131,6 +8131,236 @@
         }
       }
     },
+    "/api/v1/ocr": {
+      "post": {
+        "description": "Recognize text in a scanned image or PDF. Returns per-page lines with word boxes, confidence, and the engine and model that produced them. Pages that already carry a text layer are reported as skipped rather than re-recognized. Nothing is stored.",
+        "operationId": "ocr.recognize",
+        "tags": [
+          "ocr"
+        ],
+        "x-mc-operationId": "ocr.recognize",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tools:ocr",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "expensive",
+        "x-mc-tags": [
+          "ocr"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Per-page recognition facts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "pages": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "pageIndex": {
+                            "type": "integer"
+                          },
+                          "lines": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "text": {
+                                  "type": "string"
+                                },
+                                "confidence": {
+                                  "type": "number"
+                                },
+                                "quad": {
+                                  "type": "object",
+                                  "properties": {
+                                    "points": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "number"
+                                        }
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "points"
+                                  ]
+                                },
+                                "orientationDegrees": {
+                                  "type": [
+                                    "number",
+                                    "null"
+                                  ]
+                                },
+                                "wordQuads": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "points": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "array",
+                                          "items": {
+                                            "type": "number"
+                                          }
+                                        }
+                                      }
+                                    },
+                                    "required": [
+                                      "points"
+                                    ]
+                                  }
+                                }
+                              },
+                              "required": [
+                                "text",
+                                "confidence",
+                                "quad",
+                                "wordQuads"
+                              ]
+                            }
+                          },
+                          "undecodedRegions": {
+                            "type": "integer"
+                          },
+                          "skipped": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "orientationDegrees": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "pageIndex",
+                          "lines",
+                          "undecodedRegions"
+                        ]
+                      }
+                    },
+                    "provenance": {
+                      "type": "object",
+                      "properties": {
+                        "engineVersion": {
+                          "type": "string"
+                        },
+                        "modelVersion": {
+                          "type": "string"
+                        },
+                        "platform": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "engineVersion",
+                        "modelVersion",
+                        "platform"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "pages",
+                    "provenance"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Empty request body",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing tools:ocr",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "File exceeds the inspectable-size cap",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The document is unreadable or was rejected outright — retrying will not help",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Recognition engine unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/ai-detection/detect": {
       "post": {
         "description": "Estimate the likelihood that pasted text was machine-generated. Returns a coarse likelihood band with an explicit reliability grade and the reasons to hesitate — a signal, not proof. Requires the firm to have enabled external detection; text is sent to the configured provider and is not retained. Nothing is stored except a usage meter entry.",
@@ -25461,6 +25691,9 @@
     },
     {
       "name": "numbering"
+    },
+    {
+      "name": "ocr"
     },
     {
       "name": "platform"

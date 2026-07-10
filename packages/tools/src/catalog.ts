@@ -169,4 +169,17 @@ export const CATALOG: readonly ToolManifest[] = [
     backing: { kind: "library" },
     matterContext: "optional",
   },
+  {
+    id: "ocr",
+    name: "Text Recognition",
+    icon: "scan-text",
+    subjectGroup: "files",
+    permission: assertPermission("tools:ocr"),
+    contextTags: ["file", "none"],
+    // The recognition engine runs in an internal Container, not a connected third-party integration,
+    // so this is `library` — the same backing the other in-house file utilities use. Stateless: the
+    // engine writes nothing. Turning the recognized text into a searchable PDF lands in a later slice.
+    backing: { kind: "library" },
+    matterContext: "optional",
+  },
 ];

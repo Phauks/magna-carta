@@ -55,6 +55,7 @@ import { registerRecoveryRoutes } from "./routes/recovery.ts";
 import { registerFileIntegrityRoutes } from "./routes/file-integrity.ts";
 import { registerFileTypeRoutes } from "./routes/file-type.ts";
 import { registerFileRepairRoutes } from "./routes/file-repair.ts";
+import { registerOcrRoutes } from "./routes/ocr.ts";
 import { registerAiDetectionRoutes } from "./routes/ai-detection.ts";
 import { registerMetadataRoutes } from "./routes/metadata.ts";
 import { registerSupportGrantsRoutes } from "./routes/support-grants.ts";
@@ -135,6 +136,10 @@ export type Bindings = {
   // The dedicated password-recovery worker (magna-carta-recovery), reached over a service binding.
   // Optional here so the pool can start without a running recovery worker.
   RECOVERY_SERVICE?: Fetcher;
+  // The dedicated text-recognition engine worker (magna-carta-ocr), reached over a service binding.
+  // Optional: absent in every test environment and until the deploy-time binding is added; while
+  // unset, the ocr route returns 503 (the same posture the file-type and file-repair routes take).
+  OCR_SERVICE?: Fetcher;
   // The authenticated Workers AI binding — the only path inference reaches the gateway through (no raw
   // gateway token in any firm-reachable config). Pre-authenticated within the account.
   AI: Ai;
@@ -417,6 +422,7 @@ export function createApp(options: CreateAppOptions = {}) {
   registerFileIntegrityRoutes(app, chokepoint);
   registerFileTypeRoutes(app, chokepoint);
   registerFileRepairRoutes(app, chokepoint);
+  registerOcrRoutes(app, chokepoint);
   registerAiDetectionRoutes(app, chokepoint);
   registerMetadataRoutes(app, chokepoint);
   registerMembersRoute(app, chokepoint, authForEnv);

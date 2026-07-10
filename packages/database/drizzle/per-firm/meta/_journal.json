@@ -22,6 +22,13 @@
       "when": 1783139081314,
       "tag": "20260704T041518_file-repair-provenance",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1783200000000,
+      "tag": "20260709T000001_seed-tools-ocr",
+      "breakpoints": true
     }
   ]
 }

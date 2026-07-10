@@ -62,6 +62,7 @@ export const PERMISSIONS = [
   "tools:fileIntegrity", // compute a file's cryptographic digests + verify a stored file against its ingest baseline
   "tools:fileTypeVerifier", // identify a file's true content type and flag/repair an extension mismatch
   "tools:fileRepair", // recover content from a structurally corrupted / truncated / damaged file (stateless)
+  "tools:ocr", // recognize text in a scanned image or PDF — returns text, word boxes, and confidence
   // Custom fields — define and maintain field schemas; purge hard-deletes all values for a field.
   "customFields:manage",
   "customFields:purge",

@@ -2334,6 +2334,78 @@ export type FileRepairCarveAttachResponses = {
 
 export type FileRepairCarveAttachResponse = FileRepairCarveAttachResponses[keyof FileRepairCarveAttachResponses];
 
+export type OcrRecognizeData = {
+    body: unknown;
+    path?: never;
+    query?: never;
+    url: '/api/v1/ocr';
+};
+
+export type OcrRecognizeErrors = {
+    /**
+     * Empty request body
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Missing tools:ocr
+     */
+    403: Problem;
+    /**
+     * File exceeds the inspectable-size cap
+     */
+    413: Problem;
+    /**
+     * The document is unreadable or was rejected outright — retrying will not help
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+    /**
+     * Recognition engine unavailable
+     */
+    503: Problem;
+};
+
+export type OcrRecognizeError = OcrRecognizeErrors[keyof OcrRecognizeErrors];
+
+export type OcrRecognizeResponses = {
+    /**
+     * Per-page recognition facts
+     */
+    200: {
+        pages: Array<{
+            pageIndex: number;
+            lines: Array<{
+                text: string;
+                confidence: number;
+                quad: {
+                    points: Array<Array<number>>;
+                };
+                orientationDegrees?: number | null;
+                wordQuads: Array<{
+                    points: Array<Array<number>>;
+                }>;
+            }>;
+            undecodedRegions: number;
+            skipped?: string | null;
+            orientationDegrees?: number | null;
+        }>;
+        provenance: {
+            engineVersion: string;
+            modelVersion: string;
+            platform: string;
+        };
+    };
+};
+
+export type OcrRecognizeResponse = OcrRecognizeResponses[keyof OcrRecognizeResponses];
+
 export type AiDetectionDetectData = {
     body: AiDetectionDetectRequest;
     path?: never;
