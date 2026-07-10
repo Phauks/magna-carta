@@ -1692,25 +1692,33 @@ export const costEntry = sqliteTable(
 // by RAISE(ABORT) triggers in the migration. The log is the compliance artifact a malpractice defense
 // rests on — a reviewer who clears a hit and later reverses must leave both acts visible, so a
 // reversal is a second disposition row rather than an edit.
-export const conflictsCheck = sqliteTable("conflicts_check", {
-  id: text("id").primaryKey().$type<ConflictsCheckId>(),
-  trigger: text("trigger").notNull(),
-  // Null for a pre-consult check against a prospective party set that has no matter yet.
-  subjectMatterId: text("subject_matter_id").$type<MatterId>(),
-  subjectPartiesJson: text("subject_parties_json").notNull(), // JSON array of entity ids
-  // The scope in force: each source class with its availability. An auditor must be able to tell
-  // "searched and clean" apart from "never searched".
-  scopeJson: text("scope_json").notNull(),
-  strictness: text("strictness").notNull(),
-  depth: integer("depth").notNull(),
-  // Identifiers recorded BY REFERENCE (directory_identifier.id) — never a plaintext value.
-  // Also records identifier types skipped as non-indexable, so the log never implies they were searched.
-  inputsJson: text("inputs_json").notNull(),
-  // 1 when the requested scope fell below the firm floor and was raised to it.
-  floorRaised: integer("floor_raised", { mode: "boolean" }).notNull().default(false),
-  actorUserId: text("actor_user_id").$type<UserId>(),
-  createdAt: text("created_at").notNull(),
-});
+export const conflictsCheck = sqliteTable(
+  "conflicts_check",
+  {
+    id: text("id").primaryKey().$type<ConflictsCheckId>(),
+    trigger: text("trigger").notNull(),
+    // Null for a pre-consult check against a prospective party set that has no matter yet.
+    subjectMatterId: text("subject_matter_id").$type<MatterId>(),
+    subjectPartiesJson: text("subject_parties_json").notNull(), // JSON array of entity ids
+    // The scope in force: each source class with its availability. An auditor must be able to tell
+    // "searched and clean" apart from "never searched".
+    scopeJson: text("scope_json").notNull(),
+    strictness: text("strictness").notNull(),
+    depth: integer("depth").notNull(),
+    // Identifiers recorded BY REFERENCE (directory_identifier.id) — never a plaintext value.
+    // Also records identifier types skipped as non-indexable, so the log never implies they were searched.
+    inputsJson: text("inputs_json").notNull(),
+    // 1 when the requested scope fell below the firm floor and was raised to it.
+    floorRaised: integer("floor_raised", { mode: "boolean" }).notNull().default(false),
+    actorUserId: text("actor_user_id").$type<UserId>(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    check("conflicts_check_trigger_check", sql`length(${table.trigger}) > 0`),
+    check("conflicts_check_strictness_check", sql`${table.strictness} IN ('balanced', 'over_inclusive')`),
+    check("conflicts_check_depth_check", sql`${table.depth} >= 0`),
+  ],
+);
 
 export const conflictsHit = sqliteTable(
   "conflicts_hit",
@@ -1728,7 +1736,14 @@ export const conflictsHit = sqliteTable(
     graphPathJson: text("graph_path_json").notNull(),
     createdAt: text("created_at").notNull(),
   },
-  (table) => [index("conflicts_hit_check_id_index").on(table.checkId)],
+  (table) => [
+    index("conflicts_hit_check_id_index").on(table.checkId),
+    check("conflicts_hit_tier_check", sql`${table.evidenceTier} BETWEEN 1 AND 4`),
+    check(
+      "conflicts_hit_source_class_check",
+      sql`${table.sourceClass} IN ('party', 'graph', 'imputation', 'content')`,
+    ),
+  ],
 );
 
 export const conflictsDisposition = sqliteTable(
@@ -1741,5 +1756,11 @@ export const conflictsDisposition = sqliteTable(
     reviewerUserId: text("reviewer_user_id").notNull().$type<UserId>(),
     createdAt: text("created_at").notNull(),
   },
-  (table) => [index("conflicts_disposition_hit_id_created_at_index").on(table.hitId, table.createdAt)],
+  (table) => [
+    index("conflicts_disposition_hit_id_created_at_index").on(table.hitId, table.createdAt),
+    check(
+      "conflicts_disposition_kind_check",
+      sql`${table.kind} IN ('cleared', 'waiver_obtained', 'wall_erected', 'representation_declined')`,
+    ),
+  ],
 );
