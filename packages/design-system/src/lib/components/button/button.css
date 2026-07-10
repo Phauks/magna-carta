@@ -80,12 +80,34 @@
     background-color: var(--mc-action-destructive-hover);
   }
 
+  /*
+   * Ghost — a quiet action that still reads as a control. It carried no edge at rest, which left
+   * the affordance invisible until the pointer found it; a control the eye cannot find is not
+   * quiet, it is hidden.
+   *
+   * The edge is an INSET RING, not a border: the base recipe has no border, and sizes map to
+   * min-block-size plus padding, so a real border would make every ghost button two pixels taller
+   * than the buttons beside it. A ring costs no layout.
+   *
+   * --mc-border-default, not --mc-border-strong: every other resting-state bordered control
+   * (input, select, card, dialog, tabs, data-table) draws its rest-state edge in
+   * --mc-border-default; --mc-border-strong is reserved for emphasis states (a checked checkbox,
+   * a checked switch, a selected date range). Ghost's ring is a resting-state edge, not an
+   * emphasis state, so the quieter weight is the one that matches its neighbors.
+   */
   .mc-button-ghost {
     background-color: transparent;
     color: var(--mc-text-default);
+    box-shadow: inset var(--mc-space-0) var(--mc-space-0) var(--mc-space-0)
+      var(--mc-border-width-default) var(--mc-border-default);
   }
   .mc-button-ghost:hover {
     background-color: var(--mc-action-secondary);
+  }
+  /* The disabled recipe (.mc-button:disabled, above) sets an opaque fill; the ring beneath would
+     otherwise show as a seam around a control that no longer takes input. */
+  .mc-button-ghost:disabled {
+    box-shadow: none;
   }
 
   /* Sizes — heights map to the control scale THROUGH the density aliases (the user density axis

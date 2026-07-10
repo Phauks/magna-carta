@@ -5,7 +5,7 @@ import { clampChroma, displayable, wcagContrast } from "culori";
 import { CONTRAST_PAIRS } from "../src/contrast-pairs.ts";
 
 /**
- * Culori OKLCH theme generation (design spec, "Build pipeline"): a theme is derived from a
+ * Culori OKLCH theme generation: a theme is derived from a
  * small set of anchor decisions — brand hue, chroma character, neutral tint — instead of
  * hand-picked swatch by swatch. The output is a theme context file for resolver.json's
  * `theme` modifier: ramp-VALUE overrides only (same token names and DTCG format as
@@ -230,7 +230,7 @@ export function generateThemeTokens(options: GenerateThemeTokensOptions): ThemeT
  * brand at low chroma), committed into tokens/primitives/color.json. The pin test
  * (test/generate-theme.test.ts) holds the committed neutral and brand ramps byte-equal to
  * this generator output, so the flagship can be re-anchored without reverse-engineering
- * hand drift. The brand/flagship color is a swappable anchor (design language §3): change
+ * hand drift. The brand/flagship color is a swappable anchor by design: change
  * these numbers, regenerate the primitives, re-pin. The accent (gold) is separate and
  * shared (tokens/primitives/color.json `accent`), never themed.
  */

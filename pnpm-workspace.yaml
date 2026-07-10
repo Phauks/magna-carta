@@ -19,6 +19,9 @@ onlyBuiltDependencies:
 catalog:
   # Toolchain
   vite-plus: 0.1.24
+  # Network Speed Test tool (apps/web). Cloudflare's own client-side measurement engine, on their
+  # default ladder, so the numbers are comparable to speed.cloudflare.com.
+  "@cloudflare/speedtest": 1.11.0
   # The type-check compiler for the project-references build graph (`tsc -b tsconfig.build.json`).
   # Distinct from vp's bundled tsc: this is the engine our `vp run typecheck` task owns, and the swap
   # point for the TypeScript 7 native compiler (tsgo) later. See docs/conventions/build-performance.md.

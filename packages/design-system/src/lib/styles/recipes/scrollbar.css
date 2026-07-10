@@ -1,26 +1,58 @@
 @layer components {
   /*
-   * Scrollbar — a slim, tokenised scrollbar applied wherever our own scroll regions appear (the
-   * Select/Command/Combobox dropdowns). Native <select> dropdowns (the calendar month/year jumps)
-   * are OS-rendered and cannot take this styling. Standard `scrollbar-*` for Firefox; the
-   * ::-webkit-scrollbar pseudos for Chromium/WebKit.
+   * Scrollbar — the slim, tokenised scrollbar for every one of our own scroll regions: the app
+   * shell's work canvas, the Select/Command/Combobox dropdowns, the data table, and the sidebar.
+   * Native <select> dropdowns (the calendar month/year jumps) are OS-rendered and cannot take it.
+   *
+   * WHY the standard properties are quarantined to Firefox — DO NOT "helpfully" hoist
+   * `scrollbar-width`/`scrollbar-color` back up to the top-level `.mc-scrollbar` rule:
+   *   Chromium/WebKit implement BOTH the standard `scrollbar-width`/`scrollbar-color` properties
+   *   AND the `::-webkit-scrollbar` pseudo-elements — but when the standard properties are present
+   *   the engine takes the standard path and IGNORES every `::-webkit-scrollbar` rule. With both
+   *   sets declared, Chrome discards our pill thumb and paints its own scrollbar, arrow buttons and
+   *   all. So the default path (Chromium/WebKit) is `::-webkit-scrollbar` pseudo-elements ONLY, and
+   *   the standard properties live in a Firefox-only guard below — Firefox is the mirror case: it
+   *   supports only the standard properties and has no `::-webkit-*` support at all.
    */
-  .mc-scrollbar {
-    scrollbar-width: thin;
-    scrollbar-color: var(--mc-border-strong) transparent;
-  }
+
   .mc-scrollbar::-webkit-scrollbar {
     width: var(--mc-space-8);
     height: var(--mc-space-8);
   }
+  /*
+   * Styling the scrollbar alone does NOT remove Chrome's arrow buttons; the button pseudo must be
+   * suppressed explicitly or the up/down (and left/right) steppers still render at each end.
+   */
+  .mc-scrollbar::-webkit-scrollbar-button {
+    display: none;
+  }
   .mc-scrollbar::-webkit-scrollbar-track {
     background-color: transparent;
   }
+  /*
+   * The thumb reads as a floating pill: fully rounded, inset from the 8px track by a 1px
+   * transparent border with its paint clipped to the content box, so the visible thumb is 6px.
+   */
   .mc-scrollbar::-webkit-scrollbar-thumb {
     background-color: var(--mc-border-strong);
     border-radius: var(--mc-radius-full);
+    border: var(--mc-border-width-default) solid transparent;
+    background-clip: content-box;
   }
   .mc-scrollbar::-webkit-scrollbar-thumb:hover {
     background-color: var(--mc-text-subtle);
+  }
+
+  /*
+   * Firefox path (see WHY above). `-moz-appearance` is implemented by Firefox and by no other
+   * engine, so this @supports block is honoured in Firefox alone — Chromium and WebKit skip it and
+   * keep the `::-webkit-scrollbar` styling above. `thin` is the property's own enum value (not a
+   * length standing in for a token); `scrollbar-width` accepts only `auto | thin | none`.
+   */
+  @supports (-moz-appearance: none) {
+    .mc-scrollbar {
+      scrollbar-width: thin;
+      scrollbar-color: var(--mc-border-strong) transparent;
+    }
   }
 }

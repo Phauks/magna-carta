@@ -48,6 +48,8 @@ import { firmSecretStoreNotYetAvailable } from "./plugins/secret-store.ts";
 import { registerMatterTypesRoutes } from "./routes/matter-types.ts";
 import { registerMattersRoutes } from "./routes/matters.ts";
 import { registerFirmUsageRoute } from "./routes/firm-usage.ts";
+import { registerToolsConnectionRoute } from "./routes/tools-connection.ts";
+import { registerToolsTurnCredentialsRoute } from "./routes/tools-turn-credentials.ts";
 import { registerWhoisRoute, type WhoisRouteDeps } from "./routes/whois.ts";
 import { registerSafeBrowseRoute, type SafeBrowseRouteDeps } from "./routes/safe-browse.ts";
 import { registerDecryptionRoutes } from "./routes/decryption.ts";
@@ -62,6 +64,8 @@ import { registerSupportGrantsRoutes } from "./routes/support-grants.ts";
 import { registerSupportSessionsRoute } from "./routes/support-sessions.ts";
 import { registerSupportDiagnosticsRoute } from "./routes/support-diagnostics.ts";
 import { registerDevWebToolsDemoRoute } from "./routes/dev-web-tools-demo.ts";
+import { registerDevR2UploadRoute } from "./routes/dev-r2-upload.ts";
+import { registerDevSeedRoute } from "./routes/dev-seed.ts";
 import { registerMeRoute } from "./routes/me.ts";
 import { registerMembersRoute } from "./routes/members.ts";
 import { registerReleaseChannelRoute } from "./routes/release-channel.ts";
@@ -229,6 +233,13 @@ export type Bindings = {
   // returns a task to poll) or "sync". Optional; defaults to "async-task". A public config value, not
   // a secret — bound via wrangler vars.
   PANGRAM_MODE?: "async-task" | "sync";
+  // Cloudflare Realtime TURN key credentials — mint short-lived relay credentials for the
+  // packet-loss measurement in the Network Speed Test tool. Optional: absent in tests and until the
+  // owner provisions a Realtime TURN key, in which case the route answers 503 and the tile states
+  // that packet loss is not configured. Production sets both with `wrangler secret put`. Never
+  // logged, and never echoed back to a caller.
+  REALTIME_TURN_TOKEN_ID?: string;
+  REALTIME_TURN_TOKEN_SECRET?: string;
 };
 
 // One Better Auth instance per worker env: the env object is stable across requests within an
@@ -362,6 +373,8 @@ export function createApp(options: CreateAppOptions = {}) {
   // middleware, run before the chokepoint's idempotency/rate-limit gates (see routes/firms.ts).
   registerMeRoute(app, chokepoint);
   registerFirmUsageRoute(app, chokepoint);
+  registerToolsConnectionRoute(app, chokepoint);
+  registerToolsTurnCredentialsRoute(app, chokepoint);
 
   // The WHOIS route: RDAP-first domain/IP registration lookup with a port-43 fallback. All outbound
   // effects go through injected deps so tests substitute fakes without touching global fetch or sockets.
@@ -522,6 +535,21 @@ export function createApp(options: CreateAppOptions = {}) {
   // Throwaway dev-only demo page for the Websites & Domains tools (gated on DEV_DEMO_TOOLS; 404 in
   // production). A bare route, so it never enters the OpenAPI contract. Remove with the demo file.
   registerDevWebToolsDemoRoute(app);
+
+  // The development-only R2 upload target: stands in for direct-to-R2 uploads under `wrangler dev`
+  // (where no presigned R2 host resolves and no R2 event fires). It serves its route only when the
+  // real R2 S3 credential set is absent — the same fail-closed signal that makes presignerForEnv
+  // return the dev presigner (routes/dev-r2-upload.ts, presigner-wiring.ts) — so it answers a bare 404
+  // in production. Behind the chokepoint (session -> files:upload) and validates the object key against
+  // the firm's upload session. A bare route under /api/__dev, so it never enters the OpenAPI contract.
+  registerDevR2UploadRoute(app, chokepoint);
+
+  // The development-only firm seeder: stands up a complete signed-in-ready tenant (firm + owner user +
+  // matter + files) so a developer can log in and see real data under `wrangler dev`. Gated on the same
+  // real-credential absence as the dev upload route, so it answers a bare 404 in production. Outside the
+  // chokepoint (it bootstraps the first user) and a bare route under /api/__dev, so it never enters the
+  // OpenAPI contract.
+  registerDevSeedRoute(app);
 
   // Everything not handled above falls through to the static-asset SPA (Workers Static Assets binding).
   app.get("*", (c) => c.env.ASSETS.fetch(c.req.raw));

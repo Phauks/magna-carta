@@ -1,0 +1,986 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Home — Good afternoon, Trevor</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:ital,wght@0,200..800;1,200..800&family=Fraunces:ital,opsz,wght@0,9..144,100..900;1,9..144,100..900&family=UnifrakturMaguntia&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --chrome: #191813;
+        --chrome-raised: #23221b;
+        --chrome-hair: rgba(255, 255, 255, 0.08);
+        --chrome-text: #e9e7df;
+        --chrome-muted: #97937f;
+
+        --paper: #faf9f5;
+        --card: #ffffff;
+        --sunken: #f2f0ea;
+        --text: #22211c;
+        --muted: #5d5a50;
+        --subtle: #8b877a;
+
+        --gold: #c7a857;
+        --gold-bright: #e2c476;
+        --gold-deep: #8a7434;
+        --gold-wash: #fbf6e9;
+
+        --hair: rgba(35, 33, 26, 0.13);
+        --hair-strong: rgba(35, 33, 26, 0.26);
+
+        --open-fg: #3d6b4f;
+        --open-bg: #eaf2ec;
+        --pending-fg: #8a6a2f;
+        --pending-bg: #f7efdc;
+        --danger-fg: #8f3d33;
+        --danger-bg: #f7e7e3;
+        --prospect-fg: #5d5a50;
+        --prospect-bg: #eeede7;
+
+        --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+      }
+      * {
+        margin: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        font-family: "Atkinson Hyperlegible Next", system-ui, sans-serif;
+        font-size: 14px;
+        color: var(--text);
+        background: var(--paper);
+        display: grid;
+        grid-template-columns: 232px 1fr;
+        grid-template-rows: 56px 1fr;
+        grid-template-areas: "side top" "side main";
+      }
+      button {
+        font: inherit;
+        color: inherit;
+        background: none;
+        border: 0;
+        cursor: pointer;
+      }
+      button:focus-visible,
+      a:focus-visible {
+        outline: 2px solid var(--gold-deep);
+        outline-offset: 1px;
+      }
+      .caps {
+        font-size: 11px;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        font-weight: 600;
+      }
+
+      /* ————— chrome (A register) ————— */
+      .side {
+        grid-area: side;
+        background: var(--chrome);
+        color: var(--chrome-text);
+        display: flex;
+        flex-direction: column;
+        position: relative;
+      }
+      .side::after,
+      .top::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        opacity: 0.05;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        height: 56px;
+        padding: 0 16px;
+      }
+      .brand .m {
+        font-family: "UnifrakturMaguntia";
+        font-size: 26px;
+        line-height: 1;
+        color: var(--gold-bright);
+        transform: translateY(-1px);
+      }
+      .brand .word {
+        font-size: 12.5px;
+        letter-spacing: 0.18em;
+        font-weight: 600;
+      }
+      nav.primary {
+        padding: 10px 8px;
+        flex: 1;
+        overflow-y: auto;
+        position: relative;
+      }
+      .navsec {
+        color: var(--chrome-muted);
+        padding: 16px 10px 6px;
+      }
+      .navitem {
+        display: grid;
+        grid-template-columns: 18px 1fr auto;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        padding: 7px 10px;
+        border-radius: 3px;
+        text-align: left;
+        color: var(--chrome-text);
+        position: relative;
+        transition: background-color 120ms var(--ease-out);
+      }
+      .navitem:hover {
+        background: var(--chrome-raised);
+      }
+      .navitem svg {
+        width: 16px;
+        height: 16px;
+        stroke: currentColor;
+        stroke-width: 1.75;
+        fill: none;
+        opacity: 0.85;
+      }
+      .navitem .count {
+        color: var(--chrome-muted);
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+      }
+      .navitem[aria-current] {
+        background: var(--chrome-raised);
+        color: var(--gold-bright);
+        font-weight: 600;
+      }
+      .navitem[aria-current]::before {
+        content: "";
+        position: absolute;
+        left: -8px;
+        top: 6px;
+        bottom: 6px;
+        width: 2px;
+        background: var(--gold);
+      }
+      .side .foot {
+        border-top: 1px solid var(--chrome-hair);
+        padding: 10px 8px;
+        position: relative;
+      }
+      .top {
+        grid-area: top;
+        background: var(--chrome);
+        color: var(--chrome-text);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 0 16px;
+        border-bottom: 1px solid var(--chrome-hair);
+        position: relative;
+      }
+      .search {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 380px;
+        height: 32px;
+        background: var(--chrome-raised);
+        border: 1px solid var(--chrome-hair);
+        border-radius: 3px;
+        padding: 0 10px;
+        color: var(--chrome-muted);
+        text-align: left;
+      }
+      .search svg {
+        width: 14px;
+        height: 14px;
+        stroke: currentColor;
+        stroke-width: 2;
+        fill: none;
+      }
+      .search .k {
+        margin-left: auto;
+        font-size: 10.5px;
+        padding: 2px 6px;
+        border: 1px solid var(--chrome-hair);
+        border-radius: 3px;
+      }
+      .top .right {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .btn-new {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        height: 32px;
+        padding: 0 14px;
+        background: var(--gold);
+        color: #1c1a12;
+        border-radius: 3px;
+        font-weight: 700;
+      }
+      .btn-new:hover {
+        background: var(--gold-bright);
+      }
+      .timer {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: 32px;
+        padding: 0 12px;
+        border: 1px solid var(--chrome-hair);
+        border-radius: 3px;
+        background: var(--chrome-raised);
+        font-size: 13px;
+      }
+      .timer .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #6fae83;
+      }
+      .timer .t {
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+      }
+      .timer .on {
+        color: var(--chrome-muted);
+      }
+      .iconbtn {
+        display: grid;
+        place-items: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 3px;
+        color: var(--chrome-muted);
+      }
+      .iconbtn:hover {
+        color: var(--chrome-text);
+        background: var(--chrome-raised);
+      }
+      .iconbtn svg {
+        width: 17px;
+        height: 17px;
+        stroke: currentColor;
+        stroke-width: 1.75;
+        fill: none;
+      }
+      .avatar {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background: var(--chrome-raised);
+        border: 1px solid var(--chrome-hair);
+        color: var(--gold-bright);
+        font-size: 11.5px;
+        font-weight: 700;
+      }
+
+      /* ————— canvas ————— */
+      .main {
+        grid-area: main;
+        overflow-y: auto;
+        padding: 30px 32px 60px;
+      }
+
+      /* greeting masthead — compact; content gets the room */
+      .greet {
+        display: flex;
+        align-items: baseline;
+        gap: 14px;
+        margin-bottom: 18px;
+      }
+      .greet h1 {
+        font-family: "Fraunces", Georgia, serif;
+        font-weight: 440;
+        font-optical-sizing: auto;
+        font-size: 26px;
+        letter-spacing: -0.018em;
+        line-height: 1.1;
+      }
+      .greet .date {
+        color: var(--muted);
+        font-size: 13.5px;
+      }
+
+      /* quote of the day — rides the greeting's baseline; costs no extra vertical space */
+      .daily {
+        margin-left: auto;
+        text-align: right;
+        max-width: 46%;
+        font-size: 13px;
+        line-height: 1.4;
+        align-self: baseline;
+      }
+      .daily .q {
+        font-family: "Fraunces", Georgia, serif;
+        font-style: italic;
+        color: var(--muted);
+      }
+      .daily cite {
+        font-style: normal;
+        color: var(--subtle);
+        font-size: 10.5px;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        margin-left: 8px;
+        white-space: nowrap;
+      }
+
+      /* stat ledger row */
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 14px;
+        margin-bottom: 22px;
+      }
+      .stat {
+        background: var(--card);
+        border: 1px solid var(--hair);
+        border-radius: 3px;
+        padding: 14px 16px 15px;
+      }
+      .stat .k {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        color: var(--subtle);
+        margin-bottom: 8px;
+      }
+      .stat .k svg {
+        width: 13px;
+        height: 13px;
+        stroke: currentColor;
+        stroke-width: 2;
+        fill: none;
+      }
+      .stat .v {
+        font-size: 26px;
+        font-weight: 650;
+        letter-spacing: -0.015em;
+        font-variant-numeric: tabular-nums;
+        line-height: 1;
+      }
+      .stat .v .unit {
+        font-size: 15px;
+        font-weight: 500;
+        color: var(--muted);
+      }
+      .stat .s {
+        color: var(--subtle);
+        font-size: 12.5px;
+        margin-top: 7px;
+        font-variant-numeric: tabular-nums;
+      }
+      .stat .bar {
+        height: 3px;
+        background: var(--sunken);
+        border-radius: 2px;
+        margin-top: 10px;
+        overflow: hidden;
+      }
+      .stat .bar i {
+        display: block;
+        height: 100%;
+        width: 49%;
+        background: var(--gold);
+        border-radius: 2px;
+      }
+      .stat.attn {
+        background: var(--pending-bg);
+        border-color: rgba(138, 106, 47, 0.25);
+      }
+      .stat.attn .k,
+      .stat.attn .s {
+        color: var(--pending-fg);
+      }
+      .stat.attn .v {
+        color: var(--pending-fg);
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 340px;
+        gap: 20px;
+        align-items: start;
+      }
+      .panel {
+        background: var(--card);
+        border: 1px solid var(--hair);
+        border-radius: 3px;
+      }
+      .panel + .panel {
+        margin-top: 20px;
+      }
+      .panel .ph {
+        display: flex;
+        align-items: baseline;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--hair);
+      }
+      .panel .ph .t {
+        color: var(--subtle);
+      }
+      .panel .ph .more {
+        margin-left: auto;
+        font-size: 12.5px;
+        color: var(--muted);
+        text-decoration: none;
+      }
+      .panel .ph .more:hover {
+        color: var(--gold-deep);
+      }
+
+      /* tasks */
+      .tasks {
+        list-style: none;
+      }
+      .task {
+        display: grid;
+        grid-template-columns: 26px 1fr auto;
+        align-items: baseline;
+        padding: 10px 16px;
+        border-bottom: 1px solid var(--hair);
+      }
+      .task:last-child {
+        border-bottom: 0;
+      }
+      .task .box {
+        width: 15px;
+        height: 15px;
+        border: 1px solid var(--hair-strong);
+        border-radius: 2px;
+        position: relative;
+        top: 2px;
+        background: var(--card);
+        cursor: pointer;
+      }
+      .task .what b {
+        font-weight: 600;
+      }
+      .task .what .ctx {
+        color: var(--subtle);
+        font-size: 12.5px;
+      }
+      .task .when {
+        font-size: 12px;
+        color: var(--subtle);
+        font-variant-numeric: tabular-nums;
+      }
+      .task .when.over {
+        color: var(--danger-fg);
+        font-weight: 700;
+      }
+      .task .when.today {
+        color: var(--pending-fg);
+        font-weight: 600;
+      }
+
+      /* my matters */
+      .mine {
+        list-style: none;
+      }
+      .mrow {
+        display: grid;
+        grid-template-columns: 1fr auto auto;
+        gap: 14px;
+        align-items: baseline;
+        padding: 11px 16px;
+        border-bottom: 1px solid var(--hair);
+        cursor: pointer;
+        transition: background-color 120ms var(--ease-out);
+      }
+      .mrow:hover {
+        background: var(--sunken);
+      }
+      .mrow:last-child {
+        border-bottom: 0;
+      }
+      .mrow .t b {
+        font-weight: 700;
+      }
+      .mrow .t .no {
+        color: var(--subtle);
+        font-size: 12px;
+        margin-left: 8px;
+        font-variant-numeric: tabular-nums;
+      }
+      .mrow .upd {
+        color: var(--subtle);
+        font-size: 12.5px;
+      }
+      .pill {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 10.5px;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        font-weight: 600;
+      }
+      .pill.open {
+        color: var(--open-fg);
+        background: var(--open-bg);
+      }
+      .pill.prospect {
+        color: var(--prospect-fg);
+        background: var(--prospect-bg);
+      }
+
+      /* today rail */
+      .sched {
+        list-style: none;
+      }
+      .slot {
+        display: grid;
+        grid-template-columns: 48px 1fr;
+        gap: 12px;
+        padding: 10px 16px;
+        border-bottom: 1px solid var(--hair);
+      }
+      .slot:last-child {
+        border-bottom: 0;
+      }
+      .slot .at {
+        color: var(--subtle);
+        font-variant-numeric: tabular-nums;
+        font-size: 12.5px;
+        padding-top: 1px;
+        text-align: right;
+      }
+      .slot .ev {
+        border-left: 2px solid var(--hair-strong);
+        padding-left: 10px;
+      }
+      .slot.deadline .ev {
+        border-left-color: var(--danger-fg);
+      }
+      .slot .ev b {
+        display: block;
+        font-weight: 600;
+      }
+      .slot .ev span {
+        color: var(--subtle);
+        font-size: 12.5px;
+      }
+
+      .attnlist {
+        list-style: none;
+      }
+      .attn-item {
+        display: grid;
+        grid-template-columns: 14px 1fr auto;
+        gap: 10px;
+        padding: 11px 16px;
+        border-bottom: 1px solid var(--hair);
+        align-items: baseline;
+      }
+      .attn-item:last-child {
+        border-bottom: 0;
+      }
+      .attn-item .dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        position: relative;
+        top: 1px;
+      }
+      .attn-item .dot.danger {
+        background: var(--danger-fg);
+      }
+      .attn-item .dot.warn {
+        background: var(--pending-fg);
+      }
+      .attn-item .w b {
+        display: block;
+        font-weight: 600;
+      }
+      .attn-item .w span {
+        color: var(--subtle);
+        font-size: 12.5px;
+      }
+      .attn-item .act {
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--gold-deep);
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          animation: none !important;
+          transition: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <aside class="side">
+      <div class="brand"><span class="m">M</span><span class="word">MAGNA CARTA</span></div>
+      <nav class="primary" aria-label="Primary">
+        <button class="navitem" aria-current="page">
+          <svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5M5 9.5V21h14V9.5" /></svg>Home
+        </button>
+        <button class="navitem">
+          <svg viewBox="0 0 24 24"><path d="M3 7h6l2 2h10v11H3zM3 7V5h6l2 2" /></svg>Matters<span
+            class="count"
+            >42</span
+          >
+        </button>
+        <button class="navitem">
+          <svg viewBox="0 0 24 24">
+            <rect x="3" y="5" width="18" height="16" rx="1" />
+            <path d="M3 10h18M8 3v4M16 3v4" /></svg
+          >Calendar
+        </button>
+        <button class="navitem">
+          <svg viewBox="0 0 24 24">
+            <circle cx="9" cy="8" r="3.5" />
+            <path
+              d="M3 20c0-3.5 2.5-5.5 6-5.5s6 2 6 5.5M16 4.5a3.5 3.5 0 0 1 0 7M18 14.8c2 .7 3 2.3 3 5.2"
+            /></svg
+          >Contacts
+        </button>
+        <button class="navitem">
+          <svg viewBox="0 0 24 24">
+            <rect x="4" y="4" width="16" height="16" rx="1" />
+            <path d="m8.5 12.5 2.5 2.5 5-5.5" /></svg
+          >Tasks<span class="count">7</span>
+        </button>
+        <div class="navsec caps">Money</div>
+        <button class="navitem">
+          <svg viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="8.5" />
+            <path d="M12 7.5V12l3 2" /></svg
+          >Time
+        </button>
+        <button class="navitem">
+          <svg viewBox="0 0 24 24">
+            <path
+              d="M12 4v3m0 0c-4 0-6 1.5-6 3.5S8.5 14 12 14s6 1.5 6 3.5S16 21 12 21m0-14c2.5 0 4.5.7 5.5 2M12 21c-2.5 0-4.5-.7-5.5-2m5.5 2v-3"
+            /></svg
+          >Trust
+        </button>
+        <button class="navitem">
+          <svg viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6" /></svg
+          >Billing
+        </button>
+        <div class="navsec caps">Firm</div>
+        <button class="navitem">
+          <svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6zM15 3v4h4" /></svg>Documents
+        </button>
+        <button class="navitem">
+          <svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-8M21 20H3" /></svg>Reports
+        </button>
+      </nav>
+      <div class="foot">
+        <button class="navitem">
+          <svg viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="8.5" />
+            <path d="M12 16v-4M12 8.5v.01" /></svg
+          >Resource center
+        </button>
+        <button class="navitem">
+          <svg viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="3" />
+            <path
+              d="M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.4-2.3 1a7 7 0 0 0-2-1.2L14.2 3h-4l-.4 2.7a7 7 0 0 0-2 1.2l-2.3-1-2 3.4 2 1.5A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.3-1a7 7 0 0 0 2 1.2l.4 2.7h4l.4-2.7a7 7 0 0 0 2-1.2l2.3 1 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"
+            /></svg
+          >Settings
+        </button>
+      </div>
+    </aside>
+
+    <header class="top">
+      <button class="search">
+        <svg viewBox="0 0 24 24">
+          <circle cx="11" cy="11" r="6.5" />
+          <path d="m20 20-4.4-4.4" />
+        </svg>
+        Search or jump to anything
+        <span class="k">Ctrl K</span>
+      </button>
+      <div class="right">
+        <button class="btn-new">+ New</button>
+        <button class="timer" title="Running timer — Pemberton v. Hale">
+          <span class="dot"></span><span class="t">0:42:18</span><span class="on">· Pemberton</span>
+        </button>
+        <button class="iconbtn" aria-label="Notifications">
+          <svg viewBox="0 0 24 24">
+            <path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6M10.5 20a2 2 0 0 0 3 0" />
+          </svg>
+        </button>
+        <button class="avatar" aria-label="Account — Trevor Goldsmith">TG</button>
+      </div>
+    </header>
+
+    <main class="main">
+      <div class="greet">
+        <h1>Good afternoon, Trevor</h1>
+        <span class="date">Thursday, July 2, 2026 · 3 events today</span>
+        <span class="daily">
+          <span class="q"
+            >"We will sell to no man, we will not deny or defer to any man either Justice or
+            Right."</span
+          >
+          <cite>Magna Carta, 1297 · ch. XXIX</cite>
+        </span>
+      </div>
+
+      <div class="stats">
+        <div class="stat">
+          <div class="k caps">
+            <svg viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="8.5" />
+              <path d="M12 7.5V12l3 2" /></svg
+            >Billable today
+          </div>
+          <div class="v">3.2<span class="unit">h</span></div>
+          <div class="s">of 6.5h target</div>
+          <div class="bar"><i></i></div>
+        </div>
+        <div class="stat">
+          <div class="k caps">
+            <svg viewBox="0 0 24 24">
+              <rect x="3" y="5" width="18" height="16" rx="1" />
+              <path d="M3 10h18M8 3v4M16 3v4" /></svg
+            >This week
+          </div>
+          <div class="v">22.4<span class="unit">h</span></div>
+          <div class="s">+4.1h vs. last week</div>
+        </div>
+        <div class="stat">
+          <div class="k caps">
+            <svg viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6" /></svg
+            >Unbilled
+          </div>
+          <div class="v">$14,300</div>
+          <div class="s">across 6 matters</div>
+        </div>
+        <button class="stat attn" style="text-align: left">
+          <div class="k caps">
+            <svg viewBox="0 0 24 24"><path d="M12 3 2 21h20zM12 10v5M12 18v.01" /></svg>Needs
+            attention
+          </div>
+          <div class="v">3</div>
+          <div class="s">1 trust · 1 intake · 1 conflict</div>
+        </button>
+      </div>
+
+      <div class="grid">
+        <section>
+          <div class="panel">
+            <div class="ph">
+              <span class="t caps">My tasks</span><a class="more" href="#">All tasks</a>
+            </div>
+            <ul class="tasks">
+              <li class="task">
+                <span
+                  class="box"
+                  role="checkbox"
+                  aria-checked="false"
+                  aria-label="File reply brief"
+                ></span
+                ><span class="what"
+                  ><b>File reply brief</b> <span class="ctx">· State v. Boone</span></span
+                ><span class="when over">Overdue</span>
+              </li>
+              <li class="task">
+                <span
+                  class="box"
+                  role="checkbox"
+                  aria-checked="false"
+                  aria-label="Confirm abatement figure"
+                ></span
+                ><span class="what"
+                  ><b>Confirm abatement figure with bookkeeping</b>
+                  <span class="ctx">· Pemberton v. Hale</span></span
+                ><span class="when today">Today</span>
+              </li>
+              <li class="task">
+                <span
+                  class="box"
+                  role="checkbox"
+                  aria-checked="false"
+                  aria-label="Review Northwind purchase agreement"
+                ></span
+                ><span class="what"
+                  ><b>Review Northwind purchase agreement</b>
+                  <span class="ctx">· Northwind Acquisition</span></span
+                ><span class="when today">Today</span>
+              </li>
+              <li class="task">
+                <span
+                  class="box"
+                  role="checkbox"
+                  aria-checked="false"
+                  aria-label="Call client re mediation prep"
+                ></span
+                ><span class="what"
+                  ><b>Call client about mediation prep</b>
+                  <span class="ctx">· Kline Divorce</span></span
+                ><span class="when">Mon</span>
+              </li>
+              <li class="task">
+                <span
+                  class="box"
+                  role="checkbox"
+                  aria-checked="false"
+                  aria-label="Send engagement letter"
+                ></span
+                ><span class="what"
+                  ><b>Send engagement letter</b>
+                  <span class="ctx">· Vasquez Immigration</span></span
+                ><span class="when">Jul 16</span>
+              </li>
+            </ul>
+          </div>
+
+          <div class="panel">
+            <div class="ph">
+              <span class="t caps">My matters</span
+              ><a class="more" href="/direction-a">All matters</a>
+            </div>
+            <ul class="mine">
+              <li class="mrow">
+                <span class="t"><b>Pemberton v. Hale</b><span class="no">2026-0114</span></span
+                ><span class="upd">Updated 2h ago</span><span class="pill open">Open</span>
+              </li>
+              <li class="mrow">
+                <span class="t"><b>State v. Boone</b><span class="no">2026-0108</span></span
+                ><span class="upd">Updated 5h ago</span><span class="pill open">Open</span>
+              </li>
+              <li class="mrow">
+                <span class="t"><b>Vasquez Immigration</b><span class="no">intake</span></span
+                ><span class="upd">Updated 1d ago</span
+                ><span class="pill prospect">Prospective</span>
+              </li>
+            </ul>
+          </div>
+        </section>
+
+        <aside>
+          <div class="panel">
+            <div class="ph">
+              <span class="t caps">Today</span><a class="more" href="#">Calendar</a>
+            </div>
+            <ul class="sched">
+              <li class="slot">
+                <span class="at">9:30a</span
+                ><span class="ev"><b>Deposition prep</b><span>Pemberton v. Hale · 1h</span></span>
+              </li>
+              <li class="slot">
+                <span class="at">1:00p</span
+                ><span class="ev"
+                  ><b>Client call — K. Doyle</b><span>Doyle v. Meridian · 30m</span></span
+                >
+              </li>
+              <li class="slot deadline">
+                <span class="at">5:00p</span
+                ><span class="ev"
+                  ><b>Discovery cutoff</b><span>Pemberton v. Hale · deadline</span></span
+                >
+              </li>
+            </ul>
+          </div>
+
+          <div class="panel">
+            <div class="ph"><span class="t caps">Needs attention</span></div>
+            <ul class="attnlist">
+              <li class="attn-item">
+                <span class="dot danger"></span
+                ><span class="w"
+                  ><b>Trust balance below client minimum</b
+                  ><span>Estate of Calloway · $300 remaining</span></span
+                ><a class="act" href="#">Review</a>
+              </li>
+              <li class="attn-item">
+                <span class="dot warn"></span
+                ><span class="w"
+                  ><b>New intake awaiting triage</b
+                  ><span>Submitted by front desk · 20m ago</span></span
+                ><a class="act" href="#">Triage</a>
+              </li>
+              <li class="attn-item">
+                <span class="dot warn"></span
+                ><span class="w"
+                  ><b>Conflict check needs review</b
+                  ><span>Northwind Acquisition · 2 possible matches</span></span
+                ><a class="act" href="#">Open</a>
+              </li>
+            </ul>
+          </div>
+        </aside>
+      </div>
+    </main>
+
+    <nav class="lab-switch" aria-label="Design lab switcher">
+      <a href="/">Lab</a><a href="/direction-a">A</a><a href="/direction-b">B</a
+      ><a href="/direction-c">C</a><a href="/home" aria-current="page">Home</a
+      ><a href="/matter">Matter</a>
+    </nav>
+    <style>
+      .lab-switch {
+        position: fixed;
+        right: 14px;
+        bottom: 48px;
+        z-index: 99;
+        display: flex;
+        gap: 2px;
+        padding: 4px;
+        border-radius: 999px;
+        background: #191813;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        box-shadow: 0 4px 16px rgba(20, 18, 10, 0.35);
+      }
+      .lab-switch a {
+        display: grid;
+        place-items: center;
+        min-width: 30px;
+        height: 30px;
+        padding: 0 10px;
+        border-radius: 999px;
+        color: #97937f;
+        text-decoration: none;
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .lab-switch a:hover {
+        color: #e9e7df;
+      }
+      .lab-switch a[aria-current] {
+        background: #23221b;
+        color: #e2c476;
+      }
+    </style>
+    <script>
+      document.addEventListener("keydown", (e) => {
+        if (e.target.tagName === "INPUT") return;
+        const map = {
+          0: "/",
+          1: "/direction-a",
+          2: "/direction-b",
+          3: "/direction-c",
+          4: "/home",
+          5: "/matter",
+        };
+        if (map[e.key]) location.href = map[e.key];
+      });
+    </script>
+  </body>
+</html>

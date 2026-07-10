@@ -1,3 +1,4 @@
+import { execSync } from "node:child_process";
 import { sveltekit } from "@sveltejs/kit/vite";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite-plus";
@@ -6,8 +7,23 @@ import { defineConfig } from "vite-plus";
 // The Tailwind plugin rides the same guard: it scans content relative to the resolved config root, so it only belongs in a real dev/build run. Tailwind before SvelteKit, per the Tailwind v4 SvelteKit guide.
 const runningInPackageDir = process.cwd() === import.meta.dirname;
 
+// Build identity for version tracing (src/lib/build-identity.ts): baked in at build time so
+// every error report says exactly which build produced it. In dev the commit is read once at
+// server start — close enough for tracing, free of per-request cost.
+function gitCommit(): string {
+  try {
+    return execSync("git rev-parse --short HEAD", { encoding: "utf8" }).trim();
+  } catch {
+    return "unknown";
+  }
+}
+
 export default defineConfig({
   plugins: runningInPackageDir ? [tailwindcss(), sveltekit()] : [],
+  define: {
+    __MC_BUILD_COMMIT__: JSON.stringify(runningInPackageDir ? gitCommit() : "unknown"),
+    __MC_BUILD_TIME__: JSON.stringify(new Date().toISOString()),
+  },
   // dev convenience: proxy /api to a running `wrangler dev`
   server: { proxy: { "/api": "http://localhost:8787" } },
 });

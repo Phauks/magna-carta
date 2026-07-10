@@ -16,6 +16,14 @@
     border-radius: var(--mc-radius-md);
     overflow: hidden;
   }
+  /* GEOMETRY PAIRED with the top-bar's palette trigger
+     (packages/design-system/src/lib/components/top-bar/top-bar.css, .mc-top-bar-search): the
+     palette opens anchored exactly over that button, so the input row's block-size, padding,
+     gap, icon size, font-size, and line-height use the SAME tokens as the trigger — change one
+     file and change the other. Geometry only: the palette keeps its own light overlay surface
+     (the colors below), never the trigger's ink fills. The trigger carries a 1px border on all
+     sides; here the host container's border supplies the top/side pixels and the wrapper's
+     divider supplies the bottom one, so the row's outer height still matches. */
   .mc-command-input-wrapper {
     display: flex;
     align-items: center;
@@ -37,10 +45,10 @@
     color: var(--mc-text-default);
     font-family: var(--mc-font-sans);
     font-size: var(--mc-font-size-sm);
-    line-height: var(--mc-leading-normal);
+    line-height: var(--mc-leading-tight);
     border-style: none;
     outline-style: none;
-    padding-block: var(--mc-space-12);
+    padding-block: var(--mc-space-8);
   }
   .mc-command-input::placeholder {
     color: var(--mc-text-muted);

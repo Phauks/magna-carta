@@ -34,7 +34,7 @@ const tailwindMergeWithTokenNamespaces = extendTailwindMerge({
     },
     classGroups: {
       duration: [{ duration: ["instant", "fast", "normal", "slow", "signature"] }],
-      z: [{ z: ["base", "dropdown", "sticky", "overlay", "modal", "toast"] }],
+      z: [{ z: ["base", "dropdown", "sticky", "overlay", "modal", "anchored", "toast"] }],
     },
   },
 });

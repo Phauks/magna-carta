@@ -1,0 +1,49 @@
+@layer components {
+  /*
+   * EmptyState — the archetype state-set's "empty (initial)" pattern (page-archetypes §5): the
+   * heritage moment on a blank surface — the illuminated-M watermark in the palest ink, a plain
+   * statement of what belongs here, and ONE clear primary action. An empty screen is an
+   * invitation to act, not an apology; distinct from "filtered — no results" (which keeps the
+   * toolbar and offers Clear filters instead).
+   */
+  .mc-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--mc-space-8);
+    padding-block: var(--mc-space-64);
+    padding-inline: var(--mc-space-24);
+    text-align: center;
+  }
+  /* The watermark: the blackletter M at display scale in a whisper of ink — ceremonial, not loud.
+     text.subtle is the palest AA-gated text step; the glyph is decorative (aria-hidden). */
+  .mc-empty-state-mark {
+    font-family: var(--mc-font-blackletter);
+    font-size: var(--mc-font-size-3xl);
+    line-height: var(--mc-leading-tight);
+    color: var(--mc-text-subtle);
+    user-select: none;
+  }
+  .mc-empty-state-title {
+    margin: var(--mc-space-0);
+    color: var(--mc-text-default);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-lg);
+    font-weight: var(--mc-weight-semibold);
+  }
+  .mc-empty-state-description {
+    margin: var(--mc-space-0);
+    max-inline-size: var(--mc-size-prose);
+    color: var(--mc-text-muted);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    line-height: var(--mc-leading-normal);
+  }
+  .mc-empty-state-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--mc-space-8);
+    margin-block-start: var(--mc-space-8);
+  }
+}

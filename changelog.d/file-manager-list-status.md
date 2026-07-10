@@ -1,0 +1,5 @@
+---
+category: Added
+---
+
+**Matter file manager — a folder tree read, an upload-status poll, and ingest outcome in the file list.** The file-manager contract now lets a client browse and observe what the backend already stores. `GET /api/v1/folders?matterId=` returns a matter's folder tree in adjacency-list form. `GET /api/v1/uploads/{id}` reports an upload session's progress — how far the direct-to-R2 ceremony got and what ingest decided about the bytes (pending, clean, quarantined, or abandoned), with the quarantine reason when a file was rejected as malware. `files.list` and `files.get` now paint each row from its display version (version number, size, sniffed type, scan verdict, status) in one call with no per-row fan-out to the version history, and `files.list` gains an opt-in `includePendingAndQuarantined` flag that also surfaces a first upload still processing or rejected — so a flagged file says so where the user dropped it, rather than silently never appearing. A rejected row always carries a null `currentVersionId` and cannot be downloaded. The default file listing is unchanged: only files with a committed clean version appear.

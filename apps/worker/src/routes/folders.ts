@@ -9,6 +9,7 @@ import {
   moveFolder,
   renameFolder,
 } from "@magna-carta/file-manager/folder-service";
+import { listFoldersByMatter } from "@magna-carta/file-manager/queries";
 import { FileManagerValidationError } from "@magna-carta/file-manager/validation";
 import type { Context } from "hono";
 import type { Bindings } from "../app.ts";
@@ -54,6 +55,20 @@ const PatchFolderRequest = z
   .openapi("PatchFolderRequest");
 
 const FolderActionAck = z.object({ folderId: z.string() }).openapi("FolderActionAck");
+
+// One node of a matter's folder tree in adjacency-list form: its id, its parent (null at the matter
+// root), and its name. The client assembles the tree from the parent links.
+const FolderSummary = z
+  .object({
+    id: z.string(),
+    parentFolderId: z.string().nullable(),
+    name: z.string(),
+  })
+  .openapi("FolderSummary");
+
+const FolderListResponse = z
+  .object({ data: z.array(FolderSummary) })
+  .openapi("FolderListResponse");
 
 const folderParam = z.object({ id: identifierPathParam("folder", "id") });
 
@@ -111,6 +126,38 @@ function organizeMeta(action: string): RouteMeta {
 const createFolderMeta = organizeMeta("create");
 const patchFolderMeta = organizeMeta("update");
 const deleteFolderMeta = organizeMeta("delete");
+
+// The folder tree is a read: open to any authenticated firm member (permission null — the same
+// matter-reachability posture as files.list; the firm-scoped query against the session firm's isolated
+// database is the wall). resource "matter" because folders are matter-rooted.
+const listFoldersMeta: RouteMeta = {
+  operationId: "folders.list",
+  surface: "app",
+  authenticated: true,
+  permission: null,
+  resource: "matter",
+  audited: false,
+  idempotency: "optional",
+  rateLimit: "default",
+};
+
+const listFoldersRoute = defineOpenAPIRoute(listFoldersMeta, {
+  method: "get",
+  path: "/api/v1/folders",
+  description:
+    "Lists a matter's folder tree in adjacency-list form (each node carries its parent link and " +
+    "name). Folders carry no clean/pending status — every folder in the matter is returned.",
+  request: { query: z.object({ matterId: identifierField("matter") }) },
+  responses: {
+    200: {
+      description: "The matter's folders",
+      content: { "application/json": { schema: FolderListResponse } },
+    },
+    401: authErrors[401],
+    404: authErrors[404],
+    429: authErrors[429],
+  },
+});
 
 const createFolderRoute = defineOpenAPIRoute(createFolderMeta, {
   method: "post",
@@ -209,6 +256,26 @@ function folderErrorResponse(
 }
 
 export function registerFoldersRoutes(app: FoldersApp, chokepoint: Chokepoint): void {
+  // GET /api/v1/folders — list the matter's folder tree
+  app.openapi(
+    { ...listFoldersRoute, middleware: chokepointMiddleware(chokepoint, listFoldersRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { matterId } = c.req.valid("query");
+      const folders = await listFoldersByMatter(firm.firmDatabase, matterId);
+      return c.json(
+        {
+          data: folders.map((folder) => ({
+            id: folder.id,
+            parentFolderId: folder.parentFolderId,
+            name: folder.name,
+          })),
+        } as z.infer<typeof FolderListResponse>,
+        200,
+      );
+    },
+  );
+
   // POST /api/v1/folders — create
   app.openapi(
     {

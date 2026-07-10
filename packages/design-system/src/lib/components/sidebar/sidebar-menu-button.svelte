@@ -77,7 +77,9 @@
   {/if}
 {/snippet}
 
-{#if sidebar.collapsed && tooltip}
+{#if sidebar.collapsed && !sidebar.peeking && tooltip}
+  <!-- Only the resting icon rail needs the tooltip; while it is floated open on hover the labels
+       are visible, so a hover tooltip would double the name. -->
   <Tooltip.Root>
     <TooltipPrimitive.Trigger>
       {#snippet child({ props })}

@@ -158,7 +158,7 @@ Every backend/headless capability that shipped ahead of its UI, in the order the
 
 **Stage 3 — tools area (cheapest real utility; most test-unblocking)**
 
-- **Tools shell** — the Tools nav section, the `id → component` map, integration `Dispatch`/health branching; role-seeding of the remaining `tools:` permissions lands here.
+- **Tools shell** — the Tools nav section and the `/tools` listing page have landed with the app shell: the catalog grouped by subject, rendered as tiles or a dense list (a persisted per-member choice), every entry badged with its maturity stage and inert until its own page exists. What remains on this line: the `id → component` map, integration `Dispatch`/health branching, and role-seeding of the remaining `tools:` permissions.
 - **First tool widgets (backends done + tested):** Metadata Inspector & Scrubber (upload + findings + scrub options + download), File Hash & Integrity, File Type Verifier, the network speed test (`@cloudflare/speedtest`), the firm-usage snapshot view.
 - **AI-text detection UI** — band-not-proof contract (the numeric score lives under `provenance`; never a "% AI" headline). _Coordinate: its vendor adapter is still on the backend queue._
 

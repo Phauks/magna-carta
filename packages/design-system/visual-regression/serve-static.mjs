@@ -2,7 +2,7 @@
 // built catalog) over http on 127.0.0.1 so iframe.html can fetch its module scripts, index.json
 // and fonts (file:// navigation breaks those same-origin fetches). Launched and torn down by
 // Playwright's webServer (./playwright.config.ts). Zero new dependencies by design — same
-// node:http pattern as the CSP spike's strict server (test/csp-spike/run-csp-spike.mjs).
+// node:http pattern as test/csp-spike/run-csp-spike.mjs (the strict-CSP probe server).
 import { existsSync, statSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import http from "node:http";
