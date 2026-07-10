@@ -33,6 +33,35 @@ choice behind that seam — nothing to rip out later.
    ephemeral `FileSource` swapped in once its scratch backend exists; until then its gaps are typed absence,
    not fixtures.
 
+## Running locally
+
+Stand up real seeded data and sign in — the whole loop is three steps:
+
+1. **Start the local app** (Miniflare-backed D1/R2/Queues):
+
+   ```
+   vp run worker-dev
+   ```
+
+2. **Seed the dev firm** (in a second terminal) — provisions a firm, an owner user, a matter, two
+   folders, and a handful of files (including a re-scan-flagged one and a quarantined one), then
+   prints the credentials:
+
+   ```
+   pnpm run seed-dev-firm
+   ```
+
+   The command calls the development-only seed route `POST /api/__dev/seed`
+   (`apps/worker/src/routes/dev-seed.ts`). It is gated exactly like the dev R2 upload route — it
+   serves only when the real R2 S3 credentials are absent, so it is a bare 404 in production and is
+   never in the OpenAPI contract. Re-running is idempotent (it resumes the same tenant). Override the
+   Worker URL with `WORKER_URL=…` if it is not on the wrangler default (`http://127.0.0.1:8787`).
+
+3. **Sign in.** Open the app, land on `/login`, and enter the printed credentials
+   (`owner@dev.magnacarta.test` / `local-dev-password`). The `(app)` route group's `+layout.ts` guard
+   sends unauthenticated visitors to `/login`; on success Better Auth sets the session cookie and the
+   typed API calls carry it instead of 401-ing.
+
 ## Files expected to be touched
 
 - `apps/web/src/lib/` — the multi-view shell (regions record, view registry, shared selection), the file

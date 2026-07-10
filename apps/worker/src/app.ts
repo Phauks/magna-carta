@@ -64,6 +64,7 @@ import { registerSupportSessionsRoute } from "./routes/support-sessions.ts";
 import { registerSupportDiagnosticsRoute } from "./routes/support-diagnostics.ts";
 import { registerDevWebToolsDemoRoute } from "./routes/dev-web-tools-demo.ts";
 import { registerDevR2UploadRoute } from "./routes/dev-r2-upload.ts";
+import { registerDevSeedRoute } from "./routes/dev-seed.ts";
 import { registerMeRoute } from "./routes/me.ts";
 import { registerMembersRoute } from "./routes/members.ts";
 import { registerReleaseChannelRoute } from "./routes/release-channel.ts";
@@ -540,6 +541,13 @@ export function createApp(options: CreateAppOptions = {}) {
   // in production. Behind the chokepoint (session -> files:upload) and validates the object key against
   // the firm's upload session. A bare route under /api/__dev, so it never enters the OpenAPI contract.
   registerDevR2UploadRoute(app, chokepoint);
+
+  // The development-only firm seeder: stands up a complete signed-in-ready tenant (firm + owner user +
+  // matter + files) so a developer can log in and see real data under `wrangler dev`. Gated on the same
+  // real-credential absence as the dev upload route, so it answers a bare 404 in production. Outside the
+  // chokepoint (it bootstraps the first user) and a bare route under /api/__dev, so it never enters the
+  // OpenAPI contract.
+  registerDevSeedRoute(app);
 
   // Everything not handled above falls through to the static-asset SPA (Workers Static Assets binding).
   app.get("*", (c) => c.env.ASSETS.fetch(c.req.raw));
