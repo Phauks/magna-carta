@@ -4,6 +4,12 @@
 //! rewrites one, and a page it declines is reported as declined rather than as a
 //! page that happened to contain no words.
 
+// This operation is exercised by its own tests but is not yet registered in the
+// corpus runner: unlike the model-free forms and surgery operations, it needs a
+// loaded recognition model, so wiring it into `validate_mode` waits on a model
+// being provisioned to that path. The seam is built and tested ahead of that.
+#![allow(dead_code)]
+
 use ocr_core::Recognizer;
 
 use crate::validate::operation::{OperationVerdict, Outcome, Safety, ValidationOperation};

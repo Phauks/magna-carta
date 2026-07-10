@@ -1,9 +1,9 @@
 #[cfg(target_arch = "wasm32")]
 mod wasm;
 
+mod guard;
 mod standard_fonts;
 mod standard_fonts_data;
-mod guard;
 
 mod forms;
 pub use forms::{
@@ -224,6 +224,34 @@ impl Document {
             .map(|g| crate::detect::to_display_rect(g.bbox, obs.height_pt))
             .collect())
     }
+
+    /// Every non-whitespace text glyph on page `index`, carrying both its recognized
+    /// text and its bounding rectangle, in paint order. The same observation
+    /// `page_text_rects` already runs -- this attaches the text `page_text_rects`
+    /// discards, so a caller with a born-digital document can use its own text layer
+    /// as ground truth without re-deriving glyph positions from scratch.
+    /// Returns an empty vector for a page with no visible text; `PageOutOfRange`
+    /// if the page cannot be observed.
+    pub fn page_text_glyphs(&self, index: usize) -> Result<Vec<TextGlyph>, PdfError> {
+        let obs = crate::textpos::observe_page(&self.pdf, index).ok_or(PdfError::PageOutOfRange)?;
+        Ok(obs
+            .glyphs
+            .iter()
+            .filter(|g| !crate::redact::is_whitespace_glyph(&g.text))
+            .map(|g| TextGlyph {
+                text: g.text.clone(),
+                rect: crate::detect::to_display_rect(g.bbox, obs.height_pt),
+            })
+            .collect())
+    }
+}
+
+/// One glyph's recognized text and its bounding rectangle, as returned by
+/// [`Document::page_text_glyphs`].
+#[derive(Debug, Clone)]
+pub struct TextGlyph {
+    pub text: String,
+    pub rect: Rect,
 }
 
 #[cfg(test)]
@@ -271,6 +299,28 @@ mod tests {
     }
 
     #[test]
+    fn page_text_glyphs_recovers_the_visible_text_and_a_rect_per_glyph() {
+        let doc = Document::load(include_bytes!("../tests/fixtures/hello.pdf").to_vec()).unwrap();
+        let glyphs = doc.page_text_glyphs(0).unwrap();
+        assert!(!glyphs.is_empty(), "hello.pdf page 0 has visible text");
+        let recovered: String = glyphs.iter().map(|g| g.text.as_str()).collect();
+        assert!(
+            recovered.contains("Hello"),
+            "recovered text was {recovered:?}"
+        );
+        // Every glyph carries a non-degenerate rect in the same frame page_text_rects uses.
+        assert!(glyphs
+            .iter()
+            .any(|g| g.rect.x1 > g.rect.x0 && g.rect.y1 > g.rect.y0));
+    }
+
+    #[test]
+    fn page_text_glyphs_empty_for_blank_page() {
+        let doc = Document::load(blank()).unwrap();
+        assert!(doc.page_text_glyphs(0).unwrap().is_empty());
+    }
+
+    #[test]
     fn renders_rgba_at_dpi() {
         let doc = Document::load(blank()).unwrap();
         let page = doc.render_page(0, 72.0, false).unwrap();
@@ -304,7 +354,10 @@ mod tests {
         let big = vec![0u8; limits.max_input_bytes + 1];
         // Document doesn't implement PartialEq/Debug (it wraps an opaque parser type),
         // so use matches! rather than assert_eq! — same pattern as load_rejects_oversize_input.
-        assert!(matches!(Document::load_protected(big, "pw"), Err(SecureError::Rejected)));
+        assert!(matches!(
+            Document::load_protected(big, "pw"),
+            Err(SecureError::Rejected)
+        ));
     }
 
     #[test]
