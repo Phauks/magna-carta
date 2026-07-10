@@ -69,6 +69,14 @@ const NON_MUTATING_POST_ALLOW_LIST: Record<string, string> = {
     "Pure computation over the streamed request body — computes five digests in one pass; nothing is stored, no firm data is written.",
   "fileType.verify":
     "Pure classification over the uploaded bytes — identifies the true content type (raw facts from the container, verdict app-side); nothing is stored, no firm data is written.",
+  "fileRepair.diagnose":
+    "Pure diagnosis over the uploaded bytes — reports detected format, corruption, and recoverability; nothing is stored, no firm data is written. The persisting attach variants are separate audited routes.",
+  "fileRepair.repair":
+    "Pure reconstruction over the uploaded bytes — returns the repaired copy in-process; nothing is stored, no firm data is written. The persisting attach variant is a separate audited route.",
+  "fileRepair.carve":
+    "Pure carving over the uploaded bytes — returns recovered embedded files in-process; nothing is stored, no firm data is written. The persisting attach variant is a separate audited route.",
+  "ocr.recognize":
+    "Pure recognition over the uploaded bytes — returns per-page text, word boxes, and confidence; nothing is stored, no firm data is written.",
   "aiDetection.detect":
     "Analysis POST: sends pasted text to the platform-managed detector and returns a likelihood band. The only write is one incidental ai_detection_usage meter row (telemetry — the accountability record for the egress), not an auditable firm-domain mutation; auditing every detection would flood audit_log.",
 };
@@ -576,6 +584,11 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "downloads.zip",
       "fileIntegrity.hash",
       "fileIntegrity.verify",
+      "fileRepair.carve",
+      "fileRepair.carveAttach",
+      "fileRepair.diagnose",
+      "fileRepair.repair",
+      "fileRepair.repairAttach",
       "fileType.verify",
       "files.delete",
       "files.download",
@@ -627,6 +640,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "numbering.get",
       "numbering.preview",
       "numbering.set",
+      "ocr.recognize",
       "platform.setFirmReleaseChannel",
       "platformStatus.clearComponentOverride",
       "platformStatus.declareEvent",
