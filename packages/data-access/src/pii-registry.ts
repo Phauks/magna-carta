@@ -139,6 +139,9 @@ export const NO_PII_TABLES: readonly string[] = [
   // file-version metadata (r2_key, hashes, status) — no personal data of its own; the document's
   // matter-corpus retention is expressed by the file entry
   "file_version",
+  // A machine-reconstruction record keyed by file_version_id (operation, loss manifest, media type) —
+  // file-lifecycle bookkeeping with no data-subject column, the same class as file_version above.
+  "file_repair_provenance",
   // Per-firm config — key/value settings; a user-scoped row is application preference data, not the
   // user's own identity/activity PII.
   "setting",
