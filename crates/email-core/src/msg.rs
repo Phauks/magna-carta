@@ -18,6 +18,7 @@ use cfb::CompoundFile;
 use mail_parser::MessageParser;
 
 use crate::error::EmailError;
+use crate::limits::Limits;
 use crate::model::{
     Address, Disposition, IntegrityFacts, MessageIdentifier, ParsedMessage, PartDescriptor,
     PartLocator, SourceFormat,
@@ -64,6 +65,16 @@ pub fn open_compound_file(bytes: &[u8]) -> Result<CompoundFile<Cursor<&[u8]>>, E
 /// sized by an attacker-declared length, no `unwrap`/`expect`/`panic` touches
 /// input-derived data. Every malformed structure becomes [`EmailError::Malformed`].
 pub fn parse_msg(bytes: &[u8]) -> Result<ParsedMessage, EmailError> {
+    parse_msg_with_limits(bytes, &Limits::default())
+}
+
+/// The `.msg` lane with explicit caps. The embedding-depth cap is honored from
+/// `limits` rather than a hardcoded constant, so the whole engine shares one
+/// embedded-message bound; the input-size cap is checked before the container opens.
+pub fn parse_msg_with_limits(bytes: &[u8], limits: &Limits) -> Result<ParsedMessage, EmailError> {
+    if bytes.len() > limits.max_input_bytes {
+        return Err(EmailError::LimitExceeded);
+    }
     let mut compound = open_compound_file(bytes)?;
     // Walk the whole directory tree once into owned paths. `cfb`'s walk is
     // bounds-checked and cycle-guarded, and collecting it up front releases the
@@ -76,11 +87,18 @@ pub fn parse_msg(bytes: &[u8]) -> Result<ParsedMessage, EmailError> {
             length: entry.len(),
         })
         .collect();
-    read_message(&mut compound, &nodes, Path::new("/"), HEADER_TOP_LEVEL, 0)
+    read_message(
+        &mut compound,
+        &nodes,
+        Path::new("/"),
+        HEADER_TOP_LEVEL,
+        0,
+        limits,
+    )
 }
 
 /// The container this decoder runs against: an in-memory cursor over borrowed input.
-type Msg<'a> = CompoundFile<Cursor<&'a [u8]>>;
+pub(crate) type Msg<'a> = CompoundFile<Cursor<&'a [u8]>>;
 
 /// One directory entry, captured as owned data so reading a stream (which needs a
 /// mutable borrow of the container) does not conflict with tree traversal.
@@ -156,25 +174,28 @@ const HEADER_SUBOBJECT: usize = 8;
 /// property read into an unbounded allocation.
 const MAX_PROPERTY_STREAM_BYTES: u64 = 64 * 1024 * 1024;
 
-/// An attachment can itself be an embedded `.msg`, which can embed another, without
-/// limit. This engine runs where the stack cannot unwind, so an over-deep chain is a
-/// stack-exhaustion bomb rather than real correspondence: a forwarded-as-attachment
-/// thread is a handful of levels, never dozens. Descending past this bound is refused
-/// with [`EmailError::LimitExceeded`]. (Breadth caps — total part/recipient counts —
-/// are a separate concern; only the recursion this decoder introduces is bounded here.)
-const MAX_EMBEDDED_MESSAGE_DEPTH: usize = 16;
-
 /// Parse the message object rooted at `prefix` (the container root for a top-level
 /// `.msg`, or an embedded-message sub-storage on a recursive call). `header_size` is
 /// the property-stream header for this object class; `depth` counts embedding.
+///
+/// The embedding-depth bound comes from [`Limits::max_embedded_message_depth`] so the
+/// `.msg` lane and the `.eml` lane share one embedded-message cap rather than each
+/// carrying its own constant. It matters because an attachment can itself be an
+/// embedded `.msg`, which can embed another without limit: this engine runs where the
+/// stack cannot unwind, so an over-deep chain is a stack-exhaustion bomb rather than
+/// real correspondence (a forwarded-as-attachment thread is a handful of levels, never
+/// dozens). Descending past the bound is refused with [`EmailError::LimitExceeded`].
+/// Breadth caps — total part and recipient counts — are a separate concern; only the
+/// recursion this decoder introduces is bounded here.
 fn read_message(
     compound: &mut Msg,
     nodes: &[Node],
     prefix: &Path,
     header_size: usize,
     depth: usize,
+    limits: &Limits,
 ) -> Result<ParsedMessage, EmailError> {
-    if depth > MAX_EMBEDDED_MESSAGE_DEPTH {
+    if depth > limits.max_embedded_message_depth {
         return Err(EmailError::LimitExceeded);
     }
 
@@ -217,7 +238,7 @@ fn read_message(
     });
 
     let (to, cc, bcc) = read_recipients(compound, nodes, prefix)?;
-    let parts = read_attachments(compound, nodes, prefix, depth)?;
+    let parts = read_attachments(compound, nodes, prefix, depth, limits)?;
 
     // Header provenance is load-bearing. A `.msg` carries RFC 5322 headers only when
     // PidTagTransportMessageHeaders survived export; when it did, its Message-ID is a
@@ -316,13 +337,18 @@ fn read_recipients(
 }
 
 /// Attachments live in `__attach_version1.0_#XXXXXXXX` sub-storages. Each becomes a
-/// [`PartDescriptor`] pointing back at its storage — never at an input range, since a
-/// `.msg` part's bytes are reassembled from scattered sectors, not a span of the input.
+/// [`PartDescriptor`] located by a named stream — never by an input range, since a
+/// `.msg` part's bytes are reassembled from scattered sectors, not a span of the
+/// input. The locator names the attachment-data stream itself (`__substg1.0_37010102`)
+/// so `extract_part` can re-open the container and read exactly those bytes; an
+/// embedded-message attachment, which has no flat data stream, is located by its
+/// storage instead (its bytes are a nested message, not a materializable blob).
 fn read_attachments(
     compound: &mut Msg,
     nodes: &[Node],
     prefix: &Path,
     depth: usize,
+    limits: &Limits,
 ) -> Result<Vec<PartDescriptor>, EmailError> {
     let mut parts = Vec::new();
 
@@ -336,9 +362,15 @@ fn read_attachments(
         };
         let media_type = read_string(compound, &substreams, PID_ATTACH_MIME_TAG)?;
         let content_identifier = read_string(compound, &substreams, PID_ATTACH_CONTENT_ID)?;
-        // Size comes from the directory-recorded stream length, not from reading the
-        // payload: a part is described here, materialized only on demand.
-        let size = substream_length(&substreams, PID_ATTACH_DATA, PTYPE_BINARY).unwrap_or(0);
+        // The data stream carries the payload. Its directory-recorded length is the
+        // part size (a part is described here, materialized only on demand), and its
+        // path is the locator so extraction reads the payload stream directly.
+        let data_stream = find_substream(&substreams, PID_ATTACH_DATA, PTYPE_BINARY);
+        let size = data_stream.map(|stream| stream.length).unwrap_or(0);
+        let locator_name = match data_stream {
+            Some(stream) => storage_locator_name(&stream.path),
+            None => storage_locator_name(&storage),
+        };
         let is_embedded_message =
             fixed_int32(&fixed, PID_ATTACH_METHOD) == Some(ATTACH_METHOD_EMBEDDED_MESSAGE);
         let disposition = if content_identifier.is_some() {
@@ -353,9 +385,7 @@ fn read_attachments(
             content_identifier,
             disposition,
             size: clamp_to_usize(size),
-            locator: PartLocator::MapiStream {
-                name: storage_locator_name(&storage),
-            },
+            locator: PartLocator::MapiStream { name: locator_name },
             is_embedded_message,
         });
 
@@ -371,6 +401,7 @@ fn read_attachments(
                 &embedded,
                 HEADER_EMBEDDED_MESSAGE,
                 depth + 1,
+                limits,
             )?;
         }
     }
@@ -507,10 +538,6 @@ fn find_substream(
         .find(|stream| stream.id == property_id && stream.property_type == property_type)
 }
 
-fn substream_length(substreams: &[SubStream], property_id: u16, property_type: u16) -> Option<u64> {
-    find_substream(substreams, property_id, property_type).map(|stream| stream.length)
-}
-
 /// Read the fixed-length properties out of the `__properties_version1.0` stream of
 /// the object at `prefix`, if it has one. Absence is not an error.
 fn read_fixed_properties(
@@ -581,7 +608,10 @@ fn fixed_filetime_iso(properties: &[FixedProperty], property_id: u16) -> Option<
 /// Read a stream fully but bounded. The buffer grows only as real bytes arrive
 /// (never pre-sized from a declared length), and the read is clamped so a crafted
 /// directory entry cannot turn this into an unbounded allocation.
-fn read_stream_bounded(compound: &mut Msg, path: &Path) -> Result<Vec<u8>, EmailError> {
+///
+/// Kept `pub(crate)` so on-demand part extraction reuses this exact bounded read
+/// rather than opening a second, unbounded path to the same streams.
+pub(crate) fn read_stream_bounded(compound: &mut Msg, path: &Path) -> Result<Vec<u8>, EmailError> {
     let stream = compound
         .open_stream(path)
         .map_err(|_| EmailError::Malformed)?;
@@ -1238,11 +1268,64 @@ mod mapi_tests {
     }
 
     /// A pathological embedding chain is refused, not run until the stack aborts the
-    /// isolate. Deeper than the bound yields `LimitExceeded`.
+    /// isolate. Deeper than the shared embedded-message bound yields `LimitExceeded`.
     #[test]
     fn a_deep_embedding_chain_is_refused() {
-        let bytes = deeply_nested_embedded(MAX_EMBEDDED_MESSAGE_DEPTH + 2);
+        let bound = Limits::default().max_embedded_message_depth;
+        let bytes = deeply_nested_embedded(bound + 2);
         assert!(matches!(parse_msg(&bytes), Err(EmailError::LimitExceeded)));
+    }
+
+    /// A `.msg` attachment's bytes live in a compound-file data stream, not a span of
+    /// the input, so `extract_part` must re-open the container and read the named
+    /// stream. What comes back is exactly the payload written into the attachment-data
+    /// stream — the proof that two-phase extraction spans containers, not just the
+    /// `.eml` input-range case.
+    #[test]
+    fn extracting_a_msg_attachment_reads_its_data_stream_through_the_bounded_reader() {
+        let attach = "/__attach_version1.0_#00000000";
+        let payload: &[u8] = b"%PDF-1.4 engagement letter payload bytes";
+        let bytes = MsgBuilder::new()
+            .substg(
+                attach,
+                PID_ATTACH_LONG_FILENAME,
+                PTYPE_UNICODE,
+                utf16le("engagement-letter.pdf"),
+            )
+            .substg(attach, PID_ATTACH_DATA, PTYPE_BINARY, payload.to_vec())
+            .build();
+
+        let message = parse_msg(&bytes).expect("parses");
+        let part = &message.parts[0];
+        assert!(matches!(&part.locator, PartLocator::MapiStream { .. }));
+        assert_eq!(part.size, payload.len());
+
+        let extracted = crate::extract_part(&bytes, part).expect("the .msg part extracts");
+        assert_eq!(extracted, payload);
+    }
+
+    /// A descriptor naming a stream that is not in the container (a stale or foreign
+    /// locator) is a not-found, never a container-parse leak or a panic.
+    #[test]
+    fn extracting_a_missing_msg_stream_is_part_not_found() {
+        let bytes = MsgBuilder::new()
+            .substg("", PID_SUBJECT, PTYPE_UNICODE, utf16le("No attachments"))
+            .build();
+        let phantom = PartDescriptor {
+            filename: None,
+            media_type: None,
+            content_identifier: None,
+            disposition: Disposition::Attachment,
+            size: 0,
+            locator: PartLocator::MapiStream {
+                name: "/__attach_version1.0_#00000000/__substg1.0_37010102".to_owned(),
+            },
+            is_embedded_message: false,
+        };
+        assert_eq!(
+            crate::extract_part(&bytes, &phantom),
+            Err(EmailError::PartNotFound)
+        );
     }
 
     /// An odd-length UTF-16 property is not a whole sequence of 16-bit units. It must

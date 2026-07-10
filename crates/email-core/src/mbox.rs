@@ -14,6 +14,7 @@
 //! propagated to abort the whole mbox.
 
 use crate::eml::parse_eml_with_source_format;
+use crate::limits::Limits;
 use crate::model::{ParsedMessage, SourceFormat};
 use crate::EmailError;
 
@@ -71,10 +72,55 @@ pub struct MboxParseOutcome {
 /// against its own index, never discarding the messages already recovered from its
 /// well-formed siblings.
 pub fn parse_mbox(bytes: &[u8]) -> MboxParseOutcome {
+    parse_mbox_with_limits(bytes, &Limits::default())
+}
+
+/// The mbox lane with explicit caps. Two bounds guard an mbox archive: the member
+/// count and each member's byte length.
+///
+/// An mbox legitimately runs to many gigabytes, so the single-message input cap does
+/// not apply to the whole archive; the per-member byte cap bounds any one message the
+/// `.eml` lane will parse, and the member-count cap bounds how many it will attempt.
+///
+/// A member count over the cap refuses the whole archive before parsing anything —
+/// every member is recorded as a `LimitExceeded` failure and no message is returned,
+/// because a mailbox that large is a denial-of-service shape, not correspondence to
+/// recover piecemeal. A single over-long member, by contrast, is a local fault: it
+/// alone becomes a `LimitExceeded` failure while its well-formed siblings still parse.
+pub fn parse_mbox_with_limits(bytes: &[u8], limits: &Limits) -> MboxParseOutcome {
+    let ranges = mbox_member_ranges(bytes);
+
+    if ranges.len() > limits.max_mbox_member_count {
+        let failures = ranges
+            .into_iter()
+            .enumerate()
+            .map(|(index, range)| MemberFailure {
+                index,
+                byte_range: range,
+                error: EmailError::LimitExceeded,
+            })
+            .collect();
+        return MboxParseOutcome {
+            messages: Vec::new(),
+            failures,
+        };
+    }
+
     let mut messages = Vec::new();
     let mut failures = Vec::new();
 
-    for (index, range) in mbox_member_ranges(bytes).into_iter().enumerate() {
+    for (index, range) in ranges.into_iter().enumerate() {
+        // A member longer than the per-member cap is refused without reading it into
+        // the parser; it becomes a failure of its own, leaving its siblings untouched.
+        if range.len() > limits.max_mbox_member_bytes {
+            failures.push(MemberFailure {
+                index,
+                byte_range: range,
+                error: EmailError::LimitExceeded,
+            });
+            continue;
+        }
+
         // Skip the separator line itself; the RFC 5322 message starts after it.
         let member = &bytes[range.clone()];
         let body_start = member
@@ -83,7 +129,8 @@ pub fn parse_mbox(bytes: &[u8]) -> MboxParseOutcome {
             .map(|newline| newline + 1)
             .unwrap_or(member.len());
 
-        match parse_eml_with_source_format(&member[body_start..], SourceFormat::MboxMember) {
+        match parse_eml_with_source_format(&member[body_start..], SourceFormat::MboxMember, limits)
+        {
             Ok(message) => messages.push(message),
             Err(error) => failures.push(MemberFailure {
                 index,

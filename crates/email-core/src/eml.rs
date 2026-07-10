@@ -1,24 +1,37 @@
 //! The RFC 5322 / MIME lane.
 
+use crate::limits::Limits;
 use crate::model::{
     Address, Disposition, IntegrityFacts, MessageIdentifier, ParsedMessage, PartDescriptor,
     PartLocator, SourceFormat,
 };
 use crate::EmailError;
-use mail_parser::{MessageParser, MimeHeaders};
+use mail_parser::{MessageParser, MimeHeaders, PartType};
 
 pub fn parse_eml(bytes: &[u8]) -> Result<ParsedMessage, EmailError> {
-    parse_eml_with_source_format(bytes, SourceFormat::Eml)
+    parse_eml_with_limits(bytes, &Limits::default())
+}
+
+/// The `.eml` lane with explicit caps. The input-size cap is checked before the
+/// parser runs; the structural caps are checked while walking the parsed tree.
+pub fn parse_eml_with_limits(bytes: &[u8], limits: &Limits) -> Result<ParsedMessage, EmailError> {
+    if bytes.len() > limits.max_input_bytes {
+        return Err(EmailError::LimitExceeded);
+    }
+    parse_eml_with_source_format(bytes, SourceFormat::Eml, limits)
 }
 
 /// Shared by the `.eml` lane and each mbox member so both apply the same
-/// not-a-message guard and build records through the same path: an mbox member
-/// carrying junk bytes must be rejected exactly as those bytes would be rejected
-/// standalone, not silently recorded because it happened to arrive framed inside a
-/// mailbox rather than as its own file.
+/// not-a-message guard, structural caps, and record path: an mbox member carrying
+/// junk bytes must be rejected exactly as those bytes would be rejected standalone,
+/// not silently recorded because it happened to arrive framed inside a mailbox
+/// rather than as its own file. The whole-input byte cap is not applied here — an
+/// mbox member is bounded by the mbox lane's own per-member cap, not the
+/// single-message input cap — so this operates on already-size-checked bytes.
 pub(crate) fn parse_eml_with_source_format(
     bytes: &[u8],
     source_format: SourceFormat,
+    limits: &Limits,
 ) -> Result<ParsedMessage, EmailError> {
     let message = MessageParser::default()
         .parse(bytes)
@@ -47,7 +60,92 @@ pub(crate) fn parse_eml_with_source_format(
         return Err(EmailError::Malformed);
     }
 
+    enforce_structural_limits(&message, limits)?;
+
     Ok(from_mail_parser_message(&message, source_format))
+}
+
+/// Reject a message whose MIME structure exceeds the caps before any consumer walks
+/// it. Three bounds are enforced together over the parsed tree: total part count,
+/// multipart nesting depth, and `message/rfc822` embedding depth.
+///
+/// The walk is depth-first and returns the moment a depth cap is passed, so its own
+/// recursion never descends deeper than the cap — a nesting bomb is refused at the
+/// bound, not walked to the bottom. `mail_parser` itself parses multiparts
+/// iteratively and stops descending into embedded messages after a few levels, so
+/// the tree handed here is already finite; these caps make the acceptance policy
+/// this engine's own rather than a byproduct of the parser's internals.
+fn enforce_structural_limits(
+    message: &mail_parser::Message<'_>,
+    limits: &Limits,
+) -> Result<(), EmailError> {
+    let mut total_parts: usize = 0;
+    enforce_message_limits(message, 0, limits, &mut total_parts)
+}
+
+/// Enforce the caps for one `Message` node (the top message or a nested
+/// `message/rfc822`). `embedded_depth` counts how many message boundaries have been
+/// crossed to reach this node.
+fn enforce_message_limits(
+    message: &mail_parser::Message<'_>,
+    embedded_depth: usize,
+    limits: &Limits,
+    total_parts: &mut usize,
+) -> Result<(), EmailError> {
+    if embedded_depth > limits.max_embedded_message_depth {
+        return Err(EmailError::LimitExceeded);
+    }
+    *total_parts = total_parts.saturating_add(message.parts.len());
+    if *total_parts > limits.max_part_count {
+        return Err(EmailError::LimitExceeded);
+    }
+    if !message.parts.is_empty() {
+        enforce_part_limits(message, 0, 1, embedded_depth, limits, total_parts)?;
+    }
+    Ok(())
+}
+
+/// Walk one part of `message` (index `part_index`) at MIME nesting depth `mime_depth`,
+/// following multipart children and descending into embedded messages. Returns
+/// `LimitExceeded` before recursing past either depth cap.
+fn enforce_part_limits(
+    message: &mail_parser::Message<'_>,
+    part_index: usize,
+    mime_depth: usize,
+    embedded_depth: usize,
+    limits: &Limits,
+    total_parts: &mut usize,
+) -> Result<(), EmailError> {
+    if mime_depth > limits.max_mime_depth {
+        return Err(EmailError::LimitExceeded);
+    }
+    // A crafted index that does not resolve is treated as a leaf rather than an
+    // index panic; `mail_parser` builds this tree so it always resolves, but the
+    // bounds check keeps this total on any input.
+    let Some(part) = message.parts.get(part_index) else {
+        return Ok(());
+    };
+    match &part.body {
+        PartType::Multipart(children) => {
+            for &child in children {
+                enforce_part_limits(
+                    message,
+                    child as usize,
+                    mime_depth + 1,
+                    embedded_depth,
+                    limits,
+                    total_parts,
+                )?;
+            }
+        }
+        // An embedded `message/rfc822` is its own message with its own part tree;
+        // MIME depth restarts inside it while the embedding depth advances.
+        PartType::Message(embedded) => {
+            enforce_message_limits(embedded, embedded_depth + 1, limits, total_parts)?;
+        }
+        _ => {}
+    }
+    Ok(())
 }
 
 /// A field name recoverable mail actually carries: one or more printable
