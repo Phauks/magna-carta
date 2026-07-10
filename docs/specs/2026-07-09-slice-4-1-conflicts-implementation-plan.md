@@ -16,7 +16,7 @@
 - **Golden rule 7 — no shell for file operations.** Dedicated file tools only.
 - **Every mutation writes an `audit_log` row in the same atomic batch**, via a `conflictsAuditStatement` helper mirroring `directoryAuditStatement` (`packages/directory/src/audit.ts:26`).
 - **All writes compose the atomic batch.** Never raw D1 outside a statement builder. D1 has no interactive transactions — read everything you need *before* composing the batch; never plan logic between statements.
-- **Idempotency on all write routes**, threaded through a `runConflictsEffect` mirroring `runDirectoryEffect` (`packages/directory/src/run-directory-effect.ts:50`).
+- **Idempotency on all write routes**, threaded through a `runConflictsEffect` that delegates to the shared `runDomainEffect` (Task 9B) — never a re-copied seam.
 - **No plaintext identifiers ever enter the log.** Identifiers are recorded by `directory_identifier.id` reference only.
 - **Soft-delete never applies here.** The three conflicts tables are append-only: no `UPDATE`, no `DELETE`, ever.
 - **Test determinism:** inject `clock` and `seededRandomSource`. Note `readEdges` (`packages/directory/src/edges.ts:127`) reads an ambient `new Date()`; the expansion code must not depend on that for determinism — see Task 7.
@@ -1711,6 +1711,327 @@ EOF
 
 ---
 
+### Task 9B: Shared domain-effect seam
+
+**Files:**
+- Create: `packages/data-access/src/run-domain-effect.ts`
+- Modify: `packages/data-access/package.json` (add the `./run-domain-effect` export)
+- Modify: `packages/directory/src/run-directory-effect.ts` (delegate to the shared seam)
+- Modify: `packages/matters/src/matter-service.ts` (delegate `runMatterEffect` to the shared seam; leave `runMatterDraw` untouched)
+- Test: `packages/data-access/test/run-domain-effect.test.ts`
+
+**Interfaces:**
+- Consumes: `runIdempotentEffect` + `IdempotentEffectResult` (`packages/data-access/src/run-idempotent-effect.ts`), `canonicalJsonStringify` (`@magna-carta/data-access/canonical`).
+- Produces:
+  - `interface DomainIdempotencyContext { readonly key: string | undefined; readonly fingerprint: string; readonly newRecordId?: () => IdempotencyRecordId }`
+  - `class IdempotencyConflictError extends Error { readonly domain: string; readonly kind: "in-progress" | "fingerprint-mismatch" }`
+  - `interface BuiltEffect<T> { readonly statements; readonly outboxMessages; readonly responseCode: number; readonly responseBody: unknown; readonly value: T; readonly fromBody: (body: unknown) => T }`
+  - `interface DomainEffectOutcome<T> { readonly value: T; readonly idempotentReplay: boolean }`
+  - `runDomainEffect<T>(database: BatchDatabase, idempotency: DomainIdempotencyContext | undefined, clock: { now(): string }, domain: string, build: () => BuiltEffect<T>): Promise<DomainEffectOutcome<T>>`
+
+**Context — why this task exists.** Three packages need the same ~40-line single-mutation idempotency seam: `runIdempotentEffect` call + serialize the response body + translate the 4-way result (`executed`/`replayed`/`in-progress`/`fingerprint-mismatch`) into a value or a thrown conflict. Directory and matters each carry a copy today; conflicts would make a third. The reusable core is hoisted here. The per-package wrappers stay — but shrink to thin delegates that keep their exact public signatures, so **no call site in directory or matters changes** and their existing tests must stay green.
+
+The wrappers differ only at the edges, all preserved by delegation:
+- **Directory** returns a bare `T` (discards the replay flag) and uses `fromBody` to recover a bare id from a `{id}` wire body.
+- **Matters** returns `T & ReplayFlag` (keeps the flag); its `value` *is* the wire body, so its `fromBody` is identity. Its `responseCode` is a call parameter, not a built field.
+- Each rethrows its own domain-named conflict error, so route `instanceof` checks are unaffected.
+
+`runMatterDraw` (the numbering-counter draw with bounded retry and out-of-band counter advance) is a genuinely different, matters-only seam — leave it and `finishMatterResult` exactly as they are. Only `runMatterEffect` delegates.
+
+- [ ] **Step 1: Write the failing test**
+
+Create `packages/data-access/test/run-domain-effect.test.ts`:
+
+```ts
+import { createMigratedNodeDatabase } from "@magna-carta/database/node-sqlite";
+import type { BatchDatabase } from "../src/effect-batch.ts";
+import { expect, test } from "vitest";
+import { IdempotencyConflictError, runDomainEffect } from "../src/run-domain-effect.ts";
+
+const clock = { now: () => "2026-07-09T00:00:00.000Z" };
+
+function database(): BatchDatabase {
+  const { database } = createMigratedNodeDatabase("per-firm");
+  return database as unknown as BatchDatabase;
+}
+
+// A minimal writable table exists in the per-firm schema; use `setting` as an inert write target.
+function build(value: { id: string }) {
+  return () => ({
+    statements: [
+      {
+        // A no-op-safe insert into the flat setting table.
+        __test: true,
+      } as never,
+    ],
+    outboxMessages: [] as never,
+    responseCode: 201,
+    responseBody: value,
+    value: value.id,
+    fromBody: (body: unknown) => (body as { id: string }).id,
+  });
+}
+
+test("an executed effect returns the built value and idempotentReplay false", async () => {
+  const outcome = await runDomainEffect(database(), undefined, clock, "test", () => ({
+    statements: [],
+    outboxMessages: [],
+    responseCode: 201,
+    responseBody: { id: "x_1" },
+    value: "x_1",
+    fromBody: (body) => (body as { id: string }).id,
+  }));
+  expect(outcome.value).toBe("x_1");
+  expect(outcome.idempotentReplay).toBe(false);
+});
+
+test("a replayed key recovers the value through fromBody and flags the replay", async () => {
+  const db = database();
+  const idempotency = { key: "firm:k:1", fingerprint: "fp" };
+  const first = await runDomainEffect(db, idempotency, clock, "test", () => ({
+    statements: [],
+    outboxMessages: [],
+    responseCode: 201,
+    responseBody: { id: "x_1" },
+    value: "x_1",
+    fromBody: (body) => (body as { id: string }).id,
+  }));
+  const second = await runDomainEffect(db, idempotency, clock, "test", () => ({
+    statements: [],
+    outboxMessages: [],
+    responseCode: 201,
+    responseBody: { id: "x_1" },
+    value: "x_1",
+    fromBody: (body) => (body as { id: string }).id,
+  }));
+  expect(first.idempotentReplay).toBe(false);
+  expect(second.idempotentReplay).toBe(true);
+  expect(second.value).toBe("x_1");
+});
+
+test("a fingerprint mismatch throws IdempotencyConflictError carrying the domain", async () => {
+  const db = database();
+  await runDomainEffect(db, { key: "firm:k:1", fingerprint: "fp-a" }, clock, "test", () => ({
+    statements: [],
+    outboxMessages: [],
+    responseCode: 201,
+    responseBody: { id: "x_1" },
+    value: "x_1",
+    fromBody: (body) => (body as { id: string }).id,
+  }));
+  await expect(
+    runDomainEffect(db, { key: "firm:k:1", fingerprint: "fp-b" }, clock, "test", () => ({
+      statements: [],
+      outboxMessages: [],
+      responseCode: 201,
+      responseBody: { id: "x_2" },
+      value: "x_2",
+      fromBody: (body) => (body as { id: string }).id,
+    })),
+  ).rejects.toMatchObject({ domain: "test", kind: "fingerprint-mismatch" });
+});
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `pnpm --filter @magna-carta/data-access exec vitest run test/run-domain-effect.test.ts`
+Expected: FAIL — `Cannot find module '../src/run-domain-effect.ts'`
+
+- [ ] **Step 3: Write the shared seam**
+
+Create `packages/data-access/src/run-domain-effect.ts`:
+
+```ts
+import { canonicalJsonStringify } from "./canonical.ts";
+import type { BatchDatabase, EffectWrite } from "./effect-batch.ts";
+import { runIdempotentEffect, type IdempotentEffectResult } from "./run-idempotent-effect.ts";
+import type { IdempotencyRecordId } from "@magna-carta/identifiers/types";
+
+// The route's idempotency context. key === undefined means "no Idempotency-Key" — execute once, store
+// no record. The route supplies the chokepoint's already-firm-scoped derived key and the fingerprint.
+export interface DomainIdempotencyContext {
+  readonly key: string | undefined;
+  readonly fingerprint: string;
+  readonly newRecordId?: () => IdempotencyRecordId;
+}
+
+// Raised on a same-key retry that loses the commit race: a concurrent in-progress request (→ 409) or a
+// key reused with a different payload (→ 422). Carries the domain so a package wrapper can rethrow its
+// own domain-named error and preserve route instanceof checks.
+export class IdempotencyConflictError extends Error {
+  constructor(
+    readonly domain: string,
+    readonly kind: "in-progress" | "fingerprint-mismatch",
+  ) {
+    super(`${domain} mutation idempotency conflict: ${kind}`);
+    this.name = "IdempotencyConflictError";
+  }
+}
+
+// What a built mutation contributes to its batch: the statements + outbox, the response code and wire
+// body stored on the idempotency record, the value the caller receives on an executed commit, and a
+// parser that recovers that value from the stored body on a replay. When a package's value already IS
+// its wire body, fromBody is the identity.
+export interface BuiltEffect<T> {
+  readonly statements: EffectWrite["statements"];
+  readonly outboxMessages: EffectWrite["outboxMessages"];
+  readonly responseCode: number;
+  readonly responseBody: unknown;
+  readonly value: T;
+  readonly fromBody: (body: unknown) => T;
+}
+
+export interface DomainEffectOutcome<T> {
+  readonly value: T;
+  readonly idempotentReplay: boolean;
+}
+
+// The single non-drawing-mutation seam shared by every domain package. Commits [idempotency record,
+// business write] in one atomic batch through runIdempotentEffect when a key is present, or commits
+// with no record when absent. On an executed commit it returns the freshly-built value; on a replay it
+// recovers the winner's value from the stored body via fromBody, so a retry returns what the first
+// commit recorded rather than this loser's freshly-minted value.
+export async function runDomainEffect<T>(
+  database: BatchDatabase,
+  idempotency: DomainIdempotencyContext | undefined,
+  clock: { now(): string },
+  domain: string,
+  build: () => BuiltEffect<T>,
+): Promise<DomainEffectOutcome<T>> {
+  const built = build();
+  const result: IdempotentEffectResult = await runIdempotentEffect({
+    database,
+    key: idempotency?.key,
+    fingerprint: idempotency?.fingerprint ?? "",
+    newRecordId: idempotency?.newRecordId,
+    now: () => clock.now(),
+    effect: () =>
+      Promise.resolve({
+        write: { statements: built.statements, outboxMessages: built.outboxMessages },
+        responseCode: built.responseCode,
+        responseBody: canonicalJsonStringify(built.responseBody),
+      }),
+  });
+
+  switch (result.kind) {
+    case "executed":
+      return { value: built.value, idempotentReplay: false };
+    case "replayed":
+      return { value: built.fromBody(JSON.parse(result.responseBody ?? "{}")), idempotentReplay: true };
+    case "in-progress":
+      throw new IdempotencyConflictError(domain, "in-progress");
+    case "fingerprint-mismatch":
+      throw new IdempotencyConflictError(domain, "fingerprint-mismatch");
+  }
+}
+```
+
+Add to `packages/data-access/package.json` exports: `"./run-domain-effect": "./src/run-domain-effect.ts"`.
+
+- [ ] **Step 4: Run the shared-seam test**
+
+Run: `pnpm --filter @magna-carta/data-access exec vitest run test/run-domain-effect.test.ts`
+Expected: PASS (3 tests)
+
+- [ ] **Step 5: Delegate the directory wrapper**
+
+Rewrite the body of `runDirectoryEffect` in `packages/directory/src/run-directory-effect.ts` to delegate, keeping the exported signature, the `BuiltDirectoryMutation<T>` interface (now structurally a `BuiltEffect<T>`), the `DirectoryIdempotencyContext` interface, and the `DirectoryIdempotencyConflictError` class exactly as they are:
+
+```ts
+import { runDomainEffect, IdempotencyConflictError } from "@magna-carta/data-access/run-domain-effect";
+// ...keep DirectoryIdempotencyContext, DirectoryIdempotencyConflictError, BuiltDirectoryMutation...
+
+export async function runDirectoryEffect<T>(
+  database: BatchDatabase,
+  idempotency: DirectoryIdempotencyContext | undefined,
+  clock: { now(): string },
+  build: () => BuiltDirectoryMutation<T>,
+): Promise<T> {
+  try {
+    const { value } = await runDomainEffect(database, idempotency, clock, "directory", build);
+    return value;
+  } catch (error) {
+    if (error instanceof IdempotencyConflictError) {
+      throw new DirectoryIdempotencyConflictError(error.kind);
+    }
+    throw error;
+  }
+}
+```
+
+Delete the now-dead `finishDirectoryResult` and the direct `runIdempotentEffect`/`canonicalJsonStringify` imports if nothing else uses them.
+
+- [ ] **Step 6: Run the directory suite**
+
+Run: `pnpm --filter @magna-carta/directory exec vitest run`
+Expected: PASS — the full directory suite, unchanged behaviour.
+
+- [ ] **Step 7: Delegate the matters wrapper**
+
+Rewrite only `runMatterEffect` in `packages/matters/src/matter-service.ts` to delegate. Keep its signature `(database, options, responseCode, build) => Promise<T & ReplayFlag>`, the `MatterIdempotencyConflictError` class, `runMatterDraw`, and `finishMatterResult` (still used by `runMatterDraw`) exactly as they are:
+
+```ts
+import { runDomainEffect, IdempotencyConflictError } from "@magna-carta/data-access/run-domain-effect";
+
+async function runMatterEffect<T>(
+  database: BatchDatabase,
+  options: MatterServiceOptions,
+  responseCode: number,
+  build: () => BuiltMutation<T>,
+): Promise<T & ReplayFlag> {
+  try {
+    const { value, idempotentReplay } = await runDomainEffect(
+      database,
+      options.idempotency,
+      { now: () => options.clock.now() },
+      "matter",
+      () => {
+        const built = build();
+        // The matters value IS its wire body, so responseBody = value and fromBody is identity.
+        return {
+          statements: built.statements,
+          outboxMessages: built.outboxMessages,
+          responseCode,
+          responseBody: built.value,
+          value: built.value,
+          fromBody: (body: unknown) => body as T,
+        };
+      },
+    );
+    return { ...(value as object), idempotentReplay } as T & ReplayFlag;
+  } catch (error) {
+    if (error instanceof IdempotencyConflictError) {
+      throw new MatterIdempotencyConflictError(error.kind);
+    }
+    throw error;
+  }
+}
+```
+
+- [ ] **Step 8: Run the matters suite**
+
+Run: `pnpm --filter @magna-carta/matters exec vitest run`
+Expected: PASS — including the replay-flag and conflict-mapping tests, proving delegation preserved behaviour.
+
+- [ ] **Step 9: Commit**
+
+```bash
+git add packages/data-access/src/run-domain-effect.ts packages/data-access/package.json packages/data-access/test/run-domain-effect.test.ts packages/directory/src/run-directory-effect.ts packages/matters/src/matter-service.ts
+git commit -F- <<'EOF'
+refactor(data-access): hoist the shared domain-effect seam
+
+The single-mutation idempotency seam was copied in directory and matters
+and would be copied a third time in conflicts. Hoist the ~40-line core
+into runDomainEffect; the per-package wrappers keep their exact
+signatures and delegate, so no call site changes. The bespoke matters
+number-draw seam stays where it is.
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
+EOF
+```
+
+---
+
 ### Task 10: Write path — statements, audit, effect seam, orchestration
 
 **Files:**
@@ -1722,7 +2043,7 @@ EOF
 - Produces:
   - `interface ConflictsWriteOptions { readonly clock: { now(): string }; readonly actorUserId: UserId | null; readonly randomSource?: RandomSource; readonly idempotency?: ConflictsIdempotencyContext }`
   - `conflictsAuditStatement(database, options, event, subjectId): SqlStatement`
-  - `runConflictsEffect<T>(database, idempotency, clock, build): Promise<T>` — a copy of `runDirectoryEffect` (`packages/directory/src/run-directory-effect.ts:50`) with the names changed; the matters and directory packages each carry their own, and this follows that established convention rather than introducing a shared abstraction.
+  - `runConflictsEffect<T>(database, idempotency, clock, build): Promise<T>` — a thin delegate over `runDomainEffect` (Task 9B), exactly like the directory wrapper: returns the bare value and rethrows the shared `IdempotencyConflictError` as a `ConflictsIdempotencyConflictError`. Do NOT reimplement the seam.
   - `insertCheckStatement`, `insertHitStatement`, `insertDispositionStatement`
   - `interface RunCheckInput { readonly trigger: ConflictsTrigger; readonly matterId?: string; readonly subjectEntityIds: readonly string[]; readonly scope: ScopeRequest }`
   - `runConflictsCheck(context: DirectoryIdentifierContext, input: RunCheckInput, options: ConflictsWriteOptions): Promise<ConflictsCheckId>`
@@ -1885,7 +2206,7 @@ Expected: FAIL — `Cannot find module '../src/run-check.ts'`
 
 Create `packages/conflicts/src/audit.ts` mirroring `packages/directory/src/audit.ts` exactly, renaming `Directory` to `Conflicts`.
 
-Create `packages/conflicts/src/run-conflicts-effect.ts` mirroring `packages/directory/src/run-directory-effect.ts` exactly, renaming `Directory` to `Conflicts`.
+Create `packages/conflicts/src/run-conflicts-effect.ts` as a thin delegate over `runDomainEffect` (Task 9B), following the directory wrapper's shape: keep a `ConflictsIdempotencyContext` interface and a `ConflictsIdempotencyConflictError` class, call `runDomainEffect(database, idempotency, clock, "conflicts", build)`, return the bare `value`, and rethrow the shared `IdempotencyConflictError` as `ConflictsIdempotencyConflictError`. Do not reimplement the seam.
 
 Create `packages/conflicts/src/statements.ts` with three insert-statement builders binding the columns declared in Task 2.
 
