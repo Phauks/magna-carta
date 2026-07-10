@@ -51,16 +51,39 @@ Stand up real seeded data and sign in — the whole loop is three steps:
    pnpm run seed-dev-firm
    ```
 
-   The command calls the development-only seed route `POST /api/__dev/seed`
-   (`apps/worker/src/routes/dev-seed.ts`). It is gated exactly like the dev R2 upload route — it
-   serves only when the real R2 S3 credentials are absent, so it is a bare 404 in production and is
-   never in the OpenAPI contract. Re-running is idempotent (it resumes the same tenant). Override the
-   Worker URL with `WORKER_URL=…` if it is not on the wrangler default (`http://127.0.0.1:8787`).
+   The command first triggers the scheduled handler (`/cdn-cgi/handler/scheduled`) to apply the
+   control-plane migrations — wrangler dev does not auto-run Cron, so a fresh Miniflare database has
+   no schema and the seed would otherwise 500 with `no such table: firm` — then calls the
+   development-only seed route `POST /api/__dev/seed` (`apps/worker/src/routes/dev-seed.ts`). That
+   route is gated exactly like the dev R2 upload route — it serves only when the real R2 S3
+   credentials are absent, so it is a bare 404 in production and is never in the OpenAPI contract.
+   Both steps are idempotent (a re-run resumes the same tenant). Override the Worker URL with
+   `WORKER_URL=…` if it is not on the wrangler default (`http://127.0.0.1:8787`).
 
 3. **Sign in.** Open the app, land on `/login`, and enter the printed credentials
    (`owner@dev.magnacarta.test` / `local-dev-password`). The `(app)` route group's `+layout.ts` guard
    sends unauthenticated visitors to `/login`; on success Better Auth sets the session cookie and the
    typed API calls carry it instead of 401-ing.
+
+## E2E tests
+
+Playwright drives the login flow and the `(app)` session guard against a REAL running Worker
+(Miniflare-backed D1/R2/Queues), covering behaviour the node-environment unit tests cannot reach —
+guard redirect, successful sign-in + session cookie, bad-credentials error, and the open-redirect
+(`next`) guard. Run:
+
+```
+pnpm --filter @magna-carta/web run test:e2e
+```
+
+Config: `apps/web/e2e/playwright.config.ts`. Its `webServer` boots `vp run worker-dev` (builds the SPA,
+then wrangler dev on `http://localhost:8787`) — allow ~2 min on a cold start. A `setup` project runs
+before the specs: it triggers the scheduled handler (`/cdn-cgi/handler/scheduled`) to apply the
+control-plane migrations (wrangler dev does not auto-run Cron, so a fresh Miniflare D1 has no schema),
+then POSTs to `/api/__dev/seed` and writes the tenant to `apps/web/e2e/.seeded/credentials.json` (git-
+ignored) for the specs. Chromium only. Deliberately NOT part of `vp test` — the worker-dev boot is
+heavy, the same reason the design-system visual-regression sweep is separate. If Chromium is missing,
+`pnpm --filter @magna-carta/web exec playwright install chromium`.
 
 ## Files expected to be touched
 

@@ -13,6 +13,25 @@
 const baseUrl = (process.env.WORKER_URL ?? "http://127.0.0.1:8787").replace(/\/+$/, "");
 const seedUrl = `${baseUrl}/api/__dev/seed`;
 
+// Bring the control-plane schema up first. In production a Cron trigger applies the control-plane
+// migrations (apps/worker/src/scheduled.ts); wrangler dev does NOT auto-run Cron, so a fresh Miniflare
+// D1 has no `firm` table and the seed would 500 with "no such table: firm". Hitting the scheduled
+// handler runs the same migration pass, and it is idempotent — a warm database applies nothing new.
+try {
+  const migrate = await fetch(`${baseUrl}/cdn-cgi/handler/scheduled`);
+  if (!migrate.ok) {
+    console.error(
+      `Could not apply the control-plane migrations: ${migrate.status} from /cdn-cgi/handler/scheduled.`,
+    );
+    process.exit(1);
+  }
+} catch (cause) {
+  console.error(`Could not reach the Worker at ${baseUrl}.`);
+  console.error("Start it first with:  vp run worker-dev");
+  console.error(String(cause));
+  process.exit(1);
+}
+
 let response;
 try {
   response = await fetch(seedUrl, {

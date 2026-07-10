@@ -8,7 +8,8 @@
     "build": "vp build",
     "dev": "vp dev",
     "check": "svelte-check --tsconfig ./tsconfig.json",
-    "prepare": "svelte-kit sync || echo ''"
+    "prepare": "svelte-kit sync || echo ''",
+    "test:e2e": "playwright test --config e2e/playwright.config.ts"
   },
   "dependencies": {
     "@cloudflare/speedtest": "catalog:",
@@ -20,6 +21,7 @@
   "devDependencies": {
     "@sveltejs/adapter-static": "catalog:",
     "@sveltejs/kit": "catalog:",
+    "@playwright/test": "catalog:",
     "@sveltejs/vite-plugin-svelte": "catalog:",
     "@tailwindcss/vite": "catalog:",
     "@types/node": "catalog:",
