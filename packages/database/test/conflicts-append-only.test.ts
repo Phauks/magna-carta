@@ -8,9 +8,9 @@ const INSERT_CHECK = `INSERT INTO conflicts_check
 test("conflicts_check rejects UPDATE", () => {
   const { raw } = createMigratedNodeDatabase("per-firm");
   raw.exec(INSERT_CHECK);
-  expect(() => raw.exec(`UPDATE conflicts_check SET depth = 2 WHERE id = 'conflictsCheck_1'`)).toThrow(
-    /append-only/,
-  );
+  expect(() =>
+    raw.exec(`UPDATE conflicts_check SET depth = 2 WHERE id = 'conflictsCheck_1'`),
+  ).toThrow(/append-only/);
 });
 
 test("conflicts_check rejects DELETE", () => {
@@ -33,7 +33,9 @@ test("conflicts_hit and conflicts_disposition reject UPDATE and DELETE", () => {
 
   expect(() => raw.exec(`UPDATE conflicts_hit SET evidence_tier = 4`)).toThrow(/append-only/);
   expect(() => raw.exec(`DELETE FROM conflicts_hit`)).toThrow(/append-only/);
-  expect(() => raw.exec(`UPDATE conflicts_disposition SET kind = 'cleared'`)).toThrow(/append-only/);
+  expect(() => raw.exec(`UPDATE conflicts_disposition SET kind = 'cleared'`)).toThrow(
+    /append-only/,
+  );
   expect(() => raw.exec(`DELETE FROM conflicts_disposition`)).toThrow(/append-only/);
 });
 
@@ -49,7 +51,9 @@ test("a reversal is a second disposition row, not an update", () => {
     VALUES ('conflictsDisposition_2', 'conflictsHit_1', 'representation_declined', 'on review, adverse', 'user_1', '2026-07-09T01:00:00.000Z')`);
 
   const rows = raw
-    .prepare(`SELECT kind FROM conflicts_disposition WHERE hit_id = 'conflictsHit_1' ORDER BY created_at ASC`)
+    .prepare(
+      `SELECT kind FROM conflicts_disposition WHERE hit_id = 'conflictsHit_1' ORDER BY created_at ASC`,
+    )
     .all() as Array<{ kind: string }>;
   expect(rows.map((r) => r.kind)).toEqual(["cleared", "representation_declined"]);
 });

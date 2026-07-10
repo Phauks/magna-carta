@@ -207,14 +207,19 @@ export async function findInvalidHitEvidence(database: SqlDatabase): Promise<Inv
 // Resolves silently when the log is sound. Wire it as a fitness function (a test, or a periodic
 // integrity sweep) to prove the corpus invariants hold.
 export async function assertConflictsFitness(database: SqlDatabase): Promise<void> {
-  const [missingTriggers, orphanHits, orphanDispositions, plaintextIdentifierChecks, invalidHitEvidence] =
-    await Promise.all([
-      findMissingAppendOnlyTriggers(database),
-      findOrphanHits(database),
-      findOrphanDispositions(database),
-      findPlaintextIdentifiersInChecks(database),
-      findInvalidHitEvidence(database),
-    ]);
+  const [
+    missingTriggers,
+    orphanHits,
+    orphanDispositions,
+    plaintextIdentifierChecks,
+    invalidHitEvidence,
+  ] = await Promise.all([
+    findMissingAppendOnlyTriggers(database),
+    findOrphanHits(database),
+    findOrphanDispositions(database),
+    findPlaintextIdentifiersInChecks(database),
+    findInvalidHitEvidence(database),
+  ]);
 
   if (
     missingTriggers.length > 0 ||

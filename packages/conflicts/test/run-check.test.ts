@@ -33,7 +33,11 @@ interface TestContext {
   readonly database: BatchDatabase;
   readonly raw: { exec(sql: string): void };
   readonly ctx: DirectoryIdentifierContext;
-  readonly options: { clock: typeof clock; actorUserId: UserId | null; randomSource: ReturnType<typeof seededRandomSource> };
+  readonly options: {
+    clock: typeof clock;
+    actorUserId: UserId | null;
+    randomSource: ReturnType<typeof seededRandomSource>;
+  };
 }
 
 async function conflictsTestContext(seed: string): Promise<TestContext> {
@@ -112,7 +116,11 @@ test("a check writes one row recording the trigger, scope, strictness and depth"
 
   const checkId = await runConflictsCheck(
     ctx,
-    { trigger: "comprehensive", subjectEntityIds: [clientId], scope: { sources: ["party"], strictness: "balanced", depth: 1 } },
+    {
+      trigger: "comprehensive",
+      subjectEntityIds: [clientId],
+      scope: { sources: ["party"], strictness: "balanced", depth: 1 },
+    },
     options,
   );
 
@@ -126,7 +134,11 @@ test("a matter with no parties produces an empty run, not an error", async () =>
   const { ctx, options } = await conflictsTestContext("empty");
   const checkId = await runConflictsCheck(
     ctx,
-    { trigger: "preliminary", subjectEntityIds: [], scope: { sources: ["party"], strictness: "balanced", depth: 1 } },
+    {
+      trigger: "preliminary",
+      subjectEntityIds: [],
+      scope: { sources: ["party"], strictness: "balanced", depth: 1 },
+    },
     options,
   );
   const hits = await readHits(ctx.database, checkId);
@@ -137,7 +149,11 @@ test("a source that cannot run records as unavailable, never as clean", async ()
   const { ctx, options } = await conflictsTestContext("unavailable");
   const checkId = await runConflictsCheck(
     ctx,
-    { trigger: "comprehensive", subjectEntityIds: [], scope: { sources: ["party", "content"], strictness: "balanced", depth: 1 } },
+    {
+      trigger: "comprehensive",
+      subjectEntityIds: [],
+      scope: { sources: ["party", "content"], strictness: "balanced", depth: 1 },
+    },
     options,
   );
   const row = await readCheck(ctx.database, checkId);
@@ -170,7 +186,11 @@ test("a scope below the floor is raised and the raise is recorded on the row", a
   );
   const checkId = await runConflictsCheck(
     ctx,
-    { trigger: "comprehensive", subjectEntityIds: [], scope: { sources: ["party"], strictness: "balanced", depth: 1 } },
+    {
+      trigger: "comprehensive",
+      subjectEntityIds: [],
+      scope: { sources: ["party"], strictness: "balanced", depth: 1 },
+    },
     options,
   );
   const row = await readCheck(ctx.database, checkId);
@@ -205,11 +225,19 @@ test("a merged-away former name still surfaces the surviving master", async () =
 
   const checkId = await runConflictsCheck(
     ctx,
-    { trigger: "new_party", subjectEntityIds: [], scope: { sources: ["party"], strictness: "over_inclusive", depth: 0 } },
+    {
+      trigger: "new_party",
+      subjectEntityIds: [],
+      scope: { sources: ["party"], strictness: "over_inclusive", depth: 0 },
+    },
     options,
   );
   // Match against the merged-away name; the master must surface, never the subordinate.
-  const matches = await matchParty(ctx, { kind: "person", given: "Jane", family: "Doe" }, "over_inclusive");
+  const matches = await matchParty(
+    ctx,
+    { kind: "person", given: "Jane", family: "Doe" },
+    "over_inclusive",
+  );
   expect(matches.map((match) => match.entityId)).toContain(master);
   expect(matches.map((match) => match.entityId)).not.toContain(subordinate);
   expect(checkId).toBeDefined();
@@ -218,17 +246,37 @@ test("a merged-away former name still surfaces the surviving master", async () =
 test("every hit carries its evidence tier and connecting graph path", async () => {
   const { ctx, options } = await conflictsTestContext("hit-shape");
   const orgId = await createOrganization(ctx.database, { legalName: "ABC Holdings" }, options);
-  const principalId = await createPerson(ctx.database, { given: "Ada", family: "Principal" }, options);
-  await createEdge(
+  const principalId = await createPerson(
     ctx.database,
-    { from: principalId, to: orgId, edgeType: "affiliation", role: "principal", note: null, validFrom: null, validTo: null },
+    { given: "Ada", family: "Principal" },
     options,
   );
-  const unrelatedAdaId = await createPerson(ctx.database, { given: "Ada", family: "Principal" }, options); // a second, unrelated Ada
+  await createEdge(
+    ctx.database,
+    {
+      from: principalId,
+      to: orgId,
+      edgeType: "affiliation",
+      role: "principal",
+      note: null,
+      validFrom: null,
+      validTo: null,
+    },
+    options,
+  );
+  const unrelatedAdaId = await createPerson(
+    ctx.database,
+    { given: "Ada", family: "Principal" },
+    options,
+  ); // a second, unrelated Ada
 
   const checkId = await runConflictsCheck(
     ctx,
-    { trigger: "comprehensive", subjectEntityIds: [orgId], scope: { sources: ["party", "graph"], strictness: "balanced", depth: 1 } },
+    {
+      trigger: "comprehensive",
+      subjectEntityIds: [orgId],
+      scope: { sources: ["party", "graph"], strictness: "balanced", depth: 1 },
+    },
     options,
   );
 
@@ -260,6 +308,8 @@ test("a replayed idempotency key writes exactly one check", async () => {
   const second = await runConflictsCheck(ctx, input, { ...options, idempotency });
 
   expect(second).toBe(first);
-  const { results } = await ctx.database.prepare(`SELECT COUNT(*) AS count FROM conflicts_check`).all();
+  const { results } = await ctx.database
+    .prepare(`SELECT COUNT(*) AS count FROM conflicts_check`)
+    .all();
   expect(results[0].count).toBe(1);
 });

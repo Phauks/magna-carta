@@ -1715,7 +1715,10 @@ export const conflictsCheck = sqliteTable(
   },
   (table) => [
     check("conflicts_check_trigger_check", sql`length(${table.trigger}) > 0`),
-    check("conflicts_check_strictness_check", sql`${table.strictness} IN ('balanced', 'over_inclusive')`),
+    check(
+      "conflicts_check_strictness_check",
+      sql`${table.strictness} IN ('balanced', 'over_inclusive')`,
+    ),
     check("conflicts_check_depth_check", sql`${table.depth} >= 0`),
   ],
 );
@@ -1724,7 +1727,10 @@ export const conflictsHit = sqliteTable(
   "conflicts_hit",
   {
     id: text("id").primaryKey().$type<ConflictsHitId>(),
-    checkId: text("check_id").notNull().$type<ConflictsCheckId>().references(() => conflictsCheck.id),
+    checkId: text("check_id")
+      .notNull()
+      .$type<ConflictsCheckId>()
+      .references(() => conflictsCheck.id),
     // The merge-resolved master entity, never an archived subordinate.
     entityId: text("entity_id").notNull(),
     sourceClass: text("source_class").notNull(),
@@ -1750,7 +1756,10 @@ export const conflictsDisposition = sqliteTable(
   "conflicts_disposition",
   {
     id: text("id").primaryKey().$type<ConflictsDispositionId>(),
-    hitId: text("hit_id").notNull().$type<ConflictsHitId>().references(() => conflictsHit.id),
+    hitId: text("hit_id")
+      .notNull()
+      .$type<ConflictsHitId>()
+      .references(() => conflictsHit.id),
     kind: text("kind").notNull(),
     rationale: text("rationale").notNull(),
     reviewerUserId: text("reviewer_user_id").notNull().$type<UserId>(),

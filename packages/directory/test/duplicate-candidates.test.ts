@@ -465,7 +465,11 @@ test("restricting schemes narrows the phonetic channel", async () => {
     { clock, actorUserId: null, randomSource: seededRandomSource("scheme-filter-target") },
   );
 
-  const wide = await findDuplicateCandidates(ctx, { kind: "person", given: "John", family: "Smith" });
+  const wide = await findDuplicateCandidates(ctx, {
+    kind: "person",
+    given: "John",
+    family: "Smith",
+  });
   const narrow = await findDuplicateCandidates(ctx, {
     kind: "person",
     given: "John",

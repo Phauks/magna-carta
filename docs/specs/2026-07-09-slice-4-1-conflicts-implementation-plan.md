@@ -15,7 +15,7 @@
 - **Golden rule 2 — no emojis** anywhere: code, docs, commit messages.
 - **Golden rule 7 — no shell for file operations.** Dedicated file tools only.
 - **Every mutation writes an `audit_log` row in the same atomic batch**, via a `conflictsAuditStatement` helper mirroring `directoryAuditStatement` (`packages/directory/src/audit.ts:26`).
-- **All writes compose the atomic batch.** Never raw D1 outside a statement builder. D1 has no interactive transactions — read everything you need *before* composing the batch; never plan logic between statements.
+- **All writes compose the atomic batch.** Never raw D1 outside a statement builder. D1 has no interactive transactions — read everything you need _before_ composing the batch; never plan logic between statements.
 - **Idempotency on all write routes**, threaded through a `runConflictsEffect` that delegates to the shared `runDomainEffect` (Task 9B) — never a re-copied seam.
 - **No plaintext identifiers ever enter the log.** Identifiers are recorded by `directory_identifier.id` reference only.
 - **Soft-delete never applies here.** The three conflicts tables are append-only: no `UPDATE`, no `DELETE`, ever.
@@ -29,12 +29,16 @@ Defined in Task 3, consumed everywhere after. Copied here so any task can be imp
 export type SourceClass = "party" | "graph" | "imputation" | "content";
 export type Strictness = "balanced" | "over_inclusive";
 export type ConflictsTrigger = "preliminary" | "comprehensive" | "new_party" | "periodic_rescan";
-export type DispositionKind = "cleared" | "waiver_obtained" | "wall_erected" | "representation_declined";
+export type DispositionKind =
+  | "cleared"
+  | "waiver_obtained"
+  | "wall_erected"
+  | "representation_declined";
 export type SourceAvailability = "searched" | "unavailable";
 export type EvidenceTier = 1 | 2 | 3 | 4;
 
 export interface MatchEvidence {
-  readonly identifierTypes: readonly string[];   // blind-index equality hits
+  readonly identifierTypes: readonly string[]; // blind-index equality hits
   readonly exactNormalizedName: boolean;
   readonly phoneticMatch: boolean;
   readonly trigramMatch: boolean;
@@ -53,6 +57,7 @@ export interface EdgeStep {
 ## File Structure
 
 **Create:**
+
 - `packages/conflicts/package.json` — workspace package, exports map mirroring `packages/directory/package.json`
 - `packages/conflicts/CLAUDE.md` — area rules
 - `packages/conflicts/src/types.ts` — catalogs and shared types (no logic)
@@ -72,6 +77,7 @@ export interface EdgeStep {
 - `packages/database/drizzle/per-firm/<timestamp>_conflicts.sql` — tables + append-only triggers
 
 **Modify:**
+
 - `packages/identifiers/src/registry.ts`, `packages/identifiers/src/types.ts` — three new handle prefixes
 - `packages/database/src/per-firm-schema.ts` — three tables (append at end)
 - `packages/directory/src/search.ts` — **additive read-path only**: channel provenance + `MatchOptions`
@@ -86,11 +92,13 @@ export interface EdgeStep {
 ### Task 1: Identifier handles
 
 **Files:**
+
 - Modify: `packages/identifiers/src/registry.ts:66` (insert alphabetically near `directoryEdge`)
 - Modify: `packages/identifiers/src/types.ts:61`
 - Test: `packages/identifiers/test/registry.test.ts`
 
 **Interfaces:**
+
 - Consumes: nothing.
 - Produces: `ConflictsCheckId`, `ConflictsHitId`, `ConflictsDispositionId` branded types; `newIdentifier("conflictsCheck" | "conflictsHit" | "conflictsDisposition", randomSource)`.
 
@@ -154,12 +162,14 @@ EOF
 ### Task 2: The three append-only tables
 
 **Files:**
+
 - Modify: `packages/database/src/per-firm-schema.ts` (append at end of file)
 - Create: `packages/database/drizzle/per-firm/20260709T120000_conflicts.sql`
 - Modify: `apps/worker/src/per-firm-migrations.ts` (register the migration)
 - Test: `packages/database/test/conflicts-append-only.test.ts`
 
 **Interfaces:**
+
 - Consumes: Task 1's handle prefixes.
 - Produces: tables `conflicts_check`, `conflicts_hit`, `conflicts_disposition`; six `RAISE(ABORT)` triggers named `conflicts_<table>_no_update` / `conflicts_<table>_no_delete`.
 
@@ -182,9 +192,9 @@ const INSERT_CHECK = `INSERT INTO conflicts_check
 test("conflicts_check rejects UPDATE", () => {
   const { database } = createMigratedNodeDatabase("per-firm");
   database.exec(INSERT_CHECK);
-  expect(() => database.exec(`UPDATE conflicts_check SET depth = 2 WHERE id = 'conflictsCheck_1'`)).toThrow(
-    /append-only/,
-  );
+  expect(() =>
+    database.exec(`UPDATE conflicts_check SET depth = 2 WHERE id = 'conflictsCheck_1'`),
+  ).toThrow(/append-only/);
 });
 
 test("conflicts_check rejects DELETE", () => {
@@ -207,7 +217,9 @@ test("conflicts_hit and conflicts_disposition reject UPDATE and DELETE", () => {
 
   expect(() => database.exec(`UPDATE conflicts_hit SET evidence_tier = 4`)).toThrow(/append-only/);
   expect(() => database.exec(`DELETE FROM conflicts_hit`)).toThrow(/append-only/);
-  expect(() => database.exec(`UPDATE conflicts_disposition SET kind = 'cleared'`)).toThrow(/append-only/);
+  expect(() => database.exec(`UPDATE conflicts_disposition SET kind = 'cleared'`)).toThrow(
+    /append-only/,
+  );
   expect(() => database.exec(`DELETE FROM conflicts_disposition`)).toThrow(/append-only/);
 });
 
@@ -223,7 +235,9 @@ test("a reversal is a second disposition row, not an update", () => {
     VALUES ('conflictsDisposition_2', 'conflictsHit_1', 'representation_declined', 'on review, adverse', 'user_1', '2026-07-09T01:00:00.000Z')`);
 
   const rows = database
-    .prepare(`SELECT kind FROM conflicts_disposition WHERE hit_id = 'conflictsHit_1' ORDER BY created_at ASC`)
+    .prepare(
+      `SELECT kind FROM conflicts_disposition WHERE hit_id = 'conflictsHit_1' ORDER BY created_at ASC`,
+    )
     .all() as Array<{ kind: string }>;
   expect(rows.map((r) => r.kind)).toEqual(["cleared", "representation_declined"]);
 });
@@ -267,7 +281,10 @@ export const conflictsHit = sqliteTable(
   "conflicts_hit",
   {
     id: text("id").primaryKey().$type<ConflictsHitId>(),
-    checkId: text("check_id").notNull().$type<ConflictsCheckId>().references(() => conflictsCheck.id),
+    checkId: text("check_id")
+      .notNull()
+      .$type<ConflictsCheckId>()
+      .references(() => conflictsCheck.id),
     // The merge-resolved master entity, never an archived subordinate.
     entityId: text("entity_id").notNull(),
     sourceClass: text("source_class").notNull(),
@@ -286,13 +303,18 @@ export const conflictsDisposition = sqliteTable(
   "conflicts_disposition",
   {
     id: text("id").primaryKey().$type<ConflictsDispositionId>(),
-    hitId: text("hit_id").notNull().$type<ConflictsHitId>().references(() => conflictsHit.id),
+    hitId: text("hit_id")
+      .notNull()
+      .$type<ConflictsHitId>()
+      .references(() => conflictsHit.id),
     kind: text("kind").notNull(),
     rationale: text("rationale").notNull(),
     reviewerUserId: text("reviewer_user_id").notNull().$type<UserId>(),
     createdAt: text("created_at").notNull(),
   },
-  (table) => [index("conflicts_disposition_hit_id_created_at_index").on(table.hitId, table.createdAt)],
+  (table) => [
+    index("conflicts_disposition_hit_id_created_at_index").on(table.hitId, table.createdAt),
+  ],
 );
 ```
 
@@ -399,10 +421,12 @@ EOF
 ### Task 3: Package scaffold and catalogs
 
 **Files:**
+
 - Create: `packages/conflicts/package.json`, `packages/conflicts/src/types.ts`, `packages/conflicts/src/index.ts`
 - Test: `packages/conflicts/test/types.test.ts`
 
 **Interfaces:**
+
 - Consumes: Task 1's branded ids.
 - Produces: every type in the **Interface Summary** above, plus the const catalogs `SOURCE_CLASSES`, `STRICTNESS_LEVELS`, `CONFLICTS_TRIGGERS`, `DISPOSITION_KINDS`.
 
@@ -580,10 +604,12 @@ EOF
 ### Task 4: Evidence tiering
 
 **Files:**
+
 - Create: `packages/conflicts/src/evidence.ts`
 - Test: `packages/conflicts/test/evidence.test.ts`
 
 **Interfaces:**
+
 - Consumes: `MatchEvidence`, `EvidenceTier` from Task 3.
 - Produces: `assignTier(evidence: MatchEvidence): EvidenceTier`, `describeEvidence(evidence: MatchEvidence): string[]`.
 
@@ -710,10 +736,12 @@ EOF
 ### Task 5: The firm floor
 
 **Files:**
+
 - Create: `packages/conflicts/src/settings.ts`
 - Test: `packages/conflicts/test/settings.test.ts`
 
 **Interfaces:**
+
 - Consumes: `SourceClass`, `Strictness` from Task 3.
 - Produces:
   - `interface ConflictsPolicy { readonly floorSources: readonly SourceClass[]; readonly floorStrictness: Strictness; readonly defaultDepth: number }`
@@ -779,13 +807,25 @@ test("party is always in scope even when a caller omits it", () => {
 });
 
 test("resolved sources are deterministically ordered", () => {
-  const a = resolveScope(policy, { sources: ["imputation", "party"], strictness: "balanced", depth: 1 });
-  const b = resolveScope(policy, { sources: ["party", "imputation"], strictness: "balanced", depth: 1 });
+  const a = resolveScope(policy, {
+    sources: ["imputation", "party"],
+    strictness: "balanced",
+    depth: 1,
+  });
+  const b = resolveScope(policy, {
+    sources: ["party", "imputation"],
+    strictness: "balanced",
+    depth: 1,
+  });
   expect(a.sources).toEqual(b.sources);
 });
 
 test("depth below zero is clamped to zero", () => {
-  const resolved = resolveScope(policy, { sources: ["party", "graph"], strictness: "balanced", depth: -1 });
+  const resolved = resolveScope(policy, {
+    sources: ["party", "graph"],
+    strictness: "balanced",
+    depth: -1,
+  });
   expect(resolved.depth).toBe(0);
 });
 ```
@@ -914,10 +954,12 @@ EOF
 ### Task 6: Directory read-path extension — channel provenance and match options
 
 **Files:**
+
 - Modify: `packages/directory/src/search.ts:185-206` (`FindDuplicateCandidatesInput`, `DuplicateCandidate`), `:235-323` (the two name channels), `:412-457` (`findDuplicateCandidates`)
 - Test: `packages/directory/test/duplicate-candidates.test.ts` (append)
 
 **Interfaces:**
+
 - Consumes: nothing new.
 - Produces:
   - `type MatchChannel = "phonetic" | "trigram" | "identifier"`
@@ -925,9 +967,9 @@ EOF
   - `DuplicateCandidate` gains `readonly channels: readonly MatchChannel[]` and `readonly identifierTypes: readonly string[]`. `signalCount` stays and equals `channels.length` — existing callers are unaffected.
   - `FindDuplicateCandidatesInput` gains `readonly matchOptions?: MatchOptions`.
 
-**Context — why this task exists.** The spec says the engine consumes the Directory corpus without changing it. That is true of the *write* path, but two additive *read*-path changes are required:
+**Context — why this task exists.** The spec says the engine consumes the Directory corpus without changing it. That is true of the _write_ path, but two additive _read_-path changes are required:
 
-1. `findDuplicateCandidates` returns only `{entityId, signalCount}` (`search.ts:203-206`). Evidence tiering needs to know *which* channel matched, so provenance must come back.
+1. `findDuplicateCandidates` returns only `{entityId, signalCount}` (`search.ts:203-206`). Evidence tiering needs to know _which_ channel matched, so provenance must come back.
 2. `phoneticChannel` matches `pc.code IN (...)` with **no scheme filter** (`search.ts:264`), and neither name channel filters `is_current` — so primary and secondary Double Metaphone are already blended, and alias/former names are already always included. Balanced strictness needs both filters, which do not exist today.
 
 Both changes are backward compatible. Omitting `matchOptions` preserves today's behaviour exactly, so `merge.ts` and the entry-time duplicate check keep working unchanged.
@@ -973,7 +1015,11 @@ test("restricting schemes narrows the phonetic channel", async () => {
   const { ctx } = await directoryTestContext("scheme-filter");
   await createPerson(ctx.database, { given: "Jon", family: "Smyth" }, ctx);
 
-  const wide = await findDuplicateCandidates(ctx, { kind: "person", given: "John", family: "Smith" });
+  const wide = await findDuplicateCandidates(ctx, {
+    kind: "person",
+    given: "John",
+    family: "Smith",
+  });
   const narrow = await findDuplicateCandidates(ctx, {
     kind: "person",
     given: "John",
@@ -1045,14 +1091,14 @@ Change `identifierChannel` to return `Map<string, string[]>` (entity id to match
 In `findDuplicateCandidates`, replace the `signalCounts: Map<string, number>` tally with a `Map<string, { channels: Set<MatchChannel>; identifierTypes: Set<string> }>`, then project:
 
 ```ts
-  const candidates: DuplicateCandidate[] = [...signals.entries()]
-    .map(([entityId, signal]) => ({
-      entityId,
-      signalCount: signal.channels.size,
-      channels: [...signal.channels].sort(),
-      identifierTypes: [...signal.identifierTypes].sort(),
-    }))
-    .sort((a, b) => b.signalCount - a.signalCount || a.entityId.localeCompare(b.entityId));
+const candidates: DuplicateCandidate[] = [...signals.entries()]
+  .map(([entityId, signal]) => ({
+    entityId,
+    signalCount: signal.channels.size,
+    channels: [...signal.channels].sort(),
+    identifierTypes: [...signal.identifierTypes].sort(),
+  }))
+  .sort((a, b) => b.signalCount - a.signalCount || a.entityId.localeCompare(b.entityId));
 ```
 
 - [ ] **Step 4: Run tests to verify they pass**
@@ -1081,10 +1127,12 @@ EOF
 ### Task 7: Graph expansion
 
 **Files:**
+
 - Create: `packages/conflicts/src/expansion.ts`
 - Test: `packages/conflicts/test/expansion.test.ts`
 
 **Interfaces:**
+
 - Consumes: `readEdges` (`packages/directory/src/edges.ts:123`), `EdgeStep` from Task 3.
 - Produces:
   - `interface ExpandedEntity { readonly entityId: string; readonly path: readonly EdgeStep[] }`
@@ -1138,7 +1186,15 @@ test("depth one reaches an org's principal and records the connecting path", asy
   const principalId = await createPerson(database, { given: "Ada", family: "Principal" }, options);
   await createEdge(
     database,
-    { from: principalId, to: orgId, edgeType: "affiliation", role: "principal", note: null, validFrom: null, validTo: null },
+    {
+      from: principalId,
+      to: orgId,
+      edgeType: "affiliation",
+      role: "principal",
+      note: null,
+      validFrom: null,
+      validTo: null,
+    },
     options,
   );
 
@@ -1156,7 +1212,15 @@ test("depth zero expands to the seeds only", async () => {
   const principalId = await createPerson(database, { given: "Ada", family: "Principal" }, options);
   await createEdge(
     database,
-    { from: principalId, to: orgId, edgeType: "affiliation", role: "principal", note: null, validFrom: null, validTo: null },
+    {
+      from: principalId,
+      to: orgId,
+      edgeType: "affiliation",
+      role: "principal",
+      note: null,
+      validFrom: null,
+      validTo: null,
+    },
     options,
   );
 
@@ -1170,8 +1234,32 @@ test("corporate-family edges traverse transitively past the depth limit", async 
   const parentId = await createOrganization(database, { legalName: "Parent Co" }, options);
   const childId = await createOrganization(database, { legalName: "Child Co" }, options);
   const grandchildId = await createOrganization(database, { legalName: "Grandchild Co" }, options);
-  await createEdge(database, { from: parentId, to: childId, edgeType: "corporate_subsidiary", role: null, note: null, validFrom: null, validTo: null }, options);
-  await createEdge(database, { from: childId, to: grandchildId, edgeType: "corporate_subsidiary", role: null, note: null, validFrom: null, validTo: null }, options);
+  await createEdge(
+    database,
+    {
+      from: parentId,
+      to: childId,
+      edgeType: "corporate_subsidiary",
+      role: null,
+      note: null,
+      validFrom: null,
+      validTo: null,
+    },
+    options,
+  );
+  await createEdge(
+    database,
+    {
+      from: childId,
+      to: grandchildId,
+      edgeType: "corporate_subsidiary",
+      role: null,
+      note: null,
+      validFrom: null,
+      validTo: null,
+    },
+    options,
+  );
 
   // depth 1 would stop at childId for an ordinary edge type; corporate closure reaches the grandchild.
   const expanded = await expandGraph(database, [parentId], 1);
@@ -1183,8 +1271,32 @@ test("a cycle terminates and records the first path found", async () => {
   const options = writeOptions("cycle");
   const a = await createOrganization(database, { legalName: "Alpha" }, options);
   const b = await createOrganization(database, { legalName: "Beta" }, options);
-  await createEdge(database, { from: a, to: b, edgeType: "corporate_subsidiary", role: null, note: null, validFrom: null, validTo: null }, options);
-  await createEdge(database, { from: b, to: a, edgeType: "corporate_parent", role: null, note: null, validFrom: null, validTo: null }, options);
+  await createEdge(
+    database,
+    {
+      from: a,
+      to: b,
+      edgeType: "corporate_subsidiary",
+      role: null,
+      note: null,
+      validFrom: null,
+      validTo: null,
+    },
+    options,
+  );
+  await createEdge(
+    database,
+    {
+      from: b,
+      to: a,
+      edgeType: "corporate_parent",
+      role: null,
+      note: null,
+      validFrom: null,
+      validTo: null,
+    },
+    options,
+  );
 
   const expanded = await expandGraph(database, [a], 5);
   expect(expanded.map((entity) => entity.entityId).sort()).toEqual([a, b].sort());
@@ -1196,8 +1308,32 @@ test("expansion is deterministic across runs", async () => {
   const orgId = await createOrganization(database, { legalName: "ABC Holdings" }, options);
   const first = await createPerson(database, { given: "Ada", family: "One" }, options);
   const second = await createPerson(database, { given: "Bea", family: "Two" }, options);
-  await createEdge(database, { from: first, to: orgId, edgeType: "affiliation", role: null, note: null, validFrom: null, validTo: null }, options);
-  await createEdge(database, { from: second, to: orgId, edgeType: "affiliation", role: null, note: null, validFrom: null, validTo: null }, options);
+  await createEdge(
+    database,
+    {
+      from: first,
+      to: orgId,
+      edgeType: "affiliation",
+      role: null,
+      note: null,
+      validFrom: null,
+      validTo: null,
+    },
+    options,
+  );
+  await createEdge(
+    database,
+    {
+      from: second,
+      to: orgId,
+      edgeType: "affiliation",
+      role: null,
+      note: null,
+      validFrom: null,
+      validTo: null,
+    },
+    options,
+  );
 
   const a = await expandGraph(database, [orgId], 1);
   const b = await expandGraph(database, [orgId], 1);
@@ -1276,7 +1412,11 @@ export async function expandGraph(
       const path = [...current.path, step];
       visited.set(neighbourId, path);
       // A corporate hop does not consume the depth budget; every other hop does.
-      queue.push({ entityId: neighbourId, path, hops: isCorporate ? current.hops : current.hops + 1 });
+      queue.push({
+        entityId: neighbourId,
+        path,
+        hops: isCorporate ? current.hops : current.hops + 1,
+      });
     }
   }
 
@@ -1310,10 +1450,12 @@ EOF
 ### Task 8: Imputation by identity join
 
 **Files:**
+
 - Create: `packages/conflicts/src/imputation.ts`
 - Test: `packages/conflicts/test/imputation.test.ts`
 
 **Interfaces:**
+
 - Consumes: nothing from earlier tasks beyond types.
 - Produces:
   - `interface ImputationHit { readonly memberUserId: string; readonly entityId: string; readonly matterId: string; readonly role: string }`
@@ -1321,7 +1463,7 @@ EOF
 
 **Context — the most important test in this plan.** Firm personnel are not Directory entities: `member` carries a flat `display_name` (`packages/database/src/per-firm-schema.ts:118`) with no `directory_name` row, no phonetic code, and no FTS entry. They are structurally invisible to the similarity channels, and that is correct. A partner sharing a surname with a client is not a conflict — a firm named "Smith Law" would otherwise hit every client named Smith on every check, forever.
 
-The real question is an identity question: *is one of our own people a party to some matter?* That resolves by join — `member.user_id` to `directory_person.member_id` to `matter_party`. A lawyer who is genuinely a party already exists as an ordinary Directory entity with an optional `member_id` link, and is matched by the party class like anyone else.
+The real question is an identity question: _is one of our own people a party to some matter?_ That resolves by join — `member.user_id` to `directory_person.member_id` to `matter_party`. A lawyer who is genuinely a party already exists as an ordinary Directory entity with an optional `member_id` link, and is matched by the party class like anyone else.
 
 **This module must never call `findDuplicateCandidates`, `phoneticCodes`, or `normalizeName`.**
 
@@ -1363,7 +1505,11 @@ test("a member linked to a matter party surfaces as an imputation hit", async ()
   );
   const personId = await createPerson(database, { given: "Ada", family: "Partner" }, options);
   database.exec(`UPDATE directory_person SET member_id = 'user_partner' WHERE id = '${personId}'`);
-  await linkMatterParty(database, { matterId: MATTER, entityId: personId, role: "opposing_party" }, options);
+  await linkMatterParty(
+    database,
+    { matterId: MATTER, entityId: personId, role: "opposing_party" },
+    options,
+  );
 
   const hits = await findImputationHits(database, [MATTER]);
   expect(hits).toHaveLength(1);
@@ -1381,7 +1527,11 @@ test("a member whose name merely resembles a party produces no imputation hit", 
   );
   // A client with the same surname, NOT linked to any member.
   const clientId = await createPerson(database, { given: "Jane", family: "Smith" }, options);
-  await linkMatterParty(database, { matterId: MATTER, entityId: clientId, role: "client" }, options);
+  await linkMatterParty(
+    database,
+    { matterId: MATTER, entityId: clientId, role: "client" },
+    options,
+  );
 
   const hits = await findImputationHits(database, [MATTER]);
   expect(hits).toEqual([]);
@@ -1395,7 +1545,11 @@ test("a deactivated member still imputes", async () => {
   );
   const personId = await createPerson(database, { given: "Bea", family: "Former" }, options);
   database.exec(`UPDATE directory_person SET member_id = 'user_former' WHERE id = '${personId}'`);
-  await linkMatterParty(database, { matterId: MATTER, entityId: personId, role: "witness" }, options);
+  await linkMatterParty(
+    database,
+    { matterId: MATTER, entityId: personId, role: "witness" },
+    options,
+  );
 
   // Rule 1.10 imputation does not lapse when a lawyer leaves; the conflict remains the firm's.
   const hits = await findImputationHits(database, [MATTER]);
@@ -1410,8 +1564,14 @@ test("a soft-deleted matter party does not impute", async () => {
   );
   const personId = await createPerson(database, { given: "Ada", family: "Partner" }, options);
   database.exec(`UPDATE directory_person SET member_id = 'user_partner' WHERE id = '${personId}'`);
-  await linkMatterParty(database, { matterId: MATTER, entityId: personId, role: "client" }, options);
-  database.exec(`UPDATE matter_party SET deleted_at = '${clock.now()}' WHERE matter_id = '${MATTER}'`);
+  await linkMatterParty(
+    database,
+    { matterId: MATTER, entityId: personId, role: "client" },
+    options,
+  );
+  database.exec(
+    `UPDATE matter_party SET deleted_at = '${clock.now()}' WHERE matter_id = '${MATTER}'`,
+  );
 
   const hits = await findImputationHits(database, [MATTER]);
   expect(hits).toEqual([]);
@@ -1506,10 +1666,12 @@ EOF
 ### Task 9: Matching adapter — exact-name probe and strictness
 
 **Files:**
+
 - Create: `packages/conflicts/src/matching.ts`
 - Test: `packages/conflicts/test/matching.test.ts`
 
 **Interfaces:**
+
 - Consumes: `findDuplicateCandidates` + `MatchOptions` (Task 6), `normalizeName` (`packages/directory/src/normalize-name.ts`), `MatchEvidence` (Task 3), `Strictness` (Task 3).
 - Produces:
   - `interface CandidateMatch { readonly entityId: string; readonly evidence: MatchEvidence }`
@@ -1549,10 +1711,22 @@ test("over_inclusive returns a superset of balanced for the same corpus", async 
   const { ctx } = await conflictsTestContext("superset");
   await createPerson(ctx.database, { given: "Catherine", family: "Smith" }, ctx);
   const renamed = await createPerson(ctx.database, { given: "Mary", family: "Jones" }, ctx);
-  await changeName(ctx.database, { entityId: renamed, given: "Mary", family: "Smith", nameRole: "former" }, ctx);
+  await changeName(
+    ctx.database,
+    { entityId: renamed, given: "Mary", family: "Smith", nameRole: "former" },
+    ctx,
+  );
 
-  const balanced = await matchParty(ctx, { kind: "person", given: "Catherine", family: "Smith" }, "balanced");
-  const wide = await matchParty(ctx, { kind: "person", given: "Catherine", family: "Smith" }, "over_inclusive");
+  const balanced = await matchParty(
+    ctx,
+    { kind: "person", given: "Catherine", family: "Smith" },
+    "balanced",
+  );
+  const wide = await matchParty(
+    ctx,
+    { kind: "person", given: "Catherine", family: "Smith" },
+    "over_inclusive",
+  );
 
   const wideIds = new Set(wide.map((match) => match.entityId));
   for (const match of balanced) {
@@ -1565,7 +1739,11 @@ test("an exact normalized-name match is reported as such", async () => {
   const { ctx } = await conflictsTestContext("exact-name");
   await createPerson(ctx.database, { given: "Catherine", family: "Smith" }, ctx);
 
-  const matches = await matchParty(ctx, { kind: "person", given: "Catherine", family: "Smith" }, "balanced");
+  const matches = await matchParty(
+    ctx,
+    { kind: "person", given: "Catherine", family: "Smith" },
+    "balanced",
+  );
   expect(matches[0].evidence.exactNormalizedName).toBe(true);
 });
 
@@ -1574,7 +1752,11 @@ test("a weak trigram-only match still appears at every strictness", async () => 
   await createPerson(ctx.database, { given: "Bartholomew", family: "Cathermore" }, ctx);
 
   for (const strictness of ["balanced", "over_inclusive"] as const) {
-    const matches = await matchParty(ctx, { kind: "person", given: "Cather", family: "More" }, strictness);
+    const matches = await matchParty(
+      ctx,
+      { kind: "person", given: "Cather", family: "More" },
+      strictness,
+    );
     // Nothing is ever suppressed by tier — a weak candidate is surfaced, not dropped.
     expect(matches.length).toBeGreaterThan(0);
   }
@@ -1591,10 +1773,7 @@ Expected: FAIL — `Cannot find module '../src/matching.ts'`
 Create `packages/conflicts/src/matching.ts`:
 
 ```ts
-import {
-  findDuplicateCandidates,
-  type MatchOptions,
-} from "@magna-carta/directory/search";
+import { findDuplicateCandidates, type MatchOptions } from "@magna-carta/directory/search";
 import type { DirectoryIdentifierContext } from "@magna-carta/directory/identifiers";
 import { normalizeName } from "@magna-carta/directory/normalize-name";
 import type { MatchEvidence, Strictness } from "./types.ts";
@@ -1714,6 +1893,7 @@ EOF
 ### Task 9B: Shared domain-effect seam
 
 **Files:**
+
 - Create: `packages/data-access/src/run-domain-effect.ts`
 - Modify: `packages/data-access/package.json` (add the `./run-domain-effect` export)
 - Modify: `packages/directory/src/run-directory-effect.ts` (delegate to the shared seam)
@@ -1721,6 +1901,7 @@ EOF
 - Test: `packages/data-access/test/run-domain-effect.test.ts`
 
 **Interfaces:**
+
 - Consumes: `runIdempotentEffect` + `IdempotentEffectResult` (`packages/data-access/src/run-idempotent-effect.ts`), `canonicalJsonStringify` (`@magna-carta/data-access/canonical`).
 - Produces:
   - `interface DomainIdempotencyContext { readonly key: string | undefined; readonly fingerprint: string; readonly newRecordId?: () => IdempotencyRecordId }`
@@ -1732,8 +1913,9 @@ EOF
 **Context — why this task exists.** Three packages need the same ~40-line single-mutation idempotency seam: `runIdempotentEffect` call + serialize the response body + translate the 4-way result (`executed`/`replayed`/`in-progress`/`fingerprint-mismatch`) into a value or a thrown conflict. Directory and matters each carry a copy today; conflicts would make a third. The reusable core is hoisted here. The per-package wrappers stay — but shrink to thin delegates that keep their exact public signatures, so **no call site in directory or matters changes** and their existing tests must stay green.
 
 The wrappers differ only at the edges, all preserved by delegation:
+
 - **Directory** returns a bare `T` (discards the replay flag) and uses `fromBody` to recover a bare id from a `{id}` wire body.
-- **Matters** returns `T & ReplayFlag` (keeps the flag); its `value` *is* the wire body, so its `fromBody` is identity. Its `responseCode` is a call parameter, not a built field.
+- **Matters** returns `T & ReplayFlag` (keeps the flag); its `value` _is_ the wire body, so its `fromBody` is identity. Its `responseCode` is a call parameter, not a built field.
 - Each rethrows its own domain-named conflict error, so route `instanceof` checks are unaffected.
 
 `runMatterDraw` (the numbering-counter draw with bounded retry and out-of-band counter advance) is a genuinely different, matters-only seam — leave it and `finishMatterResult` exactly as they are. Only `runMatterEffect` delegates.
@@ -1917,7 +2099,10 @@ export async function runDomainEffect<T>(
     case "executed":
       return { value: built.value, idempotentReplay: false };
     case "replayed":
-      return { value: built.fromBody(JSON.parse(result.responseBody ?? "{}")), idempotentReplay: true };
+      return {
+        value: built.fromBody(JSON.parse(result.responseBody ?? "{}")),
+        idempotentReplay: true,
+      };
     case "in-progress":
       throw new IdempotencyConflictError(domain, "in-progress");
     case "fingerprint-mismatch":
@@ -1938,7 +2123,10 @@ Expected: PASS (3 tests)
 Rewrite the body of `runDirectoryEffect` in `packages/directory/src/run-directory-effect.ts` to delegate, keeping the exported signature, the `BuiltDirectoryMutation<T>` interface (now structurally a `BuiltEffect<T>`), the `DirectoryIdempotencyContext` interface, and the `DirectoryIdempotencyConflictError` class exactly as they are:
 
 ```ts
-import { runDomainEffect, IdempotencyConflictError } from "@magna-carta/data-access/run-domain-effect";
+import {
+  runDomainEffect,
+  IdempotencyConflictError,
+} from "@magna-carta/data-access/run-domain-effect";
 // ...keep DirectoryIdempotencyContext, DirectoryIdempotencyConflictError, BuiltDirectoryMutation...
 
 export async function runDirectoryEffect<T>(
@@ -1971,7 +2159,10 @@ Expected: PASS — the full directory suite, unchanged behaviour.
 Rewrite only `runMatterEffect` in `packages/matters/src/matter-service.ts` to delegate. Keep its signature `(database, options, responseCode, build) => Promise<T & ReplayFlag>`, the `MatterIdempotencyConflictError` class, `runMatterDraw`, and `finishMatterResult` (still used by `runMatterDraw`) exactly as they are:
 
 ```ts
-import { runDomainEffect, IdempotencyConflictError } from "@magna-carta/data-access/run-domain-effect";
+import {
+  runDomainEffect,
+  IdempotencyConflictError,
+} from "@magna-carta/data-access/run-domain-effect";
 
 async function runMatterEffect<T>(
   database: BatchDatabase,
@@ -2035,10 +2226,12 @@ EOF
 ### Task 10: Write path — statements, audit, effect seam, orchestration
 
 **Files:**
+
 - Create: `packages/conflicts/src/audit.ts`, `packages/conflicts/src/statements.ts`, `packages/conflicts/src/run-conflicts-effect.ts`, `packages/conflicts/src/run-check.ts`
 - Test: `packages/conflicts/test/run-check.test.ts`
 
 **Interfaces:**
+
 - Consumes: everything from Tasks 3-9.
 - Produces:
   - `interface ConflictsWriteOptions { readonly clock: { now(): string }; readonly actorUserId: UserId | null; readonly randomSource?: RandomSource; readonly idempotency?: ConflictsIdempotencyContext }`
@@ -2065,7 +2258,11 @@ test("a check writes one row recording the trigger, scope, strictness and depth"
 
   const checkId = await runConflictsCheck(
     ctx,
-    { trigger: "comprehensive", subjectEntityIds: [clientId], scope: { sources: ["party"], strictness: "balanced", depth: 1 } },
+    {
+      trigger: "comprehensive",
+      subjectEntityIds: [clientId],
+      scope: { sources: ["party"], strictness: "balanced", depth: 1 },
+    },
     options,
   );
 
@@ -2079,7 +2276,11 @@ test("a matter with no parties produces an empty run, not an error", async () =>
   const { ctx, options } = await conflictsTestContext("empty");
   const checkId = await runConflictsCheck(
     ctx,
-    { trigger: "preliminary", subjectEntityIds: [], scope: { sources: ["party"], strictness: "balanced", depth: 1 } },
+    {
+      trigger: "preliminary",
+      subjectEntityIds: [],
+      scope: { sources: ["party"], strictness: "balanced", depth: 1 },
+    },
     options,
   );
   const hits = await readHits(ctx.database, checkId);
@@ -2090,7 +2291,11 @@ test("a source that cannot run records as unavailable, never as clean", async ()
   const { ctx, options } = await conflictsTestContext("unavailable");
   const checkId = await runConflictsCheck(
     ctx,
-    { trigger: "comprehensive", subjectEntityIds: [], scope: { sources: ["party", "content"], strictness: "balanced", depth: 1 } },
+    {
+      trigger: "comprehensive",
+      subjectEntityIds: [],
+      scope: { sources: ["party", "content"], strictness: "balanced", depth: 1 },
+    },
     options,
   );
   const row = await readCheck(ctx.database, checkId);
@@ -2106,7 +2311,11 @@ test("a scope below the floor is raised and the raise is recorded on the row", a
   );
   const checkId = await runConflictsCheck(
     ctx,
-    { trigger: "comprehensive", subjectEntityIds: [], scope: { sources: ["party"], strictness: "balanced", depth: 1 } },
+    {
+      trigger: "comprehensive",
+      subjectEntityIds: [],
+      scope: { sources: ["party"], strictness: "balanced", depth: 1 },
+    },
     options,
   );
   const row = await readCheck(ctx.database, checkId);
@@ -2141,11 +2350,19 @@ test("a merged-away former name still surfaces the surviving master", async () =
 
   const checkId = await runConflictsCheck(
     ctx,
-    { trigger: "new_party", subjectEntityIds: [], scope: { sources: ["party"], strictness: "over_inclusive", depth: 0 } },
+    {
+      trigger: "new_party",
+      subjectEntityIds: [],
+      scope: { sources: ["party"], strictness: "over_inclusive", depth: 0 },
+    },
     options,
   );
   // Match against the merged-away name; the master must surface, never the subordinate.
-  const matches = await matchParty(ctx, { kind: "person", given: "Jane", family: "Doe" }, "over_inclusive");
+  const matches = await matchParty(
+    ctx,
+    { kind: "person", given: "Jane", family: "Doe" },
+    "over_inclusive",
+  );
   expect(matches.map((match) => match.entityId)).toContain(master);
   expect(matches.map((match) => match.entityId)).not.toContain(subordinate);
   expect(checkId).toBeDefined();
@@ -2154,17 +2371,33 @@ test("a merged-away former name still surfaces the surviving master", async () =
 test("every hit carries its evidence tier and connecting graph path", async () => {
   const { ctx, options } = await conflictsTestContext("hit-shape");
   const orgId = await createOrganization(ctx.database, { legalName: "ABC Holdings" }, options);
-  const principalId = await createPerson(ctx.database, { given: "Ada", family: "Principal" }, options);
+  const principalId = await createPerson(
+    ctx.database,
+    { given: "Ada", family: "Principal" },
+    options,
+  );
   await createEdge(
     ctx.database,
-    { from: principalId, to: orgId, edgeType: "affiliation", role: "principal", note: null, validFrom: null, validTo: null },
+    {
+      from: principalId,
+      to: orgId,
+      edgeType: "affiliation",
+      role: "principal",
+      note: null,
+      validFrom: null,
+      validTo: null,
+    },
     options,
   );
   await createPerson(ctx.database, { given: "Ada", family: "Principal" }, options); // a second, unrelated Ada
 
   const checkId = await runConflictsCheck(
     ctx,
-    { trigger: "comprehensive", subjectEntityIds: [orgId], scope: { sources: ["party", "graph"], strictness: "balanced", depth: 1 } },
+    {
+      trigger: "comprehensive",
+      subjectEntityIds: [orgId],
+      scope: { sources: ["party", "graph"], strictness: "balanced", depth: 1 },
+    },
     options,
   );
 
@@ -2190,7 +2423,9 @@ test("a replayed idempotency key writes exactly one check", async () => {
   const second = await runConflictsCheck(ctx, input, { ...options, idempotency });
 
   expect(second).toBe(first);
-  const { results } = await ctx.database.prepare(`SELECT COUNT(*) AS count FROM conflicts_check`).all();
+  const { results } = await ctx.database
+    .prepare(`SELECT COUNT(*) AS count FROM conflicts_check`)
+    .all();
   expect(results[0].count).toBe(1);
 });
 ```
@@ -2385,10 +2620,12 @@ EOF
 ### Task 11: Dispositions
 
 **Files:**
+
 - Create: `packages/conflicts/src/disposition.ts`
 - Test: `packages/conflicts/test/disposition.test.ts`
 
 **Interfaces:**
+
 - Consumes: `insertDispositionStatement` (Task 10), `DispositionKind` (Task 3).
 - Produces:
   - `interface RecordDispositionInput { readonly hitId: string; readonly kind: DispositionKind; readonly rationale: string; readonly reviewerUserId: UserId }`
@@ -2416,31 +2653,50 @@ test("a disposition is recorded against a hit", async () => {
 
 test("a reversal appends a second row and becomes the current disposition", async () => {
   const { ctx, options, hitId } = await hitFixture("reversal");
-  await recordDisposition(ctx.database, { hitId, kind: "cleared", rationale: "looked unrelated", reviewerUserId: ACTOR }, options);
   await recordDisposition(
     ctx.database,
-    { hitId, kind: "representation_declined", rationale: "on review, adverse", reviewerUserId: ACTOR },
+    { hitId, kind: "cleared", rationale: "looked unrelated", reviewerUserId: ACTOR },
+    options,
+  );
+  await recordDisposition(
+    ctx.database,
+    {
+      hitId,
+      kind: "representation_declined",
+      rationale: "on review, adverse",
+      reviewerUserId: ACTOR,
+    },
     { ...options, clock: { now: () => "2026-07-09T01:00:00.000Z" } },
   );
 
   const current = await readCurrentDisposition(ctx.database, hitId);
   expect(current?.kind).toBe("representation_declined");
 
-  const { results } = await ctx.database.prepare(`SELECT COUNT(*) AS count FROM conflicts_disposition`).all();
+  const { results } = await ctx.database
+    .prepare(`SELECT COUNT(*) AS count FROM conflicts_disposition`)
+    .all();
   expect(results[0].count).toBe(2); // the cleared row survives — the audit trail is the point
 });
 
 test("an empty rationale is rejected", async () => {
   const { ctx, options, hitId } = await hitFixture("empty-rationale");
   await expect(
-    recordDisposition(ctx.database, { hitId, kind: "cleared", rationale: "   ", reviewerUserId: ACTOR }, options),
+    recordDisposition(
+      ctx.database,
+      { hitId, kind: "cleared", rationale: "   ", reviewerUserId: ACTOR },
+      options,
+    ),
   ).rejects.toThrow(/empty-rationale/);
 });
 
 test("a disposition against an unknown hit is rejected before any write", async () => {
   const { ctx, options } = await hitFixture("unknown-hit");
   await expect(
-    recordDisposition(ctx.database, { hitId: "conflictsHit_missing", kind: "cleared", rationale: "x", reviewerUserId: ACTOR }, options),
+    recordDisposition(
+      ctx.database,
+      { hitId: "conflictsHit_missing", kind: "cleared", rationale: "x", reviewerUserId: ACTOR },
+      options,
+    ),
   ).rejects.toThrow(/unknown-hit/);
 });
 
@@ -2448,7 +2704,11 @@ test("every disposition kind is accepted", async () => {
   for (const kind of DISPOSITION_KINDS) {
     const { ctx, options, hitId } = await hitFixture(`kind-${kind}`);
     await expect(
-      recordDisposition(ctx.database, { hitId, kind, rationale: "reason", reviewerUserId: ACTOR }, options),
+      recordDisposition(
+        ctx.database,
+        { hitId, kind, rationale: "reason", reviewerUserId: ACTOR },
+        options,
+      ),
     ).resolves.toBeDefined();
   }
 });
@@ -2491,16 +2751,19 @@ EOF
 ### Task 12: Fitness probes
 
 **Files:**
+
 - Create: `packages/conflicts/src/fitness.ts`
 - Test: `packages/conflicts/test/fitness.test.ts`
 
 **Interfaces:**
+
 - Consumes: the three tables.
 - Produces: `assertConflictsFitness(database: SqlDatabase): Promise<void>`, `class ConflictsFitnessError extends Error` with `readonly code = "conflicts-fitness"`.
 
 **Context:** Mirror `packages/directory/src/fitness.ts:226` — aggregate every violation across all probes before throwing, so one run surfaces the full damage.
 
 Probes:
+
 1. **Append-only triggers exist** — all six named triggers present in `sqlite_master`.
 2. **No orphan hit** — every `conflicts_hit.check_id` resolves.
 3. **No orphan disposition** — every `conflicts_disposition.hit_id` resolves.
@@ -2541,12 +2804,14 @@ EOF
 ### Task 13: Worker routes and permissions
 
 **Files:**
+
 - Create: `apps/worker/src/routes/conflicts.ts`
 - Modify: `apps/worker/src/app.ts`, `packages/access-control/src/registry.ts`
 - Create: `packages/database/drizzle/per-firm/20260709T120001_seed-conflicts-permissions.sql`
 - Test: `apps/worker/test/conflicts-routes.test.ts`
 
 **Interfaces:**
+
 - Consumes: `runConflictsCheck`, `recordDisposition`, `readCurrentDisposition`.
 - Produces: three routes.
   - `POST /conflicts/checks` — body `{ trigger, matterId?, subjectEntityIds, scope: { sources, strictness, depth } }` → `201 { id }`. Permission `conflicts:run`.
@@ -2599,6 +2864,7 @@ EOF
 ### Task 14: Documentation and close-out
 
 **Files:**
+
 - Create: `packages/conflicts/CLAUDE.md`
 - Create: `changelog.d/conflicts-matching-engine.md`
 - Create: `status.d/slice-4-1-conflicts.md`
@@ -2619,6 +2885,7 @@ Mirror `packages/directory/CLAUDE.md`: purpose, key files, invariants, dependenc
 - A source that cannot run records `unavailable`, never `searched`.
 
 Gotchas:
+
 - `readEdges` (`packages/directory/src/edges.ts:127`) reads an ambient `new Date()`. Do not depend on it for deterministic expansion tests.
 - Corporate-family edges bypass the depth budget in `expandGraph` deliberately. A successor entity must still match.
 - Drizzle-kit cannot model triggers; they live in the hand-written migration `.sql`, like the FTS5 triggers.
@@ -2661,7 +2928,7 @@ EOF
 
 **Spec coverage.** Every spec section maps to a task: no-scorer/evidence tiers → Task 4; strictness as recall knob → Tasks 6 and 9; source registry and floor → Task 5; graph expansion and depth → Task 7; imputation by identity → Task 8; three append-only tables → Task 2; orchestration and the log's contents → Task 10; dispositions appended not updated → Tasks 2 and 11; append-only enforcement → Tasks 2 and 12; error handling (empty run, cycle, non-indexable identifier, unavailable source, idempotency) → Tasks 7, 10, 11; every named test in the spec's Testing section appears in Tasks 4, 5, 8, 9, 10, or 12 — including the "Smith Law" regression (Task 8) and the merged-alias case (Task 10). Triggers as API-only → Task 13. Deferred items are built nowhere, by construction.
 
-**Deviation from the spec, discovered while reading the code.** The spec claims the engine "consumes the Directory corpus without changing it." That holds for the *write* path but not the *read* path: `findDuplicateCandidates` returns no channel provenance, its phonetic channel applies no scheme filter, and neither name channel filters `is_current`. Balanced strictness is therefore unbuildable on top of the current signature. Task 6 adds both, additively and backward-compatibly. The spec's architecture section should be amended to say "without changing its write path."
+**Deviation from the spec, discovered while reading the code.** The spec claims the engine "consumes the Directory corpus without changing it." That holds for the _write_ path but not the _read_ path: `findDuplicateCandidates` returns no channel provenance, its phonetic channel applies no scheme filter, and neither name channel filters `is_current`. Balanced strictness is therefore unbuildable on top of the current signature. Task 6 adds both, additively and backward-compatibly. The spec's architecture section should be amended to say "without changing its write path."
 
 **Stale blocker removed.** The active-work note and the design conversation both flagged `monotonic-migration-ids` as blocking migration authoring. It is fully merged into `main` (`git merge-base --is-ancestor monotonic-migration-ids main`), and migrations already use timestamp ids. Task 2 proceeds immediately. The active-work overlap note should be corrected in Task 14.
 

@@ -53,7 +53,11 @@ async function readSubjectFacts(
   try {
     if (kind === "person") {
       const person = await readPerson(context.database, entityId as never);
-      return { kind: "person", given: person.given ?? undefined, family: person.family ?? undefined };
+      return {
+        kind: "person",
+        given: person.given ?? undefined,
+        family: person.family ?? undefined,
+      };
     }
     const organization = await readOrganization(context.database, entityId as never);
     return { kind: "organization", legalName: organization.legalName ?? undefined };
@@ -62,10 +66,10 @@ async function readSubjectFacts(
   }
 }
 
-// The identifier ids (and their types) attached to the given entities — NEVER value_ciphertext or
-// value_blind_index. This is what "recorded by reference" means: the log can point back at the sealed
-// row through readIdentifier for an authorized, audited decrypt, but the row itself carries nothing
-// that leaks the plaintext.
+// The identifier ids (and their types) attached to the given entities — NEVER the sealed ciphertext
+// or blind-index column. This is what "recorded by reference" means: the log can point back at the
+// sealed row through readIdentifier for an authorized, audited decrypt, but the row itself carries
+// nothing that leaks the plaintext.
 async function readIdentifierReferences(
   context: DirectoryIdentifierContext,
   entityIds: readonly string[],

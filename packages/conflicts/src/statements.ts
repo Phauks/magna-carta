@@ -5,7 +5,13 @@ import type {
   ConflictsHitId,
 } from "@magna-carta/identifiers/types";
 import type { UserId } from "@magna-carta/identifiers/types";
-import type { ConflictsTrigger, DispositionKind, EvidenceTier, SourceClass, Strictness } from "./types.ts";
+import type {
+  ConflictsTrigger,
+  DispositionKind,
+  EvidenceTier,
+  SourceClass,
+  Strictness,
+} from "./types.ts";
 
 // Table names tracked against @magna-carta/database's per-firm schema by the schema-name-sync fitness
 // test. The three tables are append-only (RAISE(ABORT) triggers on UPDATE/DELETE in the migration) —

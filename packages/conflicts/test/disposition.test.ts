@@ -50,31 +50,50 @@ test("a disposition is recorded against a hit", async () => {
 
 test("a reversal appends a second row and becomes the current disposition", async () => {
   const { ctx, options, hitId } = await hitFixture("reversal");
-  await recordDisposition(ctx.database, { hitId, kind: "cleared", rationale: "looked unrelated", reviewerUserId: ACTOR }, options);
   await recordDisposition(
     ctx.database,
-    { hitId, kind: "representation_declined", rationale: "on review, adverse", reviewerUserId: ACTOR },
+    { hitId, kind: "cleared", rationale: "looked unrelated", reviewerUserId: ACTOR },
+    options,
+  );
+  await recordDisposition(
+    ctx.database,
+    {
+      hitId,
+      kind: "representation_declined",
+      rationale: "on review, adverse",
+      reviewerUserId: ACTOR,
+    },
     { ...options, clock: { now: () => "2026-07-09T01:00:00.000Z" } },
   );
 
   const current = await readCurrentDisposition(ctx.database, hitId);
   expect(current?.kind).toBe("representation_declined");
 
-  const { results } = await ctx.database.prepare(`SELECT COUNT(*) AS count FROM conflicts_disposition`).all();
+  const { results } = await ctx.database
+    .prepare(`SELECT COUNT(*) AS count FROM conflicts_disposition`)
+    .all();
   expect(results[0].count).toBe(2); // the cleared row survives — the audit trail is the point
 });
 
 test("an empty rationale is rejected", async () => {
   const { ctx, options, hitId } = await hitFixture("empty-rationale");
   await expect(
-    recordDisposition(ctx.database, { hitId, kind: "cleared", rationale: "   ", reviewerUserId: ACTOR }, options),
+    recordDisposition(
+      ctx.database,
+      { hitId, kind: "cleared", rationale: "   ", reviewerUserId: ACTOR },
+      options,
+    ),
   ).rejects.toThrow(/empty-rationale/);
 });
 
 test("a disposition against an unknown hit is rejected before any write", async () => {
   const { ctx, options } = await hitFixture("unknown-hit");
   await expect(
-    recordDisposition(ctx.database, { hitId: "conflictsHit_missing", kind: "cleared", rationale: "x", reviewerUserId: ACTOR }, options),
+    recordDisposition(
+      ctx.database,
+      { hitId: "conflictsHit_missing", kind: "cleared", rationale: "x", reviewerUserId: ACTOR },
+      options,
+    ),
   ).rejects.toThrow(/unknown-hit/);
 });
 
@@ -82,7 +101,11 @@ test("every disposition kind is accepted", async () => {
   for (const kind of DISPOSITION_KINDS) {
     const { ctx, options, hitId } = await hitFixture(`kind-${kind}`);
     await expect(
-      recordDisposition(ctx.database, { hitId, kind, rationale: "reason", reviewerUserId: ACTOR }, options),
+      recordDisposition(
+        ctx.database,
+        { hitId, kind, rationale: "reason", reviewerUserId: ACTOR },
+        options,
+      ),
     ).resolves.toBeDefined();
   }
 });

@@ -59,7 +59,11 @@ export async function expandGraph(
       const path = [...current.path, step];
       visited.set(neighbourId, path);
       // A corporate hop does not consume the depth budget; every other hop does.
-      queue.push({ entityId: neighbourId, path, hops: isCorporate ? current.hops : current.hops + 1 });
+      queue.push({
+        entityId: neighbourId,
+        path,
+        hops: isCorporate ? current.hops : current.hops + 1,
+      });
     }
   }
 

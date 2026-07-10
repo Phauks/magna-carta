@@ -14,7 +14,7 @@ Design: [`docs/specs/2026-07-09-slice-4-1-conflicts-design.md`](../specs/2026-07
 
 ## Status
 
-Design accepted; implementation plan written ([`docs/specs/2026-07-09-slice-4-1-conflicts-implementation-plan.md`](../specs/2026-07-09-slice-4-1-conflicts-implementation-plan.md)). Implementation not started.
+**Built.** Implementation plan ([`docs/specs/2026-07-09-slice-4-1-conflicts-implementation-plan.md`](../specs/2026-07-09-slice-4-1-conflicts-implementation-plan.md)) fully executed: the `@magna-carta/conflicts` package, the three append-only per-firm tables + hand-written trigger migration, and the worker routes are implemented and tested. Documentation and close-out complete — see `status.d/slice-4-1-conflicts.md` and the changelog fragment.
 
 The headline decision: **no scorer.** Every candidate the blocking channels surface is shown, ranked by evidence tier, never suppressed by a threshold. Strictness is redefined from a score cutoff into a recall knob. This closes research open decisions H.3 and H.5 and diverges from research §D — recorded in the ADR fragment.
 

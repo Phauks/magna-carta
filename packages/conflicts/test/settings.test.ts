@@ -54,13 +54,25 @@ test("party is always in scope even when a caller omits it", () => {
 });
 
 test("resolved sources are deterministically ordered", () => {
-  const a = resolveScope(policy, { sources: ["imputation", "party"], strictness: "balanced", depth: 1 });
-  const b = resolveScope(policy, { sources: ["party", "imputation"], strictness: "balanced", depth: 1 });
+  const a = resolveScope(policy, {
+    sources: ["imputation", "party"],
+    strictness: "balanced",
+    depth: 1,
+  });
+  const b = resolveScope(policy, {
+    sources: ["party", "imputation"],
+    strictness: "balanced",
+    depth: 1,
+  });
   expect(a.sources).toEqual(b.sources);
 });
 
 test("depth below zero is clamped to zero", () => {
-  const resolved = resolveScope(policy, { sources: ["party", "graph"], strictness: "balanced", depth: -1 });
+  const resolved = resolveScope(policy, {
+    sources: ["party", "graph"],
+    strictness: "balanced",
+    depth: -1,
+  });
   expect(resolved.depth).toBe(0);
 });
 

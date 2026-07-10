@@ -40,7 +40,11 @@ test("a member linked to a matter party surfaces as an imputation hit", async ()
   );
   const personId = await createPerson(database, { given: "Ada", family: "Partner" }, options);
   raw.exec(`UPDATE directory_person SET member_id = 'user_partner' WHERE id = '${personId}'`);
-  await linkMatterParty(database, { matterId: MATTER, entityId: personId, role: "opposing_party" }, options);
+  await linkMatterParty(
+    database,
+    { matterId: MATTER, entityId: personId, role: "opposing_party" },
+    options,
+  );
 
   const hits = await findImputationHits(database, [MATTER]);
   expect(hits).toHaveLength(1);
@@ -58,7 +62,11 @@ test("a member whose name merely resembles a party produces no imputation hit", 
   );
   // A client with the same surname, NOT linked to any member.
   const clientId = await createPerson(database, { given: "Jane", family: "Smith" }, options);
-  await linkMatterParty(database, { matterId: MATTER, entityId: clientId, role: "client" }, options);
+  await linkMatterParty(
+    database,
+    { matterId: MATTER, entityId: clientId, role: "client" },
+    options,
+  );
 
   const hits = await findImputationHits(database, [MATTER]);
   expect(hits).toEqual([]);
@@ -72,7 +80,11 @@ test("a deactivated member still imputes", async () => {
   );
   const personId = await createPerson(database, { given: "Bea", family: "Former" }, options);
   raw.exec(`UPDATE directory_person SET member_id = 'user_former' WHERE id = '${personId}'`);
-  await linkMatterParty(database, { matterId: MATTER, entityId: personId, role: "witness" }, options);
+  await linkMatterParty(
+    database,
+    { matterId: MATTER, entityId: personId, role: "witness" },
+    options,
+  );
 
   // Rule 1.10 imputation does not lapse when a lawyer leaves; the conflict remains the firm's.
   const hits = await findImputationHits(database, [MATTER]);
@@ -87,7 +99,11 @@ test("a soft-deleted matter party does not impute", async () => {
   );
   const personId = await createPerson(database, { given: "Ada", family: "Partner" }, options);
   raw.exec(`UPDATE directory_person SET member_id = 'user_partner' WHERE id = '${personId}'`);
-  await linkMatterParty(database, { matterId: MATTER, entityId: personId, role: "client" }, options);
+  await linkMatterParty(
+    database,
+    { matterId: MATTER, entityId: personId, role: "client" },
+    options,
+  );
   raw.exec(`UPDATE matter_party SET deleted_at = '${clock.now()}' WHERE matter_id = '${MATTER}'`);
 
   const hits = await findImputationHits(database, [MATTER]);

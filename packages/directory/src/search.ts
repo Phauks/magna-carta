@@ -511,7 +511,10 @@ export async function findDuplicateCandidates(
   // identifier channel) which identifier types matched.
   const signals = new Map<string, { channels: Set<MatchChannel>; identifierTypes: Set<string> }>();
 
-  function signalFor(entityId: string): { channels: Set<MatchChannel>; identifierTypes: Set<string> } {
+  function signalFor(entityId: string): {
+    channels: Set<MatchChannel>;
+    identifierTypes: Set<string>;
+  } {
     let signal = signals.get(entityId);
     if (signal === undefined) {
       signal = { channels: new Set<MatchChannel>(), identifierTypes: new Set<string>() };

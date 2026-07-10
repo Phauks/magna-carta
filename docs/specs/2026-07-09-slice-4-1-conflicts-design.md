@@ -43,12 +43,12 @@ Nothing accepted is contradicted. ADR-0013 specifies "firm-wide, configurable st
 
 Each hit is ranked by a deterministic ordinal derived from **what kind of thing matched** — not how probable the match is:
 
-| Tier | Evidence |
-| ---- | -------- |
-| 1 | Exact identifier — SSN, EIN, driver's licence, account number, by blind-index equality |
-| 2 | Exact normalized name — after the frozen normalization in `normalize-name.ts` |
-| 3 | Phonetic code match — Double Metaphone |
-| 4 | Trigram overlap only |
+| Tier | Evidence                                                                               |
+| ---- | -------------------------------------------------------------------------------------- |
+| 1    | Exact identifier — SSN, EIN, driver's licence, account number, by blind-index equality |
+| 2    | Exact normalized name — after the frozen normalization in `normalize-name.ts`          |
+| 3    | Phonetic code match — Double Metaphone                                                 |
+| 4    | Trigram overlap only                                                                   |
 
 Orthogonally, each hit records **how the entity was reached**: directly, or through a graph path, with the edges traversed. A spouse-of hit on an exact SSN is a different object from a trigram hit on a direct party, and the reviewer sees both facts.
 
@@ -67,20 +67,20 @@ Strictness dials recall up, never precision by exclusion. This reads the white p
 
 ## The source registry
 
-What a check searches is a typed registry of **sources**, not a flat depth number. The four classes differ in *how they match*, not only in *what they search*.
+What a check searches is a typed registry of **sources**, not a flat depth number. The four classes differ in _how they match_, not only in _what they search_.
 
-| Class | Searches | Match mode | This slice |
-| ----- | -------- | ---------- | ---------- |
-| **Party** | Directory entities (names, aliases, former names, identifiers); `matter_party` role-links firm-wide, all Locations | Similarity — phonetic, trigram, blind-index | Built. Always on |
-| **Graph** | `directory_edge`: principal-of-org, spouse/family, corporate parent/subsidiary/successor | Identity traversal, then Party matching on each expanded entity | Built. Toggle + depth |
-| **Imputation** | `member` ↔ `directory_person.member_id` ↔ `matter_party` / `directory_edge` | **Identity only. Never name similarity** | Built. Toggle |
-| **Content** | Email participants; email and document text | Exact address equality / unstructured mention | Registered, unavailable |
+| Class          | Searches                                                                                                           | Match mode                                                      | This slice              |
+| -------------- | ------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------- | ----------------------- |
+| **Party**      | Directory entities (names, aliases, former names, identifiers); `matter_party` role-links firm-wide, all Locations | Similarity — phonetic, trigram, blind-index                     | Built. Always on        |
+| **Graph**      | `directory_edge`: principal-of-org, spouse/family, corporate parent/subsidiary/successor                           | Identity traversal, then Party matching on each expanded entity | Built. Toggle + depth   |
+| **Imputation** | `member` ↔ `directory_person.member_id` ↔ `matter_party` / `directory_edge`                                        | **Identity only. Never name similarity**                        | Built. Toggle           |
+| **Content**    | Email participants; email and document text                                                                        | Exact address equality / unstructured mention                   | Registered, unavailable |
 
 ### Why Imputation matches by identity, never by name
 
 Firm personnel are not Directory entities (ADR-0085). `member` carries a flat `display_name` string (`per-firm-schema.ts:118`) with no `directory_name` row, no phonetic code, and no FTS entry — they are structurally invisible to the similarity channels.
 
-That is the correct answer, not a gap. A partner sharing a surname with a client is not a conflict; a firm named "Smith Law" and a client named Smith produce a hit on every check, forever, and the hit means nothing. The real question — *is one of our own people a party to, or related to, a party in, some matter?* — is an identity question, resolved by join: `member.user_id` → `directory_person.member_id` (nullable, `per-firm-schema.ts:944`) → `matter_party` / `directory_edge`. Exact, no fuzz, no noise.
+That is the correct answer, not a gap. A partner sharing a surname with a client is not a conflict; a firm named "Smith Law" and a client named Smith produce a hit on every check, forever, and the hit means nothing. The real question — _is one of our own people a party to, or related to, a party in, some matter?_ — is an identity question, resolved by join: `member.user_id` → `directory_person.member_id` (nullable, `per-firm-schema.ts:944`) → `matter_party` / `directory_edge`. Exact, no fuzz, no noise.
 
 ADR-0085 already supplies the escape hatch for the case that matters: "a lawyer who is genuinely a party is an ordinary entity (optional `member_id` link)." When a partner is actually adverse, they exist as a `directory_person` with names and phonetic codes and are matched by the **Party** class like anyone else.
 
@@ -100,7 +100,7 @@ Therefore: **firm policy sets a mandatory floor. A per-run selection may only ad
 
 When the Content class lands, two distinctions hold, and one gotcha applies.
 
-**Email participants are structured, not content.** `crates/email-core/src/model.rs` parses `from`/`to`/`cc`/`bcc` into typed `Address` values; an address probes `directory_email` by exact equality, like the blind-index channel. **Email bodies and document text are unstructured**; a name in a document is a *mention*, not a party — it cannot be scored by field comparators, and it never reaches tier 1–2 nor auto-clears anything.
+**Email participants are structured, not content.** `crates/email-core/src/model.rs` parses `from`/`to`/`cc`/`bcc` into typed `Address` values; an address probes `directory_email` by exact equality, like the blind-index channel. **Email bodies and document text are unstructured**; a name in a document is a _mention_, not a party — it cannot be scored by field comparators, and it never reaches tier 1–2 nor auto-clears anything.
 
 **The email-participant channel must exclude the firm's own domains.** `john.smith@smithlaw.com` is not a conflict signal, and without the exclusion every internal email matches.
 
@@ -110,7 +110,7 @@ Neither is available today: `email-core` is parse-only and is imported nowhere o
 
 A new `@magna-carta/conflicts` package, following the Directory pattern exactly: validates in memory, composes statements into `composeEffectBatch`, holds no D1 binding, performs no I/O of its own. It reads the corpus through the Directory package's existing readers rather than reimplementing blocking.
 
-**The Directory write path is untouched; its read path takes two additive changes.** `findDuplicateCandidates` returns only `{entityId, signalCount}`, so evidence tiering cannot tell which channel matched — channel provenance must travel with each candidate. And its phonetic channel applies no scheme filter while neither name channel filters `is_current`, so both Double Metaphone schemes and every alias/former name are *already* always searched. Balanced strictness therefore cannot be layered on top of the current signature; it needs a scheme filter and a name-role filter that do not exist. Both are added as optional parameters, so omitting them preserves today's behaviour exactly and the merge and entry-time-duplicate callers are unaffected.
+**The Directory write path is untouched; its read path takes two additive changes.** `findDuplicateCandidates` returns only `{entityId, signalCount}`, so evidence tiering cannot tell which channel matched — channel provenance must travel with each candidate. And its phonetic channel applies no scheme filter while neither name channel filters `is_current`, so both Double Metaphone schemes and every alias/former name are _already_ always searched. Balanced strictness therefore cannot be layered on top of the current signature; it needs a scheme filter and a name-role filter that do not exist. Both are added as optional parameters, so omitting them preserves today's behaviour exactly and the merge and entry-time-duplicate callers are unaffected.
 
 ```
 apps/worker/src/routes/conflicts.ts    owns env, actor, crypto context (mirrors routes/directory.ts)
@@ -126,7 +126,7 @@ apps/worker/src/routes/conflicts.ts    owns env, actor, crypto context (mirrors 
         └── fitness.ts         invariant probes
 ```
 
-Comparators (exact-identifier, exact-normalized-name, phonetic, trigram) run in TypeScript over the bounded candidate set that blocking already produced. **Perf is not a reason to reach for Rust here**: blocking bounds the set to hundreds of entities, and comparison across a few name fields is sub-millisecond. The only genuine Rust candidate is Beider-Morse, which is a *write-time* concern — phonetic codes are precomputed on every `directory_name` insert — and therefore belongs to a separate, self-contained decision with its own backfill, not to the scorer's home.
+Comparators (exact-identifier, exact-normalized-name, phonetic, trigram) run in TypeScript over the bounded candidate set that blocking already produced. **Perf is not a reason to reach for Rust here**: blocking bounds the set to hundreds of entities, and comparison across a few name fields is sub-millisecond. The only genuine Rust candidate is Beider-Morse, which is a _write-time_ concern — phonetic codes are precomputed on every `directory_name` insert — and therefore belongs to a separate, self-contained decision with its own backfill, not to the scorer's home.
 
 **H.5 (D1-native vs Tantivy) needs no decision.** `findDuplicateCandidates` is D1-native and shipped. Tantivy remains the reserved scale path, measured against the load harness before adoption. The optional document-content depth scan will ride the Discovery/Tantivy index when the Content class lands.
 
@@ -157,7 +157,7 @@ Three tables, per-firm.
 
 A column would be updated in place, destroying the prior value. The log is the malpractice defense; a reviewer who clears a hit and later reverses must leave both acts visible. An append-only table makes the reversal a second row, and the hit's current disposition is the latest row — reconstructible, never overwritten. This is the same immutability discipline as the Phase 0 ledger.
 
-Ethical walls remain deferred (white paper). `wall_erected` is a recordable *outcome*, not a wall implementation — nothing enforces access restriction in this slice.
+Ethical walls remain deferred (white paper). `wall_erected` is a recordable _outcome_, not a wall implementation — nothing enforces access restriction in this slice.
 
 ### Append-only enforcement
 
@@ -191,15 +191,15 @@ Auto-firing on party-add would couple the Directory write path to the conflicts 
 
 ## Deferred, with reasons
 
-| Deferred | Why | Flip condition |
-| -------- | --- | -------------- |
-| Reviewer adjudication UX | Owner deferred | The design-system app shell |
-| Beider-Morse | Write-time concern with its own backfill; over-inclusive band ships without it | A measured recall gap on cross-origin surnames |
-| Rust/WASM scorer core | No perf reason; blocking bounds the candidate set | A measured hot path, per golden rule 10 |
-| Content class (email, documents) | `email-core` is unwired; no document-text index exists | Discovery / Tantivy, and the email capture path |
-| Prior-firm lateral table | Nothing populates it with capture UX deferred | A personnel-history capture surface |
-| Auto-fire triggers + Cron re-scan | No reviewer to notify | Reviewer UX |
-| Ethical wall enforcement | Deferred by the white paper | A concrete use case |
+| Deferred                          | Why                                                                            | Flip condition                                  |
+| --------------------------------- | ------------------------------------------------------------------------------ | ----------------------------------------------- |
+| Reviewer adjudication UX          | Owner deferred                                                                 | The design-system app shell                     |
+| Beider-Morse                      | Write-time concern with its own backfill; over-inclusive band ships without it | A measured recall gap on cross-origin surnames  |
+| Rust/WASM scorer core             | No perf reason; blocking bounds the candidate set                              | A measured hot path, per golden rule 10         |
+| Content class (email, documents)  | `email-core` is unwired; no document-text index exists                         | Discovery / Tantivy, and the email capture path |
+| Prior-firm lateral table          | Nothing populates it with capture UX deferred                                  | A personnel-history capture surface             |
+| Auto-fire triggers + Cron re-scan | No reviewer to notify                                                          | Reviewer UX                                     |
+| Ethical wall enforcement          | Deferred by the white paper                                                    | A concrete use case                             |
 
 ## Divergence from the research
 

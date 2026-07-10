@@ -364,7 +364,10 @@ const recordDispositionRoute = defineOpenAPIRoute(
     request: {
       headers: idempotencyKeyHeader,
       params: hitIdParam,
-      body: { content: { "application/json": { schema: RecordDispositionRequest } }, required: true },
+      body: {
+        content: { "application/json": { schema: RecordDispositionRequest } },
+        required: true,
+      },
     },
     responses: {
       201: {

@@ -36,7 +36,15 @@ test("depth one reaches an org's principal and records the connecting path", asy
   const principalId = await createPerson(database, { given: "Ada", family: "Principal" }, options);
   await createEdge(
     database,
-    { from: principalId, to: orgId, edgeType: "affiliation", role: "principal", note: null, validFrom: null, validTo: null },
+    {
+      from: principalId,
+      to: orgId,
+      edgeType: "affiliation",
+      role: "principal",
+      note: null,
+      validFrom: null,
+      validTo: null,
+    },
     options,
   );
 
@@ -54,7 +62,15 @@ test("depth zero expands to the seeds only", async () => {
   const principalId = await createPerson(database, { given: "Ada", family: "Principal" }, options);
   await createEdge(
     database,
-    { from: principalId, to: orgId, edgeType: "affiliation", role: "principal", note: null, validFrom: null, validTo: null },
+    {
+      from: principalId,
+      to: orgId,
+      edgeType: "affiliation",
+      role: "principal",
+      note: null,
+      validFrom: null,
+      validTo: null,
+    },
     options,
   );
 
@@ -68,8 +84,32 @@ test("corporate-family edges traverse transitively past the depth limit", async 
   const parentId = await createOrganization(database, { legalName: "Parent Co" }, options);
   const childId = await createOrganization(database, { legalName: "Child Co" }, options);
   const grandchildId = await createOrganization(database, { legalName: "Grandchild Co" }, options);
-  await createEdge(database, { from: parentId, to: childId, edgeType: "corporate_subsidiary", role: null, note: null, validFrom: null, validTo: null }, options);
-  await createEdge(database, { from: childId, to: grandchildId, edgeType: "corporate_subsidiary", role: null, note: null, validFrom: null, validTo: null }, options);
+  await createEdge(
+    database,
+    {
+      from: parentId,
+      to: childId,
+      edgeType: "corporate_subsidiary",
+      role: null,
+      note: null,
+      validFrom: null,
+      validTo: null,
+    },
+    options,
+  );
+  await createEdge(
+    database,
+    {
+      from: childId,
+      to: grandchildId,
+      edgeType: "corporate_subsidiary",
+      role: null,
+      note: null,
+      validFrom: null,
+      validTo: null,
+    },
+    options,
+  );
 
   // depth 1 would stop at childId for an ordinary edge type; corporate closure reaches the grandchild.
   const expanded = await expandGraph(database, [parentId], 1);
@@ -81,8 +121,32 @@ test("a cycle terminates and records the first path found", async () => {
   const options = writeOptions("cycle");
   const a = await createOrganization(database, { legalName: "Alpha" }, options);
   const b = await createOrganization(database, { legalName: "Beta" }, options);
-  await createEdge(database, { from: a, to: b, edgeType: "corporate_subsidiary", role: null, note: null, validFrom: null, validTo: null }, options);
-  await createEdge(database, { from: b, to: a, edgeType: "corporate_parent", role: null, note: null, validFrom: null, validTo: null }, options);
+  await createEdge(
+    database,
+    {
+      from: a,
+      to: b,
+      edgeType: "corporate_subsidiary",
+      role: null,
+      note: null,
+      validFrom: null,
+      validTo: null,
+    },
+    options,
+  );
+  await createEdge(
+    database,
+    {
+      from: b,
+      to: a,
+      edgeType: "corporate_parent",
+      role: null,
+      note: null,
+      validFrom: null,
+      validTo: null,
+    },
+    options,
+  );
 
   const expanded = await expandGraph(database, [a], 5);
   expect(expanded.map((entity) => entity.entityId).sort()).toEqual([a, b].sort());
@@ -94,8 +158,32 @@ test("expansion is deterministic across runs", async () => {
   const orgId = await createOrganization(database, { legalName: "ABC Holdings" }, options);
   const first = await createPerson(database, { given: "Ada", family: "One" }, options);
   const second = await createPerson(database, { given: "Bea", family: "Two" }, options);
-  await createEdge(database, { from: first, to: orgId, edgeType: "affiliation", role: null, note: null, validFrom: null, validTo: null }, options);
-  await createEdge(database, { from: second, to: orgId, edgeType: "affiliation", role: null, note: null, validFrom: null, validTo: null }, options);
+  await createEdge(
+    database,
+    {
+      from: first,
+      to: orgId,
+      edgeType: "affiliation",
+      role: null,
+      note: null,
+      validFrom: null,
+      validTo: null,
+    },
+    options,
+  );
+  await createEdge(
+    database,
+    {
+      from: second,
+      to: orgId,
+      edgeType: "affiliation",
+      role: null,
+      note: null,
+      validFrom: null,
+      validTo: null,
+    },
+    options,
+  );
 
   const a = await expandGraph(database, [orgId], 1);
   const b = await expandGraph(database, [orgId], 1);

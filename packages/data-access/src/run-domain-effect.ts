@@ -80,7 +80,10 @@ export async function runDomainEffect<T>(
     case "executed":
       return { value: built.value, idempotentReplay: false };
     case "replayed":
-      return { value: built.fromBody(JSON.parse(result.responseBody ?? "{}")), idempotentReplay: true };
+      return {
+        value: built.fromBody(JSON.parse(result.responseBody ?? "{}")),
+        idempotentReplay: true,
+      };
     case "in-progress":
       throw new IdempotencyConflictError(domain, "in-progress");
     case "fingerprint-mismatch":

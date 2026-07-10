@@ -76,8 +76,16 @@ test("over_inclusive returns a superset of balanced for the same corpus", async 
   const renamed = await createPerson(ctx.database, { given: "Mary", family: "Jones" }, ctx);
   await addName(ctx.database, renamed, { given: "Mary", family: "Smith", nameRole: "former" }, ctx);
 
-  const balanced = await matchParty(ctx, { kind: "person", given: "Catherine", family: "Smith" }, "balanced");
-  const wide = await matchParty(ctx, { kind: "person", given: "Catherine", family: "Smith" }, "over_inclusive");
+  const balanced = await matchParty(
+    ctx,
+    { kind: "person", given: "Catherine", family: "Smith" },
+    "balanced",
+  );
+  const wide = await matchParty(
+    ctx,
+    { kind: "person", given: "Catherine", family: "Smith" },
+    "over_inclusive",
+  );
 
   const wideIds = new Set(wide.map((match) => match.entityId));
   for (const match of balanced) {
@@ -91,7 +99,11 @@ test("an exact normalized-name match is reported as such", async () => {
   const { ctx } = await conflictsTestContext("exact-name");
   await createPerson(ctx.database, { given: "Catherine", family: "Smith" }, ctx);
 
-  const matches = await matchParty(ctx, { kind: "person", given: "Catherine", family: "Smith" }, "balanced");
+  const matches = await matchParty(
+    ctx,
+    { kind: "person", given: "Catherine", family: "Smith" },
+    "balanced",
+  );
   expect(matches[0]?.evidence.exactNormalizedName).toBe(true);
 });
 
@@ -100,7 +112,11 @@ test("a weak trigram-only match still appears at every strictness", async () => 
   await createPerson(ctx.database, { given: "Bartholomew", family: "Cathermore" }, ctx);
 
   for (const strictness of ["balanced", "over_inclusive"] as const) {
-    const matches = await matchParty(ctx, { kind: "person", given: "Cather", family: "More" }, strictness);
+    const matches = await matchParty(
+      ctx,
+      { kind: "person", given: "Cather", family: "More" },
+      strictness,
+    );
     // Nothing is ever suppressed by tier — a weak candidate is surfaced, not dropped.
     expect(matches.length).toBeGreaterThan(0);
   }

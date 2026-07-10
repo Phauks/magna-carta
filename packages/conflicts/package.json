@@ -29,9 +29,9 @@
     "@magna-carta/identifiers": "workspace:*"
   },
   "devDependencies": {
+    "@magna-carta/encryption": "workspace:*",
     "@magna-carta/tsconfig": "workspace:*",
     "@types/node": "catalog:",
-    "@magna-carta/encryption": "workspace:*",
     "drizzle-orm": "catalog:",
     "vitest": "catalog:"
   }

@@ -1,7 +1,11 @@
 import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
-import type { ConflictsDispositionId, ConflictsHitId, UserId } from "@magna-carta/identifiers/types";
+import type {
+  ConflictsDispositionId,
+  ConflictsHitId,
+  UserId,
+} from "@magna-carta/identifiers/types";
 import { conflictsAuditStatement, type ConflictsWriteOptions } from "./audit.ts";
 import { runConflictsEffect } from "./run-conflicts-effect.ts";
 import { CONFLICTS_HIT_TABLE, insertDispositionStatement } from "./statements.ts";
@@ -95,7 +99,10 @@ export async function recordDisposition(
 
 // The rows are never updated, so the latest row by created_at IS the current disposition; every
 // earlier row remains in the table as the audit trail of how adjudication got here.
-export async function readCurrentDisposition(database: SqlDatabase, hitId: string): Promise<DispositionRow | null> {
+export async function readCurrentDisposition(
+  database: SqlDatabase,
+  hitId: string,
+): Promise<DispositionRow | null> {
   const { results } = await database
     .prepare(
       `SELECT id, hit_id, kind, rationale, reviewer_user_id, created_at FROM conflicts_disposition WHERE hit_id = ?1 ORDER BY created_at DESC, id DESC LIMIT 1`,

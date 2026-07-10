@@ -449,7 +449,7 @@ describe("renderStatusPage", () => {
       }),
     );
     expect(html).toContain(
-      "is reporting degraded performance and <a href=\"https://www.githubstatus.com\">GitHub</a> is reporting a major outage on their own status pages",
+      'is reporting degraded performance and <a href="https://www.githubstatus.com">GitHub</a> is reporting a major outage on their own status pages',
     );
     expect(html).toContain("This is their status, not ours");
     expect(html).toContain('class="dot danger-dot"');
