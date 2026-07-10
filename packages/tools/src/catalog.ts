@@ -169,4 +169,16 @@ export const CATALOG: readonly ToolManifest[] = [
     backing: { kind: "library" },
     matterContext: "optional",
   },
+  {
+    id: "email-inspector",
+    name: "Email Inspector",
+    icon: "mail-search",
+    subjectGroup: "files",
+    permission: assertPermission("tools:emailInspector"),
+    contextTags: ["file", "none"],
+    // The parse engine is in-house WebAssembly, not a connected third-party service.
+    backing: { kind: "library" },
+    // Stateless: bytes in, a report out. Nothing is stored, so no matter is involved.
+    matterContext: "none",
+  },
 ];

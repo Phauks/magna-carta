@@ -108,6 +108,7 @@ describe("permission registry", () => {
       "tools:fileIntegrity",
       "tools:fileTypeVerifier",
       "tools:fileRepair",
+      "tools:emailInspector",
     ]);
   });
 
