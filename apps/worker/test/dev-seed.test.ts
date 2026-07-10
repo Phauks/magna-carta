@@ -1,5 +1,6 @@
 import { env, SELF } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
+import { createApp } from "../src/app.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { liveCookie, postJson, setCookies } from "./support/test-auth.ts";
 
@@ -108,5 +109,36 @@ describe("dev seed route", () => {
     expect(quarantined).toBeDefined();
     expect(quarantined?.currentVersionId).toBeNull();
     expect(quarantined?.quarantineReason).toBeTruthy();
+  });
+});
+
+// The single most important guarantee of this feature: the seed route creates a firm + owner with
+// NO authentication (it is the bootstrap), so it MUST be invisible in production. It is gated on the
+// same fail-closed signal the dev R2 route uses — the route is only wired when the real R2 S3
+// credential set is absent (local dev). This proves that gate rather than trusting a reading of it.
+describe("dev seed route — production gate", () => {
+  it("answers 404 when the full R2 S3 credential set is present (production-shaped)", async () => {
+    const app = createApp();
+    // The pool env carries the R2_S3_* placeholders but omits CLOUDFLARE_ACCOUNT_ID; supplying it
+    // completes the set, so realR2Credentials resolves and the dev seed emulation is inactive. A
+    // Proxy keeps every real binding (DB, DO, telemetry) intact so ONLY the guard condition changes.
+    const productionEnv = new Proxy(env, {
+      get(target, property, receiver) {
+        if (property === "CLOUDFLARE_ACCOUNT_ID") return "prod-account-id-1234567890";
+        return Reflect.get(target, property, receiver) as unknown;
+      },
+    });
+    const requestInit = {
+      method: "POST",
+      headers: { "content-type": "application/json", origin: "https://example.com" },
+      body: "{}",
+    };
+    const productionResponse = await app.request("/api/__dev/seed", requestInit, productionEnv);
+    expect(productionResponse.status).toBe(404);
+
+    // Contrast: under the pool env (no account id → emulation active) the SAME route IS wired and
+    // seeds — a 200, not a 404 — proving the 404 above is credential-driven, not a missing route.
+    const developmentResponse = await app.request("/api/__dev/seed", requestInit, env);
+    expect(developmentResponse.status).toBe(200);
   });
 });

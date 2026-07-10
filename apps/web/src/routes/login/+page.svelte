@@ -14,6 +14,7 @@
   import Label from "@magna-carta/design-system/label";
   import * as Alert from "@magna-carta/design-system/alert";
   import * as Card from "@magna-carta/design-system/card";
+  import { safeReturnPath } from "./return-path.ts";
 
   const SIGN_IN_ENDPOINT = "/api/auth/sign-in/email";
 
@@ -24,14 +25,6 @@
 
   const submitting = $derived(phase === "submitting");
   const canSubmit = $derived(!submitting && email.trim() !== "" && password !== "");
-
-  // Only ever follow a LOCAL return path — a same-origin absolute path that is not protocol-relative
-  // (`//host`), so a crafted `next` can never redirect off-site.
-  function safeReturnPath(): string {
-    const next = page.url.searchParams.get("next");
-    if (next !== null && next.startsWith("/") && !next.startsWith("//")) return next;
-    return "/home";
-  }
 
   async function signIn(event: SubmitEvent) {
     event.preventDefault();
@@ -51,7 +44,7 @@
       return;
     }
     if (response.ok) {
-      await goto(safeReturnPath());
+      await goto(safeReturnPath(page.url.searchParams.get("next")));
       return;
     }
     phase = "idle";
