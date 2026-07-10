@@ -117,12 +117,8 @@ const inspectRoute = defineOpenAPIRoute(emailInspectMeta, {
       description: "File exceeds the inspectable-size cap",
       content: { "application/problem+json": { schema: Problem } },
     },
-    415: {
-      description: "The container format is not supported",
-      content: { "application/problem+json": { schema: Problem } },
-    },
     422: {
-      description: "The bytes could not be parsed as an email",
+      description: "The bytes could not be read as an email, or are not a format this tool supports",
       content: { "application/problem+json": { schema: Problem } },
     },
     429: {
@@ -171,13 +167,6 @@ export function registerEmailInspectorRoutes(
         // to the app error boundary.
         if (thrown instanceof EmailError) {
           switch (thrown.code) {
-            case "unsupported":
-              return problemJson(c, {
-                type: "unsupported-media-type",
-                title: "Unsupported email format",
-                status: 415,
-                detail: "The file is not a container format this inspector can parse.",
-              });
             case "limitExceeded":
               return problemJson(c, {
                 type: "upload-not-allowed",
@@ -191,7 +180,14 @@ export function registerEmailInspectorRoutes(
                 type: "validation",
                 title: "Could not parse the email",
                 status: 422,
-                detail: "The bytes could not be parsed as an email message.",
+                detail: "The bytes could not be read as an email.",
+              });
+            case "unsupported":
+              return problemJson(c, {
+                type: "validation",
+                title: "Unsupported email format",
+                status: 422,
+                detail: "The bytes are not an email format this tool can read.",
               });
           }
         }
