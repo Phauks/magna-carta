@@ -25,6 +25,11 @@
   import { createSpeedTestStore } from "$lib/tools/speed-test/speed-test-engine.svelte.ts";
   import SpeedTestMenu from "$lib/tools/speed-test/speed-test-menu.svelte";
   import {
+    renderReport,
+    reportFilename,
+    type ReportInput,
+  } from "$lib/tools/speed-test/speed-test-report.ts";
+  import {
     preferences,
     setLowData,
     setAutoStart,
@@ -157,6 +162,104 @@
       transferred,
     ];
   }
+
+  /*
+   * Assemble the finished run into a plain-text file and hand it to the operating system: a Blob, a
+   * one-shot object URL, a synthetic click, then an immediate revoke. Nothing is persisted by us, no
+   * server round trip, no matter attachment — the file is the run in front of you, and the object URL
+   * is revoked at once because a leaked one pins the blob for the page's whole life. Gated on a
+   * finished run (the menu item is disabled otherwise), so the early return only guards a race.
+   */
+  function downloadReport(): void {
+    const finishedAt = store.finishedAt;
+    if (store.phase !== "finished" || !finishedAt) return;
+
+    const runResults = store.results;
+    const turn = store.turn;
+    const outcome = store.probe;
+    const meta = store.meta;
+
+    // The library types scores as Record<string, ExperienceScore>; the report wants the three
+    // use-cases' classification words. Absent (an unfinished or degraded run) stays undefined so the
+    // report can say so rather than print a blank rating.
+    const rawScores = runResults?.getScores();
+    const scores =
+      rawScores && rawScores.streaming && rawScores.gaming && rawScores.rtc
+        ? {
+            streaming: rawScores.streaming.classificationName,
+            gaming: rawScores.gaming.classificationName,
+            rtc: rawScores.rtc.classificationName,
+          }
+        : undefined;
+
+    // Packet loss is a real reading only when the relay was reachable AND a sample landed; otherwise
+    // the report states why it is absent, in the same words the Packet loss tile uses.
+    const lossRatio = turn?.available ? runResults?.getPacketLoss() : undefined;
+    const packetLoss: ReportInput["packetLoss"] =
+      turn?.available && typeof lossRatio === "number"
+        ? { measured: true, ratio: lossRatio }
+        : {
+            measured: false,
+            reason:
+              turn && !turn.available
+                ? turnUnavailableNote(turn.reason)
+                : "Sign in to measure packet loss.",
+          };
+
+    // The round trip mirrors what the connection panel shows for this probe status. A reachable probe
+    // always carries a median; every other status is not-measured with the panel's reason.
+    let roundTrip: ReportInput["roundTrip"];
+    if (outcome?.status === "reachable" && outcome.medianRoundTripMs !== null) {
+      roundTrip = { reachable: true, medianMs: outcome.medianRoundTripMs };
+    } else {
+      let note: string;
+      switch (outcome?.status) {
+        case "unauthenticated":
+          note = "You are not signed in.";
+          break;
+        case "forbidden":
+          note = "Your account does not carry permission to run this check.";
+          break;
+        case "unreachable":
+          note = "Magna Carta could not be reached from this network.";
+          break;
+        default:
+          note = "The round trip to Magna Carta was not measured.";
+      }
+      roundTrip = { reachable: false, note };
+    }
+
+    const input: ReportInput = {
+      finishedAt,
+      downloadBps: runResults?.getDownloadBandwidth(),
+      uploadBps: runResults?.getUploadBandwidth(),
+      latencyMs: runResults?.getUnloadedLatency(),
+      jitterMs: runResults?.getUnloadedJitter(),
+      packetLoss,
+      scores,
+      server: meta
+        ? {
+            clientIp: meta.clientIp,
+            asOrganization: meta.asOrganization,
+            asn: meta.asn,
+            coloCity: meta.coloCity,
+            coloIata: meta.coloIata,
+          }
+        : null,
+      roundTrip,
+      bytesDown: bytesInDirection(downloadPoints),
+      bytesUp: bytesInDirection(uploadPoints),
+    };
+
+    const url = URL.createObjectURL(
+      new Blob([renderReport(input)], { type: "text/plain;charset=utf-8" }),
+    );
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = reportFilename(finishedAt);
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
 </script>
 
 <svelte:head><title>Network Speed Test · Magna Carta</title></svelte:head>
@@ -199,8 +302,10 @@
       lowData={preferences().lowData}
       autoStart={preferences().autoStart}
       disabled={store.phase === "running" || store.phase === "paused"}
+      canDownloadReport={store.phase === "finished"}
       onLowDataChange={setLowData}
       onAutoStartChange={setAutoStart}
+      onDownloadReport={downloadReport}
     />
   </Masthead.Actions>
 </Masthead.Root>

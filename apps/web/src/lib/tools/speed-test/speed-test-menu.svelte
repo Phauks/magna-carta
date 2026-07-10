@@ -17,14 +17,18 @@
     lowData,
     autoStart,
     disabled,
+    canDownloadReport,
     onLowDataChange,
     onAutoStartChange,
+    onDownloadReport,
   }: {
     lowData: boolean;
     autoStart: boolean;
     disabled: boolean;
+    canDownloadReport: boolean;
     onLowDataChange: (value: boolean) => void;
     onAutoStartChange: (value: boolean) => void;
+    onDownloadReport: () => void;
   } = $props();
 </script>
 
@@ -60,5 +64,14 @@
         </span>
       </div>
     </DropdownMenu.CheckboxItem>
+    <!--
+      The report is gated on a FINISHED run (canDownloadReport), independently of the run-in-progress
+      `disabled` above: there is nothing to write down until a run completes, and the preferences are
+      frozen for a different reason (the ladder is fixed at engine construction).
+    -->
+    <DropdownMenu.Separator />
+    <DropdownMenu.Item disabled={!canDownloadReport} onSelect={onDownloadReport}>
+      Download report
+    </DropdownMenu.Item>
   </DropdownMenu.Content>
 </DropdownMenu.Root>
