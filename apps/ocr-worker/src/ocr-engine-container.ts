@@ -6,9 +6,9 @@ import { Container } from "@cloudflare/containers";
 // to zero after sleepAfter, so it bills only while a recognition runs. Untrusted, privileged
 // document bytes never reach the network: outbound networking is disabled.
 //
-// Model load at boot is slower than the other engine containers (the ONNX models are ~139 MB), so a
-// cold start costs more here. That is still the right trade against paying for an always-on instance,
-// and a warm-poke cron is a later tuning decision, off by default.
+// Model load at boot is slower than the other engine containers (the baked PP-OCRv6 small-tier ONNX
+// models are ~31 MB), so a cold start costs more here. That is still the right trade against paying
+// for an always-on instance, and a warm-poke cron is a later tuning decision, off by default.
 export class OcrEngineContainer extends Container {
   override defaultPort = 8080;
   override requiredPorts = [8080];
