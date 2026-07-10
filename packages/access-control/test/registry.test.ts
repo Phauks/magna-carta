@@ -108,6 +108,7 @@ describe("permission registry", () => {
       "tools:fileIntegrity",
       "tools:fileTypeVerifier",
       "tools:fileRepair",
+      "tools:ocr",
     ]);
   });
 
@@ -201,5 +202,9 @@ describe("permission registry", () => {
 
   it("registers the file-repair tool permission", () => {
     expect(isPermission("tools:fileRepair")).toBe(true);
+  });
+
+  it("registers the ocr tool permission", () => {
+    expect(isPermission("tools:ocr")).toBe(true);
   });
 });

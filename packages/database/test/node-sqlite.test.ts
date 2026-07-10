@@ -75,8 +75,9 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
     expect(grantsFor("Owner/Admin")).toContain("matters:create");
     // Paralegal carries the practitioner set: file/matter work plus the firm-wide tools. The
     // firm-wide tool grants (whois/safeBrowse, scanFile, metadataScrubber, fileIntegrity,
-    // fileTypeVerifier, aiTextDetection, decryption, fileRepair) and support:request are seeded to every role;
-    // for aiTextDetection the consent setting, not the permission, gates egress.
+    // fileTypeVerifier, aiTextDetection, decryption, fileRepair, ocr) and support:request are
+    // seeded to every role; for aiTextDetection the consent setting, not the permission, gates
+    // egress.
     expect(grantsFor("Paralegal").sort()).toEqual(
       [
         "costs:track",
@@ -92,6 +93,7 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "tools:fileRepair",
         "tools:fileTypeVerifier",
         "tools:metadataScrubber",
+        "tools:ocr",
         "tools:safeBrowse",
         "tools:whois",
       ].sort(),
@@ -110,6 +112,7 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "tools:fileRepair",
         "tools:fileTypeVerifier",
         "tools:metadataScrubber",
+        "tools:ocr",
         "tools:safeBrowse",
         "tools:whois",
       ].sort(),
@@ -125,6 +128,7 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "tools:fileRepair",
         "tools:fileTypeVerifier",
         "tools:metadataScrubber",
+        "tools:ocr",
         "tools:safeBrowse",
         "tools:whois",
       ].sort(),

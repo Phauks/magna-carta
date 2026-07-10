@@ -115,6 +115,7 @@ describe("GET /api/v1/me", () => {
         "tools:fileTypeVerifier",
         "tools:firmUsage",
         "tools:metadataScrubber",
+        "tools:ocr",
         "tools:safeBrowse",
         "tools:whois",
       ],

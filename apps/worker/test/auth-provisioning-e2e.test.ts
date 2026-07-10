@@ -289,6 +289,7 @@ describe("end-to-end", () => {
         "tools:fileTypeVerifier",
         "tools:firmUsage",
         "tools:metadataScrubber",
+        "tools:ocr",
         "tools:safeBrowse",
         "tools:whois",
       ],
@@ -440,6 +441,14 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
       "fileIntegrity.hash",
       // Streams the bytes to the scan Container for identification; nothing is stored.
       "fileType.verify",
+      // Diagnose/repair/carve operate over the request body only, returning results in-process;
+      // nothing is stored. The persisting attach variants are separate audited routes.
+      "fileRepair.diagnose",
+      "fileRepair.repair",
+      "fileRepair.carve",
+      // Pure recognition over the uploaded bytes — returns text, word boxes, and confidence;
+      // nothing is stored.
+      "ocr.recognize",
       // Analysis POST: the only write is one incidental ai_detection_usage meter row (telemetry),
       // not an auditable firm-domain mutation; auditing every detection would flood audit_log.
       "aiDetection.detect",
