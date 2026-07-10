@@ -48,6 +48,17 @@
     sensitivity: "open",
   };
 
+  const BUILD_STAMP_DEFINITION: SettingDefinition = {
+    id: "developer.build-stamp-overlay",
+    sectionId: "developer",
+    label: "Show Build Stamp Overlay",
+    description:
+      "Pins a draggable badge showing the live clock beside this build's commit, mode, and build time.",
+    kind: "switch",
+    defaultValue: false,
+    sensitivity: "open",
+  };
+
   interface DeveloperFlag {
     readonly definition: SettingDefinition;
     readonly current: () => boolean;
@@ -64,8 +75,13 @@
     current: () => developerPreferences.developerToolkitInHeader,
     set: (value) => (developerPreferences.developerToolkitInHeader = value),
   };
+  const BUILD_STAMP_FLAG: DeveloperFlag = {
+    definition: BUILD_STAMP_DEFINITION,
+    current: () => developerPreferences.buildStampOverlayVisible,
+    set: (value) => (developerPreferences.buildStampOverlayVisible = value),
+  };
 
-  const FLAGS: readonly DeveloperFlag[] = [ENABLED_FLAG, TOOLKIT_FLAG];
+  const FLAGS: readonly DeveloperFlag[] = [ENABLED_FLAG, TOOLKIT_FLAG, BUILD_STAMP_FLAG];
 
   /** Apply a flag flip and append it to the trail in the same breath. */
   function applyFlag(flag: DeveloperFlag, next: boolean): void {
@@ -137,6 +153,7 @@
   {#if developerPreferences.developerSettingsEnabled}
     <SettingsPlate heading="Toolkit Controls">
       <SettingsRow definition={TOOLKIT_DEFINITION} instant={instantFor(TOOLKIT_FLAG)} />
+      <SettingsRow definition={BUILD_STAMP_DEFINITION} instant={instantFor(BUILD_STAMP_FLAG)} />
     </SettingsPlate>
   {/if}
   </div>

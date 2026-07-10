@@ -17,11 +17,15 @@ const STORAGE_KEY = "mc-developer-preferences";
 interface DeveloperPreferencesValue {
   developerSettingsEnabled: boolean;
   developerToolkitInHeader: boolean;
+  buildStampOverlayVisible: boolean;
 }
 
 const DEFAULTS: DeveloperPreferencesValue = {
   developerSettingsEnabled: true,
   developerToolkitInHeader: true,
+  // Off by default even in a fresh dev build: the overlay parks a badge in a corner, so it is an
+  // explicit opt-in rather than something every design session has to dismiss.
+  buildStampOverlayVisible: false,
 };
 
 function readStoredPreferences(): DeveloperPreferencesValue {
@@ -44,6 +48,11 @@ function readStoredPreferences(): DeveloperPreferencesValue {
         (typeof parsed?.developerToolkitInHeader === "boolean"
           ? parsed.developerToolkitInHeader
           : DEFAULTS.developerToolkitInHeader),
+      buildStampOverlayVisible:
+        developerSettingsEnabled &&
+        (typeof parsed?.buildStampOverlayVisible === "boolean"
+          ? parsed.buildStampOverlayVisible
+          : DEFAULTS.buildStampOverlayVisible),
     };
   } catch {
     return { ...DEFAULTS };
@@ -77,6 +86,7 @@ if (typeof window !== "undefined") {
     const next = readStoredPreferences();
     preferences.developerSettingsEnabled = next.developerSettingsEnabled;
     preferences.developerToolkitInHeader = next.developerToolkitInHeader;
+    preferences.buildStampOverlayVisible = next.buildStampOverlayVisible;
   });
 }
 
@@ -90,6 +100,7 @@ export const developerPreferences = {
       // Master off = everything off, persisted: no subordinate silently survives to spring
       // back on re-enable. Each control is re-opted-into deliberately.
       preferences.developerToolkitInHeader = false;
+      preferences.buildStampOverlayVisible = false;
     }
     persist({ ...preferences });
   },
@@ -98,6 +109,13 @@ export const developerPreferences = {
   },
   set developerToolkitInHeader(next: boolean) {
     preferences.developerToolkitInHeader = next;
+    persist({ ...preferences });
+  },
+  get buildStampOverlayVisible(): boolean {
+    return preferences.buildStampOverlayVisible;
+  },
+  set buildStampOverlayVisible(next: boolean) {
+    preferences.buildStampOverlayVisible = next;
     persist({ ...preferences });
   },
 };
