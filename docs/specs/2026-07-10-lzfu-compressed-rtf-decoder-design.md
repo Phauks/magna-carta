@@ -13,9 +13,9 @@ The crate's local rules already forbid papering over this with a lossy markup-st
 
 ## 1. Scope
 
-**In:** an LZFu decompressor; wiring it into the `.msg` lane so `rtf_body` fills; and (separable — §5) extracting the `.msg` property-value decoding layer into its own module, since the decompressor is a new member of that family.
+**In:** an LZFu decompressor in a standalone `lzfu.rs` module; wiring it into the `.msg` lane so `rtf_body` fills.
 
-**Out:** RTF→text/HTML conversion, RTF rendering, and any change to the `.eml`/mbox lanes (RTF is a `.msg`-only concern).
+**Out:** RTF→text/HTML conversion, RTF rendering, any change to the `.eml`/mbox lanes (RTF is a `.msg`-only concern), and the larger msg.rs value-decoder extraction (see §5 — deferred to its own slice).
 
 ## 2. The algorithm ([MS-OXRTFCP], verified against the freeutils reference)
 
@@ -33,7 +33,7 @@ A 16-byte little-endian header, then contents:
 
 ## 3. Component
 
-**A new module `crates/email-core/src/<module>.rs`** (name in §5) exposing:
+**A new standalone module `crates/email-core/src/lzfu.rs`** (§5) exposing:
 
 ```rust
 pub(crate) fn decompress_rtf(bytes: &[u8], max_output: usize) -> Result<String, EmailError>
@@ -50,13 +50,11 @@ pub(crate) fn decompress_rtf(bytes: &[u8], max_output: usize) -> Result<String, 
 - **Graceful degradation.** If the RTF body is malformed LZFu or exceeds the cap, `rtf_body` stays `None` and the message parse **succeeds** — the headers, participants, and attachments (the evidentiary payload) are never discarded over one bad body. This matches the current RTF-only-`None` behavior. (`None` conflates "no RTF" with "RTF present but unreadable/too big" — an accepted limitation for a parse-only inspector.)
 - **No CRC validation.** Safety comes from output bounding + the end-marker + checked reads, not from the CRC. A stream that decompresses within bounds is served; a structurally broken one already errors. Skipping avoids a CRC-32 implementation for marginal value.
 
-## 5. The property-value module (separable — approve or defer)
+## 5. Module placement (decided: standalone `lzfu.rs`; the msg.rs extraction is deferred)
 
-`msg.rs` is ~1960 lines and holds three concerns: CFB structure/walk (`NodeIndex`, `walk_bounded`, `substreams_of`…), message assembly (`read_message`/`read_recipients`/`read_attachments`), and a **property-value decoding layer** — `decode_utf16le`, `filetime_to_iso`/`civil_from_days`, `parse_fixed_properties`/`FixedProperty`/`fixed_int32`/`fixed_filetime_iso`, `parse_substg_name`, `read_string`/`read_binary_as_text`/`find_substream`/`read_fixed_properties`, `read_stream_bounded`(`_with_cap`), and the `PTYPE_*` constants. `decompress_rtf` is a new member of that third layer.
+`decompress_rtf` lives in its own `crates/email-core/src/lzfu.rs`. LZFu is a **compression codec** ([MS-OXRTFCP]), not a MAPI property-value decoder: it turns compressed bytes into RTF bytes with no CFB or MAPI knowledge, so it is testable in complete isolation with byte vectors. That makes a standalone module its most cohesive home — independent of any decision about msg.rs's structure — and keeps this feature's diff clean and reviewable (a self-contained codec + a few lines of wiring).
 
-**Proposed:** create the new module as that value-decoding home (e.g. `mapi_value.rs`) and move the layer above into it alongside `decompress_rtf`, leaving `msg.rs` as the CFB-walk + assembly layer. This is **pure code movement, no logic change**, verified by the existing 65 tests staying green plus `clippy --all-targets` and the wasm build. It keeps the just-audited structural code in place and gives the decoders — the part this slice grows — a focused, independently-testable home.
-
-**Risk note:** this touches freshly-audited, freshly-merged code. The movement is mechanical and test-guarded, but if the owner prefers to keep churn off audited code, the fallback is a **standalone `lzfu.rs`** holding only `decompress_rtf`, with the larger extraction deferred to its own slice. Either way the feature ships; this section only decides where the decoder family lives.
+`msg.rs` (~1960 lines) does genuinely want a split — it holds CFB structure/walk, message assembly, and a property-value decoding layer (`decode_utf16le`, the FILETIME math, `parse_fixed_properties`, `parse_substg_name`, `read_string`/`read_binary_as_text`, `read_stream_bounded`, the `PTYPE_*` consts). But that extraction is a **separate concern** from shipping a feature: bundling a ~200-line mechanical move of just-audited, just-merged code as a rider muddies the review (a reviewer must disentangle "is the move correct" from "is the decoder correct") and churns audited code incidentally rather than deliberately. So the value-decoder extraction is **deferred to its own pure-refactor slice**, where its diff is reviewed on its own terms. This slice touches msg.rs only for the small `read_message` wiring in §6.
 
 ## 6. Wiring (`msg.rs`)
 
