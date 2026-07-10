@@ -10,6 +10,7 @@ corpus-fetch = ["dep:reqwest"]
 
 [dependencies]
 pdf-core = { path = "../pdf-core" }
+ocr-core = { path = "../ocr-core" }
 hayro = { workspace = true }
 image = { workspace = true }
 lopdf = "0.41"

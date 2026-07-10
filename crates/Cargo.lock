@@ -2816,6 +2816,7 @@ dependencies = [
  "image",
  "image-compare",
  "lopdf",
+ "ocr-core",
  "pdf",
  "pdf-core",
  "pdfium-render",
