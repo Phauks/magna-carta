@@ -1,51 +1,17 @@
 /*
- * The reactive Tools view preference — a per-browser choice, stored in localStorage and synced
- * across tabs by the storage event (the sidebar-preferences pattern). SSR/prerender-safe: module
- * init never assumes a browser. Reads and writes go through parseToolsView so a stale value
- * normalizes on read.
+ * The reactive Tools view preference — a per-browser choice (tiles or list), on the shared
+ * persisted-preference primitive. The primitive owns the localStorage read/write, the SSR guard,
+ * normalize-on-read (through parseToolsView), and the cross-tab follower registered here once at
+ * module scope. The Tools page injects this store into the multi-view shell as its active-view
+ * preference.
  */
-import {
-  DEFAULT_VIEW,
-  TOOLS_VIEW_STORAGE_KEY,
-  parseToolsView,
-  type ToolsView,
-} from "./tools-view-preference.ts";
+import { createPersistedPreference } from "$lib/preferences/persisted-preference.svelte.ts";
+import { parseToolsView, TOOLS_VIEW_STORAGE_KEY, type ToolsView } from "./tools-view-preference.ts";
 
-function readStored(): ToolsView {
-  if (typeof localStorage === "undefined") return DEFAULT_VIEW;
-  try {
-    return parseToolsView(localStorage.getItem(TOOLS_VIEW_STORAGE_KEY));
-  } catch {
-    return DEFAULT_VIEW;
-  }
-}
+export const toolsViewPreference = createPersistedPreference<ToolsView>({
+  storageKey: TOOLS_VIEW_STORAGE_KEY,
+  decode: parseToolsView,
+  encode: (view) => view,
+});
 
-function persist(view: ToolsView): void {
-  if (typeof localStorage === "undefined") return;
-  try {
-    localStorage.setItem(TOOLS_VIEW_STORAGE_KEY, view);
-  } catch {
-    // Storage unavailable; the live preference still works for the session.
-  }
-}
-
-const state = $state<{ view: ToolsView }>({ view: readStored() });
-
-// Follow the choice across same-origin tabs. `event.key === null` is storage.clear().
-if (typeof window !== "undefined") {
-  window.addEventListener("storage", (event) => {
-    if (event.key !== null && event.key !== TOOLS_VIEW_STORAGE_KEY) return;
-    state.view = readStored();
-  });
-}
-
-/** Read reactively in markup. */
-export function toolsView(): ToolsView {
-  return state.view;
-}
-
-export function setToolsView(view: ToolsView): void {
-  if (state.view === view) return;
-  state.view = view;
-  persist(view);
-}
+toolsViewPreference.followAcrossTabs();

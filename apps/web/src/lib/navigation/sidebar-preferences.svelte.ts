@@ -1,29 +1,31 @@
 /*
  * Per-member sidebar preferences — the STAR layer over the canonical destination registry
- * (destinations.ts). The registry stays the truth about what exists; this store holds only
- * what THIS member shows and in what per-group order.
+ * (destinations.ts), on the shared persisted-preference primitive. The registry stays the truth
+ * about what exists; this store holds only what THIS member shows and in what per-group order. The
+ * primitive owns the localStorage read/write, the SSR guard, and the cross-tab follower; the
+ * normalize below is this store's read-time validator (unknown ids drop; the shape is rebuilt
+ * fresh), applied to first read and to any payload arriving from another tab.
  *
- * INVARIANT — STARS GOVERN THE SIDEBAR ONLY. Every destination stays reachable through the
- * command palette regardless of stars, and Customize mode reveals every destination for
- * re-adding: hiding must never remove capability — searching for a thing is wanting it.
+ * INVARIANT — STARS GOVERN THE SIDEBAR ONLY. Every destination stays reachable through the command
+ * palette regardless of stars, and Customize mode reveals every destination for re-adding: hiding
+ * must never remove capability — searching for a thing is wanting it.
  *
- * Storage shape (localStorage, per browser; cross-tab synced by the storage event, the
- * developer-preferences pattern):
+ * Storage shape (localStorage, per browser):
  * - `starredOverrides` records only DEPARTURES from the registry's defaultStarred, so a new
- *   registry destination shipped with defaultStarred true arrives starred even for members
- *   with long-standing customizations — additions surface predictably.
+ *   registry destination shipped with defaultStarred true arrives starred even for members with
+ *   long-standing customizations — additions surface predictably.
  * - `order` is per group, and holds ONLY ids the member has actually arranged. RECONCILIATION
- *   RULE: a starred id absent from the stored order enters at its CANONICAL position relative
- *   to the member's arrangement (mergeGroupOrder below); ids gone from the registry drop
- *   silently on read.
- * - `known` is arrival bookkeeping: ids that have appeared in this member's sidebar before.
- *   A visible id not yet known is a NEW ARRIVAL — the shell gives it a one-time gilt-draw
- *   highlight so the eye catches where it landed, then acknowledges it into `known`.
+ *   RULE: a starred id absent from the stored order enters at its CANONICAL position relative to
+ *   the member's arrangement (mergeGroupOrder below); ids gone from the registry drop on read.
+ * - `known` is arrival bookkeeping: ids that have appeared in this member's sidebar before. A
+ *   visible id not yet known is a NEW ARRIVAL — the shell gives it a one-time gilt-draw highlight
+ *   so the eye catches where it landed, then acknowledges it into `known`.
  * - `expandOnHover` is a per-browser interaction preference (default off): when the rail rests
- *   collapsed, hovering it floats the rail open as an overlay over the canvas. It lives here,
- *   beside the other per-browser sidebar preferences, rather than in the theme-preference seam.
+ *   collapsed, hovering it floats the rail open as an overlay over the canvas.
  */
 
+import { jsonPreference } from "$lib/preferences/persisted-preference.ts";
+import { createPersistedPreference } from "$lib/preferences/persisted-preference.svelte.ts";
 import {
   DESTINATION_GROUPS,
   DESTINATIONS,
@@ -51,79 +53,49 @@ function defaultVisibleIds(): string[] {
 }
 
 function emptyValue(): SidebarPreferencesValue {
-  // `known` seeds to the default-visible set: a fresh sidebar is not a wall of arrivals — the
-  // gilt highlight is for rows that land LATER (a star elsewhere, a new registry addition).
+  // `known` seeds to the default-visible set: a fresh sidebar is not a wall of arrivals — the gilt
+  // highlight is for rows that land LATER (a star elsewhere, a new registry addition).
   return { starredOverrides: {}, order: {}, known: defaultVisibleIds(), expandOnHover: false };
 }
 
-/** Normalization on read: unknown ids (retired registry rows, hand edits) drop silently. */
-function readStoredPreferences(): SidebarPreferencesValue {
-  // The app is an SPA, but module init must not assume a browser (tests, prerender safety).
-  if (typeof localStorage === "undefined") return emptyValue();
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw === null) return emptyValue();
-    const parsed = JSON.parse(raw) as Partial<SidebarPreferencesValue> | null;
-    const value = emptyValue();
-    if (parsed?.starredOverrides !== null && typeof parsed?.starredOverrides === "object") {
-      for (const [id, starred] of Object.entries(parsed.starredOverrides)) {
-        if (REGISTRY_IDS.has(id) && typeof starred === "boolean") {
-          value.starredOverrides[id] = starred;
-        }
+/** Read-time validator: unknown ids (retired registry rows, hand edits) drop; the shape rebuilds. */
+function normalize(parsed: unknown): SidebarPreferencesValue {
+  const value = emptyValue();
+  if (parsed === null || typeof parsed !== "object") return value;
+  const record = parsed as Partial<SidebarPreferencesValue>;
+  if (record.starredOverrides !== null && typeof record.starredOverrides === "object") {
+    for (const [id, starred] of Object.entries(record.starredOverrides)) {
+      if (REGISTRY_IDS.has(id) && typeof starred === "boolean") {
+        value.starredOverrides[id] = starred;
       }
     }
-    if (parsed?.order !== null && typeof parsed?.order === "object") {
-      for (const group of DESTINATION_GROUPS) {
-        const stored = (parsed.order as Record<string, unknown>)[group.id];
-        if (Array.isArray(stored)) {
-          const ids = stored.filter(
-            (id): id is string => typeof id === "string" && REGISTRY_IDS.has(id),
-          );
-          if (ids.length > 0) value.order[group.id] = ids;
-        }
+  }
+  if (record.order !== null && typeof record.order === "object") {
+    for (const group of DESTINATION_GROUPS) {
+      const stored = (record.order as Record<string, unknown>)[group.id];
+      if (Array.isArray(stored)) {
+        const ids = stored.filter(
+          (id): id is string => typeof id === "string" && REGISTRY_IDS.has(id),
+        );
+        if (ids.length > 0) value.order[group.id] = ids;
       }
     }
-    if (Array.isArray(parsed?.known)) {
-      value.known = parsed.known.filter(
-        (id): id is string => typeof id === "string" && REGISTRY_IDS.has(id),
-      );
-    }
-    if (typeof parsed?.expandOnHover === "boolean") {
-      value.expandOnHover = parsed.expandOnHover;
-    }
-    return value;
-  } catch {
-    return emptyValue();
   }
-}
-
-function persist(value: SidebarPreferencesValue): void {
-  if (typeof localStorage === "undefined") return;
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
-  } catch {
-    // Storage unavailable; the live preference still works for the session.
+  if (Array.isArray(record.known)) {
+    value.known = record.known.filter(
+      (id): id is string => typeof id === "string" && REGISTRY_IDS.has(id),
+    );
   }
+  if (typeof record.expandOnHover === "boolean") {
+    value.expandOnHover = record.expandOnHover;
+  }
+  return value;
 }
 
-const preferences = $state<SidebarPreferencesValue>(readStoredPreferences());
-
-/*
- * CROSS-TAB FOLLOW. "storage" fires in every OTHER same-origin tab when the key changes, so a
- * star or reorder in one tab lands in all of them. Last write wins; the re-read goes through
- * readStoredPreferences so the receiving tab re-normalizes. `event.key === null` means
- * `storage.clear()` — this key may have changed too.
- */
-if (typeof window !== "undefined") {
-  window.addEventListener("storage", (event) => {
-    if (event.key !== null && event.key !== STORAGE_KEY) return;
-    const next = readStoredPreferences();
-    preferences.starredOverrides = next.starredOverrides;
-    preferences.order = next.order;
-    preferences.known = next.known;
-    preferences.expandOnHover = next.expandOnHover;
-  });
-}
+const preference = createPersistedPreference(
+  jsonPreference<SidebarPreferencesValue>(STORAGE_KEY, normalize),
+);
+preference.followAcrossTabs();
 
 function destinationById(id: string): Destination | undefined {
   return DESTINATIONS.find((destination) => destination.id === id);
@@ -132,7 +104,7 @@ function destinationById(id: string): Destination | undefined {
 /** Pinned rows are always on; otherwise the member's override wins over the registry default. */
 export function isStarred(destination: Destination): boolean {
   if (destination.pinned === true) return true;
-  return preferences.starredOverrides[destination.id] ?? destination.defaultStarred;
+  return preference.current.starredOverrides[destination.id] ?? destination.defaultStarred;
 }
 
 export interface SidebarGroupView {
@@ -153,7 +125,7 @@ export function sidebarGroups(): readonly SidebarGroupView[] {
         destination.footerPinned !== true &&
         isStarred(destination),
     ).map((destination) => destination.id);
-    const orderedIds = mergeGroupOrder(visibleCanonical, preferences.order[group.id] ?? []);
+    const orderedIds = mergeGroupOrder(visibleCanonical, preference.current.order[group.id] ?? []);
     return {
       id: group.id,
       label: group.label,
@@ -174,10 +146,10 @@ export interface SidebarEditingGroupView {
 }
 
 /**
- * The Customize-mode render tree: per group, EVERY destination split into the two tiers the
- * editor shows — the ones in the sidebar now (starred, member order) and the ones a click would
- * add (unstarred, canonical order). Footer-pinned rows (Settings) are excluded — the footer owns
- * them. This is the editor's superset of sidebarGroups(), which shows only the starred tier.
+ * The Customize-mode render tree: per group, EVERY destination split into the two tiers the editor
+ * shows — the ones in the sidebar now (starred, member order) and the ones a click would add
+ * (unstarred, canonical order). Footer-pinned rows (Settings) are excluded — the footer owns them.
+ * This is the editor's superset of sidebarGroups(), which shows only the starred tier.
  */
 export function sidebarEditingGroups(): readonly SidebarEditingGroupView[] {
   return DESTINATION_GROUPS.map((group) => {
@@ -187,7 +159,10 @@ export function sidebarEditingGroups(): readonly SidebarEditingGroupView[] {
     const starredCanonical = members
       .filter((destination) => isStarred(destination))
       .map((destination) => destination.id);
-    const orderedStarredIds = mergeGroupOrder(starredCanonical, preferences.order[group.id] ?? []);
+    const orderedStarredIds = mergeGroupOrder(
+      starredCanonical,
+      preference.current.order[group.id] ?? [],
+    );
     const starred = orderedStarredIds
       .map((id) => destinationById(id))
       .filter((destination): destination is Destination => destination !== undefined);
@@ -199,40 +174,39 @@ export function sidebarEditingGroups(): readonly SidebarEditingGroupView[] {
 
 /** A visible id the member's sidebar has never carried before — highlight once, then acknowledge. */
 export function isNewArrival(id: string): boolean {
-  return !preferences.known.includes(id);
+  return !preference.current.known.includes(id);
 }
 
 /** Called by the shell once the arrival highlight has played; persists so it plays only once. */
 export function acknowledgeArrival(id: string): void {
-  if (preferences.known.includes(id)) return;
-  preferences.known = [...preferences.known, id];
-  persist({ ...preferences });
+  if (preference.current.known.includes(id)) return;
+  preference.set({ ...preference.current, known: [...preference.current.known, id] });
 }
 
 export function setStarred(id: string, next: boolean): void {
   const destination = destinationById(id);
   if (destination === undefined || destination.pinned === true) return;
-  // Store only departures from the registry default, so future default changes reach members
-  // who never touched this row.
+  const current = preference.current;
+  // Store only departures from the registry default, so future default changes reach members who
+  // never touched this row.
+  let starredOverrides: Record<string, boolean>;
   if (next === destination.defaultStarred) {
-    const { [id]: dropped, ...rest } = preferences.starredOverrides;
+    const { [id]: dropped, ...rest } = current.starredOverrides;
     void dropped;
-    preferences.starredOverrides = rest;
+    starredOverrides = rest;
   } else {
-    preferences.starredOverrides = { ...preferences.starredOverrides, [id]: next };
+    starredOverrides = { ...current.starredOverrides, [id]: next };
   }
   // Adding a row back replays its one-time gilt-draw arrival: forgetting it from `known` lets the
   // shell catch it as a NEW ARRIVAL where reconciliation seats it, then re-acknowledge it. Removing
   // never highlights (there is nothing to draw attention to).
-  if (next) {
-    preferences.known = preferences.known.filter((knownId) => knownId !== id);
-  }
-  persist({ ...preferences });
+  const known = next ? current.known.filter((knownId) => knownId !== id) : current.known;
+  preference.set({ ...current, starredOverrides, known });
 }
 
 /**
- * Reorder within a group (Customize mode). The whole reconciled arrangement is folded into
- * storage on the first move, so subsequent merges are stable around it.
+ * Reorder within a group (Customize mode). The whole reconciled arrangement is folded into storage
+ * on the first move, so subsequent merges are stable around it.
  */
 export function moveDestination(group: DestinationGroup, id: string, toIndex: number): void {
   if (id === FIXED_LEADING_ID) return;
@@ -246,17 +220,15 @@ export function moveDestination(group: DestinationGroup, id: string, toIndex: nu
   if (boundedIndex === fromIndex) return;
   ids.splice(fromIndex, 1);
   ids.splice(boundedIndex, 0, id);
-  preferences.order = { ...preferences.order, [group]: ids };
-  persist({ ...preferences });
+  preference.set({ ...preference.current, order: { ...preference.current.order, [group]: ids } });
 }
 
 /** The hover-to-expand preference — read reactively; default off. */
 export function expandSidebarOnHover(): boolean {
-  return preferences.expandOnHover;
+  return preference.current.expandOnHover;
 }
 
 export function setExpandSidebarOnHover(next: boolean): void {
-  if (preferences.expandOnHover === next) return;
-  preferences.expandOnHover = next;
-  persist({ ...preferences });
+  if (preference.current.expandOnHover === next) return;
+  preference.set({ ...preference.current, expandOnHover: next });
 }

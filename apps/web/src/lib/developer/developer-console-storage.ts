@@ -1,8 +1,16 @@
 /*
- * Per-module persistence for developer-console modules: one localStorage key per module id, JSON
- * in and out, every storage hazard (private mode, quota, corrupt payloads) swallowed here so
- * modules never try/catch. Overrides are per-browser tuning state, not application data.
+ * Per-module persistence for developer-console modules: one localStorage key per module id, JSON in
+ * and out, on the shared persisted-preference primitive's swallowed storage helpers so every
+ * storage hazard (private mode, quota, corrupt payloads) is handled in one place and modules never
+ * try/catch. These overrides are non-reactive, load-on-demand tuning state — a module reads once
+ * and owns its own reactivity — so this stays a plain load/save/clear seam, not a rune store.
  */
+import {
+  readStoredJson,
+  removeStoredValue,
+  writeStoredJson,
+} from "$lib/preferences/persisted-preference.ts";
+
 export interface DeveloperConsoleStorage<Value> {
   load(): Value | null;
   save(value: Value): void;
@@ -15,26 +23,13 @@ export function createDeveloperConsoleStorage<Value>(
   const key = `mc-developer-${moduleId}`;
   return {
     load(): Value | null {
-      try {
-        const raw = localStorage.getItem(key);
-        return raw === null ? null : (JSON.parse(raw) as Value);
-      } catch {
-        return null;
-      }
+      return readStoredJson<Value>(key);
     },
     save(value: Value): void {
-      try {
-        localStorage.setItem(key, JSON.stringify(value));
-      } catch {
-        // Storage unavailable; the live overrides still work for the session.
-      }
+      writeStoredJson(key, value);
     },
     clear(): void {
-      try {
-        localStorage.removeItem(key);
-      } catch {
-        // Nothing to clear.
-      }
+      removeStoredValue(key);
     },
   };
 }
