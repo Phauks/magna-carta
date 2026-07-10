@@ -119,6 +119,7 @@ export async function runConflictsCheck(
     const matches = await matchParty(context, subject, scope.strictness);
     for (const match of matches) {
       if (seedIds.has(match.entityId)) continue; // a party never conflicts with itself
+      if (match.entityId === entity.entityId) continue; // the current search subject never conflicts with itself
       hits.push({
         entityId: match.entityId,
         sourceClass: entity.path.length === 0 ? "party" : "graph",
@@ -144,6 +145,11 @@ export async function runConflictsCheck(
 
   const scopeRecord: Record<string, SourceAvailability> = {};
   for (const sourceClass of scope.sources) scopeRecord[sourceClass] = availabilityOf(sourceClass);
+  // Imputation needs a matter to join firm members against; without one it never ran, no matter how
+  // the availability table above classifies the source class in general.
+  if (inScope.has("imputation") && input.matterId === undefined) {
+    scopeRecord["imputation"] = "unavailable";
+  }
   // Prior-firm lateral history is a registered source with no table. Record it, never omit it.
   scopeRecord["prior_firm_history"] = "unavailable";
 

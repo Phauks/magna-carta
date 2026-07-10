@@ -146,6 +146,23 @@ test("a source that cannot run records as unavailable, never as clean", async ()
   expect(scope.party).toBe("searched");
 });
 
+test("imputation in scope with no matter recorded as unavailable, since it never ran", async () => {
+  const { ctx, options } = await conflictsTestContext("imputation-no-matter");
+  const checkId = await runConflictsCheck(
+    ctx,
+    {
+      trigger: "comprehensive",
+      subjectEntityIds: [],
+      scope: { sources: ["party", "imputation"], strictness: "balanced", depth: 1 },
+    },
+    options,
+  );
+  const row = await readCheck(ctx.database, checkId);
+  const scope = JSON.parse(row.scope_json) as Record<string, string>;
+  expect(scope.imputation).toBe("unavailable");
+  expect(scope.party).toBe("searched");
+});
+
 test("a scope below the floor is raised and the raise is recorded on the row", async () => {
   const { ctx, raw, options } = await conflictsTestContext("floor");
   raw.exec(
@@ -207,7 +224,7 @@ test("every hit carries its evidence tier and connecting graph path", async () =
     { from: principalId, to: orgId, edgeType: "affiliation", role: "principal", note: null, validFrom: null, validTo: null },
     options,
   );
-  await createPerson(ctx.database, { given: "Ada", family: "Principal" }, options); // a second, unrelated Ada
+  const unrelatedAdaId = await createPerson(ctx.database, { given: "Ada", family: "Principal" }, options); // a second, unrelated Ada
 
   const checkId = await runConflictsCheck(
     ctx,
@@ -222,6 +239,12 @@ test("every hit carries its evidence tier and connecting graph path", async () =
     expect(hit.evidence_tier).toBeLessThanOrEqual(4);
     expect(() => JSON.parse(hit.graph_path_json)).not.toThrow();
   }
+
+  // Graph expansion reaches principalId (the affiliated Ada). Searching from principalId must never
+  // surface principalId as its own hit -- an entity cannot conflict with itself -- while the genuinely
+  // unrelated, identically-named Ada must still show up as a real hit.
+  expect(hits.every((hit) => hit.entity_id !== principalId)).toBe(true);
+  expect(hits.some((hit) => hit.entity_id === unrelatedAdaId)).toBe(true);
 });
 
 test("a replayed idempotency key writes exactly one check", async () => {
