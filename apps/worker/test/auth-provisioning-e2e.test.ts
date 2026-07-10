@@ -440,6 +440,9 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
       "fileIntegrity.hash",
       // Streams the bytes to the scan Container for identification; nothing is stored.
       "fileType.verify",
+      // Pure computation over the uploaded message bytes — parses and returns the structural
+      // inspection; nothing is stored, no firm data is written.
+      "emailInspector.inspect",
       // Analysis POST: the only write is one incidental ai_detection_usage meter row (telemetry),
       // not an auditable firm-domain mutation; auditing every detection would flood audit_log.
       "aiDetection.detect",

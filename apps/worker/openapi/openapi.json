@@ -7469,6 +7469,438 @@
         }
       }
     },
+    "/api/v1/email/inspect": {
+      "post": {
+        "description": "Parse an uploaded email file (.eml or .msg) and return its headers, participants, subject, message and reply identifiers, body text, described attachments, and authenticity evidence (DKIM signatures, authentication results, and the received chain) captured verbatim with no verdict. Nothing is stored.",
+        "operationId": "emailInspector.inspect",
+        "tags": [
+          "emailInspector"
+        ],
+        "x-mc-operationId": "emailInspector.inspect",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tools:emailInspector",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "expensive",
+        "x-mc-tags": [
+          "emailInspector"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Parsed message",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "messageIdentifier": {
+                      "type": "object",
+                      "properties": {
+                        "value": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "provenance": {
+                          "type": "string",
+                          "enum": [
+                            "header",
+                            "mapi",
+                            "absent"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "value",
+                        "provenance"
+                      ]
+                    },
+                    "inReplyTo": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "references": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "subject": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "dateRaw": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "from": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "displayName": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "address": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "displayName",
+                          "address"
+                        ]
+                      }
+                    },
+                    "to": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "displayName": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "address": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "displayName",
+                          "address"
+                        ]
+                      }
+                    },
+                    "cc": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "displayName": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "address": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "displayName",
+                          "address"
+                        ]
+                      }
+                    },
+                    "bcc": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "displayName": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "address": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "displayName",
+                          "address"
+                        ]
+                      }
+                    },
+                    "rawHeaders": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "value": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "value"
+                        ]
+                      }
+                    },
+                    "textBodies": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "htmlBodies": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "rtfBody": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "parts": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "filename": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "mediaType": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "contentIdentifier": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "disposition": {
+                            "type": "string",
+                            "enum": [
+                              "attachment",
+                              "inline"
+                            ]
+                          },
+                          "size": {
+                            "type": "number"
+                          },
+                          "locator": {
+                            "oneOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "inputRange"
+                                    ]
+                                  },
+                                  "start": {
+                                    "type": "number"
+                                  },
+                                  "end": {
+                                    "type": "number"
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "start",
+                                  "end"
+                                ]
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "mapiStream"
+                                    ]
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "name"
+                                ]
+                              }
+                            ]
+                          },
+                          "isEmbeddedMessage": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "filename",
+                          "mediaType",
+                          "contentIdentifier",
+                          "disposition",
+                          "size",
+                          "locator",
+                          "isEmbeddedMessage"
+                        ]
+                      }
+                    },
+                    "integrity": {
+                      "type": "object",
+                      "properties": {
+                        "dkimSignatures": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "authenticationResults": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "receivedChain": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": [
+                        "dkimSignatures",
+                        "authenticationResults",
+                        "receivedChain"
+                      ]
+                    },
+                    "sourceFormat": {
+                      "type": "string",
+                      "enum": [
+                        "eml",
+                        "msg",
+                        "mboxMember"
+                      ]
+                    },
+                    "referencesRemoteContent": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "messageIdentifier",
+                    "inReplyTo",
+                    "references",
+                    "subject",
+                    "dateRaw",
+                    "from",
+                    "to",
+                    "cc",
+                    "bcc",
+                    "rawHeaders",
+                    "textBodies",
+                    "htmlBodies",
+                    "rtfBody",
+                    "parts",
+                    "integrity",
+                    "sourceFormat",
+                    "referencesRemoteContent"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Empty request body",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing tools:emailInspector",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "File exceeds the inspectable-size cap",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The bytes could not be read as an email, or are not a format this tool supports",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/file-repair/diagnose": {
       "post": {
         "description": "Diagnose a possibly-corrupt uploaded file: detect its format, describe the corruption, and report whether it can be repaired (and whether carving may recover embedded files). Nothing is stored.",
@@ -25401,6 +25833,9 @@
     },
     {
       "name": "downloads"
+    },
+    {
+      "name": "emailInspector"
     },
     {
       "name": "fileIntegrity"

@@ -69,6 +69,8 @@ const NON_MUTATING_POST_ALLOW_LIST: Record<string, string> = {
     "Pure computation over the streamed request body — computes five digests in one pass; nothing is stored, no firm data is written.",
   "fileType.verify":
     "Pure classification over the uploaded bytes — identifies the true content type (raw facts from the container, verdict app-side); nothing is stored, no firm data is written.",
+  "emailInspector.inspect":
+    "Pure computation over the uploaded message bytes — parses and returns the structural inspection; nothing is stored, no firm data is written.",
   "aiDetection.detect":
     "Analysis POST: sends pasted text to the platform-managed detector and returns a likelihood band. The only write is one incidental ai_detection_usage meter row (telemetry — the accountability record for the egress), not an auditable firm-domain mutation; auditing every detection would flood audit_log.",
 };
@@ -574,6 +576,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "documents.viewSession",
       "downloads.bundleStatus",
       "downloads.zip",
+      "emailInspector.inspect",
       "fileIntegrity.hash",
       "fileIntegrity.verify",
       "fileType.verify",

@@ -2068,6 +2068,106 @@ export type FileTypeVerifyResponses = {
 
 export type FileTypeVerifyResponse = FileTypeVerifyResponses[keyof FileTypeVerifyResponses];
 
+export type EmailInspectorInspectData = {
+    body: unknown;
+    path?: never;
+    query?: never;
+    url: '/api/v1/email/inspect';
+};
+
+export type EmailInspectorInspectErrors = {
+    /**
+     * Empty request body
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Missing tools:emailInspector
+     */
+    403: Problem;
+    /**
+     * File exceeds the inspectable-size cap
+     */
+    413: Problem;
+    /**
+     * The bytes could not be read as an email, or are not a format this tool supports
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type EmailInspectorInspectError = EmailInspectorInspectErrors[keyof EmailInspectorInspectErrors];
+
+export type EmailInspectorInspectResponses = {
+    /**
+     * Parsed message
+     */
+    200: {
+        messageIdentifier: {
+            value: string | null;
+            provenance: 'header' | 'mapi' | 'absent';
+        };
+        inReplyTo: string | null;
+        references: Array<string>;
+        subject: string | null;
+        dateRaw: string | null;
+        from: Array<{
+            displayName: string | null;
+            address: string | null;
+        }>;
+        to: Array<{
+            displayName: string | null;
+            address: string | null;
+        }>;
+        cc: Array<{
+            displayName: string | null;
+            address: string | null;
+        }>;
+        bcc: Array<{
+            displayName: string | null;
+            address: string | null;
+        }>;
+        rawHeaders: Array<{
+            name: string;
+            value: string;
+        }>;
+        textBodies: Array<string>;
+        htmlBodies: Array<string>;
+        rtfBody: string | null;
+        parts: Array<{
+            filename: string | null;
+            mediaType: string | null;
+            contentIdentifier: string | null;
+            disposition: 'attachment' | 'inline';
+            size: number;
+            locator: {
+                kind: 'inputRange';
+                start: number;
+                end: number;
+            } | {
+                kind: 'mapiStream';
+                name: string;
+            };
+            isEmbeddedMessage: boolean;
+        }>;
+        integrity: {
+            dkimSignatures: Array<string>;
+            authenticationResults: Array<string>;
+            receivedChain: Array<string>;
+        };
+        sourceFormat: 'eml' | 'msg' | 'mboxMember';
+        referencesRemoteContent: boolean;
+    };
+};
+
+export type EmailInspectorInspectResponse = EmailInspectorInspectResponses[keyof EmailInspectorInspectResponses];
+
 export type FileRepairDiagnoseData = {
     body: unknown;
     path?: never;
