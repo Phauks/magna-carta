@@ -17,5 +17,6 @@ export function perFirmMigrations(): Migration[] {
     "20260704T041516_baseline": baselineSql,
     "20260704T041517_seed-tools-file-repair": seedToolsFileRepairSql,
     "20260704T041518_file-repair-provenance": fileRepairProvenanceSql,
+    "20260709T000001_seed-tools-ocr": seedToolsOcrSql,
   });
 }
