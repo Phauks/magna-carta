@@ -3,7 +3,7 @@
  * redirects to its first section. Pure node: the load throws a SvelteKit redirect object.
  */
 import { describe, expect, it } from "vitest";
-import { load } from "../src/routes/(app)/account/+page.ts";
+import { load } from "../src/routes/account/+page.ts";
 
 describe("/account root", () => {
   it("redirects to /account/profile", () => {
