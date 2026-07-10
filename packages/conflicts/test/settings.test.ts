@@ -1,5 +1,12 @@
+import type { DatabaseSync } from "node:sqlite";
 import { expect, test } from "vitest";
-import { DEFAULT_CONFLICTS_POLICY, resolveScope, type ConflictsPolicy } from "../src/settings.ts";
+import { createMigratedNodeDatabase } from "@magna-carta/database/node-sqlite";
+import {
+  DEFAULT_CONFLICTS_POLICY,
+  readConflictsPolicy,
+  resolveScope,
+  type ConflictsPolicy,
+} from "../src/settings.ts";
 
 const policy: ConflictsPolicy = {
   floorSources: ["party", "graph"],
@@ -55,4 +62,62 @@ test("resolved sources are deterministically ordered", () => {
 test("depth below zero is clamped to zero", () => {
   const resolved = resolveScope(policy, { sources: ["party", "graph"], strictness: "balanced", depth: -1 });
   expect(resolved.depth).toBe(0);
+});
+
+// Seeds the flat firm-level setting row directly through the sync `raw` handle (the D1-shaped
+// `database` adapter only exposes async prepare/run) so each case starts from a freshly migrated,
+// otherwise-empty per-firm database.
+function seedConflictsPolicy(raw: DatabaseSync, value: string): void {
+  raw.exec(
+    `INSERT INTO setting (key, value, updated_at) VALUES ('conflicts.policy', '${value.replace(/'/g, "''")}', '2026-07-10T00:00:00.000Z');`,
+  );
+}
+
+test("readConflictsPolicy: a missing row falls back to the default policy", async () => {
+  const { database } = createMigratedNodeDatabase("per-firm");
+  expect(await readConflictsPolicy(database)).toEqual(DEFAULT_CONFLICTS_POLICY);
+});
+
+test("readConflictsPolicy: a well-formed stored row round-trips its values", async () => {
+  const { database, raw } = createMigratedNodeDatabase("per-firm");
+  const stored: ConflictsPolicy = {
+    floorSources: ["party", "graph"],
+    floorStrictness: "over_inclusive",
+    defaultDepth: 3,
+  };
+  seedConflictsPolicy(raw, JSON.stringify(stored));
+
+  const resolved = await readConflictsPolicy(database);
+  expect(resolved.floorSources).toEqual(["party", "graph"]);
+  expect(resolved.floorStrictness).toBe("over_inclusive");
+  expect(resolved.defaultDepth).toBe(3);
+});
+
+test("readConflictsPolicy: an empty stored floorSources still yields party in the floor", async () => {
+  const { database, raw } = createMigratedNodeDatabase("per-firm");
+  seedConflictsPolicy(
+    raw,
+    JSON.stringify({ floorSources: [], floorStrictness: "balanced", defaultDepth: 1 }),
+  );
+
+  const resolved = await readConflictsPolicy(database);
+  expect(resolved.floorSources).toContain("party");
+});
+
+test("readConflictsPolicy: an invalid stored floorStrictness falls back to the default strictness", async () => {
+  const { database, raw } = createMigratedNodeDatabase("per-firm");
+  seedConflictsPolicy(
+    raw,
+    JSON.stringify({ floorSources: ["party"], floorStrictness: "bogus", defaultDepth: 1 }),
+  );
+
+  const resolved = await readConflictsPolicy(database);
+  expect(resolved.floorStrictness).toBe(DEFAULT_CONFLICTS_POLICY.floorStrictness);
+});
+
+test("readConflictsPolicy: malformed JSON in the stored value falls back to the default policy, no throw", async () => {
+  const { database, raw } = createMigratedNodeDatabase("per-firm");
+  seedConflictsPolicy(raw, "{not json");
+
+  await expect(readConflictsPolicy(database)).resolves.toEqual(DEFAULT_CONFLICTS_POLICY);
 });

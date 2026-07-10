@@ -1,5 +1,5 @@
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
-import { SOURCE_CLASSES, type SourceClass, type Strictness } from "./types.ts";
+import { SOURCE_CLASSES, STRICTNESS_LEVELS, type SourceClass, type Strictness } from "./types.ts";
 
 // The firm's mandatory minimum. A per-run selection may only ADD sources above this floor, never
 // subtract below it — otherwise narrowing the scope manufactures a clean check, and the log would
@@ -79,10 +79,36 @@ export async function readConflictsPolicy(database: SqlDatabase): Promise<Confli
   const row = results[0];
   if (row === undefined) return DEFAULT_CONFLICTS_POLICY;
 
-  const parsed = JSON.parse(row.value) as Partial<ConflictsPolicy>;
+  let parsed: Partial<ConflictsPolicy>;
+  try {
+    parsed = JSON.parse(row.value) as Partial<ConflictsPolicy>;
+  } catch {
+    // A corrupt row must not crash every conflicts check — fall back to the default posture.
+    return DEFAULT_CONFLICTS_POLICY;
+  }
+
+  // A missing, non-array, or emptied-out floorSources is treated as "use the default"; `??` alone
+  // does not catch an empty array. Then — regardless of what was stored — party is unioned back in:
+  // it is the firm-wide floor, not a firm-configurable choice, so no stored value (corrupted,
+  // hand-edited, or produced by a future settings UI that lets an admin deselect everything) may
+  // ever drop it.
+  const storedFloorSources = parsed.floorSources;
+  const baseFloorSources =
+    Array.isArray(storedFloorSources) && storedFloorSources.length > 0
+      ? storedFloorSources
+      : DEFAULT_CONFLICTS_POLICY.floorSources;
+  const floorSources = orderSources(new Set([...baseFloorSources, "party"]));
+
+  const floorStrictness = STRICTNESS_LEVELS.includes(parsed.floorStrictness as Strictness)
+    ? (parsed.floorStrictness as Strictness)
+    : DEFAULT_CONFLICTS_POLICY.floorStrictness;
+
   return {
-    floorSources: orderSources(parsed.floorSources ?? DEFAULT_CONFLICTS_POLICY.floorSources),
-    floorStrictness: parsed.floorStrictness ?? DEFAULT_CONFLICTS_POLICY.floorStrictness,
-    defaultDepth: parsed.defaultDepth ?? DEFAULT_CONFLICTS_POLICY.defaultDepth,
+    floorSources,
+    floorStrictness,
+    defaultDepth:
+      typeof parsed.defaultDepth === "number"
+        ? parsed.defaultDepth
+        : DEFAULT_CONFLICTS_POLICY.defaultDepth,
   };
 }
