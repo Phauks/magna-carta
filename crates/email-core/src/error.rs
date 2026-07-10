@@ -55,4 +55,21 @@ mod tests {
             EMAIL_ERROR_CODES
         ));
     }
+
+    #[test]
+    fn the_declared_code_set_is_exactly_the_engines_error_variants() {
+        // One declared code per `EmailError` variant, and no more: a code that
+        // slipped in without a variant (or a variant with no code) would let the
+        // edge emit a string this set never vetted.
+        assert_eq!(EMAIL_ERROR_CODES.len(), 4);
+        for code in EMAIL_ERROR_CODES {
+            // A code is a fixed keyword, never a filename or path — the shape that
+            // would betray leaked file content.
+            assert!(
+                !code.contains('.'),
+                "a code must never look like a filename"
+            );
+            assert!(!code.contains('/'), "a code must never look like a path");
+        }
+    }
 }

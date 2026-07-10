@@ -227,7 +227,10 @@ mod tests {
     }
 }
 
-// The wasm-edge module (`mod wasm`, cfg-gated to target_arch = "wasm32") is declared
-// once it has bytes to marshal across the boundary, not before: `cargo fmt` resolves
-// a cfg-gated `mod` file path unconditionally, so declaring it ahead of the file
-// breaks the format gate on every non-wasm target.
+// The wasm-edge module carries the `#[wasm_bindgen]` exports. Gated to
+// target_arch = "wasm32" so it never compiles into the native build or its tests.
+// Declaring it turns its exports into real cdylib codegen roots, which is what
+// finally roots the container-open path (and the rest of the engine) through the
+// export graph rather than only through the rlib half of the crate.
+#[cfg(target_arch = "wasm32")]
+mod wasm;
