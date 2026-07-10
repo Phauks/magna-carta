@@ -53,8 +53,7 @@ Placement is therefore a routing decision, not a rewrite. This satisfies golden 
 | Crate | Role | Note |
 | --- | --- | --- |
 | `mail-parser` | RFC 5322 + MIME 2045–2049 | 100% safe Rust, no external dependencies; zero-copy `Cow<str>`; 41 character sets; returns the RFC 8621 flattened body/attachment shape |
-| `msg_parser` | `.msg` per [MS-OXMSG] / [MS-OXPROPS] | MAPI named properties, embedded `.msg`, RTF bodies |
-| `cfb` | OLE2 compound container | **Not a direct dependency** — `msg_parser` owns the CFB layer. Reached for only if `msg_parser` fails its audit. Note `cfb` is *not* a workspace pin: `decryption-core` pins 0.10 while `recovery-core` and `containers/scan` pin 0.14 |
+| `cfb` | OLE2 compound container for `.msg` | The `.msg` MAPI property-stream decoding ([MS-OXMSG] / [MS-OXPROPS]) is written on top of `cfb` by us, not delegated to a crate. Pinned per-crate at 0.14 (matching `recovery-core`); *not* a workspace pin — `decryption-core` separately pins 0.10 |
 
 mbox needs no crate: it is a `From_`-delimited concatenation of RFC 5322 messages, so it is a framing iterator over the `.eml` lane, not a parser.
 
@@ -118,7 +117,7 @@ Shape follows the `decryption` precedent (the WASM engine, not the container one
 - **A `limits.rs` test per cap**, asserting a typed error rather than a panic or a partial result.
 - **The `wasm_edge::allowed_code` test**, proving no file content escapes through an error string.
 - **The container image must build _and_ boot in CI** — building alone has previously passed while the image failed to start.
-- **`msg_parser` is audited before adoption**, not assumed: release cadence, test coverage, and malformed-input behavior. It is the one dependency here taking untrusted bytes whose maturity this design has not established. If it fails the audit, the fallback is reading MAPI property streams directly over the `cfb` crate already in the tree.
+- **The `.msg` dependency was chosen by audit, not by convenience.** `msg_parser` — the obvious crate — was audited and **rejected**: a release-profile out-of-bounds panic reachable from its entry point on crafted input (a sector-index loop bounded by the input length, not the array length), which on the unwind-less WASM runtime aborts the whole isolate; no fuzz target; a three-year dormancy followed by an eleven-release two-day burst; and `regex`/`serde` bundle weight. The `.msg` lane is built instead on `cfb` (panic-free on malformed input across a fuzz sweep, already a production dependency), with the MAPI decoding written and bounded by us — every input-derived index checked, no panic on malformed input, embedded-message recursion capped, and its own fuzz targets.
 
 ## 7. Documentation and decision deltas
 
