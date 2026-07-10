@@ -1,0 +1,32 @@
+[
+  {
+    "tier": "tiny",
+    "model_version": "PP-OCRv6_tiny@benchmark",
+    "model_load_millis": 299,
+    "total_model_bytes": 6298800,
+    "documents_scored": 4,
+    "documents_skipped": 0,
+    "mean_character_error_rate": 0.3651108593734006,
+    "mean_word_box_overlap": 0.6892135545168239
+  },
+  {
+    "tier": "small",
+    "model_version": "PP-OCRv6_small@benchmark",
+    "model_load_millis": 405,
+    "total_model_bytes": 31190469,
+    "documents_scored": 4,
+    "documents_skipped": 0,
+    "mean_character_error_rate": 0.3623607007104008,
+    "mean_word_box_overlap": 0.7278889341386161
+  },
+  {
+    "tier": "medium",
+    "model_version": "PP-OCRv6_medium@benchmark",
+    "model_load_millis": 678,
+    "total_model_bytes": 138738396,
+    "documents_scored": 4,
+    "documents_skipped": 0,
+    "mean_character_error_rate": 0.35762776636617377,
+    "mean_word_box_overlap": 0.7237665164943126
+  }
+]
