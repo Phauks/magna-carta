@@ -12,11 +12,13 @@ Amends ADR-0060: crate resolves to `oar-ocr`, model moves to the official first-
 export, and the determinism claim narrows to server-canonical. Golden rule 14 C++ consent granted for
 ONNX Runtime, on the grounds that it adds no new C++ surface and never parses untrusted bytes.
 
-The model **tier** (tiny / small / medium) is pinned by a benchmark inside this slice, not up front.
-Ground truth is manufactured by rendering born-digital text-layer PDFs to raster, degrading them, and
-scoring OCR against the observer path's glyph text. The v6 recognizer covers **Latin, CJK, and Greek
-only** — Cyrillic, Arabic, Hebrew, Devanagari, Hangul, and Thai are absent from its dictionary — so the
-recognizer is a swappable, per-line-selected unit with one model registered today.
+The model **tier** was pinned by a benchmark inside this slice, not up front: **small is baked**
+(measured) — it ties medium on character error rate within noise, leads on word-box localization, and
+is a quarter medium's size. Ground truth is manufactured by rendering born-digital text-layer PDFs to
+raster, degrading them, and scoring OCR against the observer path's glyph text. The v6 recognizer covers
+**Latin, CJK, and Greek only** — Cyrillic, Arabic, Hebrew, Devanagari, Hangul, and Thai are absent from
+its dictionary — so the recognizer is a swappable, per-line-selected unit with one model registered
+today; the absent scripts are accepted as out of scope for now.
 
 Design: `docs/specs/2026-07-09-ocr-engine-design.md`.
 Decision: `docs/decisions/pending/ocr-engine-model-and-determinism.md`.
