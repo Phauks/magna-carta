@@ -13,7 +13,11 @@ pub struct Limits {
     pub max_mime_depth: usize,
     pub max_part_count: usize,
     /// Base64 expands roughly 1.37x, so a part's decoded size is bounded independently
-    /// of whatever length the message claims.
+    /// of whatever length the message claims. Enforced by
+    /// [`crate::extract_part_with_limits`] on every locator kind: an `InputRange`
+    /// longer than this is refused before it is copied, and a `MapiStream` read is
+    /// capped at whichever is tighter, this value or the `.msg` decoder's own fixed
+    /// clamp.
     pub max_decoded_part_bytes: usize,
     pub max_embedded_message_depth: usize,
     pub max_mbox_member_count: usize,

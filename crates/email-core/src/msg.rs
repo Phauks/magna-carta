@@ -623,6 +623,35 @@ pub(crate) fn read_stream_bounded(compound: &mut Msg, path: &Path) -> Result<Vec
     Ok(buffer)
 }
 
+/// Read a stream fully, bounded by a caller-supplied cap rather than the fixed
+/// property-stream clamp. Used by on-demand part extraction, where a caller may
+/// hand in a tighter [`crate::Limits::max_decoded_part_bytes`] than the internal
+/// decode paths use — the cap actually applied is never looser than the fixed
+/// clamp above, only ever tighter.
+///
+/// Unlike [`read_stream_bounded`], an over-cap stream is not silently truncated
+/// into a shorter, wrong-looking success: one byte past the cap is read so the
+/// overage is detected, and detection is reported as [`EmailError::LimitExceeded`].
+pub(crate) fn read_stream_bounded_with_cap(
+    compound: &mut Msg,
+    path: &Path,
+    requested_max_bytes: usize,
+) -> Result<Vec<u8>, EmailError> {
+    let max_bytes = (requested_max_bytes as u64).min(MAX_PROPERTY_STREAM_BYTES);
+    let stream = compound
+        .open_stream(path)
+        .map_err(|_| EmailError::Malformed)?;
+    let mut buffer = Vec::new();
+    stream
+        .take(max_bytes.saturating_add(1))
+        .read_to_end(&mut buffer)
+        .map_err(|_| EmailError::Malformed)?;
+    if buffer.len() as u64 > max_bytes {
+        return Err(EmailError::LimitExceeded);
+    }
+    Ok(buffer)
+}
+
 /// Decode UTF-16LE. An odd-length buffer cannot be whole 16-bit units, so it is
 /// rejected rather than read past its end; a trailing NUL terminator (which Outlook
 /// writes) is dropped.
@@ -1265,6 +1294,14 @@ mod mapi_tests {
         let message = parse_msg(&bytes).expect("parses");
         assert_eq!(message.parts.len(), 1);
         assert!(message.parts[0].is_embedded_message);
+
+        // The descriptor's locator names the attachment storage, not a flat data
+        // stream (an embedded message has none): extracting it must come away
+        // not-found rather than reading the storage as if it were a stream.
+        assert_eq!(
+            crate::extract_part(&bytes, &message.parts[0]),
+            Err(EmailError::PartNotFound)
+        );
     }
 
     /// A pathological embedding chain is refused, not run until the stack aborts the
@@ -1300,6 +1337,41 @@ mod mapi_tests {
         assert!(matches!(&part.locator, PartLocator::MapiStream { .. }));
         assert_eq!(part.size, payload.len());
 
+        let extracted = crate::extract_part(&bytes, part).expect("the .msg part extracts");
+        assert_eq!(extracted, payload);
+    }
+
+    /// A caller can tighten `max_decoded_part_bytes` below a `.msg` attachment's real
+    /// stream length; extraction refuses the whole read as `LimitExceeded` rather than
+    /// handing back a shorter, silently truncated payload.
+    #[test]
+    fn a_msg_attachment_over_a_tightened_cap_is_refused_not_truncated() {
+        let attach = "/__attach_version1.0_#00000000";
+        let payload: &[u8] = b"%PDF-1.4 engagement letter payload bytes";
+        let bytes = MsgBuilder::new()
+            .substg(
+                attach,
+                PID_ATTACH_LONG_FILENAME,
+                PTYPE_UNICODE,
+                utf16le("engagement-letter.pdf"),
+            )
+            .substg(attach, PID_ATTACH_DATA, PTYPE_BINARY, payload.to_vec())
+            .build();
+
+        let message = parse_msg(&bytes).expect("parses");
+        let part = &message.parts[0];
+
+        let tight_limits = Limits {
+            max_decoded_part_bytes: payload.len() - 1,
+            ..Limits::default()
+        };
+        assert_eq!(
+            crate::extract_part_with_limits(&bytes, part, &tight_limits),
+            Err(EmailError::LimitExceeded)
+        );
+
+        // The default cap (64 MiB) is nowhere near this fixture's size, so the
+        // untightened path still extracts the same bytes as before.
         let extracted = crate::extract_part(&bytes, part).expect("the .msg part extracts");
         assert_eq!(extracted, payload);
     }

@@ -59,40 +59,69 @@ pub fn parse_with_limits(bytes: &[u8], limits: &Limits) -> Result<ParsedMessage,
     }
 }
 
+/// [`extract_part`] with [`Limits::default`], whose `max_decoded_part_bytes` is the
+/// same 64 MiB the `.msg` decode paths already clamp to — so this is not a looser
+/// cap, just the default one.
+pub fn extract_part(bytes: &[u8], descriptor: &PartDescriptor) -> Result<Vec<u8>, EmailError> {
+    extract_part_with_limits(bytes, descriptor, &Limits::default())
+}
+
 /// Materialize one part's bytes on demand. [`parse`] returns descriptors that locate
 /// their bytes rather than carry them, so a caller that wants only headers and text —
 /// bulk indexing, a listing view — never pays for attachment bytes it discards. The
 /// bytes handed back come from the same original input the descriptor was parsed from.
 ///
 /// A part locates its bytes one of two ways, and this handles both from that same
-/// input:
+/// input, each honoring `limits.max_decoded_part_bytes`:
 ///
 /// - [`PartLocator::InputRange`] — an `.eml`/mbox part is literally a span of the
 ///   input. The range is bounds-checked against the input and returned as a copy; a
 ///   range that runs past the end, or is inverted, is a [`EmailError::PartNotFound`]
-///   rather than an index panic.
+///   rather than an index panic. A range that is in-bounds but longer than the cap is
+///   [`EmailError::LimitExceeded`] — checked before the copy, so an oversized range
+///   never sizes an allocation.
 /// - [`PartLocator::MapiStream`] — a `.msg` part's bytes are scattered across
 ///   compound-file sectors, denoted by no span of the input. The container is
-///   re-opened and the named stream is read back through the same bounded reader the
-///   decoder uses, so extraction inherits the decoder's allocation clamp. A stream
-///   that is now absent, or any container fault, is a [`EmailError::PartNotFound`] —
-///   the container already parsed once, so a missing named part is not-found, and no
+///   re-opened and the named stream is read back through a reader bounded by
+///   whichever is tighter, the caller's cap or the decoder's own fixed clamp, so a
+///   caller-supplied cap can only shrink the read, never grow it past what the
+///   decoder itself allows. A stream longer than that bound is
+///   [`EmailError::LimitExceeded`], not a truncated success. A stream that is now
+///   absent, or any other container fault, is [`EmailError::PartNotFound`] — the
+///   container already parsed once, so a missing named part is not-found, and no
 ///   underlying container-error text is allowed to surface.
-pub fn extract_part(bytes: &[u8], descriptor: &PartDescriptor) -> Result<Vec<u8>, EmailError> {
+pub fn extract_part_with_limits(
+    bytes: &[u8],
+    descriptor: &PartDescriptor,
+    limits: &Limits,
+) -> Result<Vec<u8>, EmailError> {
     match &descriptor.locator {
         PartLocator::InputRange(range) => {
             if range.start > range.end || range.end > bytes.len() {
                 return Err(EmailError::PartNotFound);
             }
+            if range.len() > limits.max_decoded_part_bytes {
+                return Err(EmailError::LimitExceeded);
+            }
             Ok(bytes[range.clone()].to_vec())
         }
         PartLocator::MapiStream { name } => {
-            // Any container fault here is a not-found, not a malformed: the container
-            // parsed successfully once already, and its error text must not leak.
+            // A container-open fault here is a not-found, not a malformed: the
+            // container parsed successfully once already, and its error text must
+            // not leak.
             let mut compound =
                 msg::open_compound_file(bytes).map_err(|_| EmailError::PartNotFound)?;
-            msg::read_stream_bounded(&mut compound, Path::new(name))
-                .map_err(|_| EmailError::PartNotFound)
+            match msg::read_stream_bounded_with_cap(
+                &mut compound,
+                Path::new(name),
+                limits.max_decoded_part_bytes,
+            ) {
+                Ok(part_bytes) => Ok(part_bytes),
+                Err(EmailError::LimitExceeded) => Err(EmailError::LimitExceeded),
+                // Every other fault (stream absent, read error) collapses to
+                // not-found for the same reason the open fault above does.
+                Err(_) => Err(EmailError::PartNotFound),
+            }
         }
     }
 }
@@ -158,6 +187,29 @@ mod tests {
             extract_part(WITH_ATTACHMENT, &inverted),
             Err(EmailError::PartNotFound)
         );
+    }
+
+    #[test]
+    fn an_input_range_over_a_tightened_cap_is_refused_not_copied() {
+        const WITH_ATTACHMENT: &[u8] = include_bytes!("../tests/fixtures/with-attachment.eml");
+        let message = parse(WITH_ATTACHMENT).expect("fixture parses");
+        let descriptor = &message.parts[0];
+
+        // The range is in-bounds — well under `WITH_ATTACHMENT.len()` — so only the
+        // tightened cap, not the bounds check, can be what rejects it.
+        let tight_limits = Limits {
+            max_decoded_part_bytes: descriptor.size - 1,
+            ..Limits::default()
+        };
+        assert_eq!(
+            extract_part_with_limits(WITH_ATTACHMENT, descriptor, &tight_limits),
+            Err(EmailError::LimitExceeded)
+        );
+
+        // The default cap (64 MiB) is nowhere near this fixture's size, so the
+        // untightened path still extracts the same bytes as before.
+        let bytes = extract_part(WITH_ATTACHMENT, descriptor).expect("part extracts");
+        assert_eq!(bytes, b"JVBERi0xLjQKJeLjz9MK\r\n");
     }
 
     #[test]
