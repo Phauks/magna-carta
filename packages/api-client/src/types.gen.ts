@@ -976,6 +976,78 @@ export type LinkMatterPartyRequest = {
     role: string;
 };
 
+export type CreatedConflictsCheckResponse = {
+    id: string;
+};
+
+export type CreateConflictsCheckRequest = {
+    trigger: 'preliminary' | 'comprehensive' | 'new_party' | 'periodic_rescan';
+    matterId?: string;
+    subjectEntityIds: Array<string>;
+    scope: ConflictsScopeRequest;
+};
+
+export type ConflictsScopeRequest = {
+    sources: Array<'party' | 'graph' | 'imputation' | 'content'>;
+    strictness: 'balanced' | 'over_inclusive';
+    depth: number;
+};
+
+export type ConflictsCheckWithHitsResponse = {
+    check: ConflictsCheckDetail;
+    hits: Array<ConflictsHitDetail>;
+};
+
+export type ConflictsCheckDetail = {
+    id: string;
+    trigger: 'preliminary' | 'comprehensive' | 'new_party' | 'periodic_rescan';
+    matterId: string | null;
+    subjectEntityIds: Array<string>;
+    scope: {
+        [key: string]: 'searched' | 'unavailable';
+    };
+    strictness: 'balanced' | 'over_inclusive';
+    depth: number;
+    floorRaised: boolean;
+    actorUserId: string | null;
+    createdAt: string;
+};
+
+export type ConflictsHitDetail = {
+    id: string;
+    entityId: string;
+    sourceClass: 'party' | 'graph' | 'imputation' | 'content';
+    evidenceTier: number;
+    matchedFields: Array<string>;
+    graphPath: Array<ConflictsGraphPathStep>;
+    createdAt: string;
+    disposition: ConflictsDispositionDetail;
+};
+
+export type ConflictsGraphPathStep = {
+    edgeId: string;
+    edgeType: string;
+    fromEntityId: string;
+    toEntityId: string;
+};
+
+export type ConflictsDispositionDetail = {
+    id: string;
+    kind: 'cleared' | 'waiver_obtained' | 'wall_erected' | 'representation_declined';
+    rationale: string;
+    reviewerUserId: string;
+    createdAt: string;
+} | null;
+
+export type CreatedConflictsDispositionResponse = {
+    id: string;
+};
+
+export type RecordConflictsDispositionRequest = {
+    kind: 'cleared' | 'waiver_obtained' | 'wall_erected' | 'representation_declined';
+    rationale: string;
+};
+
 export type CustomFieldAck = {
     id: string;
 };
@@ -5964,6 +6036,151 @@ export type DirectoryLinkMatterPartyResponses = {
 };
 
 export type DirectoryLinkMatterPartyResponse = DirectoryLinkMatterPartyResponses[keyof DirectoryLinkMatterPartyResponses];
+
+export type ConflictsRunCheckData = {
+    body: CreateConflictsCheckRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/conflicts/checks';
+};
+
+export type ConflictsRunCheckErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ConflictsRunCheckError = ConflictsRunCheckErrors[keyof ConflictsRunCheckErrors];
+
+export type ConflictsRunCheckResponses = {
+    /**
+     * The completed check
+     */
+    201: CreatedConflictsCheckResponse;
+};
+
+export type ConflictsRunCheckResponse = ConflictsRunCheckResponses[keyof ConflictsRunCheckResponses];
+
+export type ConflictsGetCheckData = {
+    body?: never;
+    path: {
+        checkId: string;
+    };
+    query?: never;
+    url: '/api/v1/conflicts/checks/{checkId}';
+};
+
+export type ConflictsGetCheckErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ConflictsGetCheckError = ConflictsGetCheckErrors[keyof ConflictsGetCheckErrors];
+
+export type ConflictsGetCheckResponses = {
+    /**
+     * The check and its hits
+     */
+    200: ConflictsCheckWithHitsResponse;
+};
+
+export type ConflictsGetCheckResponse = ConflictsGetCheckResponses[keyof ConflictsGetCheckResponses];
+
+export type ConflictsRecordDispositionData = {
+    body: RecordConflictsDispositionRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        hitId: string;
+    };
+    query?: never;
+    url: '/api/v1/conflicts/hits/{hitId}/dispositions';
+};
+
+export type ConflictsRecordDispositionErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ConflictsRecordDispositionError = ConflictsRecordDispositionErrors[keyof ConflictsRecordDispositionErrors];
+
+export type ConflictsRecordDispositionResponses = {
+    /**
+     * The recorded disposition
+     */
+    201: CreatedConflictsDispositionResponse;
+};
+
+export type ConflictsRecordDispositionResponse = ConflictsRecordDispositionResponses[keyof ConflictsRecordDispositionResponses];
 
 export type CustomFieldsDefineFieldData = {
     body: DefineCustomFieldRequest;

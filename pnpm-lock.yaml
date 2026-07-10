@@ -454,6 +454,9 @@ importers:
       '@magna-carta/billing-core':
         specifier: workspace:*
         version: link:../../packages/billing-core
+      '@magna-carta/conflicts':
+        specifier: workspace:*
+        version: link:../../packages/conflicts
       '@magna-carta/conversion':
         specifier: workspace:*
         version: link:../../packages/conversion

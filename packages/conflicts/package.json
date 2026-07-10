@@ -15,6 +15,7 @@
     "./disposition": "./src/disposition.ts",
     "./statements": "./src/statements.ts",
     "./audit": "./src/audit.ts",
+    "./run-conflicts-effect": "./src/run-conflicts-effect.ts",
     "./fitness": "./src/fitness.ts"
   },
   "scripts": {

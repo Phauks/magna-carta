@@ -4,6 +4,7 @@ import baselineSql from "@magna-carta/database/drizzle/per-firm/20260704T041516_
 import seedToolsFileRepairSql from "@magna-carta/database/drizzle/per-firm/20260704T041517_seed-tools-file-repair.sql";
 import fileRepairProvenanceSql from "@magna-carta/database/drizzle/per-firm/20260704T041518_file-repair-provenance.sql";
 import conflictsSql from "@magna-carta/database/drizzle/per-firm/20260709T120000_conflicts.sql";
+import seedConflictsPermissionsSql from "@magna-carta/database/drizzle/per-firm/20260709T120001_seed-conflicts-permissions.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the FirmDatabase
 // Durable Object runs this lineage against its own SQLite storage on wake (firm-database-object.ts),
@@ -18,5 +19,6 @@ export function perFirmMigrations(): Migration[] {
     "20260704T041517_seed-tools-file-repair": seedToolsFileRepairSql,
     "20260704T041518_file-repair-provenance": fileRepairProvenanceSql,
     "20260709T120000_conflicts": conflictsSql,
+    "20260709T120001_seed-conflicts-permissions": seedConflictsPermissionsSql,
   });
 }
