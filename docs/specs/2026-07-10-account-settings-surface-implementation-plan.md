@@ -19,7 +19,11 @@ Every task's requirements implicitly include these (copied from the project gold
 - **Full names — no shorthand.** Spell names out (`account-sections`, not `acct`). Universal externals (`id`, `URL`) excepted.
 - **Title Case** for user-facing setting/page/section names ("Account", "Profile", "Two-Factor", "Active Sessions"); descriptions stay sentence case.
 - **Honest-seam device.** No control pretends to work: each row renders a disabled control carrying a `<Badge variant="neutral">Soon</Badge>`. The only forward-looking prose allowed is the real schedule seam ("arrives with authentication") — permitted by golden rule 13's forward-reference exception; no ADR/spec/phase citations in source, tests, or user-facing strings.
-- **Verification per task:** `vp check --fix --no-lint <changed paths>` (format), `pnpm --filter @magna-carta/web check` (svelte-check + tsc), and `pnpm --filter @magna-carta/web test` (the node vitest project). The full gate is `pnpm check` at the repo root.
+- **Verification per task — exact commands (verified against this repo):**
+  - Tests: from `apps/web/`, `pnpm exec vp test test/<file>.test.ts` for one file, or `pnpm exec vp test` for the whole web project. (There is no `vitest` binary in `apps/web` and no `test` npm script — `vp test` orchestrates the node vitest project.)
+  - Format: `pnpm --filter @magna-carta/web exec vp check --fix --no-lint <changed paths>`.
+  - Typecheck (svelte-check + tsc): `pnpm --filter @magna-carta/web check`.
+  - Full gate: `pnpm check` at the repo root.
 - **Working model (UI stream):** subagents implement with strict file ownership and **do not commit**; the coordinator runs the browser verification (one shared Playwright browser) and owns every commit. In this plan the "Commit" steps are **coordinator actions**. See `docs/conventions/ui-design.md`.
 
 ---
@@ -88,7 +92,7 @@ describe("account section registry", () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `pnpm --filter @magna-carta/web exec vitest run test/account-sections.test.ts`
+Run (from `apps/web/`): `pnpm exec vp test test/account-sections.test.ts`
 Expected: FAIL — cannot resolve `../src/lib/account/account-sections.ts`.
 
 - [ ] **Step 3: Write the registry**
@@ -134,7 +138,7 @@ export function isCurrentAccountSection(section: AccountSection, pathname: strin
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `pnpm --filter @magna-carta/web exec vitest run test/account-sections.test.ts`
+Run (from `apps/web/`): `pnpm exec vp test test/account-sections.test.ts`
 Expected: PASS (5 tests).
 
 - [ ] **Step 5: Format + typecheck**
@@ -262,7 +266,7 @@ describe("/account root", () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `pnpm --filter @magna-carta/web exec vitest run test/account-redirect.test.ts`
+Run (from `apps/web/`): `pnpm exec vp test test/account-redirect.test.ts`
 Expected: FAIL — cannot resolve the `+page.ts` module.
 
 - [ ] **Step 3: Write the root redirect**
@@ -280,7 +284,7 @@ export function load(): never {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `pnpm --filter @magna-carta/web exec vitest run test/account-redirect.test.ts`
+Run (from `apps/web/`): `pnpm exec vp test test/account-redirect.test.ts`
 Expected: PASS.
 
 - [ ] **Step 5: Write the shell layout**
@@ -715,12 +719,12 @@ describe("account honest-seam guard", () => {
 
 - [ ] **Step 2: Run the test**
 
-Run: `pnpm --filter @magna-carta/web exec vitest run test/account-seams.test.ts`
+Run (from `apps/web/`): `pnpm exec vp test test/account-seams.test.ts`
 Expected: PASS (3 tests) — the Task 4/5 pages satisfy every clause. If it fails, the page (not the test) is wrong: fix the page to restore the seam.
 
 - [ ] **Step 3: Format + full web test run**
 
-Run: `pnpm --filter @magna-carta/web exec vp check --fix --no-lint test/account-seams.test.ts` then `pnpm --filter @magna-carta/web test`
+Run: `pnpm --filter @magna-carta/web exec vp check --fix --no-lint test/account-seams.test.ts` then, from `apps/web/`, `pnpm exec vp test`
 Expected: the whole web project passes.
 
 - [ ] **Step 4: Commit** (coordinator)
@@ -841,7 +845,7 @@ const SCAN_ROOTS = [
 
 - [ ] **Step 2: Run the ink-purity scan**
 
-Run: `pnpm --filter @magna-carta/web exec vitest run test/canvas-ink-purity.test.ts`
+Run (from `apps/web/`): `pnpm exec vp test test/canvas-ink-purity.test.ts`
 Expected: PASS — the account masthead uses only semantic utilities.
 
 - [ ] **Step 3: Add the settings-convention cross-reference**
@@ -866,7 +870,7 @@ In `docs/conventions/settings.md`, under the `## Scope` sentence, add one line:
 
 - [ ] **Step 5: Format + full gate**
 
-Run: `pnpm --filter @magna-carta/web exec vp check --fix --no-lint test/canvas-ink-purity.test.ts` then, from the repo root, `pnpm check` and `pnpm --filter @magna-carta/web test`
+Run: `pnpm --filter @magna-carta/web exec vp check --fix --no-lint test/canvas-ink-purity.test.ts`, then from `apps/web/` `pnpm exec vp test`, then from the repo root `pnpm check`
 Expected: the full quality gate and the web test project pass.
 
 - [ ] **Step 6: Commit** (coordinator)
