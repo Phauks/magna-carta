@@ -1,13 +1,15 @@
 /*
- * Result formatting, pinned. An absent measurement renders as "N/A" — never as zero, which
- * would be a measurement claim we did not make.
+ * Result formatting, pinned. An absent measurement renders as the absence marker — never as zero,
+ * which would be a measurement claim we did not make. What the marker itself is (and that it is a
+ * hyphen, never an em dash) is pinned in absence.test.ts; here we only pin that the formatters
+ * defer to it.
  */
 import { describe, expect, it } from "vitest";
+import { ABSENT_MARKER } from "../src/lib/tools/speed-test/absence.ts";
 import {
   formatBandwidth,
   formatMilliseconds,
   formatRatio,
-  NOT_MEASURED_YET,
 } from "../src/lib/tools/speed-test/speed-test-format.ts";
 
 describe("formatBandwidth", () => {
@@ -23,8 +25,8 @@ describe("formatBandwidth", () => {
     expect(formatBandwidth(1_240_000_000)).toBe("1.24 Gbps");
   });
 
-  it("renders an absent measurement as N/A", () => {
-    expect(formatBandwidth(undefined)).toBe("N/A");
+  it("renders an absent measurement as the marker", () => {
+    expect(formatBandwidth(undefined)).toBe(ABSENT_MARKER);
   });
 });
 
@@ -33,8 +35,8 @@ describe("formatMilliseconds", () => {
     expect(formatMilliseconds(12.44)).toBe("12.4 ms");
   });
 
-  it("renders an absent measurement as N/A", () => {
-    expect(formatMilliseconds(undefined)).toBe("N/A");
+  it("renders an absent measurement as the marker", () => {
+    expect(formatMilliseconds(undefined)).toBe(ABSENT_MARKER);
   });
 });
 
@@ -47,16 +49,16 @@ describe("formatRatio", () => {
     expect(formatRatio(0)).toBe("0%");
   });
 
-  it("renders an absent measurement as N/A", () => {
-    expect(formatRatio(undefined)).toBe("N/A");
+  it("renders an absent measurement as the marker", () => {
+    expect(formatRatio(undefined)).toBe(ABSENT_MARKER);
   });
 });
 
 describe("an absent measurement", () => {
-  it("reads N/A, so an empty field does not read as broken", () => {
-    expect(formatBandwidth(undefined)).toBe("N/A");
-    expect(formatMilliseconds(undefined)).toBe("N/A");
-    expect(formatRatio(undefined)).toBe("N/A");
+  it("reads as the marker, so an empty field does not read as broken", () => {
+    expect(formatBandwidth(undefined)).toBe(ABSENT_MARKER);
+    expect(formatMilliseconds(undefined)).toBe(ABSENT_MARKER);
+    expect(formatRatio(undefined)).toBe(ABSENT_MARKER);
   });
 
   it("is never an em dash and never a zero", () => {
@@ -66,12 +68,6 @@ describe("an absent measurement", () => {
 
   it("still distinguishes a measured zero from an absent one", () => {
     expect(formatRatio(0)).toBe("0%");
-    expect(formatRatio(undefined)).toBe("N/A");
-  });
-});
-
-describe("NOT_MEASURED_YET", () => {
-  it("is the one sentence the page uses for a measurement not taken", () => {
-    expect(NOT_MEASURED_YET).toBe("Not measured yet.");
+    expect(formatRatio(undefined)).toBe(ABSENT_MARKER);
   });
 });

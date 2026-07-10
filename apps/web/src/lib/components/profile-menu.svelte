@@ -19,6 +19,7 @@
   import LifeBuoy from "@lucide/svelte/icons/life-buoy";
   import LogOut from "@lucide/svelte/icons/log-out";
   import Shield from "@lucide/svelte/icons/shield";
+  import { goto } from "$app/navigation";
   import { ECOSYSTEM_SITES } from "$lib/navigation/ecosystem-sites.ts";
   import BugReportDialog from "$lib/components/bug-report-dialog.svelte";
 
@@ -49,21 +50,18 @@
       <p class="text-xs text-text-muted">Signed-in identity arrives with accounts</p>
     </div>
     <DropdownMenu.Separator />
-    <!-- Account Settings — an honest seam under the identity it will govern (owner directive).
-         Credentials and profile identity (2FA, password, resets, profile information) are a
-         separate, HIGHER-CEREMONY surface than preference settings: step-up re-authentication
+    <!-- Account Settings — the member's own identity and credentials surface (2FA, password,
+         profile), a higher-ceremony surface than preference settings: step-up re-authentication
          lives there when authentication ships, so it hangs off the profile, not the settings
-         nav. "Account Settings" is the owner's working name — it may be renamed; one string.
-         (Shield, not ShieldCheck — the check variant is the Trust Center website's icon.) -->
-    <!-- The scope line names WHAT the surface covers; the arrival is the Soon badge's job
-         (an "arrives with…" clause beside a Soon badge is redundant — owner-directed). -->
-    <DropdownMenu.Item disabled>
+         nav. The controls inside are honest Soon seams until authentication ships; the door is
+         live now so the surface and its flow exist. (Shield, not ShieldCheck — the check variant
+         is the Trust Center website's icon.) -->
+    <DropdownMenu.Item onSelect={() => goto("/account")}>
       <Shield class="size-16" aria-hidden="true" />
       <span class="flex min-w-0 flex-col">
         <span>Account Settings</span>
         <span class="text-xs">2FA, password, and profile</span>
       </span>
-      <Badge variant="neutral" class="ms-auto">Soon</Badge>
     </DropdownMenu.Item>
     <DropdownMenu.Separator />
     <DropdownMenu.Sub>

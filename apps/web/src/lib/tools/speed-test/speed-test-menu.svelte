@@ -17,14 +17,18 @@
     lowData,
     autoStart,
     disabled,
+    canDownloadReport,
     onLowDataChange,
     onAutoStartChange,
+    onDownloadReport,
   }: {
     lowData: boolean;
     autoStart: boolean;
     disabled: boolean;
+    canDownloadReport: boolean;
     onLowDataChange: (value: boolean) => void;
     onAutoStartChange: (value: boolean) => void;
+    onDownloadReport: () => void;
   } = $props();
 </script>
 
@@ -36,7 +40,13 @@
   >
     <Ellipsis class="size-16" aria-hidden="true" />
   </DropdownMenu.Trigger>
-  <DropdownMenu.Content align="end" style="min-inline-size: var(--mc-size-popover)">
+  <!-- Fixed at the popover width: a menu hanging off a small icon should be a compact column, not a
+       panel stretched across the page. The helper text is kept to a short line so the fixed width
+       does not force it tall; the full low-data caveat lives in the page footer. -->
+  <DropdownMenu.Content
+    align="end"
+    style="inline-size: var(--mc-size-popover)"
+  >
     <DropdownMenu.CheckboxItem
       checked={lowData}
       onCheckedChange={(value) => onLowDataChange(value)}
@@ -44,8 +54,7 @@
       <div class="grid gap-4 py-4">
         <span>Low internet usage</span>
         <span class="text-xs text-text-muted">
-          Transfers under 20 MB instead of about 200 MB. Uses small transfers, so a fast connection
-          will measure slower than it is, and the results are not comparable to other speed tests.
+          About 16 MB, not 200. Reads a fast line slower than it is.
         </span>
       </div>
     </DropdownMenu.CheckboxItem>
@@ -55,10 +64,17 @@
     >
       <div class="grid gap-4 py-4">
         <span>Start automatically</span>
-        <span class="text-xs text-text-muted">
-          Begins a test as soon as this page opens, spending data without asking.
-        </span>
+        <span class="text-xs text-text-muted">Runs as soon as the page opens.</span>
       </div>
     </DropdownMenu.CheckboxItem>
+    <!--
+      The report is gated on a FINISHED run (canDownloadReport), independently of the run-in-progress
+      `disabled` above: there is nothing to write down until a run completes, and the preferences are
+      frozen for a different reason (the ladder is fixed at engine construction).
+    -->
+    <DropdownMenu.Separator />
+    <DropdownMenu.Item disabled={!canDownloadReport} onSelect={onDownloadReport}>
+      Download report
+    </DropdownMenu.Item>
   </DropdownMenu.Content>
 </DropdownMenu.Root>

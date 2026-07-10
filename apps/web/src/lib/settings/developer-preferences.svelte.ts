@@ -20,11 +20,15 @@ const STORAGE_KEY = "mc-developer-preferences";
 interface DeveloperPreferencesValue {
   developerSettingsEnabled: boolean;
   developerToolkitInHeader: boolean;
+  buildStampOverlayVisible: boolean;
 }
 
 const DEFAULTS: DeveloperPreferencesValue = {
   developerSettingsEnabled: true,
   developerToolkitInHeader: true,
+  // Off by default even in a fresh dev build: the overlay parks a badge in a corner, so it is an
+  // explicit opt-in rather than something every design session has to dismiss.
+  buildStampOverlayVisible: false,
 };
 
 /** Read-time validator: an unreadable payload is the defaults; master-off forces every flag off. */
@@ -42,6 +46,11 @@ function normalize(parsed: unknown): DeveloperPreferencesValue {
       (typeof record.developerToolkitInHeader === "boolean"
         ? record.developerToolkitInHeader
         : DEFAULTS.developerToolkitInHeader),
+    buildStampOverlayVisible:
+      developerSettingsEnabled &&
+      (typeof record.buildStampOverlayVisible === "boolean"
+        ? record.buildStampOverlayVisible
+        : DEFAULTS.buildStampOverlayVisible),
   };
 }
 
@@ -60,6 +69,7 @@ export const developerPreferences = {
     preference.set({
       developerSettingsEnabled: next,
       developerToolkitInHeader: next ? preference.current.developerToolkitInHeader : false,
+      buildStampOverlayVisible: next ? preference.current.buildStampOverlayVisible : false,
     });
   },
   get developerToolkitInHeader(): boolean {
@@ -67,5 +77,11 @@ export const developerPreferences = {
   },
   set developerToolkitInHeader(next: boolean) {
     preference.set({ ...preference.current, developerToolkitInHeader: next });
+  },
+  get buildStampOverlayVisible(): boolean {
+    return preference.current.buildStampOverlayVisible;
+  },
+  set buildStampOverlayVisible(next: boolean) {
+    preference.set({ ...preference.current, buildStampOverlayVisible: next });
   },
 };

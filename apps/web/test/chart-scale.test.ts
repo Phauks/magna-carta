@@ -3,7 +3,7 @@
  * zero and collapse every bar onto the baseline).
  */
 import { describe, expect, it } from "vitest";
-import { niceMax, scaleLinear } from "../src/lib/tools/speed-test/chart-scale.ts";
+import { linePath, niceMax, scaleLinear } from "../src/lib/tools/speed-test/chart-scale.ts";
 
 describe("niceMax", () => {
   it("rounds up to a readable ceiling", () => {
@@ -30,5 +30,19 @@ describe("scaleLinear", () => {
 
   it("clamps a value beyond the domain to the range maximum", () => {
     expect(scaleLinear(50, 100)(75)).toBe(100);
+  });
+});
+
+describe("linePath", () => {
+  it("draws a polyline through every sample, left to right", () => {
+    expect(linePath([0, 50, 100], 100, 200, 100)).toBe("M0,100 L100,50 L200,0");
+  });
+
+  it("plants a single sample at the left edge", () => {
+    expect(linePath([50], 100, 200, 100)).toBe("M0,50");
+  });
+
+  it("returns an empty path for an empty series", () => {
+    expect(linePath([], 100, 200, 100)).toBe("");
   });
 });

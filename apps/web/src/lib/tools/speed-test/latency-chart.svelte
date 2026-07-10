@@ -9,7 +9,8 @@
    * conditional on there being points to show.
    */
   import { niceMax, scaleLinear } from "./chart-scale.ts";
-  import { formatMilliseconds, NOT_MEASURED_YET } from "./speed-test-format.ts";
+  import { formatMilliseconds } from "./speed-test-format.ts";
+  import { ABSENT_MARKER, ABSENT_DESCRIPTION } from "./absence.ts";
 
   let { title, points }: { title: string; points: readonly number[] } = $props();
 
@@ -41,7 +42,7 @@
     role="img"
     aria-label={points.length > 0
       ? `${title}: ${points.length} samples, peak ${formatMilliseconds(peak)}`
-      : `${title}: not measured yet`}
+      : `${title}: ${ABSENT_DESCRIPTION}`}
   >
     {#if points.length > 0}
       {#each points as value, index (index)}
@@ -63,7 +64,7 @@
         fill="var(--mc-text-muted)"
         style="font-size: 12px"
       >
-        {NOT_MEASURED_YET}
+        {ABSENT_MARKER}
       </text>
     {/if}
   </svg>
@@ -77,7 +78,7 @@
         {/each}
       </ol>
     {:else}
-      <p class="mt-8 text-sm text-text-muted">Nothing measured yet.</p>
+      <p class="mt-8 text-sm text-text-muted">{ABSENT_DESCRIPTION}</p>
     {/if}
   </details>
 </figure>

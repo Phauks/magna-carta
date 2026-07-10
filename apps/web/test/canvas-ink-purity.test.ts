@@ -20,6 +20,7 @@ import { describe, expect, it } from "vitest";
 
 const SCAN_ROOTS = [
   join(import.meta.dirname, "../src/lib/settings"),
+  join(import.meta.dirname, "../src/lib/account"),
   join(import.meta.dirname, "../src/lib/components"),
 ];
 

@@ -522,4 +522,15 @@
   </div>
 </Tooltip.Provider>
 
+{#if import.meta.env.DEV && developerPreferences.developerSettingsEnabled && developerPreferences.buildStampOverlayVisible}
+  <!-- The build-stamp overlay: a fixed dev-only badge (live clock + this build's identity),
+       draggable between the screen corners. The dynamic import inside a DEV-gated branch keeps
+       every byte of it out of production bundles; the preference gates (Settings · Developer)
+       are live, so toggling it off removes the badge without a reload. -->
+  {#await import("$lib/developer/build-stamp-overlay.svelte") then buildStampOverlayModule}
+    {@const BuildStampOverlay = buildStampOverlayModule.default}
+    <BuildStampOverlay />
+  {/await}
+{/if}
+
 <CommandPalette bind:open={paletteOpen} sidebarCollapsed={collapsed} />
