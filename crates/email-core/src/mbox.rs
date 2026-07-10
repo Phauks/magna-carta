@@ -15,7 +15,7 @@
 
 use crate::eml::parse_eml_with_source_format;
 use crate::limits::Limits;
-use crate::model::{ParsedMessage, SourceFormat};
+use crate::model::{ParsedMessage, PartLocator, SourceFormat};
 use crate::EmailError;
 
 const SEPARATOR: &[u8] = b"From ";
@@ -131,7 +131,17 @@ pub fn parse_mbox_with_limits(bytes: &[u8], limits: &Limits) -> MboxParseOutcome
 
         match parse_eml_with_source_format(&member[body_start..], SourceFormat::MboxMember, limits)
         {
-            Ok(message) => messages.push(message),
+            // The `.eml` lane frames each part's `InputRange` relative to the slice it
+            // was actually handed — `&member[body_start..]` here, not the original
+            // mbox buffer — because it has no way to know it was ever handed a
+            // sub-slice. `PartLocator::InputRange` is documented as a span of the
+            // original input, and every other producer of one (a standalone `.eml`)
+            // honors that. Rebasing here, once, at the one place that knows the
+            // member's true offset, is what keeps that contract true for mbox
+            // members too: any later `extract_part(original_mbox_bytes, part)` call
+            // then indexes the right bytes without the caller needing to know an
+            // mbox was ever involved.
+            Ok(message) => messages.push(absolute_input_ranges(message, range.start + body_start)),
             Err(error) => failures.push(MemberFailure {
                 index,
                 byte_range: range,
@@ -141,6 +151,29 @@ pub fn parse_mbox_with_limits(bytes: &[u8], limits: &Limits) -> MboxParseOutcome
     }
 
     MboxParseOutcome { messages, failures }
+}
+
+/// Shift every part's `InputRange` forward by `member_offset`, the member body's
+/// absolute position in the original mbox buffer. The `.eml` lane that produced
+/// `message` only ever saw `&member[body_start..]`, so its ranges are relative to
+/// that sub-slice; adding the sub-slice's own absolute start turns each one back into
+/// a span of the original buffer, which is what `PartLocator::InputRange` promises
+/// everywhere else it is produced. `MapiStream` locators never appear on a message
+/// this lane produces, but the match leaves them untouched rather than assuming that.
+///
+/// `saturating_add` rather than plain `+`: this runs on attacker-controlled input in
+/// an isolate that cannot unwind, so an offset that could ever approach `usize::MAX`
+/// must saturate rather than overflow-panic, even though a real mbox buffer's size
+/// makes that practically unreachable.
+fn absolute_input_ranges(mut message: ParsedMessage, member_offset: usize) -> ParsedMessage {
+    for part in &mut message.parts {
+        if let PartLocator::InputRange(range) = &part.locator {
+            part.locator = PartLocator::InputRange(
+                range.start.saturating_add(member_offset)..range.end.saturating_add(member_offset),
+            );
+        }
+    }
+    message
 }
 
 #[cfg(test)]
@@ -230,5 +263,72 @@ mod tests {
         assert_eq!(outcome.failures.len(), 2);
         assert_eq!(outcome.failures[0].index, 0);
         assert_eq!(outcome.failures[1].index, 1);
+    }
+
+    /// A second member's attachment `InputRange` must index the ORIGINAL mbox
+    /// buffer, not the member's own sub-slice the `.eml` lane actually parsed.
+    ///
+    /// Before the rebasing this test exercises, `parse_mbox_with_limits` handed the
+    /// member's `InputRange` straight through from the `.eml` lane unmodified: those
+    /// ranges are relative to `&member[body_start..]`, which starts partway into
+    /// `bytes`, so slicing the ORIGINAL buffer at the range the old code returned
+    /// would land short of the real attachment bytes by exactly the first member's
+    /// length plus the second member's own header block — this test would fail (a
+    /// wrong slice, not a panic) against that code.
+    #[test]
+    fn a_member_attachment_input_range_indexes_the_original_mbox_buffer() {
+        let mut bytes: Vec<u8> = Vec::new();
+        // First member: plain, no attachment, to guarantee the second member's
+        // absolute offset is nonzero and would expose a member-relative bug.
+        bytes.extend_from_slice(b"From alice@example.test Tue Jul 07 10:00:00 2026\n");
+        bytes.extend_from_slice(b"Message-ID: <one@example.test>\n");
+        bytes.extend_from_slice(b"From: alice@example.test\n");
+        bytes.extend_from_slice(b"Subject: First\n");
+        bytes.extend_from_slice(b"\n");
+        bytes.extend_from_slice(b"Body one.\n");
+        bytes.extend_from_slice(b"\n");
+
+        // Second member: a multipart message carrying one attachment, the same
+        // shape as the `.eml` lane's own `with-attachment.eml` fixture.
+        bytes.extend_from_slice(b"From bob@example.test Tue Jul 07 11:00:00 2026\n");
+        bytes.extend_from_slice(
+            concat!(
+                "Message-ID: <two@example.test>\r\n",
+                "From: bob@example.test\r\n",
+                "Subject: Second\r\n",
+                "MIME-Version: 1.0\r\n",
+                "Content-Type: multipart/mixed; boundary=\"boundary42\"\r\n",
+                "\r\n",
+                "--boundary42\r\n",
+                "Content-Type: text/plain; charset=utf-8\r\n",
+                "\r\n",
+                "See the attached engagement letter.\r\n",
+                "\r\n",
+                "--boundary42\r\n",
+                "Content-Type: application/pdf; name=\"engagement-letter.pdf\"\r\n",
+                "Content-Disposition: attachment; filename=\"engagement-letter.pdf\"\r\n",
+                "Content-Transfer-Encoding: base64\r\n",
+                "\r\n",
+                "JVBERi0xLjQKJeLjz9MK\r\n",
+                "\r\n",
+                "--boundary42--\r\n",
+            )
+            .as_bytes(),
+        );
+
+        let outcome = parse_mbox(&bytes);
+        assert!(outcome.failures.is_empty());
+        assert_eq!(outcome.messages.len(), 2);
+
+        let second = &outcome.messages[1];
+        assert_eq!(second.parts.len(), 1);
+        let PartLocator::InputRange(range) = &second.parts[0].locator else {
+            panic!("an mbox member's attachment must locate its bytes as an input range");
+        };
+
+        // The proof: slicing the ORIGINAL mbox buffer (not the second member's own
+        // bytes) at the returned range recovers exactly the attachment bytes.
+        let attachment_slice = &bytes[range.clone()];
+        assert_eq!(attachment_slice, b"JVBERi0xLjQKJeLjz9MK\r\n");
     }
 }

@@ -11,6 +11,7 @@
 //! reaches a caller) and gives the panic-safety regression tests below a single,
 //! stable surface to hold `cfb` to.
 
+use std::collections::HashMap;
 use std::io::{Cursor, Read};
 use std::path::{Component, Path, PathBuf};
 
@@ -87,14 +88,31 @@ pub fn parse_msg_with_limits(bytes: &[u8], limits: &Limits) -> Result<ParsedMess
             length: entry.len(),
         })
         .collect();
+    let index = NodeIndex::build(nodes);
+    let mut counters = BreadthCounters::default();
     read_message(
         &mut compound,
-        &nodes,
+        &index,
         Path::new("/"),
         HEADER_TOP_LEVEL,
         0,
         limits,
+        &mut counters,
     )
+}
+
+/// Running breadth totals shared across the whole embedded-message recursion, bundled
+/// into one struct so `read_message`/`read_attachments` take one extra parameter
+/// instead of two — `clippy::too_many_arguments` otherwise trips on `read_message`,
+/// which already carries the container, the node index, the current path, the
+/// property-stream header size, the recursion depth, and the caps. An attachment
+/// that is itself an embedded message adds to these same counts rather than
+/// resetting either back to zero on the way in, matching how the `.eml` lane's
+/// `enforce_message_limits` threads a single `total_parts` through its own recursion.
+#[derive(Default)]
+struct BreadthCounters {
+    total_parts: usize,
+    total_recipients: usize,
 }
 
 /// The container this decoder runs against: an in-memory cursor over borrowed input.
@@ -106,6 +124,45 @@ struct Node {
     path: PathBuf,
     is_stream: bool,
     length: u64,
+}
+
+/// Directory entries grouped by parent path, built once per parse. Every lookup below
+/// (a storage's substreams, a storage's fixed-property stream, the sub-storages
+/// matching a name prefix) used to rescan the entire flat node list per call, which
+/// made a message with many sibling storages cost `O(nodes * storages)` rather than
+/// `O(nodes)` — quadratic in a container an attacker fully controls. Grouping once by
+/// parent turns every one of those lookups into a walk of just that parent's own
+/// children.
+struct NodeIndex {
+    nodes: Vec<Node>,
+    children_by_parent: HashMap<PathBuf, Vec<usize>>,
+}
+
+impl NodeIndex {
+    fn build(nodes: Vec<Node>) -> Self {
+        let mut children_by_parent: HashMap<PathBuf, Vec<usize>> = HashMap::new();
+        for (position, node) in nodes.iter().enumerate() {
+            if let Some(parent) = node.path.parent() {
+                children_by_parent
+                    .entry(parent.to_path_buf())
+                    .or_default()
+                    .push(position);
+            }
+        }
+        Self {
+            nodes,
+            children_by_parent,
+        }
+    }
+
+    /// The direct children of `prefix`, in the order `cfb`'s walk produced them.
+    fn children_of<'a>(&'a self, prefix: &Path) -> impl Iterator<Item = &'a Node> {
+        self.children_by_parent
+            .get(prefix)
+            .into_iter()
+            .flatten()
+            .map(move |&position| &self.nodes[position])
+    }
 }
 
 /// A variable-length property, stored in its own `__substg1.0_<id><type>` stream.
@@ -185,22 +242,27 @@ const MAX_PROPERTY_STREAM_BYTES: u64 = 64 * 1024 * 1024;
 /// stack cannot unwind, so an over-deep chain is a stack-exhaustion bomb rather than
 /// real correspondence (a forwarded-as-attachment thread is a handful of levels, never
 /// dozens). Descending past the bound is refused with [`EmailError::LimitExceeded`].
-/// Breadth caps — total part and recipient counts — are a separate concern; only the
-/// recursion this decoder introduces is bounded here.
+///
+/// `counters` holds running totals shared across the whole recursion, mirroring how
+/// the `.eml` lane's `enforce_message_limits` accumulates a single `total_parts`
+/// across embedded `message/rfc822` nodes: a `.msg` attachment that is itself an
+/// embedded message must not reset either count back to zero, or an attacker could
+/// bypass the breadth cap entirely just by nesting.
 fn read_message(
     compound: &mut Msg,
-    nodes: &[Node],
+    index: &NodeIndex,
     prefix: &Path,
     header_size: usize,
     depth: usize,
     limits: &Limits,
+    counters: &mut BreadthCounters,
 ) -> Result<ParsedMessage, EmailError> {
     if depth > limits.max_embedded_message_depth {
         return Err(EmailError::LimitExceeded);
     }
 
-    let substreams = substreams_of(nodes, prefix);
-    let fixed = read_fixed_properties(compound, nodes, prefix, header_size)?;
+    let substreams = substreams_of(index, prefix);
+    let fixed = read_fixed_properties(compound, index, prefix, header_size)?;
 
     let subject = read_string(compound, &substreams, PID_SUBJECT)?;
 
@@ -237,8 +299,8 @@ fn read_message(
         lowered.contains("src=\"http://") || lowered.contains("src=\"https://")
     });
 
-    let (to, cc, bcc) = read_recipients(compound, nodes, prefix)?;
-    let parts = read_attachments(compound, nodes, prefix, depth, limits)?;
+    let (to, cc, bcc) = read_recipients(compound, index, prefix, limits, counters)?;
+    let parts = read_attachments(compound, index, prefix, depth, limits, counters)?;
 
     // Header provenance is load-bearing. A `.msg` carries RFC 5322 headers only when
     // PidTagTransportMessageHeaders survived export; when it did, its Message-ID is a
@@ -299,19 +361,34 @@ fn read_message(
 
 /// Recipients live in `__recip_version1.0_#XXXXXXXX` sub-storages; each carries its
 /// own display name, SMTP address (with a fallback tag), and recipient class.
+///
+/// The recipient count at this level is added to `counters.total_recipients` and
+/// checked against [`Limits::max_recipient_count`] before any storage is opened, the
+/// same way the `.eml` lane checks its part-count total before walking the parts it
+/// counted: a directory crafted with far more recipient storages than any real
+/// message would carry is refused for its breadth alone, not decoded one recipient at
+/// a time.
 #[allow(clippy::type_complexity)]
 fn read_recipients(
     compound: &mut Msg,
-    nodes: &[Node],
+    index: &NodeIndex,
     prefix: &Path,
+    limits: &Limits,
+    counters: &mut BreadthCounters,
 ) -> Result<(Vec<Address>, Vec<Address>, Vec<Address>), EmailError> {
     let mut to = Vec::new();
     let mut cc = Vec::new();
     let mut bcc = Vec::new();
 
-    for storage in storages_named(nodes, prefix, "__recip_version1.0_") {
-        let substreams = substreams_of(nodes, &storage);
-        let fixed = read_fixed_properties(compound, nodes, &storage, HEADER_SUBOBJECT)?;
+    let storages = storages_named(index, prefix, "__recip_version1.0_");
+    counters.total_recipients = counters.total_recipients.saturating_add(storages.len());
+    if counters.total_recipients > limits.max_recipient_count {
+        return Err(EmailError::LimitExceeded);
+    }
+
+    for storage in storages {
+        let substreams = substreams_of(index, &storage);
+        let fixed = read_fixed_properties(compound, index, &storage, HEADER_SUBOBJECT)?;
 
         let display_name = read_string(compound, &substreams, PID_RECIPIENT_DISPLAY_NAME)?;
         let address = match read_string(compound, &substreams, PID_RECIPIENT_SMTP_ADDRESS)? {
@@ -343,18 +420,35 @@ fn read_recipients(
 /// so `extract_part` can re-open the container and read exactly those bytes; an
 /// embedded-message attachment, which has no flat data stream, is located by its
 /// storage instead (its bytes are a nested message, not a materializable blob).
+///
+/// The attachment count at this level is added to `counters.total_parts` and checked
+/// against [`Limits::max_part_count`] before any storage is opened — mirroring the
+/// `.eml` lane's `enforce_message_limits`, which adds a message's whole `parts.len()`
+/// to its running total and checks the bound before walking a single one of them. A
+/// directory crafted with far more attachment storages than the cap allows is refused
+/// for its breadth alone; the `.eml` lane already refuses the same shape (a
+/// `multipart/mixed` with more children than `max_part_count`) the same way, so the
+/// two lanes agree on what "too many parts" means even though a `.msg` part and a MIME
+/// part are read out of differently shaped containers.
 fn read_attachments(
     compound: &mut Msg,
-    nodes: &[Node],
+    index: &NodeIndex,
     prefix: &Path,
     depth: usize,
     limits: &Limits,
+    counters: &mut BreadthCounters,
 ) -> Result<Vec<PartDescriptor>, EmailError> {
     let mut parts = Vec::new();
 
-    for storage in storages_named(nodes, prefix, "__attach_version1.0_") {
-        let substreams = substreams_of(nodes, &storage);
-        let fixed = read_fixed_properties(compound, nodes, &storage, HEADER_SUBOBJECT)?;
+    let storages = storages_named(index, prefix, "__attach_version1.0_");
+    counters.total_parts = counters.total_parts.saturating_add(storages.len());
+    if counters.total_parts > limits.max_part_count {
+        return Err(EmailError::LimitExceeded);
+    }
+
+    for storage in storages {
+        let substreams = substreams_of(index, &storage);
+        let fixed = read_fixed_properties(compound, index, &storage, HEADER_SUBOBJECT)?;
 
         let filename = match read_string(compound, &substreams, PID_ATTACH_LONG_FILENAME)? {
             Some(name) => Some(name),
@@ -394,14 +488,15 @@ fn read_attachments(
         // than trusting bytes we did not validate. Its decoded content is not surfaced
         // as a nested record yet; that is a later slice. The recursion guard lives here
         // because this descent is the recursion.
-        if let Some(embedded) = embedded_message_storage(nodes, &storage) {
+        if let Some(embedded) = embedded_message_storage(index, &storage) {
             read_message(
                 compound,
-                nodes,
+                index,
                 &embedded,
                 HEADER_EMBEDDED_MESSAGE,
                 depth + 1,
                 limits,
+                counters,
             )?;
         }
     }
@@ -427,10 +522,10 @@ fn parse_header_block(block: &str) -> Option<ParsedMessage> {
 }
 
 /// The variable-length property streams that are direct children of `prefix`.
-fn substreams_of(nodes: &[Node], prefix: &Path) -> Vec<SubStream> {
-    nodes
-        .iter()
-        .filter(|node| node.is_stream && node.path.parent() == Some(prefix))
+fn substreams_of(index: &NodeIndex, prefix: &Path) -> Vec<SubStream> {
+    index
+        .children_of(prefix)
+        .filter(|node| node.is_stream)
         .filter_map(|node| {
             let name = node.path.file_name()?.to_str()?;
             let (id, property_type) = parse_substg_name(name)?;
@@ -445,10 +540,10 @@ fn substreams_of(nodes: &[Node], prefix: &Path) -> Vec<SubStream> {
 }
 
 /// Sub-storages directly under `prefix` whose name begins with `name_prefix`.
-fn storages_named(nodes: &[Node], prefix: &Path, name_prefix: &str) -> Vec<PathBuf> {
-    nodes
-        .iter()
-        .filter(|node| !node.is_stream && node.path.parent() == Some(prefix))
+fn storages_named(index: &NodeIndex, prefix: &Path, name_prefix: &str) -> Vec<PathBuf> {
+    index
+        .children_of(prefix)
+        .filter(|node| !node.is_stream)
         .filter(|node| {
             node.path
                 .file_name()
@@ -461,12 +556,11 @@ fn storages_named(nodes: &[Node], prefix: &Path, name_prefix: &str) -> Vec<PathB
 
 /// The embedded-message sub-storage of an attachment, if present. [MS-OXMSG] stores
 /// an embedded message object under the attachment-data tag with the object type.
-fn embedded_message_storage(nodes: &[Node], attachment: &Path) -> Option<PathBuf> {
-    nodes
-        .iter()
+fn embedded_message_storage(index: &NodeIndex, attachment: &Path) -> Option<PathBuf> {
+    index
+        .children_of(attachment)
         .find(|node| {
             !node.is_stream
-                && node.path.parent() == Some(attachment)
                 && node.path.file_name().and_then(|name| name.to_str())
                     == Some("__substg1.0_3701000D")
         })
@@ -542,17 +636,16 @@ fn find_substream(
 /// the object at `prefix`, if it has one. Absence is not an error.
 fn read_fixed_properties(
     compound: &mut Msg,
-    nodes: &[Node],
+    index: &NodeIndex,
     prefix: &Path,
     header_size: usize,
 ) -> Result<Vec<FixedProperty>, EmailError> {
-    let path = nodes.iter().find(|node| {
+    let node = index.children_of(prefix).find(|node| {
         node.is_stream
-            && node.path.parent() == Some(prefix)
             && node.path.file_name().and_then(|name| name.to_str())
                 == Some("__properties_version1.0")
     });
-    match path {
+    match node {
         Some(node) => {
             let bytes = read_stream_bounded(compound, &node.path)?;
             Ok(parse_fixed_properties(&bytes, header_size))
@@ -1533,5 +1626,151 @@ mod mapi_tests {
         );
         // A zero FILETIME is an unset time, not the 1601 epoch.
         assert_eq!(filetime_to_iso([0u8; 8]), None);
+    }
+
+    /// A `.msg` with more attachment storages than `max_part_count` allows must be
+    /// refused as `LimitExceeded` — the same shape the `.eml` lane already refuses
+    /// for a `multipart/mixed` carrying more children than the cap.
+    ///
+    /// This proves a real regression, not a hypothetical one: before the breadth cap
+    /// this test exercises, `read_attachments` pushed one `PartDescriptor` per
+    /// matching storage with no bound at all. Run against this exact fixture and this
+    /// exact tightened `Limits`, the prior code returned `Ok` with `parts.len() == 4`
+    /// — this test would fail (wrong `Ok`, not the expected `Err`) against that code.
+    #[test]
+    fn a_msg_with_more_attachments_than_the_part_cap_is_refused() {
+        let mut builder = MsgBuilder::new();
+        for index in 0..4u32 {
+            let storage = format!("/__attach_version1.0_#{index:08X}");
+            builder = builder.substg(
+                &storage,
+                PID_ATTACH_LONG_FILENAME,
+                PTYPE_UNICODE,
+                utf16le(&format!("attachment-{index}.pdf")),
+            );
+        }
+        let bytes = builder.build();
+
+        let tight_limits = Limits {
+            max_part_count: 3,
+            ..Limits::default()
+        };
+        assert_eq!(
+            parse_msg_with_limits(&bytes, &tight_limits),
+            Err(EmailError::LimitExceeded)
+        );
+    }
+
+    /// The same breadth cap, exercised across embedded-message recursion: an
+    /// embedded `.msg` attachment's own attachments must add to the same running
+    /// total as the top-level ones, not reset the count back to zero. Two attachments
+    /// at the top level plus two more inside an embedded message is four total parts
+    /// (the embedding itself is also a part) against a cap of three.
+    #[test]
+    fn attachment_counts_accumulate_across_embedded_message_recursion() {
+        let attach0 = "/__attach_version1.0_#00000000";
+        let attach1 = "/__attach_version1.0_#00000001";
+        let embedded = format!("{attach1}/__substg1.0_3701000D");
+        let nested_attach = format!("{embedded}/__attach_version1.0_#00000000");
+
+        let bytes = MsgBuilder::new()
+            .substg(
+                attach0,
+                PID_ATTACH_LONG_FILENAME,
+                PTYPE_UNICODE,
+                utf16le("top-level.pdf"),
+            )
+            .stream(
+                &format!("{attach1}/__properties_version1.0"),
+                PropertiesStream::new(HEADER_SUBOBJECT)
+                    .int32(PID_ATTACH_METHOD, ATTACH_METHOD_EMBEDDED_MESSAGE)
+                    .build(),
+            )
+            .substg(
+                &nested_attach,
+                PID_ATTACH_LONG_FILENAME,
+                PTYPE_UNICODE,
+                utf16le("nested.pdf"),
+            )
+            .build();
+
+        // Three parts (top-level attachment, the embedded-message attachment itself,
+        // and its one nested attachment) fit under a cap of three.
+        let fitting_limits = Limits {
+            max_part_count: 3,
+            ..Limits::default()
+        };
+        assert!(parse_msg_with_limits(&bytes, &fitting_limits).is_ok());
+
+        // A cap of two cannot fit those same three parts, however they are split
+        // across the top level and the embedded message.
+        let tight_limits = Limits {
+            max_part_count: 2,
+            ..Limits::default()
+        };
+        assert_eq!(
+            parse_msg_with_limits(&bytes, &tight_limits),
+            Err(EmailError::LimitExceeded)
+        );
+    }
+
+    /// A `.msg` with more recipient storages than `max_recipient_count` allows must
+    /// be refused as `LimitExceeded`.
+    ///
+    /// Before this bound existed, `read_recipients` pushed one recipient per matching
+    /// storage with no bound at all: run against this exact fixture and this exact
+    /// tightened `Limits`, the prior code returned `Ok` with `to.len() == 4` — this
+    /// test would fail (wrong `Ok`, not the expected `Err`) against that code.
+    #[test]
+    fn a_msg_with_more_recipients_than_the_recipient_cap_is_refused() {
+        let mut builder = MsgBuilder::new();
+        for index in 0..4u32 {
+            let recip = format!("/__recip_version1.0_#{index:08X}");
+            builder = builder.substg(
+                &recip,
+                PID_RECIPIENT_SMTP_ADDRESS,
+                PTYPE_UNICODE,
+                utf16le(&format!("recipient-{index}@example.test")),
+            );
+        }
+        let bytes = builder.build();
+
+        let tight_limits = Limits {
+            max_recipient_count: 3,
+            ..Limits::default()
+        };
+        assert_eq!(
+            parse_msg_with_limits(&bytes, &tight_limits),
+            Err(EmailError::LimitExceeded)
+        );
+    }
+
+    /// A normal, small `.msg` well under every default cap still parses unchanged:
+    /// the breadth caps introduced above must not disturb the ordinary path a real
+    /// message takes.
+    #[test]
+    fn a_small_msg_under_default_limits_still_parses_unchanged() {
+        let attach = "/__attach_version1.0_#00000000";
+        let recip = "/__recip_version1.0_#00000000";
+        let bytes = MsgBuilder::new()
+            .substg("", PID_SUBJECT, PTYPE_UNICODE, utf16le("Retainer"))
+            .substg(
+                attach,
+                PID_ATTACH_LONG_FILENAME,
+                PTYPE_UNICODE,
+                utf16le("engagement-letter.pdf"),
+            )
+            .substg(
+                recip,
+                PID_RECIPIENT_SMTP_ADDRESS,
+                PTYPE_UNICODE,
+                utf16le("bob@example.test"),
+            )
+            .build();
+
+        let message = parse_msg(&bytes).expect("a well-formed .msg still parses");
+        assert_eq!(message.subject.as_deref(), Some("Retainer"));
+        assert_eq!(message.parts.len(), 1);
+        assert_eq!(message.to.len(), 1);
     }
 }

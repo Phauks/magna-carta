@@ -22,6 +22,14 @@ pub struct Limits {
     pub max_embedded_message_depth: usize,
     pub max_mbox_member_count: usize,
     pub max_mbox_member_bytes: usize,
+    /// The `.msg` lane's recipient breadth cap. A `.msg` recipient is a compound-file
+    /// sub-storage, not a MIME part, so it is not covered by `max_part_count`; without
+    /// its own bound, a directory crafted with an enormous number of
+    /// `__recip_version1.0_` storages would have every one of them decoded with no
+    /// ceiling. 1024 is generous for any real message (a firm-wide distribution list
+    /// forwarded as one email is at most a few hundred recipients) while still
+    /// refusing a directory built to be many orders of magnitude larger than that.
+    pub max_recipient_count: usize,
 }
 
 impl Default for Limits {
@@ -34,6 +42,7 @@ impl Default for Limits {
             max_embedded_message_depth: 8,
             max_mbox_member_count: 100_000,
             max_mbox_member_bytes: 128 * 1024 * 1024,
+            max_recipient_count: 1024,
         }
     }
 }
@@ -50,6 +59,7 @@ mod tests {
         assert_eq!(limits.max_part_count, 512);
         assert_eq!(limits.max_embedded_message_depth, 8);
         assert_eq!(limits.max_mbox_member_count, 100_000);
+        assert_eq!(limits.max_recipient_count, 1024);
     }
 
     #[test]
