@@ -28,13 +28,29 @@ Every task's requirements implicitly include these (copied from the project gold
 
 ---
 
+## Rework note (2026-07-10, mid-execution)
+
+After Tasks 1–6 were built, the owner reshaped the surface: Account Settings is now a **standalone,
+walled-off surface** rendered in a reusable **Secure Shell** (a stripped chrome band — brand mark →
+Home, Close ✕ / Escape → the previous screen — with no app sidebar or top-bar tools), not a page
+inside the `(app)` shell. The route moved from `(app)/account/` to a top-level `account/`; a new
+`lib/components/secure-shell.svelte` was added; `account/+layout.svelte` now renders the account rail
+into it; and the profile-menu item navigates (same window) to `/account`. The firm-user
+administration surface is a deferred sibling that will reuse the Secure Shell. The design spec
+(`2026-07-10-account-settings-surface-design.md`) is authoritative for the as-built structure; the
+task bodies below describe the earlier `(app)`-nested shape and are kept for history.
+
+---
+
 ### Task 1: Account section registry
 
 **Files:**
+
 - Create: `apps/web/src/lib/account/account-sections.ts`
 - Test: `apps/web/test/account-sections.test.ts`
 
 **Interfaces:**
+
 - Consumes: nothing.
 - Produces:
   - `interface AccountSection { readonly id: string; readonly label: string; readonly href: string }`
@@ -165,9 +181,11 @@ EOF
 ### Task 2: Lean account masthead
 
 **Files:**
+
 - Create: `apps/web/src/lib/account/components/account-masthead.svelte`
 
 **Interfaces:**
+
 - Consumes: `@magna-carta/design-system/masthead` (`Masthead.Root`, `Masthead.Heading`, `Masthead.Title`, `Masthead.Meta`).
 - Produces: default component with props `{ title: string; meta: string }`.
 
@@ -231,11 +249,13 @@ EOF
 ### Task 3: Account shell layout + root redirect
 
 **Files:**
+
 - Create: `apps/web/src/routes/(app)/account/+layout.svelte`
 - Create: `apps/web/src/routes/(app)/account/+page.ts`
 - Test: `apps/web/test/account-redirect.test.ts`
 
 **Interfaces:**
+
 - Consumes: `accountSections`, `isCurrentAccountSection`, `ACCOUNT_BAND_LABEL` (Task 1); `page` from `$app/state`.
 - Produces: the two-column shell (rail + `{@render children()}`); bare `/account` redirects (307) to `/account/profile`.
 
@@ -403,9 +423,11 @@ EOF
 ### Task 4: Profile section page
 
 **Files:**
+
 - Create: `apps/web/src/routes/(app)/account/profile/+page.svelte`
 
 **Interfaces:**
+
 - Consumes: `AccountMasthead` (Task 2); `SettingsPlate`, `SettingsRow` from `$lib/settings/components/*`; `SettingDefinition` type; design-system `Input`, `Button`, `Badge`, `Avatar`.
 - Produces: the `/account/profile` route.
 
@@ -528,9 +550,11 @@ EOF
 ### Task 5: Security section page
 
 **Files:**
+
 - Create: `apps/web/src/routes/(app)/account/security/+page.svelte`
 
 **Interfaces:**
+
 - Consumes: `AccountMasthead`; `SettingsPlate`, `SettingsRow`, `SettingDefinition`; design-system `Button`, `Switch`, `Badge`.
 - Produces: the `/account/security` route.
 
@@ -642,9 +666,11 @@ EOF
 ### Task 6: Seam-guard fitness test
 
 **Files:**
+
 - Test: `apps/web/test/account-seams.test.ts`
 
 **Interfaces:**
+
 - Consumes: the two account page files on disk.
 - Produces: a permanent guard that every account row stays an honest seam (no live-write posture, every interactive control disabled, a `Soon` badge present) until a deliberate change.
 
@@ -747,9 +773,11 @@ EOF
 ### Task 7: Make the profile-menu item live + browser verification
 
 **Files:**
+
 - Modify: `apps/web/src/lib/components/profile-menu.svelte` (the "Account Settings" `DropdownMenu.Item`)
 
 **Interfaces:**
+
 - Consumes: `goto` from `$app/navigation` (or an anchor navigation consistent with the menu's other items).
 - Produces: selecting "Account Settings" navigates to `/account`; its `Soon` badge is removed.
 
@@ -795,6 +823,7 @@ Expected: no errors.
 - [ ] **Step 5: Browser verification** (coordinator, shared Playwright browser)
 
 Start the dev server from `apps/web` (`pnpm exec vp dev`), then in one browser session:
+
 1. Open the app, click the profile avatar (top-right) → the menu opens; "Account Settings" is enabled with no Soon badge.
 2. Select it → lands on `/account/profile`; the Account rail shows Profile (active, gilt edge) and Security.
 3. Confirm the Profile plate shows Name, Email, Avatar rows, each with a disabled control + Soon.
@@ -823,6 +852,7 @@ EOF
 ### Task 8: Extend the ink-purity scan + documentation
 
 **Files:**
+
 - Modify: `apps/web/test/canvas-ink-purity.test.ts` (add `src/lib/account` to `SCAN_ROOTS`)
 - Modify: `docs/conventions/settings.md` (one cross-reference line)
 - Create: `changelog.d/account-settings-surface.md`
@@ -860,6 +890,7 @@ In `docs/conventions/settings.md`, under the `## Scope` sentence, add one line:
 
 ```markdown
 <!-- changelog.d/account-settings-surface.md -->
+
 ### Added
 
 - **Account Settings surface.** A person-scoped identity and credentials surface at `/account`,
@@ -892,6 +923,7 @@ EOF
 ## Self-Review
 
 **Spec coverage:**
+
 - New `/account` surface mirroring the settings shell → Task 3 (layout) + Task 1 (registry).
 - Profile and Security sections, one route each → Tasks 4, 5.
 - Honest Soon seams on every control → Tasks 4, 5; enforced by Task 6.
