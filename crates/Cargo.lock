@@ -772,6 +772,7 @@ dependencies = [
  "magna-carta-engine-host",
  "mail-parser",
  "wasm-bindgen",
+ "wasm-bindgen-test",
 ]
 
 [[package]]
