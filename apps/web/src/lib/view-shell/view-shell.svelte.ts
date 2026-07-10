@@ -8,7 +8,7 @@
  * Selection is in-memory session state (a fresh page open starts unselected), keyed by the
  * consumer's `itemKey` so it survives the items array being rebuilt.
  */
-import { SvelteSet } from "svelte/reactivity";
+import { SvelteMap, SvelteSet } from "svelte/reactivity";
 import type { PersistedPreference } from "$lib/preferences/persisted-preference.svelte.ts";
 import type {
   RegionDefinition,
@@ -63,19 +63,27 @@ export function createViewShell<Item, ViewId extends string>(
   const resolveActiveId = (): ViewId =>
     isRegisteredView(activeViewPreference.current) ? activeViewPreference.current : firstView.id;
 
+  // `selectedKeys` holds the user's raw intent. Everything OBSERVABLE about the selection —
+  // `count`, `isEmpty`, `selectedItems`, the `selectedKeys` view — is reconciled against the CURRENT
+  // items, so a key whose item has left the list (a folder change, a deletion, a filter) neither
+  // counts nor can be acted on, and `count` can never disagree with `selectedItems`. Reconciling on
+  // read (rather than pruning the raw set) means a filtered-out item that returns is still selected;
+  // a consumer that wants selection dropped on true navigation calls `clear()` at that boundary.
   const selectedKeys = new SvelteSet<string>();
+  const presentSelectedItems = (): readonly Item[] =>
+    itemsOf().filter((item) => selectedKeys.has(keyOf(item)));
   const selection: SelectionController<Item> = {
     get selectedKeys(): ReadonlySet<string> {
-      return selectedKeys;
+      return new Set(presentSelectedItems().map(keyOf));
     },
     get selectedItems(): readonly Item[] {
-      return itemsOf().filter((item) => selectedKeys.has(keyOf(item)));
+      return presentSelectedItems();
     },
     get count(): number {
-      return selectedKeys.size;
+      return presentSelectedItems().length;
     },
     get isEmpty(): boolean {
-      return selectedKeys.size === 0;
+      return presentSelectedItems().length === 0;
     },
     isSelected(item: Item): boolean {
       return selectedKeys.has(keyOf(item));
@@ -96,16 +104,25 @@ export function createViewShell<Item, ViewId extends string>(
 
   const regions = config.regions ?? [];
   const regionsPreference = config.regionsPreference;
+  // When a preference is injected it is the durable home for region visibility. Without one, a
+  // consumer still gets SESSION toggling (a fresh open starts at each region's default) — otherwise
+  // defining a region without a preference would freeze it, toggleable only if remembered.
+  const sessionRegionOverrides = new SvelteMap<string, boolean>();
   const isRegionShown = (id: string): boolean => {
     const region = regions.find((candidate) => candidate.id === id);
     if (region === undefined) return false;
-    const stored = regionsPreference?.current[id];
+    const stored = regionsPreference
+      ? regionsPreference.current[id]
+      : sessionRegionOverrides.get(id);
     return typeof stored === "boolean" ? stored : region.defaultShown;
   };
   const setRegionShown = (id: string, shown: boolean): void => {
-    if (regionsPreference === undefined) return;
     if (!regions.some((candidate) => candidate.id === id)) return;
-    regionsPreference.set({ ...regionsPreference.current, [id]: shown });
+    if (regionsPreference !== undefined) {
+      regionsPreference.set({ ...regionsPreference.current, [id]: shown });
+    } else {
+      sessionRegionOverrides.set(id, shown);
+    }
   };
 
   return {
