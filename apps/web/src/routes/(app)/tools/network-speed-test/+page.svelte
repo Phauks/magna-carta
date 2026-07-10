@@ -15,7 +15,7 @@
   import * as Masthead from "@magna-carta/design-system/masthead";
   import { bandwidthStats } from "$lib/tools/speed-test/bandwidth-stats.ts";
   import BandwidthSparkline from "$lib/tools/speed-test/bandwidth-sparkline.svelte";
-  import InfoPopover from "$lib/tools/speed-test/info-popover.svelte";
+  import InfoHint from "$lib/tools/speed-test/info-hint.svelte";
   import LatencyChart from "$lib/tools/speed-test/latency-chart.svelte";
   import MetricTile from "$lib/tools/speed-test/metric-tile.svelte";
   import QualityScores from "$lib/tools/speed-test/quality-scores.svelte";
@@ -221,13 +221,13 @@
     stats={statRows(downloadStats, downloadPoints)}
   >
     {#snippet info()}
-      <InfoPopover label="What does Download mean?">
+      <InfoHint label="What does Download mean?">
         <p>
           The headline figure is the 90th percentile of this run's samples, not an average — nine
           measurements in ten were at least this fast. The median, 95th percentile and peak below
           show how consistent the connection was.
         </p>
-      </InfoPopover>
+      </InfoHint>
     {/snippet}
     {#snippet chart()}
       <BandwidthSparkline label="Download" points={downloadPoints} />
@@ -240,13 +240,13 @@
     stats={statRows(uploadStats, uploadPoints)}
   >
     {#snippet info()}
-      <InfoPopover label="What does Upload mean?">
+      <InfoHint label="What does Upload mean?">
         <p>
           The headline figure is the 90th percentile of this run's samples, not an average — nine
           measurements in ten were at least this fast. The median, 95th percentile and peak below
           show how consistent the connection was.
         </p>
-      </InfoPopover>
+      </InfoHint>
     {/snippet}
     {#snippet chart()}
       <BandwidthSparkline label="Upload" points={uploadPoints} />
@@ -257,9 +257,9 @@
 <section class="mb-24 grid grid-cols-1 gap-16 sm:grid-cols-3">
   <MetricTile label="Latency" value={formatMilliseconds(results?.getUnloadedLatency())}>
     {#snippet info()}
-      <InfoPopover label="What does Latency mean?">
+      <InfoHint label="What does Latency mean?">
         <p>The median of this run's latency samples, measured while the connection was idle.</p>
-      </InfoPopover>
+      </InfoHint>
     {/snippet}
   </MetricTile>
   <MetricTile label="Jitter" value={formatMilliseconds(results?.getUnloadedJitter())} />
@@ -282,7 +282,7 @@
     style="letter-spacing: var(--mc-tracking-caps)"
   >
     <span>Network quality score</span>
-    <InfoPopover label="What do these scores mean?">
+    <InfoHint label="What do these scores mean?">
       <p>
         Cloudflare's Aggregated Internet Measurement scores this connection for video streaming,
         online gaming, and video calls, rating each bad, poor, average, good, or great.
@@ -298,15 +298,15 @@
         Packet loss is not measured here, and it feeds all three ratings — online gaming draws on
         only three measurements, one of them packet loss. Read these ratings as incomplete.
       </p>
-      <a
-        href="https://blog.cloudflare.com/aim-database-for-internet-quality/"
-        target="_blank"
-        rel="noreferrer noopener"
-        class="mt-8 block underline"
-      >
-        How Cloudflare scores a connection
-      </a>
-    </InfoPopover>
+    </InfoHint>
+    <a
+      href="https://blog.cloudflare.com/aim-database-for-internet-quality/"
+      target="_blank"
+      rel="noreferrer noopener"
+      class="underline"
+    >
+      Learn more
+    </a>
   </h2>
   <!-- The engine rescores on every sample, so a rating shown mid-run climbs and falls before the
        measurements it weighs even exist. A verdict is worth showing only once it is final. -->
