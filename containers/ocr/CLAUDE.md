@@ -26,6 +26,7 @@ The OCR engine container. Bytes in, per-page raw facts out. It never learns whic
   `native-tls` compiles for the host to make that one HTTPS fetch during the build, and is never
   linked into the binary this container ships. Do not read that as "no native-TLS anywhere in the
   graph"; it is real, it is just confined to the build script rather than the runtime.
+
 - **The base image must be trixie.** ONNX Runtime's prebuilt binaries need glibc 2.38; bookworm's
   2.36 fails to link, and only the cloud build catches it. The runtime stage needs `libstdc++6`
   and `libgomp1`.

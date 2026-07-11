@@ -21,12 +21,12 @@ The crate's local rules already forbid papering over this with a lossy markup-st
 
 A 16-byte little-endian header, then contents:
 
-| Field | Bytes | Meaning |
-| --- | --- | --- |
-| `COMPSIZE` | 4 | length of everything after this field (`RAWSIZE` + `COMPTYPE` + `CRC` + contents) |
-| `RAWSIZE` | 4 | declared uncompressed size — **attacker-controlled; never trusted for allocation** |
-| `COMPTYPE` | 4 | `0x75465a4c` (`"LZFu"`, compressed) or `0x414c454d` (`"MELA"`, stored uncompressed) |
-| `CRC` | 4 | CRC-32 of the contents — **not validated** (see §4) |
+| Field      | Bytes | Meaning                                                                             |
+| ---------- | ----- | ----------------------------------------------------------------------------------- |
+| `COMPSIZE` | 4     | length of everything after this field (`RAWSIZE` + `COMPTYPE` + `CRC` + contents)   |
+| `RAWSIZE`  | 4     | declared uncompressed size — **attacker-controlled; never trusted for allocation**  |
+| `COMPTYPE` | 4     | `0x75465a4c` (`"LZFu"`, compressed) or `0x414c454d` (`"MELA"`, stored uncompressed) |
+| `CRC`      | 4     | CRC-32 of the contents — **not validated** (see §4)                                 |
 
 - **`MELA`** → the contents after the header are raw RTF; copy them out, bounded by the output cap.
 - **`LZFu`** → LZ77 with a preset dictionary. A 4096-byte ring buffer is preloaded with a fixed **207-byte** RTF-preamble dictionary; the write cursor starts at offset 207. The stream is a series of 8-unit chunks, each led by a control byte read **LSB-first**: a `0` bit is a 1-byte literal (emitted and written into the ring at the cursor); a `1` bit is a 2-byte reference where `offset = (b1 << 4) | (b2 >> 4)` (12 bits into the ring) and `length = (b2 & 0x0F) + 2` — copy `length` bytes from the ring starting at `offset`, each byte also written back at the cursor. **A reference whose `offset` equals the current write cursor is the end-of-stream marker.** The cursor advances modulo 4096.

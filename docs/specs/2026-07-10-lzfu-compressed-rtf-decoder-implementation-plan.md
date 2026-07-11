@@ -20,29 +20,31 @@ Every task's requirements implicitly include this section.
 - **Error codes are fixed `&'static str`** (`EmailError` is a fieldless enum); no code carries file content. Do NOT add a new `EmailError` variant — reuse `EmailError::Malformed`.
 - **Graceful degradation:** a malformed/over-cap RTF body → `rtf_body: None` and the message parse still succeeds. Never propagate the RTF decode error out of `read_message`.
 - **No process references** in source/tests/comments — no `ADR-NNNN`, "spec", "slice N", "Task N", "plan", "review", "audit", "golden rule". Naming the format document `[MS-OXRTFCP]` or the property `PidTagRtfCompressed` is correct and expected.
-- **No emoji. Fully written-out names.** Comments explain *why*.
+- **No emoji. Fully written-out names.** Comments explain _why_.
 - **The repo clippy gate is `--all-targets`** (lints test code): `cargo clippy --manifest-path crates/Cargo.toml -p email-core --all-targets -- -D warnings`.
 - **Build note:** this box OOMs on parallel cargo (`STATUS_STACK_BUFFER_OVERRUN` / `0xC000012D`). Use `-j 1` on every cargo command.
 
 ## File Structure
 
-| Path | Responsibility |
-| --- | --- |
-| `crates/email-core/src/lzfu.rs` (new) | The LZFu codec: `decompress_rtf(bytes, max_output) -> Result<String, EmailError>`, the header parse, the MELA/LZFu dispatch, the ring-buffer decompressor, the preset dictionary, and all codec-level tests. |
-| `crates/email-core/src/lib.rs` (modify) | Add `mod lzfu;`. |
-| `crates/email-core/src/msg.rs` (modify) | `read_message` reads the 0x1009 binary stream and sets `rtf_body` via `lzfu::decompress_rtf`; update the two stale comments. Integration tests. |
-| `crates/email-core/CLAUDE.md` (modify) | Update the "RTF-only `.msg` bodies" rule. |
-| `changelog.d/lzfu-compressed-rtf.md` (new) | Changelog fragment. |
+| Path                                       | Responsibility                                                                                                                                                                                               |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `crates/email-core/src/lzfu.rs` (new)      | The LZFu codec: `decompress_rtf(bytes, max_output) -> Result<String, EmailError>`, the header parse, the MELA/LZFu dispatch, the ring-buffer decompressor, the preset dictionary, and all codec-level tests. |
+| `crates/email-core/src/lib.rs` (modify)    | Add `mod lzfu;`.                                                                                                                                                                                             |
+| `crates/email-core/src/msg.rs` (modify)    | `read_message` reads the 0x1009 binary stream and sets `rtf_body` via `lzfu::decompress_rtf`; update the two stale comments. Integration tests.                                                              |
+| `crates/email-core/CLAUDE.md` (modify)     | Update the "RTF-only `.msg` bodies" rule.                                                                                                                                                                    |
+| `changelog.d/lzfu-compressed-rtf.md` (new) | Changelog fragment.                                                                                                                                                                                          |
 
 ---
 
 ### Task 1: The LZFu codec (`lzfu.rs`)
 
 **Files:**
+
 - Create: `crates/email-core/src/lzfu.rs`
 - Modify: `crates/email-core/src/lib.rs`
 
 **Interfaces:**
+
 - Consumes: `crate::error::EmailError` (fieldless enum with `Malformed`).
 - Produces: `pub(crate) fn decompress_rtf(bytes: &[u8], max_output: usize) -> Result<String, EmailError>`.
 
@@ -303,9 +305,11 @@ git commit -m "feat(email-core): decode LZFu compressed RTF into text"
 ### Task 2: Wire the RTF body into the `.msg` lane
 
 **Files:**
+
 - Modify: `crates/email-core/src/msg.rs`
 
 **Interfaces:**
+
 - Consumes: `lzfu::decompress_rtf` (Task 1); the existing `find_substream`, `read_stream_bounded`, `PTYPE_BINARY`, and the `substreams`/`limits` bindings already in scope in `read_message`.
 - Produces: a `read_message` that sets `rtf_body` from the 0x1009 stream.
 
@@ -418,6 +422,7 @@ git commit -m "feat(email-core): fill rtf_body from a .msg's compressed RTF body
 ### Task 3: Extend the fuzz reach and the docs
 
 **Files:**
+
 - Modify: `crates/email-core/src/lzfu.rs` (a fuzz-shaped property test), `crates/email-core/CLAUDE.md`
 - Create: `changelog.d/lzfu-compressed-rtf.md`
 
