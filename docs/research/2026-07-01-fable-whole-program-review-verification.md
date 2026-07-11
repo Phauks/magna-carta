@@ -1,0 +1,239 @@
+# Fable whole-program review — verification ledger
+
+The living companion to
+[`2026-07-01-fable-whole-program-review.md`](2026-07-01-fable-whole-program-review.md) (the
+snapshot: 173 findings, 1 critical / 29 high / 71 medium / 72 low, as of 2026-07-01). The
+snapshot never changes. **This file is where the state of each finding is tracked**, so this is
+the file to point a worker at.
+
+Every row starts `unverified`. Nothing in the snapshot has been re-checked against the current
+tree since 2026-07-01, and the codebase has moved — some findings are certainly fixed already,
+some may have been overtaken, and the cited line numbers have drifted.
+
+## The brief — for a worker running a verification pass
+
+Your job is to **determine which findings are still real**, not to fix them. A fix pass comes
+after, and needs an accurate list to work from; a verification pass that quietly repairs things
+as it goes produces neither.
+
+Work in id order within a severity band, highest severity first (`Critical`, then `High`, then
+`Medium`, then `Low`) — the critical and high rows are the ones the review's own remediation
+backlog sequenced as fix-first.
+
+For each finding:
+
+1. Read the full entry in the snapshot (search it for the id, e.g. `F-059`). The one-line summary in the table below is a handle, not the finding.
+2. Find the code **by symbol and mechanism**, not by the cited line number — the citation is nine days stale.
+3. Decide the status from what the code does **now**, and record the evidence that decides it: a current `path/file.ts:LINE`, and where a test or a reproduction settles it, that.
+4. Default to `still-open` only when you can trace the defect in the present tree. If you cannot reproduce or trace it, say so — `unclear` is an honest, useful answer and is far better than a guess in either direction.
+
+Status vocabulary:
+
+| Status | Meaning |
+| ------ | ------- |
+| `unverified` | Not yet looked at. The starting state of every row. |
+| `still-open` | The defect is present in the current tree. Evidence names where. |
+| `fixed` | Already remediated since the review. Evidence names the commit or the code that closes it. |
+| `refuted` | The mechanism does not hold on re-reading. Evidence says why the original reasoning fails. |
+| `obsolete` | The code the finding described is gone or rewritten, so the finding no longer applies. |
+| `unclear` | Could not be settled. Evidence says what was checked and what blocked a verdict. |
+
+Update rows in place: set `Status`, fill `Evidence`, and leave everything left of `Status`
+untouched — those columns are the snapshot's, and the id is the join key. Keep the running
+counts under [Progress](#progress) current as you go. When a pass finishes, the `still-open`
+rows are the real backlog, and that — not the snapshot — is what a fix pass should be handed.
+
+## Progress
+
+| Status | Count |
+| ------ | ----- |
+| unverified | 173 |
+| still-open | 0 |
+| fixed | 0 |
+| refuted | 0 |
+| obsolete | 0 |
+| unclear | 0 |
+
+Last pass: none — the ledger has not been run yet.
+
+## Findings
+
+Ordered by severity, then by id. `Conf` is the original verifier's confidence: `CONFIRMED` means
+it reproduced or fully traced the defect, `PLAUSIBLE` means the mechanism was real but the
+impact was not fully substantiated. File and line are **as of 2026-07-01**.
+
+| ID | Sev | Conf | Area | Category | File:line (2026-07-01) | Finding | Status | Evidence |
+| -- | --- | ---- | ---- | -------- | ---------------------- | ------- | ------ | -------- |
+| `F-059` | Critical | CONFIRMED | file-manager | correctness | `packages/file-manager/src/upload-policy.ts:29` | the default allow-list's OOXML/ODF patterns use a `.*` suffix the matcher never treats as a wildcard (only `/*` expands), so Wo... | unverified | |
+| `F-031` | High | CONFIRMED | telemetry | correctness | `apps/worker/src/usage/reached-middleware.ts:40` | the usage "reached" middleware runs its consent D1 read and emit after `next()` with no error boundary, so a transient analytic... | unverified | |
+| `F-043` | High | CONFIRMED | matters | correctness | `packages/matters/src/matter-service.ts:245` | the matter_number UNIQUE backstop does not cover the guarded counter when a scheme contains a non-scoping variable segment | unverified | |
+| `F-044` | High | CONFIRMED | matters | correctness | `packages/matters/src/matter-statements.ts:80` | openMatterStatement's UPDATE has no `AND status = 'prospective'` guard and the prospective check is a separate pre-batch read | unverified | |
+| `F-060` | High | CONFIRMED | file-manager | correctness | `packages/file-manager/src/ingest-core.ts:147` | the gate's strict sniffed-vs-declared MIME equality plus an allow-list missing container types quarantines legitimate files: ev... | unverified | |
+| `F-071` | High | CONFIRMED | worker-files-surface | security | `apps/worker/src/files/ingest-consumer.ts:68` | a committed version's bytes are silently mutable for the remainder of the 1-hour presigned-PUT TTL: after ingest commits a vers... | unverified | |
+| `F-072` | High | CONFIRMED | worker-files-surface | tenancy | `apps/worker/src/files/ingest-consumer.ts:70` | the write path presigns against firm.bucketName (the REST provisioner creates a real per-firm bucket) while ingest, inline zip,... | unverified | |
+| `F-073` | High | CONFIRMED | worker-files-surface | correctness | `apps/worker/src/downloads/bundle-coordinator.ts:18` | a bundle whose artifact was reaped by the bundles/ lifecycle rule can never be rebuilt: requestBundle only rebuilds a 'failed'... | unverified | |
+| `F-079` | High | CONFIRMED | directory | correctness | `packages/directory/src/merge.ts:141` | chained merges break merged-entity resolution: merge never re-repoints merged_into_id and every resolution path is single-hop,... | unverified | |
+| `F-080` | High | CONFIRMED | directory | correctness | `packages/directory/src/merge.ts:331` | collision absorption hard-DELETEs directory_edge and matter_party rows, violating the area's soft-delete-only invariant and des... | unverified | |
+| `F-081` | High | CONFIRMED | directory | correctness | `packages/directory/src/entity-kind.ts:43` | assertEntityExists checks only deleted_at, not status, so every post-merge write path (createEdge, linkMatterParty, assignCateg... | unverified | |
+| `F-088` | High | CONFIRMED | custom-fields | financial | `packages/custom-fields/src/convert.ts:169` | applyConvert never applies number_scale re-scaling for number/currency conversions despite classifyCoercion's comment claiming... | unverified | |
+| `F-089` | High | CONFIRMED | custom-fields | correctness | `packages/custom-fields/src/custom-field-value-service.ts:56` | setCustomFieldValue never reads the field definition: a write succeeds for a nonexistent fieldId (orphan row, HTTP 200 — the ro... | unverified | |
+| `F-109` | High | CONFIRMED | scan-engine | correctness | `apps/scan-worker/src/index.ts:40` (also `apps/worker/src/files/scan-port-binding.ts:13`) | every scan routes to a single container DO addressed by the constant name `"scan"`, so `max_instances: 5` is unreachable | unverified | |
+| `F-112` | High | CONFIRMED | editing-collabora | correctness | `apps/worker/src/editing/wopi-routes.ts:96` | `getFile` prefers the physical R2 `files/{fileId}/current` object over the token's committed version, so a leftover working cop... | unverified | |
+| `F-113` | High | CONFIRMED | editing-collabora | security | `apps/magna-carta-edit/src/index.ts:37` | the edit worker boots a ~2 GB Collabora container for ANY nonempty Host label with zero validation | unverified | |
+| `F-120` | High | CONFIRMED | conversion-core | correctness | `packages/conversion/package.json:6` | `"sideEffects": false` contradicts the adapter's registration-by-side-effect pattern (top-level `registerEngine` consumed via a... | unverified | |
+| `F-126` | High | CONFIRMED | metadata-tool | security | `packages/metadata/src/detect.ts:25` | `detect()` fully inflates `word/document.xml` with no bomb guard, before `safeUnzip` runs on both inspect and scrub paths, so a... | unverified | |
+| `F-127` | High | CONFIRMED | metadata-tool | correctness | `packages/metadata/src/ooxml/walk.ts:11` | tracked- changes scrub leaves move-range markers (`w:moveFromRangeStart/End`, `w:moveToRangeStart/End`) behind — they carry `w:... | unverified | |
+| `F-128` | High | CONFIRMED | metadata-tool | correctness | `packages/metadata/src/ooxml/scrub.ts:80` | whole privileged part classes are untouched and unreported: `docProps/thumbnail.*` (a rendered page-1 image, including markup j... | unverified | |
+| `F-129` | High | CONFIRMED | metadata-tool | security | `packages/metadata/src/image/jpeg.ts:93` | `scrubJpeg` copies every byte from SOS onward verbatim — including data appended after EOI — and `inspectJpegFindings` never lo... | unverified | |
+| `F-130` | High | CONFIRMED | metadata-tool | security | `packages/metadata/src/guards.ts:4` | `MAX_INFLATED_BYTES` is 200 MB but a Workers isolate has 128 MiB, so a compliant honestly-declared ~150 MB archive passes the p... | unverified | |
+| `F-138` | High | CONFIRMED | integrations-shipping | financial | `apps/worker/src/routes/shipping.ts:505` | the purchase route's double-buy protection rests on an EasyPost `Idempotency-Key` header EasyPost does not support (verified ag... | unverified | |
+| `F-139` | High | CONFIRMED | integrations-shipping | financial | `packages/shipping/src/easypost/map.ts:165` | `insuranceAmountMinor` is accepted by the API schema and stored on the draft but never emitted to EasyPost, so requested insura... | unverified | |
+| `F-140` | High | CONFIRMED | integrations-shipping | tenancy | `apps/worker/src/routes/shipping.ts:573` | `GET /shipments/{id}/label` reads `labels/{id}.pdf` straight from the shared R2 bucket with no firm-ownership check, so any mem... | unverified | |
+| `F-141` | High | CONFIRMED | integrations-shipping | correctness | `packages/whois/src/rdap.ts:136` | the whois IP path is essentially nonfunctional: `resolveIpBase` matches CIDR by naive string `startsWith` (missing nearly every... | unverified | |
+| `F-142` | High | CONFIRMED | integrations-shipping | correctness | `apps/worker/src/routes/shipping.ts:381` | reconnecting (API-key rotation) is impossible: connect always INSERTs a new `integration_connection` row, but a UNIQUE index on... | unverified | |
+| `F-157` | High | CONFIRMED | inference-analytics | correctness | `apps/worker/src/usage/reached-middleware.ts:40` | the same defect logged under Phase 0 telemetry: the middleware awaits `consent.resolve()` + `emitUsage()` unguarded on the outb... | unverified | |
+| `F-162` | High | CONFIRMED | pdf-engine | security | `crates/pdf-core/src/generate.rs:203` | `split()` leaks dropped pages' full content whenever a kept page's annotation references a dropped page: `prune_objects` follow... | unverified | |
+| `F-163` | High | CONFIRMED | pdf-engine | correctness/confidentiality | `crates/pdf-core/src/redact.rs:353` | surgery-mode redaction never touches page `/Annots`, so a markup annotation (FreeText/Text/ Highlight with `/Contents`) inside... | unverified | |
+| `F-001` | Medium | CONFIRMED | money | financial | `packages/money/src/allocate.ts:7` | `allocate()` documents a largest-remainder split but dinero.js 2.0.2 assigns leftover minor units to the largest weight, not th... | unverified | |
+| `F-002` | Medium | CONFIRMED | money | correctness | `packages/money/src/allocate.ts:7` | `allocate()` is the only numeric boundary with no validation: a non-finite weight silently yields an even split, and the remain... | unverified | |
+| `F-003` | Medium | CONFIRMED | money | financial | `packages/money/src/money.ts:62` | the currency registry promises "a new currency is a one-line addition" but every path hard-assumes exponent-2 | unverified | |
+| `F-008` | Medium | CONFIRMED | database | correctness | `packages/database/src/fleet-rollout.ts:36` | `rolloutMigrationsAcrossFleet` has no production caller (no cron/Workflow trigger, no lazy-on-connect catch-up); only the provi... | unverified | |
+| `F-009` | Medium | CONFIRMED | database | correctness | `apps/worker/src/firm-provisioner-wiring.ts:23` | the control-plane lineage has no production application path or head-check; the only runner lives in test support | unverified | |
+| `F-010` | Medium | CONFIRMED | database | quality | `packages/database/test/expand-contract.test.ts:50` | the `-- contract:` annotation is checked per file, not per statement; one marker exempts every destructive statement in the file | unverified | |
+| `F-013` | Medium | CONFIRMED | data-access | quality | `packages/database/src/per-firm-schema.ts:97` | no index on `outbox.aggregate_key`, so the `MAX(seq)+1` subselect inside every ordered-write transaction full-scans the outbox... | unverified | |
+| `F-014` | Medium | CONFIRMED | data-access | quality | `apps/worker/src/scheduled.ts:249` | dispatched outbox rows are never purged (idempotency records get a 24h TTL; outbox has none), and a future naive purge is a cor... | unverified | |
+| `F-020` | Medium | CONFIRMED | ledger | financial | `packages/ledger/src/reverse-entry.ts:44` | `reverseEntry` loads the original entry but never compares dates, so a reversal can be effective-dated before the entry it reve... | unverified | |
+| `F-023` | Medium | CONFIRMED | encryption | crypto | `packages/data-access/src/protected-fields.ts:194` | the read path never consults the envelope's stored keyVersion: the AAD is built from `context.firmKeyVersion` (hardcoded 1 ever... | unverified | |
+| `F-024` | Medium | CONFIRMED | encryption | crypto | `packages/encryption/src/protect.ts:23` | sealing an empty string succeeds but produces a 30-byte frame `decodeEnvelope` rejects (minimum 31): write-succeeds/read-fails-... | unverified | |
+| `F-025` | Medium | CONFIRMED | encryption | crypto | `packages/data-access/src/firm-key-provider.ts:51` | crypto-shred converges only within the isolate that executed it: the key cache has no TTL, so other live isolates keep serving... | unverified | |
+| `F-027` | Medium | CONFIRMED | access-control | security | `apps/worker/src/contracts/route-meta.ts:154` | nothing ties `surface: "public"` to the chokepoint's authn/RBAC skip: a public-surface route's `authenticated`/`permission` met... | unverified | |
+| `F-028` | Medium | CONFIRMED | access-control | security | `packages/access-control/src/resolver.ts:29` | `effectivePermissions` fails open on a malformed or non-canonical direct-grant `expires_at`: any string sorting lexicographical... | unverified | |
+| `F-029` | Medium | CONFIRMED | access-control | correctness | `packages/database/test/generated-migrations.test.ts:295` | the seed-permission fitness function silently skips any seed INSERT whose statement chunk begins with an SQL comment — the repo... | unverified | |
+| `F-032` | Medium | CONFIRMED | telemetry | security | `packages/telemetry/src/event.ts:36` | the runtime defense strips undeclared keys but not non-primitive values: an object smuggled through an `any`-typed declared fie... | unverified | |
+| `F-033` | Medium | CONFIRMED | telemetry | security | `packages/telemetry/src/workers-logger.ts:30` | `Logger.count()` is a completely unguarded emission path: free-form metric names and dimension values reach Analytics Engine wi... | unverified | |
+| `F-034` | Medium | CONFIRMED | telemetry | security | `packages/telemetry/src/scrub.ts:13` | the scrub denylist misses space/dash-separated card numbers and phone shapes, so canonical PII in `messageHead` (the one free-t... | unverified | |
+| `F-035` | Medium | CONFIRMED | telemetry | quality | `packages/telemetry/test/console-ban.test.ts:30` | the console-ban fitness function hardcodes `apps/worker/src` + `packages/*/src`, so `apps/scan-worker/src` — and every future e... | unverified | |
+| `F-039` | Medium | CONFIRMED | worker-chokepoint | security | `apps/worker/test/conformance.test.ts:385` | the "every /api/v1 route composes the chokepoint" fitness function proves only OpenAPI-document membership; chokepoint composit... | unverified | |
+| `F-045` | Medium | CONFIRMED | matters | correctness | `packages/matters/src/matter-service.ts:410` | closeMatter has no status precondition: re-closing an already-closed matter silently rewrites closed_at and emits a second matt... | unverified | |
+| `F-046` | Medium | CONFIRMED | matters | correctness | `packages/matters/src/close-preconditions.ts:18` | the close-precondition seam is check-then-act: preconditions run as reads before the commit batch and their contract cannot con... | unverified | |
+| `F-047` | Medium | CONFIRMED | matters | quality | `packages/matters/src/matter-service.ts:508` | renumberMatter's audit row carries null metadata, so the displaced number is destroyed with no durable record | unverified | |
+| `F-051` | Medium | CONFIRMED | locations | correctness | `packages/locations/src/location-service.ts:124` | predictable constraint violations (duplicate number_code, duplicate locationId in an assignment set, unknown member/location) a... | unverified | |
+| `F-052` | Medium | CONFIRMED | locations | correctness | `apps/worker/src/routes/matters.ts:617` | nothing anywhere reads location.status: a closed location still accepts new matters, feeds its number_code into fresh matter nu... | unverified | |
+| `F-053` | Medium | CONFIRMED | locations | correctness | `packages/locations/src/settings.ts:9` | the firm-default-Location machinery is half-built: no production write path for the setting exists, so the close-refusal guard... | unverified | |
+| `F-061` | Medium | CONFIRMED | file-manager | financial | `apps/worker/src/routes/uploads.ts:617` | no path ever deletes R2 objects for abandoned outcomes (hash-skip duplicates, aborted PUT-mode sessions, expired PUTs) | unverified | |
+| `F-062` | Medium | CONFIRMED | file-manager | security | `packages/file-manager/src/zip-composition.ts:52` | ZIP entry paths are composed from raw user-supplied file/folder names; `/`, `\`, and `..` segments flow into the archive unsani... | unverified | |
+| `F-063` | Medium | CONFIRMED | file-manager | correctness | `packages/file-manager/src/file-service.ts:73` | requireFile loads deleted_at but never checks it, so rename, move, type assignment, new version upload, and re-soft-delete all... | unverified | |
+| `F-074` | Medium | CONFIRMED | worker-files-surface | correctness | `apps/worker/src/routes/uploads.ts:571` | uploads.complete is not idempotent across its two-phase commit: if R2's completeMultipartUpload succeeds but the D1 status flip... | unverified | |
+| `F-075` | Medium | CONFIRMED | worker-files-surface | correctness | `apps/worker/src/routes/uploads.ts:456` | if the deferred createMultipartUpload throws after the idempotency batch commits, the stored 201 actively blocks repair: a same... | unverified | |
+| `F-082` | Medium | CONFIRMED | directory | correctness | `packages/directory/src/name-history.ts:70` | changeName is missing the assertEntityExists guard its sibling addName has: renaming a nonexistent entity inserts an orphan cur... | unverified | |
+| `F-083` | Medium | CONFIRMED | directory | crypto | `packages/directory/src/identifiers.ts:60` | normalizeDriversLicense contradicts its own documented behavior: a licence without a "STATE:" separator reaches normalizeUpperc... | unverified | |
+| `F-084` | Medium | CONFIRMED | directory | correctness | `packages/directory/src/merge.ts:391` | two concurrent merges of the same subordinate into different masters both pass the read-time guards; the subordinate-archive UP... | unverified | |
+| `F-090` | Medium | CONFIRMED | custom-fields | correctness | `packages/custom-fields/src/custom-field-value-service.ts:39` | a picklist optionId is never validated (nonexistent, other-field, or archived options all store), and reference values get only... | unverified | |
+| `F-091` | Medium | CONFIRMED | custom-fields | correctness | `packages/custom-fields/src/convert.ts:65` | previewConvert/applyConvert on a reference-kind field throws a plain Error from toRaw, which the route's CustomFieldError-only... | unverified | |
+| `F-092` | Medium | CONFIRMED | custom-fields | correctness | `packages/custom-fields/src/custom-field-service.ts:80` | every field/option mutation except hard-delete skips existence checks: a zero-row UPDATE returns ok:true and commits an audit_l... | unverified | |
+| `F-093` | Medium | CONFIRMED | custom-fields | correctness | `packages/custom-fields/src/convert.ts:160` | CONVERT_INLINE_VALUE_LIMIT (500) is enforced nowhere and the converting flag is never set: one admin click on a 40,000-value fi... | unverified | |
+| `F-094` | Medium | CONFIRMED | custom-fields | correctness | `packages/custom-fields/src/custom-field-service.ts:110` | unarchiveCustomField performs no cap check while the caps count only active rows, so archive/define/unarchive cycles push activ... | unverified | |
+| `F-095` | Medium | CONFIRMED | custom-fields | correctness | `apps/worker/src/routes/custom-fields.ts:251` | the contract is asymmetric on numeric scaling: writes accept a plain decimal and scale it, reads return the raw scaled integer... | unverified | |
+| `F-096` | Medium | CONFIRMED | custom-fields | correctness | `apps/worker/src/routes/custom-fields.ts:229` | date values are never validated: any string stores on a date field, and Convert's prefix regex classifies "2025-13-99" and "202... | unverified | |
+| `F-099` | Medium | CONFIRMED | fixtures-harness | correctness | `packages/fixtures/src/load-profile/snapshot.ts:110` | snapshot cache identity hashes migration tags only, not SQL content, so an in-place migration edit (a documented precedent in t... | unverified | |
+| `F-100` | Medium | CONFIRMED | fixtures-harness | correctness | `packages/fixtures/test/load-profile-generate.test.ts:53` | the seed-twice byte-identical determinism invariant is only tested for the ledger generator; practice, directory, shipping, pro... | unverified | |
+| `F-101` | Medium | CONFIRMED | fixtures-harness | reuse | `packages/fixtures/src/load-profile/custom-field-measurements.ts:210` | most non-ledger EXPLAIN probes are literal SQL copies of the domain queries, so the scan/temp-B-tree gates verify the copy, not... | unverified | |
+| `F-102` | Medium | CONFIRMED | fixtures-harness | quality | `packages/fixtures/src/load-profile/profile.ts:163` | profile version 7 shipped with no committed baseline anywhere in git history and nothing enforces one, so for that window regre... | unverified | |
+| `F-110` | Medium | CONFIRMED | scan-engine | correctness | `containers/scan/src/main.rs:11` | `engineVersion` is `clamav+yara-x/{yara_x lib}+heuristics/1`: the `clamav` token is unversioned and the signature-DB version is... | unverified | |
+| `F-114` | Medium | CONFIRMED | editing-collabora | correctness | `apps/worker/src/editing/checkout-routes.ts:347` | the exclusive-lock single-holder invariant rests on a read-then-insert across two DB round-trips with no partial unique index o... | unverified | |
+| `F-115` | Medium | CONFIRMED | editing-collabora | correctness | `apps/worker/src/editing/wopi-host.ts:55` | all WOPI LOCK/PutFile decisions are check-then-act against a worker-side state snapshot mutated in a later DO call, and PutFile... | unverified | |
+| `F-116` | Medium | CONFIRMED | editing-collabora | correctness | `apps/worker/src/editing/version-cut-trigger.ts:12` | the declared version-cut policy ("on explicit Save and when the last editor leaves") is not wired: `shouldCutVersion`'s `save`... | unverified | |
+| `F-121` | Medium | PLAUSIBLE | conversion-core | security | `packages/conversion/src/adapters/libvips/index.ts:45` | no input-size or pixel-count guard before decoding untrusted bytes: a tiny pixel-bomb PNG (declared 60000×60000) drives `writeT... | unverified | |
+| `F-122` | Medium | CONFIRMED | conversion-core | correctness | `packages/conversion/src/adapters/libvips/index.ts:45` | the Embind image handle is never freed (wasm-vips 0.0.18 requires explicit `.delete()` / `Symbol.dispose`; no FinalizationRegis... | unverified | |
+| `F-123` | Medium | CONFIRMED | conversion-core | security | `packages/conversion/src/adapters/libvips/index.ts:43` | the "hardened path for untrusted bytes" comment is unbacked: no `blockUntrusted(true)` and no `operationBlock` allow-list, and... | unverified | |
+| `F-124` | Medium | CONFIRMED | conversion-core | correctness | `packages/conversion/src/adapters/libvips/index.ts:45` | multi-frame/multi-page sources are silently truncated to frame 1 (`newFromBuffer` defaults `n=1`): an animated GIF→WebP or a 40... | unverified | |
+| `F-131` | Medium | CONFIRMED | metadata-tool | correctness | `packages/metadata/src/ooxml/scrub.ts:17` | the comment-part allow-list misses `word/commentsExtensible.xml` (M365, w16cex), so per-comment `dateUtc` timestamps survive a... | unverified | |
+| `F-132` | Medium | CONFIRMED | metadata-tool | correctness | `apps/worker/src/routes/metadata.ts:53` | the route `atob`-decodes unbounded base64 before any size check, and invalid base64 throws uncaught (500 instead of 400) while... | unverified | |
+| `F-133` | Medium | CONFIRMED | metadata-tool | correctness | `packages/metadata/src/ooxml/scrub.ts:68` | `stripCommentRels` removes Relationship nodes by Target filename, not relationship Type, so an external hyperlink ending `/comm... | unverified | |
+| `F-134` | Medium | CONFIRMED | metadata-tool | correctness | `packages/metadata/src/image/jpeg.ts:25` | when `walkSegments` loses sync (fill bytes, wrong length, truncation) it returns `scanStart = bytes.length`, and `scrubJpeg` em... | unverified | |
+| `F-143` | Medium | CONFIRMED | integrations-shipping | financial | `apps/worker/src/routes/shipping.ts:515` | purchase buys from EasyPost before verifying the draft exists and never reconciles the supplied `remoteShipmentId`/`remoteRateI... | unverified | |
+| `F-144` | Medium | CONFIRMED | integrations-shipping | correctness | `apps/worker/src/routes/shipping.ts:522` | `fetch(label.labelUrl)` never checks `response.ok` before storing the body as the permanent label PDF, so a transient EasyPost... | unverified | |
+| `F-145` | Medium | CONFIRMED | integrations-shipping | correctness | `packages/integrations/src/connection.ts:17` | the connection-health state machine is dead code (`nextHealth`/`updateConnectionStatusStatement` have no production caller), so... | unverified | |
+| `F-146` | Medium | CONFIRMED | integrations-shipping | security | `apps/worker/src/app.ts:309` | production wires no DNS resolver into any `assertPublicTarget` call site, so the resolved-IP pass (the documented DNS-rebinding... | unverified | |
+| `F-152` | Medium | CONFIRMED | tools-cores (file-integrity · file-type/Magika · ai-detection) | security | `apps/worker/src/routes/file-type.ts:100` (and `file-integrity.ts:185`) | the per-firm inspectable-size cap is enforced only against the client `Content-Length` header, so a missing/malformed header (`... | unverified | |
+| `F-153` | Medium | PLAUSIBLE | tools-cores (file-integrity · file-type/Magika · ai-detection) | security | `containers/scan/src/lib.rs:206` | `/identify` heap-buffers the entire body up to the 2 GiB scan cap via `to_bytes` (unlike `/scan`, which spools to disk) on a sh... | unverified | |
+| `F-154` | Medium | CONFIRMED | tools-cores (file-integrity · file-type/Magika · ai-detection) | correctness | `packages/ai-detection/src/normalize.ts:20` | the normalizer guards non-finite scores but accepts finite out-of-range scores (>1 or <0) as directional verdicts, and a non-fi... | unverified | |
+| `F-158` | Medium | CONFIRMED | inference-analytics | correctness | `packages/inference/src/gateway.ts:218` | `generateStream` is written against a binding shape that does not exist: real `env.AI.run(..., stream:true)` returns a Readable... | unverified | |
+| `F-164` | Medium | CONFIRMED | pdf-engine | security | `crates/pdf-core/src/lib.rs:63` | main today has no input-size cap or decompression-bomb guard on any pdf-core entrypoint (load, redact, sanitize, detect, merge/... | unverified | |
+| `F-165` | Medium | CONFIRMED | pdf-engine | security | `crates/pdf-core/src/watermark.rs:246` | `image_xobject` fully decodes the watermark via `image::load_from_memory` BEFORE the `MAX_IMAGE_PIXELS` check, so the cap doesn... | unverified | |
+| `F-166` | Medium | CONFIRMED | pdf-engine | correctness | `crates/pdf-core/src/redact.rs:150` | flatten-mode redaction has no cap on rendered raster size (page dims × dpi/72), so a legitimate large-format exhibit (5000×5000... | unverified | |
+| `F-167` | Medium | CONFIRMED | pdf-engine | correctness | `crates/pdf-core/src/generate.rs:231` | merge (and split/rotate/watermark/bates) silently emits corrupt output for a password-protected input: lopdf leaves streams enc... | unverified | |
+| `F-171` | Medium | CONFIRMED | in-flight branches | security | `crates/recovery-core/src/zip_repair.rs:89` (file-repair-salvage) | the over-cap "drain to realign" step re-inflates the very deflate bomb the per-entry cap just refused: after reading `MAX_ENTRY... | unverified | |
+| `F-172` | Medium | CONFIRMED | in-flight branches | quality | `docs/active-work/file-repair-salvage.md:18` | two branches independently claim `containers/recovery` and overlapping "recovery" naming (`crates/recovery-core` for file repai... | unverified | |
+| `F-004` | Low | CONFIRMED | money | quality | `packages/money/src/money.ts:79` | `money()`/`fromMinor()` accept -0, contradicting the package's own "-0 must never leave the package" invariant (guarded in `fro... | unverified | |
+| `F-005` | Low | CONFIRMED | money | quality | `packages/money/src/money.ts:169` | `decimalToScaled()` skips the safe-integer assert, so an over-precise quantity fails later at collapse blaming "money amount" i... | unverified | |
+| `F-006` | Low | CONFIRMED | identifiers | quality | `packages/identifiers/src/generate.ts:31` | the doc comment on `generateUniqueIdentifier` claims it is "reused by idempotency and the outbox"; both mint ids with bare `new... | unverified | |
+| `F-007` | Low | CONFIRMED | identifiers | quality | `packages/identifiers/test/registry.test.ts:23` | test name carries a backward-looking "(slice 0·6)" citation the process-reference lint deliberately leaves to review | unverified | |
+| `F-011` | Low | CONFIRMED | database | correctness | `packages/database/src/d1-migration-target.ts:8` | `_migrations` tracks tag only, no content checksum, so an edited already-applied migration file diverges silently between firms... | unverified | |
+| `F-012` | Low | CONFIRMED | database | quality | `packages/database/drizzle/per-firm/meta/_journal.json:1` | 0013_snapshot.json is missing (18 journal entries, 17 snapshots); the backfill commit was lost in a later merge | unverified | |
+| `F-015` | Low | PLAUSIBLE | data-access | correctness | `packages/data-access/src/canonical.ts:9` | `sortKeysDeep` rebuilds objects before `JSON.stringify`, so `toJSON`-reliant values (Date, URL) and Map/Set serialize as `{}` (... | unverified | |
+| `F-016` | Low | CONFIRMED | data-access | correctness | `packages/data-access/src/outbox-relay.ts:80` | a throwing `deadLetter` callback propagates mid-loop, abandoning the rest of the batch and losing the sweep report, contradicti... | unverified | |
+| `F-017` | Low | CONFIRMED | data-access | correctness | `packages/data-access/src/outbox-relay.ts:61` | the mark-dispatched UPDATE shares the publish try block, so a transient database error after a successful publish burns the att... | unverified | |
+| `F-018` | Low | CONFIRMED | data-access | correctness | `packages/data-access/src/hono-idempotency-middleware.ts:90` | non-JSON bodies fingerprint as undefined, so on a future non-JSON mutating route two different payloads under one Idempotency-K... | unverified | |
+| `F-019` | Low | CONFIRMED | data-access | correctness | `packages/data-access/src/hono-idempotency-middleware.ts:106` | replaying a stored contentless status (204/205/304) constructs a Response with a body and throws, turning every retry into a 50... | unverified | |
+| `F-021` | Low | CONFIRMED | ledger | correctness | `packages/ledger/src/fitness.ts:26` | the fitness harness misses two corruption classes the write path treats as fatal: accounts with lines but no balance row, and e... | unverified | |
+| `F-022` | Low | CONFIRMED | ledger | financial | `packages/ledger/src/statements.ts:105` | the exactness cap is per entry; nothing bounds the cumulative materialized balance, which can pass 2^53 and silently round on e... | unverified | |
+| `F-026` | Low | CONFIRMED | encryption | crypto | `packages/encryption/src/envelope.ts:98` | `decodeEnvelope` accepts keyVersion 0 that `encodeEnvelope` refuses to produce, and decrypt never cross-checks the decoded head... | unverified | |
+| `F-030` | Low | CONFIRMED | access-control | quality | `apps/worker/src/contracts/route-meta.ts:20` | the `RouteMeta.permission` doc comment states the security rule backwards ("null only when authenticated: false"), contradictin... | unverified | |
+| `F-036` | Low | CONFIRMED | telemetry | reuse | `packages/telemetry/src/scrub.ts:23` | `OPAQUE_HANDLE` hardcodes the 21-char token length and alphabet that `@magna-carta/identifiers` exports as the source of truth | unverified | |
+| `F-037` | Low | CONFIRMED | telemetry | quality | `packages/telemetry/src/workers-logger.ts:31` | `count()` encodes dimensions as positional `Object.values()` blobs: the Analytics Engine column contract is each call site's ob... | unverified | |
+| `F-038` | Low | CONFIRMED | telemetry | quality | `packages/telemetry/src/ids.ts:2` | four backward-looking process-artifact comments (ids.ts:2, workers-logger.ts:1-2, operation.ts:1, events.ts:79) of the kind the... | unverified | |
+| `F-040` | Low | CONFIRMED | worker-chokepoint | security | `apps/worker/src/routes/firms.ts:77` | the platform-admin secret guard runs before the rate-limit gate, so failed X-Platform-Admin-Key attempts are never throttled (o... | unverified | |
+| `F-041` | Low | CONFIRMED | worker-chokepoint | tenancy | `apps/worker/src/chokepoint/ports.ts:81` | `resolveFirmContext` never reads `firm.status`, so a provisioning (or future suspended/offboarded) firm resolves as fully prese... | unverified | |
+| `F-042` | Low | CONFIRMED | worker-chokepoint | quality | `apps/worker/src/chokepoint/chokepoint.ts:220` | replays are fully exempt from rate limiting: looping one Idempotency-Key gets unlimited D1-backed replays that never debit a bu... | unverified | |
+| `F-048` | Low | CONFIRMED | matters | correctness | `apps/worker/src/routes/matters.ts:149` | serviceClock().today() is the UTC civil date, so year/date_opened segments render the UTC date: a Nevada matter opened 5pm on N... | unverified | |
+| `F-049` | Low | CONFIRMED | matters | correctness | `packages/matters/src/queries.ts:63` | listMatters free-text search interpolates the term into LIKE without escaping % and _, so wildcards behave as wildcards ('%' al... | unverified | |
+| `F-050` | Low | CONFIRMED | matters | quality | `packages/matters/src/matter-service.ts:284` | fieldsFromInput ends in `as MatterFields`, waiving the compile-time guarantee that responsibleMemberId is present; a future par... | unverified | |
+| `F-054` | Low | CONFIRMED | locations | correctness | `packages/locations/src/location-service.ts:199` | the firm-default close refusal is a pure TOCTOU pre-read with no in-batch assertion, so a concurrent set-default and close can... | unverified | |
+| `F-055` | Low | CONFIRMED | locations | correctness | `packages/locations/src/location-service.ts:166` | updateLocation's read-merge-write with a static full-row UPDATE silently loses concurrent field updates (both PATCHes return 20... | unverified | |
+| `F-056` | Low | CONFIRMED | locations | quality | `packages/database/drizzle/per-firm/0004_matters-locations-file-manager.sql:162` | the exactly-one-primary-per-member invariant has no schema backstop, unlike the module's other invariants | unverified | |
+| `F-057` | Low | CONFIRMED | locations | reuse | `apps/worker/src/routes/locations.ts:520` | the GET detail/list handlers inline raw location SQL duplicating selectLocationStatement, invisible to the schema-name-sync fit... | unverified | |
+| `F-058` | Low | CONFIRMED | locations | quality | `apps/worker/src/routes/locations.ts:40` | numberCode and the letterhead text fields have no format or length bounds: empty-string numberCode is accepted (and occupies th... | unverified | |
+| `F-064` | Low | CONFIRMED | file-manager | correctness | `packages/file-manager/src/file-service.ts:320` | only the commit batch's primary UPDATE carries the status='pending' guard; the dependent statements (meter delta, current-versi... | unverified | |
+| `F-065` | Low | CONFIRMED | file-manager | correctness | `packages/file-manager/src/file-service.ts:367` | gate quarantines persist a NULL scan_detail: the quarantine reason (type-mismatch / size-mismatch / policy-*) reaches only outb... | unverified | |
+| `F-066` | Low | CONFIRMED | file-manager | correctness | `packages/file-manager/src/folder-service.ts:171` | the moveFolder cycle check is read-then-batch with no in-batch assertion, so two concurrent cross moves can commit a parent cyc... | unverified | |
+| `F-067` | Low | CONFIRMED | file-manager | correctness | `apps/worker/src/files/ingest-consumer.ts:47` | a dead-lettered ingest leaves a version 'pending' forever with its session 'completed': no sweep matches it, the bytes sit in R... | unverified | |
+| `F-068` | Low | CONFIRMED | file-manager | reuse | `packages/file-manager/src/scan-cache.ts:41` | the scan cache is write-only: lookupScanCache has no production caller, so the promised scan-once dedup for duplicate-heavy imp... | unverified | |
+| `F-069` | Low | CONFIRMED | file-manager | quality | `packages/file-manager/src/ingest-core.ts:130` | the scan-path tee has no backpressure coupling: workerd buffers the delta between the fast hash branch and a slower scan branch... | unverified | |
+| `F-070` | Low | CONFIRMED | file-manager | quality | `packages/file-manager/src/folder-service.ts:71` | createFolder rejects an empty name with the wrong code ('folder-name-taken'), and renameFolder/renameFile skip service-level va... | unverified | |
+| `F-076` | Low | PLAUSIBLE | worker-files-surface | crypto | `apps/worker/src/files/preview-token.ts:59` | the preview delivery token HMACs the bare base64url payload with AUTH_SECRET (shared with Better Auth) with no domain-separatio... | unverified | |
+| `F-077` | Low | CONFIRMED | worker-files-surface | quality | `apps/worker/src/scheduled.ts:626` | the weekly re-scan sweep enqueues up to 100 R2-event-shaped messages per firm that the ingest consumer is guaranteed to no-op o... | unverified | |
+| `F-078` | Low | PLAUSIBLE | worker-files-surface | quality | `apps/worker/src/routes/uploads.ts:41` | SESSION_TTL_MS / STUCK_DEADLINE_MS use the 'MS' shorthand the naming rule forbids while the sibling cron file spells MILLISECON... | unverified | |
+| `F-085` | Low | CONFIRMED | directory | correctness | `packages/directory/src/edges.ts:68` | createEdge accepts from === to, and a self-edge on a future merge subordinate repoints both endpoints into a master→master self... | unverified | |
+| `F-086` | Low | CONFIRMED | directory | quality | `packages/directory/src/search.ts:107` | searchNames returns one hit per matching name row with no per-entity dedup and no LIMIT: current+former name matches duplicate... | unverified | |
+| `F-087` | Low | CONFIRMED | directory | quality | `packages/directory/CLAUDE.md:42` | the area CLAUDE.md has drifted in load-bearing places: the merge invariant claims identifiers/contact rows are repointed (the c... | unverified | |
+| `F-097` | Low | CONFIRMED | custom-fields | correctness | `packages/custom-fields/src/coercion.ts:166` | coerceWithRule's magnitude path returns base × multiplier unrounded ("1.2345k" → 1234.5), a latent no-floats violation that act... | unverified | |
+| `F-098` | Low | CONFIRMED | custom-fields | quality | `apps/worker/src/routes/custom-fields.ts:178` | unbounded contract inputs: numberScale accepts any int (10^300 → Infinity at scaling time → unhandled bind failure) and names/t... | unverified | |
+| `F-103` | Low | CONFIRMED | fixtures-harness | crypto | `packages/fixtures/src/load-profile/directory-generate.ts:99` | one per-firm snapshot mints two distinct firm identities (protected-generate and directory-generate each call newIdentifier("fi... | unverified | |
+| `F-104` | Low | CONFIRMED | fixtures-harness | reuse | `packages/fixtures/src/load-profile/protected-generate.ts:136` | the raw `INSERT INTO incident` duplicates the identical literal in the incidents route — a raw business-table INSERT the packag... | unverified | |
+| `F-105` | Low | CONFIRMED | fixtures-harness | quality | `packages/fixtures/src/load-profile/ledger-measurements.ts:123` | PLAN_SCAN_ALLOWLIST's "ledger-fitness" entry is dead configuration (no plan label ever equals it), misleadingly implying the fi... | unverified | |
+| `F-106` | Low | CONFIRMED | fixtures-harness | quality | `packages/fixtures/src/load-profile/profile.ts:98` | DirectoryVolume.identifiersPerEntity misnames its semantics (actually "how many persons receive one identifier"), so scaling it... | unverified | |
+| `F-107` | Low | CONFIRMED | fixtures-harness | quality | `packages/fixtures/src/load-profile/snapshot.ts:239` | LoadedSnapshot.close() never removes the mkdtempSync working directory, so every measure-cli run leaks a full-scale snapshot co... | unverified | |
+| `F-108` | Low | CONFIRMED | fixtures-harness | security | `packages/fixtures/src/guard.ts:8` | the production-seeding defense's load-bearing half (production code never imports this package) has no CI enforcement, and the... | unverified | |
+| `F-111` | Low | CONFIRMED | scan-engine | quality | `apps/scan-worker/src/scan-warm.ts:7` | `pokeContainer` awaits `container.fetch("/ready")` but ignores the status, so a container answering non-OK health checks (clamd... | unverified | |
+| `F-117` | Low | CONFIRMED | editing-collabora | correctness | `apps/worker/src/editing/document-session.ts:205` | the reap alarm's `copyObject` silently no-ops when the `current` source is missing, yet `commitEditedVersion` still inserts a v... | unverified | |
+| `F-118` | Low | CONFIRMED | editing-collabora | correctness | `apps/worker/src/editing/document-session.ts:134` | `dropParticipant` clears `sessionId` on last-editor leave but leaves `wopiLock` set (unlike the alarm/forceClose), so once sess... | unverified | |
+| `F-119` | Low | CONFIRMED | editing-collabora | quality | `apps/magna-carta-edit/src/document-editor-container.ts:36` | the comment `(host-topology ADR)` cites a process artifact (golden rule 13) yet evades `lint:process-refs` because it lacks the... | unverified | |
+| `F-125` | Low | CONFIRMED | conversion-core | quality | `packages/conversion/src/file.ts:89` | `convertFile` copies the whole output a second time via `Uint8Array.from(result.bytes)` purely as a `BlobPart` typing workaroun... | unverified | |
+| `F-135` | Low | CONFIRMED | metadata-tool | correctness | `packages/metadata/src/ooxml/scrub.ts:85` | dropping `docProps/custom.xml` and the comment parts leaves their `[Content_Types]` Overrides and the package `_rels` entries d... | unverified | |
+| `F-136` | Low | CONFIRMED | metadata-tool | quality | `packages/metadata/src/metadata.ts:46` | a docx scrub unzips three times (detect, scrub, re-inspect), tripling peak memory/CPU on the request hot path | unverified | |
+| `F-137` | Low | CONFIRMED | metadata-tool | quality | `packages/metadata/src/ooxml/scrub.ts:28` | shorthand identifiers (`t`, `acc`, `seg`, `c`) in the redaction-critical walk contradict golden rule 12 | unverified | |
+| `F-147` | Low | CONFIRMED | integrations-shipping | correctness | `packages/whois/src/lookup.ts:28` | once the resolver lands, applying it to the whois *query* will 400 every lapsed/unregistered domain lookup (a primary whois use... | unverified | |
+| `F-148` | Low | CONFIRMED | integrations-shipping | correctness | `packages/whois/src/legacy.ts:41` | a TLD with neither an RDAP bootstrap nor a `WHOIS_HOSTS` row throws a raw Error surfaced as a 500 with an internal file-path re... | unverified | |
+| `F-149` | Low | CONFIRMED | integrations-shipping | security | `packages/integrations/src/safe-target.ts:95` | `classifyHost` misses the trailing-dot loopback form (`localhost.`, `*.localhost.`) — it classifies `public` and bypasses the l... | unverified | |
+| `F-150` | Low | CONFIRMED | integrations-shipping | quality | `apps/worker/src/app.ts:285` | the production port-43 whois socket read loop has no timeout and no size cap, so a wedged/garbage-streaming registry hangs the... | unverified | |
+| `F-151` | Low | CONFIRMED | integrations-shipping | quality | `packages/integrations/src/registry.ts:79` | `registry.resolve` can throw despite the never-throws Dispatch contract: `adapter.create()` is unguarded and the EasyPost adapt... | unverified | |
+| `F-155` | Low | CONFIRMED | tools-cores (file-integrity · file-type/Magika · ai-detection) | quality | `packages/ai-detection/src/report.ts:50` | `DetectionReport.score` sits top-level beside `band`, protected only by a comment, so a UI is one property access from renderin... | unverified | |
+| `F-156` | Low | CONFIRMED | tools-cores (file-integrity · file-type/Magika · ai-detection) | quality | `containers/scan/src/identify.rs:45` | `MAGIKA_CRATE_VERSION` is a hand-pinned `"1.1"` against a semver-range dependency (`magika = "1.1"` = any 1.x), with no test ty... | unverified | |
+| `F-159` | Low | PLAUSIBLE | inference-analytics | tenancy | `apps/worker/src/inference/inference-consumer.ts:56` | `InferenceJob` carries `firmId` and `databaseIdentifier` as two independent unvalidated fields (`firmId` cast `as FirmId`, neve... | unverified | |
+| `F-160` | Low | CONFIRMED | inference-analytics | financial | `packages/inference/src/gateway.ts:128` | `extractUsage` maps a missing/renamed usage object to `{0,0}` with no signal, so a provider field rename would zero firm token... | unverified | |
+| `F-161` | Low | CONFIRMED | inference-analytics | quality | `apps/worker/src/usage/consent.ts:23` | the consent resolver's isolate-local Map never evicts expired entries (only overwritten if the same (firm,user) returns), so it... | unverified | |
+| `F-168` | Low | CONFIRMED | pdf-engine | correctness | `crates/pdf-core/src/generate.rs:487` | merge renames colliding named destinations / field `/T` but never remaps their referrers (outline items, link annotations with... | unverified | |
+| `F-169` | Low | CONFIRMED | pdf-engine | correctness | `crates/pdf-core/src/generate.rs:106` | `reparent_self_contained` flattens inherited `/MediaBox`/`/Resources`/`/Rotate` but not `/CropBox` (also inheritable), so a pag... | unverified | |
+| `F-170` | Low | CONFIRMED | pdf-engine | correctness | `crates/pdf-core/src/watermark.rs:404` | `append_content` (and the identical bates stamp-append) doesn't wrap the original content in `q/Q` (an unbalanced source CTM sk... | unverified | |
+| `F-173` | Low | CONFIRMED | in-flight branches | correctness | `apps/worker/src/routes/decryption.ts:373` (decryption-tool) | a failed unlock (wrong password / unreadable) returns 400 without writing any audit row, so unsuccessful decryption attempts le... | unverified | |
