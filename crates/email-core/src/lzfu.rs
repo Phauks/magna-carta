@@ -76,28 +76,28 @@ fn decompress_lzfu(contents: &[u8], max_output: usize) -> Result<String, EmailEr
 
     loop {
         let Some(&control) = contents.get(pos) else {
-            return Ok(String::from_utf8_lossy(&out).into_owned());
+            return Ok(finish(out));
         };
         pos += 1;
         for bit in 0..8 {
             if (control >> bit) & 1 == 0 {
                 // Literal.
                 let Some(&literal) = contents.get(pos) else {
-                    return Ok(String::from_utf8_lossy(&out).into_owned());
+                    return Ok(finish(out));
                 };
                 pos += 1;
                 emit(literal, &mut out, &mut ring, &mut write, max_output)?;
             } else {
                 // Two-byte reference: offset (12 bits) and length (low nibble + 2).
                 let (Some(&b1), Some(&b2)) = (contents.get(pos), contents.get(pos + 1)) else {
-                    return Ok(String::from_utf8_lossy(&out).into_owned());
+                    return Ok(finish(out));
                 };
                 pos += 2;
                 let offset = ((b1 as usize) << 4) | ((b2 as usize) >> 4);
                 let length = ((b2 as usize) & 0x0F) + 2;
                 if offset == write {
                     // A reference to the current write cursor marks end of stream.
-                    return Ok(String::from_utf8_lossy(&out).into_owned());
+                    return Ok(finish(out));
                 }
                 for i in 0..length {
                     let byte = ring[(offset + i) & (RING_SIZE - 1)];
@@ -105,6 +105,18 @@ fn decompress_lzfu(contents: &[u8], max_output: usize) -> Result<String, EmailEr
                 }
             }
         }
+    }
+}
+
+/// Turn the decompressed bytes into a `String`, moving the buffer on the common
+/// valid-UTF-8 path (RTF is ASCII-dominant) rather than copying it. The output can
+/// approach the decoded-size cap, so a copy here would briefly hold the buffer twice
+/// and push peak memory past what the isolate allows; only genuinely invalid bytes
+/// fall back to a lossy copy.
+fn finish(out: Vec<u8>) -> String {
+    match String::from_utf8(out) {
+        Ok(text) => text,
+        Err(error) => String::from_utf8_lossy(error.as_bytes()).into_owned(),
     }
 }
 
