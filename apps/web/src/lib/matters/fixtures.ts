@@ -15,13 +15,16 @@ export interface MatterFixture {
   matterNumber: string | null;
   matterTypeName: string | null;
   locationName: string | null;
-  responsibleAttorneyName: string;
+  /** Null when the matter came from the API, which carries the member id rather than a name. */
+  responsibleAttorneyName: string | null;
   clientDisplayName: string | null;
   clientCode: string | null;
-  eBilling: boolean;
+  /** Null when unknown: the matter came from the API, which does not carry the setting. */
+  eBilling: boolean | null;
   openedAt: string | null;
   closedAt: string | null;
-  createdAt: string;
+  /** Null when the matter came from the API, which does not carry a creation timestamp. */
+  createdAt: string | null;
   files: FileFixtureRow[];
   timeEntries: TimeEntryFixtureRow[];
   costs: CostFixtureRow[];

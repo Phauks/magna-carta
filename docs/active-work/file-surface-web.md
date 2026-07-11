@@ -20,6 +20,10 @@ Design (converging into one home):
 
 - **Shared multi-view shell + persisted-preference primitive — built.** `apps/web/src/lib/view-shell/` (headerless: `createViewShell` controller + `view-switch` + `view-shell-body` + pure types; registrable views, regions record, shared selection) and `apps/web/src/lib/preferences/` (`createPersistedPreference` over a codec). Six preference call sites migrated onto the primitive; `/tools` ported onto the shell as the proving consumer. `appearance-axes` deliberately NOT migrated (theme persists through the design-system boot-script seam — one home). svelte-check clean, web unit tests green.
 
+- **Matter Files host — built, on real data.** `apps/web/src/lib/files/` (the host-agnostic body: the four views, the shared status chip, the pure presentation logic, the view/region preferences) and the host at `apps/web/src/routes/(app)/matters/[id]/files/`. Browsing only — upload is the next pass. Verified in a browser against the seeded firm: all four views, folder navigation, selection shared across a view swap and cleared on a folder change, and the quarantined row reading as "Rejected" with its reason.
+
+  This is the first surface in `apps/web` to make a typed API call, so it stands up the seam: `@magna-carta/api-client` + `@tanstack/svelte-query` are now app dependencies, the `QueryClientProvider` is mounted at the `(app)` group (only signed-in surfaces query; `/login` must render without a session), and the transport is pointed at this origin from the ROOT layout's module scope — `load` runs before any component mounts, so configuring it in a component would be too late for the matter chrome's own load, and the generated cross-origin `baseUrl` would drop the session cookie. `packages/api-client` gained a `./client` export for that (its `index.ts` is generated and does not export the client singleton the query hooks close over).
+
 ## Real-data path (no fixtures baked into the UI)
 
 The surface binds to the typed `@magna-carta/api-client` TanStack Query hooks. Real-vs-mock is a transport
@@ -84,6 +88,21 @@ then POSTs to `/api/__dev/seed` and writes the tenant to `apps/web/e2e/.seeded/c
 ignored) for the specs. Chromium only. Deliberately NOT part of `vp test` — the worker-dev boot is
 heavy, the same reason the design-system visual-regression sweep is separate. If Chromium is missing,
 `pnpm --filter @magna-carta/web exec playwright install chromium`.
+
+## Two things that will bite the next pass
+
+**The root is "All files", and the contract cannot make it otherwise.** `files.list` applies `folder_id = ?`
+only when a `folderId` is given, and the parameter is a plain optional string — there is no way to ask for
+`folder_id IS NULL`. So the root of the folder browser lists EVERY file in the matter, not the loose ones.
+That is the honest reading of the contract and the more useful root, but it means "files not in any folder"
+is not expressible until the contract gains a way to say it.
+
+**The spacing scale is discrete, and falling off it is silent.** The design tokens define specific px steps
+(`gap-16` really is 16px). A number that is NOT a defined step does not fail — Tailwind falls back to its
+default `0.25rem × n`, so `min-w-160` silently resolved to **640px** and squeezed the file table into a
+horizontally-scrolling sliver. There is no width token wide enough for a side panel (the scale stops around
+96), so the folder tree is sized as a FRACTION (`w-1/4`). Prefer a fraction or a component recipe over an
+invented spacing step, and measure the rendered box rather than trusting the class name.
 
 ## Files expected to be touched
 

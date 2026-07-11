@@ -40,7 +40,9 @@
     if (matter.locationName) {
       facts.push({ label: "Location", value: matter.locationName });
     }
-    facts.push({ label: "Responsible attorney", value: matter.responsibleAttorneyName });
+    if (matter.responsibleAttorneyName) {
+      facts.push({ label: "Responsible attorney", value: matter.responsibleAttorneyName });
+    }
     if (matter.clientDisplayName) {
       facts.push({
         label: "Client",
@@ -55,7 +57,11 @@
     if (matter.closedAt) {
       facts.push({ label: "Closed", value: formatDate(matter.closedAt) });
     }
-    facts.push({ label: "E-billing", value: matter.eBilling ? "Enabled" : "Not enabled" });
+    // Unknown is not the same as "not enabled" — a matter read from the API does not carry the
+    // setting, and stating it either way would be inventing the answer.
+    if (matter.eBilling !== null) {
+      facts.push({ label: "E-billing", value: matter.eBilling ? "Enabled" : "Not enabled" });
+    }
     return facts;
   });
 
