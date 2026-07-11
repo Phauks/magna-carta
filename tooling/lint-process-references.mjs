@@ -62,7 +62,16 @@ const BANNED = [
   { label: "ADR citation", pattern: /\bADR-\d{2,}/ },
   { label: "design-spec citation", pattern: /\bdesign spec\b/i },
   { label: "implementation-plan citation", pattern: /\bimplementation plan\b/i },
-  { label: "spec-section citation", pattern: /\bspec §|§\s?\d/ },
+  // Only a section citation OF ONE OF OUR PROCESS DOCS is banned — the rule exists because our specs and
+  // the white paper renumber, so a "§N" pointing at them rots. A bare "§N" is not evidence of that: in a
+  // legal platform it is usually a statute or court rule ("Judiciary Law §499"), and in an engine it is
+  // usually an external standard ("MS-OFFCRYPTO §2.3.4.13") — both are stable, real citations of the kind
+  // the rule asks for, not process-doc references. So match the section symbol only when a process-doc
+  // noun introduces it, never on its own.
+  {
+    label: "spec-section citation",
+    pattern: /\b(?:spec|specification|white[ -]paper|design doc)\s*§\s?\d/i,
+  },
   { label: "numbered-decision citation", pattern: /\bdecided (?:up front )?#\d/i },
   { label: "white-paper citation", pattern: /\bwhite[ -]paper\b/i },
   // (?<!-) lets hyphenated artifact names pass: "test/csp-spike/…" is a concrete file path —

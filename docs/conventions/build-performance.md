@@ -64,12 +64,40 @@ The techniques, in leverage order:
 **The gate (`pnpm check`)** runs `vp check` (fmt + lint) and **`vp run typecheck` (`tsc -b`) as the
 authoritative type-check** — `tsc -b` is fast and incremental, so the type pass actually completes and
 real errors can no longer slip (`vp check`'s own whole-repo type-error pass is off; `typeCheck: false`).
+It is exhaustive and slow by design, and the **pre-push hook runs it** — so it is the gate of record,
+not the inner loop.
 
-**The fast local loop:** run `vp run typecheck` (types — seconds when warm) plus `vp check [paths]` for
-fmt + lint on just your changed files (`vp check` type-checks/lints only the files given, plus their
-dependencies). Drive the paths from the git diff — the changed files and their dependents, not the
-whole repo — for a seconds-not-minutes inner loop, instead of skipping the full sweep because it is
-slow.
+**The fast local loop is `pnpm check:scoped`** (`tooling/check-scoped/`). It derives the change set from
+the git diff (merge-base with `main`, plus the working tree) and runs only what that change can break:
+fmt + lint on the changed paths, the incremental `tsc -b` type-check, and `svelte-check` or the Rust
+gate **only when a `.svelte` file or a crate was actually touched**. It prints what it skipped and why —
+a gate that quietly checks nothing is worse than a slow one.
+
+The distinction matters because the full gate's cost is nearly all fixed: seven serial whole-repo passes
+run identically whether the diff is three files or three hundred, and in practice the overwhelming
+majority of those runs re-confirm what was already true. Scope the loop; keep the sweep at the push.
+
+### Bootstrap the generated artefacts (a fresh worktree is not a runnable worktree)
+
+`packages/{pdf,decryption,email}/src/pkg/` is **generated** wasm-bindgen output and **git-ignored**, so a
+newly created worktree has none of it and every type-check or test touching those packages fails on an
+unresolvable import until somebody rebuilds it. That is a bootstrap gap, not a per-change cost, and it
+is paid once per worktree — of which several are live at any time.
+
+**`vp run bootstrap`** (`tooling/bootstrap/`) closes it: it rebuilds only the artefacts whose Rust inputs
+are newer than the `.wasm` they produced, and is a sub-second no-op when everything is current, so it is
+safe to run at the top of any session. `pnpm check:scoped` calls it in `--check` mode and fails fast with
+the fix, rather than surfacing the gap as a confusing type error.
+
+It also writes a **git-ignored `crates/.cargo/config.toml`** pointing cargo at a target directory shared
+by every worktree on the machine (`~/.cache/magna-carta/cargo-target`). Cargo's `target/` is otherwise
+per-worktree, so each new worktree pays a full cold dependency compile for the same unchanged crate
+graph. Sharing makes the second worktree's build a cache hit; concurrent builds serialize on cargo's own
+file lock, which is also the behaviour a 16 GB box wants. `MAGNA_CARTA_SHARED_CARGO_TARGET=0` opts out.
+
+`vp run rust-wasm-build` (Docker, pinned toolchain) remains the **canonical** wasm build — it is what the
+deploy pipeline runs, and it needs no host Rust. `vp run bootstrap` is the local fast path over the same
+wasm-pack invocation; `--docker` forces the canonical images.
 
 ### TypeScript project references + incremental (the structural scaler)
 

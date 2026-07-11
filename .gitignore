@@ -30,6 +30,10 @@ docs/research/trust-rules/_tmp_*
 /crates/target/
 /spikes/*/target/
 
+# Machine-local cargo config written by `vp run bootstrap`: points cargo at one target dir shared by
+# every worktree on this machine (an absolute path, so it can never be committed).
+/crates/.cargo/
+
 # TypeScript project-references build output: composite .d.ts + .tsbuildinfo emitted by
 # `tsc -b tsconfig.build.json` (regenerable; the shipped declarations come from the bundler).
 .tsbuild/

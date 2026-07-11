@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "check": "vp check && vp run typecheck && node tooling/tsconfig-refs/index.mjs --check && pnpm --filter @magna-carta/api-client run typecheck && pnpm --filter @magna-carta/web check && pnpm --filter @magna-carta/design-system check && vp run rust-check",
+    "check:scoped": "node tooling/check-scoped/index.mjs",
     "dev": "vp dev",
     "build": "vp build",
     "generate-client": "pnpm --filter @magna-carta/api-client run generate",

@@ -167,6 +167,15 @@ export default defineConfig({
       "setup-hooks": {
         command: "git config core.hooksPath tooling/git-hooks",
       },
+      // Make a fresh worktree runnable: build the git-ignored Rust->WASM artefacts that packages/
+      // {pdf,decryption,email} import, and point cargo at a target dir shared across worktrees. Rebuilds
+      // only what is stale and is a sub-second no-op otherwise, so it is safe to run at the top of any
+      // session — and is the FIRST thing to run in a new worktree, before test/type-check.
+      // `rust-wasm-build` (above) stays the canonical build for the deploy pipeline; this is the local
+      // fast path. See docs/conventions/build-performance.md.
+      bootstrap: {
+        command: "node tooling/bootstrap/index.mjs",
+      },
     },
   },
 });
