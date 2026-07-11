@@ -210,6 +210,7 @@ const PID_SENDER_SMTP_ADDRESS_FALLBACK: u16 = 0x5D01;
 const PID_MESSAGE_DELIVERY_TIME: u16 = 0x0E06;
 const PID_BODY: u16 = 0x1000;
 const PID_HTML: u16 = 0x1013;
+const PID_RTF_COMPRESSED: u16 = 0x1009;
 const PID_RECIPIENT_DISPLAY_NAME: u16 = 0x3001;
 const PID_RECIPIENT_SMTP_ADDRESS: u16 = 0x39FE;
 const PID_RECIPIENT_EMAIL_ADDRESS_FALLBACK: u16 = 0x3003;
@@ -303,16 +304,17 @@ fn read_message(
 
     let date_raw = fixed_filetime_iso(&fixed, PID_MESSAGE_DELIVERY_TIME);
 
-    // Bodies. The RTF body (PidTagRtfCompressed, 0x1009) is LZFu-compressed and is
-    // not decoded here, so a `.msg` whose only body is RTF currently yields no body
-    // text at all; `rtf_body` stays `None` rather than pretending otherwise. Plain
-    // text and HTML are read directly.
+    // Bodies. The RTF body (PidTagRtfCompressed, 0x1009) is LZFu-compressed; it is
+    // decompressed to RTF text (bytes only — the markup is not interpreted) by the
+    // dedicated codec, with a missing or malformed stream yielding no body rather
+    // than failing the whole message. Plain text and HTML are read directly.
     let text_bodies: Vec<String> = read_string(compound, &substreams, PID_BODY)?
         .into_iter()
         .collect();
     let html_bodies: Vec<String> = read_binary_as_text(compound, &substreams, PID_HTML)?
         .into_iter()
         .collect();
+    let rtf_body = read_rtf_body(compound, &substreams, limits)?;
     let references_remote_content = html_bodies.iter().any(|body| {
         let lowered = body.to_ascii_lowercase();
         lowered.contains("src=\"http://") || lowered.contains("src=\"https://")
@@ -371,8 +373,7 @@ fn read_message(
         raw_headers,
         text_bodies,
         html_bodies,
-        // PidTagRtfCompressed (0x1009) uses LZFu compression and is decoded elsewhere.
-        rtf_body: None,
+        rtf_body,
         parts,
         integrity,
         source_format: SourceFormat::Msg,
@@ -646,6 +647,22 @@ fn read_binary_as_text(
         return Ok(Some(String::from_utf8_lossy(&bytes).into_owned()));
     }
     Ok(None)
+}
+
+/// Read and decompress the LZFu-compressed RTF body (PidTagRtfCompressed). A missing
+/// stream, or a body that is malformed or would exceed the decoded-size cap, yields
+/// `None` rather than an error: the headers, participants, and attachments of the
+/// message are worth more than discarding all of them over one bad body.
+fn read_rtf_body(
+    compound: &mut Msg,
+    substreams: &[SubStream],
+    limits: &Limits,
+) -> Result<Option<String>, EmailError> {
+    let Some(stream) = find_substream(substreams, PID_RTF_COMPRESSED, PTYPE_BINARY) else {
+        return Ok(None);
+    };
+    let bytes = read_stream_bounded(compound, &stream.path)?;
+    Ok(crate::lzfu::decompress_rtf(&bytes, limits.max_decoded_part_bytes).ok())
 }
 
 fn find_substream(
@@ -1316,8 +1333,61 @@ mod mapi_tests {
         assert_eq!(message.html_bodies.len(), 1);
         assert!(message.references_remote_content);
         assert_eq!(message.date_raw.as_deref(), Some("2021-01-01T00:00:00Z"));
-        // The RTF body is not decoded; a .msg with only an RTF body has no body text.
+        // This fixture carries no PidTagRtfCompressed stream at all.
         assert_eq!(message.rtf_body, None);
+    }
+
+    /// Frame `contents` as an all-literal LZFu stream: a 16-byte header carrying the
+    /// compressed magic, then a `0x00` control byte (every bit "literal") followed by
+    /// up to 8 raw bytes, repeated until every byte of `contents` is covered. Mirrors
+    /// the header layout `crate::lzfu`'s own tests build, so this is exercising the
+    /// codec's real framing, not a shape invented just for this test.
+    fn build_all_literal_lzfu(contents: &[u8]) -> Vec<u8> {
+        let mut body = Vec::new();
+        for chunk in contents.chunks(8) {
+            body.push(0x00u8);
+            body.extend_from_slice(chunk);
+        }
+        // COMPSIZE counts RAWSIZE(4) + COMPTYPE(4) + CRC(4) + body.
+        let comp_size = (12 + body.len()) as u32;
+        let mut stream = Vec::new();
+        stream.extend_from_slice(&comp_size.to_le_bytes());
+        stream.extend_from_slice(&(contents.len() as u32).to_le_bytes()); // RAWSIZE
+        stream.extend_from_slice(&0x7546_5a4cu32.to_le_bytes()); // "LZFu" compressed magic
+        stream.extend_from_slice(&0u32.to_le_bytes()); // CRC, ignored by the codec
+        stream.extend_from_slice(&body);
+        stream
+    }
+
+    /// A valid (all-literal) LZFu stream in the 0x1009 property decompresses into
+    /// `rtf_body`, and — since PidTagBody was never present — `text_bodies` stays
+    /// empty: the RTF-only body no longer vanishes.
+    #[test]
+    fn a_msg_with_a_compressed_rtf_body_exposes_it_as_rtf_body() {
+        let rtf = b"{\\rtf1 hi}";
+        let compressed = build_all_literal_lzfu(rtf);
+        let bytes = MsgBuilder::new()
+            .substg("", PID_RTF_COMPRESSED, PTYPE_BINARY, compressed)
+            .build();
+
+        let message = parse_msg(&bytes).expect("parses");
+        assert_eq!(message.rtf_body.as_deref(), Some("{\\rtf1 hi}"));
+        assert!(message.text_bodies.is_empty());
+    }
+
+    /// A 0x1009 stream too short to even hold a 16-byte LZFu header must not fail the
+    /// whole parse: `read_rtf_body` swallows the decode error with `.ok()`, so the
+    /// message still comes back with everything else intact and just no RTF body.
+    #[test]
+    fn a_msg_with_a_corrupt_rtf_body_still_parses_with_no_rtf_body() {
+        let bytes = MsgBuilder::new()
+            .substg("", PID_SUBJECT, PTYPE_UNICODE, utf16le("Still readable"))
+            .substg("", PID_RTF_COMPRESSED, PTYPE_BINARY, vec![0x00, 0x01, 0x02])
+            .build();
+
+        let message = parse_msg(&bytes).expect("parses despite the bad body");
+        assert_eq!(message.rtf_body, None);
+        assert_eq!(message.subject.as_deref(), Some("Still readable"));
     }
 
     /// Recipients are routed to To/Cc/Bcc by their recipient-type property.

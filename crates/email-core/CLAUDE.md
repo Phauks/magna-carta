@@ -90,12 +90,14 @@ what `PidTagTransportMessageHeaders` actually recovered. When a `.msg` lacks tha
 evidence a message did not carry, and never fall back to inferring a verdict from the MAPI-only
 fields.
 
-## RTF-only `.msg` bodies yield no text body yet
+## `PidTagRtfCompressed` is decompressed but never interpreted
 
-`PidTagRtfCompressed` (0x1009) is LZFu-compressed; decoding it is a later slice. `rtf_body` stays
-`None` even when the property is present — a `.msg` whose only body is RTF currently produces no
-`text_bodies`/`html_bodies` entry at all rather than a wrong or partial one. Do not paper over the gap
-with a lossy strip-the-markup decode; land the real LZFu decoder instead.
+`PidTagRtfCompressed` (0x1009) is LZFu-compressed per [MS-OXRTFCP]; `lzfu.rs` decompresses it into
+`rtf_body`. That is where this crate's responsibility ends — the RTF bytes are surfaced as-is, never
+parsed, stripped, or converted to text/HTML, because turning RTF into a renderable form is a
+renderer's job, not a parse engine's. A malformed or over-cap compressed stream yields `rtf_body:
+None` rather than failing the message parse: one bad property must never take down an otherwise
+readable `.msg`.
 
 ## Commands
 

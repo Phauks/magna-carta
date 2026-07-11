@@ -7,6 +7,7 @@
 pub mod eml;
 pub mod error;
 pub mod limits;
+mod lzfu;
 pub mod mbox;
 pub mod model;
 pub mod msg;
