@@ -106,6 +106,8 @@
     }
   ],
   "include": [
-    "src/**/*.ts"
+    "src/**/*.ts",
+    "wasm-modules.d.ts",
+    "worker-env.d.ts"
   ]
 }

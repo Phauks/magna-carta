@@ -5,9 +5,7 @@ import { forwardOcr } from "./forward.ts";
 // Container Durable Object. Reached only via a service binding from the app worker — no public routes,
 // so the service binding is the trust boundary.
 export type Bindings = {
-  OCR_ENGINE: DurableObjectNamespace<
-    import("./ocr-engine-container.ts").OcrEngineContainer
-  >;
+  OCR_ENGINE: DurableObjectNamespace<import("./ocr-engine-container.ts").OcrEngineContainer>;
 };
 
 export { OcrEngineContainer } from "./ocr-engine-container.ts";

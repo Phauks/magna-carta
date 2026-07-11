@@ -1,14 +1,3 @@
-<script module lang="ts">
-  /** One node in a breadcrumb path. The last entry is the current page; give the others an `href`
-   * to make them navigable links (an entry without one renders as inert text). */
-  export type BreadcrumbEntry = {
-    /** The visible label for this path segment. */
-    label: string;
-    /** Where the segment links to. Omit for the current page (the last entry) or an inert node. */
-    href?: string;
-  };
-</script>
-
 <script lang="ts">
   /*
    * Breadcrumb — folder-path navigation (Tier 1: a native <nav>/<ol>, no Bits UI). Data-driven from an
@@ -27,6 +16,7 @@
   import Ellipsis from "@lucide/svelte/icons/ellipsis";
   import { mergeClasses } from "../../internal/merge-classes.ts";
   import type { WithElementRef } from "../../internal/types.ts";
+  import type { BreadcrumbEntry } from "./types.ts";
 
   let {
     items,
