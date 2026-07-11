@@ -77,8 +77,14 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
     // firm-wide tool grants (whois/safeBrowse, scanFile, metadataScrubber, fileIntegrity,
     // fileTypeVerifier, aiTextDetection, decryption, fileRepair) and support:request are seeded to every role;
     // for aiTextDetection the consent setting, not the permission, gates egress.
+    // conflicts:read and conflicts:run are broad, everyday capabilities (any member may screen a
+    // prospective matter or read back a completed check) and are likewise seeded to every role;
+    // conflicts:dispose is narrower (adjudicating a hit) and stays limited to Owner/Admin and
+    // Attorney, so it is absent here.
     expect(grantsFor("Paralegal").sort()).toEqual(
       [
+        "conflicts:read",
+        "conflicts:run",
         "costs:track",
         "files:organize",
         "files:upload",
@@ -97,9 +103,11 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
       ].sort(),
     );
     // Billing and Read-only carry only the every-role set (firm:reportIncident, the firm-wide
-    // tools, support:request); Billing additionally carries costs:approve.
+    // tools, support:request, conflicts:read/run); Billing additionally carries costs:approve.
     expect(grantsFor("Billing").sort()).toEqual(
       [
+        "conflicts:read",
+        "conflicts:run",
         "costs:approve",
         "firm:reportIncident",
         "firm:scanFile",
@@ -116,6 +124,8 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
     );
     expect(grantsFor("Read-only").sort()).toEqual(
       [
+        "conflicts:read",
+        "conflicts:run",
         "firm:reportIncident",
         "firm:scanFile",
         "support:request",
