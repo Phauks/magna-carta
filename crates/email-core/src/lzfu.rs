@@ -211,4 +211,23 @@ mod tests {
         const EXPECTED: &str = "{\\rtf1\\ansi\\ansicpg1252\\pard hello world}\r\n";
         assert_eq!(decompress_rtf(COMPRESSED, 1 << 20).unwrap(), EXPECTED);
     }
+
+    #[test]
+    fn arbitrary_bytes_never_panic() {
+        // A spread of hostile shapes: empty, sub-header, every magic, random-ish bodies.
+        for len in 0..64usize {
+            let filler: Vec<u8> = (0..len).map(|i| (i as u8).wrapping_mul(31)).collect();
+            let _ = decompress_rtf(&filler, 1 << 16);
+        }
+        // Valid-looking headers with hostile contents.
+        for magic in [MAGIC_COMPRESSED, MAGIC_UNCOMPRESSED, 0u32] {
+            let mut stream = Vec::new();
+            stream.extend_from_slice(&64u32.to_le_bytes());
+            stream.extend_from_slice(&0xFFFF_FFFFu32.to_le_bytes()); // absurd raw size
+            stream.extend_from_slice(&magic.to_le_bytes());
+            stream.extend_from_slice(&0u32.to_le_bytes());
+            stream.extend(std::iter::repeat_n(0xFFu8, 52));
+            let _ = decompress_rtf(&stream, 1 << 16);
+        }
+    }
 }
