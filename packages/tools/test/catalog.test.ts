@@ -44,6 +44,7 @@ describe("tool catalog", () => {
       "file-type-verifier",
       "ai-text-detection",
       "file-repair",
+      "ocr",
       "email-inspector",
       "malware-scan",
     ]);
