@@ -1,10 +1,10 @@
 import { mergeClasses } from "./merge-classes.ts";
 
 /*
- * The internal floating/presence pattern (design spec, "Styling discipline"):
- * every Tier 3/4 floating part composes its content classes here — the z-index
- * scale and the data-state presence animations are defined ONCE, in this file,
- * and nowhere else.
+ * The internal floating/presence pattern: every Tier 3/4 floating part composes
+ * its content classes here — the z-index scale and the data-state presence
+ * animations are defined ONCE, in this file, and nowhere else, so no two
+ * floating surfaces can drift apart in stacking or motion.
  *
  * Bits UI v2 background (bits-ui.com/docs/transitions, bits-ui.com/docs/child-snippet):
  * content components carry a `data-state="open" | "closed"` attribute and keep the
@@ -41,15 +41,25 @@ export const FLOATING_WRAPPER_RULE =
  * `--z-index-*` theme namespace (@magna-carta/design-tokens, tokens/primitives/z-index.json).
  *
  * This map is the ONLY home for stacking order in the component layer: raw
- * `z-<number>` utilities are banned (design spec, "Styling discipline" — lint
- * arrives with the enforcement task), and Bits portals impose no z-index of
- * their own, so layering is owned entirely by these tokens.
+ * `z-<number>` utilities are banned (an off-scale layer would stack
+ * unpredictably against every existing surface), and Bits portals impose no
+ * z-index of their own, so layering is owned entirely by these tokens.
+ *
+ * ANCHORED sits ABOVE MODAL (decided 2026-07-03, superseding the earlier
+ * dropdown-below-sticky workshop question): anchor-positioned floating content
+ * (listboxes, menus, popovers, tooltips) portals to the body, so a picker
+ * opened from INSIDE a dialog painted beneath the panel at the old dropdown
+ * layer — visible but unclickable, the panel intercepted the pointer. The
+ * Radix/Bits ecosystem norm is anchored content above dialogs; toast stays
+ * highest so notifications always win. The `dropdown` layer remains for
+ * non-anchored dropdown-like surfaces that should scroll under pinned bars.
  */
 export const Z_LAYER_CLASSES = {
   dropdown: "z-dropdown",
   sticky: "z-sticky",
   overlay: "z-overlay",
   modal: "z-modal",
+  anchored: "z-anchored",
   toast: "z-toast",
 } as const;
 
@@ -69,6 +79,22 @@ export const PRESENCE_FADE = "mc-presence-fade";
 
 /** Fade combined with a subtle scale — the standard popover/menu presence. */
 export const PRESENCE_SCALE_FADE = "mc-presence-scale-fade";
+
+/** Fade combined with a small downward settle — the surface drops into place, never scales. */
+export const PRESENCE_SETTLE_FADE = "mc-presence-settle-fade";
+
+/** No presence animation — the surface appears and disappears fully formed, the same frame. */
+export const PRESENCE_NONE = "mc-presence-none";
+
+/**
+ * The closed set of presence recipes a surface may accept as a prop — the constants above,
+ * never a bare string, so a typo cannot silently name a recipe that does not exist.
+ */
+export type PresenceClass =
+  | typeof PRESENCE_FADE
+  | typeof PRESENCE_SCALE_FADE
+  | typeof PRESENCE_SETTLE_FADE
+  | typeof PRESENCE_NONE;
 
 /*
  * Edge-pinned PANEL slides (drawers/sheets) are NOT here — they carry their own per-side recipe

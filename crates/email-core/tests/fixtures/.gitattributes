@@ -1,0 +1,7 @@
+# These fixtures are exercised byte-for-byte via `include_bytes!` in tests that
+# assert on exact wire formatting (CRLF line endings, specific offsets). The
+# repository default (`* text=auto eol=lf`) would silently normalize them to
+# LF on add/checkout and break those assertions on every clone and in CI.
+*.eml binary
+*.msg binary
+*.mbox binary

@@ -10,6 +10,7 @@ import {
   initiateUpload,
   loadUploadSession,
 } from "@magna-carta/file-manager/file-service";
+import { getUploadSessionStatus } from "@magna-carta/file-manager/queries";
 import { modeThresholdDefinition } from "@magna-carta/file-manager/upload-policy";
 import { FileManagerValidationError } from "@magna-carta/file-manager/validation";
 import type { UploadSessionId } from "@magna-carta/identifiers/types";
@@ -107,6 +108,17 @@ const CompleteUploadResponse = z
 const AbortUploadResponse = z
   .object({ status: z.literal("aborted") })
   .openapi("AbortUploadResponse");
+
+// The upload-status poll's payload: how far the direct-to-R2 ceremony got (sessionStatus) and what
+// ingest decided about the bytes (versionStatus), plus the quarantine reason when the bytes were
+// rejected as malware. quarantineReason is present only when versionStatus is "quarantined".
+const UploadStatusResponse = z
+  .object({
+    sessionStatus: z.enum(["open", "completed", "aborted", "expired"]),
+    versionStatus: z.enum(["pending", "clean", "quarantined", "abandoned"]),
+    quarantineReason: z.string().nullable(),
+  })
+  .openapi("UploadStatusResponse");
 
 const uploadSessionParam = z.object({ id: identifierPathParam("uploadSession", "id") });
 
@@ -324,6 +336,52 @@ export const abortUploadRoute = defineOpenAPIRoute(abortUploadMeta, {
   },
 });
 
+export const getUploadMeta: RouteMeta = {
+  operationId: "uploads.get",
+  surface: "app",
+  authenticated: true,
+  // The status poll is part of the upload ceremony (initiate → sign/complete → poll), so it carries the
+  // same files:upload capability as the rest of the surface; resource "matter" (file objects are
+  // matter-rooted). A read: not audited, no idempotency key.
+  permission: FILES_PERMISSION,
+  resource: "matter",
+  audited: false,
+  idempotency: "optional",
+  rateLimit: "default",
+};
+
+export const getUploadRoute = defineOpenAPIRoute(getUploadMeta, {
+  method: "get",
+  path: "/api/v1/uploads/{id}",
+  description:
+    "Reports an upload session's progress: the session status (open, completed, aborted, expired), " +
+    "its version's ingest status (pending, clean, quarantined, abandoned), and — when the bytes were " +
+    "rejected as malware — the quarantine reason. A session that belongs to another firm is 404.",
+  request: { params: uploadSessionParam },
+  responses: {
+    200: {
+      description: "The upload session's status",
+      content: { "application/json": { schema: UploadStatusResponse } },
+    },
+    401: {
+      description: "No valid session",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    403: {
+      description: "The session member lacks files:upload",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    404: {
+      description: "No such upload session in this firm",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    429: {
+      description: "Rate limit exceeded",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+  },
+});
+
 type UploadsApp = OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>;
 
 export function registerUploadsRoutes(app: UploadsApp, chokepoint: Chokepoint): void {
@@ -479,6 +537,31 @@ export function registerUploadsRoutes(app: UploadsApp, chokepoint: Chokepoint): 
         typeof InitiateUploadResponse
       >;
       return c.json(responseBody, 201);
+    },
+  );
+
+  app.openapi(
+    { ...getUploadRoute, middleware: chokepointMiddleware(chokepoint, getUploadRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { id } = c.req.valid("param");
+      const status = await getUploadSessionStatus(firm.firmDatabase, id);
+      if (status === undefined) {
+        return problemJson(c, {
+          type: "not-found",
+          title: "Not found",
+          status: 404,
+          detail: "No such upload session in this firm.",
+        });
+      }
+      return c.json(
+        {
+          sessionStatus: status.sessionStatus,
+          versionStatus: status.versionStatus,
+          quarantineReason: status.quarantineReason,
+        } as z.infer<typeof UploadStatusResponse>,
+        200,
+      );
     },
   );
 

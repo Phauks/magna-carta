@@ -68,7 +68,9 @@ describe("GET /api/v1/me", () => {
       // Owner/Admin gets all three; other roles get support:request only) +
       // tools:fileTypeVerifier (0032_seed-tools-file-type-verifier.sql, seeded onto every default role) +
       // tools:decryption (in the 20260704T041516 baseline) +
-      // tools:fileRepair (20260704T041517_seed-tools-file-repair) — both seeded onto every default role.
+      // tools:fileRepair (20260704T041517_seed-tools-file-repair) — both seeded onto every default role +
+      // tools:speedTest (20260704T041519_seed-tools-speed-test, seeded onto every default role; it was
+      // the one tools:* permission no role carried).
       // Sorted.
       permissions: [
         "costs:approve",
@@ -109,6 +111,7 @@ describe("GET /api/v1/me", () => {
         "time:viewFirm",
         "tools:aiTextDetection",
         "tools:decryption",
+        "tools:emailInspector",
         "tools:fileConverter",
         "tools:fileIntegrity",
         "tools:fileRepair",
@@ -117,6 +120,7 @@ describe("GET /api/v1/me", () => {
         "tools:metadataScrubber",
         "tools:ocr",
         "tools:safeBrowse",
+        "tools:speedTest",
         "tools:whois",
       ],
     });

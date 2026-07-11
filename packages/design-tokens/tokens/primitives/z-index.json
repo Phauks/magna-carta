@@ -1,11 +1,12 @@
 {
   "z": {
-    "$description": "Stacking-order scale.",
+    "$description": "Stacking-order scale. \"anchored\" is anchor-positioned floating content (listboxes, menus, popovers, tooltips): above modal so a picker opened from inside a dialog paints over the panel (the Radix/Bits ecosystem norm), below toast so notifications always win.",
     "base": { "$type": "number", "$value": 0 },
     "dropdown": { "$type": "number", "$value": 1000 },
     "sticky": { "$type": "number", "$value": 1100 },
     "overlay": { "$type": "number", "$value": 1200 },
     "modal": { "$type": "number", "$value": 1300 },
+    "anchored": { "$type": "number", "$value": 1350 },
     "toast": { "$type": "number", "$value": 1400 }
   }
 }

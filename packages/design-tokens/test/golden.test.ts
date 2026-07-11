@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 // Golden-file gate: generated/tokens.css and generated/tailwind-theme.css must be
 // byte-identical to their committed twins in test/golden/. This is the
-// Style-Dictionary-escape-hatch insurance (design spec, "Gates"; ADR-0076): if the generator is ever swapped
+// generator-escape-hatch insurance: if the generator is ever swapped
 // (Terrazzo → Style Dictionary or anything else) or Terrazzo is upgraded, the new
 // pipeline is verified mechanically against known-good output instead of by eyeball.
 //

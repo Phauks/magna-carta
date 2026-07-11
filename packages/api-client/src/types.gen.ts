@@ -75,6 +75,19 @@ export type FirmUsageResponse = {
     };
 };
 
+export type ToolsConnectionResponse = {
+    ip: string;
+    asn: number;
+    asOrganization: string;
+    colo: string;
+    country: string;
+};
+
+export type TurnCredentials = {
+    username: string;
+    credential: string;
+};
+
 export type WhoisResponse = {
     source: 'rdap' | 'whois-43';
     target: string;
@@ -371,6 +384,12 @@ export type InitiateUploadRequest = {
     uploadKind?: 'interactive' | 'bulk';
 };
 
+export type UploadStatusResponse = {
+    sessionStatus: 'open' | 'completed' | 'aborted' | 'expired';
+    versionStatus: 'pending' | 'clean' | 'quarantined' | 'abandoned';
+    quarantineReason: string | null;
+};
+
 export type SignUploadPartResponse = {
     url: string;
 };
@@ -643,6 +662,16 @@ export type NumberingPreviewRequest = {
     };
 };
 
+export type FolderListResponse = {
+    data: Array<FolderSummary>;
+};
+
+export type FolderSummary = {
+    id: string;
+    parentFolderId: string | null;
+    name: string;
+};
+
 export type CreateFolderResponse = {
     folderId: string;
 };
@@ -675,6 +704,13 @@ export type FileSummary = {
     documentTypeId: string | null;
     currentVersionId: string | null;
     createdAt: string;
+    updatedAt: string;
+    versionNumber: number;
+    sizeBytes: number | null;
+    sniffedContentType: string | null;
+    scanVerdict: 'unscanned' | 'clean' | 'flagged' | null;
+    status: 'clean' | 'pending' | 'quarantined';
+    quarantineReason: string | null;
 };
 
 export type FileVersionsResponse = {
@@ -1643,6 +1679,80 @@ export type FirmUsageGetResponses = {
 
 export type FirmUsageGetResponse = FirmUsageGetResponses[keyof FirmUsageGetResponses];
 
+export type ToolsConnectionGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/tools/connection';
+};
+
+export type ToolsConnectionGetErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks tools:speedTest
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ToolsConnectionGetError = ToolsConnectionGetErrors[keyof ToolsConnectionGetErrors];
+
+export type ToolsConnectionGetResponses = {
+    /**
+     * The caller's connection as the edge sees it
+     */
+    200: ToolsConnectionResponse;
+};
+
+export type ToolsConnectionGetResponse = ToolsConnectionGetResponses[keyof ToolsConnectionGetResponses];
+
+export type ToolsTurnCredentialsGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/tools/turn-credentials';
+};
+
+export type ToolsTurnCredentialsGetErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks tools:speedTest
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+    /**
+     * The relay credential service refused
+     */
+    502: Problem;
+    /**
+     * Relay measurement is not configured for this deployment
+     */
+    503: Problem;
+};
+
+export type ToolsTurnCredentialsGetError = ToolsTurnCredentialsGetErrors[keyof ToolsTurnCredentialsGetErrors];
+
+export type ToolsTurnCredentialsGetResponses = {
+    /**
+     * Short-lived relay credentials
+     */
+    200: TurnCredentials;
+};
+
+export type ToolsTurnCredentialsGetResponse = ToolsTurnCredentialsGetResponses[keyof ToolsTurnCredentialsGetResponses];
+
 export type WhoisGetData = {
     body?: never;
     path?: never;
@@ -2067,6 +2177,106 @@ export type FileTypeVerifyResponses = {
 };
 
 export type FileTypeVerifyResponse = FileTypeVerifyResponses[keyof FileTypeVerifyResponses];
+
+export type EmailInspectorInspectData = {
+    body: unknown;
+    path?: never;
+    query?: never;
+    url: '/api/v1/email/inspect';
+};
+
+export type EmailInspectorInspectErrors = {
+    /**
+     * Empty request body
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Missing tools:emailInspector
+     */
+    403: Problem;
+    /**
+     * File exceeds the inspectable-size cap
+     */
+    413: Problem;
+    /**
+     * The bytes could not be read as an email, or are not a format this tool supports
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type EmailInspectorInspectError = EmailInspectorInspectErrors[keyof EmailInspectorInspectErrors];
+
+export type EmailInspectorInspectResponses = {
+    /**
+     * Parsed message
+     */
+    200: {
+        messageIdentifier: {
+            value: string | null;
+            provenance: 'header' | 'mapi' | 'absent';
+        };
+        inReplyTo: string | null;
+        references: Array<string>;
+        subject: string | null;
+        dateRaw: string | null;
+        from: Array<{
+            displayName: string | null;
+            address: string | null;
+        }>;
+        to: Array<{
+            displayName: string | null;
+            address: string | null;
+        }>;
+        cc: Array<{
+            displayName: string | null;
+            address: string | null;
+        }>;
+        bcc: Array<{
+            displayName: string | null;
+            address: string | null;
+        }>;
+        rawHeaders: Array<{
+            name: string;
+            value: string;
+        }>;
+        textBodies: Array<string>;
+        htmlBodies: Array<string>;
+        rtfBody: string | null;
+        parts: Array<{
+            filename: string | null;
+            mediaType: string | null;
+            contentIdentifier: string | null;
+            disposition: 'attachment' | 'inline';
+            size: number;
+            locator: {
+                kind: 'inputRange';
+                start: number;
+                end: number;
+            } | {
+                kind: 'mapiStream';
+                name: string;
+            };
+            isEmbeddedMessage: boolean;
+        }>;
+        integrity: {
+            dkimSignatures: Array<string>;
+            authenticationResults: Array<string>;
+            receivedChain: Array<string>;
+        };
+        sourceFormat: 'eml' | 'msg' | 'mboxMember';
+        referencesRemoteContent: boolean;
+    };
+};
+
+export type EmailInspectorInspectResponse = EmailInspectorInspectResponses[keyof EmailInspectorInspectResponses];
 
 export type FileRepairDiagnoseData = {
     body: unknown;
@@ -3011,6 +3221,45 @@ export type UploadsInitiateResponses = {
 };
 
 export type UploadsInitiateResponse = UploadsInitiateResponses[keyof UploadsInitiateResponses];
+
+export type UploadsGetData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/uploads/{id}';
+};
+
+export type UploadsGetErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks files:upload
+     */
+    403: Problem;
+    /**
+     * No such upload session in this firm
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type UploadsGetError = UploadsGetErrors[keyof UploadsGetErrors];
+
+export type UploadsGetResponses = {
+    /**
+     * The upload session's status
+     */
+    200: UploadStatusResponse;
+};
+
+export type UploadsGetResponse = UploadsGetResponses[keyof UploadsGetResponses];
 
 export type UploadsSignPartData = {
     body?: never;
@@ -4428,6 +4677,41 @@ export type NumberingPreviewResponses = {
 
 export type NumberingPreviewResponse2 = NumberingPreviewResponses[keyof NumberingPreviewResponses];
 
+export type FoldersListData = {
+    body?: never;
+    path?: never;
+    query: {
+        matterId: string;
+    };
+    url: '/api/v1/folders';
+};
+
+export type FoldersListErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the folder/matter is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FoldersListError = FoldersListErrors[keyof FoldersListErrors];
+
+export type FoldersListResponses = {
+    /**
+     * The matter's folders
+     */
+    200: FolderListResponse;
+};
+
+export type FoldersListResponse = FoldersListResponses[keyof FoldersListResponses];
+
 export type FoldersCreateData = {
     body: CreateFolderRequest;
     headers: {
@@ -4596,6 +4880,7 @@ export type FilesListData = {
         folderId?: string;
         cursor?: string;
         pageSize?: number;
+        includePendingAndQuarantined?: 'true';
     };
     url: '/api/v1/files';
 };

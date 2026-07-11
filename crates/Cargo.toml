@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["engine-host", "ocr-core", "pdf-core", "pdf-eval", "recovery-core", "decryption-core"]
+members = ["engine-host", "ocr-core", "pdf-core", "pdf-eval", "recovery-core", "decryption-core", "email-core"]
 
 [workspace.package]
 edition = "2021"

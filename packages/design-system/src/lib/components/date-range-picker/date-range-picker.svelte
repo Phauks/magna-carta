@@ -88,7 +88,7 @@
   <DateRangePickerPrimitive.Content
     sideOffset={6}
     class={mergeClasses(
-      floatingContentClasses("dropdown", PRESENCE_SCALE_FADE),
+      floatingContentClasses("anchored", PRESENCE_SCALE_FADE),
       "mc-date-picker-content",
     )}
   >

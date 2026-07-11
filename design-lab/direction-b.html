@@ -1,0 +1,879 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Direction B — Quiet Luxury, Law Report</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:ital,wght@0,200..800;1,200..800&family=Fraunces:ital,opsz,wght@0,9..144,100..900;1,9..144,100..900&family=UnifrakturMaguntia&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --chrome: #191813;
+        --chrome-raised: #23221b;
+        --chrome-hair: rgba(255, 255, 255, 0.08);
+        --chrome-text: #e9e7df;
+        --chrome-muted: #97937f;
+
+        --paper: #fbfaf6;
+        --sunken: #f2f0e9;
+        --text: #22211c;
+        --muted: #5d5a50;
+        --subtle: #8b877a;
+
+        --gold: #c7a857;
+        --gold-bright: #e2c476;
+        --gold-deep: #8a7434;
+        --gold-wash: #fbf6e9;
+
+        --hair: rgba(35, 33, 26, 0.13);
+        --hair-strong: rgba(35, 33, 26, 0.3);
+
+        --open: #3d6b4f;
+        --pending: #8a6a2f;
+        --prospect: #8b877a;
+
+        --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+      }
+      * {
+        margin: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        font-family: "Atkinson Hyperlegible Next", system-ui, sans-serif;
+        font-size: 14px;
+        color: var(--text);
+        background: var(--paper);
+        display: grid;
+        grid-template-columns: 232px 1fr;
+        grid-template-rows: 56px 1fr;
+        grid-template-areas: "side top" "side main";
+      }
+      button {
+        font: inherit;
+        color: inherit;
+        background: none;
+        border: 0;
+        cursor: pointer;
+      }
+      button:focus-visible,
+      a:focus-visible,
+      input:focus-visible,
+      tr:focus-visible {
+        outline: 2px solid var(--gold-deep);
+        outline-offset: 1px;
+      }
+      .caps {
+        font-size: 11px;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        font-weight: 600;
+      }
+      .serif {
+        font-family: "Fraunces", Georgia, serif;
+      }
+
+      /* ————— chrome (shared with A) ————— */
+      .side {
+        grid-area: side;
+        background: var(--chrome);
+        color: var(--chrome-text);
+        display: flex;
+        flex-direction: column;
+        position: relative;
+      }
+      .side::after,
+      .top::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        opacity: 0.05;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        height: 56px;
+        padding: 0 16px;
+      }
+      .brand .m {
+        font-family: "UnifrakturMaguntia";
+        font-size: 26px;
+        line-height: 1;
+        color: var(--gold-bright);
+        transform: translateY(-1px);
+      }
+      .brand .word {
+        font-size: 12.5px;
+        letter-spacing: 0.18em;
+        font-weight: 600;
+      }
+      nav {
+        padding: 10px 8px;
+        flex: 1;
+        overflow-y: auto;
+        position: relative;
+      }
+      .navsec {
+        color: var(--chrome-muted);
+        padding: 16px 10px 6px;
+      }
+      .navitem {
+        display: grid;
+        grid-template-columns: 18px 1fr auto;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        padding: 7px 10px;
+        border-radius: 3px;
+        text-align: left;
+        color: var(--chrome-text);
+        position: relative;
+        transition: background-color 120ms var(--ease-out);
+      }
+      .navitem:hover {
+        background: var(--chrome-raised);
+      }
+      .navitem svg {
+        width: 16px;
+        height: 16px;
+        stroke: currentColor;
+        stroke-width: 1.75;
+        fill: none;
+        opacity: 0.85;
+      }
+      .navitem .count {
+        color: var(--chrome-muted);
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+      }
+      .navitem[aria-current] {
+        background: var(--chrome-raised);
+        color: var(--gold-bright);
+        font-weight: 600;
+      }
+      .navitem[aria-current]::before {
+        content: "";
+        position: absolute;
+        left: -8px;
+        top: 6px;
+        bottom: 6px;
+        width: 2px;
+        background: var(--gold);
+      }
+      .side .foot {
+        border-top: 1px solid var(--chrome-hair);
+        padding: 10px 8px;
+        position: relative;
+      }
+      .top {
+        grid-area: top;
+        background: var(--chrome);
+        color: var(--chrome-text);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 0 16px;
+        border-bottom: 1px solid var(--chrome-hair);
+        position: relative;
+      }
+      .search {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 380px;
+        height: 32px;
+        background: var(--chrome-raised);
+        border: 1px solid var(--chrome-hair);
+        border-radius: 3px;
+        padding: 0 10px;
+        color: var(--chrome-muted);
+        text-align: left;
+      }
+      .search svg {
+        width: 14px;
+        height: 14px;
+        stroke: currentColor;
+        stroke-width: 2;
+        fill: none;
+      }
+      .search .k {
+        margin-left: auto;
+        font-size: 10.5px;
+        padding: 2px 6px;
+        border: 1px solid var(--chrome-hair);
+        border-radius: 3px;
+      }
+      .top .right {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .btn-new {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        height: 32px;
+        padding: 0 14px;
+        background: var(--gold);
+        color: #1c1a12;
+        border-radius: 3px;
+        font-weight: 700;
+      }
+      .btn-new:hover {
+        background: var(--gold-bright);
+      }
+      .timer {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: 32px;
+        padding: 0 12px;
+        border: 1px solid var(--chrome-hair);
+        border-radius: 3px;
+        background: var(--chrome-raised);
+        font-size: 13px;
+      }
+      .timer .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #6fae83;
+      }
+      .timer .t {
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+      }
+      .timer .on {
+        color: var(--chrome-muted);
+      }
+      .iconbtn {
+        display: grid;
+        place-items: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 3px;
+        color: var(--chrome-muted);
+      }
+      .iconbtn:hover {
+        color: var(--chrome-text);
+        background: var(--chrome-raised);
+      }
+      .iconbtn svg {
+        width: 17px;
+        height: 17px;
+        stroke: currentColor;
+        stroke-width: 1.75;
+        fill: none;
+      }
+      .avatar {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background: var(--chrome-raised);
+        border: 1px solid var(--chrome-hair);
+        color: var(--gold-bright);
+        font-size: 11.5px;
+        font-weight: 700;
+      }
+
+      /* ————— the editorial canvas ————— */
+      .main {
+        grid-area: main;
+        overflow-y: auto;
+      }
+      .page {
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 56px 56px 72px;
+        display: grid;
+        grid-template-columns: 176px 1fr;
+        column-gap: 48px;
+      }
+
+      /* marginalia — the law report's side notes */
+      .margin {
+        padding-top: 10px;
+      }
+      .margin .block {
+        border-top: 1px solid var(--hair-strong);
+        padding: 10px 0 22px;
+      }
+      .margin .k {
+        color: var(--subtle);
+        margin-bottom: 4px;
+      }
+      .margin .v {
+        font-variant-numeric: tabular-nums;
+        font-size: 15px;
+        font-weight: 600;
+      }
+      .margin .v.gold {
+        color: var(--gold-deep);
+      }
+      .margin .refine {
+        border-top: 1px solid var(--hair-strong);
+        padding-top: 14px;
+        display: grid;
+        gap: 10px;
+      }
+      .margin .refine button {
+        text-align: left;
+        color: var(--muted);
+        font-size: 13.5px;
+        padding: 0;
+        transition: color 120ms var(--ease-out);
+      }
+      .margin .refine button:hover {
+        color: var(--text);
+      }
+      .margin .refine button.on {
+        color: var(--gold-deep);
+        font-weight: 600;
+      }
+
+      /* masthead */
+      .head h1 {
+        font-family: "Fraunces", Georgia, serif;
+        font-weight: 440;
+        font-optical-sizing: auto;
+        font-size: 44px;
+        letter-spacing: -0.022em;
+        line-height: 1.05;
+      }
+      .head .std {
+        display: flex;
+        align-items: baseline;
+        gap: 16px;
+        margin-top: 10px;
+        padding-bottom: 18px;
+        border-bottom: 1px solid var(--hair-strong);
+        position: relative;
+      }
+      .head .std::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        bottom: -3px;
+        width: 48px;
+        border-bottom: 1px solid var(--gold);
+      }
+      .head .std .eyebrow {
+        color: var(--subtle);
+      }
+      .head .std .newm {
+        margin-left: auto;
+        color: var(--text);
+        font-weight: 600;
+        font-size: 13.5px;
+        border-bottom: 1px solid var(--hair-strong);
+        padding-bottom: 2px;
+        transition: border-color 120ms var(--ease-out);
+      }
+      .head .std .newm:hover {
+        border-color: var(--gold-deep);
+        color: var(--gold-deep);
+      }
+
+      .find {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 26px 0 8px;
+      }
+      .find svg {
+        width: 15px;
+        height: 15px;
+        stroke: var(--subtle);
+        stroke-width: 2;
+        fill: none;
+      }
+      .find input {
+        border: 0;
+        border-bottom: 1px solid var(--hair);
+        background: none;
+        outline: none;
+        font: inherit;
+        font-size: 15px;
+        color: var(--text);
+        width: 320px;
+        padding: 4px 0;
+        transition: border-color 140ms var(--ease-out);
+      }
+      .find input::placeholder {
+        color: var(--subtle);
+      }
+      .find input:focus {
+        border-color: var(--gold-deep);
+        outline: none;
+      }
+
+      /* the case index — rules on bare paper, no card */
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 18px;
+      }
+      thead th {
+        text-align: left;
+        padding: 0 12px 8px 0;
+        color: var(--subtle);
+        border-bottom: 1px solid var(--hair-strong);
+      }
+      thead th.num {
+        text-align: right;
+        padding-right: 0;
+      }
+      tbody td {
+        padding: 15px 12px 15px 0;
+        border-bottom: 1px solid var(--hair);
+        vertical-align: baseline;
+      }
+      tbody tr {
+        cursor: pointer;
+        transition: background-color 140ms var(--ease-out);
+      }
+      tbody tr:hover {
+        background: var(--sunken);
+      }
+      tbody tr:hover td:first-child {
+        box-shadow: inset 2px 0 0 var(--gold);
+      }
+      .case .t {
+        font-family: "Fraunces", Georgia, serif;
+        font-weight: 500;
+        font-size: 17px;
+        letter-spacing: -0.01em;
+      }
+      .case .cite {
+        color: var(--subtle);
+        font-size: 12.5px;
+        margin-top: 2px;
+        font-variant-numeric: tabular-nums;
+      }
+      .case .cite b {
+        color: var(--muted);
+        font-weight: 400;
+      }
+      td.dim {
+        color: var(--muted);
+      }
+      .status {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 11px;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        font-weight: 600;
+      }
+      .status .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: currentColor;
+      }
+      .status.open {
+        color: var(--open);
+      }
+      .status.pending {
+        color: var(--pending);
+      }
+      .status.prospect {
+        color: var(--prospect);
+      }
+      td.num {
+        text-align: right;
+        padding-right: 0;
+        font-variant-numeric: tabular-nums;
+      }
+      td.num .money {
+        font-weight: 600;
+      }
+      td.num .money .cents {
+        color: var(--subtle);
+        font-weight: 400;
+      }
+      td.num.due {
+        color: var(--muted);
+        white-space: nowrap;
+      }
+      td.num.due.soon {
+        color: var(--pending);
+        font-weight: 600;
+      }
+
+      tfoot td {
+        padding: 12px 12px 0 0;
+        color: var(--subtle);
+        font-size: 13px;
+      }
+      tfoot .total {
+        text-align: right;
+        padding-right: 0;
+      }
+      tfoot .total .sum {
+        font-variant-numeric: tabular-nums;
+        font-weight: 700;
+        color: var(--text);
+        font-size: 15px;
+        border-bottom: 3px double var(--hair-strong);
+        padding-bottom: 2px;
+        display: inline-block;
+      }
+      tfoot .total .lbl {
+        color: var(--subtle);
+        margin-right: 10px;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          animation: none !important;
+          transition: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <aside class="side">
+      <div class="brand"><span class="m">M</span><span class="word">MAGNA CARTA</span></div>
+      <nav aria-label="Primary">
+        <button class="navitem">
+          <svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5M5 9.5V21h14V9.5" /></svg>Home
+        </button>
+        <button class="navitem" aria-current="page">
+          <svg viewBox="0 0 24 24"><path d="M3 7h6l2 2h10v11H3zM3 7V5h6l2 2" /></svg>Matters<span
+            class="count"
+            >42</span
+          >
+        </button>
+        <button class="navitem">
+          <svg viewBox="0 0 24 24">
+            <rect x="3" y="5" width="18" height="16" rx="1" />
+            <path d="M3 10h18M8 3v4M16 3v4" /></svg
+          >Calendar
+        </button>
+        <button class="navitem">
+          <svg viewBox="0 0 24 24">
+            <circle cx="9" cy="8" r="3.5" />
+            <path
+              d="M3 20c0-3.5 2.5-5.5 6-5.5s6 2 6 5.5M16 4.5a3.5 3.5 0 0 1 0 7M18 14.8c2 .7 3 2.3 3 5.2"
+            /></svg
+          >Contacts
+        </button>
+        <button class="navitem">
+          <svg viewBox="0 0 24 24">
+            <rect x="4" y="4" width="16" height="16" rx="1" />
+            <path d="m8.5 12.5 2.5 2.5 5-5.5" /></svg
+          >Tasks<span class="count">7</span>
+        </button>
+        <div class="navsec caps">Money</div>
+        <button class="navitem">
+          <svg viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="8.5" />
+            <path d="M12 7.5V12l3 2" /></svg
+          >Time
+        </button>
+        <button class="navitem">
+          <svg viewBox="0 0 24 24">
+            <path
+              d="M12 4v3m0 0c-4 0-6 1.5-6 3.5S8.5 14 12 14s6 1.5 6 3.5S16 21 12 21m0-14c2.5 0 4.5.7 5.5 2M12 21c-2.5 0-4.5-.7-5.5-2m5.5 2v-3"
+            /></svg
+          >Trust
+        </button>
+        <button class="navitem">
+          <svg viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6" /></svg
+          >Billing
+        </button>
+        <div class="navsec caps">Firm</div>
+        <button class="navitem">
+          <svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6zM15 3v4h4" /></svg>Documents
+        </button>
+        <button class="navitem">
+          <svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-8M21 20H3" /></svg>Reports
+        </button>
+      </nav>
+      <div class="foot">
+        <button class="navitem">
+          <svg viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="8.5" />
+            <path d="M12 16v-4M12 8.5v.01" /></svg
+          >Resource center
+        </button>
+        <button class="navitem">
+          <svg viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="3" />
+            <path
+              d="M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.4-2.3 1a7 7 0 0 0-2-1.2L14.2 3h-4l-.4 2.7a7 7 0 0 0-2 1.2l-2.3-1-2 3.4 2 1.5A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.3-1a7 7 0 0 0 2 1.2l.4 2.7h4l.4-2.7a7 7 0 0 0 2-1.2l2.3 1 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"
+            /></svg
+          >Settings
+        </button>
+      </div>
+    </aside>
+
+    <header class="top">
+      <button class="search">
+        <svg viewBox="0 0 24 24">
+          <circle cx="11" cy="11" r="6.5" />
+          <path d="m20 20-4.4-4.4" />
+        </svg>
+        Search or jump to anything
+        <span class="k">Ctrl K</span>
+      </button>
+      <div class="right">
+        <button class="btn-new">+ New</button>
+        <button class="timer" title="Running timer — Pemberton v. Hale">
+          <span class="dot"></span><span class="t">0:42:18</span><span class="on">· Pemberton</span>
+        </button>
+        <button class="iconbtn" aria-label="Notifications">
+          <svg viewBox="0 0 24 24">
+            <path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6M10.5 20a2 2 0 0 0 3 0" />
+          </svg>
+        </button>
+        <button class="avatar" aria-label="Account — Trevor Goldsmith">TG</button>
+      </div>
+    </header>
+
+    <main class="main">
+      <div class="page">
+        <aside class="margin" aria-label="Summary">
+          <div style="height: 76px"></div>
+          <div class="block">
+            <div class="k caps">Open</div>
+            <div class="v">42</div>
+          </div>
+          <div class="block">
+            <div class="k caps">Total</div>
+            <div class="v">318</div>
+          </div>
+          <div class="block">
+            <div class="k caps">Trust held</div>
+            <div class="v gold">$95,150.00</div>
+          </div>
+          <div class="refine">
+            <div class="k caps" style="color: var(--subtle)">Refine</div>
+            <button class="on">Open matters</button>
+            <button>All matters</button>
+            <button>Mine only</button>
+            <button>By responsible</button>
+            <button>By practice area</button>
+          </div>
+        </aside>
+
+        <section class="head">
+          <h1>Matters</h1>
+          <div class="std">
+            <span class="eyebrow caps">The firm's active docket</span>
+            <button class="newm">New matter →</button>
+          </div>
+
+          <div class="find">
+            <svg viewBox="0 0 24 24">
+              <circle cx="11" cy="11" r="6.5" />
+              <path d="m20 20-4.4-4.4" />
+            </svg>
+            <input type="search" placeholder="Search the docket" aria-label="Search matters" />
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th class="caps">Matter</th>
+                <th class="caps">Responsible</th>
+                <th class="caps">Status</th>
+                <th class="caps num">Trust</th>
+                <th class="caps num">Next deadline</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr tabindex="0">
+                <td class="case">
+                  <div class="t">Pemberton v. Hale</div>
+                  <div class="cite">2026-0114 · <b>Litigation</b> · Pemberton, J.</div>
+                </td>
+                <td class="dim">A. Reyes</td>
+                <td>
+                  <span class="status open"><span class="dot"></span>Open</span>
+                </td>
+                <td class="num">
+                  <span class="money">$12,400<span class="cents">.00</span></span>
+                </td>
+                <td class="num due soon">Jun 18</td>
+              </tr>
+              <tr tabindex="0">
+                <td class="case">
+                  <div class="t">Estate of Calloway</div>
+                  <div class="cite">2026-0112 · <b>Probate</b> · Calloway Family</div>
+                </td>
+                <td class="dim">M. Okafor</td>
+                <td>
+                  <span class="status open"><span class="dot"></span>Open</span>
+                </td>
+                <td class="num">
+                  <span class="money">$3,000<span class="cents">.00</span></span>
+                </td>
+                <td class="num due">Jun 22</td>
+              </tr>
+              <tr tabindex="0">
+                <td class="case">
+                  <div class="t">Northwind Acquisition</div>
+                  <div class="cite">2026-0109 · <b>Corporate</b> · Northwind LLC</div>
+                </td>
+                <td class="dim">D. Singh</td>
+                <td>
+                  <span class="status open"><span class="dot"></span>Open</span>
+                </td>
+                <td class="num">
+                  <span class="money">$45,000<span class="cents">.00</span></span>
+                </td>
+                <td class="num due">Jul 1</td>
+              </tr>
+              <tr tabindex="0">
+                <td class="case">
+                  <div class="t">State v. Boone</div>
+                  <div class="cite">2026-0108 · <b>Criminal</b> · Boone, T.</div>
+                </td>
+                <td class="dim">R. Tran</td>
+                <td>
+                  <span class="status open"><span class="dot"></span>Open</span>
+                </td>
+                <td class="num">
+                  <span class="money">$7,500<span class="cents">.00</span></span>
+                </td>
+                <td class="num due soon">Jun 16</td>
+              </tr>
+              <tr tabindex="0">
+                <td class="case">
+                  <div class="t">Doyle v. Meridian Health</div>
+                  <div class="cite">2026-0104 · <b>Personal injury</b> · Doyle, K.</div>
+                </td>
+                <td class="dim">D. Singh</td>
+                <td>
+                  <span class="status open"><span class="dot"></span>Open</span>
+                </td>
+                <td class="num">
+                  <span class="money">$20,000<span class="cents">.00</span></span>
+                </td>
+                <td class="num due">Aug 4</td>
+              </tr>
+              <tr tabindex="0">
+                <td class="case">
+                  <div class="t">Harbor Point Lease</div>
+                  <div class="cite">2026-0101 · <b>Real estate</b> · Harbor Point Inc.</div>
+                </td>
+                <td class="dim">M. Okafor</td>
+                <td>
+                  <span class="status open"><span class="dot"></span>Open</span>
+                </td>
+                <td class="num">
+                  <span class="money">$2,250<span class="cents">.00</span></span>
+                </td>
+                <td class="num due">Jun 30</td>
+              </tr>
+              <tr tabindex="0">
+                <td class="case">
+                  <div class="t">Kline Divorce</div>
+                  <div class="cite">2026-0098 · <b>Family</b> · Kline, S.</div>
+                </td>
+                <td class="dim">R. Tran</td>
+                <td>
+                  <span class="status open"><span class="dot"></span>Open</span>
+                </td>
+                <td class="num">
+                  <span class="money">$5,000<span class="cents">.00</span></span>
+                </td>
+                <td class="num due">Jun 19</td>
+              </tr>
+              <tr tabindex="0">
+                <td class="case">
+                  <div class="t">Vasquez Immigration</div>
+                  <div class="cite">Intake pending · <b>Immigration</b> · Vasquez, L.</div>
+                </td>
+                <td class="dim">A. Reyes</td>
+                <td>
+                  <span class="status prospect"><span class="dot"></span>Prospective</span>
+                </td>
+                <td class="num">
+                  <span class="money" style="color: var(--subtle); font-weight: 400">—</span>
+                </td>
+                <td class="num due">—</td>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colspan="3">8 of 42 open matters</td>
+                <td colspan="2" class="total">
+                  <span class="lbl caps">Trust held</span><span class="sum">$95,150.00</span>
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </section>
+      </div>
+    </main>
+    <nav class="lab-switch" aria-label="Design lab switcher">
+      <a href="/">Lab</a><a href="/direction-a">A</a><a href="/direction-b" aria-current="page">B</a
+      ><a href="/direction-c">C</a><a href="/home">Home</a><a href="/matter">Matter</a>
+    </nav>
+    <style>
+      .lab-switch {
+        position: fixed;
+        right: 14px;
+        bottom: 48px;
+        z-index: 99;
+        display: flex;
+        gap: 2px;
+        padding: 4px;
+        border-radius: 999px;
+        background: #191813;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        box-shadow: 0 4px 16px rgba(20, 18, 10, 0.35);
+      }
+      .lab-switch a {
+        display: grid;
+        place-items: center;
+        min-width: 30px;
+        height: 30px;
+        padding: 0 10px;
+        border-radius: 999px;
+        color: #97937f;
+        text-decoration: none;
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .lab-switch a:hover {
+        color: #e9e7df;
+      }
+      .lab-switch a[aria-current] {
+        background: #23221b;
+        color: #e2c476;
+      }
+    </style>
+    <script>
+      document.addEventListener("keydown", (e) => {
+        if (e.target.tagName === "INPUT") return;
+        const map = {
+          0: "/",
+          1: "/direction-a",
+          2: "/direction-b",
+          3: "/direction-c",
+          4: "/home",
+          5: "/matter",
+        };
+        if (map[e.key]) location.href = map[e.key];
+      });
+    </script>
+  </body>
+</html>

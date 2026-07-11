@@ -33,7 +33,7 @@
     {sideOffset}
     style="min-width: var(--bits-floating-anchor-width)"
     class={mergeClasses(
-      floatingContentClasses("dropdown", PRESENCE_SCALE_FADE),
+      floatingContentClasses("anchored", PRESENCE_SCALE_FADE),
       "mc-select-content",
       className,
     )}

@@ -21,6 +21,107 @@
  * close — the panel would just vanish. Distinct names guarantee both directions animate.
  */
 
+/*
+ * Sidebar collapse/expand — view-transition SNAPSHOT GEOMETRY. By default the browser scales the
+ * old and new snapshots to fill the morphing group box, so collapsing 256px -> 52px SQUISHES the
+ * rail's content toward the top-left corner (owner review 2026-07-02: "it moves to the top-left
+ * rather than sliding left"). Pinning both snapshots to their natural size, anchored at the
+ * inline start, and clipping the pair turns the same width morph into a REVEAL: the edge slides,
+ * the content never rescales. The literals here are structural snapshot geometry (100% / auto /
+ * none / anchor keywords) — the same class of unavoidable literal as the keyframe offsets above;
+ * durations/easing still come from the tokens.
+ */
+::view-transition-group(mc-sidebar) {
+  animation-duration: var(--mc-duration-normal);
+  animation-timing-function: var(--mc-easing-settle);
+}
+::view-transition-image-pair(mc-sidebar) {
+  overflow: clip;
+}
+/*
+ * The work canvas morphs alongside; same timing so the seam moves as one. The canvas pair is
+ * deliberately NOT clipped (no overflow: clip like the sidebar's). Both canvas states share the
+ * same right edge — the viewport's — so a clip there can only ever cut off-screen pixels; but at
+ * fractional display scaling (e.g. Windows 150%) the interpolated box's right edge rasterizes a
+ * device pixel short of the viewport edge at some frames, and the clip then uncovered a
+ * one-device-pixel column in which the root snapshot's light page background showed through the
+ * dark header — a white line flashing at the screen's top-right on every toggle (owner report
+ * 2026-07-02, reproduced and pixel-verified at deviceScaleFactor 1.5). Unclipped, the canvas
+ * snapshot itself paints across that column and the line cannot occur. The sidebar pair MUST
+ * keep its clip — its box's right edge is the mid-screen seam doing the reveal.
+ */
+::view-transition-group(mc-app-canvas) {
+  animation-duration: var(--mc-duration-normal);
+  animation-timing-function: var(--mc-easing-settle);
+}
+/*
+ * NO crossfade on either pair — the sweep IS the animation (`animation: none` kills the UA
+ * fade-out/fade-in + plus-lighter blend). With a fade, the strip between the narrow rail
+ * snapshot and the still-moving edge dissolved to the page background mid-flight (owner
+ * diagnosis, slowed 15x: "green disappears, white appears, the canvas covers it"). Opaque
+ * snapshots restore the conveyor: the OLD wide sidebar is clipped by the narrowing box (the
+ * green slides away under the edge), the NEW rail sits pinned on top at the inline start (the
+ * icons never move), and the canvas — its end-state snapshot on top, edge-anchored — slides
+ * along attached to the seam.
+ */
+::view-transition-old(mc-sidebar),
+::view-transition-new(mc-sidebar),
+::view-transition-old(mc-app-canvas),
+::view-transition-new(mc-app-canvas) {
+  height: 100%;
+  width: auto;
+  object-fit: none;
+  object-position: left top;
+  animation: none;
+}
+/*
+ * Snapshot stacking is DIRECTIONAL. By default the new snapshot sits on top — right for
+ * expanding (the wide, labelled rail rides in with the widening surface), wrong for collapsing:
+ * the new 52px rail is a solid ink column pinned at the inline start, and it sat ON the old
+ * labels' first letters for the whole slide (owner review 2026-07-02: "the leftmost letter of
+ * every item is covered by the theme color"). While collapsing, the OLD wide snapshot goes on
+ * top instead: labels stay whole and the sweeping seam clips them; the icons beneath are at the
+ * identical position in both snapshots, so nothing visibly swaps. The direction comes from the
+ * data-mc-view-transition marker runViewTransition stamps on <html> (see the sidebar component).
+ * NO combinator before the pseudo-element: every view-transition pseudo originates on the root
+ * element itself, so a descendant selector (`:root[...] ::view-transition-old`) never matches.
+ */
+:root[data-mc-view-transition="sidebar-collapse"]::view-transition-old(mc-sidebar) {
+  z-index: 1;
+}
+/*
+ * The top-bar actions region is its own named group so it holds still while the canvas slides
+ * (see top-bar.css). But a named group still runs the UA default cross-fade on its snapshot
+ * pair, blended plus-lighter — and at fractional display scaling the old and new rects can
+ * round to device pixels a pixel apart, so the additive blend momentarily brightens the
+ * region's edge into a white flash next to the profile (owner review 2026-07-02, persists at
+ * normal speed). Same timing as the other groups so the whole bar settles as one; animation:
+ * none stacks the new snapshot opaque on the old — no blend, no flash.
+ */
+::view-transition-group(mc-top-bar-actions) {
+  animation-duration: var(--mc-duration-normal);
+  animation-timing-function: var(--mc-easing-settle);
+}
+::view-transition-old(mc-top-bar-actions),
+::view-transition-new(mc-top-bar-actions) {
+  animation: none;
+}
+/*
+ * During a sidebar transition the ROOT snapshot pair holds still — no fade, no plus-lighter
+ * blend. The work-canvas group's width and translate round to device pixels independently, so
+ * at fractional display scaling a 1px gap can open at its right edge mid-flight; whatever shows
+ * through is the root pair, and the UA's additive cross-blend momentarily doubles those pixels
+ * into a white flash at the screen edge (owner review 2026-07-02, slow toggles). Static, opaque
+ * root snapshots make any such gap render the stable end-state chrome instead. Scoped to the
+ * sidebar markers so a future route-level view transition keeps the default root cross-fade.
+ */
+:root[data-mc-view-transition="sidebar-collapse"]::view-transition-old(root),
+:root[data-mc-view-transition="sidebar-collapse"]::view-transition-new(root),
+:root[data-mc-view-transition="sidebar-expand"]::view-transition-old(root),
+:root[data-mc-view-transition="sidebar-expand"]::view-transition-new(root) {
+  animation: none;
+}
+
 @keyframes mc-sheet-in-right {
   from {
     transform: translateX(100%);
@@ -155,5 +256,33 @@
   to {
     opacity: 0;
     transform: scale(0.95);
+  }
+}
+
+/*
+ * Settle-fade — fade plus a small downward translate, for surfaces that should read as
+ * dropping into place under an anchor (e.g. a panel settling out of the search bar) rather
+ * than growing from their center: a translate has no origin, so nothing scales. The offset
+ * IS tokenizable (a plain length, unlike the structural 100% offsets above), so it rides the
+ * space scale. Compositor-only (opacity + transform), like every presence keyframe here.
+ */
+@keyframes mc-settle-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(calc(-1 * var(--mc-space-8)));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes mc-settle-fade-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(calc(-1 * var(--mc-space-8)));
   }
 }

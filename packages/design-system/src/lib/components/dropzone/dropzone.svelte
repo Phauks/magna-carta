@@ -1,0 +1,116 @@
+<script lang="ts">
+  /*
+   * Dropzone — the drag-and-drop upload surface (Tier 1: native elements, no Bits UI), built ON TOP
+   * of the FileInput primitive. FileInput is deliberately the bare control; the full upload
+   * experience composes over it, and this is that surface's first layer: a drop target that also
+   * carries the real, focusable file input so the whole thing is keyboard- and screen-reader-operable
+   * (a dropzone that only works with a mouse is not accessible). The FileInput is the accessible
+   * control — Tab reaches it, its button opens the native picker, assistive tech announces it; the
+   * drag surface is a pointer enhancement layered around that control, never a replacement for it.
+   *
+   * This primitive REJECTS NOTHING: it hands every dropped or picked file to the consumer via
+   * `onFiles` and leaves validation (type, size, count) and the R2 upload wiring to the consumer.
+   * There is deliberately no upload progress, file queue, or network code here — those compose above.
+   * A drop is also mirrored into the underlying input's `files` (via a DataTransfer) so the input's
+   * own filename display and any consumer reading `input.files` stay consistent with a keyboard pick.
+   */
+  import type { HTMLAttributes } from "svelte/elements";
+  import CloudUpload from "@lucide/svelte/icons/cloud-upload";
+  import FileInput from "../file-input/file-input.svelte";
+  import { mergeClasses } from "../../internal/merge-classes.ts";
+  import type { WithElementRef } from "../../internal/types.ts";
+
+  let {
+    label = "Upload files",
+    prompt = "Drag files here, or use the button",
+    accept,
+    multiple = false,
+    disabled = false,
+    onFiles,
+    ref = $bindable(null),
+    class: className,
+    ...restProps
+  }: WithElementRef<HTMLAttributes<HTMLDivElement>, HTMLInputElement> & {
+    /** Accessible name for the underlying file input (its label for keyboard/SR users). */
+    label?: string;
+    /** The visible instruction shown above the input. */
+    prompt?: string;
+    /** Filter offered in the picker (the native `accept` attribute), e.g. `image/*,.pdf`. */
+    accept?: string;
+    /** Allow selecting or dropping more than one file. */
+    multiple?: boolean;
+    /** Disables the surface: drops are ignored and the input is muted and unfocusable. */
+    disabled?: boolean;
+    /** Called with every dropped or picked file. Validation and upload are the consumer's. */
+    onFiles?: (files: File[]) => void;
+  } = $props();
+
+  // A counter, not a boolean: dragenter/dragleave fire for every descendant the pointer crosses, so
+  // a single flag would flicker off over child elements. The surface is "drag-over" while depth > 0.
+  let dragDepth = $state(0);
+  const dragOver = $derived(dragDepth > 0);
+
+  function emit(files: File[]) {
+    if (files.length > 0) onFiles?.(files);
+  }
+
+  function ondragenter(event: DragEvent) {
+    if (disabled) return;
+    event.preventDefault();
+    dragDepth += 1;
+  }
+
+  function ondragover(event: DragEvent) {
+    if (disabled) return;
+    // Preventing default on dragover is what marks the element a valid drop target.
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+  }
+
+  function ondragleave() {
+    if (disabled) return;
+    dragDepth = Math.max(0, dragDepth - 1);
+  }
+
+  function ondrop(event: DragEvent) {
+    if (disabled) return;
+    event.preventDefault();
+    dragDepth = 0;
+    const dropped = event.dataTransfer?.files;
+    if (!dropped || dropped.length === 0) return;
+    const all = Array.from(dropped);
+    const files = multiple ? all : all.slice(0, 1);
+    // Mirror the drop into the underlying input so its filename display and any consumer reading
+    // input.files match a keyboard pick. Some engines disallow the assignment — the consumer still
+    // receives the files from onFiles regardless.
+    if (ref) {
+      try {
+        const data = new DataTransfer();
+        for (const file of files) data.items.add(file);
+        ref.files = data.files;
+      } catch {
+        /* input.files not assignable here; onFiles below still delivers the files. */
+      }
+    }
+    emit(files);
+  }
+
+  function onchange(event: Event & { currentTarget: HTMLInputElement }) {
+    if (event.currentTarget.files) emit(Array.from(event.currentTarget.files));
+  }
+</script>
+
+<div
+  class={mergeClasses("mc-dropzone w-full", className)}
+  data-dragover={dragOver ? "true" : undefined}
+  data-disabled={disabled ? "true" : undefined}
+  {ondragenter}
+  {ondragover}
+  {ondragleave}
+  {ondrop}
+  {...restProps}
+>
+  <CloudUpload class="mc-dropzone-icon" aria-hidden="true" />
+  <p class="mc-dropzone-prompt">{prompt}</p>
+  <FileInput bind:ref {accept} {multiple} {disabled} aria-label={label} {onchange} />
+</div>

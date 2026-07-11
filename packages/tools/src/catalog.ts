@@ -102,7 +102,7 @@ export const CATALOG: readonly ToolManifest[] = [
     icon: "file-cog",
     subjectGroup: "files",
     permission: assertPermission("tools:fileConverter"),
-    contextTags: ["none"],
+    contextTags: ["file", "none"],
     backing: { kind: "library" },
     matterContext: "none",
   },
@@ -112,7 +112,7 @@ export const CATALOG: readonly ToolManifest[] = [
     icon: "file-search",
     subjectGroup: "files",
     permission: assertPermission("tools:metadataScrubber"),
-    contextTags: ["none"],
+    contextTags: ["file", "none"],
     backing: { kind: "library" },
     matterContext: "none",
   },
@@ -130,9 +130,13 @@ export const CATALOG: readonly ToolManifest[] = [
     id: "file-decryption",
     name: "File Decryption & Recovery",
     icon: "lock-open",
-    subjectGroup: "documents",
+    subjectGroup: "files",
     permission: assertPermission("tools:decryption"),
     contextTags: ["file"],
+    // The workbench for removing password protection. Today: unlock a file with a known password and
+    // recover a lost one. A future operation strips a PDF's owner/permissions ("editing") restrictions
+    // from a document that opens without a prompt — the engine already does this via pdf-core's
+    // decryptDocument on an owner-only document; only this tool's UI and route seam remain.
     backing: { kind: "library" },
     matterContext: "none",
   },
@@ -181,5 +185,29 @@ export const CATALOG: readonly ToolManifest[] = [
     // engine writes nothing. Turning the recognized text into a searchable PDF lands in a later slice.
     backing: { kind: "library" },
     matterContext: "optional",
+  },
+  {
+    id: "email-inspector",
+    name: "Email Inspector",
+    icon: "mail-search",
+    subjectGroup: "files",
+    permission: assertPermission("tools:emailInspector"),
+    contextTags: ["file", "none"],
+    // The parse engine is in-house WebAssembly, not a connected third-party service.
+    backing: { kind: "library" },
+    // Stateless: bytes in, a report out. Nothing is stored, so no matter is involved.
+    matterContext: "none",
+  },
+  {
+    id: "malware-scan",
+    name: "Malware Scan",
+    icon: "shield-check",
+    subjectGroup: "files",
+    // Gated on the same capability the scan diagnostic route requires (POST /api/v1/scan/diagnose),
+    // seeded to every default role. A one-off, matter-less diagnostic: the file is not stored.
+    permission: assertPermission("firm:scanFile"),
+    contextTags: ["file"],
+    backing: { kind: "library" },
+    matterContext: "none",
   },
 ];

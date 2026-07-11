@@ -283,6 +283,7 @@ describe("end-to-end", () => {
         "time:viewFirm",
         "tools:aiTextDetection",
         "tools:decryption",
+        "tools:emailInspector",
         "tools:fileConverter",
         "tools:fileIntegrity",
         "tools:fileRepair",
@@ -291,6 +292,7 @@ describe("end-to-end", () => {
         "tools:metadataScrubber",
         "tools:ocr",
         "tools:safeBrowse",
+        "tools:speedTest",
         "tools:whois",
       ],
     });
@@ -449,6 +451,9 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
       // Pure recognition over the uploaded bytes — returns text, word boxes, and confidence;
       // nothing is stored.
       "ocr.recognize",
+      // Pure computation over the uploaded message bytes — parses and returns the structural
+      // inspection; nothing is stored, no firm data is written.
+      "emailInspector.inspect",
       // Analysis POST: the only write is one incidental ai_detection_usage meter row (telemetry),
       // not an auditable firm-domain mutation; auditing every detection would flood audit_log.
       "aiDetection.detect",

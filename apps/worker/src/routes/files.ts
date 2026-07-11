@@ -14,8 +14,10 @@ import { selectFileStatement } from "@magna-carta/file-manager/file-statements";
 import {
   getCurrentCleanVersion,
   getCurrentCleanVersionForPreview,
+  getFileSummary,
   listCleanVersions,
   listFiles,
+  type FileListItem,
 } from "@magna-carta/file-manager/queries";
 import { decidePreview } from "@magna-carta/file-manager/preview-policy";
 import {
@@ -68,8 +70,21 @@ const FileSummary = z
     folderId: z.string().nullable(),
     name: z.string(),
     documentTypeId: z.string().nullable(),
+    // The clean current version, or null. Written only by a clean commit, so a pending or quarantined
+    // row carries null here and structurally cannot render a download link.
     currentVersionId: z.string().nullable(),
     createdAt: z.string(),
+    updatedAt: z.string(),
+    // The display version's facts (the clean current version, or — in the opt-in status include — the
+    // latest pending/quarantined version). One list call paints the table without a per-row fan-out to
+    // the version history. sizeBytes and sniffedContentType are null until ingest commits the bytes.
+    versionNumber: z.number().int(),
+    sizeBytes: z.number().int().nullable(),
+    sniffedContentType: z.string().nullable(),
+    scanVerdict: z.enum(["unscanned", "clean", "flagged"]).nullable(),
+    status: z.enum(["clean", "pending", "quarantined"]),
+    // The reason a version was quarantined, present only when status is "quarantined".
+    quarantineReason: z.string().nullable(),
   })
   .openapi("FileSummary");
 
@@ -264,15 +279,20 @@ const listFilesRoute = defineOpenAPIRoute(listFilesMeta, {
   method: "get",
   path: "/api/v1/files",
   description:
-    "Lists a matter's files (optionally a single folder), clean and undeleted only, cursor-paginated. " +
-    "A file appears once it has a committed clean version; pending, quarantined, and soft-deleted " +
-    "files are excluded.",
+    "Lists a matter's files (optionally a single folder), cursor-paginated. Each row carries its " +
+    "display version's number, size, sniffed type, scan verdict, and status, so one call paints a file " +
+    "table with no per-row fan-out to the version history. By default only files with a committed clean " +
+    "version appear (soft-deleted files are always excluded). Set includePendingAndQuarantined=true to " +
+    "also surface files whose latest version is still processing (pending) or was rejected as malware " +
+    "(quarantined); those rows carry a null currentVersionId and cannot be downloaded.",
   request: {
     query: z.object({
       matterId: identifierField("matter"),
       folderId: identifierField("folder").optional(),
       cursor: z.string().optional(),
       pageSize: z.coerce.number().int().positive().max(200).optional(),
+      // Opt-in: include files whose latest version is pending or quarantined (default: clean only).
+      includePendingAndQuarantined: z.literal("true").optional(),
     }),
   },
   responses: {
@@ -450,6 +470,27 @@ function runInBackground(c: Context, work: Promise<unknown>): void {
   }
 }
 
+// Projects the file-manager summary onto the FileSummary wire shape — shared by the list and the
+// single-file detail read so the two never drift.
+function toFileSummaryResponse(file: FileListItem): z.infer<typeof FileSummary> {
+  return {
+    id: file.id,
+    matterId: file.matterId,
+    folderId: file.folderId,
+    name: file.name,
+    documentTypeId: file.documentTypeId,
+    currentVersionId: file.currentVersionId,
+    createdAt: file.createdAt,
+    updatedAt: file.updatedAt,
+    versionNumber: file.versionNumber,
+    sizeBytes: file.sizeBytes,
+    sniffedContentType: file.sniffedContentType,
+    scanVerdict: file.scanVerdict,
+    status: file.status,
+    quarantineReason: file.quarantineReason,
+  };
+}
+
 // The visible file (clean current version, not soft-deleted) by id — the get/versions/download reads
 // all start here so a pending-only, quarantined, or deleted file is uniformly 404.
 async function loadVisibleFile(
@@ -509,18 +550,11 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
         folderId: query.folderId,
         cursor: query.cursor,
         pageSize: query.pageSize,
+        includePendingAndQuarantined: query.includePendingAndQuarantined === "true",
       });
       return c.json(
         {
-          data: page.data.map((file) => ({
-            id: file.id,
-            matterId: file.matterId,
-            folderId: file.folderId,
-            name: file.name,
-            documentTypeId: file.documentTypeId,
-            currentVersionId: file.currentVersionId,
-            createdAt: file.createdAt,
-          })),
+          data: page.data.map(toFileSummaryResponse),
           nextCursor: page.nextCursor,
         } as z.infer<typeof FileListResponse>,
         200,
@@ -534,7 +568,7 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const { id } = c.req.valid("param");
-      const file = await loadVisibleFile(firm.firmDatabase, id);
+      const file = await getFileSummary(firm.firmDatabase, id);
       if (file === undefined) {
         return problemJson(c, {
           type: "not-found",
@@ -543,18 +577,7 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
           detail: "No such file in this firm.",
         });
       }
-      return c.json(
-        {
-          id: file.id,
-          matterId: file.matterId,
-          folderId: file.folderId,
-          name: file.name,
-          documentTypeId: file.documentTypeId,
-          currentVersionId: file.currentVersionId,
-          createdAt: file.createdAt,
-        } as z.infer<typeof FileSummary>,
-        200,
-      );
+      return c.json(toFileSummaryResponse(file), 200);
     },
   );
 

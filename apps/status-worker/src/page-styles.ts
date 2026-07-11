@@ -468,6 +468,29 @@ button.icon-button:not(:disabled):hover { color: var(--text); }
 }
 .stale-strip b { font-weight: 600; }
 
+/* Upstream advisory — a provider reporting trouble about ITSELF. Deliberately outside the severity
+   family: a quiet card on the sunken surface, never a colored band, so it can never be mistaken at a
+   glance for a verdict about this platform. The only color it carries is the provider's own status
+   dot, which is the one thing here that IS a severity. */
+.advisory {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  background: var(--sunken);
+  border: 1px solid var(--hair);
+  border-radius: 6px;
+  padding: 14px 18px;
+  margin-bottom: 20px;
+}
+.advisory .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; margin-top: 6px; }
+.advisory .ok-dot { background: var(--ok-fg); }
+.advisory .warn-dot { background: var(--warn-fg); }
+.advisory .danger-dot { background: var(--danger-fg); }
+.advisory .info-dot { background: var(--info-fg); }
+.advisory .neutral-dot { background: var(--nodata-fg); }
+.advisory-head { color: var(--muted); margin-bottom: 3px; }
+.advisory p { font-size: 0.8125rem; color: var(--text); max-width: 78ch; }
+
 /* live event card — present only while an event is unresolved */
 .live {
   border: 1px solid var(--hair-strong);
@@ -549,6 +572,30 @@ button.icon-button:not(:disabled):hover { color: var(--text); }
 .neutral-row .st { color: var(--nodata-fg); }
 .empty-note { color: var(--subtle); font-size: 0.78125rem; padding: 14px 0; }
 
+/* Uptime bar — one tick per day in the window, oldest at the left. Ticks flex to fill the column at
+   any width, so ninety of them fit a phone and a wide desktop alike without a horizontal scroller;
+   the 2px floor keeps a single bad day visible when the column is at its narrowest. A day with no
+   samples wears --nodata-fg at reduced opacity: present, legible, and unmistakably not green. */
+.bar { display: flex; gap: 2px; margin: 11px 0 5px 19px; height: 26px; }
+.tick { flex: 1 1 0; min-width: 2px; border-radius: 1px; }
+.t-ok { background: var(--ok-fg); }
+.t-warn { background: var(--warn-fg); }
+.t-danger { background: var(--danger-fg); }
+.t-info { background: var(--info-fg); }
+.t-nodata { background: var(--nodata-fg); opacity: 0.24; }
+.bar-axis {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-left: 19px;
+  color: var(--subtle);
+  font-size: 0.6875rem;
+}
+.bar-axis .uptime { color: var(--muted); font-weight: 600; }
+@media (max-width: 480px) {
+  .bar { height: 20px; gap: 1px; }
+}
+
 /* providers */
 .providers { display: flex; gap: 10px; flex-wrap: wrap; margin: 14px 0 4px; }
 .prov {
@@ -578,6 +625,8 @@ h2.section { font-size: 0.9375rem; font-weight: 650; margin: 34px 0 2px; }
 .hist { background: var(--card); border: 1px solid var(--hair); padding: 14px 16px; }
 .hist h3 { font-size: 0.875rem; font-weight: 650; margin-bottom: 4px; }
 .hist .meta { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; flex-wrap: wrap; }
+/* The quiet remainder of the window, accounted for in one line rather than dozens of empty rows. */
+.quiet-note { border-top: 1px solid var(--hair); color: var(--subtle); font-size: 0.78125rem; padding: 12px 0; }
 
 /* the page ends on the history section; no footer (it develops separately later) */
 main.col { padding-bottom: 48px; }

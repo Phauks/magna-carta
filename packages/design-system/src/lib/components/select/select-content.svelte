@@ -2,7 +2,7 @@
   /*
    * Select.Content — the floating listbox panel. Portaled to the body to escape overflow; Bits
    * renders the positioning wrapper internally (the two-level rule — see internal/floating.ts) and
-   * applies this class to the inner content element. The z-layer (dropdown) and the scale-fade
+   * applies this class to the inner content element. The z-layer (anchored — above modal, so it works inside dialogs) and the scale-fade
    * presence come from the floating module; the look is the mc-select-content recipe.
    *
    * The panel matches the anchor width via Bits' generic `--bits-floating-anchor-width` and the
@@ -35,7 +35,7 @@
     {sideOffset}
     style="min-width: var(--bits-floating-anchor-width)"
     class={mergeClasses(
-      floatingContentClasses("dropdown", PRESENCE_SCALE_FADE),
+      floatingContentClasses("anchored", PRESENCE_SCALE_FADE),
       "mc-select-content",
       className,
     )}

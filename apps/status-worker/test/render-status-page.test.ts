@@ -1,6 +1,11 @@
 import { env, SELF } from "cloudflare:test";
 import { beforeEach, describe, expect, test } from "vitest";
-import { STATUS_KV_KEYS, type PublishedSnapshot } from "@magna-carta/status";
+import {
+  HISTORY_WINDOW_DAYS,
+  STATUS_KV_KEYS,
+  type ComponentStatus,
+  type PublishedSnapshot,
+} from "@magna-carta/status";
 import {
   COUNTRY_DIAL_CODES,
   examplePlaceholderFor,
@@ -10,6 +15,21 @@ import { FONT_ASSET_PATH, PAGE_CSS, STYLES_ASSET_PATH } from "../src/page-styles
 import { renderStatusPage } from "../src/render-status-page.ts";
 
 const GENERATED_AT = "2026-07-03T14:20:00.000Z";
+
+// A full window of operational ticks with a perfect ratio, unless a test says otherwise.
+function componentHistory(
+  ticks: (ComponentStatus | null)[] = Array(HISTORY_WINDOW_DAYS).fill("operational"),
+  uptimeRatio: number | null = 1,
+) {
+  return { ticks, uptimeRatio };
+}
+
+function historyFor(componentIds: string[]): PublishedSnapshot["history"] {
+  return {
+    windowDays: HISTORY_WINDOW_DAYS,
+    components: Object.fromEntries(componentIds.map((id) => [id, componentHistory()])),
+  };
+}
 
 function snapshotFixture(overrides: Partial<PublishedSnapshot> = {}): PublishedSnapshot {
   return {
@@ -37,7 +57,16 @@ function snapshotFixture(overrides: Partial<PublishedSnapshot> = {}): PublishedS
         reachable: true,
       },
     ],
+    upstreamAdvisory: null,
     events: [],
+    history: historyFor([
+      "api",
+      "control-plane-database",
+      "collabora",
+      "libreoffice",
+      "tantivy",
+      "ocr",
+    ]),
     stale: false,
     ...overrides,
   };
@@ -105,9 +134,11 @@ describe("renderStatusPage", () => {
     expect(html).toContain('class="icon-moon"');
     expect(html).toContain("relabelScheme");
     expect(html).toContain('"Color scheme: " + scheme');
-    // No live-event card and an explicitly empty history in the steady state.
+    // No live-event card and an explicitly empty archive in the steady state.
     expect(html).not.toContain('class="live');
-    expect(html).toContain("No past service events recorded.");
+    expect(html).toContain("No service events recorded in the last 90 days.");
+    // A calm upstream raises no advisory.
+    expect(html).not.toContain('class="advisory"');
   });
 
   test("subscribe panel: scope choice, working channel toggle wiring, dial-code select", () => {
@@ -347,7 +378,158 @@ describe("renderStatusPage", () => {
     expect(html).toContain("Status unavailable");
     expect(html).toContain('class="prov neutral-row"');
     expect(html).not.toContain('class="prov danger-row"');
-    expect(html).toContain("never counts against this platform");
+    expect(html).toContain("never sets the verdict above");
+    // An unreachable feed is uncertainty about them, not an advisory about us.
+    expect(html).not.toContain('class="advisory"');
+  });
+
+  test("an upstream provider in trouble raises an advisory and never touches the verdict", () => {
+    const html = renderStatusPage(
+      snapshotFixture({
+        // The verdict stays operational: our own components are all green.
+        overall: "operational",
+        upstreamAdvisory: {
+          worst: "degraded",
+          providers: [
+            {
+              id: "cloudflare",
+              name: "Cloudflare",
+              status: "degraded",
+              upstreamUrl: "https://www.cloudflarestatus.com/api/v2/summary.json",
+              fetchedAt: GENERATED_AT,
+              reachable: true,
+            },
+          ],
+        },
+      }),
+    );
+    // The verdict band is untouched: green, and never the warn hue the provider wears.
+    expect(html).toContain("All systems operational");
+    expect(html).toContain('class="band ok"');
+    expect(html).not.toContain('class="band warn"');
+    // The advisory is its own surface, naming whose status it reports and linking there.
+    expect(html).toContain('class="advisory"');
+    expect(html).toContain("Upstream advisory");
+    expect(html).toContain('<a href="https://www.cloudflarestatus.com">Cloudflare</a>');
+    // The status is spoken as a phrase, not as a column heading dropped into prose.
+    expect(html).toContain("is reporting degraded performance on its own status page");
+    expect(html).not.toContain("reporting Degraded");
+    expect(html).toContain("not ours");
+    // The severity lives only in the dot, never in the card.
+    expect(html).toContain('class="dot warn-dot"');
+    // The advisory sits above the components it disclaims.
+    expect(html.indexOf('class="advisory"')).toBeLessThan(html.indexOf("Core services"));
+    expect(html.indexOf('class="band')).toBeLessThan(html.indexOf('class="advisory"'));
+  });
+
+  test("two troubled providers read as a plural advisory carrying the worst severity", () => {
+    const html = renderStatusPage(
+      snapshotFixture({
+        upstreamAdvisory: {
+          worst: "major_outage",
+          providers: [
+            {
+              id: "cloudflare",
+              name: "Cloudflare",
+              status: "degraded",
+              upstreamUrl: "https://www.cloudflarestatus.com/api/v2/summary.json",
+              fetchedAt: GENERATED_AT,
+              reachable: true,
+            },
+            {
+              id: "github",
+              name: "GitHub",
+              status: "major_outage",
+              upstreamUrl: "https://www.githubstatus.com/api/v2/summary.json",
+              fetchedAt: GENERATED_AT,
+              reachable: true,
+            },
+          ],
+        },
+      }),
+    );
+    expect(html).toContain(
+      'is reporting degraded performance and <a href="https://www.githubstatus.com">GitHub</a> is reporting a major outage on their own status pages',
+    );
+    expect(html).toContain("This is their status, not ours");
+    expect(html).toContain('class="dot danger-dot"');
+    expect(html).toContain("All systems operational");
+  });
+
+  describe("uptime bars", () => {
+    test("a full operational window renders 90 ticks and a 100% figure", () => {
+      const html = renderStatusPage(snapshotFixture(), { now: GENERATED_AT });
+      expect((html.match(/class="tick t-ok"/g) ?? []).length).toBe(HISTORY_WINDOW_DAYS * 4);
+      expect(html).toContain("100% uptime");
+      expect(html).toContain('aria-label="Application API: 100% uptime over the last 90 days"');
+      expect(html).toContain(">90 days ago</span>");
+      expect(html).toContain(">Today</span>");
+      // Ticks carry their date and status for hover, and are hidden from the bar's one label.
+      expect(html).toContain('title="3 July 2026 — Operational" aria-hidden="true"');
+      expect(html).toContain('role="img"');
+    });
+
+    test("a day with no samples is a no-data tick, never a green one", () => {
+      const ticks: (ComponentStatus | null)[] = Array(HISTORY_WINDOW_DAYS).fill(null);
+      const html = renderStatusPage(
+        snapshotFixture({
+          components: [
+            { id: "api", name: "Application API", group: "Core", status: "operational" },
+          ],
+          history: {
+            windowDays: HISTORY_WINDOW_DAYS,
+            components: { api: componentHistory(ticks, null) },
+          },
+        }),
+      );
+      expect((html.match(/class="tick t-nodata"/g) ?? []).length).toBe(HISTORY_WINDOW_DAYS);
+      expect(html).not.toContain('class="tick t-ok"');
+      // No data must never present as a perfect record.
+      expect(html).not.toContain("100% uptime");
+      expect(html).toContain(">No data</span>");
+      expect(html).toContain(
+        'aria-label="Application API: no uptime data yet over the last 90 days"',
+      );
+    });
+
+    test("an imperfect record never rounds up to 100%", () => {
+      const ticks: (ComponentStatus | null)[] = Array(HISTORY_WINDOW_DAYS).fill("operational");
+      ticks[10] = "major_outage";
+      const html = renderStatusPage(
+        snapshotFixture({
+          components: [
+            { id: "api", name: "Application API", group: "Core", status: "operational" },
+          ],
+          history: {
+            windowDays: HISTORY_WINDOW_DAYS,
+            // One bad sample in 100000: honest rounding must not erase it.
+            components: { api: componentHistory(ticks, 0.999999) },
+          },
+        }),
+      );
+      expect(html).toContain("99.99% uptime");
+      expect(html).not.toContain("100% uptime");
+      expect(html).toContain('class="tick t-danger"');
+    });
+
+    test("a maintenance day colors its tick in the calm blue", () => {
+      const ticks: (ComponentStatus | null)[] = Array(HISTORY_WINDOW_DAYS).fill("operational");
+      ticks[HISTORY_WINDOW_DAYS - 1] = "maintenance";
+      const html = renderStatusPage(
+        snapshotFixture({
+          components: [
+            { id: "api", name: "Application API", group: "Core", status: "operational" },
+          ],
+          // Maintenance is excluded from the ratio, so a perfect record stands beside a blue tick.
+          history: {
+            windowDays: HISTORY_WINDOW_DAYS,
+            components: { api: componentHistory(ticks, 1) },
+          },
+        }),
+      );
+      expect(html).toContain('class="tick t-info"');
+      expect(html).toContain("100% uptime");
+    });
   });
 
   test("resolved events render as history, with maintenance closed as Completed", () => {
@@ -387,9 +569,12 @@ describe("renderStatusPage", () => {
       }),
     );
     expect(html).toContain("Past service events");
+    expect(html).toContain("Last 90 days");
     expect(html).toContain("28 June 2026");
     expect(html).toContain(">Resolved<");
     expect(html).toContain(">Completed<");
+    // Two event days in the window; the quiet remainder is accounted for in one line.
+    expect(html).toContain("No incidents reported on the other 88 days.");
     // Resolved events are history, not live incidents.
     expect(html).not.toContain('class="live');
     // Resolved events do not enable the current-issue subscribe scope.
@@ -398,6 +583,27 @@ describe("renderStatusPage", () => {
     expect(html.indexOf("Document editing sessions were slow to open")).toBeLessThan(
       html.indexOf("Scheduled maintenance: malware-scanning rule refresh"),
     );
+  });
+
+  test("the archive covers the same window as the bars: older events fall out of it", () => {
+    const html = renderStatusPage(
+      snapshotFixture({
+        events: [
+          {
+            id: "serviceEvent_8",
+            title: "An event from before the window",
+            impact: "minor",
+            lifecycle: "resolved",
+            affectedComponentIds: [],
+            startedAt: "2026-01-02T10:00:00.000Z",
+            resolvedAt: "2026-01-02T11:00:00.000Z",
+            updates: [{ at: "2026-01-02T11:00:00.000Z", lifecycle: "resolved", body: "Done." }],
+          },
+        ],
+      }),
+    );
+    expect(html).not.toContain("An event from before the window");
+    expect(html).toContain("No service events recorded in the last 90 days.");
   });
 
   test("operator-authored text is HTML-escaped everywhere it renders", () => {
@@ -518,6 +724,7 @@ describe("GET / (served page)", () => {
   beforeEach(async () => {
     await env.STATUS_KV.delete(STATUS_KV_KEYS.derived);
     await env.STATUS_KV.delete(STATUS_KV_KEYS.authored);
+    await env.STATUS_KV.delete(STATUS_KV_KEYS.history);
   });
 
   test("serves the rendered page from the merged snapshot with no operator identity", async () => {

@@ -3,7 +3,9 @@ import perFirmJournal from "@magna-carta/database/drizzle/per-firm/meta/_journal
 import baselineSql from "@magna-carta/database/drizzle/per-firm/20260704T041516_baseline.sql";
 import seedToolsFileRepairSql from "@magna-carta/database/drizzle/per-firm/20260704T041517_seed-tools-file-repair.sql";
 import fileRepairProvenanceSql from "@magna-carta/database/drizzle/per-firm/20260704T041518_file-repair-provenance.sql";
+import seedToolsSpeedTestSql from "@magna-carta/database/drizzle/per-firm/20260704T041519_seed-tools-speed-test.sql";
 import seedToolsOcrSql from "@magna-carta/database/drizzle/per-firm/20260709T000001_seed-tools-ocr.sql";
+import seedToolsEmailInspectorSql from "@magna-carta/database/drizzle/per-firm/20260710T120000_seed-tools-email-inspector.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the FirmDatabase
 // Durable Object runs this lineage against its own SQLite storage on wake (firm-database-object.ts),
@@ -17,6 +19,8 @@ export function perFirmMigrations(): Migration[] {
     "20260704T041516_baseline": baselineSql,
     "20260704T041517_seed-tools-file-repair": seedToolsFileRepairSql,
     "20260704T041518_file-repair-provenance": fileRepairProvenanceSql,
+    "20260704T041519_seed-tools-speed-test": seedToolsSpeedTestSql,
     "20260709T000001_seed-tools-ocr": seedToolsOcrSql,
+    "20260710T120000_seed-tools-email-inspector": seedToolsEmailInspectorSql,
   });
 }

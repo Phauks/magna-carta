@@ -1,0 +1,14 @@
+From alice@example.test Tue Jul 07 10:00:00 2026
+Message-ID: <one@example.test>
+From: alice@example.test
+Subject: First
+
+Body one.
+
+From bob@example.test Tue Jul 07 11:00:00 2026
+Message-ID: <two@example.test>
+From: bob@example.test
+Subject: Second
+
+>From the desk of Bob, this line must not split the message.
+Body two.

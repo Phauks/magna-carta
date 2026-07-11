@@ -1,0 +1,39 @@
+# Detached from the parent `crates/` workspace: a fuzz crate has its own empty
+# `[workspace]` table so `cargo test`/`clippy` over the main workspace never pull it
+# in (it needs a nightly toolchain and libFuzzer, which the main gate does not).
+[workspace]
+
+[package]
+name = "email-core-fuzz"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+email-core = { path = ".." }
+
+# Each target is its own libFuzzer harness binary; no doctests or lib target.
+[[bin]]
+name = "parse_eml"
+path = "fuzz_targets/parse_eml.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "parse_msg"
+path = "fuzz_targets/parse_msg.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "parse_mbox"
+path = "fuzz_targets/parse_mbox.rs"
+test = false
+doc = false
+bench = false

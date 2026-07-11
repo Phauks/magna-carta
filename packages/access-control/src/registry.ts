@@ -49,7 +49,7 @@ export const PERMISSIONS = [
   "tools:firmUsage", // firm usage snapshot — storage + entity counts (read-only, per-firm)
   "tools:whois", // WHOIS/RDAP registration lookup for a website's domain or an IP
   "tools:safeBrowse", // render a suspect URL in an isolated remote browser (static snapshot only)
-  "tools:decryption", // decrypt locked files (PDF/ZIP/OOXML) and recover lost passwords
+  "tools:decryption", // decrypt locked files (PDF/ZIP/OOXML), recover lost passwords, and remove a PDF's owner/permissions ("editing") restrictions from a document that opens without a prompt
   "tools:fileConverter", // general matter-free file converter — convert a file to another format
   "tools:aiTextDetection", // AI-text detection — likelihood that text was machine-generated (a signal, not proof)
   // Documents — in-app editing of a file's content (Collabora), versioning, and the offline
@@ -63,6 +63,7 @@ export const PERMISSIONS = [
   "tools:fileTypeVerifier", // identify a file's true content type and flag/repair an extension mismatch
   "tools:fileRepair", // recover content from a structurally corrupted / truncated / damaged file (stateless)
   "tools:ocr", // recognize text in a scanned image or PDF — returns text, word boxes, and confidence
+  "tools:emailInspector", // inspect .eml/.msg/mbox headers, participants, attachments, and authenticity facts
   // Custom fields — define and maintain field schemas; purge hard-deletes all values for a field.
   "customFields:manage",
   "customFields:purge",

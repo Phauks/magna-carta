@@ -1,7 +1,7 @@
 <script lang="ts">
   /*
    * Card root (Tier 1: native <div>, no Bits UI). A flat, hairline-bordered raised surface — no
-   * shadow (design language §6: shadow is reserved for floating layers only). Composes with the
+   * shadow (the register reserves shadow for floating layers only). Composes with the
    * sibling parts (Header/Title/Description/Content/Footer); this file owns the outer frame and
    * the vertical rhythm between sections. mergeClasses is the class seam; WithElementRef the ref.
    */

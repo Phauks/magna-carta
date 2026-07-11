@@ -77,6 +77,8 @@ const NON_MUTATING_POST_ALLOW_LIST: Record<string, string> = {
     "Pure carving over the uploaded bytes — returns recovered embedded files in-process; nothing is stored, no firm data is written. The persisting attach variant is a separate audited route.",
   "ocr.recognize":
     "Pure recognition over the uploaded bytes — returns per-page text, word boxes, and confidence; nothing is stored, no firm data is written.",
+  "emailInspector.inspect":
+    "Pure computation over the uploaded message bytes — parses and returns the structural inspection; nothing is stored, no firm data is written.",
   "aiDetection.detect":
     "Analysis POST: sends pasted text to the platform-managed detector and returns a likelihood band. The only write is one incidental ai_detection_usage meter row (telemetry — the accountability record for the egress), not an auditable firm-domain mutation; auditing every detection would flood audit_log.",
 };
@@ -582,6 +584,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "documents.viewSession",
       "downloads.bundleStatus",
       "downloads.zip",
+      "emailInspector.inspect",
       "fileIntegrity.hash",
       "fileIntegrity.verify",
       "fileRepair.carve",
@@ -602,6 +605,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "firms.provision",
       "folders.create",
       "folders.delete",
+      "folders.list",
       "folders.update",
       "health.read",
       "incidents.report",
@@ -687,8 +691,11 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "timer.resume",
       "timer.start",
       "timer.stopCommit",
+      "toolsConnection.get",
+      "toolsTurnCredentials.get",
       "uploads.abort",
       "uploads.complete",
+      "uploads.get",
       "uploads.initiate",
       "uploads.signPart",
       "utbmsCodes.disable",

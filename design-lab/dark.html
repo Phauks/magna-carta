@@ -1,0 +1,741 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dark pass — Engraved Ledger, three decisions</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:ital,wght@0,200..800;1,200..800&family=Fraunces:ital,opsz,wght@0,9..144,100..900&family=UnifrakturMaguntia&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        /* dark canvas (chancery dark: warm near-black ink) */
+        --paper: #131210;
+        --card: #131210; /* toggled: elevation-as-tint lifts this */
+        --sunken: #131210; /* toggled: header fill decision */
+        --raised: #1c1b17;
+
+        --chrome: #191813;
+        --chrome-raised: #23221b;
+        --chrome-hair: rgba(255, 255, 255, 0.08);
+        --chrome-text: #e9e7df;
+        --chrome-muted: #97937f;
+
+        --text: #efede6;
+        --muted: #b0ac9f;
+        --subtle: #85816f;
+
+        --gold: #c7a857;
+        --gold-bright: #e2c476;
+        --gold-deep: #d9bc70; /* on dark, "deep" gold flips bright for contrast */
+        --gold-wash: rgba(199, 168, 87, 0.12);
+
+        --hair: rgba(233, 231, 223, 0.1);
+        --hair-strong: rgba(233, 231, 223, 0.22);
+
+        --open-fg: #8fc9a4;
+        --open-bg: rgba(61, 107, 79, 0.28);
+        --pending-fg: #dcb96a;
+        --pending-bg: rgba(138, 106, 47, 0.26);
+        --prospect-fg: #b0ac9f;
+        --prospect-bg: rgba(139, 135, 122, 0.2);
+
+        --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+      }
+      /* Decision 1 — table header fill: distinct sunken step in dark (vs flat) */
+      html[data-header="distinct"] {
+        --sunken: #1c1b17;
+      }
+      /* Decision 2 — panel elevation: lifted surface tint (vs flat hairline-only) */
+      html[data-panels="lifted"] {
+        --card: #1a1915;
+      }
+      * {
+        margin: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        font-family: "Atkinson Hyperlegible Next", system-ui, sans-serif;
+        font-size: 14px;
+        color: var(--text);
+        background: var(--paper);
+        display: grid;
+        grid-template-columns: 232px 1fr;
+        grid-template-rows: 56px 1fr;
+        grid-template-areas: "side top" "side main";
+      }
+      button {
+        font: inherit;
+        color: inherit;
+        background: none;
+        border: 0;
+        cursor: pointer;
+      }
+      button:focus-visible,
+      a:focus-visible,
+      input:focus-visible {
+        outline: 2px solid var(--gold);
+        outline-offset: 1px;
+      }
+      .caps {
+        font-size: 11px;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        font-weight: 600;
+      }
+
+      /* ————— chrome (reads darker-warmer than the canvas; hairline seam carries the frame) ————— */
+      .side {
+        grid-area: side;
+        background: var(--chrome);
+        color: var(--chrome-text);
+        display: flex;
+        flex-direction: column;
+        position: relative;
+      }
+      .side::after,
+      .top::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        opacity: 0.05;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        height: 56px;
+        padding: 0 16px;
+      }
+      .brand .m {
+        font-family: "UnifrakturMaguntia";
+        font-size: 26px;
+        line-height: 1;
+        color: var(--gold-bright);
+        transform: translateY(-1px);
+      }
+      .brand .word {
+        font-size: 12.5px;
+        letter-spacing: 0.18em;
+        font-weight: 600;
+      }
+      nav {
+        padding: 10px 8px;
+        flex: 1;
+        overflow-y: auto;
+        position: relative;
+      }
+      .navsec {
+        color: var(--chrome-muted);
+        padding: 16px 10px 6px;
+      }
+      .navitem {
+        display: grid;
+        grid-template-columns: 18px 1fr auto;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        padding: 7px 10px;
+        border-radius: 3px;
+        text-align: left;
+        color: var(--chrome-text);
+        position: relative;
+        transition: background-color 120ms var(--ease-out);
+      }
+      .navitem:hover {
+        background: var(--chrome-raised);
+      }
+      .navitem svg {
+        width: 16px;
+        height: 16px;
+        stroke: currentColor;
+        stroke-width: 1.75;
+        fill: none;
+        opacity: 0.85;
+      }
+      .navitem .count {
+        color: var(--chrome-muted);
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+      }
+      .navitem[aria-current] {
+        background: var(--chrome-raised);
+        color: var(--gold-bright);
+        font-weight: 600;
+      }
+      .navitem[aria-current]::before {
+        content: "";
+        position: absolute;
+        left: -8px;
+        top: 6px;
+        bottom: 6px;
+        width: 2px;
+        background: var(--gold);
+      }
+      .side .foot {
+        border-top: 1px solid var(--chrome-hair);
+        padding: 10px 8px;
+        position: relative;
+      }
+      .top {
+        grid-area: top;
+        background: var(--chrome);
+        color: var(--chrome-text);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 0 16px;
+        border-bottom: 1px solid var(--chrome-hair);
+        position: relative;
+      }
+      .search {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 380px;
+        height: 32px;
+        background: var(--chrome-raised);
+        border: 1px solid var(--chrome-hair);
+        border-radius: 3px;
+        padding: 0 10px;
+        color: var(--chrome-muted);
+        text-align: left;
+      }
+      .search svg {
+        width: 14px;
+        height: 14px;
+        stroke: currentColor;
+        stroke-width: 2;
+        fill: none;
+      }
+      .search .k {
+        margin-left: auto;
+        font-size: 10.5px;
+        padding: 2px 6px;
+        border: 1px solid var(--chrome-hair);
+        border-radius: 3px;
+      }
+      .top .right {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      /* Decision 3 — the gilt CTA in dark: filled gold (default) vs outlined gold */
+      .btn-new {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        height: 32px;
+        padding: 0 14px;
+        background: var(--gold);
+        color: #1c1a12;
+        border: 1px solid transparent;
+        border-radius: 3px;
+        font-weight: 700;
+        transition:
+          background-color 120ms var(--ease-out),
+          color 120ms var(--ease-out);
+      }
+      .btn-new:hover {
+        background: var(--gold-bright);
+      }
+      html[data-cta="outline"] .btn-new {
+        background: transparent;
+        color: var(--gold-bright);
+        border-color: var(--gold);
+      }
+      html[data-cta="outline"] .btn-new:hover {
+        background: var(--gold-wash);
+      }
+      .timer {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: 32px;
+        padding: 0 12px;
+        border: 1px solid var(--chrome-hair);
+        border-radius: 3px;
+        background: var(--chrome-raised);
+        font-size: 13px;
+      }
+      .timer .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #6fae83;
+      }
+      .timer .t {
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+      }
+      .timer .on {
+        color: var(--chrome-muted);
+      }
+      .avatar {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background: var(--chrome-raised);
+        border: 1px solid var(--chrome-hair);
+        color: var(--gold-bright);
+        font-size: 11.5px;
+        font-weight: 700;
+      }
+
+      /* ————— canvas ————— */
+      .main {
+        grid-area: main;
+        overflow-y: auto;
+        padding: 26px 32px 60px;
+      }
+      .masthead {
+        display: flex;
+        align-items: flex-start;
+        gap: 16px;
+        margin-bottom: 20px;
+      }
+      .masthead h1 {
+        font-family: "Fraunces", Georgia, serif;
+        font-weight: 460;
+        font-optical-sizing: auto;
+        font-size: 32px;
+        letter-spacing: -0.01em;
+        line-height: 1.15;
+      }
+      .masthead .meta {
+        color: var(--muted);
+        font-size: 13.5px;
+        margin-top: 4px;
+      }
+      .btn-primary {
+        margin-left: auto;
+        height: 34px;
+        padding: 0 16px;
+        border-radius: 3px;
+        background: var(--text);
+        color: var(--paper);
+        font-weight: 600;
+        flex: none;
+      }
+
+      .sheet {
+        background: var(--card);
+        border: 1px solid var(--hair);
+        border-radius: 3px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      thead th {
+        text-align: left;
+        padding: 10px 14px;
+        color: var(--subtle);
+        background: var(--sunken);
+        border-bottom: 1px solid var(--hair-strong);
+        white-space: nowrap;
+        font-size: 11px;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        font-weight: 600;
+      }
+      thead th.num {
+        text-align: right;
+      }
+      tbody td {
+        padding: 10px 14px;
+        border-bottom: 1px solid var(--hair);
+        vertical-align: middle;
+      }
+      tbody tr {
+        transition: background-color 120ms var(--ease-out);
+        cursor: pointer;
+      }
+      tbody tr:hover {
+        background: var(--raised);
+      }
+      tbody tr:last-child td {
+        border-bottom: 0;
+      }
+      .matter .name {
+        font-weight: 700;
+      }
+      .matter .no {
+        color: var(--subtle);
+        font-size: 12.5px;
+        margin-top: 1px;
+        font-variant-numeric: tabular-nums;
+      }
+      td.dim {
+        color: var(--muted);
+      }
+      .pill {
+        display: inline-block;
+        padding: 2.5px 9px;
+        border-radius: 999px;
+        font-size: 11px;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        font-weight: 600;
+      }
+      .pill.open {
+        color: var(--open-fg);
+        background: var(--open-bg);
+      }
+      .pill.pending {
+        color: var(--pending-fg);
+        background: var(--pending-bg);
+      }
+      .pill.prospect {
+        color: var(--prospect-fg);
+        background: var(--prospect-bg);
+      }
+      td.num {
+        text-align: right;
+      }
+      .money {
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+      }
+      .money .cents {
+        color: var(--subtle);
+        font-weight: 400;
+      }
+      td.due {
+        text-align: right;
+        color: var(--muted);
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+      td.due.soon {
+        color: var(--pending-fg);
+        font-weight: 600;
+      }
+      tr[aria-selected="true"] {
+        background: var(--gold-wash);
+      }
+      tr[aria-selected="true"] td:first-child {
+        box-shadow: inset 2px 0 0 var(--gold);
+      }
+      tfoot td {
+        padding: 10px 14px;
+        border-top: 1px solid var(--hair-strong);
+        color: var(--muted);
+        font-size: 13px;
+      }
+      tfoot .total {
+        text-align: right;
+      }
+      tfoot .total .sum {
+        display: inline-block;
+        font-variant-numeric: tabular-nums;
+        font-weight: 700;
+        color: var(--text);
+        border-bottom: 3px double var(--hair-strong);
+        padding-bottom: 2px;
+      }
+      tfoot .total .lbl {
+        color: var(--subtle);
+        margin-right: 10px;
+      }
+
+      /* ————— decision rail (lab chrome) ————— */
+      .decisions {
+        position: fixed;
+        right: 14px;
+        bottom: 48px;
+        z-index: 99;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 12px 14px;
+        border-radius: 10px;
+        background: #060605e6;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+        font-size: 12px;
+        color: #97937f;
+        max-width: 300px;
+      }
+      .decisions .row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .decisions .k {
+        flex: 1;
+      }
+      .decisions button {
+        padding: 3px 9px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        color: #97937f;
+        font-size: 11.5px;
+        font-weight: 600;
+      }
+      .decisions button[aria-pressed="true"] {
+        background: #23221b;
+        color: #e2c476;
+        border-color: #e2c47655;
+      }
+      .decisions .title {
+        color: #e9e7df;
+        font-weight: 700;
+        font-size: 12.5px;
+      }
+    </style>
+  </head>
+  <body>
+    <aside class="side">
+      <div class="brand"><span class="m">M</span><span class="word">MAGNA CARTA</span></div>
+      <nav aria-label="Primary">
+        <button class="navitem">
+          <svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5M5 9.5V21h14V9.5" /></svg>Home
+        </button>
+        <button class="navitem" aria-current="page">
+          <svg viewBox="0 0 24 24"><path d="M3 7h6l2 2h10v11H3zM3 7V5h6l2 2" /></svg>Matters<span
+            class="count"
+            >42</span
+          >
+        </button>
+        <button class="navitem">
+          <svg viewBox="0 0 24 24">
+            <rect x="3" y="5" width="18" height="16" rx="1" />
+            <path d="M3 10h18M8 3v4M16 3v4" /></svg
+          >Calendar
+        </button>
+        <button class="navitem">
+          <svg viewBox="0 0 24 24">
+            <circle cx="9" cy="8" r="3.5" />
+            <path
+              d="M3 20c0-3.5 2.5-5.5 6-5.5s6 2 6 5.5M16 4.5a3.5 3.5 0 0 1 0 7M18 14.8c2 .7 3 2.3 3 5.2"
+            /></svg
+          >Contacts
+        </button>
+        <div class="navsec caps">Money</div>
+        <button class="navitem">
+          <svg viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="8.5" />
+            <path d="M12 7.5V12l3 2" /></svg
+          >Time
+        </button>
+        <button class="navitem">
+          <svg viewBox="0 0 24 24">
+            <path
+              d="M12 4v3m0 0c-4 0-6 1.5-6 3.5S8.5 14 12 14s6 1.5 6 3.5S16 21 12 21m0-14c2.5 0 4.5.7 5.5 2M12 21c-2.5 0-4.5-.7-5.5-2m5.5 2v-3"
+            /></svg
+          >Trust
+        </button>
+        <button class="navitem">
+          <svg viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6" /></svg
+          >Billing
+        </button>
+      </nav>
+      <div class="foot">
+        <button class="navitem">
+          <svg viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="3" />
+            <path
+              d="M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.4-2.3 1a7 7 0 0 0-2-1.2L14.2 3h-4l-.4 2.7a7 7 0 0 0-2 1.2l-2.3-1-2 3.4 2 1.5A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.3-1a7 7 0 0 0 2 1.2l.4 2.7h4l.4-2.7a7 7 0 0 0 2-1.2l2.3 1 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"
+            /></svg
+          >Settings
+        </button>
+      </div>
+    </aside>
+
+    <header class="top">
+      <button class="search">
+        <svg viewBox="0 0 24 24">
+          <circle cx="11" cy="11" r="6.5" />
+          <path d="m20 20-4.4-4.4" />
+        </svg>
+        Search or jump to anything
+        <span class="k">Ctrl K</span>
+      </button>
+      <div class="right">
+        <button class="btn-new">+ New</button>
+        <button class="timer" title="Running timer — Pemberton v. Hale">
+          <span class="dot"></span><span class="t">0:42:18</span><span class="on">· Pemberton</span>
+        </button>
+        <button class="avatar" aria-label="Account — Trevor Goldsmith">TG</button>
+      </div>
+    </header>
+
+    <main class="main">
+      <div class="masthead">
+        <div>
+          <h1>Matters</h1>
+          <div class="meta">8 open · 318 total</div>
+        </div>
+        <button class="btn-primary">New matter</button>
+      </div>
+
+      <div class="sheet">
+        <table>
+          <thead>
+            <tr>
+              <th>Matter</th>
+              <th>Client</th>
+              <th>Status</th>
+              <th class="num">Trust</th>
+              <th class="num">Next deadline</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr aria-selected="true">
+              <td class="matter">
+                <div class="name">Pemberton v. Hale</div>
+                <div class="no">2026-0114</div>
+              </td>
+              <td class="dim">Pemberton, J.</td>
+              <td><span class="pill open">Open</span></td>
+              <td class="num">
+                <span class="money">$12,400<span class="cents">.00</span></span>
+              </td>
+              <td class="due soon">Jun 18</td>
+            </tr>
+            <tr>
+              <td class="matter">
+                <div class="name">Estate of Calloway</div>
+                <div class="no">2026-0112</div>
+              </td>
+              <td class="dim">Calloway Family</td>
+              <td><span class="pill open">Open</span></td>
+              <td class="num">
+                <span class="money">$3,000<span class="cents">.00</span></span>
+              </td>
+              <td class="due">Jun 22</td>
+            </tr>
+            <tr>
+              <td class="matter">
+                <div class="name">Northwind Acquisition</div>
+                <div class="no">2026-0109</div>
+              </td>
+              <td class="dim">Northwind LLC</td>
+              <td><span class="pill open">Open</span></td>
+              <td class="num">
+                <span class="money">$45,000<span class="cents">.00</span></span>
+              </td>
+              <td class="due">Jul 1</td>
+            </tr>
+            <tr>
+              <td class="matter">
+                <div class="name">State v. Boone</div>
+                <div class="no">2026-0108</div>
+              </td>
+              <td class="dim">Boone, T.</td>
+              <td><span class="pill pending">Pending</span></td>
+              <td class="num">
+                <span class="money">$7,500<span class="cents">.00</span></span>
+              </td>
+              <td class="due soon">Jun 16</td>
+            </tr>
+            <tr>
+              <td class="matter">
+                <div class="name">Vasquez Immigration</div>
+                <div class="no">Intake pending</div>
+              </td>
+              <td class="dim">Vasquez, L.</td>
+              <td><span class="pill prospect">Prospective</span></td>
+              <td class="num">
+                <span class="money" style="color: var(--subtle); font-weight: 400">—</span>
+              </td>
+              <td class="due">—</td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="3">5 matters shown</td>
+              <td colspan="2" class="total">
+                <span class="lbl caps">Trust held</span>
+                <span class="sum">$67,900.00</span>
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </main>
+
+    <div class="decisions" role="group" aria-label="Dark-pass decisions">
+      <div class="title">Dark pass — three decisions</div>
+      <div class="row">
+        <span class="k">1 · Table header fill</span>
+        <button data-axis="header" data-value="flat" aria-pressed="true">Flat</button>
+        <button data-axis="header" data-value="distinct" aria-pressed="false">Distinct</button>
+      </div>
+      <div class="row">
+        <span class="k">2 · Panel elevation</span>
+        <button data-axis="panels" data-value="flat" aria-pressed="true">Hairline</button>
+        <button data-axis="panels" data-value="lifted" aria-pressed="false">Lifted</button>
+      </div>
+      <div class="row">
+        <span class="k">3 · Gilt CTA</span>
+        <button data-axis="cta" data-value="filled" aria-pressed="true">Filled</button>
+        <button data-axis="cta" data-value="outline" aria-pressed="false">Outline</button>
+      </div>
+    </div>
+
+    <nav class="lab-switch" aria-label="Design lab switcher">
+      <a href="/">Lab</a><a href="/direction-a">A</a><a href="/dark" aria-current="page">Dark</a>
+    </nav>
+    <style>
+      .lab-switch {
+        position: fixed;
+        left: 246px;
+        bottom: 12px;
+        z-index: 99;
+        display: flex;
+        gap: 2px;
+        padding: 4px;
+        border-radius: 999px;
+        background: #060605e6;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+      }
+      .lab-switch a {
+        display: grid;
+        place-items: center;
+        min-width: 30px;
+        height: 30px;
+        padding: 0 10px;
+        border-radius: 999px;
+        color: #97937f;
+        text-decoration: none;
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .lab-switch a:hover {
+        color: #e9e7df;
+      }
+      .lab-switch a[aria-current] {
+        background: #23221b;
+        color: #e2c476;
+      }
+    </style>
+    <script>
+      document.querySelectorAll(".decisions button").forEach((button) => {
+        button.addEventListener("click", () => {
+          const axis = button.dataset.axis;
+          const value = button.dataset.value;
+          const defaults = { header: "flat", panels: "flat", cta: "filled" };
+          if (value === defaults[axis]) delete document.documentElement.dataset[axis];
+          else document.documentElement.dataset[axis] = value;
+          document
+            .querySelectorAll(`.decisions button[data-axis="${axis}"]`)
+            .forEach((peer) => peer.setAttribute("aria-pressed", String(peer === button)));
+        });
+      });
+    </script>
+  </body>
+</html>

@@ -1,5 +1,4 @@
 import {
-  appendCursorPredicate,
   assemblePage,
   DEFAULT_PAGE_SIZE,
   decodeCursor,
@@ -14,8 +13,9 @@ import type {
   FileVersionId,
   FolderId,
   MatterId,
+  UploadSessionId,
 } from "@magna-carta/identifiers/types";
-import { FILE_TABLE, FILE_VERSION_TABLE } from "./file-statements.ts";
+import { FILE_TABLE, FILE_VERSION_TABLE, UPLOAD_SESSION_TABLE } from "./file-statements.ts";
 import { FOLDER_TABLE } from "./folder-statements.ts";
 
 // Read mediation (golden rule 3): every consumer read serves only clean, non-deleted content. A file
@@ -28,45 +28,20 @@ export interface ListFilesFilters {
   readonly matterId: MatterId;
   readonly folderId?: FolderId;
   readonly includeDeleted?: boolean; // the recovery view; default false
+  // Opt-in: also surface files whose latest version is still pending (ingest in flight) or was
+  // quarantined (rejected as malware) — a first upload with no clean version yet. Default false keeps
+  // the historical behaviour (only files with a clean current version appear). currentVersionId stays
+  // clean-only in either mode, so a pending/quarantined row can never render a download link.
+  readonly includePendingAndQuarantined?: boolean;
 }
 
-export function listFilesStatement(
-  database: SqlDatabase,
-  filters: ListFilesFilters,
-  cursor: SortCursor | undefined,
-  limit: number,
-): SqlStatement {
-  // current_version_id IS NOT NULL is the visibility gate — it is set only when a version commits
-  // clean, so pending/quarantined-only files never appear.
-  const conditions = ["matter_id = ?", "current_version_id IS NOT NULL"];
-  const bindings: unknown[] = [filters.matterId];
-  if (filters.folderId !== undefined) {
-    conditions.push("folder_id = ?");
-    bindings.push(filters.folderId);
-  }
-  if (filters.includeDeleted !== true) {
-    conditions.push("deleted_at IS NULL");
-  }
-  appendCursorPredicate(conditions, bindings, cursor);
-  bindings.push(limit);
-  return database
-    .prepare(
-      `SELECT id, matter_id, folder_id, name, document_type_id, current_version_id, deleted_at, created_at FROM ${FILE_TABLE} WHERE ${conditions.join(" AND ")} ORDER BY created_at DESC, id DESC LIMIT ?`,
-    )
-    .bind(...bindings);
-}
-
-interface FileRowRaw {
-  id: FileId;
-  matter_id: MatterId;
-  folder_id: FolderId | null;
-  name: string;
-  document_type_id: DocumentTypeId | null;
-  current_version_id: FileVersionId | null;
-  deleted_at: string | null;
-  created_at: string;
-}
-
+// The file summary a table row is painted from — the file's metadata joined to its display version, so
+// one list call needs no per-row fan-out to the version history. The display version is the clean
+// current version when one exists (currentVersionId, set only on a clean commit), otherwise — only in
+// the opt-in include mode — the latest pending or quarantined version. `status` reports which of those
+// the row is; version-derived fields (versionNumber/sizeBytes/sniffedContentType/scanVerdict) come from
+// that display version. currentVersionId is ALWAYS the clean pointer (null for a pending/quarantined
+// first upload), so a non-clean row structurally cannot offer a download.
 export interface FileListItem {
   readonly id: FileId;
   readonly matterId: MatterId;
@@ -74,11 +49,42 @@ export interface FileListItem {
   readonly name: string;
   readonly documentTypeId: DocumentTypeId | null;
   readonly currentVersionId: FileVersionId | null;
-  readonly deletedAt: string | null;
   readonly createdAt: string;
+  readonly updatedAt: string;
+  readonly versionNumber: number;
+  readonly sizeBytes: number | null;
+  readonly sniffedContentType: string | null;
+  readonly scanVerdict: "unscanned" | "clean" | "flagged" | null;
+  readonly status: "clean" | "pending" | "quarantined";
+  // The human-readable reason a version was quarantined (the scan detail), present only when status is
+  // "quarantined"; null otherwise.
+  readonly quarantineReason: string | null;
 }
 
-function toFileListItem(row: FileRowRaw): FileListItem {
+interface FileSummaryRowRaw {
+  id: FileId;
+  matter_id: MatterId;
+  folder_id: FolderId | null;
+  name: string;
+  document_type_id: DocumentTypeId | null;
+  current_version_id: FileVersionId | null;
+  created_at: string;
+  updated_at: string;
+  version_number: number;
+  size_bytes: number | null;
+  sniffed_content_type: string | null;
+  scan_verdict: "unscanned" | "clean" | "flagged" | null;
+  version_status: "clean" | "pending" | "quarantined" | "abandoned";
+  scan_detail: string | null;
+}
+
+function toFileListItem(row: FileSummaryRowRaw): FileListItem {
+  const status: "clean" | "pending" | "quarantined" =
+    row.version_status === "quarantined"
+      ? "quarantined"
+      : row.version_status === "pending"
+        ? "pending"
+        : "clean";
   return {
     id: row.id,
     matterId: row.matter_id,
@@ -86,9 +92,71 @@ function toFileListItem(row: FileRowRaw): FileListItem {
     name: row.name,
     documentTypeId: row.document_type_id,
     currentVersionId: row.current_version_id,
-    deletedAt: row.deleted_at,
     createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    versionNumber: row.version_number,
+    sizeBytes: row.size_bytes,
+    sniffedContentType: row.sniffed_content_type,
+    scanVerdict: row.scan_verdict,
+    status,
+    quarantineReason: status === "quarantined" ? row.scan_detail : null,
   };
+}
+
+// The summary columns both the list and the single-file read project — the file row plus its display
+// version's version_number/size/sniffed-type/verdict/status/detail.
+const FILE_SUMMARY_COLUMNS =
+  "f.id, f.matter_id, f.folder_id, f.name, f.document_type_id, f.current_version_id, " +
+  "f.created_at, f.updated_at, dv.version_number, dv.size_bytes, dv.sniffed_content_type, " +
+  "dv.scan_verdict, dv.status AS version_status, dv.scan_detail";
+
+export function listFilesStatement(
+  database: SqlDatabase,
+  filters: ListFilesFilters,
+  cursor: SortCursor | undefined,
+  limit: number,
+): SqlStatement {
+  const conditions = ["f.matter_id = ?"];
+  const bindings: unknown[] = [filters.matterId];
+  if (filters.folderId !== undefined) {
+    conditions.push("f.folder_id = ?");
+    bindings.push(filters.folderId);
+  }
+  if (filters.includeDeleted !== true) {
+    conditions.push("f.deleted_at IS NULL");
+  }
+  // The display version resolved by the JOIN. Default: the clean current version only — current_version_id
+  // is set solely by a clean commit, so pending/quarantined-only files are excluded by the JOIN itself and
+  // by the visibility predicate below. Include mode: fall back to the latest pending/quarantined version
+  // (an in-flight or rejected first upload), keeping the file visible in the table without inventing a
+  // clean pointer. The INNER JOIN drops any file whose display version resolves to null (e.g. a first
+  // upload that was aborted, leaving only an abandoned version).
+  const includePendingAndQuarantined = filters.includePendingAndQuarantined === true;
+  const displayVersion = includePendingAndQuarantined
+    ? `COALESCE(f.current_version_id, (SELECT lv.id FROM ${FILE_VERSION_TABLE} lv WHERE lv.file_id = f.id AND lv.status IN ('pending', 'quarantined') ORDER BY lv.version_number DESC LIMIT 1))`
+    : "f.current_version_id";
+  if (!includePendingAndQuarantined) {
+    conditions.push("f.current_version_id IS NOT NULL");
+  }
+  // The keyset predicate, qualified to the file table: the JOIN to file_version makes bare created_at/id
+  // ambiguous, so this cannot reuse the shared appendCursorPredicate (which emits unqualified columns).
+  if (cursor !== undefined) {
+    conditions.push("(f.created_at < ? OR (f.created_at = ? AND f.id < ?))");
+    bindings.push(cursor.createdAt, cursor.createdAt, cursor.id);
+  }
+  bindings.push(limit);
+  // fitness:allow-no-status — this read deliberately spans version statuses. The gate is not a WHERE
+  // status= on the joined row but the display-version resolution: the JOIN targets either the clean
+  // current version (current_version_id, clean-only by construction) or, in include mode, a version
+  // gated to pending/quarantined in the COALESCE subquery. currentVersionId is projected from the file
+  // row (clean pointer), never from the joined version, so no consumer can reach non-clean bytes.
+  return database
+    .prepare(
+      `SELECT ${FILE_SUMMARY_COLUMNS} FROM ${FILE_TABLE} f ` +
+        `JOIN ${FILE_VERSION_TABLE} dv ON dv.id = ${displayVersion} ` +
+        `WHERE ${conditions.join(" AND ")} ORDER BY f.created_at DESC, f.id DESC LIMIT ?`,
+    )
+    .bind(...bindings);
 }
 
 export interface ListFilesParams extends ListFilesFilters {
@@ -106,8 +174,75 @@ export async function listFiles(
     params,
     decodeCursor(params.cursor),
     pageSize + 1,
-  ).all<FileRowRaw>();
+  ).all<FileSummaryRowRaw>();
   return assemblePage(results, pageSize, toFileListItem);
+}
+
+// One file's enriched summary — the same shape a list row carries, for the detail read. Gated to a
+// clean current version (status = 'clean') and a non-deleted file, so a pending-only, quarantined, or
+// soft-deleted file returns undefined (the route 404s). status is therefore always "clean" here.
+export function selectFileSummaryStatement(database: SqlDatabase, fileId: FileId): SqlStatement {
+  return database
+    .prepare(
+      `SELECT ${FILE_SUMMARY_COLUMNS} FROM ${FILE_TABLE} f ` +
+        `JOIN ${FILE_VERSION_TABLE} dv ON dv.id = f.current_version_id ` +
+        `WHERE f.id = ?1 AND f.deleted_at IS NULL AND dv.status = 'clean'`,
+    )
+    .bind(fileId);
+}
+
+export async function getFileSummary(
+  database: SqlDatabase,
+  fileId: FileId,
+): Promise<FileListItem | undefined> {
+  const { results } = await selectFileSummaryStatement(database, fileId).all<FileSummaryRowRaw>();
+  const row = results[0];
+  if (row === undefined) return undefined;
+  return toFileListItem(row);
+}
+
+// The upload session's own lifecycle status plus its version's ingest status (and the quarantine reason
+// when the bytes were rejected) — the read behind the upload-status poll. The session status reports how
+// far the direct-to-R2 ceremony got (open → completed/aborted/expired); the version status reports what
+// ingest decided about the bytes (pending → clean/quarantined, or abandoned on a no-op/abort). Returns
+// undefined for an unknown session in this firm (the route 404s — a session in another firm is simply
+// absent from this firm's database).
+export interface UploadSessionStatus {
+  readonly sessionStatus: "open" | "completed" | "aborted" | "expired";
+  readonly versionStatus: "pending" | "clean" | "quarantined" | "abandoned";
+  readonly quarantineReason: string | null;
+}
+
+// fitness:allow-no-status — reporting the version's status IS the purpose of this read, so it spans
+// every status by design. It serves no bytes: it projects the status string, never an r2_key.
+export function selectUploadSessionStatusStatement(
+  database: SqlDatabase,
+  sessionId: UploadSessionId,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT s.status AS session_status, v.status AS version_status, v.scan_detail ` +
+        `FROM ${UPLOAD_SESSION_TABLE} s JOIN ${FILE_VERSION_TABLE} v ON v.id = s.file_version_id WHERE s.id = ?1`,
+    )
+    .bind(sessionId);
+}
+
+export async function getUploadSessionStatus(
+  database: SqlDatabase,
+  sessionId: UploadSessionId,
+): Promise<UploadSessionStatus | undefined> {
+  const { results } = await selectUploadSessionStatusStatement(database, sessionId).all<{
+    session_status: "open" | "completed" | "aborted" | "expired";
+    version_status: "pending" | "clean" | "quarantined" | "abandoned";
+    scan_detail: string | null;
+  }>();
+  const row = results[0];
+  if (row === undefined) return undefined;
+  return {
+    sessionStatus: row.session_status,
+    versionStatus: row.version_status,
+    quarantineReason: row.version_status === "quarantined" ? row.scan_detail : null,
+  };
 }
 
 // The clean current version of a non-deleted file — for the signed-download path (r2_key) and the

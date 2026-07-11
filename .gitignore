@@ -10,6 +10,10 @@ storybook-static/
 # Playwright visual-regression run output (actual/diff images); committed baselines live in
 # packages/design-system/visual-regression/baselines/, which is NOT ignored
 packages/design-system/visual-regression/test-results/
+# apps/web end-to-end run output + the per-run seeded-tenant credentials the setup writes
+apps/web/e2e/test-results/
+apps/web/e2e/playwright-report/
+apps/web/e2e/.seeded/
 *.log
 .DS_Store
 # pre-existing scraping artifacts
