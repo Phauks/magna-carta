@@ -4,11 +4,6 @@
 //! attacker-controlled bytes in an isolate that cannot unwind, so it never indexes
 //! out of bounds, never trusts a declared length for allocation, and turns every
 //! structural fault into an ordinary error instead of a panic.
-//!
-//! This module is a self-contained codec with no caller yet: the `.msg` body decode
-//! path that reads `PidTagRtfCompressed` and calls [`decompress_rtf`] lands next, so
-//! everything here is exercised only by its own tests for now.
-#![allow(dead_code)]
 
 use crate::error::EmailError;
 
