@@ -1,0 +1,5 @@
+---
+category: Changed
+---
+
+The WHOIS lookup backend now retains the full RDAP response and extracts what a printable exhibit needs: the registry domain ID, IANA registrar ID, abuse contact, registrant/administrative/technical contacts (including a published postal address), DNSSEC status, nameserver glue records, every registry event, remarks and notices, and the complete unmodified body. IP-address lookups return a proper network object (start/end address, CIDR, allocation type, country, parent handle, abuse contact) instead of an almost-empty result. Absent fields are typed as not-provided, redacted (quoting the registry's own words), or not-applicable, so a report never renders a blank that implies the wrong fact. Every result carries provenance — the exact target, a UTC lookup timestamp, and the responding server. The read is now audited. A bootstrap-registry outage surfaces as a retryable transport failure instead of a misleading port-43 attempt, and the dead `.nl`/`.fr` port-43 rows were removed (both now publish RDAP).
