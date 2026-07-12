@@ -1,4 +1,4 @@
 {
   "extends": "../../packages/tsconfig/worker.json",
-  "include": ["src/**/*.ts", "test/**/*.ts", "worker-env.d.ts", "wasm-modules.d.ts"]
+  "include": ["src/**/*.ts", "test/**/*.ts", "worker-env.d.ts"]
 }

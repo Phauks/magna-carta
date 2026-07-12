@@ -127,6 +127,15 @@ export default defineConfig({
         command:
           "docker build --network=host --output type=local,dest=packages/pdf/src/pkg -f crates/pdf-core/wasm.Dockerfile crates && docker build --network=host --output type=local,dest=packages/decryption/src/pkg -f crates/decryption-core/wasm.Dockerfile crates && docker build --network=host --output type=local,dest=packages/email/src/pkg -f crates/email-core/wasm.Dockerfile crates",
       },
+      // DEV-ONLY, Docker-free fallback for the same three wasm artefacts, built with the host Rust
+      // toolchain + wasm-pack instead of the pinned Docker images above. For dev environments that
+      // cannot pull the base image (e.g. a cloud session whose egress policy blocks Docker Hub /
+      // ghcr blob pulls). It is NOT authoritative — the host rustc may emit different wasm bytes
+      // than the pinned image — and the script REFUSES under CI, so anything shipped still comes
+      // from `rust-wasm-build`. Outputs are git-ignored (packages/*/.gitignore). See the script.
+      "rust-wasm-build-dev": {
+        command: "node tooling/wasm-build-dev/index.mjs",
+      },
       // The worker serves apps/web/build, so its build and dev both depend on the SPA build (cross-package package#task notation).
       // Named worker-build / worker-dev (not build / dev) so they do not collide with the root package.json build / dev scripts.
       "worker-build": {
