@@ -49,7 +49,11 @@ struct CountingSink {
 
 impl CountingSink {
     fn new(cap: u64) -> Self {
-        Self { count: 0, cap, overflowed: false }
+        Self {
+            count: 0,
+            cap,
+            overflowed: false,
+        }
     }
 }
 

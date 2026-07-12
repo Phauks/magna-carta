@@ -50,8 +50,14 @@ fn deflate_bomb_is_rejected_at_default_limits() {
         pdf_core::decrypt(&pdf, "pw"),
         Err(pdf_core::SecureError::Rejected)
     );
-    assert_eq!(pdf_core::split(&pdf, &[]), Err(pdf_core::GenerateError::Rejected));
-    assert_eq!(pdf_core::merge(&[&pdf]), Err(pdf_core::GenerateError::Rejected));
+    assert_eq!(
+        pdf_core::split(&pdf, &[]),
+        Err(pdf_core::GenerateError::Rejected)
+    );
+    assert_eq!(
+        pdf_core::merge(&[&pdf]),
+        Err(pdf_core::GenerateError::Rejected)
+    );
     assert!(matches!(
         pdf_core::read_form(&pdf),
         Err(pdf_core::FormError::Rejected)
@@ -70,7 +76,10 @@ fn real_fixtures_pass_the_guard() {
     let basicapi = include_bytes!("../../pdf-eval/corpus-ci/basicapi.pdf").to_vec();
     // read_form runs guard_input first; an Ok/NoAcroform result (not Rejected)
     // proves the guard let the document through.
-    assert!(!matches!(pdf_core::read_form(&w9), Err(pdf_core::FormError::Rejected)));
+    assert!(!matches!(
+        pdf_core::read_form(&w9),
+        Err(pdf_core::FormError::Rejected)
+    ));
     assert!(!matches!(
         pdf_core::read_form(&basicapi),
         Err(pdf_core::FormError::Rejected)
@@ -87,5 +96,8 @@ fn deflate_bomb_inside_an_object_stream_is_rejected() {
     pdf.extend_from_slice(b"%PDF-1.5\n5 0 obj<</Type/ObjStm/N 1/First 4/Length 0>>stream\n");
     pdf.extend_from_slice(&blob);
     pdf.extend_from_slice(b"\nendstream endobj\n%%EOF");
-    assert!(matches!(pdf_core::detect(pdf), Err(pdf_core::DetectError::Rejected)));
+    assert!(matches!(
+        pdf_core::detect(pdf),
+        Err(pdf_core::DetectError::Rejected)
+    ));
 }
