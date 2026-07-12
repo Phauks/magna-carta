@@ -223,7 +223,7 @@ describe("schema name sync (file-manager SQL pinned to @magna-carta/database)", 
         listFilesStatement(
           stub,
           { matterId: M, folderId: FOLD, includeDeleted: true },
-          { createdAt: "t", id: "file_x" },
+          { value: "t", id: "file_x" },
           10,
         ),
       ),

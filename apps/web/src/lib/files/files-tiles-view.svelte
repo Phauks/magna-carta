@@ -18,9 +18,13 @@
   import type { FileSummary } from "@magna-carta/api-client";
   import type { ViewRenderProps } from "$lib/view-shell/view-shell-types.ts";
   import { formatFileSize } from "./file-presentation.ts";
+  import type { FilesViewContext } from "./files-view-context.ts";
   import FileStatusBadge from "./file-status-badge.svelte";
 
-  let { items, selection }: ViewRenderProps<FileSummary> = $props();
+  // The host's context (the sort) is declared but not read here: the tiles are ordered by whatever the
+  // server was asked for, and the chrome owns that control. Naming the type keeps every file view
+  // interchangeable in the registry.
+  let { items, selection }: ViewRenderProps<FileSummary, FilesViewContext> = $props();
 
   // A modified click is the multi-select gesture everywhere else in the operating system; an
   // unmodified one starts a fresh selection.

@@ -284,13 +284,22 @@ const listFilesRoute = defineOpenAPIRoute(listFilesMeta, {
     "table with no per-row fan-out to the version history. By default only files with a committed clean " +
     "version appear (soft-deleted files are always excluded). Set includePendingAndQuarantined=true to " +
     "also surface files whose latest version is still processing (pending) or was rejected as malware " +
-    "(quarantined); those rows carry a null currentVersionId and cannot be downloaded.",
+    "(quarantined); those rows carry a null currentVersionId and cannot be downloaded. Files are " +
+    "returned newest-first unless sort and direction say otherwise; because the listing is paginated, " +
+    "ordering is applied across the whole matter rather than within a page. A cursor is tied to the " +
+    "sort it was minted under — send the same sort and direction back with it.",
   request: {
     query: z.object({
       matterId: identifierField("matter"),
       folderId: identifierField("folder").optional(),
       cursor: z.string().optional(),
       pageSize: z.coerce.number().int().positive().max(200).optional(),
+      // Ordering is the SERVER's job because the list is paginated: a client can only reorder the page
+      // it holds, which would answer a different question than the one asked — the largest file of the
+      // loaded page, not of the matter. A cursor carries the value of the column it was sorted by, so
+      // send the same sort and direction back with it; changing either starts the listing over.
+      sort: z.enum(["name", "createdAt", "updatedAt", "sizeBytes"]).optional(),
+      direction: z.enum(["asc", "desc"]).optional(),
       // Opt-in: include files whose latest version is pending or quarantined (default: clean only).
       includePendingAndQuarantined: z.literal("true").optional(),
     }),
@@ -548,6 +557,8 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
       const page = await listFiles(firm.firmDatabase, {
         matterId: query.matterId,
         folderId: query.folderId,
+        sort: query.sort,
+        direction: query.direction,
         cursor: query.cursor,
         pageSize: query.pageSize,
         includePendingAndQuarantined: query.includePendingAndQuarantined === "true",

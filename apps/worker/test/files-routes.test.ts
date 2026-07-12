@@ -431,6 +431,102 @@ describe("files.list opt-in status include", () => {
   });
 });
 
+describe("files.list sorting", () => {
+  it("sorts by name the way a person alphabetizes, not by code point", async () => {
+    const folderId = await seedFolder("SortByName");
+    await seedCleanFile("banana.txt", folderId, "x");
+    await seedCleanFile("Apple.txt", folderId, "x");
+    await seedCleanFile("cherry.txt", folderId, "x");
+
+    const response = await get(
+      `/api/v1/files?matterId=${matterId}&folderId=${folderId}&sort=name&direction=asc`,
+    );
+    const body = (await response.json()) as { data: EnrichedRow[] };
+    // A BINARY collation would answer Apple, banana, cherry only by luck of the capital; the real
+    // proof is that the capitalized name does not jump the queue ahead of every lowercase one.
+    expect(body.data.map((row) => row.name)).toEqual(["Apple.txt", "banana.txt", "cherry.txt"]);
+  });
+
+  it("sorts by size, and a row with no committed bytes sorts below every real size", async () => {
+    const folderId = await seedFolder("SortBySize");
+    await seedCleanFile("small.txt", folderId, "ab"); // 2 bytes
+    await seedCleanFile("large.txt", folderId, "abcdefgh"); // 8 bytes
+    await seedCleanFile("medium.txt", folderId, "abcd"); // 4 bytes
+    await seedNonCleanFile("pending.txt", folderId, "pending"); // no size at all
+
+    const response = await get(
+      `/api/v1/files?matterId=${matterId}&folderId=${folderId}` +
+        `&sort=sizeBytes&direction=desc&includePendingAndQuarantined=true`,
+    );
+    const body = (await response.json()) as { data: EnrichedRow[] };
+    expect(body.data.map((row) => row.name)).toEqual([
+      "large.txt",
+      "medium.txt",
+      "small.txt",
+      "pending.txt",
+    ]);
+    // The sizeless row is last because its absent size is folded to -1, not because NULL happened to
+    // land there — a NULL that leaked into the comparison would make the page order undefined.
+    expect(body.data.at(-1)?.sizeBytes).toBeNull();
+  });
+
+  it("pages through a NON-DEFAULT sort without skipping or repeating a row", async () => {
+    // The heart of it: the cursor has to carry the value of the column that was sorted by. A cursor
+    // that still encoded created_at would page against a column the ORDER BY never used, and rows
+    // would silently vanish between pages — the failure this test exists to catch.
+    const folderId = await seedFolder("SortPaging");
+    const names = ["e.txt", "a.txt", "d.txt", "b.txt", "c.txt"];
+    for (const name of names) {
+      await seedCleanFile(name, folderId, "x");
+    }
+
+    const seen: string[] = [];
+    let cursor: string | null = null;
+    for (let page = 0; page < 10; page++) {
+      const query =
+        `/api/v1/files?matterId=${matterId}&folderId=${folderId}` +
+        `&sort=name&direction=asc&pageSize=2` +
+        (cursor === null ? "" : `&cursor=${encodeURIComponent(cursor)}`);
+      const response = await get(query);
+      expect(response.status).toBe(200);
+      const body = (await response.json()) as { data: EnrichedRow[]; nextCursor: string | null };
+      seen.push(...body.data.map((row) => row.name));
+      cursor = body.nextCursor;
+      if (cursor === null) break;
+    }
+
+    expect(seen).toEqual(["a.txt", "b.txt", "c.txt", "d.txt", "e.txt"]);
+    expect(new Set(seen).size).toBe(names.length);
+  });
+
+  it("asking for no sort is exactly asking for the default one", async () => {
+    const folderId = await seedFolder("SortDefault");
+    await seedCleanFile("first.txt", folderId, "x");
+    await seedCleanFile("second.txt", folderId, "x");
+
+    // Omitting the sort must mean exactly the default one, so a caller that never asks (the load
+    // profile harness, say) still gets a deterministic order. Asserting a literal order here instead
+    // would pin seed timing, not behaviour — two files seeded in the same millisecond share a
+    // created_at and are separated only by the id tiebreak, which is precisely what it is for.
+    const implicit = await get(`/api/v1/files?matterId=${matterId}&folderId=${folderId}`);
+    const explicit = await get(
+      `/api/v1/files?matterId=${matterId}&folderId=${folderId}&sort=createdAt&direction=desc`,
+    );
+    const implicitBody = (await implicit.json()) as { data: EnrichedRow[] };
+    const explicitBody = (await explicit.json()) as { data: EnrichedRow[] };
+
+    expect(implicitBody.data.map((row) => row.id)).toEqual(
+      explicitBody.data.map((row) => row.id),
+    );
+    expect(implicitBody.data.map((row) => row.name).sort()).toEqual(["first.txt", "second.txt"]);
+  });
+
+  it("rejects a sort column that is not offered", async () => {
+    const response = await get(`/api/v1/files?matterId=${matterId}&sort=quarantineReason`);
+    expect(response.status).toBe(422);
+  });
+});
+
 describe("GET /api/v1/folders", () => {
   it("lists a matter's folder tree in adjacency-list form", async () => {
     const foldersMatterId = newIdentifier("matter");

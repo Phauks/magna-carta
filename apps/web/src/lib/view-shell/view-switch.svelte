@@ -1,8 +1,11 @@
-<script lang="ts" generics="Item, ViewId extends string">
+<script lang="ts" generics="Item, ViewId extends string, Context">
   /*
    * The view-switch control — a segmented group of icon buttons, one per registered view, the
    * active one held pressed. This is the generalized form of the Tools masthead toggle; the host
    * places it in its own chrome (this control renders no masthead of its own).
+   *
+   * It reads no context of its own, but stays generic over it so it can switch the views of any
+   * shell — a host that hands capabilities to its views still gets the same switch.
    */
   import Button from "@magna-carta/design-system/button";
   import type { ViewShellController } from "./view-shell.svelte.ts";
@@ -10,7 +13,7 @@
   let {
     controller,
     label,
-  }: { controller: ViewShellController<Item, ViewId>; label: string } = $props();
+  }: { controller: ViewShellController<Item, ViewId, Context>; label: string } = $props();
 </script>
 
 <div class="flex items-center gap-4" role="group" aria-label={label}>

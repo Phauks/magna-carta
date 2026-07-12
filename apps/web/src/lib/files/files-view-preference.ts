@@ -16,8 +16,14 @@ import {
 } from "../preferences/persisted-preference.ts";
 import type { RegionVisibility } from "../view-shell/view-shell-types.ts";
 
-/** The four ways the same files are presented. `list` is the dense sortable table, and the default. */
-export const FILES_VIEWS = ["list", "tiles", "timeline", "gallery"] as const;
+/**
+ * The ways the same files are presented. `list` is the dense sortable table, and the default.
+ *
+ * There is deliberately no chronological view: a timeline is an ORDER, not a presentation. The
+ * surface sorts by created or modified date in ANY view (see ./file-sort.ts), which is the same
+ * capability and more — a separate view could only have offered one hard-coded order.
+ */
+export const FILES_VIEWS = ["list", "tiles", "gallery"] as const;
 export type FilesView = (typeof FILES_VIEWS)[number];
 
 export const FILES_VIEW_STORAGE_KEY = "magna-carta:files:view";

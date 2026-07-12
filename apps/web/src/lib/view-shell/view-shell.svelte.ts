@@ -17,9 +17,9 @@ import type {
   ViewDefinition,
 } from "./view-shell-types.ts";
 
-export interface ViewShellConfig<Item, ViewId extends string> {
+export interface ViewShellConfig<Item, ViewId extends string, Context = undefined> {
   /** The registered views, in the order the switch presents them; at least one. */
-  readonly views: readonly ViewDefinition<Item, ViewId>[];
+  readonly views: readonly ViewDefinition<Item, ViewId, Context>[];
   /** Where the active-view choice is read and persisted. */
   readonly activeViewPreference: PersistedPreference<ViewId>;
   /** The current items, as a reactive getter so the shell tracks changes. Defaults to none. */
@@ -30,24 +30,30 @@ export interface ViewShellConfig<Item, ViewId extends string> {
   readonly regions?: readonly RegionDefinition[];
   /** Where the regions record is read and persisted. Required to remember region toggles. */
   readonly regionsPreference?: PersistedPreference<RegionVisibility>;
+  /**
+   * Host capabilities handed to every view, as a reactive getter so a view re-reads them when they
+   * change (the file surface passes its sort this way). A host with none omits it.
+   */
+  readonly context?: () => Context;
 }
 
-export interface ViewShellController<Item, ViewId extends string = string> {
-  readonly views: readonly ViewDefinition<Item, ViewId>[];
+export interface ViewShellController<Item, ViewId extends string = string, Context = undefined> {
+  readonly views: readonly ViewDefinition<Item, ViewId, Context>[];
   readonly activeViewId: ViewId;
-  readonly activeView: ViewDefinition<Item, ViewId>;
+  readonly activeView: ViewDefinition<Item, ViewId, Context>;
   setActiveView(id: ViewId): void;
   readonly items: readonly Item[];
   readonly selection: SelectionController<Item>;
+  readonly context: Context;
   readonly regions: readonly RegionDefinition[];
   isRegionShown(id: string): boolean;
   setRegionShown(id: string, shown: boolean): void;
   toggleRegion(id: string): void;
 }
 
-export function createViewShell<Item, ViewId extends string>(
-  config: ViewShellConfig<Item, ViewId>,
-): ViewShellController<Item, ViewId> {
+export function createViewShell<Item, ViewId extends string, Context = undefined>(
+  config: ViewShellConfig<Item, ViewId, Context>,
+): ViewShellController<Item, ViewId, Context> {
   if (config.views.length === 0) {
     throw new Error("A view shell needs at least one registered view.");
   }
@@ -56,6 +62,8 @@ export function createViewShell<Item, ViewId extends string>(
   const isRegisteredView = (id: ViewId): boolean => views.some((view) => view.id === id);
   const itemsOf = config.items ?? ((): readonly Item[] => []);
   const keyOf = config.itemKey ?? ((item: Item): string => String(item));
+  // A host with no capabilities to pass yields `undefined`, which is exactly the default Context.
+  const contextOf = config.context ?? ((): Context => undefined as Context);
 
   const activeViewPreference = config.activeViewPreference;
   // A stored id no longer in the registry (a retired view, a hand edit) resolves to the first
@@ -130,7 +138,7 @@ export function createViewShell<Item, ViewId extends string>(
     get activeViewId(): ViewId {
       return resolveActiveId();
     },
-    get activeView(): ViewDefinition<Item, ViewId> {
+    get activeView(): ViewDefinition<Item, ViewId, Context> {
       const active = resolveActiveId();
       return views.find((view) => view.id === active) ?? firstView;
     },
@@ -143,6 +151,9 @@ export function createViewShell<Item, ViewId extends string>(
       return itemsOf();
     },
     selection,
+    get context(): Context {
+      return contextOf();
+    },
     regions,
     isRegionShown,
     setRegionShown,

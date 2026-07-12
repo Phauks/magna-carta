@@ -29,7 +29,7 @@ describe("filesViewCodec", () => {
   });
 
   it("round-trips through storage", () => {
-    expect(filesViewCodec.decode(filesViewCodec.encode("timeline"))).toBe("timeline");
+    expect(filesViewCodec.decode(filesViewCodec.encode("gallery"))).toBe("gallery");
     expect(filesViewCodec.storageKey).toBe(FILES_VIEW_STORAGE_KEY);
   });
 });

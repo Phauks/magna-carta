@@ -21,7 +21,8 @@
   import { filesListInfiniteOptions, foldersListOptions } from "@magna-carta/api-client";
   import type { FileSummary } from "@magna-carta/api-client";
   import * as Alert from "@magna-carta/design-system/alert";
-  import Button from "@magna-carta/design-system/button";
+  import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
+  import Button, { buttonClasses } from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import Skeleton from "@magna-carta/design-system/skeleton";
   import Breadcrumb from "@magna-carta/design-system/breadcrumb";
@@ -31,7 +32,8 @@
   import LayoutGrid from "@lucide/svelte/icons/layout-grid";
   import List from "@lucide/svelte/icons/list";
   import GalleryVerticalEnd from "@lucide/svelte/icons/gallery-vertical-end";
-  import Clock from "@lucide/svelte/icons/clock";
+  import ArrowUp from "@lucide/svelte/icons/arrow-up";
+  import ArrowDown from "@lucide/svelte/icons/arrow-down";
   import { createViewShell } from "$lib/view-shell/view-shell.svelte.ts";
   import type { RegionDefinition, ViewDefinition } from "$lib/view-shell/view-shell-types.ts";
   import ViewSwitch from "$lib/view-shell/view-switch.svelte";
@@ -42,9 +44,19 @@
   } from "$lib/files/files-view-preference.svelte.ts";
   import { FOLDERS_REGION_ID, type FilesView } from "$lib/files/files-view-preference.ts";
   import { buildFolderTree, folderAncestry } from "$lib/files/file-presentation.ts";
+  import {
+    defaultDirectionFor,
+    FILE_SORT_KEYS,
+    FILE_SORT_LABELS,
+    parseFileSortDirection,
+    parseFileSortKey,
+    sortAfterHeadingClick,
+    type FileSort,
+    type FileSortKey,
+  } from "$lib/files/file-sort.ts";
+  import type { FilesViewContext } from "$lib/files/files-view-context.ts";
   import FilesListView from "$lib/files/files-list-view.svelte";
   import FilesTilesView from "$lib/files/files-tiles-view.svelte";
-  import FilesTimelineView from "$lib/files/files-timeline-view.svelte";
   import FilesGalleryView from "$lib/files/files-gallery-view.svelte";
   import type { MatterFixture } from "$lib/matters/fixtures.ts";
 
@@ -52,6 +64,14 @@
 
   const matterId = $derived(data.matter.id);
   const folderId = $derived(page.url.searchParams.get("folder"));
+
+  // The sort lives in the URL beside the folder, for the same reasons: it is shareable, the back
+  // button walks out of it, and a reload lands on the order you were reading. Both readers are TOTAL,
+  // so a hand-edited `?sort=` cannot put the page into a state the server would reject.
+  const sort = $derived<FileSort>({
+    key: parseFileSortKey(page.url.searchParams.get("sort")),
+    direction: parseFileSortDirection(page.url.searchParams.get("direction")),
+  });
 
   const foldersQuery = createQuery(() => foldersListOptions({ query: { matterId } }));
 
@@ -66,6 +86,13 @@
       query: {
         matterId,
         ...(folderId === null ? {} : { folderId }),
+        // The SERVER sorts. It orders the whole matter and returns a page of that order, so the
+        // answer is the same whether one page is loaded or ten — ordering the rows already in hand
+        // would report the largest file of the page, not of the matter. The sort is part of the query
+        // key, so changing it re-runs the listing from its first page (a cursor is only meaningful
+        // under the sort it was minted with).
+        sort: sort.key,
+        direction: sort.direction,
         // Pending and quarantined rows are included by design: a file the scanner rejected must say
         // so where the member dropped it, rather than silently never appearing.
         includePendingAndQuarantined: "true" as const,
@@ -90,10 +117,9 @@
     })),
   ]);
 
-  const views: ViewDefinition<FileSummary, FilesView>[] = [
+  const views: ViewDefinition<FileSummary, FilesView, FilesViewContext>[] = [
     { id: "list", label: "List view", icon: List, view: FilesListView },
     { id: "tiles", label: "Tile view", icon: LayoutGrid, view: FilesTilesView },
-    { id: "timeline", label: "Timeline view", icon: Clock, view: FilesTimelineView },
     { id: "gallery", label: "Gallery view", icon: GalleryVerticalEnd, view: FilesGalleryView },
   ];
 
@@ -108,6 +134,8 @@
     itemKey: (file) => file.id,
     regions,
     regionsPreference: filesRegionsPreference,
+    // Every view gets the sort, not just the table — a grid ordered newest-first is the chronology.
+    context: (): FilesViewContext => ({ sort, onSortByColumn }),
   });
 
   // Expansion is the member's, so it is not derived from the path — but opening a folder should not
@@ -119,15 +147,48 @@
     if (missing.length > 0) expandedFolderIds = [...expandedFolderIds, ...missing];
   });
 
+  /** The current address with one search parameter changed — so a sort keeps the folder, and vice versa. */
+  function addressWith(changes: Record<string, string | null>): string {
+    const parameters = new URLSearchParams(page.url.searchParams);
+    for (const [key, value] of Object.entries(changes)) {
+      if (value === null) parameters.delete(key);
+      else parameters.set(key, value);
+    }
+    const query = parameters.toString();
+    return `/matters/${matterId}/files${query === "" ? "" : `?${query}`}`;
+  }
+
   async function openFolder(nextFolderId: string | null): Promise<void> {
     // A folder change is real navigation, not a filter: the selection belongs to what was on screen,
     // so it does not survive the move.
     shell.selection.clear();
-    const target =
-      nextFolderId === null
-        ? `/matters/${matterId}/files`
-        : `/matters/${matterId}/files?folder=${nextFolderId}`;
-    await goto(target, { keepFocus: true, noScroll: true });
+    await goto(addressWith({ folder: nextFolderId }), { keepFocus: true, noScroll: true });
+  }
+
+  /**
+   * Re-sorting is NOT navigation — it is the same set of files in a different order, so the selection
+   * survives it (a member who picked three files and then sorted by size still has those three).
+   */
+  async function applySort(next: FileSort): Promise<void> {
+    await goto(addressWith({ sort: next.key, direction: next.direction }), {
+      keepFocus: true,
+      noScroll: true,
+    });
+  }
+
+  /** A table heading: the column in force reverses, another switches to its natural direction. */
+  function onSortByColumn(key: FileSortKey): void {
+    void applySort(sortAfterHeadingClick(sort, key));
+  }
+
+  /**
+   * The menu only CHOOSES the column — re-picking the one already in force must not secretly reverse
+   * it, because a menu item that reads "Name" should mean "sort by name", not "flip". Direction is the
+   * arrow button's job, which is the one control whose whole purpose is to say which way.
+   */
+  function onChooseSortKey(key: FileSortKey): void {
+    if (key === sort.key) return;
+    void applySort({ key, direction: defaultDirectionFor(key) });
   }
 
   const showFolders = $derived(shell.isRegionShown(FOLDERS_REGION_ID));
@@ -142,6 +203,38 @@
   <div class="flex items-center justify-between gap-16 border-b border-border-strong pb-8">
     <Breadcrumb items={breadcrumbEntries} label="Folder path" />
     <div class="flex items-center gap-8">
+      <!-- The sort sits in the chrome, not in the table, because it belongs to every view: the grid
+           views sort too, and a grid ordered newest-first is the chronology. The table's headings are
+           a second way into the same state, not a separate one. -->
+      <DropdownMenu.Root>
+        <!-- The trigger IS the button (it carries no look of its own), so it wears the button recipe
+             rather than wrapping one — a button inside a button is inoperable. -->
+        <DropdownMenu.Trigger class={buttonClasses({ variant: "ghost", size: "default" })}>
+          Sort: {FILE_SORT_LABELS[sort.key]}
+        </DropdownMenu.Trigger>
+        <DropdownMenu.Content>
+          <DropdownMenu.RadioGroup
+            value={sort.key}
+            onValueChange={(key: string) => onChooseSortKey(key as FileSortKey)}
+          >
+            {#each FILE_SORT_KEYS as key (key)}
+              <DropdownMenu.RadioItem value={key}>{FILE_SORT_LABELS[key]}</DropdownMenu.RadioItem>
+            {/each}
+          </DropdownMenu.RadioGroup>
+        </DropdownMenu.Content>
+      </DropdownMenu.Root>
+      <Button
+        variant="ghost"
+        size="icon"
+        aria-label={sort.direction === "asc" ? "Sorted ascending" : "Sorted descending"}
+        onclick={() => applySort({ key: sort.key, direction: sort.direction === "asc" ? "desc" : "asc" })}
+      >
+        {#if sort.direction === "asc"}
+          <ArrowUp class="size-16" aria-hidden="true" />
+        {:else}
+          <ArrowDown class="size-16" aria-hidden="true" />
+        {/if}
+      </Button>
       <Button
         variant={showFolders ? "secondary" : "ghost"}
         size="icon"

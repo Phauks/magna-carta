@@ -1,10 +1,4 @@
-import {
-  assemblePage,
-  DEFAULT_PAGE_SIZE,
-  decodeCursor,
-  type Page,
-  type SortCursor,
-} from "@magna-carta/data-access/cursor-pagination";
+import { DEFAULT_PAGE_SIZE, type Page } from "@magna-carta/data-access/cursor-pagination";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type {
   DocumentCheckoutId,
@@ -24,9 +18,25 @@ import { FOLDER_TABLE } from "./folder-statements.ts";
 // The cursor-paginated list draws its keyset toolkit from @magna-carta/data-access/cursor-pagination.
 export type { Page };
 
+/**
+ * The columns a file list can be ordered by. Sorting is a SERVER concern, not a view one: the list is
+ * keyset-paginated, so ordering the rows a client happens to hold would answer a different question
+ * than the one asked — "the largest file" would mean the largest of the loaded page, not of the matter.
+ */
+export type FileSortKey = "name" | "createdAt" | "updatedAt" | "sizeBytes";
+export type FileSortDirection = "asc" | "desc";
+
+// Newest-first: the question asked of a file list far more often than any other is "what came in
+// last". A caller that does not care still gets a deterministic order rather than whatever the
+// database found convenient.
+const DEFAULT_SORT: FileSortKey = "createdAt";
+const DEFAULT_DIRECTION: FileSortDirection = "desc";
+
 export interface ListFilesFilters {
   readonly matterId: MatterId;
   readonly folderId?: FolderId;
+  readonly sort?: FileSortKey;
+  readonly direction?: FileSortDirection;
   readonly includeDeleted?: boolean; // the recovery view; default false
   // Opt-in: also surface files whose latest version is still pending (ingest in flight) or was
   // quarantined (rejected as malware) — a first upload with no clean version yet. Default false keeps
@@ -103,6 +113,67 @@ function toFileListItem(row: FileSummaryRowRaw): FileListItem {
   };
 }
 
+/*
+ * One sortable column: the SQL expression the list is BOTH ordered and paged by, and how to read that
+ * same value back off a row to mint the next cursor. The two must agree exactly — the keyset predicate
+ * asks the database for "the rows after this value", so a cursor minted from a value the ORDER BY never
+ * produced would silently skip or repeat rows.
+ */
+interface SortColumn {
+  /** Qualified — the JOIN to file_version makes a bare column name ambiguous. */
+  readonly expression: string;
+  readonly cursorValue: (row: FileSummaryRowRaw) => string | number;
+}
+
+const SORT_COLUMNS: Record<FileSortKey, SortColumn> = {
+  // NOCASE, so a name sort reads the way a person alphabetizes. SQLite's default BINARY collation
+  // orders by code point, which puts every capital ahead of every lowercase letter — "Zoning" would
+  // sort before "answer".
+  name: { expression: "f.name COLLATE NOCASE", cursorValue: (row) => row.name },
+  createdAt: { expression: "f.created_at", cursorValue: (row) => row.created_at },
+  updatedAt: { expression: "f.updated_at", cursorValue: (row) => row.updated_at },
+  // A pending or quarantined row never committed bytes, so its size is NULL. NULL does not compare
+  // against a number, which would puncture the strict total order the keyset depends on (it is what
+  // makes "the row after this one" well-defined), so an absent size is folded to -1 — below every real
+  // size — in the ordering AND in the cursor, which is why both come from this one place.
+  sizeBytes: {
+    expression: "COALESCE(dv.size_bytes, -1)",
+    cursorValue: (row) => row.size_bytes ?? -1,
+  },
+};
+
+/*
+ * The file list's cursor: the value of the column being sorted by, plus the id that breaks its ties.
+ * It keeps the same opaque `{c, i}` envelope as the platform's shared cursor
+ * (@magna-carta/data-access/cursor-pagination) — one cursor shape across every list — but `c` may
+ * carry a number (a size) as well as a string, which the shared decoder rejects. That is why this
+ * list has its own codec rather than reusing that one.
+ */
+interface FileCursor {
+  readonly value: string | number;
+  readonly id: string;
+}
+
+function encodeFileCursor(value: string | number, id: string): string {
+  return btoa(JSON.stringify({ c: value, i: id }));
+}
+
+function decodeFileCursor(cursor: string | undefined): FileCursor | undefined {
+  if (cursor === undefined) return undefined;
+  try {
+    const parsed = JSON.parse(atob(cursor)) as { c?: unknown; i?: unknown };
+    if (
+      (typeof parsed.c === "string" || typeof parsed.c === "number") &&
+      typeof parsed.i === "string"
+    ) {
+      return { value: parsed.c, id: parsed.i };
+    }
+  } catch {
+    // A malformed or tampered cursor reveals nothing and is treated as the first page.
+  }
+  return undefined;
+}
+
 // The summary columns both the list and the single-file read project — the file row plus its display
 // version's version_number/size/sniffed-type/verdict/status/detail.
 const FILE_SUMMARY_COLUMNS =
@@ -113,7 +184,7 @@ const FILE_SUMMARY_COLUMNS =
 export function listFilesStatement(
   database: SqlDatabase,
   filters: ListFilesFilters,
-  cursor: SortCursor | undefined,
+  cursor: FileCursor | undefined,
   limit: number,
 ): SqlStatement {
   const conditions = ["f.matter_id = ?"];
@@ -138,11 +209,21 @@ export function listFilesStatement(
   if (!includePendingAndQuarantined) {
     conditions.push("f.current_version_id IS NOT NULL");
   }
-  // The keyset predicate, qualified to the file table: the JOIN to file_version makes bare created_at/id
-  // ambiguous, so this cannot reuse the shared appendCursorPredicate (which emits unqualified columns).
+  // The keyset predicate, over whichever column the caller sorted by (and qualified to its table: the
+  // JOIN makes a bare column name ambiguous, so this cannot reuse the shared appendCursorPredicate,
+  // which emits unqualified columns). The id tiebreak runs in the SAME direction as the sort — it is
+  // what makes the order strict and total, so that "the row after this one" has exactly one answer
+  // even when a dozen files share a name or a size.
+  const sortColumn = SORT_COLUMNS[filters.sort ?? DEFAULT_SORT];
+  const descending = (filters.direction ?? DEFAULT_DIRECTION) === "desc";
+  const after = descending ? "<" : ">";
+  const order = descending ? "DESC" : "ASC";
   if (cursor !== undefined) {
-    conditions.push("(f.created_at < ? OR (f.created_at = ? AND f.id < ?))");
-    bindings.push(cursor.createdAt, cursor.createdAt, cursor.id);
+    conditions.push(
+      `(${sortColumn.expression} ${after} ? OR ` +
+        `(${sortColumn.expression} = ? AND f.id ${after} ?))`,
+    );
+    bindings.push(cursor.value, cursor.value, cursor.id);
   }
   bindings.push(limit);
   // fitness:allow-no-status — this read deliberately spans version statuses. The gate is not a WHERE
@@ -154,7 +235,8 @@ export function listFilesStatement(
     .prepare(
       `SELECT ${FILE_SUMMARY_COLUMNS} FROM ${FILE_TABLE} f ` +
         `JOIN ${FILE_VERSION_TABLE} dv ON dv.id = ${displayVersion} ` +
-        `WHERE ${conditions.join(" AND ")} ORDER BY f.created_at DESC, f.id DESC LIMIT ?`,
+        `WHERE ${conditions.join(" AND ")} ` +
+        `ORDER BY ${sortColumn.expression} ${order}, f.id ${order} LIMIT ?`,
     )
     .bind(...bindings);
 }
@@ -169,13 +251,25 @@ export async function listFiles(
   params: ListFilesParams,
 ): Promise<Page<FileListItem>> {
   const pageSize = params.pageSize ?? DEFAULT_PAGE_SIZE;
+  const sortColumn = SORT_COLUMNS[params.sort ?? DEFAULT_SORT];
   const { results } = await listFilesStatement(
     database,
     params,
-    decodeCursor(params.cursor),
+    decodeFileCursor(params.cursor),
     pageSize + 1,
   ).all<FileSummaryRowRaw>();
-  return assemblePage(results, pageSize, toFileListItem);
+  // Not the shared assemblePage: that mints the next cursor from created_at, which is only the sort
+  // key when the caller did not choose another one.
+  const hasMore = results.length > pageSize;
+  const rows = hasMore ? results.slice(0, pageSize) : results;
+  const last = rows.at(-1);
+  return {
+    data: rows.map(toFileListItem),
+    nextCursor:
+      hasMore && last !== undefined
+        ? encodeFileCursor(sortColumn.cursorValue(last), last.id)
+        : null,
+  };
 }
 
 // One file's enriched summary — the same shape a list row carries, for the detail read. Gated to a

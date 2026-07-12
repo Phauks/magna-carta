@@ -4708,6 +4708,8 @@ export type FilesListData = {
         folderId?: string;
         cursor?: string;
         pageSize?: number;
+        sort?: 'name' | 'createdAt' | 'updatedAt' | 'sizeBytes';
+        direction?: 'asc' | 'desc';
         includePendingAndQuarantined?: 'true';
     };
     url: '/api/v1/files';
