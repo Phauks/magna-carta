@@ -82,7 +82,9 @@ pub enum RedactError {
     PageOutOfRange,
     Render,
     Reassemble,
-    GateFailed { detail: String },
+    GateFailed {
+        detail: String,
+    },
 }
 
 use std::collections::BTreeMap;

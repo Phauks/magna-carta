@@ -872,7 +872,9 @@ pub(crate) fn apply_excision(
 
 /// Encode a small operation list to content-stream bytes.
 fn encode_operations(ops: &[lopdf::content::Operation]) -> Option<Vec<u8>> {
-    let content = Content { operations: ops.to_vec() };
+    let content = Content {
+        operations: ops.to_vec(),
+    };
     content.encode().ok()
 }
 
@@ -2402,11 +2404,14 @@ mod tests {
             "MediaBox" => Object::Array(vec![0.into(), 0.into(), 200.into(), 200.into()]),
             "Resources" => resources_id,
         });
-        doc.objects.insert(pages_id, Object::Dictionary(dictionary! {
-            "Type" => Object::Name(b"Pages".to_vec()),
-            "Kids" => Object::Array(vec![page_id.into()]),
-            "Count" => 1,
-        }));
+        doc.objects.insert(
+            pages_id,
+            Object::Dictionary(dictionary! {
+                "Type" => Object::Name(b"Pages".to_vec()),
+                "Kids" => Object::Array(vec![page_id.into()]),
+                "Count" => 1,
+            }),
+        );
         let catalog_id = doc.add_object(dictionary! {
             "Type" => Object::Name(b"Catalog".to_vec()),
             "Pages" => pages_id,
@@ -2443,7 +2448,12 @@ mod tests {
 
         let fonts = page_fonts(&doc, page_id);
         let slots = enumerate_page_glyphs(&content, &fonts, kurbo::Affine::IDENTITY).unwrap();
-        let rects = [Rect { x0: -1.0, y0: -1.0, x1: 1000.0, y1: 1000.0 }];
+        let rects = [Rect {
+            x0: -1.0,
+            y0: -1.0,
+            x1: 1000.0,
+            y1: 1000.0,
+        }];
         let marked = mark_in_rects(&slots, &rects);
         assert!(!marked.is_empty(), "the text must be inside the rect");
 
@@ -2453,11 +2463,20 @@ mod tests {
             .expect("byte splice must succeed");
 
         // Inline-image bytes survive verbatim.
-        assert!(out.windows(4).any(|w| w == b"\x01\x02\x03\x04"), "inline image data must be preserved");
+        assert!(
+            out.windows(4).any(|w| w == b"\x01\x02\x03\x04"),
+            "inline image data must be preserved"
+        );
         assert!(out.windows(2).any(|w| w == b"BI"), "BI operator preserved");
-        assert!(out.windows(2).any(|w| w == b"EI"), "EI terminator preserved");
+        assert!(
+            out.windows(2).any(|w| w == b"EI"),
+            "EI terminator preserved"
+        );
         // The literal "Hello" no longer appears as a shown string.
-        assert!(!out.windows(5).any(|w| w == b"Hello"), "marked text must be gone");
+        assert!(
+            !out.windows(5).any(|w| w == b"Hello"),
+            "marked text must be gone"
+        );
         // Output still decodes.
         lopdf::content::Content::decode(&out).expect("spliced stream must decode");
     }
@@ -2498,7 +2517,12 @@ mod tests {
         // drawn — the path used when a rect covers no text (e.g. an image region).
         let raw: &[u8] = b"BT (Hi) Tj ET";
         let content = lopdf::content::Content::decode(raw).unwrap();
-        let rects = [Rect { x0: 10.0, y0: 10.0, x1: 20.0, y1: 20.0 }];
+        let rects = [Rect {
+            x0: 10.0,
+            y0: 10.0,
+            x1: 20.0,
+            y1: 20.0,
+        }];
         let boxes = fill_box_operations(&rects);
         let encoded_boxes = encode_operations(&boxes).unwrap();
 
@@ -2529,11 +2553,22 @@ mod tests {
         // This fixture's re-encoded bytes fail to re-decode outright (not merely a
         // differing operation count), which content_roundtrips treats as non-round-tripping.
         let content = lopdf::content::Content::decode(raw).unwrap();
-        assert!(!content_roundtrips(&content), "guard must trip for this fixture");
+        assert!(
+            !content_roundtrips(&content),
+            "guard must trip for this fixture"
+        );
 
-        let rects = [Rect { x0: -1.0, y0: -1.0, x1: 1000.0, y1: 1000.0 }];
+        let rects = [Rect {
+            x0: -1.0,
+            y0: -1.0,
+            x1: 1000.0,
+            y1: 1000.0,
+        }];
         let out = try_build_surgery(&doc, page_id, &rects).expect("byte-path must surger");
-        assert!(out.windows(4).any(|w| w == b"\x01\x02\x03\x04"), "inline image preserved");
+        assert!(
+            out.windows(4).any(|w| w == b"\x01\x02\x03\x04"),
+            "inline image preserved"
+        );
         assert!(!out.windows(5).any(|w| w == b"Hello"), "text removed");
     }
 
