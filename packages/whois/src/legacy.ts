@@ -1,12 +1,17 @@
-import type { RegistrationResult, WhoisSocket } from "./types.ts";
+import type { LegacyWhoisRecord, LookupProvenance, WhoisSocket } from "./types.ts";
 
-// Static table mapping ccTLD labels to their port-43 WHOIS hosts.
-// These registries have not published RDAP endpoints and require the legacy protocol.
+// The ccTLD registries that still answer only on port 43 — verified against IANA's live bootstrap on
+// 2026-07-09. `.nl` and `.fr` were removed that day: both now publish RDAP (rdap.sidn.nl, rdap.nic.fr)
+// and reach this table only if the bootstrap fetch fails, in which case an RDAP transport failure is
+// surfaced rather than a port-43 fallback (see lookup.ts). Only these four are genuinely port-43-only:
+//
+//   .de  whois.denic.de   two lines: Domain, Status. No dates, registrar, nameservers, contacts.
+//   .eu  whois.eu         registrant "NOT DISCLOSED!", technical/registrar/nameservers. No dates.
+//   .it  whois.nic.it     Status, DNSSEC, Created/Last-Update/Expire, full postal contacts, nameservers.
+//   .be  whois.dns.be     tab-separated; Status: NOT AVAILABLE (means REGISTERED), dates without a zone.
 const WHOIS_HOSTS: Record<string, string> = {
   de: "whois.denic.de",
   eu: "whois.eu",
-  nl: "whois.domain-registry.nl",
-  fr: "whois.nic.fr",
   it: "whois.nic.it",
   be: "whois.dns.be",
 };
@@ -22,19 +27,22 @@ export function whoisHostForTld(tld: string): string | null {
 /**
  * Performs a port-43 WHOIS query for `target` using the injected `WhoisSocket`.
  *
- * The TLD is derived from the rightmost label of `target`. If no port-43 host is
- * known for that TLD, an error is thrown — the caller should ensure that
- * `whoisHostForTld` returns a non-null value before calling this function, or
- * handle the error appropriately.
+ * The raw response text is returned verbatim and is NEVER parsed into the shared registration fields.
+ * The four formats share no grammar, and normalising them would print falsehoods into a document
+ * offered as evidence: DNS Belgium reports a REGISTERED domain as `Status: NOT AVAILABLE`, so mapping
+ * that string into the shared status field would state the opposite of the truth. Their dates carry no
+ * timezone (`.it` → `1997-08-27 00:00:00`; `.be` → `Wed Jun 13 2012`), so they cannot honestly be
+ * converted to UTC. The result is therefore marked `timezoneUnspecified` and the page shows the text
+ * as the registry published it — labelled as such — rather than guessing an instant.
  *
- * Returns a `RegistrationResult` with `source: "whois-43"` and the unparsed
- * response text in `raw`. Structured fields (registrar, dates, etc.) are not
- * populated — callers that need parsed data must parse `raw` themselves.
+ * If no port-43 host is known for the target's TLD an error is thrown — the caller
+ * (`lookupRegistration`) only reaches here after the bootstrap reported no RDAP server for the TLD.
  */
 export async function queryLegacy(
   target: string,
   socket: WhoisSocket,
-): Promise<RegistrationResult> {
+  retrievedAt: string,
+): Promise<LegacyWhoisRecord> {
   const tld = target.split(".").at(-1) ?? "";
   const host = whoisHostForTld(tld);
 
@@ -46,5 +54,6 @@ export async function queryLegacy(
   }
 
   const raw = await socket.query(host, target + "\r\n");
-  return { source: "whois-43", target, raw };
+  const provenance: LookupProvenance = { target, retrievedAt, respondingServer: host };
+  return { kind: "legacy", source: "whois-43", provenance, raw, timezoneUnspecified: true };
 }

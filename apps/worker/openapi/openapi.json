@@ -329,52 +329,1098 @@
         ]
       },
       "WhoisResponse": {
-        "type": "object",
-        "properties": {
-          "source": {
-            "type": "string",
-            "enum": [
-              "rdap",
-              "whois-43"
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "domain"
+                ]
+              },
+              "source": {
+                "type": "string",
+                "enum": [
+                  "rdap"
+                ]
+              },
+              "provenance": {
+                "type": "object",
+                "properties": {
+                  "target": {
+                    "type": "string"
+                  },
+                  "retrievedAt": {
+                    "type": "string"
+                  },
+                  "respondingServer": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "target",
+                  "retrievedAt",
+                  "respondingServer"
+                ]
+              },
+              "handle": {
+                "type": "string"
+              },
+              "ldhName": {
+                "type": "string"
+              },
+              "unicodeName": {
+                "type": "string"
+              },
+              "registrar": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "present"
+                        ]
+                      },
+                      "value": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "ianaId": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "required": [
+                      "state",
+                      "value"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "notProvided"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "state"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "redacted"
+                        ]
+                      },
+                      "notice": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "state",
+                      "notice"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "notApplicable"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "state"
+                    ]
+                  }
+                ]
+              },
+              "abuse": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "present"
+                        ]
+                      },
+                      "value": {
+                        "type": "object",
+                        "properties": {
+                          "email": {
+                            "type": "string"
+                          },
+                          "phone": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "required": [
+                      "state",
+                      "value"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "notProvided"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "state"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "redacted"
+                        ]
+                      },
+                      "notice": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "state",
+                      "notice"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "notApplicable"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "state"
+                    ]
+                  }
+                ]
+              },
+              "registrant": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "present"
+                        ]
+                      },
+                      "value": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "organization": {
+                            "type": "string"
+                          },
+                          "email": {
+                            "type": "string"
+                          },
+                          "phone": {
+                            "type": "string"
+                          },
+                          "address": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "required": [
+                      "state",
+                      "value"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "notProvided"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "state"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "redacted"
+                        ]
+                      },
+                      "notice": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "state",
+                      "notice"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "notApplicable"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "state"
+                    ]
+                  }
+                ]
+              },
+              "administrative": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "present"
+                        ]
+                      },
+                      "value": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "organization": {
+                            "type": "string"
+                          },
+                          "email": {
+                            "type": "string"
+                          },
+                          "phone": {
+                            "type": "string"
+                          },
+                          "address": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "required": [
+                      "state",
+                      "value"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "notProvided"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "state"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "redacted"
+                        ]
+                      },
+                      "notice": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "state",
+                      "notice"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "notApplicable"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "state"
+                    ]
+                  }
+                ]
+              },
+              "technical": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "present"
+                        ]
+                      },
+                      "value": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "organization": {
+                            "type": "string"
+                          },
+                          "email": {
+                            "type": "string"
+                          },
+                          "phone": {
+                            "type": "string"
+                          },
+                          "address": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "required": [
+                      "state",
+                      "value"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "notProvided"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "state"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "redacted"
+                        ]
+                      },
+                      "notice": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "state",
+                      "notice"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "notApplicable"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "state"
+                    ]
+                  }
+                ]
+              },
+              "nameservers": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "present"
+                        ]
+                      },
+                      "value": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "ldhName": {
+                              "type": "string"
+                            },
+                            "ipv4": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "ipv6": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "required": [
+                            "ldhName"
+                          ]
+                        }
+                      }
+                    },
+                    "required": [
+                      "state",
+                      "value"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "notProvided"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "state"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "redacted"
+                        ]
+                      },
+                      "notice": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "state",
+                      "notice"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "notApplicable"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "state"
+                    ]
+                  }
+                ]
+              },
+              "secureDns": {
+                "type": "object",
+                "properties": {
+                  "delegationSigned": {
+                    "type": "boolean"
+                  },
+                  "dsData": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "keyTag": {
+                          "type": "number"
+                        },
+                        "algorithm": {
+                          "type": "number"
+                        },
+                        "digestType": {
+                          "type": "number"
+                        },
+                        "digest": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                },
+                "required": [
+                  "delegationSigned"
+                ]
+              },
+              "statuses": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "events": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "action": {
+                      "type": "string"
+                    },
+                    "date": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "action",
+                    "date"
+                  ]
+                }
+              },
+              "port43": {
+                "type": "string"
+              },
+              "remarks": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "description"
+                  ]
+                }
+              },
+              "notices": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "description"
+                  ]
+                }
+              },
+              "rdapConformance": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "rawRdap": {}
+            },
+            "required": [
+              "kind",
+              "source",
+              "provenance",
+              "registrar",
+              "abuse",
+              "registrant",
+              "administrative",
+              "technical",
+              "nameservers"
             ]
           },
-          "target": {
-            "type": "string"
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "ip"
+                ]
+              },
+              "source": {
+                "type": "string",
+                "enum": [
+                  "rdap"
+                ]
+              },
+              "provenance": {
+                "type": "object",
+                "properties": {
+                  "target": {
+                    "type": "string"
+                  },
+                  "retrievedAt": {
+                    "type": "string"
+                  },
+                  "respondingServer": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "target",
+                  "retrievedAt",
+                  "respondingServer"
+                ]
+              },
+              "handle": {
+                "type": "string"
+              },
+              "startAddress": {
+                "type": "string"
+              },
+              "endAddress": {
+                "type": "string"
+              },
+              "ipVersion": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string"
+              },
+              "country": {
+                "type": "string"
+              },
+              "parentHandle": {
+                "type": "string"
+              },
+              "cidr": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "abuse": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "present"
+                        ]
+                      },
+                      "value": {
+                        "type": "object",
+                        "properties": {
+                          "email": {
+                            "type": "string"
+                          },
+                          "phone": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "required": [
+                      "state",
+                      "value"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "notProvided"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "state"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "redacted"
+                        ]
+                      },
+                      "notice": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "state",
+                      "notice"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "notApplicable"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "state"
+                    ]
+                  }
+                ]
+              },
+              "registrar": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "present"
+                        ]
+                      },
+                      "value": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "ianaId": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "required": [
+                      "state",
+                      "value"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "notProvided"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "state"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "redacted"
+                        ]
+                      },
+                      "notice": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "state",
+                      "notice"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "notApplicable"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "state"
+                    ]
+                  }
+                ]
+              },
+              "nameservers": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "present"
+                        ]
+                      },
+                      "value": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "ldhName": {
+                              "type": "string"
+                            },
+                            "ipv4": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "ipv6": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "required": [
+                            "ldhName"
+                          ]
+                        }
+                      }
+                    },
+                    "required": [
+                      "state",
+                      "value"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "notProvided"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "state"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "redacted"
+                        ]
+                      },
+                      "notice": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "state",
+                      "notice"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "notApplicable"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "state"
+                    ]
+                  }
+                ]
+              },
+              "statuses": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "events": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "action": {
+                      "type": "string"
+                    },
+                    "date": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "action",
+                    "date"
+                  ]
+                }
+              },
+              "remarks": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "description"
+                  ]
+                }
+              },
+              "rawRdap": {}
+            },
+            "required": [
+              "kind",
+              "source",
+              "provenance",
+              "abuse",
+              "registrar",
+              "nameservers"
+            ]
           },
-          "registrar": {
-            "type": "string"
-          },
-          "registeredAt": {
-            "type": "string"
-          },
-          "expiresAt": {
-            "type": "string"
-          },
-          "lastChangedAt": {
-            "type": "string"
-          },
-          "nameservers": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "statuses": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "registrant": {
-            "type": "string"
-          },
-          "raw": {
-            "type": "string"
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "legacy"
+                ]
+              },
+              "source": {
+                "type": "string",
+                "enum": [
+                  "whois-43"
+                ]
+              },
+              "provenance": {
+                "type": "object",
+                "properties": {
+                  "target": {
+                    "type": "string"
+                  },
+                  "retrievedAt": {
+                    "type": "string"
+                  },
+                  "respondingServer": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "target",
+                  "retrievedAt",
+                  "respondingServer"
+                ]
+              },
+              "raw": {
+                "type": "string"
+              },
+              "timezoneUnspecified": {
+                "type": "boolean",
+                "enum": [
+                  true
+                ]
+              }
+            },
+            "required": [
+              "kind",
+              "source",
+              "provenance",
+              "raw",
+              "timezoneUnspecified"
+            ]
           }
-        },
-        "required": [
-          "source",
-          "target"
         ]
       },
       "SafeWebsiteView": {
@@ -6646,7 +7692,7 @@
     },
     "/api/v1/whois": {
       "get": {
-        "description": "Registration data (RDAP, with a legacy WHOIS fallback) for a website's domain or an IP address.",
+        "description": "Registration data (RDAP, with a legacy WHOIS fallback) for a website's domain or an IP address. Absent fields are typed as not-provided, redacted, or not-applicable, and the complete unmodified response is retained.",
         "operationId": "whois.get",
         "tags": [
           "whois"
@@ -6656,7 +7702,7 @@
         "x-mc-authenticated": true,
         "x-mc-permission": "tools:whois",
         "x-mc-resource": "firm",
-        "x-mc-audited": false,
+        "x-mc-audited": true,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
         "x-mc-tags": [
@@ -6718,6 +7764,16 @@
           },
           "429": {
             "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "An upstream registry service (IANA bootstrap or RDAP) was unreachable",
             "content": {
               "application/problem+json": {
                 "schema": {

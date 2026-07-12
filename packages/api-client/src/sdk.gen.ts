@@ -44,7 +44,7 @@ export const toolsConnectionGet = <ThrowOnError extends boolean = false>(options
 export const toolsTurnCredentialsGet = <ThrowOnError extends boolean = false>(options?: Options<ToolsTurnCredentialsGetData, ThrowOnError>): RequestResult<ToolsTurnCredentialsGetResponses, ToolsTurnCredentialsGetErrors, ThrowOnError> => (options?.client ?? client).get<ToolsTurnCredentialsGetResponses, ToolsTurnCredentialsGetErrors, ThrowOnError>({ url: '/api/v1/tools/turn-credentials', ...options });
 
 /**
- * Registration data (RDAP, with a legacy WHOIS fallback) for a website's domain or an IP address.
+ * Registration data (RDAP, with a legacy WHOIS fallback) for a website's domain or an IP address. Absent fields are typed as not-provided, redacted, or not-applicable, and the complete unmodified response is retained.
  */
 export const whoisGet = <ThrowOnError extends boolean = false>(options: Options<WhoisGetData, ThrowOnError>): RequestResult<WhoisGetResponses, WhoisGetErrors, ThrowOnError> => (options.client ?? client).get<WhoisGetResponses, WhoisGetErrors, ThrowOnError>({ url: '/api/v1/whois', ...options });
 

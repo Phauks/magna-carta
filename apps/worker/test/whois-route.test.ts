@@ -102,9 +102,17 @@ describe("GET /api/v1/whois", () => {
       env,
     );
     expect(response.status).toBe(200);
-    const body = (await response.json()) as { source: string; target: string };
+    const body = (await response.json()) as {
+      kind: string;
+      source: string;
+      provenance: { target: string; retrievedAt: string; respondingServer: string };
+    };
+    expect(body.kind).toBe("domain");
     expect(body.source).toBe("rdap");
-    expect(body.target).toBe("example.com");
+    expect(body.provenance.target).toBe("example.com");
+    // Provenance is UTC and names the responding server — the report is an exhibit.
+    expect(body.provenance.retrievedAt).toMatch(/Z$/);
+    expect(body.provenance.respondingServer).toBe("https://rdap.example/com/");
   });
 
   it("emits the route into the OpenAPI document with operationId and x-mc metadata", async () => {
@@ -120,7 +128,7 @@ describe("GET /api/v1/whois", () => {
       "x-mc-authenticated": true,
       "x-mc-permission": "tools:whois",
       "x-mc-resource": "firm",
-      "x-mc-audited": false,
+      "x-mc-audited": true,
     });
   });
 });

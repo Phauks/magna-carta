@@ -132,7 +132,7 @@ export const toolsTurnCredentialsGetOptions = (options?: Options<ToolsTurnCreden
 export const whoisGetQueryKey = (options: Options<WhoisGetData>) => createQueryKey('whoisGet', options);
 
 /**
- * Registration data (RDAP, with a legacy WHOIS fallback) for a website's domain or an IP address.
+ * Registration data (RDAP, with a legacy WHOIS fallback) for a website's domain or an IP address. Absent fields are typed as not-provided, redacted, or not-applicable, and the complete unmodified response is retained.
  */
 export const whoisGetOptions = (options: Options<WhoisGetData>) => queryOptions<WhoisGetResponse, WhoisGetError, WhoisGetResponse, ReturnType<typeof whoisGetQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {

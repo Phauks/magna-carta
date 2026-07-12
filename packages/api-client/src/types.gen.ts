@@ -89,16 +89,218 @@ export type TurnCredentials = {
 };
 
 export type WhoisResponse = {
-    source: 'rdap' | 'whois-43';
-    target: string;
-    registrar?: string;
-    registeredAt?: string;
-    expiresAt?: string;
-    lastChangedAt?: string;
-    nameservers?: Array<string>;
+    kind: 'domain';
+    source: 'rdap';
+    provenance: {
+        target: string;
+        retrievedAt: string;
+        respondingServer: string;
+    };
+    handle?: string;
+    ldhName?: string;
+    unicodeName?: string;
+    registrar: {
+        state: 'present';
+        value: {
+            name?: string;
+            ianaId?: string;
+        };
+    } | {
+        state: 'notProvided';
+    } | {
+        state: 'redacted';
+        notice: string;
+    } | {
+        state: 'notApplicable';
+    };
+    abuse: {
+        state: 'present';
+        value: {
+            email?: string;
+            phone?: string;
+        };
+    } | {
+        state: 'notProvided';
+    } | {
+        state: 'redacted';
+        notice: string;
+    } | {
+        state: 'notApplicable';
+    };
+    registrant: {
+        state: 'present';
+        value: {
+            name?: string;
+            organization?: string;
+            email?: string;
+            phone?: string;
+            address?: Array<string>;
+        };
+    } | {
+        state: 'notProvided';
+    } | {
+        state: 'redacted';
+        notice: string;
+    } | {
+        state: 'notApplicable';
+    };
+    administrative: {
+        state: 'present';
+        value: {
+            name?: string;
+            organization?: string;
+            email?: string;
+            phone?: string;
+            address?: Array<string>;
+        };
+    } | {
+        state: 'notProvided';
+    } | {
+        state: 'redacted';
+        notice: string;
+    } | {
+        state: 'notApplicable';
+    };
+    technical: {
+        state: 'present';
+        value: {
+            name?: string;
+            organization?: string;
+            email?: string;
+            phone?: string;
+            address?: Array<string>;
+        };
+    } | {
+        state: 'notProvided';
+    } | {
+        state: 'redacted';
+        notice: string;
+    } | {
+        state: 'notApplicable';
+    };
+    nameservers: {
+        state: 'present';
+        value: Array<{
+            ldhName: string;
+            ipv4?: Array<string>;
+            ipv6?: Array<string>;
+        }>;
+    } | {
+        state: 'notProvided';
+    } | {
+        state: 'redacted';
+        notice: string;
+    } | {
+        state: 'notApplicable';
+    };
+    secureDns?: {
+        delegationSigned: boolean;
+        dsData?: Array<{
+            keyTag?: number;
+            algorithm?: number;
+            digestType?: number;
+            digest?: string;
+        }>;
+    };
     statuses?: Array<string>;
-    registrant?: string;
-    raw?: string;
+    events?: Array<{
+        action: string;
+        date: string;
+    }>;
+    port43?: string;
+    remarks?: Array<{
+        title?: string;
+        type?: string;
+        description: Array<string>;
+    }>;
+    notices?: Array<{
+        title?: string;
+        type?: string;
+        description: Array<string>;
+    }>;
+    rdapConformance?: Array<string>;
+    rawRdap?: unknown;
+} | {
+    kind: 'ip';
+    source: 'rdap';
+    provenance: {
+        target: string;
+        retrievedAt: string;
+        respondingServer: string;
+    };
+    handle?: string;
+    startAddress?: string;
+    endAddress?: string;
+    ipVersion?: string;
+    name?: string;
+    type?: string;
+    country?: string;
+    parentHandle?: string;
+    cidr?: Array<string>;
+    abuse: {
+        state: 'present';
+        value: {
+            email?: string;
+            phone?: string;
+        };
+    } | {
+        state: 'notProvided';
+    } | {
+        state: 'redacted';
+        notice: string;
+    } | {
+        state: 'notApplicable';
+    };
+    registrar: {
+        state: 'present';
+        value: {
+            name?: string;
+            ianaId?: string;
+        };
+    } | {
+        state: 'notProvided';
+    } | {
+        state: 'redacted';
+        notice: string;
+    } | {
+        state: 'notApplicable';
+    };
+    nameservers: {
+        state: 'present';
+        value: Array<{
+            ldhName: string;
+            ipv4?: Array<string>;
+            ipv6?: Array<string>;
+        }>;
+    } | {
+        state: 'notProvided';
+    } | {
+        state: 'redacted';
+        notice: string;
+    } | {
+        state: 'notApplicable';
+    };
+    statuses?: Array<string>;
+    events?: Array<{
+        action: string;
+        date: string;
+    }>;
+    remarks?: Array<{
+        title?: string;
+        type?: string;
+        description: Array<string>;
+    }>;
+    rawRdap?: unknown;
+} | {
+    kind: 'legacy';
+    source: 'whois-43';
+    provenance: {
+        target: string;
+        retrievedAt: string;
+        respondingServer: string;
+    };
+    raw: string;
+    timezoneUnspecified: true;
 };
 
 export type SafeWebsiteView = {
@@ -1756,6 +1958,10 @@ export type WhoisGetErrors = {
      * Rate limit exceeded
      */
     429: Problem;
+    /**
+     * An upstream registry service (IANA bootstrap or RDAP) was unreachable
+     */
+    503: Problem;
 };
 
 export type WhoisGetError = WhoisGetErrors[keyof WhoisGetErrors];
