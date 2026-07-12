@@ -1,0 +1,562 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>File Surface — one body, many hosts</title>
+<style>
+  :root {
+    --chrome: oklch(0.22 0.0192 70);
+    --chrome-2: oklch(0.27 0.02 70);
+    --surface: oklch(0.99 0.002 70);
+    --raised: oklch(0.975 0.0025 70);
+    --selected: oklch(0.95 0.0037 70);
+    --hover: oklch(0.955 0.004 70);
+    --text: oklch(0.24 0.008 70);
+    --muted: oklch(0.52 0.014 70);
+    --subtle: oklch(0.62 0.012 70);
+    --border: oklch(0.90 0.004 70);
+    --border-2: oklch(0.86 0.005 70);
+    --gilt: oklch(0.72 0.11 85);
+    --ok: oklch(0.68 0.13 150);
+    --warn: oklch(0.78 0.12 80);
+    --bad: oklch(0.62 0.19 25);
+    --info-bg: oklch(0.93 0.03 240);
+    --info-fg: oklch(0.42 0.09 240);
+    --warn-bg: oklch(0.94 0.05 75);
+    --warn-fg: oklch(0.45 0.10 60);
+    --cost-bg: oklch(0.93 0.045 30);
+    --cost-fg: oklch(0.47 0.14 28);
+    --caps: 0.09em;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--chrome); color: var(--text); }
+  button { font: inherit; }
+
+  .shell { display: flex; height: 100vh; overflow: hidden; }
+  .rail { width: 52px; flex: none; background: var(--chrome); display: flex; flex-direction: column;
+          align-items: center; gap: 16px; padding: 14px 0; }
+  .rail i { width: 20px; height: 20px; border-radius: 6px; background: #fff; opacity: .26; display: block; }
+  .rail i.on { opacity: .9; background: var(--gilt); }
+
+  .canvas { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--chrome); }
+  .topbar { height: 54px; flex: none; display: flex; align-items: center; gap: 16px; padding: 0 20px; }
+  .search { flex: 1; max-width: 560px; height: 33px; border-radius: 8px; background: rgba(255,255,255,.06);
+            display: flex; align-items: center; padding: 0 12px; color: rgba(255,255,255,.42); font-size: 13px; }
+  .avatar { margin-left: auto; width: 30px; height: 30px; border-radius: 999px; background: #fff; color: var(--chrome);
+            display: grid; place-items: center; font-size: 11px; font-weight: 700; }
+
+  main { flex: 1; overflow-y: auto; background: var(--surface); border-start-start-radius: 10px;
+         padding: 22px 26px 40px; }
+
+  /* ── host-supplied chrome (masthead) ─────────────────────────────── */
+  .eyebrow { font-size: 12px; font-weight: 600; letter-spacing: var(--caps); text-transform: uppercase;
+             color: var(--subtle); display: inline-flex; gap: 6px; align-items: center; margin-bottom: 5px; }
+  .eyebrow .sep { opacity: .5; }
+  h1 { font-family: ui-serif, Georgia, "Times New Roman", serif; font-size: 32px; margin: 0; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); font-size: 14px; margin-top: 6px; }
+  .host-tag { display: inline-block; margin-inline-start: 10px; vertical-align: middle; font-family: ui-sans-serif;
+              font-size: 10px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--subtle);
+              border: 1px solid var(--border-2); border-radius: 999px; padding: 2px 8px; }
+
+  /* ── toolbar (view + selection controls the host frames) ─────────── */
+  .toolbar { display: flex; align-items: center; gap: 14px; margin: 20px 0 0; padding-bottom: 12px;
+             border-bottom: 1px solid var(--border); }
+  .crumbs { font-size: 13px; color: var(--muted); }
+  .crumbs b { color: var(--text); font-weight: 600; }
+  .spacer { flex: 1; }
+  .seg { display: inline-flex; border: 1px solid var(--border-2); border-radius: 8px; overflow: hidden; }
+  .seg button { border: 0; background: #fff; padding: 6px 11px; font-size: 12.5px; color: var(--muted); cursor: pointer;
+                display: inline-flex; align-items: center; gap: 6px; }
+  .seg button + button { border-inline-start: 1px solid var(--border-2); }
+  .seg button[aria-pressed="true"] { background: var(--chrome); color: #fff; }
+  .selinfo { font-size: 12.5px; color: var(--muted); }
+
+  /* ── the two-region body ─────────────────────────────────────────── */
+  .region-row { display: flex; gap: 20px; margin-top: 18px; align-items: flex-start; }
+  .collection { flex: none; width: 300px; }
+  .surface[data-view="tiles"] .collection { width: 380px; }
+  .surface[data-single="true"] .collection { width: 62px; }
+  .detail { flex: 1; min-width: 0; }
+
+  .region-label { font-size: 11px; font-weight: 600; letter-spacing: var(--caps); text-transform: uppercase;
+                  color: var(--subtle); margin: 0 0 9px; }
+
+  /* list rows */
+  .rows { display: flex; flex-direction: column; gap: 2px; }
+  .row { display: flex; align-items: center; gap: 10px; padding: 8px 9px; border-radius: 8px; cursor: pointer;
+         border: 1px solid transparent; }
+  .row:hover { background: var(--hover); }
+  .row[aria-selected="true"] { background: var(--selected); border-color: var(--border-2); }
+  .ck { width: 15px; height: 15px; border-radius: 4px; border: 1.5px solid var(--border-2); flex: none; display: grid;
+        place-items: center; }
+  .surface[data-multi="true"] .ck { border-color: var(--muted); }
+  .row[aria-selected="true"] .ck { background: var(--chrome); border-color: var(--chrome); }
+  .row[aria-selected="true"] .ck::after { content: ""; width: 7px; height: 7px; border-radius: 2px; background: #fff; }
+  .ftype { width: 30px; height: 30px; border-radius: 6px; background: var(--selected); display: grid; place-items: center;
+           font-size: 8.5px; font-weight: 700; color: var(--muted); flex: none; letter-spacing: .02em; }
+  .fmain { min-width: 0; flex: 1; }
+  .fname { font-size: 13px; font-weight: 550; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .fsub { font-size: 11px; color: var(--muted); font-family: ui-monospace, monospace; margin-top: 1px; }
+  .scan { width: 8px; height: 8px; border-radius: 999px; flex: none; }
+  .scan.clean { background: var(--ok); }
+  .scan.unscanned { background: var(--warn); }
+  .scan.flagged { background: var(--bad); }
+  .folderrow .ftype { background: transparent; color: var(--gilt); }
+
+  /* collapsed rail (single-select) */
+  .surface[data-single="true"] .row { flex-direction: column; gap: 6px; padding: 7px 4px; }
+  .surface[data-single="true"] .fmain, .surface[data-single="true"] .ck { display: none; }
+  .surface[data-single="true"] .scan { position: relative; inset-block-start: -22px; inset-inline-start: 10px; }
+
+  /* tiles */
+  .tiles { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .tile { border: 1px solid var(--border-2); border-radius: 10px; padding: 12px; cursor: pointer; background: #fff;
+          position: relative; }
+  .tile:hover { background: var(--hover); }
+  .tile[aria-selected="true"] { background: var(--selected); border-color: var(--muted); }
+  .tile .thumb { height: 68px; border-radius: 7px; background: var(--selected); display: grid; place-items: center;
+                 font-size: 12px; font-weight: 700; color: var(--muted); margin-bottom: 9px; }
+  .tile .fname { white-space: normal; }
+  .tile .scan { position: absolute; inset-block-start: 10px; inset-inline-end: 10px; }
+
+  /* ── capability tabs (detail chrome) ─────────────────────────────── */
+  .caps { display: flex; gap: 2px; align-items: center; border-bottom: 1px solid var(--border); overflow-x: auto;
+          margin-bottom: 16px; }
+  .cap { position: relative; display: inline-flex; align-items: center; gap: 7px; padding: 9px 11px 11px; font-size: 13px;
+         color: var(--muted); white-space: nowrap; border: 0; background: none; cursor: pointer; }
+  .cap[aria-selected="true"] { color: var(--text); font-weight: 600; }
+  .cap[aria-selected="true"]::after { content: ""; position: absolute; inset-inline: 8px; inset-block-end: -1px; height: 2px;
+                                      background: var(--gilt); border-radius: 2px; }
+  .cap[data-recede="true"] { opacity: .32; cursor: not-allowed; }
+  .cap .b { font-size: 9.5px; font-weight: 600; letter-spacing: .02em; padding: 2px 6px; border-radius: 999px; }
+  .b.local { background: var(--info-bg); color: var(--info-fg); }
+  .b.na { background: var(--selected); color: var(--muted); }
+  .b.cost { background: var(--cost-bg); color: var(--cost-fg); }
+  .b.consent { background: var(--warn-bg); color: var(--warn-fg); }
+
+  /* detail content */
+  dl { display: grid; grid-template-columns: 168px 1fr; gap: 9px 22px; margin: 0; font-size: 14px; }
+  dt { color: var(--muted); font-size: 11.5px; font-weight: 600; letter-spacing: var(--caps); text-transform: uppercase;
+       align-self: center; }
+  dd { margin: 0; font-family: ui-monospace, monospace; font-size: 13px; align-self: center; }
+  .absent { color: var(--subtle); font-style: italic; font-family: ui-sans-serif; }
+  .absent.na { color: var(--muted); }
+  .note { font-size: 13px; color: var(--muted); margin-top: 20px; max-width: 74ch; line-height: 1.55; }
+  .stage { margin-bottom: 18px; border: 1px solid var(--border); border-radius: 10px; background: var(--raised); }
+  .held { display: flex; align-items: center; gap: 8px; padding: 9px 14px; font-size: 12px; color: var(--muted); }
+  .held .dot { width: 6px; height: 6px; border-radius: 999px; background: var(--gilt); flex: none; }
+  .filed .dot { background: var(--ok); }
+
+  table.meta { border-collapse: collapse; width: 100%; font-size: 13px; }
+  table.meta td { padding: 7px 10px; border-block-end: 1px solid var(--border); font-family: ui-monospace, monospace; }
+  table.meta td:first-child { color: var(--muted); font-family: ui-sans-serif; width: 210px; font-size: 12px;
+                              text-transform: uppercase; letter-spacing: .04em; font-weight: 600; }
+
+  /* consent panel */
+  .consent { border: 1px solid var(--warn-fg); border-radius: 10px; padding: 18px; background: var(--warn-bg);
+             max-width: 62ch; }
+  .cost .consent, .consent.cost { border-color: var(--cost-fg); background: var(--cost-bg); }
+  .consent h3 { margin: 0 0 6px; font-size: 15px; }
+  .consent p { margin: 0 0 14px; font-size: 13.5px; color: var(--text); line-height: 1.5; }
+  .consent .act { display: inline-flex; gap: 8px; }
+  .btn { border: 1px solid var(--chrome); background: var(--chrome); color: #fff; border-radius: 8px; padding: 8px 15px;
+         font-size: 13px; cursor: pointer; }
+  .btn.ghost { background: none; color: var(--muted); border-color: var(--border-2); }
+
+  /* bulk panel (multi-select) */
+  .bulk { border: 1px solid var(--border-2); border-radius: 10px; padding: 18px 20px; }
+  .bulk h3 { margin: 0 0 4px; font-size: 16px; }
+  .bulk .lede { color: var(--muted); font-size: 13px; margin: 0 0 16px; }
+  .bulk .acts { display: flex; flex-wrap: wrap; gap: 9px; margin-bottom: 16px; }
+  .chip { border: 1px solid var(--border-2); border-radius: 8px; padding: 8px 13px; font-size: 13px; background: #fff;
+          cursor: pointer; display: inline-flex; align-items: center; gap: 7px; }
+  .chip.off { opacity: .45; cursor: not-allowed; }
+  .excl { font-size: 12.5px; color: var(--muted); border-block-start: 1px solid var(--border); padding-block-start: 13px;
+          line-height: 1.6; }
+  .excl b { color: var(--bad); font-weight: 600; }
+
+  /* version / history lists (matter only) */
+  .vlist { display: flex; flex-direction: column; gap: 0; }
+  .vitem { display: flex; align-items: center; gap: 12px; padding: 11px 4px; border-block-end: 1px solid var(--border); }
+  .vnum { width: 34px; height: 34px; border-radius: 8px; background: var(--selected); display: grid; place-items: center;
+          font-size: 12px; font-weight: 700; color: var(--muted); flex: none; }
+  .vmeta { flex: 1; } .vmeta .t { font-size: 13.5px; font-weight: 550; } .vmeta .s { font-size: 12px; color: var(--muted);
+          font-family: ui-monospace, monospace; margin-top: 2px; }
+  .cur { font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--ok); }
+
+  /* empty drop state */
+  .drop { border: 1.5px dashed var(--border-2); border-radius: 12px; padding: 60px 20px; text-align: center;
+          background: var(--raised); }
+  .drop h3 { margin: 0 0 7px; font-size: 18px; }
+  .drop p { margin: 0 auto; color: var(--muted); font-size: 14px; max-width: 52ch; line-height: 1.5; }
+
+  .hide { display: none !important; }
+
+  /* ── driver panel ─────────────────────────────────────────────────── */
+  .driver { position: fixed; inset-block-end: 16px; inset-inline-end: 16px; background: #fff; border: 1px solid var(--border-2);
+            border-radius: 12px; padding: 12px 14px; box-shadow: 0 8px 30px rgba(0,0,0,.16); width: 236px; }
+  .driver .grp { margin-bottom: 11px; } .driver .grp:last-child { margin-bottom: 0; }
+  .driver .lbl { font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--subtle);
+                 margin-bottom: 5px; }
+  .driver .opts { display: flex; gap: 5px; }
+  .driver .opts button { flex: 1; border: 1px solid var(--border-2); background: #fff; border-radius: 7px; padding: 6px 4px;
+                         font-size: 12px; color: var(--muted); cursor: pointer; }
+  .driver .opts button.on { background: var(--chrome); color: #fff; border-color: var(--chrome); }
+  .driver .hint { font-size: 11px; color: var(--subtle); margin-top: 9px; line-height: 1.45; border-block-start: 1px solid var(--border);
+                  padding-block-start: 9px; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="rail"><i class="on"></i><i></i><i></i><i></i><i></i></div>
+  <div class="canvas">
+    <div class="topbar">
+      <div class="search">Search matters, files, tools…</div>
+      <div class="avatar">MC</div>
+    </div>
+    <main>
+      <div class="surface" id="surface" data-host="tools" data-view="list" data-multi="false" data-single="true">
+        <!-- host-supplied chrome -->
+        <div id="masthead"></div>
+
+        <!-- body: toolbar + two regions -->
+        <div id="empty" class="hide">
+          <div class="drop">
+            <h3>Drop a file to begin</h3>
+            <p>Its type and digest are read on this machine. It uploads once when you first ask for a capability that needs a server — then every later capability reads the same bytes.</p>
+          </div>
+        </div>
+
+        <div id="workbody">
+          <div class="toolbar">
+            <div class="crumbs" id="crumbs"></div>
+            <div class="spacer"></div>
+            <div class="seg" role="group" aria-label="Collection view">
+              <button id="vList" aria-pressed="true">List</button>
+              <button id="vTiles" aria-pressed="false">Tiles</button>
+            </div>
+            <div class="selinfo" id="selinfo"></div>
+          </div>
+
+          <div class="region-row">
+            <div class="collection">
+              <p class="region-label" id="collLabel">Files</p>
+              <div class="rows" id="rows"></div>
+              <div class="tiles hide" id="tilesWrap"></div>
+            </div>
+            <div class="detail">
+              <div class="caps" id="caps" aria-label="Capabilities"></div>
+              <div id="detailBody"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div class="driver">
+  <div class="grp">
+    <div class="lbl">Host</div>
+    <div class="opts" id="dHost">
+      <button data-v="tools" class="on">Tools</button>
+      <button data-v="matter">Matter</button>
+    </div>
+  </div>
+  <div class="grp">
+    <div class="lbl">Collection view</div>
+    <div class="opts" id="dView">
+      <button data-v="list" class="on">List</button>
+      <button data-v="tiles">Tiles</button>
+    </div>
+  </div>
+  <div class="grp">
+    <div class="lbl">Selection</div>
+    <div class="opts" id="dSel">
+      <button data-v="single" class="on">One file</button>
+      <button data-v="multi">Several</button>
+    </div>
+  </div>
+  <div class="grp">
+    <div class="lbl">State</div>
+    <div class="opts" id="dState">
+      <button data-v="loaded" class="on">Files</button>
+      <button data-v="empty">Empty</button>
+    </div>
+  </div>
+  <div class="hint">Same body throughout. Only the host swaps the chrome, the file source, and which capabilities exist.</div>
+</div>
+
+<script>
+const S = document.getElementById('surface');
+
+const CLEAN = 'clean', UNSC = 'unscanned', FLAG = 'flagged';
+
+const HOSTS = {
+  tools: {
+    eyebrow: ['←', 'Tools'],
+    title: 'File Inspector',
+    tag: 'Tools host',
+    sub: 'Runs outside any matter. Nothing is filed.',
+    crumbs: null,
+    collLabel: 'Held this session',
+    footer: { cls: 'held', text: 'Held for this session only · discarded in 58 min, or now if you say so.' },
+    caps: ['Overview','Hash','File Type','Metadata','Malware Scan','Convert','Repair','Unlock','AI Text'],
+    files: [
+      { name:'Deposition — Ashcombe, vol. II.pdf', kind:'PDF', sub:'18.4 MB · pdf', scan:CLEAN, enc:false },
+      { name:'retainer-signed.jpg', kind:'JPG', sub:'2.1 MB · jpeg', scan:CLEAN, enc:false },
+      { name:'ledger-export.xlsx', kind:'XLSX', sub:'840 KB · xlsx', scan:UNSC, enc:true },
+      { name:'notice.docm', kind:'DOCM', sub:'1.2 MB · docm', scan:FLAG, enc:false },
+      { name:'production-002.zip', kind:'ZIP', sub:'61 MB · zip', scan:CLEAN, enc:false, nopreview:true },
+    ],
+  },
+  matter: {
+    eyebrow: null,
+    title: 'Files',
+    tag: 'Matter host',
+    sub: null,
+    crumbs: ['Matters','Ashcombe v. Continental','<b>Files</b>','Pleadings'],
+    collLabel: 'Pleadings',
+    footer: { cls: 'filed', text: 'Filed to Ashcombe v. Continental · versioned, audited, retained per matter policy.' },
+    caps: ['Overview','Versions','History','Hash','File Type','Metadata','Malware Scan','Convert','Repair','Unlock','AI Text'],
+    files: [
+      { name:'Pleadings', folder:true },
+      { name:'Correspondence', folder:true },
+      { name:'Complaint.pdf', kind:'PDF', sub:'v3 · 640 KB', scan:CLEAN, enc:false },
+      { name:'Answer.pdf', kind:'PDF', sub:'v1 · 210 KB', scan:CLEAN, enc:false },
+      { name:'Exhibit-A.tiff', kind:'TIFF', sub:'v1 · 12 MB', scan:CLEAN, enc:false, nopreview:true },
+      { name:'transcript-2026-06-30.pdf', kind:'PDF', sub:'v2 · 4.4 MB', scan:UNSC, enc:false },
+    ],
+  },
+};
+
+// capability badges + recede rules
+const CAP_BADGE = { 'Hash':['local','Local'], 'File Type':['local','Local'], 'AI Text':['cost','Leaves the firm'], 'Unlock':['consent','Consent'] };
+function capRecede(cap, file){
+  if (!file) return false;
+  if (cap === 'Unlock') return !file.enc;      // n/a when not encrypted
+  if (cap === 'Repair') return file.scan === CLEAN && file.kind !== 'PDF';
+  return false;
+}
+
+const state = { host:'tools', view:'list', sel:'single', empty:false, activeCap:'Overview', selected:new Set([0]) };
+
+function firstInspectable(files){ return files.findIndex(f=>!f.folder); }
+
+function render(){
+  const H = HOSTS[state.host];
+  S.dataset.host = state.host;
+  S.dataset.view = state.view;
+  S.dataset.multi = state.sel === 'multi';
+  S.dataset.single = (state.sel === 'single');
+
+  // empty only meaningful for tools
+  const showEmpty = state.empty && state.host === 'tools';
+  document.getElementById('empty').classList.toggle('hide', !showEmpty);
+  document.getElementById('workbody').classList.toggle('hide', showEmpty);
+
+  // masthead
+  const mh = document.getElementById('masthead');
+  const eb = H.eyebrow ? `<div class="eyebrow">${H.eyebrow[0]}&nbsp; ${H.eyebrow[1]}</div>` : '';
+  const sub = H.sub ? `<div class="sub">${H.sub}</div>` : '';
+  mh.innerHTML = `${eb}<h1>${H.title}<span class="host-tag">${H.tag}</span></h1>${sub}`;
+
+  // crumbs / footer in toolbar
+  document.getElementById('crumbs').innerHTML = H.crumbs
+    ? H.crumbs.map((c,i)=> i<H.crumbs.length-1 ? c+' <span style="opacity:.4">/</span> ' : c).join('')
+    : `<span style="color:var(--subtle)">Ad-hoc upload · no matter</span>`;
+  document.getElementById('collLabel').textContent = H.collLabel;
+
+  // selection info
+  const files = H.files;
+  const selCount = [...state.selected].filter(i=>files[i] && !files[i].folder).length;
+  document.getElementById('selinfo').textContent =
+    state.sel === 'multi' ? `${selCount} selected` : '';
+
+  // collection — list
+  const rows = document.getElementById('rows');
+  const tiles = document.getElementById('tilesWrap');
+  rows.classList.toggle('hide', state.view === 'tiles');
+  tiles.classList.toggle('hide', state.view !== 'tiles');
+  const ckWrap = (i)=> state.sel==='multi' ? `<div class="ck"></div>` : '';
+  rows.innerHTML = files.map((f,i)=>{
+    if (f.folder) return `<div class="row folderrow" data-i="${i}" aria-selected="false">
+        ${ckWrap(i)}<div class="ftype">▸</div>
+        <div class="fmain"><div class="fname">${f.name}</div><div class="fsub">folder</div></div></div>`;
+    const on = state.selected.has(i);
+    return `<div class="row" data-i="${i}" aria-selected="${on}">
+        ${ckWrap(i)}<div class="ftype">${f.kind}</div>
+        <div class="fmain"><div class="fname">${f.name}</div><div class="fsub">${f.sub}</div></div>
+        <div class="scan ${f.scan}" title="${f.scan}"></div></div>`;
+  }).join('');
+  tiles.innerHTML = files.filter(f=>!f.folder).map((f)=>{
+    const i = files.indexOf(f); const on = state.selected.has(i);
+    return `<div class="tile" data-i="${i}" aria-selected="${on}">
+        <div class="scan ${f.scan}"></div>
+        <div class="thumb">${f.kind}</div>
+        <div class="fname">${f.name}</div><div class="fsub">${f.sub}</div></div>`;
+  }).join('');
+
+  // capability tabs — hidden in multi (bulk mode)
+  const caps = document.getElementById('caps');
+  const activeFile = files[[...state.selected][0]];
+  if (state.sel === 'multi') {
+    caps.classList.add('hide');
+  } else {
+    caps.classList.remove('hide');
+    caps.innerHTML = H.caps.map(cap=>{
+      const badge = CAP_BADGE[cap] ? `<span class="b ${CAP_BADGE[cap][0]}">${CAP_BADGE[cap][1]}</span>` : '';
+      const recede = capRecede(cap, activeFile);
+      const selc = cap === state.activeCap && !recede;
+      return `<button class="cap" data-cap="${cap}" data-recede="${recede}" aria-selected="${selc}">${cap} ${badge}</button>`;
+    }).join('');
+  }
+
+  renderDetail(H, activeFile);
+}
+
+function footerHtml(H){
+  return `<div class="stage"><div class="held ${H.footer.cls}"><span class="dot"></span>${H.footer.text}</div></div>`;
+}
+
+function renderDetail(H, f){
+  const d = document.getElementById('detailBody');
+  if (state.sel === 'multi'){
+    const files = H.files;
+    const sel = [...state.selected].map(i=>files[i]).filter(x=>x && !x.folder);
+    const flagged = sel.filter(x=>x.scan===FLAG);
+    d.innerHTML = `<div class="bulk">
+      <h3>${sel.length} files selected</h3>
+      <p class="lede">Bulk actions apply to every selected file that is eligible.</p>
+      <div class="acts">
+        <span class="chip">Convert…</span>
+        <span class="chip">Compute hashes</span>
+        <span class="chip">Re-scan</span>
+        <span class="chip">Scrub metadata</span>
+        <span class="chip off">Unlock — per file only</span>
+        <span class="chip off">AI Text — per file only</span>
+      </div>
+      <div class="excl">
+        ${flagged.length ? `<b>${flagged.length} flagged file excluded</b> from every bulk action — its bytes are not converted, scrubbed, or handed on.<br>` : ''}
+        Unlock and AI Text disclose or decrypt content, so they require explicit per-file consent and never run in bulk.
+      </div></div>`;
+    return;
+  }
+
+  if (!f || f.folder){ d.innerHTML = `<p class="note">Select a file to inspect it.</p>`; return; }
+  const cap = capRecede(state.activeCap, f) ? 'Overview' : state.activeCap;
+
+  if (cap === 'Overview'){
+    const scanCell = f.scan===CLEAN ? 'Clean' : f.scan===FLAG
+      ? `<span style="color:var(--bad);font-family:ui-sans-serif;font-weight:600">Flagged — withheld from every capability</span>`
+      : `<span class="absent">Not run — requires upload</span>`;
+    const encCell = f.enc ? `<span style="color:var(--warn-fg);font-family:ui-sans-serif">Encrypted — password required</span>`
+      : `<span class="absent na">Not applicable — not encrypted</span>`;
+    d.innerHTML = footerHtml(H) + `<dl>
+      <dt>Detected type</dt><dd>${f.kind} (magic bytes)</dd>
+      <dt>Size</dt><dd>${f.sub.split('·').pop().trim()}</dd>
+      <dt>SHA-256</dt><dd>4f3a1d0c… 9c1e</dd>
+      <dt>Malware scan</dt><dd>${scanCell}</dd>
+      <dt>Encryption</dt><dd>${encCell}</dd>
+      <dt>Preview</dt><dd>${f.nopreview ? '<span class="absent na">None — archive/opaque; analysis takes full width</span>' : 'Sandboxed (cookieless host)'}</dd>
+      ${state.host==='matter' ? '<dt>Version</dt><dd>'+f.sub.split('·')[0].trim()+' · 3 inspections on record</dd>' : ''}
+    </dl>
+    <p class="note">The digest is the object’s identity: what a scrub removed or a repair changed is <em>stated</em> against it, not assumed. ${state.host==='matter' ? 'Because this file is filed, its inspection history is legitimate.' : 'Because this is an ad-hoc upload, nothing here is retained past the session.'}</p>`;
+    return;
+  }
+  if (cap === 'Metadata'){
+    d.innerHTML = `<table class="meta">
+      <tr><td>Title</td><td>Ashcombe Deposition Vol. II</td></tr>
+      <tr><td>Author</td><td>M. Reyes</td></tr>
+      <tr><td>Producer</td><td>Acrobat Distiller 23.1</td></tr>
+      <tr><td>Created</td><td>2026-05-14T09:22:00Z</td></tr>
+      <tr><td>Modified</td><td>2026-06-30T14:07:00Z</td></tr>
+      <tr><td>GPS</td><td><span class="absent na">Not present</span></td></tr>
+    </table><p class="note">Scrub produces a new object; the original is untouched, and the before/after digests prove what changed.</p>`;
+    return;
+  }
+  if (cap === 'AI Text'){
+    d.innerHTML = `<div class="consent cost"><h3>AI-text detection sends content outside the firm</h3>
+      <p>This runs the document’s text through Pangram, a third party, and is billed per document. Consent is required here, at the point of action — never a preference read once, and never in bulk.</p>
+      <div class="act"><button class="btn">Send this file to Pangram</button><button class="btn ghost">Not now</button></div></div>
+      <p class="note">Defect noted in the spec: the AI-text route takes pasted text, not a file — something must extract the text first. Resolve before building.</p>`;
+    return;
+  }
+  if (cap === 'Unlock'){
+    d.innerHTML = `<div class="consent"><h3>Decrypt with a known password</h3>
+      <p>You supply the password; the file is decrypted within this session in milliseconds. Consent is required per file.</p>
+      <div class="act"><button class="btn">Enter password &amp; unlock</button></div></div>
+      <p class="note"><strong>Recovering an unknown password is not here.</strong> A crack can run for days, which this hours-long session cannot hold — it hands off to a dedicated recovery screen keyed by job, carrying only the digest.</p>`;
+    return;
+  }
+  if (cap === 'Versions'){
+    d.innerHTML = `<div class="vlist">
+      <div class="vitem"><div class="vnum">v3</div><div class="vmeta"><div class="t">Current · 640 KB <span class="cur">live</span></div><div class="s">committed 2026-06-30 · clean · sha 4f3a…</div></div></div>
+      <div class="vitem"><div class="vnum">v2</div><div class="vmeta"><div class="t">Superseded · 612 KB</div><div class="s">committed 2026-06-18 · clean</div></div></div>
+      <div class="vitem"><div class="vnum">v1</div><div class="vmeta"><div class="t">Original · 590 KB</div><div class="s">committed 2026-05-14 · clean</div></div></div>
+    </div><p class="note">Versions exist only in the matter host — the Tools host wires in no version source, so this tab is structurally absent there.</p>`;
+    return;
+  }
+  if (cap === 'History'){
+    d.innerHTML = `<div class="vlist">
+      <div class="vitem"><div class="vnum">●</div><div class="vmeta"><div class="t">Metadata scrubbed</div><div class="s">2026-07-02 · by M. Reyes · GPS + author removed</div></div></div>
+      <div class="vitem"><div class="vnum">●</div><div class="vmeta"><div class="t">Malware scan — clean</div><div class="s">2026-06-30 · engine yara-forge 2026.06</div></div></div>
+      <div class="vitem"><div class="vnum">●</div><div class="vmeta"><div class="t">Converted to PDF/A</div><div class="s">2026-06-18 · by J. Okafor</div></div></div>
+    </div><p class="note">A history of inspections is legitimate here because it hangs off a filed record. In the Tools host it would be forbidden — retaining facts about files the firm never filed.</p>`;
+    return;
+  }
+  // generic capabilities (Hash, File Type, Malware Scan, Convert, Repair)
+  const blurbs = {
+    'Hash':'SHA-256 and SHA-1 computed on this machine, then re-computed server-side over the received bytes so the authoritative digest never masquerades as the fast one.',
+    'File Type':'Detected by magic bytes, not the extension. Declared: matches. This ran locally without leaving the machine.',
+    'Malware Scan':'Every arriving file is scanned. A flagged file is excluded from every other capability and from every bulk action.',
+    'Convert':'Convert produces a new object; the original is untouched. Pick a target format — result is downloadable and, in the matter host, filable as a new version.',
+    'Repair':'Structural repair produces a new artifact; before/after digests record what changed.',
+  };
+  d.innerHTML = footerHtml(H) + `<p class="note">${blurbs[cap] || cap}</p>`;
+}
+
+// ── interactions ──────────────────────────────────────────────
+function pick(i){
+  const f = HOSTS[state.host].files[i];
+  if (!f || f.folder) return;
+  if (state.sel === 'multi'){
+    if (state.selected.has(i)) state.selected.delete(i); else state.selected.add(i);
+    if (state.selected.size === 0) state.selected.add(i);
+  } else {
+    state.selected = new Set([i]);
+  }
+  render();
+}
+document.getElementById('rows').addEventListener('click', e=>{ const r=e.target.closest('.row'); if(r) pick(+r.dataset.i); });
+document.getElementById('tilesWrap').addEventListener('click', e=>{ const t=e.target.closest('.tile'); if(t) pick(+t.dataset.i); });
+document.getElementById('caps').addEventListener('click', e=>{
+  const c=e.target.closest('.cap'); if(!c || c.dataset.recede==='true') return;
+  state.activeCap = c.dataset.cap; render();
+});
+
+// driver
+function wire(id, apply){ document.getElementById(id).addEventListener('click', e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  [...b.parentNode.children].forEach(x=>x.classList.remove('on')); b.classList.add('on');
+  apply(b.dataset.v); render();
+});}
+wire('dHost', v=>{ state.host=v; state.selected=new Set([firstInspectable(HOSTS[v].files)]);
+  if(!HOSTS[v].caps.includes(state.activeCap)) state.activeCap='Overview'; });
+wire('dView', v=>{ state.view=v; });
+wire('dSel', v=>{ state.sel=v; if(v==='single') state.selected=new Set([[...state.selected][0] ?? firstInspectable(HOSTS[state.host].files)]);
+  else { const ff=HOSTS[state.host].files; state.selected=new Set(ff.map((f,i)=>!f.folder&&f.scan!==FLAG?i:-1).filter(i=>i>=0).slice(0,3)); } });
+wire('dState', v=>{ state.empty = (v==='empty'); });
+
+// sync view seg buttons in toolbar too
+document.getElementById('vList').onclick = ()=>{ state.view='list'; syncViewSeg(); render(); };
+document.getElementById('vTiles').onclick = ()=>{ state.view='tiles'; syncViewSeg(); render(); };
+function syncViewSeg(){ document.getElementById('vList').setAttribute('aria-pressed', state.view==='list');
+  document.getElementById('vTiles').setAttribute('aria-pressed', state.view==='tiles');
+  document.querySelectorAll('#dView button').forEach(b=>b.classList.toggle('on', b.dataset.v===state.view)); }
+
+render();
+</script>
+</body>
+</html>

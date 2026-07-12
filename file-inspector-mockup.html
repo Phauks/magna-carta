@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>File Inspector — mockup</title>
+<style>
+  :root {
+    --chrome: oklch(0.22 0.0192 70);
+    --surface: oklch(0.99 0.002 70);
+    --raised: oklch(0.975 0.0025 70);
+    --selected: oklch(0.95 0.0037 70);
+    --text: oklch(0.24 0.008 70);
+    --muted: oklch(0.52 0.014 70);
+    --subtle: oklch(0.62 0.012 70);
+    --border: oklch(0.90 0.004 70);
+    --gilt: oklch(0.72 0.11 85);
+    --info-bg: oklch(0.93 0.03 240);
+    --info-fg: oklch(0.42 0.09 240);
+    --warn-bg: oklch(0.94 0.05 75);
+    --warn-fg: oklch(0.45 0.10 60);
+    --caps: 0.09em;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--chrome); color: var(--text); }
+
+  .shell { display: flex; height: 100vh; overflow: hidden; }
+  .rail { width: 52px; flex: none; background: var(--chrome); display: flex; flex-direction: column;
+          align-items: center; gap: 18px; padding: 14px 0; }
+  .rail i { width: 18px; height: 18px; border-radius: 5px; background: #fff; opacity: .28; display: block; }
+  .rail i.on { opacity: .85; background: var(--gilt); }
+
+  .canvas { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--chrome); }
+  .topbar { height: 56px; flex: none; display: flex; align-items: center; gap: 16px; padding: 0 20px; }
+  .search { flex: 1; max-width: 620px; height: 34px; border-radius: 8px; background: rgba(255,255,255,.06);
+            display: flex; align-items: center; padding: 0 12px; color: rgba(255,255,255,.45); font-size: 13px; }
+  .avatar { margin-left: auto; width: 30px; height: 30px; border-radius: 999px; background: #fff; color: var(--chrome);
+            display: grid; place-items: center; font-size: 11px; font-weight: 700; }
+
+  main { flex: 1; overflow-y: auto; background: var(--surface); border-start-start-radius: 10px; padding: 24px 28px 40px; }
+
+  .eyebrow { font-size: 12px; font-weight: 600; letter-spacing: var(--caps); text-transform: uppercase;
+             color: var(--subtle); display: inline-flex; gap: 6px; align-items: center; margin-bottom: 4px; }
+  h1 { font-family: ui-serif, Georgia, serif; font-size: 34px; margin: 0; letter-spacing: -0.01em; }
+  .meta { color: var(--muted); font-size: 14px; margin-top: 6px; }
+
+  /* the matter-style section nav */
+  .sections { display: flex; gap: 4px; align-items: center; margin: 22px 0 0; border-bottom: 1px solid var(--border);
+              overflow-x: auto; }
+  .tab { position: relative; display: inline-flex; align-items: center; gap: 8px; padding: 10px 12px 12px;
+         font-size: 14px; color: var(--muted); white-space: nowrap; cursor: pointer; border: 0; background: none; }
+  .tab[aria-selected="true"] { color: var(--text); font-weight: 600; }
+  .tab[aria-selected="true"]::after { content: ""; position: absolute; inset-inline: 8px; bottom: -1px; height: 2px;
+                                       background: var(--gilt); border-radius: 2px; }
+  .tab[data-recede="true"] { opacity: .34; cursor: not-allowed; }
+  .badge { font-size: 10px; font-weight: 600; letter-spacing: .03em; padding: 2px 6px; border-radius: 999px; }
+  .badge.alpha { background: var(--info-bg); color: var(--info-fg); }
+  .badge.soon { background: var(--selected); color: var(--muted); }
+  .badge.cost { background: var(--warn-bg); color: var(--warn-fg); }
+
+  /* the file stage */
+  .stage { margin-top: 20px; border: 1px solid var(--border); border-radius: 10px; background: var(--raised); }
+  .stage-row { display: flex; align-items: center; gap: 14px; padding: 14px 16px; }
+  .filetile { width: 38px; height: 38px; border-radius: 7px; background: var(--selected); display: grid; place-items: center;
+              font-size: 10px; font-weight: 700; color: var(--muted); }
+  .fname { font-weight: 600; }
+  .fmeta { font-size: 12px; color: var(--muted); margin-top: 2px; font-family: ui-monospace, monospace; }
+  .stage-actions { margin-left: auto; display: flex; gap: 8px; }
+  .btn { border: 1px solid var(--border); background: #fff; border-radius: 7px; padding: 6px 11px; font-size: 13px;
+         color: var(--text); cursor: pointer; }
+  .btn.primary { background: var(--chrome); color: #fff; border-color: var(--chrome); }
+  .btn.ghost { background: none; border-color: transparent; color: var(--muted); }
+
+  .held { display: flex; align-items: center; gap: 8px; padding: 9px 16px; border-top: 1px solid var(--border);
+          font-size: 12px; color: var(--muted); }
+  .dot { width: 6px; height: 6px; border-radius: 999px; background: var(--gilt); }
+
+  /* dropzone (empty state) */
+  .drop { margin-top: 20px; border: 1px dashed var(--border); border-radius: 10px; background: var(--raised);
+          padding: 54px 20px; text-align: center; }
+  .drop h3 { margin: 0 0 6px; font-size: 17px; }
+  .drop p { margin: 0; color: var(--muted); font-size: 14px; }
+
+  /* panel content */
+  .caps { font-size: 12px; font-weight: 600; letter-spacing: var(--caps); text-transform: uppercase; color: var(--muted);
+          border-bottom: 1px solid var(--border); padding-bottom: 8px; margin: 28px 0 14px; }
+  dl { display: grid; grid-template-columns: 190px 1fr; gap: 10px 24px; margin: 0; font-size: 14px; }
+  dt { color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: var(--caps); text-transform: uppercase; }
+  dd { margin: 0; font-family: ui-monospace, monospace; font-size: 13px; }
+  .note { font-size: 13px; color: var(--muted); margin-top: 18px; max-width: 70ch; line-height: 1.55; }
+  .absent { color: var(--subtle); font-style: italic; font-family: inherit; }
+
+  .switcher { position: fixed; inset-block-end: 16px; inset-inline-end: 16px; display: flex; gap: 8px;
+              background: #fff; border: 1px solid var(--border); border-radius: 999px; padding: 6px; }
+  .switcher button { border: 0; background: none; border-radius: 999px; padding: 6px 12px; font-size: 12px; cursor: pointer; }
+  .switcher button.on { background: var(--chrome); color: #fff; }
+  .hide { display: none; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="rail"><i class="on"></i><i></i><i></i><i></i><i></i></div>
+  <div class="canvas">
+    <div class="topbar">
+      <div class="search">Search…</div>
+      <div class="avatar">MC</div>
+    </div>
+    <main>
+      <div class="eyebrow">&#8592;&nbsp; Tools</div>
+      <h1>File Inspector</h1>
+      <div class="meta">Runs outside any matter. Nothing is filed.</div>
+
+      <!-- STATE A: nothing dropped -->
+      <section id="empty">
+        <nav class="sections" aria-label="Capabilities">
+          <button class="tab" aria-selected="true">Overview</button>
+          <button class="tab" data-recede="true">Hash</button>
+          <button class="tab" data-recede="true">File Type</button>
+          <button class="tab" data-recede="true">Metadata</button>
+          <button class="tab" data-recede="true">Malware Scan</button>
+          <button class="tab" data-recede="true">Convert</button>
+          <button class="tab" data-recede="true">Repair</button>
+          <button class="tab" data-recede="true">Unlock</button>
+          <button class="tab" data-recede="true">AI Text</button>
+        </nav>
+        <div class="drop">
+          <h3>Drop a file to begin</h3>
+          <p>Its type and digest are read on this machine. Nothing is uploaded until you choose a capability that needs a server.</p>
+        </div>
+      </section>
+
+      <!-- STATE B: file present -->
+      <section id="loaded" class="hide">
+        <nav class="sections" aria-label="Capabilities">
+          <button class="tab" aria-selected="true">Overview</button>
+          <button class="tab">Hash <span class="badge alpha">Local</span></button>
+          <button class="tab">File Type <span class="badge alpha">Local</span></button>
+          <button class="tab">Metadata</button>
+          <button class="tab">Malware Scan</button>
+          <button class="tab">Convert</button>
+          <button class="tab" data-recede="true">Repair <span class="badge soon">n/a</span></button>
+          <button class="tab" data-recede="true">Unlock <span class="badge soon">n/a</span></button>
+          <button class="tab">AI Text <span class="badge cost">Leaves the firm</span></button>
+        </nav>
+
+        <div class="stage">
+          <div class="stage-row">
+            <div class="filetile">PDF</div>
+            <div>
+              <div class="fname">Deposition &mdash; Ashcombe, vol. II.pdf</div>
+              <div class="fmeta">18.4 MB &middot; application/pdf &middot; sha256 4f3a&hellip;9c1e</div>
+            </div>
+            <div class="stage-actions">
+              <button class="btn">Replace</button>
+              <button class="btn ghost">Discard</button>
+            </div>
+          </div>
+          <div class="held"><span class="dot"></span> Held for this session only. Discarded automatically in 58 minutes, or now if you say so.</div>
+        </div>
+
+        <div class="caps">Overview</div>
+        <dl>
+          <dt>Detected type</dt><dd>PDF document (magic bytes, read locally)</dd>
+          <dt>Declared type</dt><dd>application/pdf</dd>
+          <dt>Size</dt><dd>18,432,118 bytes</dd>
+          <dt>SHA-256</dt><dd>4f3a1d0c&hellip;9c1e &nbsp;<span class="absent">computed on this machine</span></dd>
+          <dt>Malware scan</dt><dd class="absent">Not run &mdash; requires upload</dd>
+          <dt>Encryption</dt><dd class="absent">Not applicable &mdash; the document is not encrypted</dd>
+          <dt>Metadata</dt><dd class="absent">Not read &mdash; requires upload</dd>
+        </dl>
+
+        <p class="note">
+          Two capabilities ran here without leaving this machine. Everything else needs the file on the
+          server, so it uploads once when you first ask for one &mdash; and every later capability reads
+          the same bytes. The digest above becomes the object&rsquo;s identity, so what a scrub or a repair
+          changed can be stated rather than assumed.
+        </p>
+      </section>
+    </main>
+  </div>
+</div>
+
+<div class="switcher">
+  <button id="bEmpty" class="on">Empty</button>
+  <button id="bLoaded">File dropped</button>
+</div>
+
+<script>
+  const empty = document.getElementById('empty');
+  const loaded = document.getElementById('loaded');
+  const bEmpty = document.getElementById('bEmpty');
+  const bLoaded = document.getElementById('bLoaded');
+  const show = (which) => {
+    empty.classList.toggle('hide', which !== 'empty');
+    loaded.classList.toggle('hide', which !== 'loaded');
+    bEmpty.classList.toggle('on', which === 'empty');
+    bLoaded.classList.toggle('on', which === 'loaded');
+  };
+  bEmpty.onclick = () => show('empty');
+  bLoaded.onclick = () => show('loaded');
+  document.querySelectorAll('.sections').forEach(nav => {
+    nav.addEventListener('click', (e) => {
+      const tab = e.target.closest('.tab');
+      if (!tab || tab.dataset.recede === 'true') return;
+      nav.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected', 'false'));
+      tab.setAttribute('aria-selected', 'true');
+    });
+  });
+</script>
+</body>
+</html>

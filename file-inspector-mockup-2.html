@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>File Inspector — two column mockup</title>
+<style>
+  :root{
+    --chrome:oklch(0.22 0.0192 70); --surface:oklch(0.99 0.002 70); --raised:oklch(0.975 0.0025 70);
+    --selected:oklch(0.95 0.0037 70); --text:oklch(0.24 0.008 70); --muted:oklch(0.52 0.014 70);
+    --subtle:oklch(0.62 0.012 70); --border:oklch(0.90 0.004 70); --gilt:oklch(0.72 0.11 85);
+    --info-bg:oklch(0.93 0.03 240); --info-fg:oklch(0.42 0.09 240);
+    --ok-bg:oklch(0.93 0.05 150); --ok-fg:oklch(0.40 0.10 150);
+    --warn-bg:oklch(0.94 0.05 75); --warn-fg:oklch(0.45 0.10 60);
+    --caps:0.09em; font-family:ui-sans-serif,system-ui,"Segoe UI",sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--chrome);color:var(--text)}
+  .shell{display:flex;height:100vh;overflow:hidden}
+  .rail{width:52px;flex:none;display:flex;flex-direction:column;align-items:center;gap:18px;padding:14px 0}
+  .rail i{width:18px;height:18px;border-radius:5px;background:#fff;opacity:.28;display:block}
+  .rail i.on{opacity:.85;background:var(--gilt)}
+  .canvas{flex:1;display:flex;flex-direction:column;overflow:hidden}
+  .topbar{height:56px;flex:none;display:flex;align-items:center;gap:16px;padding:0 20px}
+  .search{flex:1;max-width:620px;height:34px;border-radius:8px;background:rgba(255,255,255,.06);display:flex;
+          align-items:center;padding:0 12px;color:rgba(255,255,255,.45);font-size:13px}
+  .avatar{margin-left:auto;width:30px;height:30px;border-radius:999px;background:#fff;color:var(--chrome);
+          display:grid;place-items:center;font-size:11px;font-weight:700}
+  main{flex:1;overflow-y:auto;background:var(--surface);border-start-start-radius:10px;padding:24px 28px 40px}
+
+  .eyebrow{font-size:12px;font-weight:600;letter-spacing:var(--caps);text-transform:uppercase;color:var(--subtle);margin-bottom:4px}
+  h1{font-family:ui-serif,Georgia,serif;font-size:32px;margin:0}
+  .meta{color:var(--muted);font-size:14px;margin-top:5px}
+
+  .sections{display:flex;gap:2px;align-items:center;margin:20px 0 0;border-bottom:1px solid var(--border);overflow-x:auto}
+  .tab{position:relative;display:inline-flex;align-items:center;gap:7px;padding:10px 12px 12px;font-size:14px;
+       color:var(--muted);white-space:nowrap;cursor:pointer;border:0;background:none}
+  .tab[aria-selected="true"]{color:var(--text);font-weight:600}
+  .tab[aria-selected="true"]::after{content:"";position:absolute;inset-inline:8px;bottom:-1px;height:2px;background:var(--gilt);border-radius:2px}
+  .tab[data-recede="true"]{opacity:.34;cursor:not-allowed}
+  .badge{font-size:10px;font-weight:600;padding:2px 6px;border-radius:999px}
+  .badge.done{background:var(--ok-bg);color:var(--ok-fg)}
+  .badge.soon{background:var(--selected);color:var(--muted)}
+  .badge.cost{background:var(--warn-bg);color:var(--warn-fg)}
+  .badge.info{background:var(--info-bg);color:var(--info-fg)}
+
+  .cols{display:grid;grid-template-columns:minmax(330px,40%) 1fr;gap:22px;margin-top:18px;align-items:start}
+  .pane{border:1px solid var(--border);border-radius:10px;background:var(--raised);overflow:hidden}
+  .pane-head{display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--border);
+             font-size:11px;font-weight:600;letter-spacing:var(--caps);text-transform:uppercase;color:var(--muted)}
+  .pane-head .btn{margin-left:auto}
+
+  /* file list */
+  .files{max-height:210px;overflow:auto;background:#fff}
+  .frow{display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid var(--border);cursor:pointer;font-size:13px}
+  .frow:last-child{border-bottom:0}
+  .frow[aria-current="true"]{background:var(--selected)}
+  .frow input{accent-color:var(--chrome);width:15px;height:15px}
+  .sq{width:24px;height:24px;border-radius:5px;background:var(--selected);display:grid;place-items:center;font-size:8px;font-weight:700;color:var(--muted)}
+  .frow .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .frow .sz{color:var(--muted);font-size:11px;font-family:ui-monospace,monospace}
+  .st{width:7px;height:7px;border-radius:999px;background:var(--ok-fg);flex:none}
+  .frow.scanning .st{background:var(--gilt)}
+  .frow.flagged .st{background:var(--warn-fg)}
+  .frow.flagged .nm{color:var(--warn-fg)}
+
+  .preview{height:330px;display:grid;place-items:center;background:repeating-linear-gradient(45deg,oklch(0.96 0.003 70) 0 8px,transparent 8px 16px)}
+  .page{width:60%;height:88%;background:#fff;border:1px solid var(--border);box-shadow:0 1px 3px rgba(0,0,0,.06);
+        padding:14px 12px;font-size:6px;line-height:1.75;color:var(--subtle);overflow:hidden}
+  .page b{display:block;font-size:8.5px;color:var(--text);margin-bottom:5px}
+  .sandboxnote{padding:8px 12px;border-top:1px solid var(--border);font-size:11px;color:var(--muted)}
+
+  .caps{font-size:11px;font-weight:600;letter-spacing:var(--caps);text-transform:uppercase;color:var(--muted);
+        border-bottom:1px solid var(--border);padding-bottom:7px;margin:0 0 12px}
+  .block{padding:14px 16px}
+  dl{display:grid;grid-template-columns:150px 1fr;gap:9px 18px;margin:0;font-size:13px}
+  dt{color:var(--muted);font-size:11px;font-weight:600;letter-spacing:var(--caps);text-transform:uppercase}
+  dd{margin:0;font-family:ui-monospace,monospace;font-size:12px}
+  .absent{color:var(--subtle);font-style:italic;font-family:inherit}
+  .held{display:flex;align-items:center;gap:8px;padding:9px 16px;border-top:1px solid var(--border);font-size:12px;color:var(--muted)}
+  .dot{width:6px;height:6px;border-radius:999px;background:var(--gilt)}
+  .consent{margin:0 16px 14px;border:1px solid var(--warn-fg);background:var(--warn-bg);border-radius:8px;padding:11px 12px;
+           font-size:12.5px;color:var(--warn-fg);line-height:1.5}
+  .consent .btn{margin-top:9px;background:#fff;border-color:var(--warn-fg);color:var(--warn-fg)}
+  .btn{border:1px solid var(--border);background:#fff;border-radius:7px;padding:6px 11px;font-size:13px;color:var(--text);cursor:pointer}
+  .btn.primary{background:var(--chrome);color:#fff;border-color:var(--chrome)}
+  .btn.sm{padding:4px 9px;font-size:12px}
+
+  .bulk{border:1px solid var(--chrome);border-radius:10px;background:#fff}
+  .bulk .hd{padding:12px 16px;border-bottom:1px solid var(--border);font-weight:600}
+  .switcher{position:fixed;inset-block-end:16px;inset-inline-end:16px;display:flex;gap:6px;background:#fff;
+            border:1px solid var(--border);border-radius:999px;padding:6px}
+  .switcher button{border:0;background:none;border-radius:999px;padding:6px 12px;font-size:12px;cursor:pointer}
+  .switcher button.on{background:var(--chrome);color:#fff}
+  .hide{display:none}
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="rail"><i class="on"></i><i></i><i></i><i></i><i></i></div>
+  <div class="canvas">
+    <div class="topbar"><div class="search">Search…</div><div class="avatar">MC</div></div>
+    <main>
+      <div class="eyebrow">&#8592;&nbsp; Tools</div>
+      <h1>File Inspector</h1>
+      <div class="meta">Runs outside any matter. Nothing is filed.</div>
+
+      <nav class="sections" aria-label="Capabilities">
+        <button class="tab" aria-selected="true">Overview</button>
+        <button class="tab">Type <span class="badge done">done</span></button>
+        <button class="tab">Hash <span class="badge done">done</span></button>
+        <button class="tab">Malware Scan <span class="badge done">3 clean &middot; 1 flagged</span></button>
+        <button class="tab">Metadata <span class="badge done">12</span></button>
+        <button class="tab">Convert</button>
+        <button class="tab" data-recede="true">Repair <span class="badge soon">n/a</span></button>
+        <button class="tab">Unlock <span class="badge cost">consent</span></button>
+        <button class="tab">AI Text <span class="badge cost">consent</span></button>
+      </nav>
+
+      <div class="cols">
+        <!-- LEFT: the file list, then the preview of the focused file -->
+        <div>
+          <div class="pane">
+            <div class="pane-head">
+              4 files &middot; 61.2 MB
+              <button class="btn sm" id="bulkToggle">Select all</button>
+            </div>
+            <div class="files">
+              <label class="frow" aria-current="true"><input type="checkbox" class="cb"><span class="st"></span><span class="sq">PDF</span><span class="nm">Deposition, vol. II.pdf</span><span class="sz">18.4 MB</span></label>
+              <label class="frow"><input type="checkbox" class="cb"><span class="st"></span><span class="sq">DOCX</span><span class="nm">Demand letter to Delderfield.docx</span><span class="sz">48 KB</span></label>
+              <label class="frow scanning"><input type="checkbox" class="cb"><span class="st"></span><span class="sq">JPG</span><span class="nm">North wall.jpg</span><span class="sz">4.1 MB</span></label>
+              <label class="frow flagged"><input type="checkbox" class="cb"><span class="st"></span><span class="sq">ZIP</span><span class="nm">archive.zip &mdash; flagged</span><span class="sz">38.7 MB</span></label>
+            </div>
+          </div>
+
+          <div class="pane" style="margin-top:14px">
+            <div class="pane-head">Preview &middot; page 1 of 214</div>
+            <div class="preview">
+              <div class="page">
+                <b>IN THE SECOND JUDICIAL DISTRICT COURT</b>
+                DEPOSITION OF ELEANOR VANCE, taken on behalf of the Plaintiff, at the offices of
+                Ashcombe Mercantile LLC, commencing at 9:04 a.m., before a Certified Court Reporter.<br><br>
+                Q. Please state your name for the record.<br>
+                A. Eleanor Margaret Vance.<br>
+                Q. And you understand you are under oath?<br>
+                A. I do.<br><br>
+                Q. Directing your attention to the lease amendment dated the eleventh of February&hellip;
+              </div>
+            </div>
+            <div class="sandboxnote">Rendered on the cookieless file host, sandboxed. The document never executes in this origin.</div>
+          </div>
+        </div>
+
+        <!-- RIGHT: single-file details, or the bulk action when several are checked -->
+        <div>
+          <div class="pane" id="single">
+            <div class="block">
+              <div class="caps">Deposition, vol. II.pdf</div>
+              <dl>
+                <dt>Detected type</dt><dd>PDF document (magic bytes)</dd>
+                <dt>Declared type</dt><dd>application/pdf</dd>
+                <dt>Size</dt><dd>18,432,118 bytes</dd>
+                <dt>SHA-256</dt><dd>4f3a1d0c&hellip;9c1e</dd>
+                <dt>Malware scan</dt><dd>Clean &middot; 2026-07-09 22:14 UTC</dd>
+                <dt>Metadata</dt><dd>12 artifacts &middot; 2 carry names</dd>
+                <dt>Encryption</dt><dd class="absent">Not applicable &mdash; not encrypted</dd>
+                <dt>Integrity</dt><dd class="absent">Not damaged &mdash; repair not offered</dd>
+              </dl>
+            </div>
+            <div class="consent">
+              <b>Two capabilities need your say-so, per file.</b><br>
+              <b>AI Text</b> sends this document&rsquo;s text to Pangram, outside the firm, and is billed per document.
+              <b>Unlock</b> needs a password and spends GPU time.
+              <button class="btn sm">Run AI Text on this file&hellip;</button>
+            </div>
+            <div class="held"><span class="dot"></span> Uploaded on arrival and scanned. Held for this session; discarded in 58 minutes, or now.</div>
+          </div>
+
+          <div class="pane bulk hide" id="bulk">
+            <div class="hd">3 files selected</div>
+            <div class="block">
+              <dl>
+                <dt>Applies to all</dt><dd>Convert &middot; Metadata &middot; Hash</dd>
+                <dt>Does not apply</dt><dd class="absent">Repair &mdash; none are damaged</dd>
+                <dt>Withheld</dt><dd class="absent">archive.zip &mdash; flagged by the scanner</dd>
+                <dt>Needs consent</dt><dd class="absent">AI Text, Unlock &mdash; per file, never in bulk</dd>
+              </dl>
+              <div style="margin-top:16px;display:flex;gap:8px">
+                <button class="btn primary">Convert 3 files&hellip;</button>
+                <button class="btn">Scrub metadata&hellip;</button>
+              </div>
+              <p style="font-size:12.5px;color:var(--muted);line-height:1.55;margin:16px 0 0;max-width:60ch">
+                A flagged file is excluded from every bulk action. Its bytes stay quarantined and are not
+                converted, scrubbed, or handed to anything else.
+              </p>
+            </div>
+            <div class="held"><span class="dot"></span> Uploaded on arrival and scanned. Held for this session; discarded in 58 minutes, or now.</div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div class="switcher">
+  <button id="bOne" class="on">One file</button>
+  <button id="bMany">Three selected</button>
+</div>
+
+<script>
+  const single=document.getElementById('single'), bulk=document.getElementById('bulk');
+  const bOne=document.getElementById('bOne'), bMany=document.getElementById('bMany');
+  const cbs=[...document.querySelectorAll('.cb')];
+  const show=(m)=>{
+    single.classList.toggle('hide',m!=='one'); bulk.classList.toggle('hide',m!=='many');
+    bOne.classList.toggle('on',m==='one'); bMany.classList.toggle('on',m==='many');
+    cbs.forEach((c,i)=>c.checked = m==='many' && i<3);
+  };
+  bOne.onclick=()=>show('one'); bMany.onclick=()=>show('many');
+  document.querySelectorAll('.frow').forEach(r=>r.addEventListener('click',e=>{
+    if(e.target.classList.contains('cb')) return;
+    document.querySelectorAll('.frow').forEach(x=>x.setAttribute('aria-current','false'));
+    r.setAttribute('aria-current','true');
+  }));
+  document.querySelectorAll('.cb').forEach(c=>c.addEventListener('change',()=>{
+    show(cbs.filter(x=>x.checked).length>1?'many':'one');
+  }));
+</script>
+</body>
+</html>
