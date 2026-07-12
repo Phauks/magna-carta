@@ -23,6 +23,7 @@ use pdfium_render::prelude::*;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::{Path, PathBuf};
 
+mod bench;
 mod validate;
 
 #[cfg(feature = "pdfium")]
@@ -47,6 +48,7 @@ fn main() {
         Some("validate") => {
             validate::validate_mode(args.next().expect("usage: validate <corpus_dir>"))
         }
+        Some("ocr-benchmark") => bench::ocr_benchmark_mode(),
         #[cfg(feature = "pdfium")]
         Some("fidelity") => fidelity_mode(args.collect()),
         #[cfg(feature = "pdfium")]
@@ -58,7 +60,7 @@ fn main() {
         }
         other => {
             eprintln!(
-                "unknown mode {other:?}; use smoke | redact-smoke | sanitize-smoke | detect | detect-smoke | render | parse | surgery-coverage | fidelity | pdfium | corpus-fetch | validate"
+                "unknown mode {other:?}; use smoke | redact-smoke | sanitize-smoke | detect | detect-smoke | render | parse | surgery-coverage | fidelity | pdfium | corpus-fetch | validate | ocr-benchmark"
             );
             std::process::exit(2);
         }

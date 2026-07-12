@@ -1,0 +1,1022 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Direction A — Engraved Ledger</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:ital,wght@0,200..800;1,200..800&family=UnifrakturMaguntia&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* ————— Chancery tokens (lab copy) ————— */
+      :root {
+        --chrome: #191813; /* ink chrome */
+        --chrome-raised: #23221b;
+        --chrome-hair: rgba(255, 255, 255, 0.08);
+        --chrome-text: #e9e7df;
+        --chrome-muted: #97937f;
+
+        --paper: #faf9f5; /* canvas */
+        --card: #ffffff;
+        --sunken: #f2f0ea;
+
+        --text: #22211c;
+        --muted: #5d5a50;
+        --subtle: #8b877a;
+
+        --gold: #c7a857;
+        --gold-bright: #e2c476;
+        --gold-deep: #8a7434;
+        --gold-wash: #fbf6e9;
+
+        --hair: rgba(35, 33, 26, 0.13);
+        --hair-strong: rgba(35, 33, 26, 0.26);
+
+        --open-fg: #3d6b4f;
+        --open-bg: #eaf2ec;
+        --pending-fg: #8a6a2f;
+        --pending-bg: #f7efdc;
+        --prospect-fg: #5d5a50;
+        --prospect-bg: #eeede7;
+
+        --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+      }
+      * {
+        margin: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        font-family: "Atkinson Hyperlegible Next", system-ui, sans-serif;
+        font-size: 14px;
+        color: var(--text);
+        background: var(--paper);
+        display: grid;
+        grid-template-columns: 232px 1fr;
+        grid-template-rows: 56px 1fr;
+        grid-template-areas: "side top" "side main";
+      }
+      button {
+        font: inherit;
+        color: inherit;
+        background: none;
+        border: 0;
+        cursor: pointer;
+      }
+      button:focus-visible,
+      a:focus-visible,
+      input:focus-visible,
+      tr:focus-visible {
+        outline: 2px solid var(--gold-deep);
+        outline-offset: 1px;
+      }
+
+      /* the label voice — letterspaced caps, used for every structural label */
+      .caps {
+        font-size: 11px;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        font-weight: 600;
+      }
+
+      /* figures voice — ledger numerals */
+      .fig {
+        font-variant-numeric: tabular-nums;
+        letter-spacing: 0;
+      }
+
+      /* ————— Chrome: sidebar ————— */
+      .side {
+        grid-area: side;
+        background: var(--chrome);
+        color: var(--chrome-text);
+        display: flex;
+        flex-direction: column;
+        position: relative;
+      }
+      .side::after,
+      .top::after {
+        /* grain lives on chrome only */
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        opacity: 0.05;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        height: 56px;
+        padding: 0 16px;
+      }
+      .brand .m {
+        font-family: "UnifrakturMaguntia";
+        font-size: 26px;
+        line-height: 1;
+        color: var(--gold-bright);
+        transform: translateY(-1px);
+      }
+      .brand .word {
+        font-size: 12.5px;
+        letter-spacing: 0.18em;
+        font-weight: 600;
+        color: var(--chrome-text);
+      }
+      nav {
+        padding: 10px 8px;
+        flex: 1;
+        overflow-y: auto;
+        position: relative;
+      }
+      .navsec {
+        color: var(--chrome-muted);
+        padding: 16px 10px 6px;
+      }
+      .navitem {
+        display: grid;
+        grid-template-columns: 18px 1fr auto;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        padding: 7px 10px;
+        border-radius: 3px;
+        text-align: left;
+        color: var(--chrome-text);
+        position: relative;
+        transition: background-color 120ms var(--ease-out);
+      }
+      .navitem:hover {
+        background: var(--chrome-raised);
+      }
+      .navitem svg {
+        width: 16px;
+        height: 16px;
+        stroke: currentColor;
+        stroke-width: 1.75;
+        fill: none;
+        opacity: 0.85;
+      }
+      .navitem .count {
+        color: var(--chrome-muted);
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+      }
+      .navitem[aria-current] {
+        background: var(--chrome-raised);
+        color: var(--gold-bright);
+        font-weight: 600;
+      }
+      .navitem[aria-current]::before {
+        content: "";
+        position: absolute;
+        left: -8px;
+        top: 6px;
+        bottom: 6px;
+        width: 2px;
+        background: var(--gold);
+        transform-origin: center;
+        animation: draw 140ms var(--ease-out);
+      }
+      @keyframes draw {
+        from {
+          transform: scaleY(0);
+        }
+        to {
+          transform: scaleY(1);
+        }
+      }
+      .side .foot {
+        border-top: 1px solid var(--chrome-hair);
+        padding: 10px 8px;
+        position: relative;
+      }
+
+      /* ————— Chrome: top bar ————— */
+      .top {
+        grid-area: top;
+        background: var(--chrome);
+        color: var(--chrome-text);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 0 16px;
+        border-bottom: 1px solid var(--chrome-hair);
+        position: relative;
+      }
+      .search {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 380px;
+        height: 32px;
+        background: var(--chrome-raised);
+        border: 1px solid var(--chrome-hair);
+        border-radius: 3px;
+        padding: 0 10px;
+        color: var(--chrome-muted);
+        text-align: left;
+        transition: border-color 120ms var(--ease-out);
+      }
+      .search:hover {
+        border-color: rgba(255, 255, 255, 0.2);
+      }
+      .search svg {
+        width: 14px;
+        height: 14px;
+        stroke: currentColor;
+        stroke-width: 2;
+        fill: none;
+      }
+      .search .k {
+        margin-left: auto;
+        font-size: 10.5px;
+        letter-spacing: 0.04em;
+        padding: 2px 6px;
+        border: 1px solid var(--chrome-hair);
+        border-radius: 3px;
+        color: var(--chrome-muted);
+      }
+      .top .right {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .btn-new {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        height: 32px;
+        padding: 0 14px;
+        background: var(--gold);
+        color: #1c1a12;
+        border-radius: 3px;
+        font-weight: 700;
+        transition: background-color 120ms var(--ease-out);
+      }
+      .btn-new:hover {
+        background: var(--gold-bright);
+      }
+      .timer {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: 32px;
+        padding: 0 12px;
+        border: 1px solid var(--chrome-hair);
+        border-radius: 3px;
+        color: var(--chrome-text);
+        background: var(--chrome-raised);
+        font-size: 13px;
+      }
+      .timer .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #6fae83;
+      }
+      .timer .t {
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+      }
+      .timer .on {
+        color: var(--chrome-muted);
+      }
+      .iconbtn {
+        display: grid;
+        place-items: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 3px;
+        color: var(--chrome-muted);
+        transition:
+          color 120ms var(--ease-out),
+          background-color 120ms var(--ease-out);
+      }
+      .iconbtn:hover {
+        color: var(--chrome-text);
+        background: var(--chrome-raised);
+      }
+      .iconbtn svg {
+        width: 17px;
+        height: 17px;
+        stroke: currentColor;
+        stroke-width: 1.75;
+        fill: none;
+      }
+      .avatar {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background: var(--chrome-raised);
+        border: 1px solid var(--chrome-hair);
+        color: var(--gold-bright);
+        font-size: 11.5px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+      }
+
+      /* ————— Canvas ————— */
+      .main {
+        grid-area: main;
+        overflow-y: auto;
+        padding: 26px 32px 48px;
+      }
+      .pagehead {
+        display: flex;
+        align-items: baseline;
+        gap: 14px;
+        margin-bottom: 20px;
+      }
+      .pagehead h1 {
+        font-size: 26px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+      .pagehead .meta {
+        color: var(--muted);
+        font-size: 13.5px;
+      }
+      .pagehead .meta b {
+        color: var(--text);
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+      }
+      .btn-primary {
+        margin-left: auto;
+        height: 34px;
+        padding: 0 16px;
+        border-radius: 3px;
+        background: var(--text);
+        color: var(--paper);
+        font-weight: 600;
+        transition: background-color 120ms var(--ease-out);
+      }
+      .btn-primary:hover {
+        background: #000;
+      }
+
+      .toolbar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 14px;
+      }
+      .chip {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        height: 32px;
+        padding: 0 12px;
+        background: var(--card);
+        border: 1px solid var(--hair);
+        border-radius: 3px;
+        color: var(--text);
+        font-size: 13.5px;
+        transition: border-color 120ms var(--ease-out);
+      }
+      .chip:hover {
+        border-color: var(--hair-strong);
+      }
+      .chip svg {
+        width: 14px;
+        height: 14px;
+        stroke: currentColor;
+        stroke-width: 2;
+        fill: none;
+        color: var(--subtle);
+      }
+      .chip.view {
+        font-weight: 600;
+      }
+      .chip.view svg {
+        color: var(--gold-deep);
+      }
+      .chip.active {
+        background: var(--gold-wash);
+        border-color: var(--gold);
+        color: var(--gold-deep);
+        font-weight: 600;
+      }
+      .toolbar .find {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: 32px;
+        width: 240px;
+        background: var(--card);
+        border: 1px solid var(--hair);
+        border-radius: 3px;
+        padding: 0 10px;
+      }
+      .toolbar .find input {
+        border: 0;
+        outline: 0;
+        background: none;
+        font: inherit;
+        width: 100%;
+        color: var(--text);
+      }
+      .toolbar .find input::placeholder {
+        color: var(--subtle);
+      }
+      .toolbar .find svg {
+        width: 14px;
+        height: 14px;
+        stroke: var(--subtle);
+        stroke-width: 2;
+        fill: none;
+        flex: none;
+      }
+      .toolbar .spacer {
+        flex: 1;
+      }
+
+      /* ————— The table ————— */
+      .sheet {
+        background: var(--card);
+        border: 1px solid var(--hair);
+        border-radius: 3px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      thead th {
+        text-align: left;
+        padding: 10px 14px;
+        color: var(--subtle);
+        border-bottom: 1px solid var(--hair-strong);
+        white-space: nowrap;
+      }
+      thead th.num {
+        text-align: right;
+      }
+      tbody td {
+        padding: 10px 14px;
+        border-bottom: 1px solid var(--hair);
+        vertical-align: middle;
+      }
+      tbody tr {
+        transition: background-color 120ms var(--ease-out);
+        position: relative;
+        cursor: pointer;
+      }
+      tbody tr:hover {
+        background: var(--sunken);
+      }
+      tbody tr:last-child td {
+        border-bottom: 0;
+      }
+
+      td.check,
+      th.check {
+        width: 36px;
+        padding-right: 0;
+      }
+      .box {
+        width: 15px;
+        height: 15px;
+        border: 1px solid var(--hair-strong);
+        border-radius: 2px;
+        display: block;
+        background: var(--card);
+        transition:
+          background-color 120ms var(--ease-out),
+          border-color 120ms var(--ease-out);
+      }
+      .matter .name {
+        font-weight: 700;
+        letter-spacing: -0.005em;
+      }
+      .matter .no {
+        color: var(--subtle);
+        font-size: 12.5px;
+        margin-top: 1px;
+        font-variant-numeric: tabular-nums;
+      }
+      td.dim {
+        color: var(--muted);
+      }
+      .who {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .who .a {
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background: var(--sunken);
+        border: 1px solid var(--hair);
+        font-size: 9.5px;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+        color: var(--muted);
+      }
+      .pill {
+        display: inline-block;
+        padding: 2.5px 9px;
+        border-radius: 999px;
+        font-size: 11px;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        font-weight: 600;
+      }
+      .pill.open {
+        color: var(--open-fg);
+        background: var(--open-bg);
+      }
+      .pill.pending {
+        color: var(--pending-fg);
+        background: var(--pending-bg);
+      }
+      .pill.prospect {
+        color: var(--prospect-fg);
+        background: var(--prospect-bg);
+      }
+      td.num {
+        text-align: right;
+      }
+      .money {
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+      }
+      .money .cents {
+        color: var(--subtle);
+        font-weight: 400;
+      }
+      .money.none {
+        color: var(--subtle);
+        font-weight: 400;
+      }
+      td.due {
+        text-align: right;
+        color: var(--muted);
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+      td.due.soon {
+        color: var(--pending-fg);
+        font-weight: 600;
+      }
+
+      /* selection — the gilt draw */
+      tr[aria-selected="true"] {
+        background: var(--gold-wash);
+      }
+      tr[aria-selected="true"]:hover {
+        background: #f7f0dd;
+      }
+      tr[aria-selected="true"] td:first-child::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: var(--gold);
+        animation: draw 140ms var(--ease-out);
+        transform-origin: center;
+      }
+      tr[aria-selected="true"] .box {
+        background: var(--gold);
+        border-color: var(--gold-deep);
+      }
+
+      /* ledger close — single rule above, double rule under the total */
+      tfoot td {
+        padding: 10px 14px;
+        border-top: 1px solid var(--hair-strong);
+        color: var(--muted);
+        font-size: 13px;
+      }
+      tfoot .total {
+        text-align: right;
+      }
+      tfoot .total .sum {
+        display: inline-block;
+        font-variant-numeric: tabular-nums;
+        font-weight: 700;
+        color: var(--text);
+        border-bottom: 3px double var(--hair-strong);
+        padding-bottom: 2px;
+      }
+      tfoot .total .lbl {
+        color: var(--subtle);
+        margin-right: 10px;
+      }
+
+      .foot-note {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--subtle);
+        font-size: 12.5px;
+        margin-top: 12px;
+        font-variant-numeric: tabular-nums;
+      }
+      .foot-note .sep {
+        color: var(--hair-strong);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          animation: none !important;
+          transition: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <aside class="side">
+      <div class="brand">
+        <span class="m">M</span>
+        <span class="word">MAGNA CARTA</span>
+      </div>
+      <nav aria-label="Primary">
+        <button class="navitem">
+          <svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5M5 9.5V21h14V9.5" /></svg>Home
+        </button>
+        <button class="navitem" aria-current="page">
+          <svg viewBox="0 0 24 24"><path d="M3 7h6l2 2h10v11H3zM3 7V5h6l2 2" /></svg>Matters<span
+            class="count"
+            >42</span
+          >
+        </button>
+        <button class="navitem">
+          <svg viewBox="0 0 24 24">
+            <rect x="3" y="5" width="18" height="16" rx="1" />
+            <path d="M3 10h18M8 3v4M16 3v4" /></svg
+          >Calendar
+        </button>
+        <button class="navitem">
+          <svg viewBox="0 0 24 24">
+            <circle cx="9" cy="8" r="3.5" />
+            <path
+              d="M3 20c0-3.5 2.5-5.5 6-5.5s6 2 6 5.5M16 4.5a3.5 3.5 0 0 1 0 7M18 14.8c2 .7 3 2.3 3 5.2"
+            /></svg
+          >Contacts
+        </button>
+        <button class="navitem">
+          <svg viewBox="0 0 24 24">
+            <rect x="4" y="4" width="16" height="16" rx="1" />
+            <path d="m8.5 12.5 2.5 2.5 5-5.5" /></svg
+          >Tasks<span class="count">7</span>
+        </button>
+        <div class="navsec caps">Money</div>
+        <button class="navitem">
+          <svg viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="8.5" />
+            <path d="M12 7.5V12l3 2" /></svg
+          >Time
+        </button>
+        <button class="navitem">
+          <svg viewBox="0 0 24 24">
+            <path
+              d="M12 4v3m0 0c-4 0-6 1.5-6 3.5S8.5 14 12 14s6 1.5 6 3.5S16 21 12 21m0-14c2.5 0 4.5.7 5.5 2M12 21c-2.5 0-4.5-.7-5.5-2m5.5 2v-3"
+            /></svg
+          >Trust
+        </button>
+        <button class="navitem">
+          <svg viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6" /></svg
+          >Billing
+        </button>
+        <div class="navsec caps">Firm</div>
+        <button class="navitem">
+          <svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6zM15 3v4h4" /></svg>Documents
+        </button>
+        <button class="navitem">
+          <svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-8M21 20H3" /></svg>Reports
+        </button>
+      </nav>
+      <div class="foot">
+        <button class="navitem">
+          <svg viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="8.5" />
+            <path d="M12 16v-4M12 8.5v.01" /></svg
+          >Resource center
+        </button>
+        <button class="navitem">
+          <svg viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="3" />
+            <path
+              d="M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.4-2.3 1a7 7 0 0 0-2-1.2L14.2 3h-4l-.4 2.7a7 7 0 0 0-2 1.2l-2.3-1-2 3.4 2 1.5A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.3-1a7 7 0 0 0 2 1.2l.4 2.7h4l.4-2.7a7 7 0 0 0 2-1.2l2.3 1 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"
+            /></svg
+          >Settings
+        </button>
+      </div>
+    </aside>
+
+    <header class="top">
+      <button class="search">
+        <svg viewBox="0 0 24 24">
+          <circle cx="11" cy="11" r="6.5" />
+          <path d="m20 20-4.4-4.4" />
+        </svg>
+        Search or jump to anything
+        <span class="k">Ctrl K</span>
+      </button>
+      <div class="right">
+        <button class="btn-new">+ New</button>
+        <button class="timer" title="Running timer — Pemberton v. Hale">
+          <span class="dot"></span><span class="t">0:42:18</span><span class="on">· Pemberton</span>
+        </button>
+        <button class="iconbtn" aria-label="Notifications">
+          <svg viewBox="0 0 24 24">
+            <path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6M10.5 20a2 2 0 0 0 3 0" />
+          </svg>
+        </button>
+        <button class="avatar" aria-label="Account — Trevor Goldsmith">TG</button>
+      </div>
+    </header>
+
+    <main class="main">
+      <div class="pagehead">
+        <h1>Matters</h1>
+        <span class="meta"><b>8</b> open · <b>318</b> total</span>
+        <button class="btn-primary">New matter</button>
+      </div>
+
+      <div class="toolbar">
+        <button class="chip view">
+          <svg viewBox="0 0 24 24">
+            <path d="m12 3 2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 16.4l-5.2 2.8 1-5.9L3.5 9.2l5.9-.8z" />
+          </svg>
+          All open matters
+          <svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></svg>
+        </button>
+        <div class="find">
+          <svg viewBox="0 0 24 24">
+            <circle cx="11" cy="11" r="6.5" />
+            <path d="m20 20-4.4-4.4" />
+          </svg>
+          <input type="search" placeholder="Search matters" aria-label="Search matters" />
+        </div>
+        <button class="chip active">Status: Open ✕</button>
+        <button class="chip">
+          Responsible <svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></svg>
+        </button>
+        <button class="chip">
+          Type <svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></svg>
+        </button>
+        <div class="spacer"></div>
+        <button class="chip" aria-label="Export list">
+          <svg viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v4h16v-4" /></svg>
+        </button>
+        <button class="chip">
+          <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16" /></svg>View
+        </button>
+      </div>
+
+      <div class="sheet">
+        <table>
+          <thead>
+            <tr>
+              <th class="check"></th>
+              <th class="caps">Matter</th>
+              <th class="caps">Client</th>
+              <th class="caps">Type</th>
+              <th class="caps">Responsible</th>
+              <th class="caps">Status</th>
+              <th class="caps num">Trust</th>
+              <th class="caps num">Next deadline</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr aria-selected="true" tabindex="0">
+              <td class="check"><span class="box"></span></td>
+              <td class="matter">
+                <div class="name">Pemberton v. Hale</div>
+                <div class="no">2026-0114</div>
+              </td>
+              <td class="dim">Pemberton, J.</td>
+              <td class="dim">Litigation</td>
+              <td>
+                <span class="who"><span class="a">AR</span>A. Reyes</span>
+              </td>
+              <td><span class="pill open">Open</span></td>
+              <td class="num">
+                <span class="money">$12,400<span class="cents">.00</span></span>
+              </td>
+              <td class="due soon">Jun 18</td>
+            </tr>
+            <tr tabindex="0">
+              <td class="check"><span class="box"></span></td>
+              <td class="matter">
+                <div class="name">Estate of Calloway</div>
+                <div class="no">2026-0112</div>
+              </td>
+              <td class="dim">Calloway Family</td>
+              <td class="dim">Probate</td>
+              <td>
+                <span class="who"><span class="a">MO</span>M. Okafor</span>
+              </td>
+              <td><span class="pill open">Open</span></td>
+              <td class="num">
+                <span class="money">$3,000<span class="cents">.00</span></span>
+              </td>
+              <td class="due">Jun 22</td>
+            </tr>
+            <tr tabindex="0">
+              <td class="check"><span class="box"></span></td>
+              <td class="matter">
+                <div class="name">Northwind Acquisition</div>
+                <div class="no">2026-0109</div>
+              </td>
+              <td class="dim">Northwind LLC</td>
+              <td class="dim">Corporate</td>
+              <td>
+                <span class="who"><span class="a">DS</span>D. Singh</span>
+              </td>
+              <td><span class="pill open">Open</span></td>
+              <td class="num">
+                <span class="money">$45,000<span class="cents">.00</span></span>
+              </td>
+              <td class="due">Jul 1</td>
+            </tr>
+            <tr tabindex="0">
+              <td class="check"><span class="box"></span></td>
+              <td class="matter">
+                <div class="name">State v. Boone</div>
+                <div class="no">2026-0108</div>
+              </td>
+              <td class="dim">Boone, T.</td>
+              <td class="dim">Criminal</td>
+              <td>
+                <span class="who"><span class="a">RT</span>R. Tran</span>
+              </td>
+              <td><span class="pill open">Open</span></td>
+              <td class="num">
+                <span class="money">$7,500<span class="cents">.00</span></span>
+              </td>
+              <td class="due soon">Jun 16</td>
+            </tr>
+            <tr tabindex="0">
+              <td class="check"><span class="box"></span></td>
+              <td class="matter">
+                <div class="name">Doyle v. Meridian Health</div>
+                <div class="no">2026-0104</div>
+              </td>
+              <td class="dim">Doyle, K.</td>
+              <td class="dim">Personal injury</td>
+              <td>
+                <span class="who"><span class="a">DS</span>D. Singh</span>
+              </td>
+              <td><span class="pill open">Open</span></td>
+              <td class="num">
+                <span class="money">$20,000<span class="cents">.00</span></span>
+              </td>
+              <td class="due">Aug 4</td>
+            </tr>
+            <tr tabindex="0">
+              <td class="check"><span class="box"></span></td>
+              <td class="matter">
+                <div class="name">Harbor Point Lease</div>
+                <div class="no">2026-0101</div>
+              </td>
+              <td class="dim">Harbor Point Inc.</td>
+              <td class="dim">Real estate</td>
+              <td>
+                <span class="who"><span class="a">MO</span>M. Okafor</span>
+              </td>
+              <td><span class="pill open">Open</span></td>
+              <td class="num">
+                <span class="money">$2,250<span class="cents">.00</span></span>
+              </td>
+              <td class="due">Jun 30</td>
+            </tr>
+            <tr tabindex="0">
+              <td class="check"><span class="box"></span></td>
+              <td class="matter">
+                <div class="name">Kline Divorce</div>
+                <div class="no">2026-0098</div>
+              </td>
+              <td class="dim">Kline, S.</td>
+              <td class="dim">Family</td>
+              <td>
+                <span class="who"><span class="a">RT</span>R. Tran</span>
+              </td>
+              <td><span class="pill open">Open</span></td>
+              <td class="num">
+                <span class="money">$5,000<span class="cents">.00</span></span>
+              </td>
+              <td class="due">Jun 19</td>
+            </tr>
+            <tr tabindex="0">
+              <td class="check"><span class="box"></span></td>
+              <td class="matter">
+                <div class="name">Vasquez Immigration</div>
+                <div class="no">Intake pending</div>
+              </td>
+              <td class="dim">Vasquez, L.</td>
+              <td class="dim">Immigration</td>
+              <td>
+                <span class="who"><span class="a">AR</span>A. Reyes</span>
+              </td>
+              <td><span class="pill prospect">Prospective</span></td>
+              <td class="num"><span class="money none">—</span></td>
+              <td class="due">—</td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="6">8 matters shown</td>
+              <td colspan="2" class="total">
+                <span class="lbl caps">Trust held</span>
+                <span class="sum">$95,150.00</span>
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <div class="foot-note">
+        <span>1–8 of 42 open</span><span class="sep">·</span>
+        <span>Updated moments ago</span>
+      </div>
+    </main>
+
+    <nav class="lab-switch" aria-label="Design lab switcher">
+      <a href="/">Lab</a><a href="/direction-a" aria-current="page">A</a><a href="/direction-b">B</a
+      ><a href="/direction-c">C</a><a href="/home">Home</a><a href="/matter">Matter</a>
+    </nav>
+    <style>
+      .lab-switch {
+        position: fixed;
+        right: 14px;
+        bottom: 48px;
+        z-index: 99;
+        display: flex;
+        gap: 2px;
+        padding: 4px;
+        border-radius: 999px;
+        background: #191813;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        box-shadow: 0 4px 16px rgba(20, 18, 10, 0.35);
+      }
+      .lab-switch a {
+        display: grid;
+        place-items: center;
+        min-width: 30px;
+        height: 30px;
+        padding: 0 10px;
+        border-radius: 999px;
+        color: #97937f;
+        text-decoration: none;
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .lab-switch a:hover {
+        color: #e9e7df;
+      }
+      .lab-switch a[aria-current] {
+        background: #23221b;
+        color: #e2c476;
+      }
+    </style>
+    <script>
+      // lab: 0/1/2/3 to jump between the index and directions
+      document.addEventListener("keydown", (e) => {
+        if (e.target.tagName === "INPUT") return;
+        const map = {
+          0: "/",
+          1: "/direction-a",
+          2: "/direction-b",
+          3: "/direction-c",
+          4: "/home",
+          5: "/matter",
+        };
+        if (map[e.key]) location.href = map[e.key];
+      });
+    </script>
+    <script>
+      // selection feel only — click a row to see the gilt draw
+      document.querySelectorAll("tbody tr").forEach((row) => {
+        row.addEventListener("click", () => {
+          const on = row.getAttribute("aria-selected") === "true";
+          row.toggleAttribute("aria-selected"); // normalize below
+          row.setAttribute("aria-selected", on ? "false" : "true");
+        });
+        row.addEventListener("keydown", (e) => {
+          if (e.key === " " || e.key === "Enter") {
+            e.preventDefault();
+            row.click();
+          }
+        });
+      });
+    </script>
+  </body>
+</html>

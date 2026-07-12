@@ -75,8 +75,9 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
     expect(grantsFor("Owner/Admin")).toContain("matters:create");
     // Paralegal carries the practitioner set: file/matter work plus the firm-wide tools. The
     // firm-wide tool grants (whois/safeBrowse, scanFile, metadataScrubber, fileIntegrity,
-    // fileTypeVerifier, aiTextDetection, decryption, fileRepair) and support:request are seeded to every role;
-    // for aiTextDetection the consent setting, not the permission, gates egress.
+    // fileTypeVerifier, aiTextDetection, decryption, fileRepair, ocr) and support:request are
+    // seeded to every role; for aiTextDetection the consent setting, not the permission, gates
+    // egress.
     // conflicts:read and conflicts:run are broad, everyday capabilities (any member may screen a
     // prospective matter or read back a completed check) and are likewise seeded to every role;
     // conflicts:dispose is narrower (adjudicating a hit) and stays limited to Owner/Admin and
@@ -94,11 +95,14 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "support:request",
         "tools:aiTextDetection",
         "tools:decryption",
+        "tools:emailInspector",
         "tools:fileIntegrity",
         "tools:fileRepair",
         "tools:fileTypeVerifier",
         "tools:metadataScrubber",
+        "tools:ocr",
         "tools:safeBrowse",
+        "tools:speedTest",
         "tools:whois",
       ].sort(),
     );
@@ -114,11 +118,14 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "support:request",
         "tools:aiTextDetection",
         "tools:decryption",
+        "tools:emailInspector",
         "tools:fileIntegrity",
         "tools:fileRepair",
         "tools:fileTypeVerifier",
         "tools:metadataScrubber",
+        "tools:ocr",
         "tools:safeBrowse",
+        "tools:speedTest",
         "tools:whois",
       ].sort(),
     );
@@ -131,11 +138,14 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "support:request",
         "tools:aiTextDetection",
         "tools:decryption",
+        "tools:emailInspector",
         "tools:fileIntegrity",
         "tools:fileRepair",
         "tools:fileTypeVerifier",
         "tools:metadataScrubber",
+        "tools:ocr",
         "tools:safeBrowse",
+        "tools:speedTest",
         "tools:whois",
       ].sort(),
     );

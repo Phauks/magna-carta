@@ -196,8 +196,13 @@ main.ts` `viteFinal` and must stay UNSHIFTED (docgen/csf transforms expect compi
   emoji's base always falls) across the UI source sweep. Text symbols the codebase uses in comments —
   arrows (→ ↔) and the dingbat ✕ — are deliberately NOT banned. Docs + commit messages are
   golden-rule-2 surfaces too, enforced outside this UI-source sweep (review + commit hooks).
-- **Workshop agenda (z-order):** `dropdown` (1000) sits below `sticky` (1100) — portal-to-body
-  menus paint beneath sticky headers; defensible, but make it a deliberate decision.
+- **z-order (decided 2026-07-03):** anchor-positioned floating content (select/combobox
+  listboxes, menus, popovers, tooltips) rides the `anchored` layer (1350) — ABOVE `modal`
+  (1300), below `toast` — because a picker opened from inside a dialog painted beneath the
+  panel at the old `dropdown` layer (visible but pointer-blocked; the Radix/Bits ecosystem norm
+  is anchored content above dialogs). `dropdown` (1000, below `sticky`) remains for
+  non-anchored dropdown-like surfaces that should scroll under pinned bars. One home:
+  `internal/floating.ts`; ordering pinned by `test/floating.test.ts`.
 - **Workshop agenda (hairline weight under fractional DPR) — flagged for Fable design review:**
   the horizontal and vertical Separator can look unequal in weight even though both are correctly
   `1px` (`--mc-border-width-default`) — horizontal sets `block-size`, vertical `inline-size`, same

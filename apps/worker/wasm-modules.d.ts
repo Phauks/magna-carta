@@ -9,3 +9,7 @@ declare module "@magna-carta/decryption/src/pkg/decryption_core_bg.wasm" {
   const wasm: WebAssembly.Module;
   export default wasm;
 }
+declare module "@magna-carta/email/src/pkg/email_core_bg.wasm" {
+  const wasm: WebAssembly.Module;
+  export default wasm;
+}

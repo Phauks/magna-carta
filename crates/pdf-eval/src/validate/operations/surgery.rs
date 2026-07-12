@@ -151,8 +151,8 @@ mod tests {
 
     #[test]
     fn aggregate_any_both_surgered_wins_over_both_flattened() {
-        let (variant, safety) = aggregate(&[(Flattened, Flattened), (Surgered, Surgered)])
-            .expect("expected a verdict");
+        let (variant, safety) =
+            aggregate(&[(Flattened, Flattened), (Surgered, Surgered)]).expect("expected a verdict");
         assert_eq!(variant, "both_surgered");
         assert_eq!(safety, Safety::Upheld);
     }
@@ -161,8 +161,8 @@ mod tests {
     fn aggregate_any_recovery_wins_over_both_surgered() {
         // A multi-disposition document: one page both-surgered, one page recovered —
         // the recovery must take precedence in the reported variant.
-        let (variant, safety) = aggregate(&[(Surgered, Surgered), (Flattened, Surgered)])
-            .expect("expected a verdict");
+        let (variant, safety) =
+            aggregate(&[(Surgered, Surgered), (Flattened, Surgered)]).expect("expected a verdict");
         assert_eq!(variant, "byte_path_recovers");
         assert_eq!(safety, Safety::Upheld);
     }

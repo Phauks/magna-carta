@@ -1,0 +1,16 @@
+@layer components {
+  /*
+   * FileIcon (Tier 1). A fixed-size, calm file-type glyph for a file list. Sized by the recipe (not a
+   * prop) so every row's icon aligns; the colour is the muted work-surface tone so the type glyph
+   * informs without competing with the file name (identity lives at the edges, not on the data). A
+   * caller can recolour by setting text colour on the row — the glyph inherits nothing here beyond
+   * this default, and a utility class still wins.
+   */
+  .mc-file-icon {
+    display: inline-block;
+    flex: none;
+    inline-size: var(--mc-space-20);
+    block-size: var(--mc-space-20);
+    color: var(--mc-text-muted);
+  }
+}

@@ -1,0 +1,117 @@
+@layer components {
+  /*
+   * TopBar — the app shell's horizontal chrome (page-archetypes: command palette trigger, +New,
+   * the billable-timer and alerts SEAMS, user/firm). EDGE CHROME like the Sidebar: the dark ink
+   * register framing the light canvas. Height pins to the same row as the sidebar's brand corner
+   * (control-lg, deliberately NOT the density alias — the chrome frame is layout identity and
+   * does not tighten with the user density axis) so the two read as one unbroken chrome band.
+   * The assembled bar lives in the app (slots are domain knowledge); these are the parts.
+   */
+  .mc-top-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--mc-space-12);
+    /* size.top-bar (56px), not a control row: the chrome band needs presence and the palette
+       trigger needs air above and below (owner review 2026-07-02). The sidebar brand corner pins
+       to the same token so the two read as one band. */
+    min-block-size: var(--mc-size-top-bar);
+    /* NO start padding (owner review 2026-07-02): the palette trigger's left edge sits ON the
+       sidebar seam, so the field visibly travels with the seam when the rail collapses — the
+       one element in the bar that moves. End padding still holds the actions off the edge. */
+    padding-inline: var(--mc-space-0) var(--mc-space-16);
+    background-color: var(--mc-chrome-surface);
+    color: var(--mc-chrome-text);
+    border-block-end: var(--mc-border-width-default) solid var(--mc-chrome-border);
+  }
+  /* The command-palette trigger; it is a BUTTON (the palette owns real input focus). Width is
+     the consumer's utility concern (grow/max-w).
+     TRANSPARENT at rest so the field sits in the ink band's own tone and recedes into the
+     header — any filled well popped from the band in either direction (owner review
+     2026-07-02: "closer in tone to the header... more a part of the header"). The
+     chrome-border hairline,
+     the placeholder, and the keycap are the only resting cues; hover lifts the fill one chrome
+     step.
+     GEOMETRY PAIRED with the command palette's input row
+     (packages/design-system/src/lib/components/command/command.css): the palette opens
+     anchored exactly over this button on its own light overlay surface — geometry only, never
+     these ink fills — so block-size, padding, border width, radius, icon size, gap, font-size,
+     and line-height must stay identical in both files; change one and change the other. */
+  .mc-top-bar-search {
+    display: flex;
+    align-items: center;
+    gap: var(--mc-space-8);
+    padding-block: var(--mc-space-8);
+    padding-inline: var(--mc-space-12);
+    border: var(--mc-border-width-default) solid var(--mc-chrome-border);
+    border-radius: var(--mc-radius-md);
+    background-color: transparent;
+    color: var(--mc-chrome-text-muted);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    line-height: var(--mc-leading-tight);
+    text-align: start;
+    cursor: pointer;
+    transition-property: color, background-color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+  }
+  .mc-top-bar-search:hover {
+    background-color: var(--mc-chrome-surface-hover);
+    color: var(--mc-chrome-text);
+  }
+  /* INSET focus ring, not an outline: the trigger's start edge sits flush ON the clipped
+     sidebar seam (no bar start padding, above), so an outside outline loses its start edge
+     under the adjacent column. An inset box-shadow ring draws entirely within the field's own
+     box, so the whole ring survives the seam. The zero offsets are the space-0 token — this
+     file is token-pure. */
+  .mc-top-bar-search:focus-visible {
+    outline: none;
+    box-shadow: inset var(--mc-space-0) var(--mc-space-0) var(--mc-space-0)
+      var(--mc-focus-ring-width) var(--mc-chrome-accent);
+  }
+  .mc-top-bar-search-label {
+    flex: auto;
+  }
+  /* The Keyboard component, re-registered for the ink: the light-ground keycap would shout on
+     the dark chrome, so the chrome context re-points its surface/border/text to the chrome
+     tokens — one component, register-aware (owner review 2026-07-02: reuse the keycap we made). */
+  .mc-top-bar .mc-keyboard {
+    border-color: var(--mc-chrome-border);
+    background-color: var(--mc-chrome-surface);
+    color: var(--mc-chrome-text-muted);
+  }
+  /* Trailing region: +New, the timer/alerts seams, user/firm. Pushed to the inline end.
+     Its own view-transition group: the region is viewport-right-anchored and does not change
+     between sidebar states, so naming it EXCLUDES it from the sliding canvas snapshot — the
+     profile circle and its neighbours hold still while the rail collapses (owner review
+     2026-07-02: only the palette trigger should travel). */
+  .mc-top-bar-actions {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: var(--mc-space-8);
+    margin-inline-start: auto;
+    view-transition-name: mc-top-bar-actions;
+  }
+  /* Quiet icon affordance on the ink (alerts, future chrome controls). */
+  .mc-top-bar-icon-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--mc-space-8);
+    border-radius: var(--mc-radius-md);
+    color: var(--mc-chrome-text-muted);
+    cursor: pointer;
+    transition-property: color, background-color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+  }
+  .mc-top-bar-icon-button:hover {
+    background-color: var(--mc-chrome-surface-hover);
+    color: var(--mc-chrome-text-strong);
+  }
+  .mc-top-bar-icon-button:focus-visible {
+    outline: var(--mc-focus-ring-width) solid var(--mc-chrome-accent);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+}

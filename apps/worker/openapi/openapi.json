@@ -286,6 +286,48 @@
           "counts"
         ]
       },
+      "ToolsConnectionResponse": {
+        "type": "object",
+        "properties": {
+          "ip": {
+            "type": "string"
+          },
+          "asn": {
+            "type": "number"
+          },
+          "asOrganization": {
+            "type": "string"
+          },
+          "colo": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ip",
+          "asn",
+          "asOrganization",
+          "colo",
+          "country"
+        ]
+      },
+      "TurnCredentials": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string"
+          },
+          "credential": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "credential"
+        ]
+      },
       "WhoisResponse": {
         "type": "object",
         "properties": {
@@ -1494,6 +1536,40 @@
           "declaredContentType"
         ]
       },
+      "UploadStatusResponse": {
+        "type": "object",
+        "properties": {
+          "sessionStatus": {
+            "type": "string",
+            "enum": [
+              "open",
+              "completed",
+              "aborted",
+              "expired"
+            ]
+          },
+          "versionStatus": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "clean",
+              "quarantined",
+              "abandoned"
+            ]
+          },
+          "quarantineReason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "sessionStatus",
+          "versionStatus",
+          "quarantineReason"
+        ]
+      },
       "SignUploadPartResponse": {
         "type": "object",
         "properties": {
@@ -2646,6 +2722,42 @@
           "segments"
         ]
       },
+      "FolderListResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FolderSummary"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "FolderSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "parentFolderId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "parentFolderId",
+          "name"
+        ]
+      },
       "CreateFolderResponse": {
         "type": "object",
         "properties": {
@@ -2761,6 +2873,50 @@
           },
           "createdAt": {
             "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "versionNumber": {
+            "type": "integer"
+          },
+          "sizeBytes": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "sniffedContentType": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "scanVerdict": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "unscanned",
+              "clean",
+              "flagged",
+              null
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "clean",
+              "pending",
+              "quarantined"
+            ]
+          },
+          "quarantineReason": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
@@ -2770,7 +2926,14 @@
           "name",
           "documentTypeId",
           "currentVersionId",
-          "createdAt"
+          "createdAt",
+          "updatedAt",
+          "versionNumber",
+          "sizeBytes",
+          "sniffedContentType",
+          "scanVerdict",
+          "status",
+          "quarantineReason"
         ]
       },
       "FileVersionsResponse": {
@@ -6769,6 +6932,152 @@
         }
       }
     },
+    "/api/v1/tools/connection": {
+      "get": {
+        "description": "What the edge sees about this caller's connection: public address, network operator, and the edge location serving the request.",
+        "operationId": "toolsConnection.get",
+        "tags": [
+          "toolsConnection"
+        ],
+        "x-mc-operationId": "toolsConnection.get",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tools:speedTest",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "toolsConnection"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The caller's connection as the edge sees it",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ToolsConnectionResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated, but the member lacks tools:speedTest",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tools/turn-credentials": {
+      "get": {
+        "description": "Short-lived relay credentials used to measure packet loss. Answers 503 when relay measurement is not configured.",
+        "operationId": "toolsTurnCredentials.get",
+        "tags": [
+          "toolsTurnCredentials"
+        ],
+        "x-mc-operationId": "toolsTurnCredentials.get",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tools:speedTest",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "expensive",
+        "x-mc-tags": [
+          "toolsTurnCredentials"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "Short-lived relay credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TurnCredentials"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated, but the member lacks tools:speedTest",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The relay credential service refused",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Relay measurement is not configured for this deployment",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/whois": {
       "get": {
         "description": "Registration data (RDAP, with a legacy WHOIS fallback) for a website's domain or an IP address.",
@@ -7782,6 +8091,438 @@
         }
       }
     },
+    "/api/v1/email/inspect": {
+      "post": {
+        "description": "Parse an uploaded email file (.eml or .msg) and return its headers, participants, subject, message and reply identifiers, body text, described attachments, and authenticity evidence (DKIM signatures, authentication results, and the received chain) captured verbatim with no verdict. Nothing is stored.",
+        "operationId": "emailInspector.inspect",
+        "tags": [
+          "emailInspector"
+        ],
+        "x-mc-operationId": "emailInspector.inspect",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tools:emailInspector",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "expensive",
+        "x-mc-tags": [
+          "emailInspector"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Parsed message",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "messageIdentifier": {
+                      "type": "object",
+                      "properties": {
+                        "value": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "provenance": {
+                          "type": "string",
+                          "enum": [
+                            "header",
+                            "mapi",
+                            "absent"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "value",
+                        "provenance"
+                      ]
+                    },
+                    "inReplyTo": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "references": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "subject": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "dateRaw": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "from": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "displayName": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "address": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "displayName",
+                          "address"
+                        ]
+                      }
+                    },
+                    "to": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "displayName": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "address": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "displayName",
+                          "address"
+                        ]
+                      }
+                    },
+                    "cc": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "displayName": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "address": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "displayName",
+                          "address"
+                        ]
+                      }
+                    },
+                    "bcc": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "displayName": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "address": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "displayName",
+                          "address"
+                        ]
+                      }
+                    },
+                    "rawHeaders": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "value": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "value"
+                        ]
+                      }
+                    },
+                    "textBodies": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "htmlBodies": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "rtfBody": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "parts": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "filename": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "mediaType": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "contentIdentifier": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "disposition": {
+                            "type": "string",
+                            "enum": [
+                              "attachment",
+                              "inline"
+                            ]
+                          },
+                          "size": {
+                            "type": "number"
+                          },
+                          "locator": {
+                            "oneOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "inputRange"
+                                    ]
+                                  },
+                                  "start": {
+                                    "type": "number"
+                                  },
+                                  "end": {
+                                    "type": "number"
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "start",
+                                  "end"
+                                ]
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "mapiStream"
+                                    ]
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "name"
+                                ]
+                              }
+                            ]
+                          },
+                          "isEmbeddedMessage": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "filename",
+                          "mediaType",
+                          "contentIdentifier",
+                          "disposition",
+                          "size",
+                          "locator",
+                          "isEmbeddedMessage"
+                        ]
+                      }
+                    },
+                    "integrity": {
+                      "type": "object",
+                      "properties": {
+                        "dkimSignatures": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "authenticationResults": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "receivedChain": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": [
+                        "dkimSignatures",
+                        "authenticationResults",
+                        "receivedChain"
+                      ]
+                    },
+                    "sourceFormat": {
+                      "type": "string",
+                      "enum": [
+                        "eml",
+                        "msg",
+                        "mboxMember"
+                      ]
+                    },
+                    "referencesRemoteContent": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "messageIdentifier",
+                    "inReplyTo",
+                    "references",
+                    "subject",
+                    "dateRaw",
+                    "from",
+                    "to",
+                    "cc",
+                    "bcc",
+                    "rawHeaders",
+                    "textBodies",
+                    "htmlBodies",
+                    "rtfBody",
+                    "parts",
+                    "integrity",
+                    "sourceFormat",
+                    "referencesRemoteContent"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Empty request body",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing tools:emailInspector",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "File exceeds the inspectable-size cap",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The bytes could not be read as an email, or are not a format this tool supports",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/file-repair/diagnose": {
       "post": {
         "description": "Diagnose a possibly-corrupt uploaded file: detect its format, describe the corruption, and report whether it can be repaired (and whether carving may recover embedded files). Nothing is stored.",
@@ -8433,6 +9174,236 @@
           },
           "503": {
             "description": "Recovery engine unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ocr": {
+      "post": {
+        "description": "Recognize text in a scanned image or PDF. Returns per-page lines with word boxes, confidence, and the engine and model that produced them. Pages that already carry a text layer are reported as skipped rather than re-recognized. Nothing is stored.",
+        "operationId": "ocr.recognize",
+        "tags": [
+          "ocr"
+        ],
+        "x-mc-operationId": "ocr.recognize",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tools:ocr",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "expensive",
+        "x-mc-tags": [
+          "ocr"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Per-page recognition facts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "pages": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "pageIndex": {
+                            "type": "integer"
+                          },
+                          "lines": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "text": {
+                                  "type": "string"
+                                },
+                                "confidence": {
+                                  "type": "number"
+                                },
+                                "quad": {
+                                  "type": "object",
+                                  "properties": {
+                                    "points": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "number"
+                                        }
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "points"
+                                  ]
+                                },
+                                "orientationDegrees": {
+                                  "type": [
+                                    "number",
+                                    "null"
+                                  ]
+                                },
+                                "wordQuads": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "points": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "array",
+                                          "items": {
+                                            "type": "number"
+                                          }
+                                        }
+                                      }
+                                    },
+                                    "required": [
+                                      "points"
+                                    ]
+                                  }
+                                }
+                              },
+                              "required": [
+                                "text",
+                                "confidence",
+                                "quad",
+                                "wordQuads"
+                              ]
+                            }
+                          },
+                          "undecodedRegions": {
+                            "type": "integer"
+                          },
+                          "skipped": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "orientationDegrees": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "pageIndex",
+                          "lines",
+                          "undecodedRegions"
+                        ]
+                      }
+                    },
+                    "provenance": {
+                      "type": "object",
+                      "properties": {
+                        "engineVersion": {
+                          "type": "string"
+                        },
+                        "modelVersion": {
+                          "type": "string"
+                        },
+                        "platform": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "engineVersion",
+                        "modelVersion",
+                        "platform"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "pages",
+                    "provenance"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Empty request body",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing tools:ocr",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "File exceeds the inspectable-size cap",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The document is unreadable or was rejected outright — retrying will not help",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Recognition engine unavailable",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -9842,6 +10813,90 @@
           },
           "422": {
             "description": "The firm policy refuses this upload, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/uploads/{id}": {
+      "get": {
+        "description": "Reports an upload session's progress: the session status (open, completed, aborted, expired), its version's ingest status (pending, clean, quarantined, abandoned), and — when the bytes were rejected as malware — the quarantine reason. A session that belongs to another firm is 404.",
+        "operationId": "uploads.get",
+        "tags": [
+          "uploads"
+        ],
+        "x-mc-operationId": "uploads.get",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "files:upload",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "uploads"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^uploadSession_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The upload session's status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadStatusResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks files:upload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such upload session in this firm",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -13157,6 +14212,78 @@
       }
     },
     "/api/v1/folders": {
+      "get": {
+        "description": "Lists a matter's folder tree in adjacency-list form (each node carries its parent link and name). Folders carry no clean/pending status — every folder in the matter is returned.",
+        "operationId": "folders.list",
+        "tags": [
+          "folders"
+        ],
+        "x-mc-operationId": "folders.list",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "folders"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The matter's folders",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FolderListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the folder/matter is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
       "post": {
         "description": "Creates a folder under a matter (optionally nested under a parent folder). A folder is pure metadata — file bytes are keyed independently, so this moves nothing in storage.",
         "operationId": "folders.create",
@@ -13536,7 +14663,7 @@
     },
     "/api/v1/files": {
       "get": {
-        "description": "Lists a matter's files (optionally a single folder), clean and undeleted only, cursor-paginated. A file appears once it has a committed clean version; pending, quarantined, and soft-deleted files are excluded.",
+        "description": "Lists a matter's files (optionally a single folder), cursor-paginated. Each row carries its display version's number, size, sniffed type, scan verdict, and status, so one call paints a file table with no per-row fan-out to the version history. By default only files with a committed clean version appear (soft-deleted files are always excluded). Set includePendingAndQuarantined=true to also surface files whose latest version is still processing (pending) or was rejected as malware (quarantined); those rows carry a null currentVersionId and cannot be downloaded.",
         "operationId": "files.list",
         "tags": [
           "files"
@@ -13588,6 +14715,17 @@
             },
             "required": false,
             "name": "pageSize",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true"
+              ]
+            },
+            "required": false,
+            "name": "includePendingAndQuarantined",
             "in": "query"
           }
         ],
@@ -26060,6 +27198,9 @@
       "name": "downloads"
     },
     {
+      "name": "emailInspector"
+    },
+    {
       "name": "fileIntegrity"
     },
     {
@@ -26120,6 +27261,9 @@
       "name": "numbering"
     },
     {
+      "name": "ocr"
+    },
+    {
       "name": "platform"
     },
     {
@@ -26157,6 +27301,12 @@
     },
     {
       "name": "timer"
+    },
+    {
+      "name": "toolsConnection"
+    },
+    {
+      "name": "toolsTurnCredentials"
     },
     {
       "name": "uploads"

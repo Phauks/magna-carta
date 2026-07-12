@@ -209,6 +209,27 @@ export default {
 };
 `;
 
+// Stub for the magna-carta-ocr service binding in tests — no real recognition worker runs under
+// the local pool, so the service binding must resolve to something or workerd refuses to boot.
+// Returns a shape-correct ResultSchema response (one page, no lines) — an honest empty-page result,
+// never fabricated recognized text, so a future route test can assert on the response shape without
+// a live Container.
+const OCR_SERVICE_STUB_SCRIPT = `
+export default {
+  fetch() {
+    return new Response(
+      JSON.stringify({
+        pages: [
+          { pageIndex: 0, lines: [], undecodedRegions: 0, skipped: null, orientationDegrees: null },
+        ],
+        provenance: { engineVersion: "test-engine", modelVersion: "test-model", platform: "test" },
+      }),
+      { status: 200, headers: { "content-type": "application/json" } }
+    );
+  }
+};
+`;
+
 // Run Vitest inside Miniflare so the integration test gets real Worker bindings (D1/R2/Queues/ASSETS) loaded from wrangler.jsonc.
 // @cloudflare/vitest-pool-workers 0.16.x exposes the harness as the cloudflareTest() Vite plugin (the older defineWorkersConfig/poolOptions shape was removed); configPath points it at our Wrangler config so the same bindings back the test as back `wrangler dev`.
 // root is pinned to this package so the pool resolves `vitest/worker` (and the wrangler config) from apps/worker even when this config is loaded as a Vitest project from the repo-root `vp test`; without it the workerd VM reports `No such module "vitest/worker"`.
@@ -222,17 +243,18 @@ export default defineConfig({
     cloudflareTest({
       wrangler: { configPath: `${import.meta.dirname}/wrangler.jsonc` },
       remoteBindings: false,
-      // Five service bindings in wrangler.jsonc reference dedicated workers that do not run under the
+      // Six service bindings in wrangler.jsonc reference dedicated workers that do not run under the
       // local pool — magna-carta-scan (SCAN_SERVICE), magna-carta-convert (CONVERT), magna-carta-bundle
-      // (BUNDLE_SERVICE), magna-carta-file-repair (FILE_REPAIR_SERVICE), and magna-carta-recovery
-      // (RECOVERY_SERVICE). Miniflare requires all to exist, so register minimal stubs. The scan stub
-      // returns the no-engine RawScanResult (an honest unscanned, never a fake clean, plus a
-      // malware-marker branch for the file-repair re-scan test); the convert stub only satisfies startup
-      // validation (conversion tests inject fakes directly); the file-repair stub returns canned
-      // diagnose/repair/carve JSON so the file-repair route tests drive the real path; the bundle stub
-      // returns a canned BuildResponse for the coordinator's happy path; the recovery stub returns an
-      // honest zero-count miss so the pool boots (the recovery e2e test drives the queue consumer
-      // directly with a fake RecoveryBackend rather than routing through this stub).
+      // (BUNDLE_SERVICE), magna-carta-file-repair (FILE_REPAIR_SERVICE), magna-carta-recovery
+      // (RECOVERY_SERVICE), and magna-carta-ocr (OCR_SERVICE). Miniflare requires all to exist, so
+      // register minimal stubs. The scan stub returns the no-engine RawScanResult (an honest unscanned,
+      // never a fake clean, plus a malware-marker branch for the file-repair re-scan test); the convert
+      // stub only satisfies startup validation (conversion tests inject fakes directly); the file-repair
+      // stub returns canned diagnose/repair/carve JSON so the file-repair route tests drive the real
+      // path; the bundle stub returns a canned BuildResponse for the coordinator's happy path; the
+      // recovery stub returns an honest zero-count miss so the pool boots (the recovery e2e test drives
+      // the queue consumer directly with a fake RecoveryBackend rather than routing through this stub);
+      // the ocr stub returns a shape-correct empty-page result so the pool boots.
       miniflare: {
         workers: [
           {
@@ -259,6 +281,11 @@ export default defineConfig({
             name: "magna-carta-recovery",
             modules: true,
             script: RECOVERY_SERVICE_STUB_SCRIPT,
+          },
+          {
+            name: "magna-carta-ocr",
+            modules: true,
+            script: OCR_SERVICE_STUB_SCRIPT,
           },
         ],
       },

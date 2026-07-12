@@ -7,11 +7,9 @@ import { collectSourceFiles } from "./source-file-sweep.ts";
  * Off-token fitness functions — golden rule 2 ("all UI through the design system"),
  * machine-checked.
  *
- * Rule home: CLAUDE.md golden rule 2; ADR-0076 ("no off-token values" becomes mechanically
- * lintable); spec "Catalog, testing & enforcement" item 5
- * (docs/specs/2026-06-10-design-system-foundation-design.md). House pattern: fitness
- * functions are Vitest tests that scan source files (ADR-0051), like the token gates in
- * packages/design-tokens/test/.
+ * Rule home: CLAUDE.md golden rule 2 ("no off-token values", made mechanically lintable).
+ * House pattern: fitness functions are Vitest tests that scan source files, like the token
+ * gates in packages/design-tokens/test/.
  *
  * Five scanners, each banning one way an off-token value (or a banned glyph) enters the UI:
  *   1. Tailwind arbitrary values  — p-[13px], bg-[#fff], duration-[150ms]
@@ -203,7 +201,7 @@ const sweptFiles: string[] = SWEEP_ROOTS.flatMap(({ root, extensions }) =>
 describe("off-token sweep surface (vacuity guard)", () => {
   it("finds the files the gate exists to police", () => {
     // An empty or misrooted sweep would pass every assertion below vacuously.
-    expect(sweptFiles).toContain("apps/web/src/routes/+page.svelte");
+    expect(sweptFiles).toContain("apps/web/src/lib/components/app-shell.svelte");
     expect(sweptFiles).toContain("apps/web/src/app.css");
     expect(sweptFiles).toContain("packages/design-system/src/lib/internal/floating.ts");
     expect(sweptFiles).toContain("packages/design-system/src/lib/styles/components.css");
@@ -212,7 +210,7 @@ describe("off-token sweep surface (vacuity guard)", () => {
   });
 });
 
-describe("no off-token values in the UI sources (golden rule 2; ADR-0076)", () => {
+describe("no off-token values in the UI sources (golden rule 2)", () => {
   it.each(sweptFiles)("%s contains no off-token values", (file) => {
     const content = readFileSync(join(REPOSITORY_ROOT, file), "utf8");
     expect(scanFileContent(file, content).violations).toEqual([]);

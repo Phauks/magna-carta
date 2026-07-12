@@ -1,18 +1,8 @@
 # pdf-eval corpus manifest.
 #
-# corpus-ci/ — committed, redistributable PDFs used in CI smoke + parse gates.
-# Each file's source and license is recorded below.
-#
-# sha256             bytes    filename                    license / source
-# -------------------------------------------------------------------------
-# 050ae194d21d9b25   2805     pdfjs_franz_image.pdf       Apache-2.0
-#   <- https://raw.githubusercontent.com/mozilla/pdf.js/master/test/pdfs/franz.pdf
-#
-# 925853d98d67d5da   105779   basicapi.pdf                Apache-2.0
-#   <- https://raw.githubusercontent.com/mozilla/pdf.js/master/test/pdfs/basicapi.pdf
-#
-# 2d420cbb4123dcf1   140815   gov_irs_w9_acroform.pdf     Public domain (US Government work)
-#   <- https://www.irs.gov/pub/irs-pdf/fw9.pdf
+# corpus-ci/ — committed, redistributable PDFs used in CI smoke + parse gates
+# and the OCR benchmark. Source, license, and sha256 for every file live in
+# corpus-ci/SOURCES.md, not here — that is the one home for corpus-ci facts.
 #
 # corpus/ — large / non-redistributable PDFs for local dev runs (gitignored).
 # Regenerate via the URLs below.

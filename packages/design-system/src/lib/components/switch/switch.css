@@ -50,4 +50,26 @@
   .mc-switch[data-state="checked"] .mc-switch-thumb {
     margin-inline-start: var(--mc-space-16);
   }
+  /*
+   * High contrast (the data-contrast="high" document attribute — theme-preference.ts): the
+   * borderless pill gains a strong ink OUTLINE (outline, not border: it costs no layout, so the
+   * thumb's travel geometry is untouched) and the thumb an ink edge, so on/off both read as
+   * distinct drawn controls rather than tinted shapes. The higher-specificity focus override
+   * below keeps the focus ring winning while focused. SCOPE: the toggle family (Switch,
+   * Checkbox) only for now — a fuller high-contrast pass across every recipe is follow-on work.
+   */
+  :root[data-contrast="high"] .mc-switch {
+    outline-color: var(--mc-border-strong);
+    outline-width: var(--mc-border-width-default);
+    outline-offset: var(--mc-space-0);
+  }
+  :root[data-contrast="high"] .mc-switch:focus-visible {
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+  }
+  :root[data-contrast="high"] .mc-switch-thumb {
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: var(--mc-border-strong);
+  }
 }

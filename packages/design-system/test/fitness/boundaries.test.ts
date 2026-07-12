@@ -7,12 +7,10 @@ import { collectSourceFiles } from "./source-file-sweep.ts";
  * Boundary fitness functions — golden rule 2 ("all UI through the design system"),
  * machine-checked.
  *
- * Rule home: CLAUDE.md golden rule 2; ADR-0076 (component-layer discipline: bits-ui stays
- * behind the design system; Lucide deep imports only; recipes fed exclusively by token
- * custom properties); spec "Catalog, testing & enforcement" item 5
- * (docs/specs/2026-06-10-design-system-foundation-design.md). House pattern: fitness
- * functions are Vitest tests that scan source files (ADR-0051), like the token gates in
- * packages/design-tokens/test/.
+ * Rule home: CLAUDE.md golden rule 2 (component-layer discipline: bits-ui stays behind the
+ * design system; Lucide deep imports only; recipes fed exclusively by token custom
+ * properties). House pattern: fitness functions are Vitest tests that scan source files,
+ * like the token gates in packages/design-tokens/test/.
  *
  * Three boundaries:
  *   1. bits-ui is imported ONLY inside packages/design-system/src — apps and other packages
@@ -86,7 +84,7 @@ export function findBitsUiReferences(filePath: string, content: string): string[
     if (hit) {
       violations.push(
         `${filePath}:${index + 1} [bits-ui-boundary] ${hit[0]} — bits-ui is consumed only ` +
-          "inside packages/design-system/src; use the styled wrappers (ADR-0076)",
+          "inside packages/design-system/src; use the styled wrappers (CLAUDE.md golden rule 2)",
       );
     }
   });
@@ -99,9 +97,9 @@ const bitsUiSweep = collectWorkspaceSourceFiles([
   "packages/design-system/src",
 ]);
 
-describe("bits-ui import boundary (golden rule 2; ADR-0076)", () => {
+describe("bits-ui import boundary (golden rule 2)", () => {
   it("sweeps a real surface (vacuity guard)", () => {
-    expect(bitsUiSweep).toContain("apps/web/src/routes/+page.svelte");
+    expect(bitsUiSweep).toContain("apps/web/src/lib/components/app-shell.svelte");
     expect(bitsUiSweep).toContain("apps/worker/src/index.ts");
     expect(bitsUiSweep.length).toBeGreaterThanOrEqual(25);
     // The exclusions must not be vacuous either: the excluded trees really exist and
@@ -209,8 +207,8 @@ describe("animejs import boundary (signature motion stays behind its wrapper)", 
 // --- gate 2: Lucide deep imports only -------------------------------------------------------
 
 /**
- * The BARE module specifier only — `@lucide/svelte/icons/<name>` (the required deep form,
- * ADR-0076 satellites) does not match because the closing quote must follow immediately.
+ * The BARE module specifier only — `@lucide/svelte/icons/<name>` (the required deep form)
+ * does not match because the closing quote must follow immediately.
  */
 const BARE_LUCIDE_IMPORT_PATTERN = /["']@lucide\/svelte["']/;
 
@@ -221,7 +219,7 @@ export function findBareLucideImports(filePath: string, content: string): string
     if (hit) {
       violations.push(
         `${filePath}:${index + 1} [lucide-deep-import] ${hit[0]} — import icons via ` +
-          "@lucide/svelte/icons/<name> (ADR-0076); the bare form bundles every icon",
+          "@lucide/svelte/icons/<name> (CLAUDE.md golden rule 2); the bare form bundles every icon",
       );
     }
   });
@@ -232,10 +230,10 @@ export function findBareLucideImports(filePath: string, content: string): string
 // is banned even in the design system); only the fitness/probe self-exclusions apply.
 const lucideSweep = collectWorkspaceSourceFiles([...FITNESS_SELF_EXCLUSIONS]);
 
-describe("Lucide deep-import boundary (golden rule 2; ADR-0076)", () => {
+describe("Lucide deep-import boundary (golden rule 2)", () => {
   it("sweeps a real surface including the design system itself (vacuity guard)", () => {
     expect(lucideSweep).toContain("packages/design-system/src/lib/internal/floating.ts");
-    expect(lucideSweep).toContain("apps/web/src/routes/+page.svelte");
+    expect(lucideSweep).toContain("apps/web/src/lib/components/app-shell.svelte");
     expect(lucideSweep.length).toBeGreaterThan(bitsUiSweep.length);
   });
 
@@ -483,7 +481,7 @@ const RECIPE_CSS_FILES: readonly string[] = [
   }).map((relativePath) => `packages/design-system/src/lib/styles/recipes/${relativePath}`),
 ];
 
-describe("recipe-file token purity (golden rule 2; ADR-0076 component-layer discipline)", () => {
+describe("recipe-file token purity (golden rule 2, component-layer discipline)", () => {
   it("scans the carved recipe files (vacuity guard)", () => {
     // The split moved recipes out of the monolith; the gate must follow them or it polices nothing.
     expect(RECIPE_CSS_FILES).toContain(

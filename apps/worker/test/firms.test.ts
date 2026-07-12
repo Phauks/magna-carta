@@ -197,7 +197,7 @@ describe("POST /api/v1/firms", () => {
     const latestApplied = await firmDatabase
       .prepare("SELECT tag FROM _migrations ORDER BY tag DESC LIMIT 1")
       .all<{ tag: string }>();
-    expect(latestApplied.results[0]?.tag).toBe("0035_seed-tools-decryption");
+    expect(latestApplied.results[0]?.tag).toBe("20260710T120000_seed-tools-email-inspector");
     const ownerRole = await firmDatabase
       .prepare("SELECT id FROM role WHERE name = 'Owner/Admin'")
       .all<{ id: string }>();

@@ -69,6 +69,13 @@
     inline-size: var(--mc-space-16);
     block-size: var(--mc-space-16);
   }
+  /* Leading variant for a LEFT-opening submenu (the chevron sits at the start edge and points
+     left, matching the panel's actual motion): no end-pushing auto margin, a small gap to the
+     label instead. */
+  .mc-dropdown-menu-sub-trigger-icon-start {
+    margin-inline-start: var(--mc-space-0);
+    margin-inline-end: var(--mc-space-8);
+  }
   .mc-dropdown-menu-group-heading {
     padding-block: var(--mc-space-4);
     padding-inline: var(--mc-space-8);

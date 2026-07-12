@@ -29,4 +29,10 @@
       animation: none;
     }
   }
+  /* Static-placeholder escape hatch: a root data attribute freezes the pulse app-wide. A
+     placeholder that will never resolve (a "Soon" seam) shouldn't shimmer as if it were loading;
+     the developer console toggles this, but the capability is the recipe's to own. */
+  :root[data-mc-static-skeletons] .mc-skeleton {
+    animation: none;
+  }
 }

@@ -11,9 +11,18 @@
 
   let {
     ref = $bindable(null),
+    // The active tab is controllable from outside (`bind:value`), so it must be declared
+    // bindable HERE and forwarded with bind: — a spread alone silently drops the binding (the
+    // same defect the Dialog-family Root wrappers had; AlertDialog is the reference).
+    value = $bindable(),
     class: className,
     ...restProps
   }: WithoutChild<TabsPrimitive.RootProps> = $props();
 </script>
 
-<TabsPrimitive.Root bind:ref class={mergeClasses("mc-tabs", className)} {...restProps} />
+<TabsPrimitive.Root
+  bind:ref
+  bind:value
+  class={mergeClasses("mc-tabs", className)}
+  {...restProps}
+/>

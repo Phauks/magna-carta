@@ -245,6 +245,11 @@ describe("end-to-end", () => {
       // tools:decryption (0035_seed-tools-decryption.sql, seeded onto every default role).
       // Sorted.
       permissions: [
+        // conflicts:read / conflicts:run are seeded onto every default role (any member may screen a
+        // prospective matter); conflicts:dispose is narrower and reaches Owner/Admin + Attorney only.
+        "conflicts:dispose",
+        "conflicts:read",
+        "conflicts:run",
         "costs:approve",
         "costs:track",
         "customFields:manage",
@@ -283,13 +288,16 @@ describe("end-to-end", () => {
         "time:viewFirm",
         "tools:aiTextDetection",
         "tools:decryption",
+        "tools:emailInspector",
         "tools:fileConverter",
         "tools:fileIntegrity",
         "tools:fileRepair",
         "tools:fileTypeVerifier",
         "tools:firmUsage",
         "tools:metadataScrubber",
+        "tools:ocr",
         "tools:safeBrowse",
+        "tools:speedTest",
         "tools:whois",
       ],
     });
@@ -440,6 +448,17 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
       "fileIntegrity.hash",
       // Streams the bytes to the scan Container for identification; nothing is stored.
       "fileType.verify",
+      // Diagnose/repair/carve operate over the request body only, returning results in-process;
+      // nothing is stored. The persisting attach variants are separate audited routes.
+      "fileRepair.diagnose",
+      "fileRepair.repair",
+      "fileRepair.carve",
+      // Pure recognition over the uploaded bytes — returns text, word boxes, and confidence;
+      // nothing is stored.
+      "ocr.recognize",
+      // Pure computation over the uploaded message bytes — parses and returns the structural
+      // inspection; nothing is stored, no firm data is written.
+      "emailInspector.inspect",
       // Analysis POST: the only write is one incidental ai_detection_usage meter row (telemetry),
       // not an auditable firm-domain mutation; auditing every detection would flood audit_log.
       "aiDetection.detect",

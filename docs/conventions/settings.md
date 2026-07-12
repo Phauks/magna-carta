@@ -4,6 +4,8 @@
 
 **Scope (single home for):** how settings are added and rendered — the declarative registry shape, scope resolution, access enforcement, and storage placement. The goal is that adding a setting is a **registry entry, not a new page**.
 
+**Sibling surface — Account Settings:** person-scoped identity and credentials (profile, password, two-factor, sessions) do NOT live in this registry. They belong to the separate, walled-off **Account Settings** surface (`/account`, reached from the profile menu, rendered in the Secure Shell with no app chrome) — a work preference is different from an account setting. Managing _other_ members' access is the same elevated kind of operation and will reuse that Secure Shell as a distinct admin surface. See the account section registry (`apps/web/src/lib/account/account-sections.ts`) and `apps/web/src/lib/components/secure-shell.svelte`.
+
 **Authoritative context:** the white paper's _Settings & configuration_ (the design). This file is the practitioner's how-to.
 
 ## The registry (one declaration per setting)

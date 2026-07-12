@@ -20,6 +20,8 @@
     /* flex: none (shrink 0) so the flex algorithm does not override (and snap) the animated width.
        A unitless flex-shrink can't be a length token, so the keyword shorthand is the token-pure form. */
     flex: none;
+    /* Positioning context for the peek panel, which lifts to an absolute overlay off this box. */
+    position: relative;
     inline-size: var(--mc-size-sidebar);
     background-color: var(--mc-chrome-surface);
     color: var(--mc-chrome-text);
@@ -34,15 +36,37 @@
   .mc-sidebar[data-state="collapsed"] {
     inline-size: var(--mc-size-sidebar-rail);
   }
+  /* Customize mode arranges IN the normal expanded rail (owner-directed): no widened editing
+     state — the trailing star/lock control shares the row with the label at the standard width.
+     The shell still forces the rail expanded while editing so the labels and controls show;
+     `data-editing` only marks the state (it blocks the hover peek), it no longer resizes. */
+  /* The panel — header/content/footer live inside it, filling the rail (`flex: auto` for the
+     height, the flex column's cross-axis stretch for the width). It is a plain wrapper now; the
+     hover peek widens the whole rail rather than floating this panel. */
+  .mc-sidebar-panel {
+    display: flex;
+    flex-direction: column;
+    flex: auto;
+    min-block-size: var(--mc-space-0);
+  }
+  /* The hover peek expands the rail FOR REAL — an in-flow width change that PUSHES the work canvas
+     aside (owner-directed), never an overlay floating over and hiding content. The persisted
+     collapsed state is unchanged; this is a transient widening driven by hover, and leaving snaps
+     it back. Placed after the collapsed-width rule so it wins while both apply (a peeked collapsed
+     rail). The canvas — and the top-bar search with it — reflows to the new edge, so the search
+     tracks the rail with no extra plumbing. */
+  .mc-sidebar[data-peek="true"] {
+    inline-size: var(--mc-size-sidebar);
+  }
   .mc-sidebar-header {
     display: flex;
     align-items: center;
     gap: var(--mc-space-8);
-    /* Pinned to the control-lg row height so the brand corner lines up with the app-shell top bar.
+    /* Pinned to size.top-bar so the brand corner and the TopBar read as ONE chrome band.
        NO bottom hairline (owner-directed 2026-07-02): the brand corner transitions smoothly into
        the nav below and the top bar beside it — the chrome is one unbroken ink surface. The brand
        mark aligns with the nav icons below via padding-inline (content 8 + button 8 = 16). */
-    min-block-size: var(--mc-control-lg);
+    min-block-size: var(--mc-size-top-bar);
     padding-inline: var(--mc-space-16);
     padding-block: var(--mc-space-8);
     color: var(--mc-chrome-text-strong);
@@ -54,6 +78,35 @@
     padding: var(--mc-space-8);
     overflow-x: hidden;
     overflow-y: auto;
+    /* The nav list scrolls its own area with the scrollbar HIDDEN — the dark rail stays one
+       clean plane while the header (brand) and footer (Settings + collapse) stay pinned around
+       it. Same Firefox/WebKit split the mc-scrollbar recipe documents; hidden rather than slim
+       because chrome is identity, not a work surface. */
+    scrollbar-width: none;
+  }
+  .mc-sidebar-content::-webkit-scrollbar {
+    display: none;
+  }
+  /*
+   * The gilt scroll-edge hint — the affordance the hidden scrollbar gave up: a thin gold rule
+   * at the scroll area's top edge while scrolled below the top, and at its bottom edge while
+   * more lies below (sidebar-content.svelte drives the state). Gold never fades — it DRAWS
+   * (the mc-draw-x keyframes, from the start edge); removal is instant by unmount. Reusable
+   * for any invisible-scrollbar area.
+   */
+  .mc-sidebar-scroll-hint {
+    position: absolute;
+    inset-inline: var(--mc-space-8);
+    block-size: var(--mc-focus-ring-width);
+    background-color: var(--mc-accent-default);
+    pointer-events: none;
+    transform-origin: left center;
+    animation: mc-draw-x var(--mc-duration-fast) var(--mc-easing-standard);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .mc-sidebar-scroll-hint {
+      animation-duration: var(--mc-duration-instant);
+    }
   }
   .mc-sidebar-footer {
     display: flex;
@@ -131,6 +184,32 @@
     outline: var(--mc-focus-ring-width) solid var(--mc-chrome-accent);
     outline-offset: var(--mc-focus-ring-offset);
   }
+  /*
+   * A NEW ARRIVAL — a destination just seated in this member's sidebar (starred elsewhere, or
+   * a new registry addition placed by reconciliation): a one-time gilt bar DRAWS down the
+   * row's start edge (mc-draw-y — gold never fades, it draws) so the eye catches where it
+   * landed. The shell holds data-arrived briefly, then acknowledges it away; a pseudo-element
+   * rather than the active row's inset box-shadow, because a box-shadow cannot ride the draw
+   * animation.
+   */
+  .mc-sidebar-menu-button[data-arrived="true"] {
+    position: relative;
+  }
+  .mc-sidebar-menu-button[data-arrived="true"]::before {
+    content: "";
+    position: absolute;
+    inset-block: var(--mc-space-4);
+    inset-inline-start: var(--mc-space-0);
+    inline-size: var(--mc-focus-ring-width);
+    background-color: var(--mc-chrome-accent);
+    transform-origin: center top;
+    animation: mc-draw-y var(--mc-duration-signature) var(--mc-easing-standard);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .mc-sidebar-menu-button[data-arrived="true"]::before {
+      animation-duration: var(--mc-duration-instant);
+    }
+  }
   /* Active destination: the identity moment — a gilt left bar (inset box-shadow, so the rounded
      corners stay clean) + a gold icon + bright text on the raised ink fill. */
   .mc-sidebar-menu-button[data-active="true"] {
@@ -153,11 +232,10 @@
     padding-inline-start: var(--mc-space-8);
     color: inherit;
     text-overflow: ellipsis;
-    /* Colour follows the button on hover/active; the collapse (padding/colour to 0/transparent) is
-       instant and composited by the sidebar view-transition. */
-    transition-property: color;
-    transition-duration: var(--mc-duration-normal);
-    transition-timing-function: var(--mc-easing-standard);
+    /* NO transition of its own: hover/active colour rides the BUTTON's transition through
+       `inherit`, and the collapse flip to transparent must be INSTANT — a live colour transition
+       here would still be mid-fade when the view transition captures its snapshots, so the label
+       would fade a second time after the slide instead of being revealed by it. */
   }
   /* Collapsed icon rail: the label column goes to 0 (its width AND its leading padding to zero so it
      leaves the row) and its text fades. The icon does NOT recentre — it stays exactly where it is (the
@@ -178,6 +256,115 @@
   /* The collapse Trigger reuses the menu-button look (icon + "Collapse"/"Expand" label); it mutes its
      icon to read as a control rather than a destination. */
   .mc-sidebar-trigger .mc-sidebar-icon {
+    color: var(--mc-chrome-text-muted);
+  }
+  /*
+   * The utility tray — a row of small icon activities (Settings, Customize, and room for more
+   * that match their register), set apart from the labelled destination rows above and from the
+   * large collapse control below. In the COLLAPSED rail the tray does NOT reflow or stack (owner-
+   * directed): only its leftmost icon (Settings) shows; the rest return when the rail is expanded
+   * or peeked, so nothing rearranges as the rail narrows.
+   */
+  .mc-sidebar-controls {
+    display: flex;
+    align-items: center;
+    gap: var(--mc-space-4);
+    margin-block-start: var(--mc-space-4);
+  }
+  .mc-sidebar[data-state="collapsed"]:not([data-peek="true"])
+    .mc-sidebar-controls
+    > :not(:first-child) {
+    display: none;
+  }
+  .mc-sidebar-control-button[data-active="true"] {
+    color: var(--mc-chrome-accent);
+  }
+  .mc-sidebar-control-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-block-size: var(--mc-control-md);
+    min-inline-size: var(--mc-control-md);
+    padding: var(--mc-space-8);
+    border-radius: var(--mc-radius-md);
+    background-color: transparent;
+    color: var(--mc-chrome-text-muted);
+    cursor: pointer;
+    transition-property: background-color, color;
+    transition-duration: var(--mc-duration-normal);
+    transition-timing-function: var(--mc-easing-standard);
+  }
+  .mc-sidebar-control-button:hover {
+    background-color: var(--mc-chrome-surface-hover);
+    color: var(--mc-chrome-text-strong);
+  }
+  .mc-sidebar-control-button:focus-visible {
+    outline: var(--mc-focus-ring-width) solid var(--mc-chrome-accent);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-sidebar-control-button[aria-pressed="true"] {
+    color: var(--mc-chrome-accent);
+  }
+  /*
+   * The trailing star/lock in a Customize-mode row — a consistent control slot, vertically
+   * centred against the row's label. Sized to the control height so the row keeps the SAME height
+   * as a normal nav row (only the added control differs). `data-starred` fills the star gold
+   * (in the sidebar); `data-locked` is the pinned rows' lock — a stated fact, not a live toggle.
+   */
+  .mc-sidebar-row-control {
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    inline-size: var(--mc-control-md);
+    block-size: var(--mc-control-md);
+    border-radius: var(--mc-radius-md);
+    background-color: transparent;
+    color: var(--mc-chrome-text-muted);
+    cursor: pointer;
+    transition-property: background-color, color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+  }
+  .mc-sidebar-row-control:hover {
+    background-color: var(--mc-chrome-surface-hover);
+    color: var(--mc-chrome-text-strong);
+  }
+  .mc-sidebar-row-control:focus-visible {
+    outline: var(--mc-focus-ring-width) solid var(--mc-chrome-accent);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-sidebar-row-control[data-starred="true"] {
+    color: var(--mc-chrome-accent);
+  }
+  .mc-sidebar-row-control[data-locked="true"] {
+    cursor: default;
+  }
+  .mc-sidebar-row-control[data-locked="true"]:hover {
+    background-color: transparent;
+    color: var(--mc-chrome-text-muted);
+  }
+  /* The subtle ink hairline dividing the two Customize tiers (in the sidebar / add back). */
+  .mc-sidebar-edit-divider {
+    block-size: var(--mc-border-width-default);
+    margin-block: var(--mc-space-4);
+    margin-inline: var(--mc-space-8);
+    background-color: var(--mc-chrome-border);
+  }
+  /*
+   * PEEK PRESENTATION — while a collapsed rail is floated open, it must READ as expanded (labels,
+   * group headings, wordmark all visible) even though data-state is still "collapsed". These
+   * override the collapsed rules above, so they must come AFTER them (equal specificity, source
+   * order wins). The controls cluster likewise returns to a row inside the widened panel.
+   */
+  .mc-sidebar[data-peek="true"] .mc-sidebar-menu-button {
+    grid-template-columns: var(--mc-space-20) 1fr;
+  }
+  .mc-sidebar[data-peek="true"] .mc-sidebar-label {
+    padding-inline-start: var(--mc-space-8);
+    color: inherit;
+  }
+  .mc-sidebar[data-peek="true"] .mc-sidebar-group-label {
     color: var(--mc-chrome-text-muted);
   }
 }

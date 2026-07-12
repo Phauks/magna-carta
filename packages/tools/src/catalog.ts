@@ -102,7 +102,7 @@ export const CATALOG: readonly ToolManifest[] = [
     icon: "file-cog",
     subjectGroup: "files",
     permission: assertPermission("tools:fileConverter"),
-    contextTags: ["none"],
+    contextTags: ["file", "none"],
     backing: { kind: "library" },
     matterContext: "none",
   },
@@ -112,7 +112,7 @@ export const CATALOG: readonly ToolManifest[] = [
     icon: "file-search",
     subjectGroup: "files",
     permission: assertPermission("tools:metadataScrubber"),
-    contextTags: ["none"],
+    contextTags: ["file", "none"],
     backing: { kind: "library" },
     matterContext: "none",
   },
@@ -172,5 +172,42 @@ export const CATALOG: readonly ToolManifest[] = [
     // the "optional" matter context is the seam for the opt-in attach-to-matter path.
     backing: { kind: "library" },
     matterContext: "optional",
+  },
+  {
+    id: "ocr",
+    name: "Text Recognition",
+    icon: "scan-text",
+    subjectGroup: "files",
+    permission: assertPermission("tools:ocr"),
+    contextTags: ["file", "none"],
+    // The recognition engine runs in an internal Container, not a connected third-party integration,
+    // so this is `library` — the same backing the other in-house file utilities use. Stateless: the
+    // engine writes nothing. Turning the recognized text into a searchable PDF lands in a later slice.
+    backing: { kind: "library" },
+    matterContext: "optional",
+  },
+  {
+    id: "email-inspector",
+    name: "Email Inspector",
+    icon: "mail-search",
+    subjectGroup: "files",
+    permission: assertPermission("tools:emailInspector"),
+    contextTags: ["file", "none"],
+    // The parse engine is in-house WebAssembly, not a connected third-party service.
+    backing: { kind: "library" },
+    // Stateless: bytes in, a report out. Nothing is stored, so no matter is involved.
+    matterContext: "none",
+  },
+  {
+    id: "malware-scan",
+    name: "Malware Scan",
+    icon: "shield-check",
+    subjectGroup: "files",
+    // Gated on the same capability the scan diagnostic route requires (POST /api/v1/scan/diagnose),
+    // seeded to every default role. A one-off, matter-less diagnostic: the file is not stored.
+    permission: assertPermission("firm:scanFile"),
+    contextTags: ["file"],
+    backing: { kind: "library" },
+    matterContext: "none",
   },
 ];

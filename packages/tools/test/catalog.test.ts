@@ -44,6 +44,9 @@ describe("tool catalog", () => {
       "file-type-verifier",
       "ai-text-detection",
       "file-repair",
+      "ocr",
+      "email-inspector",
+      "malware-scan",
     ]);
   });
 
@@ -53,7 +56,27 @@ describe("tool catalog", () => {
     expect(tool?.subjectGroup).toBe("files");
     expect(tool?.backing).toEqual({ kind: "library" });
     expect(tool?.matterContext).toBe("none");
-    expect(tool?.contextTags).toEqual(["none"]);
+    // A file converter acts on a file, so it must be reachable from a file context (toolsFor("file"));
+    // it also stands alone in the general listing.
+    expect(tool?.contextTags).toEqual(["file", "none"]);
+  });
+
+  it("tags every file-accepting tool in the files group as accepting a file", () => {
+    // The `files` subject group holds the file utilities. Every one that acts on file bytes must carry
+    // the "file" context tag, or it silently vanishes from any surface filtering by file context
+    // (toolsFor("file")) — exactly the defect a file workbench would hit.
+    //
+    // The one exception is AI-Text Detection: its worker route (/api/v1/ai-detection/detect) accepts a
+    // pasted `text` field, not a file, so it is correctly general-only ("none"). If it ever gains a
+    // file-upload path, add "file" here and drop it from this exclusion.
+    const textOnly = new Set(["ai-text-detection"]);
+    const fileTools = CATALOG.filter(
+      (tool) => tool.subjectGroup === "files" && !textOnly.has(tool.id),
+    );
+    expect(fileTools.length).toBeGreaterThan(0);
+    for (const tool of fileTools) {
+      expect(tool.contextTags, tool.id).toContain("file");
+    }
   });
 
   it("includes the AI-text detection tool backed by the ai-detection integration", () => {

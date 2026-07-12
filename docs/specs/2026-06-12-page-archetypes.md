@@ -46,8 +46,11 @@ The sidebar is **not a hardcoded list**. It is a **registry of destinations** th
 - **Top:** Home · Matters (P1) · Calendar (P6) · Contacts (P1) · Tasks (P6) · **Intake** (P6)
 - **Money:** Time (P3) · Trust (P3) · Billing (P3) · Payments (P6) · Accounting (P3)
 - **Practice:** **Templates** (P2) · Discovery (P5) · Safe Custody (P4) · Conflicts (P4)
-- **Firm:** Communications (P7) · Reports (P3)
+- **Firm:** **Tools** · Communications (P7) · Reports (P3)
 - **Pinned bottom** (distinct region): Resource center · Settings · User profile · Collapse «
+
+_(Addition 2026-07-02: **Tools** joins the Firm group — the tools-area left-nav destination
+ADR-0101 assigns; the utilities are firm-wide, not matter-scoped, so Firm is its home.)_
 
 **Templates, not Documents, in the global nav.** Actual matter files live in a matter's **Documents tab** (the File Manager). The global slot is **Templates** — the firm-wide reusable-document library + document automation (engagement letters, pleadings, letterhead, forms), a cousin of the future Forms module. A global cross-matter document/library view is deferred (handled by ⌘K search until a real need appears — cheap to add to the registry later).
 

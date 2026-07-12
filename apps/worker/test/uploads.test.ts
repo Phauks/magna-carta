@@ -114,7 +114,10 @@ describe("POST /api/v1/uploads — initiate", () => {
     expect(body["versionId"]).toMatch(/^fileVersion_/);
     expect(body["key"]).toContain("files/");
     expect(body["method"]).toBe("PUT");
-    expect(body["url"] as string).toMatch(/^https:\/\//);
+    // Off production (no real R2 S3 credential set) the presigner reroutes the upload leg to the
+    // Worker itself so `wrangler dev` and the test pool run the identical ceremony against a
+    // resolvable, same-origin target — the development R2 upload route (routes/dev-r2-upload.ts).
+    expect(body["url"] as string).toContain("/api/__dev/r2/object");
     expect(body["headers"]).toMatchObject({ "Content-Type": "application/pdf" });
   });
 
@@ -242,7 +245,9 @@ describe("GET /api/v1/uploads/{id}/parts/{partNumber} — sign part", () => {
     });
     expect(response.status).toBe(200);
     const body = (await response.json()) as { url: string };
-    expect(body.url).toMatch(/^https:\/\//);
+    // Same rerouting for a multipart part: the dev presigner points the part PUT at the Worker's
+    // development R2 upload route rather than a presigned R2 host.
+    expect(body.url).toContain("/api/__dev/r2/part");
     expect(body.url).toContain("partNumber=1");
   });
 
@@ -270,9 +275,27 @@ describe("GET /api/v1/uploads/{id}/parts/{partNumber} — sign part", () => {
 describe("POST /api/v1/uploads/{id}/complete", () => {
   it("completes a multipart session with its part manifest", async () => {
     const { uploadId } = await initiateMultipart();
+    // Off production the presigner reroutes the part PUT to the Worker's development R2 upload route,
+    // which stages the bytes; the server-side completion then assembles the staged parts into the
+    // final object. Stage part 1 through that route first so completion finds bytes to assemble —
+    // the identical four-step ceremony a real client runs (sign part -> PUT part -> complete).
+    const signResponse = await SELF.fetch(
+      `https://example.com/api/v1/uploads/${uploadId}/parts/1`,
+      { headers: { cookie: ownerCookie } },
+    );
+    expect(signResponse.status).toBe(200);
+    const { url } = (await signResponse.json()) as { url: string };
+    const partResponse = await SELF.fetch(`https://example.com${url}`, {
+      method: "PUT",
+      headers: { cookie: ownerCookie, origin: "https://example.com" },
+      body: new Uint8Array([1, 2, 3, 4]),
+    });
+    expect(partResponse.status).toBe(200);
+    const etag = partResponse.headers.get("etag") ?? '"dev-part"';
+
     const response = await postAction(
       `/api/v1/uploads/${uploadId}/complete`,
-      { parts: [{ partNumber: 1, etag: "etag-1" }] },
+      { parts: [{ partNumber: 1, etag }] },
       ownerCookie,
     );
     expect(response.status).toBe(200);

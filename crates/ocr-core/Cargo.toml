@@ -1,0 +1,28 @@
+[package]
+name = "ocr-core"
+version = "0.1.0"
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+# Pure-Rust YAML. The recognition model's character dictionary ships inside PaddleOCR's
+# inference.yml, so the engine parses that file rather than carrying a second copy of the
+# dictionary that could drift from the model it belongs to.
+serde_yaml_ng = "0.10"
+serde = { version = "1", features = ["derive"] }
+image = { workspace = true }
+# The OCR pipeline: PaddleOCR PP-OCR models over ONNX Runtime via `ort`. `download-binaries` is
+# required to statically link the ONNX Runtime the crate needs at build time, and it pulls in
+# `ort/tls-native` unconditionally (Cargo feature unification is additive, so turning off default
+# features cannot remove it) -- that native-TLS path is exercised only by `ort-sys`'s build
+# script, to fetch the ONNX Runtime archive over HTTPS at build time; it is compiled for the host,
+# never linked into the shipped binary, and this crate performs no runtime model download. Default
+# features are still off because that drops the crate's `simd` feature (`multiversion` runtime CPU
+# dispatch): different host CPUs would otherwise take different preprocessing code paths and
+# produce different rounding before the model runs, and a re-run of a production has to reproduce
+# its own earlier output exactly.
+# `oar-ocr-core` also pulls in `tokenizers` with its `onig` feature, which links Oniguruma
+# (`onig_sys`, a C regex library) into the shipped binary via a normal (non-build) edge --
+# Cargo feature unification cannot drop it. See containers/ocr/CLAUDE.md for the reachability
+# reasoning; removing it would require forking oar-ocr-core to make `tokenizers` optional.
+oar-ocr = { version = "0.8", default-features = false, features = ["download-binaries"] }
