@@ -1,0 +1,15 @@
+# Pin the Rust toolchain so every machine — laptop, cloud session, and the in-cloud
+# container builds — compiles and formats identically.
+#
+# Two concrete failures this prevents:
+#   * `oar-ocr` (crates/ocr-core) requires rustc >= 1.95. A box on an older stable fails to
+#     compile the workspace at all, so `cargo clippy` / `cargo test` never run.
+#   * rustfmt's output changes between releases. Unpinned, an older toolchain "reformats" 45
+#     already-correct files in crates/ and collides with every branch in flight.
+#
+# rustup reads this file and installs the pinned toolchain on the first cargo invocation, so
+# a fresh clone needs no manual setup step.
+[toolchain]
+channel = "1.97.0"
+components = ["rustfmt", "clippy"]
+targets = ["wasm32-unknown-unknown"]

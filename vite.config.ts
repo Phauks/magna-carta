@@ -171,10 +171,12 @@ export default defineConfig({
       clean: {
         command: "node tooling/clean/index.mjs",
       },
-      // One-time per clone: point git at the tracked hooks directory so the post-merge auto-clean
-      // is active. Idempotent.
+      // Point git at the tracked hooks directory (pre-push quality gate + post-merge auto-clean).
+      // Runs automatically from `postinstall`, because a fresh clone leaves core.hooksPath unset and
+      // a cloud session is a fresh clone every time — left manual, those sessions push with the gate
+      // silently off. Idempotent; kept here to re-arm a clone by hand.
       "setup-hooks": {
-        command: "git config core.hooksPath tooling/git-hooks",
+        command: "node tooling/setup-hooks/index.mjs",
       },
     },
   },
