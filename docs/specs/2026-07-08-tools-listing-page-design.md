@@ -20,13 +20,13 @@ matter. The listing page states that plainly and never implies otherwise.
 1. **Listing only.** The page lists tools and shows how finished each one is. No drop
    zone, no per-tool pages, no run stage, no recents/favorites/history. (History is a
    deliberate non-feature — privacy and the ethereal principle, not a deferral.)
-2. **The domain catalog stays pure.** `packages/tools/CATALOG` owns tool *identity*
+2. **The domain catalog stays pure.** `packages/tools/CATALOG` owns tool _identity_
    (name, icon, subject group, permission, context tags, backing). No user-facing prose
    and no UI-lifecycle state is added to the domain package.
 3. **Presentation lives app-side.** A new `apps/web/src/lib/tools/` module supplies the
    per-tool descriptor and maturity stage, plus the human labels for subject groups —
    the same shape `navigation/destinations.ts` uses for nav entries. A tool needs a row
-   in the catalog *and* a presentation entry; a covering test asserts the two id-sets
+   in the catalog _and_ a presentation entry; a covering test asserts the two id-sets
    match, so a tool added to the catalog with no presentation entry fails CI rather than
    drifting silently. (Build-time completeness would require typing `CATALOG` `as const`
    to derive a literal `ToolId` union — a domain-package change held out of this slice.)
@@ -55,13 +55,13 @@ matter. The listing page states that plainly and never implies otherwise.
 
 Under `apps/web/`:
 
-| File                                            | Role                                                       |
-| ----------------------------------------------- | ---------------------------------------------------------- |
-| `src/routes/(app)/tools/+page.svelte`           | The listing page — masthead, view toggle, grouped views    |
+| File                                            | Role                                                                         |
+| ----------------------------------------------- | ---------------------------------------------------------------------------- |
+| `src/routes/(app)/tools/+page.svelte`           | The listing page — masthead, view toggle, grouped views                      |
 | `src/lib/tools/tool-presentation.ts`            | id → `{ description, stage }`; group labels; icon map; `visibleToolGroups()` |
-| `src/lib/tools/tools-view-preference.svelte.ts` | Persisted `"tiles" \| "list"` view preference (default tiles) |
-| `src/lib/tools/tool-tile.svelte`                | One tool as a card tile                                     |
-| `src/lib/tools/tool-row.svelte`                 | One tool as a dense list row                                |
+| `src/lib/tools/tools-view-preference.svelte.ts` | Persisted `"tiles" \| "list"` view preference (default tiles)                |
+| `src/lib/tools/tool-tile.svelte`                | One tool as a card tile                                                      |
+| `src/lib/tools/tool-row.svelte`                 | One tool as a dense list row                                                 |
 
 Building this page flips `tools` from `shipped: false` to `shipped: true` (with a `stage`)
 in `navigation/destinations.ts`. Ready-tool links target `/tools/<id>` — a defined seam;
@@ -79,7 +79,9 @@ export interface ToolPresentation {
 
 // Keyed by ToolManifest.id (string). A covering test asserts the key set
 // exactly matches the catalog ids — see tool-presentation.test.ts.
-export const TOOL_PRESENTATION: Record<string, ToolPresentation> = { /* … */ };
+export const TOOL_PRESENTATION: Record<string, ToolPresentation> = {
+  /* … */
+};
 
 // SubjectGroup → engraved section label.
 export const SUBJECT_GROUP_LABELS: Record<SubjectGroup, string> = {
@@ -95,39 +97,41 @@ export const SUBJECT_GROUP_LABELS: Record<SubjectGroup, string> = {
 
 // Catalog icon-name string → imported Lucide component (explicit imports, no dynamic
 // import). A covering test asserts every catalog icon appears here.
-export const TOOL_ICONS: Record<string, Component> = { house: House, /* … */ };
+export const TOOL_ICONS: Record<string, Component> = { house: House /* … */ };
 
 // The page's data: permitted tools grouped in fixed order. The mock permission set (the
 // managing partner sees everything) is derived from the catalog; the real member grants
 // replace it when auth lands, leaving this call site unchanged.
-export function visibleToolGroups(): GroupedTools[] { /* toolsByGroup(CATALOG, mockPermissions) */ }
+export function visibleToolGroups(): GroupedTools[] {
+  /* toolsByGroup(CATALOG, mockPermissions) */
+}
 ```
 
 Descriptors (all `stage: "soon"` at this slice):
 
-| Tool                              | Descriptor                                                    |
-| --------------------------------- | ------------------------------------------------------------- |
-| Property Listing Links            | Open a property address across the major listing sites.       |
-| County Property Records           | Jump to the county assessor and recorder for an address.      |
-| Business Entity Lookup            | Find a company's registration in the state business registry. |
-| Attorney License Lookup           | Check a lawyer's bar standing and discipline history.         |
-| Shipping & Postage                | Rate and buy postage for a mailing.                           |
-| Network Speed Test                | Measure this connection's speed to the platform.              |
-| Firm Usage                        | See the firm's storage and platform consumption.              |
-| WHOIS Lookup                      | Look up who registered a domain, and when.                    |
-| Safe Website Viewer               | Open an untrusted website at arm's length.                    |
-| File Converter                    | Convert a file from one format to another.                    |
-| Metadata Inspector & Scrubber     | Inspect and strip hidden metadata from a file.                |
-| File Hash & Integrity             | Compute a file's hash and confirm it hasn't changed.          |
-| File Decryption & Recovery        | Unlock a protected file or recover its password.              |
-| File Type Verifier                | Confirm what a file really is, whatever its extension says.    |
-| AI-Text Detection                 | Estimate whether a passage was written by AI.                 |
+| Tool                          | Descriptor                                                    |
+| ----------------------------- | ------------------------------------------------------------- |
+| Property Listing Links        | Open a property address across the major listing sites.       |
+| County Property Records       | Jump to the county assessor and recorder for an address.      |
+| Business Entity Lookup        | Find a company's registration in the state business registry. |
+| Attorney License Lookup       | Check a lawyer's bar standing and discipline history.         |
+| Shipping & Postage            | Rate and buy postage for a mailing.                           |
+| Network Speed Test            | Measure this connection's speed to the platform.              |
+| Firm Usage                    | See the firm's storage and platform consumption.              |
+| WHOIS Lookup                  | Look up who registered a domain, and when.                    |
+| Safe Website Viewer           | Open an untrusted website at arm's length.                    |
+| File Converter                | Convert a file from one format to another.                    |
+| Metadata Inspector & Scrubber | Inspect and strip hidden metadata from a file.                |
+| File Hash & Integrity         | Compute a file's hash and confirm it hasn't changed.          |
+| File Decryption & Recovery    | Unlock a protected file or recover its password.              |
+| File Type Verifier            | Confirm what a file really is, whatever its extension says.   |
+| AI-Text Detection             | Estimate whether a passage was written by AI.                 |
 
 ## Layout & anatomy
 
 Canvas voice throughout (standard tokens, no chrome register — theming stays at the edges).
 
-- **Masthead.** "Tools" with the standing line *"Runs outside any matter."* — the ethereal
+- **Masthead.** "Tools" with the standing line _"Runs outside any matter."_ — the ethereal
   principle stated at the page's ceremonial edge, in the Engraved Ledger register. The
   **view toggle** sits in `Masthead.Actions`: a two-option segmented control (Tiles /
   List) built from design-system `Button`s with Lucide `layout-grid` / `list` icons,
@@ -152,7 +156,7 @@ Canvas voice throughout (standard tokens, no chrome register — theming stays a
 ## Testing
 
 Pure-logic tests under `apps/web/test/` (the established pattern — no component-render
-harness exists in `apps/web`; the rendered page is checked in the browser). 
+harness exists in `apps/web`; the rendered page is checked in the browser).
 
 - **Completeness** (`apps/web/test/tools-presentation.test.ts`): the `TOOL_PRESENTATION`
   key set exactly matches the `CATALOG` ids (no missing, no extra); every catalog

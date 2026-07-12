@@ -16,11 +16,11 @@ currently a JSON placeholder). Static mockups for owner review; winners get buil
   Search indexing, OCR, Malware scanning.
 - `providers[]` — `{ id, name, status, upstreamUrl, fetchedAt, reachable }`; today only
   Cloudflare and GitHub are emitted (Helcim and Pangram are `manual` registry placeholders,
-  omitted from the feed). Providers get the extra status `status_unavailable` = *their feed*
+  omitted from the feed). Providers get the extra status `status_unavailable` = _their feed_
   unreachable, never counted against us.
 - `events[]` — `{ title, impact (minor|major|critical|maintenance), lifecycle
-  (investigating|identified|monitoring|resolved), affectedComponentIds[], startedAt,
-  resolvedAt?, updates[{ at, lifecycle, body }] }`. Public audience: no author identity, ever.
+(investigating|identified|monitoring|resolved), affectedComponentIds[], startedAt,
+resolvedAt?, updates[{ at, lifecycle, body }] }`. Public audience: no author identity, ever.
   Resolved events are never pruned — the feed **is** the incident history.
 - `stale` — true when the derived snapshot is older than 20 minutes (twice the 10-minute cron).
 
@@ -54,7 +54,7 @@ currently a JSON placeholder). Static mockups for owner review; winners get buil
 
 - **GitHub** — the archetype: "All Systems Operational" heading; each component carries a
   90-day tick bar + uptime % + "90 days ago … Today" endcaps; updates reverse-chronological with
-  UTC timestamps. The bars are what makes the all-green steady state feel *alive* rather than dead.
+  UTC timestamps. The bars are what makes the all-green steady state feel _alive_ rather than dead.
 - **Cloudflare** — buries the verdict: no single top banner, just grouped regional lists — you
   scroll to learn if anything is wrong. A cautionary example: the verdict must be first.
   Their separate "Scheduled Maintenance" section with explicit UTC windows is the right shape.
@@ -82,7 +82,7 @@ currently a JSON placeholder). Static mockups for owner review; winners get buil
   holding with an entered-at citation line, components as an engraved ledger (hairlines, small
   caps, tabular numerals), incidents as dated ledger entries that close with the accountant's
   double rule when resolved. Rationale: the status page is an outward-facing trust document —
-  the register's "entered in the record" voice *is* the credibility argument.
+  the register's "entered in the record" voice _is_ the credibility argument.
 - **Direction B — "The Instrument Panel"** (`status-lab/direction-b.html`): quiet brand,
   maximal glanceability — a dominant full-width verdict band, dense two-column component grid
   with prominent uptime bars, incidents secondary until one is live (then pinned under the

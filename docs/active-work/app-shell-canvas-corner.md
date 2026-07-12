@@ -16,7 +16,7 @@ and what shows in the arc is chrome — continuous with the top bar above and th
 
 The canvas's top-inline-start corner is the **top bar's** corner, and the top bar paints
 `--mc-chrome-surface`, as does the sidebar. `sidebar.css` states the intent: the chrome-to-canvas
-surface contrast *is* the edge, and the brand corner flows into the top bar as one smooth chrome
+surface contrast _is_ the edge, and the brand corner flows into the top bar as one smooth chrome
 surface. Rounding the canvas would cut a light notch into that unbroken band.
 
 It would also make the `mc-app-canvas` snapshot non-rectangular. `animations.css` records why that is
