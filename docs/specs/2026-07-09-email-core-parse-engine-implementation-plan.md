@@ -10,6 +10,14 @@
 
 **Spec:** [`2026-07-09-email-core-parse-engine-design.md`](2026-07-09-email-core-parse-engine-design.md) · **ADR fragment:** [`docs/decisions/pending/email-core-parse-engine.md`](../decisions/pending/email-core-parse-engine.md)
 
+> **As-built correction (2026-07-11).** The engine shipped differently from this plan in several concrete ways. The plan is kept as the point-in-time build record; where it disagrees with the code, the code wins, and `crates/email-core/CLAUDE.md` is the authoritative as-built description.
+>
+> - **`cfb`, not `msg_parser`.** `msg_parser` 0.3.6 was audited and **rejected** — a release-profile out-of-bounds panic reachable on crafted input, unrecoverable on the unwind-less wasm runtime. `.msg`/MAPI is decoded in-house directly over `cfb` 0.14. Every `msg_parser` reference below — the Tech Stack line, the "`cfb` is not a dependency" constraint, Task 4's audit-then-adopt steps — is superseded by that rejection.
+> - **`EMAIL_ERROR_CODES`, not `ALLOWED_ERROR_CODES`** — the exported constant and its `error.rs` home were renamed.
+> - **Typed `PartLocator`, not raw byte offsets.** A part is located by `PartLocator::InputRange(range)` (`.eml`/mbox) or `PartLocator::MapiStream { name }` (`.msg`); the TypeScript edge is `extractPart(bytes, partIndex)` over the descriptor, not `byteStart`/`byteEnd`.
+> - **Error map:** `unsupported` → **422** (the plan says 415), `malformed`/`partNotFound` → 422, `limitExceeded` → 413 — see `apps/worker/src/routes/email-inspector.ts`.
+> - **`parse_mbox`** returns an `MboxParseOutcome` (members plus per-member failures), not a bare `Result<Vec<_>>`.
+
 ## Global Constraints
 
 Every task's requirements implicitly include this section.

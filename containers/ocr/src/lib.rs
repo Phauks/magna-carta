@@ -8,7 +8,7 @@ pub mod pages;
 use std::sync::Arc;
 
 use axum::body::Bytes;
-use axum::extract::State;
+use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::routing::post;
@@ -23,14 +23,29 @@ pub struct AppState {
     pub recognizer: Arc<dyn Recognizer>,
 }
 
+/// `?force=true` recognizes every page of a PDF even where one already carries a text
+/// layer. The caller needs this to re-OCR a document with a newer model: without it, the
+/// text layer a previous run wrote is itself the reason the page is skipped, and a result
+/// could never be replaced by a better one.
+#[derive(serde::Deserialize, Default)]
+#[serde(default)]
+pub struct OcrQuery {
+    pub force: bool,
+}
+
 /// Recognize an image or every scanned page of a PDF.
-async fn ocr(State(state): State<AppState>, body: Bytes) -> Response {
+async fn ocr(
+    State(state): State<AppState>,
+    Query(query): Query<OcrQuery>,
+    body: Bytes,
+) -> Response {
     if body.is_empty() {
         return error(StatusCode::UNPROCESSABLE_ENTITY, "empty-body");
     }
     let result = if body.starts_with(b"%PDF") {
-        recognize_pdf(&state, &body)
+        recognize_pdf(&state, &body, query.force)
     } else {
+        // An image is one page: there is no text layer to already have, so nothing to force.
         recognize_image(&state, &body)
     };
     match result {
@@ -106,22 +121,85 @@ fn document_load_error(error: pdf_core::PdfError) -> OcrError {
     }
 }
 
-fn recognize_pdf(state: &AppState, bytes: &[u8]) -> Result<Vec<PageFacts>, OcrError> {
+/// The most pages one synchronous request will walk. Every page is rendered and
+/// recognized in sequence on a single-threaded engine, so page count is wall-clock: a
+/// document declaring thousands of pages would hold the container -- which every firm
+/// shares -- for as long as it took to walk them. The walk itself has to be bounded, not
+/// merely each page within it. A production longer than this belongs on the job path, not
+/// on a request someone is waiting on.
+const MAX_PAGES: usize = 100;
+
+/// The share of a page that must be covered by visible text before its text layer is
+/// judged complete enough that recognition would add nothing -- whatever else is on the
+/// page. Born-digital body text runs well above this even on a sparse page; a stamp, a
+/// page number, or a caption runs an order of magnitude below.
+const TEXT_LAYER_COVERAGE: f32 = 0.02;
+
+/// The share of a page that must be raster image before the page is treated as a scan --
+/// something whose content is pixels, and therefore has words only recognition can reach.
+const SCANNED_PAGE_RASTER_COVERAGE: f32 = 0.5;
+
+/// Does this page still need recognizing? Presence of a glyph is emphatically not the
+/// test, and getting this wrong is expensive in both directions.
+///
+/// Two glyphs answer "yes, there is text here" while leaving the page's actual content
+/// unread: an *invisible* text layer (excluded from the coverage measure upstream, in
+/// `page_visible_text_coverage`), and a **Bates stamp** -- a dozen real, visible glyphs in
+/// the corner of an otherwise scanned page. This product stamps productions itself, so a
+/// skip-on-presence rule would silently discard the content of every stamped scanned page
+/// it was ever asked to read. That is the failure this function exists to prevent.
+///
+/// So text is weighed against what it sits on. A page that is mostly raster and carries
+/// only a sprinkling of text is a scan someone wrote on -- recognize it. A page drawn as
+/// text and vectors is born-digital: whatever text it has is already better than anything
+/// OCR could produce from a picture of it, so leave it alone even where there is little of
+/// it. And a page dense with text needs nothing from us regardless of what is underneath.
+///
+/// Where the signals are ambiguous the tie goes to recognizing: OCRing a page that already
+/// had text costs some duplicate lines a caller can see and drop, while skipping a page
+/// that did not costs the page, silently.
+fn needs_recognition(text_coverage: f32, raster_coverage: f32) -> bool {
+    if text_coverage >= TEXT_LAYER_COVERAGE {
+        return false;
+    }
+    let is_scan = raster_coverage >= SCANNED_PAGE_RASTER_COVERAGE;
+    // Sparse text on a page that is not a scan: born-digital and simply sparse. Nothing to
+    // recognize -- there is no picture of words here, only words.
+    if !is_scan && text_coverage > 0.0 {
+        return false;
+    }
+    true
+}
+
+/// A render failure is not automatically ours. `Rejected` means the page's declared
+/// geometry exceeded the raster budget -- a property of the document, permanent across
+/// retries -- while a genuine renderer fault is transient and worth retrying.
+fn render_error(error: pdf_core::PdfError) -> OcrError {
+    match error {
+        pdf_core::PdfError::Rejected => OcrError::DocumentRejected,
+        _ => OcrError::InferenceFailed,
+    }
+}
+
+fn recognize_pdf(state: &AppState, bytes: &[u8], force: bool) -> Result<Vec<PageFacts>, OcrError> {
     // `Document::load` takes ownership of the buffer (it feeds the bomb guard before the
     // parser touches it), so the borrowed request body is copied once here.
     let document = pdf_core::Document::load(bytes.to_vec()).map_err(document_load_error)?;
+    if document.page_count() > MAX_PAGES {
+        return Err(OcrError::DocumentRejected);
+    }
     let mut pages = Vec::new();
     for page_index in 0..document.page_count() {
-        // A page that already carries visible glyphs already has a text layer. Skipping
-        // it is the difference between recognizing a whole production and recognizing
-        // the handful of scanned pages inside it. An unreadable text layer must never be
-        // assumed absent -- that would silently re-OCR a page whose existing text we
-        // simply failed to observe, so a lookup failure is a permanent document fault,
-        // not a green light to proceed.
-        let existing = document
-            .page_text_rects(page_index)
+        // An unreadable page must never be assumed to have no text layer -- that would
+        // silently re-OCR a page whose existing text we simply failed to observe, so a
+        // lookup failure is a permanent document fault, not a green light to proceed.
+        let text_coverage = document
+            .page_visible_text_coverage(page_index)
             .map_err(|_| OcrError::DocumentUnreadable)?;
-        if !existing.is_empty() {
+        let raster_coverage = document
+            .page_raster_coverage(page_index)
+            .map_err(|_| OcrError::DocumentUnreadable)?;
+        if !force && !needs_recognition(text_coverage, raster_coverage) {
             pages.push(PageFacts {
                 page_index,
                 lines: Vec::new(),
@@ -131,27 +209,31 @@ fn recognize_pdf(state: &AppState, bytes: &[u8]) -> Result<Vec<PageFacts>, OcrEr
             });
             continue;
         }
-        let rendered = document
-            .render_page(page_index, pages::RENDER_DPI, false)
+        let size = document
+            .page_size(page_index)
             .map_err(|_| OcrError::InferenceFailed)?;
+        // An outsize page is rastered at whatever density fits the pixel budget; one whose
+        // declared geometry cannot be held even at the minimum useful density is refused,
+        // never recognized into confident nonsense.
+        let dpi = pages::render_dpi_for(size.width_pt, size.height_pt)
+            .ok_or(OcrError::DocumentRejected)?;
+        let rendered = document
+            .render_page(page_index, dpi, false)
+            .map_err(render_error)?;
         // Composite over white rather than discarding alpha: a page with no background
         // content is fully transparent, and dropping alpha would hand the engine a black page.
         let image = rendered.to_rgb_image().ok_or(OcrError::InferenceFailed)?;
-        let page_height_points = document
-            .page_size(page_index)
-            .map_err(|_| OcrError::InferenceFailed)?
-            .height_pt;
 
         let recognized = state.recognizer.recognize(&image)?;
         let lines = recognized
             .lines
             .into_iter()
             .map(|mut line| {
-                line.quad = pages::to_user_space(line.quad, page_height_points);
+                line.quad = pages::to_user_space(line.quad, size.height_pt, dpi);
                 line.word_quads = line
                     .word_quads
                     .into_iter()
-                    .map(|quad| pages::to_user_space(quad, page_height_points))
+                    .map(|quad| pages::to_user_space(quad, size.height_pt, dpi))
                     .collect();
                 line
             })
@@ -345,33 +427,16 @@ mod tests {
         );
     }
 
-    /// A minimal, spec-conforming one-page PDF with no content stream (so it carries no
-    /// text layer) and a US Letter `MediaBox` (612x792pt), built by tracking each
-    /// object's byte offset as it is written rather than hand-computing them, so the
-    /// xref table cannot drift out of sync with the body above it.
-    fn minimal_blank_pdf() -> Vec<u8> {
-        let mut buffer = Vec::new();
-        buffer.extend_from_slice(b"%PDF-1.4\n");
-
+    /// Assemble a spec-conforming PDF from object bodies numbered `1 0 obj` upward, in
+    /// order. Byte offsets are tracked as each object is written rather than
+    /// hand-computed, so the xref table cannot drift out of sync with the body above it.
+    fn build_pdf(objects: Vec<Vec<u8>>) -> Vec<u8> {
+        let mut buffer = b"%PDF-1.4\n".to_vec();
         let mut offsets = Vec::new();
-        let mut object = |buffer: &mut Vec<u8>, body: &str| {
+        for object in objects {
             offsets.push(buffer.len());
-            buffer.extend_from_slice(body.as_bytes());
-        };
-        object(
-            &mut buffer,
-            "1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n",
-        );
-        object(
-            &mut buffer,
-            "2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
-        );
-        object(
-            &mut buffer,
-            "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] \
-             /Resources << >> >>\nendobj\n",
-        );
-
+            buffer.extend_from_slice(&object);
+        }
         let xref_offset = buffer.len();
         let entry_count = offsets.len() + 1; // +1 for the mandatory free object 0
         buffer.extend_from_slice(format!("xref\n0 {entry_count}\n").as_bytes());
@@ -386,6 +451,78 @@ mod tests {
             .as_bytes(),
         );
         buffer
+    }
+
+    /// `page_count` pages of the given `media_box`, each with no content stream at all --
+    /// so no text layer, and nothing to render.
+    fn pages_pdf(media_box: &str, page_count: usize) -> Vec<u8> {
+        let kids: Vec<String> = (0..page_count).map(|i| format!("{} 0 R", i + 3)).collect();
+        let mut objects = vec![
+            b"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n".to_vec(),
+            format!(
+                "2 0 obj\n<< /Type /Pages /Kids [{}] /Count {page_count} >>\nendobj\n",
+                kids.join(" ")
+            )
+            .into_bytes(),
+        ];
+        for index in 0..page_count {
+            objects.push(
+                format!(
+                    "{} 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [{media_box}] \
+                     /Resources << >> >>\nendobj\n",
+                    index + 3
+                )
+                .into_bytes(),
+            );
+        }
+        build_pdf(objects)
+    }
+
+    /// A minimal one-page PDF with no content stream and a US Letter `MediaBox`.
+    fn minimal_blank_pdf() -> Vec<u8> {
+        pages_pdf("0 0 612 792", 1)
+    }
+
+    /// A one-page US Letter PDF whose content is a full-page raster image -- a scan --
+    /// optionally carrying a line of real, visible text in the bottom-left corner, the
+    /// way a Bates stamp sits on a scanned production page.
+    fn scanned_pdf(stamp: Option<&str>) -> Vec<u8> {
+        let mut content = b"q 612 0 0 792 0 0 cm /Im0 Do Q\n".to_vec();
+        if let Some(text) = stamp {
+            content.extend_from_slice(
+                format!("BT /F1 10 Tf 20 20 Td ({text}) Tj ET\n").as_bytes(),
+            );
+        }
+        // A 2x2 24-bit RGB image, uncompressed: the smallest thing hayro will report as a
+        // drawn image XObject. Stretched over the page by the `cm` above, it covers 100%
+        // of it -- which is exactly what makes the page a scan.
+        let pixels: [u8; 12] = [
+            200, 200, 200, 180, 180, 180, 190, 190, 190, 210, 210, 210,
+        ];
+        let mut image_object = format!(
+            "4 0 obj\n<< /Type /XObject /Subtype /Image /Width 2 /Height 2 \
+             /ColorSpace /DeviceRGB /BitsPerComponent 8 /Length {} >>\nstream\n",
+            pixels.len()
+        )
+        .into_bytes();
+        image_object.extend_from_slice(&pixels);
+        image_object.extend_from_slice(b"\nendstream\nendobj\n");
+
+        let mut content_object =
+            format!("5 0 obj\n<< /Length {} >>\nstream\n", content.len()).into_bytes();
+        content_object.extend_from_slice(&content);
+        content_object.extend_from_slice(b"\nendstream\nendobj\n");
+
+        build_pdf(vec![
+            b"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n".to_vec(),
+            b"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n".to_vec(),
+            b"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 5 0 R \
+              /Resources << /XObject << /Im0 4 0 R >> /Font << /F1 6 0 R >> >> >>\nendobj\n"
+                .to_vec(),
+            image_object,
+            content_object,
+            b"6 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n".to_vec(),
+        ])
     }
 
     #[tokio::test]
@@ -429,5 +566,132 @@ mod tests {
         assert_point_close(&word_quad[1], 26.4, 789.6);
         assert_point_close(&word_quad[2], 26.4, 780.0);
         assert_point_close(&word_quad[3], 2.4, 780.0);
+    }
+
+    #[test]
+    fn a_bates_stamp_does_not_make_a_scanned_page_look_like_it_has_a_text_layer() {
+        // The trap this gate exists to avoid. A scanned page carrying a Bates stamp is
+        // ~100% raster and a fraction of a percent text -- if the presence of the stamp's
+        // glyphs counted as a text layer, every stamped page of a scanned production
+        // would be skipped and its content lost. This product stamps productions itself.
+        assert!(
+            needs_recognition(0.001, 1.0),
+            "a stamped scan must still be recognized"
+        );
+        // The same page before it was stamped.
+        assert!(needs_recognition(0.0, 1.0));
+        // A scan whose text layer is invisible reads as zero *visible* coverage upstream,
+        // so it arrives here indistinguishable from an unstamped scan -- and is recognized.
+        // That is what lets a result be replaced by a better one later.
+        assert!(needs_recognition(0.0, 0.98));
+    }
+
+    #[test]
+    fn a_born_digital_page_is_left_alone_however_sparse_its_text() {
+        // Dense body text: nothing to add.
+        assert!(!needs_recognition(0.25, 0.0));
+        // A title page with one line on it: still born-digital. Its own text layer beats
+        // anything recognition could read off a picture of it, so it is not re-recognized
+        // merely for being sparse.
+        assert!(!needs_recognition(0.002, 0.0));
+        // Text over a small illustration is still a text page.
+        assert!(!needs_recognition(0.05, 0.2));
+    }
+
+    #[test]
+    fn a_page_with_neither_text_nor_raster_is_recognized_rather_than_assumed_empty() {
+        // Nothing observed at all. It could be a scan the observer could not see into;
+        // the tie goes to looking, since skipping would lose the page silently.
+        assert!(needs_recognition(0.0, 0.0));
+    }
+
+    #[test]
+    fn the_synthetic_scan_fixture_really_measures_as_a_scan() {
+        // The gate is only as good as the signals under it: if the observer did not see
+        // the page's image, every scan would read as "not a scan" and the tests above
+        // would pass for the wrong reason.
+        let document = pdf_core::Document::load(scanned_pdf(Some("SMITH000123"))).unwrap();
+        let text = document.page_visible_text_coverage(0).unwrap();
+        let raster = document.page_raster_coverage(0).unwrap();
+        panic!("text={text} raster={raster}");
+    }
+
+    #[tokio::test]
+    async fn a_stamped_scanned_page_is_recognized_not_skipped() {
+        let base = spawn(false).await;
+        let (status, json) = post(&base, scanned_pdf(Some("SMITH000123"))).await;
+        assert_eq!(status, reqwest::StatusCode::OK, "body: {json}");
+        assert!(
+            json["pages"][0]["skipped"].is_null(),
+            "a Bates-stamped scan must be recognized, not skipped as already-texted: {json}"
+        );
+        assert_eq!(json["pages"][0]["lines"][0]["text"], "INVOICE");
+    }
+
+    #[tokio::test]
+    async fn a_born_digital_page_is_still_skipped() {
+        let base = spawn(false).await;
+        // The counterpart to the test above: the gate must still skip what it is for.
+        let pdf = std::fs::read("../../crates/pdf-core/tests/fixtures/hello.pdf")
+            .expect("hello.pdf fixture");
+        let (status, json) = post(&base, pdf).await;
+        assert_eq!(status, reqwest::StatusCode::OK);
+        assert_eq!(json["pages"][0]["skipped"], "already-has-text-layer");
+    }
+
+    #[tokio::test]
+    async fn force_recognizes_a_page_that_would_otherwise_be_skipped() {
+        let base = spawn(false).await;
+        let pdf = std::fs::read("../../crates/pdf-core/tests/fixtures/hello.pdf")
+            .expect("hello.pdf fixture");
+        let response = reqwest::Client::new()
+            .post(format!("{base}/ocr?force=true"))
+            .body(pdf)
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(response.status(), reqwest::StatusCode::OK);
+        let json: serde_json::Value = response.json().await.unwrap();
+        // Without this, a text layer written by a previous OCR pass would be the very
+        // reason the page could never be re-read by a better model.
+        assert!(
+            json["pages"][0]["skipped"].is_null(),
+            "force must recognize a page with an existing text layer: {json}"
+        );
+        assert_eq!(json["pages"][0]["lines"][0]["text"], "INVOICE");
+    }
+
+    #[tokio::test]
+    async fn a_page_declaring_an_absurd_geometry_is_refused_not_allocated() {
+        let base = spawn(false).await;
+        // 14400pt is 200 inches -- Acrobat's own maximum page, so this is not even a
+        // malformed file. At 300 DPI it is 60000x60000 px: ~14 GB of RGBA from a
+        // kilobyte of input. It must be refused before anything is allocated, and
+        // refused *permanently*: the geometry is a property of the document, so a retry
+        // would only OOM the container again.
+        let (status, json) = post(&base, pages_pdf("0 0 14400 14400", 1)).await;
+        assert_eq!(status, reqwest::StatusCode::UNPROCESSABLE_ENTITY, "{json}");
+        assert_eq!(json["code"], "document-rejected");
+    }
+
+    #[tokio::test]
+    async fn a_document_of_too_many_pages_is_refused_rather_than_walked() {
+        let base = spawn(false).await;
+        // The walk itself is bounded, not merely each page within it: every page is
+        // rendered and recognized in sequence on an engine every firm shares.
+        let (status, json) = post(&base, pages_pdf("0 0 612 792", MAX_PAGES + 1)).await;
+        assert_eq!(status, reqwest::StatusCode::UNPROCESSABLE_ENTITY, "{json}");
+        assert_eq!(json["code"], "document-rejected");
+    }
+
+    #[tokio::test]
+    async fn a_document_at_the_page_ceiling_is_still_walked() {
+        let base = spawn(false).await;
+        // The cap must not be off by one against a document that is exactly at it. The
+        // pages are deliberately tiny (1x1 inch): this test is about the walk being
+        // allowed, not about rastering 100 full-size pages.
+        let (status, json) = post(&base, pages_pdf("0 0 72 72", MAX_PAGES)).await;
+        assert_eq!(status, reqwest::StatusCode::OK, "{json}");
+        assert_eq!(json["pages"].as_array().unwrap().len(), MAX_PAGES);
     }
 }

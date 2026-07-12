@@ -94,8 +94,9 @@ pub struct ParsedMessage {
     pub raw_headers: Vec<(String, String)>,
     pub text_bodies: Vec<String>,
     pub html_bodies: Vec<String>,
-    /// Present when a `.msg` carries an RTF body and no plain-text alternative.
-    /// Decompressed but not converted — conversion belongs to a renderer.
+    /// Present when a `.msg` carries a compressed RTF body (`PidTagRtfCompressed`)
+    /// that decodes — independent of whether a plain-text or HTML body is also
+    /// present. Decompressed but not converted; conversion belongs to a renderer.
     pub rtf_body: Option<String>,
     pub parts: Vec<PartDescriptor>,
     pub integrity: IntegrityFacts,

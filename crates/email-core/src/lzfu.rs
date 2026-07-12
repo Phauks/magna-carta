@@ -42,8 +42,14 @@ pub(crate) fn decompress_rtf(bytes: &[u8], max_output: usize) -> Result<String, 
 
     match magic {
         MAGIC_UNCOMPRESSED => {
-            let end = contents.len().min(max_output);
-            Ok(String::from_utf8_lossy(&contents[..end]).into_owned())
+            // Refuse an over-cap body rather than truncating it. The compressed path
+            // errors at the cap, and this one must agree: a body cut off mid-sentence and
+            // handed back as if it were whole is worse than no body at all — a reader
+            // cannot see what is missing, and this is evidence someone may file.
+            if contents.len() > max_output {
+                return Err(EmailError::LimitExceeded);
+            }
+            Ok(String::from_utf8_lossy(contents).into_owned())
         }
         MAGIC_COMPRESSED => decompress_lzfu(contents, max_output),
         _ => Err(EmailError::Malformed),
@@ -66,7 +72,10 @@ fn decompress_lzfu(contents: &[u8], max_output: usize) -> Result<String, EmailEr
         max_output: usize,
     ) -> Result<(), EmailError> {
         if out.len() >= max_output {
-            return Err(EmailError::Malformed); // decompression bomb: stop, do not grow
+            // A decompression bomb: stop, do not grow. Over-cap is not malformed — the
+            // stream may be perfectly well-formed and simply larger than we will hold —
+            // and saying so keeps "we refused this" distinct from "this was corrupt".
+            return Err(EmailError::LimitExceeded);
         }
         out.push(byte);
         ring[*write] = byte;
@@ -192,8 +201,27 @@ mod tests {
         stream.extend_from_slice(&contents);
         assert!(matches!(
             decompress_rtf(&stream, 4),
-            Err(EmailError::Malformed)
+            Err(EmailError::LimitExceeded)
         ));
+    }
+
+    #[test]
+    fn an_uncompressed_body_past_the_output_cap_is_refused_not_truncated() {
+        // The stored-uncompressed variant must agree with the compressed one. Handing back
+        // the first `max_output` bytes would present a body cut off mid-sentence as though
+        // it were the whole thing -- and unlike a refusal, nothing downstream could tell.
+        let contents = b"the quick brown fox jumps over the lazy dog";
+        let mut stream = header(contents.len(), contents.len() as u32, MAGIC_UNCOMPRESSED);
+        stream.extend_from_slice(contents);
+        assert!(matches!(
+            decompress_rtf(&stream, 10),
+            Err(EmailError::LimitExceeded)
+        ));
+        // At the cap exactly, it is still returned whole.
+        assert_eq!(
+            decompress_rtf(&stream, contents.len()).unwrap(),
+            String::from_utf8_lossy(contents)
+        );
     }
 
     #[test]

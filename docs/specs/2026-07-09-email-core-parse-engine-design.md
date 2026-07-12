@@ -65,6 +65,8 @@ This is a conscious override, taken now because it is cheap now. One parser and 
 
 ## 3. The record
 
+> **As-built correction (2026-07-11).** The shipped `ParsedMessage` (`crates/email-core/src/model.rs`) differs from the envelope described here: the identifier is a typed `message_identifier` (`FromHeader` / `FromMapi` / `Absent`), not a flat `message_id`; the date is `date_raw` only — the promised **parsed instant was not built** (a normalization gap tracked for the fidelity pack); the address sets are `from` / `to` / `cc` / `bcc` — **no `sender` or `reply_to`**; there is **no engine-version field**. Part descriptors carry a typed `PartLocator` (`InputRange` / `MapiStream`), not a raw `byte_range` (§3a). The rest of the record matches.
+
 One `ParsedMessage`, produced identically by all three lanes.
 
 - **Envelope** — `message_id`, `in_reply_to`, `references[]`, `subject`, the date as both a parsed instant and the raw header string, and the address sets (`from`, `sender`, `reply_to`, `to`, `cc`, `bcc`) as `{display_name, address}` pairs.

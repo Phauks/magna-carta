@@ -1,6 +1,6 @@
 # LZFu compressed-RTF decoder — design
 
-**Status:** Draft — pending owner acceptance · **Date:** 2026-07-10 · **Owner:** Trevor Goldsmith
+**Status:** Built and merged · **Date:** 2026-07-10 · **Owner:** Trevor Goldsmith
 **Area:** `crates/email-core` (the `.msg` lane) · **Builds on:** the email parse core ([`2026-07-09-email-core-parse-engine-design.md`](2026-07-09-email-core-parse-engine-design.md)).
 
 ---
@@ -39,15 +39,16 @@ A 16-byte little-endian header, then contents:
 pub(crate) fn decompress_rtf(bytes: &[u8], max_output: usize) -> Result<String, EmailError>
 ```
 
-- Parses the header; dispatches on `COMPTYPE`. An unknown magic, a header shorter than 16 bytes, or a `COMPSIZE`/`RAWSIZE` inconsistent with the buffer → `Err(EmailError::Malformed)`.
-- The output `Vec<u8>` **grows as bytes are produced and is capped at `max_output`** — a decompression bomb (a tiny stream whose self-referential copies expand without bound) hits the cap and returns `Err(EmailError::Malformed)` rather than allocating gigabytes. `RAWSIZE` is only a sanity hint, never a `with_capacity` argument.
-- The ring buffer is a fixed `[u8; 4096]`; every ring index is masked `& 0xFFF`, so ring access is **in-bounds by construction** — no slice can panic. Reading a control or reference byte past the input end is a checked `Err`, never a panic. This is what keeps it safe on the unwind-less isolate (a panic aborts the whole isolate).
-- The decompressed bytes become a `String` via `String::from_utf8_lossy`. RTF is 7-bit ASCII (high bytes are `\'hh`-escaped), so well-formed RTF round-trips exactly; hostile stray bytes become the replacement character rather than an error. `rtf_body` stays `Option<String>`, so `model.rs` and the WASM edge are untouched.
+- Parses the header; dispatches on `COMPTYPE`. An unknown magic, a header shorter than 16 bytes, or a `COMPSIZE` inconsistent with the buffer → `Err(EmailError::Malformed)`. **`RAWSIZE` is read for nothing at all** — not for allocation and not as a cross-check. A declared size that disagrees with what actually decoded tells us only that the file is lying, which the output cap and the end marker already handle; trusting it even as a hint would invite a caller to reason from an attacker's number.
+- The output `Vec<u8>` **grows as bytes are produced and is capped at `max_output`** — a decompression bomb (a tiny stream whose self-referential copies expand without bound) hits the cap and returns `Err(EmailError::LimitExceeded)` rather than allocating gigabytes. Over-cap is deliberately *not* `Malformed`: the stream may be perfectly well-formed and simply larger than we will hold, and "we refused this" is a different fact from "this was corrupt". The stored-uncompressed (`MELA`) variant is held to the same rule — an over-cap body is refused, never truncated and handed back as though whole.
+- The ring buffer is a fixed `[u8; 4096]`; every ring index is masked `& 0xFFF`, so ring access is **in-bounds by construction** — no slice can panic. This is what keeps it safe on the unwind-less isolate (a panic aborts the whole isolate).
+- **Truncation is tolerated, not an error.** Input that ends mid-stream — no end marker, a control byte's chunk cut short, half a reference token — returns `Ok` with whatever decoded before the input ran out, not `Err`. A truncated `.msg` body is a damaged file, and the partial body is the most that can be recovered from it; refusing it outright would discard evidence the reader could still use. What is never tolerated is a *panic*: every read past the input end is checked. (A reference into a region of the ring nothing has written yet is likewise not an error — that region is zeroes, so the reference yields NUL bytes and decoding continues. MS-OXRTFCP does not forbid it and reference decoders read the zeroes.)
+- The decompressed bytes become a `String`: `String::from_utf8` on the common path, which **moves** the buffer rather than copying it, falling back to a lossy conversion when the bytes are not valid UTF-8. RTF is 7-bit ASCII (high bytes are `\'hh`-escaped), so well-formed RTF round-trips exactly; hostile stray bytes become the replacement character rather than an error. `rtf_body` stays `Option<String>`, so `model.rs` and the WASM edge are untouched.
 
 ## 4. Decisions (settled with the owner, 2026-07-10)
 
 - **Output cap = `Limits::max_decoded_part_bytes` (64 MiB).** It already means "the max size of a decoded body/part"; an RTF body is exactly that. No new `Limits` field.
-- **Graceful degradation.** If the RTF body is malformed LZFu or exceeds the cap, `rtf_body` stays `None` and the message parse **succeeds** — the headers, participants, and attachments (the evidentiary payload) are never discarded over one bad body. This matches the current RTF-only-`None` behavior. (`None` conflates "no RTF" with "RTF present but unreadable/too big" — an accepted limitation for a parse-only inspector.)
+- **Graceful degradation.** If the RTF body is malformed LZFu or exceeds the cap, `rtf_body` stays `None` and the message parse **succeeds** — the headers, participants, and attachments (the evidentiary payload) are never discarded over one bad body. This matches the current RTF-only-`None` behavior. (`None` conflates "no RTF" with "RTF present but unreadable/too big" — an accepted limitation for a parse-only inspector.) Note the asymmetry with truncation: a body that decodes *partially* is `Some(partial)`, because those bytes were really in the file, while a body that is over-cap or structurally broken is `None`, because nothing trustworthy came out of it.
 - **No CRC validation.** Safety comes from output bounding + the end-marker + checked reads, not from the CRC. A stream that decompresses within bounds is served; a structurally broken one already errors. Skipping avoids a CRC-32 implementation for marginal value.
 
 ## 5. Module placement (decided: standalone `lzfu.rs`; the msg.rs extraction is deferred)
@@ -64,7 +65,11 @@ pub(crate) fn decompress_rtf(bytes: &[u8], max_output: usize) -> Result<String, 
 
 - **Round-trip:** compress a known RTF string in the test (a small LZFu encoder in `#[cfg(test)]`, or committed reference vectors), decompress, assert equality — including a payload that exercises dictionary references (RTF preamble tokens) and literals.
 - **MELA:** an uncompressed-magic stream returns its contents verbatim.
-- **Adversarial (each → `Err`, never a panic):** truncated header; truncated mid-chunk; unknown magic; a reference into an unwritten ring region; a **decompression bomb** (a tiny stream whose references self-copy past `max_decoded_part_bytes` → cap fires, bounded, no panic).
+- **Adversarial (none may panic; the outcome differs by fault):**
+  - → `Err(Malformed)`: a header shorter than 16 bytes; an unknown magic; a `COMPSIZE` claiming more than the buffer holds.
+  - → `Err(LimitExceeded)`: a **decompression bomb** (a tiny stream whose references self-copy past `max_decoded_part_bytes` → cap fires, bounded); an over-cap `MELA` body.
+  - → `Ok(partial)`: truncation mid-stream (see §3 — the recoverable prefix is returned, not discarded); a reference into an unwritten ring region (reads the zeroes).
+  - → `Ok` or `Err`, never a panic: arbitrary bytes, swept over the whole decoder.
 - **Integration:** a `.msg` fixture whose only body is compressed RTF → `parse_msg` yields `rtf_body: Some(...)` and still no `text_bodies`; a `.msg` with a deliberately corrupt RTF stream → parse succeeds, `rtf_body: None`, headers/attachments intact.
 - **Fuzz:** extend the `parse_msg` fuzz target's reach (any bytes in the RTF stream → `Ok`/`Err`, never a panic); optionally a dedicated `decompress_rtf` fuzz target.
 - Gates: `cargo test -p email-core`, `clippy --manifest-path crates/Cargo.toml -p email-core --all-targets -- -D warnings`, and `cargo build --target wasm32-unknown-unknown` all green.
