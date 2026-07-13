@@ -44,6 +44,7 @@ const EXCLUDED_DIRECTORY_NAMES = [
   "node_modules",
   "dist",
   "build",
+  ".tsbuild",
   ".svelte-kit",
   "storybook-static",
   "generated",
@@ -227,8 +228,15 @@ export function findBareLucideImports(filePath: string, content: string): string
 }
 
 // The Lucide gate sweeps EVERYTHING (including packages/design-system/src — the bare form
-// is banned even in the design system); only the fitness/probe self-exclusions apply.
-const lucideSweep = collectWorkspaceSourceFiles([...FITNESS_SELF_EXCLUSIONS]);
+// is banned even in the design system); only the fitness/probe self-exclusions apply, plus the
+// one web test config below. This gate governs BUNDLE SIZE (a bare import pulls every icon);
+// apps/web's vitest.config names `@lucide/svelte` in `deps.inline` so the node test pool can
+// transform Lucide's raw-.svelte icon subpaths (see that file's own comment) — a test-transform
+// directive, not an app-bundle import, so it cannot bundle icons and is out of this gate's scope.
+const lucideSweep = collectWorkspaceSourceFiles([
+  ...FITNESS_SELF_EXCLUSIONS,
+  "apps/web/vitest.config.ts",
+]);
 
 describe("Lucide deep-import boundary (golden rule 2)", () => {
   it("sweeps a real surface including the design system itself (vacuity guard)", () => {
