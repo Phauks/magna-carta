@@ -1,0 +1,45 @@
+# Shared setup for every gate job: install pnpm + Node (with the pnpm store cached) + workspace deps,
+# and — only when a job needs it — the pinned Rust toolchain plus a cached cargo/target. Checkout is the
+# caller's job (a composite action cannot check out for you); run this immediately after it. Factoring
+# this out keeps the per-job steps to "what this job actually checks", not boilerplate repeated ten times.
+name: Setup toolchain
+description: Install pnpm, Node, and workspace dependencies (and optionally the pinned Rust toolchain).
+
+inputs:
+  rust:
+    description: When 'true', run `rustup show` (installs the toolchain pinned by rust-toolchain.toml) and cache the crates workspace.
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - name: Install pnpm
+      uses: pnpm/action-setup@v4
+
+    - name: Install Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22
+        cache: pnpm
+
+    - name: Install dependencies
+      shell: bash
+      run: pnpm install --frozen-lockfile
+
+    - name: Rust toolchain (pinned by rust-toolchain.toml)
+      if: inputs.rust == 'true'
+      shell: bash
+      run: rustup show && rustc --version
+
+    - name: Cache the cargo registry and crates target
+      if: inputs.rust == 'true'
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry/index
+          ~/.cargo/registry/cache
+          ~/.cargo/git/db
+          crates/target
+        key: cargo-${{ runner.os }}-${{ hashFiles('crates/Cargo.lock') }}
+        restore-keys: |
+          cargo-${{ runner.os }}-
