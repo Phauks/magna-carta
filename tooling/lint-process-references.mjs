@@ -4,8 +4,10 @@
 //
 // SCANS: .ts/.tsx/.mts/.cts/.js/.mjs/.cjs/.svelte/.rs/.sql/.yaml/.yml/.toml under the repo.
 // EXEMPT: docs/** and every *.md (documentation may cite ADRs/specs — that is their job),
-//         *.gen.ts and the OpenAPI snapshot (generated), node_modules / build output, and this
-//         file (it necessarily names the patterns it bans).
+//         generated code (*.gen.ts, *.generated.ts, and the OpenAPI snapshot), citations of
+//         EXTERNAL published standards (MS-*, RFC, ISO, ECMA, W3C, Unicode) and legal statutes —
+//         which rule 13 explicitly permits ("point to a living standard") — node_modules / build
+//         output, and this file (it necessarily names the patterns it bans).
 //
 // SCOPE NOTE: this gate hard-bans the unambiguous process-doc citations that recurred across the
 // codebase (ADR numbers dominated). Forward-looking "slice 0·6 swaps in …" / "Phase 3 adds …"
@@ -70,6 +72,13 @@ const BANNED = [
   { label: "spike citation", pattern: /(?<!-)\bspike\b/i },
 ];
 
+// A "§N" that cites an EXTERNAL published standard or a legal statute is a legitimate reference,
+// not an internal process-doc citation — rule 13 explicitly allows pointing to a living standard.
+// Only the "spec-section citation" pattern is this ambiguous; the others (ADR, white-paper, …) are
+// unambiguously internal, so this exemption applies to that label alone.
+const EXTERNAL_STANDARD =
+  /\b(MS-[A-Z0-9]+|RFC\s?\d|ISO[\s/]?\d|IEC\s?\d|ECMA-?\d|W3C|Unicode|ANSI|NIST|U\.S\.C\.|C\.F\.R\.|Stat\.|(?:Code|Law|Rule|Rev\.?\s?Stat\.?|Gen\.?\s?Stat\.?|Prof\.?\s?Conduct)\b[^§\n]*)\s?§/i;
+
 const files = [];
 function walk(directory) {
   for (const name of readdirSync(directory)) {
@@ -87,7 +96,7 @@ const offenders = [];
 for (const file of files) {
   if (file === SELF) continue;
   const name = basename(file);
-  if (name.endsWith(".gen.ts") || name.endsWith(".md")) continue;
+  if (name.endsWith(".gen.ts") || name.endsWith(".generated.ts") || name.endsWith(".md")) continue;
   const extension = name.slice(name.lastIndexOf("."));
   if (!CODE_EXTENSIONS.has(extension)) continue;
 
@@ -95,9 +104,10 @@ for (const file of files) {
   const relativePath = relative(ROOT, file).split(sep).join("/");
   lines.forEach((line, index) => {
     for (const { label, pattern } of BANNED) {
-      if (pattern.test(line)) {
-        offenders.push(`  ${relativePath}:${index + 1}  [${label}]  ${line.trim()}`);
-      }
+      if (!pattern.test(line)) continue;
+      // A spec-section "§N" that names an external standard/statute is a legitimate citation.
+      if (label === "spec-section citation" && EXTERNAL_STANDARD.test(line)) continue;
+      offenders.push(`  ${relativePath}:${index + 1}  [${label}]  ${line.trim()}`);
     }
   });
 }
