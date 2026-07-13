@@ -24,8 +24,10 @@ jobs:
   gate:
     runs-on: ubuntu-latest
     env:
-      # The vitest browser runner needs a specific Chromium build; keep browsers in one place.
-      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.pw-browsers
+      # The vitest browser runner needs a specific Chromium build. Keep the browser download OUTSIDE
+      # the repo checkout — under it, the whole-repo formatter/lint/svelte-check passes walk the
+      # browser's own files and fail on them (its bundled manifest.json/*.js are not ours to format).
+      PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/pw-browsers
     steps:
       - uses: actions/checkout@v4
         with:
