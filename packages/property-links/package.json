@@ -16,6 +16,7 @@
     "test": "vp test run"
   },
   "dependencies": {
+    "@magna-carta/government-links": "workspace:*",
     "@magna-carta/integrations": "workspace:*"
   },
   "devDependencies": {
