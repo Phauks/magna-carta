@@ -610,35 +610,33 @@ pub(crate) fn enumerate_page_glyphs(
                     )?;
                 }
             }
-            "\"" => {
-                if in_text {
-                    // `" aw ac string` — set Tw, Tc, then T*-equivalent then show.
-                    word_spacing = number_from_operand(operands, 0).unwrap_or(word_spacing);
-                    char_spacing = number_from_operand(operands, 1).unwrap_or(char_spacing);
+            "\"" if in_text => {
+                // `" aw ac string` — set Tw, Tc, then T*-equivalent then show.
+                word_spacing = number_from_operand(operands, 0).unwrap_or(word_spacing);
+                char_spacing = number_from_operand(operands, 1).unwrap_or(char_spacing);
 
-                    let ty = -(leading as f64);
-                    line_matrix *= Affine::translate((0.0, ty));
-                    text_matrix = line_matrix;
+                let ty = -(leading as f64);
+                line_matrix *= Affine::translate((0.0, ty));
+                text_matrix = line_matrix;
 
-                    let font_name = active_font.clone().ok_or(())?;
-                    let metrics = fonts.get(&font_name).ok_or(())?;
-                    let bytes = string_bytes_from_operand(operands, 2).ok_or(())?;
-                    emit_glyphs_from_string(
-                        bytes,
-                        None,
-                        op_index,
-                        metrics,
-                        &font_name,
-                        font_size,
-                        char_spacing,
-                        word_spacing,
-                        horiz_scale,
-                        rise,
-                        &ctm_stack,
-                        &mut text_matrix,
-                        &mut slots,
-                    )?;
-                }
+                let font_name = active_font.clone().ok_or(())?;
+                let metrics = fonts.get(&font_name).ok_or(())?;
+                let bytes = string_bytes_from_operand(operands, 2).ok_or(())?;
+                emit_glyphs_from_string(
+                    bytes,
+                    None,
+                    op_index,
+                    metrics,
+                    &font_name,
+                    font_size,
+                    char_spacing,
+                    word_spacing,
+                    horiz_scale,
+                    rise,
+                    &ctm_stack,
+                    &mut text_matrix,
+                    &mut slots,
+                )?;
             }
 
             // All other operators are silently ignored — they do not affect the
