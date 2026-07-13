@@ -2,17 +2,17 @@
 //
 // `pnpm check` is the FULL gate — seven serial passes over the whole monorepo (fmt + lint, tsc -b across
 // the project-reference graph, the generated-config check, api-client, svelte-check for the SPA and the
-// design system, and the Rust workspace). It is the right thing before a push, and the pre-push hook
-// runs it. It is the wrong thing after editing three files: it takes minutes and, the overwhelming
-// majority of the time, re-confirms what was already true.
+// design system, and the Rust workspace). It is the wrong thing after editing three files: it takes
+// minutes and, the overwhelming majority of the time, re-confirms what was already true.
 //
 // This runs the same checks, scoped to the diff (against the merge-base with main, plus the working
 // tree): fmt + lint on the changed paths, the incremental `tsc -b` type-check (fast when warm, and the
 // authoritative type pass), svelte-check only when a .svelte file changed, and the Rust gate only when
 // a crate changed. Anything it skips, it says it skipped — a silent gate that quietly checks nothing is
-// worse than a slow one.
+// worse than a slow one. The pre-push hook runs this scoped gate, not the full one — fast local feedback.
 //
-// The full `pnpm check` remains the gate of record. This is what you run while working.
+// The whole-repo gate of record is GitHub Actions (`.github/workflows/gate.yml`, full `pnpm check` +
+// `vp test` on every pull request and push to `main`), not this. This is what you run while working.
 //
 // Usage: pnpm check:scoped [--base <ref>]
 
@@ -144,4 +144,6 @@ for (const step of steps) {
 
 console.log("check:scoped: skipped — " + skipped.join("; "));
 if (failed) process.exit(1);
-console.log("check:scoped: passed. `pnpm check` (the full gate) still runs on pre-push.");
+console.log(
+  "check:scoped: passed. The full `pnpm check` + `vp test` run in GitHub Actions on every push to main.",
+);

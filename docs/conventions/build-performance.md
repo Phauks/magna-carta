@@ -61,21 +61,23 @@ The techniques, in leverage order:
 
 ### Scope the check to what changed (now)
 
-**The gate (`pnpm check`)** runs `vp check` (fmt + lint) and **`vp run typecheck` (`tsc -b`) as the
+**The full gate (`pnpm check`)** runs `vp check` (fmt + lint) and **`vp run typecheck` (`tsc -b`) as the
 authoritative type-check** — `tsc -b` is fast and incremental, so the type pass actually completes and
 real errors can no longer slip (`vp check`'s own whole-repo type-error pass is off; `typeCheck: false`).
-It is exhaustive and slow by design, and the **pre-push hook runs it** — so it is the gate of record,
-not the inner loop.
+It is exhaustive and slow by design, and it is the **gate of record — run in GitHub Actions**
+(`.github/workflows/gate.yml`, alongside the full `vp test`) on every pull request and push to `main`,
+not on the inner loop.
 
-**The fast local loop is `pnpm check:scoped`** (`tooling/check-scoped/`). It derives the change set from
-the git diff (merge-base with `main`, plus the working tree) and runs only what that change can break:
-fmt + lint on the changed paths, the incremental `tsc -b` type-check, and `svelte-check` or the Rust
-gate **only when a `.svelte` file or a crate was actually touched**. It prints what it skipped and why —
-a gate that quietly checks nothing is worse than a slow one.
+**The fast local loop — and the pre-push hook — is `pnpm check:scoped`** (`tooling/check-scoped/`). It
+derives the change set from the git diff (merge-base with `main`, plus the working tree) and runs only
+what that change can break: fmt + lint on the changed paths, the incremental `tsc -b` type-check, and
+`svelte-check` or the Rust gate **only when a `.svelte` file or a crate was actually touched**. It prints
+what it skipped and why — a gate that quietly checks nothing is worse than a slow one.
 
 The distinction matters because the full gate's cost is nearly all fixed: seven serial whole-repo passes
 run identically whether the diff is three files or three hundred, and in practice the overwhelming
-majority of those runs re-confirm what was already true. Scope the loop; keep the sweep at the push.
+majority of those runs re-confirm what was already true. Scope the local loop; keep the whole-repo sweep
+in CI, where it gates the merge into `main`.
 
 ### Bootstrap the generated artefacts (a fresh worktree is not a runnable worktree)
 
