@@ -15,6 +15,7 @@
   },
   "references": [],
   "include": [
-    "src/**/*.ts"
+    "src/**/*.ts",
+    "worker-env.d.ts"
   ]
 }

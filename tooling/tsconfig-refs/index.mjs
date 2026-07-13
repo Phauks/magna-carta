@@ -61,6 +61,20 @@ const HEADER =
 // compilerOptions), turns on composite declaration-only emit into an ignored build dir, and references
 // each in-graph workspace dependency's build config. `include` is src-only — the reference graph
 // type-checks the public surface and cross-package contracts; tests stay with `vp check`.
+//
+// ...src-only PLUS the package's root-level ambient declarations. `include` REPLACES (never merges
+// with) the one inherited from the package's tsconfig.json, so a src-only include silently drops the
+// hand-written `*.d.ts` a package lists there — and an ambient `declare module` that is dropped does
+// not degrade gracefully: the modules it describes become unresolvable and the build fails with TS2307
+// on an import that is perfectly correct (apps/worker's wasm-modules.d.ts, which types the .wasm
+// imports wrangler bundles, is the worked example). They emit nothing, so they are exempt from the
+// rootDir constraint and safe to include alongside src/.
+function rootAmbientDeclarations(member) {
+  return readdirSync(path.join(root, member.dir))
+    .filter((entry) => entry.endsWith(".d.ts"))
+    .sort();
+}
+
 function memberConfig(member, members) {
   const references = [...member.workspaceDeps]
     .filter((dependency) => members.has(dependency))
@@ -82,7 +96,7 @@ function memberConfig(member, members) {
       tsBuildInfoFile: ".tsbuild/tsconfig.build.tsbuildinfo",
     },
     references,
-    include: ["src/**/*.ts"],
+    include: ["src/**/*.ts", ...rootAmbientDeclarations(member)],
   };
   return `${HEADER}${JSON.stringify(body, null, 2)}\n`;
 }
