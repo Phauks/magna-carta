@@ -21,7 +21,6 @@
     "@terrazzo/plugin-tailwind": "catalog:",
     "@types/culori": "catalog:",
     "@types/node": "catalog:",
-    "apca-w3": "catalog:",
     "culori": "catalog:",
     "vitest": "catalog:"
   }

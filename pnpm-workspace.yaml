@@ -90,7 +90,6 @@ catalog:
   "@terrazzo/plugin-css": 2.3.0
   "@terrazzo/plugin-tailwind": 2.3.0
   "@types/culori": 4.0.1
-  apca-w3: 0.1.9
   culori: 4.0.2
   # Design system (packages/design-system)
   bits-ui: 2.18.1

@@ -105,9 +105,6 @@ catalogs:
     animejs:
       specifier: 4.5.0
       version: 4.5.0
-    apca-w3:
-      specifier: 0.1.9
-      version: 0.1.9
     aws4fetch:
       specifier: 1.0.20
       version: 1.0.20
@@ -994,9 +991,6 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 25.9.1
-      apca-w3:
-        specifier: 'catalog:'
-        version: 0.1.9
       culori:
         specifier: 'catalog:'
         version: 4.0.2
@@ -4226,9 +4220,6 @@ packages:
   anynum@1.0.1:
     resolution: {integrity: sha512-N6//FLET/tXYNM/F6ABca1oH6fWB+KlTt909Le28WMDBk8oaT4vY17DCrwg2MvmuqUKt3Ni4N5dGJ/EoBgcO6A==}
 
-  apca-w3@0.1.9:
-    resolution: {integrity: sha512-Zrf6AeBeQjNe/fxK7U1jCo5zfdjDl6T4/kdw5Xlky3G7u+EJTZkyItjMYQGtwf9pkftsINxcYyOpuLkzKf1ITQ==}
-
   argparse@1.0.10:
     resolution: {integrity: sha512-o5Roy6tNG4SL/FOkCAN6RzjiakZS25RLYFrcMttJqbdd8BWrnA+fGz57iN5Pb06pvBGvl5gQ0B48dJlslXvoTg==}
 
@@ -4529,9 +4520,6 @@ packages:
 
   colorjs.io@0.6.1:
     resolution: {integrity: sha512-8lyR2wHzuIykCpqHKgluGsqQi5iDm3/a2IgP2GBZrasn2sBRkE4NOGsglZxWLs/jZQoNkmA/KM/8NV16rLUdBg==}
-
-  colorparsley@0.1.8:
-    resolution: {integrity: sha512-rObESTTTE6G5qO5WFwFxWPggpw4KfpxnLC6Ssl8bITBnNVRhDsyCeTRAUxWQNVTx2pRknKlO2nddYTxjkdNFaw==}
 
   commander@15.0.0:
     resolution: {integrity: sha512-z67u4ZhzCL/Tydu1lJARtEZYWbWaN7oYLHbsuzocr6y4N6WZAagG3RQ4FW61V1/0+jImpj293XfrcYnd1qxtPg==}
@@ -9007,10 +8995,6 @@ snapshots:
 
   anynum@1.0.1: {}
 
-  apca-w3@0.1.9:
-    dependencies:
-      colorparsley: 0.1.8
-
   argparse@1.0.10:
     dependencies:
       sprintf-js: 1.0.3
@@ -9290,8 +9274,6 @@ snapshots:
   color-support@1.1.3: {}
 
   colorjs.io@0.6.1: {}
-
-  colorparsley@0.1.8: {}
 
   commander@15.0.0: {}
 
