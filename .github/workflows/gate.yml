@@ -23,12 +23,15 @@ concurrency:
 jobs:
   gate:
     runs-on: ubuntu-latest
-    env:
-      # The vitest browser runner needs a specific Chromium build. Keep the browser download OUTSIDE
-      # the repo checkout — under it, the whole-repo formatter/lint/svelte-check passes walk the
-      # browser's own files and fail on them (its bundled manifest.json/*.js are not ours to format).
-      PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/pw-browsers
     steps:
+      - name: Point Playwright's browser cache outside the checkout
+        # The vitest browser runner needs a specific Chromium build. Keep the browser download OUTSIDE
+        # the repo checkout ($RUNNER_TEMP is a sibling of the workspace) — under the checkout the
+        # whole-repo formatter/lint/svelte-check passes walk the browser's own bundled files
+        # (manifest.json/*.js, not ours to format) and fail on them. This must be a shell/GITHUB_ENV
+        # assignment, not a job-level `env:`, because the `runner` context is only bound at step scope.
+        run: echo "PLAYWRIGHT_BROWSERS_PATH=$RUNNER_TEMP/pw-browsers" >> "$GITHUB_ENV"
+
       - uses: actions/checkout@v4
         with:
           # Full history: the contract-drift and changed-container steps diff against a base commit.
