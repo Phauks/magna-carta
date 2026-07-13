@@ -130,6 +130,10 @@ export const NO_PII_TABLES: readonly string[] = [
   // file-version metadata (r2_key, hashes, status) — no personal data of its own; the document's
   // matter-corpus retention is expressed by the file entry
   "file_version",
+  // Repair/carve provenance for a file version — operation kind, recovery flag, a structural
+  // manifest, and source media type. Operational bookkeeping keyed to file_version, no personal
+  // data of its own (the underlying document's retention is the file entry's, as above).
+  "file_repair_provenance",
   // Per-firm config — key/value settings; a user-scoped row is application preference data, not the
   // user's own identity/activity PII.
   "setting",

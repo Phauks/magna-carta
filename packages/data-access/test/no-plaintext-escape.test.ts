@@ -29,6 +29,12 @@ const SKIP_DIRECTORIES = new Set([
   "build",
   ".turbo",
   ".wrangler",
+  // Generated build output: type-declaration/build dirs mirror the sanctioned schema source
+  // (per-firm-schema.ts), so scanning them re-flags the protected column names their real
+  // definition legitimately declares — a false positive that only appears once a build has run.
+  ".tsbuild",
+  ".svelte-kit",
+  ".vite",
 ]);
 
 // Sanctioned homes for a protected column name, by repo-relative path. The chokepoint modules and
