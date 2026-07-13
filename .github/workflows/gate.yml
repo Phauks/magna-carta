@@ -35,6 +35,7 @@ jobs:
       code: ${{ steps.filter.outputs.code }}
       rust: ${{ steps.filter.outputs.rust }}
       containers: ${{ steps.filter.outputs.containers }}
+      lint_scope: ${{ steps.filter.outputs.lint_scope }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -57,6 +58,9 @@ jobs:
           if echo "$files" | grep -qvE '\.md$'; then emit code true; else emit code false; fi
           if echo "$files" | grep -qE '^crates/|(^|/)Cargo\.(toml|lock)$|wasm\.Dockerfile$'; then emit rust true; else emit rust false; fi
           if echo "$files" | grep -qE '^containers/'; then emit containers true; else emit containers false; fi
+          # The minimal package set the type-aware lint must cover (ALL | NONE | space-separated dirs) —
+          # pure node, no deps, runs on the runner's system node. See tooling/affected-lint.
+          emit lint_scope "$(node tooling/affected-lint/index.mjs --base "$base")"
 
   # Build the Rust→WASM artefacts once. Cache them across runs keyed on the Rust sources, so a push that
   # touches no crate restores in seconds instead of paying the ~7-minute cold Docker build; share them to
@@ -120,8 +124,25 @@ jobs:
         with:
           name: wasm-pkg
       - run: tar -xzf wasm-pkg.tgz
-      - name: Lint (no fmt)
-        run: pnpm exec vp check --no-fmt
+      - name: Lint (type-aware, affected packages only)
+        # The `changes` job computed the affected set — the changed packages plus their transitive
+        # dependents (a type-aware finding in an unchanged file can flip when a dependency changes), or
+        # ALL when a global input moved. Scoping the paths scopes tsgolint's cost; the whole repo is the
+        # ~24-min tall pole, one package is seconds. Only lint is scoped — type-check/tests/contracts
+        # still run whole-repo. Mechanism + soundness: tooling/affected-lint, docs build-performance.md.
+        env:
+          SCOPE: ${{ needs.changes.outputs.lint_scope }}
+        run: |
+          if [ "$SCOPE" = "ALL" ]; then
+            echo "affected-lint: linting the whole repo"
+            pnpm exec vp check --no-fmt
+          elif [ "$SCOPE" = "NONE" ]; then
+            echo "affected-lint: no lintable package affected — nothing to lint"
+          else
+            echo "affected-lint: linting affected packages — $SCOPE"
+            # Intentional word-splitting: each dir is a separate path argument to vp check.
+            pnpm exec vp check --no-fmt $SCOPE
+          fi
 
   # The authoritative type-check: tsc -b across the project-reference graph, the tsconfig-refs guard, the
   # api-client type-check, and svelte-check for the SPA and the design system.
