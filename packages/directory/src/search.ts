@@ -1,6 +1,7 @@
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import {
   findByIdentifier,
+  findEntitiesSharingIdentifiers,
   IdentifierNotIndexableError,
   type DirectoryIdentifierContext,
 } from "./identifiers.ts";
@@ -209,6 +210,11 @@ export interface FindDuplicateCandidatesInput {
   // candidate list. The exclusion is applied after the union so it is consistent across all
   // three channels.
   readonly excludeEntityId?: string;
+  // Conflicts case: the id of an already-persisted subject entity whose own sealed identifiers should
+  // drive the blind-index channel. Duplicate detection at entry time supplies plaintext `identifiers`;
+  // a conflicts check has no plaintext in hand, so the channel self-joins the subject's stored blind
+  // indexes instead. Both paths union into the same identifier channel. Omitted for the entry-time path.
+  readonly subjectEntityId?: string;
   // Narrows the phonetic scheme set and/or the name roles the name channels search. Omitted
   // preserves today's behaviour exactly: every scheme, every name role.
   readonly matchOptions?: MatchOptions;
@@ -399,12 +405,19 @@ async function identifierChannel(
   input: FindDuplicateCandidatesInput,
 ): Promise<Map<string, string[]>> {
   const identifiers = input.identifiers ?? [];
-  if (identifiers.length === 0) return new Map();
+  if (identifiers.length === 0 && input.subjectEntityId === undefined) return new Map();
 
   // Collect raw (pre-merge-resolution) hits: for each identifier type, which entity ids matched.
   // Keyed by the raw entity id, not yet resolved to a master, so a type hitting the same raw id
   // twice (unlikely but possible with multiple identifiers) is deduplicated before resolution.
   const rawHits = new Map<string, Set<string>>();
+  function recordRawHit(entityId: string, identifierType: string): void {
+    const types = rawHits.get(entityId) ?? new Set<string>();
+    types.add(identifierType);
+    rawHits.set(entityId, types);
+  }
+
+  // Plaintext-probe path (entry-time duplicate detection): hash each supplied value and match equality.
   await Promise.all(
     identifiers.map(async (identifier) => {
       try {
@@ -412,11 +425,7 @@ async function identifierChannel(
           type: identifier.type,
           value: identifier.value,
         });
-        for (const entityId of entityIds) {
-          const types = rawHits.get(entityId) ?? new Set<string>();
-          types.add(identifier.type);
-          rawHits.set(entityId, types);
-        }
+        for (const entityId of entityIds) recordRawHit(entityId, identifier.type);
       } catch (error) {
         if (error instanceof IdentifierNotIndexableError) {
           // Non-indexable type (dob, ssn_last_four): silently skip — see function doc above.
@@ -426,6 +435,17 @@ async function identifierChannel(
       }
     }),
   );
+
+  // Subject-self-join path (conflicts): the subject's own sealed identifiers matched by blind-index
+  // equality against every other entity — the plaintext is not in hand, so equality is done in SQL.
+  if (input.subjectEntityId !== undefined) {
+    for (const { entityId, identifierType } of await findEntitiesSharingIdentifiers(
+      context.database,
+      input.subjectEntityId,
+    )) {
+      recordRawHit(entityId, identifierType);
+    }
+  }
 
   // Resolve every raw hit to its merge-surviving master (or drop it if soft-deleted / not found),
   // then union the matched identifier types onto the resolved id — a subordinate and its master
@@ -497,7 +517,8 @@ export async function findDuplicateCandidates(
   const hasName =
     normalizeName(displayName).length >= TRIGRAM_MINIMUM_LENGTH ||
     phoneticTokenFromInput(input).length > 0;
-  const hasIdentifiers = (input.identifiers ?? []).length > 0;
+  const hasIdentifiers =
+    (input.identifiers ?? []).length > 0 || input.subjectEntityId !== undefined;
   if (!hasName && !hasIdentifiers) return [];
 
   // Run all three channels in parallel.

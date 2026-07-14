@@ -217,6 +217,34 @@ test("no plaintext identifier value reaches the log", async () => {
   expect(row.inputs_json).not.toContain("123-45-6789");
 });
 
+test("a shared SSN surfaces a tier-1 hit even when the names do not match", async () => {
+  const { ctx, options } = await conflictsTestContext("shared-ssn");
+  // Two entities the fuzzy channels can never connect: a legal name change with no shared aliases.
+  const subject = await createPerson(ctx.database, { given: "Robert", family: "Zimmerman" }, options);
+  const twin = await createPerson(ctx.database, { given: "Bob", family: "Dylan" }, options);
+  await addIdentifier(ctx, subject, { type: "ssn", value: "123-45-6789" });
+  // The same SSN entered with different formatting — the frozen normalize makes the blind index equal.
+  await addIdentifier(ctx, twin, { type: "ssn", value: "123456789" });
+
+  const checkId = await runConflictsCheck(
+    ctx,
+    {
+      trigger: "comprehensive",
+      subjectEntityIds: [subject],
+      scope: { sources: ["party"], strictness: "balanced", depth: 1 },
+    },
+    options,
+  );
+
+  const hits = await readHits(ctx.database, checkId);
+  const twinHit = hits.find((hit) => hit.entity_id === twin);
+  expect(twinHit).toBeDefined();
+  expect(twinHit?.evidence_tier).toBe(1);
+  expect(JSON.parse(twinHit?.matched_fields_json ?? "[]")).toContain("exact identifier match: ssn");
+  // The subject must never surface as its own hit.
+  expect(hits.some((hit) => hit.entity_id === subject)).toBe(false);
+});
+
 test("a merged-away former name still surfaces the surviving master", async () => {
   const { ctx, options } = await conflictsTestContext("merged");
   const master = await createPerson(ctx.database, { given: "Jane", family: "Roe" }, options);

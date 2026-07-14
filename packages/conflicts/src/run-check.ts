@@ -57,10 +57,13 @@ async function readSubjectFacts(
         kind: "person",
         given: person.given ?? undefined,
         family: person.family ?? undefined,
+        // Carries the subject's id so matchParty can fire the exact-identifier (tier 1) channel over
+        // its sealed identifiers by blind-index equality — a name-mismatched SSN twin is caught here.
+        entityId,
       };
     }
     const organization = await readOrganization(context.database, entityId as never);
-    return { kind: "organization", legalName: organization.legalName ?? undefined };
+    return { kind: "organization", legalName: organization.legalName ?? undefined, entityId };
   } catch {
     return null;
   }

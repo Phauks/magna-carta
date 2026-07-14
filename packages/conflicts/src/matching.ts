@@ -10,6 +10,11 @@ export interface MatchPartyInput {
   readonly legalName?: string;
   readonly identifiers?: ReadonlyArray<{ type: string; value: string }>;
   readonly excludeEntityId?: string;
+  // The subject's own directory id, when it is an already-persisted entity. Drives the exact-identifier
+  // (tier 1) channel: the subject's sealed SSN/EIN/DL/account are matched by blind-index equality against
+  // every other entity, with no plaintext and no decrypt. Without it, tier 1 can never fire for a party —
+  // a subject entered under a different name but the same SSN would be silently missed.
+  readonly entityId?: string;
 }
 
 export interface CandidateMatch {
@@ -78,6 +83,7 @@ export async function matchParty(
       legalName: input.legalName,
       identifiers: input.identifiers as never,
       excludeEntityId: input.excludeEntityId,
+      subjectEntityId: input.entityId,
       matchOptions: matchOptionsFor(strictness),
     }),
     exactNameMatches(context, normalizedQuery),

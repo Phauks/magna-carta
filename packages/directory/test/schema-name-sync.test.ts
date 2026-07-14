@@ -136,6 +136,10 @@ const SANCTIONED_NON_SCHEMA = new Set<string>([
   "n",
   "o",
   "p",
+  // self-join aliases for the conflicts blind-index channel (identifiers.ts): the subject entity's
+  // sealed identifiers matched against every other entity's on the same directory_identifier table.
+  "subject",
+  "other",
   // output-column aliases (SELECT … AS row / AS edge_id) — not schema columns, just result labels
   "row",
   "edge_id",
