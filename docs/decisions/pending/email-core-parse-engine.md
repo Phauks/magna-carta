@@ -1,4 +1,12 @@
-**Communications** — **The email parse core is a pure-Rust engine on the engine-host seam; it parses only, and rendering plus DKIM verification live outside it.**
+---
+slug: email-core-parse-engine
+status: Accepted
+area: Communications
+date: 2026-07-09
+summary: The email parse core is a pure-Rust engine (crates/email-core) on the engine-host seam; parse-only — rendering and DKIM verification live outside it.
+---
+
+**The email parse core is a pure-Rust engine on the engine-host seam; it parses only, and rendering plus DKIM verification live outside it.**
 
 **Context:** Nothing in the codebase can read an email. The upload policy accepts `message/rfc822` and `application/vnd.ms-outlook`, and the conversion registry declares `eml→pdf` and `msg→pdf` edges, but no MIME parser exists in the workspace and the `email` conversion engine is an unimplemented stub. An uploaded `.eml` is stored as an inert blob. Meanwhile the draft email-filing design assumes **PostalMime** (TypeScript) parses the forward/CC path in a Cloudflare Email Worker — a choice that would leave bulk mbox parsing, `.msg` MAPI decoding, and the desktop shell needing a second, Rust implementation later.
 
