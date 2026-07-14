@@ -97,7 +97,9 @@ Root [`CHANGELOG.md`](../../CHANGELOG.md), categories Added / Changed / Deprecat
 
 ## Roadmap (living)
 
-Root [`ROADMAP.md`](../../ROADMAP.md) is the execution tracker (Now / Next / Recently shipped / Backlog), distinct from the white paper's stable phase strategy. Updated per PR; the scheduled **docs-sync routine** ([`docs/maintenance/README.md`](../maintenance/README.md); ADR-0058) rolls shipped items up weekly as a backstop. The roadmap is slated to join the rendered fragment pipeline (`roadmap-build` + `roadmap.json`) — design in [`docs/specs/2026-07-14-docs-sync-routine-design.md`](../specs/2026-07-14-docs-sync-routine-design.md).
+Root [`ROADMAP.md`](../../ROADMAP.md) is the execution tracker (Now / Next / Recently shipped / Backlog), distinct from the white paper's stable phase strategy. Updated per PR; the scheduled **docs-sync routine** ([`docs/maintenance/README.md`](../maintenance/README.md); ADR-0058) rolls shipped items up weekly as a backstop.
+
+The roadmap's source of truth is becoming the **feature ledger** — [`roadmap.d/`](../../roadmap.d/), one persistent fragment per product area, every promised capability as a node with a status (format: [`roadmap.d/README.md`](../../roadmap.d/README.md)). A PR that ships or advances a feature flips its node in the same commit — a definition-of-done item like the changelog fragment. When the `roadmap-build` assembler lands (design in [`docs/specs/2026-07-14-docs-sync-routine-design.md`](../specs/2026-07-14-docs-sync-routine-design.md)), `ROADMAP.md` becomes its rendered output (tree view + a small hand-written Now header) alongside `roadmap.json` for the future interactive/public roadmap.
 
 ## Doc hygiene is enforced, not trusted
 

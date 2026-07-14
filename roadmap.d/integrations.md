@@ -1,0 +1,342 @@
+# Integrations & Plugins
+
+<!-- Feature ledger fragment. One block per node; flat list; hierarchy encoded in the dotted id. Schema: roadmap.d/README.md -->
+
+- id: integrations
+  name: Plugin / add-on system
+  scope: Ports-and-adapters integration framework, manifest-driven registration, first-party adapters, the Tools catalog, and the future third-party marketplace.
+  status: partial
+  slices: integration-port-system, integration-platform-foundation
+  adrs: ADR-0015, ADR-0091, ADR-0096
+  evidence: packages/integrations, packages/tools, and eight built tool/adapter packages on main; most vendor ports remain unbuilt.
+  notes: First-party only today; C seam to a marketplace documented, not built.
+
+- id: integrations.port-framework
+  name: Integration port framework
+  scope: Typed category ports with vendor adapters behind them; canonical types, manifest, registry, dispatch, problem mapping.
+  status: shipped
+  slices: integration-port-system
+  adrs: ADR-0091, ADR-0092
+  spec: docs/specs/2026-06-16-integration-port-system-design.md
+  evidence: packages/integrations/src (port.ts, manifest.ts, registry.ts, dispatch.ts, canonical.ts).
+
+- id: integrations.port-framework.connections-credentials
+  name: Connection & credential model
+  scope: Per-functionality connection persistence and credential storage for adapters; API-key credential kind; OAuth lifecycle.
+  status: partial
+  adrs: ADR-0092, ADR-0095
+  evidence: packages/integrations/src/connection.ts + credentials.ts; apps/worker/src/plugins/secret-store.ts; API-key kind live for EasyPost.
+  notes: OAuth connection flow deferred to the first OAuth adapter, gated on Google CASA / Microsoft verification.
+
+- id: integrations.platform-foundation
+  name: Manifest-driven registration
+  scope: One declarative IntegrationManifest per integration; central registry drives route mounting, adapter resolution, and PluginRuntime wiring.
+  status: shipped
+  slices: integration-platform-foundation
+  adrs: ADR-0096
+  spec: docs/specs/2026-06-17-integration-platform-foundation-design.md
+  evidence: apps/worker/src/plugins/ (registry.ts, runtime.ts, shipping-plugin.ts).
+
+- id: integrations.c-transition
+  name: Plugin transport progression (C seam)
+  scope: In-process plugins now; service-binding Workers (C1) and Workers-for-Platforms isolation for third-party plugins (C2) behind the PluginRuntime seam.
+  status: deferred
+  adrs: ADR-0097
+  evidence: ADR-0097 records the seam as named-not-built; trigger is the first untrusted/third-party plugin, not a date.
+
+- id: integrations.marketplace
+  name: Third-party plugin marketplace
+  scope: Marketplace catalog of third-party plugins deployed in a dispatch namespace.
+  status: not-started
+  adrs: ADR-0097
+  evidence: No catalog or dispatch-namespace code; named as the Spec 2 stage of the manifest platform.
+
+- id: integrations.ports
+  name: Integration category ports
+  scope: The named outward-reaching category ports (email/calendar, legal research, accounting, payments, e-signature, messaging, password manager)
+  status: not-started
+  notes: The port framework itself is shipped; the first credentialed port (email/calendar) is gated on the compliance review
+
+- id: integrations.ports.email-calendar
+  name: Email / calendar adapter
+  scope: First planned credentialed vendor port: email filing and calendar sync into matters.
+  status: designed
+  adrs: ADR-0092
+  spec: docs/specs/2026-06-16-email-filing-design.md
+  evidence: Design spec on main; no adapter package; OAuth prerequisite unmet.
+  notes: Distinct from the built @magna-carta/email parse engine (documents area).
+
+- id: integrations.ports.legal-research
+  name: Legal-research port
+  scope: Port for CoCounsel/Westlaw, Lexis, PACER adapters; design-the-port-now, license-the-adapter-later.
+  status: not-started
+  evidence: No port or adapter code; vendor API entitlement recorded as a procurement prerequisite.
+
+- id: integrations.ports.accounting-banking
+  name: Accounting / banking ports
+  scope: QuickBooks-class accounting and banking data ports.
+  status: not-started
+  evidence: No port or adapter code in packages/.
+
+- id: integrations.ports.payments
+  name: Payments port
+  scope: Payment processing behind a port, lowest-fee build on raw rails.
+  status: not-started
+  adrs: ADR-0032
+  evidence: Decision recorded; no payments package or routes.
+
+- id: integrations.ports.e-signature
+  name: E-signature port
+  scope: External e-signature vendor port complementing the native in-house signing core.
+  status: not-started
+  adrs: ADR-0045
+  evidence: No vendor port; native PDF services / e-signature core tracked in the documents area (status.d/2-5-pdf-services-e-signature-core.md).
+
+- id: integrations.ports.messaging-voice
+  name: Messaging (SMS/MMS/RCS) & voice/telephony ports
+  scope: Communications-layer channel ports; Telnyx launch adapter, swappable to Twilio/Bandwidth/Plivo.
+  status: not-started
+  adrs: ADR-0047
+  evidence: Decision recorded; no messaging or voice code in packages/ or apps/worker.
+
+- id: integrations.ports.password-manager
+  name: Password manager / secrets vault port
+  scope: Staff credential sync from the firm's vault (Bitwarden candidate launch adapter); scope of retrieval vs management open.
+  status: researching
+  evidence: docs/research/bitwarden-integration-assessment.md; no code.
+
+- id: integrations.shipping
+  name: Shipping & postage
+  scope: EasyPost adapter behind a typed ShippingPort: address validation, rate-shopping, label purchase, tracking, refund.
+  status: partial
+  slices: shipping-postage-backend
+  adrs: ADR-0094, ADR-0095
+  spec: docs/specs/2026-06-16-shipping-easypost-design.md
+  evidence: packages/shipping + apps/worker/src/routes/shipping.ts on main; UI, webhook ingress, and live firm secret deferred.
+
+- id: integrations.shipping.easypost-adapter
+  name: EasyPost adapter & firm routes
+  scope: Draft shipment, rate-shop, buy label (PDF copied to firm storage), track, refund; idempotent purchase; shipment/label/tracking tables.
+  status: shipped
+  slices: shipping-postage-backend
+  adrs: ADR-0094
+  evidence: packages/shipping/src/easypost/ + shipment routes; per status.d fragment built done, tests todo.
+
+- id: integrations.shipping.certified-mail
+  name: Certified mail
+  scope: USPS Certified Mail with return receipt and signature as a first-class shipment option.
+  status: shipped
+  evidence: Certified-mail options modeled in packages/shipping/src/canonical.ts and easypost/map.ts.
+
+- id: integrations.shipping.tracking-webhook
+  name: Push-webhook tracking ingress
+  scope: Vendor webhook ingestion replacing pull-on-demand tracking.
+  status: deferred
+  evidence: Design records tracking as pull-on-demand at launch with webhook ingress as a seam.
+
+- id: integrations.shipping.cost-recovery
+  name: Postage cost-recovery seam
+  scope: shipment.purchased event recording postage against the matter for cost recovery.
+  status: shipped
+  adrs: ADR-0156
+  evidence: Recoverable-charge seam decision + shipment.purchased seam named in status.d/shipping-postage-backend.md.
+
+- id: integrations.shipping.ui
+  name: Shipping UI
+  scope: Firm-facing surface for drafting, buying, and tracking shipments.
+  status: deferred
+  evidence: status.d/shipping-postage-backend.md marks UI deferred; no shipping pages in apps/web.
+
+- id: integrations.tools-area
+  name: Tools area
+  scope: One Tools catalog surfacing first-party utilities and integration-backed tools via left-nav and contextual entry points; presentation layer above the plugin framework.
+  status: partial
+  slices: tools-area
+  adrs: ADR-0101
+  spec: docs/specs/2026-06-16-tools-area-design.md
+  evidence: packages/tools catalog + /tools listing page merged; per-tool pages landing one at a time.
+
+- id: integrations.tools-area.catalog
+  name: Tools catalog package
+  scope: Single source-of-truth catalog; adding a tool is one manifest entry; reflects connection health without holding credentials.
+  status: shipped
+  slices: tools-area
+  adrs: ADR-0101
+  evidence: packages/tools/src/catalog.ts + apps/worker/src/routes/tools-connection.ts.
+
+- id: integrations.tools-area.listing-page
+  name: Tools listing page
+  scope: /tools page rendering the catalog grouped by subject, tiles or dense list, maturity-stage badges.
+  status: shipped
+  slices: tools-area
+  spec: docs/specs/2026-07-08-tools-listing-page-design.md
+  evidence: changelog.d/tools-listing-page.md; unbuilt tools read "Soon".
+
+- id: integrations.tools-area.contextual-entry
+  name: Contextual entry points
+  scope: Tools reachable in context — command palette, file-context tags on file-shaped tools; Location/Directory entity entry points.
+  status: partial
+  evidence: changelog.d/command-palette-individual-tools.md + tools-file-context-tags.md merged; entity-context entries not built.
+
+- id: integrations.tools-area.diagnostics-group
+  name: Diagnostics group (firm usage)
+  scope: Read-only firm usage and connectivity snapshot in the Tools area.
+  status: shipped
+  adrs: ADR-0103
+  spec: docs/specs/2026-06-17-firm-usage-diagnostics-design.md
+  evidence: apps/worker/src/routes/firm-usage.ts (GET /api/v1/firm-usage).
+
+- id: integrations.tools-area.network-speed-test
+  name: Network speed test
+  scope: First tool with its own page: Cloudflare measurement engine, per-direction charts, AIM score, authenticated round-trip probe.
+  status: shipped
+  spec: docs/specs/2026-07-09-network-speed-test-design.md
+  evidence: changelog.d/network-speed-test.md; stage alpha on the listing page.
+
+- id: integrations.tools
+  name: First-party tool set
+  scope: The credential-less first-party tools surfaced through the Tools area
+  status: partial
+  notes: Backends shipped across the set; tool UIs ride the design-system shell wave
+
+- id: integrations.tools.government-links
+  name: Government & licensing links
+  scope: Curated deep-links to government portals, business registries, and attorney-license lookups (renamed from parcels).
+  status: shipped
+  evidence: packages/government-links/src (business/, licensing/, property/, registry.ts); docs/research/attorney-license-lookup-coverage.md.
+
+- id: integrations.tools.property-links
+  name: Property external links
+  scope: Zillow/Redfin/Maps/Realtor deep-links for a Location; pure link helper, not a plugin.
+  status: shipped
+  slices: property-external-links
+  adrs: ADR-0093
+  spec: docs/specs/2026-06-16-property-links-design.md
+  evidence: packages/property-links on main; UI rides the Locations surface.
+  notes: County-assessor provider enrichment in flight on branch property-links-assessor.
+
+- id: integrations.tools.whois
+  name: WHOIS lookup
+  scope: Public domain/IP registration lookup, RDAP-first with legacy port-43 fallback for ccTLDs; firm-internal security hygiene.
+  status: shipped
+  adrs: ADR-0120, ADR-0121
+  evidence: packages/whois/src (rdap.ts, legacy.ts) + apps/worker/src/routes/whois.ts + changelog.d/whois-lookup-tool-page.md.
+  notes: Report enrichment in flight on branch whois-report-enrichment.
+
+- id: integrations.tools.safe-browse
+  name: Safe website viewer
+  scope: Renders a suspect URL in an isolated remote browser and returns a static snapshot (screenshot, redirect chain, text, links).
+  status: partial
+  adrs: ADR-0119, ADR-0120
+  evidence: packages/safe-browse/src/capture.ts + apps/worker/src/routes/safe-browse.ts built; no dedicated tool page yet.
+
+- id: integrations.tools.metadata
+  name: Metadata inspector & scrubber
+  scope: Inspect and strip metadata from OOXML and JPEG/PNG/TIFF images; stateless.
+  status: shipped
+  slices: metadata-inspector-scrubber
+  adrs: ADR-0123
+  evidence: packages/metadata + apps/worker/src/routes/metadata.ts.
+  notes: HEIC/PDF and a Container engine deferred.
+
+- id: integrations.tools.file-integrity
+  name: File hash & integrity
+  scope: Five-algorithm streaming hash, ingest-baseline compare, integrity receipt; introduced the file context tag.
+  status: shipped
+  slices: file-hash-integrity
+  adrs: ADR-0143
+  evidence: packages/file-integrity + apps/worker/src/routes/file-integrity.ts.
+
+- id: integrations.tools.file-type
+  name: File type verifier
+  scope: Content-based file-type identification (Magika/ONNX in the scan container) behind a verify endpoint.
+  status: shipped
+  slices: file-type-verifier
+  adrs: ADR-0160
+  evidence: packages/file-type + apps/worker/src/routes/file-type.ts (POST /api/v1/file-type/verify).
+
+- id: integrations.tools.ssrf-guard
+  name: Outbound SSRF guard
+  scope: Shared validation of every user-supplied outbound target before any fetch or render; platform invariant for outbound tools.
+  status: shipped
+  adrs: ADR-0118
+  evidence: packages/integrations/src/safe-target.ts consumed by whois/safe-browse paths.
+
+- id: integrations.candidates
+  name: Candidate integrations
+  scope: The named future integration candidates from the white paper's catalog
+  status: partial
+  notes: Mostly unstarted by design; wellbeing resources shipped early
+
+- id: integrations.candidates.public-records
+  name: Public records / people search / skip tracing
+  scope: Built-in feature (adapter-sourced data) for service of process, asset/witness location, conflicts and intake enrichment.
+  status: researching
+  evidence: docs/research/public-records-landscape.md; no code.
+
+- id: integrations.candidates.document-comparison
+  name: Document comparison / proofreading / metadata scrubbing suite
+  scope: Built-in redline, proofread, and outbound-document scrubbing (Litera-class capability).
+  status: not-started
+  evidence: No artifact beyond the shipped metadata scrubber tool; catalogued as a future built-in.
+
+- id: integrations.candidates.transcription-dictation
+  name: Transcription & dictation
+  scope: Built-in capture tied to the telephony port: recording to text to time entries and draft notes; swappable speech engine.
+  status: not-started
+  evidence: No code; depends on the unbuilt messaging/voice port.
+
+- id: integrations.candidates.wellbeing-resources
+  name: Wellbeing resources directory
+  scope: Per-jurisdiction lawyer-assistance and mental-health resource registry (50 states, DC, territories, national safety net).
+  status: shipped
+  slices: wellbeing-resources
+  evidence: packages/wellbeing-resources with generated data + verify:data drift guard; in-app UI deferred.
+
+- id: integrations.candidates.wellbeing-nudges
+  name: Practitioner work-session nudges
+  scope: Opt-in, user-scoped long-session detection from timer/app activity with proportionate suggestions escalating to wellbeing resources; never management-visible.
+  status: not-started
+  evidence: No nudge engine or health-data adapter code; resources package is the only artifact.
+
+- id: integrations.candidates.process-serving
+  name: Process serving plugin
+  scope: Order and track service of process with affidavit returned to the matter (ABC Legal / Proof class); high priority.
+  status: not-started
+  evidence: Catalogued candidate; no code or spec.
+
+- id: integrations.candidates.identity-kyc
+  name: Identity / AML / KYC / sanctions screening plugin
+  scope: Client due diligence at intake feeding conflicts check.
+  status: not-started
+  evidence: Catalogued candidate; no code or spec.
+
+- id: integrations.candidates.ai-drafting
+  name: AI drafting / legal-AI assistant plugin
+  scope: Third-party drafting/review surface (Harvey/Spellbook class), distinct from the legal-research port and native document assembly.
+  status: not-started
+  evidence: Catalogued candidate; no code or spec.
+
+- id: integrations.candidates.automation-bridge
+  name: Automation bridge plugin
+  scope: Zapier/Make/outbound-webhook catch-all over the OpenAPI surface.
+  status: not-started
+  evidence: Catalogued candidate; no code or spec.
+
+- id: integrations.candidates.property-data
+  name: Property data plugin
+  scope: Parcel/APN lookup and point-in-time AVM valuation.
+  status: researching
+  evidence: docs/research/property-data-integrations.md + parcels-property-records-architecture.md + nevada-parcel-apn-system.md.
+
+- id: integrations.candidates.practice-area-gated
+  name: Practice-area-gated plugins
+  scope: Remote online notarization, court reporting / deposition scheduling, medical-records retrieval, translation/interpretation, expert-witness directories.
+  status: not-started
+  evidence: Catalogued candidates; no code or specs.
+
+- id: integrations.candidates.operational-connectors
+  name: Operational connectors
+  scope: Accounting beyond QuickBooks, BI export, HR/payroll, tax 1099/W-9, e-fax, marketing/reviews; lower differentiation.
+  status: not-started
+  evidence: Catalogued candidates; no code or specs.
