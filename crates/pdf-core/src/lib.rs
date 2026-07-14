@@ -46,6 +46,9 @@ pub use generate::{merge, rotate, split, GenerateError, PageRange, PageSelection
 mod watermark;
 pub use watermark::{watermark, WatermarkContent, WatermarkOptions, WatermarkPlacement};
 
+mod searchable;
+pub use searchable::{write_searchable_text_layer, PageTextLayer, TextRun};
+
 use hayro::hayro_interpret::InterpreterSettings;
 use hayro::hayro_syntax::Pdf;
 use hayro::{render, RenderCache, RenderSettings};
