@@ -21,7 +21,7 @@
   name: Correlation & Error IDs
   scope: Per-request correlation ID on every event and problem response; Error ID minted at capture joining a user-visible failure to its server trace.
   status: shipped
-  evidence: packages/telemetry/src/ids.ts (correlation_/error_ handles) wired through apps/worker/src/telemetry-middleware.ts.
+  evidence: packages/telemetry/src/ids.ts (correlation*/error* handles) wired through apps/worker/src/telemetry-middleware.ts.
 
 - id: observability.operational-telemetry
   name: Always-on operational telemetry

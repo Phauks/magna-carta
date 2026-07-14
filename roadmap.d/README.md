@@ -29,8 +29,8 @@ A file starts with `# <Area Title>` and an HTML comment, then a flat list of blo
   notes: Text-preserving surgery route shipped separately
 ```
 
-| Key        | Required | Meaning                                                                                        |
-| ---------- | -------- | ---------------------------------------------------------------------------------------------- |
+| Key        | Required | Meaning                                                                                         |
+| ---------- | -------- | ----------------------------------------------------------------------------------------------- |
 | `id`       | yes      | Dotted kebab-case path; the segment count is the tree depth; stable forever                     |
 | `name`     | yes      | Short display name                                                                              |
 | `scope`    | yes      | One factual line — an index entry, not prose                                                    |
@@ -44,16 +44,16 @@ A file starts with `# <Area Title>` and an HTML comment, then a flat list of blo
 
 ## Status vocabulary
 
-| Status        | Meaning                                                                              |
-| ------------- | ------------------------------------------------------------------------------------ |
+| Status        | Meaning                                                                                |
+| ------------- | -------------------------------------------------------------------------------------- |
 | `shipped`     | The artifact exists on `main` (backend-only counts, with a note, until UI is promised) |
 | `partial`     | Parent node whose children mix shipped and not — or a capability delivered in part     |
-| `in-build`    | Active work on a branch/worktree right now                                            |
-| `designed`    | Accepted design spec exists; no code                                                  |
-| `planned`     | Implementation plan exists; build not started                                         |
-| `researching` | A named open research workstream                                                      |
-| `not-started` | Promised in the white paper; no artifact or spec yet                                  |
-| `deferred`    | Explicitly parked by a decision (say which, in `notes` or `adrs`)                     |
-| `cut`         | Explicitly dropped by a decision — kept for the record, never deleted                 |
+| `in-build`    | Active work on a branch/worktree right now                                             |
+| `designed`    | Accepted design spec exists; no code                                                   |
+| `planned`     | Implementation plan exists; build not started                                          |
+| `researching` | A named open research workstream                                                       |
+| `not-started` | Promised in the white paper; no artifact or spec yet                                   |
+| `deferred`    | Explicitly parked by a decision (say which, in `notes` or `adrs`)                      |
+| `cut`         | Explicitly dropped by a decision — kept for the record, never deleted                  |
 
 **Initial population (2026-07-14):** extracted from the white paper and statused against the [verified baseline](../docs/maintenance/reports/2026-07-14-baseline.md); statuses are evidence-backed drafts pending owner review in the setup PR.
