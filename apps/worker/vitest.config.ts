@@ -299,5 +299,11 @@ export default defineConfig({
     // env. Mirrors the fileParallelism guard packages/conversion uses for its wasm heaps.
     maxWorkers: Number(process.env.MC_WORKER_TEST_MAX_WORKERS ?? 4),
     minWorkers: 1,
+    // Vitest requires every project sharing a group to agree on maxWorkers, and the capped VM budget
+    // above is ours alone — sharing the default group with the ~47 pure packages makes a repo-root
+    // `vp test` abort ("different 'maxWorkers' but same 'sequence.groupOrder'") and run NOTHING while
+    // still exiting 0. A later group runs this project on its own, so the cap holds and the whole
+    // suite is runnable from the root.
+    sequence: { groupOrder: 1 },
   },
 });
