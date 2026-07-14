@@ -17,6 +17,10 @@ on:
     branches: [main]
   push:
     branches: [main]
+  # The assemble-docs workflow dispatches the gate onto its `docs-assembly` branch: a PR created with
+  # the workflow's own token fires no pull_request events, so the required `gate` status must be
+  # produced explicitly for auto-merge to complete.
+  workflow_dispatch:
 
 # One in-flight run per ref; a newer push cancels the older run.
 concurrency:

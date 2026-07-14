@@ -79,7 +79,7 @@ Parallel worktrees — multiple branches open at once — collide on `CHANGELOG.
 
 - **Status fragment** — `status.d/<slice-slug>.md`, one **persistent** file per slice. Flat frontmatter (stage tokens `research`…`tested`, plus `slice`, `group`, `order`, `branch`, `next`, `link-spec`/`link-plan`, `adrs`, `blocked-by`) and a one-line Notes body. Edit the slice's own fragment as it moves through the pipeline; never edit `STATUS.md` / `STATUS.json`. Format and stage-token grammar: [`status.d/README.md`](../../status.d/README.md).
 
-**On `main`, assembly is automatic:** the [`assemble-docs` workflow](../../.github/workflows/assemble-docs.yml) runs the assemblers on every push to `main` and commits the rendered outputs, so fragments fold the moment their merge lands. The same commands run by hand when needed:
+**On `main`, assembly is automatic:** the [`assemble-docs` workflow](../../.github/workflows/assemble-docs.yml) runs the assemblers on every push to `main` and delivers the rendered outputs as an **auto-merging pull request** from the `docs-assembly` branch — the gate fast-paths the docs-only diff (format + governance) and the PR merges itself, so fragments fold minutes after their merge lands while the `main` ruleset stays fully honored. The same commands run by hand when needed:
 
 ```
 vp run decisions-build    # consumes docs/decisions/pending/*.md → docs/decisions/NNNN-<slug>.md; updates the register

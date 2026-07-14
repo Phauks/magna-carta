@@ -6,7 +6,7 @@
 
 Two workers with a hard boundary between them:
 
-**Per-merge (deterministic, CI):** [`.github/workflows/assemble-docs.yml`](../../.github/workflows/assemble-docs.yml) runs on every push to `main` and folds the fragments into the rendered trackers (`changelog.d/` → `CHANGELOG.md`, `docs/decisions/pending/` → the Decision-Log register + numbered ADRs, `status.d/` → `STATUS.md`/`STATUS.json`). The changelog is therefore current with every merged PR, mechanically.
+**Per-merge (deterministic, CI):** [`.github/workflows/assemble-docs.yml`](../../.github/workflows/assemble-docs.yml) runs on every push to `main`, folds the fragments into the rendered trackers (`changelog.d/` → `CHANGELOG.md`, `docs/decisions/pending/` → the Decision-Log register + numbered ADRs, `status.d/` → `STATUS.md`/`STATUS.json`), and delivers them as an **auto-merging pull request** from the `docs-assembly` branch — the gate fast-paths the docs-only diff and the PR merges itself, honoring the `main` ruleset. The changelog is therefore current minutes after every merged PR, mechanically. (Depends on the repository's "Allow auto-merge" setting; if off, the assembly PR waits for a manual merge.)
 
 **Weekly (judgment, propose-only):** the docs-sync routine —
 
