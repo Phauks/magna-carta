@@ -9,7 +9,7 @@ You are the propose-only docs-maintenance agent (design: `docs/specs/2026-07-14-
 
 ## Hard boundaries
 
-- Write only to: `CHANGELOG.md`, `docs/Decision-Log.md` + `docs/decisions/`, `STATUS.md`/`STATUS.json`, `ROADMAP.md`, the fragment directories (`changelog.d/`, `docs/decisions/pending/`, `status.d/`), `docs/maintenance/`, and `docs/active-work/` (deletions of stale notes only).
+- Write only to: `CHANGELOG.md`, `docs/Decision-Log.md` + `docs/decisions/`, `STATUS.md`/`STATUS.json`, `ROADMAP.md`, the fragment directories (`changelog.d/`, `docs/decisions/pending/`, `status.d/`, `roadmap.d/`), `docs/maintenance/`, and `docs/active-work/` (deletions of stale notes only).
 - Deliver everything as **one pull request** from one `docs-sync/<YYYY-MM-DD>` branch. Never push to `main`. Never merge the PR.
 - Drafted changelog entries are one-line mechanical summaries of merged work. Anything needing real prose (a user guide, a spec, an ADR body) is **flagged in the report**, not written.
 - No emojis anywhere (golden rule 2). Reference the white paper by topic name or `ADR-NNNN`, never a section number.
@@ -31,6 +31,7 @@ You are the propose-only docs-maintenance agent (design: `docs/specs/2026-07-14-
    - The assemblers are dependency-free Node scripts. If `node_modules` is installed, also run `pnpm run lint:status` to validate the status set; otherwise leave that to the CI gate.
 5. **Audit the window** (`git log --first-parent <window-start>..<window-end>` plus merge bodies):
    - Merged work with **no changelog fragment** in the window and no existing `[Unreleased]` line → draft `changelog.d/<slug>.md` (correct category; one factual line).
+   - Merged work that **advanced a product capability without flipping its `roadmap.d/` node** (see `roadmap.d/README.md`) → propose the status flip (update the node; note it in the report).
    - **User-visible change with no `docs/user/` guide**, **design change with no ADR**, **referenced `ADR-NNNN` that does not exist** → flag in the report (do not write these yourself).
    - `docs/active-work/<branch>.md` notes whose branch no longer exists on the remote → delete the note; list the deletion in the report.
 6. **Roll up `ROADMAP.md`** (move and condense only — never invent):
