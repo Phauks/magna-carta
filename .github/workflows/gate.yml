@@ -180,10 +180,23 @@ jobs:
         run: pnpm exec vp run rust-check
 
   # The Vitest suites, including the Miniflare worker integration test and the browser-provider stories.
+  # Sharded across parallel runners: Vitest `--shard=i/N` splits the test FILES into N disjoint groups
+  # (every file runs exactly once, across the shards), so the whole-repo suite's wall-clock drops to
+  # ~1/N without dropping any coverage — every test still runs, just distributed. The setup (WASM
+  # download, Playwright) repeats per shard, but that overhead is parallel, so it costs total-compute,
+  # not wall-clock — the same fan-out trade the rest of this gate already makes. A shard failing fails
+  # the matrix (fail-fast off, so a failure in one shard still lets the others report their results).
+  # Bump SHARD_TOTAL below and the matrix list together to change the shard count.
   test:
     needs: [changes, wasm]
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    env:
+      SHARD_TOTAL: 4
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
@@ -211,8 +224,8 @@ jobs:
           if [ -z "$cli" ]; then echo "could not locate the playwright 1.60 CLI"; exit 1; fi
           node "$cli" install --with-deps chromium chromium-headless-shell
 
-      - name: Tests
-        run: pnpm exec vp test
+      - name: Tests (shard ${{ matrix.shard }}/${{ env.SHARD_TOTAL }})
+        run: pnpm exec vp test run --shard=${{ matrix.shard }}/${{ env.SHARD_TOTAL }}
 
   # Cheap whole-repo guards with no WASM dependency — run on every change so a governance regression can't
   # slip through a docs-only push.
