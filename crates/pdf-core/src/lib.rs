@@ -56,8 +56,48 @@ pub enum PdfError {
     Parse,
     PageOutOfRange,
     Render,
-    /// Input rejected by the decompression-bomb guard (oversize or a bomb).
+    /// Input rejected by the decompression-bomb guard (oversize or a bomb), or a page
+    /// whose rasterized size exceeds [`MAX_RENDER_PIXELS`].
     Rejected,
+}
+
+/// The most pixels any single page may rasterize to. A page's dimensions are declared
+/// in the file and are wholly attacker-controlled, while the raster is allocated eagerly
+/// at 4 bytes per pixel and then round-tripped through two more full-size buffers: a
+/// kilobyte of PDF declaring a 200-inch page would otherwise ask for gigabytes. The
+/// input bomb guard cannot see this — it bounds input bytes and stream inflation, never
+/// page geometry — so the ceiling belongs here, at the allocation.
+///
+/// 80 million pixels is ~320 MB of RGBA. It clears a 36x48in E-size engineering exhibit
+/// at 215 DPI and a US-Letter page at well over 600 DPI, so no real document is refused;
+/// what it refuses is the declared-geometry bomb. Callers that would rather degrade than
+/// fail should scale their DPI to fit this budget (the OCR container does).
+pub const MAX_RENDER_PIXELS: u64 = 80_000_000;
+
+/// How many pixels a page of `width_pt` x `height_pt` rasterizes to at `dpi`. Saturating:
+/// a page declaring absurd dimensions must report an absurd pixel count, never wrap around
+/// or collapse to a small one and slip under a cap.
+///
+/// An *infinite* or NaN dimension reports [`u64::MAX`], not zero — the renderer does not
+/// treat it as nothing, it saturates it to 65535 pixels on that axis, so "unmeasurable"
+/// has to mean "refuse", not "allow". A zero or negative dimension is genuinely nothing:
+/// the renderer floors it at a single pixel, and no allocation of consequence follows.
+pub fn rendered_pixels(width_pt: f32, height_pt: f32, dpi: f32) -> u64 {
+    let axis = |points: f32| -> u64 {
+        if points.is_nan() || points.is_infinite() || dpi.is_nan() || dpi.is_infinite() {
+            return u64::MAX;
+        }
+        let pixels = (points * (dpi / 72.0)).ceil();
+        if !pixels.is_finite() {
+            return u64::MAX;
+        }
+        if pixels <= 0.0 {
+            return 0;
+        }
+        // `as` saturates at u64::MAX past the range; NaN and infinity are handled above.
+        pixels as u64
+    };
+    axis(width_pt).saturating_mul(axis(height_pt))
 }
 
 /// A parsed PDF held in memory.
@@ -167,6 +207,13 @@ impl Document {
         let pages = self.pdf.pages();
         let page = pages.get(index).ok_or(PdfError::PageOutOfRange)?;
         let scale = dpi / 72.0;
+        // Refuse the allocation before making it. `render_dimensions` is the page's own
+        // declared geometry, so this is the first point at which the raster's true cost
+        // is known and the last at which it can still be declined.
+        let (width_pt, height_pt) = page.render_dimensions();
+        if rendered_pixels(width_pt, height_pt, dpi) > MAX_RENDER_PIXELS {
+            return Err(PdfError::Rejected);
+        }
         let settings = RenderSettings {
             x_scale: scale,
             y_scale: scale,
@@ -223,6 +270,59 @@ impl Document {
             .filter(|g| !crate::redact::is_whitespace_glyph(&g.text))
             .map(|g| crate::detect::to_display_rect(g.bbox, obs.height_pt))
             .collect())
+    }
+
+    /// The share of page `index` -- from 0.0 to 1.0 -- covered by text a human eye can
+    /// actually see: the summed area of every non-whitespace glyph box drawn in a
+    /// *visible* render mode, over the page's own area.
+    ///
+    /// This deliberately answers a different question than [`Document::page_text_rects`],
+    /// which reports invisible glyphs too because hidden-but-extractable text is exactly
+    /// what redaction exists to find. A caller asking "does a person reading this page
+    /// see words?" -- an OCR gate deciding whether a page still needs recognizing -- must
+    /// not be answered "yes" by an invisible text layer, nor by a Bates stamp: a single
+    /// stamp in the corner of a scanned page is real, visible text, and treating its
+    /// presence as a text layer would silently discard the entire page's content. A
+    /// coverage ratio separates the two; mere presence cannot.
+    ///
+    /// Glyph boxes may overlap, so the sum is clamped to 1.0 rather than pretending to
+    /// be an exact union. Returns `PageOutOfRange` if the page cannot be observed.
+    pub fn page_visible_text_coverage(&self, index: usize) -> Result<f32, PdfError> {
+        let obs = crate::textpos::observe_page(&self.pdf, index).ok_or(PdfError::PageOutOfRange)?;
+        let page_area = (obs.width_pt as f64) * (obs.height_pt as f64);
+        if page_area <= 0.0 {
+            return Ok(0.0);
+        }
+        let ink: f64 = obs
+            .glyphs
+            .iter()
+            .filter(|g| !g.invisible && !crate::redact::is_whitespace_glyph(&g.text))
+            .map(|g| g.bbox.width().abs() * g.bbox.height().abs())
+            .sum();
+        Ok(((ink / page_area) as f32).clamp(0.0, 1.0))
+    }
+
+    /// The share of page `index` -- from 0.0 to 1.0 -- covered by raster images. A
+    /// scanned page *is* an image: this is what tells a page whose content is pixels
+    /// (and therefore has something to recognize) from one drawn as text and vectors
+    /// (which has nothing an OCR pass could add). Vector fills are not counted -- only
+    /// image XObjects, the thing a scanner produces.
+    ///
+    /// Boxes may overlap, so the sum is clamped to 1.0. Returns `PageOutOfRange` if the
+    /// page cannot be observed.
+    pub fn page_raster_coverage(&self, index: usize) -> Result<f32, PdfError> {
+        let obs = crate::textpos::observe_page(&self.pdf, index).ok_or(PdfError::PageOutOfRange)?;
+        let page_area = (obs.width_pt as f64) * (obs.height_pt as f64);
+        if page_area <= 0.0 {
+            return Ok(0.0);
+        }
+        let raster: f64 = obs
+            .covers
+            .iter()
+            .filter(|c| c.is_image)
+            .map(|c| c.bbox.width().abs() * c.bbox.height().abs())
+            .sum();
+        Ok(((raster / page_area) as f32).clamp(0.0, 1.0))
     }
 
     /// Every non-whitespace text glyph on page `index`, carrying both its recognized
@@ -329,6 +429,75 @@ mod tests {
         assert_eq!(page.height, 792);
         // RGBA8 == 4 bytes per pixel
         assert_eq!(page.data.len(), (page.width * page.height * 4) as usize);
+    }
+
+    #[test]
+    fn a_render_past_the_pixel_ceiling_is_refused_before_it_is_allocated() {
+        // The page's dimensions are declared in the file and wholly attacker-controlled,
+        // while the raster is allocated eagerly at 4 bytes a pixel. A US Letter page asked
+        // for at an absurd density is the same allocation as an absurd page at an ordinary
+        // one, and neither may be attempted.
+        let doc = Document::load(blank()).unwrap();
+        let dpi = 20_000.0; // 612x792pt at 20k DPI is ~37 billion pixels
+        assert!(matches!(
+            doc.render_page(0, dpi, false),
+            Err(PdfError::Rejected)
+        ));
+    }
+
+    #[test]
+    fn rendered_pixels_saturates_rather_than_wrapping() {
+        // A page declaring nonsense must report an absurd pixel count -- never wrap around
+        // to a small one and slip under the ceiling.
+        assert!(rendered_pixels(f32::MAX, f32::MAX, 300.0) > MAX_RENDER_PIXELS);
+        // Unmeasurable is not the same as empty. The renderer saturates an infinite axis to
+        // 65535 pixels rather than skipping it, so reporting zero here would hand a
+        // multi-gigabyte allocation a clean bill of health.
+        assert!(rendered_pixels(f32::INFINITY, 792.0, 300.0) > MAX_RENDER_PIXELS);
+        assert!(rendered_pixels(f32::NAN, 792.0, 300.0) > MAX_RENDER_PIXELS);
+        assert!(rendered_pixels(612.0, 792.0, f32::INFINITY) > MAX_RENDER_PIXELS);
+        // A degenerate or negative page is genuinely nothing: the renderer floors it at one
+        // pixel, so it is not a negative count cast into a huge one either.
+        assert_eq!(rendered_pixels(-612.0, 792.0, 300.0), 0);
+        // The ordinary case still computes exactly.
+        assert_eq!(rendered_pixels(612.0, 792.0, 72.0), 612 * 792);
+    }
+
+    #[test]
+    fn visible_text_coverage_measures_how_much_of_the_page_is_text() {
+        // hello.pdf is a 200x50pt card carrying 20pt bold text: the text is most of what
+        // is on it, and the measure says so. A page whose text is a mark in the corner --
+        // a Bates stamp on a scan -- lands orders of magnitude below this, which is the
+        // separation the measure exists to make.
+        let doc = Document::load(include_bytes!("../tests/fixtures/hello.pdf").to_vec()).unwrap();
+        let coverage = doc.page_visible_text_coverage(0).unwrap();
+        assert!(
+            coverage > 0.05,
+            "a page that is mostly text should measure as mostly text, got {coverage}"
+        );
+        assert!(coverage <= 1.0, "coverage is a ratio, got {coverage}");
+        assert_eq!(
+            Document::load(blank())
+                .unwrap()
+                .page_visible_text_coverage(0)
+                .unwrap(),
+            0.0
+        );
+    }
+
+    #[test]
+    fn raster_coverage_is_zero_for_a_page_drawn_as_text() {
+        // hello.pdf is born-digital: no scanner ever touched it, so there is no image on
+        // it -- which is what tells an OCR gate the page has nothing to recognize.
+        let doc = Document::load(include_bytes!("../tests/fixtures/hello.pdf").to_vec()).unwrap();
+        assert_eq!(doc.page_raster_coverage(0).unwrap(), 0.0);
+        assert_eq!(
+            Document::load(blank())
+                .unwrap()
+                .page_raster_coverage(0)
+                .unwrap(),
+            0.0
+        );
     }
 
     #[test]
