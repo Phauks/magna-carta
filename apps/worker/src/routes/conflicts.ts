@@ -132,7 +132,9 @@ const ScopeRequest = z
   .object({
     sources: z.array(z.enum(SOURCE_CLASSES)),
     strictness: z.enum(STRICTNESS_LEVELS),
-    depth: z.number().int().min(0),
+    // Optional: omitted means the firm's configured default depth is applied; an explicit value
+    // (0 included) is honored as given. The resolved depth is always recorded on the check.
+    depth: z.number().int().min(0).optional(),
   })
   .openapi("ConflictsScopeRequest");
 

@@ -4238,8 +4238,7 @@
         },
         "required": [
           "sources",
-          "strictness",
-          "depth"
+          "strictness"
         ]
       },
       "ConflictsCheckWithHitsResponse": {

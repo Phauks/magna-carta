@@ -76,6 +76,27 @@ test("depth below zero is clamped to zero", () => {
   expect(resolved.depth).toBe(0);
 });
 
+test("an omitted depth falls back to the firm's default depth, without raising the floor", () => {
+  const deepPolicy: ConflictsPolicy = { ...policy, defaultDepth: 3 };
+  const resolved = resolveScope(deepPolicy, {
+    sources: ["party", "graph"],
+    strictness: "balanced",
+  });
+  expect(resolved.depth).toBe(3);
+  // Defaulting is not a narrowing the caller asked for, so it is not a floor-raise.
+  expect(resolved.floorRaised).toBe(false);
+});
+
+test("an explicit depth is honored over the default, including a deliberate zero", () => {
+  const deepPolicy: ConflictsPolicy = { ...policy, defaultDepth: 3 };
+  const resolved = resolveScope(deepPolicy, {
+    sources: ["party", "graph"],
+    strictness: "balanced",
+    depth: 0,
+  });
+  expect(resolved.depth).toBe(0);
+});
+
 // Seeds the flat firm-level setting row directly through the sync `raw` handle (the D1-shaped
 // `database` adapter only exposes async prepare/run) so each case starts from a freshly migrated,
 // otherwise-empty per-firm database.

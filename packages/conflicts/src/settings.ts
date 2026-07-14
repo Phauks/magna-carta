@@ -14,7 +14,11 @@ export interface ConflictsPolicy {
 export interface ScopeRequest {
   readonly sources: readonly SourceClass[];
   readonly strictness: Strictness;
-  readonly depth: number;
+  // Traversal depth for the graph source. Omitted means "use the firm's configured default"
+  // (`ConflictsPolicy.defaultDepth`); an explicit value (including 0) is honored as given. Unlike
+  // sources and strictness, depth is a default, not a floor — a caller may deliberately search
+  // shallower than the default, and the recorded `depth` on the check row keeps that transparent.
+  readonly depth?: number;
 }
 
 export interface ResolvedScope {
@@ -60,10 +64,18 @@ export function resolveScope(policy: ConflictsPolicy, request: ScopeRequest): Re
     floorRaised = true;
   }
 
+  // Depth defaults to the firm's configured value when the caller omits it; an explicit value (0
+  // included) is honored. Defaulting is not a floor-raise — the caller asked for nothing narrower —
+  // so it never sets floorRaised.
+  const depth =
+    request.depth === undefined
+      ? Math.max(0, policy.defaultDepth)
+      : Math.max(0, request.depth);
+
   return {
     sources: orderSources(requested),
     strictness,
-    depth: Math.max(0, request.depth),
+    depth,
     floorRaised,
   };
 }

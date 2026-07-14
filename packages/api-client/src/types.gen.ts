@@ -1026,7 +1026,7 @@ export type CreateConflictsCheckRequest = {
 export type ConflictsScopeRequest = {
     sources: Array<'party' | 'graph' | 'imputation' | 'content'>;
     strictness: 'balanced' | 'over_inclusive';
-    depth: number;
+    depth?: number;
 };
 
 export type ConflictsCheckWithHitsResponse = {
