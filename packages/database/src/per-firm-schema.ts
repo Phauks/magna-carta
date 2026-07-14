@@ -1160,7 +1160,11 @@ export const directoryEntityCategory = sqliteTable(
 );
 
 // Email addresses for a directory entity. Temporal and type-labelled; is_primary is enforced in the
-// write path (exactly one primary per entity kind combination).
+// write path (at most one primary per entity). `address` is stored as entered (trimmed);
+// `normalized_address` is the lowercased match key an address -> entity reverse lookup queries, so a
+// participant on a captured email resolves to the Person/Organization it belongs to. The reverse
+// lookup joins the node row to resolve a merged-away entity to its surviving master, mirroring the
+// name search channels.
 export const directoryEmail = sqliteTable(
   "directory_email",
   {
@@ -1168,6 +1172,10 @@ export const directoryEmail = sqliteTable(
     entityId: text("entity_id").notNull(),
     label: text("label"), // e.g. 'work', 'personal'
     address: text("address").notNull(),
+    // Lowercased, trimmed match key for the address -> entity reverse lookup. Nullable so the column
+    // is added by a non-destructive ALTER ADD COLUMN (expand-contract discipline — no table rebuild);
+    // the write path always populates it, so a null only ever means a row predating the write path.
+    normalizedAddress: text("normalized_address"),
     isPrimary: integer("is_primary").notNull().default(0), // 0/1
     validFrom: text("valid_from"),
     validTo: text("valid_to"),
@@ -1177,6 +1185,7 @@ export const directoryEmail = sqliteTable(
   },
   (table) => [
     index("directory_email_entity_id_index").on(table.entityId),
+    index("directory_email_normalized_address_index").on(table.normalizedAddress),
     check("directory_email_address_nonempty_check", sql`length(${table.address}) > 0`),
     check("directory_email_is_primary_check", sql`${table.isPrimary} IN (0, 1)`),
   ],

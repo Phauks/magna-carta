@@ -11,7 +11,7 @@ load-profile: todo
 tested: todo
 branch: claude/email-capabilities-analysis-y06ji3
 active-work: docs/active-work/claude-email-capabilities-analysis-y06ji3.md
-next: Owner acceptance of the slice-1 design; then build Tasks 1-10 (record schema -> pure email-filing package -> statements -> emails:* permissions -> capture + attachments -> API entrance -> Email Worker forward path). Directory address->entity resolution is a soft dependency, deferred (participants written unresolved) until a Directory contact-details capability exists.
+next: Owner acceptance of the slice-1 design; then build Tasks 1-10 (record schema -> pure email-filing package -> statements -> emails:* permissions -> capture + attachments -> API entrance -> Email Worker forward path). The Directory address->entity resolution prerequisite is now BUILT on this branch (directory_email write path + reverse findEntitiesByEmailAddress lookup + normalized-address index), so participant resolution can light up rather than stay deferred.
 link-spec: docs/specs/2026-07-14-email-filing-record-and-forward-capture-design.md
 link-plan: docs/specs/2026-07-14-email-filing-record-and-forward-capture-implementation-plan.md
 adrs:
