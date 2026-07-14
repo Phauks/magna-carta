@@ -310,10 +310,10 @@
 
 - id: documents.preview.sandbox-origin
   name: Safe-delivery sandbox
-  scope: Untrusted bytes served from a separate cookieless files.* origin with attachment disposition, correct Content-Type, nosniff, restrictive CSP, iframe sandbox.
+  scope: Untrusted bytes served from a separate cookieless files._ origin with attachment disposition, correct Content-Type, nosniff, restrictive CSP, iframe sandbox.
   status: shipped
   adrs: ADR-0115
-  evidence: Slice 2-3 fragment: cookieless files.* subresource delivery landed on main.
+  evidence: Slice 2-3 fragment: cookieless files._ subresource delivery landed on main.
 
 - id: documents.preview.inline-playable
   name: inlinePlayable verdict
@@ -599,7 +599,7 @@
   slices: enhanced-bundling
   adrs: ADR-0146
   spec: docs/specs/2026-06-25-enhanced-bundling-design.md
-  evidence: containers/bundle (Rust) + apps/bundle-worker + bundle-* modules in packages/file-manager; UI deferred.
+  evidence: containers/bundle (Rust) + apps/bundle-worker + bundle-\* modules in packages/file-manager; UI deferred.
 
 - id: documents.bundling.light-lane
   name: TypeScript bundle lane
@@ -716,7 +716,7 @@
   scope: Durable-Object-coordinated fan-out over recovery-worker shards with a hash-only boundary (privileged bytes never leave; only hashes are distributed).
   status: shipped
   spec: docs/specs/2026-06-26-decryption-slice-2-recovery-design.md
-  evidence: apps/recovery-worker + containers/recovery (with wordlists) + /decryption/recover* routes.
+  evidence: apps/recovery-worker + containers/recovery (with wordlists) + /decryption/recover\* routes.
 
 - id: documents.decryption.gpu
   name: GPU recovery rungs

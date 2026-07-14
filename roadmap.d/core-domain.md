@@ -35,7 +35,7 @@
   slices: 1-3-directory, 1-4-custom-fields-engine
   adrs: ADR-0087
   evidence: packages/custom-fields consumed for directory entities per ADR-0087
-  notes: Engine shipped (see custom-fields.*); field-definition and entry UI not built.
+  notes: Engine shipped (see custom-fields.\*); field-definition and entry UI not built.
 
 - id: directory.names
   name: Structured names and name history

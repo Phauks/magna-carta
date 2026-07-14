@@ -53,6 +53,7 @@ You are the propose-only docs-maintenance agent (design: `docs/specs/2026-07-14-
    ```
 
    Body: what shipped in the window (short), what was assembled and drafted, deleted active-work notes, and an **Action needed** list for the reviewer.
+
 8. **Deliver.** Commit everything as one commit (`docs-sync: <date> — assemble fragments, audit window <short-start>..<short-end>`), push with `git push -u origin docs-sync/<YYYY-MM-DD>`, open the pull request (title `docs-sync: <YYYY-MM-DD>`; body = the report's summary and Action-needed list), update the report's `pr:` field in a follow-up commit, and **stop**.
 
 ## Failure handling

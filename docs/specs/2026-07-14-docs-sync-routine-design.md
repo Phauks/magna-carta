@@ -19,7 +19,7 @@ The move to cloud sessions (Claude Code on the web) removes the last reliable tr
 - Every merged change is either represented in the changelog or explicitly flagged as a coverage gap — nothing ships silently.
 - The system has **memory**: each run knows exactly which window of `main` it audited, so nothing is double-reported or skipped.
 - Every moving part is **versioned in the repository**; the scheduler outside the repo is a dumb clock that could be recreated from the docs in five minutes.
-- The pipeline is layered so a public-facing roadmap/changelog later becomes *one more consumer of an existing output*, not a rework.
+- The pipeline is layered so a public-facing roadmap/changelog later becomes _one more consumer of an existing output_, not a rework.
 
 ## Non-goals
 
@@ -75,7 +75,7 @@ Each firing clones the repo fresh and follows [`.claude/skills/docs-sync/SKILL.m
 ### Guardrails (the ADR-0058 boundary, made operational)
 
 - **Propose-only:** delivery is always a PR; the human review is the gate that turns drafts into record.
-- **No narrative authoring:** drafted changelog entries are one-line mechanical summaries of merged work; anything needing real prose (user guide, spec, ADR body) is *flagged* in the report, not written.
+- **No narrative authoring:** drafted changelog entries are one-line mechanical summaries of merged work; anything needing real prose (user guide, spec, ADR body) is _flagged_ in the report, not written.
 - **Bounded write surface:** rendered trackers, fragment directories, `ROADMAP.md`, `docs/maintenance/`, `docs/active-work/` deletions — nothing else.
 - **Single stream:** one open docs-sync PR maximum, so the fragment-workflow collision guarantee holds.
 
@@ -99,10 +99,10 @@ Body: a short human summary — what shipped in the window, what was drafted, an
 
 ## Redesign decided with this spec: the roadmap becomes a feature ledger
 
-Three of the four trackers are already rendered outputs of fragments; `ROADMAP.md` is the outlier — unbounded hand-written narrative, which is both why it drifts (nothing assembles it) and why it cannot yet feed a public surface (no structure to project from). Owner decision (2026-07-14): the roadmap is rebuilt as a **feature ledger** — an exhaustive, growing inventory of every capability the white paper promises, feature by sub-feature, each carrying a status. It is a third *kind* of tracker: `status.d/` tracks **execution units** (slices — transient, build-ordered); the ledger tracks **product capabilities** (durable, user-shaped — what the product does and how complete it is). Conflating the two is what rotted the old ROADMAP.
+Three of the four trackers are already rendered outputs of fragments; `ROADMAP.md` is the outlier — unbounded hand-written narrative, which is both why it drifts (nothing assembles it) and why it cannot yet feed a public surface (no structure to project from). Owner decision (2026-07-14): the roadmap is rebuilt as a **feature ledger** — an exhaustive, growing inventory of every capability the white paper promises, feature by sub-feature, each carrying a status. It is a third _kind_ of tracker: `status.d/` tracks **execution units** (slices — transient, build-ordered); the ledger tracks **product capabilities** (durable, user-shaped — what the product does and how complete it is). Conflating the two is what rotted the old ROADMAP.
 
 - **Source of truth: `roadmap.d/`** — one file per product area mirroring the white paper's areas; flat node blocks with hierarchy in a dotted stable `id`; format and status vocabulary in [`roadmap.d/README.md`](../../roadmap.d/README.md). Nodes hold only what no other home owns — a status plus links (white paper keeps the narrative; specs/ADRs keep the design; `status.d/` keeps slice stages via the `slices:` key). Fragments persist and grow; ids never renumber; dropped promises flip to `cut` rather than vanish.
-- **`roadmap-build` (follow-up slice)** renders the set into `ROADMAP.md` — a human tree view with status glyphs and per-area rollup counts ("Trust: 3/14 shipped"), headed by the only remaining hand-written prose, a small **Now** narrative block — and `roadmap.json`, the machine view. The "interactive white paper" the owner wants is a rendered *join*: the white paper's structure browsed with live status badges — a projection over two existing sources, never a third copy. It and the public roadmap consume `roadmap.json` (with the `audience` filter); neither parses the Markdown. A `lint:roadmap` fitness function (id uniqueness/stability, status vocabulary, link existence) joins the gate alongside `lint:status`.
+- **`roadmap-build` (follow-up slice)** renders the set into `ROADMAP.md` — a human tree view with status glyphs and per-area rollup counts ("Trust: 3/14 shipped"), headed by the only remaining hand-written prose, a small **Now** narrative block — and `roadmap.json`, the machine view. The "interactive white paper" the owner wants is a rendered _join_: the white paper's structure browsed with live status badges — a projection over two existing sources, never a third copy. It and the public roadmap consume `roadmap.json` (with the `audience` filter); neither parses the Markdown. A `lint:roadmap` fitness function (id uniqueness/stability, status vocabulary, link existence) joins the gate alongside `lint:status`.
 - **Maintenance follows the house rules:** a PR that ships or advances a feature flips its node in the same commit (docs-in-commit); the weekly routine audits merges that advanced a capability without flipping its node and proposes the flip.
 - **Initial population (done with this spec):** the tree was extracted from the white paper by a parallel audit and every node statused against the verified 2026-07-14 baseline — evidence-backed drafts reviewed in the setup PR.
 - **Until `roadmap-build` ships,** the hand-written `ROADMAP.md` remains the narrative view and the routine bridges by hand (flow step 5); on the assembler's arrival `ROADMAP.md` becomes a rendered output and its hand-edited history closes.
