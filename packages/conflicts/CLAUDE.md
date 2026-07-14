@@ -36,7 +36,10 @@ and never calls external services.
   `member`, never a similarity matcher
 - `src/matching.ts` — `matchOptionsFor` (the strictness → `MatchOptions` mapping), `matchParty`
   (wraps `findDuplicateCandidates` + a direct exact-normalized-name probe, since the directory's three
-  blocking channels are phonetic/trigram/blind-index and exact-name has no channel of its own)
+  blocking channels are phonetic/trigram/blind-index and exact-name has no channel of its own). Passes
+  the subject's own entity id as `subjectEntityId` so the blind-index channel fires the **tier-1
+  exact-identifier** match over the subject's sealed SSN/EIN/DL/account — a name-mismatched identifier
+  twin surfaces here; without it tier 1 could never fire for a party.
 - `src/run-check.ts` — `runConflictsCheck`: the check orchestrator — resolves scope, expands the
   graph, matches every reached entity, joins imputation, records source availability (including
   `prior_firm_history`, permanently `unavailable` — a registered source with no table), and writes
@@ -117,4 +120,7 @@ and never calls external services.
   plus `assertConflictsFitness`.
 - `matchParty`'s exact-normalized-name probe is a direct SQL query against `directory_name`, not a
   fourth blocking channel added to `findDuplicateCandidates` — the directory's shared corpus reader
-  stays phonetic/trigram/blind-index only; tier 2 (exact name) is scored here, in this package.
+  stays phonetic/trigram/blind-index only; tier 2 (exact name) is scored here, in this package. The
+  probe is **strictness-scoped** (balanced passes `nameRoles:["current"]`, so a former/alias exact
+  match stays balanced-invisible like the fuzzy channels) and **additive** (an exact match surfaces as
+  a candidate even when no fuzzy channel returned it — a tier-2 signal is never dropped).

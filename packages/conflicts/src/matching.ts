@@ -44,12 +44,25 @@ function displayNameOf(input: MatchPartyInput): string {
 // Tier 2 (exact normalized name) has no blocking channel of its own: the directory's channels are
 // phonetic, trigram, and blind-index. Probe normalized_display directly for an exact match rather
 // than adding a fourth channel to the shared corpus reader. Mirrors the same merge-resolution
-// COALESCE and deleted-entity exclusion the directory channels apply in SQL.
+// COALESCE and deleted-entity exclusion the directory channels apply in SQL — and the same name-role
+// scoping: balanced passes nameRoles:["current"] so a former/alias exact match stays invisible at
+// balanced strictness, exactly as the fuzzy channels do, keeping over_inclusive a clean superset.
 async function exactNameMatches(
   context: DirectoryIdentifierContext,
   normalizedQuery: string,
+  options: { readonly nameRoles?: readonly string[]; readonly excludeEntityId?: string },
 ): Promise<Set<string>> {
   if (normalizedQuery.length === 0) return new Set();
+  const bindings: string[] = [normalizedQuery];
+  let nameRoleFilter = "";
+  const nameRoles = options.nameRoles;
+  if (nameRoles !== undefined && nameRoles.length > 0) {
+    const placeholders = nameRoles.map((role) => {
+      bindings.push(role);
+      return `?${bindings.length}`;
+    });
+    nameRoleFilter = `AND dn.name_role IN (${placeholders.join(", ")})`;
+  }
   const { results } = await context.database
     .prepare(
       `SELECT DISTINCT COALESCE(dp.merged_into_id, do.merged_into_id, dn.entity_id) AS entity_id
@@ -58,14 +71,20 @@ async function exactNameMatches(
        LEFT JOIN directory_organization AS do ON dn.entity_kind = 'organization' AND do.id = dn.entity_id
        WHERE dn.normalized_display = ?1
          AND dn.deleted_at IS NULL
+         ${nameRoleFilter}
          AND (
            (dn.entity_kind = 'person' AND dp.deleted_at IS NULL)
            OR (dn.entity_kind = 'organization' AND do.deleted_at IS NULL)
          )`,
     )
-    .bind(normalizedQuery)
+    .bind(...bindings)
     .all<{ entity_id: string }>();
-  return new Set(results.map((row) => row.entity_id));
+  const matches = new Set<string>();
+  for (const row of results) {
+    if (row.entity_id === options.excludeEntityId) continue;
+    matches.add(row.entity_id);
+  }
+  return matches;
 }
 
 export async function matchParty(
@@ -74,6 +93,7 @@ export async function matchParty(
   strictness: Strictness,
 ): Promise<CandidateMatch[]> {
   const normalizedQuery = normalizeName(displayNameOf(input));
+  const matchOptions = matchOptionsFor(strictness);
 
   const [candidates, exactNames] = await Promise.all([
     findDuplicateCandidates(context, {
@@ -84,18 +104,44 @@ export async function matchParty(
       identifiers: input.identifiers as never,
       excludeEntityId: input.excludeEntityId,
       subjectEntityId: input.entityId,
-      matchOptions: matchOptionsFor(strictness),
+      matchOptions,
     }),
-    exactNameMatches(context, normalizedQuery),
+    exactNameMatches(context, normalizedQuery, {
+      nameRoles: matchOptions.nameRoles,
+      excludeEntityId: input.excludeEntityId,
+    }),
   ]);
 
-  return candidates.map((candidate) => ({
-    entityId: candidate.entityId,
-    evidence: {
-      identifierTypes: candidate.identifierTypes,
-      exactNormalizedName: exactNames.has(candidate.entityId),
-      phoneticMatch: candidate.channels.includes("phonetic"),
-      trigramMatch: candidate.channels.includes("trigram"),
-    },
-  }));
+  const byEntityId = new Map<string, CandidateMatch>();
+  for (const candidate of candidates) {
+    byEntityId.set(candidate.entityId, {
+      entityId: candidate.entityId,
+      evidence: {
+        identifierTypes: candidate.identifierTypes,
+        exactNormalizedName: exactNames.has(candidate.entityId),
+        phoneticMatch: candidate.channels.includes("phonetic"),
+        trigramMatch: candidate.channels.includes("trigram"),
+      },
+    });
+  }
+
+  // Additive, never annotate-only: an exact normalized-name match must surface as a candidate even
+  // when no blocking channel independently returned it. The only way the fuzzy channels miss an exact
+  // match is the degenerate case of a sub-trigram-length name whose phonetic code is empty; dropping a
+  // tier-2 signal there because it was not also fuzzy would suppress a real hit — the failure this
+  // engine exists to prevent. Scoping already happened in exactNameMatches, so this stays a superset.
+  for (const entityId of exactNames) {
+    if (byEntityId.has(entityId)) continue;
+    byEntityId.set(entityId, {
+      entityId,
+      evidence: {
+        identifierTypes: [],
+        exactNormalizedName: true,
+        phoneticMatch: false,
+        trigramMatch: false,
+      },
+    });
+  }
+
+  return [...byEntityId.values()];
 }

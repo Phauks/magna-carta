@@ -19,8 +19,8 @@
 - `src/person.ts` — `createPerson` / `readPerson` / `updatePerson`
 - `src/organization.ts` — `createOrganization` / `readOrganization` / `updateOrganization`
 - `src/name-history.ts` — `addName` / `changeName` (append-and-flip); inserts the new `directory_name` row + phonetic codes + flips `is_current` on the prior in the same batch
-- `src/search.ts` — FTS5 trigram name search (`searchNames`) + `findDuplicateCandidates` (phonetic-block union trigram union blind-index, signal-count ranked)
-- `src/identifiers.ts` — `protectedField` declarations for all identifier types + `upsertIdentifier` / `readIdentifiers` (via `composeProtectedWrite` / `readProtected` / `blindIndexValue`)
+- `src/search.ts` — FTS5 trigram name search (`searchNames`) + `findDuplicateCandidates` (phonetic-block union trigram union blind-index, signal-count ranked). The blind-index channel takes plaintext `identifiers` (entry-time duplicate detection) **or** a `subjectEntityId` (conflicts): the latter self-joins an already-persisted entity's sealed blind indexes, so the exact-identifier channel runs with no plaintext in hand.
+- `src/identifiers.ts` — `protectedField` declarations for all identifier types + `upsertIdentifier` / `readIdentifiers` (via `composeProtectedWrite` / `readProtected` / `blindIndexValue`); `findEntitiesSharingIdentifiers` — the conflicts blind-index self-join (other live entities sharing a subject's `value_blind_index`, no decrypt/permission/audit)
 - `src/edges.ts` — `createEdge` / `readEdges` (typed, temporal, directional)
 - `src/categories.ts` — `defineCategoryLabel` / `assignCategory` / `listCategories`
 - `src/merge.ts` — `mergeEntities` (non-destructive, atomic batch, full repoint set, `entity_merge` event + `audit_log` row)

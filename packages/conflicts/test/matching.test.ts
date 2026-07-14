@@ -107,6 +107,31 @@ test("an exact normalized-name match is reported as such", async () => {
   expect(matches[0]?.evidence.exactNormalizedName).toBe(true);
 });
 
+test("the exact-name probe respects strictness: a former-name exact match is balanced-invisible", async () => {
+  const { ctx } = await conflictsTestContext("exact-name-scope");
+  // The entity's CURRENT name shares nothing with the query; only its FORMER name is an exact match.
+  const renamed = await createPerson(ctx.database, { given: "Zeta", family: "Quorum" }, ctx);
+  await addName(ctx.database, renamed, { given: "Common", family: "Name", nameRole: "former" }, ctx);
+
+  const balanced = await matchParty(
+    ctx,
+    { kind: "person", given: "Common", family: "Name" },
+    "balanced",
+  );
+  const wide = await matchParty(
+    ctx,
+    { kind: "person", given: "Common", family: "Name" },
+    "over_inclusive",
+  );
+
+  // Balanced is current-name-only across ALL evidence, the exact-name probe included: the former-name
+  // exact match must not surface the entity, and the additive path must not smuggle it back in.
+  expect(balanced.some((match) => match.entityId === renamed)).toBe(false);
+  // Over-inclusive searches every name role, so it surfaces the entity, flagged as an exact match.
+  const wideHit = wide.find((match) => match.entityId === renamed);
+  expect(wideHit?.evidence.exactNormalizedName).toBe(true);
+});
+
 test("a weak trigram-only match still appears at every strictness", async () => {
   const { ctx } = await conflictsTestContext("no-suppression");
   await createPerson(ctx.database, { given: "Bartholomew", family: "Cathermore" }, ctx);
