@@ -1,7 +1,7 @@
 ---
 slice: OCR Engine
 group: cross-cutting
-order: 22
+order: 25
 research: n/a
 spec: done
 plan: done

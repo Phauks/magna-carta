@@ -79,7 +79,7 @@ Parallel worktrees — multiple branches open at once — collide on `CHANGELOG.
 
 - **Status fragment** — `status.d/<slice-slug>.md`, one **persistent** file per slice. Flat frontmatter (stage tokens `research`…`tested`, plus `slice`, `group`, `order`, `branch`, `next`, `link-spec`/`link-plan`, `adrs`, `blocked-by`) and a one-line Notes body. Edit the slice's own fragment as it moves through the pipeline; never edit `STATUS.md` / `STATUS.json`. Format and stage-token grammar: [`status.d/README.md`](../../status.d/README.md).
 
-**On `main`, right after a merge, run the assemblers:**
+**On `main`, assembly is automatic:** the [`assemble-docs` workflow](../../.github/workflows/assemble-docs.yml) runs the assemblers on every push to `main` and commits the rendered outputs, so fragments fold the moment their merge lands. The same commands run by hand when needed:
 
 ```
 vp run decisions-build    # consumes docs/decisions/pending/*.md → docs/decisions/NNNN-<slug>.md; updates the register
@@ -89,13 +89,15 @@ vp run status-build       # renders status.d/* → STATUS.md + STATUS.json (frag
 
 Changelog and decision fragments are **consumed** (deleted) on assembly; the output (`docs/decisions/NNNN-<slug>.md`, the register in `Decision-Log.md`, the `[Unreleased]` entries in `CHANGELOG.md`) is committed to `main`. ADR numbers are assigned at merge in fragment-processing order — contiguous and stable, never renumbered. **Status fragments are the exception: they persist** (a slice's status keeps changing), so `status-build` re-renders `STATUS.md` + `STATUS.json` from the whole current set every run and never deletes a fragment. Validate the set anytime with `pnpm run lint:status`.
 
+The judgment-bearing residue — coverage-gap auditing, drafting missing fragments, the ROADMAP rollup — is owned by the weekly propose-only **docs-sync routine** ([`docs/maintenance/README.md`](../maintenance/README.md)), which also re-runs the assemblers as a backstop on its `docs-sync/<date>` branch — the one sanctioned case of a branch carrying rendered-output edits, safe because at most one docs-sync stream exists at a time and a human merge remains the gate.
+
 ## Changelog (Keep a Changelog)
 
-Root [`CHANGELOG.md`](../../CHANGELOG.md), categories Added / Changed / Deprecated / Removed / Fixed / Security. Entries are added via the fragment workflow above (`changelog.d/<slug>.md` fragments assembled by `vp run changelog-build`); the `[Unreleased]` section is a build output — do not edit it by hand on a branch. Release-time version-cutting is still to come (a future Phase-0 pick). The propose-only **docs-maintenance agent** (white paper, _Maintenance agents_; ADR-0058) may later draft fragments from merged PRs for approval.
+Root [`CHANGELOG.md`](../../CHANGELOG.md), categories Added / Changed / Deprecated / Removed / Fixed / Security. Entries are added via the fragment workflow above (`changelog.d/<slug>.md` fragments assembled by `vp run changelog-build`); the `[Unreleased]` section is a build output — do not edit it by hand on a branch. Release-time version-cutting is still to come (a future Phase-0 pick). The propose-only **docs-maintenance agent** (white paper, _Maintenance agents_; ADR-0058) is realized as the scheduled **docs-sync routine** ([`docs/maintenance/README.md`](../maintenance/README.md)), which drafts fragments from merged PRs for approval.
 
 ## Roadmap (living)
 
-Root [`ROADMAP.md`](../../ROADMAP.md) is the execution tracker (Now / Next / Recently shipped / Backlog), distinct from the white paper's stable phase strategy. Updated per PR; the propose-only **docs-maintenance agent** (_Maintenance agents_; ADR-0058) may later roll status up from the changelog.
+Root [`ROADMAP.md`](../../ROADMAP.md) is the execution tracker (Now / Next / Recently shipped / Backlog), distinct from the white paper's stable phase strategy. Updated per PR; the scheduled **docs-sync routine** ([`docs/maintenance/README.md`](../maintenance/README.md); ADR-0058) rolls shipped items up weekly as a backstop. The roadmap is slated to join the rendered fragment pipeline (`roadmap-build` + `roadmap.json`) — design in [`docs/specs/2026-07-14-docs-sync-routine-design.md`](../specs/2026-07-14-docs-sync-routine-design.md).
 
 ## Doc hygiene is enforced, not trusted
 
