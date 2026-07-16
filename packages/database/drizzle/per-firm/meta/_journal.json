@@ -57,6 +57,13 @@
       "when": 1783684800000,
       "tag": "20260710T120000_seed-tools-email-inspector",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1784062800000,
+      "tag": "20260714T210000_directory-email-normalized-address",
+      "breakpoints": true
     }
   ]
 }

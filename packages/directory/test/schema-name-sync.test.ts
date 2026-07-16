@@ -6,6 +6,7 @@ import {
   customFieldValue,
   directoryCategory,
   directoryEdge,
+  directoryEmail,
   directoryEntityCategory,
   directoryIdentifier,
   directoryName,
@@ -56,6 +57,9 @@ const TOUCHED_TABLES: readonly SQLiteTable[] = [
   entityMerge,
   matter,
   auditLog,
+  // Contact-email write path + reverse address->entity lookup (contact-email.ts) hand-writes SQL over
+  // directory_email, so its name and columns must track the schema here.
+  directoryEmail,
   // The merge engine repoints custom-field reference values (value_reference_id) and absorbs owned
   // values to history (target_row_id), and the fitness probe scans both — so this table's name and
   // columns are now hand-written in directory SQL and must track the schema.

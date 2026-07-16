@@ -72,7 +72,10 @@ jobs:
           git checkout -B docs-assembly
           git add -A
           git commit -m "docs: assemble fragments into the rendered trackers"
-          git push -f origin docs-assembly
+          # --no-verify: the setup action's `pnpm install` postinstall arms the repo's pre-push hook
+          # (core.hooksPath -> tooling/git-hooks), whose scoped quality gate cannot run in this
+          # assembly context (no WASM artefacts, etc.). The gate that matters runs on the assembly PR.
+          git push --no-verify -f origin docs-assembly
 
           # Ensure exactly one open assembly PR. Creating it fails hard rather than masking a green run:
           # if this fails with "GitHub Actions is not permitted to create or approve pull requests",
