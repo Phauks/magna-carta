@@ -1,0 +1,67 @@
+# Deterministic docs assembly — folds committed fragments into the rendered trackers on every push to
+# `main`, so `CHANGELOG.md`, the Decision-Log register + numbered ADR files, and `STATUS.md`/`STATUS.json`
+# are current the moment the merge that added their fragments lands. This owns the deterministic half of
+# docs maintenance; the judgment-bearing half (coverage audit, drafting, roadmap rollup) is the weekly
+# propose-only docs-sync routine — see docs/maintenance/README.md and
+# docs/specs/2026-07-14-docs-sync-routine-design.md.
+#
+# Delivery is an AUTO-MERGING PULL REQUEST from the `docs-assembly` branch, not a direct push: the main
+# ruleset requires the `gate` status on every commit, and a docs-only diff fast-paths through the gate
+# (format + governance only) in about a minute, so the PR merges itself hands-free while honoring the
+# ruleset. Because a PR created with the workflow's own token fires no `pull_request` events, the gate
+# is dispatched onto the branch explicitly (gate.yml carries `workflow_dispatch` for exactly this).
+#
+# Loop and race behavior: the auto-merged assembly commit contains no fragment files, so the run it
+# triggers exits without a PR. If another merge lands while an assembly PR waits on its gate, the next
+# run re-assembles from the newer main and force-pushes `docs-assembly` — the open PR simply updates to
+# the superset and the gate is re-dispatched. Serialized by the concurrency group.
+name: assemble-docs
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: assemble-docs
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+jobs:
+  assemble:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # The assemblers are dependency-free Node scripts (tooling/doc-fragments/) — no install step.
+      - name: Fold fragments into the rendered trackers
+        run: |
+          node tooling/doc-fragments/build-decisions.mjs
+          node tooling/doc-fragments/build-changelog.mjs
+          node tooling/doc-fragments/build-status.mjs
+
+      - name: Deliver as an auto-merging pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "nothing to assemble"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B docs-assembly
+          git add -A
+          git commit -m "docs: assemble fragments into the rendered trackers"
+          git push -f origin docs-assembly
+          gh pr create --base main --head docs-assembly \
+            --title "docs: assemble fragments into the rendered trackers" \
+            --body "Automated per-merge fragment assembly (see docs/maintenance/README.md). Deterministic transform of already-reviewed fragments; auto-merges when the gate passes." \
+            || echo "assembly PR already open; branch updated in place"
+          gh pr merge docs-assembly --auto --rebase --delete-branch \
+            || echo "WARNING: auto-merge could not be enabled (is 'Allow auto-merge' on in repo settings?); the assembly PR is open for manual merge"
+          gh workflow run gate.yml --ref docs-assembly \
+            || echo "WARNING: gate dispatch failed; re-run the gate on docs-assembly manually so the required check reports"

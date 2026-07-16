@@ -17,6 +17,10 @@ on:
     branches: [main]
   push:
     branches: [main]
+  # The assemble-docs workflow dispatches the gate onto its `docs-assembly` branch: a PR created with
+  # the workflow's own token fires no pull_request events, so the required `gate` status must be
+  # produced explicitly for auto-merge to complete.
+  workflow_dispatch:
 
 # One in-flight run per ref; a newer push cancels the older run.
 concurrency:
@@ -223,10 +227,11 @@ jobs:
       - uses: ./.github/actions/setup
       - name: Dependency audit (high+)
         run: pnpm audit --audit-level high
-      - name: Governance (process-refs + licenses)
+      - name: Governance (process-refs + licenses + status fragments)
         run: |
           pnpm run lint:process-refs
           pnpm run lint:licenses
+          pnpm run lint:status
       - name: Migration integrity (journal/chain/rebuild guards)
         run: pnpm --filter @magna-carta/database exec vp test run test/migration-integrity.test.ts
 

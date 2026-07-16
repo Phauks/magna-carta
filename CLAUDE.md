@@ -18,9 +18,11 @@ Documentation is **segmented and non-duplicative.** Every fact has one authorita
 | Local rules & gotchas for a code area                         | a `CLAUDE.md` beside that code ([template](docs/conventions/area-claude-template.md)) |
 | End-user & admin guides (per feature)                         | [`docs/user/`](docs/user/)                                                            |
 | Live execution status (now / next / shipped / backlog)        | [`ROADMAP.md`](ROADMAP.md)                                                            |
+| Feature ledger (capability inventory, per-node status)        | [`roadmap.d/`](roadmap.d/)                                                            |
 | Per-slice stage status (spec → plan → built → tested)         | [`STATUS.md`](STATUS.md)                                                              |
 | Concurrent work in flight (other worktrees/branches)          | [`docs/active-work/`](docs/active-work/) (+ `vp run worktrees`)                       |
 | Notable changes                                               | [`CHANGELOG.md`](CHANGELOG.md)                                                        |
+| Docs-sync routine & its run reports                           | [`docs/maintenance/`](docs/maintenance/)                                              |
 | Recurring & associated costs (subscriptions, usage, one-time) | [`docs/operating-costs.md`](docs/operating-costs.md)                                  |
 | Research (trust rules, competitive analysis)                  | [`docs/research/`](docs/research/)                                                    |
 
