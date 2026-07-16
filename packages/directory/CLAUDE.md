@@ -25,6 +25,7 @@
 - `src/categories.ts` — `defineCategoryLabel` / `assignCategory` / `listCategories`
 - `src/merge.ts` — `mergeEntities` (non-destructive, atomic batch, full repoint set, `entity_merge` event + `audit_log` row)
 - `src/party.ts` — `linkMatterParty` / `readMatterParties` / `createPartyRole` / `listPartyRoles`
+- `src/contact-email.ts` — `addEmail` / `updateEmail` / `removeEmail` / `readEmails` (temporal `directory_email` rows, at-most-one-primary enforced in the write path) + `findEntitiesByEmailAddress` (the address → entity reverse lookup: normalized match key, soft-delete-aware, resolves a merged-away owner to its surviving master)
 - `src/client-migration.ts` — idempotent 1·1 `client_display_name`/`client_code` → Directory entity + `matter_party` migration
 - `src/audit.ts` — `directoryAuditStatement` (shared write-options type, audit-row builder used by all write paths)
 - `src/run-directory-effect.ts` — `runDirectoryEffect` top-level executor (threads the idempotency context + crypto context + actor for routes)

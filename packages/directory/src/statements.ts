@@ -1,5 +1,6 @@
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type {
+  DirectoryEmailId,
   DirectoryNameId,
   DirectoryOrganizationId,
   DirectoryPersonId,
@@ -16,6 +17,7 @@ export const DIRECTORY_ORGANIZATION_TABLE = "directory_organization";
 export const DIRECTORY_NAME_TABLE = "directory_name";
 export const DIRECTORY_NAME_PHONETIC_CODE_TABLE = "directory_name_phonetic_code";
 export const DIRECTORY_IDENTIFIER_TABLE = "directory_identifier";
+export const DIRECTORY_EMAIL_TABLE = "directory_email";
 
 // The caller-supplied person status values; the table CHECK constrains the column to exactly these.
 export type PersonStatus = "active" | "merged_into";
@@ -78,6 +80,82 @@ export function insertMatterPartyStatement(
       `INSERT INTO ${MATTER_PARTY_TABLE} (id, matter_id, entity_id, role, valid_from, valid_to, created_at, updated_at, deleted_at) VALUES (?1, ?2, ?3, ?4, NULL, NULL, ?5, ?5, NULL)`,
     )
     .bind(row.id, row.matterId, row.entityId, row.role, row.createdAt);
+}
+
+// An email address attached to an entity. `address` is stored as entered (trimmed); `normalized`
+// is the lowercased match key the reverse address -> entity lookup queries. valid_from/valid_to are
+// NULL at creation. The one home for the directory_email INSERT so the column list never drifts.
+export interface InsertEmailRow {
+  readonly id: DirectoryEmailId;
+  readonly entityId: string;
+  readonly label: string | null;
+  readonly address: string;
+  readonly normalizedAddress: string;
+  readonly isPrimary: 0 | 1;
+  readonly createdAt: string;
+}
+
+export function insertEmailStatement(database: SqlDatabase, row: InsertEmailRow): SqlStatement {
+  return database
+    .prepare(
+      `INSERT INTO ${DIRECTORY_EMAIL_TABLE} (id, entity_id, label, address, normalized_address, is_primary, valid_from, valid_to, created_at, updated_at, deleted_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, NULL, NULL, ?7, ?7, NULL)`,
+    )
+    .bind(
+      row.id,
+      row.entityId,
+      row.label,
+      row.address,
+      row.normalizedAddress,
+      row.isPrimary,
+      row.createdAt,
+    );
+}
+
+// Demote every live primary email on an entity to non-primary. Composed ahead of an insert/update that
+// sets a new primary so the "at most one primary per entity" invariant holds in the same atomic batch.
+export function demoteEntityPrimaryEmailsStatement(
+  database: SqlDatabase,
+  entityId: string,
+  updatedAt: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${DIRECTORY_EMAIL_TABLE} SET is_primary = 0, updated_at = ?2 WHERE entity_id = ?1 AND is_primary = 1 AND deleted_at IS NULL`,
+    )
+    .bind(entityId, updatedAt);
+}
+
+// The mutable fields an updateEmail rewrites in full (no dynamic column list): label, the as-entered
+// address, its normalized key, and the primary flag. Name/lifecycle columns are never touched here.
+export interface UpdateEmailFields {
+  readonly label: string | null;
+  readonly address: string;
+  readonly normalizedAddress: string;
+  readonly isPrimary: 0 | 1;
+}
+
+export function updateEmailStatement(
+  database: SqlDatabase,
+  id: DirectoryEmailId,
+  fields: UpdateEmailFields,
+  updatedAt: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${DIRECTORY_EMAIL_TABLE} SET label = ?2, address = ?3, normalized_address = ?4, is_primary = ?5, updated_at = ?6 WHERE id = ?1`,
+    )
+    .bind(id, fields.label, fields.address, fields.normalizedAddress, fields.isPrimary, updatedAt);
+}
+
+// Soft-delete an email row (this system never hard-deletes). Sets deleted_at and touches updated_at.
+export function softDeleteEmailStatement(
+  database: SqlDatabase,
+  id: DirectoryEmailId,
+  deletedAt: string,
+): SqlStatement {
+  return database
+    .prepare(`UPDATE ${DIRECTORY_EMAIL_TABLE} SET deleted_at = ?2, updated_at = ?2 WHERE id = ?1`)
+    .bind(id, deletedAt);
 }
 
 // A name row attached to an entity. entity_kind is a parameter so the organization service reuses
