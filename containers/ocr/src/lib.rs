@@ -251,10 +251,82 @@ fn recognize_pdf(state: &AppState, bytes: &[u8], force: bool) -> Result<Vec<Page
     Ok(pages)
 }
 
+/// Adapt recognized page facts into the searchable-writer's per-page text runs. Where a
+/// line's whitespace-split word count matches its per-word boxes, each word is placed at
+/// its own box, giving word-level selection; otherwise the whole line is placed at the
+/// line box (still searchable, only coarser to select). A skipped page already carries
+/// text and contributes nothing, and an empty line places nothing.
+fn to_text_layers(pages: &[PageFacts]) -> Vec<pdf_core::PageTextLayer> {
+    let mut layers = Vec::new();
+    for page in pages {
+        if page.skipped.is_some() {
+            continue;
+        }
+        let mut runs = Vec::new();
+        for line in &page.lines {
+            let words: Vec<&str> = line.text.split_whitespace().collect();
+            if !words.is_empty() && words.len() == line.word_quads.len() {
+                for (word, quad) in words.iter().zip(&line.word_quads) {
+                    runs.push(pdf_core::TextRun {
+                        text: (*word).to_string(),
+                        quad: quad.points,
+                    });
+                }
+            } else if !line.text.trim().is_empty() {
+                runs.push(pdf_core::TextRun {
+                    text: line.text.clone(),
+                    quad: line.quad.points,
+                });
+            }
+        }
+        if !runs.is_empty() {
+            layers.push(pdf_core::PageTextLayer {
+                page_index: page.page_index,
+                runs,
+            });
+        }
+    }
+    layers
+}
+
+/// Recognize a PDF and return it with an invisible text layer written over every scanned
+/// page: an image-only file goes in, a selectable, searchable PDF comes out. PDF only --
+/// a bare image has no page to write onto, so it is refused rather than silently returned
+/// unchanged.
+async fn ocr_searchable(State(state): State<AppState>, body: Bytes) -> Response {
+    if body.is_empty() {
+        return error(StatusCode::UNPROCESSABLE_ENTITY, "empty-body");
+    }
+    if !body.starts_with(b"%PDF") {
+        return error(StatusCode::UNPROCESSABLE_ENTITY, "not-a-pdf");
+    }
+    let pages = match recognize_pdf(&state, &body, false) {
+        Ok(pages) => pages,
+        Err(OcrError::InferenceFailed) => {
+            return error(StatusCode::SERVICE_UNAVAILABLE, "inference-failed")
+        }
+        Err(other) => return error(StatusCode::UNPROCESSABLE_ENTITY, other.code()),
+    };
+    // The layer is deterministic given the recognized text, so a failure to write it will
+    // recur on retry -- it is the caller's document, not a transient engine fault.
+    match pdf_core::write_searchable_text_layer(body.to_vec(), &to_text_layers(&pages)) {
+        Ok(bytes) => (
+            StatusCode::OK,
+            [(axum::http::header::CONTENT_TYPE, "application/pdf")],
+            bytes,
+        )
+            .into_response(),
+        Err(_) => error(StatusCode::UNPROCESSABLE_ENTITY, "searchable-write-failed"),
+    }
+}
+
 /// The engine's work routes. Compose with `engine_host::host::ready_app` and
 /// `with_panic_net` for the full container service.
 pub fn router(state: AppState) -> Router {
-    Router::new().route("/ocr", post(ocr)).with_state(state)
+    Router::new()
+        .route("/ocr", post(ocr))
+        .route("/ocr/searchable", post(ocr_searchable))
+        .with_state(state)
 }
 
 #[cfg(test)]
@@ -330,6 +402,109 @@ mod tests {
             .unwrap();
         let status = response.status();
         (status, response.json().await.unwrap())
+    }
+
+    async fn post_raw(base: &str, path: &str, body: Vec<u8>) -> (reqwest::StatusCode, Vec<u8>) {
+        let response = reqwest::Client::new()
+            .post(format!("{base}{path}"))
+            .body(body)
+            .send()
+            .await
+            .unwrap();
+        let status = response.status();
+        (status, response.bytes().await.unwrap().to_vec())
+    }
+
+    fn quad(points: [(f32, f32); 4]) -> Quad {
+        Quad { points }
+    }
+
+    #[test]
+    fn to_text_layers_splits_words_to_boxes_and_drops_skipped_pages() {
+        let box_for = |n: f32| quad([(n, 0.0), (n + 10.0, 0.0), (n + 10.0, 10.0), (n, 10.0)]);
+        let pages = vec![
+            // A recognized page: "one two" with two word boxes -> a run per word.
+            PageFacts {
+                page_index: 0,
+                lines: vec![TextLine {
+                    text: "one two".to_string(),
+                    confidence: 0.9,
+                    quad: box_for(0.0),
+                    orientation_degrees: None,
+                    word_quads: vec![box_for(0.0), box_for(20.0)],
+                }],
+                undecoded_regions: 0,
+                skipped: None,
+                orientation_degrees: None,
+            },
+            // An already-texted page contributes nothing to the layer.
+            PageFacts {
+                page_index: 1,
+                lines: Vec::new(),
+                undecoded_regions: 0,
+                skipped: Some(SkipReason::AlreadyHasTextLayer),
+                orientation_degrees: None,
+            },
+        ];
+        let layers = to_text_layers(&pages);
+        assert_eq!(layers.len(), 1, "the skipped page must not get a layer");
+        assert_eq!(layers[0].page_index, 0);
+        let texts: Vec<&str> = layers[0].runs.iter().map(|r| r.text.as_str()).collect();
+        assert_eq!(texts, vec!["one", "two"], "each word placed at its own box");
+    }
+
+    #[test]
+    fn to_text_layers_falls_back_to_the_line_box_when_word_boxes_do_not_match() {
+        // Text with no matching per-word boxes (e.g. CJK with no spaces, or missing word
+        // boxes) is placed as the whole line rather than dropped.
+        let line_box = quad([(0.0, 0.0), (100.0, 0.0), (100.0, 10.0), (0.0, 10.0)]);
+        let pages = vec![PageFacts {
+            page_index: 0,
+            lines: vec![TextLine {
+                text: "中文档案".to_string(),
+                confidence: 0.9,
+                quad: line_box,
+                orientation_degrees: None,
+                word_quads: Vec::new(),
+            }],
+            undecoded_regions: 0,
+            skipped: None,
+            orientation_degrees: None,
+        }];
+        let layers = to_text_layers(&pages);
+        assert_eq!(layers[0].runs.len(), 1);
+        assert_eq!(layers[0].runs[0].text, "中文档案");
+        assert_eq!(layers[0].runs[0].quad, line_box.points);
+    }
+
+    #[tokio::test]
+    async fn a_scanned_pdf_comes_back_as_a_searchable_pdf() {
+        let base = spawn(false).await;
+        let (status, bytes) = post_raw(&base, "/ocr/searchable", scanned_pdf(None)).await;
+        assert_eq!(status, reqwest::StatusCode::OK);
+        // The returned PDF carries the recognized text as an invisible, extractable layer.
+        let document = pdf_core::Document::load(bytes).expect("output is a valid pdf");
+        let extracted: String = document
+            .page_text_glyphs(0)
+            .unwrap()
+            .iter()
+            .map(|glyph| glyph.text.as_str())
+            .collect();
+        assert!(
+            extracted.contains("INVOICE"),
+            "expected the scan to become searchable, got {extracted:?}"
+        );
+        // ...and adds nothing a human eye can see: the page still reads as a scan.
+        assert!(document.page_visible_text_coverage(0).unwrap() < 0.01);
+    }
+
+    #[tokio::test]
+    async fn searchable_refuses_a_bare_image() {
+        let base = spawn(false).await;
+        // A bare image has no page to write onto, so it is refused rather than returned
+        // unchanged -- the caller asked for a searchable PDF and did not send a PDF.
+        let (status, _) = post_raw(&base, "/ocr/searchable", png_bytes()).await;
+        assert_eq!(status, reqwest::StatusCode::UNPROCESSABLE_ENTITY);
     }
 
     #[tokio::test]
