@@ -409,7 +409,9 @@ describe("E2E: typed failure — engine-not-implemented ends the job failed", ()
 
     // Drain with a fake port returning engineNotImplemented — a typed, terminal failure.
     const { batch, acks, retries } = makeBatch(queueMessage);
-    await conversionQueue(batch, env, () => () => ({ convert: async () => engineNotImplemented() }));
+    await conversionQueue(batch, env, () => () => ({
+      convert: async () => engineNotImplemented(),
+    }));
 
     // Typed failures are terminal (acked, not retried).
     expect(acks).toEqual(["msg-e2e"]);
