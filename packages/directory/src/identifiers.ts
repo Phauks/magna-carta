@@ -200,7 +200,10 @@ export async function findEntitiesSharingIdentifiers(
   database: SqlDatabase,
   subjectEntityId: string,
 ): Promise<Array<{ entityId: string; identifierType: string }>> {
-  const { results } = await selectEntitiesSharingBlindIndexStatement(database, subjectEntityId).all<{
+  const { results } = await selectEntitiesSharingBlindIndexStatement(
+    database,
+    subjectEntityId,
+  ).all<{
     entity_id: string;
     identifier_type: string;
   }>();

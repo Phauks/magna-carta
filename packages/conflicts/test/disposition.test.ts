@@ -96,7 +96,10 @@ test("same-millisecond dispositions resolve to the genuinely-latest by insertion
     `INSERT INTO conflicts_disposition (id, hit_id, kind, rationale, reviewer_user_id, created_at) VALUES ('conflictsDisposition_aaaaaaaaaaaaaaaaaaaaa', 'conflictsHit_tie', 'representation_declined', 'on review, adverse', '${ACTOR}', '${sameInstant}')`,
   );
 
-  const current = await readCurrentDisposition(database as unknown as BatchDatabase, "conflictsHit_tie");
+  const current = await readCurrentDisposition(
+    database as unknown as BatchDatabase,
+    "conflictsHit_tie",
+  );
   expect(current?.kind).toBe("representation_declined");
 });
 

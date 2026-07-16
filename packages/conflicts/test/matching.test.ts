@@ -111,7 +111,12 @@ test("the exact-name probe respects strictness: a former-name exact match is bal
   const { ctx } = await conflictsTestContext("exact-name-scope");
   // The entity's CURRENT name shares nothing with the query; only its FORMER name is an exact match.
   const renamed = await createPerson(ctx.database, { given: "Zeta", family: "Quorum" }, ctx);
-  await addName(ctx.database, renamed, { given: "Common", family: "Name", nameRole: "former" }, ctx);
+  await addName(
+    ctx.database,
+    renamed,
+    { given: "Common", family: "Name", nameRole: "former" },
+    ctx,
+  );
 
   const balanced = await matchParty(
     ctx,

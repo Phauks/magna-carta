@@ -164,11 +164,7 @@ test("a node reachable by a 0-hop corporate chain expands its onward edges even 
   const a = await createOrganization(database, { legalName: "Chain Co" }, options);
   const x = await createOrganization(database, { legalName: "Shared Co" }, options);
   const y = await createOrganization(database, { legalName: "Downstream Co" }, options);
-  const edge = (
-    from: string,
-    to: string,
-    edgeType: "representation" | "corporate_subsidiary",
-  ) =>
+  const edge = (from: string, to: string, edgeType: "representation" | "corporate_subsidiary") =>
     createEdge(
       database,
       {

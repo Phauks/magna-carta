@@ -231,7 +231,10 @@ export function conflictsHotPathPlans(snapshot: LoadedSnapshot): LabeledPlan[] {
     },
     { label: "conflicts.exact-name-probe", statement: exactNamePlanStatement(snapshot) },
     { label: "conflicts.hits-by-check", statement: hitsByCheckPlanStatement(snapshot) },
-    { label: "conflicts.disposition-current", statement: dispositionCurrentPlanStatement(snapshot) },
+    {
+      label: "conflicts.disposition-current",
+      statement: dispositionCurrentPlanStatement(snapshot),
+    },
   ];
   return statements.map(({ label, statement }) => ({
     label,

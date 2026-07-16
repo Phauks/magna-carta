@@ -220,7 +220,11 @@ test("no plaintext identifier value reaches the log", async () => {
 test("a shared SSN surfaces a tier-1 hit even when the names do not match", async () => {
   const { ctx, options } = await conflictsTestContext("shared-ssn");
   // Two entities the fuzzy channels can never connect: a legal name change with no shared aliases.
-  const subject = await createPerson(ctx.database, { given: "Robert", family: "Zimmerman" }, options);
+  const subject = await createPerson(
+    ctx.database,
+    { given: "Robert", family: "Zimmerman" },
+    options,
+  );
   const twin = await createPerson(ctx.database, { given: "Bob", family: "Dylan" }, options);
   await addIdentifier(ctx, subject, { type: "ssn", value: "123-45-6789" });
   // The same SSN entered with different formatting — the frozen normalize makes the blind index equal.

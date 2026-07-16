@@ -68,9 +68,7 @@ export function resolveScope(policy: ConflictsPolicy, request: ScopeRequest): Re
   // included) is honored. Defaulting is not a floor-raise — the caller asked for nothing narrower —
   // so it never sets floorRaised.
   const depth =
-    request.depth === undefined
-      ? Math.max(0, policy.defaultDepth)
-      : Math.max(0, request.depth);
+    request.depth === undefined ? Math.max(0, policy.defaultDepth) : Math.max(0, request.depth);
 
   return {
     sources: orderSources(requested),
