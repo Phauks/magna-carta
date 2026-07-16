@@ -15,7 +15,7 @@
 - **Encryption:** use the DAL `protected()` field type; the envelope-key model; blind-index matching; never hand-roll crypto or store plaintext secrets in core.
 - **Secrets:** per-firm plugin credentials via `getSecret`/`putSecret`; plugins never see key material.
 - **Telemetry redaction:** allowlist fields; Error IDs and breadcrumbs, never content.
-- **Payments/PCI:** card capture through the processor's **hosted payment modal** (iframe) only — the app never sees or stores a PAN (never a CVV); keep the firm at **SAQ A** (`ADR-pci-saq-a-hosted-payment-modal`); the payment surface stays free of third-party scripts (PCI v4.0.1); fees-never-touch-trust routing.
+- **Payments/PCI:** card capture through the processor's **hosted payment modal** (iframe) only — the app never sees or stores a PAN (never a CVV); keep the firm at **SAQ A** (`ADR-0181`); the payment surface stays free of third-party scripts (PCI v4.0.1); fees-never-touch-trust routing.
 - Auth hardening: Argon2id, rate limiting, lockout, the immutable auth audit log.
 
 > Firm-scoping and redact-by-default logging are **golden rules** (root [`CLAUDE.md`](../../CLAUDE.md)); `protected()`, secrets-isolation, and the trust/fee rules are **domain invariants** ([`invariants.md`](invariants.md)).
