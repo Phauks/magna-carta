@@ -4196,8 +4196,9 @@
             "type": "array",
             "items": {
               "type": "string",
-              "pattern": "^(directoryPerson|directoryOrganization)_[A-Za-z0-9_-]+$"
-            }
+              "pattern": "^(directoryPerson|directoryOrganization)_[A-Za-z0-9_-]{1,64}$"
+            },
+            "maxItems": 200
           },
           "scope": {
             "$ref": "#/components/schemas/ConflictsScopeRequest"
@@ -4222,7 +4223,8 @@
                 "imputation",
                 "content"
               ]
-            }
+            },
+            "maxItems": 4
           },
           "strictness": {
             "type": "string",
@@ -4233,7 +4235,8 @@
           },
           "depth": {
             "type": "integer",
-            "minimum": 0
+            "minimum": 0,
+            "maximum": 6
           }
         },
         "required": [

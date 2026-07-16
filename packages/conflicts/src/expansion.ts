@@ -23,19 +23,28 @@ export async function expandGraph(
   seedEntityIds: readonly string[],
   depth: number,
 ): Promise<ExpandedEntity[]> {
-  const visited = new Map<string, readonly EdgeStep[]>();
-  // Breadth-first so the first path found to an entity is a shortest one.
-  const queue: Array<{ entityId: string; path: readonly EdgeStep[]; hops: number }> = [];
+  // 0-1 BFS. A corporate edge costs 0 hops (traversed transitively, budget-free — a rename/merger/
+  // successor must always match); every other edge costs 1 and obeys `depth`. A plain FIFO queue fixes
+  // a node's hop count on first discovery by fewest-EDGES, which is NOT the fewest-HOPS when a longer
+  // all-corporate path is cheaper — so a node reached first by a 1-hop direct edge would have its onward
+  // edges pruned at the boundary even though a 0-hop corporate chain also reaches it, silently dropping
+  // a legitimate conflict. A double-ended queue (corporate neighbours pushed to the FRONT, others to the
+  // BACK) plus hop relaxation makes the recorded hops the true minimum before a node is expanded.
+  const best = new Map<string, { hops: number; path: readonly EdgeStep[] }>();
+  const deque: Array<{ entityId: string; path: readonly EdgeStep[]; hops: number }> = [];
 
   for (const seedEntityId of seedEntityIds) {
-    if (visited.has(seedEntityId)) continue;
-    visited.set(seedEntityId, []);
-    queue.push({ entityId: seedEntityId, path: [], hops: 0 });
+    if (best.has(seedEntityId)) continue;
+    best.set(seedEntityId, { hops: 0, path: [] });
+    deque.push({ entityId: seedEntityId, path: [], hops: 0 });
   }
 
-  while (queue.length > 0) {
-    const current = queue.shift();
+  while (deque.length > 0) {
+    const current = deque.shift();
     if (current === undefined) break;
+    // Skip a stale deque entry a cheaper relaxation has already superseded.
+    const known = best.get(current.entityId);
+    if (known === undefined || current.hops > known.hops) continue;
 
     const edges = await readEdges(database, current.entityId as never);
     // Sort so traversal order does not depend on the database's row order.
@@ -48,7 +57,11 @@ export async function expandGraph(
 
       const neighbourId =
         edge.fromEntityId === current.entityId ? edge.toEntityId : edge.fromEntityId;
-      if (visited.has(neighbourId)) continue;
+      const nextHops = isCorporate ? current.hops : current.hops + 1;
+      const existing = best.get(neighbourId);
+      // Relax only on a strictly cheaper path; equal-hop ties keep the first (edge-id-ordered) path so
+      // the recorded explanation stays deterministic.
+      if (existing !== undefined && nextHops >= existing.hops) continue;
 
       const step: EdgeStep = {
         edgeId: edge.id,
@@ -57,17 +70,16 @@ export async function expandGraph(
         toEntityId: edge.toEntityId,
       };
       const path = [...current.path, step];
-      visited.set(neighbourId, path);
-      // A corporate hop does not consume the depth budget; every other hop does.
-      queue.push({
-        entityId: neighbourId,
-        path,
-        hops: isCorporate ? current.hops : current.hops + 1,
-      });
+      best.set(neighbourId, { hops: nextHops, path });
+      // A 0-cost corporate hop goes to the front (processed before any 1-cost hop already queued); a
+      // 1-cost hop goes to the back — the 0-1 BFS invariant that keeps `hops` monotonic at pop time.
+      const entry = { entityId: neighbourId, path, hops: nextHops };
+      if (isCorporate) deque.unshift(entry);
+      else deque.push(entry);
     }
   }
 
-  return [...visited.entries()]
-    .map(([entityId, path]) => ({ entityId, path }))
+  return [...best.entries()]
+    .map(([entityId, { path }]) => ({ entityId, path }))
     .sort((a, b) => a.path.length - b.path.length || a.entityId.localeCompare(b.entityId));
 }

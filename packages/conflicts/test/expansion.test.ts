@@ -152,6 +152,47 @@ test("a cycle terminates and records the first path found", async () => {
   expect(expanded.map((entity) => entity.entityId).sort()).toEqual([a, b].sort());
 });
 
+test("a node reachable by a 0-hop corporate chain expands its onward edges even when a direct edge also reaches it", async () => {
+  // The 0-1 BFS regression: S reaches X two ways — directly (1 non-corporate hop) and through a
+  // corporate chain S->A->X (0 hops, budget-free). A plain FIFO would fix X at hops 1 on the direct
+  // discovery and then prune X's onward non-corporate edge to Y at the depth-1 boundary, silently
+  // dropping a real conflict at Y. With hop relaxation, X is recorded at its true 0 hops, so X->Y is
+  // one hop within budget and Y must surface.
+  const database = await graphDatabase();
+  const options = writeOptions("zero-one-bfs");
+  const s = await createOrganization(database, { legalName: "Seed Co" }, options);
+  const a = await createOrganization(database, { legalName: "Chain Co" }, options);
+  const x = await createOrganization(database, { legalName: "Shared Co" }, options);
+  const y = await createOrganization(database, { legalName: "Downstream Co" }, options);
+  const edge = (
+    from: string,
+    to: string,
+    edgeType: "representation" | "corporate_subsidiary",
+  ) =>
+    createEdge(
+      database,
+      {
+        from: from as never,
+        to: to as never,
+        edgeType,
+        role: null,
+        note: null,
+        validFrom: null,
+        validTo: null,
+      },
+      options,
+    );
+  await edge(s, x, "representation"); // direct: 1 non-corporate hop
+  await edge(s, a, "corporate_subsidiary"); // 0 hops
+  await edge(a, x, "corporate_subsidiary"); // 0 hops — X is reachable at hops 0
+  await edge(x, y, "representation"); // X's onward edge — must be walked within the depth-1 budget
+
+  const expanded = await expandGraph(database, [s], 1);
+  const ids = expanded.map((entity) => entity.entityId);
+  expect(ids).toContain(x);
+  expect(ids).toContain(y);
+});
+
 test("expansion is deterministic across runs", async () => {
   const database = await graphDatabase();
   const options = writeOptions("determinism");

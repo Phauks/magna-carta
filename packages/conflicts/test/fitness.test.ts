@@ -12,6 +12,7 @@ import {
   findOrphanDispositions,
   findOrphanHits,
   findPlaintextIdentifiersInChecks,
+  findPlaintextIdentifiersInHits,
 } from "../src/fitness.ts";
 
 // Fitness function: the log-wide conflicts invariant audit. assertConflictsFitness sweeps the corpus
@@ -147,6 +148,31 @@ test("flags a check whose inputs_json contains a nine-digit run", async () => {
   expect(leaked).toEqual([{ checkId: leakedCheckId }]);
   await expect(assertConflictsFitness(database)).rejects.toThrow(ConflictsFitnessError);
   await expect(assertConflictsFitness(database)).rejects.toThrow(new RegExp(leakedCheckId));
+});
+
+test("flags a check whose inputs_json contains a FORMATTED identifier a bare digit run would miss", async () => {
+  const { database, raw, randomSource } = await seededHarness("plaintext-formatted");
+  seedSoundLog(raw, randomSource);
+  const leakedCheckId = newIdentifier("conflictsCheck", randomSource);
+  // A dash-separated SSN: its longest consecutive-digit run is four, so the old `\d{9}` missed it.
+  raw.exec(
+    `INSERT INTO conflicts_check (id, trigger, subject_matter_id, subject_parties_json, scope_json, strictness, depth, inputs_json, floor_raised, actor_user_id, created_at) VALUES ('${leakedCheckId}', 'comprehensive', NULL, '[]', '{}', 'balanced', 1, '{"leaked":"123-45-6789"}', 0, NULL, '${CLOCK_NOW}')`,
+  );
+
+  expect(await findPlaintextIdentifiersInChecks(database)).toEqual([{ checkId: leakedCheckId }]);
+  await expect(assertConflictsFitness(database)).rejects.toThrow(new RegExp(leakedCheckId));
+});
+
+test("flags a hit whose evidence JSON carries a plaintext identifier", async () => {
+  const { database, raw, randomSource } = await seededHarness("plaintext-hit");
+  const { checkId } = seedSoundLog(raw, randomSource);
+  const leakedHitId = newIdentifier("conflictsHit", randomSource);
+  raw.exec(
+    `INSERT INTO conflicts_hit (id, check_id, entity_id, source_class, evidence_tier, matched_fields_json, graph_path_json, created_at) VALUES ('${leakedHitId}', '${checkId}', 'directoryPerson_mno', 'party', 1, '["exact identifier match: 123-45-6789"]', '[]', '${CLOCK_NOW}')`,
+  );
+
+  expect(await findPlaintextIdentifiersInHits(database)).toEqual([{ hitId: leakedHitId }]);
+  await expect(assertConflictsFitness(database)).rejects.toThrow(new RegExp(leakedHitId));
 });
 
 test("passes when every hit's tier is 1-4 and graph_path_json is an array", async () => {

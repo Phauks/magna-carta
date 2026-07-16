@@ -57,15 +57,28 @@ async function readSubjectFacts(
         kind: "person",
         given: person.given ?? undefined,
         family: person.family ?? undefined,
+        // The full rendered name so the tier-2 exact-name probe compares against the corpus's stored
+        // normalized_display — given + family alone mis-tiers any party with a middle name or suffix.
+        displayName: person.displayName ?? undefined,
         // Carries the subject's id so matchParty can fire the exact-identifier (tier 1) channel over
         // its sealed identifiers by blind-index equality — a name-mismatched SSN twin is caught here.
         entityId,
       };
     }
     const organization = await readOrganization(context.database, entityId as never);
-    return { kind: "organization", legalName: organization.legalName ?? undefined, entityId };
-  } catch {
-    return null;
+    return {
+      kind: "organization",
+      legalName: organization.legalName ?? undefined,
+      displayName: organization.displayName ?? undefined,
+      entityId,
+    };
+  } catch (error) {
+    // A genuinely-absent row (an unknown id, or the hard-delete the directory never performs) is the
+    // only skippable case. Any other failure — a transient database error — must fail the whole check
+    // loudly: silently dropping a seed while the log still records the source as "searched" would turn
+    // an infrastructure error into a false "no conflict", the exact miss this engine exists to prevent.
+    if (error instanceof Error && error.message.includes("not found")) return null;
+    throw error;
   }
 }
 

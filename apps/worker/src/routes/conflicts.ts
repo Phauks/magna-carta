@@ -117,8 +117,17 @@ async function readHitRows(database: SqlDatabase, checkId: string): Promise<HitR
 
 // An entity id supplied as a check subject: a person or organization handle. The domain layer skips
 // (never errors on) a reference that fails to resolve to a live row, but the API still constrains the
-// shape at the door.
-const directoryEntityIdPattern = /^(directoryPerson|directoryOrganization)_[A-Za-z0-9_-]+$/;
+// shape at the door. The token length is bounded so an arbitrarily long handle can never feed the
+// per-seed fan-out or the bound-parameter list below.
+const directoryEntityIdPattern = /^(directoryPerson|directoryOrganization)_[A-Za-z0-9_-]{1,64}$/;
+
+// Upper bounds that keep one request's work bounded — a conflicts check runs per-seed graph expansion
+// and matching in the request handler, so an unbounded subject set or depth is a caller-triggered
+// fan-out (and, for the subject set, a bound-parameter overflow in the identifier-reference read). A
+// real matter's party set and a real search depth sit far below these, so the caps refuse abuse at the
+// door with a 422 rather than a 500 or a stalled worker.
+const MAX_SUBJECT_ENTITIES = 200;
+const MAX_GRAPH_DEPTH = 6;
 
 const checkIdParam = z.object({
   checkId: identifierPathParam("conflictsCheck", "checkId"),
@@ -130,11 +139,12 @@ const hitIdParam = z.object({
 
 const ScopeRequest = z
   .object({
-    sources: z.array(z.enum(SOURCE_CLASSES)),
+    sources: z.array(z.enum(SOURCE_CLASSES)).max(SOURCE_CLASSES.length),
     strictness: z.enum(STRICTNESS_LEVELS),
     // Optional: omitted means the firm's configured default depth is applied; an explicit value
-    // (0 included) is honored as given. The resolved depth is always recorded on the check.
-    depth: z.number().int().min(0).optional(),
+    // (0 included) is honored as given, capped so no single request can walk an unbounded traversal.
+    // The resolved depth is always recorded on the check.
+    depth: z.number().int().min(0).max(MAX_GRAPH_DEPTH).optional(),
   })
   .openapi("ConflictsScopeRequest");
 
@@ -142,7 +152,7 @@ const CreateCheckRequest = z
   .object({
     trigger: z.enum(CONFLICTS_TRIGGERS),
     matterId: identifierField("matter").optional(),
-    subjectEntityIds: z.array(z.string().regex(directoryEntityIdPattern)),
+    subjectEntityIds: z.array(z.string().regex(directoryEntityIdPattern)).max(MAX_SUBJECT_ENTITIES),
     scope: ScopeRequest,
   })
   .openapi("CreateConflictsCheckRequest");

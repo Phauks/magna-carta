@@ -67,3 +67,21 @@ END;
 CREATE TRIGGER `conflicts_disposition_no_delete` BEFORE DELETE ON `conflicts_disposition` BEGIN
   SELECT RAISE(ABORT, 'conflicts_disposition is append-only');
 END;
+--> statement-breakpoint
+-- REPLACE / INSERT OR REPLACE deletes-then-reinserts on a primary-key collision WITHOUT firing the
+-- BEFORE DELETE or BEFORE UPDATE triggers (SQLite runs recursive_triggers OFF by default), so it would
+-- silently overwrite an audit row that a plain UPDATE cannot touch. A BEFORE INSERT guard that aborts
+-- when the id already exists DOES fire on the insert half of a REPLACE — closing the one remaining path
+-- that could mutate an append-only row in place. Normal inserts carry fresh random ids, so the guard's
+-- primary-key existence check never matches on the happy path.
+CREATE TRIGGER `conflicts_check_no_replace` BEFORE INSERT ON `conflicts_check` WHEN EXISTS (SELECT 1 FROM `conflicts_check` WHERE `id` = NEW.`id`) BEGIN
+  SELECT RAISE(ABORT, 'conflicts_check is append-only');
+END;
+--> statement-breakpoint
+CREATE TRIGGER `conflicts_hit_no_replace` BEFORE INSERT ON `conflicts_hit` WHEN EXISTS (SELECT 1 FROM `conflicts_hit` WHERE `id` = NEW.`id`) BEGIN
+  SELECT RAISE(ABORT, 'conflicts_hit is append-only');
+END;
+--> statement-breakpoint
+CREATE TRIGGER `conflicts_disposition_no_replace` BEFORE INSERT ON `conflicts_disposition` WHEN EXISTS (SELECT 1 FROM `conflicts_disposition` WHERE `id` = NEW.`id`) BEGIN
+  SELECT RAISE(ABORT, 'conflicts_disposition is append-only');
+END;

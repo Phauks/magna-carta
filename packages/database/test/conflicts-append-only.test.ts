@@ -39,6 +39,47 @@ test("conflicts_hit and conflicts_disposition reject UPDATE and DELETE", () => {
   expect(() => raw.exec(`DELETE FROM conflicts_disposition`)).toThrow(/append-only/);
 });
 
+test("conflicts_check rejects INSERT OR REPLACE on an existing id", () => {
+  // REPLACE deletes-then-reinserts on a primary-key collision WITHOUT firing BEFORE DELETE/UPDATE
+  // (SQLite recursive_triggers is OFF by default), so without the BEFORE INSERT ... WHEN EXISTS guard
+  // it would silently overwrite an audit row a plain UPDATE cannot touch.
+  const { raw } = createMigratedNodeDatabase("per-firm");
+  raw.exec(INSERT_CHECK);
+  expect(() =>
+    raw.exec(`INSERT OR REPLACE INTO conflicts_check
+      (id, trigger, subject_matter_id, subject_parties_json, scope_json, strictness, depth, inputs_json, floor_raised, actor_user_id, created_at)
+      VALUES ('conflictsCheck_1', 'preliminary', NULL, '[]', '{}', 'over_inclusive', 42, '{}', 0, NULL, '2026-07-09T00:00:00.000Z')`),
+  ).toThrow(/append-only/);
+  // The original row is untouched.
+  const row = raw
+    .prepare(`SELECT trigger, depth FROM conflicts_check WHERE id = 'conflictsCheck_1'`)
+    .get() as { trigger: string; depth: number };
+  expect(row.trigger).toBe("comprehensive");
+  expect(row.depth).toBe(1);
+});
+
+test("conflicts_hit and conflicts_disposition reject INSERT OR REPLACE on an existing id", () => {
+  const { raw } = createMigratedNodeDatabase("per-firm");
+  raw.exec(INSERT_CHECK);
+  raw.exec(`INSERT INTO conflicts_hit
+    (id, check_id, entity_id, source_class, evidence_tier, matched_fields_json, graph_path_json, created_at)
+    VALUES ('conflictsHit_1', 'conflictsCheck_1', 'directoryPerson_1', 'party', 1, '{}', '[]', '2026-07-09T00:00:00.000Z')`);
+  raw.exec(`INSERT INTO conflicts_disposition
+    (id, hit_id, kind, rationale, reviewer_user_id, created_at)
+    VALUES ('conflictsDisposition_1', 'conflictsHit_1', 'cleared', 'unrelated party', 'user_1', '2026-07-09T00:00:00.000Z')`);
+
+  expect(() =>
+    raw.exec(`INSERT OR REPLACE INTO conflicts_hit
+      (id, check_id, entity_id, source_class, evidence_tier, matched_fields_json, graph_path_json, created_at)
+      VALUES ('conflictsHit_1', 'conflictsCheck_1', 'directoryPerson_2', 'graph', 4, '{}', '[]', '2026-07-09T00:00:00.000Z')`),
+  ).toThrow(/append-only/);
+  expect(() =>
+    raw.exec(`INSERT OR REPLACE INTO conflicts_disposition
+      (id, hit_id, kind, rationale, reviewer_user_id, created_at)
+      VALUES ('conflictsDisposition_1', 'conflictsHit_1', 'waiver_obtained', 'changed', 'user_2', '2026-07-09T02:00:00.000Z')`),
+  ).toThrow(/append-only/);
+});
+
 test("a reversal is a second disposition row, not an update", () => {
   const { raw } = createMigratedNodeDatabase("per-firm");
   raw.exec(INSERT_CHECK);

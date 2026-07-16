@@ -75,6 +75,31 @@ test("a reversal appends a second row and becomes the current disposition", asyn
   expect(results[0].count).toBe(2); // the cleared row survives — the audit trail is the point
 });
 
+test("same-millisecond dispositions resolve to the genuinely-latest by insertion order, not by id", async () => {
+  // Two dispositions on one hit sharing a created_at (a reviewer reversing within the same millisecond,
+  // or two reviewers racing). The FIRST-inserted carries a lexically-HIGHER id than the second, so an
+  // `id DESC` tie-break would surface the stale first row — reporting a reversed conflict as still
+  // cleared. `rowid DESC` returns the genuinely-latest (second) row regardless of id.
+  const { database, raw } = createMigratedNodeDatabase("per-firm");
+  const sameInstant = "2026-07-09T00:00:00.000Z";
+  raw.exec(
+    `INSERT INTO conflicts_check (id, trigger, subject_matter_id, subject_parties_json, scope_json, strictness, depth, inputs_json, floor_raised, actor_user_id, created_at) VALUES ('conflictsCheck_tie', 'comprehensive', NULL, '[]', '{}', 'balanced', 1, '{}', 0, NULL, '${sameInstant}')`,
+  );
+  raw.exec(
+    `INSERT INTO conflicts_hit (id, check_id, entity_id, source_class, evidence_tier, matched_fields_json, graph_path_json, created_at) VALUES ('conflictsHit_tie', 'conflictsCheck_tie', 'directoryPerson_x', 'party', 1, '[]', '[]', '${sameInstant}')`,
+  );
+  // First row: lexically-high id, cleared. Second row: lexically-low id, representation_declined.
+  raw.exec(
+    `INSERT INTO conflicts_disposition (id, hit_id, kind, rationale, reviewer_user_id, created_at) VALUES ('conflictsDisposition_zzzzzzzzzzzzzzzzzzzzz', 'conflictsHit_tie', 'cleared', 'looked unrelated', '${ACTOR}', '${sameInstant}')`,
+  );
+  raw.exec(
+    `INSERT INTO conflicts_disposition (id, hit_id, kind, rationale, reviewer_user_id, created_at) VALUES ('conflictsDisposition_aaaaaaaaaaaaaaaaaaaaa', 'conflictsHit_tie', 'representation_declined', 'on review, adverse', '${ACTOR}', '${sameInstant}')`,
+  );
+
+  const current = await readCurrentDisposition(database as unknown as BatchDatabase, "conflictsHit_tie");
+  expect(current?.kind).toBe("representation_declined");
+});
+
 test("an empty rationale is rejected", async () => {
   const { ctx, options, hitId } = await hitFixture("empty-rationale");
   await expect(

@@ -98,14 +98,18 @@ export async function recordDisposition(
 }
 
 // The rows are never updated, so the latest row by created_at IS the current disposition; every
-// earlier row remains in the table as the audit trail of how adjudication got here.
+// earlier row remains in the table as the audit trail of how adjudication got here. The tie-break is
+// `rowid` (insertion-monotonic), NOT `id`: identifiers are random 21-char tokens with no time order, so
+// two dispositions written on one hit inside the same millisecond (a reviewer reversing a call, or two
+// reviewers racing) would otherwise resolve to a lexically-random winner — surfacing a reversed conflict
+// as still cleared. `rowid` increases with each append, so it always returns the genuinely-latest row.
 export async function readCurrentDisposition(
   database: SqlDatabase,
   hitId: string,
 ): Promise<DispositionRow | null> {
   const { results } = await database
     .prepare(
-      `SELECT id, hit_id, kind, rationale, reviewer_user_id, created_at FROM conflicts_disposition WHERE hit_id = ?1 ORDER BY created_at DESC, id DESC LIMIT 1`,
+      `SELECT id, hit_id, kind, rationale, reviewer_user_id, created_at FROM conflicts_disposition WHERE hit_id = ?1 ORDER BY created_at DESC, rowid DESC LIMIT 1`,
     )
     .bind(hitId)
     .all<{

@@ -8,6 +8,11 @@ export interface MatchPartyInput {
   readonly given?: string;
   readonly family?: string;
   readonly legalName?: string;
+  // The entity's full rendered display name (prefix + given + middle + family + suffix for a person,
+  // the legal/display name for an organization). The exact-normalized-name probe must compare against
+  // the corpus's stored normalized_display, which is derived from this full name — matching on
+  // given + family alone silently mis-tiers any party carrying a middle name, prefix, or suffix.
+  readonly displayName?: string;
   readonly identifiers?: ReadonlyArray<{ type: string; value: string }>;
   readonly excludeEntityId?: string;
   // The subject's own directory id, when it is an already-persisted entity. Drives the exact-identifier
@@ -34,6 +39,13 @@ export function matchOptionsFor(strictness: Strictness): MatchOptions {
 }
 
 function displayNameOf(input: MatchPartyInput): string {
+  // Prefer the full rendered display name when the caller supplies it (the run-check path reads it off
+  // the entity), so the exact-name probe compares against the same string the corpus normalized. The
+  // given + family / legalName fallback is for callers that pass only name parts — corpus rows created
+  // from those same parts normalize identically, so the fallback stays exact for that shape.
+  if (input.displayName !== undefined && input.displayName.trim().length > 0) {
+    return input.displayName.trim();
+  }
   if (input.kind === "organization") return (input.legalName ?? "").trim();
   return [input.given ?? "", input.family ?? ""]
     .map((part) => part.trim())

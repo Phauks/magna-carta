@@ -245,6 +245,39 @@ test("a shared SSN surfaces a tier-1 hit even when the names do not match", asyn
   expect(hits.some((hit) => hit.entity_id === subject)).toBe(false);
 });
 
+test("a party carrying a middle name still surfaces its same-name twin at tier 2 (exact name)", async () => {
+  const { ctx, options } = await conflictsTestContext("middle-name");
+  // Both people are "John Q Public" — the corpus stores normalized_display "john q public". The subject
+  // is read from the entity (full name), so the exact-name probe must compare "john q public", not the
+  // given+family "john public" that would silently downgrade the twin out of tier 2.
+  const subject = await createPerson(
+    ctx.database,
+    { given: "John", middle: "Q", family: "Public" },
+    options,
+  );
+  const twin = await createPerson(
+    ctx.database,
+    { given: "John", middle: "Q", family: "Public" },
+    options,
+  );
+
+  const checkId = await runConflictsCheck(
+    ctx,
+    {
+      trigger: "comprehensive",
+      subjectEntityIds: [subject],
+      scope: { sources: ["party"], strictness: "balanced", depth: 1 },
+    },
+    options,
+  );
+
+  const hits = await readHits(ctx.database, checkId);
+  const twinHit = hits.find((hit) => hit.entity_id === twin);
+  expect(twinHit).toBeDefined();
+  expect(twinHit?.evidence_tier).toBe(2);
+  expect(JSON.parse(twinHit?.matched_fields_json ?? "[]")).toContain("exact normalized name match");
+});
+
 test("a merged-away former name still surfaces the surviving master", async () => {
   const { ctx, options } = await conflictsTestContext("merged");
   const master = await createPerson(ctx.database, { given: "Jane", family: "Roe" }, options);
