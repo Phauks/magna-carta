@@ -183,24 +183,77 @@ jobs:
       - name: Rust gate (fmt + clippy + test)
         run: pnpm exec vp run rust-check
 
-  # The Vitest suites, including the Miniflare worker integration test and the browser-provider stories.
-  # Sharded across parallel runners: Vitest `--shard=i/N` splits the test FILES into N disjoint groups
-  # (every file runs exactly once, across the shards), so the whole-repo suite's wall-clock drops to
-  # ~1/N without dropping any coverage — every test still runs, just distributed. The setup (WASM
-  # download, Playwright) repeats per shard, but that overhead is parallel, so it costs total-compute,
-  # not wall-clock — the same fan-out trade the rest of this gate already makes. A shard failing fails
-  # the matrix (fail-fast off, so a failure in one shard still lets the others report their results).
-  # Bump SHARD_TOTAL below and the matrix list together to change the shard count.
-  test:
+  # The Vitest suites, split along their NATURAL project boundaries rather than one blind shard over
+  # everything. The suite has three substrates with very different per-file cost and setup: plain node
+  # units (milliseconds), the Miniflare worker pool (a Workers runtime per file), and the design-system
+  # Storybook stories (Chromium via Playwright). Splitting by substrate lets each scale independently and,
+  # crucially, keeps the Playwright install in the ONE job that needs a browser instead of on every shard.
+  #
+  # Completeness is by construction — the three jobs partition every test file exactly once:
+  #   • test-stories runs the `storybook` project (the only browser suite);
+  #   • test-worker runs the files under apps/worker + apps/status-worker (the only Miniflare suites);
+  #   • test-node runs everything else (packages + apps/web + tooling) with the `storybook` project
+  #     excluded, so no browser boots here.
+  # storybook is the only project that spans a path root (it lives under packages/design-system), so it
+  # is the only one that must be included-by-name in one job and excluded-by-name from another; every
+  # other file belongs to exactly one path root. Adding a new top-level test area means adding its path to
+  # test-node (or a new job) — a missed path fails loud via --passWithNoTests being off, not silently.
+  # The heavy substrates (node, worker) shard within their job; bump the SHARD_TOTAL + matrix pair to
+  # change a count. fail-fast off so one shard's failure still lets its siblings report.
+
+  # Plain node/unit suites — packages + the web app's node tests + tooling. No Miniflare, no browser; the
+  # storybook project is excluded so no Chromium is needed here. The bulk of the tests, cheapest per file.
+  test-node:
     needs: [changes, wasm]
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: [1, 2]
     env:
-      SHARD_TOTAL: 4
+      SHARD_TOTAL: 2
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - uses: actions/download-artifact@v8
+        with:
+          name: wasm-pkg
+      - run: tar -xzf wasm-pkg.tgz
+      - name: Tests — node (shard ${{ matrix.shard }}/${{ env.SHARD_TOTAL }})
+        run: pnpm exec vp test run --project='!storybook' --shard=${{ matrix.shard }}/${{ env.SHARD_TOTAL }} packages apps/web tooling
+
+  # The Miniflare worker suites (@cloudflare/vitest-pool-workers) — the heaviest substrate, since each file
+  # stands up its own Workers runtime with the wrangler bindings. Its own sharded job; no browser.
+  test-worker:
+    needs: [changes, wasm]
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    env:
+      SHARD_TOTAL: 2
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - uses: actions/download-artifact@v8
+        with:
+          name: wasm-pkg
+      - run: tar -xzf wasm-pkg.tgz
+      - name: Tests — worker (shard ${{ matrix.shard }}/${{ env.SHARD_TOTAL }})
+        # --project='!storybook' is belt-and-suspenders: the paths already exclude the browser project,
+        # this guarantees it can never lazily boot in a job that installs no browser.
+        run: pnpm exec vp test run --project='!storybook' --shard=${{ matrix.shard }}/${{ env.SHARD_TOTAL }} apps/worker apps/status-worker
+
+  # The design-system Storybook story tests — the ONLY browser-mode suite (Chromium via Playwright), so
+  # this is the ONLY job that installs the browser. One runner: bounded by story count + a single browser
+  # boot, so it shards poorly and needs none.
+  test-stories:
+    needs: [changes, wasm]
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
@@ -210,8 +263,8 @@ jobs:
       - run: tar -xzf wasm-pkg.tgz
 
       - name: Point Playwright's browser cache outside the checkout
-        # Under the checkout, the whole-repo passes would walk the browser's own bundled files;
-        # $RUNNER_TEMP is a sibling of the workspace. `runner` context is step-scoped, hence GITHUB_ENV.
+        # $RUNNER_TEMP is a sibling of the workspace so a whole-repo pass never walks the browser's own
+        # bundled files. `runner` context is step-scoped, hence GITHUB_ENV.
         run: echo "PLAYWRIGHT_BROWSERS_PATH=$RUNNER_TEMP/pw-browsers" >> "$GITHUB_ENV"
 
       - name: Cache the Playwright browser
@@ -228,8 +281,8 @@ jobs:
           if [ -z "$cli" ]; then echo "could not locate the playwright 1.60 CLI"; exit 1; fi
           node "$cli" install --with-deps chromium chromium-headless-shell
 
-      - name: Tests (shard ${{ matrix.shard }}/${{ env.SHARD_TOTAL }})
-        run: pnpm exec vp test run --shard=${{ matrix.shard }}/${{ env.SHARD_TOTAL }}
+      - name: Tests — stories (Storybook browser)
+        run: pnpm exec vp test run --project=storybook
 
   # Cheap whole-repo guards with no WASM dependency — run on every change so a governance regression can't
   # slip through a docs-only push.
@@ -314,7 +367,21 @@ jobs:
   # path-filter skipped counts as success. Require THIS in branch protection, not the individual jobs, so
   # the required set is stable as jobs are added or skipped.
   gate:
-    needs: [changes, wasm, format, lint, typecheck, rust, test, governance, contracts, containers]
+    needs:
+      [
+        changes,
+        wasm,
+        format,
+        lint,
+        typecheck,
+        rust,
+        test-node,
+        test-worker,
+        test-stories,
+        governance,
+        contracts,
+        containers,
+      ]
     if: always()
     runs-on: ubuntu-latest
     steps:
