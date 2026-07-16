@@ -2688,6 +2688,55 @@ export type OcrRecognizeResponses = {
 
 export type OcrRecognizeResponse = OcrRecognizeResponses[keyof OcrRecognizeResponses];
 
+export type OcrSearchableData = {
+    body: unknown;
+    path?: never;
+    query?: never;
+    url: '/api/v1/ocr/searchable';
+};
+
+export type OcrSearchableErrors = {
+    /**
+     * Empty request body
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Missing tools:ocr
+     */
+    403: Problem;
+    /**
+     * File exceeds the inspectable-size cap
+     */
+    413: Problem;
+    /**
+     * The document is not a PDF, is unreadable, or was rejected outright — retrying will not help
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+    /**
+     * Recognition engine unavailable
+     */
+    503: Problem;
+};
+
+export type OcrSearchableError = OcrSearchableErrors[keyof OcrSearchableErrors];
+
+export type OcrSearchableResponses = {
+    /**
+     * The input PDF with an invisible, searchable text layer
+     */
+    200: Blob | File;
+};
+
+export type OcrSearchableResponse = OcrSearchableResponses[keyof OcrSearchableResponses];
+
 export type AiDetectionDetectData = {
     body: AiDetectionDetectRequest;
     path?: never;

@@ -456,6 +456,9 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
       // Pure recognition over the uploaded bytes — returns text, word boxes, and confidence;
       // nothing is stored.
       "ocr.recognize",
+      // Pure recognition over the uploaded PDF — returns the same document with an invisible
+      // searchable text layer; nothing is stored.
+      "ocr.searchable",
       // Pure computation over the uploaded message bytes — parses and returns the structural
       // inspection; nothing is stored, no firm data is written.
       "emailInspector.inspect",
