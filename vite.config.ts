@@ -45,14 +45,51 @@ export default defineConfig({
   // the type-aware LINT rules (e.g. no-floating-promises) still run; scope them to changed files in the
   // local loop (`vp check <paths>`) — see docs/conventions/build-performance.md. tsgolint does not parse
   // `.svelte`, so the full gate (`pnpm check`) also runs svelte-check. See conventions/typescript.md.
+  // This block IS the lint ruleset (rules / categories / plugins / ignores). vp reads Oxlint config from
+  // here, NOT from a root .oxlintrc.json — a dotless `oxlintrc.json` at the repo root is never read, so a
+  // rule that lives only there is silently unenforced. Keep the whole ruleset here so it is actually
+  // applied. Home for what/why: docs/conventions/typescript.md.
   lint: {
-    // The Hey API generated client is not our code to lint (its barrel index and codegen idioms trip
-    // our rules); exclude it. It is type-checked by its own `tsc -p` (api-client `typecheck`, wired into
-    // the root `check`), and the project-references graph excludes it too. The OpenAPI snapshot is data.
-    ignorePatterns: ["packages/api-client/src/**"],
+    ignorePatterns: [
+      // The Hey API generated client is not our code to lint (its barrel index and codegen idioms trip
+      // our rules); exclude it. It is type-checked by its own `tsc -p` (api-client `typecheck`, wired
+      // into the root `check`), and the project-references graph excludes it too. OpenAPI snapshot is data.
+      "packages/api-client/src/**",
+      // Parallel sessions' duplicate checkouts: gitignore-respecting walkers must not lint another
+      // session's mid-TDD state against this tree's baseline (the stale-worktree gotcha).
+      ".claude/worktrees/**",
+    ],
     options: {
       typeAware: true,
       typeCheck: false,
+    },
+    // Explicit plugin set. This is a Svelte app with zero `.tsx`/`.jsx`, so the react / jsx-a11y plugins
+    // add nothing (Svelte a11y is svelte-check's job); listing the set also stops a future default change
+    // from silently pulling react in. `import`/`vitest` are deliberately not here yet — enabling them
+    // turns real findings in existing test code into gate errors; adopt each behind its own cleanup pass.
+    plugins: ["typescript", "unicorn", "oxc"],
+    // Add the `suspicious` and `perf` catalogs as advisory (warn) — high-signal, but with enough
+    // justified existing cases that a hard failure would block unrelated work; warnings do not fail the
+    // gate. `correctness` is intentionally NOT overridden here: it keeps its established severity so this
+    // ruleset broadening does not retroactively turn existing correctness findings into gate failures.
+    // Promoting correctness to a hard error is a separate, deliberate step (fix the findings first).
+    categories: {
+      suspicious: "warn",
+      perf: "warn",
+    },
+    rules: {
+      // Barrels defeat tree-shaking and the exports-map discipline; expose modules through package.json
+      // `exports`, not a re-export index. (Enforced ruleset home; the rule fires only above its symbol
+      // threshold, so the small per-component design-system indexes are unaffected.)
+      "oxc/no-barrel-file": "error",
+      // Off: this codebase asserts types at typed seams (parse/deserialize/branded-id boundaries) where a
+      // reviewed `as` is the intended tool; enforcing it repo-wide is ~600 low-signal warnings that bury
+      // the useful tail of `suspicious`. Revisit if the seam count ever shrinks.
+      "typescript/no-unsafe-type-assertion": "off",
+      // Off: sequential awaits over D1/Queue batches are deliberate here, and whether a loop is a hot-path
+      // problem is something we measure against the load-profile harness, not a blanket lint. The
+      // genuinely useful perf rules (prefer-set-has, no-map-spread, …) stay on via the `perf` category.
+      "eslint/no-await-in-loop": "off",
     },
   },
   // Per-package test projects. apps/worker and apps/status-worker run their tests inside Miniflare via @cloudflare/vitest-pool-workers, which only activates when their own config (apps/worker/vitest.config.ts, apps/status-worker/vitest.config.ts) is loaded, so each is registered as a Vitest project here; otherwise root `vp test` would run the worker test under the default pool and `cloudflare:test` would not resolve.
