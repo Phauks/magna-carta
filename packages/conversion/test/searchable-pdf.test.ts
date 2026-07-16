@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { detectFormat } from "../src/file.ts";
 import { canConvertLocally } from "../src/placement.ts";
 import { availableConversions, findPath } from "../src/pathfinding.ts";
 import { EDGES, getFormat } from "../src/registry.ts";
@@ -37,5 +38,14 @@ describe("searchable-pdf edge", () => {
     const ocrEdges = EDGES.filter((edge) => edge.engineId === "ocr");
     expect(ocrEdges).toHaveLength(1);
     expect(ocrEdges[0]?.to).toBe("searchable-pdf");
+  });
+
+  it("detects a PDF as pdf, not searchable-pdf, despite the shared media type and extension", () => {
+    // searchable-pdf shares application/pdf and the .pdf extension with pdf; detection is
+    // first-match over FORMATS, so pdf must stay ordered before searchable-pdf. A source detected
+    // as searchable-pdf would have no outgoing edges and could not be converted at all — this locks
+    // the ordering so a reorder cannot silently break every PDF conversion.
+    expect(detectFormat({ name: "scan.pdf", type: "application/pdf" })).toBe("pdf");
+    expect(detectFormat({ name: "scan.pdf" })).toBe("pdf");
   });
 });
