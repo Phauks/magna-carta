@@ -67,6 +67,7 @@ export default defineConfig({
       "tooling/doc-fragments/vitest.config.ts",
       "tooling/worktrees/vitest.config.ts",
       "tooling/clean/vitest.config.ts",
+      "tooling/affected-lint/vitest.config.ts",
     ],
   },
   // vp reads test/lint/format defaults from here; run.tasks declares the monorepo graph.
@@ -127,6 +128,15 @@ export default defineConfig({
         command:
           "docker build --network=host --output type=local,dest=packages/pdf/src/pkg -f crates/pdf-core/wasm.Dockerfile crates && docker build --network=host --output type=local,dest=packages/decryption/src/pkg -f crates/decryption-core/wasm.Dockerfile crates && docker build --network=host --output type=local,dest=packages/email/src/pkg -f crates/email-core/wasm.Dockerfile crates",
       },
+      // DEV-ONLY, Docker-free fallback for the same three wasm artefacts, built with the host Rust
+      // toolchain + wasm-pack instead of the pinned Docker images above. For dev environments that
+      // cannot pull the base image (e.g. a cloud session whose egress policy blocks Docker Hub /
+      // ghcr blob pulls). It is NOT authoritative — the host rustc may emit different wasm bytes
+      // than the pinned image — and the script REFUSES under CI, so anything shipped still comes
+      // from `rust-wasm-build`. Outputs are git-ignored (packages/*/.gitignore). See the script.
+      "rust-wasm-build-dev": {
+        command: "node tooling/wasm-build-dev/index.mjs",
+      },
       // The worker serves apps/web/build, so its build and dev both depend on the SPA build (cross-package package#task notation).
       // Named worker-build / worker-dev (not build / dev) so they do not collide with the root package.json build / dev scripts.
       "worker-build": {
@@ -162,10 +172,21 @@ export default defineConfig({
       clean: {
         command: "node tooling/clean/index.mjs",
       },
-      // One-time per clone: point git at the tracked hooks directory so the post-merge auto-clean
-      // is active. Idempotent.
+      // Point git at the tracked hooks directory (pre-push quality gate + post-merge auto-clean).
+      // Runs automatically from `postinstall`, because a fresh clone leaves core.hooksPath unset and
+      // a cloud session is a fresh clone every time — left manual, those sessions push with the gate
+      // silently off. Idempotent; kept here to re-arm a clone by hand.
       "setup-hooks": {
-        command: "git config core.hooksPath tooling/git-hooks",
+        command: "node tooling/setup-hooks/index.mjs",
+      },
+      // Make a fresh worktree runnable: build the git-ignored Rust->WASM artefacts that packages/
+      // {pdf,decryption,email} import, and point cargo at a target dir shared across worktrees. Rebuilds
+      // only what is stale and is a sub-second no-op otherwise, so it is safe to run at the top of any
+      // session — and is the FIRST thing to run in a new worktree, before test/type-check.
+      // `rust-wasm-build` (above) stays the canonical build for the deploy pipeline; this is the local
+      // fast path. See docs/conventions/build-performance.md.
+      bootstrap: {
+        command: "node tooling/bootstrap/index.mjs",
       },
     },
   },

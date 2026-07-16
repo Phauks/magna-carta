@@ -17,7 +17,6 @@
   import { buttonClasses } from "@magna-carta/design-system/button";
   import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import * as Masthead from "@magna-carta/design-system/masthead";
-  import type { Icon as IconType } from "@lucide/svelte";
   import Archive from "@lucide/svelte/icons/archive";
   import Ellipsis from "@lucide/svelte/icons/ellipsis";
   import FolderOpen from "@lucide/svelte/icons/folder-open";
@@ -38,7 +37,7 @@
   // archives (Archive, not a destructive glyph — the record stays additive after close).
   const LIFECYCLE_ACTION: Record<
     MatterFixture["status"],
-    { label: string; icon: typeof IconType }
+    { label: string; icon: typeof Archive }
   > = {
     prospective: { label: "Open matter", icon: FolderOpen },
     open: { label: "Close matter", icon: Archive },

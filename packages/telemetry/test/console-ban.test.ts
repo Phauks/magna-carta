@@ -23,6 +23,10 @@ const ALLOWLIST = new Set([
   // The load-profile measurement CLI — a developer tool whose stdout is its product, not app logging
   // (the scripts/ exemption in spirit; it lives in src only because it is the package's entrypoint).
   join("packages", "fixtures", "src", "load-profile", "measure-cli.ts"),
+  // The GPU benchmark harness — same class: a developer CLI/runner whose console output IS its
+  // product (benchmark results), not application logging.
+  join("packages", "gpu-benchmark", "src", "cli.ts"),
+  join("packages", "gpu-benchmark", "src", "run.ts"),
 ]);
 
 // Every .ts file under apps/worker/src and packages/*/src (skipping node_modules/test/dist/build).

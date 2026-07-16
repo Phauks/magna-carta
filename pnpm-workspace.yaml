@@ -27,13 +27,13 @@ catalog:
   # point for the TypeScript 7 native compiler (tsgo) later. See docs/conventions/build-performance.md.
   typescript: 6.0.3
   # Cloudflare
-  wrangler: 4.105.0
-  "@cloudflare/workers-types": 4.20260625.1
+  wrangler: 4.110.0
+  "@cloudflare/workers-types": 5.20260713.1
   # Bump in lockstep with wrangler: this pin hard-depends on an exact (wrangler, miniflare) pair, and
   # the bundled miniflare is what pulls undici/ws into the dev/test graph — moving wrangler alone
   # leaves the old miniflare (and its vulnerable undici/ws) resolved under this package. workers-types
   # tracks the same compatibility date as wrangler; keep all three aligned.
-  "@cloudflare/vitest-pool-workers": 0.16.20
+  "@cloudflare/vitest-pool-workers": 0.18.4
   # The Container base class + getContainer helper for the scan Container (slice 2·1 Plan 2).
   "@cloudflare/containers": 0.3.7
   # vitest is declared by apps/worker so @cloudflare/vitest-pool-workers can resolve `vitest/worker` into the workerd VM; the `overrides` below alias the actual resolution to the Vite+ test distribution, so this version only has to satisfy the pool's `vitest@^4.1.0` peer range (it is the upstream vitest that Vite+ bundles).
@@ -76,10 +76,10 @@ catalog:
   # Fixtures (packages/fixtures). Seeded via faker.seed(); locale en.
   "@faker-js/faker": 10.4.0
   # Web (apps/web)
-  "@types/node": 25.9.1
+  "@types/node": 26.1.1
   svelte: 5.56.2
   svelte-check: 4.6.0
-  "@sveltejs/kit": 2.63.0
+  "@sveltejs/kit": 2.69.3
   "@sveltejs/adapter-static": 3.0.10
   "@sveltejs/vite-plugin-svelte": 7.1.2
   # Image processing (packages/conversion). wasm-vips: libvips compiled to WebAssembly via
@@ -90,7 +90,6 @@ catalog:
   "@terrazzo/plugin-css": 2.3.0
   "@terrazzo/plugin-tailwind": 2.3.0
   "@types/culori": 4.0.1
-  apca-w3: 0.1.9
   culori: 4.0.2
   # Design system (packages/design-system)
   bits-ui: 2.18.1
@@ -98,7 +97,7 @@ catalog:
   formsnap: 2.0.1
   paneforge: 1.0.2
   svelte-sonner: 1.1.1
-  sveltekit-superforms: 2.30.1
+  sveltekit-superforms: 2.30.2
   tailwind-merge: 3.6.0
   tailwindcss: 4.3.0
   "@tailwindcss/vite": 4.3.0

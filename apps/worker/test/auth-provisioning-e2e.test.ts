@@ -482,23 +482,29 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
     }
   });
 
-  it("pins the platform-admin exception narrowly: firms.provision alone rides the public surface", async () => {
+  it("pins the platform-admin exception narrowly: only the header-guarded set rides the public surface", async () => {
     const document = await fetchOpenApiDocument();
     const v1Operations = emittedOperations(document, ALL_METHODS).filter((entry) =>
       entry.path.startsWith("/api/v1/"),
     );
 
     // The operations that document the platform-admin posture (x-mc-surface "public" — the
-    // header-secret guard, no session): the firm provisioner, the platform release-channel setter,
-    // and the support-session redeem (platform_staff redeems a grant). A future unguarded route
-    // cannot hide behind the exception, because the exception is this exact set, and each member is
-    // asserted guarded below.
+    // header-secret guard, no session): the firm provisioner and release-channel setter, the
+    // platform status-page controls (declare/update/resolve an incident, set/clear a component
+    // override), and the support-session redeem — all X-Platform-Admin-Key POSTs under /api/v1.
+    // A future unguarded route cannot hide behind the exception, because the exception is this
+    // exact set, and each member is asserted guarded below.
     const publicSurface = v1Operations.filter(
       (entry) => entry.operation["x-mc-surface"] === "public",
     );
     expect(publicSurface.map((entry) => entry.operation["operationId"]).sort()).toEqual([
       "firms.provision",
       "platform.setFirmReleaseChannel",
+      "platformStatus.clearComponentOverride",
+      "platformStatus.declareEvent",
+      "platformStatus.postUpdate",
+      "platformStatus.resolveEvent",
+      "platformStatus.setComponentOverride",
       "supportSessions.redeem",
     ]);
     // And even the exception is no signup hole: each public operation is authenticated (the

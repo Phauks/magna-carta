@@ -27,6 +27,7 @@ import FileCheck from "@lucide/svelte/icons/file-check";
 import ScanText from "@lucide/svelte/icons/scan-text";
 import Wrench from "@lucide/svelte/icons/wrench";
 import ShieldCheck from "@lucide/svelte/icons/shield-check";
+import MailSearch from "@lucide/svelte/icons/mail-search";
 import { CATALOG } from "@magna-carta/tools/catalog";
 import { toolsByGroup, type GroupedTools } from "@magna-carta/tools/select";
 import type { SubjectGroup, ToolManifest } from "@magna-carta/tools/types";
@@ -94,6 +95,14 @@ export const TOOL_PRESENTATION: Record<string, ToolPresentation> = {
     description: "Repair and salvage a damaged or corrupted file.",
     stage: "soon",
   },
+  ocr: {
+    description: "Extract selectable text from a scanned document or image.",
+    stage: "soon",
+  },
+  "email-inspector": {
+    description: "Inspect an email file's headers, routing, and attachments.",
+    stage: "soon",
+  },
   "malware-scan": {
     description: "Scan a file for malware and see what it finds.",
     stage: "soon",
@@ -132,6 +141,7 @@ export const TOOL_ICONS: Record<string, Component> = {
   "scan-text": ScanText,
   wrench: Wrench,
   "shield-check": ShieldCheck,
+  "mail-search": MailSearch,
 };
 
 // Both lookups are keyed by a plain string (Record<string, T>), so an indexed read types as

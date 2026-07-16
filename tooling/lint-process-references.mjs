@@ -4,8 +4,10 @@
 //
 // SCANS: .ts/.tsx/.mts/.cts/.js/.mjs/.cjs/.svelte/.rs/.sql/.yaml/.yml/.toml under the repo.
 // EXEMPT: docs/** and every *.md (documentation may cite ADRs/specs — that is their job),
-//         *.gen.ts and the OpenAPI snapshot (generated), node_modules / build output, and this
-//         file (it necessarily names the patterns it bans).
+//         generated code (*.gen.ts, *.generated.ts, and the OpenAPI snapshot), citations of
+//         EXTERNAL published standards (MS-*, RFC, ISO, ECMA, W3C, Unicode) and legal statutes —
+//         which rule 13 explicitly permits ("point to a living standard") — node_modules / build
+//         output, and this file (it necessarily names the patterns it bans).
 //
 // SCOPE NOTE: this gate hard-bans the unambiguous process-doc citations that recurred across the
 // codebase (ADR numbers dominated). Forward-looking "slice 0·6 swaps in …" / "Phase 3 adds …"
@@ -62,13 +64,29 @@ const BANNED = [
   { label: "ADR citation", pattern: /\bADR-\d{2,}/ },
   { label: "design-spec citation", pattern: /\bdesign spec\b/i },
   { label: "implementation-plan citation", pattern: /\bimplementation plan\b/i },
-  { label: "spec-section citation", pattern: /\bspec §|§\s?\d/ },
+  // Only a section citation OF ONE OF OUR PROCESS DOCS is banned — the rule exists because our specs and
+  // the white paper renumber, so a "§N" pointing at them rots. A bare "§N" is not evidence of that: in a
+  // legal platform it is usually a statute or court rule ("Judiciary Law §499"), and in an engine it is
+  // usually an external standard ("MS-OFFCRYPTO §2.3.4.13") — both are stable, real citations of the kind
+  // the rule asks for, not process-doc references. So match the section symbol only when a process-doc
+  // noun introduces it, never on its own.
+  {
+    label: "spec-section citation",
+    pattern: /\b(?:spec|specification|white[ -]paper|design doc)\s*§\s?\d/i,
+  },
   { label: "numbered-decision citation", pattern: /\bdecided (?:up front )?#\d/i },
   { label: "white-paper citation", pattern: /\bwhite[ -]paper\b/i },
   // (?<!-) lets hyphenated artifact names pass: "test/csp-spike/…" is a concrete file path —
   // exactly what rule 13 says to point at — while prose like "the spike showed" stays banned.
   { label: "spike citation", pattern: /(?<!-)\bspike\b/i },
 ];
+
+// A "§N" that cites an EXTERNAL published standard or a legal statute is a legitimate reference,
+// not an internal process-doc citation — rule 13 explicitly allows pointing to a living standard.
+// Only the "spec-section citation" pattern is this ambiguous; the others (ADR, white-paper, …) are
+// unambiguously internal, so this exemption applies to that label alone.
+const EXTERNAL_STANDARD =
+  /\b(MS-[A-Z0-9]+|RFC\s?\d|ISO[\s/]?\d|IEC\s?\d|ECMA-?\d|W3C|Unicode|ANSI|NIST|U\.S\.C\.|C\.F\.R\.|Stat\.|(?:Code|Law|Rule|Rev\.?\s?Stat\.?|Gen\.?\s?Stat\.?|Prof\.?\s?Conduct)\b[^§\n]*)\s?§/i;
 
 const files = [];
 function walk(directory) {
@@ -87,7 +105,7 @@ const offenders = [];
 for (const file of files) {
   if (file === SELF) continue;
   const name = basename(file);
-  if (name.endsWith(".gen.ts") || name.endsWith(".md")) continue;
+  if (name.endsWith(".gen.ts") || name.endsWith(".generated.ts") || name.endsWith(".md")) continue;
   const extension = name.slice(name.lastIndexOf("."));
   if (!CODE_EXTENSIONS.has(extension)) continue;
 
@@ -95,9 +113,10 @@ for (const file of files) {
   const relativePath = relative(ROOT, file).split(sep).join("/");
   lines.forEach((line, index) => {
     for (const { label, pattern } of BANNED) {
-      if (pattern.test(line)) {
-        offenders.push(`  ${relativePath}:${index + 1}  [${label}]  ${line.trim()}`);
-      }
+      if (!pattern.test(line)) continue;
+      // A spec-section "§N" that names an external standard/statute is a legitimate citation.
+      if (label === "spec-section citation" && EXTERNAL_STANDARD.test(line)) continue;
+      offenders.push(`  ${relativePath}:${index + 1}  [${label}]  ${line.trim()}`);
     }
   });
 }

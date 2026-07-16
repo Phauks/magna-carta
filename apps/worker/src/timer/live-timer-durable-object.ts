@@ -103,30 +103,38 @@ export class LiveTimerDurableObject extends DurableObject<Bindings> {
     liveRunId: string | null;
     state: "committing" | "already-committing" | "already-committed" | "unbound" | "no-run";
   }> {
-    // Check the tombstone first: if the run already committed and the DO was discarded, replay.
-    const tombstonedId = await this.ctx.storage.get<string>(TOMBSTONE_KEY);
-    if (tombstonedId !== undefined) {
-      return { liveRunId: tombstonedId, state: "already-committed" };
-    }
+    // The read-modify-write below is the exactly-once commit compare-and-set, so it must be atomic:
+    // without gating, two racing stop-commits both interleave at the storage awaits, both read
+    // `running`, and both flip to `committing` — the DO's "one committing, one already-committing"
+    // contract breaks (the route's downstream idempotency key would still collapse them, but the DO
+    // must not depend on that). `blockConcurrencyWhile` delivers no other event while it runs, so the
+    // second call observes the first's saved `committing` state and returns already-committing.
+    return this.ctx.blockConcurrencyWhile(async () => {
+      // Check the tombstone first: if the run already committed and the DO was discarded, replay.
+      const tombstonedId = await this.ctx.storage.get<string>(TOMBSTONE_KEY);
+      if (tombstonedId !== undefined) {
+        return { liveRunId: tombstonedId, state: "already-committed" as const };
+      }
 
-    const state = await this.load();
-    // An idle DO has no run to stop, and a scratch timer has no matter to bill — both are returned as
-    // discriminated outcomes, not thrown. A throw across the DO RPC boundary surfaces as an unhandled
-    // rejection in the workers runtime even when the caller catches it; the route maps every outcome
-    // to its own response (no-run -> 409, unbound -> 422, committing -> the WIP->A/R-free commit path).
-    if (state === null) {
-      return { liveRunId: null, state: "no-run" };
-    }
-    const { state: next, outcome } = beginCommit(state);
-    if (outcome === "unbound") {
-      return { liveRunId: next.liveRunId, state: "unbound" };
-    }
-    if (outcome === "committing") {
-      await this.save(next);
-      // The run is leaving the live state — no abandoned alarm should fire against a committing run.
-      await this.ctx.storage.deleteAlarm();
-    }
-    return { liveRunId: next.liveRunId, state: outcome };
+      const state = await this.load();
+      // An idle DO has no run to stop, and a scratch timer has no matter to bill — both are returned as
+      // discriminated outcomes, not thrown. A throw across the DO RPC boundary surfaces as an unhandled
+      // rejection in the workers runtime even when the caller catches it; the route maps every outcome
+      // to its own response (no-run -> 409, unbound -> 422, committing -> the WIP->A/R-free commit path).
+      if (state === null) {
+        return { liveRunId: null, state: "no-run" as const };
+      }
+      const { state: next, outcome } = beginCommit(state);
+      if (outcome === "unbound") {
+        return { liveRunId: next.liveRunId, state: "unbound" as const };
+      }
+      if (outcome === "committing") {
+        await this.save(next);
+        // The run is leaving the live state — no abandoned alarm should fire against a committing run.
+        await this.ctx.storage.deleteAlarm();
+      }
+      return { liveRunId: next.liveRunId, state: outcome };
+    });
   }
 
   // Write the tombstone after a confirmed commit, so late retries can replay the stored 201.

@@ -27,7 +27,10 @@ fn is_whitespace(b: u8) -> bool {
 }
 
 fn is_delimiter(b: u8) -> bool {
-    matches!(b, b'(' | b')' | b'<' | b'>' | b'[' | b']' | b'{' | b'}' | b'/' | b'%')
+    matches!(
+        b,
+        b'(' | b')' | b'<' | b'>' | b'[' | b']' | b'{' | b'}' | b'/' | b'%'
+    )
 }
 
 fn is_regular(b: u8) -> bool {
@@ -42,8 +45,17 @@ fn skip_literal_string(bytes: &[u8], mut i: usize) -> Option<usize> {
     while i < bytes.len() {
         match bytes[i] {
             b'\\' => i += 2, // skip the escaped byte
-            b'(' => { depth += 1; i += 1; }
-            b')' => { depth -= 1; i += 1; if depth == 0 { return Some(i); } }
+            b'(' => {
+                depth += 1;
+                i += 1;
+            }
+            b')' => {
+                depth -= 1;
+                i += 1;
+                if depth == 0 {
+                    return Some(i);
+                }
+            }
             _ => i += 1,
         }
     }
@@ -55,7 +67,9 @@ fn skip_literal_string(bytes: &[u8], mut i: usize) -> Option<usize> {
 fn skip_hex_string(bytes: &[u8], mut i: usize) -> Option<usize> {
     i += 1; // past '<'
     while i < bytes.len() {
-        if bytes[i] == b'>' { return Some(i + 1); }
+        if bytes[i] == b'>' {
+            return Some(i + 1);
+        }
         i += 1;
     }
     None
@@ -66,19 +80,29 @@ fn skip_hex_string(bytes: &[u8], mut i: usize) -> Option<usize> {
 fn skip_dict(bytes: &[u8], mut i: usize) -> Option<usize> {
     let mut depth = 0i32;
     while i < bytes.len() {
-        if bytes[i] == b'<' && bytes.get(i + 1) == Some(&b'<') { depth += 1; i += 2; }
-        else if bytes[i] == b'>' && bytes.get(i + 1) == Some(&b'>') {
-            depth -= 1; i += 2; if depth == 0 { return Some(i); }
-        }
-        else if bytes[i] == b'<' { i = skip_hex_string(bytes, i)?; }
-        else if bytes[i] == b'(' { i = skip_literal_string(bytes, i)?; }
-        else if bytes[i] == b'%' {
+        if bytes[i] == b'<' && bytes.get(i + 1) == Some(&b'<') {
+            depth += 1;
+            i += 2;
+        } else if bytes[i] == b'>' && bytes.get(i + 1) == Some(&b'>') {
+            depth -= 1;
+            i += 2;
+            if depth == 0 {
+                return Some(i);
+            }
+        } else if bytes[i] == b'<' {
+            i = skip_hex_string(bytes, i)?;
+        } else if bytes[i] == b'(' {
+            i = skip_literal_string(bytes, i)?;
+        } else if bytes[i] == b'%' {
             // A comment runs to the next EOL and cannot itself contain a delimiter that
             // closes the dict — mirror the top-level `tokenize` loop's handling so a
             // stray '>' inside a comment never ends the dict early.
-            while i < bytes.len() && bytes[i] != b'\n' && bytes[i] != b'\r' { i += 1; }
+            while i < bytes.len() && bytes[i] != b'\n' && bytes[i] != b'\r' {
+                i += 1;
+            }
+        } else {
+            i += 1;
         }
-        else { i += 1; }
     }
     None
 }
@@ -89,15 +113,26 @@ fn skip_array(bytes: &[u8], mut i: usize) -> Option<usize> {
     let mut depth = 0i32;
     while i < bytes.len() {
         match bytes[i] {
-            b'[' => { depth += 1; i += 1; }
-            b']' => { depth -= 1; i += 1; if depth == 0 { return Some(i); } }
+            b'[' => {
+                depth += 1;
+                i += 1;
+            }
+            b']' => {
+                depth -= 1;
+                i += 1;
+                if depth == 0 {
+                    return Some(i);
+                }
+            }
             b'(' => i = skip_literal_string(bytes, i)?,
             b'<' if bytes.get(i + 1) == Some(&b'<') => i = skip_dict(bytes, i)?,
             b'<' => i = skip_hex_string(bytes, i)?,
             b'%' => {
                 // Same comment handling as `skip_dict`: run to EOL so a stray ']' inside
                 // a comment can't close the array early — parity with lopdf.
-                while i < bytes.len() && bytes[i] != b'\n' && bytes[i] != b'\r' { i += 1; }
+                while i < bytes.len() && bytes[i] != b'\n' && bytes[i] != b'\r' {
+                    i += 1;
+                }
             }
             _ => i += 1,
         }
@@ -109,7 +144,9 @@ fn skip_array(bytes: &[u8], mut i: usize) -> Option<usize> {
 /// the first byte that is not part of the name.
 fn skip_name(bytes: &[u8], mut i: usize) -> usize {
     i += 1; // past '/'
-    while i < bytes.len() && is_regular(bytes[i]) { i += 1; }
+    while i < bytes.len() && is_regular(bytes[i]) {
+        i += 1;
+    }
     i
 }
 
@@ -117,13 +154,17 @@ fn skip_name(bytes: &[u8], mut i: usize) -> usize {
 /// Returns `(word, end)`.
 fn read_bareword(bytes: &[u8], start: usize) -> (&[u8], usize) {
     let mut i = start;
-    while i < bytes.len() && is_regular(bytes[i]) { i += 1; }
+    while i < bytes.len() && is_regular(bytes[i]) {
+        i += 1;
+    }
     (&bytes[start..i], i)
 }
 
 fn is_number(word: &[u8]) -> bool {
     !word.is_empty()
-        && word.iter().all(|&b| b.is_ascii_digit() || matches!(b, b'+' | b'-' | b'.'))
+        && word
+            .iter()
+            .all(|&b| b.is_ascii_digit() || matches!(b, b'+' | b'-' | b'.'))
         && word.iter().any(|b| b.is_ascii_digit())
 }
 
@@ -143,9 +184,13 @@ enum InlineImageValue<'a> {
 /// `space` combinator (used between the inline-image dict's keys, values, and `BI`/`ID`).
 fn skip_dict_space(bytes: &[u8], mut i: usize) -> usize {
     loop {
-        while i < bytes.len() && is_whitespace(bytes[i]) { i += 1; }
+        while i < bytes.len() && is_whitespace(bytes[i]) {
+            i += 1;
+        }
         if i < bytes.len() && bytes[i] == b'%' {
-            while i < bytes.len() && bytes[i] != b'\n' && bytes[i] != b'\r' { i += 1; }
+            while i < bytes.len() && bytes[i] != b'\n' && bytes[i] != b'\r' {
+                i += 1;
+            }
         } else {
             return i;
         }
@@ -157,10 +202,14 @@ fn skip_dict_space(bytes: &[u8], mut i: usize) -> usize {
 /// keys below ever resolve to; anything else (string, hex string, array, dict, `null`) is
 /// skipped by byte span without needing its value.
 fn parse_inline_image_value(bytes: &[u8], i: usize) -> Option<(InlineImageValue<'_>, usize)> {
-    if i >= bytes.len() { return None; }
+    if i >= bytes.len() {
+        return None;
+    }
     match bytes[i] {
         b'(' => Some((InlineImageValue::Other, skip_literal_string(bytes, i)?)),
-        b'<' if bytes.get(i + 1) == Some(&b'<') => Some((InlineImageValue::Other, skip_dict(bytes, i)?)),
+        b'<' if bytes.get(i + 1) == Some(&b'<') => {
+            Some((InlineImageValue::Other, skip_dict(bytes, i)?))
+        }
         b'<' => Some((InlineImageValue::Other, skip_hex_string(bytes, i)?)),
         b'[' => Some((InlineImageValue::Other, skip_array(bytes, i)?)),
         b'/' => {
@@ -169,7 +218,9 @@ fn parse_inline_image_value(bytes: &[u8], i: usize) -> Option<(InlineImageValue<
         }
         _ => {
             let (word, end) = read_bareword(bytes, i);
-            if end == i { return None; }
+            if end == i {
+                return None;
+            }
             match word {
                 b"null" => Some((InlineImageValue::Other, end)),
                 b"true" => Some((InlineImageValue::Boolean(true), end)),
@@ -203,14 +254,19 @@ struct InlineImageMetadata<'a> {
 /// plus the byte index of `ID`'s `I`. Returns `None` when the dict portion never resolves
 /// to a literal `ID` — the caller falls back to the whitespace-bounded scan rather than
 /// guess, matching lopdf's own hard failure on such input.
-fn scan_inline_image_dict(bytes: &[u8], after_bi: usize) -> Option<(InlineImageMetadata<'_>, usize)> {
+fn scan_inline_image_dict(
+    bytes: &[u8],
+    after_bi: usize,
+) -> Option<(InlineImageMetadata<'_>, usize)> {
     #[derive(Default, Clone, Copy)]
     struct Slot<'a> {
         abbrev: Option<InlineImageValue<'a>>,
         full: Option<InlineImageValue<'a>>,
     }
     impl<'a> Slot<'a> {
-        fn resolved(self) -> Option<InlineImageValue<'a>> { self.abbrev.or(self.full) }
+        fn resolved(self) -> Option<InlineImageValue<'a>> {
+            self.abbrev.or(self.full)
+        }
     }
 
     let mut width = Slot::default();
@@ -235,7 +291,9 @@ fn scan_inline_image_dict(bytes: &[u8], after_bi: usize) -> Option<(InlineImageM
                 i,
             ));
         }
-        if i >= bytes.len() || bytes[i] != b'/' { return None; }
+        if i >= bytes.len() || bytes[i] != b'/' {
+            return None;
+        }
         let key_end = skip_name(bytes, i);
         let key = &bytes[i + 1..key_end];
         let value_start = skip_dict_space(bytes, key_end);
@@ -279,11 +337,26 @@ fn inline_image_num_colors(colorspace: &[u8]) -> Option<usize> {
 /// own whitespace scan). `data_start` is the index just past `ID` and its separating
 /// whitespace. Returns `None` when the metadata doesn't support this path — one of
 /// lopdf's own `Err` branches — so the caller falls back to the whitespace scan too.
-fn exact_inline_image_end(bytes: &[u8], data_start: usize, meta: &InlineImageMetadata) -> Option<usize> {
-    if meta.has_filter { return None; }
-    let width = match meta.width { Some(InlineImageValue::Integer(n)) => n as usize, _ => return None };
-    let height = match meta.height { Some(InlineImageValue::Integer(n)) => n as usize, _ => return None };
-    let bpc = match meta.bits_per_component { Some(InlineImageValue::Integer(n)) => n as usize, _ => return None };
+fn exact_inline_image_end(
+    bytes: &[u8],
+    data_start: usize,
+    meta: &InlineImageMetadata,
+) -> Option<usize> {
+    if meta.has_filter {
+        return None;
+    }
+    let width = match meta.width {
+        Some(InlineImageValue::Integer(n)) => n as usize,
+        _ => return None,
+    };
+    let height = match meta.height {
+        Some(InlineImageValue::Integer(n)) => n as usize,
+        _ => return None,
+    };
+    let bpc = match meta.bits_per_component {
+        Some(InlineImageValue::Integer(n)) => n as usize,
+        _ => return None,
+    };
     let num_colors = if matches!(meta.image_mask, Some(InlineImageValue::Boolean(true))) {
         1usize
     } else {
@@ -296,12 +369,20 @@ fn exact_inline_image_end(bytes: &[u8], data_start: usize, meta: &InlineImageMet
     let stride = bits.checked_add(7)?.checked_div(8)?;
     let length = height.checked_mul(stride)?;
     let data_end = data_start.checked_add(length)?;
-    if data_end > bytes.len() { return None; }
+    if data_end > bytes.len() {
+        return None;
+    }
     let mut i = data_end;
     // lopdf's `content_space` immediately before `EI` recognizes only " \t\r\n" — no
     // comments, no NUL/FF — narrower than this module's general `is_whitespace`.
-    while i < bytes.len() && matches!(bytes[i], b' ' | b'\t' | b'\r' | b'\n') { i += 1; }
-    if bytes[i..].starts_with(b"EI") { Some(i + 2) } else { None }
+    while i < bytes.len() && matches!(bytes[i], b' ' | b'\t' | b'\r' | b'\n') {
+        i += 1;
+    }
+    if bytes[i..].starts_with(b"EI") {
+        Some(i + 2)
+    } else {
+        None
+    }
 }
 
 /// The whitespace-bounded `EI` scan: the `EI` must be whitespace-bounded on the left and
@@ -331,7 +412,8 @@ fn whitespace_scan_inline_image_end(bytes: &[u8], after_bi: usize) -> Option<usi
 fn skip_inline_image(bytes: &[u8], after_bi: usize) -> Option<usize> {
     if let Some((meta, id_start)) = scan_inline_image_dict(bytes, after_bi) {
         let mut data_start = id_start + 2; // past "ID"
-        while data_start < bytes.len() && matches!(bytes[data_start], b' ' | b'\t' | b'\r' | b'\n') {
+        while data_start < bytes.len() && matches!(bytes[data_start], b' ' | b'\t' | b'\r' | b'\n')
+        {
             data_start += 1;
         }
         if let Some(end) = exact_inline_image_end(bytes, data_start, &meta) {
@@ -348,22 +430,44 @@ pub(crate) fn tokenize(bytes: &[u8]) -> Option<Vec<RawToken>> {
 
     while i < bytes.len() {
         let b = bytes[i];
-        if is_whitespace(b) { i += 1; continue; }
+        if is_whitespace(b) {
+            i += 1;
+            continue;
+        }
         if b == b'%' {
-            while i < bytes.len() && bytes[i] != b'\n' && bytes[i] != b'\r' { i += 1; }
+            while i < bytes.len() && bytes[i] != b'\n' && bytes[i] != b'\r' {
+                i += 1;
+            }
             continue;
         }
         match b {
-            b'(' => { operand_start.get_or_insert(i); i = skip_literal_string(bytes, i)?; }
-            b'<' if bytes.get(i + 1) == Some(&b'<') => { operand_start.get_or_insert(i); i = skip_dict(bytes, i)?; }
-            b'<' => { operand_start.get_or_insert(i); i = skip_hex_string(bytes, i)?; }
-            b'[' => { operand_start.get_or_insert(i); i = skip_array(bytes, i)?; }
-            b'/' => { operand_start.get_or_insert(i); i = skip_name(bytes, i); }
+            b'(' => {
+                operand_start.get_or_insert(i);
+                i = skip_literal_string(bytes, i)?;
+            }
+            b'<' if bytes.get(i + 1) == Some(&b'<') => {
+                operand_start.get_or_insert(i);
+                i = skip_dict(bytes, i)?;
+            }
+            b'<' => {
+                operand_start.get_or_insert(i);
+                i = skip_hex_string(bytes, i)?;
+            }
+            b'[' => {
+                operand_start.get_or_insert(i);
+                i = skip_array(bytes, i)?;
+            }
+            b'/' => {
+                operand_start.get_or_insert(i);
+                i = skip_name(bytes, i);
+            }
             b')' | b'>' | b']' | b'}' | b'{' => return None, // unbalanced delimiter
             _ => {
                 let word_start = i;
                 let (word, end) = read_bareword(bytes, i);
-                if end == word_start { return None; } // no progress: malformed byte
+                if end == word_start {
+                    return None;
+                } // no progress: malformed byte
                 if is_number(word) || word == b"true" || word == b"false" || word == b"null" {
                     operand_start.get_or_insert(word_start);
                     i = end;
@@ -371,10 +475,18 @@ pub(crate) fn tokenize(bytes: &[u8]) -> Option<Vec<RawToken>> {
                     let start = operand_start.take().unwrap_or(word_start);
                     if word == b"BI" {
                         let ei_end = skip_inline_image(bytes, end)?;
-                        tokens.push(RawToken { operator: b"BI".to_vec(), start, end: ei_end });
+                        tokens.push(RawToken {
+                            operator: b"BI".to_vec(),
+                            start,
+                            end: ei_end,
+                        });
                         i = ei_end;
                     } else {
-                        tokens.push(RawToken { operator: word.to_vec(), start, end });
+                        tokens.push(RawToken {
+                            operator: word.to_vec(),
+                            start,
+                            end,
+                        });
                         i = end;
                     }
                 }
@@ -389,7 +501,11 @@ mod tests {
     use super::*;
 
     fn ops(bytes: &[u8]) -> Vec<Vec<u8>> {
-        tokenize(bytes).unwrap().into_iter().map(|t| t.operator).collect()
+        tokenize(bytes)
+            .unwrap()
+            .into_iter()
+            .map(|t| t.operator)
+            .collect()
     }
 
     #[test]
@@ -397,7 +513,12 @@ mod tests {
         // Operators only, in order.
         assert_eq!(
             ops(b"BT /F1 12 Tf (Hello) Tj ET"),
-            vec![b"BT".to_vec(), b"Tf".to_vec(), b"Tj".to_vec(), b"ET".to_vec()]
+            vec![
+                b"BT".to_vec(),
+                b"Tf".to_vec(),
+                b"Tj".to_vec(),
+                b"ET".to_vec()
+            ]
         );
     }
 
@@ -431,8 +552,10 @@ mod tests {
 
     #[test]
     fn comment_is_skipped() {
-        assert_eq!(ops(b"BT % this is (not) a string\n(Hi) Tj ET"),
-                   vec![b"BT".to_vec(), b"Tj".to_vec(), b"ET".to_vec()]);
+        assert_eq!(
+            ops(b"BT % this is (not) a string\n(Hi) Tj ET"),
+            vec![b"BT".to_vec(), b"Tj".to_vec(), b"ET".to_vec()]
+        );
     }
 
     #[test]
@@ -440,10 +563,18 @@ mod tests {
         // A ']' inside a comment must not close the array early; parity with lopdf.
         let raw = b"BT [(a) 1 % ]not real\n (b)] TJ ET";
         let toks = tokenize(raw).unwrap();
-        assert_eq!(toks.iter().map(|t| t.operator.clone()).collect::<Vec<_>>(),
-                   vec![b"BT".to_vec(), b"TJ".to_vec(), b"ET".to_vec()]);
+        assert_eq!(
+            toks.iter().map(|t| t.operator.clone()).collect::<Vec<_>>(),
+            vec![b"BT".to_vec(), b"TJ".to_vec(), b"ET".to_vec()]
+        );
         // and count parity with lopdf on the same stream:
-        assert_eq!(toks.len(), lopdf::content::Content::decode(raw).unwrap().operations.len());
+        assert_eq!(
+            toks.len(),
+            lopdf::content::Content::decode(raw)
+                .unwrap()
+                .operations
+                .len()
+        );
     }
 
     #[test]
@@ -451,19 +582,32 @@ mod tests {
         // A '>' inside a comment must not close the dict early; parity with lopdf.
         let raw = b"<< /A 1 % >> not real\n /B 2 >> BDC";
         let toks = tokenize(raw).unwrap();
-        assert_eq!(toks.iter().map(|t| t.operator.clone()).collect::<Vec<_>>(),
-                   vec![b"BDC".to_vec()]);
-        assert_eq!(toks.len(), lopdf::content::Content::decode(raw).unwrap().operations.len());
+        assert_eq!(
+            toks.iter().map(|t| t.operator.clone()).collect::<Vec<_>>(),
+            vec![b"BDC".to_vec()]
+        );
+        assert_eq!(
+            toks.len(),
+            lopdf::content::Content::decode(raw)
+                .unwrap()
+                .operations
+                .len()
+        );
     }
 
     #[test]
     fn inline_image_is_one_opaque_bi_token_spanning_to_ei() {
         let raw = b"q BI /W 2 /H 2 /CS /G ID \x00\xFF\x10\x20 EI Q";
         let toks = tokenize(raw).unwrap();
-        assert_eq!(toks.iter().map(|t| t.operator.clone()).collect::<Vec<_>>(),
-                   vec![b"q".to_vec(), b"BI".to_vec(), b"Q".to_vec()]);
+        assert_eq!(
+            toks.iter().map(|t| t.operator.clone()).collect::<Vec<_>>(),
+            vec![b"q".to_vec(), b"BI".to_vec(), b"Q".to_vec()]
+        );
         let bi = toks.iter().find(|t| t.operator == b"BI").unwrap();
-        assert_eq!(&raw[bi.start..bi.end], b"BI /W 2 /H 2 /CS /G ID \x00\xFF\x10\x20 EI");
+        assert_eq!(
+            &raw[bi.start..bi.end],
+            b"BI /W 2 /H 2 /CS /G ID \x00\xFF\x10\x20 EI"
+        );
     }
 
     #[test]
@@ -485,15 +629,23 @@ mod tests {
         raw.extend_from_slice(b" Q");
 
         let toks = tokenize(&raw).unwrap();
-        assert_eq!(toks.iter().map(|t| t.operator.clone()).collect::<Vec<_>>(),
-                   vec![b"q".to_vec(), b"BI".to_vec(), b"Q".to_vec()]);
+        assert_eq!(
+            toks.iter().map(|t| t.operator.clone()).collect::<Vec<_>>(),
+            vec![b"q".to_vec(), b"BI".to_vec(), b"Q".to_vec()]
+        );
 
         let bi = toks.iter().find(|t| t.operator == b"BI").unwrap();
         assert_eq!(bi.start, bi_start);
         assert_eq!(bi.end, bi_end);
         assert_eq!(&raw[bi.start..bi.end], &raw[bi_start..bi_end]);
 
-        assert_eq!(toks.len(), lopdf::content::Content::decode(&raw).unwrap().operations.len());
+        assert_eq!(
+            toks.len(),
+            lopdf::content::Content::decode(&raw)
+                .unwrap()
+                .operations
+                .len()
+        );
     }
 
     #[test]
@@ -504,7 +656,10 @@ mod tests {
     #[test]
     fn matches_lopdf_operation_count_on_mixed_stream() {
         let raw = b"q 1 0 0 1 10 10 cm BT /F1 12 Tf (Hi) Tj [(a) -5 (b)] TJ ET Q";
-        let lopdf_count = lopdf::content::Content::decode(raw).unwrap().operations.len();
+        let lopdf_count = lopdf::content::Content::decode(raw)
+            .unwrap()
+            .operations
+            .len();
         assert_eq!(tokenize(raw).unwrap().len(), lopdf_count);
     }
 }

@@ -6,296 +6,296 @@
     {
       "name": "balance-read.busy-subledger",
       "iterations": 30,
-      "minMs": 0.012,
-      "medianMs": 0.014,
-      "p95Ms": 0.04
+      "minMs": 0.011,
+      "medianMs": 0.012,
+      "p95Ms": 0.03
     },
     {
       "name": "capture.commit",
       "iterations": 30,
-      "minMs": 3.897,
-      "medianMs": 4.578,
-      "p95Ms": 67.165
+      "minMs": 2.642,
+      "medianMs": 3.138,
+      "p95Ms": 4.064
     },
     {
       "name": "checkout.active-exclusive-lock",
       "iterations": 30,
-      "minMs": 0.025,
-      "medianMs": 0.029,
-      "p95Ms": 0.046
+      "minMs": 0.021,
+      "medianMs": 0.025,
+      "p95Ms": 0.068
     },
     {
       "name": "conflicts.imputation",
       "iterations": 30,
-      "minMs": 0.101,
-      "medianMs": 0.119,
-      "p95Ms": 0.21
+      "minMs": 0.096,
+      "medianMs": 0.105,
+      "p95Ms": 0.187
     },
     {
       "name": "conflicts.run-check",
       "iterations": 30,
-      "minMs": 64.186,
-      "medianMs": 82.478,
-      "p95Ms": 142.113
+      "minMs": 53.565,
+      "medianMs": 67.03,
+      "p95Ms": 87.46
     },
     {
       "name": "create-account.trust-subledger",
       "iterations": 30,
-      "minMs": 3.648,
-      "medianMs": 3.995,
-      "p95Ms": 4.625
+      "minMs": 2.93,
+      "medianMs": 3.463,
+      "p95Ms": 4.325
     },
     {
       "name": "custom-field.merge-repoint",
       "iterations": 30,
-      "minMs": 3.951,
-      "medianMs": 4.819,
-      "p95Ms": 5.952
+      "minMs": 2.941,
+      "medianMs": 3.671,
+      "p95Ms": 4.451
     },
     {
       "name": "custom-field.preview-convert-scan",
       "iterations": 30,
-      "minMs": 0.202,
-      "medianMs": 0.228,
-      "p95Ms": 0.298
+      "minMs": 0.096,
+      "medianMs": 0.115,
+      "p95Ms": 0.17
     },
     {
       "name": "custom-field.read-current-values",
       "iterations": 30,
-      "minMs": 0.05,
-      "medianMs": 0.054,
-      "p95Ms": 0.104
+      "minMs": 0.028,
+      "medianMs": 0.03,
+      "p95Ms": 0.068
     },
     {
       "name": "custom-field.reference-lookup",
       "iterations": 30,
-      "minMs": 0.027,
-      "medianMs": 0.03,
-      "p95Ms": 0.04
+      "minMs": 0.017,
+      "medianMs": 0.018,
+      "p95Ms": 0.049
     },
     {
       "name": "directory.candidate-generation",
       "iterations": 30,
-      "minMs": 1.657,
-      "medianMs": 1.806,
-      "p95Ms": 2.069
+      "minMs": 1.028,
+      "medianMs": 1.133,
+      "p95Ms": 1.449
     },
     {
       "name": "directory.find-by-identifier",
       "iterations": 30,
-      "minMs": 0.268,
-      "medianMs": 0.313,
-      "p95Ms": 0.393
+      "minMs": 0.276,
+      "medianMs": 0.322,
+      "p95Ms": 0.386
     },
     {
       "name": "directory.graph-expansion",
       "iterations": 30,
-      "minMs": 0.045,
-      "medianMs": 0.061,
-      "p95Ms": 0.093
+      "minMs": 0.03,
+      "medianMs": 0.031,
+      "p95Ms": 0.062
     },
     {
       "name": "directory.read-protected-list",
       "iterations": 30,
-      "minMs": 182.675,
-      "medianMs": 221.42,
-      "p95Ms": 281.223
+      "minMs": 136.742,
+      "medianMs": 179.075,
+      "p95Ms": 195.119
     },
     {
       "name": "get-current-clean-version",
       "iterations": 30,
-      "minMs": 0.025,
-      "medianMs": 0.029,
-      "p95Ms": 0.086
+      "minMs": 0.027,
+      "medianMs": 0.031,
+      "p95Ms": 0.083
     },
     {
       "name": "idle-checkout-sweep.find-idle",
       "iterations": 30,
       "minMs": 0.063,
-      "medianMs": 0.069,
-      "p95Ms": 0.11
+      "medianMs": 0.079,
+      "p95Ms": 0.219
     },
     {
       "name": "ledger-fitness.table-wide",
       "iterations": 30,
-      "minMs": 87.264,
-      "medianMs": 91.835,
-      "p95Ms": 95.024
+      "minMs": 87.287,
+      "medianMs": 89.279,
+      "p95Ms": 93.834
     },
     {
       "name": "list-clean-versions.by-file",
       "iterations": 30,
-      "minMs": 0.029,
-      "medianMs": 0.032,
-      "p95Ms": 0.05
+      "minMs": 0.033,
+      "medianMs": 0.036,
+      "p95Ms": 0.056
     },
     {
       "name": "list-consultations.by-member",
       "iterations": 30,
-      "minMs": 0.108,
-      "medianMs": 0.128,
-      "p95Ms": 0.175
+      "minMs": 0.102,
+      "medianMs": 0.11,
+      "p95Ms": 0.188
     },
     {
       "name": "list-files.by-folder",
       "iterations": 30,
-      "minMs": 0.054,
-      "medianMs": 0.06,
-      "p95Ms": 0.094
+      "minMs": 0.058,
+      "medianMs": 0.064,
+      "p95Ms": 0.092
     },
     {
       "name": "list-files.by-matter",
       "iterations": 30,
-      "minMs": 0.103,
-      "medianMs": 0.12,
-      "p95Ms": 0.172
+      "minMs": 0.116,
+      "medianMs": 0.134,
+      "p95Ms": 0.186
     },
     {
       "name": "list-matters.filtered",
       "iterations": 30,
-      "minMs": 0.085,
-      "medianMs": 0.096,
-      "p95Ms": 0.216
+      "minMs": 0.082,
+      "medianMs": 0.09,
+      "p95Ms": 0.151
     },
     {
       "name": "list-matters.first-page",
       "iterations": 30,
-      "minMs": 0.141,
-      "medianMs": 0.167,
-      "p95Ms": 0.342
+      "minMs": 0.149,
+      "medianMs": 0.178,
+      "p95Ms": 0.27
     },
     {
       "name": "list-shipments.by-matter",
       "iterations": 30,
-      "minMs": 0.023,
-      "medianMs": 0.025,
-      "p95Ms": 0.08
+      "minMs": 0.025,
+      "medianMs": 0.035,
+      "p95Ms": 0.091
     },
     {
       "name": "list-tracking-events.by-shipment",
       "iterations": 30,
-      "minMs": 0.022,
-      "medianMs": 0.024,
-      "p95Ms": 0.029
+      "minMs": 0.025,
+      "medianMs": 0.03,
+      "p95Ms": 0.048
     },
     {
       "name": "matter-number.counter-draw",
       "iterations": 30,
-      "minMs": 4.691,
-      "medianMs": 5.426,
-      "p95Ms": 7.111
+      "minMs": 3.123,
+      "medianMs": 4.002,
+      "p95Ms": 5.125
     },
     {
       "name": "my-day.daily-totals",
       "iterations": 30,
-      "minMs": 0.025,
-      "medianMs": 0.028,
-      "p95Ms": 0.083
+      "minMs": 0.026,
+      "medianMs": 0.031,
+      "p95Ms": 0.082
     },
     {
       "name": "post-entry.two-line",
       "iterations": 30,
-      "minMs": 8.472,
-      "medianMs": 9.633,
-      "p95Ms": 11.971
+      "minMs": 6.992,
+      "medianMs": 7.862,
+      "p95Ms": 9.072
     },
     {
       "name": "protected.blind-index-compute",
       "iterations": 30,
-      "minMs": 0.184,
-      "medianMs": 0.203,
-      "p95Ms": 0.275
+      "minMs": 0.146,
+      "medianMs": 0.233,
+      "p95Ms": 0.345
     },
     {
       "name": "protected.firm-secret-read",
       "iterations": 30,
-      "minMs": 3.802,
-      "medianMs": 4.333,
-      "p95Ms": 4.86
+      "minMs": 3.136,
+      "medianMs": 3.691,
+      "p95Ms": 5.058
     },
     {
       "name": "protected.incident-decrypt-page",
       "iterations": 30,
-      "minMs": 195.49,
-      "medianMs": 224.038,
-      "p95Ms": 318.399
+      "minMs": 152.112,
+      "medianMs": 183.634,
+      "p95Ms": 207.751
     },
     {
       "name": "rate-resolution.timekeeper-tier",
       "iterations": 30,
-      "minMs": 0.043,
-      "medianMs": 0.046,
-      "p95Ms": 0.071
+      "minMs": 0.039,
+      "medianMs": 0.043,
+      "p95Ms": 0.124
     },
     {
       "name": "reconcile.find-conflict",
       "iterations": 30,
-      "minMs": 0.023,
+      "minMs": 0.021,
       "medianMs": 0.027,
-      "p95Ms": 0.07
+      "p95Ms": 0.072
     },
     {
       "name": "rescan-sweep.find-unscanned",
       "iterations": 30,
-      "minMs": 0.116,
-      "medianMs": 0.138,
-      "p95Ms": 0.229
+      "minMs": 0.139,
+      "medianMs": 0.168,
+      "p95Ms": 0.251
     },
     {
       "name": "reverse-entry.two-line",
       "iterations": 30,
-      "minMs": 7.897,
-      "medianMs": 9.287,
-      "p95Ms": 11.2
+      "minMs": 6.644,
+      "medianMs": 7.851,
+      "p95Ms": 9.36
     },
     {
       "name": "storage-meter.summary",
       "iterations": 30,
       "minMs": 0.012,
-      "medianMs": 0.014,
-      "p95Ms": 0.047
+      "medianMs": 0.015,
+      "p95Ms": 0.042
     },
     {
       "name": "tiering-sweep.find-candidates",
       "iterations": 30,
-      "minMs": 1.049,
-      "medianMs": 1.136,
-      "p95Ms": 2.012
+      "minMs": 1.194,
+      "medianMs": 1.315,
+      "p95Ms": 2.205
     },
     {
       "name": "unbilled-wip.by-matter",
       "iterations": 30,
-      "minMs": 0.127,
-      "medianMs": 0.142,
-      "p95Ms": 0.197
+      "minMs": 0.125,
+      "medianMs": 0.131,
+      "p95Ms": 0.194
     },
     {
       "name": "version-cut.commit",
       "iterations": 30,
-      "minMs": 3.921,
-      "medianMs": 4.7,
-      "p95Ms": 6.287
+      "minMs": 3.366,
+      "medianMs": 4.219,
+      "p95Ms": 4.999
     },
     {
       "name": "weekly-grid.by-timekeeper",
       "iterations": 30,
-      "minMs": 0.06,
-      "medianMs": 0.073,
-      "p95Ms": 0.617
+      "minMs": 0.052,
+      "medianMs": 0.062,
+      "p95Ms": 0.111
     },
     {
       "name": "zip-resolution.clean-current-versions",
       "iterations": 30,
-      "minMs": 0.051,
-      "medianMs": 0.056,
-      "p95Ms": 0.102
+      "minMs": 0.058,
+      "medianMs": 0.063,
+      "p95Ms": 0.115
     },
     {
       "name": "zip-resolution.folders-by-matter",
       "iterations": 30,
-      "minMs": 0.021,
-      "medianMs": 0.023,
-      "p95Ms": 0.036
+      "minMs": 0.023,
+      "medianMs": 0.025,
+      "p95Ms": 0.03
     }
   ]
 }

@@ -11,7 +11,7 @@ no product code. **173 findings survived verification** — 1 critical, 29 high,
 the companion ledger:
 
 - **Verification ledger — [`2026-07-01-fable-whole-program-review-verification.md`](2026-07-01-fable-whole-program-review-verification.md)**: every finding by id, with its current status and the evidence behind it. Start there; point a verifying worker at it, not at this file.
-- Not to be confused with [`fable-backend-review-2026-07.md`](fable-backend-review-2026-07.md), which is a separate, much smaller list of backend *gaps* (missing endpoints) surfaced later by the UI stream.
+- Not to be confused with [`fable-backend-review-2026-07.md`](fable-backend-review-2026-07.md), which is a separate, much smaller list of backend _gaps_ (missing endpoints) surfaced later by the UI stream.
 
 Every finding carries a stable id (`F-001`…`F-173`) assigned in document order. Ids are the
 join key between this snapshot and the ledger, so they never change and are never reused, even
@@ -67,7 +67,7 @@ per-area findings below.
    share one root: the `matter_number` UNIQUE backstop is render-accurate, not scope-accurate,
    so a scheme with a non-scoping variable segment lets two concurrent draws commit the same
    counter value. Option A: a `matter_number_allocation` table with `UNIQUE(scope_key,
-   counter_value)` + `UNIQUE(matter_id)` inserted inside the draw batch (the codebase's own
+counter_value)` + `UNIQUE(matter_id)` inserted inside the draw batch (the codebase's own
    assert-inside-the-batch idiom; closes both highs regardless of rendered string). Option B:
    require every variable segment to be scoping — changes product semantics (a firm can no
    longer put a non-scoping token in a number).
@@ -196,7 +196,7 @@ per-area findings below.
     wires no DNS resolver into any `assertPublicTarget` call site, so the resolved-IP pass — the
     documented DNS-rebinding defense — is inactive; only literal-IP checks run. Coupled: once
     the resolver lands, whois for a lapsed/unregistered domain will 400 unless the resolver is
-    kept off the whois *query* (§lookup.ts:28).
+    kept off the whois _query_ (§lookup.ts:28).
     **Recommendation:** ship the ~15-line DoH resolver and pass it to both call sites, but apply
     it only to connection destinations (safe-browse hops), never to the whois query name.
 
@@ -231,7 +231,7 @@ numeric boundary with no input validation.
 - `F-001` **Medium (CONFIRMED, downgraded from high)** — financial — `packages/money/src/allocate.ts:7` —
   `allocate()` documents a largest-remainder split but dinero.js 2.0.2 assigns leftover minor
   units to the largest weight, not the largest fractional remainder. Failure: `allocate($0.09,
-  [3,4])` returns [3¢, 6¢] where true largest-remainder gives [4¢, 5¢] (reproduced); weighted
+[3,4])` returns [3¢, 6¢] where true largest-remainder gives [4¢, 5¢] (reproduced); weighted
   settlement splits systematically favor the larger party and the split cannot be defended as
   "largest remainder" under audit. Fix: implement the distribution in-house at the seam
   (floor shares + remainder by descending fractional remainder), or document the actual rule
@@ -560,12 +560,12 @@ survive).
 The review's clearance rule: a slice's Fable-re-review marker (`*` or `↻`) can clear only if
 the review found nothing above low severity in that slice's surface.
 
-| Slice | Marker | Recommendation |
-| ----- | ------ | -------------- |
-| 0·4 — Auth + RBAC skeleton + firm provisioning | `[x] Opus 4.8 ↻` (Built) | **Stays flagged.** Blocking: the public-surface enforcement seam (`route-meta.ts:154`, medium), the fail-open direct-grant expiry compare (`resolver.ts:29`, medium), and the comment-skipping seed-permission fitness function (`generated-migrations.test.ts:295`, medium). The chokepoint's unthrottled platform-admin guard (`firms.ts:77`, low) and status-blind firm resolution (`ports.ts:81`, low) are non-blocking but sit in the same surface. |
-| 0·5a — API contract foundation | `[x]*` (Built) | **Stays flagged.** Blocking: the contracts layer carries the public-surface guard gap (`route-meta.ts:154`, medium) — the definition-time asserts are the layer under review. |
-| 0·5b — API contract enforcement + pipeline | `[x]*` (Built) | **Stays flagged.** Blocking: the chokepoint-composition fitness function proves the wrong proxy (`conformance.test.ts:385`, medium) — the enforcement pipeline's central promise is unverified by its own conformance corpus. |
-| 0·6 — Telemetry baseline + platform closeout | `[x] Opus 4.8*` (Built) | **Stays flagged.** Blocking: the confirmed high (usage "reached" middleware converts analytics failures into customer-visible 500s, `reached-middleware.ts:40`) plus four mediums (object-value allowlist bypass, unguarded `count()` path, separated-digit scrub miss, console-ban scan roots). |
+| Slice                                                                    | Marker                              | Recommendation                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ------------------------------------------------------------------------ | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0·4 — Auth + RBAC skeleton + firm provisioning                           | `[x] Opus 4.8 ↻` (Built)            | **Stays flagged.** Blocking: the public-surface enforcement seam (`route-meta.ts:154`, medium), the fail-open direct-grant expiry compare (`resolver.ts:29`, medium), and the comment-skipping seed-permission fitness function (`generated-migrations.test.ts:295`, medium). The chokepoint's unthrottled platform-admin guard (`firms.ts:77`, low) and status-blind firm resolution (`ports.ts:81`, low) are non-blocking but sit in the same surface.      |
+| 0·5a — API contract foundation                                           | `[x]*` (Built)                      | **Stays flagged.** Blocking: the contracts layer carries the public-surface guard gap (`route-meta.ts:154`, medium) — the definition-time asserts are the layer under review.                                                                                                                                                                                                                                                                                 |
+| 0·5b — API contract enforcement + pipeline                               | `[x]*` (Built)                      | **Stays flagged.** Blocking: the chokepoint-composition fitness function proves the wrong proxy (`conformance.test.ts:385`, medium) — the enforcement pipeline's central promise is unverified by its own conformance corpus.                                                                                                                                                                                                                                 |
+| 0·6 — Telemetry baseline + platform closeout                             | `[x] Opus 4.8*` (Built)             | **Stays flagged.** Blocking: the confirmed high (usage "reached" middleware converts analytics failures into customer-visible 500s, `reached-middleware.ts:40`) plus four mediums (object-value allowlist bypass, unguarded `count()` path, separated-digit scrub miss, console-ban scan roots).                                                                                                                                                              |
 | 0·2 / 0·3 — money, identifiers, database, data-access, ledger + fixtures | no markers (Fable-built originally) | **New logged items, no marker to clear.** The mediums above (allocate contract/validation, currency exponent, fleet-rollout and control-plane wiring, expand-contract per-file waiver, outbox index/retention, reversal dating) enter the remediation backlog as new work items against otherwise Fable-grade foundations. Encryption's rotation-seam and empty-plaintext mediums likewise — with the rotation fix gated before any second key version ships. |
 
 ## Phase 1 — Correctness audit
@@ -612,7 +612,7 @@ both highs with the codebase's own assert-inside-the-batch idiom.
   closed_at and emits a second matter.closed outbox event. Failure: a June re-close moves a
   January close date — the date driving retention clocks — five months with no trace. Fix:
   refuse status 'closed' with a 409-mapped validation code plus an in-batch `AND status !=
-  'closed'` belt.
+'closed'` belt.
 - `F-046` **Medium (CONFIRMED)** — correctness — `packages/matters/src/close-preconditions.ts:18` —
   the close-precondition seam is check-then-act: preconditions run as reads before the commit
   batch and their contract cannot contribute an in-batch guard. Failure: when Phase 3 registers
@@ -631,7 +631,7 @@ both highs with the codebase's own assert-inside-the-batch idiom.
   year. Fix: derive today() from a firm timezone setting; until it exists, document the UTC
   behavior as a decision.
 - `F-049` **Low (CONFIRMED)** — correctness — `packages/matters/src/queries.ts:63` — listMatters
-  free-text search interpolates the term into LIKE without escaping % and _, so wildcards
+  free-text search interpolates the term into LIKE without escaping % and \_, so wildcards
   behave as wildcards ('%' alone matches every matter). Fix: escape the term and append
   `ESCAPE '\'` to the three predicates.
 - `F-050` **Low (CONFIRMED)** — quality — `packages/matters/src/matter-service.ts:284` —
@@ -666,7 +666,7 @@ as raw 500s.
   number_code into fresh matter numbers, and takes new primary-office assignments — and its
   number_code occupies the unique index forever. Fix: enforce close semantics where new
   references are created; free the code on close or scope the unique index `WHERE status =
-  'active'`.
+'active'`.
 - `F-053` **Medium (CONFIRMED)** — correctness — `packages/locations/src/settings.ts:9` — the
   firm-default-Location machinery is half-built: no production write path for the setting
   exists, so the close-refusal guard never fires (an admin can close every office), and the
@@ -688,7 +688,7 @@ as raw 500s.
   `packages/database/drizzle/per-firm/0004_matters-locations-file-manager.sql:162` — the
   exactly-one-primary-per-member invariant has no schema backstop, unlike the module's other
   invariants. Fix: partial unique index `ON member_location (member_user_id) WHERE is_primary
-  = 1` in the next per-firm migration.
+= 1` in the next per-firm migration.
 - `F-057` **Low (CONFIRMED)** — reuse — `apps/worker/src/routes/locations.ts:520` — the GET
   detail/list handlers inline raw location SQL duplicating selectLocationStatement, invisible
   to the schema-name-sync fitness test that pins every other location statement. Fix: move the
@@ -754,7 +754,7 @@ orphans with no deletion path, mutations blind to soft-delete, dead-letters stra
   carry the correlated guard on every dependent statement.
 - `F-065` **Low (CONFIRMED)** — correctness — `packages/file-manager/src/file-service.ts:367` — gate
   quarantines persist a NULL scan_detail: the quarantine reason (type-mismatch / size-mismatch
-  / policy-*) reaches only outbox and telemetry, never the row — the future quarantine-review
+  / policy-\*) reaches only outbox and telemetry, never the row — the future quarantine-review
   UI cannot tell a malware hit from a size lie. Fix: fall back to the reason when scanDetail is
   null.
 - `F-066` **Low (CONFIRMED)** — correctness — `packages/file-manager/src/folder-service.ts:171` — the
@@ -789,7 +789,7 @@ Refuted: 0.
 
 Largely code Fable would have built: real chokepoint discipline, structurally enforced
 tenancy (per-firm database handles, firm-scoped Durable Object names, session-derived
-tokens), thoughtfully layered idempotency, and a genuinely careful cookieless files.* edge.
+tokens), thoughtfully layered idempotency, and a genuinely careful cookieless files.\* edge.
 But the lifecycle edges are states nobody drove end-to-end: the three highs — a post-commit
 byte-swap window past the scanner, a write/read bucket split that breaks every upload for a
 REST-provisioned firm today, and a permanently unrebuildable reaped bundle — plus classic
@@ -887,7 +887,7 @@ non-negotiable. All three are cheap, localized fixes.
   references to a merged-away subordinate through the ordinary API. Failure: a stale tab adds
   a matter party pointing at the archived subordinate — immediately flagged dangling by the
   fitness probe, invisible in search, resolving to the master nowhere. Fix: `AND status !=
-  'merged_into'` in the guard with a distinct error; regression tests per write path.
+'merged_into'` in the guard with a distinct error; regression tests per write path.
 - `F-082` **Medium (CONFIRMED)** — correctness — `packages/directory/src/name-history.ts:70` —
   changeName is missing the assertEntityExists guard its sibling addName has: renaming a
   nonexistent entity inserts an orphan current-flagged name row plus phonetic codes into the
@@ -1052,7 +1052,7 @@ repairable without redesign.
   loadProfileSnapshot and thread it through, recording a single manifest-level firmId.
 - `F-104` **Low (CONFIRMED)** — reuse —
   `packages/fixtures/src/load-profile/protected-generate.ts:136` — the raw `INSERT INTO
-  incident` duplicates the identical literal in the incidents route — a raw business-table
+incident` duplicates the identical literal in the incidents route — a raw business-table
   INSERT the package's own CLAUDE.md declares a bug. Fix: extract an insertIncidentStatement
   builder into data-access and use it from both.
 - `F-105` **Low (CONFIRMED)** — quality —
@@ -1082,13 +1082,13 @@ Refuted: 0.
 Same clearance rule as Phase 0: a slice's Fable-re-review marker clears only if the review
 found nothing above low severity in that slice's surface.
 
-| Slice | Marker | Recommendation |
-| ----- | ------ | -------------- |
-| 1·1 — Matters + Locations + File Manager | `[x] Opus 4.8 *` (Built) | **Stays flagged.** Blocking: the critical default-policy wildcard bug (`upload-policy.ts:29` — Office documents cannot be uploaded) and five highs across the slice's surface — the ingest gate's legacy-Office quarantining (`ingest-core.ts:147`), the post-commit byte-swap window (`ingest-consumer.ts:68`), the presign/read bucket split (`ingest-consumer.ts:70`), the reaped-bundle livelock (`bundle-coordinator.ts:18`), and the matters pair (counter race `matter-service.ts:245`, double-open clobber `matter-statements.ts:80`) — plus the medium tier in all four areas. The locations sub-area alone is medium-max (reservations, not remediation), but it rides the same slice row. |
-| 1·2 — `protected()` crypto module | `[x] Opus 4.8 *` (Built) | **Stays flagged.** Covered in Phase 0's encryption area: three confirmed mediums block — the version-blind read path that makes the first firm-key rotation destroy all previously sealed values (`protected-fields.ts:194`), the seal-succeeds/read-fails-forever empty plaintext (`protect.ts:23`), and the crypto-shred cache-convergence gap (`firm-key-provider.ts:51`). The rotation fix is gated before any second key version or second protected field ships. |
-| 1·3 — Directory | `[x] Opus 4.8 *` (Built), `[x] Opus 4.8 *` (Tested) | **Stays flagged (both cells).** Blocking: the three merge-subsystem highs — chained merges surfacing archived entities in the conflicts corpus (`merge.ts:141`), hard-deletion of user content on collision absorption (`merge.ts:331`), and merged-away subordinates accepting new references (`entity-kind.ts:43`) — plus three mediums. The 2026-06-18 Opus adversarial pass fixed one merge generation's defects; the second generation and the concurrent-merge shapes were never exercised. |
-| 1·4 — Custom-fields engine | `[x] Opus 4.8 *` (Built) | **Stays flagged.** Blocking: both highs — the unimplemented Convert re-scaling that silently corrupts monetary values 100x (`convert.ts:169`) and the field-definition-blind value write (`custom-field-value-service.ts:56`) — plus seven mediums concentrated on the same trust boundary. |
-| Load-profile harness (cross-cutting) | no gap marker | **New logged items, no marker to clear.** The fixtures-harness mediums (tag-only cache identity, single-generator determinism coverage, literal-SQL probes, the missing v7 baseline) enter the remediation backlog; they also qualify the "Load profile `[x] Opus 4.8`" cells on rows 1·1–1·4, whose EXPLAIN-gate assurance is weaker than stated until the literal-copy probes are replaced. |
+| Slice                                    | Marker                                              | Recommendation                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ---------------------------------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1·1 — Matters + Locations + File Manager | `[x] Opus 4.8 *` (Built)                            | **Stays flagged.** Blocking: the critical default-policy wildcard bug (`upload-policy.ts:29` — Office documents cannot be uploaded) and five highs across the slice's surface — the ingest gate's legacy-Office quarantining (`ingest-core.ts:147`), the post-commit byte-swap window (`ingest-consumer.ts:68`), the presign/read bucket split (`ingest-consumer.ts:70`), the reaped-bundle livelock (`bundle-coordinator.ts:18`), and the matters pair (counter race `matter-service.ts:245`, double-open clobber `matter-statements.ts:80`) — plus the medium tier in all four areas. The locations sub-area alone is medium-max (reservations, not remediation), but it rides the same slice row. |
+| 1·2 — `protected()` crypto module        | `[x] Opus 4.8 *` (Built)                            | **Stays flagged.** Covered in Phase 0's encryption area: three confirmed mediums block — the version-blind read path that makes the first firm-key rotation destroy all previously sealed values (`protected-fields.ts:194`), the seal-succeeds/read-fails-forever empty plaintext (`protect.ts:23`), and the crypto-shred cache-convergence gap (`firm-key-provider.ts:51`). The rotation fix is gated before any second key version or second protected field ships.                                                                                                                                                                                                                               |
+| 1·3 — Directory                          | `[x] Opus 4.8 *` (Built), `[x] Opus 4.8 *` (Tested) | **Stays flagged (both cells).** Blocking: the three merge-subsystem highs — chained merges surfacing archived entities in the conflicts corpus (`merge.ts:141`), hard-deletion of user content on collision absorption (`merge.ts:331`), and merged-away subordinates accepting new references (`entity-kind.ts:43`) — plus three mediums. The 2026-06-18 Opus adversarial pass fixed one merge generation's defects; the second generation and the concurrent-merge shapes were never exercised.                                                                                                                                                                                                    |
+| 1·4 — Custom-fields engine               | `[x] Opus 4.8 *` (Built)                            | **Stays flagged.** Blocking: both highs — the unimplemented Convert re-scaling that silently corrupts monetary values 100x (`convert.ts:169`) and the field-definition-blind value write (`custom-field-value-service.ts:56`) — plus seven mediums concentrated on the same trust boundary.                                                                                                                                                                                                                                                                                                                                                                                                          |
+| Load-profile harness (cross-cutting)     | no gap marker                                       | **New logged items, no marker to clear.** The fixtures-harness mediums (tag-only cache identity, single-generator determinism coverage, literal-SQL probes, the missing v7 baseline) enter the remediation backlog; they also qualify the "Load profile `[x] Opus 4.8`" cells on rows 1·1–1·4, whose EXPLAIN-gate assurance is weaker than stated until the literal-copy probes are replaced.                                                                                                                                                                                                                                                                                                        |
 
 ## Phase 2 and cross-cutting — Correctness audit
 
@@ -1112,7 +1112,7 @@ a worktree is named.
 The Rust core would largely pass the bar: most-dangerous-wins verdict precedence,
 never-silent-clean clamd parsing (non-UTF-8/truncated replies → Unavailable), whole-exchange
 timeout bounding the INSTREAM write, `catch_unwind` panic isolation, the two-front PDF
-stack-overflow guard, and decompression-bomb accounting on *materialized* (not declared) bytes.
+stack-overflow guard, and decompression-bomb accounting on _materialized_ (not declared) bytes.
 TS/Rust `ScanResult` parity holds; no SSRF/zip-slip/tenancy issue (fixed internal host,
 loopback-only clamd, `enableInternet=false`, never extracts to disk). The weaknesses are in the
 wiring.
@@ -1124,7 +1124,7 @@ wiring.
   standard-1 instance — OOM risk plus CPU serialization; a scan exceeding the 11-minute adapter
   timeout re-queues, so sustained load backs the queue up indefinitely, contradicting the
   engine's own horizontal-throughput design. Fix: distribute via `getRandom(env.SCAN_CONTAINER,
-  N)` or sharded ids with a warm-poke per instance, or lower `max_instances` to 1 and document
+N)` or sharded ids with a warm-poke per instance, or lower `max_instances` to 1 and document
   single-instance scanning as intent. (Owner decision #3.)
 - `F-110` **Medium (CONFIRMED)** — correctness — `containers/scan/src/main.rs:11` — `engineVersion` is
   `clamav+yara-x/{yara_x lib}+heuristics/1`: the `clamav` token is unversioned and the
@@ -1297,7 +1297,7 @@ inflation actually happens.
   `TargetMode != External`).
 - `F-134` **Medium (CONFIRMED)** — correctness — `packages/metadata/src/image/jpeg.ts:25` — when
   `walkSegments` loses sync (fill bytes, wrong length, truncation) it returns `scanStart =
-  bytes.length`, and `scrubJpeg` emits a header-only image with an appended EOI — silently
+bytes.length`, and `scrubJpeg` emits a header-only image with an appended EOI — silently
   destroying the picture instead of failing `corrupt`. Fix: track whether SOS was reached and
   throw if not; skip spec-legal `0xFF` fill padding.
 - `F-135` **Low (CONFIRMED)** — correctness — `packages/metadata/src/ooxml/scrub.ts:85` — dropping
@@ -1336,7 +1336,7 @@ nonfunctional whois IP path — none undermine the architecture.
   purchased — direct malpractice exposure on lost original documents. Fix: send EasyPost's
   `insurance` buy parameter; until wired, 422 requests that set it.
 - `F-140` **High (CONFIRMED)** — tenancy — `apps/worker/src/routes/shipping.ts:573` — `GET
-  /shipments/{id}/label` reads `labels/{id}.pdf` straight from the shared R2 bucket with no
+/shipments/{id}/label` reads `labels/{id}.pdf` straight from the shared R2 bucket with no
   firm-ownership check, so any member of any firm with `shipping:manage` can stream another
   firm's label (client name + address) by id — the sole R2 route that skips the firm DB. Fix:
   select the shipment from `firm.firmDatabase`, serve only its stored key, prefix keys with firm
@@ -1374,7 +1374,7 @@ nonfunctional whois IP path — none undermine the architecture.
   Fix: ship the DoH resolver and pass it in — but only to connection destinations. (Owner
   decision #14.)
 - `F-147` **Low (CONFIRMED)** — correctness — `packages/whois/src/lookup.ts:28` — once the resolver
-  lands, applying it to the whois *query* will 400 every lapsed/unregistered domain lookup (a
+  lands, applying it to the whois _query_ will 400 every lapsed/unregistered domain lookup (a
   primary whois use case) with "host did not resolve." Fix: run `assertPublicTarget` without the
   resolver on the query; the resolver belongs on connection destinations.
 - `F-148` **Low (CONFIRMED)** — correctness — `packages/whois/src/legacy.ts:41` — a TLD with neither an
@@ -1461,10 +1461,10 @@ dormant inference pipeline, to fix before the first AI feature's producer lands.
   make `emitUsage` never-throw. (Counted once across the two areas; owner decision #8.)
 - `F-158` **Medium (CONFIRMED)** — correctness — `packages/inference/src/gateway.ts:218` —
   `generateStream` is written against a binding shape that does not exist: real `env.AI.run(...,
-  stream:true)` returns a ReadableStream of SSE bytes, so `String(delta)` yields comma-joined
+stream:true)` returns a ReadableStream of SSE bytes, so `String(delta)` yields comma-joined
   byte numbers and `extractUsage` on a stream handle returns `{0,0}` — streaming output is
   garbage and streaming runs are never metered; the same gap applies to `generate`'s `{prompt}`
-  body for anthropic/* models. The deferred "composition-root translation" the comments promise
+  body for anthropic/\* models. The deferred "composition-root translation" the comments promise
   has no home (`inferencePortFor` passes `env.AI` straight through). Fix: parse the SSE frames
   and add the Anthropic Messages request-body translation before any caller lands; verify
   against the live binding.
@@ -1563,11 +1563,11 @@ logged; the dominant risk across the area is coordination, not craftsmanship.
 - **decryption-tool** (worktree `C:/dev/magna-carta-worktrees/decryption-tool`, ~50 ahead, **421
   behind main**): the largest, most sensitive stream. Slice 1 (server-side strip/inspect) + Slice
   2 Plan 1 (recovery engine + container) are built, TDD-reviewed, and cross-validated against
-  real hashcat example_hashes. The worker route is genuinely careful about the no-secret-leak
+  real hashcat example*hashes. The worker route is genuinely careful about the no-secret-leak
   keystone (password never logged, audit digest is of the encrypted input, generic wrong-password
   errors); `recover.rs` clamps every shard and cannot panic. Two real concerns: it branched
   pre-engine-host (merge-base `413b43b`) and is 421 commits behind — a very large merge, and it
-  was built *parallel to* `crates/engine-host` rather than on it (the SP3 retrofit is still
+  was built \_parallel to* `crates/engine-host` rather than on it (the SP3 retrofit is still
   owed); and it introduces `containers/recovery` + `apps/recovery-worker` that collide with
   file-repair-salvage's planned names. Slice 2 Plan 2 (DO coordinator + Queue fan-out) is **not
   built** — the note's own NEXT. Not mergeable as-is: needs a main sync, ADR fragments, STATUS/
@@ -1594,7 +1594,7 @@ Findings:
   (file-repair-salvage) — the over-cap "drain to realign" step re-inflates the very deflate bomb
   the per-entry cap just refused: after reading `MAX_ENTRY_UNCOMPRESSED_BYTES+1` (512 MiB) it
   calls `io::copy(&mut file, &mut sink())` on the decompressing `ZipFile` reader, decompressing
-  the remaining ~9.5 GB into the sink; the total ceiling only sums *recovered* entries, so up to
+  the remaining ~9.5 GB into the sink; the total ceiling only sums _recovered_ entries, so up to
   100k such entries can each be drained — a CPU-exhaustion DoS with flat memory. Fix: seek the
   underlying cursor by the stored compressed size, or `.take()`-bound the drain and abort the
   scan (returning what was recovered) on the first over-cap entry.
@@ -1603,9 +1603,9 @@ Findings:
   (`crates/recovery-core` for file repair next to decryption-tool's `crates/decryption-core` +
   `apps/recovery-worker` + `containers/recovery` for password recovery), guaranteeing a merge
   path collision and eroding name clarity (golden rule 12). No guard reserves the path; `vp run
-  worktrees` is advisory. Fix: reconcile now in the active-work notes — give the file-repair
+worktrees` is advisory. Fix: reconcile now in the active-work notes — give the file-repair
   container a domain-specific path (e.g. `containers/file-repair`) and reserve `containers/
-  recovery` + `apps/recovery-worker` for decryption (or rename decryption's artifacts
+recovery` + `apps/recovery-worker` for decryption (or rename decryption's artifacts
   `password-recovery`). (Owner decision — see roadmap in-flight streams.)
 - `F-173` **Low (CONFIRMED)** — correctness — `apps/worker/src/routes/decryption.ts:373`
   (decryption-tool) — a failed unlock (wrong password / unreadable) returns 400 without writing
@@ -1622,20 +1622,20 @@ Same clearance rule: a slice's `*`/`↻` marker clears only if the review found 
 severity in that slice's surface. (Rows read from `origin/main`'s STATUS.md; the working
 branch's copy is stale.)
 
-| Slice / row | Marker | Recommendation |
-| ----------- | ------ | -------------- |
-| 2·1 — Inbound upload path + untrusted-file pipeline + async bulk download | `[x] Opus 4.8` (Built), Fable re-review pending | **Stays flagged.** Blocking: the scan container-instance high (`scan-worker/src/index.ts:40` — `max_instances` unreachable, OOM/queue-backup risk) plus the engineVersion medium and the scan-warm health-check low. The Rust engine itself is Fable-grade; the block is wiring. Note the worker-files-surface highs from Phase 1 (byte-swap, presign/read split, bundle livelock) also ride this pipeline. |
-| 2·2 — Editing + versioning & storage tiering | `[x] Opus 4.8` (Built) | **Stays flagged.** Blocking: two highs — the stale-`current` document-regression path (`wopi-routes.ts:96`) and the unauthenticated container-spawn / label-binding gap on the edit worker (`magna-carta-edit/src/index.ts:37`) — plus three correctness mediums (exclusive-lock unique index, WOPI check-then-act, unwired version-cut policy). All activate the day the coolwsd container carries real traffic. |
-| 2·3 — Inline preview + safe-delivery sandbox | `[x] Opus 4.8 *` (Built), `[x] Opus 4.8 *` (Tested) | **Clears to Fable-confirmable — no wave-3 findings in the 2·3 surface.** The safe-delivery edge was not in scope of a dedicated wave-3 area and the editing review found no defect on the preview path. Recommend a targeted Fable pass over `apps/worker/src/editing/wopi-*` and the files-preview edge before dropping the `*`, since it shares the editing worker; provisionally clearable. |
-| 2·4 — In-app conversion | `[~] Sonnet 4.6` (Built, in progress) | **Stays flagged.** Blocking (pre-integration): the `sideEffects:false` tree-shake high that silently drops the only implemented engine in production, plus the wasm-vips security/correctness mediums (pixel-bomb guard, Embind leak, blockUntrusted allow-list, multi-frame truncation). None require redesign; fix as the execution substrate (2·1/2·2) wiring lands. |
-| PDF render engine (cross-cutting) | `[x] Opus 4.8` (Built) | **Stays flagged.** Blocking: the two confidentiality highs — `split()` embedding dropped pages via annotation refs (`generate.rs:203`) and surgery-mode redaction leaving annotations over the black box (`redact.rs:353`) — plus the decompression-guard gap (fix exists on `pdf-decompression-guard`, merge it) and the memory-bounds/encrypted-input mediums. Not yet wired to any route, so browser-only today. |
-| Metadata Inspector & Scrubber | `[x] Sonnet 4.6` (Built), `[x] Sonnet 4.6 ↻` (Tested) | **Stays flagged (both cells).** Blocking: five highs, each producing a false `clean:true` for a "safe to send" tool — detect-path bomb bypass, surviving move-range reviser metadata, untouched privileged part classes (thumbnail/customXml/docVars/mail-merge), JPEG after-EOI payload survival, and the 200 MB > 128 MiB inflation cap — plus four correctness mediums. Highest-priority tools-area remediation. |
-| File Hash & Integrity | `[x] Sonnet 4.6` (Built), `[x] Sonnet 4.6 ↻` (Tested) | **Stays flagged (both cells).** The core is Fable-grade; the block is the shared route-level Content-Length cap bypass (`file-integrity.ts:185`) — a body above the firm cap streams into the five-way hasher. Clears once the counting-stream cap lands (shared fix with File Type Verifier). |
-| File Type Verifier | `[x] Sonnet 4.6` (Built), `[x] Sonnet 4.6 ↻` (Tested) | **Stays flagged (both cells).** The report mapper is honest; the block is the Content-Length cap bypass (`file-type.ts:100`) feeding the shared scan container, the `/identify` heap-buffer availability medium, and the `MAGIKA_CRATE_VERSION` provenance-drift low. Clears with the shared cap fix + the spool/cap change on `/identify`. |
-| AI-Text Detection | `[x] Opus 4.8` (Built) | **Stays flagged.** Blocking (before the vendor adapter + UI land): the out-of-range-score normalizer medium (false confident "likely AI") and the top-level raw-score placement low. Cheap now, contract-and-UI-wide later. (Owner decision #15.) |
-| AI inference foundation | `[x] Opus 4.8` (Built) | **Stays flagged.** Blocking: the shared reached-middleware high (also Phase 0 telemetry) and the `generateStream`/request-body binding-shape medium — both must be fixed before the first AI feature's producer goes live. The ZDR/consent/metering-isolation core is Fable-grade. |
-| Usage analytics | `[~] Opus 4.8` (Built, core) | **Stays flagged.** Blocking: the reached-middleware high on the production request path plus the consent-cache no-evict low; the pseudonymizer/consent/suppression design is sound. |
-| Integration port system · Shipping · Property links · Integration platform · Tools area | `[x] Opus 4.8` (Built) | **Shipping stays flagged** (four financial/tenancy highs before it carries real postage spend + the whois/framework mediums/lows). The **framework, property-links, integration-platform, and tools-catalog** rows are **medium-max (reservations)** — the pure link builders and the manifest/registry core found no high — but they ride shared rows with shipping and the SSRF-resolver-wiring medium, so treat the cross-cutting integrations surface as flagged until the shipping highs and the resolver wiring land. |
+| Slice / row                                                                             | Marker                                                | Recommendation                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| --------------------------------------------------------------------------------------- | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2·1 — Inbound upload path + untrusted-file pipeline + async bulk download               | `[x] Opus 4.8` (Built), Fable re-review pending       | **Stays flagged.** Blocking: the scan container-instance high (`scan-worker/src/index.ts:40` — `max_instances` unreachable, OOM/queue-backup risk) plus the engineVersion medium and the scan-warm health-check low. The Rust engine itself is Fable-grade; the block is wiring. Note the worker-files-surface highs from Phase 1 (byte-swap, presign/read split, bundle livelock) also ride this pipeline.                                                                                                                 |
+| 2·2 — Editing + versioning & storage tiering                                            | `[x] Opus 4.8` (Built)                                | **Stays flagged.** Blocking: two highs — the stale-`current` document-regression path (`wopi-routes.ts:96`) and the unauthenticated container-spawn / label-binding gap on the edit worker (`magna-carta-edit/src/index.ts:37`) — plus three correctness mediums (exclusive-lock unique index, WOPI check-then-act, unwired version-cut policy). All activate the day the coolwsd container carries real traffic.                                                                                                           |
+| 2·3 — Inline preview + safe-delivery sandbox                                            | `[x] Opus 4.8 *` (Built), `[x] Opus 4.8 *` (Tested)   | **Clears to Fable-confirmable — no wave-3 findings in the 2·3 surface.** The safe-delivery edge was not in scope of a dedicated wave-3 area and the editing review found no defect on the preview path. Recommend a targeted Fable pass over `apps/worker/src/editing/wopi-*` and the files-preview edge before dropping the `*`, since it shares the editing worker; provisionally clearable.                                                                                                                              |
+| 2·4 — In-app conversion                                                                 | `[~] Sonnet 4.6` (Built, in progress)                 | **Stays flagged.** Blocking (pre-integration): the `sideEffects:false` tree-shake high that silently drops the only implemented engine in production, plus the wasm-vips security/correctness mediums (pixel-bomb guard, Embind leak, blockUntrusted allow-list, multi-frame truncation). None require redesign; fix as the execution substrate (2·1/2·2) wiring lands.                                                                                                                                                     |
+| PDF render engine (cross-cutting)                                                       | `[x] Opus 4.8` (Built)                                | **Stays flagged.** Blocking: the two confidentiality highs — `split()` embedding dropped pages via annotation refs (`generate.rs:203`) and surgery-mode redaction leaving annotations over the black box (`redact.rs:353`) — plus the decompression-guard gap (fix exists on `pdf-decompression-guard`, merge it) and the memory-bounds/encrypted-input mediums. Not yet wired to any route, so browser-only today.                                                                                                         |
+| Metadata Inspector & Scrubber                                                           | `[x] Sonnet 4.6` (Built), `[x] Sonnet 4.6 ↻` (Tested) | **Stays flagged (both cells).** Blocking: five highs, each producing a false `clean:true` for a "safe to send" tool — detect-path bomb bypass, surviving move-range reviser metadata, untouched privileged part classes (thumbnail/customXml/docVars/mail-merge), JPEG after-EOI payload survival, and the 200 MB > 128 MiB inflation cap — plus four correctness mediums. Highest-priority tools-area remediation.                                                                                                         |
+| File Hash & Integrity                                                                   | `[x] Sonnet 4.6` (Built), `[x] Sonnet 4.6 ↻` (Tested) | **Stays flagged (both cells).** The core is Fable-grade; the block is the shared route-level Content-Length cap bypass (`file-integrity.ts:185`) — a body above the firm cap streams into the five-way hasher. Clears once the counting-stream cap lands (shared fix with File Type Verifier).                                                                                                                                                                                                                              |
+| File Type Verifier                                                                      | `[x] Sonnet 4.6` (Built), `[x] Sonnet 4.6 ↻` (Tested) | **Stays flagged (both cells).** The report mapper is honest; the block is the Content-Length cap bypass (`file-type.ts:100`) feeding the shared scan container, the `/identify` heap-buffer availability medium, and the `MAGIKA_CRATE_VERSION` provenance-drift low. Clears with the shared cap fix + the spool/cap change on `/identify`.                                                                                                                                                                                 |
+| AI-Text Detection                                                                       | `[x] Opus 4.8` (Built)                                | **Stays flagged.** Blocking (before the vendor adapter + UI land): the out-of-range-score normalizer medium (false confident "likely AI") and the top-level raw-score placement low. Cheap now, contract-and-UI-wide later. (Owner decision #15.)                                                                                                                                                                                                                                                                           |
+| AI inference foundation                                                                 | `[x] Opus 4.8` (Built)                                | **Stays flagged.** Blocking: the shared reached-middleware high (also Phase 0 telemetry) and the `generateStream`/request-body binding-shape medium — both must be fixed before the first AI feature's producer goes live. The ZDR/consent/metering-isolation core is Fable-grade.                                                                                                                                                                                                                                          |
+| Usage analytics                                                                         | `[~] Opus 4.8` (Built, core)                          | **Stays flagged.** Blocking: the reached-middleware high on the production request path plus the consent-cache no-evict low; the pseudonymizer/consent/suppression design is sound.                                                                                                                                                                                                                                                                                                                                         |
+| Integration port system · Shipping · Property links · Integration platform · Tools area | `[x] Opus 4.8` (Built)                                | **Shipping stays flagged** (four financial/tenancy highs before it carries real postage spend + the whois/framework mediums/lows). The **framework, property-links, integration-platform, and tools-catalog** rows are **medium-max (reservations)** — the pure link builders and the manifest/registry core found no high — but they ride shared rows with shipping and the SSRF-resolver-wiring medium, so treat the cross-cutting integrations surface as flagged until the shipping highs and the resolver wiring land. |
 
 ## Development roadmap (Artifact B)
 
@@ -1653,37 +1653,37 @@ consuming slice/feature goes live (dormant pipelines, pre-integration engines); 
 opportunistic (fix as the area is next touched). Mediums are summarized per area below the
 table.
 
-| # | Sev | Finding | Area (phase) | File:line | Fix direction | Seq |
-| - | --- | ------- | ------------ | --------- | ------------- | --- |
-| 1 | **Critical** | Default upload policy refuses all Office/ODF docs (wildcard not honored) | file-manager (P1) | `packages/file-manager/src/upload-policy.ts:29` | Honor trailing `.*`; gate tests vs real docx/xlsx/pptx/odt/doc/msg/pdf | **S1** |
-| 2 | High | Ingest gate quarantines every legacy .doc/.xls/.ppt/.msg + benign variants | file-manager (P1) | `packages/file-manager/src/ingest-core.ts:147` | Sniffed/declared equivalence table; accept CFB container types | **S1** |
-| 3 | High | Post-commit byte-swap window past the scanner (stale hash served clean) | worker-files (P1) | `apps/worker/src/files/ingest-consumer.ts:68` | Store etag at commit; treat overwrite event as re-ingest/quarantine; shorten PUT TTL | **S1** |
-| 4 | High | Presign/read bucket split — every upload for a REST-provisioned firm dead-letters | worker-files (P1) | `apps/worker/src/files/ingest-consumer.ts:70` | One bucket source of truth (presign against bound bucket); integration test | **S1** |
-| 5 | High | Reaped-bundle rebuild livelock (ready-forever DO) | worker-files (P1) | `apps/worker/src/downloads/bundle-coordinator.ts:18` | Force-rebuild on observed-missing artifact; DO test | **S2** |
-| 6 | High | Matter-number counter race (non-scoping variable segment) | matters (P1) | `packages/matters/src/matter-service.ts:245` | `matter_number_allocation` UNIQUE(scope_key,counter_value) in the draw batch | **S1** |
-| 7 | High | Concurrent double-open overwrites the frozen matter number | matters (P1) | `packages/matters/src/matter-statements.ts:80` | `AND status='prospective'` guard + allocation UNIQUE(matter_id) | **S1** |
-| 8 | High | Chained merges surface archived entities in the conflicts corpus | directory (P1) | `packages/directory/src/merge.ts:141` | Repoint node `merged_into_id` (collapse chains); add to fitness probes | **S1** |
-| 9 | High | Collision absorption hard-deletes user content (soft-delete invariant) | directory (P1) | `packages/directory/src/merge.ts:331` | Soft-delete-and-repoint for deleted_at tables | **S1** |
-| 10 | High | Merged-away subordinate still accepts new references | directory (P1) | `packages/directory/src/entity-kind.ts:43` | `AND status != 'merged_into'` in the existence guard | **S1** |
-| 11 | High | Convert never re-scales number↔currency → silent 100x corruption | custom-fields (P1) | `packages/custom-fields/src/convert.ts:169` | Re-scale 10^(Δscale), write new number_scale in-batch, round-trip test | **S1** |
-| 12 | High | Value write never reads the field definition (orphan rows, kind mismatch) | custom-fields (P1) | `packages/custom-fields/src/custom-field-value-service.ts:56` | One up-front field read — 404 absent, 422 kind mismatch, round numerics | **S1** |
-| 13 | High | Usage "reached" middleware turns analytics failure into a 500 | telemetry + inference (P0/wave 3) | `apps/worker/src/usage/reached-middleware.ts:40` | try/catch post-`next()`, move to `waitUntil`, `emitUsage` never-throws | **S1** |
-| 14 | High | Scan routes to a single container instance (`max_instances` unreachable) | scan-engine (wave 3) | `apps/scan-worker/src/index.ts:40` | `getRandom`/sharded ids + per-instance warm-poke (owner #3) | **S1** |
-| 15 | High | Edit `getFile` serves stale `current` → silent document regression | editing (wave 3) | `apps/worker/src/editing/wopi-routes.ts:96` | Gate `current` read on live-session state; delete after cut | **S2** |
-| 16 | High | Edit worker boots a 2 GB container for any Host label (unauth DoS) | editing (wave 3) | `apps/magna-carta-edit/src/index.ts:37` | Validate 52-hex key + HMAC/registration proof of a live session | **S2** |
-| 17 | High | `sideEffects:false` tree-shakes the only implemented conversion engine | conversion (wave 3) | `packages/conversion/package.json:6` | Explicit registration at composition root (or narrow sideEffects) | **S2** |
-| 18 | High | detect() inflates document.xml with no bomb guard (isolate OOM) | metadata (wave 3) | `packages/metadata/src/detect.ts:25` | Header-only detect filter (never inflate) | **S1** |
-| 19 | High | Move-range reviser name/date survive tracked-changes scrub (false clean) | metadata (wave 3) | `packages/metadata/src/ooxml/walk.ts:11` | Add range-marker vocabulary to REMOVE_TAGS + inspect set | **S1** |
-| 20 | High | Privileged part classes untouched + unreported (thumbnail/customXml/docVars/mail-merge) | metadata (wave 3) | `packages/metadata/src/ooxml/scrub.ts:80` | Drop parts + overrides + rels; emit findings | **S1** |
-| 21 | High | JPEG after-EOI payload (motion-photo video/audio, polyglot) survives scrub | metadata (wave 3) | `packages/metadata/src/image/jpeg.ts:93` | Truncate at genuine EOI, or surface a finding | **S1** |
-| 22 | High | Inflation cap 200 MB > 128 MiB isolate → OOM on compliant archive | metadata (wave 3) | `packages/metadata/src/guards.ts:4` | Lower cap to ~48–64 MB; streaming unzip the durable fix | **S1** |
-| 23 | High | EasyPost `Idempotency-Key` unsupported → paid-but-failed purchase, retries 422 forever | shipping (wave 3) | `apps/worker/src/routes/shipping.ts:505` | Recover-by-read on replayed key / purchase-pending marker | **S1** |
-| 24 | High | Requested insurance silently never bought (record misrepresents) | shipping (wave 3) | `packages/shipping/src/easypost/map.ts:165` | Send EasyPost `insurance` buy param; 422 until wired | **S1** |
-| 25 | High | Label GET reads shared bucket by path id — cross-firm label leak | shipping (wave 3) | `apps/worker/src/routes/shipping.ts:573` | Serve from firm-verified row's stored key; firm-prefix keys | **S1** |
-| 26 | High | Whois IP path nonfunctional (string-prefix CIDR, raw 500) | shipping/whois (wave 3) | `packages/whois/src/rdap.ts:136` | Numeric CIDR containment v4/v6; strip brackets; typed 4xx | **S3** |
-| 27 | High | API-key rotation impossible (connect always INSERTs into a UNIQUE index) | shipping (wave 3) | `apps/worker/src/routes/shipping.ts:381` | Upsert on conflict; add DELETE route; deterministic secret key | **S2** |
-| 28 | High | PDF `split()` embeds dropped pages via kept-page annotation refs | pdf-engine (wave 3) | `crates/pdf-core/src/generate.rs:203` | Strip/drop annotations whose dest is outside the kept set | **S2** |
-| 29 | High | Surgery-mode redaction leaves annotations painting over the black box | pdf-engine (wave 3) | `crates/pdf-core/src/redact.rs:353` | Delete rect-intersecting annotations, or force flatten fallback | **S2** |
+| #   | Sev          | Finding                                                                                 | Area (phase)                      | File:line                                                     | Fix direction                                                                        | Seq    |
+| --- | ------------ | --------------------------------------------------------------------------------------- | --------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ------ |
+| 1   | **Critical** | Default upload policy refuses all Office/ODF docs (wildcard not honored)                | file-manager (P1)                 | `packages/file-manager/src/upload-policy.ts:29`               | Honor trailing `.*`; gate tests vs real docx/xlsx/pptx/odt/doc/msg/pdf               | **S1** |
+| 2   | High         | Ingest gate quarantines every legacy .doc/.xls/.ppt/.msg + benign variants              | file-manager (P1)                 | `packages/file-manager/src/ingest-core.ts:147`                | Sniffed/declared equivalence table; accept CFB container types                       | **S1** |
+| 3   | High         | Post-commit byte-swap window past the scanner (stale hash served clean)                 | worker-files (P1)                 | `apps/worker/src/files/ingest-consumer.ts:68`                 | Store etag at commit; treat overwrite event as re-ingest/quarantine; shorten PUT TTL | **S1** |
+| 4   | High         | Presign/read bucket split — every upload for a REST-provisioned firm dead-letters       | worker-files (P1)                 | `apps/worker/src/files/ingest-consumer.ts:70`                 | One bucket source of truth (presign against bound bucket); integration test          | **S1** |
+| 5   | High         | Reaped-bundle rebuild livelock (ready-forever DO)                                       | worker-files (P1)                 | `apps/worker/src/downloads/bundle-coordinator.ts:18`          | Force-rebuild on observed-missing artifact; DO test                                  | **S2** |
+| 6   | High         | Matter-number counter race (non-scoping variable segment)                               | matters (P1)                      | `packages/matters/src/matter-service.ts:245`                  | `matter_number_allocation` UNIQUE(scope_key,counter_value) in the draw batch         | **S1** |
+| 7   | High         | Concurrent double-open overwrites the frozen matter number                              | matters (P1)                      | `packages/matters/src/matter-statements.ts:80`                | `AND status='prospective'` guard + allocation UNIQUE(matter_id)                      | **S1** |
+| 8   | High         | Chained merges surface archived entities in the conflicts corpus                        | directory (P1)                    | `packages/directory/src/merge.ts:141`                         | Repoint node `merged_into_id` (collapse chains); add to fitness probes               | **S1** |
+| 9   | High         | Collision absorption hard-deletes user content (soft-delete invariant)                  | directory (P1)                    | `packages/directory/src/merge.ts:331`                         | Soft-delete-and-repoint for deleted_at tables                                        | **S1** |
+| 10  | High         | Merged-away subordinate still accepts new references                                    | directory (P1)                    | `packages/directory/src/entity-kind.ts:43`                    | `AND status != 'merged_into'` in the existence guard                                 | **S1** |
+| 11  | High         | Convert never re-scales number↔currency → silent 100x corruption                        | custom-fields (P1)                | `packages/custom-fields/src/convert.ts:169`                   | Re-scale 10^(Δscale), write new number_scale in-batch, round-trip test               | **S1** |
+| 12  | High         | Value write never reads the field definition (orphan rows, kind mismatch)               | custom-fields (P1)                | `packages/custom-fields/src/custom-field-value-service.ts:56` | One up-front field read — 404 absent, 422 kind mismatch, round numerics              | **S1** |
+| 13  | High         | Usage "reached" middleware turns analytics failure into a 500                           | telemetry + inference (P0/wave 3) | `apps/worker/src/usage/reached-middleware.ts:40`              | try/catch post-`next()`, move to `waitUntil`, `emitUsage` never-throws               | **S1** |
+| 14  | High         | Scan routes to a single container instance (`max_instances` unreachable)                | scan-engine (wave 3)              | `apps/scan-worker/src/index.ts:40`                            | `getRandom`/sharded ids + per-instance warm-poke (owner #3)                          | **S1** |
+| 15  | High         | Edit `getFile` serves stale `current` → silent document regression                      | editing (wave 3)                  | `apps/worker/src/editing/wopi-routes.ts:96`                   | Gate `current` read on live-session state; delete after cut                          | **S2** |
+| 16  | High         | Edit worker boots a 2 GB container for any Host label (unauth DoS)                      | editing (wave 3)                  | `apps/magna-carta-edit/src/index.ts:37`                       | Validate 52-hex key + HMAC/registration proof of a live session                      | **S2** |
+| 17  | High         | `sideEffects:false` tree-shakes the only implemented conversion engine                  | conversion (wave 3)               | `packages/conversion/package.json:6`                          | Explicit registration at composition root (or narrow sideEffects)                    | **S2** |
+| 18  | High         | detect() inflates document.xml with no bomb guard (isolate OOM)                         | metadata (wave 3)                 | `packages/metadata/src/detect.ts:25`                          | Header-only detect filter (never inflate)                                            | **S1** |
+| 19  | High         | Move-range reviser name/date survive tracked-changes scrub (false clean)                | metadata (wave 3)                 | `packages/metadata/src/ooxml/walk.ts:11`                      | Add range-marker vocabulary to REMOVE_TAGS + inspect set                             | **S1** |
+| 20  | High         | Privileged part classes untouched + unreported (thumbnail/customXml/docVars/mail-merge) | metadata (wave 3)                 | `packages/metadata/src/ooxml/scrub.ts:80`                     | Drop parts + overrides + rels; emit findings                                         | **S1** |
+| 21  | High         | JPEG after-EOI payload (motion-photo video/audio, polyglot) survives scrub              | metadata (wave 3)                 | `packages/metadata/src/image/jpeg.ts:93`                      | Truncate at genuine EOI, or surface a finding                                        | **S1** |
+| 22  | High         | Inflation cap 200 MB > 128 MiB isolate → OOM on compliant archive                       | metadata (wave 3)                 | `packages/metadata/src/guards.ts:4`                           | Lower cap to ~48–64 MB; streaming unzip the durable fix                              | **S1** |
+| 23  | High         | EasyPost `Idempotency-Key` unsupported → paid-but-failed purchase, retries 422 forever  | shipping (wave 3)                 | `apps/worker/src/routes/shipping.ts:505`                      | Recover-by-read on replayed key / purchase-pending marker                            | **S1** |
+| 24  | High         | Requested insurance silently never bought (record misrepresents)                        | shipping (wave 3)                 | `packages/shipping/src/easypost/map.ts:165`                   | Send EasyPost `insurance` buy param; 422 until wired                                 | **S1** |
+| 25  | High         | Label GET reads shared bucket by path id — cross-firm label leak                        | shipping (wave 3)                 | `apps/worker/src/routes/shipping.ts:573`                      | Serve from firm-verified row's stored key; firm-prefix keys                          | **S1** |
+| 26  | High         | Whois IP path nonfunctional (string-prefix CIDR, raw 500)                               | shipping/whois (wave 3)           | `packages/whois/src/rdap.ts:136`                              | Numeric CIDR containment v4/v6; strip brackets; typed 4xx                            | **S3** |
+| 27  | High         | API-key rotation impossible (connect always INSERTs into a UNIQUE index)                | shipping (wave 3)                 | `apps/worker/src/routes/shipping.ts:381`                      | Upsert on conflict; add DELETE route; deterministic secret key                       | **S2** |
+| 28  | High         | PDF `split()` embeds dropped pages via kept-page annotation refs                        | pdf-engine (wave 3)               | `crates/pdf-core/src/generate.rs:203`                         | Strip/drop annotations whose dest is outside the kept set                            | **S2** |
+| 29  | High         | Surgery-mode redaction leaves annotations painting over the black box                   | pdf-engine (wave 3)               | `crates/pdf-core/src/redact.rs:353`                           | Delete rect-intersecting annotations, or force flatten fallback                      | **S2** |
 
 Also carried at high from Phase 1 (already in the Phase 1 section, not re-tabled): none beyond
 the above — the Phase 0/1 highs are rows 1–13.
@@ -1734,7 +1734,7 @@ the above — the Phase 0/1 highs are rows 1–13.
 
 - **decryption-tool** — (1) Sync `main` now (421 commits behind is the dominant risk; every day
   widens it). (2) Reconcile the `containers/recovery` / `recovery-worker` naming with
-  file-repair-salvage *before* building further (owner call — recommended: file-repair takes
+  file-repair-salvage _before_ building further (owner call — recommended: file-repair takes
   `containers/file-repair`, decryption keeps `containers/recovery`). (3) Build Slice 2 Plan 2 (DO
   coordinator + Queue fan-out) — the note's NEXT. (4) Retrofit onto `crates/engine-host` (the SP3
   obligation). (5) Add the failed-unlock audit row (wave-3 low). (6) Land ADR fragments + STATUS/
@@ -1791,7 +1791,7 @@ broken. Track so none is mistaken for finished:
   bug only because no UI consumes it yet — re-open when the Convert-to UI wires in).
 - **file-manager scan cache** (`lookupScanCache`) — write-only; wire into hash-first lanes.
 - **Weekly re-scan sweep** — enqueues messages the ingest consumer no-ops on until a real engine
-  + committed-version verdict-update path exists.
+  - committed-version verdict-update path exists.
 - **Metadata matter-action auto-scrub** — the port + safe-delivery pipeline exist; the
   outbound-seam auto-scrub (discovery production / portal send) is the flagged high-value next
   step.
@@ -1852,7 +1852,7 @@ one-line why-now.
    of drift.
 10. **Metadata polyglot/trailing-data detector shared with the scan engine** — the JPEG-after-EOI,
     PNG-after-IEND, and zip-anomaly signals the scrubber needs are the same raw facts the 2·1
-    scan raw-facts model wants. **Why now:** one byte-level parser serves scrubbing *and*
+    scan raw-facts model wants. **Why now:** one byte-level parser serves scrubbing _and_
     malware/exfiltration detection instead of two divergent ones — and the metadata after-EOI fix
     (row 21) is being built now.
 

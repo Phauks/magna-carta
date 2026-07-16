@@ -61,15 +61,45 @@ The techniques, in leverage order:
 
 ### Scope the check to what changed (now)
 
-**The gate (`pnpm check`)** runs `vp check` (fmt + lint) and **`vp run typecheck` (`tsc -b`) as the
+**The full gate (`pnpm check`)** runs `vp check` (fmt + lint) and **`vp run typecheck` (`tsc -b`) as the
 authoritative type-check** — `tsc -b` is fast and incremental, so the type pass actually completes and
 real errors can no longer slip (`vp check`'s own whole-repo type-error pass is off; `typeCheck: false`).
+It is exhaustive and slow by design, and it is the **gate of record — run in GitHub Actions**
+(`.github/workflows/gate.yml`, alongside the full `vp test`) on every pull request and push to `main`,
+not on the inner loop.
 
-**The fast local loop:** run `vp run typecheck` (types — seconds when warm) plus `vp check [paths]` for
-fmt + lint on just your changed files (`vp check` type-checks/lints only the files given, plus their
-dependencies). Drive the paths from the git diff — the changed files and their dependents, not the
-whole repo — for a seconds-not-minutes inner loop, instead of skipping the full sweep because it is
-slow.
+**The fast local loop — and the pre-push hook — is `pnpm check:scoped`** (`tooling/check-scoped/`). It
+derives the change set from the git diff (merge-base with `main`, plus the working tree) and runs only
+what that change can break: fmt + lint on the changed paths, the incremental `tsc -b` type-check, and
+`svelte-check` or the Rust gate **only when a `.svelte` file or a crate was actually touched**. It prints
+what it skipped and why — a gate that quietly checks nothing is worse than a slow one.
+
+The distinction matters because the full gate's cost is nearly all fixed: seven serial whole-repo passes
+run identically whether the diff is three files or three hundred, and in practice the overwhelming
+majority of those runs re-confirm what was already true. Scope the local loop; keep the whole-repo sweep
+in CI, where it gates the merge into `main`.
+
+### Bootstrap the generated artefacts (a fresh worktree is not a runnable worktree)
+
+`packages/{pdf,decryption,email}/src/pkg/` is **generated** wasm-bindgen output and **git-ignored**, so a
+newly created worktree has none of it and every type-check or test touching those packages fails on an
+unresolvable import until somebody rebuilds it. That is a bootstrap gap, not a per-change cost, and it
+is paid once per worktree — of which several are live at any time.
+
+**`vp run bootstrap`** (`tooling/bootstrap/`) closes it: it rebuilds only the artefacts whose Rust inputs
+are newer than the `.wasm` they produced, and is a sub-second no-op when everything is current, so it is
+safe to run at the top of any session. `pnpm check:scoped` calls it in `--check` mode and fails fast with
+the fix, rather than surfacing the gap as a confusing type error.
+
+It also writes a **git-ignored `crates/.cargo/config.toml`** pointing cargo at a target directory shared
+by every worktree on the machine (`~/.cache/magna-carta/cargo-target`). Cargo's `target/` is otherwise
+per-worktree, so each new worktree pays a full cold dependency compile for the same unchanged crate
+graph. Sharing makes the second worktree's build a cache hit; concurrent builds serialize on cargo's own
+file lock, which is also the behaviour a 16 GB box wants. `MAGNA_CARTA_SHARED_CARGO_TARGET=0` opts out.
+
+`vp run rust-wasm-build` (Docker, pinned toolchain) remains the **canonical** wasm build — it is what the
+deploy pipeline runs, and it needs no host Rust. `vp run bootstrap` is the local fast path over the same
+wasm-pack invocation; `--docker` forces the canonical images.
 
 ### TypeScript project references + incremental (the structural scaler)
 
@@ -118,6 +148,11 @@ files that were already correct); pin them like any other build input.
 
 - Build-time budgets and a signal that flags a regression in build wall-clock, once there is a baseline worth holding.
 - Persisting BuildKit **cache mounts** across Workers Builds runs (the registry/`target` mounts are build-local today) if cold Rust dependency compiles in the Container build become the bottleneck.
-- **Scope the type-aware lint pass to changed files in the gate** — `vp check`'s type-aware lint still builds a whole-program model for the full `pnpm check`. `tsc -b` already gives the gate its fast, complete type-errors; making the type-aware _lint_ equally fast (scoping it, or a tsgolint-on-changed step) is the remaining speed-up. Depends on a vp mechanism to scope `typeAware` independently of the global config.
 - **`tsgo` cutover** — swap the type-check engine to the TypeScript 7 native compiler once references have landed and it reaches GA, keeping a pinned JavaScript `typescript` for the Compiler-API tooling.
-- **CI affected-graph** — run checks only for the packages a change affects (plus dependents), sharding and persisting `.tsbuildinfo` between runs, once references make "affected" precise.
+- **Extend the CI affected-graph to type-check and tests** — the CI `lint` job already lints only the affected packages (below); type-check and the test suites still run whole-repo. Scoping them too — sharding and persisting `.tsbuildinfo` / test state between runs — is the remaining affected-graph work.
+
+### Scope the CI type-aware lint to the affected packages (now)
+
+The whole-repo type-aware lint (`vp check --no-fmt`, oxlint + tsgolint) is CI's tall pole — ~24 min, single-threaded, no cross-run cache upstream. But tsgolint builds its type program **lazily from the passed files' import closure**, so `vp check --no-fmt <paths>` scopes the cost to those paths: one small package is ~2 s where the whole repo is ~24 min (measured). The earlier belief that this "depends on a vp mechanism to scope `typeAware`" was wrong — the `vp check [PATHS]` passthrough already is that mechanism, and cross-package types still resolve from the closure.
+
+So the gate's **`lint` job lints only the affected packages**, computed by `tooling/affected-lint`: the changed workspace packages **plus their transitive dependents** — never just the changed files, because a type-aware finding in an unchanged file can flip when a dependency changes (that soundness gap is exactly why `check-scoped`, which lints only changed files, is fine for the local loop but not the gate of record). A change to a global input — the lint ruleset (`oxlintrc.json`), the shared compiler options (`tsconfig.base.json`, `packages/tsconfig/`), `vite.config.ts`, the lockfile, `.github/`, or the affected-lint logic itself — falls back to a whole-repo lint, as does any lintable source file outside every package. Only the lint job is scoped this way; type-check, tests, and the contract checks still run whole-repo, so the blast radius of a scoping miss is one type-aware lint rule, not correctness at large. A typical few-package change drops the tall pole from ~24 min to seconds; a foundational package (e.g. `@magna-carta/identifiers`) correctly re-lints its whole dependent set.

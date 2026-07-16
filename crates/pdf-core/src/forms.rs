@@ -2232,9 +2232,8 @@ mod tests {
             .unwrap()
             .as_dict()
             .unwrap();
-        assert_eq!(
-            acro.get(b"NeedAppearances").unwrap().as_bool().unwrap(),
-            false,
+        assert!(
+            !acro.get(b"NeedAppearances").unwrap().as_bool().unwrap(),
             "inline-AcroForm /NeedAppearances must be cleared after fill"
         );
     }
@@ -2661,7 +2660,7 @@ mod tests {
         let cm_pos = content_str
             .find(" cm ")
             .expect("appended content must have cm");
-        let tokens: Vec<&str> = content_str[..cm_pos].trim().split_whitespace().collect();
+        let tokens: Vec<&str> = content_str[..cm_pos].split_whitespace().collect();
         let n = tokens.len();
         let cm_a: f32 = tokens[n - 6].parse().unwrap();
         let cm_b: f32 = tokens[n - 5].parse().unwrap();
@@ -2762,7 +2761,7 @@ mod tests {
         let found = (0_usize..)
             .map(|page_index| crate::textpos::observe_page(&pdf, page_index))
             .take_while(|obs| obs.is_some())
-            .filter_map(|obs| obs)
+            .flatten()
             .any(|obs| {
                 obs.glyphs
                     .iter()
