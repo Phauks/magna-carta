@@ -1,5 +1,0 @@
----
-category: Added
----
-
-**The status page is a real page.** The isolated status worker's placeholder JSON dump becomes a proper public status page, rendered server-side from the live snapshot and readable with zero JavaScript — built to work precisely when everything else is broken (one self-contained response, no external assets, a meta refresh keeping it current). A verdict band answers the only question in one second, active incidents pin beneath it with their updates newest-first in UTC, components render in two calm columns by group, third-party providers state their own weather without ever reading as our outage, resolved incidents remain as the permanent history, and a staleness strip appears whenever the snapshot itself has gone quiet. Provider rows link out to each provider's own status page; there is deliberately no footer yet (that region develops separately). Uptime history bars are deliberately absent until a real per-day history store exists: this page does not fabricate greenness.

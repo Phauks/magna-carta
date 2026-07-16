@@ -12,8 +12,8 @@
 
 **ADRs (resolved by this spec):**
 
-- **ADR-subject-level-erasure-dsar** — moves Proposed → Accepted. Resolution: structured-PII erasure with a legal-retention boundary; the attribution model is a declarative PII/erasure registry + a fitness function (the seam built now); the `eraseDataSubject` orchestrator is designed here but its build is deferred to before EU launch.
-- **ADR-data-residency-firm-region-seam** — moves Proposed → Accepted. Resolution: a `firm.data_region` column threaded through provisioning; `eu` path built on Cloudflare jurisdiction primitives; set-once, no cross-region moves; Canada flagged open.
+- **ADR-0190** — moves Proposed → Accepted. Resolution: structured-PII erasure with a legal-retention boundary; the attribution model is a declarative PII/erasure registry + a fitness function (the seam built now); the `eraseDataSubject` orchestrator is designed here but its build is deferred to before EU launch.
+- **ADR-0168** — moves Proposed → Accepted. Resolution: a `firm.data_region` column threaded through provisioning; `eu` path built on Cloudflare jurisdiction primitives; set-once, no cross-region moves; Canada flagged open.
 
 The compliance control baseline registered two GDPR gaps: subject-level erasure (beyond the firm-level crypto-shred) and per-firm data residency. Both share one property — the **expensive-to-retrofit part is not the machinery, it is the discipline**: making every personal-data record resolvable to a data subject, and making a firm's storage location an attribute set before any data exists. This spec builds those two seams now (cheap, while the schema is soft) and defers the heavy builds (the erasure orchestrator; multi-region operations) behind named seams — the repo's "build the cheap seam when in the area" rule.
 
