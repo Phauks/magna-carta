@@ -77,6 +77,8 @@ const NON_MUTATING_POST_ALLOW_LIST: Record<string, string> = {
     "Pure carving over the uploaded bytes — returns recovered embedded files in-process; nothing is stored, no firm data is written. The persisting attach variant is a separate audited route.",
   "ocr.recognize":
     "Pure recognition over the uploaded bytes — returns per-page text, word boxes, and confidence; nothing is stored, no firm data is written.",
+  "ocr.searchable":
+    "Pure recognition over the uploaded PDF — returns the same document with an invisible searchable text layer; nothing is stored, no firm data is written.",
   "emailInspector.inspect":
     "Pure computation over the uploaded message bytes — parses and returns the structural inspection; nothing is stored, no firm data is written.",
   "aiDetection.detect":
@@ -645,6 +647,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "numbering.preview",
       "numbering.set",
       "ocr.recognize",
+      "ocr.searchable",
       "platform.setFirmReleaseChannel",
       "platformStatus.clearComponentOverride",
       "platformStatus.declareEvent",

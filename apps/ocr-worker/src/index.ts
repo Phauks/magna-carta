@@ -11,13 +11,17 @@ export type Bindings = {
 export { OcrEngineContainer } from "./ocr-engine-container.ts";
 
 export default {
-  // POST /ocr — receives the streamed document body from the app worker (via service binding) and
-  // forwards it to the engine Container, returning its JSON response verbatim. No auth: the service
-  // binding is the trust boundary (not reachable from the public internet).
+  // POST /ocr and POST /ocr/searchable — receive the streamed document body from the app worker (via
+  // service binding) and forward it to the engine Container, returning its response verbatim: recognized
+  // facts as JSON for /ocr, a searchable PDF for /ocr/searchable. Both share one container instance. No
+  // auth: the service binding is the trust boundary (not reachable from the public internet).
   async fetch(request: Request, env: Bindings): Promise<Response> {
     const url = new URL(request.url);
-    if (request.method === "POST" && url.pathname === "/ocr") {
-      return forwardOcr(request, getContainer(env.OCR_ENGINE, "ocr"));
+    if (
+      request.method === "POST" &&
+      (url.pathname === "/ocr" || url.pathname === "/ocr/searchable")
+    ) {
+      return forwardOcr(request, getContainer(env.OCR_ENGINE, "ocr"), url.pathname);
     }
     return new Response("Not Found", { status: 404 });
   },

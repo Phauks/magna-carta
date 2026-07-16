@@ -3,4 +3,5 @@
 
 pub mod forms;
 pub mod ocr;
+pub mod searchable;
 pub mod surgery;

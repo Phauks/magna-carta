@@ -216,7 +216,13 @@ export default {
 // a live Container.
 const OCR_SERVICE_STUB_SCRIPT = `
 export default {
-  fetch() {
+  fetch(request) {
+    if (new URL(request.url).pathname === "/ocr/searchable") {
+      return new Response("%PDF-1.7 searchable-stub", {
+        status: 200,
+        headers: { "content-type": "application/pdf" },
+      });
+    }
     return new Response(
       JSON.stringify({
         pages: [

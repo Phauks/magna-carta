@@ -99,11 +99,19 @@ impl Recognizer for PaddleRecognizer {
         // Partition rather than filter: a region detection found but recognition could
         // not decode is lost information, and this crate never lets a caller mistake
         // that loss for a page that genuinely had no text on it.
+        //
+        // A region that decoded to nothing is undecoded, whatever shape the engine
+        // reports it in. `text_with_confidence()` returning `None` is not the signal it
+        // appears to be: the recognizer emits an empty string with zero confidence for a
+        // region whose CTC decode produced no characters, so a page of unreadable text
+        // arrives as a stack of `Some(("", 0.0))` and testing only for `None` would count
+        // none of it -- reporting a page of blank lines and, by omission, calling an
+        // unreadable page a blank one.
         let mut lines = Vec::new();
         let mut undecoded_regions = 0;
         for region in &page.text_regions {
             match region.text_with_confidence() {
-                Some((text, confidence)) => lines.push(TextLine {
+                Some((text, confidence)) if !text.trim().is_empty() => lines.push(TextLine {
                     text: text.to_string(),
                     confidence,
                     quad: to_quad(&region.bounding_box),
@@ -114,7 +122,7 @@ impl Recognizer for PaddleRecognizer {
                         .map(|boxes| boxes.iter().map(to_quad).collect())
                         .unwrap_or_default(),
                 }),
-                None => undecoded_regions += 1,
+                _ => undecoded_regions += 1,
             }
         }
 

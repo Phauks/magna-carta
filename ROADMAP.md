@@ -109,7 +109,7 @@ A cross-phase entry, not a Phase 4 slice — pinned here so Discovery's email-as
 
 Builds on the slice 2·1 upload + untrusted-file pipeline and the slice 2·3 safe-delivery sandbox; email-as-evidence builds on the email-filing record model (above). (White paper, _Discovery_.)
 
-- **Slice 5·1 — Ingest & processing.** Discovery ingest on the 2·1 pipeline, dedup, document family / threading, and OCR (PaddleOCR PP-OCRv5 via ONNX/`ort`).
+- **Slice 5·1 — Ingest & processing.** Discovery ingest on the 2·1 pipeline, dedup, document family / threading, and OCR (PaddleOCR PP-OCRv6 via ONNX/`ort`, standalone engine built ahead of this slice).
 - **Slice 5·2 — Search & indexing.** Tantivy full-text + Vectorize semantic index. _AI: the inference foundation's platform-fixed embedding operation — its first real consumer._
 - **Slice 5·3 — Review.** Tag / code, redact, the email-thread view, near-duplicate clustering. _AI: assisted review — privilege / responsiveness prediction and semantic retrieval over the durable-Workflow inference path; consent-gated, advisory to the reviewer, never authoritative._
 - **Slice 5·4 — Production.** Bates numbering, applied redactions, the privilege log, and defensible per-document hashing.

@@ -19,6 +19,19 @@ export const ocrRecognizeMeta: RouteMeta = {
   rateLimit: "expensive",
 };
 
+// Writing a searchable text layer is the same capability as recognition — it reads a scan and produces
+// text, storing nothing — so it shares the `tools:ocr` permission and the recognize route's posture.
+export const ocrSearchableMeta: RouteMeta = {
+  operationId: "ocr.searchable",
+  surface: "app",
+  authenticated: true,
+  permission: "tools:ocr",
+  resource: "firm",
+  audited: false,
+  idempotency: "optional",
+  rateLimit: "expensive",
+};
+
 const QuadSchema = z.object({
   points: z.array(z.array(z.number()).length(2)).length(4),
 });
@@ -90,6 +103,56 @@ const recognizeRoute = defineOpenAPIRoute(ocrRecognizeMeta, {
     },
     422: {
       description: "The document is unreadable or was rejected outright — retrying will not help",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    429: {
+      description: "Rate limit exceeded",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    503: {
+      description: "Recognition engine unavailable",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+  },
+});
+
+const searchableRoute = defineOpenAPIRoute(ocrSearchableMeta, {
+  method: "post",
+  path: "/api/v1/ocr/searchable",
+  description:
+    "Recognize a scanned PDF and return it with an invisible text layer over every scanned page, so " +
+    "the document becomes selectable and searchable with nothing new visible. Additive: a page that " +
+    "already carries a text layer is left unchanged. PDF only. Nothing is stored.",
+  request: {
+    body: {
+      content: { "application/octet-stream": { schema: z.any() } },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      description: "The input PDF with an invisible, searchable text layer",
+      content: { "application/pdf": { schema: z.string().openapi({ format: "binary" }) } },
+    },
+    400: {
+      description: "Empty request body",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    401: {
+      description: "No valid session",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    403: {
+      description: "Missing tools:ocr",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    413: {
+      description: "File exceeds the inspectable-size cap",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    422: {
+      description:
+        "The document is not a PDF, is unreadable, or was rejected outright — retrying will not help",
       content: { "application/problem+json": { schema: Problem } },
     },
     429: {
@@ -176,6 +239,82 @@ export function registerOcrRoutes(
         });
       }
       return c.json(ResultSchema.parse(await response.json()), 200);
+    },
+  );
+
+  app.openapi(
+    {
+      ...searchableRoute,
+      middleware: chokepointMiddleware(chokepoint, searchableRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const body = c.req.raw.body;
+      if (body === null) {
+        return problemJson(c, {
+          type: "validation",
+          title: "Empty body",
+          status: 400,
+          detail: "Provide the PDF bytes as the request body.",
+        });
+      }
+      const sizeBytes = Number(c.req.header("content-length") ?? "0");
+      const cap = await readInspectableSizeCap(firm.firmDatabase);
+      if (sizeBytes > cap) {
+        await body.cancel();
+        return problemJson(c, {
+          type: "upload-not-allowed",
+          title: "File too large to recognize inline",
+          status: 413,
+          detail: `The file exceeds this firm's inspectable-size cap (${cap} bytes).`,
+        });
+      }
+      const ocr = c.env.OCR_SERVICE;
+      if (ocr === undefined) {
+        return problemJson(c, {
+          type: "service-unavailable",
+          title: "Recognition engine unavailable",
+          status: 503,
+          detail: "The recognition engine is not currently reachable. Try again shortly.",
+        });
+      }
+      const response = await ocr.fetch(
+        new Request("http://ocr/ocr/searchable", {
+          method: "POST",
+          body,
+          duplex: "half",
+        } as RequestInit & { duplex: "half" }),
+      );
+      if (response.status === 422) {
+        // A permanently bad input (not a PDF, unreadable, or rejected outright): map to 422 so the
+        // caller stops retrying bytes that will never parse, rather than a 503 that invites a loop.
+        const engineError = EngineErrorSchema.safeParse(await response.json());
+        return problemJson(c, {
+          type: "validation",
+          title: "Document unreadable",
+          status: 422,
+          detail:
+            engineError.success && engineError.data.code === "not-a-pdf"
+              ? "A searchable layer can only be written onto a PDF."
+              : "The recognition engine could not read this document.",
+        });
+      }
+      if (response.status !== 200) {
+        return problemJson(c, {
+          type: "service-unavailable",
+          title: "Recognition failed",
+          status: 503,
+          detail: "The recognition engine returned an error. Try again shortly.",
+        });
+      }
+      // Stream the searchable PDF straight back; the engine already produced the final bytes.
+      return new Response(response.body, {
+        status: 200,
+        headers: {
+          "content-type": "application/pdf",
+          "content-disposition": 'inline; filename="searchable.pdf"',
+        },
+      });
     },
   );
 }
