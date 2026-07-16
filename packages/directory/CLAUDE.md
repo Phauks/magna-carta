@@ -19,8 +19,8 @@
 - `src/person.ts` — `createPerson` / `readPerson` / `updatePerson`
 - `src/organization.ts` — `createOrganization` / `readOrganization` / `updateOrganization`
 - `src/name-history.ts` — `addName` / `changeName` (append-and-flip); inserts the new `directory_name` row + phonetic codes + flips `is_current` on the prior in the same batch
-- `src/search.ts` — FTS5 trigram name search (`searchNames`) + `findDuplicateCandidates` (phonetic-block union trigram union blind-index, signal-count ranked)
-- `src/identifiers.ts` — `protectedField` declarations for all identifier types + `upsertIdentifier` / `readIdentifiers` (via `composeProtectedWrite` / `readProtected` / `blindIndexValue`)
+- `src/search.ts` — FTS5 trigram name search (`searchNames`) + `findDuplicateCandidates` (phonetic-block union trigram union blind-index, signal-count ranked). The blind-index channel takes plaintext `identifiers` (entry-time duplicate detection) **or** a `subjectEntityId` (conflicts): the latter self-joins an already-persisted entity's sealed blind indexes, so the exact-identifier channel runs with no plaintext in hand.
+- `src/identifiers.ts` — `protectedField` declarations for all identifier types + `upsertIdentifier` / `readIdentifiers` (via `composeProtectedWrite` / `readProtected` / `blindIndexValue`); `findEntitiesSharingIdentifiers` — the conflicts blind-index self-join (other live entities sharing a subject's `value_blind_index`, no decrypt/permission/audit)
 - `src/edges.ts` — `createEdge` / `readEdges` (typed, temporal, directional)
 - `src/categories.ts` — `defineCategoryLabel` / `assignCategory` / `listCategories`
 - `src/merge.ts` — `mergeEntities` (non-destructive, atomic batch, full repoint set, `entity_merge` event + `audit_log` row)
@@ -58,4 +58,4 @@
 - The FTS5 trigram table is kept in sync by triggers on `directory_name` (insert/update/soft-delete). The migration `0008_directory` creates these triggers via raw SQL — drizzle-kit cannot model FTS5 or triggers, so they live in the hand-written `.sql` file and are verified by the migration test.
 - `NameRole`, `EdgeType`, and `IdentifierType` are application-level open catalogs (the schema enforces only `length > 0`). Add new catalog values to the `as const` union in `src/types.ts` before using them in write paths.
 - FTS5 trigrams treat SQL keywords (`and`, `not`, `or`) as query operators, not literals — `searchNames` wraps each trigram as a phrase literal (`"<term>"`) to prevent keyword collisions. Do not change this without adding regression coverage for the collision cases.
-- `findDuplicateCandidates` tie-ordering within a signal-count tier is insertion-order (non-deterministic across DB orderings); add a secondary sort `|| a.entityId.localeCompare(b.entityId)` if stable ordering matters in a future test or UI.
+- `findDuplicateCandidates` orders candidates by signal count descending, then entity id ascending (`search.ts:546`) — stable across database row orders, never insertion-order. `channels` (which of the phonetic/trigram/identifier channels fired) and `identifierTypes` (which identifier types matched) travel with each candidate, not only `signalCount`.

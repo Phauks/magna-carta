@@ -3,6 +3,10 @@ import type { BatchDatabase, EffectWrite } from "@magna-carta/data-access/effect
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import type { IdempotencyRecordId } from "@magna-carta/identifiers/types";
 import {
+  IdempotencyConflictError,
+  runDomainEffect,
+} from "@magna-carta/data-access/run-domain-effect";
+import {
   runIdempotentEffect,
   type IdempotentEffectResult,
 } from "@magna-carta/data-access/run-idempotent-effect";
@@ -184,22 +188,32 @@ async function runMatterEffect<T>(
   responseCode: number,
   build: () => BuiltMutation<T>,
 ): Promise<T & ReplayFlag> {
-  const result = await runIdempotentEffect({
-    database,
-    key: options.idempotency?.key,
-    fingerprint: options.idempotency?.fingerprint ?? "",
-    newRecordId: options.idempotency?.newRecordId,
-    now: () => options.clock.now(),
-    effect: () => {
-      const built = build();
-      return Promise.resolve({
-        write: { statements: built.statements, outboxMessages: built.outboxMessages },
-        responseCode,
-        responseBody: canonicalJsonStringify(built.value),
-      });
-    },
-  });
-  return finishMatterResult<T>(result);
+  try {
+    const { value, idempotentReplay } = await runDomainEffect(
+      database,
+      options.idempotency,
+      { now: () => options.clock.now() },
+      "matter",
+      () => {
+        const built = build();
+        // The matters value IS its wire body, so responseBody = value and fromBody is identity.
+        return {
+          statements: built.statements,
+          outboxMessages: built.outboxMessages,
+          responseCode,
+          responseBody: built.value,
+          value: built.value,
+          fromBody: (body: unknown) => body as T,
+        };
+      },
+    );
+    return { ...(value as object), idempotentReplay } as T & ReplayFlag;
+  } catch (error) {
+    if (error instanceof IdempotencyConflictError) {
+      throw new MatterIdempotencyConflictError(error.kind);
+    }
+    throw error;
+  }
 }
 
 // The bounded-retry number draw over the shared idempotency primitive: read the active scheme +

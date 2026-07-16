@@ -5,6 +5,8 @@ import seedToolsFileRepairSql from "@magna-carta/database/drizzle/per-firm/20260
 import fileRepairProvenanceSql from "@magna-carta/database/drizzle/per-firm/20260704T041518_file-repair-provenance.sql";
 import seedToolsSpeedTestSql from "@magna-carta/database/drizzle/per-firm/20260704T041519_seed-tools-speed-test.sql";
 import seedToolsOcrSql from "@magna-carta/database/drizzle/per-firm/20260709T000001_seed-tools-ocr.sql";
+import conflictsSql from "@magna-carta/database/drizzle/per-firm/20260709T120000_conflicts.sql";
+import seedConflictsPermissionsSql from "@magna-carta/database/drizzle/per-firm/20260709T120001_seed-conflicts-permissions.sql";
 import seedToolsEmailInspectorSql from "@magna-carta/database/drizzle/per-firm/20260710T120000_seed-tools-email-inspector.sql";
 import directoryEmailNormalizedAddressSql from "@magna-carta/database/drizzle/per-firm/20260714T210000_directory-email-normalized-address.sql";
 
@@ -22,6 +24,8 @@ export function perFirmMigrations(): Migration[] {
     "20260704T041518_file-repair-provenance": fileRepairProvenanceSql,
     "20260704T041519_seed-tools-speed-test": seedToolsSpeedTestSql,
     "20260709T000001_seed-tools-ocr": seedToolsOcrSql,
+    "20260709T120000_conflicts": conflictsSql,
+    "20260709T120001_seed-conflicts-permissions": seedConflictsPermissionsSql,
     "20260710T120000_seed-tools-email-inspector": seedToolsEmailInspectorSql,
     "20260714T210000_directory-email-normalized-address": directoryEmailNormalizedAddressSql,
   });

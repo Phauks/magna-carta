@@ -28,6 +28,10 @@ export const PERMISSIONS = [
   // Directory — persons, organizations, and their sensitive typed identifiers.
   "directory:edit", // create/edit directory entities, names, identifiers, edges, categories, merges, and matter-party links
   "directory:viewSensitiveIdentifiers", // decrypt and read an entity's protected identifier (SSN/EIN/DL/account/DOB) — audited
+  // Conflicts — the firm-wide conflicts-of-interest check and its append-only log.
+  "conflicts:run", // run a conflicts check against the directory corpus
+  "conflicts:read", // read a completed check and its surfaced hits
+  "conflicts:dispose", // record a reviewer's adjudication (clear, waive, wall, decline) of a hit
   // Locations — the firm's offices/letterhead roots.
   "locations:manage", // create/update/close locations, addresses, staff assignment
   // Shipping & postage — connect the firm's postage account and create/rate/buy/track/refund shipments.

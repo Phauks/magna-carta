@@ -165,6 +165,51 @@ function selectByBlindIndexStatement(
     .bind(identifierType, index);
 }
 
+// The conflicts exact-identifier channel for an EXISTING subject entity, where no plaintext value is
+// in hand: every OTHER live identifier row whose (type, blind index) equals one the subject already
+// carries. A pure blind-index self-join — no decrypt, no permission, no audit, exactly as findByIdentifier
+// matches a plaintext probe. `value_blind_index IS NOT NULL` excludes the never-indexed types (DOB,
+// SSN-last-four store NULL there); merge-resolution and soft-deleted-entity exclusion are left to the
+// caller's resolveMergedId pass, identical to the plaintext channel's raw hits.
+function selectEntitiesSharingBlindIndexStatement(
+  database: SqlDatabase,
+  subjectEntityId: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT DISTINCT other.entity_id AS entity_id, other.identifier_type AS identifier_type
+         FROM ${DIRECTORY_IDENTIFIER_TABLE} AS subject
+         JOIN ${DIRECTORY_IDENTIFIER_TABLE} AS other
+           ON other.identifier_type = subject.identifier_type
+          AND other.value_blind_index = subject.value_blind_index
+        WHERE subject.entity_id = ?1
+          AND other.entity_id <> ?1
+          AND subject.value_blind_index IS NOT NULL
+          AND subject.deleted_at IS NULL
+          AND other.deleted_at IS NULL`,
+    )
+    .bind(subjectEntityId);
+}
+
+// Raw (pre-merge-resolution) exact-identifier hits for a subject entity: other entity ids that share a
+// standalone-indexed identifier's blind index with it, each paired with the type that matched. The
+// conflicts party channel for a subject already persisted (its plaintext is sealed away) — matched by
+// indexed equality alone. The caller resolves each raw id to its surviving master exactly as it does the
+// plaintext channel's hits.
+export async function findEntitiesSharingIdentifiers(
+  database: SqlDatabase,
+  subjectEntityId: string,
+): Promise<Array<{ entityId: string; identifierType: string }>> {
+  const { results } = await selectEntitiesSharingBlindIndexStatement(
+    database,
+    subjectEntityId,
+  ).all<{
+    entity_id: string;
+    identifier_type: string;
+  }>();
+  return results.map((row) => ({ entityId: row.entity_id, identifierType: row.identifier_type }));
+}
+
 // The caller-supplied fields for a new identifier: its type, its plaintext value, and optional temporal
 // validity. The value is sealed immediately — it is never held beyond composing the batch.
 export interface AddIdentifierInput {
