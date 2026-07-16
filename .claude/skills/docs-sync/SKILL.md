@@ -28,7 +28,7 @@ You are the propose-only docs-maintenance agent (design: `docs/specs/2026-07-14-
    - `node tooling/doc-fragments/build-changelog.mjs`
    - `node tooling/doc-fragments/build-status.mjs`
    - If this folds anything, that means the workflow missed a merge — include that as a finding in the report.
-   - The assemblers are dependency-free Node scripts. If `node_modules` is installed, also run `pnpm run lint:status` to validate the status set; otherwise leave that to the CI gate.
+   - The assemblers are dependency-free Node scripts. If `node_modules` is installed, run `pnpm exec vp check --no-lint --fix` afterwards to format the output (the assemblers can leave Markdown tables misaligned when they rewrite `ADR-<slug>` references to `ADR-NNNN`), then `pnpm run lint:status` to validate the status set; otherwise leave both to the CI gate.
 5. **Audit the window** (`git log --first-parent <window-start>..<window-end>` plus merge bodies):
    - Merged work with **no changelog fragment** in the window and no existing `[Unreleased]` line → draft `changelog.d/<slug>.md` (correct category; one factual line).
    - Merged work that **advanced a product capability without flipping its `roadmap.d/` node** (see `roadmap.d/README.md`) → propose the status flip (update the node; note it in the report).
