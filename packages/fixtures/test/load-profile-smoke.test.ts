@@ -41,6 +41,12 @@ import {
   editingMeasurements,
   EDITING_PLAN_SCAN_ALLOWLIST,
 } from "../src/load-profile/editing-measurements.ts";
+import {
+  conflictsHotPathPlans,
+  conflictsMeasurementHandle,
+  conflictsMeasurements,
+  CONFLICTS_PLAN_SCAN_ALLOWLIST,
+} from "../src/load-profile/conflicts-measurements.ts";
 import { ledgerVolume, scaleProfile } from "../src/load-profile/profile.ts";
 import { findFullScans, findTempBtreeSorts, runMeasurements } from "../src/load-profile/runner.ts";
 import { loadProfileSnapshot, type LoadedSnapshot } from "../src/load-profile/snapshot.ts";
@@ -191,6 +197,23 @@ describe("load-profile smoke", () => {
       expect(result.minMs).toBeGreaterThanOrEqual(0);
     }
 
+    // The conflicts measured set runs under its own (async) handle — the seed-derived firm key and
+    // viewSensitiveIdentifiers permission. run-check walks the directory corpus and writes its own log
+    // rows; imputation runs the identity join over the firm's matters.
+    const conflictsHandle = await conflictsMeasurementHandle(snapshot, "smoke-seed");
+    expect(conflictsHandle.subjectEntityId).toMatch(/^directoryPerson_/);
+    const conflictsResults = await runMeasurements(conflictsHandle, conflictsMeasurements, {
+      warmupIterations: 1,
+      iterations: 2,
+    });
+    expect(conflictsResults.map((result) => result.name).sort()).toEqual(
+      ["conflicts.run-check", "conflicts.imputation"].sort(),
+    );
+    for (const result of conflictsResults) {
+      expect(result.iterations).toBe(2);
+      expect(result.minMs).toBeGreaterThanOrEqual(0);
+    }
+
     // The structural no-N+1/no-missing-index check on the hot-path statements. The label set is
     // asserted first: an empty plan list would make the scan check pass vacuously, so dropped
     // probes must fail here, not slip through.
@@ -292,6 +315,21 @@ describe("load-profile smoke", () => {
       ].sort(),
     );
     expect(findFullScans(editingPlans, EDITING_PLAN_SCAN_ALLOWLIST)).toEqual([]);
+
+    // The conflicts hot-path plans: same label-set-first guard, then the scan check. The imputation
+    // identity join, the blind-index self-join, the exact-name probe, and the two log reads must each
+    // walk an index, never the table.
+    const conflictsPlans = conflictsHotPathPlans(snapshot);
+    expect(conflictsPlans.map((plan) => plan.label).sort()).toEqual(
+      [
+        "conflicts.imputation-join",
+        "conflicts.blind-index-self-join",
+        "conflicts.exact-name-probe",
+        "conflicts.hits-by-check",
+        "conflicts.disposition-current",
+      ].sort(),
+    );
+    expect(findFullScans(conflictsPlans, CONFLICTS_PLAN_SCAN_ALLOWLIST)).toEqual([]);
 
     snapshot.close();
   });

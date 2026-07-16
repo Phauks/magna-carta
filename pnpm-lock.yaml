@@ -1184,6 +1184,9 @@ importers:
       '@faker-js/faker':
         specifier: 'catalog:'
         version: 10.4.0
+      '@magna-carta/conflicts':
+        specifier: workspace:*
+        version: link:../conflicts
       '@magna-carta/costs':
         specifier: workspace:*
         version: link:../costs
