@@ -251,11 +251,21 @@ fn recognize_pdf(state: &AppState, bytes: &[u8], force: bool) -> Result<Vec<Page
     Ok(pages)
 }
 
+/// A quad the writer can actually place text in: finite, with positive width and height.
+/// The writer drops a run whose box is degenerate, so the per-word path is only taken when
+/// every word box qualifies — otherwise one bad box would silently lose that word.
+fn is_placeable(quad: &ocr_core::Quad) -> bool {
+    let (x_min, y_min, x_max, y_max) = quad.bounds();
+    let (width, height) = (x_max - x_min, y_max - y_min);
+    width.is_finite() && height.is_finite() && width > 0.0 && height > 0.0
+}
+
 /// Adapt recognized page facts into the searchable-writer's per-page text runs. Where a
-/// line's whitespace-split word count matches its per-word boxes, each word is placed at
-/// its own box, giving word-level selection; otherwise the whole line is placed at the
-/// line box (still searchable, only coarser to select). A skipped page already carries
-/// text and contributes nothing, and an empty line places nothing.
+/// line's whitespace-split word count matches its per-word boxes and every word box is
+/// placeable, each word is placed at its own box, giving word-level selection; otherwise the
+/// whole line is placed at the line box (still searchable, only coarser to select) so no
+/// word is dropped for a single bad box. A skipped page already carries text and contributes
+/// nothing, and an empty line places nothing.
 fn to_text_layers(pages: &[PageFacts]) -> Vec<pdf_core::PageTextLayer> {
     let mut layers = Vec::new();
     for page in pages {
@@ -265,7 +275,10 @@ fn to_text_layers(pages: &[PageFacts]) -> Vec<pdf_core::PageTextLayer> {
         let mut runs = Vec::new();
         for line in &page.lines {
             let words: Vec<&str> = line.text.split_whitespace().collect();
-            if !words.is_empty() && words.len() == line.word_quads.len() {
+            let word_level = !words.is_empty()
+                && words.len() == line.word_quads.len()
+                && line.word_quads.iter().all(is_placeable);
+            if word_level {
                 for (word, quad) in words.iter().zip(&line.word_quads) {
                     runs.push(pdf_core::TextRun {
                         text: (*word).to_string(),
@@ -474,6 +487,36 @@ mod tests {
         let layers = to_text_layers(&pages);
         assert_eq!(layers[0].runs.len(), 1);
         assert_eq!(layers[0].runs[0].text, "中文档案");
+        assert_eq!(layers[0].runs[0].quad, line_box.points);
+    }
+
+    #[test]
+    fn to_text_layers_places_the_whole_line_when_a_word_box_is_degenerate() {
+        // Word count matches the box count, but one word's box is zero-area. Placing per word
+        // would let the writer drop that word silently; fall back to the line box so every
+        // recognized word survives.
+        let line_box = quad([(0.0, 0.0), (100.0, 0.0), (100.0, 10.0), (0.0, 10.0)]);
+        let good = quad([(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)]);
+        let degenerate = quad([(50.0, 5.0), (50.0, 5.0), (50.0, 5.0), (50.0, 5.0)]);
+        let pages = vec![PageFacts {
+            page_index: 0,
+            lines: vec![TextLine {
+                text: "one two".to_string(),
+                confidence: 0.9,
+                quad: line_box,
+                orientation_degrees: None,
+                word_quads: vec![good, degenerate],
+            }],
+            undecoded_regions: 0,
+            skipped: None,
+            orientation_degrees: None,
+        }];
+        let layers = to_text_layers(&pages);
+        assert_eq!(layers[0].runs.len(), 1, "falls back to a single line run");
+        assert_eq!(
+            layers[0].runs[0].text, "one two",
+            "both words kept, not just the one with a good box"
+        );
         assert_eq!(layers[0].runs[0].quad, line_box.points);
     }
 

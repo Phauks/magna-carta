@@ -1,7 +1,10 @@
 // A conversion engine. libvips is implemented now; the rest are registered but their bodies are
 // deferred to the execution substrate (Container/Durable-Object orchestration, the LibreOfficeKit
 // fork-pool, the FFmpeg sandbox). image-pdf is the raster Container's image-to-PDF path (server-only).
-export type EngineId = "libvips" | "libreoffice" | "email" | "ffmpeg" | "image-pdf";
+// ocr is the recognition engine that writes a searchable text layer onto a scanned PDF — it already
+// runs as its own service, reached in the worker through the OCR service binding rather than the
+// dedicated conversion worker.
+export type EngineId = "libvips" | "libreoffice" | "email" | "ffmpeg" | "image-pdf" | "ocr";
 
 // Where an engine can run: "local" = in the browser (wasm) on the user's device, no upload; "server"
 // = in a Container. libvips runs both; the native engines (LibreOffice, email render, FFmpeg) are

@@ -268,7 +268,7 @@ describe("E2E: happy path — upload→submit→drain→done", () => {
       convert: async () => converted(resultBytes, "image/webp"),
     };
     const { batch, acks, retries } = makeBatch(queueMessage);
-    await conversionQueue(batch, env, () => fakePort);
+    await conversionQueue(batch, env, () => () => fakePort);
 
     // The consumer acked the message (not retried).
     expect(acks).toEqual(["msg-e2e"]);
@@ -341,7 +341,7 @@ describe("E2E: tenant isolation — firm B cannot read firm A's job", () => {
       to: "webp",
     };
 
-    await conversionQueue(makeBatch(queueMessage).batch, env, () => ({
+    await conversionQueue(makeBatch(queueMessage).batch, env, () => () => ({
       convert: async () => converted(resultBytes, "image/webp"),
     }));
 
@@ -409,7 +409,9 @@ describe("E2E: typed failure — engine-not-implemented ends the job failed", ()
 
     // Drain with a fake port returning engineNotImplemented — a typed, terminal failure.
     const { batch, acks, retries } = makeBatch(queueMessage);
-    await conversionQueue(batch, env, () => ({ convert: async () => engineNotImplemented() }));
+    await conversionQueue(batch, env, () => () => ({
+      convert: async () => engineNotImplemented(),
+    }));
 
     // Typed failures are terminal (acked, not retried).
     expect(acks).toEqual(["msg-e2e"]);

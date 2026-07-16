@@ -10,6 +10,7 @@ const ENGINE_PLACEMENTS: Record<EngineId, readonly Placement[]> = {
   email: ["server"],
   ffmpeg: ["server"],
   "image-pdf": ["server"],
+  ocr: ["server"],
 };
 
 export function enginePlacements(id: EngineId): readonly Placement[] {
