@@ -83,13 +83,14 @@ export default defineConfig({
       // threshold, so the small per-component design-system indexes are unaffected.)
       "oxc/no-barrel-file": "error",
       // Off: this codebase asserts types at typed seams (parse/deserialize/branded-id boundaries) where a
-      // reviewed `as` is the intended tool; enforcing it repo-wide is ~600 low-signal warnings that bury
-      // the useful tail of `suspicious`. Revisit if the seam count ever shrinks.
+      // reviewed `as` is the intended tool, so a repo-wide ban is ~600 low-signal warnings that would bury
+      // the useful tail of `suspicious`. Turning it back on is tracked as planned strictening — see the
+      // "Lint ruleset" section of docs/conventions/typescript.md.
       "typescript/no-unsafe-type-assertion": "off",
-      // Off: sequential awaits over D1/Queue batches are deliberate here, and whether a loop is a hot-path
-      // problem is something we measure against the load-profile harness, not a blanket lint. The
-      // genuinely useful perf rules (prefer-set-has, no-map-spread, …) stay on via the `perf` category.
-      "eslint/no-await-in-loop": "off",
+      // `eslint/no-await-in-loop` is intentionally NOT overridden here: it flows through the `perf`
+      // category above as a warning. Sequential awaits over D1/Queue batches are often deliberate, but the
+      // count is a tenable backlog and surfacing them as advisory warnings is worthwhile — a genuinely
+      // hot-path loop is worth seeing even when most instances are fine. Warnings do not fail the gate.
     },
   },
   // Per-package test projects. apps/worker and apps/status-worker run their tests inside Miniflare via @cloudflare/vitest-pool-workers, which only activates when their own config (apps/worker/vitest.config.ts, apps/status-worker/vitest.config.ts) is loaded, so each is registered as a Vitest project here; otherwise root `vp test` would run the worker test under the default pool and `cloudflare:test` would not resolve.

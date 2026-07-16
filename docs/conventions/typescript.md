@@ -44,3 +44,12 @@ Enabled:
 - **Off, on purpose.** `typescript/no-unsafe-type-assertion` (reviewed `as` at typed parse/deserialize/branded-id seams is the intended tool; repo-wide enforcement is low-signal noise) and `eslint/no-await-in-loop` (sequential D1/Queue batches are deliberate; hot-path loops are a measured call per golden rule 10, not a lint).
 
 A change to `vite.config.ts` is a global lint input: `tooling/affected-lint` re-lints the **whole repo** for it (the ruleset can move findings anywhere), so a ruleset edit pays the full type-aware pass in CI.
+
+### Planned strictening (tracked)
+
+Two tightenings are deferred, not rejected — each needs a cleanup pass before it can be a hard gate:
+
+- **Promote `correctness` to a hard error.** It currently keeps its inherited (advisory) severity; forcing it to `error` turns the existing correctness findings (`typescript/unbound-method`, `eslint/no-unused-vars`, `eslint/preserve-caught-error`, …) into gate failures. Fix those findings, then set `categories.correctness: "error"`. Correctness is the category that most deserves to block, so this is the highest-value next step.
+- **Enable `typescript/no-unsafe-type-assertion`.** Off today (~600 findings, mostly reviewed `as` at typed seams). Investigate whether a narrower form — an `overrides` entry scoping it to non-seam directories, or a codemod that replaces the mechanical cases — makes it a net win, then turn it on where it pays.
+
+Adopting the `import` and `vitest` plugins is the same shape of work (they surface real findings in existing test code) and belongs on this list too.
