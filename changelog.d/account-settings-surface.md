@@ -1,4 +1,6 @@
-### Added
+---
+category: Added
+---
 
 - **Account Settings surface.** A person-scoped identity and credentials surface at `/account`,
   reached from the profile menu — Profile (name, email, avatar) and Security (password, two-factor,

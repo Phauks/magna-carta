@@ -9,8 +9,6 @@ built: done by="Opus 4.8"
 ui: done by="Fable 5"
 load-profile: n/a
 tested: done by="Fable 5"
-branch: status-page-history
-active-work: docs/active-work/status-page-history.md
 next: Merge the public page + history branches, then run the deploy-activation checklist (status.magnacarta.esq)
 link-spec:
 link-plan:

@@ -1,4 +1,6 @@
-### Fixed
+---
+category: Fixed
+---
 
 - Pin the Rust toolchain (`rust-toolchain.toml`, 1.97.0) so every machine compiles and formats
   identically. An older stable could not build the workspace at all (`oar-ocr` requires rustc 1.95

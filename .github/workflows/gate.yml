@@ -17,6 +17,10 @@ on:
     branches: [main]
   push:
     branches: [main]
+  # The assemble-docs workflow dispatches the gate onto its `docs-assembly` branch: a PR created with
+  # the workflow's own token fires no pull_request events, so the required `gate` status must be
+  # produced explicitly for auto-merge to complete.
+  workflow_dispatch:
 
 # One in-flight run per ref; a newer push cancels the older run.
 concurrency:
@@ -235,11 +239,19 @@ jobs:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
       - name: Dependency audit (high+)
-        run: pnpm audit --audit-level high
-      - name: Governance (process-refs + licenses)
+        # `--ignore-registry-errors` is pnpm's first-party flag for exactly the CI case: exit 0 when the
+        # registry errors, fail ONLY when it successfully responds with found advisories. npm is browning
+        # out its legacy audit endpoints (intermittent HTTP 410; retirement began 2026-07-15) and the
+        # pinned pnpm still queries them, so without this the gate fails at random on the 410 for zero
+        # security value — while the real signal (a new un-ignored high+ advisory) is still enforced on
+        # every call the registry actually answers. Harmless once pnpm moves to the bulk advisory
+        # endpoint. Tracking: https://github.com/pnpm/pnpm/issues/11265
+        run: pnpm audit --audit-level high --ignore-registry-errors
+      - name: Governance (process-refs + licenses + status fragments)
         run: |
           pnpm run lint:process-refs
           pnpm run lint:licenses
+          pnpm run lint:status
       - name: Migration integrity (journal/chain/rebuild guards)
         run: pnpm --filter @magna-carta/database exec vp test run test/migration-integrity.test.ts
 

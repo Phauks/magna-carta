@@ -1,7 +1,7 @@
 ---
 slice: File-manager UI primitives (FileIcon · Breadcrumb · ContextMenu · Tree · Dropzone)
 group: cross-cutting
-order: 22
+order: 24
 research: n/a
 spec: n/a
 plan: n/a
