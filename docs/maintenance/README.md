@@ -6,7 +6,12 @@
 
 Two workers with a hard boundary between them:
 
-**Per-merge (deterministic, CI):** [`.github/workflows/assemble-docs.yml`](../../.github/workflows/assemble-docs.yml) runs on every push to `main`, folds the fragments into the rendered trackers (`changelog.d/` → `CHANGELOG.md`, `docs/decisions/pending/` → the Decision-Log register + numbered ADRs, `status.d/` → `STATUS.md`/`STATUS.json`), and delivers them as an **auto-merging pull request** from the `docs-assembly` branch — the gate fast-paths the docs-only diff and the PR merges itself, honoring the `main` ruleset. The changelog is therefore current minutes after every merged PR, mechanically. (Depends on the repository's "Allow auto-merge" setting; if off, the assembly PR waits for a manual merge.)
+**Per-merge (deterministic, CI):** [`.github/workflows/assemble-docs.yml`](../../.github/workflows/assemble-docs.yml) runs on every push to `main`, folds the fragments into the rendered trackers (`changelog.d/` → `CHANGELOG.md`, `docs/decisions/pending/` → the Decision-Log register + numbered ADRs, `status.d/` → `STATUS.md`/`STATUS.json`), and delivers them as an **auto-merging pull request** from the `docs-assembly` branch — the gate fast-paths the docs-only diff and the PR merges itself, honoring the `main` ruleset. The changelog is therefore current minutes after every merged PR, mechanically.
+
+**Two one-time repository settings are required** (the workflow fails loudly without them):
+
+1. **Settings → Actions → General → Workflow permissions → "Allow GitHub Actions to create and approve pull requests"** — without it, the workflow can force-push `docs-assembly` but cannot open its PR.
+2. **Settings → General → Pull Requests → "Allow auto-merge"** — without it, the assembly PR opens but waits for a manual merge instead of merging itself.
 
 **Weekly (judgment, propose-only):** the docs-sync routine —
 
