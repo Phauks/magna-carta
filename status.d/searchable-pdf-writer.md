@@ -10,7 +10,7 @@ ui: todo
 load-profile: n/a
 tested: done
 active-work: docs/active-work/searchable-pdf-writer.md
-next: Deferred seams — the conversion orchestrator's scanned-to-searchable edge dispatching to `POST /api/v1/ocr/searchable`, ingest-pipeline wiring (queues, per-job Durable Object, search index), rotated/skewed-quad placement beyond axis-aligned bounds, embedding a glyphless font if a target viewer needs a rendered selection glyph, and the UI.
+next: Deferred seams — ingest-pipeline wiring (queues, per-job Durable Object, search index; blocked on the unbuilt discovery/search subsystem), rotated/skewed-quad placement beyond axis-aligned bounds, embedding a glyphless font if a target viewer needs a rendered selection glyph, and the UI. (The conversion orchestrator's scanned→searchable edge is now wired — `pdf → searchable-pdf` in the conversion registry, dispatched to the OCR service.)
 link-spec: docs/specs/2026-07-14-searchable-pdf-writer-design.md
 link-plan:
 adrs:

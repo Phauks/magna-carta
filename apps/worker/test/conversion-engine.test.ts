@@ -2,28 +2,51 @@ import { describe, expect, it } from "vitest";
 import { resolveEnginePort } from "../src/conversions/conversion-engine.ts";
 import type { Bindings } from "../src/app.ts";
 
-// A fake CONVERT service binding: a Fetcher whose fetch() returns a scripted Response.
-function fakeConvert(response: Response): Pick<Fetcher, "fetch"> {
-  return { fetch: async () => response };
+// A fake service binding: a Fetcher whose fetch() records the request it saw and returns a scripted
+// Response.
+function fakeBinding(response: Response): {
+  fetch: Fetcher["fetch"];
+  seen: () => Request | undefined;
+} {
+  let seen: Request | undefined;
+  return {
+    fetch: (async (request: Request) => {
+      seen = request;
+      return response;
+    }) as unknown as Fetcher["fetch"],
+    seen: () => seen,
+  };
 }
 
-const input = { from: "png", to: "webp", bytes: new Uint8Array([1, 2, 3]), recipeRef: "raster" };
+const rasterInput = {
+  from: "png",
+  to: "webp",
+  bytes: new Uint8Array([1, 2, 3]),
+  recipeRef: "webp",
+};
+const pdfInput = {
+  from: "pdf",
+  to: "searchable-pdf",
+  bytes: new Uint8Array([0x25, 0x50, 0x44, 0x46]),
+  recipeRef: "searchable-text-layer",
+};
 
 describe("resolveEnginePort", () => {
-  it("returns the deferred port (engine-not-implemented) when CONVERT is unbound", async () => {
-    const port = resolveEnginePort({} as Bindings);
-    const result = await port.convert(input);
+  it("resolves a convert-worker engine to the deferred port when CONVERT is unbound", async () => {
+    const result = await resolveEnginePort({} as Bindings)("libvips").convert(rasterInput);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.reason).toBe("engine-not-implemented");
   });
 
-  it("maps a 2xx container response to converted bytes + media type", async () => {
+  it("routes a convert-worker engine to the CONVERT binding and maps its 2xx to bytes + media type", async () => {
     const out = new Uint8Array([0x52, 0x49, 0x46, 0x46]);
-    const convert = fakeConvert(
+    const convert = fakeBinding(
       new Response(out, { status: 200, headers: { "Content-Type": "image/webp" } }),
     );
-    const port = resolveEnginePort({ CONVERT: convert } as unknown as Bindings);
-    const result = await port.convert(input);
+    const result = await resolveEnginePort({ CONVERT: convert } as unknown as Bindings)(
+      "libvips",
+    ).convert(rasterInput);
+    expect(convert.seen()?.url).toBe("https://convert/convert");
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(new Uint8Array(result.bytes)).toEqual(out);
@@ -31,10 +54,11 @@ describe("resolveEnginePort", () => {
     }
   });
 
-  it("maps a non-2xx response to adapter-error (never throws)", async () => {
-    const convert = fakeConvert(new Response("bad", { status: 422 }));
-    const port = resolveEnginePort({ CONVERT: convert } as unknown as Bindings);
-    const result = await port.convert(input);
+  it("maps a convert-worker non-2xx to adapter-error (never throws)", async () => {
+    const convert = fakeBinding(new Response("bad", { status: 422 }));
+    const result = await resolveEnginePort({ CONVERT: convert } as unknown as Bindings)(
+      "libvips",
+    ).convert(rasterInput);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.reason).toBe("adapter-error");
   });
@@ -45,9 +69,37 @@ describe("resolveEnginePort", () => {
         throw new Error("binding down");
       },
     };
-    const port = resolveEnginePort({ CONVERT: convert } as unknown as Bindings);
-    const result = await port.convert(input);
+    const result = await resolveEnginePort({ CONVERT: convert } as unknown as Bindings)(
+      "libvips",
+    ).convert(rasterInput);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.reason).toBe("adapter-error");
+  });
+
+  it("routes the ocr engine to the OCR service's searchable endpoint and returns the PDF", async () => {
+    const out = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d]);
+    const ocr = fakeBinding(
+      new Response(out, { status: 200, headers: { "Content-Type": "application/pdf" } }),
+    );
+    const result = await resolveEnginePort({ OCR_SERVICE: ocr } as unknown as Bindings)(
+      "ocr",
+    ).convert(pdfInput);
+    // Reaches the OCR service, not the convert worker.
+    expect(ocr.seen()?.url).toBe("https://ocr/ocr/searchable");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(new Uint8Array(result.bytes)).toEqual(out);
+      expect(result.mediaType).toBe("application/pdf");
+    }
+  });
+
+  it("resolves the ocr engine to the deferred port when OCR_SERVICE is unbound, never falling back to CONVERT", async () => {
+    const convert = fakeBinding(new Response("should not be used", { status: 200 }));
+    const result = await resolveEnginePort({ CONVERT: convert } as unknown as Bindings)(
+      "ocr",
+    ).convert(pdfInput);
+    expect(convert.seen()).toBeUndefined();
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe("engine-not-implemented");
   });
 });

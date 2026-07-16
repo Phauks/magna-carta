@@ -26,6 +26,16 @@ export const FORMATS: readonly Format[] = [
     extensions: ["wpd"],
   },
   { id: "pdf", label: "PDF", mediaType: "application/pdf", extensions: ["pdf"] },
+  // A searchable PDF is a PDF (same media type and extension) that carries a recognized text layer.
+  // It is a distinct format node rather than a pdf->pdf edge because a conversion target must differ
+  // from its source: pathfinding treats from===to as "no path", and "make this searchable" is a real,
+  // selectable target a user asks for.
+  {
+    id: "searchable-pdf",
+    label: "Searchable PDF",
+    mediaType: "application/pdf",
+    extensions: ["pdf"],
+  },
   { id: "eml", label: "Email (EML)", mediaType: "message/rfc822", extensions: ["eml"] },
   {
     id: "msg",
@@ -76,11 +86,25 @@ const otherEdges: readonly ConversionEdge[] = [
   { from: "webm", to: "mp4", engineId: "ffmpeg", recipeRef: "mp4-h264-aac-faststart", weight: 1 },
 ];
 
+// pdf -> searchable-pdf via the OCR engine: recognize the scanned pages and write an invisible text
+// layer, leaving a page that already has text untouched. The engine ignores the recipe (the request
+// is just the PDF bytes), but every edge names one, so this records what the hop does.
+const ocrEdges: readonly ConversionEdge[] = [
+  {
+    from: "pdf",
+    to: "searchable-pdf",
+    engineId: "ocr",
+    recipeRef: "searchable-text-layer",
+    weight: 1,
+  },
+];
+
 export const EDGES: readonly ConversionEdge[] = [
   ...rasterEdges,
   ...imagePdfEdges,
   ...officeEdges,
   ...otherEdges,
+  ...ocrEdges,
 ];
 
 const FORMAT_BY_ID = new Map(FORMATS.map((f) => [f.id, f]));
