@@ -26,6 +26,31 @@ describe("forwardOcr", () => {
     expect(await response.json()).toEqual({ pages: [] });
   });
 
+  it("re-targets the searchable path and streams the container's PDF back verbatim", async () => {
+    let seen: Request | undefined;
+    const container = {
+      async fetch(request: Request) {
+        seen = request;
+        return new Response("%PDF-1.7 searchable", {
+          status: 200,
+          headers: { "content-type": "application/pdf" },
+        });
+      },
+    };
+    const response = await forwardOcr(
+      new Request("https://worker.example/ocr/searchable", {
+        method: "POST",
+        body: "bytes",
+      }),
+      container,
+      "/ocr/searchable",
+    );
+    expect(seen?.url).toBe("http://ocr/ocr/searchable");
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("application/pdf");
+    expect(await response.text()).toBe("%PDF-1.7 searchable");
+  });
+
   it("passes a container fault through rather than masking it as success", async () => {
     const container = {
       async fetch() {
