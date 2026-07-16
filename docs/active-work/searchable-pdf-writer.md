@@ -15,6 +15,8 @@ Design: `docs/specs/2026-07-14-searchable-pdf-writer-design.md`.
 
 - `crates/pdf-core/src/searchable.rs` (the writer, its input types, ToUnicode/font construction) — **landed**
 - `containers/ocr/src/lib.rs` (`POST /ocr/searchable`: recognize -> adapt -> write) — **landed**
-- `crates/pdf-eval/src/validate/operations/searchable.rs` (additive-only validation op) — pending
-- `apps/ocr-worker/**` + the main worker route + `tools:ocr` reach + OpenAPI for `/ocr/searchable` — pending (delivery wiring)
-- Docs: `changelog.d/`, `status.d/searchable-pdf-writer.md`, `docs/decisions/pending/`
+- `crates/pdf-eval/src/validate/operations/searchable.rs` (additive-only validation op) — **landed**
+- `apps/ocr-worker/**` + the main worker route + `tools:ocr` reach + OpenAPI for `/ocr/searchable` — **landed** (delivery wiring)
+- Docs: `changelog.d/`, `status.d/searchable-pdf-writer.md`, `docs/decisions/pending/` — **landed**
+
+Buildable scope complete. Deferred seams (per the design's out-of-scope): conversion-orchestrator dispatch, ingest wiring, rotated-quad placement, embedded glyphless font, and the UI.
