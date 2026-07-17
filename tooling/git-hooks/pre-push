@@ -17,8 +17,11 @@ cd "$root" || exit 1
 fail() { echo "pre-push: FAILED — $1 (the full gate runs in GitHub Actions; run \`pnpm check && vp test\` locally)"; exit 1; }
 step() { echo "pre-push: $1"; }
 
-step "dependency audit (high+)"
-pnpm audit --audit-level high || fail "vulnerable dependency (or adjust the audit allowlist)"
+# Dependency audit is owned by CI now, not this hook. The gate's `governance` job runs osv-scanner over
+# BOTH supply chains (the npm lockfile + every Rust Cargo.lock) against the OSV database, which the local
+# `pnpm audit` never covered — and `pnpm audit` depends on npm's retiring audit endpoint anyway. Accepted
+# advisories live in osv-scanner.toml. Nothing fast and local replaces it here; the authoritative audit is
+# the gate on the pull request.
 
 step "scoped quality gate (fmt + lint + tsc + svelte/rust, for the diff)"
 pnpm check:scoped || fail "pnpm check:scoped"

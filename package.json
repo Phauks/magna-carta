@@ -25,14 +25,5 @@
     "node": ">=22.0.0",
     "pnpm": ">=10.33.2"
   },
-  "packageManager": "pnpm@10.33.2",
-  "pnpm": {
-    "auditConfig": {
-      "//": "The high-severity audit gate (ci.yml, slice 0·6) fails on any NEW high+ advisory. The two below are pre-existing TRANSITIVE dev/build-tooling advisories with no production-runtime exploit path; each is accepted with cause and DROPS when Renovate upgrades the carrier. Adding a NEW entry is an explicit security decision, never a quick unblock.",
-      "ignoreGhsas": [
-        "GHSA-gv7w-rqvm-qjhr",
-        "GHSA-r5fr-rjxr-66jc"
-      ]
-    }
-  }
+  "packageManager": "pnpm@10.33.2"
 }
