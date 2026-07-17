@@ -29,7 +29,8 @@ pub fn serialize_side_map(map: &SideMap) -> Vec<u8> {
 }
 
 pub fn deserialize_side_map(bytes: &[u8]) -> Result<SideMap, String> {
-    serde_json::from_slice(bytes).map_err(|error| format!("cannot deserialize rule side map: {error}"))
+    serde_json::from_slice(bytes)
+        .map_err(|error| format!("cannot deserialize rule side map: {error}"))
 }
 
 /// Enriches bare matched rule ids with their baked metadata. An id missing from the map (a blob/side-map
@@ -178,7 +179,7 @@ pub fn yara_scan(rules: &Rules, bytes: &[u8]) -> Result<Vec<String>, YaraScanFau
 mod tests {
     use super::{
         build_rules, compile_tolerant, deserialize_rules, deserialize_side_map, enrich_matches,
-        serialize_side_map, susp_score_histogram, yara_scan, RuleMeta, RuleMatch,
+        serialize_side_map, susp_score_histogram, yara_scan, RuleMatch, RuleMeta,
     };
 
     const TRIVIAL_RULE: &str = r#"rule t { strings: $a = "malicious" condition: $a }"#;

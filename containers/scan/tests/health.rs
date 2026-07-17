@@ -55,8 +55,7 @@ async fn scan_returns_raw_facts_with_timings() {
         .unwrap();
     assert_eq!(response.status(), 200);
 
-    let body: serde_json::Value =
-        serde_json::from_str(&response.text().await.unwrap()).unwrap();
+    let body: serde_json::Value = serde_json::from_str(&response.text().await.unwrap()).unwrap();
     assert!(body.get("matches").is_some(), "matches must be present");
     assert!(body.get("timings").is_some(), "timings must be present");
     assert!(body.get("clam").is_some(), "clam fact must be present");

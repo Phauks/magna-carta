@@ -3,7 +3,7 @@ branch: claude/gate-yml-review-e5q19j
 worktree: (web session)
 area: CI gate review — close test-coverage holes, harden path classification
 status: review
-touches: .github/workflows/gate.yml, vite.config.ts, docs/conventions/build-performance.md, changelog.d/, containers/scan/{src/spool.rs,tests}
+touches: .github/workflows/gate.yml, vite.config.ts, package.json, tooling/lint-test-registration.mjs, docs/conventions/build-performance.md, changelog.d/, containers/scan/, containers/ocr/src/pages.rs
 ---
 
 Reviewed `.github/workflows/gate.yml` and closed the holes the review surfaced: the seven standalone

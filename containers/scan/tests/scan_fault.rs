@@ -46,8 +46,7 @@ async fn clean_body_with_unreachable_clamd_reports_clam_unavailable() {
         .await
         .unwrap();
     assert_eq!(response.status(), 200);
-    let body: serde_json::Value =
-        serde_json::from_str(&response.text().await.unwrap()).unwrap();
+    let body: serde_json::Value = serde_json::from_str(&response.text().await.unwrap()).unwrap();
     assert_eq!(
         body["clam"],
         serde_json::json!({ "state": "unavailable" }),
@@ -77,7 +76,6 @@ async fn a_body_over_the_stock_extractor_limit_is_accepted() {
         "a >2 MiB body must not be rejected by the body limit"
     );
     assert_eq!(response.status(), 200);
-    let body: serde_json::Value =
-        serde_json::from_str(&response.text().await.unwrap()).unwrap();
+    let body: serde_json::Value = serde_json::from_str(&response.text().await.unwrap()).unwrap();
     assert_eq!(body["clam"], serde_json::json!({ "state": "unavailable" }));
 }

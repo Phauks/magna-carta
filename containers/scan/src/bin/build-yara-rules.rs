@@ -41,9 +41,13 @@ fn main() -> ExitCode {
     let mut args = std::env::args().skip(1);
     let full = args.next().unwrap_or_else(|| "/yara-full.yar".to_string());
     let core = args.next().unwrap_or_else(|| "/yara-core.yar".to_string());
-    let extended = args.next().unwrap_or_else(|| "/yara-extended.yar".to_string());
+    let extended = args
+        .next()
+        .unwrap_or_else(|| "/yara-extended.yar".to_string());
     let out_blob = args.next().unwrap_or_else(|| "/yara-rules.bin".to_string());
-    let out_sidemap = args.next().unwrap_or_else(|| "/yara-rules-sidemap.json".to_string());
+    let out_sidemap = args
+        .next()
+        .unwrap_or_else(|| "/yara-rules-sidemap.json".to_string());
     let min_score = args
         .next()
         .and_then(|value| value.parse::<i32>().ok())
@@ -142,7 +146,15 @@ fn run(
     std::fs::write(out_sidemap, yara::serialize_side_map(&side_map))
         .map_err(|e| format!("cannot write {out_sidemap}: {e}"))?;
 
-    print_report(&tagged, compiled, failed, report.warnings, min_score, out_blob, blob.len());
+    print_report(
+        &tagged,
+        compiled,
+        failed,
+        report.warnings,
+        min_score,
+        out_blob,
+        blob.len(),
+    );
     Ok(())
 }
 
@@ -278,8 +290,7 @@ mod tests {
         core_body: &str,
         extended_body: &str,
     ) -> (PathBuf, MultiPkg) {
-        let dir =
-            std::env::temp_dir().join(format!("byr-{}-{}", test, std::process::id()));
+        let dir = std::env::temp_dir().join(format!("byr-{}-{}", test, std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let full = dir.join("full.yar");
         let core = dir.join("core.yar");
@@ -307,16 +318,22 @@ mod tests {
         let core = "rule Core_One\n{\n strings:\n  $a = \"x\"\n condition:\n  $a\n}\n";
         let extended = full; // extended ⊇ core; here it equals full minus full-only rules
         let (dir, paths) = temp_pkg_multi("bake", full, core, extended);
-        run(&paths.full, &paths.core, &paths.extended, &paths.out, &paths.sidemap, 75)
-            .expect("valid packages bake");
+        run(
+            &paths.full,
+            &paths.core,
+            &paths.extended,
+            &paths.out,
+            &paths.sidemap,
+            75,
+        )
+        .expect("valid packages bake");
         assert!(
             std::fs::metadata(&paths.out).unwrap().len() > 0,
             "blob written"
         );
-        let map = magna_carta_scan::yara::deserialize_side_map(
-            &std::fs::read(&paths.sidemap).unwrap(),
-        )
-        .unwrap();
+        let map =
+            magna_carta_scan::yara::deserialize_side_map(&std::fs::read(&paths.sidemap).unwrap())
+                .unwrap();
         // The _SUSP_ rule is NOT dropped — it is baked and tagged is_suspicious for app-side gating.
         assert_eq!(map["Core_One"].tier, magna_carta_scan::forge::Tier::Core);
         assert!(map["Ext_SUSP_Two"].is_suspicious && map["Ext_SUSP_Two"].score == 40);
@@ -329,8 +346,15 @@ mod tests {
             rule Good_One\n{\n strings:\n  $a = \"alpha\"\n condition:\n  $a\n}\n\n\
             rule Good_Two\n{\n strings:\n  $b = \"beta\"\n condition:\n  $b\n}\n";
         let (dir, paths) = temp_pkg_multi("valid", body, body, body);
-        run(&paths.full, &paths.core, &paths.extended, &paths.out, &paths.sidemap, 75)
-            .expect("valid package builds");
+        run(
+            &paths.full,
+            &paths.core,
+            &paths.extended,
+            &paths.out,
+            &paths.sidemap,
+            75,
+        )
+        .expect("valid package builds");
         assert!(
             std::path::Path::new(&paths.out).exists(),
             "a blob must be written"
@@ -348,9 +372,15 @@ mod tests {
         // rules, so the test uses a genuinely empty package rather than a low-score _SUSP_ rule.
         let body = "import \"pe\"\n\n";
         let (dir, paths) = temp_pkg_multi("empty", body, body, body);
-        let err =
-            run(&paths.full, &paths.core, &paths.extended, &paths.out, &paths.sidemap, 75)
-                .unwrap_err();
+        let err = run(
+            &paths.full,
+            &paths.core,
+            &paths.extended,
+            &paths.out,
+            &paths.sidemap,
+            75,
+        )
+        .unwrap_err();
         assert!(
             err.contains("empty"),
             "expected the empty-corpus gate; got: {err}"
@@ -369,9 +399,15 @@ mod tests {
         let body =
             "import \"pe\"\n\nrule A\n{\n condition:\n  true\n\nrule B\n{\n condition:\n  true\n}\n";
         let (dir, paths) = temp_pkg_multi("inconsistent", body, body, body);
-        let err =
-            run(&paths.full, &paths.core, &paths.extended, &paths.out, &paths.sidemap, 75)
-                .unwrap_err();
+        let err = run(
+            &paths.full,
+            &paths.core,
+            &paths.extended,
+            &paths.out,
+            &paths.sidemap,
+            75,
+        )
+        .unwrap_err();
         assert!(
             err.contains("inconsistency"),
             "expected the split-inconsistency gate; got: {err}"
@@ -386,9 +422,15 @@ mod tests {
             rule Ok_Rule\n{\n strings:\n  $a = \"x\"\n condition:\n  $a\n}\n\n\
             rule Bad_Rule\n{\n condition:\n  undefined_identifier\n}\n";
         let (dir, paths) = temp_pkg_multi("collapse", body, body, body);
-        let err =
-            run(&paths.full, &paths.core, &paths.extended, &paths.out, &paths.sidemap, 75)
-                .unwrap_err();
+        let err = run(
+            &paths.full,
+            &paths.core,
+            &paths.extended,
+            &paths.out,
+            &paths.sidemap,
+            75,
+        )
+        .unwrap_err();
         assert!(
             err.contains("failed to compile"),
             "expected the systemic-collapse gate; got: {err}"
@@ -407,8 +449,15 @@ mod tests {
         }
         body.push_str("rule Bad_One\n{\n condition:\n  undefined_identifier\n}\n");
         let (dir, paths) = temp_pkg_multi("tolerate", &body, &body, &body);
-        run(&paths.full, &paths.core, &paths.extended, &paths.out, &paths.sidemap, 75)
-            .expect("one broken rule of 41 is under the ceiling");
+        run(
+            &paths.full,
+            &paths.core,
+            &paths.extended,
+            &paths.out,
+            &paths.sidemap,
+            75,
+        )
+        .expect("one broken rule of 41 is under the ceiling");
         assert!(
             std::path::Path::new(&paths.out).exists(),
             "a blob must be written when under the ceiling"

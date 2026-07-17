@@ -10,6 +10,9 @@
 # independent jobs in parallel. Each heavy job is skipped when the diff can't affect it (a docs-only push
 # runs only format + governance), so cost tracks what changed. The `gate` job aggregates them into the
 # single required status. Rationale: docs/conventions/build-performance.md (fast CI is a foundation).
+# Every job carries a timeout-minutes cap set comfortably above its honest wall-clock (cold caches
+# included), so a genuine hang fails fast and visibly instead of burning a runner toward GitHub's 6-hour
+# default; when a job's honest time grows, raise its cap rather than letting it flirt with the limit.
 name: gate
 
 on:
@@ -35,6 +38,7 @@ jobs:
   # (no third-party action) against the PR base or the push's previous tip.
   changes:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       code: ${{ steps.filter.outputs.code }}
       rust: ${{ steps.filter.outputs.rust }}
@@ -96,6 +100,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
 
@@ -131,6 +136,7 @@ jobs:
   # Formatting covers markdown too, so it runs on every change (including docs-only) and needs no WASM.
   format:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
@@ -188,6 +194,7 @@ jobs:
     needs: [changes, wasm]
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
@@ -212,6 +219,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
@@ -248,6 +256,7 @@ jobs:
     needs: [changes, wasm]
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -273,6 +282,7 @@ jobs:
     needs: [changes, wasm]
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -298,6 +308,7 @@ jobs:
     needs: [changes, wasm]
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
@@ -332,6 +343,7 @@ jobs:
   # slip through a docs-only push.
   governance:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
@@ -423,11 +435,12 @@ jobs:
           echo "osv-scanner: HIGH/CRITICAL advisories remain after ignores — failing the gate:" >&2
           printf '%s' "$offenders" | jq -r '.[] | "  [\(.ecosystem)] \(.package): \(.ids | join(", ")) (max_severity=\(.max_severity), \(.classified_by))"' >&2
           exit 1
-      - name: Governance (process-refs + licenses + status fragments)
+      - name: Governance (process-refs + licenses + status fragments + test registration)
         run: |
           pnpm run lint:process-refs
           pnpm run lint:licenses
           pnpm run lint:status
+          pnpm run lint:test-registration
       - name: Migration integrity (journal/chain/rebuild guards)
         run: pnpm --filter @magna-carta/database exec vp test run test/migration-integrity.test.ts
 
@@ -437,6 +450,7 @@ jobs:
     needs: [changes, wasm]
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
@@ -463,16 +477,17 @@ jobs:
           pnpm --filter @magna-carta/design-tokens run build
           git diff --exit-code packages/design-tokens/generated
 
-  # The container gate — two layers per CHANGED container: the workspace's own `cargo test` (each
-  # container is its own Cargo workspace, so the crates/-scoped rust job never touches them), then the
-  # build-and-drive Docker acceptance suite where one exists (Docker is on the runner here, unlike a
-  # local machine). A changed container that is neither mapped to an acceptance suite nor explicitly
-  # listed as not-yet-covered FAILS the job — a new container must opt in loudly, never silently join
-  # the untested set.
+  # The container gate — two layers per CHANGED container: the workspace's own Rust gate (fmt --check
+  # + clippy -D warnings + cargo test — each container is its own Cargo workspace, so the crates/-scoped
+  # rust job never touches them), then the build-and-drive Docker acceptance suite where one exists
+  # (Docker is on the runner here, unlike a local machine). A changed container that is neither mapped
+  # to an acceptance suite nor explicitly listed as not-yet-covered FAILS the job — a new container must
+  # opt in loudly, never silently join the untested set.
   containers:
     needs: changes
     if: needs.changes.outputs.containers == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v7
         with:
@@ -505,7 +520,7 @@ jobs:
           restore-keys: |
             cargo-containers-${{ runner.os }}-
 
-      - name: Changed-container unit tests (cargo test per workspace)
+      - name: Changed-container Rust gate (fmt + clippy + test per workspace)
         # Safe without a live stack: the daemon-dependent tests in these suites (e.g. the clamd INSTREAM
         # check, the live-DB differential gate) are #[ignore]d by their authors, so a plain `cargo test`
         # runs only the self-contained unit/integration tests; live wiring is the acceptance step's job.
@@ -514,7 +529,9 @@ jobs:
           for manifest in containers/*/Cargo.toml; do
             dir="$(dirname "$manifest")"
             if echo "$changed_files" | grep -q "^$dir/"; then
-              echo "cargo test: $dir"
+              echo "rust gate: $dir"
+              cargo fmt --manifest-path "$manifest" --all --check
+              cargo clippy --manifest-path "$manifest" --all-targets -- -D warnings
               cargo test --manifest-path "$manifest"
             fi
           done
@@ -563,6 +580,7 @@ jobs:
       ]
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Verify every required check passed or was not needed
         run: |

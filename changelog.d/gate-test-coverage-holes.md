@@ -19,6 +19,16 @@ category: Fixed
   tests returned 503 on every Linux host (the Windows dev build takes the buffered path and never hit
   it). The spool directory is now overridable via `SCAN_SCRATCH_DIR` (production never sets it), and
   those tests point it at the OS temp dir.
+- **The test-project registry is now a gated fitness function.** `pnpm run lint:test-registration`
+  (`tooling/lint-test-registration.mjs`, run in the gate's governance job) fails when a
+  `vitest*.config.ts` exists on disk that no root `test.projects` entry covers, or when a literal
+  entry points at nothing — so a test suite can never again sit silently unrun.
+- **Container workspaces are now fmt/clippy-clean and gated.** The scan workspace's formatting drift
+  and two clippy findings (scan, ocr) are fixed, and the containers job's per-changed-workspace gate
+  now runs `cargo fmt --check` + `clippy -D warnings` + `cargo test`, matching the crates/ rust gate.
+- **Every gate job now carries a hang guard.** All jobs have a `timeout-minutes` cap set comfortably
+  above their honest wall-clock (only the lint job had one), so a runaway fails in minutes instead of
+  burning a runner toward the 6-hour default.
 - **Gate classification hardened.** The `workflow_dispatch` diff base now falls back to the merge-base
   with `origin/main` (`HEAD~1` under-classified multi-commit branches and could wrongly skip the heavy
   jobs); an empty diff fails safe by running everything; a crashed `affected-lint` classifier fails the
