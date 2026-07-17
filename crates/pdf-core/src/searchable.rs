@@ -176,16 +176,19 @@ fn run_operator(run: &TextRun, codes: &BTreeMap<char, u16>, font_name: &[u8]) ->
 
     let hex: String = glyphs.iter().map(|code| format!("{code:04X}")).collect();
 
-    // 3 Tr = render mode "neither fill nor stroke": the text is present and extractable
-    // but never painted. The text matrix carries the font size on its diagonal and places
-    // the run at the box's bottom-left. The linear part is identity: this assumes the run's
-    // coordinates are in the page's unrotated user space, which holds for a page with no
-    // `/Rotate`. A rotated page needs a counter-rotating matrix (as `bates.rs` uses) so the
-    // layer lines up with the displayed content — placement on rotated pages is a known gap.
+    // 3 Tr = render mode "neither fill nor stroke": the text is present and extractable but
+    // never painted. Size comes from `Tf`, and the width fit from `Tz`; the text matrix is a
+    // pure translation to the box's bottom-left with an identity linear part — putting the
+    // font size on the matrix diagonal too would scale the run a second time (the glyphs
+    // would extract at a box many times larger than the recognized one, throwing off
+    // selection and any position-based redaction). The identity linear part also assumes the
+    // run's coordinates are in the page's unrotated user space, which holds for a page with
+    // no `/Rotate`; a rotated page needs a counter-rotating matrix (as `bates.rs` uses) to
+    // line up with the displayed content — placement on rotated pages is a known gap.
     // `font_name` is ASCII by construction (the constant plus a decimal suffix), so it is
     // valid UTF-8 and a valid PDF resource name.
     Some(format!(
-        "q BT 3 Tr /{name} {size:.4} Tf {scale:.4} Tz {size:.4} 0 0 {size:.4} {x:.4} {y:.4} Tm <{hex}> Tj ET Q\n",
+        "q BT 3 Tr /{name} {size:.4} Tf {scale:.4} Tz 1 0 0 1 {x:.4} {y:.4} Tm <{hex}> Tj ET Q\n",
         name = String::from_utf8_lossy(font_name),
         size = font_size,
         scale = horizontal_scale,
@@ -463,6 +466,54 @@ mod tests {
         assert!(
             visible < 0.001,
             "the layer must add no visible ink, got coverage {visible}"
+        );
+    }
+
+    #[test]
+    fn the_layer_is_placed_at_the_recognized_box_not_grossly_oversized() {
+        // The invisible run must occupy roughly its recognized box, so selection highlights
+        // and position-based redaction land on it. Regression guard for the double-scale bug
+        // (font size on both Tf and the text-matrix diagonal), which rendered the run about
+        // an order of magnitude larger than its box.
+        let out = write_searchable_text_layer(
+            blank(),
+            &[PageTextLayer {
+                page_index: 0,
+                runs: vec![run("Hello", 100.0, 100.0, 260.0, 120.0)],
+            }],
+        )
+        .unwrap();
+        let doc = crate::Document::load(out).unwrap();
+        let glyphs = doc.page_text_glyphs(0).unwrap();
+        assert!(!glyphs.is_empty(), "the run must be extractable");
+        let mut x0 = f32::INFINITY;
+        let mut y0 = f32::INFINITY;
+        let mut x1 = f32::NEG_INFINITY;
+        let mut y1 = f32::NEG_INFINITY;
+        for glyph in &glyphs {
+            x0 = x0.min(glyph.rect.x0.min(glyph.rect.x1));
+            y0 = y0.min(glyph.rect.y0.min(glyph.rect.y1));
+            x1 = x1.max(glyph.rect.x0.max(glyph.rect.x1));
+            y1 = y1.max(glyph.rect.y0.max(glyph.rect.y1));
+        }
+        let (width, height) = (x1 - x0, y1 - y0);
+        // Box is 160 x 20. Allow a generous font-metric margin, but nothing near the ~10x
+        // blow-up the bug produced.
+        assert!(
+            height < 40.0,
+            "height must be near the 20pt box, got {height}"
+        );
+        assert!(
+            width < 320.0,
+            "width must be near the 160pt box, got {width}"
+        );
+        assert!(
+            x0 > 60.0 && x1 < 300.0,
+            "x range must sit around the box, got [{x0},{x1}]"
+        );
+        assert!(
+            y0 > 80.0 && y1 < 145.0,
+            "y range must sit around the box, got [{y0},{y1}]"
         );
     }
 
