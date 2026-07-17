@@ -58,7 +58,7 @@ pub struct Footer {
 
 /// The fixed-width trailer at the very end of a split: the footer's length, so a reader seeks
 /// `split.len() - 8` to find where the footer begins. Little-endian `u64`.
-const TRAILER_LEN: usize = 8;
+pub(crate) const TRAILER_LEN: usize = 8;
 
 /// Build an immutable split from a batch of passages.
 ///
@@ -150,7 +150,14 @@ pub fn read_footer(split: &[u8]) -> Result<Footer, SearchError> {
         ));
     }
     let footer_at = trailer_at - footer_len;
-    let footer: Footer = serde_json::from_slice(&split[footer_at..trailer_at])?;
+    parse_footer(&split[footer_at..trailer_at])
+}
+
+/// Parse and validate a footer from its raw JSON bytes. Shared by the whole-slice [`read_footer`] and
+/// the ranged reader (which fetches only the tail), so both refuse an incompatible generation the same
+/// way rather than opening a split they may misread.
+pub(crate) fn parse_footer(footer_bytes: &[u8]) -> Result<Footer, SearchError> {
+    let footer: Footer = serde_json::from_slice(footer_bytes)?;
     if footer.schema_generation != SCHEMA_GENERATION {
         return Err(SearchError::IncompatibleGeneration {
             split: footer.schema_generation,

@@ -54,7 +54,7 @@
   scope: Tantivy (Rust) behind a swappable index interface.
   status: designed
   spec: docs/specs/2026-07-17-discovery-search-index-stateful-service-design.md
-  evidence: crates/search-core (pure Rust, tantivy 0.26) landed the first slice — the split format (segment bundle + footer), build→split→query round trip, multi-split merge, and generation gating, all unit-tested. Not yet wired to a worker/port/R2 (that is the next slice); the range-reading R2 directory and footer pruning digest are deferred within the same format.
+  evidence: crates/search-core (pure Rust, tantivy 0.26) has the split format (segment bundle + footer), build→split→query round trip, multi-split merge, generation gating, AND the range-reading directory — a read-only tantivy Directory over a RangeReader seam so a query fetches only the bytes it walks (an instrumented test proves a rare-term query reads under half a split, footer reads touch only the tail). All unit-tested. Not yet wired to a worker/port/R2 (the RangeReader's R2 adapter is the next slice); the footer pruning digest is deferred within the same format.
 
 - id: discovery.search.semantic
   name: Semantic search

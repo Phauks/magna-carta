@@ -16,6 +16,9 @@ use tantivy::query::QueryParser;
 use tantivy::schema::Value;
 use tantivy::{Index, TantivyDocument};
 
+use std::sync::Arc;
+
+use crate::directory::{open_index, RangeReader};
 use crate::error::SearchError;
 use crate::schema::SearchSchema;
 use crate::split::open_split;
@@ -31,6 +34,18 @@ pub struct Hit {
 /// Search a single split for the top `limit` hits matching `query_text` over the body field.
 pub fn query_split(split: &[u8], query_text: &str, limit: usize) -> Result<Vec<Hit>, SearchError> {
     let index = open_split(split)?;
+    search_index(&index, query_text, limit)
+}
+
+/// Search a split served through a [`RangeReader`] — the production path, where the index lives in R2
+/// and only the bytes the query walks are fetched. The result is identical to [`query_split`] over the
+/// same split; the difference is that this reads kilobytes of a large split instead of all of it.
+pub fn query_over_reader(
+    reader: Arc<dyn RangeReader>,
+    query_text: &str,
+    limit: usize,
+) -> Result<Vec<Hit>, SearchError> {
+    let index = open_index(reader)?;
     search_index(&index, query_text, limit)
 }
 

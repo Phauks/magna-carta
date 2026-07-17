@@ -12,13 +12,15 @@
 //! only the postings it walks), and the footer's per-field pruning digest. Both extend this format
 //! without changing it — see [`split`] for exactly where they hook in.
 
+mod directory;
 mod error;
 mod query;
 mod schema;
 mod split;
 
+pub use directory::{open_index, read_footer_ranged, RangeReader, SplitDirectory};
 pub use error::SearchError;
-pub use query::{query_split, query_splits, Hit};
+pub use query::{query_over_reader, query_split, query_splits, Hit};
 pub use schema::{SearchSchema, SCHEMA_GENERATION};
 pub use split::{build_split, read_footer, FileEntry, Footer, IndexDocument};
 
