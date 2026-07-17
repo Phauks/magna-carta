@@ -49,6 +49,12 @@ pub use watermark::{watermark, WatermarkContent, WatermarkOptions, WatermarkPlac
 mod searchable;
 pub use searchable::{write_searchable_text_layer, PageTextLayer, TextRun};
 
+mod sign;
+pub use sign::{
+    embed_signature, prepare_signature, signed_bytes, PreparedSignature, SignError,
+    SignatureOptions,
+};
+
 use hayro::hayro_interpret::InterpreterSettings;
 use hayro::hayro_syntax::Pdf;
 use hayro::{render, RenderCache, RenderSettings};
