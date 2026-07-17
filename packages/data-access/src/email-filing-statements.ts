@@ -437,42 +437,131 @@ export async function readThreadMessages(
   }));
 }
 
-// The wall-safe multi-matter visibility read. For one captured message it returns the matters it is
-// filed to that the caller can access, plus the TOTAL number of filed matters — so a caller can be told
-// "also on 2 you can see (and 1 more)" without ever learning the identity of a matter they are walled
-// from. `accessibleMatterIds` is the set the caller may see; the query returns no matter outside it.
-export interface MessageVisibility {
-  readonly accessibleMatterIds: MatterId[];
-  readonly totalFiledCount: number;
-}
-
-export async function mattersForMessageVisibleTo(
+// Every matter a message is filed to. The caller (the route) applies the ethical-wall filter to this
+// set and reports only the matters the requester can access alongside a bare count of the rest — so the
+// multi-matter "also on ..." list and the "already filed" signal never name a walled matter. Keeping
+// the wall filter in the auth layer (not here) is what makes this read reusable by both the visible and
+// the walled caller.
+export async function filedMatterIdsForMessage(
   database: SqlDatabase,
   emailMessageId: EmailMessageId,
-  accessibleMatterIds: readonly MatterId[],
-): Promise<MessageVisibility> {
-  const totalRow = await database
-    .prepare(
-      `SELECT COUNT(*) AS n FROM ${EMAIL_MATTER_LINK_TABLE}
-       WHERE email_message_id = ?1 AND state = 'filed'`,
-    )
-    .bind(emailMessageId)
-    .all<{ n: number }>();
-  const totalFiledCount = totalRow.results[0]?.n ?? 0;
-  if (accessibleMatterIds.length === 0) {
-    return { accessibleMatterIds: [], totalFiledCount };
-  }
-  const placeholders = accessibleMatterIds.map(() => "?").join(", ");
+): Promise<MatterId[]> {
   const { results } = await database
     .prepare(
       `SELECT matter_id FROM ${EMAIL_MATTER_LINK_TABLE}
-       WHERE email_message_id = ? AND state = 'filed' AND matter_id IN (${placeholders})`,
+       WHERE email_message_id = ?1 AND state = 'filed' ORDER BY created_at ASC, id ASC`,
     )
-    .bind(emailMessageId, ...accessibleMatterIds)
+    .bind(emailMessageId)
     .all<{ matter_id: string }>();
+  return results.map((row) => row.matter_id as MatterId);
+}
+
+// Does this firm hold a message under this dedup key, and if so which message? The "already filed"
+// probe resolves the message, then filedMatterIdsForMessage + the wall filter produce the wall-safe
+// answer. A miss means the firm has not captured it.
+export async function findMessageIdByDedupKey(
+  database: SqlDatabase,
+  dedupKey: string,
+): Promise<EmailMessageId | null> {
+  const hit = await findByDedupKey(database, dedupKey);
+  return hit === null ? null : hit.id;
+}
+
+// The "already filed" probe by the Message-ID the caller already holds (the add-in reads it off the
+// open message). Matches any provenance — a header-sourced and a MAPI-sourced copy of the same logical
+// mail both answer "yes, captured". Returns the message id, or null when the firm has not captured it.
+export async function findByMessageIdValue(
+  database: SqlDatabase,
+  messageIdValue: string,
+): Promise<EmailMessageId | null> {
+  const { results } = await database
+    .prepare(`SELECT id FROM ${EMAIL_MESSAGE_TABLE} WHERE message_id_value = ?1 LIMIT 1`)
+    .bind(messageIdValue)
+    .all<{ id: string }>();
+  return results[0] === undefined ? null : (results[0].id as EmailMessageId);
+}
+
+// The "already filed" probe by content hash (the raw-bytes SHA-256), for a caller who has the bytes but
+// no usable Message-ID.
+export async function findByContentSha256(
+  database: SqlDatabase,
+  contentSha256: string,
+): Promise<EmailMessageId | null> {
+  const { results } = await database
+    .prepare(`SELECT id FROM ${EMAIL_MESSAGE_TABLE} WHERE content_sha256 = ?1 LIMIT 1`)
+    .bind(contentSha256)
+    .all<{ id: string }>();
+  return results[0] === undefined ? null : (results[0].id as EmailMessageId);
+}
+
+export interface MessageDetail {
+  readonly emailMessageId: EmailMessageId;
+  readonly threadId: EmailThreadId;
+  readonly subject: string | null;
+  readonly fromDisplay: string | null;
+  readonly fromAddress: string | null;
+  readonly sentAt: string | null;
+  readonly receivedAt: string;
+  readonly dkimVerdict: string;
+  readonly participants: {
+    readonly kind: string;
+    readonly displayName: string | null;
+    readonly address: string | null;
+    readonly directoryEntityId: string | null;
+  }[];
+}
+
+// One message with its participants — the payload for a single-message read (the "also on ..." list is
+// assembled separately from filedMatterIdsForMessage + the wall filter). Null when unknown.
+export async function readMessageById(
+  database: SqlDatabase,
+  emailMessageId: EmailMessageId,
+): Promise<MessageDetail | null> {
+  const messageResult = await database
+    .prepare(
+      `SELECT id, thread_id, subject, from_display, from_address, sent_at, received_at, dkim_verdict
+       FROM ${EMAIL_MESSAGE_TABLE} WHERE id = ?1`,
+    )
+    .bind(emailMessageId)
+    .all<{
+      id: string;
+      thread_id: string;
+      subject: string | null;
+      from_display: string | null;
+      from_address: string | null;
+      sent_at: string | null;
+      received_at: string;
+      dkim_verdict: string;
+    }>();
+  const message = messageResult.results[0];
+  if (message === undefined) return null;
+  const participantResult = await database
+    .prepare(
+      `SELECT kind, display_name, address, directory_entity_id FROM ${EMAIL_PARTICIPANT_TABLE}
+       WHERE email_message_id = ?1 ORDER BY id ASC`,
+    )
+    .bind(emailMessageId)
+    .all<{
+      kind: string;
+      display_name: string | null;
+      address: string | null;
+      directory_entity_id: string | null;
+    }>();
   return {
-    accessibleMatterIds: results.map((row) => row.matter_id as MatterId),
-    totalFiledCount,
+    emailMessageId: message.id as EmailMessageId,
+    threadId: message.thread_id as EmailThreadId,
+    subject: message.subject,
+    fromDisplay: message.from_display,
+    fromAddress: message.from_address,
+    sentAt: message.sent_at,
+    receivedAt: message.received_at,
+    dkimVerdict: message.dkim_verdict,
+    participants: participantResult.results.map((row) => ({
+      kind: row.kind,
+      displayName: row.display_name,
+      address: row.address,
+      directoryEntityId: row.directory_entity_id,
+    })),
   };
 }
 

@@ -10,13 +10,13 @@ import type {
 } from "@magna-carta/identifiers/types";
 import {
   acceptStagedLinkStatement,
+  filedMatterIdsForMessage,
   findByDedupKey,
   findThreadIdsByMessageIds,
   insertEmailMatterLinkStatement,
   insertEmailMessageStatement,
   insertEmailParticipantStatement,
   insertEmailThreadStatement,
-  mattersForMessageVisibleTo,
   readMatterEmails,
   unlinkEmailFromMatterStatement,
   type EmailMessageInsert,
@@ -177,39 +177,40 @@ describe("email-filing statements", () => {
     expect(await findByDedupKey(database, "messageId:header:<a@example.com>")).not.toBe(null);
   });
 
-  it("the visibility read returns only accessible matters and a bare total count for the rest", async () => {
+  it("filedMatterIdsForMessage returns every filed matter (staged/unlinked excluded) for the wall filter", async () => {
     await seedMessage(messageInput());
-    const visible = seedMatter("vis0000000000000000");
-    const walled = seedMatter("wal0000000000000000");
-    for (const [linkId, matterId] of [
-      ["emailMatterLink_v", visible],
-      ["emailMatterLink_w", walled],
-    ] as const) {
-      await database.batch([
-        insertEmailMatterLinkStatement(
-          database,
-          {
-            id: linkId as EmailMatterLinkId,
-            emailMessageId: "emailMessage_a" as EmailMessageId,
-            matterId,
-            state: "filed",
-            linkedBy: "user_x" as UserId,
-            linkedAt: NOW,
-            capturedVia: "api",
-          },
-          NOW,
-        ),
-      ]);
-    }
-    const visibility = await mattersForMessageVisibleTo(database, "emailMessage_a" as EmailMessageId, [
-      visible,
+    const one = seedMatter("vis0000000000000000");
+    const two = seedMatter("wal0000000000000000");
+    await database.batch([
+      insertEmailMatterLinkStatement(
+        database,
+        {
+          id: "emailMatterLink_v" as EmailMatterLinkId,
+          emailMessageId: "emailMessage_a" as EmailMessageId,
+          matterId: one,
+          state: "filed",
+          linkedBy: "user_x" as UserId,
+          linkedAt: NOW,
+          capturedVia: "api",
+        },
+        NOW,
+      ),
+      insertEmailMatterLinkStatement(
+        database,
+        {
+          id: "emailMatterLink_w" as EmailMatterLinkId,
+          emailMessageId: "emailMessage_a" as EmailMessageId,
+          matterId: two,
+          state: "staged", // not filed → excluded from the "also on" set
+          linkedBy: null,
+          linkedAt: null,
+          capturedVia: "api",
+        },
+        NOW,
+      ),
     ]);
-    expect(visibility.totalFiledCount).toBe(2); // filed to two matters
-    expect(visibility.accessibleMatterIds).toEqual([visible]); // the walled one is never named
-    // A caller who can see none of them learns only the count, never an identity.
-    const blind = await mattersForMessageVisibleTo(database, "emailMessage_a" as EmailMessageId, []);
-    expect(blind.accessibleMatterIds).toEqual([]);
-    expect(blind.totalFiledCount).toBe(2);
+    const filed = await filedMatterIdsForMessage(database, "emailMessage_a" as EmailMessageId);
+    expect(filed).toEqual([one]); // only the filed link; the caller's route then wall-filters this set
   });
 
   it("resolves claimed ancestors to their threads for DAG linking", async () => {

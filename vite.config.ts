@@ -62,6 +62,7 @@ export default defineConfig({
       "apps/web/vitest.config.ts",
       "apps/worker/vitest.config.ts",
       "apps/status-worker/vitest.config.ts",
+      "apps/email-worker/vitest.config.ts",
       "packages/*/vitest.config.ts",
       "packages/design-system/vitest.storybook.config.ts",
       "tooling/doc-fragments/vitest.config.ts",

@@ -3,6 +3,7 @@ import emailWasmModule from "@magna-carta/email/src/pkg/email_core_bg.wasm";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import {
   findByDedupKey,
+  findCaptureAddressByToken,
   findThreadIdsByMessageIds,
   insertEmailMatterLinkStatement,
   insertEmailMessageStatement,
@@ -42,7 +43,10 @@ export interface EmailsCaptureMessage {
   readonly bucketName: string | null;
   readonly stagedR2Key: string; // where the entrance staged the raw MIME
   readonly capturedVia: "forward" | "api";
-  readonly matterId: string | null; // candidate matter, or null for an unrouted catch-all capture
+  readonly matterId: string | null; // a candidate matter already resolved by the entrance (the API path)
+  // The forward/CC token, when the entrance could not resolve a matter itself (the Email Worker has no
+  // per-firm database handle). The consumer resolves it against the firm's capture-address store.
+  readonly captureToken: string | null;
   readonly linkedBy: string | null;
   readonly acceptOnCapture: boolean;
   readonly jobId: string; // idempotency key: capture:<jobId>
@@ -65,6 +69,15 @@ export async function handleCaptureMessage(
     throw new Error(`emails-capture: staged object not readable: ${message.stagedR2Key}`);
   }
   const bytes = new Uint8Array(await staged.arrayBuffer());
+
+  // Resolve the forward/CC token to a candidate matter here, where the firm database handle exists. A
+  // per-matter token proposes its matter; a firm catch-all (or an unknown token) lands unrouted — the
+  // message is captured to the firm with no matter link, for staff to route.
+  let candidateMatterId = message.matterId;
+  if (candidateMatterId === null && message.captureToken !== null) {
+    const resolution = await findCaptureAddressByToken(firmDatabase, message.captureToken);
+    candidateMatterId = resolution?.matterId ?? null;
+  }
 
   const now = (): string => new Date().toISOString();
 
@@ -156,7 +169,7 @@ export async function handleCaptureMessage(
         bytes,
         firmId: message.firmId,
         capturedVia: message.capturedVia,
-        matterId: message.matterId === null ? null : (message.matterId as MatterId),
+        matterId: candidateMatterId === null ? null : (candidateMatterId as MatterId),
         linkedBy: message.linkedBy === null ? null : (message.linkedBy as UserId),
         acceptOnCapture: message.acceptOnCapture,
       },
@@ -171,7 +184,7 @@ export async function handleCaptureMessage(
   // second filer never double-files). Bytes ride the existing ingest/quarantine chokepoint.
   await extractAndFileAttachments(env, firmDatabase, {
     emailMessageId: result.emailMessageId,
-    matterId: message.matterId === null ? null : (message.matterId as MatterId),
+    matterId: candidateMatterId === null ? null : (candidateMatterId as MatterId),
     bucketName: message.bucketName,
     parsed: result.parsed,
     rawBytes: bytes,
@@ -182,10 +195,10 @@ export async function handleCaptureMessage(
 
   // "email filed to matter" is raised off the hot path, carrying a deep link and never body content.
   // A no-op until the Notifications subsystem ships; the raise site is placed now.
-  if (result.linkState === "filed" && message.matterId !== null) {
+  if (result.linkState === "filed" && candidateMatterId !== null) {
     raiseEmailFiledNotification({
       firmId: message.firmId,
-      matterId: message.matterId,
+      matterId: candidateMatterId,
       emailMessageId: result.emailMessageId,
     });
   }
