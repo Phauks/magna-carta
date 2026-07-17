@@ -33,6 +33,17 @@ The Worker declares the `send_email` binding (`SEND_EMAIL`) and the code selects
 
 > Do **not** set `EMAIL_FROM` before steps 1–3 are done — it would activate the adapter against an un-onboarded domain and every send would fail. The binding being present is harmless; `EMAIL_FROM` is the switch.
 
+## 2a. Inbound email capture on `in.magnacarta.esq` (the forward/CC entrance)
+
+The forward/CC capture path terminates on the `apps/email-worker` Cloudflare Email Worker (deploy name `magna-carta-email`), which stages the raw MIME to R2 and enqueues the `…-emails-capture` job the main worker's consumer runs. Capture addresses are `<localPart>@<firmSubdomain>.in.magnacarta.esq`: the firm is the subdomain (resolved against the control-plane `firm` table), the matter token is the local part (resolved against that firm's capture-address store — a per-matter token proposes its matter; the firm catch-all or an unknown token lands unrouted). None of this is code beyond the worker; the zone setup is here.
+
+1. **Deploy the email worker.** `wrangler deploy` from `apps/email-worker`. It binds `DB_CONTROL` (the control-plane D1), `R2` (the platform files bucket), and `EMAILS_CAPTURE` (producer). The consumer lives in the main worker, so the `…-emails-capture` queue **and** its `…-emails-capture-deadletter` must exist first (`wrangler queues create` — see §3's queue note).
+2. **Route the capture subdomain to the worker.** Dashboard → **Email → Email Routing** on the `magnacarta.esq` zone. Add the MX + TXT records Cloudflare provides for inbound routing, then a **catch-all rule for `*.in.magnacarta.esq`** that sends to a Worker → `magna-carta-email`. The `in.magnacarta.esq` capture subdomain **co-tenants the one `magnacarta.esq` zone** with product-send (§2) and the company Workspace (§ Company email) — it adds no new zone and no new recurring cost.
+3. **Keep one DMARC for the zone.** The apex `_dmarc` record already coordinates the product sender and the company Workspace (§ Company email); inbound capture is a **receiving** path and needs no new alignment, but any change to the zone's SPF/DKIM/DMARC must stay compatible with all three senders — do not tighten alignment for capture.
+4. **(Fast-follow) mint capture addresses.** The `emails:manageCaptureAddresses` mint/rotate route and its control-plane token index are a fast-follow; until they ship, the per-firm `email_capture_address` store is unpopulated and the forward path resolves every address as unrouted (captured to the firm, no matter). The API entrance (`POST /api/v1/matters/{id}/emails`) is fully functional without this.
+
+> The email worker has **no public HTTP surface** (`workers_dev: false`, `preview_urls: false`); it is reached only by Email Routing. A capture message over the ~25–40 MiB Email Routing ceiling is **bounced to the sender**, never silently dropped — large messages file through the add-in (fast-follow) or the upload path.
+
 ## 3. Deploy secrets (the `secrets.required` gate)
 
 `wrangler.jsonc` lists `secrets.required` (currently five names), so a deploy **fails loudly** with a missing-secret list rather than letting routes 500 at runtime. Set each once per environment — Dashboard → the Worker → **Settings → Variables and Secrets**, or `wrangler secret put <NAME>` (paste the value at the prompt; keep it out of shell history and chat transcripts). `wrangler secret list` confirms the registered names.
@@ -48,7 +59,7 @@ The Worker declares the `send_email` binding (`SEND_EMAIL`) and the code selects
 
 `CLOUDFLARE_API_TOKEN_FIRM_PROVISIONER` / `CLOUDFLARE_ACCOUNT_ID` are **optional** deploy-time secrets for the REST `FirmResourceProvider`; absent them, the dev pool-claiming adapter runs. Secrets posture detail lives in [`security.md`](security.md).
 
-> The gate covers **secrets** only. The Worker's declared **Queues** must also already exist in the target account — `wrangler deploy` aborts on the first missing one. The declared queues live in `apps/worker/wrangler.jsonc` (`…-platform-jobs`, `…-files-ingest` + `…-files-ingest-deadletter`, `…-inference` + `…-inference-deadletter`); create any that are absent with `wrangler queues create <name>` (or the dashboard) before deploying.
+> The gate covers **secrets** only. The Worker's declared **Queues** must also already exist in the target account — `wrangler deploy` aborts on the first missing one. The declared queues live in `apps/worker/wrangler.jsonc` (`…-platform-jobs`, `…-files-ingest` + `…-files-ingest-deadletter`, `…-inference` + `…-inference-deadletter`, `…-emails-capture` + `…-emails-capture-deadletter`); create any that are absent with `wrangler queues create <name>` (or the dashboard) before deploying. The `…-emails-capture` queue has a **cross-worker** producer: the `magna-carta-email` worker enqueues onto it and the main worker consumes it, so it must exist before either deploys.
 
 ## 4. Adding a per-firm D1 binding (beyond the starter pool)
 

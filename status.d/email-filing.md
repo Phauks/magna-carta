@@ -5,13 +5,13 @@ order: 31
 research: done
 spec: done by="Opus 4.8"
 plan: done by="Opus 4.8"
-built: todo
+built: done by="Opus 4.8"
 ui: todo
-load-profile: todo
-tested: todo
-branch: main
-active-work:
-next: Owner acceptance of the slice-1 design; then build Tasks 1-10 (record schema -> pure email-filing package -> statements -> emails:* permissions -> capture + attachments -> API entrance -> Email Worker forward path). The Directory address->entity resolution prerequisite is now BUILT and merged to main (directory_email write path + reverse findEntitiesByEmailAddress lookup + normalized-address index), so participant resolution can light up rather than stay deferred.
+load-profile: done by="Opus 4.8"
+tested: done by="Opus 4.8"
+branch: claude/email-filing-capture-slice-1-h03vp5
+active-work: docs/active-work/claude-email-filing-capture-slice-1-h03vp5.md
+next: Merge slice 1; then the fast-follows — the native add-in (Outlook/Gmail Save & File over the built file-to-matter API), the emails:manageCaptureAddresses mint/rotate route + the capture-subdomain DNS onboarding, the DKIM verifier behind the placed seam, guardrailed auto-file rules, and the matter correspondence timeline UI (deferred to the UI plan). Participant resolution is wired live via the merged Directory reverse lookup.
 link-spec: docs/specs/2026-07-14-email-filing-record-and-forward-capture-design.md
 link-plan: docs/specs/2026-07-14-email-filing-record-and-forward-capture-implementation-plan.md
 adrs:

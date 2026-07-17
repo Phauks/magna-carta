@@ -42,6 +42,8 @@ CREATE INDEX `email_message_thread_id_index` ON `email_message` (`thread_id`);
 --> statement-breakpoint
 CREATE INDEX `email_message_message_id_value_index` ON `email_message` (`message_id_value`);
 --> statement-breakpoint
+CREATE INDEX `email_message_content_sha256_index` ON `email_message` (`content_sha256`);
+--> statement-breakpoint
 CREATE TABLE `email_matter_link` (
 	`id` text PRIMARY KEY NOT NULL,
 	`email_message_id` text NOT NULL,

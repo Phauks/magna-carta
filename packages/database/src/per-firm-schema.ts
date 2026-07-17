@@ -1852,6 +1852,8 @@ export const emailMessage = sqliteTable(
     uniqueIndex("email_message_dedup_key_unique_index").on(table.dedupKey),
     index("email_message_thread_id_index").on(table.threadId),
     index("email_message_message_id_value_index").on(table.messageIdValue),
+    // The content-hash "already filed" probe and the discovery-readiness content hash resolve by this.
+    index("email_message_content_sha256_index").on(table.contentSha256),
     check(
       "email_message_provenance_check",
       sql`${table.messageIdProvenance} IN ('header', 'mapi', 'absent')`,
