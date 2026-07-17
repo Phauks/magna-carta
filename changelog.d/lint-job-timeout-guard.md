@@ -8,4 +8,4 @@ category: Changed
   ~24-minute whole-repo tall pole, so normal runs are unaffected but a real hang fails visibly in
   minutes instead of burning the runner. (Diagnosed while investigating a slow local `apps/worker`
   type-aware run: it is CPU-bound, not deadlocked — the worker's type program spans ~32 packages, so
-  it is simply the documented tall pole. The guard defends against a *future* genuine deadlock.)
+  it is simply the documented tall pole. The guard defends against a _future_ genuine deadlock.)
