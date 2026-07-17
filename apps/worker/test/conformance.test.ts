@@ -170,6 +170,10 @@ const RESOURCE_BY_PERMISSION_NAMESPACE: Record<string, string> = {
   // diagnostics:* is the read-only system-state surface granted only by a diagnostic support session;
   // no firm role holds it. The resource is the firm — the overview is per-firm state.
   diagnostics: "firm",
+  // emails:* governs filing email to matters and reading a matter's filed threads; email links are
+  // matter-rooted (the files:* precedent), so every emails route carries the matter resource — even the
+  // firm-level "already filed" read, which access-filters to the caller's matters in the handler.
+  emails: "matter",
 };
 
 // Rule: every named permission exists in the registry, and its namespace binds to the route's
