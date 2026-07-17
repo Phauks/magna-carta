@@ -518,6 +518,9 @@ importers:
       '@magna-carta/email':
         specifier: workspace:*
         version: link:../../packages/email
+      '@magna-carta/email-filing':
+        specifier: workspace:*
+        version: link:../../packages/email-filing
       '@magna-carta/encryption':
         specifier: workspace:*
         version: link:../../packages/encryption

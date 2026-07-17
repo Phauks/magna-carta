@@ -9,6 +9,25 @@ export type { DedupBasis, DedupDecision } from "./dedup.ts";
 export { linkThread, candidateParents, normalizeSubject } from "./thread.ts";
 export type { ThreadLookup, ThreadLinkDecision } from "./thread.ts";
 export { toRecordRows, normalizeAddress } from "./record.ts";
+export { captureEmail } from "./capture.ts";
+export type {
+  CapturePorts,
+  CaptureRequest,
+  CaptureResult,
+  CaptureLinkPlan,
+  CaptureWritePlan,
+  PersistedOriginal,
+} from "./capture.ts";
+export {
+  checkFilingConflict,
+  raiseEmailFiledNotification,
+  DKIM_VERDICT_UNVERIFIED,
+} from "./seams.ts";
+export type {
+  FilingConflictInput,
+  FilingConflictResult,
+  EmailFiledNotification,
+} from "./seams.ts";
 export type {
   CapturedVia,
   DkimVerdict,
