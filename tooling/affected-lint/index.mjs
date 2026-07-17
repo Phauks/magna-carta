@@ -36,10 +36,13 @@ export const GLOBAL_TRIGGER_PATHS = new Set([
   "tsconfig.json", // the root solution config
 ]);
 
-// Repo-relative path prefixes whose change re-verifies the whole repo.
+// Repo-relative path prefixes whose change re-verifies the whole repo. `.github/` is deliberately NOT
+// here: a workflow or action YAML change (e.g. gate.yml) cannot move a type-aware lint result, so it must
+// not force the ~24-min whole-repo lint. A genuinely lintable file under `.github/` (a JS-based action) is
+// still caught below by the "lintable source outside any package" rule, which forces ALL — so dropping the
+// blanket prefix narrows the trigger to real lint inputs without a soundness gap.
 export const GLOBAL_TRIGGER_PREFIXES = [
   "packages/tsconfig/", // the shared tsconfig base every package extends
-  ".github/", // a workflow / action change — re-verify everything
   "tooling/affected-lint/", // THIS logic — if it changes, it cannot be trusted to scope itself
 ];
 
