@@ -6,9 +6,9 @@ import type { ConversionJob } from "../src/conversions/conversion-coordinator.ts
 import type { ConversionMessage } from "../src/conversions/conversion-types.ts";
 
 // The CONVERSION queue consumer over real Miniflare bindings (R2 + ConversionJob DO). A fake
-// resolvePort is injected in place of the Container-backed port so the test exercises the consumer
-// logic without needing the libvips Container to be running. Format IDs are registry keys ("png",
-// "webp") — not media types — so pathfinding resolves the png→webp edge registered in the graph.
+// engine resolver is injected in place of the Container-backed ports so the test exercises the
+// consumer logic without needing the engine Container to be running. Format IDs are registry keys
+// ("png", "webp") — not media types — so pathfinding resolves the png→webp edge in the graph.
 
 function makeBatch(message: ConversionMessage) {
   const acks: string[] = [];
@@ -73,7 +73,7 @@ describe("conversionQueue", () => {
     };
 
     const { batch, acks, retries } = makeBatch(message);
-    await conversionQueue(batch, env, () => fakePort);
+    await conversionQueue(batch, env, () => () => fakePort);
 
     // The result R2 object exists with the right bytes and content type.
     const result = await env.R2.get(resultKey);
@@ -117,7 +117,7 @@ describe("conversionQueue", () => {
     };
 
     const { batch, acks, retries } = makeBatch(message);
-    await conversionQueue(batch, env, () => fakePort);
+    await conversionQueue(batch, env, () => () => fakePort);
 
     // The DO is marked failed with the typed reason.
     const state = await stub.status();
@@ -155,7 +155,7 @@ describe("conversionQueue", () => {
     };
 
     const { batch, acks, retries } = makeBatch(message);
-    await conversionQueue(batch, env, () => fakePort);
+    await conversionQueue(batch, env, () => () => fakePort);
 
     // The DO is marked failed with the transport error message.
     const state = await stub.status();

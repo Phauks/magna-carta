@@ -91,8 +91,12 @@ delivery (instead of polling) and a Container escalation for outlier-large bundl
 The server-side file conversion path (`src/conversions/`) holds the **orchestration** — the
 `ConversionJob` Durable Object (keyed `firmId:jobId`), the `CONVERSION` queue + consumer, and the
 routes — and is wired but **dormant** until the engines are reachable. `resolveEnginePort` in
-`conversion-engine.ts` returns the deferred port (`engine-not-implemented`) for now, so the routes are
-fully functional in tests and in production, they just cannot yet execute real conversions.
+`conversion-engine.ts` resolves **each hop of a path by its engine id**: an engine backed by the
+convert worker gets the service-binding port (which stamps `x-engine-id` so that worker dispatches
+to the right Container), an engine whose Container is not built yet (`libreoffice`, `email`,
+`ffmpeg`) resolves to the deferred port (`engine-not-implemented`), and without the `CONVERT`
+binding everything is deferred — so the routes are fully functional in tests and in production,
+they just cannot yet execute real conversions.
 
 The **engines** (the pure-Rust raster service, LibreOffice headless, FFmpeg, the future Rust PDF
 engine) do **not** belong in this app worker — they are the same CPU/memory-bound, untrusted-bytes,
