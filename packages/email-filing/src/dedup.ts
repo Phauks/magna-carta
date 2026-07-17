@@ -50,7 +50,10 @@ export function canonicalizeForHash(message: ParsedMessage): string {
   pushAddresses("to", message.to);
   pushAddresses("cc", message.cc);
   headerLines.push(`subject:${(message.subject ?? "").trim()}`);
-  const body = collapseWhitespace(message.textBodies[0] ?? "");
+  // Prefer the plain-text body, but fall back to the first HTML body for an HTML-only message —
+  // otherwise two distinct HTML-only messages with identical headers and no Message-ID would hash the
+  // same empty body and be wrongly deduped into one record.
+  const body = collapseWhitespace(message.textBodies[0] ?? message.htmlBodies[0] ?? "");
   return `${headerLines.join("\n")}\n\n${body}`;
 }
 

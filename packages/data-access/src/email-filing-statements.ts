@@ -8,13 +8,7 @@ import type {
   MatterId,
   UserId,
 } from "@magna-carta/identifiers/types";
-import {
-  appendCursorPredicate,
-  assemblePage,
-  decodeCursor,
-  DEFAULT_PAGE_SIZE,
-  type Page,
-} from "./cursor-pagination.ts";
+import { assemblePage, decodeCursor, DEFAULT_PAGE_SIZE, type Page } from "./cursor-pagination.ts";
 import type { SqlDatabase, SqlStatement } from "./idempotency-statements.ts";
 
 // Table names tracked against @magna-carta/database's per-firm schema by the schema-name-sync fitness
@@ -352,7 +346,15 @@ export async function readMatterEmails(
     `${EMAIL_MATTER_LINK_TABLE}.state = 'filed'`,
   ];
   const bindings: unknown[] = [matterId];
-  appendCursorPredicate(conditions, bindings, decodeCursor(cursor));
+  // Qualify the keyset predicate to email_matter_link — the JOIN'd email_message table also has
+  // created_at/id, so the shared appendCursorPredicate's unqualified columns would be ambiguous here.
+  const decoded = decodeCursor(cursor);
+  if (decoded !== undefined) {
+    conditions.push(
+      `(${EMAIL_MATTER_LINK_TABLE}.created_at < ? OR (${EMAIL_MATTER_LINK_TABLE}.created_at = ? AND ${EMAIL_MATTER_LINK_TABLE}.id < ?))`,
+    );
+    bindings.push(decoded.createdAt, decoded.createdAt, decoded.id);
+  }
   bindings.push(pageSize + 1);
   const { results } = await database
     .prepare(

@@ -23,6 +23,11 @@ import type { ProxyBatchDatabase } from "../firm-database/firm-database-proxy.ts
 import { enqueueDevIngestEvent } from "../files/presign.ts";
 import { requireBucket } from "../files/require-bucket.ts";
 
+// The largest attachment part the Worker will materialize in memory to extract. Above this the part
+// records an `oversize` outcome and is not extracted (the add-in path handles larger attachments). Sized
+// well under the Worker's memory ceiling, leaving room for the whole message the consumer already holds.
+const IN_WORKER_EXTRACT_CAP_BYTES = 25 * 1024 * 1024;
+
 export interface AttachmentExtractionInput {
   readonly emailMessageId: EmailMessageId;
   readonly matterId: MatterId | null;
@@ -41,9 +46,15 @@ export interface AttachmentExtractionInput {
 // change, not a re-parse. A part too large to materialize records outcome `oversize` rather than
 // failing the whole message.
 //
-// Idempotent: a message that already has attachment rows is skipped, so a redelivery or a second filer
-// never double-files. Unrouted captures (no candidate matter) defer extraction until staff route them —
-// a document must be rooted to a matter.
+// Idempotent for the common cases: a message that already has attachment rows is skipped, so a
+// redelivery or a second filer never double-files. Unrouted captures (no candidate matter) defer
+// extraction until staff route them — a document must be rooted to a matter.
+//
+// KNOWN LIMITATION (a placed follow-up): each attachment commits independently and this all-or-nothing
+// guard treats "any row exists" as done, so a crash midway through a multi-attachment message leaves the
+// already-committed attachments and, on retry, skips the rest. The proper fix is a per-part ordinal on
+// email_attachment plus a per-part guard (resume from the first unfiled part); it is deferred to keep
+// this slice's schema minimal. Single-attachment messages (the overwhelming majority) are unaffected.
 export async function extractAndFileAttachments(
   env: Bindings,
   firmDatabase: ProxyBatchDatabase,
@@ -58,7 +69,10 @@ export async function extractAndFileAttachments(
   if ((already.results[0]?.n ?? 0) > 0) return;
 
   const now = (): string => new Date().toISOString();
-  const sizeCap = await readInspectableSizeCap(firmDatabase);
+  // extractPart materializes a part's bytes in the Worker's memory, so the extraction cap is the
+  // smaller of the firm's inspectable-size cap and a Worker-safe ceiling — a part larger than the
+  // Worker can hold records an `oversize` outcome rather than OOMing the consumer.
+  const sizeCap = Math.min(await readInspectableSizeCap(firmDatabase), IN_WORKER_EXTRACT_CAP_BYTES);
   const metaStatements: SqlStatement[] = [];
 
   for (let index = 0; index < input.parsed.parts.length; index += 1) {

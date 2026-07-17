@@ -231,4 +231,55 @@ describe("email-filing statements", () => {
     expect(map.has("<unknown@example.com>")).toBe(false);
     expect((await findThreadIdsByMessageIds(database, [])).size).toBe(0);
   });
+
+  it("paginates a matter's emails across pages via the keyset cursor (JOIN'd columns stay unambiguous)", async () => {
+    const matterId = seedMatter("pag0000000000000000");
+    await database.batch([
+      insertEmailThreadStatement(
+        database,
+        { id: "emailThread_p" as EmailThreadId, subjectNormalized: "p", firstSeenAt: NOW },
+        NOW,
+      ),
+    ]);
+    // Three messages filed to one matter, with strictly increasing link timestamps.
+    for (let i = 0; i < 3; i += 1) {
+      const at = `2026-07-1${i + 1}T00:00:00.000Z`;
+      await database.batch([
+        insertEmailMessageStatement(
+          database,
+          messageInput({
+            id: `emailMessage_p${i}` as EmailMessageId,
+            threadId: "emailThread_p" as EmailThreadId,
+            messageIdValue: `<p${i}@example.com>`,
+            dedupKey: `messageId:header:<p${i}@example.com>`,
+            contentSha256: `sha-p${i}`,
+            originalR2Key: `emails/p${i}/original`,
+          }),
+          at,
+        ),
+        insertEmailMatterLinkStatement(
+          database,
+          {
+            id: `emailMatterLink_p${i}` as EmailMatterLinkId,
+            emailMessageId: `emailMessage_p${i}` as EmailMessageId,
+            matterId,
+            state: "filed",
+            linkedBy: null,
+            linkedAt: at,
+            capturedVia: "api",
+          },
+          at,
+        ),
+      ]);
+    }
+    const page1 = await readMatterEmails(database, matterId, undefined, 2);
+    expect(page1.data).toHaveLength(2);
+    expect(page1.nextCursor).not.toBe(null);
+    // Page 2 with the cursor must not throw (the JOIN'd created_at/id were ambiguous before the fix).
+    const page2 = await readMatterEmails(database, matterId, page1.nextCursor ?? undefined, 2);
+    expect(page2.data).toHaveLength(1);
+    // No message repeats across the two pages.
+    const seen = new Set([...page1.data, ...page2.data].map((r) => r.emailMessageId));
+    expect(seen.size).toBe(3);
+  });
 });

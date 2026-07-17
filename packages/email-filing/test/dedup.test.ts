@@ -53,6 +53,17 @@ describe("deriveDedupKey", () => {
     expect(a.key).toBe(b.key);
   });
 
+  it("distinguishes HTML-only messages by their HTML body (no text body to hash)", async () => {
+    const base = {
+      messageIdentifier: { value: null, provenance: "absent" as const },
+      textBodies: [],
+    };
+    const a = await deriveDedupKey(makeParsedMessage({ ...base, htmlBodies: ["<p>one</p>"] }));
+    const b = await deriveDedupKey(makeParsedMessage({ ...base, htmlBodies: ["<p>two</p>"] }));
+    expect(a.basis).toBe("contentHash");
+    expect(a.key).not.toBe(b.key); // same headers, different HTML → distinct records, not a false merge
+  });
+
   it("distinct messages get distinct content-hash keys", async () => {
     const a = await deriveDedupKey(
       makeParsedMessage({
