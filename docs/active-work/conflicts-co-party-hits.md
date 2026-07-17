@@ -12,5 +12,8 @@ rather than dropping them. Only a self-match (entity vs itself) is still dropped
 - `apps/worker/src/per-firm-migrations.ts` — register the migration
 - `apps/worker/src/routes/conflicts.ts` — expose `coParty` on the hit response; re-emitted OpenAPI + client
 - tests, `packages/conflicts/CLAUDE.md`, `changelog.d/`, `status.d/slice-4-1-conflicts.md`
+- load-profile: `directory-generate.ts` seeds a deterministic identically-named co-party pair;
+  `conflicts-measurements.ts` adds a `conflicts.co-party-check` measurement that surfaces a flagged
+  hit; `GENERATOR_VERSION` 5→6; smoke test proves a `co_party = 1` row is written; baseline regenerated
 
 UI still deferred.
