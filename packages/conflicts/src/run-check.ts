@@ -128,6 +128,7 @@ export async function runConflictsCheck(
   const hits: Array<{
     entityId: string;
     sourceClass: SourceClass;
+    coParty: boolean;
     tier: number;
     matchedFields: string[];
     path: unknown;
@@ -138,11 +139,16 @@ export async function runConflictsCheck(
     if (subject === null) continue;
     const matches = await matchParty(context, subject, scope.strictness);
     for (const match of matches) {
-      if (seedIds.has(match.entityId)) continue; // a party never conflicts with itself
-      if (match.entityId === entity.entityId) continue; // the current search subject never conflicts with itself
+      // An entity never conflicts with itself, so the current search subject is dropped. But a match
+      // landing on a DIFFERENT subject party is a genuine co-party surfacing — a positional conflict
+      // (a related entity that is also a named party, e.g. the opposing party turns out to be the
+      // client's parent company) or a co-party name/identifier collision — so it is recorded, flagged
+      // co-party so a reviewer triages it apart from a conflict with a prior client, never dropped.
+      if (match.entityId === entity.entityId) continue;
       hits.push({
         entityId: match.entityId,
         sourceClass: entity.path.length === 0 ? "party" : "graph",
+        coParty: seedIds.has(match.entityId),
         tier: assignTier(match.evidence),
         matchedFields: describeEvidence(match.evidence),
         path: entity.path,
@@ -155,6 +161,9 @@ export async function runConflictsCheck(
       hits.push({
         entityId: imputed.entityId,
         sourceClass: "imputation",
+        // Imputation is its own distinct class already; the co-party flag is for the party/graph
+        // channels, so an imputed hit is never additionally flagged.
+        coParty: false,
         // Identity, not similarity: an exact join is the strongest evidence there is.
         tier: 1,
         matchedFields: [`firm member ${imputed.memberUserId} is a party (${imputed.role})`],
@@ -208,6 +217,7 @@ export async function runConflictsCheck(
           evidenceTier: hit.tier as 1 | 2 | 3 | 4,
           matchedFieldsJson: JSON.stringify(hit.matchedFields),
           graphPathJson: JSON.stringify(hit.path),
+          coParty: hit.coParty,
           createdAt: now,
         }),
       ),

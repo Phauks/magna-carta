@@ -67,13 +67,15 @@ export interface InsertHitRow {
   readonly evidenceTier: EvidenceTier;
   readonly matchedFieldsJson: string;
   readonly graphPathJson: string;
+  // True when the matched entity is itself a subject party of this check (a co-party surfacing).
+  readonly coParty: boolean;
   readonly createdAt: string;
 }
 
 export function insertHitStatement(database: SqlDatabase, row: InsertHitRow): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO ${CONFLICTS_HIT_TABLE} (id, check_id, entity_id, source_class, evidence_tier, matched_fields_json, graph_path_json, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)`,
+      `INSERT INTO ${CONFLICTS_HIT_TABLE} (id, check_id, entity_id, source_class, evidence_tier, matched_fields_json, graph_path_json, co_party, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)`,
     )
     .bind(
       row.id,
@@ -83,6 +85,7 @@ export function insertHitStatement(database: SqlDatabase, row: InsertHitRow): Sq
       row.evidenceTier,
       row.matchedFieldsJson,
       row.graphPathJson,
+      row.coParty ? 1 : 0,
       row.createdAt,
     );
 }
