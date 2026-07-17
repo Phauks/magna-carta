@@ -232,23 +232,6 @@ pub(crate) fn escape_pdf_literal(s: &str) -> String {
 // Per-page stamping — placement, resource merge, content append
 // ---------------------------------------------------------------------------
 
-/// The text matrix `Tm = [a b c d e f]` (text space → user space) that places an
-/// upright Bates label at displayed bottom-left-frame origin `(dx, dy)` on a page
-/// whose effective MediaBox is `[llx lly urx ury]` under normalized rotation `r`.
-///
-/// The linear part counter-rotates the glyphs so they read upright on the displayed
-/// page; the translation maps the displayed origin back into unrotated user space.
-/// `w = urx - llx` and `h = ury - lly` are the unrotated MediaBox dimensions.
-fn text_matrix(rotation: i64, llx: f32, lly: f32, w: f32, h: f32, dx: f32, dy: f32) -> [f32; 6] {
-    match rotation {
-        90 => [0.0, 1.0, -1.0, 0.0, llx + h - dy, lly + dx],
-        180 => [-1.0, 0.0, 0.0, -1.0, llx + w - dx, lly + h - dy],
-        270 => [0.0, -1.0, 1.0, 0.0, llx + dy, lly + w - dx],
-        // 0 and any unexpected value fall through to the unrotated frame.
-        _ => [1.0, 0.0, 0.0, 1.0, llx + dx, lly + dy],
-    }
-}
-
 /// Stamp a single page in place with `label`.
 ///
 /// The stamp is an ADDITIVE OVERLAY: existing content and resources are preserved.
@@ -306,7 +289,7 @@ pub(crate) fn stamp_page(
     };
 
     let [tm_a, tm_b, tm_c, tm_d, tm_e, tm_f] =
-        text_matrix(rotation, llx, lly, page_width, page_height, dx, dy);
+        crate::surgery::text_matrix(rotation, llx, lly, page_width, page_height, dx, dy);
 
     // ── Resource merge (non-destructive) ────────────────────────────────────────
     // Resolve the page's effective resources (may be inherited or an indirect ref).

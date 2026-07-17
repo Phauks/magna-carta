@@ -8,5 +8,4 @@ operator and again on the text-matrix diagonal â€” so a run recognized at a 160Ã
 about ten times that size. Selection highlights and any position-based redaction landed far from the
 visible glyphs. The text matrix is now a pure translation to the box's bottom-left; size comes from the
 font operator and the width fit from the horizontal-scale operator alone. A geometry regression test
-writes a run and asserts the extracted bounds sit around the recognized box. Placement on a page with a
-non-zero `/Rotate` remains the known follow-up.
+writes a run and asserts the extracted bounds sit around the recognized box.
