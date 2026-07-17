@@ -1,6 +1,6 @@
 # conflicts-co-party-hits
 
-**Scope.** Follow-up to slice 4·1: resolve the cross-party positional-conflict question by *surfacing*
+**Scope.** Follow-up to slice 4·1: resolve the cross-party positional-conflict question by _surfacing_
 co-party matches (a check's search landing on another of its own subject parties) flagged distinctly,
 rather than dropping them. Only a self-match (entity vs itself) is still dropped.
 
