@@ -12,13 +12,15 @@ import {
   touchEmailMessageStatement,
 } from "@magna-carta/data-access/email-filing-statements";
 import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
-import { captureEmail, type CapturePorts, type CaptureWritePlan } from "@magna-carta/email-filing/capture";
+import {
+  captureEmail,
+  type CapturePorts,
+  type CaptureWritePlan,
+} from "@magna-carta/email-filing/capture";
 import { findEntitiesByEmailAddress } from "@magna-carta/directory/contact-email";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type {
-  EmailMatterLinkId,
   EmailMessageId,
-  EmailParticipantId,
   EmailThreadId,
   MatterId,
   UserId,
@@ -137,7 +139,11 @@ export async function handleCaptureMessage(
       }
       if (plan.touchMessageId !== null) {
         statements.push(
-          touchEmailMessageStatement(firmDatabase, plan.touchMessageId as EmailMessageId, timestamp),
+          touchEmailMessageStatement(
+            firmDatabase,
+            plan.touchMessageId as EmailMessageId,
+            timestamp,
+          ),
         );
       }
       if (plan.link !== null) {
@@ -157,7 +163,9 @@ export async function handleCaptureMessage(
         }),
       });
       if (outcome.kind === "fingerprint-mismatch") {
-        throw new Error(`emails-capture: idempotency fingerprint mismatch for job ${message.jobId}`);
+        throw new Error(
+          `emails-capture: idempotency fingerprint mismatch for job ${message.jobId}`,
+        );
       }
     },
   };

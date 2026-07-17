@@ -138,10 +138,7 @@ export function normalizeAddress(address: string): string {
   return address.trim().toLowerCase();
 }
 
-function resolveDirectoryEntityId(
-  address: string | null,
-  context: RecordContext,
-): string | null {
+function resolveDirectoryEntityId(address: string | null, context: RecordContext): string | null {
   if (address === null || context.directoryEntityIdByAddress === undefined) return null;
   return context.directoryEntityIdByAddress.get(normalizeAddress(address)) ?? null;
 }

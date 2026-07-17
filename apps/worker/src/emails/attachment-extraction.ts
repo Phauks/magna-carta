@@ -1,4 +1,9 @@
-import { EmailError, extractPart, type ParsedMessage, type PartDescriptor } from "@magna-carta/email";
+import {
+  EmailError,
+  extractPart,
+  type ParsedMessage,
+  type PartDescriptor,
+} from "@magna-carta/email";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import { insertEmailAttachmentStatement } from "@magna-carta/data-access/email-filing-statements";
 import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";

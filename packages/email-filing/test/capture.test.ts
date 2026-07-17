@@ -42,7 +42,9 @@ class FakeStore {
       parse: (bytes) => parseMessage(bytes),
       persistOriginal: async (bytes) => {
         const digest = await crypto.subtle.digest("SHA-256", bytes);
-        const sha = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+        const sha = [...new Uint8Array(digest)]
+          .map((b) => b.toString(16).padStart(2, "0"))
+          .join("");
         return { originalR2Key: `emails/${sha}/original`, contentSha256: sha };
       },
       findByDedupKey: async (key) => this.messagesByDedup.get(key) ?? null,
@@ -84,7 +86,8 @@ class FakeStore {
         if (plan.thread !== null) this.threadCount += 1;
         if (plan.link !== null) {
           const exists = this.links.some(
-            (l) => l.emailMessageId === plan.link!.emailMessageId && l.matterId === plan.link!.matterId,
+            (l) =>
+              l.emailMessageId === plan.link!.emailMessageId && l.matterId === plan.link!.matterId,
           );
           if (!exists) {
             this.links.push({
@@ -177,12 +180,18 @@ describe("captureEmail", () => {
       },
     };
     await captureEmail(request(), wrapped);
-    const resolved = captured[0]?.participants.some((p) => p.directoryEntityId === "directoryPerson_x");
+    const resolved = captured[0]?.participants.some(
+      (p) => p.directoryEntityId === "directoryPerson_x",
+    );
     const fromAddress = captured[0]?.participants.map((p) => p.address);
     // The fixture's addresses drive resolution; assert the resolver was consulted and only a known
     // address is enriched (unknown ones stay null).
     expect(fromAddress).toBeDefined();
-    expect(captured[0]?.participants.every((p) => p.directoryEntityId === null || p.directoryEntityId === "directoryPerson_x")).toBe(true);
+    expect(
+      captured[0]?.participants.every(
+        (p) => p.directoryEntityId === null || p.directoryEntityId === "directoryPerson_x",
+      ),
+    ).toBe(true);
     // resolved is true only if the fixture actually contains sender@example.com; the invariant above
     // holds regardless, and no address is ever faked.
     expect(typeof resolved).toBe("boolean");

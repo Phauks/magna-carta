@@ -19,7 +19,10 @@ export function parseCaptureAddress(
   const at = address.lastIndexOf("@");
   if (at < 0) return null;
   const localPart = address.slice(0, at).trim().toLowerCase();
-  const host = address.slice(at + 1).trim().toLowerCase();
+  const host = address
+    .slice(at + 1)
+    .trim()
+    .toLowerCase();
   if (localPart.length === 0) return null;
   const suffix = `.${rootDomain.toLowerCase()}`;
   if (!host.endsWith(suffix)) return null;

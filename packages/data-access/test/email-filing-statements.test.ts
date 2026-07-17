@@ -124,7 +124,11 @@ describe("email-filing statements", () => {
     await database.batch([insertEmailMatterLinkStatement(database, link, NOW)]);
     // A second identical stage (a different link id) is a no-op — one link, no error.
     await database.batch([
-      insertEmailMatterLinkStatement(database, { ...link, id: "emailMatterLink_b" as EmailMatterLinkId }, NOW),
+      insertEmailMatterLinkStatement(
+        database,
+        { ...link, id: "emailMatterLink_b" as EmailMatterLinkId },
+        NOW,
+      ),
     ]);
     const { results } = await database
       .prepare("SELECT COUNT(*) AS n FROM email_matter_link WHERE email_message_id = ?1")
@@ -157,7 +161,11 @@ describe("email-filing statements", () => {
     await database.batch([
       acceptStagedLinkStatement(
         database,
-        { emailMessageId: "emailMessage_a" as EmailMessageId, matterId, linkedBy: "user_x" as UserId },
+        {
+          emailMessageId: "emailMessage_a" as EmailMessageId,
+          matterId,
+          linkedBy: "user_x" as UserId,
+        },
         NOW,
       ),
     ]);
@@ -215,7 +223,10 @@ describe("email-filing statements", () => {
 
   it("resolves claimed ancestors to their threads for DAG linking", async () => {
     await seedMessage(messageInput());
-    const map = await findThreadIdsByMessageIds(database, ["<a@example.com>", "<unknown@example.com>"]);
+    const map = await findThreadIdsByMessageIds(database, [
+      "<a@example.com>",
+      "<unknown@example.com>",
+    ]);
     expect(map.get("<a@example.com>")).toBe("emailThread_a");
     expect(map.has("<unknown@example.com>")).toBe(false);
     expect((await findThreadIdsByMessageIds(database, [])).size).toBe(0);

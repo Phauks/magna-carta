@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  parseCaptureAddress,
-  resolveCaptureRouting,
-  type FirmResolver,
-} from "../src/routing.ts";
+import { parseCaptureAddress, resolveCaptureRouting, type FirmResolver } from "../src/routing.ts";
 
 const ROOT = "in.magnacarta.esq";
 

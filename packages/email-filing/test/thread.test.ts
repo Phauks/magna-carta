@@ -42,8 +42,16 @@ describe("linkThread", () => {
   });
 
   it("two unrelated messages open two distinct threads", () => {
-    const a = linkThread(makeParsedMessage({ references: [] }), () => undefined, "emailThread_a" as EmailThreadId);
-    const b = linkThread(makeParsedMessage({ references: [] }), () => undefined, "emailThread_b" as EmailThreadId);
+    const a = linkThread(
+      makeParsedMessage({ references: [] }),
+      () => undefined,
+      "emailThread_a" as EmailThreadId,
+    );
+    const b = linkThread(
+      makeParsedMessage({ references: [] }),
+      () => undefined,
+      "emailThread_b" as EmailThreadId,
+    );
     expect(a.threadId).not.toBe(b.threadId);
     expect(a.isNewThread && b.isNewThread).toBe(true);
   });

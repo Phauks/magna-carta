@@ -135,7 +135,7 @@ export async function captureEmail(
       originalR2Key: persisted.originalR2Key,
       capturedVia: request.capturedVia,
       receivedAt: now,
-      mintParticipantId: ports.newEmailParticipantId,
+      mintParticipantId: () => ports.newEmailParticipantId(),
       directoryEntityIdByAddress,
     });
     thread = rows.thread;

@@ -62,7 +62,17 @@ function seedVolume(raw: import("node:sqlite").DatabaseSync): {
     for (let i = 0; i < MESSAGES_PER_THREAD; i += 1) {
       const id = `emailMessage_lp_${(counter += 1)}`;
       const messageIdValue = `<lp-${counter}@example.test>`;
-      insertMessage.run(id, messageIdValue, NOW, threadId, `sha-${counter}`, `messageId:header:${messageIdValue}`, `emails/${id}/original`, NOW, NOW);
+      insertMessage.run(
+        id,
+        messageIdValue,
+        NOW,
+        threadId,
+        `sha-${counter}`,
+        `messageId:header:${messageIdValue}`,
+        `emails/${id}/original`,
+        NOW,
+        NOW,
+      );
       insertParticipant.run(`emailParticipant_lp_${counter}`, id, NOW, NOW);
       // Spread links across matters; give the first message links on several matters (the "also on" read).
       const matterId = matterIds[counter % MATTER_COUNT]!;
@@ -70,7 +80,14 @@ function seedVolume(raw: import("node:sqlite").DatabaseSync): {
       // Give the first message links on several additional matters (the "also on" read), offset so they
       // never collide with any message's own primary link.
       if (counter >= 2 && counter <= 5) {
-        insertLink.run(`emailMatterLink_lpx_${counter}`, `emailMessage_lp_1`, matterIds[20 + counter]!, NOW, NOW, NOW);
+        insertLink.run(
+          `emailMatterLink_lpx_${counter}`,
+          `emailMessage_lp_1`,
+          matterIds[20 + counter]!,
+          NOW,
+          NOW,
+          NOW,
+        );
       }
       if (firstMessageId === "") firstMessageId = id;
     }

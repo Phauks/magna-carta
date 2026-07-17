@@ -23,11 +23,7 @@ export {
   raiseEmailFiledNotification,
   DKIM_VERDICT_UNVERIFIED,
 } from "./seams.ts";
-export type {
-  FilingConflictInput,
-  FilingConflictResult,
-  EmailFiledNotification,
-} from "./seams.ts";
+export type { FilingConflictInput, FilingConflictResult, EmailFiledNotification } from "./seams.ts";
 export type {
   CapturedVia,
   DkimVerdict,

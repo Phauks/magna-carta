@@ -55,10 +55,16 @@ describe("deriveDedupKey", () => {
 
   it("distinct messages get distinct content-hash keys", async () => {
     const a = await deriveDedupKey(
-      makeParsedMessage({ messageIdentifier: { value: null, provenance: "absent" }, textBodies: ["one"] }),
+      makeParsedMessage({
+        messageIdentifier: { value: null, provenance: "absent" },
+        textBodies: ["one"],
+      }),
     );
     const b = await deriveDedupKey(
-      makeParsedMessage({ messageIdentifier: { value: null, provenance: "absent" }, textBodies: ["two"] }),
+      makeParsedMessage({
+        messageIdentifier: { value: null, provenance: "absent" },
+        textBodies: ["two"],
+      }),
     );
     expect(a.key).not.toBe(b.key);
   });
@@ -67,7 +73,10 @@ describe("deriveDedupKey", () => {
 describe("canonicalizeForHash", () => {
   it("is stable under address casing and body whitespace", () => {
     const a = canonicalizeForHash(
-      makeParsedMessage({ from: [{ displayName: null, address: "A@B.com" }], textBodies: ["x   y"] }),
+      makeParsedMessage({
+        from: [{ displayName: null, address: "A@B.com" }],
+        textBodies: ["x   y"],
+      }),
     );
     const b = canonicalizeForHash(
       makeParsedMessage({ from: [{ displayName: null, address: "a@b.com" }], textBodies: ["x y"] }),

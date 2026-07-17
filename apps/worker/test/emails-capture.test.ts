@@ -8,10 +8,7 @@ import {
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FirmId, MatterId, UserId } from "@magna-carta/identifiers/types";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
-import {
-  handleCaptureMessage,
-  type EmailsCaptureMessage,
-} from "../src/emails/capture-consumer.ts";
+import { handleCaptureMessage, type EmailsCaptureMessage } from "../src/emails/capture-consumer.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { mirrorMemberWithOwnerRole, seedCredentialedUser, seedFirm } from "./support/test-auth.ts";
 
@@ -179,7 +176,10 @@ describe("email capture consumer", () => {
 
   it("a dedup re-capture does not re-extract attachments (idempotent)", async () => {
     const matter = await seedMatter();
-    await capture(fixture("with-attachment.eml"), { matterId: matter, jobId: newIdentifier("idempotencyRecord") });
+    await capture(fixture("with-attachment.eml"), {
+      matterId: matter,
+      jobId: newIdentifier("idempotencyRecord"),
+    });
     const first = await firmDatabase
       .prepare("SELECT COUNT(*) AS n FROM email_attachment")
       .all<{ n: number }>();

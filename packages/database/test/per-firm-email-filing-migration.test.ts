@@ -55,7 +55,9 @@ test("email-filing migration creates the message, thread, link, participant, att
 test("a duplicate dedup_key is rejected — one row per firm-unique message", () => {
   const { raw } = createMigratedNodeDatabase("per-firm");
   raw
-    .prepare("INSERT INTO email_thread (id, first_seen_at, created_at, updated_at) VALUES (?, ?, ?, ?)")
+    .prepare(
+      "INSERT INTO email_thread (id, first_seen_at, created_at, updated_at) VALUES (?, ?, ?, ?)",
+    )
     .run("emailThread_a", NOW, NOW, NOW);
   seedMessage(raw, "emailMessage_a", "messageId:<x@example.com>");
   expect(() => seedMessage(raw, "emailMessage_b", "messageId:<x@example.com>")).toThrow();
@@ -64,7 +66,9 @@ test("a duplicate dedup_key is rejected — one row per firm-unique message", ()
 test("a message cannot double-file to the same matter, but can link to many matters", () => {
   const { raw } = createMigratedNodeDatabase("per-firm");
   raw
-    .prepare("INSERT INTO email_thread (id, first_seen_at, created_at, updated_at) VALUES (?, ?, ?, ?)")
+    .prepare(
+      "INSERT INTO email_thread (id, first_seen_at, created_at, updated_at) VALUES (?, ?, ?, ?)",
+    )
     .run("emailThread_a", NOW, NOW, NOW);
   seedMessage(raw, "emailMessage_a", "messageId:<x@example.com>");
   const matterOne = seedMatter(raw, "one0000000000000000");

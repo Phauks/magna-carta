@@ -347,7 +347,10 @@ export async function readMatterEmails(
   cursor: string | undefined,
   pageSize: number = DEFAULT_PAGE_SIZE,
 ): Promise<Page<MatterEmailListItem>> {
-  const conditions = [`${EMAIL_MATTER_LINK_TABLE}.matter_id = ?`, `${EMAIL_MATTER_LINK_TABLE}.state = 'filed'`];
+  const conditions = [
+    `${EMAIL_MATTER_LINK_TABLE}.matter_id = ?`,
+    `${EMAIL_MATTER_LINK_TABLE}.state = 'filed'`,
+  ];
   const bindings: unknown[] = [matterId];
   appendCursorPredicate(conditions, bindings, decodeCursor(cursor));
   bindings.push(pageSize + 1);

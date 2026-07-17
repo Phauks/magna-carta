@@ -5,7 +5,6 @@ import {
   filedMatterIdsForMessage,
   findByContentSha256,
   findByMessageIdValue,
-  insertEmailMatterLinkStatement,
   readMatterEmails,
   readMessageById,
   unlinkEmailFromMatterStatement,
@@ -13,8 +12,7 @@ import {
 import { domainAuditStatement } from "@magna-carta/data-access/audit-statements";
 import { readInspectableSizeCap } from "@magna-carta/file-manager/upload-policy";
 import { checkFilingConflict } from "@magna-carta/email-filing/seams";
-import { newIdentifier } from "@magna-carta/identifiers/generate";
-import type { EmailMessageId, MatterId } from "@magna-carta/identifiers/types";
+import type { EmailMessageId } from "@magna-carta/identifiers/types";
 import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
@@ -27,7 +25,6 @@ import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { identifierPathParam } from "../contracts/common.ts";
 import { Problem, problemJson } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
-import { requireBucket } from "../files/require-bucket.ts";
 import { filterAccessibleMatters } from "../emails/matter-access.ts";
 import type { EmailsCaptureMessage } from "../emails/capture-consumer.ts";
 
@@ -181,8 +178,14 @@ const captureRoute = defineOpenAPIRoute(captureMeta, {
       description: "Capture accepted; filing runs off the request path",
       content: { "application/json": { schema: CaptureAck } },
     },
-    400: { description: "Empty body", content: { "application/problem+json": { schema: Problem } } },
-    401: { description: "No session", content: { "application/problem+json": { schema: Problem } } },
+    400: {
+      description: "Empty body",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    401: {
+      description: "No session",
+      content: { "application/problem+json": { schema: Problem } },
+    },
     403: {
       description: "Missing emails:file",
       content: { "application/problem+json": { schema: Problem } },
@@ -215,7 +218,10 @@ const listRoute = defineOpenAPIRoute(listMeta, {
       description: "A page of filed emails",
       content: { "application/json": { schema: MatterEmailList } },
     },
-    401: { description: "No session", content: { "application/problem+json": { schema: Problem } } },
+    401: {
+      description: "No session",
+      content: { "application/problem+json": { schema: Problem } },
+    },
     403: {
       description: "Missing emails:read",
       content: { "application/problem+json": { schema: Problem } },
@@ -234,13 +240,18 @@ const getRoute = defineOpenAPIRoute(getMeta, {
     "Read one captured message with its participants and the wall-safe list of other matters it is " +
     "filed to that the caller can access. A caller who can access none of the matters it is filed to " +
     "receives 404 (absence, never a leak of a walled matter).",
-  request: { params: z.object({ emailMessageId: identifierPathParam("emailMessage", "emailMessageId") }) },
+  request: {
+    params: z.object({ emailMessageId: identifierPathParam("emailMessage", "emailMessageId") }),
+  },
   responses: {
     200: {
       description: "The message and its wall-safe multi-matter context",
       content: { "application/json": { schema: MessageDetailResponse } },
     },
-    401: { description: "No session", content: { "application/problem+json": { schema: Problem } } },
+    401: {
+      description: "No session",
+      content: { "application/problem+json": { schema: Problem } },
+    },
     403: {
       description: "Missing emails:read",
       content: { "application/problem+json": { schema: Problem } },
@@ -276,7 +287,10 @@ const alreadyFiledRoute = defineOpenAPIRoute(alreadyFiledMeta, {
       description: "The wall-safe already-filed signal",
       content: { "application/json": { schema: AlreadyFiledResponse } },
     },
-    401: { description: "No session", content: { "application/problem+json": { schema: Problem } } },
+    401: {
+      description: "No session",
+      content: { "application/problem+json": { schema: Problem } },
+    },
     403: {
       description: "Missing emails:read",
       content: { "application/problem+json": { schema: Problem } },
@@ -304,7 +318,10 @@ const acceptRoute = defineOpenAPIRoute(acceptMeta, {
       description: "The link was filed (or was already filed)",
       content: { "application/json": { schema: LinkActionAck } },
     },
-    401: { description: "No session", content: { "application/problem+json": { schema: Problem } } },
+    401: {
+      description: "No session",
+      content: { "application/problem+json": { schema: Problem } },
+    },
     403: {
       description: "Missing emails:manageLinks",
       content: { "application/problem+json": { schema: Problem } },
@@ -332,7 +349,10 @@ const unlinkRoute = defineOpenAPIRoute(unlinkMeta, {
       description: "The link was unlinked (or was already unlinked)",
       content: { "application/json": { schema: LinkActionAck } },
     },
-    401: { description: "No session", content: { "application/problem+json": { schema: Problem } } },
+    401: {
+      description: "No session",
+      content: { "application/problem+json": { schema: Problem } },
+    },
     403: {
       description: "Missing emails:manageLinks",
       content: { "application/problem+json": { schema: Problem } },
@@ -461,7 +481,10 @@ export function registerEmailsRoutes(
             ? await findByContentSha256(firm.firmDatabase, contentHash)
             : null;
       if (emailMessageId === null) {
-        return c.json({ captured: false, matters: [], hiddenMatterCount: 0, totalMatterCount: 0 }, 200);
+        return c.json(
+          { captured: false, matters: [], hiddenMatterCount: 0, totalMatterCount: 0 },
+          200,
+        );
       }
       const filed = await filedMatterIdsForMessage(firm.firmDatabase, emailMessageId);
       const visible = await filterAccessibleMatters(firm, userId, filed);
@@ -478,47 +501,53 @@ export function registerEmailsRoutes(
   );
 
   // GET /emails/{emailMessageId} — one message + the wall-safe "also on" list.
-  app.openapi({ ...getRoute, middleware: chokepointMiddleware(chokepoint, getRoute) }, async (c) => {
-    const firm = requireChokepointFirmContext(c);
-    const userId = requireChokepointUserId(c);
-    const { emailMessageId } = c.req.valid("param");
-    const detail = await readMessageById(firm.firmDatabase, emailMessageId as EmailMessageId);
-    if (detail === null) {
-      return problemJson(c, {
-        type: "not-found",
-        title: "Email not found",
-        status: 404,
-        detail: "No such email, or you cannot access it.",
-      });
-    }
-    const filed = await filedMatterIdsForMessage(firm.firmDatabase, emailMessageId as EmailMessageId);
-    const visible = await filterAccessibleMatters(firm, userId, filed);
-    // A caller who can access none of the matters it is filed to sees it as absent — never a leak.
-    if (filed.length > 0 && visible.length === 0) {
-      return problemJson(c, {
-        type: "not-found",
-        title: "Email not found",
-        status: 404,
-        detail: "No such email, or you cannot access it.",
-      });
-    }
-    return c.json(
-      {
-        emailMessageId: detail.emailMessageId,
-        threadId: detail.threadId,
-        subject: detail.subject,
-        fromDisplay: detail.fromDisplay,
-        fromAddress: detail.fromAddress,
-        sentAt: detail.sentAt,
-        receivedAt: detail.receivedAt,
-        dkimVerdict: detail.dkimVerdict,
-        participants: detail.participants,
-        alsoFiledMatterIds: visible,
-        hiddenMatterCount: filed.length - visible.length,
-      },
-      200,
-    );
-  });
+  app.openapi(
+    { ...getRoute, middleware: chokepointMiddleware(chokepoint, getRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const { emailMessageId } = c.req.valid("param");
+      const detail = await readMessageById(firm.firmDatabase, emailMessageId as EmailMessageId);
+      if (detail === null) {
+        return problemJson(c, {
+          type: "not-found",
+          title: "Email not found",
+          status: 404,
+          detail: "No such email, or you cannot access it.",
+        });
+      }
+      const filed = await filedMatterIdsForMessage(
+        firm.firmDatabase,
+        emailMessageId as EmailMessageId,
+      );
+      const visible = await filterAccessibleMatters(firm, userId, filed);
+      // A caller who can access none of the matters it is filed to sees it as absent — never a leak.
+      if (filed.length > 0 && visible.length === 0) {
+        return problemJson(c, {
+          type: "not-found",
+          title: "Email not found",
+          status: 404,
+          detail: "No such email, or you cannot access it.",
+        });
+      }
+      return c.json(
+        {
+          emailMessageId: detail.emailMessageId,
+          threadId: detail.threadId,
+          subject: detail.subject,
+          fromDisplay: detail.fromDisplay,
+          fromAddress: detail.fromAddress,
+          sentAt: detail.sentAt,
+          receivedAt: detail.receivedAt,
+          dkimVerdict: detail.dkimVerdict,
+          participants: detail.participants,
+          alsoFiledMatterIds: visible,
+          hiddenMatterCount: filed.length - visible.length,
+        },
+        200,
+      );
+    },
+  );
 
   // POST /matters/{matterId}/emails/{emailMessageId}/accept — staff-accept a staged link.
   app.openapi(

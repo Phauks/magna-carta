@@ -59,7 +59,9 @@ export default {
 
     if (message.rawSize > OVERSIZE_CEILING_BYTES) {
       // Not silently dropped: the sender is told the message is too large for the forward path.
-      message.setReject("Message exceeds the capture size ceiling; file it from the add-in instead.");
+      message.setReject(
+        "Message exceeds the capture size ceiling; file it from the add-in instead.",
+      );
       return;
     }
 

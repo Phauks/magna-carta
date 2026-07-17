@@ -185,10 +185,10 @@ describe("emails routes", () => {
 
   it("unlinks an email from a matter without deleting the message", async () => {
     const emailMessageId = await seedFiledMessage("<unlink@example.test>");
-    const res = await SELF.fetch(
-      `https://x/api/v1/matters/${matterId}/emails/${emailMessageId}`,
-      { method: "DELETE", headers: { cookie: ownerCookie } },
-    );
+    const res = await SELF.fetch(`https://x/api/v1/matters/${matterId}/emails/${emailMessageId}`, {
+      method: "DELETE",
+      headers: { cookie: ownerCookie },
+    });
     expect(res.status).toBe(200);
     // The message row still exists (unlink ≠ delete).
     const still = await firmDatabase
