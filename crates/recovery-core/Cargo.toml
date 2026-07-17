@@ -33,7 +33,7 @@ uuid = "1"
 # parser is private), so it synthesizes a fresh xref and reloads; lopdf then
 # parses the objects and re-emits a clean file. default-features=false drops the
 # date/parallelism features (chrono/jiff/rayon/time) the load/save path never needs.
-lopdf = { version = "0.41", default-features = false }
+lopdf = { version = "0.42", default-features = false }
 # Single-pass multi-pattern search for embedded-file header signatures (carving scan). Pure Rust.
 aho-corasick = "1"
 # Best-effort image header validation for carved candidates (confirm a signature match is a real
