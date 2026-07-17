@@ -54,7 +54,7 @@
   scope: Tantivy (Rust) behind a swappable index interface.
   status: designed
   spec: docs/specs/2026-07-17-discovery-search-index-stateful-service-design.md
-  evidence: Designed as immutable splits (segment bundle + footer) in per-firm R2, queried by footer-pruning + HTTP ranged reads so per-query I/O scales with selectivity not corpus size; crates/search-core (pure Rust) is the first buildable slice. No Tantivy crate on the tree yet.
+  evidence: crates/search-core (pure Rust, tantivy 0.26) landed the first slice — the split format (segment bundle + footer), build→split→query round trip, multi-split merge, and generation gating, all unit-tested. Not yet wired to a worker/port/R2 (that is the next slice); the range-reading R2 directory and footer pruning digest are deferred within the same format.
 
 - id: discovery.search.semantic
   name: Semantic search
