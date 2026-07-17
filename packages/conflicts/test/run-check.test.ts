@@ -99,6 +99,7 @@ interface HitRow {
   readonly evidence_tier: number;
   readonly matched_fields_json: string;
   readonly graph_path_json: string;
+  readonly co_party: number;
   readonly created_at: string;
 }
 
@@ -280,6 +281,39 @@ test("a party carrying a middle name still surfaces its same-name twin at tier 2
   expect(twinHit).toBeDefined();
   expect(twinHit?.evidence_tier).toBe(2);
   expect(JSON.parse(twinHit?.matched_fields_json ?? "[]")).toContain("exact normalized name match");
+});
+
+test("a match on another subject party surfaces flagged co_party, while a non-party match does not", async () => {
+  const { ctx, options } = await conflictsTestContext("co-party");
+  // Two same-named parties on the matter (a co-party collision — e.g. the same real person entered
+  // twice under two roles, or two related named parties) plus one same-named entity that is NOT a party
+  // to this matter (an ordinary prior/other-client conflict).
+  const subjectA = await createPerson(ctx.database, { given: "John", family: "Smith" }, options);
+  const subjectB = await createPerson(ctx.database, { given: "John", family: "Smith" }, options);
+  const outsider = await createPerson(ctx.database, { given: "John", family: "Smith" }, options);
+
+  const checkId = await runConflictsCheck(
+    ctx,
+    {
+      trigger: "comprehensive",
+      subjectEntityIds: [subjectA, subjectB],
+      scope: { sources: ["party"], strictness: "balanced", depth: 1 },
+    },
+    options,
+  );
+
+  const hits = await readHits(ctx.database, checkId);
+  // The co-party (subjectB, a named party matching subjectA) surfaces, flagged — it is no longer
+  // silently dropped just because it is also a subject party.
+  const coPartyHit = hits.find((hit) => hit.entity_id === subjectB);
+  expect(coPartyHit).toBeDefined();
+  expect(coPartyHit?.co_party).toBe(1);
+  // The non-party outsider (a real prior-client conflict) surfaces as an ordinary hit, not flagged.
+  const outsiderHit = hits.find((hit) => hit.entity_id === outsider);
+  expect(outsiderHit).toBeDefined();
+  expect(outsiderHit?.co_party).toBe(0);
+  // A party never surfaces as its own hit.
+  expect(hits.some((hit) => hit.entity_id === subjectA && hit.co_party === 1)).toBe(true); // A surfaces via B's match
 });
 
 test("a merged-away former name still surfaces the surviving master", async () => {
