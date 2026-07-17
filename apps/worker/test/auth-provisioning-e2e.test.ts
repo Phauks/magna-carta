@@ -485,15 +485,20 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
 
     // The operations that document the platform-admin posture (x-mc-surface "public" — the
     // header-secret guard, no session): the firm provisioner, the platform release-channel setter,
-    // and the support-session redeem (platform_staff redeems a grant). A future unguarded route
-    // cannot hide behind the exception, because the exception is this exact set, and each member is
-    // asserted guarded below.
+    // the support-session redeem (platform_staff redeems a grant), and the platform-operator
+    // status-event lifecycle. A future unguarded route cannot hide behind the exception, because
+    // the exception is this exact set, and each member is asserted guarded below.
     const publicSurface = v1Operations.filter(
       (entry) => entry.operation["x-mc-surface"] === "public",
     );
     expect(publicSurface.map((entry) => entry.operation["operationId"]).sort()).toEqual([
       "firms.provision",
       "platform.setFirmReleaseChannel",
+      "platformStatus.clearComponentOverride",
+      "platformStatus.declareEvent",
+      "platformStatus.postUpdate",
+      "platformStatus.resolveEvent",
+      "platformStatus.setComponentOverride",
       "supportSessions.redeem",
     ]);
     // And even the exception is no signup hole: each public operation is authenticated (the

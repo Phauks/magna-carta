@@ -10,15 +10,16 @@ import {
 describe("controlPlaneMigrations bundle", () => {
   it("covers the journal and reports the head tag", () => {
     const migrations = controlPlaneMigrations();
-    expect(migrations.length).toBeGreaterThanOrEqual(4);
+    expect(migrations.length).toBeGreaterThanOrEqual(1);
     expect(migrations.at(-1)?.tag).toBe(controlPlaneHeadSchemaVersion());
-    expect(controlPlaneHeadSchemaVersion()).toMatch(/^0006_/);
+    // Monotonic timestamp ids (the collapsed-baseline lineage), not the old 00NN numbering.
+    expect(controlPlaneHeadSchemaVersion()).toMatch(/^\d{8}T\d{6}_/);
   });
 
   it("applies the whole lineage from empty, then is a no-op when re-run", async () => {
     const target = d1MigrationTarget(env.DB_CONTROL);
     const first = await runPendingMigrations(target, controlPlaneMigrations());
-    expect(first.appliedTags).toContain("0003_handy_rattler");
+    expect(first.appliedTags).toContain("20260704T041516_baseline");
     // The release-channel column exists -> the control-plane schema is at head.
     const probe = await env.DB_CONTROL.prepare("SELECT release_channel FROM firm LIMIT 1").all();
     expect(probe.success).toBe(true);
