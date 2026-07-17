@@ -18,6 +18,11 @@ fn state_with_unreachable_clamd() -> AppState {
 }
 
 async fn serve(state: AppState) -> String {
+    // The handler spools the body into the clamd-shared scratch dir — the fixed /scan the container's
+    // entrypoint creates, which exists nowhere else. Point the spool at the OS temp dir so these tests
+    // exercise the real spool path on any host; each spooled file removes itself on drop.
+    std::env::set_var("SCAN_SCRATCH_DIR", std::env::temp_dir());
+
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
     tokio::spawn(async move {
