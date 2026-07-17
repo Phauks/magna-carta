@@ -10,6 +10,13 @@
 #
 # Everything else the gate checks (type-check, tests, contracts, governance) already runs whole-repo on
 # every PR, so the sweep does not repeat them; it covers only the one dimension the gate scopes.
+#
+# CHANGE DETECTION. The lint only runs when `main` has moved in a lint-relevant way since the last
+# successful sweep — a night with no new commits, or only docs/asset commits, skips the whole ~24-min
+# pass. The `decide` job diffs the current tip against the head commit of the previous successful
+# nightly-sweep run and reuses affected-lint (WITHOUT `--defer-global`, so a global input still counts):
+# an affected-lint result of `NONE` means nothing lintable changed → skip. The first run (no previous
+# success) and any run whose previous commit is unresolvable lint to be safe.
 name: nightly-sweep
 
 on:
@@ -26,9 +33,49 @@ concurrency:
 
 permissions:
   contents: read
+  actions: read # `decide` reads this workflow's run history to find the last swept commit.
 
 jobs:
+  # Decide whether anything lint-relevant changed since the last successful sweep. Pure node + git + gh
+  # (no workspace deps), so it is a ~1-minute job; on a quiet night it is the ONLY job that runs.
+  decide:
+    runs-on: ubuntu-latest
+    outputs:
+      lint: ${{ steps.decide.outputs.lint }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Lint-relevant change since the last successful sweep?
+        id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Head commit of the most recent SUCCESSFUL sweep = the last commit we actually swept clean
+          # (a skipped-lint night still succeeds at main's then-current tip, so this is the right base;
+          # a failed night is excluded, so we keep re-linting until green). This run is in_progress, so
+          # it is not in the success list.
+          prev="$(gh run list --workflow nightly-sweep.yml --branch main --status success \
+            --json headSha --jq '.[0].headSha' --limit 1 2>/dev/null || true)"
+          if [ -z "$prev" ] || ! git cat-file -e "$prev" 2>/dev/null; then
+            echo "no usable previous-sweep commit ($prev) — linting to be safe"
+            echo "lint=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          # Reuse the gate's scoping logic (no --defer-global, so a global input still forces coverage):
+          # NONE means no lintable package and no global input moved since $prev — nothing to sweep.
+          scope="$(node tooling/affected-lint/index.mjs --base "$prev")"
+          echo "affected-lint since $prev: $scope"
+          if [ "$scope" = "NONE" ]; then
+            echo "no lint-relevant change since the last sweep — skipping the whole-repo lint"
+            echo "lint=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "lint=true" >> "$GITHUB_OUTPUT"
+          fi
+
   lint-whole-repo:
+    needs: decide
+    if: needs.decide.outputs.lint == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
