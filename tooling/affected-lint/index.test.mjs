@@ -49,12 +49,7 @@ describe("computeAffected", () => {
   });
 
   it("forces a whole-repo lint when a global-input file changes", () => {
-    for (const file of [
-      "oxlintrc.json",
-      "vite.config.ts",
-      "pnpm-lock.yaml",
-      "tsconfig.base.json",
-    ]) {
+    for (const file of ["vite.config.ts", "pnpm-lock.yaml", "tsconfig.base.json"]) {
       expect(
         computeAffected({ changedFiles: [file, "packages/money/src/a.ts"], packages }).mode,
       ).toBe("all");

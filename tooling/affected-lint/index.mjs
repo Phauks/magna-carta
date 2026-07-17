@@ -28,8 +28,7 @@ const GROUPS = ["apps", "packages", "plugins"];
 
 // Exact repo-relative paths whose change re-verifies the whole repo.
 export const GLOBAL_TRIGGER_PATHS = new Set([
-  "oxlintrc.json", // the lint ruleset
-  "vite.config.ts", // where lint / typeAware is configured
+  "vite.config.ts", // the lint ruleset (rules / categories / plugins) + where typeAware is configured
   "pnpm-lock.yaml", // the resolved dependency versions (and thus their types)
   "pnpm-workspace.yaml", // the version catalog + the workspace shape
   "package.json", // the root manifest: catalog + toolchain

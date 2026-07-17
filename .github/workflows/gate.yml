@@ -121,6 +121,10 @@ jobs:
     needs: [changes, wasm]
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
+    # tsgolint building the app worker's whole-program type graph is the tall pole (~24 min for the whole
+    # repo). Cap well above that so a genuine tsgolint deadlock or runaway fails fast and visibly instead
+    # of burning the runner to GitHub's 6-hour default; raise this if the honest whole-repo time grows.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup

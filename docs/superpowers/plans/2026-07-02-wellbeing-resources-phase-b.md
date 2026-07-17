@@ -11,7 +11,7 @@
 ## Global Constraints
 
 - **Package name spelled out in full:** `@magna-carta/wellbeing-resources` (golden rule 12). Type/function names spelled out: `WellbeingResource`, `nationalResources()` — never abbreviations. External terms `fips`, `code`, `url`, `email` are allowed.
-- **No barrel file.** `oxc/no-barrel-file` is an **error** in `oxlintrc.json`. Do NOT create `src/index.ts`; expose modules through the `package.json` `exports` map, exactly like `government-links`.
+- **No barrel file.** `oxc/no-barrel-file` is an **error** in the `lint` block of the root `vite.config.ts`. Do NOT create `src/index.ts`; expose modules through the `package.json` `exports` map, exactly like `government-links`.
 - **No process-refs in source.** Source, tests, and generated files carry no `ADR-NNNN`, "spec", "Phase N", "slice N·M", etc. (golden rule 13). Explain reasoning inline or cite a file path. The package `CLAUDE.md` may reference `docs/conventions/` and the research corpus **by path**.
 - **Generated file is never hand-edited.** `src/data.generated.ts` carries an `@generated` header; changes flow through the research corpus + `pnpm --filter @magna-carta/wellbeing-resources run build:data`.
 - **Generated TS must pass `vp check`** (fmt + lint + typecheck). The serializer emits Oxc/Prettier-shaped output (2-space, double-quoted strings, unquoted identifier keys, trailing commas). If a residual format diff appears, format the file in place with the repo formatter's write mode and re-commit.
