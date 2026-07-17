@@ -309,6 +309,10 @@ jobs:
         # silently passes.
         env:
           OSV_SCANNER_VERSION: "2.4.0"
+          # SHA256 of osv-scanner_linux_amd64, taken from the release's osv-scanner_SHA256SUMS. Pinned so a
+          # swapped or compromised release asset fails the gate instead of running. Update this in lockstep
+          # with OSV_SCANNER_VERSION (the hash for the new version is in that version's osv-scanner_SHA256SUMS).
+          OSV_SCANNER_SHA256: "15314940c10d26af9c6649f150b8a47c1262e8fc7e17b1d1029b0e479e8ed8a0"
         run: |
           # GitHub's default bash shell runs with -e (errexit); osv-scanner exits 1 on the normal
           # "advisories present" case, which would abort the step before the severity classifier runs.
@@ -317,6 +321,12 @@ jobs:
           mkdir -p "$RUNNER_TEMP/bin"
           curl -fsSL -o "$RUNNER_TEMP/bin/osv-scanner" \
             "https://github.com/google/osv-scanner/releases/download/v${OSV_SCANNER_VERSION}/osv-scanner_linux_amd64"
+          # Verify the download against the pinned hash before making it executable — fail closed on any
+          # mismatch so a tampered binary never runs.
+          if ! echo "${OSV_SCANNER_SHA256}  $RUNNER_TEMP/bin/osv-scanner" | sha256sum -c -; then
+            echo "osv-scanner binary failed SHA256 verification (expected ${OSV_SCANNER_SHA256}) — refusing to run" >&2
+            exit 1
+          fi
           chmod +x "$RUNNER_TEMP/bin/osv-scanner"
           export PATH="$RUNNER_TEMP/bin:$PATH"
           osv-scanner --version
