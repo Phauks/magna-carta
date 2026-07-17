@@ -1755,6 +1755,12 @@ export const conflictsHit = sqliteTable(
     matchedFieldsJson: text("matched_fields_json").notNull(),
     // The connecting edge path, '[]' when the entity was reached directly.
     graphPathJson: text("graph_path_json").notNull(),
+    // 1 when the matched entity is itself a subject party of THIS check — a co-party surfacing: a
+    // positional conflict (a related entity that is also a named party, e.g. the opposing party is the
+    // client's parent company) or a co-party name/identifier collision. Orthogonal to source_class
+    // (a co-party can be reached by the party OR the graph channel); it buckets the hit apart from a
+    // conflict with a prior/other client so a reviewer can triage it separately.
+    coParty: integer("co_party").notNull().default(0),
     createdAt: text("created_at").notNull(),
   },
   (table) => [

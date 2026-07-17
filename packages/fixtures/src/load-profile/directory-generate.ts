@@ -55,6 +55,11 @@ export interface DirectoryProbes {
   // The probe person's structured name parts — fed to findDuplicateCandidates' name channels.
   readonly probeGivenName: string;
   readonly probeFamilyName: string;
+  // A deterministic co-party pair: two persons sharing one exact name, so a conflicts check seeded with
+  // BOTH surfaces each as the other's hit, flagged co_party. This is the load-profile expression of the
+  // co-party surfacing path — matter-independent, so it exists at every scale.
+  readonly coPartyEntityIdA: string;
+  readonly coPartyEntityIdB: string;
 }
 
 export interface DirectoryGenerationResult {
@@ -247,8 +252,29 @@ export async function generateDirectoryVolume(
     }
   }
 
+  // --- The co-party pair. Two persons created with an IDENTICAL name so the tier-2 exact-name probe
+  // (and the phonetic/trigram channels) match one from the other. A conflicts check seeded with both
+  // then surfaces each as the other's hit — flagged co_party because each is itself a subject party of
+  // the check — which is exactly the co-party surfacing path the measurement exercises. Created outside
+  // any volume loop and independent of matters, so the pair is present at every scale. ---
+  const coPartyGiven = faker.person.firstName();
+  const coPartyFamily = faker.person.lastName();
+  const coPartyEntityIdA = await createPerson(
+    database,
+    { given: coPartyGiven, family: coPartyFamily },
+    writeOptions,
+  );
+  context.clock.advanceMinutes(1);
+  const coPartyEntityIdB = await createPerson(
+    database,
+    { given: coPartyGiven, family: coPartyFamily },
+    writeOptions,
+  );
+  context.clock.advanceMinutes(1);
+
   return {
-    personCount: volume.personCount,
+    // The volume persons plus the two co-party persons created below.
+    personCount: volume.personCount + 2,
     organizationCount: volume.organizationCount,
     probes: {
       firmId,
@@ -258,6 +284,8 @@ export async function generateDirectoryVolume(
       sampleSsnValue: probeSsnValue,
       probeGivenName: probePerson.given,
       probeFamilyName: probePerson.family,
+      coPartyEntityIdA,
+      coPartyEntityIdB,
     },
   };
 }

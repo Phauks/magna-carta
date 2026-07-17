@@ -1107,6 +1107,7 @@ export type ConflictsHitDetail = {
     evidenceTier: number;
     matchedFields: Array<string>;
     graphPath: Array<ConflictsGraphPathStep>;
+    coParty: boolean;
     createdAt: string;
     disposition: ConflictsDispositionDetail;
 };

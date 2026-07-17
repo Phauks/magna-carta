@@ -4605,6 +4605,9 @@
               "$ref": "#/components/schemas/ConflictsGraphPathStep"
             }
           },
+          "coParty": {
+            "type": "boolean"
+          },
           "createdAt": {
             "type": "string"
           },
@@ -4619,6 +4622,7 @@
           "evidenceTier",
           "matchedFields",
           "graphPath",
+          "coParty",
           "createdAt",
           "disposition"
         ]
