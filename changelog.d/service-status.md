@@ -1,5 +1,0 @@
----
-category: Added
----
-
-**Service status — Cloudflare + third-party provider aggregation, operator-posted events, a public feed that survives an outage.** A new service-status system now tracks whether the platform and the outside providers it depends on are working: a component matrix for our own primitives (green by default, moving to a problem state only on real evidence — an operator declaration, an error-rate signal, or a failed health probe — never by guessing), and upstream aggregation of Cloudflare, GitHub, and other Statuspage-based providers' own published status. Platform operators (a new, MFA-required, individually-granted role) can declare a service event, post rolling updates, and resolve it, all attributed to the operator who acted. The public feed (`status.json`, plus a placeholder page) is served by a new, deliberately isolated status worker that has no dependency on the main application, its database, or any per-firm data — so the status page stays up precisely when an app-wide incident is happening. Rendered UI (the in-app banner, the styled public page) follows in a later pass.

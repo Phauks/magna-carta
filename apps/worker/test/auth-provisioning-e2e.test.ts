@@ -245,6 +245,11 @@ describe("end-to-end", () => {
       // tools:decryption (0035_seed-tools-decryption.sql, seeded onto every default role).
       // Sorted.
       permissions: [
+        // conflicts:read / conflicts:run are seeded onto every default role (any member may screen a
+        // prospective matter); conflicts:dispose is narrower and reaches Owner/Admin + Attorney only.
+        "conflicts:dispose",
+        "conflicts:read",
+        "conflicts:run",
         "costs:approve",
         "costs:track",
         "customFields:manage",

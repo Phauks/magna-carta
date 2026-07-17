@@ -77,6 +77,15 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
   // Append-only tables: pseudonymize the subject reference, never delete the row.
   { table: "audit_log", subjectKey: "actor_user_id", action: "pseudonymize-keep" },
   { table: "entity_merge", subjectKey: "subordinate_id", action: "pseudonymize-keep" },
+  // The conflicts log — append-only compliance records whose RAISE(ABORT) triggers forbid deletion, so
+  // the subject reference is pseudonymized in place and the row is never removed (the same discipline as
+  // audit_log / entity_merge). Each table resolves to its own structured subject: the check to the firm
+  // user who ran it, the hit to the surfaced Directory entity, the disposition to the reviewing member.
+  // The entity/identifier references carried inside inputs_json and the free-text rationale are
+  // content-level residue, out of this registry's structured scope (mirrors audit_log's metadata JSON).
+  { table: "conflicts_check", subjectKey: "actor_user_id", action: "pseudonymize-keep" },
+  { table: "conflicts_hit", subjectKey: "entity_id", action: "pseudonymize-keep" },
+  { table: "conflicts_disposition", subjectKey: "reviewer_user_id", action: "pseudonymize-keep" },
 ];
 
 // Per-firm tables that hold NO personal data — the explicit non-PII half of the coverage fitness.

@@ -187,8 +187,74 @@ jobs:
       - name: Rust gate (fmt + clippy + test)
         run: pnpm exec vp run rust-check
 
-  # The Vitest suites, including the Miniflare worker integration test and the browser-provider stories.
-  test:
+  # The Vitest suites, split along their NATURAL project boundaries rather than one blind shard over
+  # everything. The suite has three substrates with very different per-file cost and setup: plain node
+  # units (milliseconds), the Miniflare worker pool (a Workers runtime per file), and the design-system
+  # Storybook stories (Chromium via Playwright). Splitting by substrate lets each scale independently and,
+  # crucially, keeps the Playwright install in the ONE job that needs a browser instead of on every shard.
+  #
+  # Completeness is by construction — the three jobs partition every test file exactly once:
+  #   • test-stories runs the `storybook` project (the only browser suite);
+  #   • test-worker runs the files under apps/worker + apps/status-worker (the only Miniflare suites);
+  #   • test-node runs everything else (packages + apps/web + tooling) with the `storybook` project
+  #     excluded, so no browser boots here.
+  # storybook is the only project that spans a path root (it lives under packages/design-system), so it
+  # is the only one that must be included-by-name in one job and excluded-by-name from another; every
+  # other file belongs to exactly one path root. Adding a new top-level test area means adding its path to
+  # test-node (or a new job) — a missed path fails loud via --passWithNoTests being off, not silently.
+  # The heavy substrates (node, worker) shard within their job; bump the SHARD_TOTAL + matrix pair to
+  # change a count. fail-fast off so one shard's failure still lets its siblings report.
+
+  # Plain node/unit suites — packages + the web app's node tests + tooling. No Miniflare, no browser; the
+  # storybook project is excluded so no Chromium is needed here. The bulk of the tests, cheapest per file.
+  test-node:
+    needs: [changes, wasm]
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    env:
+      SHARD_TOTAL: 2
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - uses: actions/download-artifact@v8
+        with:
+          name: wasm-pkg
+      - run: tar -xzf wasm-pkg.tgz
+      - name: Tests — node (shard ${{ matrix.shard }}/${{ env.SHARD_TOTAL }})
+        run: pnpm exec vp test run --project='!storybook' --shard=${{ matrix.shard }}/${{ env.SHARD_TOTAL }} packages apps/web tooling
+
+  # The Miniflare worker suites (@cloudflare/vitest-pool-workers) — the heaviest substrate, since each file
+  # stands up its own Workers runtime with the wrangler bindings. Its own sharded job; no browser.
+  test-worker:
+    needs: [changes, wasm]
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    env:
+      SHARD_TOTAL: 4
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - uses: actions/download-artifact@v8
+        with:
+          name: wasm-pkg
+      - run: tar -xzf wasm-pkg.tgz
+      - name: Tests — worker (shard ${{ matrix.shard }}/${{ env.SHARD_TOTAL }})
+        # --project='!storybook' is belt-and-suspenders: the paths already exclude the browser project,
+        # this guarantees it can never lazily boot in a job that installs no browser.
+        run: pnpm exec vp test run --project='!storybook' --shard=${{ matrix.shard }}/${{ env.SHARD_TOTAL }} apps/worker apps/status-worker
+
+  # The design-system Storybook story tests — the ONLY browser-mode suite (Chromium via Playwright), so
+  # this is the ONLY job that installs the browser. One runner: bounded by story count + a single browser
+  # boot, so it shards poorly and needs none.
+  test-stories:
     needs: [changes, wasm]
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
@@ -201,8 +267,8 @@ jobs:
       - run: tar -xzf wasm-pkg.tgz
 
       - name: Point Playwright's browser cache outside the checkout
-        # Under the checkout, the whole-repo passes would walk the browser's own bundled files;
-        # $RUNNER_TEMP is a sibling of the workspace. `runner` context is step-scoped, hence GITHUB_ENV.
+        # $RUNNER_TEMP is a sibling of the workspace so a whole-repo pass never walks the browser's own
+        # bundled files. `runner` context is step-scoped, hence GITHUB_ENV.
         run: echo "PLAYWRIGHT_BROWSERS_PATH=$RUNNER_TEMP/pw-browsers" >> "$GITHUB_ENV"
 
       - name: Cache the Playwright browser
@@ -219,8 +285,8 @@ jobs:
           if [ -z "$cli" ]; then echo "could not locate the playwright 1.60 CLI"; exit 1; fi
           node "$cli" install --with-deps chromium chromium-headless-shell
 
-      - name: Tests
-        run: pnpm exec vp test
+      - name: Tests — stories (Storybook browser)
+        run: pnpm exec vp test run --project=storybook
 
   # Cheap whole-repo guards with no WASM dependency — run on every change so a governance regression can't
   # slip through a docs-only push.
@@ -230,14 +296,93 @@ jobs:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
       - name: Dependency audit (high+)
-        # `--ignore-registry-errors` is pnpm's first-party flag for exactly the CI case: exit 0 when the
-        # registry errors, fail ONLY when it successfully responds with found advisories. npm is browning
-        # out its legacy audit endpoints (intermittent HTTP 410; retirement began 2026-07-15) and the
-        # pinned pnpm still queries them, so without this the gate fails at random on the 410 for zero
-        # security value — while the real signal (a new un-ignored high+ advisory) is still enforced on
-        # every call the registry actually answers. Harmless once pnpm moves to the bulk advisory
-        # endpoint. Tracking: https://github.com/pnpm/pnpm/issues/11265
-        run: pnpm audit --audit-level high --ignore-registry-errors
+        # osv-scanner audits BOTH supply chains — the npm lockfile and every Rust Cargo.lock — against the
+        # OSV database (GHSA for npm, RUSTSEC for crates), replacing npm-only `pnpm audit` (which also
+        # relied on npm's browning-out legacy audit endpoint). Scope is the eight first-party lockfiles via
+        # explicit `-L` flags — never `-r .`, which would pull in spikes/. Accepted advisories live in the
+        # repo-root osv-scanner.toml, passed explicitly with --config (auto-discovery does not reach child
+        # directories in a monorepo). Severity classification prefers each finding group's max_severity (a
+        # CVSS base score), falling back to the advisory's severity text when a group has no CVSS score;
+        # the gate fails ONLY on a remaining HIGH or CRITICAL (CVSS >= 7.0), matching the prior
+        # --audit-level high strictness — moderate/low and the accepted advisories pass. A scan or config
+        # error (osv exit >= 127, e.g. 128 = no packages found) fails the gate: a broken scan never
+        # silently passes.
+        env:
+          OSV_SCANNER_VERSION: "2.4.0"
+        run: |
+          # GitHub's default bash shell runs with -e (errexit); osv-scanner exits 1 on the normal
+          # "advisories present" case, which would abort the step before the severity classifier runs.
+          # Disable errexit — every meaningful exit code (osv's, jq's) is checked explicitly below.
+          set +e -uo pipefail
+          mkdir -p "$RUNNER_TEMP/bin"
+          curl -fsSL -o "$RUNNER_TEMP/bin/osv-scanner" \
+            "https://github.com/google/osv-scanner/releases/download/v${OSV_SCANNER_VERSION}/osv-scanner_linux_amd64"
+          chmod +x "$RUNNER_TEMP/bin/osv-scanner"
+          export PATH="$RUNNER_TEMP/bin:$PATH"
+          osv-scanner --version
+
+          # Write the JSON report to a file (never capture stdout — the report is large and a stray
+          # non-JSON line on stdout would corrupt the capture and break the classifier). osv-scanner's
+          # exit code still signals findings: 0 = none, 1 = advisories present, >=127 = scan/config error.
+          osv_json="$RUNNER_TEMP/osv-report.json"
+          osv-scanner scan source \
+            --config osv-scanner.toml \
+            --format json \
+            --output-file "$osv_json" \
+            -L pnpm-lock.yaml \
+            -L crates/Cargo.lock \
+            -L containers/bundle/Cargo.lock \
+            -L containers/file-repair/Cargo.lock \
+            -L containers/ocr/Cargo.lock \
+            -L containers/raster/Cargo.lock \
+            -L containers/recovery/Cargo.lock \
+            -L containers/scan/Cargo.lock
+          code=$?
+          echo "osv-scanner exit code: $code"
+
+          case "$code" in
+            0) echo "osv-scanner: no advisories in any audited lockfile — pass."; exit 0 ;;
+            1) : ;;  # advisories present after ignores — classify by severity below
+            *)
+              echo "osv-scanner: exit $code (scan/config error, e.g. 128 = no packages found) — failing the gate; a broken scan never passes." >&2
+              exit 1
+              ;;
+          esac
+
+          # osv-scanner groups findings per package. Prefer the group's max_severity (max CVSS base score
+          # across the group); when it is empty (advisory carries no CVSS vector) fall back to the member
+          # advisories' database_specific.severity text. HIGH is CVSS >= 7.0 / a HIGH|CRITICAL text label.
+          # A jq failure is treated as a hard error (fail closed), never as "no offenders".
+          if ! offenders="$(jq -c '
+            [ .results[].packages[]
+              | . as $p
+              | $p.groups[]
+              | . as $g
+              | ($g.ids) as $ids
+              | [ $p.vulnerabilities[] | select(.id as $v | $ids | index($v)) ] as $members
+              | (($g.max_severity // "") | (try tonumber catch null)) as $ms
+              | ($ms != null and $ms >= 7.0) as $by_score
+              | ([ $members[] | (.database_specific.severity // "" | ascii_upcase)
+                   | select(. == "HIGH" or . == "CRITICAL") ] | length > 0) as $by_text
+              | select($by_score or ($ms == null and $by_text))
+              | { package: $p.package.name, ecosystem: $p.package.ecosystem, ids: $ids,
+                  max_severity: ($g.max_severity // ""),
+                  classified_by: (if $by_score then "cvss>=7.0" else "severity-text" end) }
+            ] | unique' "$osv_json")"; then
+            echo "osv-scanner: failed to classify the JSON report — failing the gate." >&2
+            exit 1
+          fi
+
+          count="$(printf '%s' "$offenders" | jq 'length')"
+          echo "osv-scanner: HIGH/CRITICAL offenders after ignores: $count"
+          if [ "$count" -eq 0 ]; then
+            echo "osv-scanner: advisories present but none HIGH or CRITICAL after ignores — pass."
+            exit 0
+          fi
+
+          echo "osv-scanner: HIGH/CRITICAL advisories remain after ignores — failing the gate:" >&2
+          printf '%s' "$offenders" | jq -r '.[] | "  [\(.ecosystem)] \(.package): \(.ids | join(", ")) (max_severity=\(.max_severity), \(.classified_by))"' >&2
+          exit 1
       - name: Governance (process-refs + licenses + status fragments)
         run: |
           pnpm run lint:process-refs
@@ -305,7 +450,21 @@ jobs:
   # path-filter skipped counts as success. Require THIS in branch protection, not the individual jobs, so
   # the required set is stable as jobs are added or skipped.
   gate:
-    needs: [changes, wasm, format, lint, typecheck, rust, test, governance, contracts, containers]
+    needs:
+      [
+        changes,
+        wasm,
+        format,
+        lint,
+        typecheck,
+        rust,
+        test-node,
+        test-worker,
+        test-stories,
+        governance,
+        contracts,
+        containers,
+      ]
     if: always()
     runs-on: ubuntu-latest
     steps:

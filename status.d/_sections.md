@@ -43,6 +43,10 @@ Slice set firmed up in the [phase-3 slice map](docs/specs/2026-06-21-phase-3-fin
 
 {{table:phase-3}}
 
-## Phases 4–7 — sliced provisionally (no rows yet)
+## Phase 4 — Conflicts & Custodian (first slice open)
 
-Sliced provisionally in [`ROADMAP.md`](ROADMAP.md) (Phase 4 Conflicts & Custodian · Phase 5 Discovery · Phase 6 Client-facing & scheduling · Phase 7 Integrations) — scope, not design. Rows appear here once a slice's design cycle opens.
+{{table:phase-4}}
+
+## Phases 5–7 — sliced provisionally (no rows yet)
+
+Sliced provisionally in [`ROADMAP.md`](ROADMAP.md) (Phase 5 Discovery · Phase 6 Client-facing & scheduling · Phase 7 Integrations) — scope, not design. Rows appear here once a slice's design cycle opens.

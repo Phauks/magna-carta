@@ -28,7 +28,8 @@ describe("detectFormat", () => {
 describe("availableTargets", () => {
   it("lists the reachable targets for a recognized file (includes pdf via image-pdf engine)", () => {
     const targets = availableTargets({ name: "photo.png", type: "image/png" });
-    expect([...targets].sort()).toEqual(["gif", "jpeg", "pdf", "tiff", "webp"]);
+    // pdf via image-pdf, and searchable-pdf via image-pdf then the ocr edge.
+    expect([...targets].sort()).toEqual(["gif", "jpeg", "pdf", "searchable-pdf", "tiff", "webp"]);
   });
   it("returns [] for an unrecognized file", () => {
     expect(availableTargets({ name: "mystery.xyz" })).toEqual([]);

@@ -1,0 +1,40 @@
+# Accepted advisories for the CI dependency-audit gate (osv-scanner, .github/workflows/gate.yml).
+# Passed explicitly with `--config osv-scanner.toml` because auto-discovery does not reach child
+# directories in a monorepo. Adding an entry is an explicit security decision, never a quick unblock;
+# each carries a cause. The `ignoreUntil` on the tracked-remediation set is a forcing function — when it
+# lapses the advisory re-surfaces and fails the gate, so acceptance cannot silently become permanent.
+
+# --- Long-standing accepted dev/build-tooling advisories (npm) -------------------------------------
+# Migrated from package.json pnpm.auditConfig.ignoreGhsas (still read by the pre-push hook's pnpm audit).
+
+[[IgnoredVulns]]
+id = "GHSA-gv7w-rqvm-qjhr"
+reason = "Pre-existing transitive dev/build-tooling advisory (esbuild), no production-runtime exploit path; drops when Renovate upgrades the carrier."
+
+[[IgnoredVulns]]
+id = "GHSA-r5fr-rjxr-66jc"
+reason = "Pre-existing transitive dev/build-tooling advisory (lodash), no production-runtime exploit path; drops when Renovate upgrades the carrier."
+
+# --- Tracked for remediation (surfaced when osv-scanner first audited the Rust supply chain 2026-07-16).
+# Accepted temporarily so the gate protects against NEW advisories immediately; each is to be fixed by
+# upgrading its carrier. Re-surfaces for review after ignoreUntil. (ADR: osv-scanner audit gate.)
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0187"
+ignoreUntil = 2026-10-14
+reason = "lopdf stack-overflow DoS parsing untrusted PDFs (CVSS 7.5). On the untrusted-input path; fix by upgrading lopdf to >=0.42.0. Tracked for remediation."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0194"
+ignoreUntil = 2026-10-14
+reason = "quick-xml advisory (CVSS 7.5) in crates/ and containers/recovery. Tracked for remediation by upgrading quick-xml."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0195"
+ignoreUntil = 2026-10-14
+reason = "quick-xml advisory (CVSS 7.5) in crates/ and containers/recovery. Tracked for remediation by upgrading quick-xml."
+
+[[IgnoredVulns]]
+id = "GHSA-w5hq-g745-h8pq"
+ignoreUntil = 2026-10-14
+reason = "uuid advisory, CVSS 7.5 (GitHub labels it Moderate). Flagged because this gate keys npm severity off CVSS. Tracked for remediation by upgrading uuid."

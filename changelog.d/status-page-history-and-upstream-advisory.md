@@ -1,7 +1,0 @@
----
-category: Changed
----
-
-**Status page — a 90-day uptime record, and upstream providers no longer speak for us.** The public status page now carries the record every status page in its genre carries: a per-component uptime bar covering the last 90 days, one tick per day colored by the worst status observed, beside the component's own uptime percentage. Uptime is counted from the ten-minute health samples rather than summarized per day, so a brief incident costs only its true share of the figure and a day the platform never checked shows as no data rather than as a green day. Planned maintenance colors its day but never counts against uptime. The past-events archive now covers the same 90 days and accounts for the quiet remainder in a line rather than in empty rows.
-
-Separately, an upstream provider's trouble no longer sets this platform's verdict. Previously, when Cloudflare reported degraded performance on its own status page, ours announced "Degraded performance on some services" about Magna Carta — with nothing of ours failing. The verdict is now computed only from our own components and our own declared events. A provider reporting a problem raises a distinct upstream advisory instead: its own surface, in neutral ink outside the severity family, naming whose status it reports and linking to the page that is authoritative for it. A declared service event now also colors the components it names, so a component row and the uptime bar beneath it can never disagree with the banner above them.

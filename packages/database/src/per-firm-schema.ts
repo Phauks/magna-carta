@@ -13,6 +13,9 @@ import { sql } from "drizzle-orm";
 import type {
   AiDetectionUsageId,
   AuditLogId,
+  ConflictsCheckId,
+  ConflictsDispositionId,
+  ConflictsHitId,
   CostEntryId,
   CustomFieldId,
   CustomFieldValueId,
@@ -1160,7 +1163,11 @@ export const directoryEntityCategory = sqliteTable(
 );
 
 // Email addresses for a directory entity. Temporal and type-labelled; is_primary is enforced in the
-// write path (exactly one primary per entity kind combination).
+// write path (at most one primary per entity). `address` is stored as entered (trimmed);
+// `normalized_address` is the lowercased match key an address -> entity reverse lookup queries, so a
+// participant on a captured email resolves to the Person/Organization it belongs to. The reverse
+// lookup joins the node row to resolve a merged-away entity to its surviving master, mirroring the
+// name search channels.
 export const directoryEmail = sqliteTable(
   "directory_email",
   {
@@ -1168,6 +1175,10 @@ export const directoryEmail = sqliteTable(
     entityId: text("entity_id").notNull(),
     label: text("label"), // e.g. 'work', 'personal'
     address: text("address").notNull(),
+    // Lowercased, trimmed match key for the address -> entity reverse lookup. Nullable so the column
+    // is added by a non-destructive ALTER ADD COLUMN (expand-contract discipline — no table rebuild);
+    // the write path always populates it, so a null only ever means a row predating the write path.
+    normalizedAddress: text("normalized_address"),
     isPrimary: integer("is_primary").notNull().default(0), // 0/1
     validFrom: text("valid_from"),
     validTo: text("valid_to"),
@@ -1177,6 +1188,7 @@ export const directoryEmail = sqliteTable(
   },
   (table) => [
     index("directory_email_entity_id_index").on(table.entityId),
+    index("directory_email_normalized_address_index").on(table.normalizedAddress),
     check("directory_email_address_nonempty_check", sql`length(${table.address}) > 0`),
     check("directory_email_is_primary_check", sql`${table.isPrimary} IN (0, 1)`),
   ],
@@ -1682,5 +1694,91 @@ export const costEntry = sqliteTable(
     uniqueIndex("cost_entry_recovery_ref_unique")
       .on(table.recoveryRef)
       .where(sql`${table.recoveryRef} IS NOT NULL`),
+  ],
+);
+
+// The conflicts log. Three append-only tables: no UPDATE and no DELETE ever touches them, enforced
+// by RAISE(ABORT) triggers in the migration. The log is the compliance artifact a malpractice defense
+// rests on — a reviewer who clears a hit and later reverses must leave both acts visible, so a
+// reversal is a second disposition row rather than an edit.
+export const conflictsCheck = sqliteTable(
+  "conflicts_check",
+  {
+    id: text("id").primaryKey().$type<ConflictsCheckId>(),
+    trigger: text("trigger").notNull(),
+    // Null for a pre-consult check against a prospective party set that has no matter yet.
+    subjectMatterId: text("subject_matter_id").$type<MatterId>(),
+    subjectPartiesJson: text("subject_parties_json").notNull(), // JSON array of entity ids
+    // The scope in force: each source class with its availability. An auditor must be able to tell
+    // "searched and clean" apart from "never searched".
+    scopeJson: text("scope_json").notNull(),
+    strictness: text("strictness").notNull(),
+    depth: integer("depth").notNull(),
+    // Identifiers recorded BY REFERENCE (directory_identifier.id) — never a plaintext value.
+    // Also records identifier types skipped as non-indexable, so the log never implies they were searched.
+    inputsJson: text("inputs_json").notNull(),
+    // 1 when the requested scope fell below the firm floor and was raised to it.
+    floorRaised: integer("floor_raised", { mode: "boolean" }).notNull().default(false),
+    actorUserId: text("actor_user_id").$type<UserId>(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    check("conflicts_check_trigger_check", sql`length(${table.trigger}) > 0`),
+    check(
+      "conflicts_check_strictness_check",
+      sql`${table.strictness} IN ('balanced', 'over_inclusive')`,
+    ),
+    check("conflicts_check_depth_check", sql`${table.depth} >= 0`),
+  ],
+);
+
+export const conflictsHit = sqliteTable(
+  "conflicts_hit",
+  {
+    id: text("id").primaryKey().$type<ConflictsHitId>(),
+    checkId: text("check_id")
+      .notNull()
+      .$type<ConflictsCheckId>()
+      .references(() => conflictsCheck.id),
+    // The merge-resolved master entity, never an archived subordinate.
+    entityId: text("entity_id").notNull(),
+    sourceClass: text("source_class").notNull(),
+    // 1 exact identifier, 2 exact normalized name, 3 phonetic code, 4 trigram overlap only.
+    // Ordering only — never a threshold. Nothing is suppressed by tier.
+    evidenceTier: integer("evidence_tier").notNull(),
+    matchedFieldsJson: text("matched_fields_json").notNull(),
+    // The connecting edge path, '[]' when the entity was reached directly.
+    graphPathJson: text("graph_path_json").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    index("conflicts_hit_check_id_index").on(table.checkId),
+    check("conflicts_hit_tier_check", sql`${table.evidenceTier} BETWEEN 1 AND 4`),
+    check(
+      "conflicts_hit_source_class_check",
+      sql`${table.sourceClass} IN ('party', 'graph', 'imputation', 'content')`,
+    ),
+  ],
+);
+
+export const conflictsDisposition = sqliteTable(
+  "conflicts_disposition",
+  {
+    id: text("id").primaryKey().$type<ConflictsDispositionId>(),
+    hitId: text("hit_id")
+      .notNull()
+      .$type<ConflictsHitId>()
+      .references(() => conflictsHit.id),
+    kind: text("kind").notNull(),
+    rationale: text("rationale").notNull(),
+    reviewerUserId: text("reviewer_user_id").notNull().$type<UserId>(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    index("conflicts_disposition_hit_id_created_at_index").on(table.hitId, table.createdAt),
+    check(
+      "conflicts_disposition_kind_check",
+      sql`${table.kind} IN ('cleared', 'waiver_obtained', 'wall_erected', 'representation_declined')`,
+    ),
   ],
 );

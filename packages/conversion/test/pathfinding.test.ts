@@ -71,10 +71,11 @@ describe("findPath — image-pdf engine", () => {
 describe("availableConversions", () => {
   it("lists reachable targets from a raster source (includes pdf via image-pdf engine)", () => {
     const targets = availableConversions("png");
-    expect([...targets].sort()).toEqual(["gif", "jpeg", "pdf", "tiff", "webp"]);
+    // pdf is reachable via image-pdf, and searchable-pdf via image-pdf then the ocr edge.
+    expect([...targets].sort()).toEqual(["gif", "jpeg", "pdf", "searchable-pdf", "tiff", "webp"]);
   });
 
   it("includes multi-hop reachables from wpd (odt and pdf)", () => {
-    expect([...availableConversions("wpd")].sort()).toEqual(["odt", "pdf"]);
+    expect([...availableConversions("wpd")].sort()).toEqual(["odt", "pdf", "searchable-pdf"]);
   });
 });

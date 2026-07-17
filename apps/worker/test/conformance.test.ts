@@ -147,6 +147,9 @@ const RESOURCE_BY_PERMISSION_NAMESPACE: Record<string, string> = {
   locations: "location",
   files: "matter",
   directory: "directoryEntity",
+  // conflicts:* governs the firm-wide conflicts-of-interest check and its log; every conflicts route
+  // operates on the firm as its tenancy root (the search spans the whole firm's directory corpus).
+  conflicts: "firm",
   shipping: "firm",
   tools: "firm",
   // customFields:* governs firm-defined fields on matter/entity records; its routes carry the
@@ -521,6 +524,9 @@ describe("conformance — the committed contract holds, and each rule catches a 
     const ids = [...operations(document)].map((entry) => entry.operationId).sort();
     expect(ids).toEqual([
       "aiDetection.detect",
+      "conflicts.getCheck",
+      "conflicts.recordDisposition",
+      "conflicts.runCheck",
       "conversions.status",
       "conversions.submit",
       "conversions.upload",

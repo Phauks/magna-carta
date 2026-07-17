@@ -10,21 +10,52 @@
 //! and search extract is governed by a `ToUnicode` CMap, not by any rendered glyph —
 //! which is why the font need not be embedded: an invisible glyph is never drawn.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use lopdf::{dictionary, Document, Object, Stream};
 
 use crate::guard::{guard_input, GuardLimits};
 use crate::PdfError;
 
-/// The name the layer's font is registered under in each page's `/Font` resources.
-/// Distinctive so it cannot clobber a font the page already carries.
+/// The preferred name for the layer's font in each page's `/Font` resources. Distinctive,
+/// but not assumed free: [`free_font_name`] suffixes it if a target page already carries a
+/// font under this exact name, so the layer never clobbers a page's own resource.
 const FONT_RESOURCE_NAME: &[u8] = b"MagnaCartaOcr";
 
-/// Default glyph advance, in 1000-unit glyph space. One em per code unit: a run's total
-/// advance is then its code-unit count times the font size, which the per-run horizontal
+/// Default glyph advance, in 1000-unit glyph space. One em per character: a run's total
+/// advance is then its character count times the font size, which the per-run horizontal
 /// scale (`Tz`) rescales to the recognized box width.
 const DEFAULT_WIDTH: i64 = 1000;
+
+/// Assign each distinct character used across the document a two-byte code (a CID), starting
+/// at 1 — CID 0 is `.notdef`. Deterministic: characters in sorted order, so the output is
+/// byte-identical run to run.
+///
+/// Each *character* (Unicode scalar) is one code, rather than the code being a raw UTF-16
+/// code unit. A non-BMP character (an emoji, a CJK Extension-B ideograph) is a surrogate
+/// *pair* in UTF-16; keying the code on the code unit would emit two lone surrogates whose
+/// `ToUnicode` destinations cannot decode, and the character would silently vanish from the
+/// extracted text — which redaction reads, so a name it could not see it could not redact.
+/// One code per character maps cleanly to one multi-unit `ToUnicode` destination.
+fn assign_character_codes(pages: &[PageTextLayer]) -> BTreeMap<char, u16> {
+    let mut characters: BTreeSet<char> = BTreeSet::new();
+    for page in pages {
+        for run in &page.runs {
+            characters.extend(run.text.chars());
+        }
+    }
+    let mut codes = BTreeMap::new();
+    for (index, character) in characters.into_iter().enumerate() {
+        // A document with more than 65535 distinct characters is absurd (all of CJK is
+        // ~20k); stop rather than wrap a code. Excess characters get no code and are
+        // skipped by `run_operator` — never mis-encoded.
+        let Ok(code) = u16::try_from(index + 1) else {
+            break;
+        };
+        codes.insert(character, code);
+    }
+    codes
+}
 
 /// One recognized run of text and the box it occupies, in PDF user space (bottom-left
 /// origin, the same frame the page content is drawn in). A run is typically a word; it
@@ -58,40 +89,39 @@ pub fn write_searchable_text_layer(
     guard_input(&input, &GuardLimits::default()).map_err(|_| PdfError::Rejected)?;
     let mut doc = Document::load_mem(&input).map_err(|_| PdfError::Parse)?;
 
-    // Every distinct UTF-16 code unit used anywhere in the document, so one shared
-    // ToUnicode CMap covers the whole layer. Sorted, so the CMap is deterministic.
-    let mut code_units: BTreeSet<u16> = BTreeSet::new();
-    for page in pages {
-        for run in &page.runs {
-            for unit in run.text.encode_utf16() {
-                code_units.insert(unit);
-            }
-        }
-    }
+    // One code per distinct character across the whole document, so one shared ToUnicode
+    // CMap covers the whole layer. Sorted, so the CMap and the codes are deterministic.
+    let codes = assign_character_codes(pages);
 
     // Nothing to write: no run carried any text. Return the input unchanged rather than
     // rewrite it, so a no-op stays a no-op down to the byte.
-    if code_units.is_empty() {
+    if codes.is_empty() {
         return Ok(input);
     }
 
-    let font_id = add_font(&mut doc, &code_units);
+    let font_id = add_font(&mut doc, &codes);
 
+    // get_pages is 1-based and in reading order; page_index is 0-based. Resolve the target
+    // pages up front so the font's resource name can be chosen free of every one of them.
     let page_ids: Vec<(u32, lopdf::ObjectId)> = doc.get_pages().into_iter().collect();
-    for page in pages {
-        // get_pages is 1-based and in reading order; page_index is 0-based.
-        let Some((_, page_id)) = page_ids
-            .iter()
-            .find(|(number, _)| *number as usize == page.page_index + 1)
-            .copied()
-        else {
-            continue;
-        };
-        let content = page_content(&page.runs);
+    let targets: Vec<(usize, lopdf::ObjectId)> = pages
+        .iter()
+        .enumerate()
+        .filter_map(|(index, page)| {
+            page_ids
+                .iter()
+                .find(|(number, _)| *number as usize == page.page_index + 1)
+                .map(|(_, id)| (index, *id))
+        })
+        .collect();
+    let font_name = free_font_name(&doc, targets.iter().map(|(_, id)| *id));
+
+    for (index, page_id) in targets {
+        let content = page_content(&pages[index].runs, &codes, &font_name);
         if content.is_empty() {
             continue;
         }
-        merge_font_resource(&mut doc, page_id, font_id);
+        merge_font_resource(&mut doc, page_id, font_id, &font_name);
         append_content(&mut doc, page_id, content);
     }
 
@@ -102,10 +132,10 @@ pub fn write_searchable_text_layer(
 
 /// The content stream for one page's runs: each run an invisible (`3 Tr`) text-showing
 /// operator placed and scaled to its box. Empty when no run is placeable.
-fn page_content(runs: &[TextRun]) -> Vec<u8> {
+fn page_content(runs: &[TextRun], codes: &BTreeMap<char, u16>, font_name: &[u8]) -> Vec<u8> {
     let mut out = String::new();
     for run in runs {
-        if let Some(op) = run_operator(run) {
+        if let Some(op) = run_operator(run, codes, font_name) {
             out.push_str(&op);
         }
     }
@@ -114,7 +144,7 @@ fn page_content(runs: &[TextRun]) -> Vec<u8> {
 
 /// One run's operators, or `None` when the run is degenerate (no text, or a box with no
 /// height or width to place it in).
-fn run_operator(run: &TextRun) -> Option<String> {
+fn run_operator(run: &TextRun, codes: &BTreeMap<char, u16>, font_name: &[u8]) -> Option<String> {
     if run.text.is_empty() {
         return None;
     }
@@ -126,26 +156,37 @@ fn run_operator(run: &TextRun) -> Option<String> {
     if !height.is_finite() || !width.is_finite() || height <= 0.0 || width <= 0.0 {
         return None;
     }
-    let units: Vec<u16> = run.text.encode_utf16().collect();
-    if units.is_empty() {
+    // One two-byte code per character, from the shared assignment. `assign_character_codes`
+    // gave every character a code, so a miss only means the >65535-distinct-character cap
+    // was hit; that character is dropped rather than mis-encoded.
+    let glyphs: Vec<u16> = run
+        .text
+        .chars()
+        .filter_map(|c| codes.get(&c).copied())
+        .collect();
+    if glyphs.is_empty() {
         return None;
     }
-    // The run's nominal advance is one em per code unit at this font size; scale it
+    // The run's nominal advance is one em per character at this font size; scale it
     // horizontally so the placed run spans exactly its recognized box width. That is what
     // makes a selection highlight land on the word rather than drift off it.
     let font_size = height;
-    let nominal = units.len() as f32 * font_size;
+    let nominal = glyphs.len() as f32 * font_size;
     let horizontal_scale = 100.0 * width / nominal;
 
-    let hex: String = units.iter().map(|unit| format!("{unit:04X}")).collect();
+    let hex: String = glyphs.iter().map(|code| format!("{code:04X}")).collect();
 
     // 3 Tr = render mode "neither fill nor stroke": the text is present and extractable
     // but never painted. The text matrix carries the font size on its diagonal and places
-    // the run at the box's bottom-left; the linear part is identity (no counter-rotation),
-    // so the layer rotates with the page's content under any /Rotate, staying aligned.
+    // the run at the box's bottom-left. The linear part is identity: this assumes the run's
+    // coordinates are in the page's unrotated user space, which holds for a page with no
+    // `/Rotate`. A rotated page needs a counter-rotating matrix (as `bates.rs` uses) so the
+    // layer lines up with the displayed content — placement on rotated pages is a known gap.
+    // `font_name` is ASCII by construction (the constant plus a decimal suffix), so it is
+    // valid UTF-8 and a valid PDF resource name.
     Some(format!(
         "q BT 3 Tr /{name} {size:.4} Tf {scale:.4} Tz {size:.4} 0 0 {size:.4} {x:.4} {y:.4} Tm <{hex}> Tj ET Q\n",
-        name = std::str::from_utf8(FONT_RESOURCE_NAME).unwrap(),
+        name = String::from_utf8_lossy(font_name),
         size = font_size,
         scale = horizontal_scale,
         x = x_min,
@@ -169,10 +210,10 @@ fn bounds(quad: &[(f32, f32); 4]) -> (f32, f32, f32, f32) {
 /// CMap) once per document and return the Type0 font's id. Non-embedded: the glyph
 /// program is never used because the text is invisible; extraction rides the ToUnicode
 /// CMap and selection geometry rides the widths and text matrix.
-fn add_font(doc: &mut Document, code_units: &BTreeSet<u16>) -> lopdf::ObjectId {
+fn add_font(doc: &mut Document, codes: &BTreeMap<char, u16>) -> lopdf::ObjectId {
     let to_unicode_id = doc.add_object(Object::Stream(Stream::new(
         dictionary! {},
-        to_unicode_cmap(code_units).into_bytes(),
+        to_unicode_cmap(codes).into_bytes(),
     )));
 
     let descriptor_id = doc.add_object(dictionary! {
@@ -206,19 +247,20 @@ fn add_font(doc: &mut Document, code_units: &BTreeSet<u16>) -> lopdf::ObjectId {
         "Type" => Object::Name(b"Font".to_vec()),
         "Subtype" => Object::Name(b"Type0".to_vec()),
         "BaseFont" => Object::Name(b"MagnaCartaOcr".to_vec()),
-        // Identity-H: the two-byte codes in the text string are the UTF-16BE code units.
+        // Identity-H: the two-byte codes in the text string are used directly as CIDs (each
+        // is a character's assigned code); the ToUnicode CMap maps them back to text.
         "Encoding" => Object::Name(b"Identity-H".to_vec()),
         "DescendantFonts" => Object::Array(vec![Object::Reference(cid_font_id)]),
         "ToUnicode" => Object::Reference(to_unicode_id),
     })
 }
 
-/// Build a `ToUnicode` CMap mapping every used two-byte code back to the same UTF-16BE
-/// code unit. Because the codes already are UTF-16BE, the mapping is identity — but it
-/// must be stated explicitly for an extractor to recover text. Entries are emitted in
-/// sorted code order and chunked into blocks of 100 (the CMap `bfchar` block limit), so
-/// the output is deterministic.
-fn to_unicode_cmap(code_units: &BTreeSet<u16>) -> String {
+/// Build a `ToUnicode` CMap mapping each assigned two-byte code to its character's UTF-16BE
+/// encoding — two bytes for a BMP character, four (a surrogate pair) for a non-BMP one, so
+/// an extractor recovers the whole scalar rather than a broken half. Entries are emitted in
+/// sorted code order and chunked into blocks of 100 (the CMap `bfchar` block limit), so the
+/// output is deterministic.
+fn to_unicode_cmap(codes: &BTreeMap<char, u16>) -> String {
     let mut cmap = String::from(
         "/CIDInit /ProcSet findresource begin\n\
          12 dict begin\n\
@@ -230,11 +272,19 @@ fn to_unicode_cmap(code_units: &BTreeSet<u16>) -> String {
          <0000> <ffff>\n\
          endcodespacerange\n",
     );
-    let units: Vec<u16> = code_units.iter().copied().collect();
-    for chunk in units.chunks(100) {
+    // Emit in code order (the codes were assigned in sorted-character order, so this is
+    // deterministic and stable).
+    let mut entries: Vec<(u16, char)> = codes.iter().map(|(c, code)| (*code, *c)).collect();
+    entries.sort_unstable_by_key(|(code, _)| *code);
+    for chunk in entries.chunks(100) {
         cmap.push_str(&format!("{} beginbfchar\n", chunk.len()));
-        for unit in chunk {
-            cmap.push_str(&format!("<{unit:04X}> <{unit:04X}>\n"));
+        for (code, character) in chunk {
+            let mut destination = String::new();
+            let mut buffer = [0u16; 2];
+            for unit in character.encode_utf16(&mut buffer) {
+                destination.push_str(&format!("{unit:04X}"));
+            }
+            cmap.push_str(&format!("<{code:04X}> <{destination}>\n"));
         }
         cmap.push_str("endbfchar\n");
     }
@@ -247,10 +297,16 @@ fn to_unicode_cmap(code_units: &BTreeSet<u16>) -> String {
     cmap
 }
 
-/// Register the shared font under [`FONT_RESOURCE_NAME`] in the page's `/Font` resources,
-/// preserving every resource the page already has (inherited or not) — the same
-/// non-destructive merge Bates stamping performs.
-fn merge_font_resource(doc: &mut Document, page_id: lopdf::ObjectId, font_id: lopdf::ObjectId) {
+/// Register the shared font under `font_name` in the page's `/Font` resources, preserving
+/// every resource the page already has (inherited or not) — the same non-destructive merge
+/// Bates stamping performs. `font_name` is chosen by [`free_font_name`] to be free on every
+/// target page, so this never overwrites a font the page already carries.
+fn merge_font_resource(
+    doc: &mut Document,
+    page_id: lopdf::ObjectId,
+    font_id: lopdf::ObjectId,
+    font_name: &[u8],
+) {
     let existing_resources: lopdf::Dictionary =
         crate::surgery::resolve_inherited_resources(doc, page_id)
             .cloned()
@@ -261,12 +317,42 @@ fn merge_font_resource(doc: &mut Document, page_id: lopdf::ObjectId, font_id: lo
             .unwrap_or_default(),
         Err(_) => lopdf::Dictionary::new(),
     };
-    font_dict.set(FONT_RESOURCE_NAME.to_vec(), Object::Reference(font_id));
+    font_dict.set(font_name.to_vec(), Object::Reference(font_id));
     let mut merged = existing_resources;
     merged.set(b"Font", Object::Dictionary(font_dict));
     if let Ok(Object::Dictionary(page_dict)) = doc.get_object_mut(page_id) {
         page_dict.set(b"Resources", Object::Dictionary(merged));
     }
+}
+
+/// Choose a `/Font` resource name that is free on every target page. Prefers
+/// [`FONT_RESOURCE_NAME`]; if any target page already carries a font under that exact name,
+/// suffixes it with the smallest integer that is free on all of them. So the layer's font
+/// is added without ever replacing a font the page's own content refers to.
+fn free_font_name(doc: &Document, page_ids: impl Iterator<Item = lopdf::ObjectId>) -> Vec<u8> {
+    let mut taken: BTreeSet<Vec<u8>> = BTreeSet::new();
+    for page_id in page_ids {
+        if let Some(resources) = crate::surgery::resolve_inherited_resources(doc, page_id) {
+            if let Ok(font_obj) = resources.get(b"Font") {
+                if let Some(fonts) = crate::surgery::resolve_dict(doc, font_obj) {
+                    for (key, _) in fonts.iter() {
+                        taken.insert(key.to_vec());
+                    }
+                }
+            }
+        }
+    }
+    if !taken.contains(FONT_RESOURCE_NAME) {
+        return FONT_RESOURCE_NAME.to_vec();
+    }
+    let base = String::from_utf8_lossy(FONT_RESOURCE_NAME);
+    for suffix in 0u32.. {
+        let candidate = format!("{base}{suffix}").into_bytes();
+        if !taken.contains(&candidate) {
+            return candidate;
+        }
+    }
+    unreachable!("the set of taken names is finite")
 }
 
 /// Append `content` as a new content stream drawn last, handling all three `/Contents`
@@ -416,9 +502,8 @@ mod tests {
 
     #[test]
     fn non_latin_text_round_trips() {
-        // Greek and CJK are within the BMP, so each character is one UTF-16 code unit and
-        // the identity ToUnicode map recovers it. This is the coverage a Latin-only
-        // standard-14 layer would silently drop.
+        // Greek and CJK (BMP) each get a code whose ToUnicode destination recovers them.
+        // This is the coverage a Latin-only standard-14 layer would silently drop.
         let out = write_searchable_text_layer(
             blank(),
             &[PageTextLayer {
@@ -451,12 +536,127 @@ mod tests {
     }
 
     #[test]
+    fn an_existing_font_of_the_same_name_is_not_clobbered() {
+        // A page that already carries a font literally named /MagnaCartaOcr. The layer must
+        // register under a different name, leaving that font's reference intact — otherwise
+        // the page's own visible text, drawn with that font, would break.
+        let mut doc = Document::with_version("1.5");
+        let pages_id = doc.add_object(dictionary! {
+            "Type" => Object::Name(b"Pages".to_vec()),
+            "Kids" => Object::Array(vec![]),
+            "Count" => Object::Integer(0),
+        });
+        let catalog_id = doc.add_object(dictionary! {
+            "Type" => Object::Name(b"Catalog".to_vec()),
+            "Pages" => Object::Reference(pages_id),
+        });
+        doc.trailer.set("Root", Object::Reference(catalog_id));
+        let content_id = doc.add_object(Object::Stream(Stream::new(dictionary! {}, b"".to_vec())));
+        let existing_font_id = doc.add_object(dictionary! {
+            "Type" => Object::Name(b"Font".to_vec()),
+            "Subtype" => Object::Name(b"Type1".to_vec()),
+            "BaseFont" => Object::Name(b"Helvetica".to_vec()),
+        });
+        let page_id = doc.add_object(dictionary! {
+            "Type" => Object::Name(b"Page".to_vec()),
+            "Parent" => Object::Reference(pages_id),
+            "MediaBox" => Object::Array(vec![0.into(), 0.into(), 612.into(), 792.into()]),
+            "Contents" => Object::Reference(content_id),
+            "Resources" => Object::Dictionary(dictionary! {
+                "Font" => Object::Dictionary(dictionary! {
+                    "MagnaCartaOcr" => Object::Reference(existing_font_id),
+                }),
+            }),
+        });
+        if let Ok(Object::Dictionary(pages_dict)) = doc.get_object_mut(pages_id) {
+            pages_dict.set("Kids", Object::Array(vec![Object::Reference(page_id)]));
+            pages_dict.set("Count", Object::Integer(1));
+        }
+        let mut input = Vec::new();
+        doc.save_to(&mut input).unwrap();
+
+        let out = write_searchable_text_layer(
+            input,
+            &[PageTextLayer {
+                page_index: 0,
+                runs: vec![run("SCAN", 72.0, 700.0, 160.0, 720.0)],
+            }],
+        )
+        .unwrap();
+
+        // The page's /Font still maps /MagnaCartaOcr to the original font, and our layer's
+        // font was added under a different, suffixed name.
+        let reloaded = Document::load_mem(&out).unwrap();
+        let page = reloaded.get_pages().into_values().next().unwrap();
+        let resources = reloaded
+            .get_dictionary(page)
+            .unwrap()
+            .get(b"Resources")
+            .unwrap();
+        let fonts = resources
+            .as_dict()
+            .unwrap()
+            .get(b"Font")
+            .unwrap()
+            .as_dict()
+            .unwrap();
+        assert_eq!(
+            fonts.get(b"MagnaCartaOcr").unwrap().as_reference().unwrap(),
+            existing_font_id,
+            "the page's own /MagnaCartaOcr font must be untouched"
+        );
+        assert!(
+            fonts.get(b"MagnaCartaOcr0").is_ok(),
+            "the layer's font must be registered under a suffixed name"
+        );
+    }
+
+    #[test]
     fn a_run_gets_an_invisible_operator_and_a_degenerate_run_does_not() {
-        assert!(run_operator(&run("word", 0.0, 0.0, 50.0, 10.0))
+        let word = run("word", 0.0, 0.0, 50.0, 10.0);
+        let codes = assign_character_codes(&[PageTextLayer {
+            page_index: 0,
+            runs: vec![word.clone()],
+        }]);
+        assert!(run_operator(&word, &codes, FONT_RESOURCE_NAME)
             .unwrap()
             .contains("3 Tr"));
         // No height, no width, no text: nothing to place.
-        assert!(run_operator(&run("word", 0.0, 0.0, 50.0, 0.0)).is_none());
-        assert!(run_operator(&run("", 0.0, 0.0, 50.0, 10.0)).is_none());
+        assert!(run_operator(
+            &run("word", 0.0, 0.0, 50.0, 0.0),
+            &codes,
+            FONT_RESOURCE_NAME
+        )
+        .is_none());
+        assert!(run_operator(&run("", 0.0, 0.0, 50.0, 10.0), &codes, FONT_RESOURCE_NAME).is_none());
+    }
+
+    #[test]
+    fn a_non_bmp_character_round_trips_instead_of_vanishing() {
+        // An astral scalar (here a CJK Extension-B ideograph, the kind that turns up in a
+        // Chinese or Japanese proper name) is a surrogate pair in UTF-16. Encoding it as one
+        // code with a four-byte ToUnicode destination recovers the whole character; the
+        // earlier one-identity-entry-per-code-unit scheme dropped it silently, which would
+        // also have hidden it from redaction.
+        let text = "A\u{20000}B";
+        let out = write_searchable_text_layer(
+            blank(),
+            &[PageTextLayer {
+                page_index: 0,
+                runs: vec![run(text, 72.0, 700.0, 200.0, 720.0)],
+            }],
+        )
+        .unwrap();
+        let document = crate::Document::load(out).unwrap();
+        let extracted: String = document
+            .page_text_glyphs(0)
+            .unwrap()
+            .iter()
+            .map(|g| g.text.as_str())
+            .collect();
+        assert!(
+            extracted.contains('\u{20000}'),
+            "the non-BMP character must survive extraction, got {extracted:?}"
+        );
     }
 }

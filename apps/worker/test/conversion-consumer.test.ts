@@ -73,7 +73,7 @@ describe("conversionQueue", () => {
     };
 
     const { batch, acks, retries } = makeBatch(message);
-    await conversionQueue(batch, env, () => fakePort);
+    await conversionQueue(batch, env, () => () => fakePort);
 
     // The result R2 object exists with the right bytes and content type.
     const result = await env.R2.get(resultKey);
@@ -117,7 +117,7 @@ describe("conversionQueue", () => {
     };
 
     const { batch, acks, retries } = makeBatch(message);
-    await conversionQueue(batch, env, () => fakePort);
+    await conversionQueue(batch, env, () => () => fakePort);
 
     // The DO is marked failed with the typed reason.
     const state = await stub.status();
@@ -155,7 +155,7 @@ describe("conversionQueue", () => {
     };
 
     const { batch, acks, retries } = makeBatch(message);
-    await conversionQueue(batch, env, () => fakePort);
+    await conversionQueue(batch, env, () => () => fakePort);
 
     // The DO is marked failed with the transport error message.
     const state = await stub.status();

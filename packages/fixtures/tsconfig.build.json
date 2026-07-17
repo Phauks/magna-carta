@@ -15,6 +15,9 @@
   },
   "references": [
     {
+      "path": "../conflicts/tsconfig.build.json"
+    },
+    {
       "path": "../costs/tsconfig.build.json"
     },
     {

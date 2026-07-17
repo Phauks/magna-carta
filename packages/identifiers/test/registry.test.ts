@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, test } from "vitest";
 import { newIdentifier } from "../src/generate.ts";
+import { seededRandomSource } from "../src/random.ts";
 import { ENTITY_PREFIXES, prefixFor } from "../src/registry.ts";
 import { isIdentifier } from "../src/validate.ts";
 
@@ -62,4 +63,11 @@ describe("support-access identifiers", () => {
     // cross-type rejection
     expect(isIdentifier(staffId, "supportGrant")).toBe(false);
   });
+});
+
+test("conflicts handles mint with their registered prefixes", () => {
+  const randomSource = seededRandomSource("conflicts-handles");
+  expect(newIdentifier("conflictsCheck", randomSource)).toMatch(/^conflictsCheck_/);
+  expect(newIdentifier("conflictsHit", randomSource)).toMatch(/^conflictsHit_/);
+  expect(newIdentifier("conflictsDisposition", randomSource)).toMatch(/^conflictsDisposition_/);
 });
