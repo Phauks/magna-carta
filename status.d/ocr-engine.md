@@ -1,7 +1,7 @@
 ---
 slice: OCR Engine
 group: cross-cutting
-order: 22
+order: 24
 research: n/a
 spec: done
 plan: done
@@ -10,7 +10,7 @@ ui: todo
 load-profile: n/a
 tested: todo
 branch: ocr-engine
-active-work: docs/active-work/ocr-engine.md
+active-work:
 next: Merge to main, then deploy with `git push origin main:release` to run Workers Builds (Docker unavailable locally) — confirm the image builds on trixie, the SHA-256 hash guard fails a bad pin, and the container boots and passes /ready.
 link-spec: docs/specs/2026-07-09-ocr-engine-design.md
 link-plan: docs/specs/2026-07-09-ocr-engine-implementation-plan.md

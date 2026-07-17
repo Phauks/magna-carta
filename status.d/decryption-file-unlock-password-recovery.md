@@ -1,7 +1,7 @@
 ---
 slice: File Unlock & Password Recovery
 group: cross-cutting
-order: 14
+order: 23
 research: n/a
 spec: done by="Opus 4.8"
 plan: done by="Opus 4.8"
