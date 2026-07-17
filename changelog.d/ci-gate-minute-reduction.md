@@ -1,0 +1,5 @@
+---
+category: Changed
+---
+
+CI gate restructured to cut GitHub Actions billed minutes (a full PR run was ~57 billed minutes across a ~15-job fan-out, of which the whole-repo type-aware `lint` job alone was ~26). Three changes: (1) the ~24-min whole-repo lint is deferred off the per-change critical path via a new `--defer-global` mode on `tooling/affected-lint` — a PR still lints its own package closure, and the whole-repo pass moves to a daily scheduled sweep (`.github/workflows/nightly-sweep.yml`); (2) the gate no longer re-runs in full on the merge to `main` (the `push: main` trigger is dropped — the PR gate already proved the merge result), so `main`'s greenness now rests on the required PR gate plus require-up-to-date-before-merge and the nightly sweep; (3) the auto-generated fragment-assembly commit (rendered `.md` + `STATUS.json`) is now classified as docs-only, so the `docs-assembly` gate runs format + governance instead of the full worker/typecheck/test suite (~32 min → ~4). **Operator action required:** enable "Require branches to be up to date before merging" (or a merge queue) on the `main` ruleset — see the Decision Log entry.

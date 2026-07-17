@@ -14,9 +14,17 @@
 // type-check, tests, and the contract checks still run whole-repo, so this bounds the type-aware lint
 // pass, nothing else. Home: docs/conventions/build-performance.md.
 //
+// DEFER-GLOBAL (`--defer-global`). The whole-repo lint is CI's tall pole (~24 min). On the per-change
+// gate it is kept off the critical path: `--defer-global` makes a whole-repo trigger (a global input,
+// or a lintable source outside every package) NOT escalate to a whole-repo lint — the daily scheduled
+// sweep (`.github/workflows/nightly-sweep.yml`) owns the whole-repo pass instead. The change's own
+// package closure is still linted, so the code touched in the change is always covered; only the
+// repo-wide re-verification (which the sweep re-runs within a day) is deferred. Without the flag the
+// sound whole-repo escalation is the default (what the scheduled sweep and any manual run get).
+//
 // Output (stdout): the literal `ALL` (lint the whole repo), the literal `NONE` (no lintable package
 // affected — skip), or a space-separated list of package directories to pass to `vp check --no-fmt`.
-// Human context goes to stderr. Usage: `node tooling/affected-lint/index.mjs --base <ref>`.
+// Human context goes to stderr. Usage: `node tooling/affected-lint/index.mjs --base <ref> [--defer-global]`.
 
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
@@ -73,31 +81,46 @@ export function discoverPackages(root) {
 }
 
 // Pure core: given the changed files and the discovered package graph, decide the lint scope.
-// Returns { mode: "all" | "none" | "paths", reason?, paths? }.
-export function computeAffected({ changedFiles, packages }) {
-  for (const file of changedFiles) {
-    if (GLOBAL_TRIGGER_PATHS.has(file) || GLOBAL_TRIGGER_PREFIXES.some((p) => file.startsWith(p))) {
-      return { mode: "all", reason: `global input changed (${file})` };
-    }
-  }
-
+// Returns { mode: "all" | "none" | "paths", reason?, paths?, deferred? }. With `deferGlobal`, a
+// whole-repo trigger is deferred to the scheduled sweep instead of escalating to `all` (see the
+// DEFER-GLOBAL note above); `deferred` counts the triggers that were deferred.
+export function computeAffected({ changedFiles, packages, deferGlobal = false }) {
   // Longest dir prefix wins, so a nested package is not swallowed by an ancestor.
   const owners = [...packages.entries()]
     .map(([name, member]) => ({ name, prefix: `${member.dir}/` }))
     .sort((a, b) => b.prefix.length - a.prefix.length);
 
   const changed = new Set();
+  // Whole-repo triggers deferred to the scheduled sweep under `deferGlobal` — counted so the scope is
+  // reported as "deferred" rather than a bare "nothing to lint".
+  let deferred = 0;
+
   for (const file of changedFiles) {
+    if (GLOBAL_TRIGGER_PATHS.has(file) || GLOBAL_TRIGGER_PREFIXES.some((p) => file.startsWith(p))) {
+      if (!deferGlobal) return { mode: "all", reason: `global input changed (${file})` };
+      deferred++;
+      continue;
+    }
     const owner = owners.find(({ prefix }) => file.startsWith(prefix));
     if (owner) {
       changed.add(owner.name);
     } else if (LINT_EXTENSIONS.has(path.posix.extname(file))) {
-      return { mode: "all", reason: `lintable source outside any package (${file})` };
+      if (!deferGlobal) return { mode: "all", reason: `lintable source outside any package (${file})` };
+      deferred++;
     }
     // A non-source file outside every package (a stray data/text file) has nothing to lint.
   }
 
-  if (changed.size === 0) return { mode: "none", reason: "no lintable package changed" };
+  if (changed.size === 0) {
+    return {
+      mode: "none",
+      reason:
+        deferred > 0
+          ? "no lintable package changed; whole-repo inputs deferred to the scheduled sweep"
+          : "no lintable package changed",
+      deferred,
+    };
+  }
 
   // Invert the dependency edges into direct-dependent edges, then close over them.
   const dependents = new Map([...packages.keys()].map((name) => [name, new Set()]));
@@ -118,7 +141,7 @@ export function computeAffected({ changedFiles, packages }) {
   const paths = [...affected]
     .map((name) => packages.get(name).dir)
     .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
-  return { mode: "paths", paths };
+  return { mode: "paths", paths, deferred };
 }
 
 function changedFilesSince(base) {
@@ -138,9 +161,11 @@ function isMain() {
 if (isMain()) {
   const baseIndex = process.argv.indexOf("--base");
   const base = baseIndex >= 0 ? process.argv[baseIndex + 1] : "HEAD~1";
+  const deferGlobal = process.argv.includes("--defer-global");
   const result = computeAffected({
     changedFiles: changedFilesSince(base),
     packages: discoverPackages(process.cwd()),
+    deferGlobal,
   });
   if (result.mode === "all") {
     console.error(`affected-lint: whole repo — ${result.reason}`);
@@ -149,6 +174,11 @@ if (isMain()) {
     console.error(`affected-lint: nothing to lint — ${result.reason}`);
     console.log("NONE");
   } else {
+    if (result.deferred > 0) {
+      console.error(
+        `affected-lint: ${result.deferred} whole-repo input(s) deferred to the scheduled sweep`,
+      );
+    }
     console.error(`affected-lint: ${result.paths.length} affected package(s) to lint`);
     console.log(result.paths.join(" "));
   }

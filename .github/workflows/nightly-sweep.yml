@@ -1,0 +1,57 @@
+# The whole-repo type-aware lint, on a daily schedule — the exhaustive counterpart to the PR gate's
+# scoped lint. The gate's `lint` job runs affected-lint with `--defer-global`, so a whole-repo trigger
+# (a lockfile bump, a root-config or `.github/` change, a source outside every package) does NOT pay the
+# ~24-min whole-repo tsgolint pass on the critical path — it is deferred here. tsgolint has no cross-run
+# cache upstream and is single-threaded, so it is CI's tall pole; running it once a day on `main` instead
+# of on every PR (and every merge) is the bulk of the CI-minute saving, at the cost of catching a
+# repo-wide type-aware regression within a day rather than at merge. The change's own package closure is
+# always linted on its PR, so this only backstops findings that a dependency-graph scope cannot see (a
+# global input flipping a rule in an untouched package). Rationale: docs/conventions/build-performance.md.
+#
+# Everything else the gate checks (type-check, tests, contracts, governance) already runs whole-repo on
+# every PR, so the sweep does not repeat them; it covers only the one dimension the gate scopes.
+name: nightly-sweep
+
+on:
+  schedule:
+    # 08:00 UTC daily — off-peak, and after any overnight merges have landed.
+    - cron: "0 8 * * *"
+  # Run it on demand (e.g. right after a risky global-input merge) without waiting for the schedule.
+  workflow_dispatch:
+
+# One sweep at a time; a manual dispatch supersedes a running one.
+concurrency:
+  group: nightly-sweep
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint-whole-repo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Restore the built WASM packages
+        id: cache
+        uses: actions/cache@v6
+        with:
+          path: |
+            packages/pdf/src/pkg
+            packages/decryption/src/pkg
+            packages/email/src/pkg
+          key: wasm-${{ runner.os }}-${{ hashFiles('crates/**/*.rs', 'crates/**/Cargo.toml', 'crates/Cargo.lock', 'crates/**/wasm.Dockerfile') }}
+
+      - name: Set up toolchain (pnpm + Node + deps)
+        uses: ./.github/actions/setup
+
+      - name: Build the WASM artefacts (pinned Docker images)
+        # Type-aware lint resolves @magna-carta/{pdf,decryption,email} types from these packages, so they
+        # must exist. On a cache miss (Rust sources changed since the last sweep) the canonical Docker
+        # build produces them; the same cache key as the gate's `wasm` job means a hit is the common case.
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: pnpm exec vp run rust-wasm-build
+
+      - name: Lint (type-aware, whole repo)
+        run: pnpm exec vp check --no-fmt

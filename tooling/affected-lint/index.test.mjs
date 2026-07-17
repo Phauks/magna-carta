@@ -94,3 +94,52 @@ describe("computeAffected", () => {
     expect(result.paths).toEqual(["packages/outer/inner"]);
   });
 });
+
+// The PR gate keeps the ~24-min whole-repo lint off the critical path: a whole-repo trigger is deferred
+// to the daily scheduled sweep instead of escalating to `all`, while the change's own package closure is
+// still linted so the touched code is always covered.
+describe("computeAffected with deferGlobal (the PR gate — whole-repo inputs go to the scheduled sweep)", () => {
+  it("defers a global-input change instead of forcing a whole-repo lint", () => {
+    const result = computeAffected({
+      changedFiles: ["pnpm-lock.yaml"],
+      packages,
+      deferGlobal: true,
+    });
+    expect(result.mode).toBe("none");
+    expect(result.deferred).toBe(1);
+  });
+
+  it("still lints the changed package closure when a global input also changed", () => {
+    const result = computeAffected({
+      changedFiles: ["pnpm-lock.yaml", "packages/money/src/a.ts"],
+      packages,
+      deferGlobal: true,
+    });
+    expect(result.mode).toBe("paths");
+    // money + its transitive-dependent closure is still linted; only the repo-wide re-verification defers.
+    expect(result.paths).toEqual([
+      "apps/web",
+      "apps/worker",
+      "packages/data-access",
+      "packages/money",
+    ]);
+    expect(result.deferred).toBe(1);
+  });
+
+  it("defers a lintable source outside every package instead of forcing a whole-repo lint", () => {
+    const result = computeAffected({
+      changedFiles: ["tooling/some-script/run.mjs"],
+      packages,
+      deferGlobal: true,
+    });
+    expect(result.mode).toBe("none");
+    expect(result.deferred).toBe(1);
+  });
+
+  it("without the flag, the sound whole-repo escalation is still the default", () => {
+    expect(computeAffected({ changedFiles: ["pnpm-lock.yaml"], packages }).mode).toBe("all");
+    expect(computeAffected({ changedFiles: ["tooling/some-script/run.mjs"], packages }).mode).toBe(
+      "all",
+    );
+  });
+});
