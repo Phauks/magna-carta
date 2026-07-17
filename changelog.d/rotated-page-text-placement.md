@@ -13,5 +13,6 @@ This also fixes a latent error in the shared display-to-user coordinate matrix t
 Bates stamping use: for quarter-turn rotations (`/Rotate 90` and `270`) it swapped the page width and
 height in the translation, so on a non-square page a stamp or layer was displaced by the
 width–height difference — enough to push it off a portrait page entirely. The matrix now lives in one
-place with the axes correct, and a regression test asserts a run renders at the same displayed position
-whether the page is unrotated or turned a quarter-turn either way.
+place with the axes correct, guarded by two regression tests: a searchable-layer test and a Bates test
+that each assert their text renders at the same displayed position whether the page is unrotated or
+turned a quarter-turn either way.

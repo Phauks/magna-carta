@@ -646,6 +646,66 @@ mod tests {
         }
     }
 
+    /// Stamp the default (bottom-right) label on a page and return the rendered label centroid, in
+    /// hayro's render frame (rotation applied).
+    fn stamp_centroid(mediabox: [i64; 4], rotation: i64) -> (f64, f64) {
+        let (mut doc, page_id) = page_doc(mediabox);
+        if rotation != 0 {
+            if let Ok(Object::Dictionary(page_dict)) = doc.get_object_mut(page_id) {
+                page_dict.set(b"Rotate", Object::Integer(rotation));
+            }
+        }
+        let font_id = doc.add_object(dictionary! {
+            b"Type" => Object::Name(b"Font".to_vec()),
+            b"Subtype" => Object::Name(b"Type1".to_vec()),
+            b"BaseFont" => Object::Name(b"Helvetica".to_vec()),
+        });
+        stamp_page(
+            &mut doc,
+            page_id,
+            font_id,
+            "ROT-000042",
+            &BatesOptions::default(),
+        )
+        .unwrap();
+        let pdf = render(&mut doc);
+        let obs = crate::textpos::observe_page(&pdf, 0).expect("observe stamped page");
+        let centers: Vec<kurbo::Point> = obs
+            .glyphs
+            .iter()
+            .filter(|g| !g.text.is_empty())
+            .map(|g| g.bbox.center())
+            .collect();
+        assert!(
+            !centers.is_empty(),
+            "the label must render for r={rotation}"
+        );
+        let n = centers.len() as f64;
+        (
+            centers.iter().map(|p| p.x).sum::<f64>() / n,
+            centers.iter().map(|p| p.y).sum::<f64>() / n,
+        )
+    }
+
+    #[test]
+    fn stamp_lands_at_the_same_displayed_corner_regardless_of_rotation() {
+        // A non-square displayed frame (792 wide x 612 tall) reached two ways: a page already that
+        // size unrotated, and a portrait page turned a quarter-turn to display at that size. The
+        // bottom-right stamp must land at the same displayed corner both ways. The earlier
+        // width/height swap in the rotation matrix displaced the quarter-turn stamp by the 180 pt
+        // width-height difference; the coarse "right half, bottom band" corner test could not see
+        // that, so this precise invariant is what guards the fix.
+        let flat = stamp_centroid([0, 0, 792, 612], 0);
+        for rotation in [90, 270] {
+            let rotated = stamp_centroid([0, 0, 612, 792], rotation);
+            assert!(
+                (rotated.0 - flat.0).abs() < 6.0 && (rotated.1 - flat.1).abs() < 6.0,
+                "r={rotation}: stamp must land where the unrotated stamp does; \
+                 flat={flat:?} rotated={rotated:?}"
+            );
+        }
+    }
+
     #[test]
     fn stamp_appends_not_replaces_content() {
         // A page that already shows "Hello" via a Helvetica resource. After stamping,
