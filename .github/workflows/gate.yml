@@ -438,8 +438,8 @@ jobs:
             base="$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)"
           fi
           changed() { git diff --name-only "$base" HEAD | grep -q "^$1"; }
-          if changed containers/scan/; then sh containers/scan/tests/eicar_e2e.sh; fi
-          if changed containers/recovery/; then sh containers/recovery/tests/recover_e2e.sh; fi
+          if changed containers/scan/; then bash containers/scan/tests/eicar_e2e.sh; fi
+          if changed containers/recovery/; then bash containers/recovery/tests/recover_e2e.sh; fi
           if changed containers/bundle/; then bash containers/bundle/tests/acceptance.sh; fi
 
   # The single required status. It succeeds only if no required job failed or was cancelled; a job the
