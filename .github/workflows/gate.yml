@@ -505,6 +505,18 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Free runner disk for the container builds
+        # This job stacks per-workspace cargo target dirs, the cargo cache, and full Docker image
+        # builds (the scan image compiles Rust and bakes a clamd DB in-image); the stock runner image
+        # leaves too little headroom — a scan+ocr change died registering Docker layers with "no space
+        # left on device". Drop the preinstalled bundles this repo never uses and prune Docker's
+        # preloaded images (every image the acceptance suites need is pulled by their builds anyway).
+        run: |
+          echo "before: $(df -h / | tail -1)"
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/hostedtoolcache/CodeQL /usr/local/.ghcup /usr/local/share/powershell
+          docker system prune -af --volumes > /dev/null 2>&1 || true
+          echo "after:  $(df -h / | tail -1)"
+
       - name: Resolve the diff base
         # Same resolution as the `changes` job: the event's base, else the merge-base with origin/main.
         env:
@@ -528,14 +540,19 @@ jobs:
             ~/.cargo/registry/cache
             ~/.cargo/git/db
             containers/*/target
-          key: cargo-containers-${{ runner.os }}-${{ hashFiles('containers/*/Cargo.lock') }}
+          key: cargo-containers-v2-${{ runner.os }}-${{ hashFiles('containers/*/Cargo.lock') }}
           restore-keys: |
-            cargo-containers-${{ runner.os }}-
+            cargo-containers-v2-${{ runner.os }}-
 
       - name: Changed-container Rust gate (fmt + clippy + test per workspace)
         # Safe without a live stack: the daemon-dependent tests in these suites (e.g. the clamd INSTREAM
         # check, the live-DB differential gate) are #[ignore]d by their authors, so a plain `cargo test`
         # runs only the self-contained unit/integration tests; live wiring is the acceptance step's job.
+        env:
+          # Debuginfo dominates debug-build target size (the scan and ocr workspaces link ONNX Runtime
+          # and gigabytes of it). CI never debugs these binaries interactively, and the disk saved is
+          # what lets the Docker acceptance builds below fit on the same runner; the cache shrinks too.
+          CARGO_PROFILE_DEV_DEBUG: "0"
         run: |
           changed_files="$(git diff --name-only "$DIFF_BASE" HEAD)"
           for manifest in containers/*/Cargo.toml; do
