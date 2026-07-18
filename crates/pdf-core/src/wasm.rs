@@ -985,3 +985,141 @@ pub fn watermark_document(bytes: Vec<u8>, options: JsValue) -> Result<JsValue, J
     let pdf = crate::watermark(&bytes, &opts)?;
     pdf_result(&pdf)
 }
+
+// ── PAdES seal: prepare / signed-bytes / embed ──────────────────────────────────
+//
+// The engine owns the PDF structure end to end; the CMS is opaque here. `prepareSignature`
+// appends the signature dictionary as a prefix-preserving incremental update and reserves
+// `/Contents`; the host signs `signedBytesForSeal` (never in this engine); `embedSignature`
+// splices the CMS into the reservation. The prepared state crosses the boundary as plain data
+// (document + byteRange + contentsSpan), so it can be carried between the two host-side steps.
+
+impl From<crate::SignError> for JsError {
+    fn from(e: crate::SignError) -> Self {
+        JsError::new(match e {
+            crate::SignError::Parse => "failed to parse PDF",
+            crate::SignError::Rejected => "decompression-bomb",
+            crate::SignError::NoPages => "document has no pages",
+            crate::SignError::MissingCatalog => "document has no catalog",
+            crate::SignError::Malformed => "document structure is not signable",
+            crate::SignError::CapacityExceeded => "signature exceeds the reserved capacity",
+        })
+    }
+}
+
+#[derive(serde::Deserialize, Default)]
+struct JsSignOpts {
+    name: Option<String>,
+    reason: Option<String>,
+    location: Option<String>,
+    #[serde(rename = "contactInfo")]
+    contact_info: Option<String>,
+    #[serde(rename = "signingTime")]
+    signing_time: Option<String>,
+    /// Read as f64 so a plain JavaScript number is accepted (see `JsBatesOpts::stop_number`).
+    #[serde(rename = "contentsCapacity")]
+    contents_capacity: Option<f64>,
+}
+
+/// Read a JS array of four non-negative numbers into a `/ByteRange`.
+fn byte_range_from_js(value: JsValue) -> Result<[usize; 4], JsError> {
+    let parts: Vec<f64> = serde_wasm_bindgen::from_value(value)?;
+    if parts.len() != 4 || parts.iter().any(|n| !n.is_finite() || *n < 0.0) {
+        return Err(JsError::new("byteRange must be four non-negative numbers"));
+    }
+    Ok([
+        parts[0] as usize,
+        parts[1] as usize,
+        parts[2] as usize,
+        parts[3] as usize,
+    ])
+}
+
+/// Read a JS array of two non-negative numbers into a `[start, end)` span.
+fn span_from_js(value: JsValue) -> Result<(usize, usize), JsError> {
+    let parts: Vec<f64> = serde_wasm_bindgen::from_value(value)?;
+    if parts.len() != 2 || parts.iter().any(|n| !n.is_finite() || *n < 0.0) {
+        return Err(JsError::new("contentsSpan must be two non-negative numbers"));
+    }
+    Ok((parts[0] as usize, parts[1] as usize))
+}
+
+/// Prepare a PDF for signing: append the signature structure as an incremental update, reserving
+/// `/Contents` and writing an exact `/ByteRange`. `options`:
+/// `{ name?, reason?, location?, contactInfo?, signingTime?, contentsCapacity? }`. Returns
+/// `{ document: Uint8Array, byteRange: [number,number,number,number], contentsSpan: [number,number] }`.
+/// The input is preserved as the literal prefix of `document`. No cryptography happens here.
+#[wasm_bindgen(js_name = prepareSignature)]
+pub fn prepare_signature_edge(bytes: Vec<u8>, options: JsValue) -> Result<JsValue, JsError> {
+    let js: JsSignOpts = if options.is_undefined() || options.is_null() {
+        JsSignOpts::default()
+    } else {
+        serde_wasm_bindgen::from_value(options)?
+    };
+    let opts = crate::SignatureOptions {
+        name: js.name,
+        reason: js.reason,
+        location: js.location,
+        contact_info: js.contact_info,
+        signing_time: js.signing_time,
+        contents_capacity: js
+            .contents_capacity
+            .filter(|n| n.is_finite() && *n >= 0.0)
+            .map(|n| n as usize)
+            .unwrap_or(0),
+    };
+    let prepared = crate::prepare_signature(&bytes, &opts)?;
+
+    let set = |o: &js_sys::Object, k: &str, v: &JsValue| {
+        let _ = js_sys::Reflect::set(o, &k.into(), v);
+    };
+    let result = js_sys::Object::new();
+    set(
+        &result,
+        "document",
+        &js_sys::Uint8Array::from(&prepared.document[..]).into(),
+    );
+    let range = js_sys::Array::new();
+    for v in prepared.byte_range {
+        range.push(&JsValue::from(v as f64));
+    }
+    set(&result, "byteRange", &range.into());
+    let span = js_sys::Array::new();
+    span.push(&JsValue::from(prepared.contents_span.0 as f64));
+    span.push(&JsValue::from(prepared.contents_span.1 as f64));
+    set(&result, "contentsSpan", &span.into());
+    Ok(result.into())
+}
+
+/// The bytes a signer must digest for a prepared document: the two `/ByteRange` spans, concatenated.
+/// `byteRange` is the array returned by `prepareSignature`.
+#[wasm_bindgen(js_name = signedBytesForSeal)]
+pub fn signed_bytes_edge(document: Vec<u8>, byte_range: JsValue) -> Result<Vec<u8>, JsError> {
+    let range = byte_range_from_js(byte_range)?;
+    // `signed_bytes` reads only the document and the range; the span is irrelevant here.
+    let prepared = crate::PreparedSignature {
+        document,
+        byte_range: range,
+        contents_span: (0, 0),
+    };
+    Ok(crate::signed_bytes(&prepared))
+}
+
+/// Splice a detached CMS (DER) into the reserved `/Contents` gap, returning the sealed PDF.
+/// `contentsSpan` is the array returned by `prepareSignature`. Throws
+/// `"signature exceeds the reserved capacity"` if the CMS does not fit.
+#[wasm_bindgen(js_name = embedSignature)]
+pub fn embed_signature_edge(
+    document: Vec<u8>,
+    contents_span: JsValue,
+    cms: Vec<u8>,
+) -> Result<Vec<u8>, JsError> {
+    let span = span_from_js(contents_span)?;
+    // `embed_signature` reads only the document and the span; the range is irrelevant here.
+    let prepared = crate::PreparedSignature {
+        document,
+        byte_range: [0, span.0, span.1, 0],
+        contents_span: span,
+    };
+    Ok(crate::embed_signature(&prepared, &cms)?)
+}
