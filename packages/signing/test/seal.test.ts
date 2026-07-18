@@ -110,7 +110,9 @@ describe("sealDocument", () => {
     expect(await verifyDetachedCms(embeddedCms(), signed, [certificate])).toBe(true);
 
     // The document hash the Certificate of Completion binds to is SHA-256 of that same range.
-    const expected = toHex(new Uint8Array(await crypto.subtle.digest("SHA-256", signed))).toLowerCase();
+    const expected = toHex(
+      new Uint8Array(await crypto.subtle.digest("SHA-256", signed)),
+    ).toLowerCase();
     expect(result.documentHashSha256).toBe(expected);
   });
 });

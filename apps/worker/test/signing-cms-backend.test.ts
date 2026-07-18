@@ -20,7 +20,12 @@ async function selfSignedIdentity() {
   });
   pkijs.setEngine("workerd-webcrypto", engine as unknown as pkijs.ICryptoEngine);
   const keys = (await crypto.subtle.generateKey(
-    { name: "RSASSA-PKCS1-v1_5", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" },
+    {
+      name: "RSASSA-PKCS1-v1_5",
+      modulusLength: 2048,
+      publicExponent: new Uint8Array([1, 0, 1]),
+      hash: "SHA-256",
+    },
     true,
     ["sign", "verify"],
   )) as KeyPair;
@@ -55,8 +60,8 @@ describe("@magna-carta/signing CMS on workerd", () => {
     expect(cms.byteLength).toBeGreaterThan(0);
     expect(cms.byteLength).toBeLessThan(16 * 1024);
     expect(await verifyDetachedCms(cms, signedBytes, [certificate])).toBe(true);
-    expect(
-      await verifyDetachedCms(cms, new TextEncoder().encode("tampered!"), [certificate]),
-    ).toBe(false);
+    expect(await verifyDetachedCms(cms, new TextEncoder().encode("tampered!"), [certificate])).toBe(
+      false,
+    );
   });
 });

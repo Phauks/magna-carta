@@ -29,7 +29,12 @@ async function signingIdentity(): Promise<{ keys: KeyPair; certificate: pkijs.Ce
   const engine = new pkijs.CryptoEngine({ name: "e2e", crypto: crypto as unknown as Crypto });
   pkijs.setEngine("e2e", engine as unknown as pkijs.ICryptoEngine);
   const keys = (await crypto.subtle.generateKey(
-    { name: "RSASSA-PKCS1-v1_5", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" },
+    {
+      name: "RSASSA-PKCS1-v1_5",
+      modulusLength: 2048,
+      publicExponent: new Uint8Array([1, 0, 1]),
+      hash: "SHA-256",
+    },
     true,
     ["sign", "verify"],
   )) as KeyPair;
@@ -81,12 +86,8 @@ describe("PAdES seal end to end (WASM engine + pkijs CMS)", () => {
     signed.set(result.sealedPdf.subarray(0, gapStart), 0);
     signed.set(result.sealedPdf.subarray(gapEnd, gapEnd + suffixLength), gapStart);
 
-    const cmsHex = new TextDecoder().decode(
-      result.sealedPdf.subarray(gapStart + 1, gapEnd - 1),
-    );
-    const cmsDer = Uint8Array.from(
-      cmsHex.match(/../g)!.map((byte) => parseInt(byte, 16)),
-    );
+    const cmsHex = new TextDecoder().decode(result.sealedPdf.subarray(gapStart + 1, gapEnd - 1));
+    const cmsDer = Uint8Array.from(cmsHex.match(/../g)!.map((byte) => parseInt(byte, 16)));
 
     expect(await verifyDetachedCms(cmsDer, signed, [certificate])).toBe(true);
   });

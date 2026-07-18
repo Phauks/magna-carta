@@ -30,7 +30,10 @@ function commonName(value: string): pkijs.AttributeTypeAndValue {
 }
 
 export async function generateSigningIdentity(): Promise<SigningIdentity> {
-  const engine = new pkijs.CryptoEngine({ name: "signing-test", crypto: crypto as unknown as Crypto });
+  const engine = new pkijs.CryptoEngine({
+    name: "signing-test",
+    crypto: crypto as unknown as Crypto,
+  });
   pkijs.setEngine("signing-test", engine as unknown as pkijs.ICryptoEngine);
   const keys = (await crypto.subtle.generateKey(SIGN_ALGORITHM, true, [
     "sign",
