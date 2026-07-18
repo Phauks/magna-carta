@@ -21,6 +21,14 @@ Two things landed here:
    structure — **no crypto** (host-side, sub-slice 2). Classic xref only; xref-stream originals
    are refused (`SignError::XrefStream`), a documented follow-up.
 
-Touches only `crates/pdf-core/src/{sign.rs,lib.rs}` (new module + one export) — no shared-file
-edits (STATUS/ROADMAP/white paper untouched; their corrections are called out in the analysis for
-the design cycle). Nothing else is in this area right now.
+3. The CMS/crypto backend for the seal is settled after a library survey: **pkijs over WebCrypto in
+   the Worker** (key a non-extractable `CryptoKey`, host-side), with the Rust engine taking the CMS as
+   an opaque blob. Proven end to end by a workerd test (`apps/worker/test/signing-cms-backend.test.ts`):
+   detached CMS with signed attributes verifies and rejects a tampered range. Decision recorded in
+   `docs/decisions/pending/pades-cms-backend-pkijs-webcrypto.md`.
+
+Touches `crates/pdf-core/src/{sign.rs,lib.rs}`, `apps/worker/test/signing-cms-backend.test.ts`, the
+pnpm catalog + `apps/worker` devDeps (pkijs/asn1js), and doc fragments — no shared rendered-file edits
+(STATUS/ROADMAP/white paper untouched; corrections are called out in the analysis for the design
+cycle). Next: the `@magna-carta/signing` package (PAdES-B-B end to end) + independent-validator
+conformance (pyHanko/DSS).
