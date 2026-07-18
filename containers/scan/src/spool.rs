@@ -12,11 +12,19 @@ use memmap2::Mmap;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::LazyLock;
 use tokio::io::AsyncWriteExt;
 
 // A clamd-readable scratch directory the entrypoint creates and sweeps on boot. clamd opens the path
 // itself, so it must live on a filesystem both processes share (it does — the same container).
-const SCAN_DIR: &str = "/scan";
+// `SCAN_SCRATCH_DIR` overrides it so an integration test driving the real router — on any host that is
+// not the container, where /scan does not exist — can spool into a writable temp dir; production never
+// sets it. Resolved once, before the server takes traffic.
+static SCAN_DIR: LazyLock<PathBuf> = LazyLock::new(|| {
+    std::env::var_os("SCAN_SCRATCH_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("/scan"))
+});
 static SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
 /// Why spooling the body failed.
@@ -61,7 +69,7 @@ impl Drop for Spooled {
 /// arrive, then maps the file read-only. The file is written mode 0644 so the `clamav` user clamd drops
 /// to can read it. On any error before success the partially-written file is removed.
 pub async fn spool_body(body: Body, max_bytes: usize) -> Result<Spooled, SpoolError> {
-    spool_body_in(Path::new(SCAN_DIR), body, max_bytes).await
+    spool_body_in(SCAN_DIR.as_path(), body, max_bytes).await
 }
 
 /// `spool_body` parameterized on the scratch directory so tests can target a temp dir instead of the

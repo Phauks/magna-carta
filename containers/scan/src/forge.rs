@@ -310,7 +310,10 @@ pub fn filter(source: &str, min_suspicious_score: i32) -> (String, FilterStats) 
 /// The set of rule names declared in a package source — used to derive tier membership by diffing the
 /// three packages (a rule in core.yar is tier Core, in extended.yar but not core is Extended, etc.).
 pub fn rule_ids(source: &str) -> std::collections::HashSet<String> {
-    split_rules(source).into_iter().map(|rule| rule.name).collect()
+    split_rules(source)
+        .into_iter()
+        .map(|rule| rule.name)
+        .collect()
 }
 
 /// Parses the full package and tags every rule with the narrowest tier whose package contains it.
@@ -520,9 +523,12 @@ rule SOURCE_SUSP_HighScore_Heuristic
             rule Core_Rule\n{\n condition:\n  true\n}\n\n\
             rule Extended_Rule\n{\n condition:\n  true\n}\n\n\
             rule Full_Only_Rule\n{\n condition:\n  true\n}\n";
-        let core_ids: std::collections::HashSet<String> = ["Core_Rule".to_string()].into_iter().collect();
+        let core_ids: std::collections::HashSet<String> =
+            ["Core_Rule".to_string()].into_iter().collect();
         let extended_ids: std::collections::HashSet<String> =
-            ["Core_Rule".to_string(), "Extended_Rule".to_string()].into_iter().collect();
+            ["Core_Rule".to_string(), "Extended_Rule".to_string()]
+                .into_iter()
+                .collect();
         let tagged = assign_tiers(full, &core_ids, &extended_ids);
         let tier = |name: &str| tagged.iter().find(|r| r.name == name).unwrap().tier;
         assert_eq!(tier("Core_Rule"), Tier::Core);
