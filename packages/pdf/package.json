@@ -11,8 +11,11 @@
     "build:wasm": "wasm-pack build ../../crates/pdf-core --target web --out-dir ../../packages/pdf/src/pkg --release --no-opt"
   },
   "devDependencies": {
+    "@magna-carta/signing": "workspace:*",
     "@magna-carta/tsconfig": "workspace:*",
     "@types/node": "catalog:",
+    "asn1js": "catalog:",
+    "pkijs": "catalog:",
     "vite-plus": "catalog:",
     "vitest": "catalog:"
   }

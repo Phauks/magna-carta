@@ -33,8 +33,14 @@ Two things landed here:
    (intent/consent/association/attribution + Certificate-of-Completion shape). Tested in node (7) and
    on workerd (1). The worker's CMS test now imports the package (single-sourced).
 
-Touches `crates/pdf-core/src/{sign.rs,lib.rs}`, `packages/signing/**`, `apps/worker/test/signing-cms-backend.test.ts`
-+ `apps/worker/package.json`, the pnpm catalog + lockfile (pkijs/asn1js), my `status.d/2-5-*.md`
-fragment, and doc fragments — no other shared rendered-file edits. **Next:** the real
-`@magna-carta/pdf` WASM adapter for `SealEngine` (needs the wasm bindings in `pdf-core` `wasm.rs`),
-ESS signing-cert-v2 + platform-cert provisioning, then independent-validator (pyHanko/DSS) conformance.
+5. The seal is wired **end to end**: `pdf-core` `wasm.rs` exposes `prepareSignature`/`signedBytesForSeal`/
+   `embedSignature`; `@magna-carta/pdf` wraps them + `createSealEngine` (the real `SealEngine`); an
+   e2e test (`packages/pdf/test/seal-e2e.test.ts`, node + real WASM) runs prepare→sign(pkijs)→embed and
+   verifies the sealed PDF, which also re-parses through hayro; tamper fails. Dev image: `wasm-pack`
+   installed + `vp run bootstrap` builds the git-ignored WASM (a durable SessionStart hook follows).
+
+Touches `crates/pdf-core/src/{sign.rs,lib.rs,wasm.rs}`, `packages/signing/**`, `packages/pdf/src/index.ts`
++ `packages/pdf/test/seal-e2e.test.ts` + `packages/pdf/package.json`, `apps/worker/test/signing-cms-backend.test.ts`
++ `apps/worker/package.json`, the pnpm catalog + lockfile, generated `tsconfig.build.json` refs, my
+`status.d/2-5-*.md` fragment, and doc fragments. **Next:** ESS signing-cert-v2 + platform-cert
+provisioning + the worker seal route, then independent-validator (pyHanko/DSS) conformance.
