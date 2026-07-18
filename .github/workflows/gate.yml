@@ -170,9 +170,21 @@ jobs:
         env:
           SCOPE: ${{ needs.changes.outputs.lint_scope }}
         run: |
+          # vp's stdout must be a FILE here, not the runner's pipe. Node flips a pipe stdout to
+          # non-blocking, and Vite+'s native lint printer panics on the resulting EAGAIN ("failed
+          # printing to stdout: Resource temporarily unavailable") when a large warning flood outruns
+          # the log reader — a whole-repo run with the advisory warn catalogs dies with SIGABRT after
+          # ~25 minutes, timing-dependent. A regular file cannot return EAGAIN, so the redirect makes
+          # the run deterministic; the output is replayed into the log afterward either way.
+          run_lint() {
+            local out="$RUNNER_TEMP/lint-output.txt" code=0
+            pnpm exec vp check --no-fmt "$@" > "$out" 2>&1 || code=$?
+            cat "$out"
+            return "$code"
+          }
           if [ "$SCOPE" = "ALL" ]; then
             echo "affected-lint: linting the whole repo"
-            pnpm exec vp check --no-fmt
+            run_lint
           elif [ "$SCOPE" = "NONE" ]; then
             echo "affected-lint: no lintable package affected — nothing to lint"
           elif [ -z "$SCOPE" ]; then
@@ -183,7 +195,7 @@ jobs:
           else
             echo "affected-lint: linting affected packages — $SCOPE"
             # Intentional word-splitting: each dir is a separate path argument to vp check.
-            pnpm exec vp check --no-fmt $SCOPE
+            run_lint $SCOPE
           fi
 
   # The authoritative type-check: tsc -b across the project-reference graph, the tsconfig-refs guard, the
@@ -543,8 +555,10 @@ jobs:
             name="$(basename "$dir")"
             echo "$changed_files" | grep -q "^containers/$name/" || continue
             case "$name" in
-              scan) sh containers/scan/tests/eicar_e2e.sh ;;
-              recovery) sh containers/recovery/tests/recover_e2e.sh ;;
+              # bash, never sh: the scripts use `set -o pipefail` and other bash-isms, and Ubuntu's sh
+              # is dash — under sh they die on line 2 before testing anything.
+              scan) bash containers/scan/tests/eicar_e2e.sh ;;
+              recovery) bash containers/recovery/tests/recover_e2e.sh ;;
               bundle) bash containers/bundle/tests/acceptance.sh ;;
               # Known not-yet-covered: unit-tested above where a Cargo workspace exists, but no
               # acceptance suite yet. Listed by name so the gap stays visible on every run that touches
