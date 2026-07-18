@@ -140,6 +140,14 @@ jobs:
         # still run whole-repo. Mechanism + soundness: tooling/affected-lint, docs build-performance.md.
         env:
           SCOPE: ${{ needs.changes.outputs.lint_scope }}
+          # tsgolint is a Go program: on the whole-repo pass its live type graph is only a few GB, but the
+          # Go runtime lets the heap balloon to ~2x the live set before collecting, and that transient
+          # overshoot crosses the 16 GB runner ceiling and OOM-aborts (SIGABRT) at whatever diagnostic it
+          # is formatting when memory runs out — a moving crash point, not a lint error. A soft heap limit
+          # forces the collector to run before the overshoot instead of after, keeping peak RSS under the
+          # runner. Sized well above the observed ~6 GB live set (no GC thrash) and well under 16 GB
+          # (headroom for the node/oxc driver + OS). Raise it if the honest live graph grows.
+          GOMEMLIMIT: 10GiB
         run: |
           if [ "$SCOPE" = "ALL" ]; then
             echo "affected-lint: linting the whole repo"
