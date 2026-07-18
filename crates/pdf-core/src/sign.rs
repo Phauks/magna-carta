@@ -43,6 +43,11 @@ pub enum SignError {
     NoPages,
     /// The trailer has no resolvable `/Root`, or it does not point at a catalog dictionary.
     MissingCatalog,
+    /// The document is structurally not signable: a page, or a referenced form/annotation
+    /// object the update must extend, does not resolve to the type it must be. Distinct from
+    /// [`SignError::Parse`] (lopdf did parse the file) — the graph is internally inconsistent,
+    /// so signing is refused rather than silently dropping the unresolved structure.
+    Malformed,
     /// The CMS blob handed to [`embed_signature`] does not fit the reserved `/Contents`
     /// capacity. Re-prepare with a larger `contents_capacity`.
     CapacityExceeded,
@@ -169,7 +174,7 @@ pub fn prepare_signature(
         .get_object(page_id)
         .ok()
         .and_then(|obj| obj.as_dict().ok())
-        .ok_or(SignError::MissingCatalog)?
+        .ok_or(SignError::Malformed)?
         .clone();
 
     let capacity = if opts.contents_capacity == 0 {
@@ -187,27 +192,23 @@ pub fn prepare_signature(
     let sig_id: ObjectId = (base_max + 2, 0);
 
     // The AcroForm: reuse the existing one (merging our field into it) if the document has
-    // one, else mint a new object for it and point the catalog at it.
-    let existing_acroform = catalog
-        .get(b"AcroForm")
-        .ok()
-        .map(|obj| resolve_owned(&doc, obj));
-    let (acroform_id, mut acroform, acroform_is_new): (ObjectId, Dictionary, bool) =
-        match &existing_acroform {
-            Some(Object::Dictionary(dict)) => {
-                // Reuse whatever object currently holds it. If it was inline in the catalog we
-                // still need an id to reference; mint one and inline is replaced by a ref.
-                let id = catalog
-                    .get(b"AcroForm")
-                    .ok()
-                    .and_then(|o| o.as_reference().ok());
-                match id {
-                    Some(id) => (id, dict.clone(), false),
-                    None => (next_id(base_max, 3), dict.clone(), true),
-                }
-            }
-            _ => (next_id(base_max, 3), Dictionary::new(), true),
-        };
+    // one, else mint a new object for it and point the catalog at it. A `/AcroForm` that is
+    // present but does not resolve to a dictionary is a malformed graph, not an absent form —
+    // refuse rather than silently starting a fresh form and dropping the existing one.
+    let acroform_ref = catalog.get(b"AcroForm").ok().cloned();
+    let (acroform_id, mut acroform): (ObjectId, Dictionary) = match &acroform_ref {
+        Some(obj) => {
+            let dict = match resolve_owned(&doc, obj)? {
+                Object::Dictionary(dict) => dict,
+                _ => return Err(SignError::Malformed),
+            };
+            // Reuse the object it already lives in when that is a reference; an inline
+            // AcroForm needs a fresh object number so the catalog can reference ours.
+            let id = obj.as_reference().ok().unwrap_or_else(|| next_id(base_max, 3));
+            (id, dict)
+        }
+        None => (next_id(base_max, 3), Dictionary::new()),
+    };
 
     let highest_id = acroform_id.0.max(sig_id.0);
 
@@ -230,10 +231,10 @@ pub fn prepare_signature(
 
     // The AcroForm gains our field and the signature flags (/SigFlags 3 =
     // SignaturesExist | AppendOnly), the standard marker that the form holds a signature.
-    let mut fields = match acroform.get(b"Fields").ok() {
-        Some(obj) => match resolve_owned(&doc, obj) {
+    let mut fields = match acroform.get(b"Fields").ok().cloned() {
+        Some(obj) => match resolve_owned(&doc, &obj)? {
             Object::Array(items) => items,
-            _ => Vec::new(),
+            _ => return Err(SignError::Malformed),
         },
         None => Vec::new(),
     };
@@ -248,10 +249,10 @@ pub fn prepare_signature(
     // The page override carries the widget in /Annots (resolved to an inline array so we
     // never have to re-emit a separate annots-array object).
     let mut page_override = page.clone();
-    let mut annots = match page.get(b"Annots").ok() {
-        Some(obj) => match resolve_owned(&doc, obj) {
+    let mut annots = match page.get(b"Annots").ok().cloned() {
+        Some(obj) => match resolve_owned(&doc, &obj)? {
             Object::Array(items) => items,
-            _ => Vec::new(),
+            _ => return Err(SignError::Malformed),
         },
         None => Vec::new(),
     };
@@ -266,35 +267,45 @@ pub fn prepare_signature(
         out.push(b'\n');
     }
 
-    let mut xref_entries: Vec<(u32, usize)> = Vec::new();
+    // Each entry carries the object's generation, not a hardcoded 0: an incremental override
+    // reuses the original object's number AND generation, and the `N G obj` header, the
+    // `/Root G R` reference, and this xref entry must all agree on it.
+    let mut xref_entries: Vec<(u32, u16, usize)> = Vec::new();
 
-    // Objects whose body is a plain dictionary go through the generic emitter.
+    // Objects whose body is a plain dictionary go through the generic emitter. The AcroForm is
+    // always emitted (new object, or an override of the existing one).
     for (id, dict) in [
         (field_id, &field),
         (page_id, &page_override),
         (root_id, &catalog_override),
+        (acroform_id, &acroform),
     ] {
-        xref_entries.push((id.0, out.len()));
+        xref_entries.push((id.0, id.1, out.len()));
         emit_dict_object(&mut out, id, dict);
-    }
-    if acroform_is_new || existing_acroform.is_some() {
-        // Emit the AcroForm override (new object, or an override of the existing one).
-        xref_entries.push((acroform_id.0, out.len()));
-        emit_dict_object(&mut out, acroform_id, &acroform);
     }
 
     // The signature dictionary is emitted by hand so we can capture the exact offsets of the
     // `/ByteRange` placeholder fields and the `/Contents` `<`.
     let sig_offset = out.len();
-    xref_entries.push((sig_id.0, sig_offset));
+    xref_entries.push((sig_id.0, sig_id.1, sig_offset));
     let markers = emit_signature_dict(&mut out, sig_id, opts, capacity);
 
     // ── The cross-reference table + trailer ───────────────────────────────────────────
+    // /Size is one past the highest object number used anywhere in the file, so it must not
+    // regress below the prior revision's /Size (a file with historical high-numbered objects
+    // can have a /Size above lopdf's observed max_id).
+    let prior_size = doc
+        .trailer
+        .get(b"Size")
+        .ok()
+        .and_then(|o| o.as_i64().ok())
+        .unwrap_or(0);
+    let size = ((highest_id as i64 + 1).max(prior_size)) as u32;
     let xref_offset = out.len();
     emit_xref_and_trailer(
         &mut out,
         &mut xref_entries,
-        highest_id,
+        size,
         root_id,
         prev_startxref,
         doc.trailer.get(b"ID").ok(),
@@ -367,9 +378,10 @@ fn emit_signature_dict(
     push_str_field(out, "ContactInfo", &opts.contact_info);
     push_str_field(out, "M", &opts.signing_time);
 
-    // /ByteRange [0 __________ __________ __________] — three 10-digit patch targets. Ten
-    // digits addresses ~9.9 GB, well past any real document; leading zeros are a valid
-    // integer token, so no re-flow is needed when the real values are smaller.
+    // /ByteRange [0 __________ __________ __________] — three fixed 10-column patch targets,
+    // filled once the file length is known ([`patch_offset`], right-justified space padding so
+    // each stays a plain integer). Ten columns addresses ~9.9 GB, past anything the input guard
+    // admits, so the layout never has to re-flow when the real values are written.
     out.extend_from_slice(b" /ByteRange [0 ");
     let range_field_1 = out.len();
     out.extend_from_slice(b"0000000000 ");
@@ -401,14 +413,14 @@ fn emit_signature_dict(
 /// trailer (with `/Prev` chaining to the document's previous section) and `startxref`.
 fn emit_xref_and_trailer(
     out: &mut Vec<u8>,
-    entries: &mut [(u32, usize)],
-    highest_id: u32,
+    entries: &mut [(u32, u16, usize)],
+    size: u32,
     root_id: ObjectId,
     prev_startxref: usize,
     id_array: Option<&Object>,
     xref_offset: usize,
 ) {
-    entries.sort_by_key(|(id, _)| *id);
+    entries.sort_by_key(|(id, _, _)| *id);
 
     out.extend_from_slice(b"xref\n");
     // Group into contiguous runs — an xref subsection covers a contiguous id range.
@@ -421,15 +433,15 @@ fn emit_xref_and_trailer(
         }
         let count = (j - i + 1) as u32;
         out.extend_from_slice(format!("{run_start} {count}\n").as_bytes());
-        for (_, offset) in &entries[i..=j] {
+        for (_, generation, offset) in &entries[i..=j] {
             // 20-byte entry: "nnnnnnnnnn ggggg n\r\n".
-            out.extend_from_slice(format!("{offset:010} {:05} n\r\n", 0).as_bytes());
+            out.extend_from_slice(format!("{offset:010} {generation:05} n\r\n").as_bytes());
         }
         i = j + 1;
     }
 
     out.extend_from_slice(b"trailer\n<< /Size ");
-    out.extend_from_slice((highest_id + 1).to_string().as_bytes());
+    out.extend_from_slice(size.to_string().as_bytes());
     out.extend_from_slice(format!(" /Root {} {} R", root_id.0, root_id.1).as_bytes());
     out.extend_from_slice(format!(" /Prev {prev_startxref}").as_bytes());
     if let Some(id) = id_array {
@@ -441,20 +453,24 @@ fn emit_xref_and_trailer(
     out.extend_from_slice(b"\n%%EOF\n");
 }
 
-/// Overwrite a 10-digit zero placeholder at `pos` with `value`, zero-padded. `value` is a
-/// byte offset or length that always fits 10 digits for any real document.
+/// Overwrite a fixed 10-column placeholder at `pos` with `value`, right-justified and
+/// space-padded (`       123`). Extra leading spaces are token separators, so the array stays
+/// a sequence of plain integers — the canonical `/ByteRange` shape signing verifiers expect,
+/// rather than non-canonical leading-zero integers. `value` is a byte offset or length that
+/// always fits 10 columns for any document the input guard admits (≤ 256 MiB).
 fn patch_offset(out: &mut [u8], pos: usize, value: usize) {
-    let digits = format!("{value:010}");
+    let digits = format!("{value:>10}");
     out[pos..pos + 10].copy_from_slice(digits.as_bytes());
 }
 
 /// Follow one level of indirection: if `obj` is a reference, return the referent (owned);
-/// otherwise return a clone. One level is enough for the /AcroForm, /Fields, and /Annots
-/// shapes this module reads.
-fn resolve_owned(doc: &Document, obj: &Object) -> Object {
+/// otherwise return a clone. A reference that does not resolve is a malformed graph, not an
+/// empty value — surfaced as an error so a caller never silently drops the structure it named.
+/// One level is enough for the /AcroForm, /Fields, and /Annots shapes this module reads.
+fn resolve_owned(doc: &Document, obj: &Object) -> Result<Object, SignError> {
     match obj {
-        Object::Reference(id) => doc.get_object(*id).cloned().unwrap_or(Object::Null),
-        other => other.clone(),
+        Object::Reference(id) => doc.get_object(*id).cloned().map_err(|_| SignError::Malformed),
+        other => Ok(other.clone()),
     }
 }
 
@@ -593,9 +609,11 @@ fn format_real(f: f32) -> String {
 }
 
 fn hex_encode(bytes: &[u8]) -> String {
+    const HEX: &[u8; 16] = b"0123456789ABCDEF";
     let mut s = String::with_capacity(bytes.len() * 2);
     for &b in bytes {
-        s.push_str(&format!("{b:02X}"));
+        s.push(HEX[(b >> 4) as usize] as char);
+        s.push(HEX[(b & 0x0f) as usize] as char);
     }
     s
 }
@@ -846,6 +864,37 @@ mod tests {
         let sealed = embed_signature(&prepared, &[0x30; 32]).expect("embed");
         let doc = crate::Document::load(sealed).expect("render engine loads the sealed pdf");
         assert_eq!(doc.page_count(), 1, "the page survives the incremental update");
+    }
+
+    #[test]
+    fn a_dangling_annots_reference_is_refused_not_silently_dropped() {
+        // A page whose /Annots points at a missing object is a malformed graph. The earlier
+        // behavior would treat the unresolved reference as empty and quietly discard it; now it
+        // is refused, so a signature never lands on a document we could not fully read.
+        let mut doc = Document::load_mem(&base_pdf()).expect("load");
+        let page_id = *doc.get_pages().values().next().unwrap();
+        if let Ok(Object::Dictionary(page)) = doc.get_object_mut(page_id) {
+            page.set("Annots", Object::Reference((9999, 0)));
+        }
+        let mut bytes = Vec::new();
+        doc.save_to(&mut bytes).expect("serialize");
+        assert!(matches!(
+            prepare_signature(&bytes, &opts()),
+            Err(SignError::Malformed)
+        ));
+    }
+
+    #[test]
+    fn the_byte_range_values_parse_as_plain_integers() {
+        // The space-padded /ByteRange must still read back as exactly the four reported ints.
+        let input = base_pdf();
+        let prepared = prepare_signature(&input, &opts()).expect("prepare");
+        let doc = Document::load_mem(&prepared.document).expect("reparse");
+        let acroform = doc.dereference(doc.catalog().unwrap().get(b"AcroForm").unwrap()).unwrap().1.as_dict().unwrap().clone();
+        let field = doc.dereference(&acroform.get(b"Fields").unwrap().as_array().unwrap()[0]).unwrap().1.as_dict().unwrap().clone();
+        let sig = doc.dereference(field.get(b"V").unwrap()).unwrap().1.as_dict().unwrap().clone();
+        let range: Vec<i64> = sig.get(b"ByteRange").unwrap().as_array().unwrap().iter().map(|o| o.as_i64().unwrap()).collect();
+        assert_eq!(range, prepared.byte_range.iter().map(|&v| v as i64).collect::<Vec<_>>());
     }
 
     #[test]
