@@ -12,6 +12,7 @@
     "seed-dev-firm": "node tooling/seed-dev-firm.mjs",
     "lint:licenses": "node tooling/lint-licenses.mjs",
     "lint:status": "node tooling/lint-status.mjs",
+    "lint:test-registration": "node tooling/lint-test-registration.mjs",
     "postinstall": "node tooling/setup-hooks/index.mjs",
     "test": "vp test"
   },
