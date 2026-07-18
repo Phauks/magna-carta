@@ -27,8 +27,14 @@ Two things landed here:
    detached CMS with signed attributes verifies and rejects a tampered range. Decision recorded in
    `docs/decisions/pending/pades-cms-backend-pkijs-webcrypto.md`.
 
-Touches `crates/pdf-core/src/{sign.rs,lib.rs}`, `apps/worker/test/signing-cms-backend.test.ts`, the
-pnpm catalog + `apps/worker` devDeps (pkijs/asn1js), and doc fragments — no shared rendered-file edits
-(STATUS/ROADMAP/white paper untouched; corrections are called out in the analysis for the design
-cycle). Next: the `@magna-carta/signing` package (PAdES-B-B end to end) + independent-validator
-conformance (pyHanko/DSS).
+4. `@magna-carta/signing` scaffolded (first increment): the detached CMS builder/verifier
+   (`buildDetachedCms`/`verifyDetachedCms`, WebCrypto), the `SealEngine` port mirroring the Rust
+   `prepare`/`signedBytes`/`embed`, the `sealDocument` orchestrator, and the ESIGN/UETA model
+   (intent/consent/association/attribution + Certificate-of-Completion shape). Tested in node (7) and
+   on workerd (1). The worker's CMS test now imports the package (single-sourced).
+
+Touches `crates/pdf-core/src/{sign.rs,lib.rs}`, `packages/signing/**`, `apps/worker/test/signing-cms-backend.test.ts`
++ `apps/worker/package.json`, the pnpm catalog + lockfile (pkijs/asn1js), my `status.d/2-5-*.md`
+fragment, and doc fragments — no other shared rendered-file edits. **Next:** the real
+`@magna-carta/pdf` WASM adapter for `SealEngine` (needs the wasm bindings in `pdf-core` `wasm.rs`),
+ESS signing-cert-v2 + platform-cert provisioning, then independent-validator (pyHanko/DSS) conformance.

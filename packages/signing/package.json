@@ -1,0 +1,26 @@
+{
+  "name": "@magna-carta/signing",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./cms": "./src/cms.ts",
+    "./engine": "./src/engine.ts",
+    "./esign": "./src/esign.ts",
+    "./seal": "./src/seal.ts",
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "asn1js": "catalog:",
+    "pkijs": "catalog:"
+  },
+  "devDependencies": {
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "vitest": "catalog:"
+  }
+}
