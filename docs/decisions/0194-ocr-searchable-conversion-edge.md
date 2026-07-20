@@ -1,4 +1,5 @@
 ---
+number: 194
 slug: ocr-searchable-conversion-edge
 status: Accepted
 date: 2026-07-16

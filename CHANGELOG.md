@@ -360,6 +360,22 @@ registration and expiry dates, name servers, and registry status. Structured RDA
 as a parsed card; the few country-code registries that answer only over legacy WHOIS return raw text
 shown verbatim and labelled unparsed. A registry that answers with no details reads as "nothing
 found" rather than a blank card, and a failed lookup surfaces a correlated Error ID.
+- **Conflicts checks surface co-party matches, flagged distinctly.** When a conflicts check's search
+lands on an entity that is itself one of the check's own subject parties — the opposing party turns out
+to be the client's parent company, or two named parties share a name or identifier — that hit is now
+recorded and shown, flagged as a co-party surfacing rather than dropped. An entity still never conflicts
+with itself, but a positional conflict between two _different_ parties of the same matter is exactly the
+kind of thing a conflicts check exists to catch, so it is surfaced and tagged (`coParty`) so a reviewer
+triages it apart from a conflict with a prior or unrelated client.
+- **Conflicts matching engine — firm-wide conflicts-of-interest checks with no scorer.** A new `@magna-carta/conflicts` package runs deterministic conflicts checks over the Directory graph: every candidate the blocking channels surface is shown to a reviewer, ranked by a deterministic evidence tier (exact identifier match, exact normalized name, phonetic code, trigram overlap) plus the graph path that connected it — nothing is ever hidden by a numeric score or threshold. Strictness (`balanced` / `over_inclusive`) is a recall knob, not a cutoff: the over-inclusive setting is a strict superset of balanced, so raising it can only surface more candidates, never fewer. A typed source registry decides what a check searches — Party (Directory entities and role-links, always on), Graph (traversal over typed edges to a configured depth, with corporate-family relationships followed regardless of depth), Imputation (a firm member being a party, matched by identity join rather than name similarity — a partner sharing a surname with a client is not a conflict), and Content (email and document text, registered for the log but not yet available) — governed by a firm-set floor that a per-run request may only add sources above, never subtract below. Every check writes an immutable, append-only log across three per-firm tables (`conflicts_check`, `conflicts_hit`, `conflicts_disposition`); no row is ever updated or deleted, enforced by database triggers and proven by a fitness probe, and identifiers are recorded by reference only — no plaintext identifier value ever enters the log. Reviewers record a disposition (cleared, waiver obtained, wall erected, or representation declined) as a new row, so a later reversal leaves both acts visible rather than overwriting the first. New worker routes and permissions (`conflicts:run`, `conflicts:dispose`) expose the check and disposition flows.
+- **Convert a scanned PDF into a searchable one through the file converter.** The conversion registry
+now has a `pdf → searchable-pdf` edge served by the OCR engine: submit a scanned PDF as a conversion job
+and get back the same document with an invisible, selectable text layer over every scanned page (a page
+that already has text is left untouched). Because the converter composes multi-hop paths, a scanned
+image reaches a searchable PDF too — wrapped into a PDF and then recognized — once the image-to-PDF
+engine is deployed. The OCR engine runs as its own already-live service, so this hop works today without
+waiting on the dedicated conversion worker; the job coordinator, queue, and polling are the same ones
+every conversion uses.
 
 ### Fixed
 
@@ -417,6 +433,69 @@ border plus `background-clip: content-box`. The recipe is applied where it was m
 shell's work canvas (the app's single scroll region), the Settings nav column and every Settings
 page's scroll area, and the developer console.
 - **File tools now surface where a file is in hand.** The File Converter and the Metadata Inspector & Scrubber both act on a file but were tagged as accepting no subject, so a file-context surface could not reach them. Both now declare the file context tag, joining the other file utilities.
+- - **The CI gate now runs every test suite it claimed to run.** Three coverage holes closed: (1) the
+  seven standalone workers (`apps/bundle-worker`, `apps/convert-worker`, `apps/file-repair-worker`,
+  `apps/magna-carta-edit`, `apps/ocr-worker`, `apps/recovery-worker`, `apps/scan-worker`) had vitest
+  suites that ran nowhere — their configs were never registered in the root `test.projects` list, so
+  root `vp test` and the gate both walked past them; they are now registered and run in `test-node`.
+  (2) The container Cargo workspaces' unit/integration tests (scan heuristics, bundle encoders,
+  recovery shard) ran nowhere — `rust-check` covers only `crates/`; the `containers` job now runs
+  `cargo test` for each changed container workspace, with a cargo cache. (3) A changed container with
+  no acceptance mapping passed the `containers` job green having tested nothing; an unmapped container
+  now fails the job unless explicitly listed as not-yet-covered (collabora, file-repair, ocr, raster —
+  each flagged with a warning on every run that touches it).
+- **Scan-container integration tests now run on any host.** The first run of the newly gated suites
+  surfaced a latent break: the scan router's spool writes to the fixed clamd-shared `/scan` scratch
+  directory, which exists only inside the real container, so the `health` and `scan_fault` integration
+  tests returned 503 on every Linux host (the Windows dev build takes the buffered path and never hit
+  it). The spool directory is now overridable via `SCAN_SCRATCH_DIR` (production never sets it), and
+  those tests point it at the OS temp dir.
+- **The test-project registry is now a gated fitness function.** `pnpm run lint:test-registration`
+  (`tooling/lint-test-registration.mjs`, run in the gate's governance job) fails when a
+  `vitest*.config.ts` exists on disk that no root `test.projects` entry covers, or when a literal
+  entry points at nothing — so a test suite can never again sit silently unrun.
+- **Container workspaces are now fmt/clippy-clean and gated.** The scan workspace's formatting drift
+  and two clippy findings (scan, ocr) are fixed, and the containers job's per-changed-workspace gate
+  now runs `cargo fmt --check` + `clippy -D warnings` + `cargo test`, matching the crates/ rust gate.
+- **Every gate job now carries a hang guard.** All jobs have a `timeout-minutes` cap set comfortably
+  above their honest wall-clock (only the lint job had one), so a runaway fails in minutes instead of
+  burning a runner toward the 6-hour default.
+- **Gate classification hardened.** The `workflow_dispatch` diff base now falls back to the merge-base
+  with `origin/main` (`HEAD~1` under-classified multi-commit branches and could wrongly skip the heavy
+  jobs); an empty diff fails safe by running everything; a crashed `affected-lint` classifier fails the
+  `changes` job — and an empty lint scope fails the `lint` job — instead of silently degrading;
+  markdown-only edits inside `crates/` or `containers/` no longer trigger those areas' heavy jobs; the
+  `typecheck` job's five checks are separate named steps so a red run names the failing surface.
+- - **The Oxlint ruleset is now actually enforced, and broadened.** The lint rules lived in a root
+  `oxlintrc.json`, but `vp lint`/`vp check` read Oxlint config from the `lint` block of
+  `vite.config.ts` and never from that file — so the ruleset was **dead**, and `oxc/no-barrel-file`
+  (ADR-0070) was silently unenforced. Moved the whole ruleset into `vite.config.ts` where vp reads it
+  (restoring the no-barrel rule), deleted the dead `oxlintrc.json`, and dropped its now-redundant
+  entry from `tooling/affected-lint` (`vite.config.ts` already forces a whole-repo re-lint). While
+  there, broadened coverage: enabled the `suspicious` and `perf` rule categories as **warnings**
+  (advisory — they do not fail the gate), with the one noise-flood rule turned off
+  (`typescript/no-unsafe-type-assertion`, ~600 reviewed `as` at typed seams) so the high-signal tail
+  stays visible. Plugins are listed explicitly (`typescript`, `unicorn`, `oxc`) — no `react`/`jsx-a11y`
+  (Svelte app, zero JSX). Promoting `correctness` to a hard error and enabling
+  `no-unsafe-type-assertion` are tracked as planned strictening in `docs/conventions/typescript.md`. Confirmed the type-aware pass's tsconfig `include` patterns are already
+  scoped (`src/**/*.ts`), so no change was needed there. Ruleset home + rationale:
+  [`docs/conventions/typescript.md`](docs/conventions/typescript.md).
+- **Searchable-PDF writer: correctness hardening from an adversarial review.** Three defects in the
+invisible-text-layer writer, found before it ships:
+
+- A non-BMP character (an emoji, or a CJK Extension-B ideograph — the kind that appears in Chinese and
+  Japanese proper names) was silently dropped from the searchable layer: its `ToUnicode` mapping was
+  built per UTF-16 code unit, so a surrogate pair became two undecodable halves and the character
+  vanished from extracted text — which redaction reads, so a name the writer could not represent could
+  not be redacted. Each character now maps to one code with a correct multi-unit `ToUnicode` destination.
+- The layer's font could overwrite a page's own font if that page happened to carry a resource under the
+  same name; the writer now picks a name proven free on every target page.
+- A single degenerate (zero-area) word box no longer drops that one word — the line falls back to
+  whole-line placement so every recognized word survives.
+
+Known remaining gap: on a page with a non-zero `/Rotate`, the invisible layer is placed in the
+unrotated frame, so selection geometry is off (the text is still searchable). A rotation-aware placement
+is a tracked follow-up.
 
 ### Changed
 
@@ -481,11 +560,21 @@ Separately, an upstream provider's trouble no longer sets this platform's verdic
 type pass, which was too slow to complete and had been letting real type errors slip onto `main`.
 `vp check` keeps fmt and lint (including type-aware lint rules); scope the type-aware pass to changed
 files in the local loop. See [`docs/conventions/build-performance.md`](docs/conventions/build-performance.md).
+- - **CI lint job now fails fast on a genuine type-aware deadlock.** The gate's type-aware `lint` job
+  (oxlint + tsgolint) had no `timeout-minutes`, so a tsgolint deadlock or runaway would have run to
+  GitHub Actions' 6-hour default before failing. Added `timeout-minutes: 45` — comfortably above the
+  ~24-minute whole-repo tall pole, so normal runs are unaffected but a real hang fails visibly in
+  minutes instead of burning the runner. (Diagnosed while investigating a slow local `apps/worker`
+  type-aware run: it is CPU-bound, not deadlocked — the worker's type program spans ~32 packages, so
+  it is simply the documented tall pole. The guard defends against a _future_ genuine deadlock.)
+- The gate's affected-lint scoping no longer treats a `.github/` change as a global trigger. A workflow or action YAML edit (e.g. `gate.yml`) cannot move a type-aware lint result, so it no longer forces the ~24-minute whole-repo lint — a CI-config change now runs the fast scoped lint (or none) like any other non-lint-input change. A genuinely lintable JS/TS file under `.github/` (a JS-based action) still forces a whole-repo lint via the existing "lintable source outside any package" rule, so there is no soundness gap.
 
 ### Security
 
 - **Post-quantum cryptographic posture** (white paper _Encryption and key management_ → _Post-quantum posture_, `security.md`, ADR-0046): an agility-first readiness stance — the symmetric corpus (AES-256) is already quantum-resistant and needs no migration; harvest-now-decrypt-later on data in transit is met by Cloudflare's hybrid X25519MLKEM768 TLS; public-key signatures (passkeys, the PAdES e-signature seal) are seamed but deferred to upstream standards (ML-DSA/SLH-DSA). Mandates AES-256 everywhere, SHA-384 where free, algorithm-versioned ciphertext/signatures, and symmetric-preferred primitives.
 - **Upgraded `hono` 4.12.23 → 4.12.27 (catalog).** Closes five upstream advisories in the API framework, including a high-severity one where the CORS middleware reflects any `Origin` with credentials when `origin` defaults to the wildcard, plus a `serve-static` path-traversal on Windows via encoded backslash. The Worker does not use the CORS or `serve-static` middleware, so this is a proactive bump with no behavior change. (`pnpm-workspace.yaml`, `apps/worker`, `packages/data-access`)
+- Hardened and consolidated the dependency-audit setup around the osv-scanner CI gate. The gate now pins the osv-scanner binary by SHA256 (verified against the release's published checksum before it runs, failing closed on any mismatch) so a swapped or compromised release asset can't execute. The pre-push git hook's local `pnpm audit` step is removed — it covered only npm, depended on npm's retiring audit endpoint, and duplicated the authoritative CI gate that now audits both the npm and Rust supply chains — and the `package.json` `pnpm.auditConfig` it read is dropped. `osv-scanner.toml` is now the single home for accepted advisories.
+- CI dependency-audit gate migrated to osv-scanner, now covering the Rust supply chain alongside npm. The gate previously ran npm-only `pnpm audit`; it now runs osv-scanner (v2.4.0) over the npm lockfile and every first-party `Cargo.lock` (`crates/` + `containers/`) against the OSV database (GHSA + RUSTSEC), failing on any HIGH/CRITICAL (CVSS >= 7.0) and failing closed on a scan error. This immediately surfaced four real high-severity advisories the npm-only audit could never see — including a stack-overflow DoS (`RUSTSEC-2026-0187`, lopdf) on the untrusted-PDF-parsing path — now accepted with cause and a time-boxed `ignoreUntil` in `osv-scanner.toml` and tracked for remediation by carrier upgrades. The pre-push hook still runs `pnpm audit` for fast local feedback (migrating it is a follow-up).
 
 ### Added
 

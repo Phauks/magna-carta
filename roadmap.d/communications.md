@@ -26,9 +26,10 @@
 - id: communications.email.filing
   name: Firm-mailbox email filing
   scope: Matter correspondence through the firm's own Gmail/Outlook mailbox via the email plugin, threaded in the mailbox and logged to the matter.
-  status: designed
-  spec: docs/specs/2026-06-16-email-filing-design.md
-  evidence: Design on main; no filing code. Remote branch claude/email-capabilities-analysis-y06ji3 holds analysis work.
+  status: planned
+  spec: docs/specs/2026-07-14-email-filing-record-and-forward-capture-design.md
+  evidence: Record-model design (Draft, proposed for acceptance) + implementation plan on main (docs/specs/2026-07-14-email-filing-record-and-forward-capture-implementation-plan.md); the record model, forward/CC entrance, and Directory address-to-entity lookup are open for execution on PR #37 (unmerged as of this window).
+  notes: Supersedes the 2026-06-16 add-in-led design; the add-in itself is out of scope for the current slice.
 
 - id: communications.email.parse-engine
   name: Email parse core

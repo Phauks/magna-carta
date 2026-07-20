@@ -410,8 +410,11 @@
 - id: documents.conversion.searchable-pdf
   name: Scanned PDF to searchable PDF
   scope: OCR text layer applied to scanned PDFs via the OCR pipeline.
-  status: not-started
-  evidence: OCR engine shipped, but pdf-render-engine fragment lists OCR integration as remaining work after surgery completion; no text-layer writer in crates/pdf-core.
+  status: shipped
+  slices: searchable-pdf-writer, ocr-searchable-conversion-edge
+  spec: docs/specs/2026-07-14-searchable-pdf-writer-design.md
+  evidence: crates/pdf-core (write_searchable_text_layer) + containers/ocr POST /ocr/searchable + apps/worker POST /api/v1/ocr/searchable, and wired as the pdf -> searchable-pdf edge in the conversion registry.
+  notes: Non-embedded Type0/Identity-H font; rotated-page placement is a tracked follow-up.
 
 - id: documents.conversion.background-jobs
   name: Background job orchestration
@@ -646,8 +649,10 @@
 - id: documents.ocr.raster-cap
   name: Raster cap & skip gate
   scope: Caps raster size and skips already-text pages in the OCR path.
-  status: in-build
-  evidence: Remote branch ocr-raster-cap-and-skip-gate (listed in-flight in the 2026-07-14 baseline report).
+  status: shipped
+  slices: ocr-engine
+  evidence: containers/ocr coverage-based needs_recognition (visible-text vs. raster coverage, not glyph presence), render_dpi_for raster-density cap, ?force re-OCR, and undecoded-region accounting.
+  notes: The stale remote branch ocr-raster-cap-and-skip-gate predates this landing via #16; not the branch that shipped it.
 
 - id: documents.ocr.ui
   name: OCR tool UI

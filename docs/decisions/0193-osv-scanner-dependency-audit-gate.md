@@ -1,8 +1,9 @@
 ---
+number: 193
 slug: osv-scanner-dependency-audit-gate
 status: Accepted
-area: Supply-chain security
 date: 2026-07-16
+area: Supply-chain security
 summary: The CI dependency-audit gate moves from npm-only `pnpm audit` to osv-scanner over both the npm lockfile and every Rust Cargo.lock, keying on CVSS >= 7.0; it immediately surfaced four real high-severity Rust/npm advisories, accepted-with-tracking so the gate protects against new ones now.
 ---
 

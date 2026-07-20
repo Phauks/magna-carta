@@ -98,6 +98,12 @@ Slice set firmed up in the [phase-3 slice map](docs/specs/2026-06-21-phase-3-fin
 | 3·2 — Trust accounting + jurisdiction compliance | [~] | [~] | [ ] | [ ] | [ ] | [ ] | [ ] | **Current focus** — design in progress. Tier-1 rigor (always) vs Tier-2 restriction (per-state, default-off); ledger-based, structural owner of _fees-never-touch-trust_; NV baseline. |
 | 3·3 — Costs & expenses (disbursements) | [x] Opus 4.8 | [x] Opus 4.8 | [x] Opus 4.8 | [x] Opus 4.8 | [ ] | [x] Opus 4.8 | [x] Opus 4.8 | `@magna-carta/costs` + `@magna-carta/billing-core` (shared WIP lifecycle); first per-firm queue consumer; recoverable-charge seam. cost→A/R + LEDES → 3·4. |
 
-## Phases 4–7 — sliced provisionally (no rows yet)
+## Phase 4 — Conflicts & Custodian (first slice open)
 
-Sliced provisionally in [`ROADMAP.md`](ROADMAP.md) (Phase 4 Conflicts & Custodian · Phase 5 Discovery · Phase 6 Client-facing & scheduling · Phase 7 Integrations) — scope, not design. Rows appear here once a slice's design cycle opens.
+| Slice | Research | Spec | Plan | Built | UI | Load profile | Tested | Notes |
+| --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | --- |
+| 4·1 — Conflicts matching engine | [x] | [x] Opus 4.8 | [x] Opus 4.8 | [x] Opus 4.8 | [ ] | [x] Opus 4.8 | [x] Opus 4.8 | No-scorer evidence-tier engine; typed source registry + firm floor; three append-only log tables. Firm personnel resolved as a source, not a Directory node type. |
+
+## Phases 5–7 — sliced provisionally (no rows yet)
+
+Sliced provisionally in [`ROADMAP.md`](ROADMAP.md) (Phase 5 Discovery · Phase 6 Client-facing & scheduling · Phase 7 Integrations) — scope, not design. Rows appear here once a slice's design cycle opens.
