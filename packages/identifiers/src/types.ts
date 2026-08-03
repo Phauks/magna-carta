@@ -91,3 +91,4 @@ export type ServiceComponentId = Identifier<"serviceComponent">;
 export type AiDetectionUsageId = Identifier<"aiDetectionUsage">;
 export type RepairProvenanceId = Identifier<"repairProvenance">;
 export type RecoveryJobId = Identifier<"recoveryJob">;
+export type IndexSplitId = Identifier<"indexSplit">;
