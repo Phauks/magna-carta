@@ -10,6 +10,12 @@ export {
   type CmsHashAlgorithm,
   type DetachedCmsInput,
 } from "./cms.ts";
+export {
+  assembleCertificateOfCompletion,
+  certificateDefects,
+  renderCertificateOfCompletion,
+  type CertificateDefect,
+} from "./certificate.ts";
 export type { ByteRange, PrepareSealOptions, PreparedSeal, SealEngine } from "./engine.ts";
 export {
   ATTRIBUTION_ORDER,

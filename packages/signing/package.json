@@ -5,6 +5,7 @@
   "type": "module",
   "sideEffects": false,
   "exports": {
+    "./certificate": "./src/certificate.ts",
     "./cms": "./src/cms.ts",
     "./engine": "./src/engine.ts",
     "./esign": "./src/esign.ts",
