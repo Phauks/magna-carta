@@ -1039,7 +1039,9 @@ fn byte_range_from_js(value: JsValue) -> Result<[usize; 4], JsError> {
 fn span_from_js(value: JsValue) -> Result<(usize, usize), JsError> {
     let parts: Vec<f64> = serde_wasm_bindgen::from_value(value)?;
     if parts.len() != 2 || parts.iter().any(|n| !n.is_finite() || *n < 0.0) {
-        return Err(JsError::new("contentsSpan must be two non-negative numbers"));
+        return Err(JsError::new(
+            "contentsSpan must be two non-negative numbers",
+        ));
     }
     Ok((parts[0] as usize, parts[1] as usize))
 }

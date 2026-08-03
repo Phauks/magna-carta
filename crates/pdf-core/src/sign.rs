@@ -165,11 +165,7 @@ pub fn prepare_signature(
         .clone();
 
     // The first page in reading order carries the (invisible) widget.
-    let page_id = *doc
-        .get_pages()
-        .values()
-        .next()
-        .ok_or(SignError::NoPages)?;
+    let page_id = *doc.get_pages().values().next().ok_or(SignError::NoPages)?;
     let page = doc
         .get_object(page_id)
         .ok()
@@ -204,7 +200,10 @@ pub fn prepare_signature(
             };
             // Reuse the object it already lives in when that is a reference; an inline
             // AcroForm needs a fresh object number so the catalog can reference ours.
-            let id = obj.as_reference().ok().unwrap_or_else(|| next_id(base_max, 3));
+            let id = obj
+                .as_reference()
+                .ok()
+                .unwrap_or_else(|| next_id(base_max, 3));
             (id, dict)
         }
         None => (next_id(base_max, 3), Dictionary::new()),
@@ -219,7 +218,10 @@ pub fn prepare_signature(
     field.set("FT", Object::Name(b"Sig".to_vec()));
     field.set("Type", Object::Name(b"Annot".to_vec()));
     field.set("Subtype", Object::Name(b"Widget".to_vec()));
-    field.set("T", Object::String(b"Signature1".to_vec(), StringFormat::Literal));
+    field.set(
+        "T",
+        Object::String(b"Signature1".to_vec(), StringFormat::Literal),
+    );
     // /F 132 = Print (4) | Locked (128): prints with the page, cannot be moved or resized.
     field.set("F", Object::Integer(132));
     field.set(
@@ -369,7 +371,10 @@ fn emit_signature_dict(
     let push_str_field = |out: &mut Vec<u8>, key: &str, value: &Option<String>| {
         if let Some(v) = value {
             out.extend_from_slice(format!(" /{key} ").as_bytes());
-            serialize_object(&Object::String(v.clone().into_bytes(), StringFormat::Literal), out);
+            serialize_object(
+                &Object::String(v.clone().into_bytes(), StringFormat::Literal),
+                out,
+            );
         }
     };
     push_str_field(out, "Name", &opts.name);
@@ -469,7 +474,10 @@ fn patch_offset(out: &mut [u8], pos: usize, value: usize) {
 /// One level is enough for the /AcroForm, /Fields, and /Annots shapes this module reads.
 fn resolve_owned(doc: &Document, obj: &Object) -> Result<Object, SignError> {
     match obj {
-        Object::Reference(id) => doc.get_object(*id).cloned().map_err(|_| SignError::Malformed),
+        Object::Reference(id) => doc
+            .get_object(*id)
+            .cloned()
+            .map_err(|_| SignError::Malformed),
         other => Ok(other.clone()),
     }
 }
@@ -479,9 +487,7 @@ fn resolve_owned(doc: &Document, obj: &Object) -> Result<Object, SignError> {
 /// integer (PDF puts the number on the next line). `None` if there is no parsable trailer.
 fn last_startxref_offset(input: &[u8]) -> Option<usize> {
     let keyword = b"startxref";
-    let pos = input
-        .windows(keyword.len())
-        .rposition(|w| w == keyword)?;
+    let pos = input.windows(keyword.len()).rposition(|w| w == keyword)?;
     let rest = &input[pos + keyword.len()..];
     let digits: Vec<u8> = rest
         .iter()
@@ -517,9 +523,7 @@ fn serialize_object(obj: &Object, out: &mut Vec<u8>) {
             out.extend_from_slice(hex_encode(bytes).as_bytes());
             out.push(b'>');
         }
-        Object::Reference(id) => {
-            out.extend_from_slice(format!("{} {} R", id.0, id.1).as_bytes())
-        }
+        Object::Reference(id) => out.extend_from_slice(format!("{} {} R", id.0, id.1).as_bytes()),
         Object::Array(items) => {
             out.push(b'[');
             for (idx, item) in items.iter().enumerate() {
@@ -637,8 +641,10 @@ mod tests {
             "Pages" => Object::Reference(pages_id),
         });
         doc.trailer.set("Root", Object::Reference(catalog_id));
-        let content_id =
-            doc.add_object(Object::Stream(Stream::new(dictionary! {}, b"BT ET".to_vec())));
+        let content_id = doc.add_object(Object::Stream(Stream::new(
+            dictionary! {},
+            b"BT ET".to_vec(),
+        )));
         let page_id = doc.add_object(dictionary! {
             "Type" => Object::Name(b"Page".to_vec()),
             "Parent" => Object::Reference(pages_id),
@@ -713,7 +719,10 @@ mod tests {
             acroform.get(b"SigFlags").and_then(|o| o.as_i64()).ok(),
             Some(3)
         );
-        let fields = acroform.get(b"Fields").and_then(|o| o.as_array()).expect("fields");
+        let fields = acroform
+            .get(b"Fields")
+            .and_then(|o| o.as_array())
+            .expect("fields");
         assert_eq!(fields.len(), 1, "exactly one signature field");
     }
 
@@ -723,7 +732,11 @@ mod tests {
         let prepared = prepare_signature(&input, &opts()).expect("prepare");
         let [r0, gap_start, gap_end, suffix_len] = prepared.byte_range;
         assert_eq!(r0, 0);
-        assert_eq!(gap_end + suffix_len, prepared.document.len(), "range reaches EOF");
+        assert_eq!(
+            gap_end + suffix_len,
+            prepared.document.len(),
+            "range reaches EOF"
+        );
 
         // The excluded gap is exactly the /Contents value including its angle brackets.
         assert_eq!(prepared.document[gap_start], b'<');
@@ -744,10 +757,28 @@ mod tests {
         let doc = Document::load_mem(&prepared.document).expect("reparse");
         // Walk to the signature dict via the field's /V.
         let acroform = doc.catalog().unwrap().get(b"AcroForm").unwrap();
-        let acroform = doc.dereference(acroform).unwrap().1.as_dict().unwrap().clone();
+        let acroform = doc
+            .dereference(acroform)
+            .unwrap()
+            .1
+            .as_dict()
+            .unwrap()
+            .clone();
         let field_ref = acroform.get(b"Fields").unwrap().as_array().unwrap()[0].clone();
-        let field = doc.dereference(&field_ref).unwrap().1.as_dict().unwrap().clone();
-        let sig = doc.dereference(field.get(b"V").unwrap()).unwrap().1.as_dict().unwrap().clone();
+        let field = doc
+            .dereference(&field_ref)
+            .unwrap()
+            .1
+            .as_dict()
+            .unwrap()
+            .clone();
+        let sig = doc
+            .dereference(field.get(b"V").unwrap())
+            .unwrap()
+            .1
+            .as_dict()
+            .unwrap()
+            .clone();
         let range = sig.get(b"ByteRange").unwrap().as_array().unwrap();
         let got: Vec<i64> = range.iter().map(|o| o.as_i64().unwrap()).collect();
         assert_eq!(
@@ -774,9 +805,16 @@ mod tests {
         let [_, gap_start, gap_end, suffix_len] = prepared.byte_range;
         assert_eq!(signed.len(), gap_start + suffix_len);
         assert_eq!(&signed[..gap_start], &prepared.document[..gap_start]);
-        assert_eq!(&signed[gap_start..], &prepared.document[gap_end..gap_end + suffix_len]);
+        assert_eq!(
+            &signed[gap_start..],
+            &prepared.document[gap_end..gap_end + suffix_len]
+        );
         // The gap bytes appear nowhere in the signed content.
-        assert!(!signed.contains(&b'<') || signed.iter().filter(|&&b| b == b'<').count() < prepared.document.iter().filter(|&&b| b == b'<').count());
+        assert!(
+            !signed.contains(&b'<')
+                || signed.iter().filter(|&&b| b == b'<').count()
+                    < prepared.document.iter().filter(|&&b| b == b'<').count()
+        );
     }
 
     #[test]
@@ -795,7 +833,10 @@ mod tests {
             ..prepared.clone()
         };
         let signed_after = signed_bytes(&sealed_prepared);
-        assert_eq!(signed_before, signed_after, "the digested bytes must not move");
+        assert_eq!(
+            signed_before, signed_after,
+            "the digested bytes must not move"
+        );
 
         // The CMS hex is at the head of the gap, zero padding after it.
         let (cs, ce) = prepared.contents_span;
@@ -863,7 +904,11 @@ mod tests {
         let prepared = prepare_signature(&input, &opts()).expect("prepare");
         let sealed = embed_signature(&prepared, &[0x30; 32]).expect("embed");
         let doc = crate::Document::load(sealed).expect("render engine loads the sealed pdf");
-        assert_eq!(doc.page_count(), 1, "the page survives the incremental update");
+        assert_eq!(
+            doc.page_count(),
+            1,
+            "the page survives the incremental update"
+        );
     }
 
     #[test]
@@ -890,11 +935,43 @@ mod tests {
         let input = base_pdf();
         let prepared = prepare_signature(&input, &opts()).expect("prepare");
         let doc = Document::load_mem(&prepared.document).expect("reparse");
-        let acroform = doc.dereference(doc.catalog().unwrap().get(b"AcroForm").unwrap()).unwrap().1.as_dict().unwrap().clone();
-        let field = doc.dereference(&acroform.get(b"Fields").unwrap().as_array().unwrap()[0]).unwrap().1.as_dict().unwrap().clone();
-        let sig = doc.dereference(field.get(b"V").unwrap()).unwrap().1.as_dict().unwrap().clone();
-        let range: Vec<i64> = sig.get(b"ByteRange").unwrap().as_array().unwrap().iter().map(|o| o.as_i64().unwrap()).collect();
-        assert_eq!(range, prepared.byte_range.iter().map(|&v| v as i64).collect::<Vec<_>>());
+        let acroform = doc
+            .dereference(doc.catalog().unwrap().get(b"AcroForm").unwrap())
+            .unwrap()
+            .1
+            .as_dict()
+            .unwrap()
+            .clone();
+        let field = doc
+            .dereference(&acroform.get(b"Fields").unwrap().as_array().unwrap()[0])
+            .unwrap()
+            .1
+            .as_dict()
+            .unwrap()
+            .clone();
+        let sig = doc
+            .dereference(field.get(b"V").unwrap())
+            .unwrap()
+            .1
+            .as_dict()
+            .unwrap()
+            .clone();
+        let range: Vec<i64> = sig
+            .get(b"ByteRange")
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|o| o.as_i64().unwrap())
+            .collect();
+        assert_eq!(
+            range,
+            prepared
+                .byte_range
+                .iter()
+                .map(|&v| v as i64)
+                .collect::<Vec<_>>()
+        );
     }
 
     #[test]
