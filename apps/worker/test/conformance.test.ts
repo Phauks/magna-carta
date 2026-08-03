@@ -150,6 +150,9 @@ const RESOURCE_BY_PERMISSION_NAMESPACE: Record<string, string> = {
   // conflicts:* governs the firm-wide conflicts-of-interest check and its log; every conflicts route
   // operates on the firm as its tenancy root (the search spans the whole firm's directory corpus).
   conflicts: "firm",
+  // esign:* governs the platform seal applied to a document; the seal route operates on the firm as
+  // its tenancy root (the platform signing identity is firm-agnostic, the audit lands in the firm).
+  esign: "firm",
   shipping: "firm",
   tools: "firm",
   // customFields:* governs firm-defined fields on matter/entity records; its routes carry the
@@ -593,6 +596,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "downloads.bundleStatus",
       "downloads.zip",
       "emailInspector.inspect",
+      "esign.seal",
       "fileIntegrity.hash",
       "fileIntegrity.verify",
       "fileRepair.carve",

@@ -202,6 +202,32 @@ export type FileRepairResult = {
     };
 };
 
+export type DocumentSealResponse = {
+    sealedPdfBase64: string;
+    documentHashSha256: string;
+    certificate: {
+        documentHashSha256: string;
+        sealedAt: string;
+        signers: Array<{
+            intent: {
+                signerId: string;
+                adoption: 'typed' | 'drawn' | 'uploaded';
+                affirmedAt: string;
+            };
+            consent: {
+                disclosureVersion: string;
+                consentedAt: string;
+            };
+            attribution: {
+                level: 'email-link' | 'access-code' | 'id-verified' | 'portal-authenticated' | 'firm-authenticated';
+                observedIp?: string;
+                proofReference?: string;
+            };
+        }>;
+    };
+    certificateText: string;
+};
+
 export type AiDetectionReport = {
     band: 'unlikely' | 'mixed' | 'likely' | 'inconclusive';
     score: number;
@@ -2737,6 +2763,74 @@ export type OcrSearchableResponses = {
 };
 
 export type OcrSearchableResponse = OcrSearchableResponses[keyof OcrSearchableResponses];
+
+export type EsignSealData = {
+    body: {
+        documentBase64: string;
+        signers: Array<{
+            intent: {
+                signerId: string;
+                adoption: 'typed' | 'drawn' | 'uploaded';
+                affirmedAt: string;
+            };
+            consent: {
+                disclosureVersion: string;
+                consentedAt: string;
+            };
+            attribution: {
+                level: 'email-link' | 'access-code' | 'id-verified' | 'portal-authenticated' | 'firm-authenticated';
+                proofReference?: string;
+            };
+        }>;
+        seal?: {
+            name?: string;
+            reason?: string;
+            location?: string;
+            contactInfo?: string;
+        };
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/documents/seal';
+};
+
+export type EsignSealErrors = {
+    /**
+     * File too large to seal, or the document bytes could not be decoded
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated but the member lacks esign:seal
+     */
+    403: Problem;
+    /**
+     * The document could not be sealed (unparseable, no page to anchor, capacity)
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+    /**
+     * The platform seal is not configured (the sign service has no signing identity yet)
+     */
+    503: Problem;
+};
+
+export type EsignSealError = EsignSealErrors[keyof EsignSealErrors];
+
+export type EsignSealResponses = {
+    /**
+     * The sealed PDF (base64), the sealed-range SHA-256, and the Certificate of Completion
+     */
+    200: DocumentSealResponse;
+};
+
+export type EsignSealResponse = EsignSealResponses[keyof EsignSealResponses];
 
 export type AiDetectionDetectData = {
     body: AiDetectionDetectRequest;

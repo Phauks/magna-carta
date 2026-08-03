@@ -39,8 +39,26 @@ Two things landed here:
    verifies the sealed PDF, which also re-parses through hayro; tamper fails. Dev image: `wasm-pack`
    installed + `vp run bootstrap` builds the git-ignored WASM (a durable SessionStart hook follows).
 
+6. The seal has a **home**: the dedicated **`sign-worker`** (`apps/sign-worker`, `magna-carta-sign`) runs
+   the engine (WASM) + CMS (pkijs) in-process and holds the platform signing key
+   (`PLATFORM_SEAL_KEY`/`PLATFORM_SEAL_CERT` Worker secrets), exposing only `POST /seal` over the shared
+   `SealPort` wire codec (`packages/signing/src/port.ts`). Proven on workerd (pool-workers): seals a real
+   PDF and verifies the embedded CMS; deploys without the secrets and `503`s until set. Decision in
+   `docs/decisions/pending/esign-platform-seal-service.md`.
+
+7. The seal has a **door**: **`POST /api/v1/documents/seal`** in the app worker
+   (`apps/worker/src/routes/document-seal.ts`) — chokepoint + new `esign:seal` permission (seeded to
+   Owner/Admin + Attorney), forwarding to the sign worker via `resolveSealPort` over `SIGN_SERVICE`
+   (`apps/worker/src/documents/seal-port-binding.ts`, an injectable port). Server-set signing-time +
+   observed-IP; redacted `esign.sealed` audit; `503` deferred activation. Route test covers the sealed
+   shape (injected fake port), 401/403, and the not-configured `503`; conformance + byte-exact OpenAPI
+   snapshot + regenerated client all green.
+
 Touches `crates/pdf-core/src/{sign.rs,lib.rs,wasm.rs}`, `packages/signing/**`, `packages/pdf/src/index.ts`
-+ `packages/pdf/test/seal-e2e.test.ts` + `packages/pdf/package.json`, `apps/worker/test/signing-cms-backend.test.ts`
-+ `apps/worker/package.json`, the pnpm catalog + lockfile, generated `tsconfig.build.json` refs, my
-`status.d/2-5-*.md` fragment, and doc fragments. **Next:** ESS signing-cert-v2 + platform-cert
-provisioning + the worker seal route, then independent-validator (pyHanko/DSS) conformance.
++ `packages/pdf/test/seal-e2e.test.ts` + `packages/pdf/package.json`, `apps/sign-worker/**`,
+`apps/worker/src/{app.ts,routes/document-seal.ts,documents/seal-port-binding.ts,per-firm-migrations.ts}`
++ `apps/worker/{wrangler.jsonc,vitest.config.ts,test/conformance.test.ts,test/document-seal-route.test.ts,openapi/openapi.json}`
++ `apps/worker/package.json`, `packages/access-control/src/registry.ts`, the new per-firm seed migration
++ journal, `packages/api-client/**` (regenerated), the pnpm catalog + lockfile, generated
+`tsconfig.build.json` refs, my `status.d/2-5-*.md` fragment, and doc fragments. **Next:** platform-cert
+provisioning, then independent-validator (pyHanko/DSS) conformance and the timestamp/LTV levels.

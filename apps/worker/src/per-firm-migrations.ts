@@ -10,6 +10,7 @@ import seedConflictsPermissionsSql from "@magna-carta/database/drizzle/per-firm/
 import seedToolsEmailInspectorSql from "@magna-carta/database/drizzle/per-firm/20260710T120000_seed-tools-email-inspector.sql";
 import directoryEmailNormalizedAddressSql from "@magna-carta/database/drizzle/per-firm/20260714T210000_directory-email-normalized-address.sql";
 import conflictsHitCoPartySql from "@magna-carta/database/drizzle/per-firm/20260717T181411_conflicts-hit-co-party.sql";
+import seedEsignSealSql from "@magna-carta/database/drizzle/per-firm/20260803T120000_seed-esign-seal.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the FirmDatabase
 // Durable Object runs this lineage against its own SQLite storage on wake (firm-database-object.ts),
@@ -30,5 +31,6 @@ export function perFirmMigrations(): Migration[] {
     "20260710T120000_seed-tools-email-inspector": seedToolsEmailInspectorSql,
     "20260714T210000_directory-email-normalized-address": directoryEmailNormalizedAddressSql,
     "20260717T181411_conflicts-hit-co-party": conflictsHitCoPartySql,
+    "20260803T120000_seed-esign-seal": seedEsignSealSql,
   });
 }

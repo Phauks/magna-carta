@@ -71,6 +71,13 @@
       "when": 1784311200000,
       "tag": "20260717T181411_conflicts-hit-co-party",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1785801600000,
+      "tag": "20260803T120000_seed-esign-seal",
+      "breakpoints": true
     }
   ]
 }
