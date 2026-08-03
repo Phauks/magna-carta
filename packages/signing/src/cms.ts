@@ -12,12 +12,20 @@ import * as pkijs from "pkijs";
 
 import { toArrayBuffer } from "./bytes.ts";
 
-// CMS attribute OIDs (RFC 5652 §11).
+// CMS attribute OIDs (RFC 5652 §11; RFC 5035 for signing-certificate-v2).
 const OID_CONTENT_TYPE = "1.2.840.113549.1.9.3";
 const OID_SIGNING_TIME = "1.2.840.113549.1.9.5";
 const OID_MESSAGE_DIGEST = "1.2.840.113549.1.9.4";
+const OID_SIGNING_CERTIFICATE_V2 = "1.2.840.113549.1.9.16.2.47";
 
 export type CmsHashAlgorithm = "SHA-256" | "SHA-384" | "SHA-512";
+
+// NIST hash OIDs, for the ESSCertIDv2 hashAlgorithm when it is not the DER default (SHA-256).
+const HASH_OID: Record<CmsHashAlgorithm, string> = {
+  "SHA-256": "2.16.840.1.101.3.4.2.1",
+  "SHA-384": "2.16.840.1.101.3.4.2.2",
+  "SHA-512": "2.16.840.1.101.3.4.2.3",
+};
 
 /** Everything needed to seal one byte range. Times are caller-supplied so this stays clock-free. */
 export interface DetachedCmsInput {
@@ -55,6 +63,51 @@ function asCertificate(certificate: Uint8Array | pkijs.Certificate): pkijs.Certi
 }
 
 /**
+ * The ESS signing-certificate-v2 signed attribute (RFC 5035) — it binds the signature to *this*
+ * certificate by a hash of its DER, closing the substitution gap the issuer-and-serial alone leaves.
+ * A PAdES baseline signature requires it. pkijs has no `SigningCertificateV2` type, so the structure
+ * is built directly:
+ *
+ *   SigningCertificateV2 ::= SEQUENCE { certs SEQUENCE OF ESSCertIDv2 }
+ *   ESSCertIDv2          ::= SEQUENCE { hashAlgorithm AlgorithmIdentifier DEFAULT sha256,
+ *                                       certHash OCTET STRING, issuerSerial IssuerSerial }
+ *
+ * DER omits a DEFAULT value, so `hashAlgorithm` is written only when it is not SHA-256.
+ */
+async function signingCertificateV2Attribute(
+  certificate: pkijs.Certificate,
+  hashAlgorithm: CmsHashAlgorithm,
+): Promise<pkijs.Attribute> {
+  const certificateDer = certificate.toSchema().toBER(false);
+  const certHash = await crypto.subtle.digest(hashAlgorithm, certificateDer);
+
+  const issuerSerial = new pkijs.IssuerSerial({
+    issuer: new pkijs.GeneralNames({
+      names: [new pkijs.GeneralName({ type: 4, value: certificate.issuer })],
+    }),
+    serialNumber: certificate.serialNumber,
+  });
+
+  const essCertIdV2Fields: asn1js.AsnType[] = [];
+  if (hashAlgorithm !== "SHA-256") {
+    essCertIdV2Fields.push(
+      new pkijs.AlgorithmIdentifier({ algorithmId: HASH_OID[hashAlgorithm] }).toSchema(),
+    );
+  }
+  essCertIdV2Fields.push(new asn1js.OctetString({ valueHex: certHash }));
+  essCertIdV2Fields.push(issuerSerial.toSchema());
+
+  const signingCertificateV2 = new asn1js.Sequence({
+    value: [new asn1js.Sequence({ value: [new asn1js.Sequence({ value: essCertIdV2Fields })] })],
+  });
+
+  return new pkijs.Attribute({
+    type: OID_SIGNING_CERTIFICATE_V2,
+    values: [signingCertificateV2],
+  });
+}
+
+/**
  * Build a detached CMS SignedData over `signedBytes`, returning its DER encoding — the blob the PDF
  * engine splices into the reserved `/Contents`. The signed attributes bind the signature to the exact
  * bytes (message digest), the signer's intent time (signing time), and the content type.
@@ -64,10 +117,12 @@ export async function buildDetachedCms(input: DetachedCmsInput): Promise<Uint8Ar
   const hashAlgorithm = input.hashAlgorithm ?? "SHA-256";
   const certificate = asCertificate(input.certificate);
   const messageDigest = await crypto.subtle.digest(hashAlgorithm, toArrayBuffer(input.signedBytes));
+  const signingCertificate = await signingCertificateV2Attribute(certificate, hashAlgorithm);
 
   // The signed (authenticated) attributes bind the signature to the exact bytes (message digest),
-  // the intent time (signing time), and the content type. Built into the SignerInfo up front so the
-  // signer is complete on construction.
+  // the intent time (signing time), the content type, and — for the PAdES baseline — the signer
+  // certificate itself (signing-certificate-v2). Built into the SignerInfo up front so the signer
+  // is complete on construction.
   const signerInfo = new pkijs.SignerInfo({
     version: 1,
     sid: new pkijs.IssuerAndSerialNumber({
@@ -89,6 +144,7 @@ export async function buildDetachedCms(input: DetachedCmsInput): Promise<Uint8Ar
           type: OID_MESSAGE_DIGEST,
           values: [new asn1js.OctetString({ valueHex: messageDigest })],
         }),
+        signingCertificate,
       ],
     }),
   });
