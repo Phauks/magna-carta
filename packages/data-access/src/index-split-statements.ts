@@ -95,9 +95,6 @@ export function markSplitSupersededStatement(
 }
 
 // Remove a superseded split's catalog row after its R2 object has been garbage-collected.
-export function deleteIndexSplitStatement(
-  database: SqlDatabase,
-  id: IndexSplitId,
-): SqlStatement {
+export function deleteIndexSplitStatement(database: SqlDatabase, id: IndexSplitId): SqlStatement {
   return database.prepare(`DELETE FROM ${INDEX_SPLIT_TABLE} WHERE id = ?1`).bind(id);
 }

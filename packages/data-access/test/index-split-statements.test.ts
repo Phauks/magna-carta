@@ -28,9 +28,18 @@ describe("index_split catalog statements", () => {
   it("lists a matter's live splits oldest-first and never another matter's", async () => {
     const db = await freshFirmDatabase();
     await db.batch([
-      insertIndexSplitStatement(db, split("indexSplit_test0000000000000000002", MATTER, "2026-07-17T02:00:00.000Z")),
-      insertIndexSplitStatement(db, split("indexSplit_test0000000000000000001", MATTER, "2026-07-17T01:00:00.000Z")),
-      insertIndexSplitStatement(db, split("indexSplit_test0000000000000000009", OTHER_MATTER, "2026-07-17T03:00:00.000Z")),
+      insertIndexSplitStatement(
+        db,
+        split("indexSplit_test0000000000000000002", MATTER, "2026-07-17T02:00:00.000Z"),
+      ),
+      insertIndexSplitStatement(
+        db,
+        split("indexSplit_test0000000000000000001", MATTER, "2026-07-17T01:00:00.000Z"),
+      ),
+      insertIndexSplitStatement(
+        db,
+        split("indexSplit_test0000000000000000009", OTHER_MATTER, "2026-07-17T03:00:00.000Z"),
+      ),
     ]);
 
     const live = await listLiveSplitsForMatter(db, MATTER);
@@ -71,10 +80,7 @@ describe("index_split catalog statements", () => {
       insertIndexSplitStatement(db, split(target, MATTER, "2026-07-17T01:00:00.000Z")),
       deleteIndexSplitStatement(db, target as IndexSplitId),
     ]);
-    const row = await db
-      .prepare("SELECT id FROM index_split WHERE id = ?1")
-      .bind(target)
-      .first();
+    const row = await db.prepare("SELECT id FROM index_split WHERE id = ?1").bind(target).first();
     expect(row).toBeNull();
   });
 });
