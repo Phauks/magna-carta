@@ -146,6 +146,11 @@ export type Bindings = {
   // Optional: absent in every test environment and until the deploy-time binding is added; while
   // unset, the ocr route returns 503 (the same posture the file-type and file-repair routes take).
   OCR_SERVICE?: Fetcher;
+  // The dedicated discovery search-index worker (magna-carta-search), reached over a service binding.
+  // It owns the Tantivy engine Container (crates/search-core) and range-reads splits from R2. Optional:
+  // absent in every test environment and until the deploy-time binding is added; while unset,
+  // resolveSearchIndexPort returns the deferred port (engine-not-implemented).
+  SEARCH_SERVICE?: Fetcher;
   // The authenticated Workers AI binding — the only path inference reaches the gateway through (no raw
   // gateway token in any firm-reachable config). Pre-authenticated within the account.
   AI: Ai;
@@ -604,7 +609,7 @@ export function emitOpenAPIDocument(
       if (operation?.tags) for (const tag of operation.tags) tagNames.add(tag);
     }
   }
-  document.tags = [...tagNames].sort().map((name) => ({ name }));
+  document.tags = [...tagNames].toSorted().map((name) => ({ name }));
   return document;
 }
 

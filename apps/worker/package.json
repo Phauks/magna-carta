@@ -40,6 +40,7 @@
     "@magna-carta/metadata": "workspace:*",
     "@magna-carta/property-links": "workspace:*",
     "@magna-carta/safe-browse": "workspace:*",
+    "@magna-carta/search": "workspace:*",
     "@magna-carta/shipping": "workspace:*",
     "@magna-carta/status": "workspace:*",
     "@magna-carta/telemetry": "workspace:*",

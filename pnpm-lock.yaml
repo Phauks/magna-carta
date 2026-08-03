@@ -560,6 +560,9 @@ importers:
       '@magna-carta/safe-browse':
         specifier: workspace:*
         version: link:../../packages/safe-browse
+      '@magna-carta/search':
+        specifier: workspace:*
+        version: link:../../packages/search
       '@magna-carta/shipping':
         specifier: workspace:*
         version: link:../../packages/shipping
