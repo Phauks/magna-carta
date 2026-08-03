@@ -5,7 +5,8 @@
   "type": "module",
   "sideEffects": false,
   "exports": {
-    "./port": "./src/port.ts"
+    "./port": "./src/port.ts",
+    "./fusion": "./src/fusion.ts"
   },
   "scripts": {
     "test": "vp test run"
