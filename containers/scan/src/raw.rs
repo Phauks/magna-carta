@@ -123,8 +123,10 @@ mod tests {
     #[test]
     fn a_structural_heuristic_lowers_to_its_reason_token() {
         assert_eq!(
-            serde_json::to_value(heuristic_fact(Heuristic::Suspicious(Reason::DecompressionBomb)))
-                .unwrap(),
+            serde_json::to_value(heuristic_fact(Heuristic::Suspicious(
+                Reason::DecompressionBomb
+            )))
+            .unwrap(),
             json!({"kind": "structural", "reason": "decompression-bomb"})
         );
     }
