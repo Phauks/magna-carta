@@ -15,6 +15,13 @@
       "when": 1785795970468,
       "tag": "20260803T222618_email-capture-route",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1785798437738,
+      "tag": "20260803T230717_two-factor-lockout-fields",
+      "breakpoints": true
     }
   ]
 }

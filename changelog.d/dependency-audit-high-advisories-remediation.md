@@ -1,0 +1,5 @@
+---
+category: Security
+---
+
+**Cleared twelve HIGH osv-scanner advisories by upgrading their dependency carriers to patched versions.** The CI dependency-audit gate began failing after advisory-database drift surfaced twelve HIGH (CVSS ≥ 7) npm advisories across eight transitive/direct carriers — `better-auth`, `fast-xml-parser`, `postcss`, `undici`, `sharp`, `js-yaml`, `fast-uri`, and `brace-expansion`. Rather than accept them, each carrier was pinned forward to the version that fixes its advisory: `better-auth` 1.6.16 → 1.6.22 (catalog) and `fast-xml-parser` → ^5.10.1 (direct), with the rest pinned through the pnpm-workspace `overrides` block alongside the existing Vite+ aliases (`postcss` 8.5.18, `undici` 7.29.0, `sharp` 0.35.0, `js-yaml` 3.15.0/4.3.0, `fast-uri` 3.1.5, `brace-expansion` 1.1.18). The `better-auth` upgrade also required adopting its new `twoFactor` brute-force lockout fields (`failed_verification_count`, `locked_until`) into the control-plane schema via an additive migration, so the two-factor enable/verify flow stays green. The osv-scanner gate now reports zero HIGH/CRITICAL npm advisories.

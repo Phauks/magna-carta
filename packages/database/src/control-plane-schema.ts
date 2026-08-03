@@ -176,6 +176,11 @@ export const twoFactor = sqliteTable(
       .$type<UserId>()
       .references(() => user.id, { onDelete: "cascade" }),
     verified: integer("verified", { mode: "boolean" }).default(true),
+    // The twoFactor plugin's brute-force lockout pair: a running count of failed TOTP verifications and,
+    // once the count crosses the plugin's threshold, the instant the factor is locked until. Better Auth
+    // manages both (input: false); the count defaults to 0, lockedUntil is null until a lockout fires.
+    failedVerificationCount: integer("failed_verification_count").notNull().default(0),
+    lockedUntil: integer("locked_until", { mode: "timestamp_ms" }),
   },
   // The twoFactor plugin schema marks secret and user_id `index: true`.
   (table) => [
