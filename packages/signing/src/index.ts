@@ -4,6 +4,7 @@
 // package owns the CMS/PKCS#7 seal (host-side WebCrypto) and the legal product layer. Subpath
 // exports (./cms, ./engine, ./esign, ./seal) let consumers pull only what they need.
 
+export { fromBase64, toArrayBuffer, toBase64 } from "./bytes.ts";
 export {
   buildDetachedCms,
   verifyDetachedCms,

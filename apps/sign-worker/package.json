@@ -1,0 +1,27 @@
+{
+  "name": "@magna-carta/sign-worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "scripts": {
+    "build": "wrangler deploy --dry-run --outdir dist",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@magna-carta/pdf": "workspace:*",
+    "@magna-carta/signing": "workspace:*"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "catalog:",
+    "@cloudflare/workers-types": "catalog:",
+    "@magna-carta/tsconfig": "workspace:*",
+    "asn1js": "catalog:",
+    "pkijs": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:",
+    "wrangler": "catalog:"
+  }
+}
