@@ -207,12 +207,20 @@ describe("load-profile smoke", () => {
       iterations: 2,
     });
     expect(conflictsResults.map((result) => result.name).sort()).toEqual(
-      ["conflicts.run-check", "conflicts.imputation"].sort(),
+      ["conflicts.run-check", "conflicts.imputation", "conflicts.co-party-check"].sort(),
     );
     for (const result of conflictsResults) {
       expect(result.iterations).toBe(2);
       expect(result.minMs).toBeGreaterThanOrEqual(0);
     }
+
+    // The co-party surfacing path is not merely timed but PROVEN expressed: the identically-named
+    // co-party pair makes each member a co-party hit of the other, so the append-only log the checks
+    // just wrote into the working copy carries at least one row flagged co_party = 1.
+    const { results: coPartyRows } = await snapshot.database
+      .prepare("SELECT COUNT(*) AS n FROM conflicts_hit WHERE co_party = 1")
+      .all<{ n: number }>();
+    expect(coPartyRows[0]!.n).toBeGreaterThan(0);
 
     // The structural no-N+1/no-missing-index check on the hot-path statements. The label set is
     // asserted first: an empty plan list would make the scan check pass vacuously, so dropped

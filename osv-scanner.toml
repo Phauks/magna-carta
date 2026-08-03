@@ -5,7 +5,9 @@
 # lapses the advisory re-surfaces and fails the gate, so acceptance cannot silently become permanent.
 
 # --- Long-standing accepted dev/build-tooling advisories (npm) -------------------------------------
-# Migrated from package.json pnpm.auditConfig.ignoreGhsas (still read by the pre-push hook's pnpm audit).
+# This file is now the sole home for accepted advisories: the pre-push hook's `pnpm audit` step and the
+# package.json `pnpm.auditConfig.ignoreGhsas` it read have been removed, so the CI osv-scanner gate is the
+# one authoritative audit over both supply chains.
 
 [[IgnoredVulns]]
 id = "GHSA-gv7w-rqvm-qjhr"

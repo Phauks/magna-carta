@@ -43,7 +43,11 @@ and never calls external services.
 - `src/run-check.ts` — `runConflictsCheck`: the check orchestrator — resolves scope, expands the
   graph, matches every reached entity, joins imputation, records source availability (including
   `prior_firm_history`, permanently `unavailable` — a registered source with no table), and writes
-  the check + hit rows in one atomic batch
+  the check + hit rows in one atomic batch. A match that lands back on one of the check's **own**
+  subject parties is a co-party surfacing: it is never dropped (dropping it would hide a positional
+  conflict between two different parties of the same matter), only flagged `co_party` on the hit so a
+  reviewer buckets it apart from a conflict with a prior/other client. The only match that is dropped
+  is an entity matching **itself** (`match.entityId === entity.entityId`).
 - `src/disposition.ts` — `recordDisposition` (validates a non-blank rationale and that the hit exists
   before composing the batch, then appends a `conflicts_disposition` row), `readCurrentDisposition`
   (latest row by `created_at` — the append-only table's read-side "current state" projection)

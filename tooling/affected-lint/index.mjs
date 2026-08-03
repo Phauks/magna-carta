@@ -28,8 +28,7 @@ const GROUPS = ["apps", "packages", "plugins"];
 
 // Exact repo-relative paths whose change re-verifies the whole repo.
 export const GLOBAL_TRIGGER_PATHS = new Set([
-  "oxlintrc.json", // the lint ruleset
-  "vite.config.ts", // where lint / typeAware is configured
+  "vite.config.ts", // the lint ruleset (rules / categories / plugins) + where typeAware is configured
   "pnpm-lock.yaml", // the resolved dependency versions (and thus their types)
   "pnpm-workspace.yaml", // the version catalog + the workspace shape
   "package.json", // the root manifest: catalog + toolchain
@@ -37,10 +36,13 @@ export const GLOBAL_TRIGGER_PATHS = new Set([
   "tsconfig.json", // the root solution config
 ]);
 
-// Repo-relative path prefixes whose change re-verifies the whole repo.
+// Repo-relative path prefixes whose change re-verifies the whole repo. `.github/` is deliberately NOT
+// here: a workflow or action YAML change (e.g. gate.yml) cannot move a type-aware lint result, so it must
+// not force the ~24-min whole-repo lint. A genuinely lintable file under `.github/` (a JS-based action) is
+// still caught below by the "lintable source outside any package" rule, which forces ALL — so dropping the
+// blanket prefix narrows the trigger to real lint inputs without a soundness gap.
 export const GLOBAL_TRIGGER_PREFIXES = [
   "packages/tsconfig/", // the shared tsconfig base every package extends
-  ".github/", // a workflow / action change — re-verify everything
   "tooling/affected-lint/", // THIS logic — if it changes, it cannot be trusted to scope itself
 ];
 

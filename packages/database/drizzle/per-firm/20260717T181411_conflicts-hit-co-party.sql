@@ -1,0 +1,1 @@
+ALTER TABLE `conflicts_hit` ADD `co_party` integer DEFAULT 0 NOT NULL;
