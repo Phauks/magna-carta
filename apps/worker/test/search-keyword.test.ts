@@ -64,7 +64,7 @@ describe("runKeywordSearch", () => {
 
     // The engine received exactly the matter's live split object keys — the catalog is what scopes the
     // query, and the engine range-reads only those.
-    expect([...capturedSplitKeys].toSorted()).toEqual([
+    expect([...capturedSplitKeys].sort()).toEqual([
       "search/matter/splits/a.split",
       "search/matter/splits/b.split",
     ]);

@@ -609,7 +609,7 @@ export function emitOpenAPIDocument(
       if (operation?.tags) for (const tag of operation.tags) tagNames.add(tag);
     }
   }
-  document.tags = [...tagNames].toSorted().map((name) => ({ name }));
+  document.tags = [...tagNames].sort().map((name) => ({ name }));
   return document;
 }
 
