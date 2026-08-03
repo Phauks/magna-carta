@@ -170,4 +170,9 @@ export const NO_PII_TABLES: readonly string[] = [
   "utbms_code",
   "non_billable_category",
   "narrative_template",
+  // Discovery search-index catalog — index metadata only (split object key, document/byte counts,
+  // schema generation, timestamps, and the matter id). The searchable text and any personal data it
+  // contains live in the split object in R2 and are erased by re-indexing the source, not by a row
+  // here; this catalog carries no data-subject personal data.
+  "index_split",
 ];
