@@ -8,6 +8,13 @@
       "when": 1783138581092,
       "tag": "20260704T041516_baseline",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1785795970468,
+      "tag": "20260803T222618_email-capture-route",
+      "breakpoints": true
     }
   ]
 }

@@ -1,6 +1,7 @@
 import { migrationsFromJournal, type Migration } from "@magna-carta/database/migration";
 import controlPlaneJournal from "@magna-carta/database/drizzle/control-plane/meta/_journal.json";
 import baselineSql from "@magna-carta/database/drizzle/control-plane/20260704T041516_baseline.sql";
+import emailCaptureRouteSql from "@magna-carta/database/drizzle/control-plane/20260803T222618_email-capture-route.sql";
 
 // The control-plane migration lineage bundled INTO the worker (no filesystem at runtime): the
 // scheduled handler is the single-flighted sole applier of these against DB_CONTROL. Mirrors
@@ -10,6 +11,7 @@ import baselineSql from "@magna-carta/database/drizzle/control-plane/20260704T04
 export function controlPlaneMigrations(): Migration[] {
   return migrationsFromJournal(controlPlaneJournal, {
     "20260704T041516_baseline": baselineSql,
+    "20260803T222618_email-capture-route": emailCaptureRouteSql,
   });
 }
 

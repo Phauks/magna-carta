@@ -1,53 +1,51 @@
-// Address routing for the forward/CC capture entrance. A capture address encodes the firm in the
-// subdomain and the matter token in the local part: `<localPart>@<firmSubdomain>.<rootDomain>`. The firm
-// is resolved against the control plane here (this worker has no per-firm database handle); the local
-// part rides through as the capture token, which the capture consumer resolves to a candidate matter
-// against the firm's own capture-address store. An address that is not a capture address for this zone,
-// or names an unknown firm, does not route.
+// Address routing for the forward/CC capture entrance. Cloudflare Email Routing supports exactly one
+// catch-all shape — a single zone-level rule — so every capture address lives on ONE subdomain,
+// `<token>@<rootDomain>`, and the whole local part is an opaque, server-minted routing token. The token
+// is resolved against the control-plane token->firm index here (this worker holds no per-firm database
+// handle); it then rides through to the capture consumer, which resolves it to a candidate matter against
+// the firm's own capture-address store. An address on another zone, or an unminted/revoked token, does
+// not route.
 
 export interface ParsedCaptureAddress {
-  readonly firmSubdomain: string;
-  readonly localPart: string;
+  readonly token: string;
 }
 
-// Split a destination address into its firm subdomain and local part, or null when it is not a capture
-// address for `rootDomain` (wrong zone, no firm subdomain label, or an empty local part).
+// Extract the capture token (the local part) from a destination address on `rootDomain`, or null when it
+// is not a capture address for this zone — a different host, or an empty local part. The token is
+// lower-cased to match the minted form; the host must equal `rootDomain` exactly (a nested subdomain is
+// not this zone's catch-all).
 export function parseCaptureAddress(
   address: string,
   rootDomain: string,
 ): ParsedCaptureAddress | null {
   const at = address.lastIndexOf("@");
   if (at < 0) return null;
-  const localPart = address.slice(0, at).trim().toLowerCase();
+  const token = address.slice(0, at).trim().toLowerCase();
   const host = address
     .slice(at + 1)
     .trim()
     .toLowerCase();
-  if (localPart.length === 0) return null;
-  const suffix = `.${rootDomain.toLowerCase()}`;
-  if (!host.endsWith(suffix)) return null;
-  const firmSubdomain = host.slice(0, host.length - suffix.length);
-  // Exactly one label of firm subdomain — no nested labels, no empty subdomain.
-  if (firmSubdomain.length === 0 || firmSubdomain.includes(".")) return null;
-  return { firmSubdomain, localPart };
+  if (token.length === 0) return null;
+  if (host !== rootDomain.toLowerCase()) return null;
+  return { token };
 }
 
 export interface CaptureRouting {
   readonly firmId: string;
   readonly bucketName: string | null;
-  // The local part, carried to the capture consumer which resolves it to a candidate matter (a
-  // per-matter token proposes its matter; the firm catch-all or an unknown token lands unrouted).
+  // The capture token, carried to the capture consumer which resolves it to a candidate matter (a
+  // per-matter token proposes its matter; a firm catch-all token lands with no matter, staff route it).
   readonly captureToken: string;
 }
 
-// Resolve a firm subdomain to its control-plane firm row, or null when unknown. The worker supplies the
-// real control-plane query; tests inject a fake (the email() binding cannot run in the local pool).
+// Resolve a capture token to its firm, or null when the token is unknown or revoked. The worker supplies
+// the real control-plane query; tests inject a fake (the email() binding cannot run in the local pool).
 export type FirmResolver = (
-  firmSubdomain: string,
+  token: string,
 ) => Promise<{ firmId: string; bucketName: string | null } | null>;
 
 // Resolve a destination address to its firm routing, or null when it does not route (not a capture
-// address, or an unknown firm).
+// address for this zone, or an unminted/revoked token).
 export async function resolveCaptureRouting(
   address: string,
   rootDomain: string,
@@ -55,7 +53,7 @@ export async function resolveCaptureRouting(
 ): Promise<CaptureRouting | null> {
   const parsed = parseCaptureAddress(address, rootDomain);
   if (parsed === null) return null;
-  const firm = await resolveFirm(parsed.firmSubdomain);
+  const firm = await resolveFirm(parsed.token);
   if (firm === null) return null;
-  return { firmId: firm.firmId, bucketName: firm.bucketName, captureToken: parsed.localPart };
+  return { firmId: firm.firmId, bucketName: firm.bucketName, captureToken: parsed.token };
 }

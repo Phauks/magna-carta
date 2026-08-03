@@ -36,14 +36,19 @@ export interface Bindings {
   CAPTURE_ROOT_DOMAIN?: string;
 }
 
-// Resolve a firm subdomain to its control-plane firm row. The subdomain is the firm id — a trusted
-// control-plane fact once it matches a real firm; an address for an unknown firm does not route.
+// Resolve a capture token to its firm via the control-plane token->firm routing index. One JOIN to the
+// firm row carries the bucket the raw MIME stages into, so a routable token costs a single read. A token
+// that was never minted, or whose route has been revoked (`active` = 0), does not route.
 function makeFirmResolver(env: Bindings): FirmResolver {
-  return async (firmSubdomain) => {
-    const firm = await env.DB_CONTROL.prepare("SELECT id, bucket_name FROM firm WHERE id = ?1")
-      .bind(firmSubdomain)
-      .first<{ id: string; bucket_name: string | null }>();
-    return firm === null ? null : { firmId: firm.id, bucketName: firm.bucket_name };
+  return async (token) => {
+    const row = await env.DB_CONTROL.prepare(
+      "SELECT f.id AS firm_id, f.bucket_name AS bucket_name " +
+        "FROM email_capture_route r JOIN firm f ON f.id = r.firm_id " +
+        "WHERE r.token = ?1 AND r.active = 1",
+    )
+      .bind(token)
+      .first<{ firm_id: string; bucket_name: string | null }>();
+    return row === null ? null : { firmId: row.firm_id, bucketName: row.bucket_name };
   };
 }
 

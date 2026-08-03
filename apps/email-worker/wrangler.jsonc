@@ -2,7 +2,7 @@
   // The Cloudflare Email Worker forward/CC capture entrance. Cloudflare Email Routing delivers a
   // forwarded/CC'd message to the email() handler; this worker resolves the destination to a firm,
   // stages the raw MIME to R2, and enqueues the emails-capture job the main worker's consumer runs.
-  // Email Routing rules (the capture zone in.magnacarta.esq, per-firm subdomains, one DMARC) are
+  // Email Routing rules (the single zone-level catch-all on in.magnacarta.esq, one DMARC) are
   // configured account-side at deploy — see docs/conventions/operations.md — not in this config.
   "name": "magna-carta-email",
   "main": "./src/index.ts",
@@ -11,9 +11,9 @@
   // No public HTTP surface: this worker is reached only by Email Routing.
   "workers_dev": false,
   "preview_urls": false,
-  // The control-plane database (firm subdomain → firm id + bucket) and the shared platform bucket the
-  // raw MIME is staged into. Per-firm bucket binding is a deploy-time step, the same seam the ingest
-  // consumer reads through.
+  // The control-plane database (capture token → firm id + bucket, via the email_capture_route index) and
+  // the shared platform bucket the raw MIME is staged into. Per-firm bucket binding is a deploy-time
+  // step, the same seam the ingest consumer reads through.
   "d1_databases": [
     {
       "binding": "DB_CONTROL",

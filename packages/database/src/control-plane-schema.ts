@@ -296,3 +296,29 @@ export const outbox = sqliteTable(
   },
   (table) => [index("outbox_status_created_at_index").on(table.status, table.createdAt)],
 );
+
+// The control-plane token -> firm routing index for the forward/CC capture zone. The Email Worker
+// (apps/email-worker) receives mail on a SINGLE zone-level catch-all (`*@in.magnacarta.esq`) — the only
+// catch-all shape Cloudflare Email Routing supports — and holds no per-firm database handle, so it
+// resolves the local-part token to a firm HERE, then hands the token to the capture consumer, which
+// resolves it to a candidate matter against that firm's own email_capture_address store. Minted and
+// revoked alongside the per-firm email_capture_address row under emails:manageCaptureAddresses; the token
+// is opaque and server-minted, never client-derived. A revoked token stops routing the instant `active`
+// flips false, with no per-firm read.
+export const emailCaptureRoute = sqliteTable(
+  "email_capture_route",
+  {
+    // The opaque routing token IS the identity of a route: the Email Worker looks a route up by the local
+    // part it parsed, and rotation revokes this row and inserts a fresh token. A natural-key PK, the same
+    // idiom as `setting` keyed by its key — no separate handle would earn its keep here.
+    token: text("token").primaryKey(),
+    firmId: text("firm_id")
+      .notNull()
+      .$type<FirmId>()
+      .references(() => firm.id),
+    active: integer("active", { mode: "boolean" }).notNull().default(true),
+    createdAt: text("created_at").notNull(), // ISO-8601 instant
+    revokedAt: text("revoked_at"), // ISO-8601 instant; null while the token still routes
+  },
+  (table) => [index("email_capture_route_firm_id_index").on(table.firmId)],
+);
