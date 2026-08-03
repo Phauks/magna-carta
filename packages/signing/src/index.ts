@@ -18,6 +18,16 @@ export {
 } from "./certificate.ts";
 export type { ByteRange, PrepareSealOptions, PreparedSeal, SealEngine } from "./engine.ts";
 export {
+  decodeSealRequest,
+  decodeSealResponse,
+  encodeSealRequest,
+  encodeSealResponse,
+  type SealMetadata,
+  type SealPort,
+  type SealRequest,
+  type SealResponse,
+} from "./port.ts";
+export {
   ATTRIBUTION_ORDER,
   attributionMeets,
   type AttributionLevel,
