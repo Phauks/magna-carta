@@ -16,6 +16,7 @@ import { fileAuditStatement, type AuditContext } from "./audit.ts";
 import { getCheckoutById, setCheckoutStatusStatement } from "./checkout-statements.ts";
 import {
   abandonVersionStatement,
+  assertVersionStatusStatement,
   assignDocumentTypeStatement,
   BULK_PREFIX,
   bumpFileCurrentVersionStatement,
@@ -28,8 +29,10 @@ import {
   insertUploadSessionStatement,
   markVersionConflictStatement,
   moveFileStatement,
+  quarantineCommittedVersionStatement,
   quarantineVersionStatement,
   renameFileStatement,
+  repointCurrentVersionAfterWithdrawalStatement,
   rescanVerdictStatement,
   restoreFileStatement,
   selectCleanVersionByIdStatement,
@@ -86,10 +89,26 @@ async function loadFile(database: SqlDatabase, id: FileId): Promise<StoredFile |
   };
 }
 
-async function requireFile(database: SqlDatabase, id: FileId): Promise<StoredFile> {
+// Resolves a file whatever its deleted state. Only the recovery surface wants this — an undelete has
+// to find the row precisely because it is soft-deleted. Every other caller wants requireLiveFile.
+async function requireFileIncludingDeleted(database: SqlDatabase, id: FileId): Promise<StoredFile> {
   const file = await loadFile(database, id);
   if (file === undefined) {
     throw new FileManagerValidationError("unknown-file", `no such file: ${id}`);
+  }
+  return file;
+}
+
+// Resolves a file that is still live — the default for every write path. A soft-deleted file refuses
+// its mutations: `deleted_at` is the visibility gate every consumer read filters on (queries.ts), so a
+// rename, a move, a document-type assignment, or a new version applied to a deleted row is a change
+// nobody can observe until an undelete resurrects a file that quietly moved while it was gone. The
+// refusal carries its own code but the routes map it to the same not-found response an unknown file
+// gets, so a mutation never becomes the one path that confirms a deleted file still exists.
+async function requireLiveFile(database: SqlDatabase, id: FileId): Promise<StoredFile> {
+  const file = await requireFileIncludingDeleted(database, id);
+  if (file.deletedAt !== null) {
+    throw new FileManagerValidationError("file-deleted", `file is deleted: ${id}`);
   }
   return file;
 }
@@ -167,7 +186,7 @@ export async function initiateUpload(
   let fileId: FileId;
   let versionNumber: number;
   if (input.fileId !== undefined) {
-    const existing = await requireFile(database, input.fileId);
+    const existing = await requireLiveFile(database, input.fileId);
     // A new version rides the existing file's matter; a payload claiming a different matter is a
     // mismatch (the folder is validated against that same matter above).
     if (existing.matterId !== input.matterId) {
@@ -260,7 +279,7 @@ export async function initiateCheckin(
   input: InitiateCheckinInput,
   options: FileServiceOptions,
 ): Promise<InitiatedCheckin> {
-  await requireFile(database, input.fileId);
+  await requireLiveFile(database, input.fileId);
   const { results } = await selectMaxVersionNumberStatement(database, input.fileId).all<{
     n: number;
   }>();
@@ -418,6 +437,9 @@ export async function commitVersion(
       effect: {
         statements: [
           abandonVersionStatement(database, input.versionId),
+          // The session flip and the audit row below are consequences of that abandon; if a racing
+          // writer moved the version first, none of them may stand.
+          assertVersionStatusStatement(database, input.versionId, "abandoned"),
           setUploadSessionStatusStatement(database, input.versionId, "completed"),
           fileAuditStatement(database, options, "file.version_skipped", input.versionId),
         ],
@@ -440,6 +462,10 @@ export async function commitVersion(
           scanDetail: input.scanDetail,
           committedAt: input.now,
         }),
+        // Everything after this point — the pointer bump, the session flip, the meter delta, the audit
+        // row, and the outbox event appended to this same batch — asserts that the commit happened.
+        // The assertion makes that true or takes the whole batch down with it.
+        assertVersionStatusStatement(database, input.versionId, "clean"),
         bumpFileCurrentVersionStatement(database, version.fileId, input.versionId, input.now),
         setUploadSessionStatusStatement(database, input.versionId, "completed"),
         ...meterCommitStatements(
@@ -583,6 +609,7 @@ export async function commitCheckinVersion(
         effect: {
           statements: [
             abandonVersionStatement(database, input.versionId),
+            assertVersionStatusStatement(database, input.versionId, "abandoned"),
             setUploadSessionStatusStatement(database, input.versionId, "completed"),
             setCheckoutStatusStatement(database, input.checkoutId, "released"),
             fileAuditStatement(database, options, "document.checkin_skipped", version.fileId),
@@ -598,6 +625,7 @@ export async function commitCheckinVersion(
       effect: {
         statements: [
           commitStatement,
+          assertVersionStatusStatement(database, input.versionId, "clean"),
           bumpFileCurrentVersionStatement(database, version.fileId, input.versionId, input.now),
           setUploadSessionStatusStatement(database, input.versionId, "completed"),
           ...meterStatements,
@@ -623,6 +651,7 @@ export async function commitCheckinVersion(
     effect: {
       statements: [
         commitStatement,
+        assertVersionStatusStatement(database, input.versionId, "clean"),
         markVersionConflictStatement(database, input.versionId, checkout.baseVersionId),
         setUploadSessionStatusStatement(database, input.versionId, "completed"),
         ...meterStatements,
@@ -813,7 +842,14 @@ export async function quarantineVersion(
   return {
     effect: {
       statements: [
-        quarantineVersionStatement(database, input.versionId, input.scanDetail),
+        // Gate quarantines (a type lie, a size lie, a policy breach) carry no scan detail — nothing
+        // scanned them. Persist the REASON in that case so the row itself says why it was pulled: the
+        // outbox message and the telemetry event are transient, and a reviewer opening a quarantined
+        // version months later has only this column to distinguish a malware hit from a size lie.
+        quarantineVersionStatement(database, input.versionId, input.scanDetail ?? input.reason),
+        // The audit row and the file.quarantined event this batch also carries must not outlive a
+        // quarantine that lost its race to an abort or expiry.
+        assertVersionStatusStatement(database, input.versionId, "quarantined"),
         fileAuditStatement(database, options, "file.quarantined", input.versionId),
       ],
       outboxMessages: [
@@ -826,13 +862,67 @@ export async function quarantineVersion(
   };
 }
 
+// Withdraws an ALREADY-COMMITTED version whose stored bytes no longer match the hash recorded at
+// commit. The committed row asserts "these bytes, this hash, this verdict"; once the object behind it
+// changes, every one of those facts describes bytes that are gone, and serving the version would put
+// a clean verdict on content nothing ever inspected. So the version goes behind the status gate and
+// stays there — it is NOT re-committed with the new facts, because a committed version is immutable
+// by construction (new bytes are a new version, minted through the upload path with its own ingest).
+//
+// Recovery is a deliberate act: the file's owner uploads the intended content as a new version, which
+// ingests normally. There is no path that returns these bytes to 'clean'.
+//
+// The storage meter is NOT reversed: the object is still in the firm's bucket occupying real storage,
+// and the meter counts bytes held, not bytes servable.
+export function quarantineCommittedVersion(
+  database: SqlDatabase,
+  input: {
+    fileId: FileId;
+    versionId: FileVersionId;
+    reason: string;
+    scanDetail: string | null;
+  },
+  options: FileServiceOptions,
+): { effect: EffectWrite } {
+  return {
+    effect: {
+      statements: [
+        quarantineCommittedVersionStatement(
+          database,
+          input.versionId,
+          input.scanDetail ?? input.reason,
+        ),
+        repointCurrentVersionAfterWithdrawalStatement(
+          database,
+          input.fileId,
+          input.versionId,
+          options.clock.now(),
+        ),
+        fileAuditStatement(database, options, "file.quarantined", input.versionId),
+      ],
+      outboxMessages: [
+        {
+          topic: "file.quarantined",
+          payload: { fileId: input.fileId, versionId: input.versionId, reason: input.reason },
+        },
+      ],
+    },
+  };
+}
+
 export async function renameFile(
   database: SqlDatabase,
   fileId: FileId,
   name: string,
   options: FileServiceOptions,
 ): Promise<{ effect: EffectWrite }> {
-  await requireFile(database, fileId);
+  // The same blank-name rule the folder service applies, for the same reason: the schema CHECK would
+  // otherwise reject a whitespace-only rename as a raw constraint failure — a server error for what is
+  // a plainly bad request.
+  if (name.trim().length === 0) {
+    throw new FileManagerValidationError("invalid-name", "a name cannot be blank");
+  }
+  await requireLiveFile(database, fileId);
   return {
     effect: {
       statements: [
@@ -850,7 +940,7 @@ export async function moveFile(
   folderId: FolderId | null,
   options: FileServiceOptions,
 ): Promise<{ effect: EffectWrite }> {
-  const file = await requireFile(database, fileId);
+  const file = await requireLiveFile(database, fileId);
   if (folderId !== null) {
     // The target folder must live in the file's matter — a file never crosses matters on a move.
     const folderMatterId = await loadFolderMatter(database, folderId);
@@ -881,7 +971,7 @@ export async function assignDocumentType(
   documentTypeId: DocumentTypeId | null,
   options: FileServiceOptions,
 ): Promise<{ effect: EffectWrite }> {
-  await requireFile(database, fileId);
+  await requireLiveFile(database, fileId);
   return {
     effect: {
       statements: [
@@ -902,7 +992,9 @@ export async function softDeleteFile(
   fileId: FileId,
   options: FileServiceOptions,
 ): Promise<{ effect: EffectWrite; currentR2Key: string | null }> {
-  const file = await requireFile(database, fileId);
+  // Already deleted refuses rather than re-stamping deleted_at: a second delete would move the
+  // recovery window's start and write another audit row for a file that is already gone.
+  const file = await requireLiveFile(database, fileId);
   return {
     currentR2Key: file.currentR2Key,
     effect: {
@@ -924,7 +1016,9 @@ export async function restoreFile(
   fileId: FileId,
   options: FileServiceOptions,
 ): Promise<{ effect: EffectWrite }> {
-  await requireFile(database, fileId);
+  // The one write that must resolve a soft-deleted row — undeleting a live file is a harmless no-op,
+  // undeleting a deleted one is the whole point.
+  await requireFileIncludingDeleted(database, fileId);
   return {
     effect: {
       statements: [

@@ -31,8 +31,12 @@
   // value lets the Miniflare test pool exercise the host branch. The editor half is USERCONTENT_DOMAIN
   // (the bare content domain), which defaults to magnacartausercontent.com in code — no deploy var, prod
   // can't forget it; only local dev overrides it.
+  // R2_BUCKET_NAME names the bucket bound below as R2. An R2Bucket handle carries no name, so this is
+  // how the bucket resolver (src/files/firm-bucket.ts) proves that the bucket a presigned URL addresses
+  // is the same one this Worker reads through. Keep it byte-identical to the r2_buckets bucket_name.
   "vars": {
     "FILES_ORIGIN": "files.example.com",
+    "R2_BUCKET_NAME": "magna-carta-production-platform-files",
   },
   // Real production resources (created 2026-06-09; naming convention in ADR-0075:
   // magna-carta-<environment>-<scope>[-<purpose-or-slug>]). Binding names are the code-facing
@@ -102,6 +106,14 @@
       // The recovery shard queue: the RecoveryJobCoordinator DO enqueues one message per shard; the
       // consumer runs a dictionary/rule search over its shard and reports the outcome back.
       { "binding": "RECOVERY_QUEUE", "queue": "magna-carta-production-recovery-shard" },
+      // The email-capture queue: the forward/CC Email Worker and the file-to-matter API both enqueue a
+      // pointer to the staged raw MIME; the consumer runs parse/dedup/thread-link/attachment off the
+      // request path.
+      { "binding": "EMAILS_CAPTURE", "queue": "magna-carta-production-emails-capture" },
+      // The discovery search-index queue: the SearchIndexJob DO enqueues one message per committed
+      // document version; the consumer extracts its text, builds its split, and converges the per-firm
+      // split catalog.
+      { "binding": "SEARCH_INDEX", "queue": "magna-carta-production-search-index" },
     ],
     // The files-ingest consumer (the queue() handler in src/index.ts over the ingest consumer): one
     // R2 object-create event per uploaded object → single-read gates + SHA-256 + scan port → commit
@@ -110,6 +122,16 @@
     // Both the interactive files-ingest queue and the bulk files-ingest-bulk queue route to the same
     // ingest handler; the lane separation is entirely in queue topology and max_concurrency.
     "consumers": [
+      // The shared per-firm job queue: everything the per-firm outbox relay sweeps crosses this one
+      // queue, firmId-tagged, and the dispatch table in src/costs/recoverable-charge-consumer.ts
+      // routes each message to the handler that owns its topic (unowned topics are acked and
+      // ignored). Declaring it a consumer is what makes a per-firm outbox row actually reach its
+      // effect — email capture-address minting depends on it to write the control-plane routing row,
+      // without which a minted address never receives mail.
+      {
+        "queue": "magna-carta-production-platform-jobs",
+        "dead_letter_queue": "magna-carta-production-platform-jobs-deadletter",
+      },
       {
         "queue": "magna-carta-production-files-ingest",
         "dead_letter_queue": "magna-carta-production-files-ingest-deadletter",
@@ -158,6 +180,25 @@
         "max_concurrency": 4,
         "dead_letter_queue": "magna-carta-production-recovery-shard-deadletter",
       },
+      // The email-capture consumer (the queue() handler routes this queue to the capture consumer):
+      // one filing job per message → parse, dedup, thread-link, stage the matter link, extract
+      // attachments onto the ingest chokepoint. Dead-letters to its own queue after max retries so a
+      // poison message never blocks the lane.
+      {
+        "queue": "magna-carta-production-emails-capture",
+        "dead_letter_queue": "magna-carta-production-emails-capture-deadletter",
+      },
+      // The search-index consumer (the queue() handler routes this queue to the index consumer): one
+      // committed document version per message → extract text → build a split through the
+      // SearchIndexPort → replace the document's catalog rows. Low concurrency: each message drives a
+      // recognition pass and an index build, both CPU-bound in their engine Containers. The dead-letter
+      // queue is load-bearing rather than hygiene — a message that lands there IS the record that a
+      // document is missing from the searchable corpus, which discovery has to be able to answer for.
+      {
+        "queue": "magna-carta-production-search-index",
+        "max_concurrency": 2,
+        "dead_letter_queue": "magna-carta-production-search-index-deadletter",
+      },
     ],
   },
   // Worker service bindings to dedicated sibling workers. JSONC keeps only the LAST duplicate top-level
@@ -170,6 +211,8 @@
   //     routes 503 until it is bound.
   //   RECOVERY_SERVICE: the password-recovery worker; optional, falls back when absent.
   //   OCR_SERVICE: the text-recognition engine worker (POST /ocr); the ocr route 503s until it is bound.
+  //   SIGN_SERVICE: the e-signature/seal worker (POST /seal), which alone holds the platform signing
+  //     key; the documents/seal route 503s until it is bound (deferred activation).
   "services": [
     { "binding": "SCAN_SERVICE", "service": "magna-carta-scan" },
     { "binding": "BUNDLE_SERVICE", "service": "magna-carta-bundle" },
@@ -177,6 +220,7 @@
     { "binding": "FILE_REPAIR_SERVICE", "service": "magna-carta-file-repair" },
     { "binding": "RECOVERY_SERVICE", "service": "magna-carta-recovery" },
     { "binding": "OCR_SERVICE", "service": "magna-carta-ocr" },
+    { "binding": "SIGN_SERVICE", "service": "magna-carta-sign" },
   ],
   // Browser Rendering Workers binding — used by POST /api/v1/safe-browse to render suspect URLs
   // in Cloudflare's isolated remote browser. Requires compatibility_date >= 2026-03-24 for
@@ -208,6 +252,9 @@
       // The password-recovery job coordinator: fans a recovery job out across shards and aggregates
       // outcomes into the job's final state.
       { "name": "RECOVERY_JOB", "class_name": "RecoveryJobCoordinator" },
+      // The search-index job coordinator: keyed firmId:documentId:version, single-flights one split
+      // build per document version and holds its outcome, including the parked `deferred` state.
+      { "name": "SEARCH_INDEX_JOB", "class_name": "SearchIndexJob" },
     ],
   },
   // SQLite-backed DO classes are introduced through a migration tag — ONE consolidated lineage (a
@@ -216,14 +263,16 @@
   // an applied tag), so the names follow the order they actually landed in: v1 the bulk-download +
   // conversion-job coordinators; v1-live-timer the live-timer coordinator; v1-editing-document-session
   // the editing document-session DO; v2-firm-database the per-firm database DO; v3-recovery-job the
-  // password-recovery job coordinator DO (the most recent class, appended last). Never modify an
-  // applied tag — only append a new one.
+  // password-recovery job coordinator DO; v4-search-index-job the discovery search-index job
+  // coordinator DO (the most recent class, appended last). Never modify an applied tag — only append
+  // a new one.
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["BundleBuildCoordinator", "ConversionJob"] },
     { "tag": "v1-live-timer", "new_sqlite_classes": ["LiveTimerDurableObject"] },
     { "tag": "v1-editing-document-session", "new_sqlite_classes": ["DocumentSession"] },
     { "tag": "v2-firm-database", "new_sqlite_classes": ["FirmDatabase"] },
     { "tag": "v3-recovery-job", "new_sqlite_classes": ["RecoveryJobCoordinator"] },
+    { "tag": "v4-search-index-job", "new_sqlite_classes": ["SearchIndexJob"] },
   ],
   // Workers Logs at full sampling (current volumes; the golden-rule-4 structured-JSON event lines
   // the telemetry Workers logger emits land here). Logpush → R2 is a deploy-time runbook step

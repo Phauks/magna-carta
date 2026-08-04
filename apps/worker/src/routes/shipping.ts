@@ -1,10 +1,18 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
-import { insertConnectionStatement } from "@magna-carta/data-access/integration-connection-statements";
+import {
+  deleteConnectionStatement,
+  selectConnectionStatement,
+  upsertConnectionStatement,
+} from "@magna-carta/data-access/integration-connection-statements";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import {
+  claimShipmentPurchaseStatement,
   insertTrackingEventStatement,
+  markShipmentRatedStatement,
+  releaseShipmentPurchaseClaimStatement,
+  selectShipmentLabelsStatement,
   selectShipmentStatement,
 } from "@magna-carta/data-access/shipment-statements";
 import {
@@ -13,8 +21,9 @@ import {
   recordRefund,
 } from "@magna-carta/data-access/shipment-service";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
-import type { MatterId, ShipmentId } from "@magna-carta/identifiers/types";
+import type { IntegrationConnectionId, MatterId, ShipmentId } from "@magna-carta/identifiers/types";
 import type { Dispatch } from "@magna-carta/integrations/dispatch";
+import { integrationProblem } from "@magna-carta/integrations/problem";
 import { createEasyPostAdapter } from "@magna-carta/shipping/easypost";
 import type { ShippingPort } from "@magna-carta/shipping/port";
 import type { Context } from "hono";
@@ -31,6 +40,7 @@ import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { idempotencyKeyHeader } from "../contracts/common.ts";
 import { problemJson, Problem, type ProblemResponse } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
+import { resolveFirmBucket } from "../files/firm-bucket.ts";
 import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-problems.ts";
 import { buildIntegrationRegistry } from "../plugins/registry.ts";
 import type { PluginRuntime } from "../plugins/runtime.ts";
@@ -96,6 +106,9 @@ function writeMeta(operationId: string): RouteMeta {
 
 const ConnectRequest = z.object({ apiKey: z.string().min(1) }).openapi("ShippingConnectRequest");
 const ConnectAck = z.object({ id: z.string(), status: z.string() }).openapi("ShippingConnectAck");
+const DisconnectAck = z
+  .object({ id: z.string(), status: z.string() })
+  .openapi("ShippingDisconnectAck");
 
 const AddressSchema = z.object({
   name: z.string().min(1),
@@ -119,7 +132,9 @@ const OptionsSchema = z.object({
   certifiedMail: z.boolean().optional(),
   returnReceipt: z.enum(["none", "electronic", "physical"]).optional(),
   signatureConfirmation: z.enum(["none", "signature", "adult"]).optional(),
-  insuranceAmountMinor: z.number().int().nullable().optional(),
+  // The declared value to insure, in integer minor units. Carried onto the label purchase, where the
+  // carrier is asked to insure exactly this amount. Negative is meaningless; zero means uninsured.
+  insuranceAmountMinor: z.number().int().nonnegative().nullable().optional(),
 });
 const CreateShipmentRequest = z
   .object({
@@ -155,6 +170,27 @@ const connectRoute = defineOpenAPIRoute(writeMeta("shipping.connect"), {
   },
   responses: {
     201: { description: "Connected", content: { "application/json": { schema: ConnectAck } } },
+    400: errorResponses[400],
+    401: errorResponses[401],
+    403: errorResponses[403],
+    404: errorResponses[404],
+    409: errorResponses[409],
+    422: errorResponses[422],
+    429: errorResponses[429],
+  },
+});
+
+const disconnectCarrierRoute = defineOpenAPIRoute(writeMeta("shipping.disconnectCarrier"), {
+  method: "delete",
+  path: "/api/v1/integrations/shipping/connection",
+  description:
+    "Disconnects the firm's EasyPost postage account. Shipping operations stop until the account is connected again.",
+  request: { headers: idempotencyKeyHeader },
+  responses: {
+    200: {
+      description: "Disconnected",
+      content: { "application/json": { schema: DisconnectAck } },
+    },
     400: errorResponses[400],
     401: errorResponses[401],
     403: errorResponses[403],
@@ -365,8 +401,20 @@ export function registerShippingRoutes(
       const secrets = runtime.secretStoreForFirm(firm.firmDatabase);
       const descriptor = createEasyPostAdapter({ http: runtime.httpClient }).descriptor;
 
-      const connectionId = newIdentifier("integrationConnection");
-      const credentialRef = `integration:shipping:${connectionId}`;
+      // A firm has at most one postage connection, so the connection row and its secret are both
+      // addressed by (category, firm) rather than by a freshly minted id. That makes a reconnect a
+      // rotation in place: the new key overwrites the old one at the same ref instead of leaving the
+      // revoked key sitting in the secret store under an orphaned reference.
+      const existing = await selectConnectionStatement(
+        firm.firmDatabase,
+        "shipping",
+        firmId,
+      ).first<{ id: string }>();
+      const connectionId =
+        existing === null
+          ? newIdentifier("integrationConnection")
+          : (existing.id as IntegrationConnectionId);
+      const credentialRef = `integration:shipping:${firmId}`;
       // Store the secret first (idempotent by ref), then commit the connection row in the effect batch.
       await secrets.putSecret(credentialRef, JSON.stringify({ kind: "apiKey", apiKey }));
 
@@ -378,7 +426,7 @@ export function registerShippingRoutes(
         effect: async () => ({
           write: {
             statements: [
-              insertConnectionStatement(firm.firmDatabase, {
+              upsertConnectionStatement(firm.firmDatabase, {
                 id: connectionId,
                 category: "shipping",
                 adapterId: "easypost",
@@ -400,6 +448,63 @@ export function registerShippingRoutes(
       }
       if (result.kind === "replayed") c.header("Idempotency-Replayed", "true");
       return c.json(JSON.parse(result.responseBody ?? "{}") as z.infer<typeof ConnectAck>, 201);
+    },
+  );
+
+  // DELETE /api/v1/integrations/shipping/connection — drop the connection so shipping stops resolving
+  app.openapi(
+    {
+      ...disconnectCarrierRoute,
+      middleware: chokepointMiddleware(chokepoint, disconnectCarrierRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const firmId = requireChokepointFirmId(c);
+      // Read to satisfy the audited-route contract; the connection row's principal is the firm.
+      requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const now = () => new Date().toISOString();
+
+      const existing = await selectConnectionStatement(
+        firm.firmDatabase,
+        "shipping",
+        firmId,
+      ).first<{ id: string }>();
+      // Nothing connected reads as nothing to disconnect. 404 rather than a success ack, so a
+      // caller cannot mistake "there was never a connection" for "the connection was removed".
+      if (existing === null) {
+        return problemJson(c, {
+          type: "not-found",
+          title: "Not found",
+          status: 404,
+          detail: "No postage account is connected for this firm.",
+        });
+      }
+      const connectionId = existing.id as IntegrationConnectionId;
+
+      const result = await runIdempotentEffect({
+        database: firm.firmDatabase,
+        key: idempotency.key,
+        fingerprint: idempotency.fingerprint,
+        now,
+        effect: async () => ({
+          // Deleting the row is what actually severs the integration: resolution reads the
+          // connection first, so with no row every shipping operation answers not-connected. The
+          // stored credential is left addressed by (category, firm) — a later reconnect overwrites
+          // that same entry rather than accumulating a second one.
+          write: {
+            statements: [deleteConnectionStatement(firm.firmDatabase, connectionId)],
+            outboxMessages: [],
+          },
+          responseCode: 200,
+          responseBody: canonicalJsonStringify({ id: connectionId, status: "disconnected" }),
+        }),
+      });
+      if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch") {
+        return problemResponseForIdempotencyConflict(c, result);
+      }
+      if (result.kind === "replayed") c.header("Idempotency-Replayed", "true");
+      return c.json(JSON.parse(result.responseBody ?? "{}") as z.infer<typeof DisconnectAck>, 200);
     },
   );
 
@@ -469,6 +574,17 @@ export function registerShippingRoutes(
         options: JSON.parse(draft.options),
       });
       if (!rated.ok) return shippingDispatchProblem(c, rated);
+      // Rates themselves are ephemeral and never persisted, but the carrier-side shipment they were
+      // quoted against is recorded here: it is what the purchase route checks the caller's
+      // remoteShipmentId against, so money is only ever spent on a shipment THIS server created for
+      // THIS draft. The write is guarded on the pre-purchase statuses, so re-rating a bought
+      // shipment changes nothing.
+      await markShipmentRatedStatement(
+        firm.firmDatabase,
+        id,
+        rated.value.remoteId,
+        new Date().toISOString(),
+      ).run();
       return c.json(
         {
           remoteShipmentId: rated.value.remoteId,
@@ -502,10 +618,57 @@ export function registerShippingRoutes(
       const resolved = await registry.resolve<ShippingPort>("shipping", { firmId });
       if (!resolved.ok) return shippingDispatchProblem(c, resolved);
 
-      // The chokepoint idempotency key doubles as the EasyPost Idempotency-Key. A thrown effect
-      // commits no idempotency record (runIdempotentEffect re-executes on retry), so that header is
-      // what prevents a double-buy: EasyPost returns the same label for the same key. The R2 key is
-      // derived from the shipment id, so the put is idempotent across retries too.
+      // Read the draft from THIS firm's database BEFORE spending anything. Two questions are settled
+      // here that the carrier cannot settle for us: does this shipment exist for this firm, and is
+      // the carrier-side shipment the caller names the one rate-shopping recorded for this draft?
+      // Without the second check a caller could aim a purchase at any remote shipment id — buying
+      // postage against another draft's addresses, or against a shipment this firm never created.
+      const { results } = await selectShipmentStatement(firm.firmDatabase, id).all<{
+        options: string;
+        remote_shipment_id: string | null;
+      }>();
+      const draft = results[0];
+      if (draft === undefined) return notFoundProblem(c);
+      if (draft.remote_shipment_id !== body.remoteShipmentId) {
+        return problemJson(c, {
+          type: "validation",
+          title: "Shipment does not match the rated quote",
+          status: 422,
+          detail: "Re-run rate shopping for this shipment and buy one of the returned rates.",
+        });
+      }
+
+      // Claim the purchase before any money moves. EasyPost has no idempotency-key facility, so a
+      // retried or concurrent request would otherwise buy a second label and charge the firm twice;
+      // this guarded transition admits exactly one buyer per shipment. A claim that cannot be taken
+      // means the shipment is already purchasing, purchased, or refunded.
+      const claimed = await claimShipmentPurchaseStatement(
+        firm.firmDatabase,
+        id,
+        idempotency.key,
+        now(),
+      ).run();
+      if (claimed.meta.changes === 0) {
+        return problemJson(c, {
+          type: "conflict",
+          title: "Shipment is not available to purchase",
+          status: 409,
+          detail:
+            "A label purchase for this shipment is already in progress or has completed. Check the shipment's tracking, or refund its label before buying again.",
+        });
+      }
+
+      // The label bytes go to the firm's own bucket, resolved through the one seam every R2 path
+      // here shares (files/firm-bucket.ts).
+      const { bucket } = resolveFirmBucket(c.env, firm.bucketName);
+      // Insurance was declared when the draft was created; it is bought with the label rather than
+      // trusted from the purchase request, so what the firm is told it insured is what is sent.
+      const draftOptions = JSON.parse(draft.options) as { insuranceAmountMinor?: number | null };
+
+      // A thrown effect commits no idempotency record, so a retry re-executes the handler — which is
+      // exactly why the purchase claim above, not the idempotency record, is the double-buy guard.
+      // The R2 key is derived from the firm id and the shipment id, so the put is idempotent across
+      // retries too.
       const result = await runIdempotentEffect({
         database: firm.firmDatabase,
         key: idempotency.key,
@@ -515,13 +678,32 @@ export function registerShippingRoutes(
           const bought = await resolved.value.port.buyLabel({
             remoteShipmentId: body.remoteShipmentId,
             remoteRateId: body.remoteRateId,
-            idempotencyKey: idempotency.key,
+            insuranceAmountMinor: draftOptions.insuranceAmountMinor ?? null,
           });
           if (!bought.ok) throw new ShippingDispatchError(bought);
           const label = bought.value;
           const labelResponse = await fetch(label.labelUrl);
-          const r2Key = `labels/${id}.pdf`;
-          await c.env.R2.put(r2Key, await labelResponse.arrayBuffer(), {
+          // The label is now bought and billed, so the bytes must be the real label or nothing: a
+          // carrier CDN error page stored here would be served as this shipment's label forever.
+          // Throwing keeps the claim (the purchase DID happen), so no later request can buy a second
+          // label — the shipment is reconciled by refunding the one that exists.
+          if (!labelResponse.ok) {
+            throw new ShippingDispatchError({
+              ok: false,
+              reason: "adapter-error",
+              problem: integrationProblem(
+                "upstream",
+                labelResponse.status,
+                "The postage label could not be downloaded",
+              ),
+            });
+          }
+          // Firm-scoped key. A label carries the recipient's postal address, so two firms must never
+          // be able to name the same object: the firm id in the prefix makes the key space disjoint
+          // even where firms share one bucket, and the read path resolves the key from this firm's
+          // own database rather than rebuilding it from a request parameter.
+          const r2Key = `labels/${firmId}/${id}.pdf`;
+          await bucket.put(r2Key, await labelResponse.arrayBuffer(), {
             httpMetadata: { contentType: label.labelFormat },
           });
           const recorded = await recordPurchase(
@@ -555,6 +737,18 @@ export function registerShippingRoutes(
         throw caught;
       });
       if (result instanceof ShippingDispatchError) {
+        // Hand the claim back only when the carrier definitively refused the buy — nothing was
+        // charged, so the firm may correct the request and try again. Every other failure is
+        // indeterminate (the label may exist and be billed) or happened after the buy succeeded, and
+        // the claim stays held so a second attempt cannot spend a second time.
+        if (purchaseDefinitelyNotCharged(result.dispatch)) {
+          await releaseShipmentPurchaseClaimStatement(
+            firm.firmDatabase,
+            id,
+            idempotency.key,
+            now(),
+          ).run();
+        }
         return shippingDispatchProblem(c, result.dispatch);
       }
       if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch") {
@@ -569,8 +763,20 @@ export function registerShippingRoutes(
   app.openapi(
     { ...labelRoute, middleware: chokepointMiddleware(chokepoint, labelRoute) },
     async (c) => {
-      const id = c.req.valid("param").id;
-      const object = await c.env.R2.get(`labels/${id}.pdf`);
+      const firm = requireChokepointFirmContext(c);
+      const id = c.req.valid("param").id as ShipmentId;
+      // Resolve the object key from THIS firm's own database before touching any bytes: the label row
+      // is what proves the firm owns the shipment, and its stored r2_key is server-recorded, never
+      // rebuilt from the path parameter. A shipment id belonging to another firm finds no row here and
+      // is answered 404 — the same absence-not-refusal answer every other cross-firm read gives, so a
+      // caller cannot use the status code to learn that the shipment exists somewhere.
+      const { results } = await selectShipmentLabelsStatement(firm.firmDatabase, id).all<{
+        r2_key: string;
+      }>();
+      const label = results[0];
+      if (label === undefined) return notFoundProblem(c);
+      const { bucket } = resolveFirmBucket(c.env, firm.bucketName);
+      const object = await bucket.get(label.r2_key);
       if (object === null) return notFoundProblem(c);
       return new Response(object.body, {
         status: 200,
@@ -678,6 +884,19 @@ export function registerShippingRoutes(
       return c.json(JSON.parse(result.responseBody ?? "{}") as z.infer<typeof RefundAck>, 200);
     },
   );
+}
+
+// Whether a failed buy is one the carrier refused outright, with certainty that no postage was
+// purchased and nothing was billed. `auth`, `validation`, and `rate_limit` are all rejections the
+// provider made before doing any work; `not-connected` and `capability-unsupported` never reached
+// it at all. `upstream` (a provider 5xx) and `network` (no answer at all) are the indeterminate
+// ones — the purchase may well have succeeded on the far side — and must be treated as spent.
+function purchaseDefinitelyNotCharged(
+  dispatch: Extract<Dispatch<unknown>, { ok: false }>,
+): boolean {
+  if (dispatch.reason !== "adapter-error") return true;
+  const category = dispatch.problem?.category;
+  return category === "auth" || category === "validation" || category === "rate_limit";
 }
 
 // Carries a non-ok Dispatch out of the idempotent-effect callback so the route maps it to a problem.

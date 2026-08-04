@@ -38,7 +38,13 @@ export const firm = sqliteTable("firm", {
   // through feature flags, never schema. DEFAULT keeps pre-channel rows valid (expand-contract).
   releaseChannel: text("release_channel").notNull().default("stable"),
   // The per-firm R2 bucket backing this firm. Null = the bucket has not been provisioned yet.
-  bucketName: text("bucket_name"),
+  // UNIQUE: an R2 object-create event names only its bucket, and the ingest consumer turns that name
+  // back into a firm with `WHERE bucket_name = ?`. Two firms sharing a name would make that lookup
+  // ambiguous — a firm's uploads could be ingested into another firm's per-firm database. The
+  // provisioner already mints a deterministic per-firm name; the constraint is what makes the
+  // one-name-one-firm assumption the read depends on true. SQLite treats NULLs as distinct, so
+  // any number of not-yet-provisioned firms coexist.
+  bucketName: text("bucket_name").unique(),
   // WHO owns the firm: set in the same activation batch that inserts the owner user
   // — the provisioner's already-active no-op matches the REQUESTED owner against this column, so a
   // mere invited member's email cannot impersonate the owner. Null while provisioning and for
@@ -176,6 +182,11 @@ export const twoFactor = sqliteTable(
       .$type<UserId>()
       .references(() => user.id, { onDelete: "cascade" }),
     verified: integer("verified", { mode: "boolean" }).default(true),
+    // The twoFactor plugin's brute-force lockout pair: a running count of failed TOTP verifications and,
+    // once the count crosses the plugin's threshold, the instant the factor is locked until. Better Auth
+    // manages both (input: false); the count defaults to 0, lockedUntil is null until a lockout fires.
+    failedVerificationCount: integer("failed_verification_count").notNull().default(0),
+    lockedUntil: integer("locked_until", { mode: "timestamp_ms" }),
   },
   // The twoFactor plugin schema marks secret and user_id `index: true`.
   (table) => [
@@ -295,4 +306,30 @@ export const outbox = sqliteTable(
     dispatchedAt: text("dispatched_at"),
   },
   (table) => [index("outbox_status_created_at_index").on(table.status, table.createdAt)],
+);
+
+// The control-plane token -> firm routing index for the forward/CC capture zone. The Email Worker
+// (apps/email-worker) receives mail on a SINGLE zone-level catch-all (`*@in.magnacarta.esq`) — the only
+// catch-all shape Cloudflare Email Routing supports — and holds no per-firm database handle, so it
+// resolves the local-part token to a firm HERE, then hands the token to the capture consumer, which
+// resolves it to a candidate matter against that firm's own email_capture_address store. Minted and
+// revoked alongside the per-firm email_capture_address row under emails:manageCaptureAddresses; the token
+// is opaque and server-minted, never client-derived. A revoked token stops routing the instant `active`
+// flips false, with no per-firm read.
+export const emailCaptureRoute = sqliteTable(
+  "email_capture_route",
+  {
+    // The opaque routing token IS the identity of a route: the Email Worker looks a route up by the local
+    // part it parsed, and rotation revokes this row and inserts a fresh token. A natural-key PK, the same
+    // idiom as `setting` keyed by its key — no separate handle would earn its keep here.
+    token: text("token").primaryKey(),
+    firmId: text("firm_id")
+      .notNull()
+      .$type<FirmId>()
+      .references(() => firm.id),
+    active: integer("active", { mode: "boolean" }).notNull().default(true),
+    createdAt: text("created_at").notNull(), // ISO-8601 instant
+    revokedAt: text("revoked_at"), // ISO-8601 instant; null while the token still routes
+  },
+  (table) => [index("email_capture_route_firm_id_index").on(table.firmId)],
 );

@@ -10,6 +10,8 @@ Render; rasterize-and-reassemble redaction + 3-layer gate; text-preserving **sur
 
 The safety net under surgery is four independent layers — **decode-first → tokenizer/lopdf count+name self-check → hayro outcome gate → surviving-text scan** — any of which forces a raster flatten rather than emit a doubtful result. Preserve this property in every change.
 
+Both redaction routes also clear the page's **annotations**, which are not part of the content stream a surgery rewrite touches and can hold a second copy of what a rectangle covers (a note's `/Contents`, a link URI, an appearance stream). Flatten drops every annotation on the page it rasterizes; surgery drops those standing over a rectangle plus the markup thread bound to them, and a page whose annotations cannot be cleared falls back to flatten. `split` applies the same reasoning to the page tree: a kept page's annotation may not keep a reference into a page the range excluded, because the object-graph walk would carry that page's content into the output.
+
 ## Next steps, by priority
 
 ### Tier 1 — finish and stabilize what just landed (cheap, do first)

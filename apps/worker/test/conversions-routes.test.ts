@@ -18,7 +18,7 @@ import {
 // path) with 422. Route A and Route C are checked for presence (not 404) against a seeded session.
 //
 // The end-to-end suite (further below) drives the full transient convert→download journey through
-// real Miniflare bindings using a FAKE engine injected through conversionQueue's resolvePort seam:
+// real Miniflare bindings using a FAKE engine injected through conversionQueue's resolver seam:
 // upload slot → source bytes in R2 → submit → drain queue → poll status → verified result.
 
 let firmId: FirmId;
@@ -34,8 +34,11 @@ beforeAll(async () => {
   firmId = (
     await seedFirm({ name: "Conversion Routes Firm", databaseIdentifier: "DB_FIRM_POOL_1" })
   ).firmId;
-  await env.DB_CONTROL.prepare("UPDATE firm SET bucket_name = 'R2' WHERE id = ?1")
-    .bind(firmId)
+  // Each firm records its own bucket name, as provisioning makes them differ (firm.bucket_name is
+  // UNIQUE — it is what an R2 event resolves back to a firm). The test pool binds a single bucket
+  // that stands in for both.
+  await env.DB_CONTROL.prepare("UPDATE firm SET bucket_name = ?2 WHERE id = ?1")
+    .bind(firmId, "conversion-routes-firm-bucket")
     .run();
   const owner = await seedCredentialedUser("conversion-owner@example.com", {
     userName: "Conversion Owner",
@@ -47,8 +50,8 @@ beforeAll(async () => {
   firmId2 = (
     await seedFirm({ name: "Conversion Tenant B Firm", databaseIdentifier: "DB_FIRM_POOL_2" })
   ).firmId;
-  await env.DB_CONTROL.prepare("UPDATE firm SET bucket_name = 'R2' WHERE id = ?1")
-    .bind(firmId2)
+  await env.DB_CONTROL.prepare("UPDATE firm SET bucket_name = ?2 WHERE id = ?1")
+    .bind(firmId2, "conversion-tenant-b-firm-bucket")
     .run();
   const owner2 = await seedCredentialedUser("conversion-owner-b@example.com", {
     userName: "Conversion Owner B",
@@ -141,6 +144,7 @@ describe("GET /api/v1/conversions/{jobId}", () => {
     const stub = env.CONVERSION_JOB.get(env.CONVERSION_JOB.idFromName(`${firmId}:${jobId}`));
     const startMessage: ConversionMessage = {
       firmId,
+      bucketName: "conversion-routes-firm-bucket",
       jobId,
       sourceKey,
       resultKey,
@@ -181,6 +185,7 @@ describe("GET /api/v1/conversions/{jobId}", () => {
     const stub = env.CONVERSION_JOB.get(env.CONVERSION_JOB.idFromName(`${firmId}:${jobId}`));
     const startMessage: ConversionMessage = {
       firmId,
+      bucketName: "conversion-routes-firm-bucket",
       jobId,
       sourceKey,
       resultKey,
@@ -209,8 +214,8 @@ describe("GET /api/v1/conversions/{jobId}", () => {
 // End-to-end journey: upload → submit → drain queue → poll result
 // ---------------------------------------------------------------------------
 // These three scenarios exercise the full transient convert→download path through real Miniflare
-// bindings. The libvips Container is deploy-time; a FAKE engine is injected through conversionQueue's
-// third-argument resolvePort seam so the consumer logic runs end-to-end without the Container.
+// bindings. The engine Container is deploy-time; a FAKE engine is injected through conversionQueue's
+// third-argument resolver seam so the consumer logic runs end-to-end without the Container.
 
 describe("E2E: happy path — upload→submit→drain→done", () => {
   it("authed member converts png→webp through a fake engine and retrieves a presigned result URL", async () => {
@@ -256,6 +261,7 @@ describe("E2E: happy path — upload→submit→drain→done", () => {
     const resultBytes = new Uint8Array([0x52, 0x49, 0x46, 0x46]); // fake WEBP header bytes
     const queueMessage: ConversionMessage = {
       firmId,
+      bucketName: "conversion-routes-firm-bucket",
       jobId,
       sourceKey,
       resultKey,
@@ -334,6 +340,7 @@ describe("E2E: tenant isolation — firm B cannot read firm A's job", () => {
     const resultBytes = new Uint8Array([0xde, 0xad, 0xbe, 0xef]);
     const queueMessage: ConversionMessage = {
       firmId,
+      bucketName: "conversion-routes-firm-bucket",
       jobId,
       sourceKey,
       resultKey,
@@ -400,6 +407,7 @@ describe("E2E: typed failure — engine-not-implemented ends the job failed", ()
     const resultKey = `conversions/${firmId}/${jobId}/result`;
     const queueMessage: ConversionMessage = {
       firmId,
+      bucketName: "conversion-routes-firm-bucket",
       jobId,
       sourceKey,
       resultKey,

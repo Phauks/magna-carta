@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  The baked user profile every worker starts from.
+
+  Three of these settings are security controls and one is hygiene. They are one of three
+  independent layers, none of which depends on the other two being correct: the packager rewrites
+  and drops external references before anything reaches the suite, this profile refuses to follow
+  what survives, and the container runs with outbound networking disabled so there is no network to
+  reach in the first place.
+
+  The supervisor copies this whole tree into each worker's own home directory before spawning it,
+  so every worker gets its own UserInstallation and the profile-lock contention that breaks
+  concurrent command-line conversions cannot arise even in principle.
+-->
+<oor:items xmlns:oor="http://openoffice.org/2001/registry" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <!-- Macro security at its highest setting: a converted document can never execute anything. -->
+  <item oor:path="/org.openoffice.Office.Common/Security/Scripting">
+    <prop oor:name="MacroSecurityLevel" oor:op="fuse">
+      <value>3</value>
+    </prop>
+  </item>
+  <item oor:path="/org.openoffice.Office.Common/Security/Scripting">
+    <prop oor:name="DisableMacrosExecution" oor:op="fuse">
+      <value>true</value>
+    </prop>
+  </item>
+  <!-- Never follow a link out of the document being converted. -->
+  <item oor:path="/org.openoffice.Office.Common/Security/Scripting">
+    <prop oor:name="BlockUntrustedRefererLinks" oor:op="fuse">
+      <value>true</value>
+    </prop>
+  </item>
+  <!-- Never update linked content on load: 0 is never, 1 is ask, 2 is always. -->
+  <item oor:path="/org.openoffice.Office.Writer/Content/Update">
+    <prop oor:name="Link" oor:op="fuse">
+      <value>0</value>
+    </prop>
+  </item>
+  <!-- Nothing here is interactive, so a format-warning dialog would be a hang, not a warning. -->
+  <item oor:path="/org.openoffice.Office.Common/Save/Document">
+    <prop oor:name="WarnAlienFormat" oor:op="fuse">
+      <value>false</value>
+    </prop>
+  </item>
+  <!-- The container has no egress; an update check would be a pointless stall at every boot. -->
+  <item oor:path="/org.openoffice.Office.Jobs/Jobs/org.openoffice.Office.Jobs:Job['UpdateCheck']/Arguments">
+    <prop oor:name="AutoCheckEnabled" oor:op="fuse">
+      <value>false</value>
+    </prop>
+  </item>
+</oor:items>

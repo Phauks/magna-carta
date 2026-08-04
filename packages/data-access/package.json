@@ -9,6 +9,8 @@
     "./idempotency-decision": "./src/idempotency-decision.ts",
     "./idempotency-statements": "./src/idempotency-statements.ts",
     "./member-statements": "./src/member-statements.ts",
+    "./email-filing-statements": "./src/email-filing-statements.ts",
+    "./email-capture-route-statements": "./src/email-capture-route-statements.ts",
     "./auth-audit-statements": "./src/auth-audit-statements.ts",
     "./audit-statements": "./src/audit-statements.ts",
     "./setting-statements": "./src/setting-statements.ts",
@@ -37,7 +39,8 @@
     "./firm-release-channel-statements": "./src/firm-release-channel-statements.ts",
     "./platform-operator-statements": "./src/platform-operator-statements.ts",
     "./ai-detection-usage-statements": "./src/ai-detection-usage-statements.ts",
-    "./file-repair-provenance-statements": "./src/file-repair-provenance-statements.ts"
+    "./file-repair-provenance-statements": "./src/file-repair-provenance-statements.ts",
+    "./index-split-statements": "./src/index-split-statements.ts"
   },
   "scripts": {
     "test": "vp test run"

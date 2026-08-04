@@ -1,4 +1,5 @@
 import { OpenAPIHono } from "@hono/zod-openapi";
+import type { SealPort } from "@magna-carta/signing/port";
 import type { Logger } from "@magna-carta/telemetry/logger";
 import {
   createWorkersLogger,
@@ -54,10 +55,13 @@ import { registerToolsTurnCredentialsRoute } from "./routes/tools-turn-credentia
 import { registerWhoisRoute, type WhoisRouteDeps } from "./routes/whois.ts";
 import { registerSafeBrowseRoute, type SafeBrowseRouteDeps } from "./routes/safe-browse.ts";
 import { registerDecryptionRoutes } from "./routes/decryption.ts";
+import { registerDocumentSealRoutes } from "./routes/document-seal.ts";
 import { registerRecoveryRoutes } from "./routes/recovery.ts";
 import { registerFileIntegrityRoutes } from "./routes/file-integrity.ts";
 import { registerFileTypeRoutes } from "./routes/file-type.ts";
 import { registerEmailInspectorRoutes } from "./routes/email-inspector.ts";
+import { registerEmailsRoutes } from "./routes/emails.ts";
+import { registerCaptureAddressRoutes } from "./routes/capture-addresses.ts";
 import { registerFileRepairRoutes } from "./routes/file-repair.ts";
 import { registerOcrRoutes } from "./routes/ocr.ts";
 import { registerAiDetectionRoutes } from "./routes/ai-detection.ts";
@@ -117,6 +121,10 @@ export type Bindings = {
   // (src/inference/inference-consumer.ts) runs env.AI.run, so a single firm cannot starve the shared
   // gateway cap synchronously on the request path. Distinct from QUEUE (jobs) and FILES_INGEST.
   INFERENCE: Queue;
+  // The email-capture queue: both entrances (the forward/CC Email Worker and the authenticated
+  // file-to-matter API) enqueue a pointer to the staged raw MIME; the emails-capture consumer runs the
+  // parse/dedup/thread-link/attachment work off the request path.
+  EMAILS_CAPTURE: Queue<import("./emails/capture-consumer.ts").EmailsCaptureMessage>;
   // The conversion-job coordinator: keyed firmId:jobId, single-flights one conversion per job.
   CONVERSION_JOB: DurableObjectNamespace<
     import("./conversions/conversion-coordinator.ts").ConversionJob
@@ -146,6 +154,22 @@ export type Bindings = {
   // Optional: absent in every test environment and until the deploy-time binding is added; while
   // unset, the ocr route returns 503 (the same posture the file-type and file-repair routes take).
   OCR_SERVICE?: Fetcher;
+  // The dedicated e-signature/seal engine worker (magna-carta-sign), reached over a service binding.
+  // It alone holds the platform signing key. Optional: absent in every test environment and until the
+  // deploy-time binding is added; while unset, the seal route returns 503 (deferred activation).
+  SIGN_SERVICE?: Fetcher;
+  // The dedicated discovery search-index worker (magna-carta-search), reached over a service binding.
+  // It owns the Tantivy engine Container (crates/search-core) and range-reads splits from R2. Optional:
+  // absent in every test environment and until the deploy-time binding is added; while unset,
+  // resolveSearchIndexPort returns the deferred port (engine-not-implemented).
+  SEARCH_SERVICE?: Fetcher;
+  // The search-index job coordinator: keyed firmId:documentId:version, single-flights one index build
+  // per document version and holds its outcome — including the `deferred` state a job parks in while the
+  // engines are undeployed.
+  SEARCH_INDEX_JOB: DurableObjectNamespace<import("./search/index-coordinator.ts").SearchIndexJob>;
+  // The search-index queue the coordinator enqueues onto; the consumer extracts a document version's
+  // text, builds its split through the SearchIndexPort, and converges the per-firm split catalog.
+  SEARCH_INDEX: Queue<import("./search/index-types.ts").SearchIndexMessage>;
   // The authenticated Workers AI binding — the only path inference reaches the gateway through (no raw
   // gateway token in any firm-reachable config). Pre-authenticated within the account.
   AI: Ai;
@@ -178,6 +202,18 @@ export type Bindings = {
   // call the network.
   R2_S3_ACCESS_KEY_ID?: string;
   R2_S3_SECRET_ACCESS_KEY?: string;
+  // The name of the bucket bound above as R2. An R2Bucket handle carries no name, so the bucket
+  // resolver (files/firm-bucket.ts) cannot otherwise tell whether the bucket a presigned URL
+  // addresses is the same one this Worker reads through — which is exactly the mismatch that would
+  // send a firm's uploaded bytes somewhere no read path can reach. A public resource name, not a
+  // secret: bound via wrangler.jsonc vars alongside the binding it names.
+  R2_BUCKET_NAME?: string;
+  // The zone every forward/CC capture address lives on (e.g. in.magnacarta.esq) — the mint composes
+  // `<token>@<this>` so a person can copy the address straight out of the response. A public hostname,
+  // not a secret: bound via wrangler.jsonc vars. Optional, because the same default the receiving
+  // Email Worker applies (@magna-carta/email-filing/capture-address) is correct for the production
+  // zone; a deployment on another zone sets it here and on that worker together.
+  CAPTURE_ROOT_DOMAIN?: string;
   // The files-ingest queue's Cloudflare UUID — the REST FirmResourceProvider targets it when
   // configuring a firm bucket's object-create notification. A deploy-time fact (absent locally,
   // where the dev adapter runs and Miniflare delivers no R2 notifications).
@@ -305,6 +341,9 @@ export interface CreateAppOptions {
   // Production defaults: createBrowserRenderer(c.env.BROWSER) + createFetchRedirectProbe().
   // Tests ALWAYS supply safeBrowseDeps so c.env.BROWSER is never accessed in the test pool.
   safeBrowseDeps?: SafeBrowseRouteDeps;
+  // Overrides the seal port for tests (a fake SealPort). Production resolves it from the SIGN_SERVICE
+  // binding inside the route; while that binding is unset, the route returns 503 (deferred activation).
+  sealPort?: SealPort;
 }
 
 export function createApp(options: CreateAppOptions = {}) {
@@ -437,8 +476,13 @@ export function createApp(options: CreateAppOptions = {}) {
   registerFileIntegrityRoutes(app, chokepoint);
   registerFileTypeRoutes(app, chokepoint);
   registerEmailInspectorRoutes(app, chokepoint);
+  registerEmailsRoutes(app, chokepoint);
+  // The writer for the forward/CC token index: minting an address is what makes a capture token
+  // resolve to a firm and a matter. Registered beside the emails surface it feeds.
+  registerCaptureAddressRoutes(app, chokepoint);
   registerFileRepairRoutes(app, chokepoint);
   registerOcrRoutes(app, chokepoint);
+  registerDocumentSealRoutes(app, chokepoint, options.sealPort);
   registerAiDetectionRoutes(app, chokepoint);
   registerMetadataRoutes(app, chokepoint);
   registerMembersRoute(app, chokepoint, authForEnv);

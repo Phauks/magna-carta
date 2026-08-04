@@ -86,6 +86,37 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
   { table: "conflicts_check", subjectKey: "actor_user_id", action: "pseudonymize-keep" },
   { table: "conflicts_hit", subjectKey: "entity_id", action: "pseudonymize-keep" },
   { table: "conflicts_disposition", subjectKey: "reviewer_user_id", action: "pseudonymize-keep" },
+  // Email filing — a captured message is correspondence on the matter file, so the retention basis is
+  // the matter corpus and the subject-side scrub happens at the Directory entity, as with matter_party.
+  // These rows resolve to a subject by frozen address VALUE as well as by resolved entity id, the only
+  // entries here that do: the address string is what the capture core itself resolves against through
+  // the Directory reverse address lookup, and a participant the Directory never matched
+  // (directory_entity_id null) carries no id at all — keying only on the id would leave exactly the
+  // unresolved people, the ones with no Directory record to scrub, invisible to erasure.
+  {
+    table: "email_message",
+    subjectKey: "from_address",
+    action: "retain-under-matter",
+    note: "the sender frozen as-at receipt; the subject line and the verbatim R2 original are content-level residue for the residue report",
+  },
+  {
+    table: "email_participant",
+    subjectKey: "directory_entity_id",
+    action: "retain-under-matter",
+    note: "who was on a message is part of the correspondence record",
+  },
+  {
+    table: "email_participant",
+    subjectKey: "address",
+    action: "retain-under-matter",
+    note: "the frozen header string is itself the record, and the only handle on a participant left unresolved",
+  },
+  {
+    table: "email_matter_link",
+    subjectKey: "linked_by",
+    action: "retain-under-matter",
+    note: "which firm member filed a message to a matter, and when, is the filing's provenance on that matter record",
+  },
 ];
 
 // Per-firm tables that hold NO personal data — the explicit non-PII half of the coverage fitness.
@@ -124,6 +155,9 @@ export const NO_PII_TABLES: readonly string[] = [
   "document_type",
   "numbering_scheme",
   "matter_number_counter",
+  // The drawn-number allocation ledger behind that counter: a scope key, the integer drawn, the matter
+  // it went to, and when. Numbering bookkeeping about a matter, carrying no column about a person.
+  "matter_number_allocation",
   // matter is matter-scoped metadata, BUT matter.client_display_name/client_code can hold a
   // prospective client's name pre-Directory-link, with no structured subject key to resolve — a known
   // residual in the same class as shipment-address JSON (handled by the residue report / a product
@@ -170,4 +204,23 @@ export const NO_PII_TABLES: readonly string[] = [
   "utbms_code",
   "non_billable_category",
   "narrative_template",
+  // Discovery search-index catalog — index metadata only (split object key, document/byte counts,
+  // schema generation, timestamps, and the matter id). The searchable text and any personal data it
+  // contains live in the split object in R2 and are erased by re-indexing the source, not by a row
+  // here; this catalog carries no data-subject personal data.
+  "index_split",
+  // Email filing structure — the personal data of a captured message lives on email_message and
+  // email_participant (both registered above); these three carry none of their own.
+  // A thread row is the conversation grouping key plus a normalized-subject fallback; a subject line is
+  // message content, not a structured data-subject column (mirrors matter.description above).
+  "email_thread",
+  // The link from a message part to its File Manager document — declared filename, media type, and
+  // extraction outcome. The document's matter-corpus retention is expressed by the file entry, exactly
+  // as for file_version above.
+  "email_attachment",
+  // A firm-owned inbound routing token: server-minted and opaque, addressed to the firm rather than to
+  // any person, so it is not a mailbox belonging to a data subject. created_by is administrative
+  // provenance on a configuration row — current state, not an activity record about the member (the
+  // same line integration_connection and scoped_setting sit on).
+  "email_capture_address",
 ];

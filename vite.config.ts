@@ -95,13 +95,28 @@ export default defineConfig({
   },
   // Per-package test projects. apps/worker and apps/status-worker run their tests inside Miniflare via @cloudflare/vitest-pool-workers, which only activates when their own config (apps/worker/vitest.config.ts, apps/status-worker/vitest.config.ts) is loaded, so each is registered as a Vitest project here; otherwise root `vp test` would run the worker test under the default pool and `cloudflare:test` would not resolve.
   // The design-system Storybook story tests (browser-mode Chromium via Playwright + per-story axe) are registered explicitly: Vitest ignores `test.projects` nested inside a config loaded as a project, so the glob entry alone would silently skip them at the root (the package's vitest.config.ts then only contributes its unit tests). Requires the Chromium binary: `pnpm --filter @magna-carta/design-system exec playwright install chromium` (CI too).
+  // This list is CLOSED: a project not registered here is invisible to root `vp test` and therefore to
+  // CI — its tests run nowhere and nothing fails. Every app or tooling dir that gains a vitest.config.ts
+  // must be added here (and to the gate's test-node paths, .github/workflows/gate.yml). The standalone
+  // sibling workers below run default-pool unit tests (faked container/R2 bindings — no Miniflare).
   test: {
     projects: [
       "apps/web/vitest.config.ts",
       "apps/worker/vitest.config.ts",
       "apps/status-worker/vitest.config.ts",
+      "apps/bundle-worker/vitest.config.ts",
+      "apps/convert-worker/vitest.config.ts",
+      "apps/email-worker/vitest.config.ts",
+      "apps/file-repair-worker/vitest.config.ts",
+      "apps/magna-carta-edit/vitest.config.ts",
+      "apps/ocr-worker/vitest.config.ts",
+      "apps/recovery-worker/vitest.config.ts",
+      "apps/scan-worker/vitest.config.ts",
+      "apps/sign-worker/vitest.config.ts",
       "packages/*/vitest.config.ts",
       "packages/design-system/vitest.storybook.config.ts",
+      "tooling/bootstrap/vitest.config.ts",
+      "tooling/check-scoped/vitest.config.ts",
       "tooling/doc-fragments/vitest.config.ts",
       "tooling/worktrees/vitest.config.ts",
       "tooling/clean/vitest.config.ts",

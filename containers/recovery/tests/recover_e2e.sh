@@ -13,12 +13,14 @@ IMAGE=magna-carta-recovery:e2e
 CONTAINER=magna-carta-recovery-e2e
 PORT=18081
 REPO_ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
+# shellcheck source=../../docker-build.sh
+. "$REPO_ROOT/containers/docker-build.sh"
 
 cleanup() { docker rm -f "$CONTAINER" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 
 echo "building $IMAGE (linux/amd64, context: repo root) ..."
-docker build --platform linux/amd64 \
+container_build --platform linux/amd64 \
   -f "$REPO_ROOT/containers/recovery/Dockerfile" \
   -t "$IMAGE" \
   "$REPO_ROOT"

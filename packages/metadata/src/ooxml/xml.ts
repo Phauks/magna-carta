@@ -11,6 +11,10 @@ const PARSER_OPTIONS = {
   trimValues: false,
   // Self-closing and empty elements must survive the round-trip unchanged.
   parseTagValue: false,
+  // Drop the source declaration: buildXml writes exactly one back. Keeping it in the tree makes the
+  // builder emit a SECOND declaration after the one buildXml prepends, and a part with two of them
+  // is not well-formed XML — a "cleaned" document that no reader will open.
+  ignoreDeclaration: true,
 } as const;
 
 const BUILDER_OPTIONS = {

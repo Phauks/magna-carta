@@ -10,6 +10,28 @@
 # independent jobs in parallel. Each heavy job is skipped when the diff can't affect it (a docs-only push
 # runs only format + governance), so cost tracks what changed. The `gate` job aggregates them into the
 # single required status. Rationale: docs/conventions/build-performance.md (fast CI is a foundation).
+# Every job carries a timeout-minutes cap set comfortably above its honest wall-clock (cold caches
+# included), so a genuine hang fails fast and visibly instead of burning a runner toward GitHub's 6-hour
+# default; when a job's honest time grows, raise its cap rather than letting it flirt with the limit.
+#
+# TIERS. The same change is verified up to three times — on its pull request, on the push that merges it,
+# and again by the scheduled sweep — and running an identical full battery each time buys nothing. So
+# each trigger runs the pass that only IT can run:
+#   • pull_request — the full battery, with the type-aware lint scoped to the changed packages plus one
+#     hop of direct dependents. This is the tier a human waits on, so it optimizes for latency.
+#   • push to main — the merged tree gets the whole-repo type-check and the FULL transitive lint closure
+#     (the two things the pull request deliberately did not do), and skips the test battery the pull
+#     request already ran on the same content. Sound only in combination with up-to-date-before-merge:
+#     a branch that must be current with `main` to merge has already been tested against exactly this
+#     tree, so re-running seven test runners re-proves a proof. What it does NOT cover is two branches
+#     that merge in quick succession and interact semantically without touching the same files — which
+#     is what the scheduled sweep below and the merge_group trigger are for.
+#   • schedule — the full battery with an unscoped lint, from a cold start, every night. This is the
+#     backstop for the interleaving window above, and it lands long before any deliberate
+#     `git push main:release` turns `main` into a deploy.
+#   • merge_group — the full battery. If a merge queue is ever enabled (a repository setting), the queue
+#     builds the exact post-merge tree, which closes the interleaving window at its source rather than
+#     catching it after the fact. Wired now so enabling the setting needs no workflow change.
 name: gate
 
 on:
@@ -17,14 +39,24 @@ on:
     branches: [main]
   push:
     branches: [main]
+  # Full-battery proof of a queued merge's real post-merge tree. Inert until a merge queue is enabled
+  # on the repository; harmless to carry until then.
+  merge_group:
+  # The nightly unscoped sweep. Its diff base resolves to nothing (there is no event base and HEAD is
+  # already `main`), which the `changes` job's empty-diff branch turns into "run everything, lint ALL" —
+  # exactly the cold, unscoped pass this tier is for.
+  schedule:
+    - cron: "0 8 * * *"
   # The assemble-docs workflow dispatches the gate onto its `docs-assembly` branch: a PR created with
   # the workflow's own token fires no pull_request events, so the required `gate` status must be
   # produced explicitly for auto-merge to complete.
   workflow_dispatch:
 
-# One in-flight run per ref; a newer push cancels the older run.
+# One in-flight run per ref PER TRIGGER; a newer push cancels the older run. The event name is part of
+# the group so the nightly sweep and a push to `main` — which share a ref — cannot cancel each other and
+# leave a spurious red `cancelled` status on a commit.
 concurrency:
-  group: gate-${{ github.ref }}
+  group: gate-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -35,11 +67,16 @@ jobs:
   # (no third-party action) against the PR base or the push's previous tip.
   changes:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       code: ${{ steps.filter.outputs.code }}
       rust: ${{ steps.filter.outputs.rust }}
       containers: ${{ steps.filter.outputs.containers }}
       lint_scope: ${{ steps.filter.outputs.lint_scope }}
+      # The test battery's tier switch and the test-worker shard split — see the emitting step.
+      test_battery: ${{ steps.filter.outputs.test_battery }}
+      worker_shards: ${{ steps.filter.outputs.worker_shards }}
+      worker_shard_list: ${{ steps.filter.outputs.worker_shard_list }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -49,30 +86,113 @@ jobs:
         id: filter
         env:
           BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          EVENT_NAME: ${{ github.event_name }}
+          # A push to `main` is the one trigger that re-verifies a tree a pull request already proved.
+          # `github.ref` is checked as well as the event so a push to any other branch (there are none
+          # today, but the trigger list can grow) still gets the full battery.
+          IS_PUSH_TO_MAIN: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         run: |
           base="$BASE"
           if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$base" 2>/dev/null; then
-            base="$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)"
+            # No usable event base (workflow_dispatch, or a push whose `before` is unreachable): diff
+            # against the merge-base with origin/main — sound for a branch of any commit count, where
+            # HEAD~1 would under-classify a multi-commit branch and wrongly skip the heavy jobs.
+            base="$(git merge-base origin/main HEAD 2>/dev/null || git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)"
           fi
           files="$(git diff --name-only "$base" HEAD)"
           echo "diff base: $base"
           echo "changed files:"; echo "$files"
           emit() { echo "$1=$2" >> "$GITHUB_OUTPUT"; echo "filter: $1=$2"; }
-          # code = any changed file that is not purely markdown (a docs-only push skips the heavy jobs).
-          if echo "$files" | grep -qvE '\.md$'; then emit code true; else emit code false; fi
-          if echo "$files" | grep -qE '^crates/|(^|/)Cargo\.(toml|lock)$|wasm\.Dockerfile$'; then emit rust true; else emit rust false; fi
-          if echo "$files" | grep -qE '^containers/'; then emit containers true; else emit containers false; fi
+          # The test battery is skipped only on a push to `main`, where the pull request that produced
+          # the tree already ran it (see the tier note at the top of this file). Every other trigger —
+          # including the nightly sweep and a merge-queue build — runs it.
+          if [ "$IS_PUSH_TO_MAIN" = "true" ]; then
+            emit test_battery false
+          else
+            emit test_battery true
+          fi
+          if [ -z "$files" ]; then
+            # An empty diff means base resolution found nothing to compare (e.g. the nightly schedule,
+            # or a dispatch on main itself). Fail safe: run everything rather than skip anything, at the
+            # widest lint scope and the widest shard split.
+            emit code true; emit rust true; emit containers true; emit lint_scope ALL
+            emit worker_shards 4; emit worker_shard_list '[1,2,3,4]'
+            exit 0
+          fi
+          # Documentation and the rendered trackers cannot affect any build or test output, so they are
+          # excluded before classification: a docs-only push runs only format + governance (which cover
+          # markdown and the fragment model between them), and a README edit inside crates/ or
+          # containers/ no longer triggers that area's heavy job. The fragment directories and their
+          # rendered outputs belong here for the same reason and for one more: the per-merge assembly
+          # commit that folds changelog.d/status.d into CHANGELOG.md, STATUS.md and STATUS.json moves no
+          # build input, yet STATUS.json is not markdown, so a markdown-only exclusion booted the entire
+          # code battery on every single merge. Nothing in the repo reads any of these at build or test
+          # time — they are formatter-ignored generated text — so excluding them is a classification
+          # fix, not a narrowing of coverage.
+          non_code='\.md$|^STATUS\.json$|^(docs|changelog\.d|status\.d|roadmap\.d)/'
+          # …with one exception put straight back: a file with a source extension is a real input
+          # wherever it lives, so a script landing under one of those trees is still a code change (and
+          # affected-lint would independently force a whole-repo lint for it).
+          source_extension='\.(ts|tsx|mts|cts|js|mjs|cjs|svelte|rs)$'
+          code_files="$(printf '%s\n' "$files" | grep -vE "$non_code" || true)"
+          source_under_docs="$(printf '%s\n' "$files" | grep -E "$non_code" | grep -E "$source_extension" || true)"
+          if [ -n "$source_under_docs" ]; then
+            echo "source file under a documentation path — kept in scope:"; echo "$source_under_docs"
+            code_files="$(printf '%s\n%s\n' "$code_files" "$source_under_docs" | grep -v '^$' || true)"
+          fi
+          if [ -n "$code_files" ]; then emit code true; else emit code false; fi
+          # crates/ holds every manifest, source file, and wasm.Dockerfile the rust job covers (the
+          # container Cargo workspaces are the containers job's concern); a toolchain bump re-verifies
+          # the crates workspace too.
+          if echo "$code_files" | grep -qE '^crates/|^rust-toolchain\.toml$'; then emit rust true; else emit rust false; fi
+          if echo "$code_files" | grep -qE '^containers/'; then emit containers true; else emit containers false; fi
           # The minimal package set the type-aware lint must cover (ALL | NONE | space-separated dirs) —
-          # pure node, no deps, runs on the runner's system node. See tooling/affected-lint.
-          emit lint_scope "$(node tooling/affected-lint/index.mjs --base "$base")"
+          # pure node, no deps, runs on the runner's system node. See tooling/affected-lint. A classifier
+          # crash fails this job: its contract has no empty value, and downstream must never guess.
+          #
+          # DEPTH. A pull request walks ONE hop of direct dependents; every other trigger walks the full
+          # transitive closure. Depth is a latency dial rather than a correctness one because the
+          # unbounded walk still runs before the change can ship: on the push that merges it, again on
+          # the nightly sweep, and on the merge-queue build if one is enabled. What one hop buys is the
+          # foundational-package case — a change to a package half the repo depends on currently
+          # re-lints that entire dependent set at pull-request time, which is the single most expensive
+          # thing this gate does and the one a human is actually waiting on.
+          if [ "$EVENT_NAME" = "pull_request" ]; then hops=1; else hops=all; fi
+          echo "affected-lint: dependent-walk depth = $hops"
+          scope="$(node tooling/affected-lint/index.mjs --base "$base" --max-hops "$hops")" || {
+            echo "affected-lint: classifier failed — no sound lint scope" >&2
+            exit 1
+          }
+          emit lint_scope "$scope"
+
+          # test-worker's shard count. Sharding changes only how the SAME set of test files is divided
+          # across runners — `--shard=i/N` partitions the whole suite for any N — so this is a pure
+          # cost dial with no coverage consequence. It matters because each shard pays a fixed ~3 min of
+          # checkout, install and artefact download before it runs a test: on a small change, four
+          # shards bill four times that overhead to split a few minutes of work. Two shards keep the
+          # parallelism that matters and halve the overhead. "Small" is mechanical: a modest file count
+          # AND a lint scope that is neither whole-repo nor a broad dependent fan-out — the same signal
+          # affected-lint already computes for whether a foundational package moved.
+          file_count="$(printf '%s\n' "$code_files" | grep -c . || true)"
+          scope_width="$(printf '%s\n' "$scope" | wc -w | tr -d ' ')"
+          echo "changed code files: $file_count; lint scope width: $scope_width"
+          if [ "$scope" != "ALL" ] && [ "$file_count" -le 20 ] && [ "$scope_width" -le 6 ]; then
+            emit worker_shards 2; emit worker_shard_list '[1,2]'
+          else
+            emit worker_shards 4; emit worker_shard_list '[1,2,3,4]'
+          fi
 
   # Build the Rust→WASM artefacts once. Cache them across runs keyed on the Rust sources, so a push that
   # touches no crate restores in seconds instead of paying the ~7-minute cold Docker build; share them to
   # the consumer jobs (lint/type-check/tests/contracts) as an artefact so each doesn't rebuild.
+  # The key covers the Rust inputs only — the build command itself (the rust-wasm-build task in
+  # vite.config.ts) is not keyed, a deliberate trade so config-only edits don't cold-build; if you change
+  # that task in a way that alters its output, also touch a keyed input so the cache busts.
   wasm:
     needs: changes
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
 
@@ -108,6 +228,7 @@ jobs:
   # Formatting covers markdown too, so it runs on every change (including docs-only) and needs no WASM.
   format:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
@@ -121,10 +242,14 @@ jobs:
     needs: [changes, wasm]
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
-    # tsgolint building the app worker's whole-program type graph is the tall pole (~24 min for the whole
-    # repo). Cap well above that so a genuine tsgolint deadlock or runaway fails fast and visibly instead
-    # of burning the runner to GitHub's 6-hour default; raise this if the honest whole-repo time grows.
-    timeout-minutes: 45
+    # tsgolint building the app worker's whole-program type graph is the tall pole. The whole-repo pass
+    # measured ~45 min on a 4-core/16 GB box (1851 files) — it was ~24 min when this cap was first set,
+    # and it grew with the package count, so the cap has to lead that growth rather than track it. Cap
+    # well above the honest time so a genuine tsgolint deadlock or runaway fails fast and visibly instead
+    # of burning the runner to GitHub's 6-hour default; re-measure and raise this when the repo grows.
+    # Only the merge and scheduled tiers pay the whole-repo pass — a pull request lints the affected
+    # packages plus one hop, which is seconds to minutes and nowhere near this cap.
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
@@ -133,31 +258,61 @@ jobs:
           name: wasm-pkg
       - run: tar -xzf wasm-pkg.tgz
       - name: Lint (type-aware, affected packages only)
-        # The `changes` job computed the affected set — the changed packages plus their transitive
-        # dependents (a type-aware finding in an unchanged file can flip when a dependency changes), or
-        # ALL when a global input moved. Scoping the paths scopes tsgolint's cost; the whole repo is the
-        # ~24-min tall pole, one package is seconds. Only lint is scoped — type-check/tests/contracts
-        # still run whole-repo. Mechanism + soundness: tooling/affected-lint, docs build-performance.md.
+        # The `changes` job computed the affected set — the changed packages plus their dependents (a
+        # type-aware finding in an unchanged file can flip when a dependency changes), or ALL when a
+        # global input moved. Scoping the paths scopes tsgolint's cost; the whole repo is the ~45-min
+        # tall pole, one package is seconds. The dependent walk is one hop deep on a pull request and
+        # unbounded on every other trigger, so the full closure is always proved before a change can
+        # ship. Only lint is scoped — type-check/tests/contracts still run whole-repo. Mechanism +
+        # soundness: tooling/affected-lint, docs/conventions/build-performance.md.
         env:
           SCOPE: ${{ needs.changes.outputs.lint_scope }}
+          # tsgolint is a Go program: on the whole-repo pass its live type graph is only a few GB, but the
+          # Go runtime lets the heap balloon to ~2x the live set before collecting, and that transient
+          # overshoot crosses the 16 GB runner ceiling and OOM-aborts (SIGABRT) at whatever diagnostic it
+          # is formatting when memory runs out — a moving crash point, not a lint error. A soft heap limit
+          # forces the collector to run before the overshoot instead of after, keeping peak RSS under the
+          # runner. Sized well above the observed ~6 GB live set (no GC thrash) and well under 16 GB
+          # (headroom for the node/oxc driver + OS). Raise it if the honest live graph grows.
+          GOMEMLIMIT: 10GiB
         run: |
+          # vp's stdout must be a FILE here, not the runner's pipe. Node flips a pipe stdout to
+          # non-blocking, and Vite+'s native lint printer panics on the resulting EAGAIN ("failed
+          # printing to stdout: Resource temporarily unavailable") when a large warning flood outruns
+          # the log reader — a whole-repo run with the advisory warn catalogs dies with SIGABRT after
+          # ~25 minutes, timing-dependent. A regular file cannot return EAGAIN, so the redirect makes
+          # the run deterministic; the output is replayed into the log afterward either way.
+          run_lint() {
+            local out="$RUNNER_TEMP/lint-output.txt" code=0
+            pnpm exec vp check --no-fmt "$@" > "$out" 2>&1 || code=$?
+            cat "$out"
+            return "$code"
+          }
           if [ "$SCOPE" = "ALL" ]; then
             echo "affected-lint: linting the whole repo"
-            pnpm exec vp check --no-fmt
+            run_lint
           elif [ "$SCOPE" = "NONE" ]; then
             echo "affected-lint: no lintable package affected — nothing to lint"
+          elif [ -z "$SCOPE" ]; then
+            # The classifier's contract is ALL | NONE | dirs; empty means the changes job handed over
+            # something unexpected. Fail rather than guess a scope.
+            echo "affected-lint: empty scope — refusing to guess" >&2
+            exit 1
           else
             echo "affected-lint: linting affected packages — $SCOPE"
             # Intentional word-splitting: each dir is a separate path argument to vp check.
-            pnpm exec vp check --no-fmt $SCOPE
+            run_lint $SCOPE
           fi
 
   # The authoritative type-check: tsc -b across the project-reference graph, the tsconfig-refs guard, the
-  # api-client type-check, and svelte-check for the SPA and the design system.
+  # api-client type-check, and svelte-check for the SPA and the design system. Each surface is its own
+  # named step so a red run says WHICH one failed without reading logs. Lint is deliberately not here:
+  # the type-aware lint is the separate `lint` job above, so the tall pole never serializes behind these.
   typecheck:
     needs: [changes, wasm]
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
@@ -165,13 +320,39 @@ jobs:
         with:
           name: wasm-pkg
       - run: tar -xzf wasm-pkg.tgz
-      - name: Type-check (tsc -b + svelte-check)
-        run: |
-          pnpm exec vp run typecheck
-          node tooling/tsconfig-refs/index.mjs --check
-          pnpm --filter @magna-carta/api-client run typecheck
-          pnpm --filter @magna-carta/web check
-          pnpm --filter @magna-carta/design-system check
+
+      - name: Restore the TypeScript incremental state
+        # `tsc -b` is incremental by design — every project is composite and writes a .tsbuildinfo
+        # recording each input's content hash — but CI threw that state away after every run, so the
+        # authoritative type-check paid a cold whole-program build every time. Persisting the .tsbuild
+        # directories lets it re-check only the projects whose inputs actually moved, which is the
+        # remaining affected-graph work docs/conventions/build-performance.md calls out.
+        #
+        # Keyed on the commit, restoring the newest entry the branch can see: an incremental cache wants
+        # the CLOSEST previous state, not an exact match, and correctness does not depend on getting it.
+        # tsc compares the recorded content hashes against the files on disk, so a stale or partial
+        # restore costs re-checking, never a wrong answer — the failure mode of a bad guess here is a
+        # slow build, not a missed type error.
+        uses: actions/cache@v6
+        with:
+          path: |
+            apps/*/.tsbuild
+            packages/*/.tsbuild
+            plugins/*/.tsbuild
+          key: tsbuild-${{ runner.os }}-node22-${{ github.sha }}
+          restore-keys: |
+            tsbuild-${{ runner.os }}-node22-
+
+      - name: Type-check the project-reference graph (tsc -b)
+        run: pnpm exec vp run typecheck
+      - name: Guard the tsconfig project references
+        run: node tooling/tsconfig-refs/index.mjs --check
+      - name: Type-check the generated api-client
+        run: pnpm --filter @magna-carta/api-client run typecheck
+      - name: svelte-check — web app
+        run: pnpm --filter @magna-carta/web check
+      - name: svelte-check — design system
+        run: pnpm --filter @magna-carta/design-system check
 
   # The Rust workspace gate (cargo fmt --check + clippy -D warnings + tests). Runs on the host toolchain
   # with a cached cargo/target — independent of the Docker WASM build — and only when a crate changed.
@@ -179,6 +360,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
@@ -193,24 +375,31 @@ jobs:
   # Storybook stories (Chromium via Playwright). Splitting by substrate lets each scale independently and,
   # crucially, keeps the Playwright install in the ONE job that needs a browser instead of on every shard.
   #
-  # Completeness is by construction — the three jobs partition every test file exactly once:
+  # Completeness is by construction — the three jobs partition every REGISTERED test file exactly once:
   #   • test-stories runs the `storybook` project (the only browser suite);
   #   • test-worker runs the files under apps/worker + apps/status-worker (the only Miniflare suites);
-  #   • test-node runs everything else (packages + apps/web + tooling) with the `storybook` project
+  #   • test-node runs everything else — packages, apps/web, the standalone sibling workers
+  #     (default-pool unit tests with faked bindings), and tooling — with the `storybook` project
   #     excluded, so no browser boots here.
   # storybook is the only project that spans a path root (it lives under packages/design-system), so it
   # is the only one that must be included-by-name in one job and excluded-by-name from another; every
-  # other file belongs to exactly one path root. Adding a new top-level test area means adding its path to
-  # test-node (or a new job) — a missed path fails loud via --passWithNoTests being off, not silently.
+  # other file belongs to exactly one path root. Adding a new test area is TWO registrations: its vitest
+  # config into the root vite.config.ts `test.projects` list (a closed list — an unregistered project's
+  # tests run nowhere, and nothing can fail on their absence), and its path into test-node (or a new
+  # job), where a mis-scoped path fails loud via --passWithNoTests being off, not silently.
   # The heavy substrates (node, worker) shard within their job; bump the SHARD_TOTAL + matrix pair to
   # change a count. fail-fast off so one shard's failure still lets its siblings report.
 
-  # Plain node/unit suites — packages + the web app's node tests + tooling. No Miniflare, no browser; the
-  # storybook project is excluded so no Chromium is needed here. The bulk of the tests, cheapest per file.
+  # Plain node/unit suites — packages + the web app's node tests + the standalone sibling workers +
+  # tooling. No Miniflare, no browser; the storybook project is excluded so no Chromium is needed here.
+  # The bulk of the tests, cheapest per file.
   test-node:
     needs: [changes, wasm]
-    if: needs.changes.outputs.code == 'true'
+    # `test_battery` is false only on a push to `main`, where the pull request that produced this exact
+    # tree already ran these suites — see the tier note at the top of this file.
+    if: needs.changes.outputs.code == 'true' && needs.changes.outputs.test_battery == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -225,20 +414,28 @@ jobs:
           name: wasm-pkg
       - run: tar -xzf wasm-pkg.tgz
       - name: Tests — node (shard ${{ matrix.shard }}/${{ env.SHARD_TOTAL }})
-        run: pnpm exec vp test run --project='!storybook' --shard=${{ matrix.shard }}/${{ env.SHARD_TOTAL }} packages apps/web tooling
+        run: >-
+          pnpm exec vp test run --project='!storybook' --shard=${{ matrix.shard }}/${{ env.SHARD_TOTAL }}
+          packages apps/web apps/bundle-worker apps/convert-worker apps/email-worker
+          apps/file-repair-worker apps/magna-carta-edit apps/ocr-worker apps/recovery-worker
+          apps/scan-worker tooling
 
   # The Miniflare worker suites (@cloudflare/vitest-pool-workers) — the heaviest substrate, since each file
   # stands up its own Workers runtime with the wrangler bindings. Its own sharded job; no browser.
   test-worker:
     needs: [changes, wasm]
-    if: needs.changes.outputs.code == 'true'
+    if: needs.changes.outputs.code == 'true' && needs.changes.outputs.test_battery == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        # Shard count comes from the `changes` job: 2 on a small diff, 4 otherwise. `--shard=i/N`
+        # partitions the whole suite for either N, so this trades wall-clock for the fixed per-shard
+        # setup cost and never changes which files run.
+        shard: ${{ fromJSON(needs.changes.outputs.worker_shard_list) }}
     env:
-      SHARD_TOTAL: 4
+      SHARD_TOTAL: ${{ needs.changes.outputs.worker_shards }}
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
@@ -256,8 +453,9 @@ jobs:
   # boot, so it shards poorly and needs none.
   test-stories:
     needs: [changes, wasm]
-    if: needs.changes.outputs.code == 'true'
+    if: needs.changes.outputs.code == 'true' && needs.changes.outputs.test_battery == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
@@ -292,6 +490,7 @@ jobs:
   # slip through a docs-only push.
   governance:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
@@ -309,6 +508,10 @@ jobs:
         # silently passes.
         env:
           OSV_SCANNER_VERSION: "2.4.0"
+          # SHA256 of osv-scanner_linux_amd64, taken from the release's osv-scanner_SHA256SUMS. Pinned so a
+          # swapped or compromised release asset fails the gate instead of running. Update this in lockstep
+          # with OSV_SCANNER_VERSION (the hash for the new version is in that version's osv-scanner_SHA256SUMS).
+          OSV_SCANNER_SHA256: "15314940c10d26af9c6649f150b8a47c1262e8fc7e17b1d1029b0e479e8ed8a0"
         run: |
           # GitHub's default bash shell runs with -e (errexit); osv-scanner exits 1 on the normal
           # "advisories present" case, which would abort the step before the severity classifier runs.
@@ -317,6 +520,12 @@ jobs:
           mkdir -p "$RUNNER_TEMP/bin"
           curl -fsSL -o "$RUNNER_TEMP/bin/osv-scanner" \
             "https://github.com/google/osv-scanner/releases/download/v${OSV_SCANNER_VERSION}/osv-scanner_linux_amd64"
+          # Verify the download against the pinned hash before making it executable — fail closed on any
+          # mismatch so a tampered binary never runs.
+          if ! echo "${OSV_SCANNER_SHA256}  $RUNNER_TEMP/bin/osv-scanner" | sha256sum -c -; then
+            echo "osv-scanner binary failed SHA256 verification (expected ${OSV_SCANNER_SHA256}) — refusing to run" >&2
+            exit 1
+          fi
           chmod +x "$RUNNER_TEMP/bin/osv-scanner"
           export PATH="$RUNNER_TEMP/bin:$PATH"
           osv-scanner --version
@@ -333,6 +542,7 @@ jobs:
             -L crates/Cargo.lock \
             -L containers/bundle/Cargo.lock \
             -L containers/file-repair/Cargo.lock \
+            -L containers/libreoffice/Cargo.lock \
             -L containers/ocr/Cargo.lock \
             -L containers/raster/Cargo.lock \
             -L containers/recovery/Cargo.lock \
@@ -383,11 +593,12 @@ jobs:
           echo "osv-scanner: HIGH/CRITICAL advisories remain after ignores — failing the gate:" >&2
           printf '%s' "$offenders" | jq -r '.[] | "  [\(.ecosystem)] \(.package): \(.ids | join(", ")) (max_severity=\(.max_severity), \(.classified_by))"' >&2
           exit 1
-      - name: Governance (process-refs + licenses + status fragments)
+      - name: Governance (process-refs + licenses + status fragments + test registration)
         run: |
           pnpm run lint:process-refs
           pnpm run lint:licenses
           pnpm run lint:status
+          pnpm run lint:test-registration
       - name: Migration integrity (journal/chain/rebuild guards)
         run: pnpm --filter @magna-carta/database exec vp test run test/migration-integrity.test.ts
 
@@ -397,6 +608,7 @@ jobs:
     needs: [changes, wasm]
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
@@ -423,28 +635,142 @@ jobs:
           pnpm --filter @magna-carta/design-tokens run build
           git diff --exit-code packages/design-tokens/generated
 
-  # Acceptance suites for the container images, run only when a container changed (Docker is on the runner
-  # here, unlike a local machine, so these run instead of being skipped).
+  # The container gate — two layers per CHANGED container: the workspace's own Rust gate (fmt --check
+  # + clippy -D warnings + cargo test — each container is its own Cargo workspace, so the crates/-scoped
+  # rust job never touches them), then the build-and-drive Docker acceptance suite where one exists
+  # (Docker is on the runner here, unlike a local machine). A changed container that is neither mapped
+  # to an acceptance suite nor explicitly listed as not-yet-covered FAILS the job — a new container must
+  # opt in loudly, never silently join the untested set.
   containers:
     needs: changes
     if: needs.changes.outputs.containers == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - name: Changed-container acceptance
+
+      - name: Free runner disk for the container builds
+        # This job stacks per-workspace cargo target dirs, the cargo cache, and full Docker image
+        # builds (the scan image compiles Rust and bakes a clamd DB in-image); the stock runner image
+        # leaves too little headroom — a scan+ocr change died registering Docker layers with "no space
+        # left on device". Drop the preinstalled bundles this repo never uses and prune Docker's
+        # preloaded images (every image the acceptance suites need is pulled by their builds anyway).
+        run: |
+          echo "before: $(df -h / | tail -1)"
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/hostedtoolcache/CodeQL /usr/local/.ghcup /usr/local/share/powershell
+          docker system prune -af --volumes > /dev/null 2>&1 || true
+          echo "after:  $(df -h / | tail -1)"
+
+      - name: Resolve the diff base
+        # Same resolution as the `changes` job: the event's base, else the merge-base with origin/main.
         env:
           BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
           base="$BASE"
           if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$base" 2>/dev/null; then
-            base="$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)"
+            base="$(git merge-base origin/main HEAD 2>/dev/null || git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)"
           fi
-          changed() { git diff --name-only "$base" HEAD | grep -q "^$1"; }
-          if changed containers/scan/; then sh containers/scan/tests/eicar_e2e.sh; fi
-          if changed containers/recovery/; then sh containers/recovery/tests/recover_e2e.sh; fi
-          if changed containers/bundle/; then bash containers/bundle/tests/acceptance.sh; fi
+          echo "DIFF_BASE=$base" >> "$GITHUB_ENV"
+          echo "diff base: $base"
+
+      - name: Rust toolchain (pinned by rust-toolchain.toml)
+        run: rustup show && rustc --version
+
+      - name: Cache the cargo registry and container targets
+        # Replaces a hand-rolled actions/cache whose key was the container lockfiles alone. rust-cache
+        # additionally keys on the exact rustc version — a toolchain bump must not silently reuse
+        # artifacts built by the previous compiler, which the old key permitted — prunes the saved
+        # target dirs down to dependency artifacts (the workspace's own crates recompile anyway, and
+        # leaving them in is what made these entries enormous), and skips the save entirely when
+        # nothing changed. Each container is its own Cargo workspace, so all seven are listed.
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            containers/bundle
+            containers/file-repair
+            containers/libreoffice
+            containers/ocr
+            containers/raster
+            containers/recovery
+            containers/scan
+
+      - name: Set up buildx for the image builds
+        # The acceptance suites' images rebuild the same base layers and the same Rust dependency graph
+        # every run, and a fresh runner starts with an empty layer store, so the local layer cache
+        # `docker build` relies on is always cold here. buildx with an external cache backend is what
+        # makes the layer cache outlive the runner.
+        uses: docker/setup-buildx-action@v3
+
+      - name: Expose the Actions cache credentials to the build scripts
+        # buildx's `type=gha` backend talks to the Actions cache service, whose token the runner injects
+        # into JavaScript action steps but strips from plain `run:` steps. The acceptance suites are
+        # shell scripts that call buildx directly, so the token has to be published into the job
+        # environment for them to reach it.
+        uses: crazy-max/ghaction-github-runtime@v3
+
+      - name: Changed-container Rust gate (fmt + clippy + test per workspace)
+        # Safe without a live stack: the daemon-dependent tests in these suites (e.g. the clamd INSTREAM
+        # check, the live-DB differential gate) are #[ignore]d by their authors, so a plain `cargo test`
+        # runs only the self-contained unit/integration tests; live wiring is the acceptance step's job.
+        env:
+          # Debuginfo dominates debug-build target size (the scan and ocr workspaces link ONNX Runtime
+          # and gigabytes of it). CI never debugs these binaries interactively, and the disk saved is
+          # what lets the Docker acceptance builds below fit on the same runner; the cache shrinks too.
+          CARGO_PROFILE_DEV_DEBUG: "0"
+        run: |
+          changed_files="$(git diff --name-only "$DIFF_BASE" HEAD)"
+          for manifest in containers/*/Cargo.toml; do
+            dir="$(dirname "$manifest")"
+            if echo "$changed_files" | grep -q "^$dir/"; then
+              echo "rust gate: $dir"
+              cargo fmt --manifest-path "$manifest" --all --check
+              cargo clippy --manifest-path "$manifest" --all-targets -- -D warnings
+              cargo test --manifest-path "$manifest"
+            fi
+          done
+
+      - name: Changed-container acceptance
+        run: |
+          changed_files="$(git diff --name-only "$DIFF_BASE" HEAD)"
+          for dir in containers/*/; do
+            name="$(basename "$dir")"
+            echo "$changed_files" | grep -q "^containers/$name/" || continue
+            # Layer cache for this container's image build, read and written through the Actions cache
+            # service (containers/docker-build.sh turns this into the buildx invocation; unset locally
+            # it stays a plain `docker build`). Scoped per container so one image's layers can never
+            # evict or be confused with another's, and mode=max so the multi-stage builds' dependency
+            # compile stages are cached too — those, not the thin runtime layer, are the slow part.
+            export CONTAINER_BUILD_CACHE="--cache-from type=gha,scope=container-$name --cache-to type=gha,scope=container-$name,mode=max"
+            case "$name" in
+              # bash, never sh: the scripts use `set -o pipefail` and other bash-isms, and Ubuntu's sh
+              # is dash — under sh they die on line 2 before testing anything.
+              scan) bash containers/scan/tests/eicar_e2e.sh ;;
+              recovery) bash containers/recovery/tests/recover_e2e.sh ;;
+              bundle) bash containers/bundle/tests/acceptance.sh ;;
+              # The heaviest gate in this job by a wide margin: the image is roughly a gigabyte
+              # because it carries an office suite, so the layer cache above is what keeps it
+              # tolerable, and the path filter is what keeps it off everyone else's builds.
+              libreoffice) bash containers/libreoffice/tests/acceptance.sh ;;
+              # Known not-yet-covered: unit-tested above where a Cargo workspace exists, but no
+              # acceptance suite yet. Listed by name so the gap stays visible on every run that touches
+              # them — and so anything NOT listed fails below instead of passing green untested.
+              collabora | file-repair | ocr | raster)
+                echo "::warning::containers/$name changed but has no acceptance suite yet"
+                ;;
+              *)
+                echo "containers/$name changed but is neither mapped to an acceptance suite nor listed as not-yet-covered — add it to one of the two." >&2
+                exit 1
+                ;;
+            esac
+            # Drop buildx's LOCAL layer cache between containers. The image itself is already in the
+            # docker store (--load) and the reusable layers have already been exported to the Actions
+            # cache, so this costs nothing on the next run — but keeping it would stack a second full
+            # copy of every layer alongside the docker store, on the one job that has already run this
+            # runner out of disk once.
+            docker buildx prune -af > /dev/null 2>&1 || true
+          done
 
   # The single required status. It succeeds only if no required job failed or was cancelled; a job the
   # path-filter skipped counts as success. Require THIS in branch protection, not the individual jobs, so
@@ -467,6 +793,7 @@ jobs:
       ]
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Verify every required check passed or was not needed
         run: |

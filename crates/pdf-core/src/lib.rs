@@ -1,6 +1,7 @@
 #[cfg(target_arch = "wasm32")]
 mod wasm;
 
+mod annotations;
 mod guard;
 mod standard_fonts;
 mod standard_fonts_data;
@@ -48,6 +49,12 @@ pub use watermark::{watermark, WatermarkContent, WatermarkOptions, WatermarkPlac
 
 mod searchable;
 pub use searchable::{write_searchable_text_layer, PageTextLayer, TextRun};
+
+mod sign;
+pub use sign::{
+    embed_signature, prepare_signature, signed_bytes, PreparedSignature, SignError,
+    SignatureOptions,
+};
 
 use hayro::hayro_interpret::InterpreterSettings;
 use hayro::hayro_syntax::Pdf;

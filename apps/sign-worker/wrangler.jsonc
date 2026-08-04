@@ -1,0 +1,19 @@
+{
+  // The standalone platform-seal worker. Stateless: no D1, R2, Queues, or Durable Objects. It holds
+  // the platform signing key (PLATFORM_SEAL_KEY / PLATFORM_SEAL_CERT, set as Worker secrets — never
+  // committed) and applies the PAdES seal, reached only via a service binding from the app worker
+  // (SIGN_SERVICE). It has no public routes. The pure-Rust PDF engine and pkijs run in-process; the
+  // firm document bytes cross the internal service binding, not the network.
+  "name": "magna-carta-sign",
+  "main": "./src/index.ts",
+  "compatibility_date": "2026-06-05",
+  "compatibility_flags": ["nodejs_compat"],
+  // No public surface: an internal service reached only via service binding.
+  "workers_dev": false,
+  "preview_urls": false,
+  // The signing key + certificate are Worker SECRETS, not vars — set with `wrangler secret put`
+  // PLATFORM_SEAL_KEY (PKCS#8, base64) and PLATFORM_SEAL_CERT (DER, base64). They are intentionally
+  // NOT gated at deploy time: the worker deploys without them and returns "seal not configured"
+  // (503) until they are set, so activation is a secret-put, not a redeploy.
+  "observability": { "enabled": true, "head_sampling_rate": 1 },
+}

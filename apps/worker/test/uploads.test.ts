@@ -144,6 +144,27 @@ describe("POST /api/v1/uploads — initiate", () => {
     expect(body["type"]).toBe("https://api.magnacarta.esq/problems/upload-not-allowed");
   });
 
+  it("404s a new version aimed at a soft-deleted file", async () => {
+    const created = await postUpload(smallPut("doomed.pdf"), {
+      cookie: ownerCookie,
+      idempotencyKey: crypto.randomUUID(),
+    });
+    expect(created.status).toBe(201);
+    const { fileId } = (await created.json()) as { fileId: string };
+    await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("UPDATE file SET deleted_at = ?2 WHERE id = ?1")
+      .bind(fileId, "2026-06-13T01:00:00.000Z")
+      .run();
+
+    // The file is gone as far as every read is concerned; a new version of it is refused the same
+    // way a version of a file that never existed would be.
+    const response = await postUpload(
+      { ...smallPut("doomed.pdf"), fileId },
+      { cookie: ownerCookie, idempotencyKey: crypto.randomUUID() },
+    );
+    expect(response.status).toBe(404);
+  });
+
   it("demands an Idempotency-Key (400)", async () => {
     const response = await postUpload(smallPut(), { cookie: ownerCookie });
     expect(response.status).toBe(400);

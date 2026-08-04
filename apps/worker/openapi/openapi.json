@@ -683,6 +683,370 @@
           "computedAt"
         ]
       },
+      "EmailCaptureAck": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "accepted"
+            ]
+          }
+        },
+        "required": [
+          "jobId",
+          "status"
+        ]
+      },
+      "MatterEmailList": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "emailMessageId": {
+                  "type": "string"
+                },
+                "threadId": {
+                  "type": "string"
+                },
+                "subject": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "fromDisplay": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "fromAddress": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "sentAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "receivedAt": {
+                  "type": "string"
+                },
+                "linkState": {
+                  "type": "string",
+                  "enum": [
+                    "staged",
+                    "filed",
+                    "unlinked"
+                  ]
+                }
+              },
+              "required": [
+                "emailMessageId",
+                "threadId",
+                "subject",
+                "fromDisplay",
+                "fromAddress",
+                "sentAt",
+                "receivedAt",
+                "linkState"
+              ]
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "data",
+          "nextCursor"
+        ]
+      },
+      "EmailAlreadyFiled": {
+        "type": "object",
+        "properties": {
+          "captured": {
+            "type": "boolean"
+          },
+          "matters": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "hiddenMatterCount": {
+            "type": "number"
+          },
+          "totalMatterCount": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "captured",
+          "matters",
+          "hiddenMatterCount",
+          "totalMatterCount"
+        ]
+      },
+      "EmailMessageDetail": {
+        "type": "object",
+        "properties": {
+          "emailMessageId": {
+            "type": "string"
+          },
+          "threadId": {
+            "type": "string"
+          },
+          "subject": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fromDisplay": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fromAddress": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sentAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "receivedAt": {
+            "type": "string"
+          },
+          "dkimVerdict": {
+            "type": "string"
+          },
+          "participants": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string"
+                },
+                "displayName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "address": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "directoryEntityId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "kind",
+                "displayName",
+                "address",
+                "directoryEntityId"
+              ]
+            }
+          },
+          "alsoFiledMatterIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "hiddenMatterCount": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "emailMessageId",
+          "threadId",
+          "subject",
+          "fromDisplay",
+          "fromAddress",
+          "sentAt",
+          "receivedAt",
+          "dkimVerdict",
+          "participants",
+          "alsoFiledMatterIds",
+          "hiddenMatterCount"
+        ]
+      },
+      "EmailLinkActionAck": {
+        "type": "object",
+        "properties": {
+          "emailMessageId": {
+            "type": "string"
+          },
+          "matterId": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "emailMessageId",
+          "matterId",
+          "state"
+        ]
+      },
+      "MintedCaptureAddress": {
+        "type": "object",
+        "properties": {
+          "emailCaptureAddressId": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "matter",
+              "catchAll"
+            ]
+          },
+          "matterId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "address": {
+            "type": "string"
+          },
+          "token": {
+            "type": "string"
+          },
+          "routable": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "emailCaptureAddressId",
+          "kind",
+          "matterId",
+          "address",
+          "token",
+          "routable",
+          "createdAt"
+        ]
+      },
+      "RevokedCaptureAddress": {
+        "type": "object",
+        "properties": {
+          "emailCaptureAddressId": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          }
+        },
+        "required": [
+          "emailCaptureAddressId",
+          "active"
+        ]
+      },
+      "CaptureAddressList": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CaptureAddressSummary"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "CaptureAddressSummary": {
+        "type": "object",
+        "properties": {
+          "emailCaptureAddressId": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "matter",
+              "catchAll"
+            ]
+          },
+          "matterId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "tokenPreview": {
+            "type": "string"
+          },
+          "createdBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "rotatedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "emailCaptureAddressId",
+          "kind",
+          "matterId",
+          "active",
+          "tokenPreview",
+          "createdBy",
+          "createdAt",
+          "rotatedAt"
+        ]
+      },
       "FileRepairDiagnosis": {
         "type": "object",
         "properties": {
@@ -793,6 +1157,118 @@
         "required": [
           "files",
           "loss"
+        ]
+      },
+      "DocumentSealResponse": {
+        "type": "object",
+        "properties": {
+          "sealedPdfBase64": {
+            "type": "string"
+          },
+          "documentHashSha256": {
+            "type": "string"
+          },
+          "certificate": {
+            "type": "object",
+            "properties": {
+              "documentHashSha256": {
+                "type": "string"
+              },
+              "sealedAt": {
+                "type": "string"
+              },
+              "signers": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "intent": {
+                      "type": "object",
+                      "properties": {
+                        "signerId": {
+                          "type": "string"
+                        },
+                        "adoption": {
+                          "type": "string",
+                          "enum": [
+                            "typed",
+                            "drawn",
+                            "uploaded"
+                          ]
+                        },
+                        "affirmedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "signerId",
+                        "adoption",
+                        "affirmedAt"
+                      ]
+                    },
+                    "consent": {
+                      "type": "object",
+                      "properties": {
+                        "disclosureVersion": {
+                          "type": "string"
+                        },
+                        "consentedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "disclosureVersion",
+                        "consentedAt"
+                      ]
+                    },
+                    "attribution": {
+                      "type": "object",
+                      "properties": {
+                        "level": {
+                          "type": "string",
+                          "enum": [
+                            "email-link",
+                            "access-code",
+                            "id-verified",
+                            "portal-authenticated",
+                            "firm-authenticated"
+                          ]
+                        },
+                        "observedIp": {
+                          "type": "string"
+                        },
+                        "proofReference": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "level"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "intent",
+                    "consent",
+                    "attribution"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "documentHashSha256",
+              "sealedAt",
+              "signers"
+            ]
+          },
+          "certificateText": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "sealedPdfBase64",
+          "documentHashSha256",
+          "certificate",
+          "certificateText"
         ]
       },
       "AiDetectionReport": {
@@ -4370,6 +4846,9 @@
               "$ref": "#/components/schemas/ConflictsGraphPathStep"
             }
           },
+          "coParty": {
+            "type": "boolean"
+          },
           "createdAt": {
             "type": "string"
           },
@@ -4384,6 +4863,7 @@
           "evidenceTier",
           "matchedFields",
           "graphPath",
+          "coParty",
           "createdAt",
           "disposition"
         ]
@@ -6399,6 +6879,21 @@
           "apiKey"
         ]
       },
+      "ShippingDisconnectAck": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status"
+        ]
+      },
       "ShipmentAck": {
         "type": "object",
         "properties": {
@@ -6587,7 +7082,8 @@
                 "type": [
                   "integer",
                   "null"
-                ]
+                ],
+                "minimum": 0
               }
             }
           }
@@ -8525,6 +9021,1144 @@
         }
       }
     },
+    "/api/v1/matters/{matterId}/emails": {
+      "post": {
+        "description": "File a raw email message (.eml or .msg bytes) to this matter. The bytes are staged and the parse, dedup, thread-linking, and attachment extraction run off the request path; the response returns a job identifier. A message the firm already holds is deduped to one record and linked, never duplicated. This is the endpoint the native add-in's Save & File posts to.",
+        "operationId": "emails.file",
+        "tags": [
+          "emails"
+        ],
+        "x-mc-operationId": "emails.file",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "emails:file",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "expensive",
+        "x-mc-tags": [
+          "emails"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {}
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Capture accepted; filing runs off the request path",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailCaptureAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Empty body",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing emails:file",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown matter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Message exceeds the inspectable-size cap",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "description": "List the emails filed to this matter, newest first (cursor-paginated).",
+        "operationId": "emails.list",
+        "tags": [
+          "emails"
+        ],
+        "x-mc-operationId": "emails.list",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "emails:read",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "emails"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of filed emails",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterEmailList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing emails:read",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/emails/already-filed": {
+      "get": {
+        "description": "The wall-safe 'already filed' signal: given a Message-ID or a content hash, report whether the firm has captured it and, if so, the matters it is filed to that the caller can access plus a bare count of the rest. A caller walled from every matter it is filed to learns only that it was captured, never a matter identity. This backs the add-in's 'Already filed to {Matter}' indicator.",
+        "operationId": "emails.alreadyFiled",
+        "tags": [
+          "emails"
+        ],
+        "x-mc-operationId": "emails.alreadyFiled",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "emails:read",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "emails"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "messageId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "contentHash",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The wall-safe already-filed signal",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailAlreadyFiled"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing emails:read",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Neither messageId nor contentHash provided",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/emails/{emailMessageId}": {
+      "get": {
+        "description": "Read one captured message with its participants and the wall-safe list of other matters it is filed to that the caller can access. A caller who can access none of the matters it is filed to receives 404 (absence, never a leak of a walled matter).",
+        "operationId": "emails.get",
+        "tags": [
+          "emails"
+        ],
+        "x-mc-operationId": "emails.get",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "emails:read",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "emails"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^emailMessage_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "emailMessageId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The message and its wall-safe multi-matter context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailMessageDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing emails:read",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown message, or one the caller cannot access",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{matterId}/emails/{emailMessageId}/accept": {
+      "post": {
+        "description": "Accept a staged email link onto this matter (staged → filed). Traverses the filing-time conflict/ethical-wall hook before filing.",
+        "operationId": "emails.accept",
+        "tags": [
+          "emails"
+        ],
+        "x-mc-operationId": "emails.accept",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "emails:manageLinks",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "emails"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^emailMessage_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "emailMessageId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The link was filed (or was already filed)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailLinkActionAck"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing emails:manageLinks",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No staged link for this message on this matter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{matterId}/emails/{emailMessageId}": {
+      "delete": {
+        "description": "Unlink an email from this matter (the link → unlinked). Never deletes the message: it stays on any other matters it is filed to.",
+        "operationId": "emails.unlink",
+        "tags": [
+          "emails"
+        ],
+        "x-mc-operationId": "emails.unlink",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "emails:manageLinks",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "emails"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^emailMessage_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "emailMessageId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The link was unlinked (or was already unlinked)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailLinkActionAck"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing emails:manageLinks",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/firm/capture-address": {
+      "post": {
+        "description": "Mint the firm's catch-all capture address. Mail forwarded to it is captured for the firm with no candidate matter, for staff to route. A firm holds at most one live catch-all; revoke the existing one first. The full token is returned only in this response.",
+        "operationId": "emails.mintFirmCaptureAddress",
+        "tags": [
+          "emails"
+        ],
+        "x-mc-operationId": "emails.mintFirmCaptureAddress",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "emails:manageCaptureAddresses",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "emails"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "The minted catch-all address, with its token shown once",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MintedCaptureAddress"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing emails:manageCaptureAddresses",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The firm already holds a live catch-all address, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "description": "Revoke the firm's catch-all capture address. Routing stops first, so mail to the old address bounces from the moment this returns. Revoking one that is already revoked succeeds.",
+        "operationId": "emails.revokeFirmCaptureAddress",
+        "tags": [
+          "emails"
+        ],
+        "x-mc-operationId": "emails.revokeFirmCaptureAddress",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "emails:manageCaptureAddresses",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "emails"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The catch-all no longer routes (or already did not)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevokedCaptureAddress"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing emails:manageCaptureAddresses",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm holds no live catch-all address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{matterId}/capture-addresses": {
+      "post": {
+        "description": "Mint a forward/CC capture address for this matter. Mail forwarded or CC'd to the returned address is captured and staged onto the matter. The full token is returned only in this response — later reads show a masked form, because the token is itself the credential.",
+        "operationId": "emails.mintCaptureAddress",
+        "tags": [
+          "emails"
+        ],
+        "x-mc-operationId": "emails.mintCaptureAddress",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "emails:manageCaptureAddresses",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "emails"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "The minted address, with its token shown once",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MintedCaptureAddress"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing emails:manageCaptureAddresses",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown matter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "description": "List this matter's capture addresses, live and retired, newest first. Token values are never returned — each row carries a short prefix and its metadata.",
+        "operationId": "emails.listCaptureAddresses",
+        "tags": [
+          "emails"
+        ],
+        "x-mc-operationId": "emails.listCaptureAddresses",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "emails:manageCaptureAddresses",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "emails"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The matter's capture addresses",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaptureAddressList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing emails:manageCaptureAddresses",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{matterId}/capture-addresses/{emailCaptureAddressId}/rotate": {
+      "post": {
+        "description": "Rotate a capture address: the old token stops routing and a fresh one is minted for the same matter, returned here. Use this when an address has been over-shared. Replaying the same Idempotency-Key returns the same new token rather than rotating twice.",
+        "operationId": "emails.rotateCaptureAddress",
+        "tags": [
+          "emails"
+        ],
+        "x-mc-operationId": "emails.rotateCaptureAddress",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "emails:manageCaptureAddresses",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "emails"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^emailCaptureAddress_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "emailCaptureAddressId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "The replacement address, with its token shown once",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MintedCaptureAddress"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing emails:manageCaptureAddresses",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No live capture address with this handle on this matter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{matterId}/capture-addresses/{emailCaptureAddressId}": {
+      "delete": {
+        "description": "Revoke a capture address. Routing stops first, so mail to it bounces from the moment this returns; already-captured messages are untouched. Revoking one that is already revoked succeeds.",
+        "operationId": "emails.revokeCaptureAddress",
+        "tags": [
+          "emails"
+        ],
+        "x-mc-operationId": "emails.revokeCaptureAddress",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "emails:manageCaptureAddresses",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "emails"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^emailCaptureAddress_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "emailCaptureAddressId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The address no longer routes (or already did not)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevokedCaptureAddress"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing emails:manageCaptureAddresses",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No capture address with this handle on this matter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/file-repair/diagnose": {
       "post": {
         "description": "Diagnose a possibly-corrupt uploaded file: detect its format, describe the corruption, and report whether it can be repaired (and whether carving may recover embedded files). Nothing is stored.",
@@ -9529,6 +11163,214 @@
         }
       }
     },
+    "/api/v1/documents/seal": {
+      "post": {
+        "description": "Apply the platform seal to a PDF (base64): the sign service embeds a PAdES CMS signature over the document with the platform signing identity, returning the sealed PDF, the sealed-range digest, and a Certificate of Completion assembled from the supplied signer records. The seal makes the completed record tamper-evident; it is not a per-signer certificate. Nothing is stored here; only a redacted audit record is written.",
+        "operationId": "esign.seal",
+        "tags": [
+          "esign"
+        ],
+        "x-mc-operationId": "esign.seal",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "esign:seal",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "expensive",
+        "x-mc-tags": [
+          "esign"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "documentBase64": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "signers": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "intent": {
+                          "type": "object",
+                          "properties": {
+                            "signerId": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "adoption": {
+                              "type": "string",
+                              "enum": [
+                                "typed",
+                                "drawn",
+                                "uploaded"
+                              ]
+                            },
+                            "affirmedAt": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": [
+                            "signerId",
+                            "adoption",
+                            "affirmedAt"
+                          ]
+                        },
+                        "consent": {
+                          "type": "object",
+                          "properties": {
+                            "disclosureVersion": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "consentedAt": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": [
+                            "disclosureVersion",
+                            "consentedAt"
+                          ]
+                        },
+                        "attribution": {
+                          "type": "object",
+                          "properties": {
+                            "level": {
+                              "type": "string",
+                              "enum": [
+                                "email-link",
+                                "access-code",
+                                "id-verified",
+                                "portal-authenticated",
+                                "firm-authenticated"
+                              ]
+                            },
+                            "proofReference": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "level"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "intent",
+                        "consent",
+                        "attribution"
+                      ]
+                    },
+                    "minItems": 1
+                  },
+                  "seal": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "reason": {
+                        "type": "string"
+                      },
+                      "location": {
+                        "type": "string"
+                      },
+                      "contactInfo": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "required": [
+                  "documentBase64",
+                  "signers"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The sealed PDF (base64), the sealed-range SHA-256, and the Certificate of Completion",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentSealResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "File too large to seal, or the document bytes could not be decoded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but the member lacks esign:seal",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The document could not be sealed (unparseable, no page to anchor, capacity)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The platform seal is not configured (the sign service has no signing identity yet)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/ai-detection/detect": {
       "post": {
         "description": "Estimate the likelihood that pasted text was machine-generated. Returns a coarse likelihood band with an explicit reliability grade and the reasons to hesitate — a signal, not proof. Requires the firm to have enabled external detection; text is sent to the configured provider and is not retained. Nothing is stored except a usage meter entry.",
@@ -9655,7 +11497,9 @@
                   },
                   "contentBase64": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 20971524,
+                    "pattern": "^[A-Za-z0-9+/]*={0,2}$"
                   }
                 },
                 "required": [
@@ -9753,7 +11597,9 @@
                   },
                   "contentBase64": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 20971524,
+                    "pattern": "^[A-Za-z0-9+/]*={0,2}$"
                   },
                   "options": {
                     "$ref": "#/components/schemas/MetadataScrubOptions"
@@ -11999,7 +13845,7 @@
     },
     "/api/v1/matters/{id}/close": {
       "post": {
-        "description": "Closes a matter (archived-but-additive — it leaves active lists but still accepts documents). Runs the close-precondition registry; a failure returns the precondition codes.",
+        "description": "Closes a matter (archived-but-additive — it leaves active lists but still accepts documents). Runs the close-precondition registry; a failure returns the precondition codes. Refuses a matter that is already closed, so its recorded close date never moves.",
         "operationId": "matters.close",
         "tags": [
           "matters"
@@ -26569,6 +28415,118 @@
             }
           }
         }
+      },
+      "delete": {
+        "description": "Disconnects the firm's EasyPost postage account. Shipping operations stop until the account is connected again.",
+        "operationId": "shipping.disconnectCarrier",
+        "tags": [
+          "shipping"
+        ],
+        "x-mc-operationId": "shipping.disconnectCarrier",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "shipping:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "shipping"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Disconnected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShippingDisconnectAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks shipping:manage",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the shipment is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is in progress, or the postage account is not connected",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/shipments": {
@@ -27313,6 +29271,12 @@
     },
     {
       "name": "emailInspector"
+    },
+    {
+      "name": "emails"
+    },
+    {
+      "name": "esign"
     },
     {
       "name": "fileIntegrity"

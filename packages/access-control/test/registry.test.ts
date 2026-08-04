@@ -90,6 +90,15 @@ describe("permission registry", () => {
     ]);
   });
 
+  it("permissionsForNamespace('emails') returns exactly the emails keys, in registry order", () => {
+    expect(permissionsForNamespace("emails")).toEqual([
+      "emails:file",
+      "emails:read",
+      "emails:manageLinks",
+      "emails:manageCaptureAddresses",
+    ]);
+  });
+
   it("permissionsForNamespace('tools') returns exactly the tools keys, in registry order", () => {
     expect(permissionsForNamespace("tools")).toEqual([
       "tools:propertyListings",

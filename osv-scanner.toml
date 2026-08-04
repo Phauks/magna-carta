@@ -5,36 +5,31 @@
 # lapses the advisory re-surfaces and fails the gate, so acceptance cannot silently become permanent.
 
 # --- Long-standing accepted dev/build-tooling advisories (npm) -------------------------------------
-# Migrated from package.json pnpm.auditConfig.ignoreGhsas (still read by the pre-push hook's pnpm audit).
-
-[[IgnoredVulns]]
-id = "GHSA-gv7w-rqvm-qjhr"
-reason = "Pre-existing transitive dev/build-tooling advisory (esbuild), no production-runtime exploit path; drops when Renovate upgrades the carrier."
+# This file is now the sole home for accepted advisories: the pre-push hook's `pnpm audit` step and the
+# package.json `pnpm.auditConfig.ignoreGhsas` it read have been removed, so the CI osv-scanner gate is the
+# one authoritative audit over both supply chains.
 
 [[IgnoredVulns]]
 id = "GHSA-r5fr-rjxr-66jc"
-reason = "Pre-existing transitive dev/build-tooling advisory (lodash), no production-runtime exploit path; drops when Renovate upgrades the carrier."
+reason = "Pre-existing transitive dev/build-tooling advisory (lodash), no production-runtime exploit path. Drops when the carrier upgrades; note this needs a deliberate bump, not an automated one, until the Renovate app is actually installed on the repository."
 
-# --- Tracked for remediation (surfaced when osv-scanner first audited the Rust supply chain 2026-07-16).
-# Accepted temporarily so the gate protects against NEW advisories immediately; each is to be fixed by
-# upgrading its carrier. Re-surfaces for review after ignoreUntil. (ADR: osv-scanner audit gate.)
-
-[[IgnoredVulns]]
-id = "RUSTSEC-2026-0187"
-ignoreUntil = 2026-10-14
-reason = "lopdf stack-overflow DoS parsing untrusted PDFs (CVSS 7.5). On the untrusted-input path; fix by upgrading lopdf to >=0.42.0. Tracked for remediation."
+# --- Tracked advisories (surfaced when osv-scanner first audited the Rust supply chain 2026-07-16).
+# Each is accepted with cause and a time-boxed ignoreUntil forcing function that re-surfaces it for review.
+# lopdf (RUSTSEC-2026-0187) was remediated by upgrading to 0.42.0 and is no longer listed. The three below
+# cannot be cleared by a simple carrier bump today — the reason on each records why, and each re-surfaces
+# at ignoreUntil to be re-checked against a newer upstream.
 
 [[IgnoredVulns]]
 id = "RUSTSEC-2026-0194"
 ignoreUntil = 2026-10-14
-reason = "quick-xml advisory (CVSS 7.5) in crates/ and containers/recovery. Tracked for remediation by upgrading quick-xml."
+reason = "quick-xml quadratic duplicate-attribute scan (CVSS 7.5), fixed in quick-xml 0.41.0. Reached only through office-crypto, which still requires quick-xml ^0.38.4 as of office-crypto 0.3.0 — so no carrier upgrade clears this, and cargo cannot resolve 0.41 under that requirement. Remediation needs an upstream office-crypto bump, a [patch] override, or dropping the crate; re-decide before ignoreUntil."
 
 [[IgnoredVulns]]
 id = "RUSTSEC-2026-0195"
 ignoreUntil = 2026-10-14
-reason = "quick-xml advisory (CVSS 7.5) in crates/ and containers/recovery. Tracked for remediation by upgrading quick-xml."
+reason = "Second quick-xml advisory (CVSS 7.5), same carrier and same blocker as RUSTSEC-2026-0194: office-crypto 0.3.0 still requires quick-xml ^0.38.4, and the fix lands in 0.41.0."
 
 [[IgnoredVulns]]
 id = "GHSA-w5hq-g745-h8pq"
 ignoreUntil = 2026-10-14
-reason = "uuid advisory, CVSS 7.5 (GitHub labels it Moderate). Flagged because this gate keys npm severity off CVSS. Tracked for remediation by upgrading uuid."
+reason = "uuid unchecked-buffer-bounds in v3/v5/v6, fixed in uuid 11.1.1. CVSS 7.5 (GitHub labels it Moderate); flagged because this gate keys npm severity off CVSS. Dev-only path: @stoplight/prism-cli and @stoplight/spectral-cli -> @stoplight/http-spec -> postman-collection -> uuid 8.3.2. Upgrading the carrier does NOT clear it — postman-collection hard-pins uuid 8.3.2 through its newest release (5.3.1) — so the only remediation is a pnpm override forcing uuid, which must be weighed against breaking the v8 API these tools call."

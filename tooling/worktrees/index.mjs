@@ -40,11 +40,20 @@ function divergence(branch) {
   }
 }
 
-function loadNotes() {
-  if (!existsSync(ACTIVE_DIR)) return [];
-  return readdirSync(ACTIVE_DIR)
-    .filter((name) => name.endsWith(".md") && name !== "README.md")
-    .map((name) => parseNote(readFileSync(join(ACTIVE_DIR, name), "utf8")));
+// Notes are named after the branch they describe, so a branch with a slash (`claude/foo`) is a note
+// in a subdirectory (`docs/active-work/claude/foo.md`). Walking the tree rather than one flat listing
+// is what makes those notes visible at all — a non-recursive read sees only the top level and reports
+// every namespaced stream as noteless.
+function loadNotes(dir = ACTIVE_DIR) {
+  if (!existsSync(dir)) return [];
+  const notes = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) notes.push(...loadNotes(full));
+    else if (entry.name.endsWith(".md") && entry.name !== "README.md")
+      notes.push(parseNote(readFileSync(full, "utf8")));
+  }
+  return notes;
 }
 
 function isAgent(path) {

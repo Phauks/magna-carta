@@ -1,4 +1,4 @@
-// The one home for background-failure logging (slice 0·6). The `operation.failed` emission was
+// The one home for background-failure logging. The `operation.failed` emission was
 // hand-rolled identically at every non-request error sink (cron sweep, request-path sweep, auth
 // hook, cron entry point); this collapses it to one call so the error-coercion, the redaction
 // message-head cap, and the error_/correlation_ minting cannot drift between sites (golden rule 1 + the

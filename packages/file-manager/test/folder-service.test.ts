@@ -31,6 +31,29 @@ describe("createFolder", () => {
   });
 });
 
+// A blank name is its own refusal, distinct from a name clash, and it is caught on every path that
+// writes one — the per-firm schema's CHECK would otherwise turn a whitespace-only rename into a raw
+// constraint failure the route can only render as a server error.
+describe("folder names", () => {
+  it("refuses a blank or whitespace-only name on create and on rename", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    await expect(createFolder(database, { matterId, name: "   " }, options)).rejects.toMatchObject({
+      code: "invalid-name",
+    });
+
+    const folderId = await makeFolder(database, matterId, "Correspondence");
+    await expect(renameFolder(database, folderId, "  ", options)).rejects.toMatchObject({
+      code: "invalid-name",
+    });
+    const row = await database
+      .prepare("SELECT name FROM folder WHERE id = ?1")
+      .bind(folderId)
+      .all<{ name: string }>();
+    expect(row.results[0]?.name).toBe("Correspondence");
+  });
+});
+
 describe("createFolder / moveFolder — same-matter integrity", () => {
   async function seedSecondMatter(database: ReturnType<typeof freshDatabase>): Promise<MatterId> {
     const matterId = "matter_b" as MatterId;
@@ -87,6 +110,52 @@ describe("renameFolder / moveFolder", () => {
     await expect(moveFolder(database, parent, child, options)).rejects.toMatchObject({
       code: "folder-cycle",
     });
+  });
+
+  // The service's cycle check is a read, and there is no interactive transaction between it and the
+  // write. Two cross moves that each pass their own read can still commit a cycle, which permanently
+  // detaches a subtree — nothing can reach it to move it back. The guard inside the UPDATE re-decides
+  // against the rows as they are at write time, so the second writer moves nothing.
+  it("moves nothing when another writer re-parented the target between the check and the commit", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const alpha = await makeFolder(database, matterId, "Alpha");
+    const beta = await makeFolder(database, matterId, "Beta");
+
+    // Both folders are at the root, so moving Alpha under Beta passes the service's cycle check.
+    const { effect } = await moveFolder(database, alpha, beta, options);
+    // The racing writer lands first: Beta goes under Alpha. Committing the prepared move now would
+    // close the loop.
+    await database
+      .prepare("UPDATE folder SET parent_folder_id = ?2 WHERE id = ?1")
+      .bind(beta, alpha)
+      .run();
+
+    await commitEffectBatch(database, effect, { now });
+
+    const { results } = await database
+      .prepare("SELECT id, parent_folder_id FROM folder WHERE id IN (?1, ?2)")
+      .bind(alpha, beta)
+      .all<{ id: FolderId; parent_folder_id: FolderId | null }>();
+    const parentOf = new Map(results.map((row) => [row.id, row.parent_folder_id]));
+    expect(parentOf.get(alpha)).toBeNull();
+    expect(parentOf.get(beta)).toBe(alpha);
+  });
+
+  it("still moves a folder to the matter root, where no cycle is possible", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const parent = await makeFolder(database, matterId, "Parent");
+    const child = await makeFolder(database, matterId, "Child", parent);
+
+    const { effect } = await moveFolder(database, child, null, options);
+    await commitEffectBatch(database, effect, { now });
+
+    const { results } = await database
+      .prepare("SELECT parent_folder_id FROM folder WHERE id = ?1")
+      .bind(child)
+      .all<{ parent_folder_id: FolderId | null }>();
+    expect(results[0]?.parent_folder_id).toBeNull();
   });
 });
 

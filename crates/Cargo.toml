@@ -8,6 +8,7 @@ members = [
   "recovery-core",
   "decryption-core",
   "email-core",
+  "search-core",
 ]
 
 [workspace.package]
@@ -17,7 +18,7 @@ publish = false
 [workspace.dependencies]
 hayro = "0.7"
 image = "0.25"
-lopdf = "0.41"
+lopdf = "0.42"
 
 [profile.release]
 opt-level = "z"

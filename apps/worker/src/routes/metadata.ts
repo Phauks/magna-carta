@@ -1,5 +1,10 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
-import { createMetadataPort, SCRUB_ALL, type ScrubOptions } from "@magna-carta/metadata";
+import {
+  createMetadataPort,
+  MAX_INPUT_BYTES,
+  SCRUB_ALL,
+  type ScrubOptions,
+} from "@magna-carta/metadata";
 import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
@@ -7,9 +12,22 @@ import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { Problem, problemJson, type ProblemResponse } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 
-// Base64 <-> bytes, chunked so a large file does not blow the argument stack of String.fromCharCode.
-function decodeBase64(value: string): Uint8Array {
-  const binary = atob(value);
+// Base64 grows by four bytes for every three encoded, plus padding. A body longer than this cannot
+// decode to a file the tool would accept, so it is refused on the request schema — before the decode
+// allocates the binary string and the byte array behind it.
+const MAX_CONTENT_BASE64_LENGTH = Math.ceil(MAX_INPUT_BYTES / 3) * 4 + 4;
+const BASE64_PATTERN = /^[A-Za-z0-9+/]*={0,2}$/;
+
+// Base64 -> bytes. Returns undefined for input the decoder rejects (a well-formed-looking string can
+// still have an impossible length), so a bad upload is answered as an unreadable file rather than
+// escaping as an unhandled error.
+function decodeBase64(value: string): Uint8Array | undefined {
+  let binary: string;
+  try {
+    binary = atob(value);
+  } catch {
+    return undefined;
+  }
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
   return bytes;
@@ -52,7 +70,7 @@ const ReportSchema = z
 
 const InspectRequest = z.object({
   filename: z.string().min(1).max(512),
-  contentBase64: z.string().min(1),
+  contentBase64: z.string().min(1).max(MAX_CONTENT_BASE64_LENGTH).regex(BASE64_PATTERN),
 });
 const ScrubRequest = InspectRequest.extend({ options: ScrubOptionsSchema.optional() });
 
@@ -173,7 +191,9 @@ export function registerMetadataRoutes(
     { ...inspectRoute, middleware: chokepointMiddleware(chokepoint, inspectRoute) },
     async (c) => {
       const { filename, contentBase64 } = c.req.valid("json");
-      const outcome = await port.inspect({ bytes: decodeBase64(contentBase64), filename });
+      const bytes = decodeBase64(contentBase64);
+      if (bytes === undefined) return failureProblem(c, "corrupt");
+      const outcome = await port.inspect({ bytes, filename });
       if (!outcome.ok) return failureProblem(c, outcome.reason);
       // MetadataReport uses readonly arrays; the response schema expects mutable arrays.
       return c.json(
@@ -192,7 +212,9 @@ export function registerMetadataRoutes(
     async (c) => {
       const { filename, contentBase64, options } = c.req.valid("json");
       const effective: ScrubOptions = options ?? SCRUB_ALL;
-      const outcome = await port.scrub({ bytes: decodeBase64(contentBase64), filename }, effective);
+      const bytes = decodeBase64(contentBase64);
+      if (bytes === undefined) return failureProblem(c, "corrupt");
+      const outcome = await port.scrub({ bytes, filename }, effective);
       if (!outcome.ok) return failureProblem(c, outcome.reason);
       // MetadataReport uses readonly arrays; the response schema expects mutable arrays.
       return c.json(

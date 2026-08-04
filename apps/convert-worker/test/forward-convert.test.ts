@@ -47,9 +47,10 @@ describe("forwardConvert", () => {
     const request = new Request("http://convert-worker/convert", {
       method: "POST",
       body: "bytes",
-      headers: { "x-target-format": "png", "x-recipe": "raster" },
+      headers: { "x-engine-id": "libvips", "x-target-format": "png", "x-recipe": "raster" },
     });
     await forwardConvert(request, container);
+    expect(captured?.get("x-engine-id")).toBe("libvips");
     expect(captured?.get("x-target-format")).toBe("png");
     expect(captured?.get("x-recipe")).toBe("raster");
   });

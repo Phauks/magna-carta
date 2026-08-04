@@ -26,8 +26,8 @@ import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { idempotencyKeyHeader, identifierField, identifierPathParam } from "../contracts/common.ts";
 import { Problem, problemJson } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
+import { resolveFirmBucket } from "../files/firm-bucket.ts";
 import { presignerForEnv } from "../files/presigner-wiring.ts";
-import { requireBucket } from "../files/require-bucket.ts";
 import {
   problemResponseForIdempotencyConflict,
   storedResponseBody,
@@ -393,7 +393,9 @@ export function registerUploadsRoutes(app: UploadsApp, chokepoint: Chokepoint): 
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const userId = requireChokepointUserId(c);
-      const bucket = requireBucket(firm.bucketName);
+      // The bucket every leg of this upload targets, resolved through the one seam the ingest
+      // consumer reads through — so the bytes land where they will be read back from.
+      const bucket = resolveFirmBucket(c.env, firm.bucketName).bucketName;
       const idempotency = requireChokepointIdempotency(c);
       const request = c.req.valid("json");
       const presigner = presignerForEnv(c.env);
@@ -487,6 +489,9 @@ export function registerUploadsRoutes(app: UploadsApp, chokepoint: Chokepoint): 
           }
           if (
             caught.code === "unknown-file" ||
+            // A new version of a soft-deleted file is refused the same way a missing one is: the
+            // file is invisible to every read, and an upload must not be what reveals it.
+            caught.code === "file-deleted" ||
             caught.code === "unknown-folder" ||
             // A cross-matter target (file's matter, or its folder's) is not a resource of the
             // requested matter — surfaced as not-found, never a 500.
@@ -572,7 +577,7 @@ export function registerUploadsRoutes(app: UploadsApp, chokepoint: Chokepoint): 
     },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
-      const bucket = requireBucket(firm.bucketName);
+      const bucket = resolveFirmBucket(c.env, firm.bucketName).bucketName;
       const { id, partNumber } = c.req.valid("param");
       const session = await loadUploadSession(firm.firmDatabase, id);
       if (session === undefined) {
@@ -615,7 +620,7 @@ export function registerUploadsRoutes(app: UploadsApp, chokepoint: Chokepoint): 
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const userId = requireChokepointUserId(c);
-      const bucket = requireBucket(firm.bucketName);
+      const bucket = resolveFirmBucket(c.env, firm.bucketName).bucketName;
       const { id } = c.req.valid("param");
       const request = c.req.valid("json");
       const session = await loadUploadSession(firm.firmDatabase, id);
@@ -671,7 +676,7 @@ export function registerUploadsRoutes(app: UploadsApp, chokepoint: Chokepoint): 
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const userId = requireChokepointUserId(c);
-      const bucket = requireBucket(firm.bucketName);
+      const bucket = resolveFirmBucket(c.env, firm.bucketName).bucketName;
       const { id } = c.req.valid("param");
       const session = await loadUploadSession(firm.firmDatabase, id);
       if (session === undefined) {

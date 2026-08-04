@@ -232,23 +232,6 @@ pub(crate) fn escape_pdf_literal(s: &str) -> String {
 // Per-page stamping — placement, resource merge, content append
 // ---------------------------------------------------------------------------
 
-/// The text matrix `Tm = [a b c d e f]` (text space → user space) that places an
-/// upright Bates label at displayed bottom-left-frame origin `(dx, dy)` on a page
-/// whose effective MediaBox is `[llx lly urx ury]` under normalized rotation `r`.
-///
-/// The linear part counter-rotates the glyphs so they read upright on the displayed
-/// page; the translation maps the displayed origin back into unrotated user space.
-/// `w = urx - llx` and `h = ury - lly` are the unrotated MediaBox dimensions.
-fn text_matrix(rotation: i64, llx: f32, lly: f32, w: f32, h: f32, dx: f32, dy: f32) -> [f32; 6] {
-    match rotation {
-        90 => [0.0, 1.0, -1.0, 0.0, llx + h - dy, lly + dx],
-        180 => [-1.0, 0.0, 0.0, -1.0, llx + w - dx, lly + h - dy],
-        270 => [0.0, -1.0, 1.0, 0.0, llx + dy, lly + w - dx],
-        // 0 and any unexpected value fall through to the unrotated frame.
-        _ => [1.0, 0.0, 0.0, 1.0, llx + dx, lly + dy],
-    }
-}
-
 /// Stamp a single page in place with `label`.
 ///
 /// The stamp is an ADDITIVE OVERLAY: existing content and resources are preserved.
@@ -306,7 +289,7 @@ pub(crate) fn stamp_page(
     };
 
     let [tm_a, tm_b, tm_c, tm_d, tm_e, tm_f] =
-        text_matrix(rotation, llx, lly, page_width, page_height, dx, dy);
+        crate::surgery::text_matrix(rotation, llx, lly, page_width, page_height, dx, dy);
 
     // ── Resource merge (non-destructive) ────────────────────────────────────────
     // Resolve the page's effective resources (may be inherited or an indirect ref).
@@ -659,6 +642,66 @@ mod tests {
                 centroid_y > obs.height_pt as f64 * 2.0 / 3.0,
                 "r={rotation}: label centroid y {centroid_y} must be in the bottom third (height {})",
                 obs.height_pt
+            );
+        }
+    }
+
+    /// Stamp the default (bottom-right) label on a page and return the rendered label centroid, in
+    /// hayro's render frame (rotation applied).
+    fn stamp_centroid(mediabox: [i64; 4], rotation: i64) -> (f64, f64) {
+        let (mut doc, page_id) = page_doc(mediabox);
+        if rotation != 0 {
+            if let Ok(Object::Dictionary(page_dict)) = doc.get_object_mut(page_id) {
+                page_dict.set(b"Rotate", Object::Integer(rotation));
+            }
+        }
+        let font_id = doc.add_object(dictionary! {
+            b"Type" => Object::Name(b"Font".to_vec()),
+            b"Subtype" => Object::Name(b"Type1".to_vec()),
+            b"BaseFont" => Object::Name(b"Helvetica".to_vec()),
+        });
+        stamp_page(
+            &mut doc,
+            page_id,
+            font_id,
+            "ROT-000042",
+            &BatesOptions::default(),
+        )
+        .unwrap();
+        let pdf = render(&mut doc);
+        let obs = crate::textpos::observe_page(&pdf, 0).expect("observe stamped page");
+        let centers: Vec<kurbo::Point> = obs
+            .glyphs
+            .iter()
+            .filter(|g| !g.text.is_empty())
+            .map(|g| g.bbox.center())
+            .collect();
+        assert!(
+            !centers.is_empty(),
+            "the label must render for r={rotation}"
+        );
+        let n = centers.len() as f64;
+        (
+            centers.iter().map(|p| p.x).sum::<f64>() / n,
+            centers.iter().map(|p| p.y).sum::<f64>() / n,
+        )
+    }
+
+    #[test]
+    fn stamp_lands_at_the_same_displayed_corner_regardless_of_rotation() {
+        // A non-square displayed frame (792 wide x 612 tall) reached two ways: a page already that
+        // size unrotated, and a portrait page turned a quarter-turn to display at that size. The
+        // bottom-right stamp must land at the same displayed corner both ways. The earlier
+        // width/height swap in the rotation matrix displaced the quarter-turn stamp by the 180 pt
+        // width-height difference; the coarse "right half, bottom band" corner test could not see
+        // that, so this precise invariant is what guards the fix.
+        let flat = stamp_centroid([0, 0, 792, 612], 0);
+        for rotation in [90, 270] {
+            let rotated = stamp_centroid([0, 0, 612, 792], rotation);
+            assert!(
+                (rotated.0 - flat.0).abs() < 6.0 && (rotated.1 - flat.1).abs() < 6.0,
+                "r={rotation}: stamp must land where the unrotated stamp does; \
+                 flat={flat:?} rotated={rotated:?}"
             );
         }
     }

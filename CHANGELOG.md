@@ -360,6 +360,290 @@ registration and expiry dates, name servers, and registry status. Structured RDA
 as a parsed card; the few country-code registries that answer only over legacy WHOIS return raw text
 shown verbatim and labelled unparsed. A registry that answers with no details reads as "nothing
 found" rather than a blank card, and a failed lookup surfaces a correlated Error ID.
+- **Conflicts checks surface co-party matches, flagged distinctly.** When a conflicts check's search
+lands on an entity that is itself one of the check's own subject parties — the opposing party turns out
+to be the client's parent company, or two named parties share a name or identifier — that hit is now
+recorded and shown, flagged as a co-party surfacing rather than dropped. An entity still never conflicts
+with itself, but a positional conflict between two _different_ parties of the same matter is exactly the
+kind of thing a conflicts check exists to catch, so it is surfaced and tagged (`coParty`) so a reviewer
+triages it apart from a conflict with a prior or unrelated client.
+- **Conflicts matching engine — firm-wide conflicts-of-interest checks with no scorer.** A new `@magna-carta/conflicts` package runs deterministic conflicts checks over the Directory graph: every candidate the blocking channels surface is shown to a reviewer, ranked by a deterministic evidence tier (exact identifier match, exact normalized name, phonetic code, trigram overlap) plus the graph path that connected it — nothing is ever hidden by a numeric score or threshold. Strictness (`balanced` / `over_inclusive`) is a recall knob, not a cutoff: the over-inclusive setting is a strict superset of balanced, so raising it can only surface more candidates, never fewer. A typed source registry decides what a check searches — Party (Directory entities and role-links, always on), Graph (traversal over typed edges to a configured depth, with corporate-family relationships followed regardless of depth), Imputation (a firm member being a party, matched by identity join rather than name similarity — a partner sharing a surname with a client is not a conflict), and Content (email and document text, registered for the log but not yet available) — governed by a firm-set floor that a per-run request may only add sources above, never subtract below. Every check writes an immutable, append-only log across three per-firm tables (`conflicts_check`, `conflicts_hit`, `conflicts_disposition`); no row is ever updated or deleted, enforced by database triggers and proven by a fitness probe, and identifiers are recorded by reference only — no plaintext identifier value ever enters the log. Reviewers record a disposition (cleared, waiver obtained, wall erected, or representation declined) as a new row, so a later reversal leaves both acts visible rather than overwriting the first. New worker routes and permissions (`conflicts:run`, `conflicts:dispose`) expose the check and disposition flows.
+- **Email filing & capture (slice 1) — capture the firm's email into matters as first-class, thread-aware records.** A new `@magna-carta/email-filing` package and its worker surface capture email to matters over one convergent pipeline: an authenticated `file this MIME to matter` API (`POST /api/v1/matters/{id}/emails`, the endpoint the future add-in's Save & File posts to) and a Cloudflare Email Worker (`apps/email-worker`) forward/CC entrance both converge on one `captureEmail` operation over the built email parse engine and the built ingest/quarantine chokepoint — no second parser, no parallel data path. The record model is five per-firm tables (`email_message`, an `email_thread` DAG, the `email_matter_link` multi-matter junction, `email_participant`, `email_attachment`) plus a capture-address token store: a message is stored once and linked to many matters, deduped per firm on its `Message-ID` (with a normalized-header+body content-hash fallback when an identifier is stripped) so two people filing the same email converge on one record rather than duplicating it. Real attachments are extracted into the matter's File Manager as first-class quarantined documents while a decorative inline image is recorded but not made a document; the verbatim original is kept whole in R2. A wall-safe "already filed" signal prevents double-filing without ever revealing a matter the caller is walled from, and the same absence-not-existence rule governs the multi-matter "also on…" list. Capture lands staged for staff to accept; new `emails:*` permissions gate filing, reading, link management, and capture-address administration. Directory participant resolution is wired through the merged reverse address→entity lookup, and the filing-time conflict/ethical-wall hook, the notifications raise-point, and the DKIM-verdict boundary are placed as seams for later phases. Parse, hash, and attachment extraction run off the request path on a queue consumer.
+- **Convert a scanned PDF into a searchable one through the file converter.** The conversion registry
+now has a `pdf → searchable-pdf` edge served by the OCR engine: submit a scanned PDF as a conversion job
+and get back the same document with an invisible, selectable text layer over every scanned page (a page
+that already has text is left untouched). Because the converter composes multi-hop paths, a scanned
+image reaches a searchable PDF too — wrapped into a PDF and then recognized — once the image-to-PDF
+engine is deployed. The OCR engine runs as its own already-live service, so this hop works today without
+waiting on the dedicated conversion worker; the job coordinator, queue, and polling are the same ones
+every conversion uses.
+- **The Certificate of Completion is assembled and rendered.** `@magna-carta/signing` gains the ESIGN/UETA
+defensibility artifact that travels with a sealed document: `assembleCertificateOfCompletion` builds it
+from the sealed document's SHA-256, the seal time, and the server-observed signer records — refusing to
+emit an incomplete record (no signers, a non-SHA-256 hash, or a missing seal time) — and
+`renderCertificateOfCompletion` produces a stable, deterministic plain-text record naming each signer's
+attribution, adopted signature, affirmed intent, and consent to transact electronically. Pure and
+reproducible; the signing workflow that captures the acts feeds it, the way the seal engine feeds
+`sealDocument`.
+- **The platform seal is reachable from the app: `POST /api/v1/documents/seal`.** A firm member with the
+new `esign:seal` permission (seeded to Owner/Admin and Attorney) can submit a PDF and receive it sealed
+— the PAdES CMS signature embedded, plus the sealed-range digest and a Certificate of Completion. The
+route runs through the standard chokepoint (tenancy → authn → RBAC → idempotency → rate-limit) and
+forwards to the dedicated `sign-worker` over a `SIGN_SERVICE` service binding through a reusable
+`SealPort` adapter, so the signing key never leaves that one worker. The signing time and the observed
+signer IP are server-authoritative (never client self-reported); nothing is stored here — only a
+redacted `esign.sealed` audit row (digest + signer count + actor, never document content). Until the
+sign worker's signing identity is configured the route honestly returns `503`, matching the deferred
+activation of the scan, OCR, and conversion engines.
+- - **Forward/CC capture addresses can now be minted, rotated, and revoked — the forward path works.**
+  The email filing slice shipped the inbound Email Worker, the token index, and the capture consumer,
+  but nothing that WROTE a token: the routing index stayed empty and every forwarded message bounced.
+  Six routes close that gap, all behind `emails:manageCaptureAddresses` (Owner/Admin): mint and list a
+  matter's capture addresses, rotate one, revoke one, and mint or revoke the firm-wide catch-all.
+  Minting returns the address to forward or CC mail to — `<token>@in.magnacarta.esq` — and that is the
+  only time the token is ever shown, because the token is itself the credential; lists return a
+  four-character prefix and metadata.
+- **Rotation replaces an over-shared address in one step.** Rotate retires the old token and returns a
+  fresh one for the same matter; replaying the same `Idempotency-Key` returns that same new token
+  rather than rotating twice.
+- **The two halves of a capture address are written in deliberately opposite orders.** Minting commits
+  the firm's address row and its outbox row in one atomic batch and lets the relay register the routing
+  token, so a brand-new address exists but is briefly not yet routable — mail sent in that window
+  bounces rather than landing anywhere unexpected, and the mint response says so. Revoking and
+  rotating write the routing index FIRST, so a revoked address stops receiving mail the moment the
+  request returns.
+- **The shared per-firm job queue is now a declared consumer.** The per-firm outbox relay has always
+  published to it, but nothing consumed it, so per-firm outbox effects were never applied in
+  production. Deploying this requires the `magna-carta-production-platform-jobs-deadletter` queue to
+  exist alongside the queue itself.
+- **The platform seal gets a typed service contract (`SealPort`).** `@magna-carta/signing` gains the
+`SealPort` interface and its shared wire codec — the reuse seam for the dedicated sealing service: a
+request (document + seal metadata + signer records + signing time) in, a response (sealed PDF +
+document hash + Certificate of Completion + rendered text) out, with `encode`/`decode` helpers so both
+sides of the service binding serialize identically and never drift. Binary fields cross base64-encoded
+in a JSON envelope (chunked base64 helpers added to the bytes util). `@magna-carta/pdf` now also exports
+its compiled WASM as a subpath so a Worker can import it as a `WebAssembly.Module` (the established
+email/decryption route mechanic). This is the contract the sign-worker implements and the app worker
+forwards to.
+- **The PAdES seal's signing backend is settled and proven: pkijs over WebCrypto, in the Worker.** The
+detached CMS/PKCS#7 that fills the seal primitive's reserved `/Contents` is built in TypeScript with
+pkijs, running on the Cloudflare Workers WebCrypto runtime, with the firm's signing key held as a
+non-extractable `CryptoKey` — the key does only a raw signature over the CMS digest and never leaves the
+host or becomes extractable. The pure-Rust `pdf-core` engine keeps owning the PDF structure and takes
+the CMS as an opaque blob, so no cryptography enters the engine. A workerd test proves the path end to
+end: a detached CMS with signed attributes (contentType, messageDigest, signingTime) over an external
+byte range verifies, and a tampered range is rejected. Chosen over a Rust CMS crate in the engine (no
+first-class host-side-key signer) and over `@signpdf` (basic level, no native long-term-validation path);
+pkijs also carries the timestamp/revocation primitives the later PAdES levels need. Independent-validator
+(pyHanko/DSS) conformance and the `@magna-carta/signing` product layer follow.
+- **The PAdES seal now carries the ESS signing-certificate-v2 attribute — the baseline is complete.** The
+detached CMS gains the `signing-certificate-v2` signed attribute (RFC 5035): a hash of the signer
+certificate's DER, bound into what the signature covers, so the seal is tied to _this_ certificate and
+not just its issuer-and-serial (closing the certificate-substitution gap a PAdES-baseline signature must
+close). pkijs has no `SigningCertificateV2` type, so the `SigningCertificateV2`/`ESSCertIDv2`/`IssuerSerial`
+structure is built directly, omitting the `hashAlgorithm` for the SHA-256 default per DER and including it
+for SHA-384/512. Verified in node and on the Worker runtime: the attribute's hash matches the certificate,
+and the seal still verifies end to end.
+- **The PAdES seal is wired end to end: the WASM engine drives the real seal.** `@magna-carta/pdf` now
+exposes the seal primitive at its edge — `prepareSignature`, `embedSignature`, and `createSealEngine`,
+which packages them (with a pure `signedBytes` slice) as the `SealEngine` that `@magna-carta/signing`'s
+`sealDocument` orchestrates. So a real PDF flows prepare (WASM, prefix-preserving incremental update) →
+sign the byte range host-side (WebCrypto/pkijs) → embed the CMS (WASM), and the sealed document
+verifies. An end-to-end test proves it on a real document: the seal verifies, the sealed PDF still
+parses through the render engine (hayro), and a tampered range fails. The cryptography stays host-side;
+no key enters the engine. Remaining before a firm can rely on it: ESS signing-certificate-v2,
+platform-certificate provisioning, and independent-validator (pyHanko/DSS) conformance.
+- **PDF signing gains its structural foundation — the PAdES seal primitive.** The pure-Rust PDF
+engine can now prepare a document for signing without disturbing a byte of it: `prepare_signature`
+appends a PAdES signature dictionary, an AcroForm, and an invisible signature widget as a true
+incremental update, so the original file survives verbatim as the literal prefix of the output —
+the property every signature depends on and that the additive Bates/searchable writers (which
+re-serialize) deliberately do not provide. It writes an exact `/ByteRange` covering the whole file
+except the reserved `/Contents`, exposes the bytes a signer must digest (`signed_bytes`), and splices
+a caller-supplied detached CMS into the reservation (`embed_signature`) without moving a signed byte —
+so embedding the signature can never invalidate the digest it signs. Multiple signatures chain, each
+preserving the prior signed revision. The cryptography stays the caller's, host-side, by design: no
+private key enters the engine. Classic and cross-reference-stream base documents are both handled (the
+update always appends a classic table chained via `/Prev`). This is the engine half of first-party
+e-signature; the CMS builder, platform certificate, and the ESIGN/UETA product layer follow.
+- **The platform seal can be provisioned: one command mints the signing identity.**
+`pnpm run platform-seal-certificate` generates the RSA-3072 signing key and the self-signed X.509 v3
+certificate the seal is applied with, then prints the two `wrangler secret put` commands that activate
+the sign worker. The certificate carries what a document-signing certificate is expected to carry —
+`basicConstraints` (not a CA), `keyUsage` restricted to digitalSignature + contentCommitment,
+`extendedKeyUsage` of id-kp-documentSigning (RFC 9336), a subject key identifier computed without
+SHA-1 (RFC 7093), a random positive serial, and a proper one-attribute-per-RDN name. The private key is
+written to a `0600` file and never printed, so it never passes through a shell argument, scrollback, or
+a transcript. The generator is a tested library function (`@magna-carta/signing/platform-certificate`),
+not a script: its test re-imports the exported key non-extractably and proves the resulting CMS
+verifies, so what provisioning produces is known to seal before it ever reaches a secret store.
+- **The platform seal has a home: the dedicated `sign-worker`.** A new internal Worker
+(`magna-carta-sign`) applies the PAdES seal — the pure-Rust PDF engine (prepare/embed) and the pkijs
+CMS run in-process, and it holds the platform signing key (`PLATFORM_SEAL_KEY` / `PLATFORM_SEAL_CERT`
+Worker secrets) so the key lives in exactly one minimal-surface worker. Its only surface is
+`POST /seal`, reached over a service binding, returning the `SealPort` wire shape (sealed PDF +
+document hash + Certificate of Completion). Activation is deferred: the worker deploys without the
+secrets and returns `503 seal-not-configured` until an operator sets them, then seals — no redeploy.
+Proven in the real Worker runtime: pool-workers (workerd) tests seal a real PDF and verify the embedded
+CMS end to end (the first WASM-only dedicated worker here), and the worker bundles to ~2.6 MB gzip,
+well under the Workers limit.
+- **`@magna-carta/signing` — the e-signature product layer, first increment.** A new package that owns the
+PAdES seal's CMS and the ESIGN/UETA model, sitting above the pure-Rust PDF engine (which owns the
+signature structure). It ships: the detached CMS/PKCS#7 builder and verifier over WebCrypto
+(`buildDetachedCms`/`verifyDetachedCms`) — the firm key stays a non-extractable `CryptoKey`, only ever
+signing the CMS digest; the `SealEngine` port mirroring the engine's `prepare`/`signedBytes`/`embed`, so
+the seal orchestration is testable without the WASM binding; `sealDocument`, which threads prepare →
+sign-host-side → embed into one call and reports the document hash for the Certificate of Completion;
+and the ESIGN/UETA model — the four elements (intent, consent, association, attribution), the attribution
+assurance ladder (`attributionMeets`), and the Certificate-of-Completion shape. Verified in node and on
+the Workers runtime (workerd). Deferred: the real `@magna-carta/pdf` WASM adapter for `SealEngine`, ESS
+signing-certificate-v2, platform-certificate provisioning, RFC 3161 timestamping / long-term validation,
+and independent-validator (pyHanko/DSS) conformance.
+- **Discovery keyword search — querying a split by ranged reads (`crates/search-core`).** The split format
+was built to be stored in per-firm R2 and queried without downloading the whole index; this adds the
+access path that makes that real. A read-only Tantivy directory serves the engine's reads straight off
+the split's footer offset table through a new `RangeReader` seam: each read the engine issues for a term
+dictionary block, a postings list, or a stored-field block becomes one ranged read of exactly those
+bytes. In production the `RangeReader` is an HTTP range GET against the split's object in R2 (the adapter
+lives in the search worker, kept out of this pure crate); a query over a large index then transfers a
+small fraction of it, so per-query cost tracks the query's selectivity rather than the corpus size. An
+instrumented in-memory reader proves it: a rare-term query reads well under half a split (and the
+fraction shrinks as the corpus grows), reading a split's footer touches only its tail, and the ranged
+path returns results identical to querying the whole split in memory. The directory is strictly
+read-only — splits are immutable, so every write path is refused.
+- **Discovery keyword search — the index core (`crates/search-core`).** The first buildable slice of the
+search-index design: a pure-Rust crate (Tantivy 0.26, no C dependency) that builds a keyword index from
+extracted passages and packages it as a self-contained **split** — the index's files bundled into one
+byte string with a footer that locates each file and records the document count and schema generation.
+A split is how the index leaves the machine that built it: one blob that can be stored under a single
+per-firm R2 key and enumerated without listing the bucket, written once and never mutated. The crate
+builds splits, queries them (BM25 keyword and phrase search, merged across multiple splits into one
+ranked list), reads a split's footer without opening the index, and refuses a split from an
+incompatible schema generation rather than misreading it. Hits carry only the pointers needed to
+hydrate a passage through the data-access layer, never its text — the index is a term index, not a
+document store. No user-facing surface yet; the crate is the engine the search worker will wrap.
+- **Discovery hybrid search — the keyword + semantic composition.** `runHybridSearch` runs the keyword half
+(the Tantivy engine through the per-firm catalog) and the semantic half (Vectorize) concurrently and
+fuses their rankings by reciprocal rank. A half that succeeds contributes its hits; a half that is
+deferred or errors contributes nothing and the other half still answers — so hybrid degrades to
+keyword-only or semantic-only without any score calibration, and only reports a failure when both halves
+are unavailable. The semantic half is a deferred seam today (its Vectorize binding and per-firm namespace
+are a deploy-time step, like the search engine and conversion engines), so a hybrid call currently
+returns keyword results; when the Vectorize adapter is wired it drops into the same composition. Covered
+by tests for the both-halves fusion, graceful degradation each way, the limit cap, and the deferred
+default.
+- **Discovery search-index catalog — the per-firm record of live index splits.** A new `index_split` table
+in the per-firm database (the `FirmDatabase` Durable Object's self-migrating lineage) records one row per
+immutable Tantivy split stored in the firm's R2: its object key, document count, size, schema generation,
+and creation instant. This is the authority a query enumerates to learn which splits are live for a
+matter — never an R2 bucket list, which would be slower and would not carry firm scoping structurally.
+Because the index is durable per-firm data (unlike transient scan or conversion artifacts), the catalog
+lives in the per-firm database, access-gated with the matter it belongs to. Splits are immutable: a row
+is inserted on publish and marked superseded by compaction (kept until its object is garbage-collected,
+so an in-flight query against the old split still resolves), never mutated in place. New data-access
+statements cover the full lifecycle — insert a split, list a matter's live splits, mark one superseded,
+and delete a superseded row — with an `IndexSplitId` identifier type.
+- **Discovery search — the `SearchIndexPort` seam (`@magna-carta/search`).** The single domain interface
+every search feature reaches the index through: `index` a document's passages, `remove` a document, and
+`query` a matter (keyword, semantic, or hybrid). It follows the same discipline as the conversion and
+inference ports — every operation returns a typed outcome, never a thrown error, so a caller
+pattern-matches an engine or transport failure rather than catching it, and `engine-not-implemented` is a
+first-class result while the engine Container is deferred. The port is the boundary between the app
+Worker (which owns the per-firm catalog and firm scoping) and the future dedicated search Worker's
+Container (which owns the Tantivy engine): a query carries the live split object keys the caller resolved
+from the catalog, so the engine range-reads exactly those and never reaches the per-firm database. No
+user-facing surface yet; the interface and its typed outcomes are covered by tests.
+- **Discovery keyword search — the catalog-to-engine wiring.** The app Worker can now run a keyword search
+over a matter's live corpus end to end (short of the engine Container itself): `runKeywordSearch` resolves
+the matter's live splits from the per-firm catalog through the firm-scoped data-access layer, hands their
+R2 object keys to the `SearchIndexPort`, and returns the ranked hits. Firm scoping and catalog
+enumeration stay in the Worker behind the data-access layer, so the engine is a stateless range-reader
+that only ever sees splits the firm's own catalog named. `resolveSearchIndexPort` returns a
+service-binding adapter to the dedicated search worker (`magna-carta-search`) when its binding is present,
+and a deferred port (`engine-not-implemented`) when it is absent — every test environment and production
+until that worker is deployed — exactly as the conversion subsystem is wired-but-dormant. The adapter
+never throws: a non-2xx or transport failure becomes a first-class adapter error. Covered by tests for
+the catalog-to-engine split-key hand-off, the deferred fallback, and the adapter's forward/parse and
+error mapping.
+- **Discovery hybrid search — reciprocal rank fusion.** The keyword half (Tantivy/BM25) and the semantic
+half (Vectorize/cosine) rank hits in incomparable score spaces — a BM25 magnitude and a cosine
+similarity cannot be added — so a hybrid query fuses them by reciprocal rank instead: a passage
+contributes `1/(k + rank)` from each list it appears in, and the fused score is the sum. This needs no
+score calibration between the halves, is robust to one half returning nothing, and lifts a passage both
+halves surface above one only a single half found. The fusion is a pure function in
+`@magna-carta/search` (`reciprocalRankFusion`), fusing at the passage (document + chunk) level with
+deterministic tie-breaking, ready for the worker to combine the two halves once the semantic engine is
+wired.
+- **Discovery search write pipeline — documents now become index splits.** The half of the search
+subsystem that was missing: nothing previously turned a matter's documents into splits and catalog rows,
+so a query resolved an empty catalog no matter how much had been filed. A committed document version now
+flows ingest → extract → build → catalog, driven by a queue consumer off the ingest path in the shape the
+conversion subsystem already models (a `SearchIndexJob` Durable Object keyed `firmId:documentId:version`
+over a `search-index` queue with its own dead-letter queue).
+
+**One split per document version, so a retry converges instead of duplicating.** The split id is
+_derived_ — a content-addressed handle from `documentId + version` (new `deriveIdentifier` in
+`@magna-carta/identifiers`) — which fixes both the split's identity and its R2 key
+(`search/<matterId>/splits/<splitId>.split`). Every attempt at the same version therefore writes the
+same object and replaces the same catalog row: a retried job overwrites its own half-finished work
+rather than leaving a second copy behind. Publishing is a delete-then-insert of the document's rows in
+one atomic batch, and the `index_split` table gains `document_id` + `version` columns with a **partial**
+unique index over the live per-document rows — so a duplicate delivery that raced past the delete still
+cannot leave two live splits indexing one version, while the many-document splits a later compaction
+publishes stay outside the constraint. New data-access statements cover the document lifecycle:
+`listSplitsForDocument`, `deleteSplitsForDocumentStatement`, and `replaceDocumentSplitStatements`.
+Superseded splits' R2 objects are reaped before their rows, so a re-index leaks no orphaned bytes.
+
+**A deferred engine parks a job instead of failing it.** Neither engine is deployed yet — the index
+Container is unbuilt and the text-extraction port resolves to the recognition service — and a pipeline
+that retried against them would burn each message's attempts and dead-letter documents that were merely
+early. The consumer's outcomes are therefore three, not two: `indexed`, `deferred` (acked, recorded on the
+job, and re-startable so deploying an engine and replaying the enqueue drains the backlog naturally), and
+`failed` (either terminal for unreadable bytes, or rethrown so the queue retries and finally
+dead-letters). No document ever leaves the pipeline unaccounted for — a document silently missing from
+discovery is a defensibility failure, not a cache miss.
+
+**Gated per firm, enqueued at the ingest seam.** A new `search.indexing_enabled` firm setting (off by
+default) is read at enqueue time on the ingest path, so a firm that has not opted in never has its
+documents extracted or written to R2. The enqueue hangs off the clean commit in the files-ingest
+consumer — the first moment a version is durable, scanned, and current — and is best-effort, so a
+failure to enqueue can never unwind an ingest that already succeeded. A new `TextExtractionPort` covers
+the extract stage over the recognition engine, with typed outcomes that let the consumer tell "no engine
+yet" from "these bytes are unreadable".
+- **The LibreOffice conversion engine — the four registered office edges now have a body.**
+`docx→pdf`, `odt→pdf`, `docx→odt`, and `wpd→odt` have been declared conversions for two months and
+resolved to a deferred port that failed every job; `wpd→pdf` chains across them. `containers/libreoffice`
+is the engine that runs them: a Rust supervisor with an axum surface, plus a pool of warm worker child
+processes that each load LibreOffice once through a `dlopen`'d C ABI and convert one document at a time.
+
+The suite is owner-consented C++ under the memory-safety rule — no Rust library reads those formats with
+anything approaching this fidelity — and the consent buys exactly one thing: loading a shared library at
+run time. Everything around it is Rust, the container has no outbound network, and the suite always runs
+as an isolated child process, so a wedged or segfaulting conversion kills its own child and nothing else.
+A worker is replaced (never rebuilt in place — the binding segfaults if an instance is recreated) when it
+crosses its conversion budget, its resident-set ceiling, its deadline, or dies; a scheduled replacement is
+warmed alongside the outgoing worker, so recycling is not charged to the request that triggered it.
+
+`/ready` is honest: 503 until a worker has actually finished suite initialisation, which takes tens of
+seconds, so the container never hands that delay to the first user request as an unexplained stall. A
+failure is always a status, never an empty success — 415 for a format pair this engine does not serve, 422
+for a document that reached the suite and could not be converted (including a password-protected one,
+which is never guessed at), 503 when no worker was available, 504 on the conversion deadline.
+
+Carlito and Caladea ship in the image and the acceptance suite asserts the embedded font names, so a
+Calibri or Cambria document that silently fell back to Liberation — a layout shift, not an error — turns
+the build red instead. The supervisor's whole state machine is proved by `cargo test` against a fake
+worker that can be told to hang, crash, abort on a signal, run away with memory, or answer with garbage,
+so the part most likely to be wrong is covered on any machine with no office suite installed.
+
+Deploy is ordered: the convert worker carries the new Container class before the app worker starts routing
+the engine. Still to come on this container: the email-to-PDF render engine, which consumes the job-package
+seam and adds one dispatch arm.
+- **A user guide for capture-address management.** Minting, rotating, and revoking the forward/CC address
+a matter files mail through — plus what the firm-wide catch-all does and why a firm holds only one —
+now have written guidance in _Filing email to a matter_, including the two things that surprise people:
+the address is shown exactly once, and a brand-new one bounces mail for a moment before it starts
+delivering.
 
 ### Fixed
 
@@ -417,6 +701,432 @@ border plus `background-clip: content-box`. The recipe is applied where it was m
 shell's work canvas (the app's single scroll region), the Settings nav column and every Settings
 page's scroll area, and the developer console.
 - **File tools now surface where a file is in hand.** The File Converter and the Metadata Inspector & Scrubber both act on a file but were tagged as accepting no subject, so a file-context surface could not reach them. Both now declare the file context tag, joining the other file utilities.
+- - **The CI gate now runs every test suite it claimed to run.** Three coverage holes closed: (1) the
+  seven standalone workers (`apps/bundle-worker`, `apps/convert-worker`, `apps/file-repair-worker`,
+  `apps/magna-carta-edit`, `apps/ocr-worker`, `apps/recovery-worker`, `apps/scan-worker`) had vitest
+  suites that ran nowhere — their configs were never registered in the root `test.projects` list, so
+  root `vp test` and the gate both walked past them; they are now registered and run in `test-node`.
+  (2) The container Cargo workspaces' unit/integration tests (scan heuristics, bundle encoders,
+  recovery shard) ran nowhere — `rust-check` covers only `crates/`; the `containers` job now runs
+  `cargo test` for each changed container workspace, with a cargo cache. (3) A changed container with
+  no acceptance mapping passed the `containers` job green having tested nothing; an unmapped container
+  now fails the job unless explicitly listed as not-yet-covered (collabora, file-repair, ocr, raster —
+  each flagged with a warning on every run that touches it).
+- **Scan-container integration tests now run on any host.** The first run of the newly gated suites
+  surfaced a latent break: the scan router's spool writes to the fixed clamd-shared `/scan` scratch
+  directory, which exists only inside the real container, so the `health` and `scan_fault` integration
+  tests returned 503 on every Linux host (the Windows dev build takes the buffered path and never hit
+  it). The spool directory is now overridable via `SCAN_SCRATCH_DIR` (production never sets it), and
+  those tests point it at the OS temp dir.
+- **The test-project registry is now a gated fitness function.** `pnpm run lint:test-registration`
+  (`tooling/lint-test-registration.mjs`, run in the gate's governance job) fails when a
+  `vitest*.config.ts` exists on disk that no root `test.projects` entry covers, or when a literal
+  entry points at nothing — so a test suite can never again sit silently unrun.
+- **Container workspaces are now fmt/clippy-clean and gated.** The scan workspace's formatting drift
+  and two clippy findings (scan, ocr) are fixed, and the containers job's per-changed-workspace gate
+  now runs `cargo fmt --check` + `clippy -D warnings` + `cargo test`, matching the crates/ rust gate.
+- **Every gate job now carries a hang guard.** All jobs have a `timeout-minutes` cap set comfortably
+  above their honest wall-clock (only the lint job had one), so a runaway fails in minutes instead of
+  burning a runner toward the 6-hour default.
+- **Gate classification hardened.** The `workflow_dispatch` diff base now falls back to the merge-base
+  with `origin/main` (`HEAD~1` under-classified multi-commit branches and could wrongly skip the heavy
+  jobs); an empty diff fails safe by running everything; a crashed `affected-lint` classifier fails the
+  `changes` job — and an empty lint scope fails the `lint` job — instead of silently degrading;
+  markdown-only edits inside `crates/` or `containers/` no longer trigger those areas' heavy jobs; the
+  `typecheck` job's five checks are separate named steps so a red run names the failing surface.
+- - **The Oxlint ruleset is now actually enforced, and broadened.** The lint rules lived in a root
+  `oxlintrc.json`, but `vp lint`/`vp check` read Oxlint config from the `lint` block of
+  `vite.config.ts` and never from that file — so the ruleset was **dead**, and `oxc/no-barrel-file`
+  (ADR-0070) was silently unenforced. Moved the whole ruleset into `vite.config.ts` where vp reads it
+  (restoring the no-barrel rule), deleted the dead `oxlintrc.json`, and dropped its now-redundant
+  entry from `tooling/affected-lint` (`vite.config.ts` already forces a whole-repo re-lint). While
+  there, broadened coverage: enabled the `suspicious` and `perf` rule categories as **warnings**
+  (advisory — they do not fail the gate), with the one noise-flood rule turned off
+  (`typescript/no-unsafe-type-assertion`, ~600 reviewed `as` at typed seams) so the high-signal tail
+  stays visible. Plugins are listed explicitly (`typescript`, `unicorn`, `oxc`) — no `react`/`jsx-a11y`
+  (Svelte app, zero JSX). Promoting `correctness` to a hard error and enabling
+  `no-unsafe-type-assertion` are tracked as planned strictening in `docs/conventions/typescript.md`. Confirmed the type-aware pass's tsconfig `include` patterns are already
+  scoped (`src/**/*.ts`), so no change was needed there. Ruleset home + rationale:
+  [`docs/conventions/typescript.md`](docs/conventions/typescript.md).
+- **Searchable-PDF writer: correctness hardening from an adversarial review.** Three defects in the
+invisible-text-layer writer, found before it ships:
+
+- A non-BMP character (an emoji, or a CJK Extension-B ideograph — the kind that appears in Chinese and
+  Japanese proper names) was silently dropped from the searchable layer: its `ToUnicode` mapping was
+  built per UTF-16 code unit, so a surrogate pair became two undecodable halves and the character
+  vanished from extracted text — which redaction reads, so a name the writer could not represent could
+  not be redacted. Each character now maps to one code with a correct multi-unit `ToUnicode` destination.
+- The layer's font could overwrite a page's own font if that page happened to carry a resource under the
+  same name; the writer now picks a name proven free on every target page.
+- A single degenerate (zero-area) word box no longer drops that one word — the line falls back to
+  whole-line placement so every recognized word survives.
+
+Known remaining gap: on a page with a non-zero `/Rotate`, the invisible layer is placed in the
+unrotated frame, so selection geometry is off (the text is still searchable). A rotation-aware placement
+is a tracked follow-up.
+- - **Retyping a custom field no longer shifts its amounts by a factor of a hundred.** Convert moved each
+  stored integer to the new kind untouched, but what that integer means depends on the kind: a plain
+  number field counts whole units while a currency field counts minor units. A number field holding
+  `500` therefore read as **$5.00** the moment it was retyped to currency, while every later write of
+  $500 stored `50000` — one field permanently holding two different scales, with no error anywhere.
+  Convert now re-expresses every numeric value at the target kind's scale, moving the decimal point
+  exactly rather than multiplying (no rounding, no floating-point remainder), and **parks** any value
+  that cannot be re-expressed exactly — $500.50 retyped to a whole-unit number field is held aside for
+  review instead of being quietly rounded, with its original preserved in history as always. The same
+  rule now covers every scale-crossing pair: a checkbox or typed text converted to currency reads as the
+  amount a person wrote (`"1,234.56"` becomes $1,234.56, not $12.34), and a currency field converted to
+  text renders `"500.00"` rather than `"50000"`, so converting back restores the original amount. The
+  preview runs the identical classification, so the clean/parked counts an administrator approves are
+  exactly what applying commits.
+
+- **A custom-field value is now checked against the field's definition before it is stored.** The value
+  write composed its statements without ever reading the field it was writing to, so the "typed" field
+  engine accepted values it had no type agreement with: a value stored against a field that does not
+  exist (an orphan row, answered `200`), a text value on a currency field, a fractional number in a
+  column that must hold whole minor units, a value written to an archived field, and a picklist choice
+  that belonged to a different field or had been archived — the last of which stored a value that
+  rendered blank and was destroyed the moment a later conversion read it. Each is now refused before
+  anything is written, with its own reason: an unknown field is a `404`, and a kind disagreement, a
+  fractional amount, an archived field, a foreign or archived picklist option, and an over-long text
+  value are each a `422` naming what was wrong. A per-value text ceiling and a bound on a field's
+  declared number scale keep a single record from pushing hundreds of kilobytes into a row, and keep a
+  wild scale from turning every write into a rounded or infinite number.
+
+- **Two adjacent custom-field refusals that used to surface as server errors or silent overload.**
+  Previewing or applying a conversion on a reference field (or to one) raised an untyped error that
+  reached the client as a `500` for an ordinary administrative action, and a reference field holding no
+  values "converted" successfully into a kind that cannot hold references; both directions are now a
+  clear refusal that does not depend on how many values the field holds. Retyping a field whose value
+  count exceeds what one atomic pass can carry is likewise refused with the count and the ceiling, rather
+  than being attempted as a single enormous commit — the background pass for larger fields is still to
+  come. The confirmed-rule coercion path ("500k" → 500000) now also produces a whole number at the
+  target field's scale, or refuses, instead of a fractional amount.
+- - **Directory merges no longer strand chained entities, destroy absorbed relationships, or accept
+  writes on merged-away records.** Three defects in the merge subsystem are closed. (1) Merging an
+  entity that had already absorbed others left a two-hop chain: resolution follows exactly one hop, so
+  the earlier subordinates resolved to an entity that had itself been merged away. A merge now
+  repoints the merge pointer of every entity previously merged into the subordinate onto the new
+  master in the same atomic batch, so `merged_into_id` always names a live entity and every historical
+  entity resolves to the final master in one hop — chosen over transitive resolution because it costs
+  one write per chained entity once, instead of a recursive lookup on every read path forever.
+  (2) A reference that could not be repointed live during absorption — a matter-party link or an edge
+  the master already carried, or an edge that would have become a self-loop — was hard-deleted,
+  destroying the record that the merged-away entity ever held that relationship. Those rows now move
+  to the master and land archived (soft-deleted, temporally closed) with their content intact, mirroring
+  the archive-to-history handling custom-field values already used, and each absorption stays recorded
+  in the `entity_merge` event. (3) The shared existence assertion ignored entity status, so names,
+  identifiers, edges, category assignments, and matter-party links could still be attached to a
+  merged-away entity. Those writes are now refused with a conflict that names the surviving master;
+  reads are unchanged and still return the merged entity with its pointer to follow.
+- **Renaming a Directory entity now verifies the entity first.** `changeName` was missing the guard its
+  sibling `addName` carries, so renaming an unknown entity inserted an orphan current-flagged name row
+  and its phonetic codes into the conflicts corpus and still reported success.
+- **A merge no longer repoints a subordinate that another merge already claimed.** The archive write
+  re-checks at write time what the guard checked at read time, so where two concurrent merges of the
+  same subordinate both pass the read-time guard, the loser cannot point it at a master that received
+  none of its references.
+- - **The editor's live working copy is now served only to the session that owns it.** The WOPI file-access
+  handlers chose between the mutable `files/{fileId}/current` object and the immutable version the access
+  token names by the token's capability, so any edit token got `current` whenever the object existed. That
+  object outlives the session that wrote it — an idle reap cuts a version but leaves the object in place —
+  so a newly opened editing session could pick up an abandoned working copy as its base and save on top of
+  it, and a token minted outside the live session could be handed bytes it was never scoped to. Both
+  handlers now share one rule: read `current` only when an editing session is live, the token was minted
+  for that session, and that session recorded the working copy; everyone else reads the version their token
+  names, with no fallback between the two. `CheckFileInfo` applies the same rule, so the size and version it
+  advertises always describe the bytes the next `GetFile` returns. Reading is still never blocked — a
+  read-only viewer that joined the live session follows the live edits.
+- **The document editor worker no longer boots a container for an invented hostname.** Its per-document
+  routing accepted any nonempty first Host label as a container key, so any request carrying a plausible
+  `Host` started an isolated multi-gigabyte Collabora container. The label is now validated against the
+  shape the editor-launch actually mints — 52 lowercase hex characters of a SHA-256 digest — before
+  anything addresses a container, and anything else gets a cheap 404.
+- - **A file's clean verdict now binds to the bytes it was computed from.** The presigned PUT that
+  delivers an upload stays valid for the rest of its lifetime, so the same URL could overwrite the
+  object minutes after ingest had already committed the version clean — and the overwrite's own R2
+  object-create event no-opped, because the only branch that ran for a non-pending version looked at
+  the scan engine's version and never at the bytes. The swapped content was then served to every firm
+  member under `scan_verdict = 'clean'` with a hash that described content that no longer existed.
+  An object-create event for an already-committed version is now treated as what it is — a second
+  write — and the stored bytes are re-measured against the hash recorded at commit. Matching bytes
+  leave the verdict standing (an at-least-once redelivery changes nothing); differing bytes withdraw
+  the version behind the status gate, scan the replacement content so the row records what arrived,
+  repoint the file's current version at the newest version that is still clean, and emit the ordinary
+  quarantine audit/outbox/telemetry trio. A scan that cannot run is never a reason to leave swapped
+  bytes servable — the withdrawal happens either way.
+- **Legacy Office documents are no longer quarantined for telling the truth.** The ingest gate
+  compared the sniffed content type to the declared one with byte-exact string equality, but a
+  magic-byte sniff names the container: every pre-2007 Word, Excel, PowerPoint and Outlook file sniffs
+  as `application/x-cfb`, while a browser declares `application/msword` and friends from the
+  extension. Each one was read as a lie and quarantined — and the sniffed container type was missing
+  from the default upload policy's allowed list too, so nothing could have let it through. The
+  comparison now normalizes case and parameters and consults an explicit table of container
+  relationships (the compound-file family; ZIP against the OOXML/OpenDocument formats, in both
+  directions, since the sniffer reports the bare archive when its markers fall outside the head
+  window). Every pair outside that table still disagrees and still quarantines.
+- **A gate quarantine records why it happened.** A version rejected for a type lie, a size lie or a
+  policy breach persisted a null `scan_detail`, so the reason reached only the outbox message and the
+  telemetry event; a reviewer opening the row later could not tell a malware hit from a size mismatch.
+  The reason is now written to the row.
+- **`firm.bucket_name` is UNIQUE.** The ingest consumer resolves an R2 event's bucket name back to a
+  firm with `WHERE bucket_name = ?`, and the provisioner's comments already described the stored name
+  as per-firm unique, but nothing enforced it — two firms sharing a name would have made that lookup
+  ambiguous. Added as a control-plane migration; SQLite treats NULLs as distinct, so firms whose
+  bucket is not yet provisioned are unaffected.
+- - **Two matters opened at the same instant can no longer be handed the same place in the firm's
+  numbering sequence.** A number draw reserved its place by re-reading a counter and then advancing it
+  only if nobody else had — and where that check lost, the duplicate was expected to be caught by the
+  rule that no two matters may carry the same number. That rule only sees the finished number, so it
+  caught nothing whenever the firm's scheme mixes something that varies per matter into the number
+  without also resetting the counter on it: a client code, staff initials, a matter-type code. Two
+  matters opened together for different clients then rendered `ACME-0001` and `BRIGHTON-0001` — two
+  different numbers, both claiming the firm's first file of the sequence, with the counter left at 2 so
+  the duplication was invisible from then on. Each draw now records the sequence position it consumed,
+  and the database refuses a second claim on a position already taken: the losing request rolls back
+  whole and immediately re-draws on the next number. Numbers a firm has already assigned are untouched.
+
+- **Opening a matter twice no longer overwrites the number it was already given.** The open path
+  checked that a matter was still a prospective consultation and then wrote the new number as a
+  separate step, so two opens in flight together — or an open arriving just after someone closed the
+  matter — could rewrite an already-open matter's number, its opening date, and its state, with the
+  displaced number simply gone. The write is now conditional on the matter still being a prospective
+  consultation, and the request that loses is told the matter was opened or closed concurrently instead
+  of being handed a number that ended up on no matter at all.
+
+- **A closed matter can no longer be closed a second time.** Re-closing silently moved the recorded
+  close date and announced a second closure to everything downstream — a January closure re-run in June
+  moved the date that retention and archival clocks run from by five months, with nothing recording
+  that it had moved. Closing an already-closed matter is now refused, and a close that arrives at the
+  same moment as another close leaves the first close date standing. A retried request carrying the
+  same idempotency key still replays its original response, as before.
+
+- **Changing a matter's number now records the number it replaced.** A manual, court, or legacy number
+  overwrites the previous one in place, and nothing retained the old value — so a filing or invoice
+  quoting the earlier number resolved to nothing anywhere in the system. The audit entry and the change
+  event now both carry the displaced number.
+- - **The metadata scrubber no longer leaves revision, whole-part, or appended-data residue in a file it
+  reports clean.** Accepting tracked changes now covers the entire word-processing revision
+  vocabulary rather than deletions and move-out content alone: move range markers (which carry the
+  reviser's name, the date, and the passage that moved), every property-change record, table row and
+  cell revisions — a row or cell deleted under tracked changes is now removed rather than having its
+  marker stripped while its text stays — and the revision save identifiers that link passages to
+  individual writing sessions across the document, styles, and settings. Whole part classes that
+  used to travel through a one-click scrub untouched and unreported are now handled: the rendered
+  preview image of page one (which still showed the markup the XML pass had just removed), embedded
+  custom XML data (where a document-management system stores its client and matter record), and the
+  stored document variables, mail-merge data source, and attached-template path in the document
+  settings — including the network locations those carry in their relationships. Dropping a part now
+  also removes its content-type declaration and the relationships that point at it, so a scrubbed
+  document stays valid for a strict reader; relationships are matched by what they resolve to rather
+  than by the end of their address, so an external link whose URL merely ends in a removed part's
+  name survives. Every rewritten part is written with a single XML declaration — a second one made
+  the part malformed. For images, a JPEG scrub now ends the copy at the end of the image instead of
+  carrying forward everything after it, which could be an entire embedded file, and both JPEG and PNG
+  inspection report appended data; an image whose structure cannot be parsed is refused as unreadable
+  instead of being returned as a header-only picture. The inspection report gained matching entries
+  for the newly covered classes: embedded preview, embedded data, document settings, edit history,
+  and appended image data.
+
+- **The metadata tool's decompression guards now apply everywhere an archive is opened, at a limit the
+  runtime can survive.** Format detection used to inflate the main document part with no guard at
+  all, ahead of every guarded read, so a small crafted archive could exhaust the runtime before any
+  cap was consulted; detection now answers whether the part exists without decompressing anything,
+  under the same entry-count and declared-size caps as every other read. The total inflated-size cap
+  was set above the memory available to the whole request, which meant it could never fire in time;
+  it is now set well below it, with room for the buffers held at the same time. The upload endpoints
+  also bound and validate the encoded body on the request schema, so an over-long or malformed upload
+  is refused before it is decoded rather than allocating first or failing as an unexpected error.
+- Closed two ways the PDF engine could carry content past an operation meant to remove it, both through page annotations — which sit beside a page's content stream and so are untouched by any rewrite of it. `split` left each kept page's `/Annots` as it found them, so a link, popup, or parent reference naming an excluded page pulled that page's dictionary, content streams, and resources into the output through the object-graph walk that decides what to keep: invisible to a reader, plainly readable in the bytes. Split now severs those references — dropping the out-of-range link and keeping the annotation, or dropping the annotation when it is entirely about an excluded page — and refuses to emit a range at all if an excluded page's objects somehow survive. Surgical (text-preserving) redaction removed glyphs from the content stream but never touched annotations, so a note's `/Contents`, a FreeText caption, a link URI, or an appearance stream could still carry the redacted words; it now removes every annotation standing over a redaction rectangle, together with the popup and reply annotations that repeat its text, and falls back to a raster flatten for any page whose annotations cannot be cleared. Flatten redaction, which already unlinked `/Annots`, now blanks the annotation objects themselves, so one still named from elsewhere in the file (an AcroForm field entry) cannot survive pruning with its text intact.
+- - **A shipment's label PDF is now readable only by the firm that bought it.** The label download derived
+  its object key straight from the URL's shipment id and streamed whatever bytes it found, with nothing
+  proving the shipment belonged to the caller's firm — so any authenticated member of any firm holding
+  `shipping:manage` could fetch another firm's label, and a label carries the recipient's full postal
+  address. The read now resolves the label row through the caller's own firm-scoped database first and
+  serves the server-recorded key from that row; a shipment outside the caller's firm finds no row and is
+  answered `404` (absence, not a distinguishable refusal). Label objects are also keyed under the owning
+  firm now (`labels/<firmId>/<shipmentId>.pdf`), so two firms cannot name one object even where they
+  share a bucket. Labels bought before this change keep working — the read follows the key recorded on
+  the label row, whatever its shape.
+
+- **Uploads are presigned into, and read back from, one bucket.** The upload routes signed direct-to-R2
+  URLs against the firm's own provisioned bucket while the ingest consumer and the storage sweeps read
+  through the single bound R2 binding. On any deployment where those are not the same bucket — which is
+  what firm provisioning actually creates, a per-firm `magna-carta-production-firm-<slug>` bucket — the
+  bytes landed where nothing could read them: ingest would find no object, retry, and dead-letter, so
+  uploads failed silently. Both ends now resolve the firm's bucket through one seam
+  (`apps/worker/src/files/firm-bucket.ts`), which hands back the name a URL is signed against and the
+  handle bytes are read through as a single answer, and refuses to mint a presigned URL for a bucket
+  this Worker cannot read back (the new `R2_BUCKET_NAME` var names the bound bucket, since an R2 handle
+  carries no name of its own). Every route that presigns or writes a firm's bytes goes through that
+  resolver, pinned by a source scan.
+- **Three defects fixed: usage telemetry could fail a served request, a reaped bulk-download bundle could
+never be rebuilt, and the malware scanner ran on one container instead of five.** (1) The server-side
+usage `reached` event resolved analytics consent and emitted _after_ the route had already committed its
+response, with no error boundary — a consent-read failure turned a delivered 2xx into a 500. That work
+now runs off the response path and reports any failure through the standard background-failure pipeline,
+so telemetry can no longer disturb a served request. (2) The bulk-download coordinator shared any
+non-failed job as-is, so once the `bundles/` R2 lifecycle rule expired an artifact the job kept reporting
+`ready` with a key that no longer resolved and the bundle could never be rebuilt; the coordinator now
+confirms the recorded artifact (or every volume of a split archive) still exists before sharing a `ready`
+state, and rebuilds when it is gone — in-flight builds are still single-flighted exactly as before.
+(3) Every request to the scan worker addressed one Durable Object name, so the five container instances
+it is configured for were unreachable and concurrent scans queued behind a single container; scans are
+now spread across one shard per configured instance, keyed on the file version's storage key so a retry
+lands on the instance that already handled it. The engine-global histogram read, the file-type identify,
+and the warm-poke cron stay on the shard the poke keeps resident.
+- - **The email-filing tables are now classified in the PII/erasure registry.** The six per-firm tables
+  the email filing record model added (`email_thread`, `email_message`, `email_matter_link`,
+  `email_participant`, `email_attachment`, `email_capture_address`) landed unclassified, so the
+  registry's coverage fitness function was red on `main`. `email_message` (frozen sender address),
+  `email_participant` (each frozen from/to/cc/bcc address, plus its resolved Directory entity where one
+  exists), and `email_matter_link` (which firm member filed a message to a matter) are registered as
+  personal data retained under the matter corpus; `email_thread`, `email_attachment`, and
+  `email_capture_address` are recorded as explicitly non-PII structure. Participants are keyed by
+  frozen address value as well as by resolved entity id, so a participant the Directory never matched
+  is still reachable by erasure.
+- - **A retried or duplicated label purchase can no longer buy a second label.** Double-buy protection
+  rested on an `Idempotency-Key` header sent to EasyPost — an API with no idempotency facility of any
+  kind, so the header was simply ignored and every retry was a fresh, separately billed purchase. The
+  guard now lives on our side: a shipment takes an exclusive purchase claim (a guarded status
+  transition committed before any money moves), so exactly one request out of any number of concurrent
+  or retried attempts reaches the carrier, and a shipment whose label is already bought answers `409`
+  instead of buying again. A buy the carrier definitively refused hands the claim back so the firm can
+  correct and retry; an indeterminate failure — a provider `5xx`, a dropped connection, or a failure
+  after the buy returned — keeps the claim, because the label may exist and be billed.
+
+- **Requested parcel insurance is actually purchased.** `insuranceAmountMinor` was accepted by the API,
+  stored on the draft, and shown back to the firm, but was never sent to the carrier — so a parcel of
+  original documents recorded as insured was in fact uninsured. The declared value now rides the label
+  purchase as the carrier's own insurance parameter (a decimal-dollar string), taken from the draft
+  rather than from the purchase request, so what the firm was told it insured is what is bought.
+
+- **The purchase is checked against the draft before any money is spent.** The route bought from the
+  carrier before confirming the shipment existed and never reconciled the supplied carrier-shipment id
+  with the draft, so postage could be bought against a nonexistent row or attached to another draft's
+  addresses. Rate shopping now records the carrier-side shipment it quoted against, and a purchase
+  naming a different one is refused with `422`. A label download that fails is no longer stored and
+  served forever as the label — the transfer must succeed before the bytes are kept.
+
+- **A firm can disconnect and reconnect its postage account.** Connecting always inserted a new
+  connection row against a unique `(category, principal)` index, so every connect after the first
+  failed with a `500` and there was no way to remove a connection at all — a firm rotating a
+  compromised API key was dead-ended with the revoked one. Connect is now an upsert that rotates the
+  credential in place and re-arms a connection the health model had parked, and a new
+  `DELETE /api/v1/integrations/shipping/connection` removes it. The credential is addressed by firm
+  rather than by a freshly minted connection id, so a rotation replaces the old key instead of
+  orphaning it.
+
+- **The whois IP path resolves the right RDAP server.** Bootstrap matching compared CIDR blocks as text
+  prefixes, which is wrong for any delegation that does not land on an octet boundary: members of a
+  block were missed, and unrelated addresses that merely shared leading characters were claimed.
+  Matching is now real numeric containment over masked integers, longest prefix first, for both IPv4
+  and IPv6 — and a hex-bearing IPv6 literal is no longer mis-routed to the domain bootstrap.
+- **Searchable-PDF writer: the invisible text layer is placed at its recognized box, not an order of
+magnitude larger.** The writer applied the recognized font size twice — once through the text-font
+operator and again on the text-matrix diagonal — so a run recognized at a 160×20 pt box was written
+about ten times that size. Selection highlights and any position-based redaction landed far from the
+visible glyphs. The text matrix is now a pure translation to the box's bottom-left; size comes from the
+font operator and the width fit from the horizontal-scale operator alone. A geometry regression test
+writes a run and asserts the extracted bounds sit around the recognized box.
+- **Text on rotated pages lands on the visible content, on both the searchable-PDF layer and Bates
+stamps.** The OCR engine reads the displayed (rotation-applied) page, so a recognized run's box is in
+the displayed frame; the searchable-PDF writer now counter-rotates each run into unrotated user space
+so that, once a viewer re-applies `/Rotate`, the invisible layer sits under the visible glyphs —
+previously it was placed as if the page were unrotated, drifting the layer (and any selection or
+position-based redaction) off the content on any rotated page.
+
+This also fixes a latent error in the shared display-to-user coordinate matrix that both this writer and
+Bates stamping use: for quarter-turn rotations (`/Rotate 90` and `270`) it swapped the page width and
+height in the translation, so on a non-square page a stamp or layer was displaced by the
+width–height difference — enough to push it off a portrait page entirely. The matrix now lives in one
+place with the axes correct, guarded by two regression tests: a searchable-layer test and a Bates test
+that each assert their text renders at the same displayed position whether the page is unrotated or
+turned a quarter-turn either way.
+- - **The one-logging-path rule is enforced in every Worker, not just the API worker.** The console ban
+  named `apps/worker` explicitly, so the extracted workers — the malware scanner, the converter, the
+  bundle builder, and every future one — sat outside it: an ad-hoc `console.*` in any of them shipped
+  through a green build. The scan now enumerates the app directories rather than listing them, so a
+  newly extracted worker is covered the moment it exists, with no test to remember to update. The web
+  app stays outside by name, being browser code with its own in-app developer console. Two new checks
+  keep the widening honest: one asserts that every app except the web app is enumerated, and one
+  asserts the scan actually reaches files inside the extracted workers, so a refactor cannot quietly
+  narrow the ban back to nothing.
+
+- **Comments and names that pointed at process paperwork now explain themselves.** Several telemetry
+  comments, a test name, and a comment in the document-editor container cited a slice, a plan task, or
+  an architecture decision record instead of stating the reasoning or naming a file — the exact drift
+  the process-reference gate exists to prevent, in the forms it cannot mechanically detect. Each now
+  states why, or points at the module that settles the question.
+
+- **The Directory area guide matches the code again.** It named four functions that do not exist,
+  attributed a duplicate-candidate ordering to a line number that had moved, and cited the wrong
+  fitness probe; the frozen name-normalization contract named the wrong column for its own output. The
+  guide now also says plainly what a merge does _not_ move — the subordinate's own names, identifiers,
+  and contact rows stay where they are and resolve through the merge pointer, which is what makes a
+  merged-away alias still surface in search and conflicts.
+- **The conversion queue consumer now resolves its R2 bucket through the firm-bucket seam.** It read the
+source object and wrote the converted result through the bound binding directly while the conversion
+routes presigned both legs through `resolveFirmBucket` — precisely the split the seam exists to prevent,
+and one that would send a job's bytes to a bucket the other half never looks in the moment a firm gets
+its own bucket. The firm's recorded bucket now travels on the conversion queue message (as it already
+does for a bundle build), so the consumer reads and writes through the very bucket the upload was
+presigned against rather than deriving one of its own, and the status route heads the result artifact
+through the same resolved handle. The fitness scan that holds modules to the resolver covers both
+conversion modules, so the bypass cannot come back unnoticed.
+
+**`pnpm check:scoped` no longer diffs against a frozen `main`.** It resolved its base by trying local
+`main` first and only falling back to `origin/main`, so in any worktree whose local `main` has not moved
+since it was created — every agent worktree — the merge-base landed hundreds of commits behind and the
+scoped gate stopped being scoped: it linted every file the trunk had touched in the meantime, slowly and
+noisily, and a few hundred files was enough to take the linter down with it. The base is now the newest
+of the merge-bases the trunk refs offer, ordered by ancestry rather than by commit date (a rebased commit
+can carry an older date than a commit it descends from), with the previous behaviour intact whenever only
+one ref resolves and `--base <ref>` still overriding both.
+
+**`vp run bootstrap` no longer reports success over stale wasm.** Staleness was an mtime comparison
+between the Rust sources and the emitted `.wasm`, which cannot see the failure that actually happens:
+every worktree shares one cargo target directory, so a build can be served from a cached compilation of
+sources that are not the ones on disk, wasm-bindgen re-emits the bindings from that cached artefact, and
+the emitted files get a fresh mtime that reads as "current" — leaving a package missing a function it is
+supposed to export, with the failure surfacing much later as `X is not a function` at runtime. Each
+output now carries a stamp holding the content hash of the sources it was built from (its crate, that
+crate's workspace-local path dependencies — which the mtime check never looked at — and the workspace
+manifests), and no build is believed until the emitted bindings are verified to export everything the
+crate's `#[wasm_bindgen]` surface declares. An artefact that comes out incomplete has its crate's cargo
+cache discarded and is rebuilt once; if it is still incomplete the command fails loudly instead of
+stamping a broken artefact as current.
+- - **Editing (WOPI):** the two file-access callbacks now agree on what a token may reach. `GetFile`
+  re-checks the file and the version the token names on every call, so a soft-deleted file, a version
+  withdrawn by the custody check, or a version a re-scan has flagged is refused rather than streamed
+  under a still-valid token — the same answer `CheckFileInfo` already gave. `CheckFileInfo` also
+  reports the **token's** version size and identifier instead of the file's current version, so a
+  version cut by another writer mid-session no longer makes the advertised metadata describe different
+  bytes than the ones served.
+- **Matters:** a retried `open` or `reopen` carrying the same `Idempotency-Key` now replays its stored
+  response instead of being refused by the precondition its own first attempt satisfied. Close already
+  behaved this way; a genuinely new request, which carries its own key, is still refused.
+- **File manager:** a version left `pending` by a dead-lettered ingest — the upload finished, the
+  session closed, and nothing was left to commit it — is now detected on the daily pass and re-driven
+  through the ingest path, with an operator counter for the rate.
+- **File manager:** the folder-move cycle check is carried inside the `UPDATE`, so two concurrent
+  cross moves can no longer commit a parent cycle that permanently detaches a subtree.
+- **File manager:** a blank or whitespace-only folder or file name is refused with its own code and a
+  422, instead of a misleading "name taken" on create or a raw constraint failure on rename.
+- **File manager:** a version-lifecycle batch (commit, check-in, no-op skip, quarantine) now fails as
+  a unit when its guarded status change loses a race, rather than committing the meter delta,
+  current-version pointer move, session flip, audit row, and outbox event for a change that never
+  happened.
+- **Automated ADR numbering is chronological again.** The `assemble-docs` workflow checked out at the
+default depth of one commit, and the assembler orders pending decision fragments by the commit that
+first added each file. With no history to read, every fragment scored the same and the tie-break
+assigned numbers alphabetically by slug — so each bot-assembled batch of ADRs was numbered in the wrong
+order, with nothing failing to signal it. The checkout now fetches full history.
+
+**The active-work registry can see namespaced streams.** Stream notes are named after the branch they
+describe, so a `claude/<name>` branch's note lives one directory down — but `vp run worktrees` listed
+only the top level of `docs/active-work/`, which meant every nested note was invisible and its stream
+reported as having none. The listing now walks the tree, and the twelve notes that had been flattened
+to `claude-<name>.md` to work around it are back at the path their branch name dictates.
 
 ### Changed
 
@@ -481,11 +1191,113 @@ Separately, an upstream provider's trouble no longer sets this platform's verdic
 type pass, which was too slow to complete and had been letting real type errors slip onto `main`.
 `vp check` keeps fmt and lint (including type-aware lint rules); scope the type-aware pass to changed
 files in the local loop. See [`docs/conventions/build-performance.md`](docs/conventions/build-performance.md).
+- **Email forward/CC capture now routes on a single zone-level catch-all with a control-plane token index, the only shape Cloudflare Email Routing actually supports.** The capture Email Worker (`apps/email-worker`) previously encoded the firm in a per-firm subdomain (`<token>@<firmId>.in.magnacarta.esq`) and resolved it against the control-plane `firm` table — but Cloudflare Email Routing offers exactly one zone-level catch-all, not per-subdomain wildcards, so that address shape could never have been provisioned. Capture addresses are now `<token>@in.magnacarta.esq`, a single opaque server-minted token in the local part, resolved to a firm against a new control-plane `email_capture_route` (token→firm) index — with the per-firm `email_capture_address` store resolving that same token to a candidate matter downstream in the consumer, exactly as before. A revoked token stops routing the instant its route row goes inactive, with no per-firm read. This aligns the worker with the accepted design's `<token>@in.magnacarta.esq` address form and makes the forward path provisionable; the `emails:manageCaptureAddresses` mint/rotate route that writes tokens into both stores remains the fast-follow (until it ships the index is empty and every capture address bounces). The authenticated `POST /api/v1/matters/{id}/emails` API entrance is unaffected.
+- - **CI lint job now fails fast on a genuine type-aware deadlock.** The gate's type-aware `lint` job
+  (oxlint + tsgolint) had no `timeout-minutes`, so a tsgolint deadlock or runaway would have run to
+  GitHub Actions' 6-hour default before failing. Added `timeout-minutes: 45` — comfortably above the
+  ~24-minute whole-repo tall pole, so normal runs are unaffected but a real hang fails visibly in
+  minutes instead of burning the runner. (Diagnosed while investigating a slow local `apps/worker`
+  type-aware run: it is CPU-bound, not deadlocked — the worker's type program spans ~32 packages, so
+  it is simply the documented tall pole. The guard defends against a _future_ genuine deadlock.)
+- The gate's affected-lint scoping no longer treats a `.github/` change as a global trigger. A workflow or action YAML edit (e.g. `gate.yml`) cannot move a type-aware lint result, so it no longer forces the ~24-minute whole-repo lint — a CI-config change now runs the fast scoped lint (or none) like any other non-lint-input change. A genuinely lintable JS/TS file under `.github/` (a JS-based action) still forces a whole-repo lint via the existing "lintable source outside any package" rule, so there is no soundness gap.
+- - **The gate now runs the pass each trigger can uniquely contribute, instead of the same battery three
+  times.** A pull request runs the full test battery with the type-aware lint scoped one hop deep; the
+  push that merges it runs the whole-repo type-check and the **full** transitive lint closure and skips
+  the test battery the pull request already ran on the identical tree; a new nightly schedule runs
+  everything cold and unscoped; and a `merge_group` trigger is wired so enabling a merge queue gets full
+  post-merge proof with no workflow change. The required `gate` status is unchanged — it still treats an
+  intended skip as a pass and any failure or cancellation as a failure. Reasoning and the soundness
+  argument for each tier: `docs/conventions/build-performance.md`.
+- **Documentation and the rendered trackers no longer boot the code battery.** The `changes` job
+  classified anything that was not markdown as code, so `STATUS.json` — regenerated by the per-merge
+  docs-assembly commit — put every merge through the full code battery. `docs/**`, `changelog.d/**`,
+  `status.d/**`, `roadmap.d/**` and `STATUS.json` are now non-code, with a file carrying a source
+  extension kept in scope wherever it lives.
+- **`tooling/affected-lint` takes a `--max-hops` bound** on the dependent walk (`1` = the changed
+  packages plus their direct dependents; absent or `all` = the full transitive closure, unchanged
+  default).
+- **The gate caches the work it was repeating.** The workspace `node_modules` tree is cached on the
+  exact lockfile hash, so the dozen-job fan-out stops paying a full link pass each time;
+  `Swatinem/rust-cache` replaces the hand-rolled cargo caches (it also keys on the `rustc` version,
+  which the old key did not — a toolchain bump could reuse artifacts built by the previous compiler);
+  the container acceptance builds go through buildx with a per-container layer cache that outlives the
+  runner; and the `typecheck` job persists its `.tsbuild` state so `tsc -b` is incremental in CI.
+- **`test-worker` shards follow the diff** — two shards on a small change, four otherwise. `--shard=i/N`
+  partitions the same file set for either count, so this trades wall-clock against each shard's fixed
+  setup cost and never changes which tests run.
+- **Conversion hops now resolve their engine per id, end to end.** The conversion queue consumer's
+resolver seam passes each hop's engine id through (`resolveEnginePort` returns an `EngineResolver`
+instead of one port for every hop), the service-binding adapter stamps `x-engine-id` on each request,
+and the convert worker dispatches on that header to the executing Container — the raster Container
+serves both raster interconversion and image-to-PDF; an engine id with no Container yet stays a typed
+`engine-not-implemented` failure. This removes the single-engine assumption so the LibreOffice, email,
+and FFmpeg engine Containers can each land as an additive dispatch entry with no orchestration change.
 
 ### Security
 
 - **Post-quantum cryptographic posture** (white paper _Encryption and key management_ → _Post-quantum posture_, `security.md`, ADR-0046): an agility-first readiness stance — the symmetric corpus (AES-256) is already quantum-resistant and needs no migration; harvest-now-decrypt-later on data in transit is met by Cloudflare's hybrid X25519MLKEM768 TLS; public-key signatures (passkeys, the PAdES e-signature seal) are seamed but deferred to upstream standards (ML-DSA/SLH-DSA). Mandates AES-256 everywhere, SHA-384 where free, algorithm-versioned ciphertext/signatures, and symmetric-preferred primitives.
 - **Upgraded `hono` 4.12.23 → 4.12.27 (catalog).** Closes five upstream advisories in the API framework, including a high-severity one where the CORS middleware reflects any `Origin` with credentials when `origin` defaults to the wildcard, plus a `serve-static` path-traversal on Windows via encoded backslash. The Worker does not use the CORS or `serve-static` middleware, so this is a proactive bump with no behavior change. (`pnpm-workspace.yaml`, `apps/worker`, `packages/data-access`)
+- **Cleared twelve HIGH osv-scanner advisories by upgrading their dependency carriers to patched versions.** The CI dependency-audit gate began failing after advisory-database drift surfaced twelve HIGH (CVSS ≥ 7) npm advisories across eight transitive/direct carriers — `better-auth`, `fast-xml-parser`, `postcss`, `undici`, `sharp`, `js-yaml`, `fast-uri`, and `brace-expansion`. Rather than accept them, each carrier was pinned forward to the version that fixes its advisory: `better-auth` 1.6.16 → 1.6.22 (catalog) and `fast-xml-parser` → ^5.10.1 (direct), with the rest pinned through the pnpm-workspace `overrides` block alongside the existing Vite+ aliases (`postcss` 8.5.18, `undici` 7.29.0, `sharp` 0.35.0, `js-yaml` 3.15.0/4.3.0, `fast-uri` 3.1.5, `brace-expansion` 1.1.18). The `better-auth` upgrade also required adopting its new `twoFactor` brute-force lockout fields (`failed_verification_count`, `locked_until`) into the control-plane schema via an additive migration, so the two-factor enable/verify flow stays green. The osv-scanner gate now reports zero HIGH/CRITICAL npm advisories.
+- Hardened and consolidated the dependency-audit setup around the osv-scanner CI gate. The gate now pins the osv-scanner binary by SHA256 (verified against the release's published checksum before it runs, failing closed on any mismatch) so a swapped or compromised release asset can't execute. The pre-push git hook's local `pnpm audit` step is removed — it covered only npm, depended on npm's retiring audit endpoint, and duplicated the authoritative CI gate that now audits both the npm and Rust supply chains — and the `package.json` `pnpm.auditConfig` it read is dropped. `osv-scanner.toml` is now the single home for accepted advisories.
+- CI dependency-audit gate migrated to osv-scanner, now covering the Rust supply chain alongside npm. The gate previously ran npm-only `pnpm audit`; it now runs osv-scanner (v2.4.0) over the npm lockfile and every first-party `Cargo.lock` (`crates/` + `containers/`) against the OSV database (GHSA + RUSTSEC), failing on any HIGH/CRITICAL (CVSS >= 7.0) and failing closed on a scan error. This immediately surfaced four real high-severity advisories the npm-only audit could never see — including a stack-overflow DoS (`RUSTSEC-2026-0187`, lopdf) on the untrusted-PDF-parsing path — now accepted with cause and a time-boxed `ignoreUntil` in `osv-scanner.toml` and tracked for remediation by carrier upgrades. The pre-push hook still runs `pnpm audit` for fast local feedback (migrating it is a follow-up).
+- **Refreshed the npm dependency catalog and recorded verified remediation verdicts for the advisories the
+audit gate still accepts.** `hono` moved 4.12.27 → 4.13.0, which crosses 4.12.34 — the release that fixed
+four security defects reachable from a Worker: cross-request data disclosure in JSX, a whitespace-tolerant
+CORS origin regex (ReDoS), an algorithmic-complexity denial of service in the Language middleware, and
+response-header leakage in the proxy helper. Alongside it, `@hono/zod-openapi` 1.4.0 → 1.5.1,
+`@tanstack/svelte-query` 6.1.34 → 6.1.38, `@internationalized/date` 3.12.2 → 3.12.3, `@lucide/svelte`
+1.17.0 → 1.28.0, `@cloudflare/speedtest` 1.11.0 → 1.13.0, the three self-hosted font packages → 5.3.0, and
+the dev tooling `@faker-js/faker` 10.5.0, `@types/node` 26.1.2, `@stoplight/spectral-cli` 6.16.3,
+`@stoplight/prism-cli` 5.16.0, and `happy-dom` 20.11.1.
+
+The accepted-advisory list in `osv-scanner.toml` also lost a dead entry and gained real verdicts.
+`GHSA-gv7w-rqvm-qjhr` was removed: GitHub withdrew it on 2026-06-17 because the affected package was
+misidentified — the flaw was in the esbuild Deno module, not the npm package — so the gate had been
+carrying an ignore that matched nothing. The remaining tracked entries now record what was actually
+checked rather than a bare "upgrade the carrier": the `quick-xml` advisories (RUSTSEC-2026-0194/0195) are
+fixed in quick-xml 0.41.0 but reached only through `office-crypto`, which still requires `^0.38.4` as of
+its newest release (0.3.0, published 2026-07-22), so no carrier upgrade can clear them; and the npm `uuid`
+advisory (GHSA-w5hq-g745-h8pq) is fixed in uuid 11.1.1 but arrives through `postman-collection`, which
+hard-pins uuid 8.3.2 through its newest release (5.3.1) — so an override, not an upgrade, is the only
+remediation. Both entries keep their 2026-10-14 `ignoreUntil` forcing function.
+- Upgraded lopdf to 0.42.0 across every first-party Rust workspace (`crates/` and the `scan`/`ocr`/`recovery`/`file-repair` containers), remediating RUSTSEC-2026-0187 — the stack-overflow denial-of-service in lopdf's PDF parser, on the untrusted-file path. The osv-scanner CI gate's accepted-advisory list drops that entry. The scan container's structural-PDF SIGABRT guards are retained as defense-in-depth. The three remaining tracked advisories (quick-xml x2, npm uuid) stay accepted with corrected, documented reasons: quick-xml is reachable only through office-crypto 0.2.0 (its latest release, which pins quick-xml 0.38, so it cannot be cleared without a newer office-crypto), and the npm uuid advisory is a transitive dev-tooling dependency of postman-collection with no production-runtime exploit path.
+- **Telemetry's redact-by-default posture now holds on the counter path and against non-string values.**
+The event allowlist was structural for field NAMES but not for field VALUES: a declared field typed
+`FieldValue` could still be handed an object by any call site that reached the builder through `any`,
+and `JSON.stringify` then wrote that object into the log line with every nested key intact — past the
+allowlist, and past the scrubber, which only ever walked strings. Values are now forced back to a flat
+primitive at the same boundary as the keys; anything else is replaced outright rather than serialised,
+and the Workers logger raises a `telemetry.unloggable` counter naming the event and field so the call
+site is visible instead of silent. As a side effect, a `bigint` or a symbol in a field can no longer
+throw inside `JSON.stringify` and take the emit down with it.
+
+`Logger.count()` was the other door, and it was unguarded end to end: free-form metric names and
+free-form dimension values reached Analytics Engine with no allowlist, no scrub, and no tripwire — the
+cheapest way to get privileged content into the dataset, and the one nothing would have caught. The
+queue consumer's `costs.recovery.unhandled_topic` counter was already passing a value straight off a
+queue message. Counters now go through a **metric catalog** (`@magna-carta/telemetry/metrics`), the
+counter-side twin of the event catalog: each metric declares its ordered dimension keys, blobs are laid
+out from that declaration, dimension values are scrubbed, and anything undeclared — a metric or a
+dimension key — is dropped rather than guessed at, against a tripwire counter. A fitness scan over
+every `apps/*/src` and `packages/*/src` fails a `count()` call site naming a metric the catalog does
+not declare, or building a metric name by interpolation.
+
+Declaring the dimension keys fixes a second, quieter problem: the Analytics Engine column contract used
+to be whichever order each call site happened to write its object literal in. Reordering two keys in a
+literal — an edit no reviewer would question — silently re-labelled every column of that metric in the
+dataset. The layout is now one declared fact.
+
+The scrub backstop also stopped missing the shapes people actually write. Its denylist caught an
+unbroken run of nine or more digits, so a card number typed the way a payment form asks for it —
+`4111 1111 1111 1111` — and any phone number at all passed through verbatim with the tripwire silent,
+in `messageHead`, the one free-text field in the catalog and the one carrying a user's own words.
+Separated 12-to-19-digit groups and phone numbers (dashes, dots, spaces, parenthesised area codes,
+country codes) are now scrubbed and tripped.
+
+Finally, the scrubber's minted-handle exemption no longer restates the token length and alphabet that
+`@magna-carta/identifiers` owns; it and the package's own per-entity validators both build their
+patterns from one exported fragment, so changing the token shape cannot leave a stale copy behind that
+starts mangling Error IDs.
 
 ### Added
 

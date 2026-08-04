@@ -6,6 +6,7 @@ import type { ConversionMessage } from "./conversions/conversion-types.ts";
 import { perFirmQueue, type PerFirmQueueMessage } from "./costs/recoverable-charge-consumer.ts";
 import { bundleBuildQueue } from "./downloads/bundle-consumer.ts";
 import type { BundleBuildMessage } from "./downloads/bundle-types.ts";
+import { emailsCaptureQueue, type EmailsCaptureMessage } from "./emails/capture-consumer.ts";
 import { ingestQueue, type R2EventMessage } from "./files/ingest-consumer.ts";
 import { inferenceQueue, type InferenceJob } from "./inference/inference-consumer.ts";
 import { runIdleCheckoutSweep } from "./editing/idle-checkout-sweep.ts";
@@ -13,6 +14,8 @@ import { runTieringSweep } from "./editing/tiering-sweep.ts";
 import { recoveryQueue } from "./recovery/recovery-consumer.ts";
 import type { RecoveryShardMessage } from "./recovery/recovery-types.ts";
 import { runScheduledSweep, runStatusSnapshot, runStorageReconciliation } from "./scheduled.ts";
+import { searchIndexQueue } from "./search/index-consumer.ts";
+import type { SearchIndexMessage } from "./search/index-types.ts";
 import { LiveTimerDurableObject } from "./timer/live-timer-durable-object.ts";
 
 // The async bulk-download coordinator Durable Object must be exported from the Worker's main entrypoint
@@ -32,6 +35,11 @@ export { FirmDatabase } from "./firm-database/firm-database-object.ts";
 // aggregates outcomes. Exported so the runtime can instantiate the class named in wrangler.jsonc's
 // durable_objects binding.
 export { RecoveryJobCoordinator } from "./recovery/recovery-coordinator.ts";
+
+// The search-index job coordinator Durable Object: keyed firmId:documentId:version, single-flights one
+// split build per document version. Exported so the runtime can instantiate the class named in
+// wrangler.jsonc's durable_objects binding.
+export { SearchIndexJob } from "./search/index-coordinator.ts";
 
 // The bundle-build queue's name (wrangler.jsonc queues.consumers) — the queue() handler routes its
 // batches to the bundle consumer, every other queue to the files-ingest consumer.
@@ -53,6 +61,11 @@ const PER_FIRM_JOB_QUEUE = "magna-carta-production-platform-jobs";
 // consumer, which runs one shard of a dictionary/rule search and reports its outcome back to the
 // coordinator Durable Object.
 const RECOVERY_QUEUE = "magna-carta-production-recovery-shard";
+const EMAILS_CAPTURE_QUEUE = "magna-carta-production-emails-capture";
+
+// The search-index queue's name — the queue() handler routes its batches to the index consumer, which
+// extracts one document version's text, builds its split, and converges the per-firm split catalog.
+const SEARCH_INDEX_QUEUE = "magna-carta-production-search-index";
 
 // createApp defaults the plugin runtime to the production seam — the firm_secret credential store
 // throws until the marketplace wires the live credential read; carrier calls use a fetch-backed
@@ -112,17 +125,24 @@ export default {
     if (batch.queue === CONVERSION_QUEUE) {
       return conversionQueue(batch as MessageBatch<ConversionMessage>, env);
     }
-    // The shared per-firm job queue carries the outbox relay's per-firm topics (firmId-tagged). The
-    // recoverable-charge consumer owns shipment.purchased (matter cost recovery) and ACK-AND-IGNOREs
-    // every other topic on the bus. (Routes here only once the queue is declared a consumer in
-    // wrangler.jsonc — a deploy-activation step deferred from this slice; the branch is dormant in
-    // production until then.)
+    // The shared per-firm job queue carries the outbox relay's per-firm topics (firmId-tagged). Its
+    // dispatch table owns shipment.purchased (matter cost recovery) and emailCaptureAddress.minted
+    // (registering a capture token in the control-plane routing index), and ACK-AND-IGNOREs every
+    // other topic on the bus.
     if (batch.queue === PER_FIRM_JOB_QUEUE) {
       return perFirmQueue(batch as MessageBatch<PerFirmQueueMessage>, env);
     }
     // The recovery shard queue routes to the recovery consumer (one dictionary/rule shard per message).
     if (batch.queue === RECOVERY_QUEUE) {
       return recoveryQueue(batch as MessageBatch<RecoveryShardMessage>, env);
+    }
+    // The email-capture queue routes to the capture consumer (one filing job per message).
+    if (batch.queue === EMAILS_CAPTURE_QUEUE) {
+      return emailsCaptureQueue(batch as MessageBatch<EmailsCaptureMessage>, env);
+    }
+    // The search-index queue routes to the index consumer (extract -> build split -> catalog).
+    if (batch.queue === SEARCH_INDEX_QUEUE) {
+      return searchIndexQueue(batch as MessageBatch<SearchIndexMessage>, env);
     }
     // Both the interactive files-ingest queue and the bulk files-ingest-bulk queue route to the
     // same ingest handler — the lane separation is entirely in queue topology and concurrency.

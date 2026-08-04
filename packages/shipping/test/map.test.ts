@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   classifyError,
+  mapInsurance,
   mapLabel,
   mapRatedShipment,
   mapShipmentOptions,
+  minorToDollars,
 } from "../src/easypost/map.ts";
 
 describe("EasyPost mapping", () => {
@@ -57,6 +59,32 @@ describe("EasyPost mapping", () => {
       certified_mail: true,
       return_receipt: true,
     });
+  });
+
+  it("emits insurance as a top-level decimal-dollar string, never an options key", () => {
+    expect(mapInsurance(24999)).toEqual({ insurance: "249.99" });
+    expect(mapInsurance(500)).toEqual({ insurance: "5.00" });
+    // Whole dollars still carry the cents places.
+    expect(mapInsurance(100000)).toEqual({ insurance: "1000.00" });
+    // Sub-dollar declared values keep their leading zero.
+    expect(mapInsurance(7)).toEqual({ insurance: "0.07" });
+    // Insurance is not an `options` key — it must never leak into the options map.
+    expect(mapShipmentOptions({ insuranceAmountMinor: 24999 })).toEqual({});
+  });
+
+  it("omits insurance when none was requested", () => {
+    expect(mapInsurance(undefined)).toEqual({});
+    expect(mapInsurance(null)).toEqual({});
+    // Zero is "insure nothing", which is an absent key rather than "0.00".
+    expect(mapInsurance(0)).toEqual({});
+  });
+
+  it("round-trips minor units through the dollar string without float drift", () => {
+    for (const amountMinor of [0, 1, 99, 100, 745, 24999, 99999999]) {
+      expect(minorToDollars(amountMinor)).toBe((amountMinor / 100).toFixed(2));
+    }
+    // The value the naive float path gets wrong.
+    expect(minorToDollars(1010)).toBe("10.10");
   });
 
   it("classifies a 401 as a terminal auth problem", () => {

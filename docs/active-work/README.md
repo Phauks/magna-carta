@@ -9,7 +9,12 @@ conflict-proof discipline as `changelog.d/` and `docs/decisions/`).
 
 ## When you start a stream
 
-Add `docs/active-work/<branch>.md` (named after your branch) in your first commit:
+Add `docs/active-work/<branch>.md` (named after your branch) in your first commit.
+
+**The path mirrors the branch name exactly, slashes included** — a branch called `claude/fix-thing`
+gets `docs/active-work/claude/fix-thing.md`, not a flattened `claude-fix-thing.md`. One note per
+branch, at the path its name dictates, is what keeps the registry collision-free and lets a reader go
+from a branch name straight to its note.
 
 ```markdown
 ---

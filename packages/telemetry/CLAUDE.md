@@ -11,6 +11,9 @@
 ## Local conventions
 
 - Every event goes through the allowlist — no ad-hoc telemetry writes. The console-ban fitness function (`test/`) rejects `console.*` calls outside the Logger seam.
+- **The allowlist governs values as well as keys.** A declared field accepts only a flat primitive; anything else is replaced with a placeholder rather than serialised, and counted as `telemetry.unloggable`. A builder that wants structure is a design smell — add explicit fields.
+- **Every counter is declared too.** `logger.count(...)` resolves its metric in the catalog (`src/metrics.ts`), which fixes the metric's **ordered dimension keys** — that order is the Analytics Engine blob-column contract, so it belongs in the declaration and never in a call site's object literal. Adding a counter means adding a catalog entry in the same change: an undeclared metric, or an undeclared dimension key, is dropped against a tripwire. Never build a metric name by interpolation — pass the varying part as a dimension. A fitness function (`test/`) fails both.
+- **Dimension values are labels, never content.** They are scrubbed on the way out, but the scrub is a tripwire, not a licence: keep dimensions enum-like and low-cardinality (a route template, an error code, a feature key), never identifiers or free text.
 - The `usage.feature` event carries `{ feature, phase, surface }` only — no content, no matter IDs, no party names. The event body must stay content-free.
 - Feature strings come from the taxonomy in `src/` (e.g. `@magna-carta/telemetry/usage-features`). Unknown feature strings fail at build time via the allowlist; do not inline literals.
 
@@ -23,7 +26,7 @@
 
 ## Dependencies & contracts
 
-- Emits to Cloudflare **Analytics Engine** (`env.TELEMETRY`). The `usage` dataset name and the blob-slot layout (`blob1="usage"`, `blob2=feature`, `blob3=phase`, `blob4=surface`, `double1=1`) are the stable contract — changing them breaks the canonical queries in [`docs/analytics/usage-queries.md`](../../docs/analytics/usage-queries.md).
+- Emits to Cloudflare **Analytics Engine** (`env.TELEMETRY`). Blob slot 1 is always the metric name and the remaining slots follow the metric's declared dimension order, so `src/metrics.ts` is the home for every dataset's column layout. For `usage` that layout (`blob1="usage"`, `blob2=feature`, `blob3=phase`, `blob4=surface`, `double1=1`) is a stable contract — changing the declaration breaks the canonical queries in [`docs/analytics/usage-queries.md`](../../docs/analytics/usage-queries.md).
 - The consent resolver reads `usage_analytics.enabled` (per-firm D1 `setting`) and `member.opted_out_of_usage_analytics` (per-firm D1 `member` row) via the firm-scoped data-access layer.
 - The server-side `reached` emitter is wired in the route→feature middleware; `completed` is emitted from the outbox sweep (topic→feature, firm-level). The client beacon for pure-client surfaces is a **documented seam** — not yet built (deferred until there is client traffic).
 

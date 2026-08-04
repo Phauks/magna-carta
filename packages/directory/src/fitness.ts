@@ -35,6 +35,12 @@ const INBOUND_REFERENCE_PROBES: ReadonlyArray<{ table: string; column: string }>
   { table: "directory_entity_category", column: "entity_id" },
   { table: "custom_field_value", column: "value_reference_id" },
   { table: "custom_field_value", column: "target_row_id" },
+  // The merge pointer itself is an inbound reference: a node whose merged_into_id names a subordinate is
+  // a merge CHAIN, and resolution follows exactly one hop, so that node would resolve to an entity that
+  // has itself been merged away. A merge flattens the chain by repointing these to the new master, which
+  // is what these two probes prove.
+  { table: "directory_person", column: "merged_into_id" },
+  { table: "directory_organization", column: "merged_into_id" },
 ];
 
 // findDanglingToSubordinate scans every inbound-reference column for rows that still point at the
@@ -219,8 +225,9 @@ async function findDanglingToAnySubordinate(database: SqlDatabase): Promise<Dang
 //   1. Every live name carries BOTH Double Metaphone codes (primary + secondary) — no half-indexed name.
 //   2. No live edge endpoint points at a soft-deleted entity — this system soft-deletes only; an edge to
 //      an archived entity is a dangling pointer.
-//   3. No inbound reference (matter party, edge endpoint, category link) still points at a merged-away
-//      subordinate — every merge repointed completely.
+//   3. No inbound reference (matter party, edge endpoint, category link, or another node's merge
+//      pointer) still points at a merged-away subordinate — every merge repointed completely, and no
+//      merge chain survives for a one-hop resolution to fall off.
 // Resolves silently when the directory is sound. Wire it as a fitness function (a test, or a periodic
 // integrity sweep) to prove the corpus invariants hold.
 export async function assertDirectoryFitness(database: SqlDatabase): Promise<void> {

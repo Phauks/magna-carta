@@ -23,11 +23,16 @@ async function loadLineage(lineage: "control-plane" | "per-firm") {
 const TIMESTAMP_TAG = /^\d{8}T\d{6}_/u;
 
 describe("collapsed migration baselines (committed artifacts)", () => {
-  it("control-plane is a single timestamp-id baseline with the auth + firm tables and firm lifecycle columns", async () => {
+  it("control-plane starts with a timestamp-id baseline carrying the auth + firm tables and firm lifecycle columns; later features append their own timestamp migrations", async () => {
     const migrations = await loadLineage("control-plane");
-    expect(migrations).toHaveLength(1);
-    expect(migrations[0]?.tag).toMatch(TIMESTAMP_TAG);
-    const sql = migrations[0]?.statements.join("\n") ?? "";
+    // The first migration is the collapsed timestamp-id baseline; features that land after the collapse
+    // append their own timestamp-id migrations after it (the email capture-route index is the first).
+    // Every migration id — the baseline and everything after — is a monotonic timestamp.
+    expect(migrations.length).toBeGreaterThanOrEqual(1);
+    for (const migration of migrations) {
+      expect(migration.tag).toMatch(TIMESTAMP_TAG);
+    }
+    const baseline = migrations[0]?.statements.join("\n") ?? "";
     expect(migrations[0]?.statements.length ?? 0).toBeGreaterThan(0);
     for (const tableName of [
       ...BETTER_AUTH_TABLE_NAMES,
@@ -36,17 +41,20 @@ describe("collapsed migration baselines (committed artifacts)", () => {
       "idempotency_key",
       "firm",
     ]) {
-      expect(sql, tableName).toContain(`CREATE TABLE \`${tableName}\``);
+      expect(baseline, tableName).toContain(`CREATE TABLE \`${tableName}\``);
     }
     // Firm lifecycle columns land in the baseline's final shape (the collapse removed the
     // incremental table-rebuild that historically introduced them).
-    expect(sql).toContain("`status` text DEFAULT 'active' NOT NULL");
-    expect(sql).toContain("`bucket_name` text");
-    expect(sql).toContain("`owner_user_id` text");
-    expect(sql).toContain("CREATE UNIQUE INDEX `firm_name_unique` ON `firm` (`name`)");
-    // A clean baseline never rebuilds a table: no shadow tables, no defer_foreign_keys dance.
-    expect(sql).not.toMatch(/__new_/u);
-    expect(sql).not.toContain("defer_foreign_keys");
+    expect(baseline).toContain("`status` text DEFAULT 'active' NOT NULL");
+    expect(baseline).toContain("`bucket_name` text");
+    expect(baseline).toContain("`owner_user_id` text");
+    expect(baseline).toContain("CREATE UNIQUE INDEX `firm_name_unique` ON `firm` (`name`)");
+    // No migration — baseline or later — rebuilds a table: no shadow tables, no defer_foreign_keys dance.
+    const wholeLineage = migrations.map((migration) => migration.statements.join("\n")).join("\n");
+    expect(wholeLineage).not.toMatch(/__new_/u);
+    expect(wholeLineage).not.toContain("defer_foreign_keys");
+    // The token->firm routing index the single-catch-all Email Worker resolves against lands additively.
+    expect(wholeLineage).toContain("CREATE TABLE `email_capture_route`");
   });
 
   it("per-firm starts with a single timestamp-id baseline carrying the ledger/matters/files/RBAC/directory tables and their CHECKs", async () => {
@@ -165,6 +173,34 @@ describe("collapsed migration baselines (committed artifacts)", () => {
     for (const tableName of BETTER_AUTH_TABLE_NAMES) {
       expect(sql, tableName).not.toContain(`CREATE TABLE \`${tableName}\``);
     }
+  });
+
+  it("the search-index catalog gains its per-document columns additively, never by rebuilding the table", async () => {
+    const migrations = await loadLineage("per-firm");
+    const follow = migrations.find(
+      (migration) => migration.tag === "20260804T082351_index-split-document-version",
+    );
+    const sql = follow?.statements.join("\n") ?? "";
+    expect(sql).toContain("ALTER TABLE `index_split` ADD `document_id` text");
+    expect(sql).toContain("ALTER TABLE `index_split` ADD `version` integer");
+    // The table is not re-created: a rebuild would drop the rows an already-provisioned firm's
+    // catalog holds, which are the only record of where its splits live.
+    expect(sql).not.toContain("CREATE TABLE `index_split`");
+    // The uniqueness rule that makes a re-index converge, and its partial scope so the many-document
+    // splits a compaction publishes are not caught by it.
+    expect(sql).toContain("CREATE UNIQUE INDEX `index_split_document_version_unique`");
+    expect(sql).toContain(`WHERE "index_split"."document_id" IS NOT NULL`);
+    expect(sql).toContain(`"index_split"."superseded_at" IS NULL`);
+  });
+
+  it("the whole per-firm lineage creates index_split exactly once", async () => {
+    // A second CREATE TABLE for a table an earlier migration already made would fail on every
+    // already-provisioned firm — the failure mode a re-generated (rather than hand-extracted)
+    // migration produces, since drizzle-kit diffs against the last committed snapshot.
+    const migrations = await loadLineage("per-firm");
+    const wholeLineage = migrations.map((migration) => migration.statements.join("\n")).join("\n");
+    const creations = wholeLineage.match(/CREATE TABLE `index_split`/gu) ?? [];
+    expect(creations).toHaveLength(1);
   });
 });
 

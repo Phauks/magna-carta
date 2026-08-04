@@ -11,6 +11,9 @@
       "path": "apps/convert-worker/tsconfig.build.json"
     },
     {
+      "path": "apps/email-worker/tsconfig.build.json"
+    },
+    {
       "path": "apps/file-repair-worker/tsconfig.build.json"
     },
     {
@@ -24,6 +27,9 @@
     },
     {
       "path": "apps/scan-worker/tsconfig.build.json"
+    },
+    {
+      "path": "apps/sign-worker/tsconfig.build.json"
     },
     {
       "path": "apps/status-worker/tsconfig.build.json"
@@ -69,6 +75,9 @@
     },
     {
       "path": "packages/directory/tsconfig.build.json"
+    },
+    {
+      "path": "packages/email-filing/tsconfig.build.json"
     },
     {
       "path": "packages/email/tsconfig.build.json"
@@ -131,7 +140,13 @@
       "path": "packages/safe-browse/tsconfig.build.json"
     },
     {
+      "path": "packages/search/tsconfig.build.json"
+    },
+    {
       "path": "packages/shipping/tsconfig.build.json"
+    },
+    {
+      "path": "packages/signing/tsconfig.build.json"
     },
     {
       "path": "packages/status/tsconfig.build.json"

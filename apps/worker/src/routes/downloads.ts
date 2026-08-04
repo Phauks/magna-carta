@@ -39,8 +39,8 @@ import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { identifierField } from "../contracts/common.ts";
 import { Problem, problemJson } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
+import { resolveFirmBucket } from "../files/firm-bucket.ts";
 import { presignerForEnv } from "../files/presigner-wiring.ts";
-import { requireBucket } from "../files/require-bucket.ts";
 import { selectBundleLane } from "../downloads/bundle-lane.ts";
 import { bundleContainerAdapter } from "../downloads/bundle-container-adapter.ts";
 
@@ -168,7 +168,7 @@ export function registerDownloadsRoutes(app: DownloadsApp, chokepoint: Chokepoin
       const firm = requireChokepointFirmContext(c);
       const firmId = requireChokepointFirmId(c);
       const userId = requireChokepointUserId(c);
-      const bucket = requireBucket(firm.bucketName);
+      const bucket = resolveFirmBucket(c.env, firm.bucketName).bucketName;
       const request = c.req.valid("json");
       const matterId: MatterId = request.matterId;
       const options = request.options;

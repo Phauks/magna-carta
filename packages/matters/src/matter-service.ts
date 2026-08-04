@@ -1,6 +1,9 @@
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import type { BatchDatabase, EffectWrite } from "@magna-carta/data-access/effect-batch";
-import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
+import {
+  selectIdempotencyRecordStatement,
+  type SqlDatabase,
+} from "@magna-carta/data-access/idempotency-statements";
 import type { IdempotencyRecordId } from "@magna-carta/identifiers/types";
 import {
   IdempotencyConflictError,
@@ -29,8 +32,10 @@ import {
   updateMatterFieldsStatement,
 } from "./matter-statements.ts";
 import {
+  allocateCounterValueStatement,
   ensureCounterRowStatement,
   guardedIncrementStatement,
+  isNumberAllocationConflict,
   readCounterValue,
 } from "./numbering/counter-statements.ts";
 import { deriveScopeKey, renderMatterNumber, type RenderContext } from "./numbering/render.ts";
@@ -42,9 +47,15 @@ import {
 import { MatterValidationError } from "./validation.ts";
 
 // The matter shell on the ledger pattern, extended for number allocation: where a number is drawn,
-// the read-render-commit runs under a bounded retry. A concurrent draw makes one batch lose the
-// matter_number UNIQUE race and roll back; the retry re-reads the now-advanced counter and renders
-// the next number. The UNIQUE index is the load-bearing backstop, not the guarded increment alone.
+// the read-render-commit runs under a bounded retry. A concurrent draw makes one batch lose a
+// uniqueness race and roll back; the retry re-reads the now-advanced counter and renders the next
+// number. Two constraints are load-bearing there, not the guarded increment alone:
+//   - matter_number_allocation {scope_key, drawn_value} — the drawn COUNTER VALUE is unique per
+//     scope. This is what catches the general race: a scheme may carry a variable segment that is
+//     not marked scoping (a client code, staff initials), in which case two draws in the same scope
+//     render DIFFERENT numbers from the same value and no matter_number index can see the collision.
+//   - matter_number UNIQUE — the rendered STRING is unique per firm, which additionally catches a
+//     rendered number that collides with a manually assigned (court/legacy) one drawing no counter.
 //
 // Idempotency rides the SAME single primitive every mutating route uses (runIdempotentEffect): each
 // mutation's write + its idempotency record commit in one atomic batch, and the response body is
@@ -101,6 +112,17 @@ function requireNonEmptyTitle(title: string): void {
   if (title.trim().length === 0) {
     throw new MatterValidationError("empty-matter-title", "a matter needs a title");
   }
+}
+
+// True when this key has already been seen — the caller is retrying the SAME request, not making a
+// new one. A lifecycle precondition ("already closed") must not fire on a retry: the mutation the
+// key names is the one that put the matter in that state, and runIdempotentEffect replays its stored
+// response (or reports in-progress / fingerprint-mismatch). Only a genuinely new request — a second
+// click, which carries its own key — is refused.
+async function isIdempotentRetry(database: SqlDatabase, key: string | undefined): Promise<boolean> {
+  if (key === undefined) return false;
+  const { results } = await selectIdempotencyRecordStatement(database, key).all();
+  return results.length > 0;
 }
 
 async function loadMatter(database: SqlDatabase, id: MatterId): Promise<MatterRow | undefined> {
@@ -217,14 +239,15 @@ async function runMatterEffect<T>(
 }
 
 // The bounded-retry number draw over the shared idempotency primitive: read the active scheme +
-// counter, render, and commit the ensure-row + guarded increment + matter write as one batch. A
-// collision (a concurrent winner or a parked manual number on the rendered value) aborts the batch on
-// the matter_number UNIQUE index and rethrows; because the in-batch increment rolls back with it, the
-// counter is advanced OUT OF BAND so the retry renders a fresh number — a no-op when a concurrent
+// counter, render, and commit the ensure-row + guarded increment + matter write + allocation row as
+// one batch. A collision (a concurrent winner on the counter value, or a parked manual number on the
+// rendered value) aborts the batch and rethrows; because the in-batch increment rolls back with it,
+// the counter is advanced OUT OF BAND so the retry renders a fresh number — a no-op when a concurrent
 // winner already advanced it. An idempotency-key collision is handled inside runIdempotentEffect.
 async function runMatterDraw<T>(
   database: BatchDatabase,
   options: MatterServiceOptions,
+  matterId: MatterId,
   numberContext: NumberContext,
   build: (matterNumber: string, now: string) => BuiltMutation<T>,
   responseCode: number,
@@ -251,13 +274,17 @@ async function runMatterDraw<T>(
           startValue = scheme.startValue;
           observed = (await readCounterValue(database, scopeKey)) ?? scheme.startValue;
           const matterNumber = renderMatterNumber(scheme.segments, context, observed);
-          const built = build(matterNumber, options.clock.now());
+          const now = options.clock.now();
+          const built = build(matterNumber, now);
           return {
             write: {
               statements: [
                 ensureCounterRowStatement(database, scopeKey, startValue),
                 guardedIncrementStatement(database, scopeKey, observed),
                 ...built.statements,
+                // Last: matter_id is a foreign key, so the matter row this draw belongs to has to
+                // exist by the time the allocation lands (createMatter inserts it in this batch).
+                allocateCounterValueStatement(database, scopeKey, observed, matterId, now),
               ],
               outboxMessages: built.outboxMessages,
             },
@@ -268,7 +295,7 @@ async function runMatterDraw<T>(
       });
       return finishMatterResult<T>(result);
     } catch (caught) {
-      if (!isMatterNumberConflict(caught)) throw caught;
+      if (!isMatterNumberConflict(caught) && !isNumberAllocationConflict(caught)) throw caught;
       lastError = caught;
       // Advance past the taken value out of band (the in-batch increment rolled back). Guarded on
       // the observed value, so a concurrent winner that already advanced the counter no-ops here.
@@ -356,6 +383,7 @@ export async function createMatter(
   return runMatterDraw<CreatedMatter>(
     database,
     options,
+    matterId,
     input.numberContext ?? {},
     (number, now) => ({
       statements: [
@@ -394,15 +422,22 @@ export async function openMatter(
   if (matter === undefined) {
     throw new MatterValidationError("matter-not-found", `no such matter: ${matterId}`);
   }
-  if (matter.status !== "prospective") {
+  // Skipped on an idempotent retry: the mutation this key names is the one that moved the matter off
+  // prospective, so refusing here would 409 the caller on its own completed work instead of replaying
+  // the number it already drew. Only a genuinely new request — which carries its own key — is refused.
+  if (
+    matter.status !== "prospective" &&
+    !(await isIdempotentRetry(database, options.idempotency?.key))
+  ) {
     throw new MatterValidationError(
       "matter-not-prospective",
       `matter ${matterId} is ${matter.status}, not prospective`,
     );
   }
-  return runMatterDraw<{ matterId: MatterId; matterNumber: string }>(
+  const drawn = await runMatterDraw<{ matterId: MatterId; matterNumber: string }>(
     database,
     options,
+    matterId,
     input.numberContext ?? {},
     (number, now) => ({
       statements: [
@@ -414,6 +449,20 @@ export async function openMatter(
     }),
     200,
   );
+  // The precondition above is a read, and D1 has no interactive transaction — a concurrent open or
+  // close can land between it and the commit, in which case the guarded UPDATE matched zero rows and
+  // this call changed nothing. A matter number is frozen at assignment and unique across the firm, so
+  // the row carrying the number this call drew is the exact proof that this call is the one that
+  // opened it; anything else means another writer got there first and the caller must be told so
+  // rather than handed a number that is on no matter.
+  const committed = await loadMatter(database, matterId);
+  if (committed?.matterNumber !== drawn.matterNumber) {
+    throw new MatterValidationError(
+      "matter-not-prospective",
+      `matter ${matterId} was opened or closed concurrently; it is ${committed?.status ?? "gone"}`,
+    );
+  }
+  return drawn;
 }
 
 export async function closeMatter(
@@ -424,6 +473,19 @@ export async function closeMatter(
   const matter = await loadMatter(database, matterId);
   if (matter === undefined) {
     throw new MatterValidationError("matter-not-found", `no such matter: ${matterId}`);
+  }
+  // closed_at is the instant retention and archival clocks run from. A re-close would move it — a
+  // January close re-run in June silently ages out five months of retention — and would emit a
+  // second matter.closed event to every downstream consumer. Refuse; closeMatterStatement carries
+  // the matching in-batch guard for a close that races another close.
+  if (
+    matter.status === "closed" &&
+    !(await isIdempotentRetry(database, options.idempotency?.key))
+  ) {
+    throw new MatterValidationError(
+      "matter-already-closed",
+      `matter ${matterId} is already closed; its close date and events stand`,
+    );
   }
   const failures = await runClosePreconditions({ matterId, database });
   if (failures.length > 0) throw new ClosePreconditionError(failures);
@@ -449,7 +511,13 @@ export async function reopenMatter(
   if (matter === undefined) {
     throw new MatterValidationError("matter-not-found", `no such matter: ${matterId}`);
   }
-  if (matter.status !== "closed") {
+  // Same replay rule as the open and close preconditions: a retry under an already-seen key is the
+  // request that reopened the matter, so the stored response is replayed rather than the caller being
+  // told its own reopen never happened.
+  if (
+    matter.status !== "closed" &&
+    !(await isIdempotentRetry(database, options.idempotency?.key))
+  ) {
     throw new MatterValidationError(
       "matter-not-closed",
       `matter ${matterId} is ${matter.status}, not closed`,
@@ -520,9 +588,20 @@ export async function renumberMatter(
       return {
         statements: [
           renumberMatterStatement(database, matterId, matterNumber, now),
-          auditStatement(database, options, "matter.renumbered", matterId),
+          // A renumber overwrites the previous number in place. Nothing else retains it, so without
+          // this the displaced number is destroyed and a court filing or invoice quoting it a year
+          // later resolves to nothing. A matter number is an identifier, not privileged content.
+          auditStatement(database, options, "matter.renumbered", matterId, {
+            previousMatterNumber: matter.matterNumber,
+            matterNumber,
+          }),
         ],
-        outboxMessages: [{ topic: "matter.renumbered", payload: { matterId, matterNumber } }],
+        outboxMessages: [
+          {
+            topic: "matter.renumbered",
+            payload: { matterId, matterNumber, previousMatterNumber: matter.matterNumber },
+          },
+        ],
         value: { matterId },
       };
     });

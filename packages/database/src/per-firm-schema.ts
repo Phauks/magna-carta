@@ -31,6 +31,12 @@ import type {
   DirectoryPhoneId,
   DocumentTypeId,
   DocumentCheckoutId,
+  EmailAttachmentId,
+  EmailCaptureAddressId,
+  EmailMatterLinkId,
+  EmailMessageId,
+  EmailParticipantId,
+  EmailThreadId,
   EntityMergeId,
   FileId,
   FileVersionId,
@@ -39,6 +45,7 @@ import type {
   GrantId,
   IdempotencyRecordId,
   IncidentId,
+  IndexSplitId,
   IntegrationConnectionId,
   LedgerAccountId,
   LedgerEntryId,
@@ -481,6 +488,30 @@ export const matter = sqliteTable(
     check("matter_status_check", sql`${table.status} IN ('prospective', 'open', 'closed')`),
     check("matter_title_nonempty_check", sql`length(${table.title}) > 0`),
     check("matter_e_billing_check", sql`${table.eBilling} IN (0, 1)`),
+  ],
+);
+
+// Every counter value a number draw actually consumed, one row per {scope_key, drawn_value}. The
+// guarded increment alone cannot keep concurrent draws distinct: when the active scheme carries a
+// variable segment that is NOT marked scoping (a client code, staff initials, a matter-type code),
+// two draws in the same counter scope render DIFFERENT numbers from the SAME value, so
+// matter_matter_number_unique_index never fires and the losing draw silently commits a duplicate of
+// the winner's counter value. This composite primary key is the constraint that does fire: the
+// loser's whole batch aborts and its bounded retry re-reads the advanced counter.
+export const matterNumberAllocation = sqliteTable(
+  "matter_number_allocation",
+  {
+    scopeKey: text("scope_key").notNull(), // the matter_number_counter row this value came from
+    drawnValue: integer("drawn_value").notNull(), // the counter value this draw consumed
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    allocatedAt: text("allocated_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.scopeKey, table.drawnValue] }),
+    index("matter_number_allocation_matter_id_index").on(table.matterId),
   ],
 );
 
@@ -1308,8 +1339,11 @@ export const shipment = sqliteTable(
     matterRef: text("matter_ref")
       .$type<MatterId>()
       .references(() => matter.id),
+    // `purchasing` is the exclusive claim a label purchase takes before it spends money at the
+    // carrier: the carrier has no idempotency facility, so the claim (not a request header) is what
+    // makes a retried or concurrent purchase unable to buy a second label for one shipment.
     status: text("status", {
-      enum: ["draft", "rated", "purchased", "in_transit", "delivered", "refunded"],
+      enum: ["draft", "rated", "purchasing", "purchased", "in_transit", "delivered", "refunded"],
     })
       .notNull()
       .default("draft"),
@@ -1318,6 +1352,9 @@ export const shipment = sqliteTable(
     parcel: text("parcel").notNull(), // JSON
     options: text("options").notNull().default("{}"), // JSON ShipmentOptions
     remoteShipmentId: text("remote_shipment_id"), // EasyPost shipment id, set once rated/bought
+    // Who holds the in-flight purchase claim (the request's idempotency key). Only the holder may
+    // release it, so a failed attempt cannot be cleared out from under a purchase still in flight.
+    purchaseClaimKey: text("purchase_claim_key"),
     carrier: text("carrier"),
     service: text("service"),
     trackingCode: text("tracking_code"),
@@ -1749,6 +1786,12 @@ export const conflictsHit = sqliteTable(
     matchedFieldsJson: text("matched_fields_json").notNull(),
     // The connecting edge path, '[]' when the entity was reached directly.
     graphPathJson: text("graph_path_json").notNull(),
+    // 1 when the matched entity is itself a subject party of THIS check — a co-party surfacing: a
+    // positional conflict (a related entity that is also a named party, e.g. the opposing party is the
+    // client's parent company) or a co-party name/identifier collision. Orthogonal to source_class
+    // (a co-party can be reached by the party OR the graph channel); it buckets the hit apart from a
+    // conflict with a prior/other client so a reviewer can triage it separately.
+    coParty: integer("co_party").notNull().default(0),
     createdAt: text("created_at").notNull(),
   },
   (table) => [
@@ -1780,5 +1823,278 @@ export const conflictsDisposition = sqliteTable(
       "conflicts_disposition_kind_check",
       sql`${table.kind} IN ('cleared', 'waiver_obtained', 'wall_erected', 'representation_declined')`,
     ),
+  ],
+);
+
+// Discovery search-index catalog: one row per immutable Tantivy split stored in the firm's R2. This is
+// the authority a query enumerates to know which splits are live for a matter — never an R2 bucket list,
+// which would be slower and would not carry firm scoping structurally. Firm data (the index is durable
+// per-firm data, unlike the transient scan/conversion artifacts), access-gated with the matter it
+// belongs to. A split is immutable: rows are inserted on publish and marked superseded by compaction,
+// never mutated in place. `superseded_at IS NULL` is the live set.
+export const indexSplit = sqliteTable(
+  "index_split",
+  {
+    id: text("id").primaryKey().$type<IndexSplitId>(),
+    matterId: text("matter_id").notNull().$type<MatterId>(),
+    // The one document version this split indexes, for a split the write pipeline publishes. The write
+    // pipeline builds one split per document version so a re-index converges: the split id is derived
+    // from these two columns, a retry rebuilds the same split, and the publish deletes the document's
+    // prior rows and objects before inserting the new one instead of accumulating duplicates.
+    // Both are NULL for a split that spans many documents — the shape a later compaction pass publishes
+    // when it merges the small per-document splits — so the merged split is simply unconstrained here.
+    documentId: text("document_id").$type<FileId>(),
+    version: integer("version"),
+    // The split object's key in the firm's R2 bucket (e.g. search/<matter>/splits/<id>.split).
+    objectKey: text("object_key").notNull(),
+    // How many passages the split indexes, and its size — the inputs a compaction decision reads
+    // without opening the split.
+    documentCount: integer("document_count").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    // The Tantivy schema generation the split was built with; a query refuses a split whose generation
+    // it does not understand, so a schema change never silently mixes incompatible splits.
+    schemaGeneration: integer("schema_generation").notNull(),
+    createdAt: text("created_at").notNull(), // ISO-8601 instant
+    // Null while the split is live; set to the instant compaction replaced it. A superseded split's row
+    // is kept until its object is garbage-collected, so an in-flight query against it still resolves.
+    supersededAt: text("superseded_at"),
+  },
+  (table) => [
+    // The live-splits-for-a-matter read: WHERE matter_id = ? AND superseded_at IS NULL.
+    index("index_split_matter_superseded_index").on(table.matterId, table.supersededAt),
+    // The document's own splits: the read the write pipeline makes before publishing, to find the rows
+    // and R2 objects a re-index must delete.
+    index("index_split_document_index").on(table.documentId),
+    // At most one LIVE split per document version. This is the convergence guarantee the write pipeline
+    // rests on: a duplicate delivery that raced past the delete cannot leave two live splits indexing
+    // the same version, so a query can never count a document twice. Partial, so the many-document
+    // splits a compaction publishes (document_id NULL) are outside it.
+    uniqueIndex("index_split_document_version_unique")
+      .on(table.documentId, table.version)
+      .where(sql`${table.documentId} IS NOT NULL AND ${table.supersededAt} IS NULL`),
+  ],
+);
+
+// Email filing & capture — the matter-email record model. Metadata here in per-firm D1; the verbatim
+// original message and every extracted attachment live in per-firm R2, never D1. A matter's email view
+// is reconstructed from the links + the thread DAG, never a re-saved per-reply blob. Written by the
+// @magna-carta/email-filing capture core over the @magna-carta/email parse engine; behavior lives in
+// that package and @magna-carta/data-access, not here.
+
+// The conversation grouping. Edges are carried on email_message (thread_id + in_reply_to/references);
+// a separate edge table is deferred until the integrity/tamper-diff work needs it — the DAG is a
+// property of the messages, and this row is the grouping key plus a normalized-subject fallback.
+export const emailThread = sqliteTable(
+  "email_thread",
+  {
+    id: text("id").primaryKey().$type<EmailThreadId>(), // emailThread_ handle
+    subjectNormalized: text("subject_normalized"),
+    firstSeenAt: text("first_seen_at").notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [index("email_thread_subject_normalized_index").on(table.subjectNormalized)],
+);
+
+// One row per UNIQUE message — the unit of truth. Deduped per firm on dedup_key (Message-ID when
+// present, else a normalized-header+body content hash), so cross-user/cross-inbox captures of the same
+// mail converge to one row. message_id_provenance is never flattened away: a MAPI-synthesized
+// identifier is not the same bytes as another recipient's .eml header carries.
+export const emailMessage = sqliteTable(
+  "email_message",
+  {
+    id: text("id").primaryKey().$type<EmailMessageId>(), // emailMessage_ handle
+    messageIdValue: text("message_id_value"), // null when the message carried no identifier
+    messageIdProvenance: text("message_id_provenance", {
+      enum: ["header", "mapi", "absent"],
+    }).notNull(),
+    subject: text("subject"),
+    sentAt: text("sent_at"), // the Date header instant, ISO-8601; null when unparseable
+    receivedAt: text("received_at").notNull(), // when the firm captured it, ISO-8601
+    fromDisplay: text("from_display"),
+    fromAddress: text("from_address"),
+    threadId: text("thread_id")
+      .notNull()
+      .$type<EmailThreadId>()
+      .references(() => emailThread.id),
+    inReplyTo: text("in_reply_to"),
+    contentSha256: text("content_sha256").notNull(),
+    dedupKey: text("dedup_key").notNull(),
+    originalR2Key: text("original_r2_key").notNull(), // the verbatim original, kept whole in R2
+    referencesRemoteContent: integer("references_remote_content", { mode: "boolean" })
+      .notNull()
+      .default(false),
+    integrity: text("integrity").notNull(), // JSON: verbatim DKIM signatures, Authentication-Results, Received chain — recorded, no verdict
+    dkimVerdict: text("dkim_verdict", { enum: ["unverified", "pass", "fail"] })
+      .notNull()
+      .default("unverified"), // the verifier that fills this is a named future consumer; stays unverified now
+    sourceFormat: text("source_format", { enum: ["eml", "msg", "mboxMember"] }).notNull(),
+    capturedVia: text("captured_via", { enum: ["forward", "api", "addin", "sync"] }).notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    // One row per firm-unique message: the unique dedup_key is what makes a second capture converge.
+    uniqueIndex("email_message_dedup_key_unique_index").on(table.dedupKey),
+    index("email_message_thread_id_index").on(table.threadId),
+    index("email_message_message_id_value_index").on(table.messageIdValue),
+    // The content-hash "already filed" probe and the discovery-readiness content hash resolve by this.
+    index("email_message_content_sha256_index").on(table.contentSha256),
+    check(
+      "email_message_provenance_check",
+      sql`${table.messageIdProvenance} IN ('header', 'mapi', 'absent')`,
+    ),
+    check(
+      "email_message_dkim_verdict_check",
+      sql`${table.dkimVerdict} IN ('unverified', 'pass', 'fail')`,
+    ),
+    check(
+      "email_message_source_format_check",
+      sql`${table.sourceFormat} IN ('eml', 'msg', 'mboxMember')`,
+    ),
+    check(
+      "email_message_captured_via_check",
+      sql`${table.capturedVia} IN ('forward', 'api', 'addin', 'sync')`,
+    ),
+  ],
+);
+
+// The multi-matter junction — one message stored once, linked to many matters. Unique on
+// (email_message, matter): a message can't double-file to the same matter but can link to many.
+// Access is per-link/per-matter; unlink flips state, never deletes the message.
+export const emailMatterLink = sqliteTable(
+  "email_matter_link",
+  {
+    id: text("id").primaryKey().$type<EmailMatterLinkId>(), // emailMatterLink_ handle
+    emailMessageId: text("email_message_id")
+      .notNull()
+      .$type<EmailMessageId>()
+      .references(() => emailMessage.id),
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    state: text("state", { enum: ["staged", "filed", "unlinked"] })
+      .notNull()
+      .default("staged"),
+    linkedBy: text("linked_by").$type<UserId>(), // null when the forward path staged it with no acting user
+    linkedAt: text("linked_at"),
+    capturedVia: text("captured_via", { enum: ["forward", "api", "addin", "sync"] }).notNull(),
+    tags: text("tags"), // JSON array of per-matter tag strings; null when none
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("email_matter_link_message_matter_unique_index").on(
+      table.emailMessageId,
+      table.matterId,
+    ),
+    // A matter's email list keyset-paginates on (created_at DESC, id DESC) under a matter filter;
+    // leading with matter_id lets one composite serve the filter, the reversed sort, and the FK lookup.
+    index("email_matter_link_matter_created_id_index").on(
+      table.matterId,
+      table.createdAt,
+      table.id,
+    ),
+    index("email_matter_link_email_message_id_index").on(table.emailMessageId),
+    check("email_matter_link_state_check", sql`${table.state} IN ('staged', 'filed', 'unlinked')`),
+    check(
+      "email_matter_link_captured_via_check",
+      sql`${table.capturedVia} IN ('forward', 'api', 'addin', 'sync')`,
+    ),
+  ],
+);
+
+// Each from/to/cc/bcc address, frozen as-at receipt (the frozen string is the record — no shadow
+// address list). directory_entity_id enriches it, resolved through the Directory reverse lookup where
+// a match exists and left null otherwise. No cross-domain FK on the entity id (the matter_party
+// precedent) — it points into the Directory graph by value.
+export const emailParticipant = sqliteTable(
+  "email_participant",
+  {
+    id: text("id").primaryKey().$type<EmailParticipantId>(), // emailParticipant_ handle
+    emailMessageId: text("email_message_id")
+      .notNull()
+      .$type<EmailMessageId>()
+      .references(() => emailMessage.id),
+    kind: text("kind", { enum: ["from", "to", "cc", "bcc"] }).notNull(),
+    displayName: text("display_name"),
+    address: text("address"), // null when the header carried a display name with no address
+    directoryEntityId: text("directory_entity_id"), // FK-free link into directory_person/directory_organization; null when unresolved
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    index("email_participant_email_message_id_index").on(table.emailMessageId),
+    index("email_participant_directory_entity_id_index").on(table.directoryEntityId),
+    check("email_participant_kind_check", sql`${table.kind} IN ('from', 'to', 'cc', 'bcc')`),
+  ],
+);
+
+// Ties a File Manager document back to its message. The bytes ride the existing untrusted-file ingest
+// chokepoint (staged -> scanned -> quarantined), landing a matter-rooted file/file_version; this row
+// is the link. A decorative inline cid: image is recorded (disposition 'inline', outcome
+// 'filtered_inline', file_id null) so a later "promote to document" is a data change, not a re-parse;
+// an oversize part records outcome 'oversize' rather than failing the whole message.
+export const emailAttachment = sqliteTable(
+  "email_attachment",
+  {
+    id: text("id").primaryKey().$type<EmailAttachmentId>(), // emailAttachment_ handle
+    emailMessageId: text("email_message_id")
+      .notNull()
+      .$type<EmailMessageId>()
+      .references(() => emailMessage.id),
+    fileId: text("file_id")
+      .$type<FileId>()
+      .references(() => file.id), // null for a filtered inline image or an oversize part not extracted
+    filename: text("filename"),
+    mediaType: text("media_type"),
+    disposition: text("disposition", { enum: ["attachment", "inline"] }).notNull(),
+    promotedFromInline: integer("promoted_from_inline", { mode: "boolean" })
+      .notNull()
+      .default(false),
+    outcome: text("outcome", { enum: ["extracted", "filtered_inline", "oversize"] })
+      .notNull()
+      .default("extracted"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    index("email_attachment_email_message_id_index").on(table.emailMessageId),
+    index("email_attachment_file_id_index").on(table.fileId),
+    check(
+      "email_attachment_disposition_check",
+      sql`${table.disposition} IN ('attachment', 'inline')`,
+    ),
+    check(
+      "email_attachment_outcome_check",
+      sql`${table.outcome} IN ('extracted', 'filtered_inline', 'oversize')`,
+    ),
+  ],
+);
+
+// A per-firm forward/CC capture address the Email Worker routes on. A per-matter token
+// (matter-<token>@in.magnacarta.esq) resolves to a firm + candidate matter; the firm catch-all
+// resolves to the firm with no matter (staff route it). Minted/rotated under
+// emails:manageCaptureAddresses. The token is opaque and server-minted, never client-derived.
+export const emailCaptureAddress = sqliteTable(
+  "email_capture_address",
+  {
+    id: text("id").primaryKey().$type<EmailCaptureAddressId>(), // emailCaptureAddress_ handle
+    token: text("token").notNull(),
+    kind: text("kind", { enum: ["matter", "catchAll"] }).notNull(),
+    matterId: text("matter_id")
+      .$type<MatterId>()
+      .references(() => matter.id), // set for a per-matter token; null for the firm catch-all
+    active: integer("active", { mode: "boolean" }).notNull().default(true),
+    createdBy: text("created_by").$type<UserId>(),
+    rotatedAt: text("rotated_at"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("email_capture_address_token_unique_index").on(table.token),
+    index("email_capture_address_matter_id_index").on(table.matterId),
+    check("email_capture_address_kind_check", sql`${table.kind} IN ('matter', 'catchAll')`),
   ],
 );

@@ -181,8 +181,9 @@ fn pure_fixed_run_bytes(hex: &str) -> Option<Vec<u8>> {
         return None;
     }
     // The whole decoded run is the body; verify it decoded cleanly (the tokenizer only emits full pairs,
-    // so this is already guaranteed, but assert the cap relationship for clarity).
-    debug_assert!(ATOM_CAP >= MIN_ATOM_LEN);
+    // so this is already guaranteed, but assert the cap relationship for clarity — at compile time,
+    // since both sides are constants).
+    const { assert!(ATOM_CAP >= MIN_ATOM_LEN) };
     Some(run[..render_len].to_vec())
 }
 

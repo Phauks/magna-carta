@@ -69,10 +69,16 @@ It is exhaustive and slow by design, and it is the **gate of record — run in G
 not on the inner loop.
 
 **The fast local loop — and the pre-push hook — is `pnpm check:scoped`** (`tooling/check-scoped/`). It
-derives the change set from the git diff (merge-base with `main`, plus the working tree) and runs only
+derives the change set from the git diff (the merge-base with the trunk, plus the working tree) and runs only
 what that change can break: fmt + lint on the changed paths, the incremental `tsc -b` type-check, and
 `svelte-check` or the Rust gate **only when a `.svelte` file or a crate was actually touched**. It prints
 what it skipped and why — a gate that quietly checks nothing is worse than a slow one.
+
+Which trunk ref that merge-base is taken against is not a detail: a worktree whose local `main` is frozen
+at clone time (every agent worktree) would otherwise be diffed against an ancient commit, and the
+"scoped" gate would lint every file the trunk has touched since. So the base is the **newest** of the
+merge-bases the trunk refs offer — local `main` and `origin/main`, ordered by ancestry, not by commit
+date — and `--base <ref>` still overrides it outright.
 
 The distinction matters because the full gate's cost is nearly all fixed: seven serial whole-repo passes
 run identically whether the diff is three files or three hundred, and in practice the overwhelming
@@ -87,9 +93,20 @@ unresolvable import until somebody rebuilds it. That is a bootstrap gap, not a p
 is paid once per worktree — of which several are live at any time.
 
 **`vp run bootstrap`** (`tooling/bootstrap/`) closes it: it rebuilds only the artefacts whose Rust inputs
-are newer than the `.wasm` they produced, and is a sub-second no-op when everything is current, so it is
-safe to run at the top of any session. `pnpm check:scoped` calls it in `--check` mode and fails fast with
-the fix, rather than surfacing the gap as a confusing type error.
+have actually changed, and is a sub-second no-op when everything is current, so it is safe to run at the
+top of any session. `pnpm check:scoped` calls it in `--check` mode and fails fast with the fix, rather
+than surfacing the gap as a confusing type error.
+
+**Staleness is a content question, and success is a verified one.** Each output carries a stamp holding
+the hash of the sources it was built from — its crate, that crate's workspace-local path dependencies,
+and the workspace manifests — and after every build the emitted bindings are checked to export
+everything the crate's `#[wasm_bindgen]` surface declares. Neither check is optional, because the shared
+cargo target directory below makes an mtime comparison unable to see the failure that matters: a build
+can be served from a cached compilation of sources that are not the ones on disk here, wasm-bindgen then
+re-emits from that artefact, and the fresh mtime on the emitted files reads as "current" while the
+package is missing a function it is supposed to export (the symptom is `X is not a function` at runtime,
+long after the build reported success). An artefact that comes out incomplete has its crate's cargo cache
+discarded, is rebuilt once, and fails the command rather than being stamped.
 
 It also writes a **git-ignored `crates/.cargo/config.toml`** pointing cargo at a target directory shared
 by every worktree on the machine (`~/.cache/magna-carta/cargo-target`). Cargo's `target/` is otherwise
@@ -144,25 +161,94 @@ files that were already correct); pin them like any other build input.
 - For a Container: multi-stage, lean `.dockerignore`, slow-changing layers first, cache mounts on dependency dirs (binaries copied out)?
 - Is any large slow-changing runtime input baked at build time instead of fetched on start?
 
+## The CI gate — verify each change once at each level
+
+`.github/workflows/gate.yml` is the gate of record, and the same change passes through it up to three
+times: on its pull request, on the push that merges it, and again on the nightly sweep. Running an
+identical full battery each time buys nothing — the second and third runs re-derive a result the first
+already produced. So each trigger runs the pass that **only it** can run:
+
+| Trigger        | Type-aware lint                     | Test battery | What it is for                                                                                                           |
+| -------------- | ----------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| `pull_request` | affected packages, **one hop** deep | full         | The tier a human waits on — optimized for latency.                                                                       |
+| `push` to main | affected packages, **full closure** | skipped      | The whole-repo type-check plus the unbounded lint closure: exactly what the pull request deliberately did not do.        |
+| `schedule`     | **whole repo**, unscoped, cold      | full         | Nightly backstop for anything the per-change tiers could miss, landing long before a deliberate `git push main:release`. |
+| `merge_group`  | full closure                        | full         | Full proof of a queued merge's real post-merge tree, if a merge queue is enabled.                                        |
+
+**Why the trimmed push-to-main run is sound.** Skipping the test battery on `main` rests on
+up-to-date-before-merge: a branch that must be current with `main` in order to merge has already run the
+full battery against exactly the tree that lands, so re-running it re-proves a proof. The gap it leaves
+is narrow and specific — two branches that merge in quick succession and interact _semantically_ without
+touching the same files, which no path filter can see. That gap is closed at its source by enabling a
+merge queue (the `merge_group` trigger is already wired for it) and caught after the fact by the nightly
+sweep. It is never a release risk: `main` is not the deploy branch, so nothing reaches production until
+somebody deliberately pushes `main:release`, and the nightly full run always intervenes first.
+
+**Why the one-hop lint tier is sound.** The dependent-walk depth is a latency dial, not a correctness
+one, because the _unbounded_ walk still runs before anything can ship — on the merge push, on the
+nightly sweep, and on a merge-queue build. A type flip that propagates more than one hop down the
+dependent chain is therefore caught at merge or overnight rather than on the pull request. Note the
+measured ceiling on this lever: because `apps/worker` depends directly on nearly every foundational
+package, a one-hop walk from a foundational package still covers most of the repo (see _To formalize_).
+
+**Path classification.** The `changes` job treats documentation and the rendered trackers
+(`docs/**`, `changelog.d/**`, `status.d/**`, `roadmap.d/**`, every `*.md`, and `STATUS.json`) as
+non-code, because nothing in the repo reads any of them at build or test time. `STATUS.json` matters
+specifically: it is not markdown, so a markdown-only exclusion classified the **per-merge docs-assembly
+commit** as a code change and booted the whole battery on every single merge. One exception is put
+straight back — a file with a source extension is a real input wherever it lives, so a script landing
+under one of those trees still counts as code.
+
+**Shard counts follow the diff.** `--shard=i/N` partitions the same set of test files for any `N`, so
+the shard count is a pure cost dial with no coverage consequence. Each shard pays a fixed few minutes of
+checkout, install and artefact download before it runs a test, so on a small diff (a modest changed-file
+count and a lint scope that is neither whole-repo nor a broad fan-out) `test-worker` drops from four
+shards to two, halving that fixed overhead while keeping the parallelism that matters.
+
+## The CI gate — cache what it repeats
+
+The same principle as the Workers Builds settings above, applied to the gate: anything the fan-out
+recomputes identically on every run is cached.
+
+- **Workspace install** — the pnpm store cache makes the download free; a `node_modules` cache keyed on
+  the exact lockfile hash (no `restore-keys` — a partially-matching tree is worse than none) makes most
+  of the linking free. The install still runs on a hit: it re-verifies the restored tree, and the
+  workspace `prepare` scripts generate files outside `node_modules` (`svelte-kit sync`) that no
+  `node_modules` cache can supply.
+- **Rust** — `Swatinem/rust-cache` rather than a hand-rolled `actions/cache`. It keys on the exact
+  `rustc` version as well as the resolved dependency set (a hand-rolled `Cargo.lock` key silently serves
+  artifacts built by a previous compiler across a toolchain bump), prunes the saved `target` down to
+  dependency artifacts, and skips the save when nothing changed.
+- **Container images** — the acceptance suites build through `containers/docker-build.sh`, which uses
+  buildx with an external layer cache when CI sets `CONTAINER_BUILD_CACHE` and a plain `docker build`
+  otherwise, so the local workflow is unchanged. The cache is scoped per container. This is the CI-side
+  counterpart of the BuildKit cache mounts above: mounts are build-local, this outlives the runner.
+- **TypeScript incremental state** — the `typecheck` job persists the per-project `.tsbuild` directories
+  so `tsc -b` re-checks only the projects whose inputs moved. Correctness does not depend on the
+  restore: `tsc` compares the content hashes recorded in `.tsbuildinfo` against the files on disk, so a
+  stale or partial restore costs re-checking, never a wrong answer.
+- **WASM artefacts** — built once per run and shared to consumers as an artefact, and cached across runs
+  on the Rust sources (already in place).
+
 ## To formalize (later)
 
 - Build-time budgets and a signal that flags a regression in build wall-clock, once there is a baseline worth holding.
 - Persisting BuildKit **cache mounts** across Workers Builds runs (the registry/`target` mounts are build-local today) if cold Rust dependency compiles in the Container build become the bottleneck.
 - **`tsgo` cutover** — swap the type-check engine to the TypeScript 7 native compiler once references have landed and it reaches GA, keeping a pinned JavaScript `typescript` for the Compiler-API tooling.
-- **Extend the CI affected-graph to type-check** — the CI `lint` job lints only the affected packages (below) and the `test` job is now sharded (below); the `typecheck` job still runs whole-repo. Persisting its `.tsbuildinfo` across runs so `tsc -b` is incremental in CI is the remaining affected-graph work.
+- **Break the app worker's direct dependence on nearly every foundational package.** The type-aware lint's cost is dominated by one package: building `apps/worker`'s whole-program type graph. Because the worker depends _directly_ on almost every foundational package, any change to one of them puts the worker in the affected set no matter how the dependent walk is bounded — a one-hop walk from `@magna-carta/identifiers` still covers 21 of the 24 packages the full closure covers. Scoping is therefore close to exhausted as a lever; the remaining structural fix is the dependency shape itself.
 
 ### Scope the CI type-aware lint to the affected packages (now)
 
-The whole-repo type-aware lint (`vp check --no-fmt`, oxlint + tsgolint) is CI's tall pole — ~24 min, single-threaded, no cross-run cache upstream. But tsgolint builds its type program **lazily from the passed files' import closure**, so `vp check --no-fmt <paths>` scopes the cost to those paths: one small package is ~2 s where the whole repo is ~24 min (measured). The earlier belief that this "depends on a vp mechanism to scope `typeAware`" was wrong — the `vp check [PATHS]` passthrough already is that mechanism, and cross-package types still resolve from the closure.
+The whole-repo type-aware lint (`vp check --no-fmt`, oxlint + tsgolint) is CI's tall pole — **~45 min** on a 4-core/16 GB runner (0 errors, ~820 advisory warnings over ~1850 files, measured 2026-08-04), single-threaded, no cross-run cache upstream. It was ~24 min when this section was first written; the figure tracks the package count, so re-measure it rather than trusting the number here, and raise the `lint` job's `timeout-minutes` in [`gate.yml`](../../.github/workflows/gate.yml) whenever the honest time approaches the cap. But tsgolint builds its type program **lazily from the passed files' import closure**, so `vp check --no-fmt <paths>` scopes the cost to those paths: one small package is ~2 s where the whole repo is ~45 min (measured). The earlier belief that this "depends on a vp mechanism to scope `typeAware`" was wrong — the `vp check [PATHS]` passthrough already is that mechanism, and cross-package types still resolve from the closure.
 
-So the gate's **`lint` job lints only the affected packages**, computed by `tooling/affected-lint`: the changed workspace packages **plus their transitive dependents** — never just the changed files, because a type-aware finding in an unchanged file can flip when a dependency changes (that soundness gap is exactly why `check-scoped`, which lints only changed files, is fine for the local loop but not the gate of record). A change to a global input — the lint ruleset and the shared compiler options (`vite.config.ts` — which is both the lint ruleset home and where `typeAware` lives — plus `tsconfig.base.json`, `packages/tsconfig/`), the lockfile, `.github/`, or the affected-lint logic itself — falls back to a whole-repo lint, as does any lintable source file outside every package. Only the lint job is scoped this way; type-check, tests, and the contract checks still run whole-repo, so the blast radius of a scoping miss is one type-aware lint rule, not correctness at large. A typical few-package change drops the tall pole from ~24 min to seconds; a foundational package (e.g. `@magna-carta/identifiers`) correctly re-lints its whole dependent set.
+So the gate's **`lint` job lints only the affected packages**, computed by `tooling/affected-lint`: the changed workspace packages **plus their dependents** — never just the changed files, because a type-aware finding in an unchanged file can flip when a dependency changes (that soundness gap is exactly why `check-scoped`, which lints only changed files, is fine for the local loop but not a merge gate). How far down the dependent chain the walk goes is set by `--max-hops`: **one hop on a pull request, unbounded everywhere else** (see _The CI gate — verify each change once at each level_ above for why depth is a latency dial rather than a correctness one). A change to a global input — the lint ruleset and the shared compiler options (`vite.config.ts` — which is both the lint ruleset home and where `typeAware` lives — plus `tsconfig.base.json`, `packages/tsconfig/`), the lockfile, or the affected-lint logic itself — falls back to a whole-repo lint, as does any lintable source file outside every package (which is what still re-lints the whole repo for a JS-based action under `.github/`). A workflow or action **YAML** change (e.g. `gate.yml`) is deliberately **not** a trigger — it cannot move a type-aware lint result, so it does not pay the whole-repo pass. Only the lint job is scoped this way; type-check, tests, and the contract checks still run whole-repo, so the blast radius of a scoping miss is one type-aware lint rule, not correctness at large. A typical few-package change drops the tall pole from ~45 min to seconds; a foundational package (e.g. `@magna-carta/identifiers`) correctly re-lints its whole dependent set.
 
 ### Shard the CI test suite across parallel runners (now)
 
 The tests are deliberately **not** affected-scoped — a change in a foundational package can break a consumer's test that a dependency-graph scope would miss, and a missed test failure is a correctness hole, not (as with lint) one type-aware rule. So instead of _scoping_ the tests, the gate _shards_ them, and it shards along the suite's **natural project boundaries** rather than one blind shard over everything. The suite has three substrates with very different per-file cost and setup — plain node units (milliseconds), the Miniflare Workers pool (a Workers runtime per file), and the design-system Storybook stories (Chromium via Playwright) — so the `test` job is split into three:
 
-- **`test-node`** — `packages` + `apps/web` + `tooling`, with the `storybook` project excluded (`--project='!storybook'`), sharded within the job. No Miniflare, no browser: the bulk of the tests, cheapest per file.
+- **`test-node`** — `packages` + `apps/web` + the standalone sibling workers (`apps/bundle-worker`, `apps/convert-worker`, `apps/file-repair-worker`, `apps/magna-carta-edit`, `apps/ocr-worker`, `apps/recovery-worker`, `apps/scan-worker` — default-pool unit tests with faked bindings) + `tooling`, with the `storybook` project excluded (`--project='!storybook'`), sharded within the job. No Miniflare, no browser: the bulk of the tests, cheapest per file.
 - **`test-worker`** — the files under `apps/worker` + `apps/status-worker`, sharded within the job. The heaviest substrate (a Workers runtime per file), on its own so it scales independently.
 - **`test-stories`** — the `storybook` project, one runner. The **only** browser suite, so it is the **only** job that installs Chromium — the split's biggest win over a blind shard, which paid the Playwright install on every shard.
 
-Each job shards by file count (`--shard=i/N` over its scope; `SHARD_TOTAL` + the matrix list per job). **Completeness is by construction:** the three jobs partition every test file exactly once — `storybook` is the only project that spans a path root (it lives under `packages/design-system`), so it is the only one included-by-name in one job and excluded-by-name from another; every other file belongs to exactly one path root. Adding a new top-level test area means adding its path to `test-node` (or a new job) — and a mis-scoped partition that matches nothing **fails loud** (vitest's `passWithNoTests` is left off), never silently skips. Wall-clock is now paced by the heaviest substrate rather than a random file draw; if `test-worker` becomes the pole, raise its shard count alone.
+Each job shards by file count (`--shard=i/N` over its scope; `SHARD_TOTAL` + the matrix list per job). **Completeness is by construction:** the three jobs partition every **registered** test file exactly once — `storybook` is the only project that spans a path root (it lives under `packages/design-system`), so it is the only one included-by-name in one job and excluded-by-name from another; every other file belongs to exactly one path root. Adding a new test area is **two registrations**: its vitest config into the root `vite.config.ts` `test.projects` list, **and** its path into `test-node` (or a new job). The path half fails loud when mis-scoped (vitest's `passWithNoTests` is left off — a path that matches nothing errors); the registry half is the one nothing catches automatically — `test.projects` is a closed list, and an unregistered project's tests run **nowhere** (root `vp test` and CI both walk only registered projects), so treat the registry as part of the partition. Wall-clock is now paced by the heaviest substrate rather than a random file draw; if `test-worker` becomes the pole, raise its shard count alone.

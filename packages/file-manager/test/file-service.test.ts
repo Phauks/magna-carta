@@ -1,13 +1,22 @@
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
-import type { FileId, FileVersionId, FolderId, MatterId } from "@magna-carta/identifiers/types";
+import type {
+  DocumentCheckoutId,
+  FileId,
+  FileVersionId,
+  FolderId,
+  MatterId,
+} from "@magna-carta/identifiers/types";
 import { describe, expect, it } from "vitest";
 import {
+  assignDocumentType,
   commitEditedVersion,
   commitVersion,
+  initiateCheckin,
   initiateUpload,
   moveFile,
   quarantineVersion,
   recordRescanVerdict,
+  renameFile,
   restoreFile,
   restoreVersion,
   softDeleteFile,
@@ -287,6 +296,63 @@ describe("commitVersion", () => {
       code: "version-not-pending",
     });
   });
+
+  // The status = 'pending' guard protects only the UPDATE that carries it. Everything the commit
+  // implies — the meter delta, the current-version pointer, the session flip, the audit row, the
+  // outbox event — has no such predicate, so a lost race to an abort or expiry would otherwise commit
+  // every consequence of a commit that never happened. The batch must fail as a unit instead.
+  it("commits nothing at all when the version was abandoned between the read and the batch", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const { fileId, versionId } = await initiate(database, matterId);
+
+    const result = await commitVersion(
+      database,
+      {
+        versionId,
+        sizeBytes: 1024,
+        sniffedContentType: "application/pdf",
+        contentSha256: "hash-a",
+        scanVerdict: "unscanned",
+        scanEngineVersion: null,
+        scanDetail: null,
+        now: now(),
+      },
+      options,
+    );
+    // The racing abort lands first: the version leaves 'pending', so the guarded commit UPDATE in the
+    // prepared batch will match nothing.
+    await database
+      .prepare("UPDATE file_version SET status = 'abandoned' WHERE id = ?1")
+      .bind(versionId)
+      .run();
+
+    await expect(commitEffectBatch(database, result.effect, { now })).rejects.toThrow();
+
+    const version = await database
+      .prepare("SELECT status FROM file_version WHERE id = ?1")
+      .bind(versionId)
+      .all<{ status: string }>();
+    expect(version.results[0]?.status).toBe("abandoned");
+    const file = await database
+      .prepare("SELECT current_version_id FROM file WHERE id = ?1")
+      .bind(fileId)
+      .all<{ current_version_id: string | null }>();
+    expect(file.results[0]?.current_version_id).toBeNull();
+    const meter = await database
+      .prepare("SELECT bytes FROM storage_meter WHERE prefix = 'files'")
+      .all<{ bytes: number }>();
+    expect(meter.results).toHaveLength(0);
+    // No trail claiming a commit — neither the audit row nor the event the batch would have appended.
+    const audit = await database
+      .prepare("SELECT id FROM audit_log WHERE event = 'file.version_committed'")
+      .all();
+    expect(audit.results).toHaveLength(0);
+    const outbox = await database
+      .prepare("SELECT id FROM outbox WHERE topic = 'file.version_committed'")
+      .all();
+    expect(outbox.results).toHaveLength(0);
+  });
 });
 
 describe("quarantineVersion", () => {
@@ -493,6 +559,99 @@ describe("restoreFile", () => {
     const restored = await restoreFile(database, fileId, options);
     await commitEffectBatch(database, restored.effect, { now });
     expect((await listFiles(database, { matterId })).data.map((row) => row.id)).toEqual([fileId]);
+  });
+});
+
+// A soft-deleted file is invisible to every consumer read, so a write that still landed on one would
+// change something nobody can see — and an undelete would then hand back a file that quietly moved,
+// was renamed, or grew a version while it was in the recycle bin.
+describe("writes against a soft-deleted file", () => {
+  async function deletedFile(database: ReturnType<typeof freshDatabase>) {
+    const matterId = await seedMatter(database);
+    const { fileId, versionId } = await initiate(database, matterId);
+    await commit(database, versionId, "hash-a");
+    await commitEffectBatch(database, (await softDeleteFile(database, fileId, options)).effect, {
+      now,
+    });
+    return { matterId, fileId };
+  }
+
+  it("refuses a rename", async () => {
+    const database = freshDatabase();
+    const { fileId } = await deletedFile(database);
+    await expect(renameFile(database, fileId, "renamed.pdf", options)).rejects.toMatchObject({
+      code: "file-deleted",
+    });
+  });
+
+  it("refuses a move", async () => {
+    const database = freshDatabase();
+    const { fileId } = await deletedFile(database);
+    await expect(moveFile(database, fileId, null, options)).rejects.toMatchObject({
+      code: "file-deleted",
+    });
+  });
+
+  it("refuses a document-type assignment", async () => {
+    const database = freshDatabase();
+    const { fileId } = await deletedFile(database);
+    await expect(assignDocumentType(database, fileId, null, options)).rejects.toMatchObject({
+      code: "file-deleted",
+    });
+  });
+
+  it("refuses a new version on the file", async () => {
+    const database = freshDatabase();
+    const { matterId, fileId } = await deletedFile(database);
+    await expect(initiate(database, matterId, { fileId })).rejects.toMatchObject({
+      code: "file-deleted",
+    });
+  });
+
+  it("refuses the return leg of an offline checkout", async () => {
+    const database = freshDatabase();
+    const { fileId } = await deletedFile(database);
+    await expect(
+      initiateCheckin(
+        database,
+        {
+          fileId,
+          checkoutId: "documentCheckout_x" as DocumentCheckoutId,
+          declaredSize: null,
+          declaredContentType: null,
+          uploadedBy: ACTOR,
+        },
+        options,
+      ),
+    ).rejects.toMatchObject({ code: "file-deleted" });
+  });
+
+  it("refuses a second delete rather than re-stamping deleted_at", async () => {
+    const database = freshDatabase();
+    const { fileId } = await deletedFile(database);
+    await expect(softDeleteFile(database, fileId, options)).rejects.toMatchObject({
+      code: "file-deleted",
+    });
+  });
+
+  it("still lets the recovery view read it and the undelete restore it", async () => {
+    const database = freshDatabase();
+    const { matterId, fileId } = await deletedFile(database);
+    // The recovery surface is the one place a deleted file is legitimately visible.
+    expect(
+      (await listFiles(database, { matterId, includeDeleted: true })).data.map((row) => row.id),
+    ).toEqual([fileId]);
+    await commitEffectBatch(database, (await restoreFile(database, fileId, options)).effect, {
+      now,
+    });
+    // …and once it is back, the writes it was refusing are allowed again.
+    const renamed = await renameFile(database, fileId, "renamed.pdf", options);
+    await commitEffectBatch(database, renamed.effect, { now });
+    const { results } = await database
+      .prepare("SELECT name FROM file WHERE id = ?1")
+      .bind(fileId)
+      .all<{ name: string }>();
+    expect(results[0]?.name).toBe("renamed.pdf");
   });
 });
 

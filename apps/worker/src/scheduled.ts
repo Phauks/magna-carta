@@ -12,7 +12,9 @@ import {
   abandonVersionStatement,
   FILES_PREFIX,
   selectExpiredOpenSessionsStatement,
+  selectStrandedPendingVersionsStatement,
   setUploadSessionStatusByIdStatement,
+  STRANDED_PENDING_DEADLINE_MILLISECONDS,
 } from "@magna-carta/file-manager/file-statements";
 import {
   meterCorrectionStatements,
@@ -33,6 +35,7 @@ import { runPendingMigrations } from "@magna-carta/database/migration-runner";
 import { d1MigrationTarget } from "@magna-carta/database/d1-migration-target";
 import type { Bindings } from "./app.ts";
 import { controlPlaneMigrations } from "./control-plane-migrations.ts";
+import { resolveFirmBucket } from "./files/firm-bucket.ts";
 import { presignerForEnv } from "./files/presigner-wiring.ts";
 import { firmDatabaseFor, type ProxyBatchDatabase } from "./firm-database/firm-database-proxy.ts";
 import { firmKeyProviderForEnv } from "./firm-key-provider-wiring.ts";
@@ -192,9 +195,8 @@ export async function findUnprovisionedMembers(
 
 // The Cron entry point: one pass =
 //   1. control-plane outbox sweep — the consumer map applies member mirrors directly;
-//   2. per-firm outbox sweep over active firms — rows publish to env.QUEUE (nothing consumes the
-//      per-firm queue yet this slice; publishing realizes the relay contract and the consumer
-//      arrives with the first per-firm topic) — plus that firm's idempotency TTL purge;
+//   2. per-firm outbox sweep over active firms — rows publish to env.QUEUE, whose consumer routes
+//      each message to the handler owning its topic — plus that firm's idempotency TTL purge;
 //   3. control-plane idempotency TTL purge;
 //   4. the reconciliation backstop — logged (ids only) when non-empty; the finding heals through
 //      the relay (a fresh invite's row may appear for one pass mid-flight — the next pass clears it).
@@ -255,10 +257,9 @@ export async function runScheduledSweep(env: Bindings): Promise<ScheduledSweepRe
           // The Queue message mirrors the outbox row (consumers dedup on id, order by
           // (aggregateKey, seq)); the payload is already redacted canonical JSON.
           // firmId tags the originating tenant: per-firm messages cross the single SHARED env.QUEUE,
-          // so the first per-firm consumer (slice 0·5+) resolves the firm from the message — it has
-          // no other handle on which physical database the row came from. (Control-plane outbox
-          // topics are consumed DIRECTLY in this worker, never over the queue, so they need no such
-          // tag.)
+          // so the consumer resolves the firm from the message — it has no other handle on which
+          // physical database the row came from. (Control-plane outbox topics are consumed DIRECTLY
+          // in this worker, never over the queue, so they need no such tag.)
           await env.QUEUE.send({
             id: row.id,
             firmId: firm.firmId,
@@ -281,6 +282,13 @@ export async function runScheduledSweep(env: Bindings): Promise<ScheduledSweepRe
       });
       await purgeExpiredIdempotencyRecordsStatement(firm.database, idempotencyCutoff).run();
       await sweepStalePendingUploads(env, firm);
+      const redriven = await redriveStrandedPendingVersions(env, firm);
+      if (redriven > 0) {
+        // A counter, not an event: the rate is the alertable signal (a persistently non-zero count
+        // means ingest is failing for real, not that one message was slow), and the per-version detail
+        // — keys, ids — has no place in a structured log.
+        logger.count("ingest.stranded_pending_redriven", {}, redriven);
+      }
       firmSweeps++;
       logger.log(
         outboxSwept(
@@ -350,7 +358,9 @@ export async function sweepStalePendingUploads(
     // Abort the multipart upload at R2 first (idempotent; a 404 there is success), then commit the
     // status flip — a thrown abort leaves the session open so the next pass retries it.
     if (session.mode === "multipart" && session.r2_upload_id !== null && firm.bucketName !== null) {
-      await presigner.abortMultipartUpload(firm.bucketName, session.r2_key, session.r2_upload_id);
+      // Abort against the same bucket the session's parts were presigned into.
+      const { bucketName } = resolveFirmBucket(env, firm.bucketName);
+      await presigner.abortMultipartUpload(bucketName, session.r2_key, session.r2_upload_id);
     }
     await commitEffectBatch(
       firm.database,
@@ -364,6 +374,50 @@ export async function sweepStalePendingUploads(
       { now },
     );
   }
+  return results.length;
+}
+
+// The stranded-pending re-drive: the counterpart sweep for an ingest that FAILED rather than an upload
+// that was abandoned. The sweep above reclaims sessions the client never finished; this one finds
+// sessions the client DID finish whose version never left `pending` — the shape a dead-lettered ingest
+// leaves behind, where the bytes are in R2, the user was told the upload succeeded, and nothing is left
+// to move the version. Each one is re-enqueued as the same R2-event message the object's original
+// create notification carried, so it re-enters the one ingest path rather than a second, divergent
+// commit path here.
+//
+// Re-driving is safe to repeat. A version still pending is picked up by the status-first guard and
+// ingested normally; one that has since committed takes the custody branch instead, which re-measures
+// the stored bytes against the hash the committed row asserts and withdraws the version if they no
+// longer match — so a redundant re-drive re-verifies custody rather than double-committing. Returns the
+// count re-driven (for tests and the operator counter).
+export async function redriveStrandedPendingVersions(
+  env: Bindings,
+  firm: ReachableActiveFirm,
+): Promise<number> {
+  const queue = env.FILES_INGEST;
+  // No producer binding (or no bucket registered for the firm) means there is nothing to re-drive
+  // onto; the rows stay put for the next pass rather than being silently dropped.
+  if (queue === undefined || firm.bucketName === null) return 0;
+  const mintedBefore = new Date(Date.now() - STRANDED_PENDING_DEADLINE_MILLISECONDS).toISOString();
+  const { results } = await selectStrandedPendingVersionsStatement(
+    firm.database,
+    mintedBefore,
+  ).all<{ id: FileVersionId; r2_key: string; declared_size: number | null }>();
+  if (results.length === 0) return 0;
+  const bucket = firm.bucketName;
+  await queue.sendBatch(
+    results.map((version) => ({
+      body: {
+        bucket,
+        // The consumer reads the key; the size is informational (it measures the real object itself).
+        object: { key: version.r2_key, size: version.declared_size ?? 0 },
+        // The action an object-create notification carries, because that is what this message stands
+        // in for — and it is what makes the custody re-verification run if the version has committed
+        // since this batch was read.
+        action: "PutObject",
+      },
+    })),
+  );
   return results.length;
 }
 
@@ -399,15 +453,15 @@ async function readMeterRows(database: ProxyBatchDatabase): Promise<MeterRow[]> 
 // corrections; drift is logged (totals only — never object contents) for operator visibility.
 //
 // The clean-key filter is load-bearing: the meter counts clean commits only, so a pending/quarantined/
-// abandoned object (its bytes never metered, never deleted from R2) must not inflate the meter; and the
-// single bound env.R2 is SHARED across dev-pool firms, so another firm's object — whose key is not in
-// this firm's clean set — must not be counted against this firm. Both are excluded by keeping only the
-// listed objects whose key is in this firm's clean-version set.
+// abandoned object (its bytes never metered, never deleted from R2) must not inflate the meter; and a
+// bucket shared across firms carries other firms' objects — whose keys are not in this firm's clean
+// set — which must not be counted against this firm. Both are excluded by keeping only the listed
+// objects whose key is in this firm's clean-version set.
 //
-// PER-FIRM BUCKET SEAM: it reads the single bound env.R2 (the dev pool shares one bucket); in
-// production a firm's bytes live in its own bucket bound per-firm, resolved through the same seam the
-// ingest consumer documents. D1 stays authoritative; the AE trend seam (the telemetry package)
-// consumes the corrected meter on its own path.
+// PER-FIRM BUCKET SEAM: the LIST runs against the bucket resolveFirmBucket (files/firm-bucket.ts)
+// gives for this firm — the same resolver the upload and ingest paths use, so the pass counts the
+// bytes those paths actually wrote. D1 stays authoritative; the analytics trend seam (the telemetry
+// package) consumes the corrected meter on its own path.
 export async function runStorageReconciliation(env: Bindings): Promise<ReconciliationReport> {
   // One logger + correlation id per pass — the same one-pipeline discipline as runScheduledSweep
   // (golden rule 4; the console ban is structural).
@@ -418,6 +472,9 @@ export async function runStorageReconciliation(env: Bindings): Promise<Reconcili
   let corrections = 0;
   for (const firm of firms) {
     try {
+      // A firm still mid-provisioning has no bucket recorded and therefore no objects to count;
+      // resolving throws, which the per-firm catch below turns into a skip plus a logged failure.
+      const { bucket } = resolveFirmBucket(env, firm.bucketName);
       // This firm's authoritative clean-version set: only these keys count toward its meter.
       const cleanKeys = new Set(
         (await listCleanVersionR2Keys(firm.database)).map((version) => version.r2Key),
@@ -427,7 +484,7 @@ export async function runStorageReconciliation(env: Bindings): Promise<Reconcili
       for (;;) {
         // Build options without a cursor key on the first page — passing an explicit `cursor:
         // undefined` makes Miniflare's R2 return an empty page.
-        const page = await env.R2.list(
+        const page = await bucket.list(
           cursor === undefined ? { prefix: "files/" } : { prefix: "files/", cursor },
         );
         for (const object of page.objects) {
@@ -449,7 +506,7 @@ export async function runStorageReconciliation(env: Bindings): Promise<Reconcili
       // to appear as files/ for the reconciliation diff.
       let bulkCursor: string | undefined;
       for (;;) {
-        const page = await env.R2.list(
+        const page = await bucket.list(
           bulkCursor === undefined ? { prefix: "bulk/" } : { prefix: "bulk/", cursor: bulkCursor },
         );
         for (const object of page.objects) {
@@ -532,8 +589,10 @@ export interface FirmBackfillReport {
 // The generic per-firm backfill runner: walk a supplied set of firms, run one idempotent step
 // against each, and isolate a single firm's failure (logged through the one telemetry pipeline, the
 // next pass retries) so one broken firm cannot starve the rest of the fleet. The progress count
-// rides a counter (ids/totals only — never any protected value). `name` tags the operation label
-// and the counter so the two sweeps are distinguishable in telemetry.
+// rides a counter (ids/totals only — never any protected value). `name` tags the operation label and
+// rides the counter as a DIMENSION, so the two sweeps are distinguishable in telemetry without every
+// backfill minting its own metric name — a name built by interpolation cannot be declared in the
+// catalog (@magna-carta/telemetry/metrics), and the emission path drops what it cannot lay out.
 async function runFirmBackfill<TFirm extends { readonly firmId: string }>(
   name: string,
   logger: Logger,
@@ -548,7 +607,7 @@ async function runFirmBackfill<TFirm extends { readonly firmId: string }>(
       const affected = await step(firm);
       rowsAffected += affected;
       firmsProcessed += 1;
-      if (affected > 0) logger.count(`backfill.${name}`, {}, affected);
+      if (affected > 0) logger.count("backfill.rows_affected", { backfill: name }, affected);
     } catch (caught) {
       logOperationFailed(logger, `cron:backfill:${name}:${firm.firmId}`, caught, correlationId);
     }

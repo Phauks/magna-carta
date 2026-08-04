@@ -73,6 +73,12 @@ export async function changeName(
   input: ChangeNameInput,
   options: DirectoryWriteOptions,
 ): Promise<void> {
+  // Fail fast before any write, exactly as addName does: directory_name carries no foreign key to the
+  // node tables, so renaming an entity that does not exist (or has been merged away) would insert an
+  // orphan current-flagged name row plus its phonetic codes into the conflicts corpus, silently no-op
+  // the flip and the node-row update, and still report success.
+  await assertEntityExists(database, entityId);
+
   const nameId: DirectoryNameId = newIdentifier("directoryName", options.randomSource);
   const now = options.clock.now();
   const entityKind = entityKindFromId(entityId);

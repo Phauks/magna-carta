@@ -63,6 +63,12 @@ export function containerScanAdapter(
         size: String(meta.sizeBytes),
         contentType: meta.sniffedContentType ?? "",
       });
+      // Routes the request to one of the scan service's container instances (apps/scan-worker's
+      // scan-shard.ts hashes it). Sent only when the caller has a stable key, so a retry of the same
+      // file reaches the instance that already handled it; omitted otherwise rather than sent empty.
+      if (meta.contentKey !== undefined) {
+        query.set("shardKey", meta.contentKey);
+      }
       const response = await container.fetch(
         new Request(`http://scan/scan?${query.toString()}`, {
           method: "POST",

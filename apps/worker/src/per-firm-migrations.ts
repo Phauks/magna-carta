@@ -9,6 +9,14 @@ import conflictsSql from "@magna-carta/database/drizzle/per-firm/20260709T120000
 import seedConflictsPermissionsSql from "@magna-carta/database/drizzle/per-firm/20260709T120001_seed-conflicts-permissions.sql";
 import seedToolsEmailInspectorSql from "@magna-carta/database/drizzle/per-firm/20260710T120000_seed-tools-email-inspector.sql";
 import directoryEmailNormalizedAddressSql from "@magna-carta/database/drizzle/per-firm/20260714T210000_directory-email-normalized-address.sql";
+import emailFilingRecordsSql from "@magna-carta/database/drizzle/per-firm/20260717T120000_email-filing-records.sql";
+import seedEmailsPermissionsSql from "@magna-carta/database/drizzle/per-firm/20260717T120001_seed-emails-permissions.sql";
+import conflictsHitCoPartySql from "@magna-carta/database/drizzle/per-firm/20260717T181411_conflicts-hit-co-party.sql";
+import indexSplitCatalogSql from "@magna-carta/database/drizzle/per-firm/20260717T224037_index-split-catalog.sql";
+import seedEsignSealSql from "@magna-carta/database/drizzle/per-firm/20260803T120000_seed-esign-seal.sql";
+import matterNumberAllocationSql from "@magna-carta/database/drizzle/per-firm/20260804T072255_matter-number-allocation.sql";
+import indexSplitDocumentVersionSql from "@magna-carta/database/drizzle/per-firm/20260804T082351_index-split-document-version.sql";
+import shipmentPurchaseClaimSql from "@magna-carta/database/drizzle/per-firm/20260804T120000_shipment-purchase-claim.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the FirmDatabase
 // Durable Object runs this lineage against its own SQLite storage on wake (firm-database-object.ts),
@@ -28,5 +36,25 @@ export function perFirmMigrations(): Migration[] {
     "20260709T120001_seed-conflicts-permissions": seedConflictsPermissionsSql,
     "20260710T120000_seed-tools-email-inspector": seedToolsEmailInspectorSql,
     "20260714T210000_directory-email-normalized-address": directoryEmailNormalizedAddressSql,
+    "20260717T120000_email-filing-records": emailFilingRecordsSql,
+    "20260717T120001_seed-emails-permissions": seedEmailsPermissionsSql,
+    "20260717T181411_conflicts-hit-co-party": conflictsHitCoPartySql,
+    "20260717T224037_index-split-catalog": indexSplitCatalogSql,
+    "20260803T120000_seed-esign-seal": seedEsignSealSql,
+    "20260804T072255_matter-number-allocation": matterNumberAllocationSql,
+    "20260804T082351_index-split-document-version": indexSplitDocumentVersionSql,
+    "20260804T120000_shipment-purchase-claim": shipmentPurchaseClaimSql,
   });
+}
+
+// The lineage head (latest journal tag), ordered by the monotonic migration id — the same shape
+// control-plane-migrations.ts exposes. Tests assert against this instead of a literal tag, so
+// adding a migration does not break an unrelated provisioning assertion.
+export function perFirmHeadSchemaVersion(): string {
+  const lastEntry = [...perFirmJournal.entries]
+    // sort on the spread copy (non-mutating); toSorted is not in this worker's TS lib target.
+    .sort((a, b) => (a.tag < b.tag ? -1 : a.tag > b.tag ? 1 : 0))
+    .at(-1);
+  if (lastEntry === undefined) throw new Error("per-firm migration journal is empty");
+  return lastEntry.tag;
 }

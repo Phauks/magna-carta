@@ -42,9 +42,68 @@ export function insertShipmentDraftStatement(
 export function selectShipmentStatement(database: SqlDatabase, id: ShipmentId): SqlStatement {
   return database
     .prepare(
-      `SELECT id, matter_ref, status, from_address, to_address, parcel, options, remote_shipment_id, carrier, service, tracking_code, label_ref, postage_cost_minor, service_fee_minor, currency FROM ${SHIPMENT_TABLE} WHERE id = ?1`,
+      `SELECT id, matter_ref, status, from_address, to_address, parcel, options, remote_shipment_id, purchase_claim_key, carrier, service, tracking_code, label_ref, postage_cost_minor, service_fee_minor, currency FROM ${SHIPMENT_TABLE} WHERE id = ?1`,
     )
     .bind(id);
+}
+
+// Record the carrier-side shipment a rate quote was taken against. Guarded on the pre-purchase
+// statuses so re-rating can never reset a shipment whose label is already bought or in flight —
+// and so the id a later purchase is checked against is one THIS server persisted, not one the
+// client supplied.
+export function markShipmentRatedStatement(
+  database: SqlDatabase,
+  id: ShipmentId,
+  remoteShipmentId: string,
+  updatedAt: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${SHIPMENT_TABLE} SET status = 'rated', remote_shipment_id = ?2, updated_at = ?3 WHERE id = ?1 AND status IN ('draft', 'rated')`,
+    )
+    .bind(id, remoteShipmentId, updatedAt);
+}
+
+// Take the exclusive right to buy a label for this shipment. The carrier API offers no idempotency
+// key, so this claim is the ONLY thing standing between a retried or concurrent purchase and a
+// second real charge: the guard admits exactly one winner out of any number of simultaneous
+// attempts, and refuses outright once a label exists. meta.changes === 1 means the claim is held;
+// 0 means the shipment is already purchasing, purchased, or refunded.
+//
+// The claim is deliberately NOT re-entrant for the same key. Two requests carrying one idempotency
+// key can both pass the advisory idempotency pre-check (no record exists until the effect commits),
+// so a same-key re-claim would let both reach the carrier. Recovery from a stuck claim goes through
+// releaseShipmentPurchaseClaimStatement, which only the holder can call and only when the carrier
+// definitively rejected the buy.
+export function claimShipmentPurchaseStatement(
+  database: SqlDatabase,
+  id: ShipmentId,
+  claimKey: string,
+  updatedAt: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${SHIPMENT_TABLE} SET status = 'purchasing', purchase_claim_key = ?2, updated_at = ?3 WHERE id = ?1 AND status IN ('draft', 'rated')`,
+    )
+    .bind(id, claimKey, updatedAt);
+}
+
+// Hand the claim back after a buy the carrier definitively refused (nothing was charged, so a fresh
+// attempt is safe). Guarded on the claim key: a request that does not hold the claim cannot release
+// another request's in-flight purchase. An INDETERMINATE failure — a network drop, a carrier 5xx,
+// or any failure after the buy returned — must NOT be released: the label may exist and be billed,
+// and the shipment stays `purchasing` until it is refunded or reconciled.
+export function releaseShipmentPurchaseClaimStatement(
+  database: SqlDatabase,
+  id: ShipmentId,
+  claimKey: string,
+  updatedAt: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${SHIPMENT_TABLE} SET status = 'rated', purchase_claim_key = NULL, updated_at = ?3 WHERE id = ?1 AND status = 'purchasing' AND purchase_claim_key = ?2`,
+    )
+    .bind(id, claimKey, updatedAt);
 }
 
 export interface PurchaseUpdate {
@@ -66,7 +125,9 @@ export function markShipmentPurchasedStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `UPDATE ${SHIPMENT_TABLE} SET status = 'purchased', remote_shipment_id = ?2, carrier = ?3, service = ?4, tracking_code = ?5, label_ref = ?6, postage_cost_minor = ?7, service_fee_minor = ?8, currency = ?9, updated_at = ?10 WHERE id = ?1`,
+      // Clears the purchase claim in the same statement that records the purchase: the claim's whole
+      // job was to hold the shipment while money was in flight, and it ends when the label lands.
+      `UPDATE ${SHIPMENT_TABLE} SET status = 'purchased', purchase_claim_key = NULL, remote_shipment_id = ?2, carrier = ?3, service = ?4, tracking_code = ?5, label_ref = ?6, postage_cost_minor = ?7, service_fee_minor = ?8, currency = ?9, updated_at = ?10 WHERE id = ?1`,
     )
     .bind(
       id,
@@ -82,13 +143,17 @@ export function markShipmentPurchasedStatement(
     );
 }
 
+// Also releases any purchase claim: a refund is the reconciliation that ends an in-flight purchase
+// whose outcome was never confirmed, so the shipment must not stay claimed afterwards.
 export function markShipmentRefundedStatement(
   database: SqlDatabase,
   id: ShipmentId,
   updatedAt: string,
 ): SqlStatement {
   return database
-    .prepare(`UPDATE ${SHIPMENT_TABLE} SET status = 'refunded', updated_at = ?2 WHERE id = ?1`)
+    .prepare(
+      `UPDATE ${SHIPMENT_TABLE} SET status = 'refunded', purchase_claim_key = NULL, updated_at = ?2 WHERE id = ?1`,
+    )
     .bind(id, updatedAt);
 }
 
@@ -118,6 +183,20 @@ export function insertLabelStatement(database: SqlDatabase, row: InsertLabelRow)
       row.currency,
       row.createdAt,
     );
+}
+
+// The label rows for a shipment, newest first. Scoped to the caller's own firm database, so the row
+// existing at all is the proof that this firm owns the label — which is what makes the stored r2_key
+// safe to read bytes with. A shipment id from another firm simply finds nothing here.
+export function selectShipmentLabelsStatement(
+  database: SqlDatabase,
+  shipmentRef: ShipmentId,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT id, format, r2_key, voided, created_at FROM ${SHIPMENT_LABEL_TABLE} WHERE shipment_ref = ?1 ORDER BY created_at DESC`,
+    )
+    .bind(shipmentRef);
 }
 
 export interface InsertTrackingEventRow {

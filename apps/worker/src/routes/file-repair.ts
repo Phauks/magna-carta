@@ -22,7 +22,7 @@ import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { identifierField } from "../contracts/common.ts";
 import { Problem, problemJson, type ProblemResponse } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
-import { requireBucket } from "../files/require-bucket.ts";
+import { resolveFirmBucket } from "../files/firm-bucket.ts";
 
 type AppContext = Context<{ Bindings: Bindings; Variables: AppVariables }>;
 
@@ -228,11 +228,9 @@ async function attachOneFile(
 ): Promise<{ fileId: string; versionId: string }> {
   const firm = requireChokepointFirmContext(c);
   const userId = requireChokepointUserId(c);
-  // An active session firm always has a provisioned bucket; asserted here (before any write) even
-  // though the byte write below goes through the single bound c.env.R2 (the PER-FIRM BUCKET SEAM
-  // every other R2-writing route defers to — see ingest-consumer.ts), mirroring every other route
-  // that writes a firm's bytes.
-  requireBucket(firm.bucketName);
+  // Resolve the firm's bucket before any write, through the one resolver every R2-touching path
+  // shares (files/firm-bucket.ts) — so these bytes land in the bucket ingest reads them back from.
+  const { bucket } = resolveFirmBucket(c.env, firm.bucketName);
   const bytes = decodeBase64(file.contentBase64);
   const now = () => new Date().toISOString();
   const auditContext = { clock: { now }, actorUserId: userId };
@@ -288,7 +286,7 @@ async function attachOneFile(
   await commitEffectBatch(firm.firmDatabase, effect, { now });
 
   // The metadata batch is committed; now put the bytes so the R2 event drives ingest.
-  await c.env.R2.put(initiated.r2Key, bytes);
+  await bucket.put(initiated.r2Key, bytes);
   return { fileId: initiated.fileId, versionId: initiated.versionId };
 }
 

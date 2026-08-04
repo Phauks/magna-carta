@@ -62,6 +62,9 @@ export const PERMISSIONS = [
   "documents:checkout", // take an offline working copy, or an opt-in exclusive lock
   "documents:forceReleaseLock", // release another member's exclusive lock
   "documents:reconcile", // resolve a divergent check-in — choose which copy becomes authoritative
+  // E-signature — the platform seal (PAdES) applied to a document, and the ESIGN/UETA signing act
+  // around it. The seal runs in the dedicated sign worker that alone holds the platform signing key.
+  "esign:seal", // apply the platform seal / signature to a PDF, producing a tamper-evident sealed record
   "tools:metadataScrubber", // inspect/scrub a file's metadata & content artifacts (ephemeral, matter-free)
   "tools:fileIntegrity", // compute a file's cryptographic digests + verify a stored file against its ingest baseline
   "tools:fileTypeVerifier", // identify a file's true content type and flag/repair an extension mismatch
@@ -90,6 +93,13 @@ export const PERMISSIONS = [
   // keys carry NO decrypt capability, so privileged content stays unreachable from a diagnostic session.
   // Never seeded to a firm role — granted only by holding a diagnostic support session.
   "diagnostics:overview", // firm system-state overview (status, schema version, member count, storage)
+  // Emails — filing/recording emails to matters, reading a matter's filed threads, managing the
+  // per-matter links, and administering the forward/CC capture addresses. Email links are matter-rooted
+  // (the files:* precedent), so every emails:* route binds resource: "matter".
+  "emails:file", // capture/file an email to a matter (the API entrance)
+  "emails:read", // read a matter's filed emails and threads, and the wall-safe "already filed" signal
+  "emails:manageLinks", // accept a staged link, link to additional matters, unlink
+  "emails:manageCaptureAddresses", // mint/rotate a matter's forward token, manage the firm catch-all (admin)
 ] as const;
 
 // KnownPermission is for hardcoded compile-checked keys (route metadata, role seeds);
