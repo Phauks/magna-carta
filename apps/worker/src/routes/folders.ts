@@ -235,13 +235,23 @@ type FoldersApp = OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>;
 function folderErrorResponse(
   c: Context,
   error: FileManagerValidationError,
-): ProblemResponse<404> | ProblemResponse<409> {
+): ProblemResponse<404> | ProblemResponse<409> | ProblemResponse<422> {
   if (error.code === "unknown-folder") {
     return problemJson(c, {
       type: "not-found",
       title: "Not found",
       status: 404,
       detail: "No such resource in this firm.",
+    });
+  }
+  // A blank or whitespace-only name: the request is well-formed but the value is not usable, which is
+  // an unprocessable payload rather than a clash with another folder's state.
+  if (error.code === "invalid-name") {
+    return problemJson(c, {
+      type: "validation",
+      title: "Folder name is not usable",
+      status: 422,
+      detail: error.message,
     });
   }
   // folder-not-empty, folder-cycle, folder-name-taken, folder-cross-matter — a state clash.

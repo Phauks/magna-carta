@@ -69,10 +69,16 @@ It is exhaustive and slow by design, and it is the **gate of record — run in G
 not on the inner loop.
 
 **The fast local loop — and the pre-push hook — is `pnpm check:scoped`** (`tooling/check-scoped/`). It
-derives the change set from the git diff (merge-base with `main`, plus the working tree) and runs only
+derives the change set from the git diff (the merge-base with the trunk, plus the working tree) and runs only
 what that change can break: fmt + lint on the changed paths, the incremental `tsc -b` type-check, and
 `svelte-check` or the Rust gate **only when a `.svelte` file or a crate was actually touched**. It prints
 what it skipped and why — a gate that quietly checks nothing is worse than a slow one.
+
+Which trunk ref that merge-base is taken against is not a detail: a worktree whose local `main` is frozen
+at clone time (every agent worktree) would otherwise be diffed against an ancient commit, and the
+"scoped" gate would lint every file the trunk has touched since. So the base is the **newest** of the
+merge-bases the trunk refs offer — local `main` and `origin/main`, ordered by ancestry, not by commit
+date — and `--base <ref>` still overrides it outright.
 
 The distinction matters because the full gate's cost is nearly all fixed: seven serial whole-repo passes
 run identically whether the diff is three files or three hundred, and in practice the overwhelming
@@ -87,9 +93,20 @@ unresolvable import until somebody rebuilds it. That is a bootstrap gap, not a p
 is paid once per worktree — of which several are live at any time.
 
 **`vp run bootstrap`** (`tooling/bootstrap/`) closes it: it rebuilds only the artefacts whose Rust inputs
-are newer than the `.wasm` they produced, and is a sub-second no-op when everything is current, so it is
-safe to run at the top of any session. `pnpm check:scoped` calls it in `--check` mode and fails fast with
-the fix, rather than surfacing the gap as a confusing type error.
+have actually changed, and is a sub-second no-op when everything is current, so it is safe to run at the
+top of any session. `pnpm check:scoped` calls it in `--check` mode and fails fast with the fix, rather
+than surfacing the gap as a confusing type error.
+
+**Staleness is a content question, and success is a verified one.** Each output carries a stamp holding
+the hash of the sources it was built from — its crate, that crate's workspace-local path dependencies,
+and the workspace manifests — and after every build the emitted bindings are checked to export
+everything the crate's `#[wasm_bindgen]` surface declares. Neither check is optional, because the shared
+cargo target directory below makes an mtime comparison unable to see the failure that matters: a build
+can be served from a cached compilation of sources that are not the ones on disk here, wasm-bindgen then
+re-emits from that artefact, and the fresh mtime on the emitted files reads as "current" while the
+package is missing a function it is supposed to export (the symptom is `X is not a function` at runtime,
+long after the build reported success). An artefact that comes out incomplete has its crate's cargo cache
+discarded, is rebuilt once, and fails the command rather than being stamped.
 
 It also writes a **git-ignored `crates/.cargo/config.toml`** pointing cargo at a target directory shared
 by every worktree on the machine (`~/.cache/magna-carta/cargo-target`). Cargo's `target/` is otherwise

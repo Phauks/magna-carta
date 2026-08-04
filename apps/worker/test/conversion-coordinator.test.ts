@@ -12,6 +12,7 @@ import type { ConversionMessage } from "../src/conversions/conversion-types.ts";
 function message(jobId: string): ConversionMessage {
   return {
     firmId: "firm_1",
+    bucketName: "bucket-for-firm_1",
     jobId,
     sourceKey: `files/firm_1/${jobId}/source.docx`,
     resultKey: `files/firm_1/${jobId}/result.pdf`,

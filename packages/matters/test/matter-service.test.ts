@@ -548,6 +548,72 @@ describe("matter idempotency (design X)", () => {
     const replay = await closeMatter(database, matterId, withKey("close-1"));
     expect(replay.idempotentReplay).toBe(true);
   });
+
+  // A retried request must never be refused by a precondition its own first attempt satisfied. The
+  // matter is no longer prospective precisely BECAUSE this key's open succeeded, so the retry replays
+  // the number it drew rather than reporting that the matter cannot be opened.
+  it("replays a retried open — the number it drew, not a refusal", async () => {
+    const database = await setup();
+    const { matterId } = await createMatter(
+      database,
+      { ...baseInput, status: "prospective" },
+      options,
+    );
+    const first = await openMatter(database, matterId, {}, withKey("open-1"));
+    expect(first.idempotentReplay).toBe(false);
+    expect(first.matterNumber).toBe("2026-0001");
+
+    const replay = await openMatter(database, matterId, {}, withKey("open-1"));
+    expect(replay.idempotentReplay).toBe(true);
+    expect(replay.matterNumber).toBe("2026-0001");
+
+    // The replay drew nothing: the next genuinely new open takes the following number.
+    const other = await createMatter(database, { ...baseInput, status: "prospective" }, options);
+    const next = await openMatter(database, other.matterId, {}, withKey("open-2"));
+    expect(next.matterNumber).toBe("2026-0002");
+  });
+
+  // A genuinely new open of an already-open matter still carries its own key, so it is still refused.
+  it("still refuses a second open under a different key", async () => {
+    const database = await setup();
+    const { matterId } = await createMatter(
+      database,
+      { ...baseInput, status: "prospective" },
+      options,
+    );
+    await openMatter(database, matterId, {}, withKey("open-1"));
+    await expect(openMatter(database, matterId, {}, withKey("open-2"))).rejects.toMatchObject({
+      code: "matter-not-prospective",
+    });
+  });
+
+  it("replays a retried reopen instead of refusing the matter it just reopened", async () => {
+    const database = await setup();
+    const { matterId } = await createMatter(database, { ...baseInput, status: "open" }, options);
+    await closeMatter(database, matterId, options);
+
+    const first = await reopenMatter(database, matterId, withKey("reopen-1"));
+    expect(first.idempotentReplay).toBe(false);
+    const replay = await reopenMatter(database, matterId, withKey("reopen-1"));
+    expect(replay.idempotentReplay).toBe(true);
+    expect(replay.matterId).toBe(matterId);
+
+    // The replay wrote nothing twice: one reopen audit row, one reopen event.
+    const { results } = await database
+      .prepare("SELECT COUNT(*) AS c FROM audit_log WHERE event = 'matter.reopened'")
+      .all<{ c: number }>();
+    expect(results[0]?.c).toBe(1);
+  });
+
+  it("still refuses a reopen of an open matter under a different key", async () => {
+    const database = await setup();
+    const { matterId } = await createMatter(database, { ...baseInput, status: "open" }, options);
+    await closeMatter(database, matterId, options);
+    await reopenMatter(database, matterId, withKey("reopen-1"));
+    await expect(reopenMatter(database, matterId, withKey("reopen-2"))).rejects.toMatchObject({
+      code: "matter-not-closed",
+    });
+  });
 });
 
 it("ClosePreconditionError carries its failures", () => {

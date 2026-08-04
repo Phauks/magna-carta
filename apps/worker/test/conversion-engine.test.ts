@@ -44,12 +44,29 @@ describe("resolveEnginePort", () => {
   it("keeps an engine without a Container deferred even when CONVERT is bound", async () => {
     const convert = fakeBinding(new Response(new Uint8Array([9]), { status: 200 }));
     const resolve = resolveEnginePort({ CONVERT: convert } as unknown as Bindings);
-    for (const engineId of ["libreoffice", "email", "ffmpeg"] as const) {
+    for (const engineId of ["email", "ffmpeg"] as const) {
       const result = await resolve(engineId).convert(rasterInput);
       expect(result.ok).toBe(false);
       if (!result.ok) expect(result.reason).toBe("engine-not-implemented");
     }
     expect(convert.seen()).toBeUndefined();
+  });
+
+  it("routes the office engine to the convert worker, stamped with its engine id", async () => {
+    const out = new Uint8Array([0x25, 0x50, 0x44, 0x46]);
+    const convert = fakeBinding(
+      new Response(out, { status: 200, headers: { "Content-Type": "application/pdf" } }),
+    );
+    const result = await resolveEnginePort({ CONVERT: convert } as unknown as Bindings)(
+      "libreoffice",
+    ).convert({ from: "docx", to: "pdf", bytes: new Uint8Array([0x50, 0x4b]), recipeRef: "pdf" });
+    const headers = convert.seen()?.headers;
+    expect(headers?.get("x-engine-id")).toBe("libreoffice");
+    expect(headers?.get("x-source-format")).toBe("docx");
+    expect(headers?.get("x-target-format")).toBe("pdf");
+    expect(headers?.get("x-recipe")).toBe("pdf");
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.mediaType).toBe("application/pdf");
   });
 
   it("routes a convert-worker engine to the CONVERT binding and maps its 2xx to bytes + media type", async () => {

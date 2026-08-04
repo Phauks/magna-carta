@@ -1,4 +1,5 @@
 ---
+number: 208
 slug: search-write-pipeline
 status: Accepted
 date: 2026-08-04

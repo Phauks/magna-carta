@@ -41,6 +41,16 @@ async function loadFolder(database: SqlDatabase, id: FolderId): Promise<StoredFo
   };
 }
 
+// Every path that writes a name applies this: a name that is empty or only whitespace is refused with
+// its own code. The per-firm schema carries the same rule as a CHECK, so without this the refusal
+// arrives as a raw constraint failure — a 500 for what is plainly a bad request — and only on the
+// paths that happen to reach the database at all.
+function requireUsableName(name: string): void {
+  if (name.trim().length === 0) {
+    throw new FileManagerValidationError("invalid-name", "a name cannot be blank");
+  }
+}
+
 async function assertNameAvailable(
   database: SqlDatabase,
   matterId: MatterId,
@@ -67,9 +77,7 @@ export async function createFolder(
   input: { matterId: MatterId; parentFolderId?: FolderId | null; name: string },
   options: FolderServiceOptions,
 ): Promise<{ folderId: FolderId; effect: EffectWrite }> {
-  if (input.name.trim().length === 0) {
-    throw new FileManagerValidationError("folder-name-taken", "a folder needs a name");
-  }
+  requireUsableName(input.name);
   const parentFolderId = input.parentFolderId ?? null;
   if (parentFolderId !== null) {
     // The parent must live in the same matter — a folder tree never spans matters.
@@ -110,6 +118,7 @@ export async function renameFolder(
   name: string,
   options: FolderServiceOptions,
 ): Promise<{ effect: EffectWrite }> {
+  requireUsableName(name);
   const folder = await loadFolder(database, folderId);
   if (folder === undefined) {
     throw new FileManagerValidationError("unknown-folder", `no such folder: ${folderId}`);

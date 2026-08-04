@@ -499,6 +499,117 @@ assurance ladder (`attributionMeets`), and the Certificate-of-Completion shape. 
 the Workers runtime (workerd). Deferred: the real `@magna-carta/pdf` WASM adapter for `SealEngine`, ESS
 signing-certificate-v2, platform-certificate provisioning, RFC 3161 timestamping / long-term validation,
 and independent-validator (pyHanko/DSS) conformance.
+- **Discovery keyword search — querying a split by ranged reads (`crates/search-core`).** The split format
+was built to be stored in per-firm R2 and queried without downloading the whole index; this adds the
+access path that makes that real. A read-only Tantivy directory serves the engine's reads straight off
+the split's footer offset table through a new `RangeReader` seam: each read the engine issues for a term
+dictionary block, a postings list, or a stored-field block becomes one ranged read of exactly those
+bytes. In production the `RangeReader` is an HTTP range GET against the split's object in R2 (the adapter
+lives in the search worker, kept out of this pure crate); a query over a large index then transfers a
+small fraction of it, so per-query cost tracks the query's selectivity rather than the corpus size. An
+instrumented in-memory reader proves it: a rare-term query reads well under half a split (and the
+fraction shrinks as the corpus grows), reading a split's footer touches only its tail, and the ranged
+path returns results identical to querying the whole split in memory. The directory is strictly
+read-only — splits are immutable, so every write path is refused.
+- **Discovery keyword search — the index core (`crates/search-core`).** The first buildable slice of the
+search-index design: a pure-Rust crate (Tantivy 0.26, no C dependency) that builds a keyword index from
+extracted passages and packages it as a self-contained **split** — the index's files bundled into one
+byte string with a footer that locates each file and records the document count and schema generation.
+A split is how the index leaves the machine that built it: one blob that can be stored under a single
+per-firm R2 key and enumerated without listing the bucket, written once and never mutated. The crate
+builds splits, queries them (BM25 keyword and phrase search, merged across multiple splits into one
+ranked list), reads a split's footer without opening the index, and refuses a split from an
+incompatible schema generation rather than misreading it. Hits carry only the pointers needed to
+hydrate a passage through the data-access layer, never its text — the index is a term index, not a
+document store. No user-facing surface yet; the crate is the engine the search worker will wrap.
+- **Discovery hybrid search — the keyword + semantic composition.** `runHybridSearch` runs the keyword half
+(the Tantivy engine through the per-firm catalog) and the semantic half (Vectorize) concurrently and
+fuses their rankings by reciprocal rank. A half that succeeds contributes its hits; a half that is
+deferred or errors contributes nothing and the other half still answers — so hybrid degrades to
+keyword-only or semantic-only without any score calibration, and only reports a failure when both halves
+are unavailable. The semantic half is a deferred seam today (its Vectorize binding and per-firm namespace
+are a deploy-time step, like the search engine and conversion engines), so a hybrid call currently
+returns keyword results; when the Vectorize adapter is wired it drops into the same composition. Covered
+by tests for the both-halves fusion, graceful degradation each way, the limit cap, and the deferred
+default.
+- **Discovery search-index catalog — the per-firm record of live index splits.** A new `index_split` table
+in the per-firm database (the `FirmDatabase` Durable Object's self-migrating lineage) records one row per
+immutable Tantivy split stored in the firm's R2: its object key, document count, size, schema generation,
+and creation instant. This is the authority a query enumerates to learn which splits are live for a
+matter — never an R2 bucket list, which would be slower and would not carry firm scoping structurally.
+Because the index is durable per-firm data (unlike transient scan or conversion artifacts), the catalog
+lives in the per-firm database, access-gated with the matter it belongs to. Splits are immutable: a row
+is inserted on publish and marked superseded by compaction (kept until its object is garbage-collected,
+so an in-flight query against the old split still resolves), never mutated in place. New data-access
+statements cover the full lifecycle — insert a split, list a matter's live splits, mark one superseded,
+and delete a superseded row — with an `IndexSplitId` identifier type.
+- **Discovery search — the `SearchIndexPort` seam (`@magna-carta/search`).** The single domain interface
+every search feature reaches the index through: `index` a document's passages, `remove` a document, and
+`query` a matter (keyword, semantic, or hybrid). It follows the same discipline as the conversion and
+inference ports — every operation returns a typed outcome, never a thrown error, so a caller
+pattern-matches an engine or transport failure rather than catching it, and `engine-not-implemented` is a
+first-class result while the engine Container is deferred. The port is the boundary between the app
+Worker (which owns the per-firm catalog and firm scoping) and the future dedicated search Worker's
+Container (which owns the Tantivy engine): a query carries the live split object keys the caller resolved
+from the catalog, so the engine range-reads exactly those and never reaches the per-firm database. No
+user-facing surface yet; the interface and its typed outcomes are covered by tests.
+- **Discovery keyword search — the catalog-to-engine wiring.** The app Worker can now run a keyword search
+over a matter's live corpus end to end (short of the engine Container itself): `runKeywordSearch` resolves
+the matter's live splits from the per-firm catalog through the firm-scoped data-access layer, hands their
+R2 object keys to the `SearchIndexPort`, and returns the ranked hits. Firm scoping and catalog
+enumeration stay in the Worker behind the data-access layer, so the engine is a stateless range-reader
+that only ever sees splits the firm's own catalog named. `resolveSearchIndexPort` returns a
+service-binding adapter to the dedicated search worker (`magna-carta-search`) when its binding is present,
+and a deferred port (`engine-not-implemented`) when it is absent — every test environment and production
+until that worker is deployed — exactly as the conversion subsystem is wired-but-dormant. The adapter
+never throws: a non-2xx or transport failure becomes a first-class adapter error. Covered by tests for
+the catalog-to-engine split-key hand-off, the deferred fallback, and the adapter's forward/parse and
+error mapping.
+- **Discovery hybrid search — reciprocal rank fusion.** The keyword half (Tantivy/BM25) and the semantic
+half (Vectorize/cosine) rank hits in incomparable score spaces — a BM25 magnitude and a cosine
+similarity cannot be added — so a hybrid query fuses them by reciprocal rank instead: a passage
+contributes `1/(k + rank)` from each list it appears in, and the fused score is the sum. This needs no
+score calibration between the halves, is robust to one half returning nothing, and lifts a passage both
+halves surface above one only a single half found. The fusion is a pure function in
+`@magna-carta/search` (`reciprocalRankFusion`), fusing at the passage (document + chunk) level with
+deterministic tie-breaking, ready for the worker to combine the two halves once the semantic engine is
+wired.
+- **Discovery search write pipeline — documents now become index splits.** The half of the search
+subsystem that was missing: nothing previously turned a matter's documents into splits and catalog rows,
+so a query resolved an empty catalog no matter how much had been filed. A committed document version now
+flows ingest → extract → build → catalog, driven by a queue consumer off the ingest path in the shape the
+conversion subsystem already models (a `SearchIndexJob` Durable Object keyed `firmId:documentId:version`
+over a `search-index` queue with its own dead-letter queue).
+
+**One split per document version, so a retry converges instead of duplicating.** The split id is
+_derived_ — a content-addressed handle from `documentId + version` (new `deriveIdentifier` in
+`@magna-carta/identifiers`) — which fixes both the split's identity and its R2 key
+(`search/<matterId>/splits/<splitId>.split`). Every attempt at the same version therefore writes the
+same object and replaces the same catalog row: a retried job overwrites its own half-finished work
+rather than leaving a second copy behind. Publishing is a delete-then-insert of the document's rows in
+one atomic batch, and the `index_split` table gains `document_id` + `version` columns with a **partial**
+unique index over the live per-document rows — so a duplicate delivery that raced past the delete still
+cannot leave two live splits indexing one version, while the many-document splits a later compaction
+publishes stay outside the constraint. New data-access statements cover the document lifecycle:
+`listSplitsForDocument`, `deleteSplitsForDocumentStatement`, and `replaceDocumentSplitStatements`.
+Superseded splits' R2 objects are reaped before their rows, so a re-index leaks no orphaned bytes.
+
+**A deferred engine parks a job instead of failing it.** Neither engine is deployed yet — the index
+Container is unbuilt and the text-extraction port resolves to the recognition service — and a pipeline
+that retried against them would burn each message's attempts and dead-letter documents that were merely
+early. The consumer's outcomes are therefore three, not two: `indexed`, `deferred` (acked, recorded on the
+job, and re-startable so deploying an engine and replaying the enqueue drains the backlog naturally), and
+`failed` (either terminal for unreadable bytes, or rethrown so the queue retries and finally
+dead-letters). No document ever leaves the pipeline unaccounted for — a document silently missing from
+discovery is a defensibility failure, not a cache miss.
+
+**Gated per firm, enqueued at the ingest seam.** A new `search.indexing_enabled` firm setting (off by
+default) is read at enqueue time on the ingest path, so a firm that has not opted in never has its
+documents extracted or written to R2. The enqueue hangs off the clean commit in the files-ingest
+consumer — the first moment a version is durable, scanned, and current — and is best-effort, so a
+failure to enqueue can never unwind an ingest that already succeeded. A new `TextExtractionPort` covers
+the extract stage over the recognition engine, with typed outcomes that let the consumer tell "no engine
+yet" from "these bytes are unreadable".
 
 ### Fixed
 
@@ -839,6 +950,86 @@ and the warm-poke cron stay on the shard the poke keeps resident.
   `email_capture_address` are recorded as explicitly non-PII structure. Participants are keyed by
   frozen address value as well as by resolved entity id, so a participant the Directory never matched
   is still reachable by erasure.
+- - **A retried or duplicated label purchase can no longer buy a second label.** Double-buy protection
+  rested on an `Idempotency-Key` header sent to EasyPost — an API with no idempotency facility of any
+  kind, so the header was simply ignored and every retry was a fresh, separately billed purchase. The
+  guard now lives on our side: a shipment takes an exclusive purchase claim (a guarded status
+  transition committed before any money moves), so exactly one request out of any number of concurrent
+  or retried attempts reaches the carrier, and a shipment whose label is already bought answers `409`
+  instead of buying again. A buy the carrier definitively refused hands the claim back so the firm can
+  correct and retry; an indeterminate failure — a provider `5xx`, a dropped connection, or a failure
+  after the buy returned — keeps the claim, because the label may exist and be billed.
+
+- **Requested parcel insurance is actually purchased.** `insuranceAmountMinor` was accepted by the API,
+  stored on the draft, and shown back to the firm, but was never sent to the carrier — so a parcel of
+  original documents recorded as insured was in fact uninsured. The declared value now rides the label
+  purchase as the carrier's own insurance parameter (a decimal-dollar string), taken from the draft
+  rather than from the purchase request, so what the firm was told it insured is what is bought.
+
+- **The purchase is checked against the draft before any money is spent.** The route bought from the
+  carrier before confirming the shipment existed and never reconciled the supplied carrier-shipment id
+  with the draft, so postage could be bought against a nonexistent row or attached to another draft's
+  addresses. Rate shopping now records the carrier-side shipment it quoted against, and a purchase
+  naming a different one is refused with `422`. A label download that fails is no longer stored and
+  served forever as the label — the transfer must succeed before the bytes are kept.
+
+- **A firm can disconnect and reconnect its postage account.** Connecting always inserted a new
+  connection row against a unique `(category, principal)` index, so every connect after the first
+  failed with a `500` and there was no way to remove a connection at all — a firm rotating a
+  compromised API key was dead-ended with the revoked one. Connect is now an upsert that rotates the
+  credential in place and re-arms a connection the health model had parked, and a new
+  `DELETE /api/v1/integrations/shipping/connection` removes it. The credential is addressed by firm
+  rather than by a freshly minted connection id, so a rotation replaces the old key instead of
+  orphaning it.
+
+- **The whois IP path resolves the right RDAP server.** Bootstrap matching compared CIDR blocks as text
+  prefixes, which is wrong for any delegation that does not land on an octet boundary: members of a
+  block were missed, and unrelated addresses that merely shared leading characters were claimed.
+  Matching is now real numeric containment over masked integers, longest prefix first, for both IPv4
+  and IPv6 — and a hex-bearing IPv6 literal is no longer mis-routed to the domain bootstrap.
+- **Searchable-PDF writer: the invisible text layer is placed at its recognized box, not an order of
+magnitude larger.** The writer applied the recognized font size twice — once through the text-font
+operator and again on the text-matrix diagonal — so a run recognized at a 160×20 pt box was written
+about ten times that size. Selection highlights and any position-based redaction landed far from the
+visible glyphs. The text matrix is now a pure translation to the box's bottom-left; size comes from the
+font operator and the width fit from the horizontal-scale operator alone. A geometry regression test
+writes a run and asserts the extracted bounds sit around the recognized box.
+- **Text on rotated pages lands on the visible content, on both the searchable-PDF layer and Bates
+stamps.** The OCR engine reads the displayed (rotation-applied) page, so a recognized run's box is in
+the displayed frame; the searchable-PDF writer now counter-rotates each run into unrotated user space
+so that, once a viewer re-applies `/Rotate`, the invisible layer sits under the visible glyphs —
+previously it was placed as if the page were unrotated, drifting the layer (and any selection or
+position-based redaction) off the content on any rotated page.
+
+This also fixes a latent error in the shared display-to-user coordinate matrix that both this writer and
+Bates stamping use: for quarter-turn rotations (`/Rotate 90` and `270`) it swapped the page width and
+height in the translation, so on a non-square page a stamp or layer was displaced by the
+width–height difference — enough to push it off a portrait page entirely. The matrix now lives in one
+place with the axes correct, guarded by two regression tests: a searchable-layer test and a Bates test
+that each assert their text renders at the same displayed position whether the page is unrotated or
+turned a quarter-turn either way.
+- - **The one-logging-path rule is enforced in every Worker, not just the API worker.** The console ban
+  named `apps/worker` explicitly, so the extracted workers — the malware scanner, the converter, the
+  bundle builder, and every future one — sat outside it: an ad-hoc `console.*` in any of them shipped
+  through a green build. The scan now enumerates the app directories rather than listing them, so a
+  newly extracted worker is covered the moment it exists, with no test to remember to update. The web
+  app stays outside by name, being browser code with its own in-app developer console. Two new checks
+  keep the widening honest: one asserts that every app except the web app is enumerated, and one
+  asserts the scan actually reaches files inside the extracted workers, so a refactor cannot quietly
+  narrow the ban back to nothing.
+
+- **Comments and names that pointed at process paperwork now explain themselves.** Several telemetry
+  comments, a test name, and a comment in the document-editor container cited a slice, a plan task, or
+  an architecture decision record instead of stating the reasoning or naming a file — the exact drift
+  the process-reference gate exists to prevent, in the forms it cannot mechanically detect. Each now
+  states why, or points at the module that settles the question.
+
+- **The Directory area guide matches the code again.** It named four functions that do not exist,
+  attributed a duplicate-candidate ordering to a line number that had moved, and cited the wrong
+  fitness probe; the frozen name-normalization contract named the wrong column for its own output. The
+  guide now also says plainly what a merge does _not_ move — the subordinate's own names, identifiers,
+  and contact rows stay where they are and resolve through the merge pointer, which is what makes a
+  merged-away alias still surface in search and conflicts.
 
 ### Changed
 

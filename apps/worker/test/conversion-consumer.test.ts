@@ -58,6 +58,7 @@ describe("conversionQueue", () => {
 
     const message: ConversionMessage = {
       firmId,
+      bucketName: `bucket-for-${firmId}`,
       jobId,
       sourceKey,
       resultKey,
@@ -102,6 +103,7 @@ describe("conversionQueue", () => {
 
     const message: ConversionMessage = {
       firmId,
+      bucketName: `bucket-for-${firmId}`,
       jobId,
       sourceKey,
       resultKey,
@@ -138,6 +140,7 @@ describe("conversionQueue", () => {
 
     const message: ConversionMessage = {
       firmId,
+      bucketName: `bucket-for-${firmId}`,
       jobId,
       sourceKey,
       resultKey,
@@ -163,6 +166,51 @@ describe("conversionQueue", () => {
     expect(state.reason).toBe("container unreachable");
 
     // Thrown/transport errors are retried.
+    expect(retries).toEqual(["msg-1"]);
+    expect(acks).toEqual([]);
+  });
+
+  it("reads and writes through the firm bucket seam, so a bucket it cannot reach stops the job", async () => {
+    // Proof that the consumer resolves its bucket rather than reaching for the binding: with real
+    // presigning credentials configured, the resolver refuses a firm bucket that is not the bound one
+    // (a source presigned into a bucket this Worker cannot read is a job that could never complete).
+    // A consumer holding env.R2 directly would sail past that and silently convert nothing.
+    const firmId = "firm_conv_seam";
+    const jobId = "job_conv_seam_1";
+    const sourceKey = `conversions/${firmId}/${jobId}/source`;
+    const resultKey = `conversions/${firmId}/${jobId}/result`;
+
+    const message: ConversionMessage = {
+      firmId,
+      bucketName: "a-bucket-this-worker-does-not-read-through",
+      jobId,
+      sourceKey,
+      resultKey,
+      from: "png",
+      to: "webp",
+    };
+
+    await env.R2.put(sourceKey, new TextEncoder().encode("fake-source"));
+    const stub = await seedJob(message);
+
+    const productionShapedEnv = {
+      ...env,
+      CLOUDFLARE_ACCOUNT_ID: "account-id",
+      R2_S3_ACCESS_KEY_ID: "access-key-id",
+      R2_S3_SECRET_ACCESS_KEY: "secret-access-key",
+      R2_BUCKET_NAME: "magna-carta-production-platform-files",
+    } as unknown as typeof env;
+
+    const { batch, acks, retries } = makeBatch(message);
+    await conversionQueue(batch, productionShapedEnv, () => () => ({
+      convert: async () => converted(new Uint8Array([1]), "image/webp"),
+    }));
+
+    const state = await stub.status();
+    expect(state.status).toBe("failed");
+    expect(state.reason).toMatch(/not the R2 bucket bound to this Worker/);
+    // Nothing was written: the seam refused before any conversion ran.
+    expect(await env.R2.get(resultKey)).toBeNull();
     expect(retries).toEqual(["msg-1"]);
     expect(acks).toEqual([]);
   });

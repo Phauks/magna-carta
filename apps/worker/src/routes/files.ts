@@ -441,7 +441,19 @@ const previewFileRoute = defineOpenAPIRoute(previewFileMeta, {
 
 type FilesApp = OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>;
 
-function fileErrorResponse(c: Context, error: FileManagerValidationError): ProblemResponse<404> {
+function fileErrorResponse(
+  c: Context,
+  error: FileManagerValidationError,
+): ProblemResponse<404> | ProblemResponse<422> {
+  // A blank or whitespace-only name: well-formed request, unusable value — unprocessable, not missing.
+  if (error.code === "invalid-name") {
+    return problemJson(c, {
+      type: "validation",
+      title: "File name is not usable",
+      status: 422,
+      detail: error.message,
+    });
+  }
   if (
     error.code === "unknown-file" ||
     error.code === "unknown-folder" ||

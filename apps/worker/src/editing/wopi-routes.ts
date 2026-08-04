@@ -5,7 +5,7 @@
 // mutating handlers (PutFile, Lock) enforce `edit` server-side separately.
 
 import { currentObjectKey, fileVersionKey } from "@magna-carta/file-manager/file-statements";
-import { getFileWithCurrentCleanVersion } from "@magna-carta/file-manager/queries";
+import { getFileWithNamedVersion, type CleanVersion } from "@magna-carta/file-manager/queries";
 import type { FileId, FileVersionId } from "@magna-carta/identifiers/types";
 import { operationFailed } from "@magna-carta/telemetry/events";
 import { newCorrelationId, newErrorId } from "@magna-carta/telemetry/ids";
@@ -69,6 +69,42 @@ function ownsLiveWorkingCopy(
   );
 }
 
+// What the two file-access handlers agree on before either of them touches R2: the file must still be
+// live, and — unless this caller owns the live working copy — the version the TOKEN names must still be
+// servable. Both handlers resolve it through this one function, so CheckFileInfo can never advertise a
+// document GetFile then refuses (or, worse, refuses a document GetFile happily streams).
+//
+// Three things are re-checked on every callback, because a token outlives the state it was minted from:
+//   - The file was soft-deleted. Its `current` working object is destroyed by the delete, and no read
+//     path serves a deleted file — an unexpired token must not be the one exception.
+//   - The named version is no longer `clean`. The launch mints a token only against a clean committed
+//     version, so a version that has since left `clean` was WITHDRAWN behind the status gate (the
+//     custody check found the stored bytes no longer match the hash the version asserts). Streaming it
+//     would hand the editor content nothing ever inspected.
+//   - The named version's scan verdict has turned `flagged`. A re-scan under a newer engine can flag an
+//     already-committed version in place, leaving it visible for informed access on the download path
+//     — where a human sees the warning and acknowledges it. There is no such acknowledgment on this
+//     surface: the caller is an editor container, so the refusal is the only honest answer here.
+//
+// Returns the version the token names; throws the WOPI 404 fault otherwise. `null` means "this caller
+// owns the live working copy", for which the working copy — not any committed version — is the content.
+async function resolveTokenContent(
+  claims: EditTokenClaims,
+  deps: WopiFileDeps,
+): Promise<{ readonly name: string; readonly version: CleanVersion | null }> {
+  const file = await getFileWithNamedVersion(
+    deps.database,
+    claims.fileId as FileId,
+    claims.versionId as FileVersionId,
+  );
+  if (file === undefined || file.deletedAt !== null) throw new WopiRouteError("not-found");
+  if (ownsLiveWorkingCopy(claims, deps)) return { name: file.name, version: null };
+  if (file.version === null || file.version.scanVerdict === "flagged") {
+    throw new WopiRouteError("not-found");
+  }
+  return { name: file.name, version: file.version };
+}
+
 // The CheckFileInfo response. WOPI requires BaseFileName, OwnerId, Size, UserId and Version; the rest
 // are the capability + modification hints Collabora reads. The host is authoritative for write access,
 // so UserCanWrite reflects the token capability rather than any client-supplied flag.
@@ -87,25 +123,26 @@ export async function checkFileInfo(
   deps: WopiFileDeps,
 ): Promise<CheckFileInfoBody> {
   const fileId = claims.fileId as FileId;
-  // One round-trip: the file row + its current clean version (this runs on every WOPI callback).
-  const file = await getFileWithCurrentCleanVersion(deps.database, fileId);
-  if (file === undefined || file.deletedAt !== null) throw new WopiRouteError("not-found");
+  // One round-trip: the file row + the version the TOKEN names (this runs on every WOPI callback).
+  // Deliberately the token's version rather than the file's current pointer — a version cut by another
+  // writer mid-token advances that pointer while GetFile still serves the version this token was minted
+  // for, so reporting the current version's size and identifier would describe bytes no caller receives.
+  const { name, version } = await resolveTokenContent(claims, deps);
 
-  const cleanVersion = file.currentVersion;
   // The live working copy's metadata is reported ONLY to the session that owns it — the same gate GetFile
   // serves the bytes under, so the size/version this call advertises always describes the bytes the next
-  // GetFile returns.
-  const liveWorkingCopy = ownsLiveWorkingCopy(claims, deps) ? deps.currentMeta : null;
+  // GetFile returns. (`version === null` IS that ownership, resolved once above.)
+  const liveWorkingCopy = version === null ? deps.currentMeta : null;
   // The live working copy's size supersedes the committed version's once that session has saved.
-  const size = liveWorkingCopy?.sizeBytes ?? cleanVersion?.sizeBytes ?? 0;
+  const size = liveWorkingCopy?.sizeBytes ?? version?.sizeBytes ?? 0;
   // Version must change whenever the bytes change: the host-assigned timestamp during a live session,
-  // else the committed version's identifier (stable until the next cut).
-  const version = liveWorkingCopy?.wopiTimestamp ?? cleanVersion?.id ?? "0";
+  // else the token's committed version identifier (immutable, so it is stable for this token's life).
+  const wopiVersion = liveWorkingCopy?.wopiTimestamp ?? version?.id ?? "0";
 
   return {
-    BaseFileName: file.name,
+    BaseFileName: name,
     Size: size,
-    Version: version,
+    Version: wopiVersion,
     // Distinct from UserId so the editor never treats the current user as the file's owner.
     OwnerId: `file:${fileId}`,
     UserId: claims.memberId,
@@ -117,14 +154,21 @@ export async function checkFileInfo(
 export async function getFile(claims: EditTokenClaims, deps: WopiFileDeps): Promise<Response> {
   const fileId = claims.fileId as FileId;
 
+  // The same live/deleted/withdrawn/flagged gate CheckFileInfo answers under. A valid, unexpired token
+  // is a capability over ONE version of one file, not a standing right to that file's bytes — so the
+  // firm metadata is re-read here rather than trusted from mint time, and the two handlers refuse
+  // together instead of one 404ing while the other streams.
+  const { version } = await resolveTokenContent(claims, deps);
+
   // Exactly one object is served, and which one is decided BEFORE any read: the live working copy when
   // the token's session owns it, otherwise the immutable version the token names. There is no fallback
   // between the two — falling back would silently hand the caller different bytes under the size and
   // version CheckFileInfo already advertised, which for an editor means saving edits onto the wrong base.
   // Both keys are derived from the verified token, never the request line.
-  const key = ownsLiveWorkingCopy(claims, deps)
-    ? currentObjectKey(fileId)
-    : fileVersionKey(fileId, claims.versionId as FileVersionId);
+  const key =
+    version === null
+      ? currentObjectKey(fileId)
+      : fileVersionKey(fileId, claims.versionId as FileVersionId);
   const object = await deps.bucket.get(key);
   if (object === null) throw new WopiRouteError("not-found");
 
