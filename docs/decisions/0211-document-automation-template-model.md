@@ -1,3 +1,11 @@
+---
+number: 211
+slug: document-automation-template-model
+status:
+date:
+area:
+---
+
 # Document-automation template model — normalize at registration, version like a file
 
 **Status:** Proposed

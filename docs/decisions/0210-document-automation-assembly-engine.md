@@ -1,3 +1,11 @@
+---
+number: 210
+slug: document-automation-assembly-engine
+status:
+date:
+area:
+---
+
 # Document-automation assembly engine — in-house OOXML merge in a Worker
 
 **Status:** Proposed
