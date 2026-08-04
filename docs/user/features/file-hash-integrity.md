@@ -51,6 +51,7 @@ All five are produced from a single read of the file, so asking for every finger
 ## Tips and edge cases
 
 - **A "mismatch" is significant.** It means the file's bytes are not what they were when the file entered Magna Carta. This is exactly what integrity verification exists to catch. Do not produce or rely on a mismatched file until you understand why it changed.
+- **Magna Carta watches for this on its own, too.** If a stored file's contents are ever replaced after intake, Magna Carta notices and pulls that version out of circulation — it is marked quarantined and stops being downloadable, rather than being served as though it were the file that was checked in. Verifying by hand is still how you produce a receipt for a court or an opposing party.
 - **MD5 and SHA-1 are for compatibility, not security.** Use them when another system requires them. When you need to _prove_ integrity, use SHA-256.
 - **"No baseline" is not a failure.** It simply means the file has no recorded fingerprint to compare against — most often because it was very large and skipped automatic inspection when it came in. The tool still gives you its current fingerprints.
 - **Verification is part of the record.** Each time you verify a stored file, Magna Carta keeps a permanent entry of who ran the check and what the result was — without ever storing the file's contents. The receipt is your portable copy of that entry.

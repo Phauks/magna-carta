@@ -31,6 +31,13 @@ const POLICY: UploadPolicy = {
 
 // A minimal but real PDF header — file-type sniffs application/pdf from the "%PDF-" magic bytes.
 const PDF_BYTES = new TextEncoder().encode("%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n%%EOF\n");
+// The OLE2 compound-file header every pre-2007 Office document starts with (.doc/.xls/.ppt/.msg all
+// share it) — file-type can therefore only ever sniff it as application/x-cfb.
+const COMPOUND_FILE_BYTES = (() => {
+  const bytes = new Uint8Array(512);
+  bytes.set([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1], 0);
+  return bytes;
+})();
 // SHA-256 of the ASCII string "hello".
 const HELLO = new TextEncoder().encode("hello");
 const HELLO_SHA256 = "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824";
@@ -100,6 +107,59 @@ describe("runIngest", () => {
           declaredContentType: "text/plain",
           r2Key: "files/a/v1",
           fileName: "doc.pdf",
+        },
+      }),
+    );
+    expect(outcome).toEqual({ kind: "quarantine", reason: "type-mismatch", scanDetail: null });
+  });
+
+  it("commits a legacy Office document declared as msword and sniffed as the compound-file container", async () => {
+    // Every pre-2007 Office file is a compound file: the sniffer can only report application/x-cfb,
+    // while the browser declares application/msword from the .doc extension. Byte-exact comparison
+    // read that as a lie and quarantined an ordinary Word document.
+    const outcome = await runIngest(
+      input(COMPOUND_FILE_BYTES, {
+        policy: { ...POLICY, allowedContentTypes: ["application/x-cfb"] },
+        version: {
+          declaredSize: COMPOUND_FILE_BYTES.byteLength,
+          declaredContentType: "application/msword",
+          r2Key: "files/a/v1",
+          fileName: "pleading.doc",
+        },
+      }),
+    );
+    expect(outcome.kind).toBe("commit");
+    if (outcome.kind === "commit") expect(outcome.sniffedContentType).toBe("application/x-cfb");
+  });
+
+  it("commits a legacy Outlook message declared with a capital-letter content type", async () => {
+    // The comparison normalizes case and parameters before deciding — a declaration that differs only
+    // in spelling is not a contradiction.
+    const outcome = await runIngest(
+      input(COMPOUND_FILE_BYTES, {
+        policy: { ...POLICY, allowedContentTypes: ["application/x-cfb"] },
+        version: {
+          declaredSize: COMPOUND_FILE_BYTES.byteLength,
+          declaredContentType: "Application/vnd.MS-Outlook; charset=binary",
+          r2Key: "files/a/v1",
+          fileName: "opposing-counsel.msg",
+        },
+      }),
+    );
+    expect(outcome.kind).toBe("commit");
+  });
+
+  it("still quarantines a compound file declared as something that is not one", async () => {
+    // The equivalence table is an allow-list of container relationships, not a general loosening: a
+    // genuine contradiction is still a lie.
+    const outcome = await runIngest(
+      input(COMPOUND_FILE_BYTES, {
+        policy: { ...POLICY, allowedContentTypes: ["application/x-cfb", "application/pdf"] },
+        version: {
+          declaredSize: COMPOUND_FILE_BYTES.byteLength,
+          declaredContentType: "application/pdf",
+          r2Key: "files/a/v1",
+          fileName: "not-really.pdf",
         },
       }),
     );

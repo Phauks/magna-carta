@@ -1,4 +1,5 @@
 import { fileTypeFromBuffer } from "file-type";
+import { contentTypesAgree } from "./content-type-equivalence.ts";
 import type { MalwareScanPort, RawScanResult } from "./scan-port.ts";
 import { computeVerdict, ScanFaultError, type FileVerdict, type ScanPolicy } from "./verdict.ts";
 import type { FlaggedTreatment } from "./scan-policy-settings.ts";
@@ -115,6 +116,23 @@ async function hashAndCount(
   return { hash: toHex(digest), size };
 }
 
+// The measured identity of a stored object: the streaming SHA-256 of its bytes and how many there
+// were. This is the same measurement `runIngest` records on a commit, exposed on its own for the
+// custody re-verification the ingest consumer runs when an object-create event lands on an
+// ALREADY-COMMITTED version — the committed row asserts a hash, and the only way to know the stored
+// bytes still match it is to measure them again. Streaming, so a multi-GB object never buffers.
+export interface ContentMeasurement {
+  readonly contentSha256: string;
+  readonly sizeBytes: number;
+}
+
+export async function measureContent(
+  objectBody: ReadableStream<Uint8Array>,
+): Promise<ContentMeasurement> {
+  const { hash, size } = await hashAndCount(objectBody);
+  return { contentSha256: hash, sizeBytes: size };
+}
+
 export async function runIngest(input: IngestInput): Promise<IngestOutcome> {
   const [headStream, bodyStream] = input.objectBody.tee();
   const sniffedContentType = await sniffHead(headStream);
@@ -122,9 +140,10 @@ export async function runIngest(input: IngestInput): Promise<IngestOutcome> {
   // Files past the scanner's inspectable cap are benign-uninspectable: commit as `unscanned`/oversize
   // and never stream them to the engine (a large legitimate file is not suspicious for being big).
   if (input.objectSize > input.inspectableSizeCap) {
-    const [hashStream, skipStream] = bodyStream.tee();
-    await skipStream.cancel();
-    const hashed = await hashAndCount(hashStream);
+    // Nothing else consumes the body on this branch — the scan port is skipped entirely — so the
+    // remaining stream goes straight to the hash. Teeing it only to cancel one side would make
+    // workerd buffer the unread branch for no reader.
+    const hashed = await hashAndCount(bodyStream);
     if (hashed.size !== input.objectSize)
       return { kind: "quarantine", reason: "size-mismatch", scanDetail: null };
     return {
@@ -158,12 +177,11 @@ export async function runIngest(input: IngestInput): Promise<IngestOutcome> {
   if (input.version.declaredSize !== null && input.objectSize !== input.version.declaredSize) {
     return { kind: "quarantine", reason: "size-mismatch", scanDetail: null };
   }
-  // A declared content type contradicted by the sniffed magic bytes is a lie.
-  if (
-    sniffedContentType !== null &&
-    input.version.declaredContentType !== null &&
-    sniffedContentType !== input.version.declaredContentType
-  ) {
+  // A declared content type contradicted by the sniffed magic bytes is a lie. "Contradicted" is not
+  // string inequality: a magic-byte sniff names the CONTAINER, so a legacy Word document declared
+  // `application/msword` honestly sniffs as `application/x-cfb`. content-type-equivalence.ts holds the
+  // named container relationships; every pair outside it still disagrees and still quarantines.
+  if (!contentTypesAgree(sniffedContentType, input.version.declaredContentType)) {
     return { kind: "quarantine", reason: "type-mismatch", scanDetail: null };
   }
   // Re-enforce the policy against the REAL size, the sniffed type, and the declared file name (a
