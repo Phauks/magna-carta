@@ -47,6 +47,40 @@ mod tests {
         assert_eq!(detect(&ole2), Some(Format::Ole2));
     }
 
+    /// `detect` is the first thing every engine runs over untrusted bytes, so its stack cost must be
+    /// constant in the input: no recursion, and no buffer that grows with what it was handed. Running
+    /// it on a deliberately tiny 64 KiB stack pins that by construction — a future implementation that
+    /// recurses into a container or copies the input into a frame fails here on every machine, instead
+    /// of surfacing as an occasional stack overflow on whichever host happens to be under load. The
+    /// input is heap-allocated for the same reason: a large input must never become a large frame.
+    #[test]
+    fn detection_needs_only_a_tiny_stack() {
+        let large_input = vec![0x00_u8; 8 * 1024 * 1024];
+        let worker = std::thread::Builder::new()
+            .stack_size(64 * 1024)
+            .spawn(move || {
+                (
+                    detect(&large_input),
+                    detect(b"%PDF-1.7"),
+                    detect(&OLE2_MAGIC),
+                    detect(b"PK\x03\x04"),
+                )
+            })
+            .expect("spawning a small-stack thread");
+
+        assert_eq!(
+            worker
+                .join()
+                .expect("the detection thread ran to completion"),
+            (
+                None,
+                Some(Format::Pdf),
+                Some(Format::Ole2),
+                Some(Format::Zip)
+            )
+        );
+    }
+
     #[test]
     fn returns_none_for_unknown_bytes() {
         assert_eq!(detect(b"not a known file"), None);

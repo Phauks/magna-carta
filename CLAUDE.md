@@ -91,6 +91,7 @@ vp run build-all                                                        # build 
 vp run worktrees                                                        # print the active-work registry (concurrent streams + touch-overlaps + drift from main)
 vp test                                                                 # unit + integration (Vitest, single-run; includes the Miniflare worker integration test)
 pnpm check:scoped                                                       # INNER LOOP: fmt+lint on the diff, incremental tsc -b, svelte-check/Rust only if touched
+pnpm fix:scoped                                                         # apply fmt + lint autofixes to that SAME diff (markdown included) — never a bare repo-wide `vp check --fix`
 pnpm check                                                              # full quality gate (slow, exhaustive): every pass over the whole repo. The gate of record runs it in GitHub Actions (.github/workflows/gate.yml) — run it by hand only when you want the whole-repo answer before a push
 pnpm --filter @magna-carta/worker exec wrangler deploy --dry-run        # validate deploy without pushing
 cargo test  /  cargo clippy                                             # Rust
