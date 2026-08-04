@@ -5,8 +5,8 @@
 // design system, and the Rust workspace). It is the wrong thing after editing three files: it takes
 // minutes and, the overwhelming majority of the time, re-confirms what was already true.
 //
-// This runs the same checks, scoped to the diff (against the merge-base with main, plus the working
-// tree): fmt + lint on the changed paths, the incremental `tsc -b` type-check (fast when warm, and the
+// This runs the same checks, scoped to the diff (against the merge-base with the trunk — see
+// diff-base.mjs for which trunk ref that means — plus the working tree): fmt + lint on the changed paths, the incremental `tsc -b` type-check (fast when warm, and the
 // authoritative type pass), svelte-check only when a .svelte file changed, and the Rust gate only when
 // a crate changed. Anything it skips, it says it skipped — a silent gate that quietly checks nothing is
 // worse than a slow one. The pre-push hook runs this scoped gate, not the full one — fast local feedback.
@@ -20,6 +20,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { resolveDiffBase } from "./diff-base.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const sh = (cmd, cmdArgs) =>
@@ -33,20 +34,27 @@ const argv = process.argv.slice(2);
 const baseFlag = argv.indexOf("--base");
 const explicitBase = baseFlag !== -1 ? argv[baseFlag + 1] : null;
 
-/** The fork point with the trunk: everything since then is "the change". */
-function mergeBase() {
-  if (explicitBase) return explicitBase;
-  for (const ref of ["main", "origin/main"]) {
+// The fork point with the trunk: everything since then is "the change". Which trunk ref to believe is
+// diff-base.mjs's decision — a worktree whose local `main` is frozen at clone time must not be diffed
+// against it.
+const base = resolveDiffBase({
+  explicitBase,
+  mergeBaseWith: (ref) => {
     try {
       return sh("git", ["merge-base", "HEAD", ref]);
     } catch {
-      /* ref absent in this worktree — try the next */
+      return null; // ref absent in this worktree
     }
-  }
-  return "HEAD~1";
-}
-
-const base = mergeBase();
+  },
+  isAncestor: (ancestor, descendant) => {
+    const probe = spawnSync("git", ["merge-base", "--is-ancestor", ancestor, descendant], {
+      cwd: ROOT,
+      stdio: "ignore",
+      shell: process.platform === "win32",
+    });
+    return probe.status === 0;
+  },
+});
 const lines = (out) =>
   out
     .split("\n")

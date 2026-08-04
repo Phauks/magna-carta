@@ -1,7 +1,15 @@
 import { type EngineResolver, runConversion } from "@magna-carta/conversion/execute";
 import type { Bindings } from "../app.ts";
+import { resolveFirmBucket } from "../files/firm-bucket.ts";
 import { resolveEnginePort } from "./conversion-engine.ts";
 import type { ConversionMessage } from "./conversion-types.ts";
+
+// PER-FIRM BUCKET SEAM: the source object is read and the result written through resolveFirmBucket
+// (files/firm-bucket.ts) — the same resolver the conversion routes presign the upload and the result
+// download against — so a job's bytes can never be read from, or written to, a different bucket than
+// the one the client uploaded into. Today that resolves to the single bound binding for every firm;
+// binding a firm's own bucket is a config-commit + deploy step the resolver absorbs without changing
+// this consumer. The firm's recorded bucket rides on the message (conversion-types.ts).
 
 function coordinatorFor(env: Bindings, message: ConversionMessage) {
   return env.CONVERSION_JOB.get(
@@ -16,7 +24,8 @@ async function convertOne(
 ): Promise<void> {
   const coordinator = coordinatorFor(env, message);
   await coordinator.markRunning();
-  const source = await env.R2.get(message.sourceKey);
+  const { bucket } = resolveFirmBucket(env, message.bucketName);
+  const source = await bucket.get(message.sourceKey);
   if (source === null) {
     await coordinator.markFailed("source expired");
     return; // terminal — do not retry a reaped source
@@ -30,7 +39,7 @@ async function convertOne(
     await coordinator.markFailed(result.reason); // typed, terminal
     return;
   }
-  await env.R2.put(message.resultKey, result.bytes, {
+  await bucket.put(message.resultKey, result.bytes, {
     httpMetadata: { contentType: result.mediaType },
   });
   await coordinator.markDone(message.resultKey, result.mediaType);

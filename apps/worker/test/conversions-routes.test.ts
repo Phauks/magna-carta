@@ -144,6 +144,7 @@ describe("GET /api/v1/conversions/{jobId}", () => {
     const stub = env.CONVERSION_JOB.get(env.CONVERSION_JOB.idFromName(`${firmId}:${jobId}`));
     const startMessage: ConversionMessage = {
       firmId,
+      bucketName: "conversion-routes-firm-bucket",
       jobId,
       sourceKey,
       resultKey,
@@ -184,6 +185,7 @@ describe("GET /api/v1/conversions/{jobId}", () => {
     const stub = env.CONVERSION_JOB.get(env.CONVERSION_JOB.idFromName(`${firmId}:${jobId}`));
     const startMessage: ConversionMessage = {
       firmId,
+      bucketName: "conversion-routes-firm-bucket",
       jobId,
       sourceKey,
       resultKey,
@@ -259,6 +261,7 @@ describe("E2E: happy path — upload→submit→drain→done", () => {
     const resultBytes = new Uint8Array([0x52, 0x49, 0x46, 0x46]); // fake WEBP header bytes
     const queueMessage: ConversionMessage = {
       firmId,
+      bucketName: "conversion-routes-firm-bucket",
       jobId,
       sourceKey,
       resultKey,
@@ -337,6 +340,7 @@ describe("E2E: tenant isolation — firm B cannot read firm A's job", () => {
     const resultBytes = new Uint8Array([0xde, 0xad, 0xbe, 0xef]);
     const queueMessage: ConversionMessage = {
       firmId,
+      bucketName: "conversion-routes-firm-bucket",
       jobId,
       sourceKey,
       resultKey,
@@ -403,6 +407,7 @@ describe("E2E: typed failure — engine-not-implemented ends the job failed", ()
     const resultKey = `conversions/${firmId}/${jobId}/result`;
     const queueMessage: ConversionMessage = {
       firmId,
+      bucketName: "conversion-routes-firm-bucket",
       jobId,
       sourceKey,
       resultKey,

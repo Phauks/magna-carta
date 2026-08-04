@@ -195,11 +195,11 @@ export function registerConversionRoutes(app: ConversionsApp, chokepoint: Chokep
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const firmId = requireChokepointFirmId(c);
-      const bucket = resolveFirmBucket(c.env, firm.bucketName).bucketName;
+      const { bucketName } = resolveFirmBucket(c.env, firm.bucketName);
       const jobId = newIdentifier("conversionJob");
       const sourceKey = `conversions/${firmId}/${jobId}/source`;
       const uploadUrl = await presignerForEnv(c.env).presignPut(
-        bucket,
+        bucketName,
         sourceKey,
         "application/octet-stream",
         PRESIGN_TTL_SECONDS,
@@ -215,6 +215,7 @@ export function registerConversionRoutes(app: ConversionsApp, chokepoint: Chokep
       middleware: chokepointMiddleware(chokepoint, conversionSubmitRoute),
     },
     async (c) => {
+      const firm = requireChokepointFirmContext(c);
       const firmId = requireChokepointFirmId(c);
       const { jobId, from, to } = c.req.valid("json");
 
@@ -234,10 +235,13 @@ export function registerConversionRoutes(app: ConversionsApp, chokepoint: Chokep
       // firm's prefix. The result key is constructed the same way for symmetry.
       const sourceKey = `conversions/${firmId}/${jobId}/source`;
       const resultKey = `conversions/${firmId}/${jobId}/result`;
+      // The bucket the upload was presigned against travels with the job, so the consumer reads and
+      // writes through the same seam this route resolved rather than re-deriving one of its own.
+      const { bucketName } = resolveFirmBucket(c.env, firm.bucketName);
       const coordinator = c.env.CONVERSION_JOB.get(
         c.env.CONVERSION_JOB.idFromName(`${firmId}:${jobId}`),
       );
-      await coordinator.start({ firmId, jobId, sourceKey, resultKey, from, to });
+      await coordinator.start({ firmId, bucketName, jobId, sourceKey, resultKey, from, to });
       return c.json({ jobId, status: "queued" as const }, 202);
     },
   );
@@ -251,7 +255,7 @@ export function registerConversionRoutes(app: ConversionsApp, chokepoint: Chokep
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const firmId = requireChokepointFirmId(c);
-      const bucket = resolveFirmBucket(c.env, firm.bucketName).bucketName;
+      const { bucket, bucketName } = resolveFirmBucket(c.env, firm.bucketName);
       const { jobId } = c.req.valid("param");
 
       const coordinator = c.env.CONVERSION_JOB.get(
@@ -263,10 +267,10 @@ export function registerConversionRoutes(app: ConversionsApp, chokepoint: Chokep
         // Guard against a reaped result: the DO keeps reporting `done` with a stale resultKey after
         // the R2 lifecycle rule expires the object. HEAD it first; if gone, report `expired` so the
         // client knows the result is no longer available.
-        const artifact = await c.env.R2.head(state.resultKey);
+        const artifact = await bucket.head(state.resultKey);
         if (artifact !== null) {
           const url = await presignerForEnv(c.env).presignGet(
-            bucket,
+            bucketName,
             state.resultKey,
             PRESIGN_TTL_SECONDS,
           );

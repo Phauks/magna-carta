@@ -14,6 +14,12 @@ export interface ConversionJobState {
 
 export interface ConversionMessage {
   readonly firmId: string;
+  // The firm's recorded R2 bucket, resolved by the submitting route through files/firm-bucket.ts and
+  // carried on the message so the consumer reads the source and writes the result through the SAME
+  // seam — and therefore the same bucket the upload was presigned against. Re-deriving it in the
+  // consumer would let a firm re-provisioned mid-flight read a job's bytes from a different bucket
+  // than the one they were written to (bundle-types precedent).
+  readonly bucketName: string;
   readonly jobId: string;
   readonly sourceKey: string;
   readonly resultKey: string;

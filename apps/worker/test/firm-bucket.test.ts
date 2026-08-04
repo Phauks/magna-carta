@@ -111,6 +111,11 @@ const SOURCES = import.meta.glob("../src/**/*.ts", {
 const GUARDED = [
   "src/routes/uploads.ts",
   "src/files/ingest-consumer.ts",
+  // The conversion pair: the routes presign the source upload and the result download, and the queue
+  // consumer reads that source and writes that result. Split them across two buckets and a job either
+  // finds no source or lands a result nothing can hand back.
+  "src/routes/conversions.ts",
+  "src/conversions/conversion-consumer.ts",
   "src/routes/shipping.ts",
   "src/routes/file-repair.ts",
   "src/emails/attachment-extraction.ts",
