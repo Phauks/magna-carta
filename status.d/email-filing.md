@@ -9,8 +9,8 @@ built: done by="Opus 4.8"
 ui: todo
 load-profile: done by="Opus 4.8"
 tested: done by="Opus 4.8"
-branch: claude/email-filing-capture-slice-1-h03vp5
-active-work: docs/active-work/claude-email-filing-capture-slice-1-h03vp5.md
+branch: main
+active-work:
 next: Merge slice 1; then the fast-follows — the native add-in (Outlook/Gmail Save & File over the built file-to-matter API), the emails:manageCaptureAddresses mint/rotate route + the capture-subdomain DNS onboarding, the DKIM verifier behind the placed seam, guardrailed auto-file rules, and the matter correspondence timeline UI (deferred to the UI plan). Participant resolution is wired live via the merged Directory reverse lookup.
 link-spec: docs/specs/2026-07-14-email-filing-record-and-forward-capture-design.md
 link-plan: docs/specs/2026-07-14-email-filing-record-and-forward-capture-implementation-plan.md
