@@ -13,6 +13,7 @@
     "./name-history": "./src/name-history.ts",
     "./identifiers": "./src/identifiers.ts",
     "./edges": "./src/edges.ts",
+    "./entity-kind": "./src/entity-kind.ts",
     "./categories": "./src/categories.ts",
     "./search": "./src/search.ts",
     "./merge": "./src/merge.ts",

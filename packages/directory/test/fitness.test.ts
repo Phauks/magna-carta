@@ -233,20 +233,57 @@ describe("assertDirectoryFitness — no inbound reference to a merged subordinat
       .bind(subordinate, master)
       .run();
     const other = await createPerson(h.database, { given: "Sam", family: "Tarly" }, h.options);
-    await createEdge(
-      h.database,
-      {
-        from: other,
-        to: subordinate,
-        edgeType: "affiliation",
-        role: null,
-        note: null,
-        validFrom: null,
-        validTo: null,
-      },
-      h.options,
-    );
+    // Inserted directly rather than through createEdge: the write path refuses an endpoint that has
+    // been merged away, so the only way to produce the damaged corpus this probe exists to catch is to
+    // write the row behind the write path — which is exactly what a partial merge would leave.
+    await h.database
+      .prepare(
+        `INSERT INTO directory_edge (id, from_entity_id, to_entity_id, edge_type, role, note, valid_from, valid_to, created_at, updated_at, deleted_at) VALUES ('directoryEdge_dangling', ?1, ?2, 'affiliation', NULL, NULL, NULL, NULL, ?3, ?3, NULL)`,
+      )
+      .bind(other, subordinate, clock.now())
+      .run();
 
     await expect(assertDirectoryFitness(h.database)).rejects.toThrow(/merged subordinate/);
+  });
+
+  it("flags a merge chain — a node whose merge pointer names another merged-away entity", async () => {
+    const finalMaster = await createPerson(
+      h.database,
+      { given: "Ned", family: "Stark" },
+      h.options,
+    );
+    const middle = await createPerson(h.database, { given: "Nedd", family: "Stark" }, h.options);
+    const oldest = await createPerson(h.database, { given: "Neddd", family: "Stark" }, h.options);
+
+    // Hand-build the chain a pre-flattening merge would leave: oldest -> middle -> finalMaster.
+    await h.database
+      .prepare(
+        `UPDATE directory_person SET status = 'merged_into', merged_into_id = ?2 WHERE id = ?1`,
+      )
+      .bind(middle, finalMaster)
+      .run();
+    await h.database
+      .prepare(
+        `UPDATE directory_person SET status = 'merged_into', merged_into_id = ?2 WHERE id = ?1`,
+      )
+      .bind(oldest, middle)
+      .run();
+
+    await expect(assertDirectoryFitness(h.database)).rejects.toThrow(/merged subordinate/);
+  });
+
+  it("passes after two chained merges — the second flattens the first's pointer", async () => {
+    const finalMaster = await createPerson(
+      h.database,
+      { given: "Ned", family: "Stark" },
+      h.options,
+    );
+    const middle = await createPerson(h.database, { given: "Nedd", family: "Stark" }, h.options);
+    const oldest = await createPerson(h.database, { given: "Neddd", family: "Stark" }, h.options);
+
+    await mergeEntities(h.ctx, { masterId: middle, subordinateId: oldest, survivorship: {} });
+    await mergeEntities(h.ctx, { masterId: finalMaster, subordinateId: middle, survivorship: {} });
+
+    await expect(assertDirectoryFitness(h.database)).resolves.toBeUndefined();
   });
 });
