@@ -11,6 +11,7 @@
     "./scrub": "./src/scrub.ts",
     "./ids": "./src/ids.ts",
     "./logger": "./src/logger.ts",
+    "./metrics": "./src/metrics.ts",
     "./workers-logger": "./src/workers-logger.ts",
     "./pseudonymize": "./src/pseudonymize.ts",
     "./usage-features": "./src/usage-features.ts",
