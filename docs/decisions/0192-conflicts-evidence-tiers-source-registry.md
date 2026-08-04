@@ -1,4 +1,5 @@
 ---
+number: 192
 slug: conflicts-evidence-tiers-source-registry
 status: Accepted
 date: 2026-07-09

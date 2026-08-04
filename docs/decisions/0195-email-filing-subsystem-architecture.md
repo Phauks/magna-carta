@@ -1,4 +1,5 @@
 ---
+number: 195
 slug: email-filing-subsystem-architecture
 status: Accepted
 date: 2026-07-16

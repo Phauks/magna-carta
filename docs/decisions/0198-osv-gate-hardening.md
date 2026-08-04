@@ -1,8 +1,9 @@
 ---
+number: 198
 slug: osv-gate-hardening
 status: Accepted
-area: Supply-chain security
 date: 2026-07-17
+area: Supply-chain security
 summary: Pin the osv-scanner CI binary by SHA256, remove the pre-push hook's npm-only pnpm audit step (rather than replace it with a local osv-scanner), and drop package.json auditConfig so osv-scanner.toml is the single accepted-advisory home.
 ---
 
