@@ -82,7 +82,7 @@ Working rules for that file:
 
 - Adding an entry is an explicit security decision — never a quick unblock. Every entry records _why_ the advisory is accepted, not just that it is.
 - An `ignoreUntil` date is a forcing function, not a snooze button. When one approaches, re-check whether a fix has become reachable; if it has not, the extension must land with a written justification (what was checked, why no upgrade reaches it, what mitigations bound the exposure, what to re-check next time).
-- An entry **leaves** the file the moment it is genuinely remediated — a carrier upgrade, a `pnpm-workspace.yaml` override, or an upstream withdrawal. osv-scanner reports unused ignores, so a stale entry is detectable: run the scan and prune what it names.
+- An entry **leaves** the file the moment it is genuinely remediated — a carrier upgrade, a `pnpm-workspace.yaml` override, an upstream withdrawal, or **removing the carrier**: when no release of the dependency that pulls a vulnerable crate in ever resolves the fix, replacing that dependency is the only remediation there is, and it is a real one. osv-scanner reports unused ignores, so a stale entry is detectable: run the scan and prune what it names.
 
 ## 6. Dashboard one-time toggles (slice 0·6)
 
