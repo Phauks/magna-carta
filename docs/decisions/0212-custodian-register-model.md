@@ -1,3 +1,11 @@
+---
+number: 212
+slug: custodian-register-model
+status:
+date:
+area:
+---
+
 # Custodian register model — packet over item, owner at the Directory, one append-only movement path
 
 **Status:** Proposed

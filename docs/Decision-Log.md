@@ -236,5 +236,7 @@ The authoritative register of architectural decisions (ADRs) for Magna Carta. Th
 - **ADR-0209** · Accepted · 2026-08-04 · Documentation / Decision register — "ADR-0098, ADR-0099, and ADR-0102 are permanently vacant and are never reissued. All three were reservations that were vacated before anything was written: 0098 and 0099 were the tail of an ADR-0097-0099 block the email-filing draft design reserved, renumbered to ADR-0104-0106 when that line collided with main's 0096/0097; 0102 was the tail of an ADR-0100-0102 block the slice 2-1 design reserved a day before the same renumber independently claimed 0100 and 0101, and its subject — the async bulk-download build job — was built without an ADR of its own and is now covered by ADR-0027, ADR-0082, and ADR-0146. No file for any of the three was ever committed, so nothing was lost; the register is non-contiguous by history, not by defect, and the gap is recorded here rather than closed by renumbering."
 - **ADR-0210** ·  ·  — # Document-automation assembly engine — in-house OOXML merge in a Worker
 - **ADR-0211** ·  ·  — # Document-automation template model — normalize at registration, version like a file
+- **ADR-0212** ·  ·  — # Custodian register model — packet over item, owner at the Directory, one append-only movement path
+- **ADR-0213** ·  ·  — # Custodian retention and destruction — mechanism ships, policy does not
 
 <!-- END GENERATED REGISTER -->
