@@ -14,7 +14,7 @@ active-work: docs/active-work/claude/automation-consent-refinements.md
 next: Slice 2·6·2 — conditional and repeating blocks, the Directory/custom-field/letterhead-logo dictionary sources, and protected-value binding. Then a location time-zone column behind timeZoneForLocation.
 link-spec: docs/specs/2026-08-04-document-automation-design.md
 link-plan: docs/specs/2026-08-04-document-automation-implementation-plan.md
-adrs: ADR-0210, ADR-0211
+adrs: ADR-0210, ADR-0211, ADR-0217
 blocked-by:
 ---
 
