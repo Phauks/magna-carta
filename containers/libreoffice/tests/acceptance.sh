@@ -91,6 +91,20 @@ inspect() {
   cargo run --quiet --manifest-path "$LIBREOFFICE_DIR/Cargo.toml" --example inspect-conversion -- "$1"
 }
 
+# The single-line, whitespace-collapsed rendering of the document's text. Assert against THIS rather
+# than the raw block: extraction preserves the page's line breaks, so a sentence that wraps arrives
+# with a newline inside it and a contiguous match fails even though every word survived. Where a line
+# wraps is a layout detail that moves with a font or a suite version; whether the content survived is
+# what this gate is for.
+text_of() {
+  inspect "$1" | grep '^text: '
+}
+
+# Build the inspector once, before anything is timed, so its first compile is not mistaken for a slow
+# conversion in the log.
+echo "building the structural inspector ..."
+cargo build --quiet --manifest-path "$LIBREOFFICE_DIR/Cargo.toml" --example inspect-conversion
+
 # --- docx to pdf: the volume path, and the font-substitution assertion --------------------------
 echo
 echo "docx -> pdf ..."
@@ -101,9 +115,10 @@ head -c 5 "$WORK_DIR/from-docx.pdf" | grep -q '%PDF-' || { echo "FAIL: docx->pdf
 report="$(inspect "$WORK_DIR/from-docx.pdf")"
 echo "$report"
 echo "$report" | grep -q '^pages: 1$' || { echo "FAIL: expected a single page"; exit 1; }
-echo "$report" | grep -q 'Conversion acceptance fixture' \
+text="$(echo "$report" | grep '^text: ')"
+echo "$text" | grep -q 'Conversion acceptance fixture' \
   || { echo "FAIL: the heading did not survive the conversion"; exit 1; }
-echo "$report" | grep -q 'carries no privileged content' \
+echo "$text" | grep -q 'It carries no privileged content' \
   || { echo "FAIL: the body text did not survive the conversion"; exit 1; }
 # The fixture asks for Calibri and Cambria. Carlito and Caladea are metric-compatible with them, so
 # these two names appearing is the proof that the metric-compatible pair is installed and being
@@ -121,8 +136,11 @@ code="$(convert odt pdf pdf "$FIXTURES/acceptance.odt" "$WORK_DIR/from-odt.pdf")
 report="$(inspect "$WORK_DIR/from-odt.pdf")"
 echo "$report"
 echo "$report" | grep -q '^pages: 1$' || { echo "FAIL: expected a single page"; exit 1; }
-echo "$report" | grep -q 'Conversion acceptance fixture' \
+text="$(echo "$report" | grep '^text: ')"
+echo "$text" | grep -q 'Conversion acceptance fixture' \
   || { echo "FAIL: the heading did not survive the conversion"; exit 1; }
+echo "$text" | grep -q 'It carries no privileged content' \
+  || { echo "FAIL: the body text did not survive the conversion"; exit 1; }
 
 # --- docx to odt: a valid OpenDocument archive carrying the source's paragraphs ------------------
 echo
@@ -131,8 +149,15 @@ code="$(convert docx odt odt "$FIXTURES/acceptance.docx" "$WORK_DIR/from-docx.od
 [ "$code" = "200" ] || { echo "FAIL: docx->odt returned $code"; exit 1; }
 unzip -p "$WORK_DIR/from-docx.odt" mimetype | grep -q 'opendocument.text' \
   || { echo "FAIL: docx->odt output is not an OpenDocument text archive"; exit 1; }
-unzip -p "$WORK_DIR/from-docx.odt" content.xml | grep -q 'Conversion acceptance fixture' \
-  || { echo "FAIL: the source's paragraphs are not in the OpenDocument content"; exit 1; }
+# Strip the markup and collapse whitespace before matching, for the same reason the PDF assertion
+# does: the writer is free to split a paragraph across spans, so a raw grep would be asserting on how
+# the text was marked up rather than on whether it survived.
+odt_text="$(unzip -p "$WORK_DIR/from-docx.odt" content.xml | sed 's/<[^>]*>/ /g' | tr -s '[:space:]' ' ')"
+echo "  -> $odt_text"
+echo "$odt_text" | grep -q 'Conversion acceptance fixture' \
+  || { echo "FAIL: the source's heading is not in the OpenDocument content"; exit 1; }
+echo "$odt_text" | grep -q 'It carries no privileged content' \
+  || { echo "FAIL: the source's body paragraph is not in the OpenDocument content"; exit 1; }
 
 # --- refusals: never an empty 200 ----------------------------------------------------------------
 echo
@@ -161,9 +186,9 @@ wait "$first"
 wait "$second"
 [ "$(cat "$WORK_DIR/code-a")" = "200" ] || { echo "FAIL: the first concurrent conversion returned $(cat "$WORK_DIR/code-a")"; exit 1; }
 [ "$(cat "$WORK_DIR/code-b")" = "200" ] || { echo "FAIL: the second concurrent conversion returned $(cat "$WORK_DIR/code-b")"; exit 1; }
-inspect "$WORK_DIR/concurrent-a.pdf" | grep -q 'Conversion acceptance fixture' \
+text_of "$WORK_DIR/concurrent-a.pdf" | grep -q 'It carries no privileged content' \
   || { echo "FAIL: the first concurrent conversion produced wrong content"; exit 1; }
-inspect "$WORK_DIR/concurrent-b.pdf" | grep -q 'Conversion acceptance fixture' \
+text_of "$WORK_DIR/concurrent-b.pdf" | grep -q 'It carries no privileged content' \
   || { echo "FAIL: the second concurrent conversion produced wrong content"; exit 1; }
 
 # --- recycle: driving the pool past its per-worker budget keeps serving --------------------------

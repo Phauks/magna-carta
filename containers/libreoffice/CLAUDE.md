@@ -121,6 +121,14 @@ suite on the machine.
 - **The bundle ships no `libsofficeapp.so`.** The binding tries that name first and falls back to
   `libmergedlo.so`, which is what the upstream Debian bundle actually carries. Both paths are in the
   crate; nothing here needs to force one.
+- **Assert on the inspector's collapsed `text:` line, never on the raw extraction.** PDF text
+  extraction preserves the page's line breaks, so a sentence that wraps arrives with a newline inside
+  it and a contiguous `grep` fails even though every word survived — which is exactly how the first
+  green build was reported red. Where a line wraps is a layout detail that moves with a font or a
+  suite version; whether the content survived is what the gate is for, so `inspect-conversion` emits
+  a whitespace-collapsed `text:` line and the raw block exists only to be read in a failure log. The
+  OpenDocument assertion strips markup and collapses whitespace for the same reason: the writer is
+  free to split a paragraph across spans.
 - **Each worker's profile is selected through `HOME`, not an argument.** The binding's bootstrap uses
   the single-argument LibreOfficeKit hook, which takes no user-profile URL, so there is no way to
   pass a `UserInstallation`. The supervisor gives each worker its own home directory instead, which
