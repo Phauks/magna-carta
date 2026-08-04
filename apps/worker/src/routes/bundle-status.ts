@@ -9,8 +9,8 @@ import type { AppVariables } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { Problem } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
+import { resolveFirmBucket } from "../files/firm-bucket.ts";
 import { presignerForEnv } from "../files/presigner-wiring.ts";
-import { requireBucket } from "../files/require-bucket.ts";
 
 // The async bulk-download poll endpoint: the client that received a 202 from POST /downloads/zip polls
 // here for the job's state. A building/failed job carries no URL; a ready job mints a fresh short-TTL
@@ -83,7 +83,7 @@ export function registerBundleStatusRoute(app: BundleStatusApp, chokepoint: Chok
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const firmId = requireChokepointFirmId(c);
-      const bucket = requireBucket(firm.bucketName);
+      const bucket = resolveFirmBucket(c.env, firm.bucketName).bucketName;
       const { manifestHash } = c.req.valid("param");
 
       const coordinator = c.env.BUNDLE_COORDINATOR.get(

@@ -45,8 +45,8 @@ import { idempotencyKeyHeader, identifierField, identifierPathParam } from "../c
 import { Problem, problemJson, type ProblemResponse } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { maybeEnqueueRescanOnAccess } from "../files/access-rescan.ts";
+import { resolveFirmBucket } from "../files/firm-bucket.ts";
 import { presignerForEnv } from "../files/presigner-wiring.ts";
-import { requireBucket } from "../files/require-bucket.ts";
 import {
   problemResponseForIdempotencyConflict,
   storedResponseBody,
@@ -717,7 +717,8 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
         // Destroy the live working copy only on the winning execution (a replay's batch rolled back and
         // the winner already handled it); the committed versions and their bytes are retained.
         if (result.kind === "executed" && currentR2KeyToDestroy !== null) {
-          await c.env.R2.delete(currentR2KeyToDestroy);
+          // Destroy it in the firm's own bucket — the one the working copy was written to.
+          await resolveFirmBucket(c.env, firm.bucketName).bucket.delete(currentR2KeyToDestroy);
         }
         if (result.kind === "replayed") c.header("Idempotency-Replayed", "true");
         const body = JSON.parse(storedResponseBody(result)) as z.infer<typeof FileActionAck>;
@@ -738,7 +739,7 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const userId = requireChokepointUserId(c);
-      const bucket = requireBucket(firm.bucketName);
+      const bucket = resolveFirmBucket(c.env, firm.bucketName).bucketName;
       const { id } = c.req.valid("param");
       const version = await getCurrentCleanVersion(firm.firmDatabase, id);
       if (version === undefined) {
@@ -863,7 +864,7 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
     },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
-      const bucket = requireBucket(firm.bucketName);
+      const bucket = resolveFirmBucket(c.env, firm.bucketName).bucketName;
       const { id } = c.req.valid("param");
       const version = await getCurrentCleanVersionForPreview(firm.firmDatabase, id);
       if (version === undefined) {
