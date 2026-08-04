@@ -351,7 +351,7 @@
   slices: 2-4-in-app-conversion
   adrs: ADR-0030, ADR-0116
   spec: docs/specs/2026-06-21-slice-2-4a-conversion-core-design.md
-  evidence: packages/conversion + apps/convert-worker + containers/raster on main; office/AV/email edges and job orchestration unbuilt; slice 2-4 built in-progress.
+  evidence: packages/conversion + apps/convert-worker (with the per-engine dispatch seam) + apps/worker/src/conversions + containers/raster on main; the office, AV, and email engine bodies are still unbuilt and production stays dormant until the deploy activation.
 
 - id: documents.conversion.registry
   name: Format registry & pathfinding
@@ -392,8 +392,10 @@
   name: Office document conversion
   scope: Documents/spreadsheets/presentations to/from PDF via the server office engine (LibreOffice-class, container-bound).
   status: planned
-  spec: docs/specs/2026-06-22-slice-2-4b-server-conversion-design.md
-  evidence: Design + implementation plan exist; no office-conversion container in containers/.
+  adrs: ADR-0204
+  spec: docs/specs/2026-08-04-libreoffice-conversion-engine-design.md
+  evidence: ADR-0204 settles the engine design (network-isolated Container, supervisor over a pool of long-lived single-threaded LibreOfficeKit workers, pure-Rust libreofficekit binding); no office-conversion container in containers/ yet.
+  notes: The C++ LibreOffice runtime is owner-consented under golden rule 14, scoped to the dlopened suite; the build phase is next.
 
 - id: documents.conversion.av-transcode
   name: Audio/video transcodes
@@ -416,9 +418,10 @@
 - id: documents.conversion.background-jobs
   name: Background job orchestration
   scope: Durable Object per job holding queued/running/per-item progress, container spin-up/sleep, completion notification for large or batch conversions.
-  status: not-started
+  status: partial
   adrs: ADR-0116
-  evidence: ADR-0116 records orchestrator/Container/DO execution deferred to the gated slice design cycle; no job DO in the conversion path.
+  evidence: apps/worker/src/conversions/conversion-coordinator.ts is the per-job ConversionJob Durable Object (start, markRunning, markDone, markFailed, status, alarm) fed by the CONVERSION queue consumer; apps/convert-worker dispatches the hop per engine id.
+  notes: Single-file jobs only — per-item batch progress and completion notification are not built, and container spin-up/sleep applies to the raster container alone.
 
 - id: documents.conversion.output-placement
   name: Output placement
@@ -555,18 +558,20 @@
 - id: documents.esignature
   name: E-signature
   scope: First-party e-signature on the PDF engine — sender field placement, signing UI, PAdES platform seal, audit trail, certificate of completion, attribution tiers.
-  status: researching
+  status: partial
   slices: 2-5-pdf-services-e-signature-core
-  adrs: ADR-0045
-  evidence: Slice 2-5 fragment: e-signature/PAdES and consumer surfaces not started, research in-progress; signing-options research at docs/specs/2026-06-13-embedpdf-signing-options.md.
+  adrs: ADR-0045, ADR-0205, ADR-0206
+  evidence: packages/signing + apps/sign-worker + crates/pdf-core seal primitive + apps/worker/src/routes/document-seal.ts on main; the signing flow, field placement, and adoption UI are not started.
   notes: ADR-0045 records the whole area as provisional — every license/legal specific to be re-verified before build.
 
 - id: documents.esignature.pades-seal
   name: PAdES platform seal
   scope: Server-applied tamper-evidence seal with the firm certificate on completed documents.
-  status: not-started
-  evidence: pdf-render-engine fragment lists PAdES as remaining after surgery and OCR; no signing code in the tree.
-  notes: Worker-crypto vs Container constraint unresolved (named open item in ADR-0045).
+  status: shipped
+  slices: 2-5-pdf-services-e-signature-core
+  adrs: ADR-0205, ADR-0206
+  evidence: crates/pdf-core seal primitive (incremental update, ByteRange, CMS splice) with WASM bindings; packages/signing CMS backend at PAdES-B-B with signing-certificate-v2; apps/sign-worker holding the platform key; apps/worker/src/routes/document-seal.ts over a SealPort binding; tooling/platform-seal-certificate provisions the identity.
+  notes: ADR-0206 resolves the Worker-crypto vs Container question in favour of pkijs over WebCrypto in the Worker. Baseline B-B only — timestamp/LTV levels (B-T/B-LT/B-LTA, needs a TSA) and independent-validator conformance remain.
 
 - id: documents.esignature.signing-flow
   name: Signing flow & adoption UI
@@ -577,8 +582,10 @@
 - id: documents.esignature.audit-trail
   name: Audit trail & certificate of completion
   scope: Server-observed signer IP/timestamp/consent/document hash assembled into a stored Certificate of Completion.
-  status: not-started
-  evidence: No artifact in the tree.
+  status: partial
+  slices: 2-5-pdf-services-e-signature-core
+  evidence: packages/signing/src/esign.ts holds the ESIGN/UETA model and the Certificate of Completion assemble-and-render path; the seal route sets signing time and observed IP server-side and emits a redacted esign.sealed audit event.
+  notes: The certificate can be assembled and rendered, but nothing yet captures a signer's consent through a signing flow, and the certificate is not stored against a document.
 
 - id: documents.esignature.attribution
   name: Attribution assurance tiers

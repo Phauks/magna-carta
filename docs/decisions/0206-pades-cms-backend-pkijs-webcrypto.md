@@ -1,8 +1,9 @@
 ---
+number: 206
 slug: pades-cms-backend-pkijs-webcrypto
 status: Accepted
-area: Documents / E-signature
 date: 2026-07-18
+area: Documents / E-signature
 summary: The PAdES platform-seal CMS is built with pkijs over WebCrypto in the Worker (crypto host-side, key a non-extractable CryptoKey), not with a Rust CMS crate in the engine; the pure-Rust pdf-core engine owns the PDF structure and takes the CMS as an opaque blob. Proven end-to-end on workerd.
 ---
 

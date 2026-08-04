@@ -1,4 +1,5 @@
 ---
+number: 202
 slug: email-capture-mint-ordering
 status: Accepted
 date: 2026-08-04

@@ -9,8 +9,8 @@ built: done by="Opus 4.8"
 ui: done by="Opus 4.8"
 load-profile: n/a
 tested: done by="Opus 4.8"
-branch: eyebrow-link
-active-work: docs/active-work/eyebrow-link.md
+branch: main
+active-work:
 next: Container VRT baselines once Docker is available; owner browser confirmation of the arrow geometry.
 link-spec:
 link-plan:
