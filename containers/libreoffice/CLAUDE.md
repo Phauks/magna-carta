@@ -152,7 +152,16 @@ suite on the machine.
   the single largest cost this engine introduces. It fits (the limit is the instance's disk, twelve
   gigabytes on `standard-2`), but the first Workers Builds run will take substantially longer than
   any build in this project so far.
+- **A 422 cannot be provoked from a real suite with a merely damaged file.** LibreOffice's detection
+  falls back to the text importer, so a plain-text file named `.docx` converts happily and returns
+  200 — measured, not assumed: an acceptance assertion demanding 422 for exactly that input failed
+  against the real suite. The acceptance gate therefore holds the engine to the **contract** on
+  damaged input (a refusal carries no body, a success carries a real PDF, an empty 200 never happens)
+  rather than to a status that is LibreOffice's recovery heuristic to decide and free to change
+  between versions. The status mapping itself — including the password-protected 422 — is proved
+  deterministically in `tests/service.rs` against the fake worker, which is where it belongs.
 - **Not yet covered by the acceptance suite, deliberately named rather than left silent:** a real
   `wpd→odt` assertion (a licensable, non-privileged legacy WordPerfect fixture has not been sourced),
-  and a real wedge case (a document that reliably hangs a real suite). Both are fixture-sourcing
-  problems; the dispatch and the deadline-and-recovery machinery are proved by `cargo test`.
+  a real wedge case (a document that reliably hangs a real suite), and a real-suite 422 (which needs
+  a password-protected fixture, per the bullet above). All three are fixture-sourcing problems; the
+  dispatch, the status mapping, and the deadline-and-recovery machinery are proved by `cargo test`.

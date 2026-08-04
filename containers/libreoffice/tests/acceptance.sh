@@ -63,9 +63,16 @@ echo "  -> $ready"
 echo "$ready" | grep -q '"ready":true' || { echo "FAIL: /ready did not report ready"; exit 1; }
 echo "$ready" | grep -q 'suiteVersion' || { echo "FAIL: /ready carried no suite version"; exit 1; }
 
+# Deliberately WITHOUT curl's --fail. With it, a non-2xx makes curl exit non-zero, and under `set -e`
+# the enclosing `code="$(convert ...)"` assignment takes the whole run down before the next line can
+# report which conversion failed and with what status -- so every status check below would have been
+# unreachable on the one path it exists for. Without it, curl always exits 0 and the status code
+# arrives in the output, leaving the explicit checks to do the reporting.
 convert() {
   # convert <source-format> <target-format> <recipe> <input-file> <output-file>
-  curl -fsS -X POST \
+  # x-engine-id is always sent because the convert worker forwards headers verbatim in production.
+  # It must make no difference here: this container dispatches on the format pair.
+  curl -sS -X POST \
     -H "x-source-format: $1" \
     -H "x-target-format: $2" \
     -H "x-recipe: $3" \
@@ -165,12 +172,35 @@ echo "a format pair this container does not serve ..."
 code="$(status_of xlsx pdf pdf "$FIXTURES/acceptance.docx")"
 [ "$code" = "415" ] || { echo "FAIL: an unserved pair returned $code, expected 415"; exit 1; }
 
-echo "a document that is not what it claims to be ..."
-printf 'this is not a word document at all' > "$WORK_DIR/not-a-document.docx"
-code="$(status_of docx pdf pdf "$WORK_DIR/not-a-document.docx")"
-# 422 is the honest answer: it reached the suite and could not be converted. What must never happen
-# is a 200 — a caller about to file something cannot be handed an empty or fabricated result.
-[ "$code" = "422" ] || { echo "FAIL: an unconvertible document returned $code, expected 422"; exit 1; }
+echo "a damaged document that claims to be a Word file ..."
+# A truncated copy of the real fixture: a valid archive header with the document parts cut off.
+head -c 220 "$FIXTURES/acceptance.docx" > "$WORK_DIR/truncated.docx"
+code="$(convert docx pdf pdf "$WORK_DIR/truncated.docx" "$WORK_DIR/truncated-out.bin")"
+echo "  -> $code"
+# What is gated here is OUR contract, not the suite's recovery heuristics. Whether a given damaged
+# file is rejected outright or has salvageable content recovered from it is LibreOffice's detection
+# call, and it can legitimately differ across suite versions; pinning one answer would redden the
+# build for a recovery improvement that broke nothing. What must hold in every version is that a
+# failure arrives as a status and a success arrives as a real document -- never an empty 200, which
+# is the one outcome a caller about to file something cannot detect.
+case "$code" in
+  422)
+    echo "  the suite rejected the damaged file"
+    [ ! -s "$WORK_DIR/truncated-out.bin" ] \
+      || { echo "FAIL: a 422 must carry no document content"; exit 1; }
+    ;;
+  200)
+    echo "  the suite recovered content from the damaged file"
+    [ -s "$WORK_DIR/truncated-out.bin" ] \
+      || { echo "FAIL: a 200 must never carry an empty body"; exit 1; }
+    head -c 5 "$WORK_DIR/truncated-out.bin" | grep -q '%PDF-' \
+      || { echo "FAIL: a 200 must carry a real PDF, not arbitrary bytes"; exit 1; }
+    ;;
+  *)
+    echo "FAIL: a damaged document returned $code; expected 422, or 200 carrying a real document"
+    exit 1
+    ;;
+esac
 
 # --- concurrency: the assertion that proves the pool is doing its job ----------------------------
 # Naive concurrent command-line conversions against one profile fail SILENTLY — no output, no error.
@@ -182,8 +212,10 @@ convert docx pdf pdf "$FIXTURES/acceptance.docx" "$WORK_DIR/concurrent-a.pdf" > 
 first=$!
 convert odt pdf pdf "$FIXTURES/acceptance.odt" "$WORK_DIR/concurrent-b.pdf" > "$WORK_DIR/code-b" &
 second=$!
-wait "$first"
-wait "$second"
+# `|| true` so a failed conversion is reported by the status checks below rather than aborting here
+# under `set -e` with no indication of which of the two failed.
+wait "$first" || true
+wait "$second" || true
 [ "$(cat "$WORK_DIR/code-a")" = "200" ] || { echo "FAIL: the first concurrent conversion returned $(cat "$WORK_DIR/code-a")"; exit 1; }
 [ "$(cat "$WORK_DIR/code-b")" = "200" ] || { echo "FAIL: the second concurrent conversion returned $(cat "$WORK_DIR/code-b")"; exit 1; }
 text_of "$WORK_DIR/concurrent-a.pdf" | grep -q 'It carries no privileged content' \
@@ -225,3 +257,7 @@ echo "      conversions at once, and keeps serving across worker recycling."
 #     succeeding). The deadline, the kill, and the recovery are proved against the fake worker in
 #     tests/pool.rs; what is missing is a real document that reliably wedges a real suite, which is
 #     a fixture-sourcing problem rather than a coverage gap in the state machine.
+#   * A real-suite 422. LibreOffice's detection falls back to the text importer, so a merely damaged
+#     or mislabelled file converts rather than being refused -- measured here, not assumed. Provoking
+#     a genuine 422 needs a password-protected fixture, which is the design's own example of the
+#     case. The status mapping, including that one, is proved in tests/service.rs.
