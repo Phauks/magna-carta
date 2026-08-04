@@ -490,6 +490,30 @@ export const matter = sqliteTable(
   ],
 );
 
+// Every counter value a number draw actually consumed, one row per {scope_key, drawn_value}. The
+// guarded increment alone cannot keep concurrent draws distinct: when the active scheme carries a
+// variable segment that is NOT marked scoping (a client code, staff initials, a matter-type code),
+// two draws in the same counter scope render DIFFERENT numbers from the SAME value, so
+// matter_matter_number_unique_index never fires and the losing draw silently commits a duplicate of
+// the winner's counter value. This composite primary key is the constraint that does fire: the
+// loser's whole batch aborts and its bounded retry re-reads the advanced counter.
+export const matterNumberAllocation = sqliteTable(
+  "matter_number_allocation",
+  {
+    scopeKey: text("scope_key").notNull(), // the matter_number_counter row this value came from
+    drawnValue: integer("drawn_value").notNull(), // the counter value this draw consumed
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    allocatedAt: text("allocated_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.scopeKey, table.drawnValue] }),
+    index("matter_number_allocation_matter_id_index").on(table.matterId),
+  ],
+);
+
 // Folder tree per matter (in D1). Folders are organizational only; R2 keys are opaque and NEVER
 // derived from folder paths, so renaming or moving a folder never touches stored bytes.
 export const folder = sqliteTable(

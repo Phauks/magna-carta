@@ -12,6 +12,7 @@ import directoryEmailNormalizedAddressSql from "@magna-carta/database/drizzle/pe
 import emailFilingRecordsSql from "@magna-carta/database/drizzle/per-firm/20260717T120000_email-filing-records.sql";
 import seedEmailsPermissionsSql from "@magna-carta/database/drizzle/per-firm/20260717T120001_seed-emails-permissions.sql";
 import conflictsHitCoPartySql from "@magna-carta/database/drizzle/per-firm/20260717T181411_conflicts-hit-co-party.sql";
+import matterNumberAllocationSql from "@magna-carta/database/drizzle/per-firm/20260804T072255_matter-number-allocation.sql";
 import shipmentPurchaseClaimSql from "@magna-carta/database/drizzle/per-firm/20260804T120000_shipment-purchase-claim.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the FirmDatabase
@@ -35,6 +36,19 @@ export function perFirmMigrations(): Migration[] {
     "20260717T120000_email-filing-records": emailFilingRecordsSql,
     "20260717T120001_seed-emails-permissions": seedEmailsPermissionsSql,
     "20260717T181411_conflicts-hit-co-party": conflictsHitCoPartySql,
+    "20260804T072255_matter-number-allocation": matterNumberAllocationSql,
     "20260804T120000_shipment-purchase-claim": shipmentPurchaseClaimSql,
   });
+}
+
+// The lineage head (latest journal tag), ordered by the monotonic migration id — the same shape
+// control-plane-migrations.ts exposes. Tests assert against this instead of a literal tag, so
+// adding a migration does not break an unrelated provisioning assertion.
+export function perFirmHeadSchemaVersion(): string {
+  const lastEntry = [...perFirmJournal.entries]
+    // sort on the spread copy (non-mutating); toSorted is not in this worker's TS lib target.
+    .sort((a, b) => (a.tag < b.tag ? -1 : a.tag > b.tag ? 1 : 0))
+    .at(-1);
+  if (lastEntry === undefined) throw new Error("per-firm migration journal is empty");
+  return lastEntry.tag;
 }

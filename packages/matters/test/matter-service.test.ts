@@ -18,6 +18,11 @@ const clock = {
   now: () => "2026-06-13T12:00:00.000Z",
   today: () => "2026-06-13",
 };
+// A visibly later instant, so a test can tell whose write landed on a timestamp column.
+const laterClock = {
+  now: () => "2026-12-25T09:00:00.000Z",
+  today: () => "2026-12-25",
+};
 const RESPONSIBLE = "user_attorney" as UserId;
 const options = { clock, actorUserId: RESPONSIBLE };
 
@@ -26,6 +31,44 @@ const YEAR_COUNTER_SCHEME: NumberSegment[] = [
   { kind: "literal", text: "-" },
   { kind: "counter", padWidth: 4 },
 ];
+
+// A client code renders INTO the number but is not marked scoping, so every matter draws from the
+// one firm-wide counter while rendering a different string. Two draws that share a counter value
+// therefore produce two numbers no uniqueness check on matter_number can tell apart.
+const CLIENT_CODE_SCHEME: NumberSegment[] = [
+  { kind: "client_code" },
+  { kind: "literal", text: "-" },
+  { kind: "counter", padWidth: 4 },
+];
+
+// Stands in for a concurrent writer landing between a service's precondition read and its commit.
+// D1 has no interactive transaction, so that window is real; running `before` at the first batch
+// makes it deterministic instead of dependent on how two promises happen to interleave.
+function interleaveBeforeFirstCommit(
+  database: BatchDatabase,
+  before: () => Promise<unknown>,
+): BatchDatabase {
+  let fired = false;
+  return {
+    prepare: (sql: string) => database.prepare(sql),
+    batch: async (statements) => {
+      if (!fired) {
+        fired = true;
+        await before();
+      }
+      return database.batch(statements);
+    },
+  };
+}
+
+async function readAllocations(database: BatchDatabase) {
+  const { results } = await database
+    .prepare(
+      "SELECT scope_key, drawn_value FROM matter_number_allocation ORDER BY scope_key, drawn_value",
+    )
+    .all<{ scope_key: string; drawn_value: number }>();
+  return results;
+}
 
 function freshDatabase(): BatchDatabase {
   return createMigratedNodeDatabase("per-firm").database;
@@ -144,6 +187,52 @@ describe("openMatter", () => {
     ).rejects.toMatchObject({ code: "matter-not-found" });
   });
 
+  it("refuses when the matter was opened between the precondition read and the commit", async () => {
+    const database = await setup();
+    const { matterId } = await createMatter(
+      database,
+      { ...baseInput, status: "prospective" },
+      options,
+    );
+    // The winner opens the same matter while the racing call is mid-flight, after it has already
+    // read the matter as prospective and drawn its own number.
+    let winner = "";
+    const racing = interleaveBeforeFirstCommit(database, async () => {
+      winner = (await openMatter(database, matterId, {}, options)).matterNumber;
+    });
+    await expect(openMatter(racing, matterId, {}, options)).rejects.toMatchObject({
+      code: "matter-not-prospective",
+    });
+    // The winner's number and open instant stand — the loser rewrote nothing.
+    expect(await readMatter(database, matterId)).toMatchObject({
+      status: "open",
+      matter_number: winner,
+      opened_at: clock.now(),
+    });
+  });
+
+  it("refuses when the matter was closed between the precondition read and the commit", async () => {
+    const database = await setup();
+    const { matterId } = await createMatter(
+      database,
+      { ...baseInput, status: "prospective" },
+      options,
+    );
+    const racing = interleaveBeforeFirstCommit(database, () =>
+      closeMatter(database, matterId, options),
+    );
+    await expect(openMatter(racing, matterId, {}, options)).rejects.toMatchObject({
+      code: "matter-not-prospective",
+    });
+    // A declined consultation stays closed and unnumbered: the late open neither revived it nor
+    // stamped a number on it.
+    expect(await readMatter(database, matterId)).toMatchObject({
+      status: "closed",
+      matter_number: null,
+      opened_at: null,
+    });
+  });
+
   it("refuses to draw a number with no active scheme", async () => {
     const database = freshDatabase();
     await seedMember(database, RESPONSIBLE);
@@ -210,6 +299,28 @@ describe("closeMatter / reopenMatter", () => {
     });
   });
 
+  it("refuses to close an already-closed matter, so its recorded close date never moves", async () => {
+    const database = await setup();
+    const { matterId } = await createMatter(database, { ...baseInput, status: "open" }, options);
+    await closeMatter(database, matterId, options);
+    const firstClosedAt = (await readMatter(database, matterId))?.closed_at;
+    await expect(
+      closeMatter(database, matterId, { ...options, clock: laterClock }),
+    ).rejects.toMatchObject({ code: "matter-already-closed" });
+    expect((await readMatter(database, matterId))?.closed_at).toBe(firstClosedAt);
+  });
+
+  it("a close landing after a concurrent close leaves the first close date standing", async () => {
+    const database = await setup();
+    const { matterId } = await createMatter(database, { ...baseInput, status: "open" }, options);
+    // The racing close read the matter as open; the winner closes before its commit lands.
+    const racing = interleaveBeforeFirstCommit(database, () =>
+      closeMatter(database, matterId, options),
+    );
+    await closeMatter(racing, matterId, { ...options, clock: laterClock });
+    expect((await readMatter(database, matterId))?.closed_at).toBe(clock.now());
+  });
+
   it("close runs the (empty) precondition registry and succeeds", async () => {
     const database = await setup();
     const { matterId } = await createMatter(database, { ...baseInput, status: "open" }, options);
@@ -256,6 +367,19 @@ describe("renumberMatter", () => {
     expect(next.matterNumber).toBe("2026-0001");
   });
 
+  it("records the displaced number, so a filing quoting it can still be resolved", async () => {
+    const database = await setup();
+    const { matterId } = await createMatter(database, { ...baseInput, status: "open" }, options);
+    await renumberMatter(database, matterId, "CV-2026-00441", options);
+    const { results } = await database
+      .prepare("SELECT metadata FROM audit_log WHERE event = 'matter.renumbered'")
+      .all<{ metadata: string | null }>();
+    expect(JSON.parse(results[0]?.metadata ?? "null")).toEqual({
+      matterNumber: "CV-2026-00441",
+      previousMatterNumber: "2026-0001",
+    });
+  });
+
   it("refuses a non-URL-safe number", async () => {
     const database = await setup();
     const { matterId } = await createMatter(database, { ...baseInput, status: "open" }, options);
@@ -298,6 +422,67 @@ describe("number allocation under contention", () => {
     const second = await createMatter(database, { ...baseInput, status: "open" }, options);
     expect(first.matterNumber).toBe("2026-0001");
     expect(second.matterNumber).toBe("2026-0003");
+  });
+
+  it("records the counter value each draw consumed", async () => {
+    const database = await setup();
+    await createMatter(database, { ...baseInput, status: "open" }, options);
+    await createMatter(database, { ...baseInput, status: "open" }, options);
+    expect(await readAllocations(database)).toEqual([
+      { scope_key: "", drawn_value: 1 },
+      { scope_key: "", drawn_value: 2 },
+    ]);
+  });
+
+  it("two concurrent draws never share a counter value, even when they render different numbers", async () => {
+    const database = await setup(CLIENT_CODE_SCHEME);
+    const [a, b] = await Promise.all([
+      createMatter(
+        database,
+        { ...baseInput, status: "open", numberContext: { clientCode: "ACME" } },
+        options,
+      ),
+      createMatter(
+        database,
+        { ...baseInput, status: "open", numberContext: { clientCode: "BRIGHTON" } },
+        options,
+      ),
+    ]);
+    // Both draws read the same counter value from the same (firm-wide) scope and render it into
+    // DIFFERENT strings — "ACME-0001" and "BRIGHTON-0001" — so nothing about matter_number can see
+    // the collision. The allocation row is what forces the loser to retry onto the next value.
+    const drawnValues = [a.matterNumber, b.matterNumber].map((number) =>
+      Number(String(number).split("-")[1]),
+    );
+    expect(new Set(drawnValues)).toEqual(new Set([1, 2]));
+    expect(await readAllocations(database)).toEqual([
+      { scope_key: "", drawn_value: 1 },
+      { scope_key: "", drawn_value: 2 },
+    ]);
+  });
+
+  it("scoped schemes keep their own sequences (the same value in two scopes is no collision)", async () => {
+    const database = await setup([
+      { kind: "location_code", scoping: true },
+      { kind: "literal", text: "-" },
+      { kind: "counter", padWidth: 3 },
+    ]);
+    const reno = await createMatter(
+      database,
+      { ...baseInput, status: "open", numberContext: { locationCode: "RENO" } },
+      options,
+    );
+    const vegas = await createMatter(
+      database,
+      { ...baseInput, status: "open", numberContext: { locationCode: "VEGAS" } },
+      options,
+    );
+    expect(reno.matterNumber).toBe("RENO-001");
+    expect(vegas.matterNumber).toBe("VEGAS-001");
+    expect(await readAllocations(database)).toEqual([
+      { scope_key: "RENO", drawn_value: 1 },
+      { scope_key: "VEGAS", drawn_value: 1 },
+    ]);
   });
 
   it("a scheme edit only affects later matters (existing numbers are frozen)", async () => {
