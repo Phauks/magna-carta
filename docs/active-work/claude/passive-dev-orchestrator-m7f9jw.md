@@ -217,6 +217,15 @@ Batches in order (details in task board; sequencing notes inline):
   unused ignore — prune when in the file.
 - Environment: no `gh` CLI (GitHub tool server instead); git proxy 403s ref
   deletions (branch cleanup is owner-manual); osv-scanner binary not downloadable.
+- Keep-both conflict resolution on additive registries (per-firm-schema.ts,
+  pii-registry.ts, telemetry events) can SILENTLY INTERLEAVE blocks: git aligns
+  on shared trailing lines (createdAt/updatedAt, closing brackets) and splices
+  one subsystem's declarations inside the other's. Typecheck catches most but a
+  schema-shaped splice can look plausible — after any registry merge, verify each
+  subsystem's block is contiguous (grep the export boundaries) before trusting it.
+- The advisories above were RESOLVED 2026-08-04 (uuid override; quick-xml capped +
+  extended to 2027-02-14 with reachability analysis; the exit is replacing
+  office-crypto). The osv line above is kept for the mechanism, not the dates.
 - Deploys: Workers Builds production branch is `release`, not `main`.
 
 ## Revival procedure (cold start)
