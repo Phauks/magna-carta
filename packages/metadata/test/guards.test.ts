@@ -1,11 +1,33 @@
 import { strToU8, zipSync } from "fflate";
 import { describe, expect, it } from "vitest";
-import { BombError, MAX_ENTRY_COUNT, oversize, safeUnzip } from "../src/guards.ts";
+import {
+  BombError,
+  MAX_ENTRY_COUNT,
+  MAX_INFLATED_BYTES,
+  oversize,
+  safeUnzip,
+  zipHasEntry,
+} from "../src/guards.ts";
+
+// The isolate this runs in has a 128 MiB memory ceiling; the inflated cap has to leave room for the
+// input, two entry maps, and the XML working set at the same time.
+const ISOLATE_MEMORY_CEILING = 128 * 1024 * 1024;
 
 describe("guards", () => {
   it("oversize flags inputs above the cap", () => {
     expect(oversize(new Uint8Array(1024))).toBe(false);
     expect(oversize(new Uint8Array(20 * 1024 * 1024))).toBe(true);
+  });
+
+  it("caps total inflation far enough below the isolate ceiling to leave working room", () => {
+    expect(MAX_INFLATED_BYTES).toBeLessThanOrEqual(ISOLATE_MEMORY_CEILING / 4);
+  });
+
+  it("zipHasEntry answers membership under the same caps", () => {
+    const zip = zipSync({ "word/document.xml": strToU8("<w:document/>") });
+    expect(zipHasEntry(zip, "word/document.xml")).toBe(true);
+    expect(zipHasEntry(zip, "xl/workbook.xml")).toBe(false);
+    expect(() => zipHasEntry(zip, "word/document.xml", { maxInflated: 4 })).toThrow(BombError);
   });
 
   it("safeUnzip returns entries for a normal archive", () => {

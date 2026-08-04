@@ -74,6 +74,12 @@ describe("png", () => {
     expect(() => scrubPng(big)).not.toThrow();
     expect(inspectPngFindings(scrubPng(big))).toHaveLength(0);
   });
+  it("reports data appended after IEND, which the scrub already drops", () => {
+    const carrier = new Uint8Array([...buildPng(), ...ascii("PK"), 0x03, 0x04]);
+    expect(inspectPngFindings(carrier).map((f) => f.category)).toContain("image-trailing-data");
+    expect(inspectPngFindings(scrubPng(carrier))).toHaveLength(0);
+  });
+
   it("does not hang or throw on a corrupt chunk length (high bit set)", () => {
     // A chunk whose 4-byte length field is 0x80000000 (negative if parsed signed).
     const corrupt = new Uint8Array([
