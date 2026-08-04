@@ -18,6 +18,7 @@
     "./register": "./src/register.ts",
     "./template-service": "./src/template-service.ts",
     "./template-statements": "./src/template-statements.ts",
+    "./field-mapping-statements": "./src/field-mapping-statements.ts",
     "./assembly-statements": "./src/assembly-statements.ts"
   },
   "scripts": {

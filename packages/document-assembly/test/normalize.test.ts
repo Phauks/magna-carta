@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeTemplate } from "../src/normalize.ts";
+import { mergeFieldNameResolverFor, normalizeTemplate } from "../src/normalize.ts";
 import { readPackage, readPartText, type PartMap } from "../src/ooxml/package.ts";
 import {
   buildDocx,
@@ -203,6 +203,8 @@ describe("normalization — Word merge fields are detected without being convert
         occurrences: 1,
         form: "complex",
         mapsToKnownField: true,
+        mappedFromLibrary: false,
+        frozenText: "«matter.number»",
       },
     ]);
     const xml = readPartText(result.parts, "word/document.xml") ?? "";
@@ -211,20 +213,40 @@ describe("normalization — Word merge fields are detected without being convert
     expect(xml).not.toContain("{{matter.number}}");
   });
 
-  it("REFUSES registration rather than storing a template whose merge fields nothing will fill in", () => {
+  it("RECORDS each unconverted field on the manifest, with the frozen text it will print", () => {
     // Left as authored, a merge field is invisible to the assembly engine and renders Word's frozen
-    // cached result — a filed document that looks complete and is wrong. The refusal carries the
-    // guidance, so the caller can offer the choice rather than a dead end.
+    // cached result — a filed document that looks complete and is wrong. Refusing the template would
+    // keep that out of the product at the price of keeping the template out too; recording it on the
+    // manifest is what makes the field visible to every reader downstream instead.
+    const result = normalizeTemplate(
+      partsOf({
+        document: documentXml(complexMergeFieldParagraph("matter.number", "2019-CV-00041")),
+      }),
+    );
+    expect(result.failures).toEqual([]);
+    expect(result.manifest.unconvertedMergeFields).toEqual([
+      {
+        fieldName: "matter.number",
+        mappedKey: "matter.number",
+        part: "word/document.xml",
+        occurrences: 1,
+        form: "complex",
+        mapsToKnownField: true,
+        frozenText: "2019-CV-00041",
+      },
+    ]);
+    const warning = result.warnings.find((entry) => entry.code === "merge-field-unconverted");
+    expect(warning?.detail).toContain("matter.number");
+    expect(warning?.detail).toContain("cached");
+  });
+
+  it("does not call an unconverted-merge-field template placeholder-free", () => {
+    // The no-placeholders warning means "every assembly of this produces the same document", which is
+    // exactly what is NOT true of a template full of merge fields nothing will fill in.
     const result = normalizeTemplate(
       partsOf({ document: documentXml(complexMergeFieldParagraph("matter.number")) }),
     );
-    expect(result.failures).toHaveLength(1);
-    expect(result.failures[0]).toMatchObject({
-      code: "merge-field-conversion-required",
-      part: "word/document.xml",
-    });
-    expect(result.failures[0]?.detail).toContain("matter.number");
-    expect(result.failures[0]?.detail).toContain("converted");
+    expect(result.warnings.map((warning) => warning.code)).not.toContain("no-placeholders");
   });
 
   it("detects a simple field too, and names the form it took", () => {
@@ -235,6 +257,7 @@ describe("normalization — Word merge fields are detected without being convert
       fieldName: "client.displayName",
       form: "simple",
       mapsToKnownField: true,
+      frozenText: "«client.displayName»",
     });
   });
 
@@ -246,15 +269,18 @@ describe("normalization — Word merge fields are detected without being convert
       fieldName: "ClientName",
       mappedKey: "ClientName",
       mapsToKnownField: false,
+      mappedFromLibrary: false,
     });
   });
 
-  it("applies an injected name mapping, which is the seam the per-firm mapping library replaces", () => {
+  it("applies the firm's confirmed mapping, and says the mapping came from the library", () => {
     const result = normalizeTemplate(
       partsOf({ document: documentXml(complexMergeFieldParagraph("ClientName")) }),
       {
         convertMergeFields: true,
-        resolveMergeFieldName: (name) => (name === "ClientName" ? "client.displayName" : name),
+        resolveMergeFieldName: mergeFieldNameResolverFor(
+          new Map([["ClientName", "client.displayName"]]),
+        ),
       },
     );
     expect(result.failures).toEqual([]);
@@ -263,14 +289,16 @@ describe("normalization — Word merge fields are detected without being convert
       fieldName: "ClientName",
       mappedKey: "client.displayName",
       mapsToKnownField: true,
+      mappedFromLibrary: true,
     });
   });
 
-  it("detects nothing, and refuses nothing, in a template with no merge fields", () => {
+  it("detects nothing, and records nothing, in a template with no merge fields", () => {
     const result = normalizeTemplate(
       partsOf({ document: documentXml(paragraphOfRuns("{{matter.number}}")) }),
     );
     expect(result.mergeFieldDetections).toEqual([]);
+    expect(result.manifest.unconvertedMergeFields).toEqual([]);
     expect(result.failures).toEqual([]);
   });
 });
@@ -314,6 +342,32 @@ describe("normalization — Word MERGEFIELD conversion, when the caller opts in"
     expect(readPartText(result.parts, "word/document.xml") ?? "").not.toContain("fldSimple");
   });
 
+  it("confirms a mapping only for a key the dictionary has", () => {
+    // A conversion onto a real merge field is an answer worth remembering. One that produced a
+    // placeholder naming a field nobody has is a mistake to fix — and it fails registration anyway —
+    // so it never enters the firm's library as a confirmed meaning.
+    const result = normalizeTemplate(
+      partsOf({
+        document: documentXml(
+          complexMergeFieldParagraph("matter.number"),
+          simpleMergeFieldParagraph("SomeFieldNobodyHas"),
+        ),
+      }),
+      converting,
+    );
+    expect(result.failures.map((finding) => finding.code)).toEqual(["unknown-key"]);
+    expect(result.confirmedMappings).toEqual([
+      { fieldName: "matter.number", mergeKey: "matter.number" },
+    ]);
+  });
+
+  it("confirms nothing when conversion was not asked for", () => {
+    const result = normalizeTemplate(
+      partsOf({ document: documentXml(complexMergeFieldParagraph("matter.number")) }),
+    );
+    expect(result.confirmedMappings).toEqual([]);
+  });
+
   it("converts a quoted field name", () => {
     const paragraph =
       `<w:p><w:fldSimple w:instr=" MERGEFIELD  &quot;matter.number&quot;  \\* MERGEFORMAT ">` +
@@ -334,6 +388,9 @@ describe("normalization — Word MERGEFIELD conversion, when the caller opts in"
       "</w:p>";
     const result = normalizeTemplate(partsOf({ document: documentXml(paragraph) }));
     expect(result.failures).toEqual([]);
+    // Word's own fields are not ours: nothing is recorded against the template for a PAGE field, which
+    // renders correctly on its own and needs no merge value.
+    expect(result.manifest.unconvertedMergeFields).toEqual([]);
     const xml = readPartText(result.parts, "word/document.xml") ?? "";
     expect(xml).toContain("PAGE");
     expect(xml).toContain("fldChar");

@@ -10,9 +10,11 @@ Design: `docs/specs/2026-08-04-document-automation-design.md`.
 ## Shape
 
 `prepareTemplateVersion(bytes, scrub, options)` (`src/register.ts`) is the registration pipeline and
-runs in one defensible order — **strip macros → re-emit and re-read → normalize → scrub → verify the
-bytes that will be stored**. `assemble(templateBytes, mergeContext)` (`src/assemble.ts`) is the
-per-assembly path. `resolveMergeContext(database, input)` (`src/resolve.ts`) sits between them.
+runs in one defensible order — **macro consent gate → strip macros → re-emit and re-read → normalize →
+scrub → verify the bytes that will be stored**. `assemble(templateBytes, mergeContext)`
+(`src/assemble.ts`) is the per-assembly path. `resolveMergeContext(database, input)` (`src/resolve.ts`)
+sits between them. `src/field-mapping-statements.ts` is the firm's confirmed-mapping store behind the
+name resolver.
 
 ## Local rules
 
@@ -23,18 +25,30 @@ per-assembly path. `resolveMergeContext(database, input)` (`src/resolve.ts`) sit
   count; `test/resolve-batching.test.ts` asserts it, because the natural implementation of a merge
   engine is a per-field resolver and that is an N+1 pointed at a document with a hundred fields. Adding
   a dictionary source means adding one batched read, never a lookup on the substitution path.
-- **Conversion of a firm's own content is opt-in; detection is not.** `normalizeTemplate` always finds
-  and reports Word `MERGEFIELD` constructs and only rewrites them when `convertMergeFields` is set. A
-  template using them without the opt-in is a registration FAILURE, not a quiet pass: left as
-  authored, a merge field is invisible to `assemble` and renders Word's frozen cached result — a filed
-  document that looks complete and is wrong. Macro removal is the opposite default (act, then report)
-  for the same reason it is safe to: removing code cannot make a document say something untrue.
+- **Every rewrite of a firm's own content is opt-in; detection never is.** Both registration transforms
+  report unconditionally and act only on an explicit request flag — `convertMergeFields` and
+  `stripMacros`. What differs is the no-opt-in path, and it differs because the two failures differ. An
+  unconverted `MERGEFIELD` is RECORDED and the template registers: nothing substitutes it, so it renders
+  Word's frozen cached result, and the manifest's `unconvertedMergeFields` entry (name, part, frozen
+  text) is what puts that in front of the absence model instead of leaving it invisible — reported at
+  registration, in the field list, and by every assembly, which lands on `succeeded_with_absences`. A
+  live macro is REFUSED, with both remedies named: no manifest entry makes executable code safe to
+  store, and stripping it unasked is still a rewrite of the firm's document.
 - **`src/macros.ts` is security-boundary code.** Detection is driven by the content-types map and the
   relationship TYPES, never by file name — a VBA project parked at `word/embeddings/settings.bin` is
-  exactly as macro-bearing as one at the conventional name. `macroResidue()` is a SEPARATE, independent
-  scan run over the final bytes; the stripper never vouches for itself. Relationships are matched by
-  RESOLVED TARGET, never by target filename (an external hyperlink can end in the same name, and
-  dropping it leaves a dangling `r:id` that makes a reader declare the document damaged).
+  exactly as macro-bearing as one at the conventional name. `macroContentFindings()` answers "is this
+  macro-bearing" (the consent gate); `macroResidue()` adds the package-validity check and is a SEPARATE,
+  independent scan run over the final bytes — the stripper never vouches for itself, and a stray content
+  Override must never be read as a macro and refuse a template for want of a consent it does not need.
+  Relationships are matched by RESOLVED TARGET, never by target filename (an external hyperlink can end
+  in the same name, and dropping it leaves a dangling `r:id` that makes a reader declare the document
+  damaged).
+- **The engine never guesses what a Word field name means.** `MergeFieldNameResolver` is identity by
+  default; the firm's own confirmed mappings come from `src/field-mapping-statements.ts`, read ONCE per
+  registration into the resolver (never a lookup per field), and written back in the same commit as the
+  registration whose conversion confirmed them. A name nobody has confirmed is reported unmapped — a
+  `ClientName` that becomes `client.displayName` because it looked close is a silent binding decision on
+  privileged content.
 - **Formatting moves a decimal point; it never multiplies.** What a stored integer means is its kind
   plus its scale — `500` is five hundred on a number field and five dollars on a currency field. Money
   is `amount_minor`, rates are `rate_e4`, and `src/format.ts` renders both by moving the point on the
@@ -60,10 +74,6 @@ behaviour, description) plus, if its source already reads, one line in the match
 
 ## Named seams (not built here)
 
-- **`MergeFieldNameResolver`** (`src/normalize.ts`) — the identity mapping today. A **per-firm
-  field-mapping library** replaces it: a firm-scoped store of confirmed Word-field-name to
-  merge-field-key mappings that grows as an administrator confirms them, so a second template import
-  reuses what the first established.
 - **Conditional and repeating blocks** — the grammar is refused at registration today
   (`block-syntax-unsupported`) rather than silently read as a field name; built in slice 2·6·2, along
   with Directory role sources, `custom.<handle>` bindings, the letterhead logo, and protected-value

@@ -81,6 +81,12 @@ export const PROBLEM_TYPES = {
   // or macro content survived removal and the package could not be made safe to store. A registration
   // refusal, never a silent downgrade.
   "template-not-activatable": "template-not-activatable",
+  // A template upload carrying macro content, registered without asking for the macros to be removed
+  // (HTTP 422). Not an error in the document and not a scan verdict: a template is run against
+  // privileged client data, so one carrying code is never stored, and removing the code rewrites the
+  // firm's own document, so it is never done unasked. The problem carries what was found and names
+  // both ways through — opt in to the removal, or upload a macro-free copy.
+  "template-macro-consent-required": "template-macro-consent-required",
   // An assembly whose merge fields cannot be resolved (HTTP 422): the matter supplies no value for a
   // field declared to fail rather than render a blank. Names WHICH keys failed, never what they held.
   "merge-field-unresolvable": "merge-field-unresolvable",

@@ -1882,9 +1882,15 @@ export type RegisteredTemplate = {
     versionNumber: number;
     status: string;
     fieldCount: number;
+    macrosStripped: boolean;
     macroPartsRemoved: number;
     mergeFieldsConverted: boolean;
     mergeFieldsDetected: Array<TemplateMergeFieldDetection>;
+    unconvertedMergeFields: Array<TemplateUnconvertedMergeField>;
+    confirmedFieldMappings: Array<{
+        fieldName: string;
+        mergeKey: string;
+    }>;
     warnings: Array<TemplateNormalizationWarning>;
 };
 
@@ -1895,6 +1901,18 @@ export type TemplateMergeFieldDetection = {
     occurrences: number;
     form: string;
     mapsToKnownField: boolean;
+    mappedFromLibrary: boolean;
+    frozenText: string;
+};
+
+export type TemplateUnconvertedMergeField = {
+    fieldName: string;
+    mappedKey: string;
+    part: string;
+    occurrences: number;
+    form: string;
+    mapsToKnownField: boolean;
+    frozenText: string;
 };
 
 export type TemplateNormalizationWarning = {
@@ -1910,17 +1928,25 @@ export type RegisterTemplateRequest = {
     matterTypeId?: string | null;
     locationId?: string | null;
     /**
-     * Whether to convert Word merge fields in the uploaded document into this system's {{field}} form. Leave this off to see what the document contains first: the response lists every Word merge field found, and the document is left exactly as you authored it. Turning it on rewrites each one in place — the document you registered is not the document you uploaded — and is required before a document that uses Word merge fields can be registered, because Word merge fields are not filled in by this system as they stand.
+     * Whether to convert Word merge fields in the uploaded document into this system's {{field}} form. Leave this off and the document registers exactly as you authored it, with every Word merge field listed in the response and recorded against the template — but those fields are not filled in by this system, so every document assembled from the template prints the text Word last cached in them, and each assembly reports that too. Turning it on rewrites each one in place: the document registered is then not the document uploaded.
      */
     convertMergeFields?: boolean;
+    /**
+     * Whether to remove macro content from the uploaded document. A template is run against privileged client data, so one carrying macros cannot be stored: without this, an upload that contains any is refused, and the response lists what was found. Turning it on removes the macro project along with the content-type and relationship declarations that reference it, re-checks the result from scratch, and refuses the registration outright if anything survived — the document registered is then not the document uploaded. Uploading a macro-free copy of the file is the other way through.
+     */
+    stripMacros?: boolean;
 };
 
 export type RegisterTemplateVersionRequest = {
     uploadKey: string;
     /**
-     * Whether to convert Word merge fields in the uploaded document into this system's {{field}} form. Leave this off to see what the document contains first: the response lists every Word merge field found, and the document is left exactly as you authored it. Turning it on rewrites each one in place — the document you registered is not the document you uploaded — and is required before a document that uses Word merge fields can be registered, because Word merge fields are not filled in by this system as they stand.
+     * Whether to convert Word merge fields in the uploaded document into this system's {{field}} form. Leave this off and the document registers exactly as you authored it, with every Word merge field listed in the response and recorded against the template — but those fields are not filled in by this system, so every document assembled from the template prints the text Word last cached in them, and each assembly reports that too. Turning it on rewrites each one in place: the document registered is then not the document uploaded.
      */
     convertMergeFields?: boolean;
+    /**
+     * Whether to remove macro content from the uploaded document. A template is run against privileged client data, so one carrying macros cannot be stored: without this, an upload that contains any is refused, and the response lists what was found. Turning it on removes the macro project along with the content-type and relationship declarations that reference it, re-checks the result from scratch, and refuses the registration outright if anything survived — the document registered is then not the document uploaded. Uploading a macro-free copy of the file is the other way through.
+     */
+    stripMacros?: boolean;
 };
 
 export type TemplatePage = {
@@ -1946,6 +1972,7 @@ export type TemplateFields = {
     versionNumber: number;
     normalizerVersion: number;
     fields: Array<TemplateFieldEntry>;
+    unconvertedMergeFields: Array<TemplateUnconvertedMergeField>;
     warnings: Array<TemplateNormalizationWarning>;
 };
 
@@ -1964,6 +1991,25 @@ export type TemplateFieldEntry = {
 export type ArchivedTemplate = {
     templateId: string;
     status: 'archived';
+};
+
+export type MergeFieldMappingPage = {
+    data: Array<MergeFieldMappingEntry>;
+    nextCursor: string | null;
+};
+
+export type MergeFieldMappingEntry = {
+    mappingId: string;
+    fieldName: string;
+    mergeKey: string;
+    timesApplied: number;
+    createdAt: string;
+    updatedAt: string;
+};
+
+export type DeletedMergeFieldMapping = {
+    mappingId: string;
+    deleted: true;
 };
 
 export type MergeFields = {
@@ -1997,6 +2043,7 @@ export type AssemblyStatus = {
     fileId: string | null;
     fileVersionId: string | null;
     absentFieldKeys: Array<string>;
+    frozenMergeFieldNames: Array<string>;
     reason: string | null;
 };
 
@@ -12026,6 +12073,92 @@ export type TemplatesArchiveResponses = {
 };
 
 export type TemplatesArchiveResponse = TemplatesArchiveResponses[keyof TemplatesArchiveResponses];
+
+export type TemplatesFieldMappingsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        cursor?: string;
+    };
+    url: '/api/v1/merge-field-mappings';
+};
+
+export type TemplatesFieldMappingsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or no such template
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TemplatesFieldMappingsError = TemplatesFieldMappingsErrors[keyof TemplatesFieldMappingsErrors];
+
+export type TemplatesFieldMappingsResponses = {
+    /**
+     * A cursor-paginated page of confirmed merge-field mappings
+     */
+    200: MergeFieldMappingPage;
+};
+
+export type TemplatesFieldMappingsResponse = TemplatesFieldMappingsResponses[keyof TemplatesFieldMappingsResponses];
+
+export type TemplatesDeleteFieldMappingData = {
+    body?: never;
+    path: {
+        mappingId: string;
+    };
+    query?: never;
+    url: '/api/v1/merge-field-mappings/{mappingId}';
+};
+
+export type TemplatesDeleteFieldMappingErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or no such mapping
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TemplatesDeleteFieldMappingError = TemplatesDeleteFieldMappingErrors[keyof TemplatesDeleteFieldMappingErrors];
+
+export type TemplatesDeleteFieldMappingResponses = {
+    /**
+     * The mapping is withdrawn
+     */
+    200: DeletedMergeFieldMapping;
+};
+
+export type TemplatesDeleteFieldMappingResponse = TemplatesDeleteFieldMappingResponses[keyof TemplatesDeleteFieldMappingResponses];
 
 export type TemplatesMergeFieldsData = {
     body?: never;

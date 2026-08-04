@@ -39,6 +39,7 @@ import type {
   DirectoryPersonId,
   DirectoryPhoneId,
   DocumentAssemblyId,
+  DocumentTemplateFieldMappingId,
   DocumentTemplateId,
   DocumentTemplateVersionId,
   DocumentTypeId,
@@ -2237,6 +2238,51 @@ export const documentTemplateVersion = sqliteTable(
   ],
 );
 
+// The firm's own field-mapping library: one row per CONFIRMED Word-merge-field-name to merge-key
+// mapping. A firm migrating from Word mail merge or an older practice-management system has fields
+// called `ClientName` and `FileNo`, and nothing in the engine may guess what those mean — a mapping
+// asserted by resemblance is a silent binding decision on privileged content. So the mapping becomes
+// the firm's own knowledge: confirming one during a conversion writes it here, and every later
+// detection consults it, which is what turns a bulk migration into one pass of human confirmation
+// rather than one per document.
+//
+// Firm-scoped and freely editable: a mapping is a statement the firm made and can withdraw, so rows are
+// listed and deleted outright rather than archived. Deleting one changes nothing already registered —
+// a template version's bytes and manifest are immutable, and the mapping only ever affected the moment
+// of conversion.
+export const documentTemplateFieldMapping = sqliteTable(
+  "document_template_field_mapping",
+  {
+    id: text("id").primaryKey().$type<DocumentTemplateFieldMappingId>(), // documentTemplateFieldMapping_ handle
+    // The Word field name exactly as the source document recorded it. Matched literally — Word field
+    // names are case-sensitive and a firm that has both `ClientName` and `clientname` means two things.
+    fieldName: text("field_name").notNull(),
+    // The merge-field key it was confirmed to mean. Not a foreign key: the dictionary is code, not a
+    // table, and a mapping onto a key a later dictionary drops is a stale mapping to report rather than
+    // a row the database should have refused.
+    mergeKey: text("merge_key").notNull(),
+    // How many registrations have used this mapping — the signal that says which confirmations are
+    // load-bearing when a firm reviews the library.
+    timesApplied: integer("times_applied").notNull().default(0),
+    confirmedBy: text("confirmed_by").$type<UserId>(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    // One confirmed meaning per Word field name: a second confirmation of the same name updates the
+    // mapping rather than leaving two answers to the same question in the library.
+    uniqueIndex("document_template_field_mapping_field_name_unique_index").on(table.fieldName),
+    check(
+      "document_template_field_mapping_field_name_nonempty_check",
+      sql`length(${table.fieldName}) > 0`,
+    ),
+    check(
+      "document_template_field_mapping_merge_key_nonempty_check",
+      sql`length(${table.mergeKey}) > 0`,
+    ),
+  ],
+);
+
 // One row per assembly job — the reason the subsystem is auditable. It records the exact template
 // version used, so a document assembled in March and one assembled in September from a template revised
 // in June are explainably different rather than mysteriously so.
@@ -2280,6 +2326,14 @@ export const documentAssembly = sqliteTable(
     dictionaryVersion: integer("dictionary_version").notNull().default(0),
     absentFieldCount: integer("absent_field_count").notNull().default(0),
     absentFieldKeysJson: text("absent_field_keys_json").notNull().default("[]"),
+    // The Word merge fields the template still carried UNCONVERTED, which the produced document
+    // therefore renders as Word's frozen cached text rather than as a merged value. Recorded beside the
+    // absent keys and on the same terms: FIELD NAMES ONLY, never the frozen text itself, which is
+    // template content rather than provenance. An assembly whose template has any of these completes
+    // `succeeded_with_absences` — a field that prints stale words is the same class of "this document
+    // needs a human before it is filed" as a blank, which is exactly why they are recorded here.
+    frozenFieldCount: integer("frozen_field_count").notNull().default(0),
+    frozenFieldNamesJson: text("frozen_field_names_json").notNull().default("[]"),
     requestedBy: text("requested_by").$type<UserId>(),
     createdAt: text("created_at").notNull(),
     completedAt: text("completed_at"),
