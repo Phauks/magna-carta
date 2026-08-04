@@ -6,7 +6,19 @@ waiting on the owner: the undeployed merge queue plus the account-side
 dashboard steps that no session can perform. Kept current by the
 orchestration stream; check `git log release..main` for the live commit delta.
 
-_Last updated: 2026-08-04._
+_Last updated: 2026-08-04 (second pass — tenancy fixes merged)._
+
+## New configuration the next deploy must carry
+
+- **`R2_BUCKET_NAME`** — new `wrangler.jsonc` var on the app worker (landed with the
+  bucket-resolution unification). It must stay byte-identical to
+  `r2_buckets[0].bucket_name`; the resolver uses it to refuse presigning into a
+  bucket the Worker cannot read. Already committed in the config — no dashboard
+  step, listed so a manual `wrangler secret`/vars review does not strip it.
+- Note: before that fix, enabling the full R2 S3 credential set in production
+  would have broken every upload (presign wrote to per-firm buckets, ingest read
+  the bound platform bucket). Fixed on `main`; do not deploy any pre-fix commit
+  with real presigning credentials.
 
 ## Position
 
