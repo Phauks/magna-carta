@@ -10,12 +10,8 @@
 # one authoritative audit over both supply chains.
 
 [[IgnoredVulns]]
-id = "GHSA-gv7w-rqvm-qjhr"
-reason = "Pre-existing transitive dev/build-tooling advisory (esbuild), no production-runtime exploit path; drops when Renovate upgrades the carrier."
-
-[[IgnoredVulns]]
 id = "GHSA-r5fr-rjxr-66jc"
-reason = "Pre-existing transitive dev/build-tooling advisory (lodash), no production-runtime exploit path; drops when Renovate upgrades the carrier."
+reason = "Pre-existing transitive dev/build-tooling advisory (lodash), no production-runtime exploit path. Drops when the carrier upgrades; note this needs a deliberate bump, not an automated one, until the Renovate app is actually installed on the repository."
 
 # --- Tracked advisories (surfaced when osv-scanner first audited the Rust supply chain 2026-07-16).
 # Each is accepted with cause and a time-boxed ignoreUntil forcing function that re-surfaces it for review.
@@ -26,14 +22,14 @@ reason = "Pre-existing transitive dev/build-tooling advisory (lodash), no produc
 [[IgnoredVulns]]
 id = "RUSTSEC-2026-0194"
 ignoreUntil = 2026-10-14
-reason = "quick-xml (CVSS 7.5) in crates/ and containers/recovery. Reachable only transitively through office-crypto 0.2.0 (its latest release), which pins quick-xml 0.38; there is no office-crypto release on quick-xml >=0.41 yet, so this cannot be cleared without patching a third-party crate's internals. Re-check when office-crypto ships an update."
+reason = "quick-xml quadratic duplicate-attribute scan (CVSS 7.5), fixed in quick-xml 0.41.0. Reached only through office-crypto, which still requires quick-xml ^0.38.4 as of office-crypto 0.3.0 — so no carrier upgrade clears this, and cargo cannot resolve 0.41 under that requirement. Remediation needs an upstream office-crypto bump, a [patch] override, or dropping the crate; re-decide before ignoreUntil."
 
 [[IgnoredVulns]]
 id = "RUSTSEC-2026-0195"
 ignoreUntil = 2026-10-14
-reason = "quick-xml (CVSS 7.5) in crates/ and containers/recovery. Same carrier as RUSTSEC-2026-0194 — transitive via office-crypto 0.2.0 pinning quick-xml 0.38, no fixed office-crypto release yet. Re-check when office-crypto ships an update."
+reason = "Second quick-xml advisory (CVSS 7.5), same carrier and same blocker as RUSTSEC-2026-0194: office-crypto 0.3.0 still requires quick-xml ^0.38.4, and the fix lands in 0.41.0."
 
 [[IgnoredVulns]]
 id = "GHSA-w5hq-g745-h8pq"
 ignoreUntil = 2026-10-14
-reason = "uuid 8.3.2 (CVSS 7.5; GitHub labels it Moderate — flagged because this gate keys npm severity off CVSS). Transitive dev-tooling dependency of postman-collection 4.5.0 (API-contract test tooling), not on any production-runtime path; the advisory is a buffer-bounds issue in v3/v5/v6 with caller-supplied output buffers, which this tool does not exercise with untrusted input. A forced 8->11 major bump risks the tool. Re-check when postman-collection moves off uuid 8."
+reason = "uuid unchecked-buffer-bounds in v3/v5/v6, fixed in uuid 11.1.1. CVSS 7.5 (GitHub labels it Moderate); flagged because this gate keys npm severity off CVSS. Dev-only path: @stoplight/prism-cli and @stoplight/spectral-cli -> @stoplight/http-spec -> postman-collection -> uuid 8.3.2. Upgrading the carrier does NOT clear it — postman-collection hard-pins uuid 8.3.2 through its newest release (5.3.1) — so the only remediation is a pnpm override forcing uuid, which must be weighed against breaking the v8 API these tools call."
