@@ -10,7 +10,7 @@ ui: n/a
 load-profile: n/a
 tested: todo
 branch: main
-active-work: docs/active-work/claude/repo-status-roadmap-xhdvyb.md
+active-work:
 next: Activate magna-carta-convert (Workers Build project + conversions/ R2 lifecycle rule), then deploy the LibreOffice engine in order (convert worker with the new Container class before the app worker routes the engine id — docs/deploy-queue.md); then the email→PDF render engine on that container's job-package seam, a licensable WordPerfect acceptance fixture, and the matter-attached save-as-version path
 link-spec: docs/specs/2026-06-21-slice-2-4a-conversion-core-design.md
 link-plan: docs/specs/2026-06-21-slice-2-4a-conversion-core-implementation-plan.md

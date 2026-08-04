@@ -1,5 +1,12 @@
 const CATEGORY_ORDER = ["Added", "Changed", "Deprecated", "Removed", "Fixed", "Security"];
 
+// A fragment body is entry TEXT: `foldFragments` is what turns it into a list item. Authors reasonably
+// write the body the way it will read in the file, leading `- ` and all, and the two prefixes then
+// stack into `- - **The entry...**` in the rendered changelog. Strip whichever marker the author used
+// (`-`, `*`, `+`) so the assembler owns exactly one. A body that leads with something else — prose, a
+// heading, a fenced block — is left alone.
+const LEADING_LIST_MARKER = /^[-*+][ \t]+/;
+
 export function parseFragment(markdown) {
   const lines = markdown.split("\n");
   const end = lines.indexOf("---", 1);
@@ -10,7 +17,8 @@ export function parseFragment(markdown) {
   const text = lines
     .slice(end + 1)
     .join("\n")
-    .trim();
+    .trim()
+    .replace(LEADING_LIST_MARKER, "");
   return { category, text };
 }
 
