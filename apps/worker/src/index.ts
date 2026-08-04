@@ -6,6 +6,7 @@ import type { ConversionMessage } from "./conversions/conversion-types.ts";
 import { perFirmQueue, type PerFirmQueueMessage } from "./costs/recoverable-charge-consumer.ts";
 import { bundleBuildQueue } from "./downloads/bundle-consumer.ts";
 import type { BundleBuildMessage } from "./downloads/bundle-types.ts";
+import { emailsCaptureQueue, type EmailsCaptureMessage } from "./emails/capture-consumer.ts";
 import { ingestQueue, type R2EventMessage } from "./files/ingest-consumer.ts";
 import { inferenceQueue, type InferenceJob } from "./inference/inference-consumer.ts";
 import { runIdleCheckoutSweep } from "./editing/idle-checkout-sweep.ts";
@@ -53,6 +54,7 @@ const PER_FIRM_JOB_QUEUE = "magna-carta-production-platform-jobs";
 // consumer, which runs one shard of a dictionary/rule search and reports its outcome back to the
 // coordinator Durable Object.
 const RECOVERY_QUEUE = "magna-carta-production-recovery-shard";
+const EMAILS_CAPTURE_QUEUE = "magna-carta-production-emails-capture";
 
 // createApp defaults the plugin runtime to the production seam — the firm_secret credential store
 // throws until the marketplace wires the live credential read; carrier calls use a fetch-backed
@@ -123,6 +125,10 @@ export default {
     // The recovery shard queue routes to the recovery consumer (one dictionary/rule shard per message).
     if (batch.queue === RECOVERY_QUEUE) {
       return recoveryQueue(batch as MessageBatch<RecoveryShardMessage>, env);
+    }
+    // The email-capture queue routes to the capture consumer (one filing job per message).
+    if (batch.queue === EMAILS_CAPTURE_QUEUE) {
+      return emailsCaptureQueue(batch as MessageBatch<EmailsCaptureMessage>, env);
     }
     // Both the interactive files-ingest queue and the bulk files-ingest-bulk queue route to the
     // same ingest handler — the lane separation is entirely in queue topology and concurrency.

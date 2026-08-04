@@ -17,6 +17,7 @@
     "./search": "./src/search.ts",
     "./merge": "./src/merge.ts",
     "./party": "./src/party.ts",
+    "./contact-email": "./src/contact-email.ts",
     "./statements": "./src/statements.ts",
     "./audit": "./src/audit.ts",
     "./run-directory-effect": "./src/run-directory-effect.ts"

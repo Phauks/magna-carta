@@ -93,7 +93,7 @@ mod tests {
         // rastered at whatever density fits instead of being rejected.
         let dpi = render_dpi_for(2592.0, 3456.0).expect("an E-size exhibit must still render");
         assert!(
-            dpi < RENDER_DPI && dpi >= MIN_RENDER_DPI,
+            (MIN_RENDER_DPI..RENDER_DPI).contains(&dpi),
             "expected a reduced but usable density, got {dpi}"
         );
         assert!(

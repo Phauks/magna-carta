@@ -11,7 +11,7 @@ load-profile: done by="Opus 4.8"
 tested: done by="Opus 4.8"
 branch: slice-4-1-conflicts
 active-work: docs/active-work/slice-4-1-conflicts.md
-next: Reviewer adjudication UX (deferred); Beider-Morse; the Content source class; owner review of the cross-party positional-conflict self-filter
+next: Reviewer adjudication UX (deferred); Beider-Morse; the Content source class
 link-spec: docs/specs/2026-07-09-slice-4-1-conflicts-design.md
 link-plan: docs/specs/2026-07-09-slice-4-1-conflicts-implementation-plan.md
 adrs:

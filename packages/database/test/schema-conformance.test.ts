@@ -45,12 +45,16 @@ describe("schema conformance (fitness functions)", () => {
     //  - matter_number_counter: a counter keyed by its scope (like the migration tracker, _migrations).
     //  - setting: key/value config keyed by the setting key.
     //  - platform_operator: one row per elevated user — keyed by the GLOBAL user handle, same idiom as member.
+    //  - email_capture_route: the control-plane token->firm routing index — the opaque routing token IS
+    //    the row's identity (the Email Worker looks a route up by the local part it parsed), same idiom
+    //    as setting keyed by its key.
     const naturalSinglePrimaryKeyNames: Record<string, string> = {
       account_balance: "account_id",
       member: "user_id",
       matter_number_counter: "scope_key",
       setting: "key",
       platform_operator: "user_id",
+      email_capture_route: "token",
     };
     // storage_meter is keyed by WHAT it rolls up — a composite natural key, no handle. Still all TEXT.
     // token_usage_meter is the same shape — keyed by (day, slot, model_id), all TEXT, append-by-delta.

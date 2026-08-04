@@ -100,13 +100,14 @@ interface HitRow {
   readonly evidence_tier: number;
   readonly matched_fields_json: string;
   readonly graph_path_json: string;
+  readonly co_party: number;
   readonly created_at: string;
 }
 
 async function readHitRows(database: SqlDatabase, checkId: string): Promise<HitRow[]> {
   const { results } = await database
     .prepare(
-      `SELECT id, entity_id, source_class, evidence_tier, matched_fields_json, graph_path_json, created_at FROM ${CONFLICTS_HIT_TABLE} WHERE check_id = ?1 ORDER BY created_at ASC, id ASC`,
+      `SELECT id, entity_id, source_class, evidence_tier, matched_fields_json, graph_path_json, co_party, created_at FROM ${CONFLICTS_HIT_TABLE} WHERE check_id = ?1 ORDER BY created_at ASC, id ASC`,
     )
     .bind(checkId)
     .all<HitRow>();
@@ -186,6 +187,9 @@ const HitDetail = z
     evidenceTier: z.number().int().min(1).max(4),
     matchedFields: z.array(z.string()),
     graphPath: z.array(GraphPathStep),
+    // True when the matched entity is itself a subject party of this check — a co-party surfacing (a
+    // positional conflict or a co-party collision), triaged apart from a conflict with a prior client.
+    coParty: z.boolean(),
     createdAt: z.string(),
     // The hit's current disposition (the latest reviewer adjudication), or null when no reviewer has
     // acted on it yet.
@@ -457,6 +461,7 @@ export function registerConflictsRoutes(app: ConflictsApp, chokepoint: Chokepoin
             evidenceTier: hitRow.evidence_tier,
             matchedFields: JSON.parse(hitRow.matched_fields_json) as string[],
             graphPath: JSON.parse(hitRow.graph_path_json) as unknown[],
+            coParty: hitRow.co_party === 1,
             createdAt: hitRow.created_at,
             disposition:
               disposition === null

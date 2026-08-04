@@ -10,6 +10,9 @@
 # independent jobs in parallel. Each heavy job is skipped when the diff can't affect it (a docs-only push
 # runs only format + governance), so cost tracks what changed. The `gate` job aggregates them into the
 # single required status. Rationale: docs/conventions/build-performance.md (fast CI is a foundation).
+# Every job carries a timeout-minutes cap set comfortably above its honest wall-clock (cold caches
+# included), so a genuine hang fails fast and visibly instead of burning a runner toward GitHub's 6-hour
+# default; when a job's honest time grows, raise its cap rather than letting it flirt with the limit.
 name: gate
 
 on:
@@ -35,6 +38,7 @@ jobs:
   # (no third-party action) against the PR base or the push's previous tip.
   changes:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       code: ${{ steps.filter.outputs.code }}
       rust: ${{ steps.filter.outputs.rust }}
@@ -52,27 +56,51 @@ jobs:
         run: |
           base="$BASE"
           if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$base" 2>/dev/null; then
-            base="$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)"
+            # No usable event base (workflow_dispatch, or a push whose `before` is unreachable): diff
+            # against the merge-base with origin/main — sound for a branch of any commit count, where
+            # HEAD~1 would under-classify a multi-commit branch and wrongly skip the heavy jobs.
+            base="$(git merge-base origin/main HEAD 2>/dev/null || git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)"
           fi
           files="$(git diff --name-only "$base" HEAD)"
           echo "diff base: $base"
           echo "changed files:"; echo "$files"
           emit() { echo "$1=$2" >> "$GITHUB_OUTPUT"; echo "filter: $1=$2"; }
-          # code = any changed file that is not purely markdown (a docs-only push skips the heavy jobs).
-          if echo "$files" | grep -qvE '\.md$'; then emit code true; else emit code false; fi
-          if echo "$files" | grep -qE '^crates/|(^|/)Cargo\.(toml|lock)$|wasm\.Dockerfile$'; then emit rust true; else emit rust false; fi
-          if echo "$files" | grep -qE '^containers/'; then emit containers true; else emit containers false; fi
+          if [ -z "$files" ]; then
+            # An empty diff means base resolution found nothing to compare (e.g. a dispatch on main
+            # itself). Fail safe: run everything rather than skip anything.
+            emit code true; emit rust true; emit containers true; emit lint_scope ALL
+            exit 0
+          fi
+          # Markdown can't affect any build or test output, so it is excluded before classification: a
+          # docs-only push runs only format + governance, and a README edit inside crates/ or
+          # containers/ no longer triggers that area's heavy job.
+          code_files="$(echo "$files" | grep -vE '\.md$' || true)"
+          if [ -n "$code_files" ]; then emit code true; else emit code false; fi
+          # crates/ holds every manifest, source file, and wasm.Dockerfile the rust job covers (the
+          # container Cargo workspaces are the containers job's concern); a toolchain bump re-verifies
+          # the crates workspace too.
+          if echo "$code_files" | grep -qE '^crates/|^rust-toolchain\.toml$'; then emit rust true; else emit rust false; fi
+          if echo "$code_files" | grep -qE '^containers/'; then emit containers true; else emit containers false; fi
           # The minimal package set the type-aware lint must cover (ALL | NONE | space-separated dirs) —
-          # pure node, no deps, runs on the runner's system node. See tooling/affected-lint.
-          emit lint_scope "$(node tooling/affected-lint/index.mjs --base "$base")"
+          # pure node, no deps, runs on the runner's system node. See tooling/affected-lint. A classifier
+          # crash fails this job: its contract has no empty value, and downstream must never guess.
+          scope="$(node tooling/affected-lint/index.mjs --base "$base")" || {
+            echo "affected-lint: classifier failed — no sound lint scope" >&2
+            exit 1
+          }
+          emit lint_scope "$scope"
 
   # Build the Rust→WASM artefacts once. Cache them across runs keyed on the Rust sources, so a push that
   # touches no crate restores in seconds instead of paying the ~7-minute cold Docker build; share them to
   # the consumer jobs (lint/type-check/tests/contracts) as an artefact so each doesn't rebuild.
+  # The key covers the Rust inputs only — the build command itself (the rust-wasm-build task in
+  # vite.config.ts) is not keyed, a deliberate trade so config-only edits don't cold-build; if you change
+  # that task in a way that alters its output, also touch a keyed input so the cache busts.
   wasm:
     needs: changes
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
 
@@ -108,6 +136,7 @@ jobs:
   # Formatting covers markdown too, so it runs on every change (including docs-only) and needs no WASM.
   format:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
@@ -121,6 +150,10 @@ jobs:
     needs: [changes, wasm]
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
+    # tsgolint building the app worker's whole-program type graph is the tall pole (~24 min for the whole
+    # repo). Cap well above that so a genuine tsgolint deadlock or runaway fails fast and visibly instead
+    # of burning the runner to GitHub's 6-hour default; raise this if the honest whole-repo time grows.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
@@ -136,24 +169,52 @@ jobs:
         # still run whole-repo. Mechanism + soundness: tooling/affected-lint, docs build-performance.md.
         env:
           SCOPE: ${{ needs.changes.outputs.lint_scope }}
+          # tsgolint is a Go program: on the whole-repo pass its live type graph is only a few GB, but the
+          # Go runtime lets the heap balloon to ~2x the live set before collecting, and that transient
+          # overshoot crosses the 16 GB runner ceiling and OOM-aborts (SIGABRT) at whatever diagnostic it
+          # is formatting when memory runs out — a moving crash point, not a lint error. A soft heap limit
+          # forces the collector to run before the overshoot instead of after, keeping peak RSS under the
+          # runner. Sized well above the observed ~6 GB live set (no GC thrash) and well under 16 GB
+          # (headroom for the node/oxc driver + OS). Raise it if the honest live graph grows.
+          GOMEMLIMIT: 10GiB
         run: |
+          # vp's stdout must be a FILE here, not the runner's pipe. Node flips a pipe stdout to
+          # non-blocking, and Vite+'s native lint printer panics on the resulting EAGAIN ("failed
+          # printing to stdout: Resource temporarily unavailable") when a large warning flood outruns
+          # the log reader — a whole-repo run with the advisory warn catalogs dies with SIGABRT after
+          # ~25 minutes, timing-dependent. A regular file cannot return EAGAIN, so the redirect makes
+          # the run deterministic; the output is replayed into the log afterward either way.
+          run_lint() {
+            local out="$RUNNER_TEMP/lint-output.txt" code=0
+            pnpm exec vp check --no-fmt "$@" > "$out" 2>&1 || code=$?
+            cat "$out"
+            return "$code"
+          }
           if [ "$SCOPE" = "ALL" ]; then
             echo "affected-lint: linting the whole repo"
-            pnpm exec vp check --no-fmt
+            run_lint
           elif [ "$SCOPE" = "NONE" ]; then
             echo "affected-lint: no lintable package affected — nothing to lint"
+          elif [ -z "$SCOPE" ]; then
+            # The classifier's contract is ALL | NONE | dirs; empty means the changes job handed over
+            # something unexpected. Fail rather than guess a scope.
+            echo "affected-lint: empty scope — refusing to guess" >&2
+            exit 1
           else
             echo "affected-lint: linting affected packages — $SCOPE"
             # Intentional word-splitting: each dir is a separate path argument to vp check.
-            pnpm exec vp check --no-fmt $SCOPE
+            run_lint $SCOPE
           fi
 
   # The authoritative type-check: tsc -b across the project-reference graph, the tsconfig-refs guard, the
-  # api-client type-check, and svelte-check for the SPA and the design system.
+  # api-client type-check, and svelte-check for the SPA and the design system. Each surface is its own
+  # named step so a red run says WHICH one failed without reading logs. Lint is deliberately not here:
+  # the type-aware lint is the separate `lint` job above, so the tall pole never serializes behind these.
   typecheck:
     needs: [changes, wasm]
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
@@ -161,13 +222,16 @@ jobs:
         with:
           name: wasm-pkg
       - run: tar -xzf wasm-pkg.tgz
-      - name: Type-check (tsc -b + svelte-check)
-        run: |
-          pnpm exec vp run typecheck
-          node tooling/tsconfig-refs/index.mjs --check
-          pnpm --filter @magna-carta/api-client run typecheck
-          pnpm --filter @magna-carta/web check
-          pnpm --filter @magna-carta/design-system check
+      - name: Type-check the project-reference graph (tsc -b)
+        run: pnpm exec vp run typecheck
+      - name: Guard the tsconfig project references
+        run: node tooling/tsconfig-refs/index.mjs --check
+      - name: Type-check the generated api-client
+        run: pnpm --filter @magna-carta/api-client run typecheck
+      - name: svelte-check — web app
+        run: pnpm --filter @magna-carta/web check
+      - name: svelte-check — design system
+        run: pnpm --filter @magna-carta/design-system check
 
   # The Rust workspace gate (cargo fmt --check + clippy -D warnings + tests). Runs on the host toolchain
   # with a cached cargo/target — independent of the Docker WASM build — and only when a crate changed.
@@ -175,6 +239,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
@@ -189,24 +254,29 @@ jobs:
   # Storybook stories (Chromium via Playwright). Splitting by substrate lets each scale independently and,
   # crucially, keeps the Playwright install in the ONE job that needs a browser instead of on every shard.
   #
-  # Completeness is by construction — the three jobs partition every test file exactly once:
+  # Completeness is by construction — the three jobs partition every REGISTERED test file exactly once:
   #   • test-stories runs the `storybook` project (the only browser suite);
   #   • test-worker runs the files under apps/worker + apps/status-worker (the only Miniflare suites);
-  #   • test-node runs everything else (packages + apps/web + tooling) with the `storybook` project
+  #   • test-node runs everything else — packages, apps/web, the standalone sibling workers
+  #     (default-pool unit tests with faked bindings), and tooling — with the `storybook` project
   #     excluded, so no browser boots here.
   # storybook is the only project that spans a path root (it lives under packages/design-system), so it
   # is the only one that must be included-by-name in one job and excluded-by-name from another; every
-  # other file belongs to exactly one path root. Adding a new top-level test area means adding its path to
-  # test-node (or a new job) — a missed path fails loud via --passWithNoTests being off, not silently.
+  # other file belongs to exactly one path root. Adding a new test area is TWO registrations: its vitest
+  # config into the root vite.config.ts `test.projects` list (a closed list — an unregistered project's
+  # tests run nowhere, and nothing can fail on their absence), and its path into test-node (or a new
+  # job), where a mis-scoped path fails loud via --passWithNoTests being off, not silently.
   # The heavy substrates (node, worker) shard within their job; bump the SHARD_TOTAL + matrix pair to
   # change a count. fail-fast off so one shard's failure still lets its siblings report.
 
-  # Plain node/unit suites — packages + the web app's node tests + tooling. No Miniflare, no browser; the
-  # storybook project is excluded so no Chromium is needed here. The bulk of the tests, cheapest per file.
+  # Plain node/unit suites — packages + the web app's node tests + the standalone sibling workers +
+  # tooling. No Miniflare, no browser; the storybook project is excluded so no Chromium is needed here.
+  # The bulk of the tests, cheapest per file.
   test-node:
     needs: [changes, wasm]
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -221,7 +291,11 @@ jobs:
           name: wasm-pkg
       - run: tar -xzf wasm-pkg.tgz
       - name: Tests — node (shard ${{ matrix.shard }}/${{ env.SHARD_TOTAL }})
-        run: pnpm exec vp test run --project='!storybook' --shard=${{ matrix.shard }}/${{ env.SHARD_TOTAL }} packages apps/web tooling
+        run: >-
+          pnpm exec vp test run --project='!storybook' --shard=${{ matrix.shard }}/${{ env.SHARD_TOTAL }}
+          packages apps/web apps/bundle-worker apps/convert-worker apps/email-worker
+          apps/file-repair-worker apps/magna-carta-edit apps/ocr-worker apps/recovery-worker
+          apps/scan-worker tooling
 
   # The Miniflare worker suites (@cloudflare/vitest-pool-workers) — the heaviest substrate, since each file
   # stands up its own Workers runtime with the wrangler bindings. Its own sharded job; no browser.
@@ -229,6 +303,7 @@ jobs:
     needs: [changes, wasm]
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -254,6 +329,7 @@ jobs:
     needs: [changes, wasm]
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
@@ -288,6 +364,7 @@ jobs:
   # slip through a docs-only push.
   governance:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
@@ -305,6 +382,10 @@ jobs:
         # silently passes.
         env:
           OSV_SCANNER_VERSION: "2.4.0"
+          # SHA256 of osv-scanner_linux_amd64, taken from the release's osv-scanner_SHA256SUMS. Pinned so a
+          # swapped or compromised release asset fails the gate instead of running. Update this in lockstep
+          # with OSV_SCANNER_VERSION (the hash for the new version is in that version's osv-scanner_SHA256SUMS).
+          OSV_SCANNER_SHA256: "15314940c10d26af9c6649f150b8a47c1262e8fc7e17b1d1029b0e479e8ed8a0"
         run: |
           # GitHub's default bash shell runs with -e (errexit); osv-scanner exits 1 on the normal
           # "advisories present" case, which would abort the step before the severity classifier runs.
@@ -313,6 +394,12 @@ jobs:
           mkdir -p "$RUNNER_TEMP/bin"
           curl -fsSL -o "$RUNNER_TEMP/bin/osv-scanner" \
             "https://github.com/google/osv-scanner/releases/download/v${OSV_SCANNER_VERSION}/osv-scanner_linux_amd64"
+          # Verify the download against the pinned hash before making it executable — fail closed on any
+          # mismatch so a tampered binary never runs.
+          if ! echo "${OSV_SCANNER_SHA256}  $RUNNER_TEMP/bin/osv-scanner" | sha256sum -c -; then
+            echo "osv-scanner binary failed SHA256 verification (expected ${OSV_SCANNER_SHA256}) — refusing to run" >&2
+            exit 1
+          fi
           chmod +x "$RUNNER_TEMP/bin/osv-scanner"
           export PATH="$RUNNER_TEMP/bin:$PATH"
           osv-scanner --version
@@ -379,11 +466,12 @@ jobs:
           echo "osv-scanner: HIGH/CRITICAL advisories remain after ignores — failing the gate:" >&2
           printf '%s' "$offenders" | jq -r '.[] | "  [\(.ecosystem)] \(.package): \(.ids | join(", ")) (max_severity=\(.max_severity), \(.classified_by))"' >&2
           exit 1
-      - name: Governance (process-refs + licenses + status fragments)
+      - name: Governance (process-refs + licenses + status fragments + test registration)
         run: |
           pnpm run lint:process-refs
           pnpm run lint:licenses
           pnpm run lint:status
+          pnpm run lint:test-registration
       - name: Migration integrity (journal/chain/rebuild guards)
         run: pnpm --filter @magna-carta/database exec vp test run test/migration-integrity.test.ts
 
@@ -393,6 +481,7 @@ jobs:
     needs: [changes, wasm]
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
@@ -419,28 +508,106 @@ jobs:
           pnpm --filter @magna-carta/design-tokens run build
           git diff --exit-code packages/design-tokens/generated
 
-  # Acceptance suites for the container images, run only when a container changed (Docker is on the runner
-  # here, unlike a local machine, so these run instead of being skipped).
+  # The container gate — two layers per CHANGED container: the workspace's own Rust gate (fmt --check
+  # + clippy -D warnings + cargo test — each container is its own Cargo workspace, so the crates/-scoped
+  # rust job never touches them), then the build-and-drive Docker acceptance suite where one exists
+  # (Docker is on the runner here, unlike a local machine). A changed container that is neither mapped
+  # to an acceptance suite nor explicitly listed as not-yet-covered FAILS the job — a new container must
+  # opt in loudly, never silently join the untested set.
   containers:
     needs: changes
     if: needs.changes.outputs.containers == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - name: Changed-container acceptance
+
+      - name: Free runner disk for the container builds
+        # This job stacks per-workspace cargo target dirs, the cargo cache, and full Docker image
+        # builds (the scan image compiles Rust and bakes a clamd DB in-image); the stock runner image
+        # leaves too little headroom — a scan+ocr change died registering Docker layers with "no space
+        # left on device". Drop the preinstalled bundles this repo never uses and prune Docker's
+        # preloaded images (every image the acceptance suites need is pulled by their builds anyway).
+        run: |
+          echo "before: $(df -h / | tail -1)"
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/hostedtoolcache/CodeQL /usr/local/.ghcup /usr/local/share/powershell
+          docker system prune -af --volumes > /dev/null 2>&1 || true
+          echo "after:  $(df -h / | tail -1)"
+
+      - name: Resolve the diff base
+        # Same resolution as the `changes` job: the event's base, else the merge-base with origin/main.
         env:
           BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
           base="$BASE"
           if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$base" 2>/dev/null; then
-            base="$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)"
+            base="$(git merge-base origin/main HEAD 2>/dev/null || git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)"
           fi
-          changed() { git diff --name-only "$base" HEAD | grep -q "^$1"; }
-          if changed containers/scan/; then bash containers/scan/tests/eicar_e2e.sh; fi
-          if changed containers/recovery/; then bash containers/recovery/tests/recover_e2e.sh; fi
-          if changed containers/bundle/; then bash containers/bundle/tests/acceptance.sh; fi
+          echo "DIFF_BASE=$base" >> "$GITHUB_ENV"
+          echo "diff base: $base"
+
+      - name: Rust toolchain (pinned by rust-toolchain.toml)
+        run: rustup show && rustc --version
+
+      - name: Cache the cargo registry and container targets
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            containers/*/target
+          key: cargo-containers-v2-${{ runner.os }}-${{ hashFiles('containers/*/Cargo.lock') }}
+          restore-keys: |
+            cargo-containers-v2-${{ runner.os }}-
+
+      - name: Changed-container Rust gate (fmt + clippy + test per workspace)
+        # Safe without a live stack: the daemon-dependent tests in these suites (e.g. the clamd INSTREAM
+        # check, the live-DB differential gate) are #[ignore]d by their authors, so a plain `cargo test`
+        # runs only the self-contained unit/integration tests; live wiring is the acceptance step's job.
+        env:
+          # Debuginfo dominates debug-build target size (the scan and ocr workspaces link ONNX Runtime
+          # and gigabytes of it). CI never debugs these binaries interactively, and the disk saved is
+          # what lets the Docker acceptance builds below fit on the same runner; the cache shrinks too.
+          CARGO_PROFILE_DEV_DEBUG: "0"
+        run: |
+          changed_files="$(git diff --name-only "$DIFF_BASE" HEAD)"
+          for manifest in containers/*/Cargo.toml; do
+            dir="$(dirname "$manifest")"
+            if echo "$changed_files" | grep -q "^$dir/"; then
+              echo "rust gate: $dir"
+              cargo fmt --manifest-path "$manifest" --all --check
+              cargo clippy --manifest-path "$manifest" --all-targets -- -D warnings
+              cargo test --manifest-path "$manifest"
+            fi
+          done
+
+      - name: Changed-container acceptance
+        run: |
+          changed_files="$(git diff --name-only "$DIFF_BASE" HEAD)"
+          for dir in containers/*/; do
+            name="$(basename "$dir")"
+            echo "$changed_files" | grep -q "^containers/$name/" || continue
+            case "$name" in
+              # bash, never sh: the scripts use `set -o pipefail` and other bash-isms, and Ubuntu's sh
+              # is dash — under sh they die on line 2 before testing anything.
+              scan) bash containers/scan/tests/eicar_e2e.sh ;;
+              recovery) bash containers/recovery/tests/recover_e2e.sh ;;
+              bundle) bash containers/bundle/tests/acceptance.sh ;;
+              # Known not-yet-covered: unit-tested above where a Cargo workspace exists, but no
+              # acceptance suite yet. Listed by name so the gap stays visible on every run that touches
+              # them — and so anything NOT listed fails below instead of passing green untested.
+              collabora | file-repair | ocr | raster)
+                echo "::warning::containers/$name changed but has no acceptance suite yet"
+                ;;
+              *)
+                echo "containers/$name changed but is neither mapped to an acceptance suite nor listed as not-yet-covered — add it to one of the two." >&2
+                exit 1
+                ;;
+            esac
+          done
 
   # The single required status. It succeeds only if no required job failed or was cancelled; a job the
   # path-filter skipped counts as success. Require THIS in branch protection, not the individual jobs, so
@@ -463,6 +630,7 @@ jobs:
       ]
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Verify every required check passed or was not needed
         run: |

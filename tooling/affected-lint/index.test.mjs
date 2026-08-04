@@ -49,26 +49,37 @@ describe("computeAffected", () => {
   });
 
   it("forces a whole-repo lint when a global-input file changes", () => {
-    for (const file of [
-      "oxlintrc.json",
-      "vite.config.ts",
-      "pnpm-lock.yaml",
-      "tsconfig.base.json",
-    ]) {
+    for (const file of ["vite.config.ts", "pnpm-lock.yaml", "tsconfig.base.json"]) {
       expect(
         computeAffected({ changedFiles: [file, "packages/money/src/a.ts"], packages }).mode,
       ).toBe("all");
     }
   });
 
-  it("forces a whole-repo lint for the global-input prefixes (shared tsconfig, .github, this logic)", () => {
-    for (const file of [
-      "packages/tsconfig/base.json",
-      ".github/workflows/gate.yml",
-      "tooling/affected-lint/index.mjs",
-    ]) {
+  it("forces a whole-repo lint for the global-input prefixes (shared tsconfig, this logic)", () => {
+    for (const file of ["packages/tsconfig/base.json", "tooling/affected-lint/index.mjs"]) {
       expect(computeAffected({ changedFiles: [file], packages }).mode).toBe("all");
     }
+  });
+
+  it("does not force a whole-repo lint for a workflow/action YAML change (it can't move a lint result)", () => {
+    // A .github change is NOT a global trigger: gate.yml alone has nothing lintable → none.
+    expect(computeAffected({ changedFiles: [".github/workflows/gate.yml"], packages }).mode).toBe(
+      "none",
+    );
+    // Alongside a package change, it is ignored and the scope is just that package's closure.
+    expect(
+      computeAffected({
+        changedFiles: [".github/workflows/gate.yml", "apps/web/src/app.ts"],
+        packages,
+      }).paths,
+    ).toEqual(["apps/web"]);
+  });
+
+  it("still forces a whole-repo lint for a lintable JS action under .github (caught as source outside any package)", () => {
+    expect(
+      computeAffected({ changedFiles: [".github/actions/foo/index.mjs"], packages }).mode,
+    ).toBe("all");
   });
 
   it("forces a whole-repo lint for a lintable source file outside every package", () => {

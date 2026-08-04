@@ -50,7 +50,7 @@ catalog:
   "@tanstack/svelte-query": 6.1.34
   # Auth (apps/worker). Better Auth runs on the control-plane D1 via its drizzle adapter;
   # otpauth is a devDependency that verifies TOTP codes in two-factor tests.
-  better-auth: 1.6.16
+  better-auth: 1.6.22
   otpauth: 9.5.1
   # Money (packages/money). Bigint API: the consolidated `dinero.js/bigint` subpath bundles the
   # calculator + bigint currencies, so no separate (deprecated) @dinero.js/calculator-bigint is needed.
@@ -133,5 +133,15 @@ catalog:
 overrides:
   vite: "npm:@voidzero-dev/vite-plus-core@0.1.24"
   vitest: "npm:@voidzero-dev/vite-plus-test@0.1.24"
+  # Security remediation: pin transitive carriers to the versions that fix the osv-scanner HIGH
+  # advisories (CVSS >= 7). Major-scoped where a line must not be dragged across a major (js-yaml,
+  # brace-expansion). Direct/catalog carriers (better-auth, fast-xml-parser) are bumped at their source.
+  "brace-expansion@1": 1.1.18
+  "js-yaml@3": 3.15.0
+  "js-yaml@4": 4.3.0
+  undici: 7.29.0
+  fast-uri: 3.1.5
+  sharp: 0.35.0
+  postcss: 8.5.18
 patchedDependencies:
   bits-ui@2.18.1: patches/bits-ui@2.18.1.patch

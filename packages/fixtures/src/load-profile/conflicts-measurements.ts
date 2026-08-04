@@ -38,6 +38,9 @@ export interface ConflictsMeasurementHandle {
   readonly subjectMatterId: string | null;
   // A page of matter ids the imputation join runs over.
   readonly matterIdPage: readonly string[];
+  // The deterministic co-party pair (two identically-named persons). A check seeded with both surfaces
+  // each as the other's hit, flagged co_party — the measured expression of the co-party surfacing path.
+  readonly coPartyEntityIds: readonly [string, string];
 }
 
 // How many matters the imputation join reads per iteration.
@@ -87,6 +90,7 @@ export async function conflictsMeasurementHandle(
     subjectEntityId: directoryProbes.probePersonId,
     subjectMatterId: subjectMatter[0]?.matter_id ?? null,
     matterIdPage: matterRows.map((row) => row.id),
+    coPartyEntityIds: [directoryProbes.coPartyEntityIdA, directoryProbes.coPartyEntityIdB],
   };
 }
 
@@ -115,6 +119,24 @@ export const conflictsMeasurements: readonly Measurement<ConflictsMeasurementHan
       // The identity join over a page of the firm's matters — matter_party -> directory_person ->
       // member — never a similarity matcher.
       await findImputationHits(handle.snapshot.database, handle.matterIdPage);
+    },
+  },
+  {
+    name: "conflicts.co-party-check",
+    operation: async (handle) => {
+      // A check seeded with BOTH members of the identically-named co-party pair. Matching either one
+      // surfaces the other — a match on a DIFFERENT subject party — which run-check records flagged
+      // co_party rather than dropping (only a self-match is dropped). over_inclusive so the surfacing
+      // is guaranteed at any scale. Writes its own append-only log rows, discarded with the working copy.
+      await runConflictsCheck(
+        handle.identifierContext,
+        {
+          trigger: "comprehensive",
+          subjectEntityIds: [...handle.coPartyEntityIds],
+          scope: { sources: ["party", "graph"], strictness: "over_inclusive", depth: 1 },
+        },
+        handle.writeOptions,
+      );
     },
   },
 ];
@@ -198,7 +220,7 @@ function hitsByCheckPlanStatement(snapshot: LoadedSnapshot): NodeSqlStatement {
   return captured(
     snapshot.database
       .prepare(
-        `SELECT id, entity_id, source_class, evidence_tier, matched_fields_json, graph_path_json, created_at
+        `SELECT id, entity_id, source_class, evidence_tier, matched_fields_json, graph_path_json, co_party, created_at
          FROM conflicts_hit WHERE check_id = ?1 ORDER BY created_at ASC, id ASC`,
       )
       .bind("conflictsCheck_probe"),
