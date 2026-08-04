@@ -128,6 +128,13 @@ export const ENTITY_PREFIXES = {
   // index files stored as one object in the firm's R2 — recorded in the per-firm catalog that a query
   // enumerates to know which splits are live for a matter.
   indexSplit: "indexSplit",
+  // Document automation. `documentTemplate` is the firm-level catalogue row for one assembly template;
+  // `documentTemplateVersion` is one immutable registered upload of that template's bytes (the version a
+  // finished document records it was produced from); `documentAssembly` is the provenance row for one
+  // assembly job — which template version, which matter, what outcome.
+  documentTemplate: "documentTemplate",
+  documentTemplateVersion: "documentTemplateVersion",
+  documentAssembly: "documentAssembly",
 } as const;
 
 export type EntityType = keyof typeof ENTITY_PREFIXES;

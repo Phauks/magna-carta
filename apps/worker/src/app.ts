@@ -16,10 +16,12 @@ import { registerHealthRoute } from "./routes/health.ts";
 import { createCloudflareEmailAdapter, type CloudflareEmailBinding } from "./email-cloudflare.ts";
 import { createLoggingEmailAdapter, type SendEmail } from "./email-port.ts";
 import { registerBundleStatusRoute } from "./routes/bundle-status.ts";
+import { registerAssembliesRoutes } from "./routes/assemblies.ts";
 import { registerConversionRoutes } from "./routes/conversions.ts";
 import { registerCustomFieldsRoutes } from "./routes/custom-fields.ts";
 import { registerCostsRoutes } from "./routes/costs.ts";
 import { registerTimeEntriesRoutes } from "./routes/time-entries.ts";
+import { registerTemplatesRoutes } from "./routes/templates.ts";
 import { registerTimerRoutes } from "./routes/timer.ts";
 import { registerRateCardsRoutes } from "./routes/rate-cards.ts";
 import { registerUtbmsCodesRoutes } from "./routes/utbms-codes.ts";
@@ -131,6 +133,14 @@ export type Bindings = {
   >;
   // The server-conversion queue the coordinator enqueues onto; the consumer runs the ConversionPort adapter.
   CONVERSION: Queue<import("./conversions/conversion-types.ts").ConversionMessage>;
+  // The document-assembly job coordinator: keyed firmId:assemblyId, single-flights one assembly per job
+  // so a retried submit can never file two documents onto a matter.
+  DOCUMENT_ASSEMBLY_JOB: DurableObjectNamespace<
+    import("./assemblies/assembly-coordinator.ts").DocumentAssemblyJob
+  >;
+  // The document-assembly queue the coordinator enqueues onto. The message carries IDENTIFIERS ONLY —
+  // the consumer resolves the merge context, which never leaves its memory.
+  DOCUMENT_ASSEMBLY: Queue<import("./assemblies/assembly-types.ts").DocumentAssemblyMessage>;
   // The dedicated conversion engine worker (magna-carta-convert), reached over a service binding.
   // Optional: absent in every test environment and until the deploy-time binding is added; while
   // unset, resolveEnginePort returns the deferred port (engine-not-implemented).
@@ -549,6 +559,12 @@ export function createApp(options: CreateAppOptions = {}) {
   // The server-conversion surface: presign an upload slot, submit a job, and poll its state.
   // Each route traverses the same chokepoint under the tools:fileConverter permission.
   registerConversionRoutes(app, chokepoint);
+  // Document automation: the firm's template catalogue (register, version, list, inspect fields,
+  // archive) plus the merge-field dictionary a template is authored against.
+  registerTemplatesRoutes(app, chokepoint);
+  // Document automation: submit an assembly onto a matter and poll it. Matter-rooted, so an assembly
+  // carries the matter's ethical wall like every other document operation.
+  registerAssembliesRoutes(app, chokepoint);
   // Support access — firm members request time-boxed help-desk access; the list gives all members
   // the transparency surface (who has or had access to their firm). Co-sign and revoke land in the
   // next task.

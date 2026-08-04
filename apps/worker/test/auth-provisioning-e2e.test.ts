@@ -256,6 +256,7 @@ describe("end-to-end", () => {
         "customFields:purge",
         "directory:edit",
         "directory:viewSensitiveIdentifiers",
+        "documents:assemble",
         "emails:file",
         "emails:manageCaptureAddresses",
         "emails:manageLinks",
@@ -285,6 +286,7 @@ describe("end-to-end", () => {
         "support:cosign",
         "support:manage",
         "support:request",
+        "templates:manage",
         "time:approve",
         "time:manageRates",
         "time:manageSettings",
@@ -445,6 +447,9 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
       "timeEntries.previewQuickAdd",
       "conversions.upload",
       "conversions.submit",
+      // Pure credential mint: a staging key plus a short-TTL presigned PUT URL for a template
+      // document — no firm-database write, nothing to audit (the conversions.upload precedent).
+      "templates.upload",
       "safeBrowse.post",
       // Pure-compute POSTs — inspect/scrub operate over the request body only; nothing is stored.
       "metadata.inspect",

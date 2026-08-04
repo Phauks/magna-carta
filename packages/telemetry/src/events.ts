@@ -104,6 +104,18 @@ export const usageFeature = defineEvent("usage.feature", [
   "appVersion",
 ] as const);
 
+// document.assembled — one per finished assembly job. Redaction is structural: there is NO slot for a
+// template name, a matter identifier, a merge-field key, or a resolved value — only the outcome
+// classification, an error code from a closed set, and how many fields the matter could not supply.
+// That makes the "documents are being filed with holes in them" signal observable without any of the
+// document's content, and the absent KEYS (never values) are recorded on the assembly row instead,
+// which is per-firm data behind the firm-scoped data-access layer rather than cross-firm analytics.
+export const documentAssembled = defineEvent("document.assembled", [
+  "outcome",
+  "reason",
+  "absenceCount",
+] as const);
+
 // The catalog's event names — derived from the builders themselves (each carries its `eventName`),
 // so this registry cannot drift from the real builders and the uniqueness fitness test checks the
 // actual catalog, not a hand-copied parallel list. Adding a builder above adds it here.
@@ -119,4 +131,5 @@ export const EVENT_NAMES = [
   authDenied,
   ingestVerdict,
   usageFeature,
+  documentAssembled,
 ].map((builder) => builder.eventName);

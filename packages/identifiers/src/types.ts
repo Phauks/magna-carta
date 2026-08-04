@@ -98,3 +98,6 @@ export type EmailParticipantId = Identifier<"emailParticipant">;
 export type EmailAttachmentId = Identifier<"emailAttachment">;
 export type EmailCaptureAddressId = Identifier<"emailCaptureAddress">;
 export type IndexSplitId = Identifier<"indexSplit">;
+export type DocumentTemplateId = Identifier<"documentTemplate">;
+export type DocumentTemplateVersionId = Identifier<"documentTemplateVersion">;
+export type DocumentAssemblyId = Identifier<"documentAssembly">;

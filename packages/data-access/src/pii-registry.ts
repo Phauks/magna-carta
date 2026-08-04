@@ -117,6 +117,16 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "retain-under-matter",
     note: "which firm member filed a message to a matter, and when, is the filing's provenance on that matter record",
   },
+  // Document automation — the assembly record is the provenance of a document on a matter file, so it
+  // is retained on the same basis as the document itself. Its structured subject is the member who
+  // requested the assembly; the absent-field key list it also carries names FIELDS, never values, and
+  // by construction held nothing.
+  {
+    table: "document_assembly",
+    subjectKey: "requested_by",
+    action: "retain-under-matter",
+    note: "who produced a document on a matter, and from which template version, is that document's provenance",
+  },
 ];
 
 // Per-firm tables that hold NO personal data — the explicit non-PII half of the coverage fitness.
@@ -223,4 +233,12 @@ export const NO_PII_TABLES: readonly string[] = [
   // provenance on a configuration row — current state, not an activity record about the member (the
   // same line integration_connection and scoped_setting sit on).
   "email_capture_address",
+  // Document-automation template catalogue — firm-authored assembly inputs and their stored bytes. A
+  // template can itself embed sample or boilerplate personal data in its fixed text, which is content-
+  // level residue for the residue report exactly as a matter document's contents are; the ROWS carry
+  // only the template's name, its narrowing bindings, its scan verdict, and its field manifest, which
+  // names merge fields rather than holding any value of one. created_by is administrative provenance on
+  // a firm configuration row (the same line email_capture_address sits on).
+  "document_template",
+  "document_template_version",
 ];

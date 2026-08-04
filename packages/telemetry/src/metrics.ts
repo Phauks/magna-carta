@@ -106,6 +106,26 @@ export const costsRecoveryUnhandledTopic = defineMetric("costs.recovery.unhandle
   "topic",
 ] as const);
 
+// Document automation. A MERGE-FIELD KEY IS NOT A DIMENSION here: dictionary-declared keys are
+// enum-like and would be tolerable, but a firm's own custom-field entries are keyed by firm-defined
+// handles, and a rule that admits one and not the other is a rule that gets applied wrongly. `source`
+// is the dimension; the key is recorded on the per-firm assembly row instead.
+export const documentAssemblyJobs = defineMetric("documentAssembly.jobs", [
+  "outcome",
+  "stage",
+] as const);
+// How often each dictionary source fails to resolve — the signal that a firm's templates and a firm's
+// data have drifted apart, which is the condition the field inspector exists to repair.
+export const documentAssemblyAbsentField = defineMetric("documentAssembly.absentField", [
+  "source",
+] as const);
+// How often registration rejects a template and which authoring form it came from — the signal that
+// says whether text delimiters were the right primary form.
+export const documentTemplateNormalization = defineMetric("documentTemplate.normalization", [
+  "outcome",
+  "placeholderForm",
+] as const);
+
 // The catalog itself, derived from the declarations above so it cannot drift from them.
 const CATALOG: readonly MetricDefinition[] = [
   scrubbedField,
@@ -124,6 +144,9 @@ const CATALOG: readonly MetricDefinition[] = [
   costsRecoveryReplayedAfterPurge,
   costsRecoveryFingerprintMismatch,
   costsRecoveryUnhandledTopic,
+  documentAssemblyJobs,
+  documentAssemblyAbsentField,
+  documentTemplateNormalization,
 ];
 
 const BY_NAME = new Map(CATALOG.map((definition) => [definition.metricName, definition]));

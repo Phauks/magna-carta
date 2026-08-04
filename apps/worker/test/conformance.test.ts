@@ -57,6 +57,8 @@ const NON_MUTATING_POST_ALLOW_LIST: Record<string, string> = {
     "Read-shaped POST: parses a one-line quick-add string and returns matter candidates — no write, nothing committed.",
   "conversions.upload":
     "Pure credential mint: mints a jobId and a short-TTL presigned PUT URL — no D1 write, no firm state change, just a signed URL the client uploads to directly.",
+  "templates.upload":
+    "Pure credential mint: mints a staging key and a short-TTL presigned PUT URL for a template document — no D1 write, no firm state change, just a signed URL the client uploads to directly (the conversions.upload precedent).",
   "conversions.submit":
     "Enqueues a conversion job through a Durable Object (no D1 write, no firm-database row): the DO + queue track the lifecycle; there is no audit_log row class that models a transient compute job.",
   "safeBrowse.post":
@@ -183,6 +185,11 @@ const RESOURCE_BY_PERMISSION_NAMESPACE: Record<string, string | readonly string[
   // the deliberate exception: it has no matter by construction (matter_id is null), its tenancy root
   // is the firm, and binding it to "matter" would name a resource it does not have.
   emails: ["matter", "firm"],
+  // templates:* governs the firm's assembly-template catalogue. A template carries no matter data —
+  // it is an assembly INPUT, not a matter document — so the firm is its tenancy root, which is also
+  // why the catalogue lives in its own tables rather than as matter-rooted file rows. The act of
+  // ASSEMBLING is matter-rooted and rides documents:assemble instead.
+  templates: "firm",
 };
 
 // Rule: every named permission exists in the registry, and its namespace binds to the route's
@@ -540,6 +547,8 @@ describe("conformance — the committed contract holds, and each rule catches a 
     const ids = [...operations(document)].map((entry) => entry.operationId).sort();
     expect(ids).toEqual([
       "aiDetection.detect",
+      "assemblies.status",
+      "assemblies.submit",
       "conflicts.getCheck",
       "conflicts.recordDisposition",
       "conflicts.runCheck",
@@ -713,6 +722,13 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "supportGrants.request",
       "supportGrants.revoke",
       "supportSessions.redeem",
+      "templates.addVersion",
+      "templates.archive",
+      "templates.fields",
+      "templates.list",
+      "templates.mergeFields",
+      "templates.register",
+      "templates.upload",
       "timeEntries.approve",
       "timeEntries.create",
       "timeEntries.get",

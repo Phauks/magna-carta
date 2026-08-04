@@ -87,6 +87,7 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "conflicts:read",
         "conflicts:run",
         "costs:track",
+        "documents:assemble",
         "emails:file",
         "emails:manageLinks",
         "emails:read",

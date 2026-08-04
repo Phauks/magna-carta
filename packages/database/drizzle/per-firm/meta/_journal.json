@@ -120,6 +120,20 @@
       "when": 1785844800000,
       "tag": "20260804T120000_shipment-purchase-claim",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1785855600000,
+      "tag": "20260804T150000_document-automation",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1785855601000,
+      "tag": "20260804T150001_seed-document-automation-permissions",
+      "breakpoints": true
     }
   ]
 }
