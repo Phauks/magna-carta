@@ -33,6 +33,16 @@
   evidence: packages/email-filing (record, thread, dedup, capture, capture-address, capture-token) + apps/worker/src/routes/capture-addresses.ts + emails.ts on main; capture-address mint, rotate, and revoke are built and the six email tables are classified in the PII registry.
   notes: Slice 1 is the record model plus forward/CC capture, functionally complete pending the deploy that activates the inbound route; the firm-mailbox Gmail/Outlook plugin path is not built.
 
+- id: communications.email.filing.capture-addresses
+  name: Capture-address management
+  scope: Minting, rotating, and revoking the forward/CC capture address a matter files mail through, plus the firm's single catch-all address.
+  status: shipped
+  slices: email-filing
+  adrs: ADR-0193, ADR-0202
+  spec: docs/specs/2026-07-14-email-filing-record-and-forward-capture-design.md
+  evidence: apps/worker/src/routes/capture-addresses.ts (six routes behind emails:manageCaptureAddresses) + packages/email-filing capture-address/capture-token + apps/worker/test/emails-capture-addresses.test.ts on main.
+  notes: Backend and user guide only — no screens yet; a minted address becomes routable on the next per-firm outbox sweep, and the capture-subdomain DNS onboarding is still a deploy step.
+
 - id: communications.email.parse-engine
   name: Email parse core
   scope: Pure-Rust .eml/.msg/mbox parse engine on the engine-host seam with WASM edge, wrapper package, and Email Inspector tool route.

@@ -41,6 +41,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Full history, not the default depth-1 clone: build-decisions.mjs orders pending fragments by
+          # the commit that first added each file (`git log --diff-filter=A`), and a shallow clone yields
+          # no such commit for any of them — every fragment ties, and ADR numbers get assigned
+          # alphabetically by slug instead of chronologically, silently.
+          fetch-depth: 0
       # Toolchain is needed only to format the assembled output (below); the assemblers themselves are
       # dependency-free Node scripts.
       - uses: ./.github/actions/setup
