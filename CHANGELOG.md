@@ -610,6 +610,35 @@ consumer — the first moment a version is durable, scanned, and current — and
 failure to enqueue can never unwind an ingest that already succeeded. A new `TextExtractionPort` covers
 the extract stage over the recognition engine, with typed outcomes that let the consumer tell "no engine
 yet" from "these bytes are unreadable".
+- **The LibreOffice conversion engine — the four registered office edges now have a body.**
+`docx→pdf`, `odt→pdf`, `docx→odt`, and `wpd→odt` have been declared conversions for two months and
+resolved to a deferred port that failed every job; `wpd→pdf` chains across them. `containers/libreoffice`
+is the engine that runs them: a Rust supervisor with an axum surface, plus a pool of warm worker child
+processes that each load LibreOffice once through a `dlopen`'d C ABI and convert one document at a time.
+
+The suite is owner-consented C++ under the memory-safety rule — no Rust library reads those formats with
+anything approaching this fidelity — and the consent buys exactly one thing: loading a shared library at
+run time. Everything around it is Rust, the container has no outbound network, and the suite always runs
+as an isolated child process, so a wedged or segfaulting conversion kills its own child and nothing else.
+A worker is replaced (never rebuilt in place — the binding segfaults if an instance is recreated) when it
+crosses its conversion budget, its resident-set ceiling, its deadline, or dies; a scheduled replacement is
+warmed alongside the outgoing worker, so recycling is not charged to the request that triggered it.
+
+`/ready` is honest: 503 until a worker has actually finished suite initialisation, which takes tens of
+seconds, so the container never hands that delay to the first user request as an unexplained stall. A
+failure is always a status, never an empty success — 415 for a format pair this engine does not serve, 422
+for a document that reached the suite and could not be converted (including a password-protected one,
+which is never guessed at), 503 when no worker was available, 504 on the conversion deadline.
+
+Carlito and Caladea ship in the image and the acceptance suite asserts the embedded font names, so a
+Calibri or Cambria document that silently fell back to Liberation — a layout shift, not an error — turns
+the build red instead. The supervisor's whole state machine is proved by `cargo test` against a fake
+worker that can be told to hang, crash, abort on a signal, run away with memory, or answer with garbage,
+so the part most likely to be wrong is covered on any machine with no office suite installed.
+
+Deploy is ordered: the convert worker carries the new Container class before the app worker starts routing
+the engine. Still to come on this container: the email-to-PDF render engine, which consumes the job-package
+seam and adds one dispatch arm.
 
 ### Fixed
 
@@ -1030,6 +1059,58 @@ turned a quarter-turn either way.
   guide now also says plainly what a merge does _not_ move — the subordinate's own names, identifiers,
   and contact rows stay where they are and resolve through the merge pointer, which is what makes a
   merged-away alias still surface in search and conflicts.
+- **The conversion queue consumer now resolves its R2 bucket through the firm-bucket seam.** It read the
+source object and wrote the converted result through the bound binding directly while the conversion
+routes presigned both legs through `resolveFirmBucket` — precisely the split the seam exists to prevent,
+and one that would send a job's bytes to a bucket the other half never looks in the moment a firm gets
+its own bucket. The firm's recorded bucket now travels on the conversion queue message (as it already
+does for a bundle build), so the consumer reads and writes through the very bucket the upload was
+presigned against rather than deriving one of its own, and the status route heads the result artifact
+through the same resolved handle. The fitness scan that holds modules to the resolver covers both
+conversion modules, so the bypass cannot come back unnoticed.
+
+**`pnpm check:scoped` no longer diffs against a frozen `main`.** It resolved its base by trying local
+`main` first and only falling back to `origin/main`, so in any worktree whose local `main` has not moved
+since it was created — every agent worktree — the merge-base landed hundreds of commits behind and the
+scoped gate stopped being scoped: it linted every file the trunk had touched in the meantime, slowly and
+noisily, and a few hundred files was enough to take the linter down with it. The base is now the newest
+of the merge-bases the trunk refs offer, ordered by ancestry rather than by commit date (a rebased commit
+can carry an older date than a commit it descends from), with the previous behaviour intact whenever only
+one ref resolves and `--base <ref>` still overriding both.
+
+**`vp run bootstrap` no longer reports success over stale wasm.** Staleness was an mtime comparison
+between the Rust sources and the emitted `.wasm`, which cannot see the failure that actually happens:
+every worktree shares one cargo target directory, so a build can be served from a cached compilation of
+sources that are not the ones on disk, wasm-bindgen re-emits the bindings from that cached artefact, and
+the emitted files get a fresh mtime that reads as "current" — leaving a package missing a function it is
+supposed to export, with the failure surfacing much later as `X is not a function` at runtime. Each
+output now carries a stamp holding the content hash of the sources it was built from (its crate, that
+crate's workspace-local path dependencies — which the mtime check never looked at — and the workspace
+manifests), and no build is believed until the emitted bindings are verified to export everything the
+crate's `#[wasm_bindgen]` surface declares. An artefact that comes out incomplete has its crate's cargo
+cache discarded and is rebuilt once; if it is still incomplete the command fails loudly instead of
+stamping a broken artefact as current.
+- - **Editing (WOPI):** the two file-access callbacks now agree on what a token may reach. `GetFile`
+  re-checks the file and the version the token names on every call, so a soft-deleted file, a version
+  withdrawn by the custody check, or a version a re-scan has flagged is refused rather than streamed
+  under a still-valid token — the same answer `CheckFileInfo` already gave. `CheckFileInfo` also
+  reports the **token's** version size and identifier instead of the file's current version, so a
+  version cut by another writer mid-session no longer makes the advertised metadata describe different
+  bytes than the ones served.
+- **Matters:** a retried `open` or `reopen` carrying the same `Idempotency-Key` now replays its stored
+  response instead of being refused by the precondition its own first attempt satisfied. Close already
+  behaved this way; a genuinely new request, which carries its own key, is still refused.
+- **File manager:** a version left `pending` by a dead-lettered ingest — the upload finished, the
+  session closed, and nothing was left to commit it — is now detected on the daily pass and re-driven
+  through the ingest path, with an operator counter for the rate.
+- **File manager:** the folder-move cycle check is carried inside the `UPDATE`, so two concurrent
+  cross moves can no longer commit a parent cycle that permanently detaches a subtree.
+- **File manager:** a blank or whitespace-only folder or file name is refused with its own code and a
+  422, instead of a misleading "name taken" on create or a raw constraint failure on rename.
+- **File manager:** a version-lifecycle batch (commit, check-in, no-op skip, quarantine) now fails as
+  a unit when its guarded status change loses a race, rather than committing the meter delta,
+  current-version pointer move, session flip, audit row, and outbox event for a change that never
+  happened.
 
 ### Changed
 
