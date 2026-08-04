@@ -1,3 +1,11 @@
+---
+number: 213
+slug: custodian-retention-jurisdiction-posture
+status:
+date:
+area:
+---
+
 # Custodian retention and destruction — mechanism ships, policy does not
 
 **Status:** Proposed
