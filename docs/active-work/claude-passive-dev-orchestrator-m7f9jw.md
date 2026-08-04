@@ -45,7 +45,23 @@ at full capacity. Keep it current at every milestone — it is the durable memor
   MC docs-sync (Mon 13:03), Cloudflare blog monitor (daily 14:00, reports not
   persisted), dependency updates (Mon 14:30).
 
-## State snapshot (2026-08-04 ~07:45 UTC — verify against live PRs/branches on revival)
+## Day-end position (2026-08-04 ~10:45 UTC)
+
+Twenty-five pull requests merged; zero open. Every inherited handover stream is
+on main: the docs/security backlog, the 2·4 conversion close-out plus the
+accepted LibreOffice engine design, email capture functionally complete
+(record model through mint/rotate/revoke), the whole discovery-search
+subsystem plus its write pipeline, and the 2·5 platform seal. The
+whole-program-review campaign landed all ten batches: the verification ledger
+now reads 46 fixed / 13 still-open (the honest backlog) / 5 obsolete. The
+docs pipeline is current (docs-sync 2026-08-04 folded 25 fragments,
+ADR-0200-0206). In flight: the LibreOffice engine build
+(`claude/libreoffice-engine-build`). Queue: tasks 23-32 (small scoped
+batches), then next backend slices by value (2·6 document automation, 4·2
+custodian; 3·2 trust = analysis + owner flag). Watch: the docs-assembly bot
+PR must prove it can self-merge post-ruleset-fix, else owner list.
+
+## Earlier snapshot (superseded, kept for the resume trail)
 
 Merged today (14): #42 #29 #43 #35 #44 #45 #50 #47 #49 #52 #48 #51 #53 #54 —
 the whole inherited backlog, the CI cost package (gate tiered + cached, nightly
