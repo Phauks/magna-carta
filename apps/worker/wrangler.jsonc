@@ -31,8 +31,12 @@
   // value lets the Miniflare test pool exercise the host branch. The editor half is USERCONTENT_DOMAIN
   // (the bare content domain), which defaults to magnacartausercontent.com in code — no deploy var, prod
   // can't forget it; only local dev overrides it.
+  // R2_BUCKET_NAME names the bucket bound below as R2. An R2Bucket handle carries no name, so this is
+  // how the bucket resolver (src/files/firm-bucket.ts) proves that the bucket a presigned URL addresses
+  // is the same one this Worker reads through. Keep it byte-identical to the r2_buckets bucket_name.
   "vars": {
     "FILES_ORIGIN": "files.example.com",
+    "R2_BUCKET_NAME": "magna-carta-production-platform-files",
   },
   // Real production resources (created 2026-06-09; naming convention in ADR-0075:
   // magna-carta-<environment>-<scope>[-<purpose-or-slug>]). Binding names are the code-facing
@@ -102,6 +106,10 @@
       // The recovery shard queue: the RecoveryJobCoordinator DO enqueues one message per shard; the
       // consumer runs a dictionary/rule search over its shard and reports the outcome back.
       { "binding": "RECOVERY_QUEUE", "queue": "magna-carta-production-recovery-shard" },
+      // The email-capture queue: the forward/CC Email Worker and the file-to-matter API both enqueue a
+      // pointer to the staged raw MIME; the consumer runs parse/dedup/thread-link/attachment off the
+      // request path.
+      { "binding": "EMAILS_CAPTURE", "queue": "magna-carta-production-emails-capture" },
     ],
     // The files-ingest consumer (the queue() handler in src/index.ts over the ingest consumer): one
     // R2 object-create event per uploaded object → single-read gates + SHA-256 + scan port → commit
@@ -157,6 +165,14 @@
         "queue": "magna-carta-production-recovery-shard",
         "max_concurrency": 4,
         "dead_letter_queue": "magna-carta-production-recovery-shard-deadletter",
+      },
+      // The email-capture consumer (the queue() handler routes this queue to the capture consumer):
+      // one filing job per message → parse, dedup, thread-link, stage the matter link, extract
+      // attachments onto the ingest chokepoint. Dead-letters to its own queue after max retries so a
+      // poison message never blocks the lane.
+      {
+        "queue": "magna-carta-production-emails-capture",
+        "dead_letter_queue": "magna-carta-production-emails-capture-deadletter",
       },
     ],
   },

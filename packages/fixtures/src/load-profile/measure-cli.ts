@@ -45,6 +45,12 @@ import {
   timekeepingMeasurements,
   TIMEKEEPING_PLAN_SCAN_ALLOWLIST,
 } from "./timekeeping-measurements.ts";
+import {
+  conflictsHotPathPlans,
+  conflictsMeasurementHandle,
+  conflictsMeasurements,
+  CONFLICTS_PLAN_SCAN_ALLOWLIST,
+} from "./conflicts-measurements.ts";
 import { ledgerVolume } from "./profile.ts";
 import { findFullScans, runMeasurements, writeBaselineFile } from "./runner.ts";
 import { loadProfileSnapshot } from "./snapshot.ts";
@@ -75,6 +81,7 @@ const scans = [
   ...findFullScans(customFieldHotPathPlans(snapshot), CUSTOM_FIELD_PLAN_SCAN_ALLOWLIST),
   ...findFullScans(editingHotPathPlans(snapshot), EDITING_PLAN_SCAN_ALLOWLIST),
   ...findFullScans(timekeepingHotPathPlans(snapshot), TIMEKEEPING_PLAN_SCAN_ALLOWLIST),
+  ...findFullScans(conflictsHotPathPlans(snapshot), CONFLICTS_PLAN_SCAN_ALLOWLIST),
 ];
 if (scans.length > 0) {
   // A scan regression must never be baked into a committed baseline — fail before measuring.
@@ -112,6 +119,11 @@ const results = [
   ...(await runMeasurements(
     timekeepingMeasurementHandle(snapshot, BASELINE_SEED),
     timekeepingMeasurements,
+    { warmupIterations: 3, iterations: 30 },
+  )),
+  ...(await runMeasurements(
+    await conflictsMeasurementHandle(snapshot, BASELINE_SEED),
+    conflictsMeasurements,
     { warmupIterations: 3, iterations: 30 },
   )),
 ];

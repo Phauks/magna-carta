@@ -1,4 +1,3 @@
-import { APCAcontrast, sRGBtoY } from "apca-w3";
 import { converter, parse, wcagContrast } from "culori";
 import { describe, expect, it } from "vitest";
 import { CONTRAST_PAIRS } from "../src/contrast-pairs.ts";
@@ -75,21 +74,6 @@ function wcagContrastRatio(foregroundCss: string, backgroundCss: string): number
   const [fr, fg, fb] = parseToSrgbChannels(foregroundCss);
   const [br, bg, bb] = parseToSrgbChannels(backgroundCss);
   return wcagContrast({ mode: "rgb", r: fr, g: fg, b: fb }, { mode: "rgb", r: br, g: bg, b: bb });
-}
-
-/** APCA lightness contrast Lc between two concrete CSS colors (advisory only). */
-function apcaLightnessContrast(foregroundCss: string, backgroundCss: string): number {
-  const toEightBit = (channels: [number, number, number]): [number, number, number] => [
-    Math.round(channels[0] * 255),
-    Math.round(channels[1] * 255),
-    Math.round(channels[2] * 255),
-  ];
-  return Number(
-    APCAcontrast(
-      sRGBtoY(toEightBit(parseToSrgbChannels(foregroundCss))),
-      sRGBtoY(toEightBit(parseToSrgbChannels(backgroundCss))),
-    ),
-  );
 }
 
 describe("the var() chain resolver (crafted-input self-check)", () => {
@@ -176,20 +160,4 @@ describe("WCAG 2.2 contrast gate (every theme x mode context, every declared pai
       ).toBeGreaterThanOrEqual(minimumRatio);
     },
   );
-});
-
-describe("APCA Lc advisory report (WCAG 3 draft metric — reported, never asserted)", () => {
-  it("computes a finite Lc for every context and pair, and reports it", () => {
-    for (const [selector, variables] of contexts) {
-      const lines = CONTRAST_PAIRS.map((pair) => {
-        const foregroundValue = resolveVariable(variables, `--mc-${pair.foreground}`);
-        const backgroundValue = resolveVariable(variables, `--mc-${pair.background}`);
-        const lightnessContrast = apcaLightnessContrast(foregroundValue, backgroundValue);
-        // Finiteness only — an Lc threshold must never become an assertion here.
-        expect(Number.isFinite(lightnessContrast)).toBe(true);
-        return `  ${pair.foreground} on ${pair.background}: Lc ${lightnessContrast.toFixed(1)}`;
-      });
-      console.info(`APCA advisory — ${selector}\n${lines.join("\n")}`);
-    }
-  });
 });

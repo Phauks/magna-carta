@@ -40,8 +40,50 @@
     {
       "idx": 5,
       "version": "6",
+      "when": 1783598400000,
+      "tag": "20260709T120000_conflicts",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1783598400001,
+      "tag": "20260709T120001_seed-conflicts-permissions",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
       "when": 1783684800000,
       "tag": "20260710T120000_seed-tools-email-inspector",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1784062800000,
+      "tag": "20260714T210000_directory-email-normalized-address",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1784289600000,
+      "tag": "20260717T120000_email-filing-records",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1784289600001,
+      "tag": "20260717T120001_seed-emails-permissions",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1784311200000,
+      "tag": "20260717T181411_conflicts-hit-co-party",
       "breakpoints": true
     }
   ]

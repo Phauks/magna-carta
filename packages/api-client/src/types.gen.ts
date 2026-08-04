@@ -176,6 +176,57 @@ export type FileIntegrityVerifyResponse = {
     receipt?: unknown;
 };
 
+export type EmailCaptureAck = {
+    jobId: string;
+    status: 'accepted';
+};
+
+export type MatterEmailList = {
+    data: Array<{
+        emailMessageId: string;
+        threadId: string;
+        subject: string | null;
+        fromDisplay: string | null;
+        fromAddress: string | null;
+        sentAt: string | null;
+        receivedAt: string;
+        linkState: 'staged' | 'filed' | 'unlinked';
+    }>;
+    nextCursor: string | null;
+};
+
+export type EmailAlreadyFiled = {
+    captured: boolean;
+    matters: Array<string>;
+    hiddenMatterCount: number;
+    totalMatterCount: number;
+};
+
+export type EmailMessageDetail = {
+    emailMessageId: string;
+    threadId: string;
+    subject: string | null;
+    fromDisplay: string | null;
+    fromAddress: string | null;
+    sentAt: string | null;
+    receivedAt: string;
+    dkimVerdict: string;
+    participants: Array<{
+        kind: string;
+        displayName: string | null;
+        address: string | null;
+        directoryEntityId: string | null;
+    }>;
+    alsoFiledMatterIds: Array<string>;
+    hiddenMatterCount: number;
+};
+
+export type EmailLinkActionAck = {
+    emailMessageId: string;
+    matterId: string;
+    state: string;
+};
+
 export type FileRepairDiagnosis = {
     detectedFormat: string | null;
     corruption: Array<string>;
@@ -1010,6 +1061,79 @@ export type LinkMatterPartyRequest = {
     matterId: string;
     entityId: string;
     role: string;
+};
+
+export type CreatedConflictsCheckResponse = {
+    id: string;
+};
+
+export type CreateConflictsCheckRequest = {
+    trigger: 'preliminary' | 'comprehensive' | 'new_party' | 'periodic_rescan';
+    matterId?: string;
+    subjectEntityIds: Array<string>;
+    scope: ConflictsScopeRequest;
+};
+
+export type ConflictsScopeRequest = {
+    sources: Array<'party' | 'graph' | 'imputation' | 'content'>;
+    strictness: 'balanced' | 'over_inclusive';
+    depth?: number;
+};
+
+export type ConflictsCheckWithHitsResponse = {
+    check: ConflictsCheckDetail;
+    hits: Array<ConflictsHitDetail>;
+};
+
+export type ConflictsCheckDetail = {
+    id: string;
+    trigger: 'preliminary' | 'comprehensive' | 'new_party' | 'periodic_rescan';
+    matterId: string | null;
+    subjectEntityIds: Array<string>;
+    scope: {
+        [key: string]: 'searched' | 'unavailable';
+    };
+    strictness: 'balanced' | 'over_inclusive';
+    depth: number;
+    floorRaised: boolean;
+    actorUserId: string | null;
+    createdAt: string;
+};
+
+export type ConflictsHitDetail = {
+    id: string;
+    entityId: string;
+    sourceClass: 'party' | 'graph' | 'imputation' | 'content';
+    evidenceTier: number;
+    matchedFields: Array<string>;
+    graphPath: Array<ConflictsGraphPathStep>;
+    coParty: boolean;
+    createdAt: string;
+    disposition: ConflictsDispositionDetail;
+};
+
+export type ConflictsGraphPathStep = {
+    edgeId: string;
+    edgeType: string;
+    fromEntityId: string;
+    toEntityId: string;
+};
+
+export type ConflictsDispositionDetail = {
+    id: string;
+    kind: 'cleared' | 'waiver_obtained' | 'wall_erected' | 'representation_declined';
+    rationale: string;
+    reviewerUserId: string;
+    createdAt: string;
+} | null;
+
+export type CreatedConflictsDispositionResponse = {
+    id: string;
+};
+
+export type RecordConflictsDispositionRequest = {
+    kind: 'cleared' | 'waiver_obtained' | 'wall_erected' | 'representation_declined';
+    rationale: string;
 };
 
 export type CustomFieldAck = {
@@ -2278,6 +2402,245 @@ export type EmailInspectorInspectResponses = {
 
 export type EmailInspectorInspectResponse = EmailInspectorInspectResponses[keyof EmailInspectorInspectResponses];
 
+export type EmailsListData = {
+    body?: never;
+    path: {
+        matterId: string;
+    };
+    query?: {
+        cursor?: string;
+    };
+    url: '/api/v1/matters/{matterId}/emails';
+};
+
+export type EmailsListErrors = {
+    /**
+     * No session
+     */
+    401: Problem;
+    /**
+     * Missing emails:read
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type EmailsListError = EmailsListErrors[keyof EmailsListErrors];
+
+export type EmailsListResponses = {
+    /**
+     * A page of filed emails
+     */
+    200: MatterEmailList;
+};
+
+export type EmailsListResponse = EmailsListResponses[keyof EmailsListResponses];
+
+export type EmailsFileData = {
+    body: unknown;
+    path: {
+        matterId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/emails';
+};
+
+export type EmailsFileErrors = {
+    /**
+     * Empty body
+     */
+    400: Problem;
+    /**
+     * No session
+     */
+    401: Problem;
+    /**
+     * Missing emails:file
+     */
+    403: Problem;
+    /**
+     * Unknown matter
+     */
+    404: Problem;
+    /**
+     * Message exceeds the inspectable-size cap
+     */
+    413: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type EmailsFileError = EmailsFileErrors[keyof EmailsFileErrors];
+
+export type EmailsFileResponses = {
+    /**
+     * Capture accepted; filing runs off the request path
+     */
+    202: EmailCaptureAck;
+};
+
+export type EmailsFileResponse = EmailsFileResponses[keyof EmailsFileResponses];
+
+export type EmailsAlreadyFiledData = {
+    body?: never;
+    path?: never;
+    query?: {
+        messageId?: string;
+        contentHash?: string;
+    };
+    url: '/api/v1/emails/already-filed';
+};
+
+export type EmailsAlreadyFiledErrors = {
+    /**
+     * No session
+     */
+    401: Problem;
+    /**
+     * Missing emails:read
+     */
+    403: Problem;
+    /**
+     * Neither messageId nor contentHash provided
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type EmailsAlreadyFiledError = EmailsAlreadyFiledErrors[keyof EmailsAlreadyFiledErrors];
+
+export type EmailsAlreadyFiledResponses = {
+    /**
+     * The wall-safe already-filed signal
+     */
+    200: EmailAlreadyFiled;
+};
+
+export type EmailsAlreadyFiledResponse = EmailsAlreadyFiledResponses[keyof EmailsAlreadyFiledResponses];
+
+export type EmailsGetData = {
+    body?: never;
+    path: {
+        emailMessageId: string;
+    };
+    query?: never;
+    url: '/api/v1/emails/{emailMessageId}';
+};
+
+export type EmailsGetErrors = {
+    /**
+     * No session
+     */
+    401: Problem;
+    /**
+     * Missing emails:read
+     */
+    403: Problem;
+    /**
+     * Unknown message, or one the caller cannot access
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type EmailsGetError = EmailsGetErrors[keyof EmailsGetErrors];
+
+export type EmailsGetResponses = {
+    /**
+     * The message and its wall-safe multi-matter context
+     */
+    200: EmailMessageDetail;
+};
+
+export type EmailsGetResponse = EmailsGetResponses[keyof EmailsGetResponses];
+
+export type EmailsAcceptData = {
+    body?: never;
+    path: {
+        matterId: string;
+        emailMessageId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/emails/{emailMessageId}/accept';
+};
+
+export type EmailsAcceptErrors = {
+    /**
+     * No session
+     */
+    401: Problem;
+    /**
+     * Missing emails:manageLinks
+     */
+    403: Problem;
+    /**
+     * No staged link for this message on this matter
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type EmailsAcceptError = EmailsAcceptErrors[keyof EmailsAcceptErrors];
+
+export type EmailsAcceptResponses = {
+    /**
+     * The link was filed (or was already filed)
+     */
+    200: EmailLinkActionAck;
+};
+
+export type EmailsAcceptResponse = EmailsAcceptResponses[keyof EmailsAcceptResponses];
+
+export type EmailsUnlinkData = {
+    body?: never;
+    path: {
+        matterId: string;
+        emailMessageId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/emails/{emailMessageId}';
+};
+
+export type EmailsUnlinkErrors = {
+    /**
+     * No session
+     */
+    401: Problem;
+    /**
+     * Missing emails:manageLinks
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type EmailsUnlinkError = EmailsUnlinkErrors[keyof EmailsUnlinkErrors];
+
+export type EmailsUnlinkResponses = {
+    /**
+     * The link was unlinked (or was already unlinked)
+     */
+    200: EmailLinkActionAck;
+};
+
+export type EmailsUnlinkResponse = EmailsUnlinkResponses[keyof EmailsUnlinkResponses];
+
 export type FileRepairDiagnoseData = {
     body: unknown;
     path?: never;
@@ -2615,6 +2978,55 @@ export type OcrRecognizeResponses = {
 };
 
 export type OcrRecognizeResponse = OcrRecognizeResponses[keyof OcrRecognizeResponses];
+
+export type OcrSearchableData = {
+    body: unknown;
+    path?: never;
+    query?: never;
+    url: '/api/v1/ocr/searchable';
+};
+
+export type OcrSearchableErrors = {
+    /**
+     * Empty request body
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Missing tools:ocr
+     */
+    403: Problem;
+    /**
+     * File exceeds the inspectable-size cap
+     */
+    413: Problem;
+    /**
+     * The document is not a PDF, is unreadable, or was rejected outright — retrying will not help
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+    /**
+     * Recognition engine unavailable
+     */
+    503: Problem;
+};
+
+export type OcrSearchableError = OcrSearchableErrors[keyof OcrSearchableErrors];
+
+export type OcrSearchableResponses = {
+    /**
+     * The input PDF with an invisible, searchable text layer
+     */
+    200: Blob | File;
+};
+
+export type OcrSearchableResponse = OcrSearchableResponses[keyof OcrSearchableResponses];
 
 export type AiDetectionDetectData = {
     body: AiDetectionDetectRequest;
@@ -6321,6 +6733,151 @@ export type DirectoryLinkMatterPartyResponses = {
 };
 
 export type DirectoryLinkMatterPartyResponse = DirectoryLinkMatterPartyResponses[keyof DirectoryLinkMatterPartyResponses];
+
+export type ConflictsRunCheckData = {
+    body: CreateConflictsCheckRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/conflicts/checks';
+};
+
+export type ConflictsRunCheckErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ConflictsRunCheckError = ConflictsRunCheckErrors[keyof ConflictsRunCheckErrors];
+
+export type ConflictsRunCheckResponses = {
+    /**
+     * The completed check
+     */
+    201: CreatedConflictsCheckResponse;
+};
+
+export type ConflictsRunCheckResponse = ConflictsRunCheckResponses[keyof ConflictsRunCheckResponses];
+
+export type ConflictsGetCheckData = {
+    body?: never;
+    path: {
+        checkId: string;
+    };
+    query?: never;
+    url: '/api/v1/conflicts/checks/{checkId}';
+};
+
+export type ConflictsGetCheckErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ConflictsGetCheckError = ConflictsGetCheckErrors[keyof ConflictsGetCheckErrors];
+
+export type ConflictsGetCheckResponses = {
+    /**
+     * The check and its hits
+     */
+    200: ConflictsCheckWithHitsResponse;
+};
+
+export type ConflictsGetCheckResponse = ConflictsGetCheckResponses[keyof ConflictsGetCheckResponses];
+
+export type ConflictsRecordDispositionData = {
+    body: RecordConflictsDispositionRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        hitId: string;
+    };
+    query?: never;
+    url: '/api/v1/conflicts/hits/{hitId}/dispositions';
+};
+
+export type ConflictsRecordDispositionErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ConflictsRecordDispositionError = ConflictsRecordDispositionErrors[keyof ConflictsRecordDispositionErrors];
+
+export type ConflictsRecordDispositionResponses = {
+    /**
+     * The recorded disposition
+     */
+    201: CreatedConflictsDispositionResponse;
+};
+
+export type ConflictsRecordDispositionResponse = ConflictsRecordDispositionResponses[keyof ConflictsRecordDispositionResponses];
 
 export type CustomFieldsDefineFieldData = {
     body: DefineCustomFieldRequest;

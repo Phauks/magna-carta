@@ -34,6 +34,7 @@
   },
   "dependencies": {
     "@faker-js/faker": "catalog:",
+    "@magna-carta/conflicts": "workspace:*",
     "@magna-carta/costs": "workspace:*",
     "@magna-carta/custom-fields": "workspace:*",
     "@magna-carta/data-access": "workspace:*",

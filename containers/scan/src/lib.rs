@@ -178,8 +178,7 @@ async fn scan(
                 // moves into the concurrent engine stage.
                 let buffer = bytes.clone();
                 let clamd_address = state.clamd_address.clone();
-                let clam_future =
-                    async move { clamav::scan_buffer(&buffer, &clamd_address).await };
+                let clam_future = async move { clamav::scan_buffer(&buffer, &clamd_address).await };
                 finish(state, params.content_type, clam_future, bytes).await
             }
             Err(_) => too_large(),
@@ -436,15 +435,27 @@ mod tests {
         let mut side_map = yara::SideMap::new();
         side_map.insert(
             "A".into(),
-            yara::RuleMeta { tier: forge::Tier::Extended, score: 40, is_suspicious: true },
+            yara::RuleMeta {
+                tier: forge::Tier::Extended,
+                score: 40,
+                is_suspicious: true,
+            },
         );
         side_map.insert(
             "B".into(),
-            yara::RuleMeta { tier: forge::Tier::Extended, score: 42, is_suspicious: true },
+            yara::RuleMeta {
+                tier: forge::Tier::Extended,
+                score: 42,
+                is_suspicious: true,
+            },
         );
         side_map.insert(
             "C".into(),
-            yara::RuleMeta { tier: forge::Tier::Core, score: 90, is_suspicious: false },
+            yara::RuleMeta {
+                tier: forge::Tier::Core,
+                score: 90,
+                is_suspicious: false,
+            },
         );
         let state = AppState {
             rules: Arc::new(yara::build_rules(&[])),
@@ -463,7 +474,13 @@ mod tests {
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(json["total"], 2);
         assert_eq!(json["minScoreGate"], 75);
-        assert_eq!(json["buckets"], serde_json::json!([{ "floor": 40, "count": 2 }]));
-        assert_eq!(json["engineVersion"], "engine/1+yara-rules/none+clamav-db/0");
+        assert_eq!(
+            json["buckets"],
+            serde_json::json!([{ "floor": 40, "count": 2 }])
+        );
+        assert_eq!(
+            json["engineVersion"],
+            "engine/1+yara-rules/none+clamav-db/0"
+        );
     }
 }

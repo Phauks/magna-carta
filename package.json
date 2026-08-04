@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "check": "vp check && vp run typecheck && node tooling/tsconfig-refs/index.mjs --check && pnpm --filter @magna-carta/api-client run typecheck && pnpm --filter @magna-carta/web check && pnpm --filter @magna-carta/design-system check && vp run rust-check",
+    "check:scoped": "node tooling/check-scoped/index.mjs",
     "dev": "vp dev",
     "build": "vp build",
     "generate-client": "pnpm --filter @magna-carta/api-client run generate",
@@ -11,6 +12,8 @@
     "seed-dev-firm": "node tooling/seed-dev-firm.mjs",
     "lint:licenses": "node tooling/lint-licenses.mjs",
     "lint:status": "node tooling/lint-status.mjs",
+    "lint:test-registration": "node tooling/lint-test-registration.mjs",
+    "postinstall": "node tooling/setup-hooks/index.mjs",
     "test": "vp test"
   },
   "devDependencies": {
@@ -20,17 +23,8 @@
     "vitest": "catalog:"
   },
   "engines": {
-    "node": ">=25.0.0",
+    "node": ">=22.0.0",
     "pnpm": ">=10.33.2"
   },
-  "packageManager": "pnpm@10.33.2",
-  "pnpm": {
-    "auditConfig": {
-      "//": "The high-severity audit gate (ci.yml, slice 0·6) fails on any NEW high+ advisory. The two below are pre-existing TRANSITIVE dev/build-tooling advisories with no production-runtime exploit path; each is accepted with cause and DROPS when Renovate upgrades the carrier. Adding a NEW entry is an explicit security decision, never a quick unblock.",
-      "ignoreGhsas": [
-        "GHSA-gv7w-rqvm-qjhr",
-        "GHSA-r5fr-rjxr-66jc"
-      ]
-    }
-  }
+  "packageManager": "pnpm@10.33.2"
 }

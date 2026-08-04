@@ -62,6 +62,22 @@ export {
   DirectoryFitnessError,
 } from "./fitness.ts";
 export type { DanglingReference, NameMissingPhonetics, EdgeToDeletedEntity } from "./fitness.ts";
+export {
+  addEmail,
+  updateEmail,
+  removeEmail,
+  readEmails,
+  findEntitiesByEmailAddress,
+  normalizeEmailAddress,
+  InvalidEmailAddressError,
+  DirectoryEmailNotFoundError,
+} from "./contact-email.ts";
+export type {
+  AddEmailInput,
+  UpdateEmailInput,
+  DirectoryEmailRow,
+  DirectoryEmailMatch,
+} from "./contact-email.ts";
 export { linkMatterParty, readMatterParties, createPartyRole, listPartyRoles } from "./party.ts";
 export type {
   LinkMatterPartyInput,

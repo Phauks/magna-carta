@@ -11,7 +11,8 @@ import type { Bindings } from "../app.ts";
 
 // The engine ids the convert worker can execute today. Both raster-served paths (raster
 // interconversion and image-to-PDF) run in its RasterEngineContainer; LibreOffice/email/FFmpeg
-// join this set when their Containers land in the convert worker.
+// join this set when their Containers land in the convert worker. OCR is not here — it is its own
+// already-live service, resolved below.
 const CONVERT_WORKER_ENGINE_IDS: ReadonlySet<EngineId> = new Set(["libvips", "image-pdf"]);
 
 // An engine ConversionPort: POST the source bytes + engine-id/format/recipe headers to the dedicated
@@ -45,18 +46,48 @@ function serviceBindingPort(convert: Pick<Fetcher, "fetch">, engineId: EngineId)
   };
 }
 
-// The port for engines with no reachable Container: every conversion is engine-not-implemented.
+// The OCR engine ConversionPort: POST the PDF bytes to the OCR service's searchable endpoint and read
+// back the searchable PDF. Unlike the convert-worker engines, OCR is its own already-live service, so
+// this routes to the OCR service binding rather than magna-carta-convert; the request is just the
+// bytes (the endpoint carries no recipe). Never throws — any non-2xx (a document the engine rejected,
+// or a transient fault) becomes adapter-error, the same terminal signal the consumer marks failed on.
+function ocrSearchablePort(ocr: Pick<Fetcher, "fetch">): ConversionPort {
+  return {
+    async convert(input): Promise<ConversionResult> {
+      try {
+        const response = await ocr.fetch(
+          new Request("https://ocr/ocr/searchable", { method: "POST", body: input.bytes }),
+        );
+        if (!response.ok) return adapterError(`ocr service ${response.status}`);
+        const mediaType = response.headers.get("content-type") ?? "application/pdf";
+        return converted(new Uint8Array(await response.arrayBuffer()), mediaType);
+      } catch (error) {
+        return adapterError(error instanceof Error ? error.message : "ocr service error");
+      }
+    },
+  };
+}
+
+// The port for an engine with no reachable Container or service binding (every test environment, and
+// prod until that service is deployed + bound): every conversion is engine-not-implemented. Tests
+// inject their own resolver at the consumer's seam.
 const deferredPort: ConversionPort = {
   convert: () => Promise.resolve(engineNotImplemented()),
 };
 
-// Resolve each hop's engine by id. An engine backed by the convert worker gets the service-binding
-// port; an engine whose Container is not built yet stays deferred, and in an environment without the
-// CONVERT binding (every test environment, and prod until the dedicated worker is deployed + bound)
-// everything is deferred. Tests inject their own resolver at the consumer's seam.
+// Resolve each hop's engine by id to the service that runs it. The OCR engine is its own service
+// (OCR_SERVICE); the engines the convert worker can execute get its service-binding port, which
+// stamps the engine id so that worker dispatches to the right Container. An engine whose Container is
+// not built yet, or whose service is unbound, resolves to the deferred port, so a job needing it fails
+// with engine-not-implemented rather than a crash. Per-engineId (not a single shared port) so a
+// multi-hop path can cross services.
 export function resolveEnginePort(env: Bindings): EngineResolver {
-  return (engineId) =>
-    env.CONVERT !== undefined && CONVERT_WORKER_ENGINE_IDS.has(engineId)
+  return (engineId) => {
+    if (engineId === "ocr") {
+      return env.OCR_SERVICE === undefined ? deferredPort : ocrSearchablePort(env.OCR_SERVICE);
+    }
+    return env.CONVERT !== undefined && CONVERT_WORKER_ENGINE_IDS.has(engineId)
       ? serviceBindingPort(env.CONVERT, engineId)
       : deferredPort;
+  };
 }

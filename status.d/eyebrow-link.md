@@ -1,7 +1,7 @@
 ---
 slice: EyebrowLink component
 group: cross-cutting
-order: 25
+order: 22
 research: n/a
 spec: n/a
 plan: n/a

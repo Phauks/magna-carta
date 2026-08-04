@@ -1,0 +1,97 @@
+# Deterministic docs assembly — folds committed fragments into the rendered trackers on every push to
+# `main`, so `CHANGELOG.md`, the Decision-Log register + numbered ADR files, and `STATUS.md`/`STATUS.json`
+# are current the moment the merge that added their fragments lands. This owns the deterministic half of
+# docs maintenance; the judgment-bearing half (coverage audit, drafting, roadmap rollup) is the weekly
+# propose-only docs-sync routine — see docs/maintenance/README.md and
+# docs/specs/2026-07-14-docs-sync-routine-design.md.
+#
+# Delivery is an AUTO-MERGING PULL REQUEST from the `docs-assembly` branch, not a direct push: the main
+# ruleset requires the `gate` status on every commit, so the PR carries the gate and merges itself
+# hands-free while honoring the ruleset. Because a PR created with the workflow's own token fires no
+# `pull_request` events, the gate is dispatched onto the branch explicitly (gate.yml carries
+# `workflow_dispatch` for exactly this).
+#
+# TWO one-time repository settings are required, or the job fails LOUDLY (by design — a silent green
+# run once hid exactly this):
+#   1. Settings > Actions > General > Workflow permissions > "Allow GitHub Actions to create and
+#      approve pull requests"  (without it, `gh pr create` is refused).
+#   2. Settings > General > Pull Requests > "Allow auto-merge"  (without it, `gh pr merge --auto` fails).
+#
+# Loop and race behavior: the auto-merged assembly commit contains no fragment files, so the run it
+# triggers exits without a PR. If another merge lands while an assembly PR waits on its gate, the next
+# run re-assembles from the newer main and force-pushes `docs-assembly` — the open PR simply updates to
+# the superset and the gate is re-dispatched. Serialized by the concurrency group.
+name: assemble-docs
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: assemble-docs
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+jobs:
+  assemble:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # Toolchain is needed only to format the assembled output (below); the assemblers themselves are
+      # dependency-free Node scripts.
+      - uses: ./.github/actions/setup
+
+      - name: Fold fragments into the rendered trackers
+        run: |
+          node tooling/doc-fragments/build-decisions.mjs
+          node tooling/doc-fragments/build-changelog.mjs
+          node tooling/doc-fragments/build-status.mjs
+
+      # The assemblers can produce output the formatter rejects — e.g. build-decisions rewrites
+      # `ADR-<slug>` references to `ADR-NNNN`, which changes text width inside Markdown tables and breaks
+      # their column alignment. Format the output here so the assembly PR always passes the gate's format
+      # check, whatever the assemblers touched. Pristine `main` is format-clean, so this only ever fixes
+      # freshly-rendered files.
+      - name: Format the rendered output
+        run: pnpm exec vp check --no-lint --fix
+
+      - name: Deliver as an auto-merging pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "nothing to assemble"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B docs-assembly
+          git add -A
+          git commit -m "docs: assemble fragments into the rendered trackers"
+          # --no-verify: the setup action's `pnpm install` postinstall arms the repo's pre-push hook
+          # (core.hooksPath -> tooling/git-hooks), whose scoped quality gate cannot run in this
+          # assembly context (no WASM artefacts, etc.). The gate that matters runs on the assembly PR.
+          git push --no-verify -f origin docs-assembly
+
+          # Ensure exactly one open assembly PR. Creating it fails hard rather than masking a green run:
+          # if this fails with "GitHub Actions is not permitted to create or approve pull requests",
+          # enable Settings > Actions > General > Workflow permissions > "Allow GitHub Actions to create
+          # and approve pull requests". A pre-existing open PR (a re-run over an updated branch) is fine.
+          existing="$(gh pr list --head docs-assembly --state open --json number --jq '.[0].number')"
+          if [ -z "$existing" ]; then
+            gh pr create --base main --head docs-assembly \
+              --title "docs: assemble fragments into the rendered trackers" \
+              --body "Automated per-merge fragment assembly (see docs/maintenance/README.md). Deterministic transform of already-reviewed fragments; auto-merges when the gate passes."
+          else
+            echo "assembly PR #$existing already open; branch force-updated to the current assembly"
+          fi
+
+          # Enable auto-merge (needs Settings > General > "Allow auto-merge"), then dispatch the gate
+          # onto the branch — a PR opened by the workflow's own token fires no pull_request events, so
+          # the required `gate` status must be produced explicitly. Both fail hard so breakage is visible.
+          gh pr merge docs-assembly --auto --rebase --delete-branch
+          gh workflow run gate.yml --ref docs-assembly

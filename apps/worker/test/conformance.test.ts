@@ -77,6 +77,8 @@ const NON_MUTATING_POST_ALLOW_LIST: Record<string, string> = {
     "Pure carving over the uploaded bytes — returns recovered embedded files in-process; nothing is stored, no firm data is written. The persisting attach variant is a separate audited route.",
   "ocr.recognize":
     "Pure recognition over the uploaded bytes — returns per-page text, word boxes, and confidence; nothing is stored, no firm data is written.",
+  "ocr.searchable":
+    "Pure recognition over the uploaded PDF — returns the same document with an invisible searchable text layer; nothing is stored, no firm data is written.",
   "emailInspector.inspect":
     "Pure computation over the uploaded message bytes — parses and returns the structural inspection; nothing is stored, no firm data is written.",
   "aiDetection.detect":
@@ -145,6 +147,9 @@ const RESOURCE_BY_PERMISSION_NAMESPACE: Record<string, string> = {
   locations: "location",
   files: "matter",
   directory: "directoryEntity",
+  // conflicts:* governs the firm-wide conflicts-of-interest check and its log; every conflicts route
+  // operates on the firm as its tenancy root (the search spans the whole firm's directory corpus).
+  conflicts: "firm",
   shipping: "firm",
   tools: "firm",
   // customFields:* governs firm-defined fields on matter/entity records; its routes carry the
@@ -165,6 +170,10 @@ const RESOURCE_BY_PERMISSION_NAMESPACE: Record<string, string> = {
   // diagnostics:* is the read-only system-state surface granted only by a diagnostic support session;
   // no firm role holds it. The resource is the firm — the overview is per-firm state.
   diagnostics: "firm",
+  // emails:* governs filing email to matters and reading a matter's filed threads; email links are
+  // matter-rooted (the files:* precedent), so every emails route carries the matter resource — even the
+  // firm-level "already filed" read, which access-filters to the caller's matters in the handler.
+  emails: "matter",
 };
 
 // Rule: every named permission exists in the registry, and its namespace binds to the route's
@@ -519,6 +528,9 @@ describe("conformance — the committed contract holds, and each rule catches a 
     const ids = [...operations(document)].map((entry) => entry.operationId).sort();
     expect(ids).toEqual([
       "aiDetection.detect",
+      "conflicts.getCheck",
+      "conflicts.recordDisposition",
+      "conflicts.runCheck",
       "conversions.status",
       "conversions.submit",
       "conversions.upload",
@@ -585,6 +597,12 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "downloads.bundleStatus",
       "downloads.zip",
       "emailInspector.inspect",
+      "emails.accept",
+      "emails.alreadyFiled",
+      "emails.file",
+      "emails.get",
+      "emails.list",
+      "emails.unlink",
       "fileIntegrity.hash",
       "fileIntegrity.verify",
       "fileRepair.carve",
@@ -645,6 +663,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "numbering.preview",
       "numbering.set",
       "ocr.recognize",
+      "ocr.searchable",
       "platform.setFirmReleaseChannel",
       "platformStatus.clearComponentOverride",
       "platformStatus.declareEvent",

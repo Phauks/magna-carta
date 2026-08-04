@@ -119,9 +119,16 @@ impl<'a> Device<'a> for Observer {
         });
     }
 
-    fn draw_image(&mut self, _image: Image<'a, '_>, transform: Affine) {
+    fn draw_image(&mut self, image: Image<'a, '_>, transform: Affine) {
         self.order += 1;
-        let mut p = Rect::new(0.0, 0.0, 1.0, 1.0).to_path(0.1);
+        // The transform for an image maps its pixel space -- `[0, width] x [0, height]` --
+        // to device space, because the interpreter pre-concatenates a `1/width, -1/height`
+        // normalization before handing it over (a Form XObject, by contrast, is already in
+        // unit space). Transforming the unit square here would measure a single pixel and
+        // undercount every multi-pixel image cover by a factor of width*height: a full-page
+        // scan would read as a sliver, defeating both the raster-coverage signal and the
+        // rule that a redaction box drawn over an image does not remove its pixels.
+        let mut p = Rect::new(0.0, 0.0, image.width() as f64, image.height() as f64).to_path(0.1);
         p.apply_affine(transform);
         self.covers.push(CoverMark {
             bbox: p.bounding_box(),

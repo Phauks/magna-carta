@@ -27,6 +27,7 @@ import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import type { Bindings } from "../app.ts";
 import { firmDatabaseFor, type ProxyBatchDatabase } from "../firm-database/firm-database-proxy.ts";
+import { resolveFirmBucket } from "./firm-bucket.ts";
 import { resolveScanPort } from "./scan-port-binding.ts";
 
 // The files-ingest queue consumer: one R2 object-create event drives the single-read ingest pipeline
@@ -41,10 +42,11 @@ import { resolveScanPort } from "./scan-port-binding.ts";
 // loser hits the UNIQUE(key) insert, its whole batch rolls back, and the meter increment / current-
 // version bump / audit row / outbox message all apply exactly once.
 //
-// PER-FIRM BUCKET SEAM: the object is read from the single bound R2 bucket (env.R2). In production a
-// firm's bytes live in its own bucket; binding that per-firm bucket to the Worker is a config-commit
-// + deploy step, and the read resolves through the same seam when it lands. Locally and in the dev
-// pool every firm shares env.R2.
+// PER-FIRM BUCKET SEAM: the object is read through resolveFirmBucket (firm-bucket.ts) — the same
+// resolver the upload routes presign against — so the bucket the bytes were written to and the
+// bucket they are read back from can never be two different buckets. Today that resolves to the
+// single bound binding for every firm; binding a firm's own bucket is a config-commit + deploy step
+// the resolver absorbs without changing this consumer.
 
 // The R2 event-notification message shape this consumer needs (the documented payload — full message
 // also carries account/eventTime; only these fields are read).
@@ -73,6 +75,9 @@ export async function handleIngestMessage(
     .first<{ id: string }>();
   if (firm === null) return;
   const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, firm.id);
+  // The event names the bucket the object was written to; resolving it here (rather than reaching
+  // for a binding directly) is what keeps this read on the same bucket the presign side wrote to.
+  const { bucket } = resolveFirmBucket(env, message.bucket);
 
   // Status-first: only a pending version is ingested (the replay guard).
   const pending = await loadPendingVersionForIngest(firmDatabase, message.object.key);
@@ -80,11 +85,11 @@ export async function handleIngestMessage(
     // No pending version → this may be an access-triggered re-scan of an ALREADY-COMMITTED version
     // (the dispatch's second branch). It acks as a no-op unless it finds a committed version whose
     // recorded engine version is stale relative to the firm's current scan engine.
-    await handleRescanMessage(env, message, firmDatabase, scanPort);
+    await handleRescanMessage(message, firmDatabase, scanPort, bucket);
     return;
   }
 
-  const object = await env.R2.get(message.object.key);
+  const object = await bucket.get(message.object.key);
   if (object === null) {
     // The notification beat the object's durability (or it was reaped) — transient; retry.
     throw new Error(`R2 object not readable for a pending version: ${message.object.key}`);
@@ -207,10 +212,12 @@ export async function handleIngestMessage(
 // on `rescan:<versionId>:<engineVersion>` so a redelivery under the same engine no-ops, while a later
 // engine version legitimately re-scans.
 async function handleRescanMessage(
-  env: Bindings,
   message: R2EventMessage,
   firmDatabase: ProxyBatchDatabase,
   scanPort: MalwareScanPort,
+  // The firm's bucket, already resolved by the caller — the re-scan reads the very object the
+  // ingest read would have.
+  bucket: R2Bucket,
 ): Promise<void> {
   const committed = await loadCommittedVersionByR2Key(firmDatabase, message.object.key);
   if (committed === undefined) return; // not a committed version → nothing to re-scan
@@ -245,13 +252,15 @@ async function handleRescanMessage(
         fromCache = true;
       } else {
         // Cache miss → scan the bytes. A not-yet-readable object is transient (throw → retry).
-        const object = await env.R2.get(message.object.key);
+        const object = await bucket.get(message.object.key);
         if (object === null) {
           throw new Error(`R2 object not readable for a re-scan: ${message.object.key}`);
         }
         raw = await scanPort.scan(object.body, {
           sizeBytes: object.size,
           sniffedContentType: null,
+          // Same stable key the first ingest scan used: a re-scan lands on the same engine instance.
+          contentKey: message.object.key,
         });
         fromCache = false;
       }

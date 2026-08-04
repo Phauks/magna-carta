@@ -1,0 +1,201 @@
+# Authentication, Access Control & Encryption
+
+<!-- Feature ledger fragment. One block per node; flat list; hierarchy encoded in the dotted id. Schema: roadmap.d/README.md -->
+
+- id: auth
+  name: Authentication, access control and encryption
+  scope: First-party Better Auth login, trusted-insider RBAC, and narrowly-scoped structural application-level encryption.
+  status: partial
+  slices: 0-4-auth-rbac-skeleton-firm-provisioning, 1-2-protected-crypto-module
+  adrs: ADR-0004, ADR-0068, ADR-0026
+
+- id: auth.first-party-login
+  name: First-party login
+  scope: Better Auth on control-plane D1 (Drizzle adapter), firm = organization, exactly one organization per user; role/profile mirrored to the per-firm member row.
+  status: shipped
+  slices: 0-4-auth-rbac-skeleton-firm-provisioning
+  adrs: ADR-0004, ADR-0073
+  spec: docs/specs/2026-06-09-slice-0-4-auth-rbac-provisioning-design.md
+  evidence: apps/worker/src/auth.ts, control-plane auth tables + schema-sync fitness test
+  notes: API-only to date; the login/2FA UI is the 0-7b slice (branch active).
+
+- id: auth.first-party-login.invitation-only
+  name: Invitation-only membership
+  scope: Open signup structurally off; invite activation through password reset with email-verified flip.
+  status: shipped
+  evidence: apps/worker fitness-tested signup-off configuration
+
+- id: auth.first-party-login.auth-ui
+  name: Login and 2FA UI
+  scope: The login/2FA surface over the auth backend — the design system's first consumer.
+  status: in-build
+  slices: 0-7b-auth-ui-deferred-surfaces
+  evidence: apps/web/src/routes/login, account/security; branch slice-0-7b-app-shell on origin
+
+- id: auth.two-factor
+  name: Second factors
+  scope: Passkeys/WebAuthn and TOTP primary; email codes and SMS secondary/recovery only.
+  status: partial
+
+- id: auth.two-factor.totp
+  name: TOTP
+  scope: TOTP enrollment and login with transition-exact audit events.
+  status: shipped
+  slices: 0-4-auth-rbac-skeleton-firm-provisioning
+  evidence: apps/worker end-to-end TOTP coverage; two_factor audit hooks
+
+- id: auth.two-factor.passkeys
+  name: Passkeys / WebAuthn
+  scope: Passkey server plugin, enrollment UI, virtual-authenticator test coverage.
+  status: not-started
+  notes: Deferred from the auth backend slice because WebAuthn needs a browser; scheduled into the auth-UI slice.
+
+- id: auth.two-factor.email-otp
+  name: Email OTP
+  scope: Email codes as a secondary/recovery factor.
+  status: not-started
+
+- id: auth.two-factor.sms-otp
+  name: SMS OTP
+  scope: Better-Auth-generated codes delivered through the Communications layer messaging port; flagged weakest, never a sole second factor.
+  status: not-started
+  adrs: ADR-0047
+  notes: Messaging port decision accepted; no delivery adapter built.
+
+- id: auth.hardening
+  name: Auth hardening
+  scope: Argon2id hashing, secure sessions, rate limiting, account lockout, email verification, password reset, immutable auth audit log.
+  status: partial
+
+- id: auth.hardening.auth-audit-log
+  name: Auth audit log
+  scope: Immutable control-plane auth audit (login success, 2FA transitions, password reset, key shred, alpha-door writes).
+  status: shipped
+  evidence: packages/data-access/src/auth-audit-statements.ts
+
+- id: auth.hardening.rate-limiting
+  name: Rate limiting
+  scope: Rate limiting on the API surface via the chokepoint's declared limits.
+  status: partial
+  slices: 0-5a-api-contract-foundation
+  evidence: async-capable rate-limiter seam in apps/worker/src/contracts
+  notes: Seam built into the chokepoint; a production limiter backend is not verified in the tree.
+
+- id: auth.access-control
+  name: Trusted-insider access control
+  scope: Firm isolation the only hard boundary; RBAC governs actions not visibility; ethical walls a future content overlay.
+  status: partial
+  adrs: ADR-0068
+
+- id: auth.access-control.permission-registry
+  name: Permission registry
+  scope: Fixed platform registry, one namespace per subsystem (subsystem:action); every route declares one, cross-checked by a fitness function.
+  status: shipped
+  adrs: ADR-0067
+  evidence: packages/access-control, 0-5b conformance suite
+
+- id: auth.access-control.roles-as-data
+  name: Roles as data
+  scope: role-to-permissions and member-to-roles rows seeded with editable defaults; effective permissions = roles held union direct grants.
+  status: shipped
+  slices: 0-4-auth-rbac-skeleton-firm-provisioning
+  evidence: member-rbac migration, packages/access-control resolver, GET /v1/me
+
+- id: auth.access-control.role-editor-ui
+  name: Role editor UI
+  scope: Firm-facing role editing surface.
+  status: not-started
+  notes: Named as a later additive seam.
+
+- id: auth.access-control.access-requests
+  name: Access requests and direct grants
+  scope: Within-firm denial is 403 plus request-access; approver writes an optionally time-boxed direct grant.
+  status: partial
+  evidence: apps/worker/src/chokepoint/chokepoint.ts (403 + requestAccess flag)
+  notes: Denial surface shipped; the request-to-grant flow is an explicit seam. The separate support-access framework (support_grant) covers platform staff, not member grants.
+
+- id: auth.access-control.cross-firm-404
+  name: 404-not-403 boundary
+  scope: Cross-firm and unauthorized-but-existing resources return 404 so responses are never an existence oracle; 403 reserved for within-firm denial.
+  status: shipped
+  slices: 0-5b-api-contract-enforcement-pipeline
+  adrs: ADR-0052
+  evidence: chokepoint deactivated-member 404 unification
+
+- id: auth.access-control.location-filter
+  name: Location as view filter
+  scope: Office as a list/search/report filter, never an access gate; hard per-location separation a reserved seam.
+  status: not-started
+  notes: Locations entity shipped; the filter surfaces are UI-gated.
+
+- id: auth.access-control.ethical-walls
+  name: Ethical walls
+  scope: Content-screening overlay (header visible, contents screened) for the rare conflict.
+  status: deferred
+  notes: Explicitly deferred until a concrete use case exists; kept as a seam.
+
+- id: auth.encryption
+  name: Encryption and key management
+  scope: App-level encryption scoped to crown-jewel secrets only, giving an audited role-gated read chokepoint; everything else on platform at-rest encryption.
+  status: partial
+  slices: 1-2-protected-crypto-module
+  adrs: ADR-0026, ADR-0084
+  spec: docs/specs/2026-06-12-slice-1-2-protected-crypto-module-design.md
+
+- id: auth.encryption.envelope-keys
+  name: Envelope key hierarchy
+  scope: Root KEK as Worker secret wrapping a per-firm key; HKDF-derived purpose keys (pii, secrets, index); AES-KW/AES-GCM/HKDF/HMAC via Web Crypto.
+  status: shipped
+  evidence: packages/encryption, packages/data-access/src/firm-key-provider.ts
+
+- id: auth.encryption.protected-fields
+  name: protected() field chokepoint
+  scope: Declarative field type encrypting on write, role-gated audited decrypt on read, inside the data-access layer — no separate crypto service.
+  status: shipped
+  evidence: packages/data-access/src/{protected-fields,protected-field-registry}.ts
+
+- id: auth.encryption.blind-index
+  name: HMAC blind index
+  scope: Blind index so conflicts matching works over encrypted identifiers without decrypting.
+  status: shipped
+  evidence: packages/encryption/src/blind-index.ts; directory protected identifiers use it
+
+- id: auth.encryption.firm-secrets
+  name: Per-firm plugin credentials
+  scope: getSecret/putSecret for per-firm plugin credentials; ciphertext in the firm database, plugin Workers never see key material.
+  status: shipped
+  evidence: packages/data-access/src/{secret-statements,firm-secret-credential-store}.ts
+
+- id: auth.encryption.crypto-shred
+  name: Per-firm crypto-shred
+  scope: Destroying a firm's wrapped key renders its encrypted corpus permanently unreadable — instant per-firm offboard.
+  status: shipped
+  evidence: apps/worker/src/firm-key-shred.ts
+  notes: Function only; the offboarding flow that invokes it is its own future design.
+
+- id: auth.encryption.key-rotation
+  name: Key rotation machinery
+  scope: Root rotation (rewrap firm keys) and per-firm rotation (re-encrypt the small sensitive set).
+  status: deferred
+  notes: Explicitly deferred until needed; the versioned-envelope seam is built.
+
+- id: auth.encryption.post-quantum
+  name: Post-quantum posture
+  scope: Symmetric corpus already quantum-resistant; crypto-agility via per-ciphertext algorithm/key version identifiers; PQ signatures seamed on upstream standards.
+  status: partial
+  adrs: ADR-0046
+  evidence: packages/encryption/src/envelope.ts (algoVersion + keyVersion frame)
+  notes: Agility seam shipped; PQC-TLS gap logging for third-party endpoints and signature migration not built.
+
+- id: auth.encryption.totp-seed-exception
+  name: TOTP seed placement
+  scope: TOTP seeds stay in Better Auth's tables under its at-rest encryption (user-owned, pre-firm-context), verified against the pinned version.
+  status: shipped
+  adrs: ADR-0084
+  evidence: docs/decisions/0084-encryption-keys-protected-concretization-envelope-context.md
+
+- id: auth.encryption.kms-rooted-kek
+  name: External KMS-rooted KEK
+  scope: AWS-KMS-anchored root key as a hardening upgrade (Cloudflare offers no application-data HSM).
+  status: deferred
+  notes: Explicit backlog hardening item; PQC-wrapped-key support named as a selection criterion.

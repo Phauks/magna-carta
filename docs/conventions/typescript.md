@@ -30,3 +30,26 @@
 - **Enforcement:** the **Oxlint no-barrel rule** runs in `vp check`; **`dependency-cruiser` / `ts-arch`** boundary + `no-cycle` rules run in CI (the _Architectural integrity & coherence_ fitness-function tier). The wrong import fails CI, not review.
 
 Rationale and rejected alternatives: **ADR-0070**. This is the boundary-rules category of the white paper's _Architectural integrity & coherence_.
+
+---
+
+## Lint ruleset — where it lives, what's on
+
+**The ruleset lives in the `lint` block of the root `vite.config.ts`** — rules, categories, plugins, and ignore patterns. `vp lint` / `vp check` read Oxlint config from there and **not** from a root `.oxlintrc.json`. A dotless `oxlintrc.json` (or a rule set only in a file vp does not read) is silently unenforced — the config loads without error and the rule simply never fires, so keep the whole ruleset in `vite.config.ts`.
+
+Enabled:
+
+- **Categories.** `correctness` is a hard **error** (code that is wrong, unsafe, or useless). `suspicious` and `perf` are **warn** — high-signal but with enough justified existing cases that a hard failure would block unrelated work; warnings do not fail `vp check`, so they are advisory until burned down.
+- **Plugins.** `typescript`, `unicorn`, `oxc`. No `react`/`jsx-a11y`: the app is Svelte with no `.tsx`/`.jsx`, and Svelte a11y is svelte-check's job. `import` and `vitest` are held back — enabling them turns real findings in existing code into gate errors, so each is adopted behind its own cleanup pass.
+- **Off, on purpose.** `typescript/no-unsafe-type-assertion` (reviewed `as` at typed parse/deserialize/branded-id seams is the intended tool; repo-wide enforcement is low-signal noise) and `eslint/no-await-in-loop` (sequential D1/Queue batches are deliberate; hot-path loops are a measured call per golden rule 10, not a lint).
+
+A change to `vite.config.ts` is a global lint input: `tooling/affected-lint` re-lints the **whole repo** for it (the ruleset can move findings anywhere), so a ruleset edit pays the full type-aware pass in CI.
+
+### Planned strictening (tracked)
+
+Two tightenings are deferred, not rejected — each needs a cleanup pass before it can be a hard gate:
+
+- **Promote `correctness` to a hard error.** It currently keeps its inherited (advisory) severity; forcing it to `error` turns the existing correctness findings (`typescript/unbound-method`, `eslint/no-unused-vars`, `eslint/preserve-caught-error`, …) into gate failures. Fix those findings, then set `categories.correctness: "error"`. Correctness is the category that most deserves to block, so this is the highest-value next step.
+- **Enable `typescript/no-unsafe-type-assertion`.** Off today (~600 findings, mostly reviewed `as` at typed seams). Investigate whether a narrower form — an `overrides` entry scoping it to non-seam directories, or a codemod that replaces the mechanical cases — makes it a net win, then turn it on where it pays.
+
+Adopting the `import` and `vitest` plugins is the same shape of work (they surface real findings in existing test code) and belongs on this list too.

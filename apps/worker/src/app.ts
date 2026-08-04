@@ -26,6 +26,7 @@ import { registerNonBillableCategoriesRoutes } from "./routes/non-billable-categ
 import { registerNarrativeTemplatesRoutes } from "./routes/narrative-templates.ts";
 import { registerMyDayRoutes } from "./routes/my-day.ts";
 import { registerDirectoryRoutes } from "./routes/directory.ts";
+import { registerConflictsRoutes } from "./routes/conflicts.ts";
 import { registerDocumentTypesRoutes } from "./routes/document-types.ts";
 import { registerDownloadsRoutes } from "./routes/downloads.ts";
 import { registerDocumentCheckoutRoutes } from "./editing/checkout-routes.ts";
@@ -57,6 +58,7 @@ import { registerRecoveryRoutes } from "./routes/recovery.ts";
 import { registerFileIntegrityRoutes } from "./routes/file-integrity.ts";
 import { registerFileTypeRoutes } from "./routes/file-type.ts";
 import { registerEmailInspectorRoutes } from "./routes/email-inspector.ts";
+import { registerEmailsRoutes } from "./routes/emails.ts";
 import { registerFileRepairRoutes } from "./routes/file-repair.ts";
 import { registerOcrRoutes } from "./routes/ocr.ts";
 import { registerAiDetectionRoutes } from "./routes/ai-detection.ts";
@@ -116,6 +118,10 @@ export type Bindings = {
   // (src/inference/inference-consumer.ts) runs env.AI.run, so a single firm cannot starve the shared
   // gateway cap synchronously on the request path. Distinct from QUEUE (jobs) and FILES_INGEST.
   INFERENCE: Queue;
+  // The email-capture queue: both entrances (the forward/CC Email Worker and the authenticated
+  // file-to-matter API) enqueue a pointer to the staged raw MIME; the emails-capture consumer runs the
+  // parse/dedup/thread-link/attachment work off the request path.
+  EMAILS_CAPTURE: Queue<import("./emails/capture-consumer.ts").EmailsCaptureMessage>;
   // The conversion-job coordinator: keyed firmId:jobId, single-flights one conversion per job.
   CONVERSION_JOB: DurableObjectNamespace<
     import("./conversions/conversion-coordinator.ts").ConversionJob
@@ -177,6 +183,12 @@ export type Bindings = {
   // call the network.
   R2_S3_ACCESS_KEY_ID?: string;
   R2_S3_SECRET_ACCESS_KEY?: string;
+  // The name of the bucket bound above as R2. An R2Bucket handle carries no name, so the bucket
+  // resolver (files/firm-bucket.ts) cannot otherwise tell whether the bucket a presigned URL
+  // addresses is the same one this Worker reads through — which is exactly the mismatch that would
+  // send a firm's uploaded bytes somewhere no read path can reach. A public resource name, not a
+  // secret: bound via wrangler.jsonc vars alongside the binding it names.
+  R2_BUCKET_NAME?: string;
   // The files-ingest queue's Cloudflare UUID — the REST FirmResourceProvider targets it when
   // configuring a firm bucket's object-create notification. A deploy-time fact (absent locally,
   // where the dev adapter runs and Miniflare delivers no R2 notifications).
@@ -436,6 +448,7 @@ export function createApp(options: CreateAppOptions = {}) {
   registerFileIntegrityRoutes(app, chokepoint);
   registerFileTypeRoutes(app, chokepoint);
   registerEmailInspectorRoutes(app, chokepoint);
+  registerEmailsRoutes(app, chokepoint);
   registerFileRepairRoutes(app, chokepoint);
   registerOcrRoutes(app, chokepoint);
   registerAiDetectionRoutes(app, chokepoint);
@@ -479,6 +492,9 @@ export function createApp(options: CreateAppOptions = {}) {
   // Slice 1·3: the directory (persons/organizations, names, sensitive identifiers, edges,
   // categories, search, merge, matter-party link) — composed through the same chokepoint.
   registerDirectoryRoutes(app, chokepoint);
+  // The conflicts-of-interest check surface: run a check against the directory corpus, read a
+  // completed check back with its hits, and record a reviewer's disposition of a hit.
+  registerConflictsRoutes(app, chokepoint);
   // Slice 1·4: firm-defined custom fields (definitions, picklist options, temporal values, the
   // non-destructive Convert, and the compliance purge seam) — composed through the same chokepoint.
   registerCustomFieldsRoutes(app, chokepoint);

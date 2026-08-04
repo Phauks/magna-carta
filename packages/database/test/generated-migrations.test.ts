@@ -23,11 +23,16 @@ async function loadLineage(lineage: "control-plane" | "per-firm") {
 const TIMESTAMP_TAG = /^\d{8}T\d{6}_/u;
 
 describe("collapsed migration baselines (committed artifacts)", () => {
-  it("control-plane is a single timestamp-id baseline with the auth + firm tables and firm lifecycle columns", async () => {
+  it("control-plane starts with a timestamp-id baseline carrying the auth + firm tables and firm lifecycle columns; later features append their own timestamp migrations", async () => {
     const migrations = await loadLineage("control-plane");
-    expect(migrations).toHaveLength(1);
-    expect(migrations[0]?.tag).toMatch(TIMESTAMP_TAG);
-    const sql = migrations[0]?.statements.join("\n") ?? "";
+    // The first migration is the collapsed timestamp-id baseline; features that land after the collapse
+    // append their own timestamp-id migrations after it (the email capture-route index is the first).
+    // Every migration id — the baseline and everything after — is a monotonic timestamp.
+    expect(migrations.length).toBeGreaterThanOrEqual(1);
+    for (const migration of migrations) {
+      expect(migration.tag).toMatch(TIMESTAMP_TAG);
+    }
+    const baseline = migrations[0]?.statements.join("\n") ?? "";
     expect(migrations[0]?.statements.length ?? 0).toBeGreaterThan(0);
     for (const tableName of [
       ...BETTER_AUTH_TABLE_NAMES,
@@ -36,17 +41,20 @@ describe("collapsed migration baselines (committed artifacts)", () => {
       "idempotency_key",
       "firm",
     ]) {
-      expect(sql, tableName).toContain(`CREATE TABLE \`${tableName}\``);
+      expect(baseline, tableName).toContain(`CREATE TABLE \`${tableName}\``);
     }
     // Firm lifecycle columns land in the baseline's final shape (the collapse removed the
     // incremental table-rebuild that historically introduced them).
-    expect(sql).toContain("`status` text DEFAULT 'active' NOT NULL");
-    expect(sql).toContain("`bucket_name` text");
-    expect(sql).toContain("`owner_user_id` text");
-    expect(sql).toContain("CREATE UNIQUE INDEX `firm_name_unique` ON `firm` (`name`)");
-    // A clean baseline never rebuilds a table: no shadow tables, no defer_foreign_keys dance.
-    expect(sql).not.toMatch(/__new_/u);
-    expect(sql).not.toContain("defer_foreign_keys");
+    expect(baseline).toContain("`status` text DEFAULT 'active' NOT NULL");
+    expect(baseline).toContain("`bucket_name` text");
+    expect(baseline).toContain("`owner_user_id` text");
+    expect(baseline).toContain("CREATE UNIQUE INDEX `firm_name_unique` ON `firm` (`name`)");
+    // No migration — baseline or later — rebuilds a table: no shadow tables, no defer_foreign_keys dance.
+    const wholeLineage = migrations.map((migration) => migration.statements.join("\n")).join("\n");
+    expect(wholeLineage).not.toMatch(/__new_/u);
+    expect(wholeLineage).not.toContain("defer_foreign_keys");
+    // The token->firm routing index the single-catch-all Email Worker resolves against lands additively.
+    expect(wholeLineage).toContain("CREATE TABLE `email_capture_route`");
   });
 
   it("per-firm starts with a single timestamp-id baseline carrying the ledger/matters/files/RBAC/directory tables and their CHECKs", async () => {

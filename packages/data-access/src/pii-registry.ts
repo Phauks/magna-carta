@@ -77,6 +77,46 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
   // Append-only tables: pseudonymize the subject reference, never delete the row.
   { table: "audit_log", subjectKey: "actor_user_id", action: "pseudonymize-keep" },
   { table: "entity_merge", subjectKey: "subordinate_id", action: "pseudonymize-keep" },
+  // The conflicts log — append-only compliance records whose RAISE(ABORT) triggers forbid deletion, so
+  // the subject reference is pseudonymized in place and the row is never removed (the same discipline as
+  // audit_log / entity_merge). Each table resolves to its own structured subject: the check to the firm
+  // user who ran it, the hit to the surfaced Directory entity, the disposition to the reviewing member.
+  // The entity/identifier references carried inside inputs_json and the free-text rationale are
+  // content-level residue, out of this registry's structured scope (mirrors audit_log's metadata JSON).
+  { table: "conflicts_check", subjectKey: "actor_user_id", action: "pseudonymize-keep" },
+  { table: "conflicts_hit", subjectKey: "entity_id", action: "pseudonymize-keep" },
+  { table: "conflicts_disposition", subjectKey: "reviewer_user_id", action: "pseudonymize-keep" },
+  // Email filing — a captured message is correspondence on the matter file, so the retention basis is
+  // the matter corpus and the subject-side scrub happens at the Directory entity, as with matter_party.
+  // These rows resolve to a subject by frozen address VALUE as well as by resolved entity id, the only
+  // entries here that do: the address string is what the capture core itself resolves against through
+  // the Directory reverse address lookup, and a participant the Directory never matched
+  // (directory_entity_id null) carries no id at all — keying only on the id would leave exactly the
+  // unresolved people, the ones with no Directory record to scrub, invisible to erasure.
+  {
+    table: "email_message",
+    subjectKey: "from_address",
+    action: "retain-under-matter",
+    note: "the sender frozen as-at receipt; the subject line and the verbatim R2 original are content-level residue for the residue report",
+  },
+  {
+    table: "email_participant",
+    subjectKey: "directory_entity_id",
+    action: "retain-under-matter",
+    note: "who was on a message is part of the correspondence record",
+  },
+  {
+    table: "email_participant",
+    subjectKey: "address",
+    action: "retain-under-matter",
+    note: "the frozen header string is itself the record, and the only handle on a participant left unresolved",
+  },
+  {
+    table: "email_matter_link",
+    subjectKey: "linked_by",
+    action: "retain-under-matter",
+    note: "which firm member filed a message to a matter, and when, is the filing's provenance on that matter record",
+  },
 ];
 
 // Per-firm tables that hold NO personal data — the explicit non-PII half of the coverage fitness.
@@ -130,6 +170,10 @@ export const NO_PII_TABLES: readonly string[] = [
   // file-version metadata (r2_key, hashes, status) — no personal data of its own; the document's
   // matter-corpus retention is expressed by the file entry
   "file_version",
+  // Repair/carve provenance for a file version — operation kind, recovery flag, a structural
+  // manifest, and source media type. Operational bookkeeping keyed to file_version, no personal
+  // data of its own (the underlying document's retention is the file entry's, as above).
+  "file_repair_provenance",
   // Per-firm config — key/value settings; a user-scoped row is application preference data, not the
   // user's own identity/activity PII.
   "setting",
@@ -157,4 +201,18 @@ export const NO_PII_TABLES: readonly string[] = [
   "utbms_code",
   "non_billable_category",
   "narrative_template",
+  // Email filing structure — the personal data of a captured message lives on email_message and
+  // email_participant (both registered above); these three carry none of their own.
+  // A thread row is the conversation grouping key plus a normalized-subject fallback; a subject line is
+  // message content, not a structured data-subject column (mirrors matter.description above).
+  "email_thread",
+  // The link from a message part to its File Manager document — declared filename, media type, and
+  // extraction outcome. The document's matter-corpus retention is expressed by the file entry, exactly
+  // as for file_version above.
+  "email_attachment",
+  // A firm-owned inbound routing token: server-minted and opaque, addressed to the firm rather than to
+  // any person, so it is not a mailbox belonging to a data subject. created_by is administrative
+  // provenance on a configuration row — current state, not an activity record about the member (the
+  // same line integration_connection and scoped_setting sit on).
+  "email_capture_address",
 ];

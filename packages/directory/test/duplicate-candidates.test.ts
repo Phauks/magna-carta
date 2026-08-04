@@ -414,3 +414,86 @@ test("returned candidates carry a signalCount field", async () => {
   expect(typeof hit?.signalCount).toBe("number");
   expect(hit?.signalCount).toBeGreaterThanOrEqual(1);
 });
+
+// ── Channel provenance and matchOptions ────────────────────────────────────────
+
+test("a candidate reports which channels matched it", async () => {
+  const { database, ctx } = await directoryTestContext("provenance");
+  await createPerson(
+    database,
+    { given: "Catherine", family: "Smith" },
+    { clock, actorUserId: null, randomSource: seededRandomSource("provenance-target") },
+  );
+
+  const candidates = await findDuplicateCandidates(ctx, {
+    kind: "person",
+    given: "Catherine",
+    family: "Smith",
+  });
+
+  expect(candidates).toHaveLength(1);
+  expect(candidates[0]!.channels).toEqual(expect.arrayContaining(["phonetic", "trigram"]));
+  expect(candidates[0]!.signalCount).toBe(candidates[0]!.channels.length);
+});
+
+test("an identifier hit reports its identifier type", async () => {
+  const { database, ctx } = await directoryTestContext("identifier-provenance");
+  const personId = await createPerson(
+    database,
+    { given: "Jane", family: "Roe" },
+    { clock, actorUserId: null, randomSource: seededRandomSource("identifier-provenance-target") },
+  );
+  await addIdentifier(ctx, personId, { type: "ssn", value: "123-45-6789" });
+
+  const candidates = await findDuplicateCandidates(ctx, {
+    kind: "person",
+    given: "Unrelated",
+    family: "Name",
+    identifiers: [{ type: "ssn", value: "123456789" }],
+  });
+
+  const hit = candidates.find((candidate) => candidate.entityId === personId);
+  expect(hit?.channels).toContain("identifier");
+  expect(hit?.identifierTypes).toEqual(["ssn"]);
+});
+
+test("restricting schemes narrows the phonetic channel", async () => {
+  const { database, ctx } = await directoryTestContext("scheme-filter");
+  await createPerson(
+    database,
+    { given: "Jon", family: "Smyth" },
+    { clock, actorUserId: null, randomSource: seededRandomSource("scheme-filter-target") },
+  );
+
+  const wide = await findDuplicateCandidates(ctx, {
+    kind: "person",
+    given: "John",
+    family: "Smith",
+  });
+  const narrow = await findDuplicateCandidates(ctx, {
+    kind: "person",
+    given: "John",
+    family: "Smith",
+    matchOptions: { schemes: ["double_metaphone_primary"] },
+  });
+
+  // Narrowing can only remove candidates, never add them.
+  const wideIds = new Set(wide.map((candidate) => candidate.entityId));
+  for (const candidate of narrow) expect(wideIds.has(candidate.entityId)).toBe(true);
+});
+
+test("omitting matchOptions preserves the existing behaviour", async () => {
+  const { database, ctx } = await directoryTestContext("backward-compatible");
+  await createPerson(
+    database,
+    { given: "Catherine", family: "Smith" },
+    { clock, actorUserId: null, randomSource: seededRandomSource("backward-compatible-target") },
+  );
+
+  const candidates = await findDuplicateCandidates(ctx, {
+    kind: "person",
+    given: "Cathrine",
+    family: "Smith",
+  });
+  expect(candidates.length).toBeGreaterThan(0);
+});

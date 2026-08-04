@@ -35,8 +35,10 @@ nothing visual is defined anywhere else.
 - **Completeness.** Every theme-and-mode context resolves every semantic token (completeness
   gate).
 - **Contrast.** Every pair in `src/contrast-pairs.ts` clears WCAG 2.2 AA in every theme-and-mode
-  context of `generated/tokens.css` (contrast gate). APCA is reported as an advisory signal
-  only — never a threshold.
+  context of `generated/tokens.css` (contrast gate). WCAG 2.2 AA is the only asserted threshold.
+  (An APCA Lc advisory report previously rode alongside it, but its `apca-w3`/`colorparsley`
+  dependency is AGPL/Limited-W3 — disallowed for this proprietary SaaS by the license gate — so it
+  was dropped. Re-add an advisory only via a permissively-licensed or in-house APCA implementation.)
 - **Goldens move with tokens.** Any token change updates the goldens in the SAME commit, with the
   diff reviewed — a golden update is a design decision, not noise.
 - **No drift.** Committed `generated/` output byte-matches a fresh `tz build` (CI regenerates and
@@ -47,8 +49,8 @@ nothing visual is defined anywhere else.
 
 ## Dependencies & contracts
 
-- Dev-only dependencies: Terrazzo (CLI + CSS/Tailwind plugins), culori, apca-w3. Nothing here
-  ships runtime JavaScript.
+- Dev-only dependencies: Terrazzo (CLI + CSS/Tailwind plugins), culori. Nothing here ships runtime
+  JavaScript.
 - Exports: `tokens.css`, `tailwind-theme.css`, and `contrast-pairs`.
 - Consumers: `@magna-carta/design-system` (not yet created) and `apps/web`.
 

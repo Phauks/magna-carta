@@ -22,8 +22,9 @@ async function convertOne(
     return; // terminal — do not retry a reaped source
   }
   const bytes = new Uint8Array(await source.arrayBuffer());
-  // Each hop of a multi-hop path resolves its own engine by id; a hop whose engine Container is
-  // not wired yet fails typed (engine-not-implemented) and stops the chain.
+  // resolveEngines(env) is a per-engineId resolver, so each hop of a multi-hop path reaches the
+  // service that runs its engine (the convert worker, or the OCR service for the searchable-PDF hop);
+  // a hop whose engine is not wired yet fails typed (engine-not-implemented) and stops the chain.
   const result = await runConversion(message.from, message.to, bytes, resolveEngines(env));
   if (!result.ok) {
     await coordinator.markFailed(result.reason); // typed, terminal

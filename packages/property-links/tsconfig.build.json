@@ -15,6 +15,9 @@
   },
   "references": [
     {
+      "path": "../government-links/tsconfig.build.json"
+    },
+    {
       "path": "../integrations/tsconfig.build.json"
     }
   ],

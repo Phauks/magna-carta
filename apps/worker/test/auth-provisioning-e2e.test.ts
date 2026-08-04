@@ -245,12 +245,21 @@ describe("end-to-end", () => {
       // tools:decryption (0035_seed-tools-decryption.sql, seeded onto every default role).
       // Sorted.
       permissions: [
+        // conflicts:read / conflicts:run are seeded onto every default role (any member may screen a
+        // prospective matter); conflicts:dispose is narrower and reaches Owner/Admin + Attorney only.
+        "conflicts:dispose",
+        "conflicts:read",
+        "conflicts:run",
         "costs:approve",
         "costs:track",
         "customFields:manage",
         "customFields:purge",
         "directory:edit",
         "directory:viewSensitiveIdentifiers",
+        "emails:file",
+        "emails:manageCaptureAddresses",
+        "emails:manageLinks",
+        "emails:read",
         "files:delete",
         "files:manageDocumentTypes",
         "files:organize",
@@ -451,6 +460,9 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
       // Pure recognition over the uploaded bytes — returns text, word boxes, and confidence;
       // nothing is stored.
       "ocr.recognize",
+      // Pure recognition over the uploaded PDF — returns the same document with an invisible
+      // searchable text layer; nothing is stored.
+      "ocr.searchable",
       // Pure computation over the uploaded message bytes — parses and returns the structural
       // inspection; nothing is stored, no firm data is written.
       "emailInspector.inspect",
@@ -477,17 +489,18 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
     }
   });
 
-  it("pins the platform-admin exception narrowly: firms.provision alone rides the public surface", async () => {
+  it("pins the platform-admin exception narrowly: only the header-guarded set rides the public surface", async () => {
     const document = await fetchOpenApiDocument();
     const v1Operations = emittedOperations(document, ALL_METHODS).filter((entry) =>
       entry.path.startsWith("/api/v1/"),
     );
 
     // The operations that document the platform-admin posture (x-mc-surface "public" — the
-    // header-secret guard, no session): the firm provisioner, the platform release-channel setter,
-    // the support-session redeem (platform_staff redeems a grant), and the platform-operator
-    // status-event lifecycle. A future unguarded route cannot hide behind the exception, because
-    // the exception is this exact set, and each member is asserted guarded below.
+    // header-secret guard, no session): the firm provisioner and release-channel setter, the
+    // platform status-page controls (declare/update/resolve an incident, set/clear a component
+    // override), and the support-session redeem — all X-Platform-Admin-Key POSTs under /api/v1.
+    // A future unguarded route cannot hide behind the exception, because the exception is this
+    // exact set, and each member is asserted guarded below.
     const publicSurface = v1Operations.filter(
       (entry) => entry.operation["x-mc-surface"] === "public",
     );

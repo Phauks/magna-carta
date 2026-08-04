@@ -1017,7 +1017,7 @@ export function registerDirectoryRoutes(app: DirectoryApp, chokepoint: Chokepoin
     async (c) => {
       const request = c.req.valid("json");
       const context = await identifierContext(c);
-      const data = await findDuplicateCandidates(context, {
+      const candidates = await findDuplicateCandidates(context, {
         kind: request.kind,
         given: request.given,
         family: request.family,
@@ -1025,7 +1025,11 @@ export function registerDirectoryRoutes(app: DirectoryApp, chokepoint: Chokepoin
         identifiers: request.identifiers,
         excludeEntityId: request.excludeEntityId,
       });
-      return c.json({ data } as z.infer<typeof DuplicateCandidatesResponse>, 200);
+      // Project to the declared contract: channels/identifierTypes are internal evidence-tiering
+      // detail for the conflicts engine's direct package consumer, not part of the HTTP response.
+      const data = candidates.map(({ entityId, signalCount }) => ({ entityId, signalCount }));
+      const body: z.infer<typeof DuplicateCandidatesResponse> = { data };
+      return c.json(body, 200);
     },
   );
 

@@ -6,16 +6,18 @@ export interface OcrContainerFetcher {
 }
 
 // Forward an incoming OCR request to the engine Container and return its response verbatim. The app
-// worker calls POST /ocr with the document bytes as the body; this proxy re-targets the same path at
-// the container and streams the body through. The service binding from the app worker is the trust
-// boundary — this worker has no public routes. A network failure throws (surfaced via telemetry),
-// never a silent empty result.
+// worker calls POST `path` with the document bytes as the body; this proxy re-targets the same path at
+// the container and streams the body through, passing the container's status and headers (including its
+// content-type — JSON facts for /ocr, a PDF for /ocr/searchable) back unchanged. The service binding
+// from the app worker is the trust boundary — this worker has no public routes. A network failure
+// throws (surfaced via telemetry), never a silent empty result.
 export async function forwardOcr(
   request: Request,
   container: OcrContainerFetcher,
+  path = "/ocr",
 ): Promise<Response> {
   const containerResponse = await container.fetch(
-    new Request("http://ocr/ocr", {
+    new Request(`http://ocr${path}`, {
       method: "POST",
       body: request.body,
       headers: request.headers,

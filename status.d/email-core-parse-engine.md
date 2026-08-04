@@ -9,8 +9,6 @@ built: done by="Opus 4.8"
 ui: n/a
 load-profile: n/a
 tested: done by="Opus 4.8"
-branch: email-core-parse-engine
-active-work:
 next: LZFu decoder for compressed-RTF .msg bodies; the email-to-PDF render engine that closes the conversion registry's eml/msg edges; then the capture subsystem builds on this record model
 link-spec: docs/specs/2026-07-09-email-core-parse-engine-design.md
 link-plan: docs/specs/2026-07-09-email-core-parse-engine-implementation-plan.md

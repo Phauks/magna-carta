@@ -46,7 +46,9 @@ pub enum ScrubError {
     Rejected,
     Parse,
     Reassemble,
-    GateFailed { detail: String },
+    GateFailed {
+        detail: String,
+    },
 }
 
 /// A mutable handle to a sub-dictionary of the catalog, whether it is stored

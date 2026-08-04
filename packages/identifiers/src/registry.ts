@@ -64,6 +64,9 @@ export const ENTITY_PREFIXES = {
   directoryName: "directoryName",
   directoryIdentifier: "directoryIdentifier",
   directoryEdge: "directoryEdge",
+  conflictsCheck: "conflictsCheck",
+  conflictsHit: "conflictsHit",
+  conflictsDisposition: "conflictsDisposition",
   directoryCategory: "directoryCategory",
   directoryEmail: "directoryEmail",
   directoryPhone: "directoryPhone",
@@ -110,6 +113,17 @@ export const ENTITY_PREFIXES = {
   recoveryJob: "recoveryJob",
   serviceEvent: "serviceEvent",
   serviceComponent: "serviceComponent",
+  // Email filing & capture. `emailMessage` is one unique captured message (the unit of truth);
+  // `emailThread` groups a conversation DAG; `emailMatterLink` is the multi-matter junction row;
+  // `emailParticipant` is one from/to/cc/bcc address frozen as-at receipt; `emailAttachment` ties a
+  // File Manager file back to its message. `emailCaptureAddress` is a per-firm forward/CC token
+  // address that resolves to a firm (and, for a per-matter token, a candidate matter).
+  emailMessage: "emailMessage",
+  emailThread: "emailThread",
+  emailMatterLink: "emailMatterLink",
+  emailParticipant: "emailParticipant",
+  emailAttachment: "emailAttachment",
+  emailCaptureAddress: "emailCaptureAddress",
 } as const;
 
 export type EntityType = keyof typeof ENTITY_PREFIXES;

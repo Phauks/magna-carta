@@ -1,0 +1,38 @@
+{
+  "name": "@magna-carta/conflicts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./types": "./src/types.ts",
+    "./settings": "./src/settings.ts",
+    "./evidence": "./src/evidence.ts",
+    "./expansion": "./src/expansion.ts",
+    "./imputation": "./src/imputation.ts",
+    "./matching": "./src/matching.ts",
+    "./run-check": "./src/run-check.ts",
+    "./disposition": "./src/disposition.ts",
+    "./statements": "./src/statements.ts",
+    "./audit": "./src/audit.ts",
+    "./run-conflicts-effect": "./src/run-conflicts-effect.ts",
+    "./fitness": "./src/fitness.ts"
+  },
+  "scripts": {
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@magna-carta/access-control": "workspace:*",
+    "@magna-carta/data-access": "workspace:*",
+    "@magna-carta/database": "workspace:*",
+    "@magna-carta/directory": "workspace:*",
+    "@magna-carta/identifiers": "workspace:*"
+  },
+  "devDependencies": {
+    "@magna-carta/encryption": "workspace:*",
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "drizzle-orm": "catalog:",
+    "vitest": "catalog:"
+  }
+}

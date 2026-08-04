@@ -382,15 +382,15 @@
         }
       },
       "branch": "main",
-      "activeWork": null,
-      "next": null,
+      "activeWork": "docs/active-work/file-manager-contract.md",
+      "next": "Land the contract stream (folders.list, uploads.get, files.list ingest status); then the Files UI in 0·7.",
       "links": {
         "spec": null,
         "plan": null,
         "adrs": []
       },
       "blockedBy": [],
-      "notes": "Three domain packages + upload/ingest/zip/metering Worker surface + crons; on main. UI plan → 0·7."
+      "notes": "Three domain packages + upload/ingest/zip/metering Worker surface + crons; on main. Contract stream (branch file-manager-contract) adds folders.list, uploads.get, and ingest status on files.list/get. UI plan → 0·7."
     },
     {
       "slice": "1·2 — `protected()` crypto module",
@@ -1029,7 +1029,8 @@
           "by": "Opus 4.8"
         },
         "ui": {
-          "state": "todo"
+          "state": "in-progress",
+          "by": "Opus 4.8"
         },
         "load-profile": {
           "state": "n/a"
@@ -1038,16 +1039,16 @@
           "state": "todo"
         }
       },
-      "branch": "main",
-      "activeWork": null,
-      "next": null,
+      "branch": "slice-0-7b-app-shell",
+      "activeWork": "docs/active-work/slice-0-7b-app-shell.md",
+      "next": "remaining per-tool pages, one at a time",
       "links": {
-        "spec": null,
-        "plan": null,
+        "spec": "docs/specs/2026-07-08-tools-listing-page-design.md",
+        "plan": "docs/specs/2026-07-08-tools-listing-page-implementation-plan.md",
         "adrs": []
       },
       "blockedBy": [],
-      "notes": "`@magna-carta/tools` catalog + firm-usage diagnostics (`GET /api/v1/firm-usage`). Per-tool UIs → 0·7a shell."
+      "notes": "`@magna-carta/tools` catalog + firm-usage diagnostics (`GET /api/v1/firm-usage`) on `main`. The `/tools` listing page renders the catalog grouped by subject, as tiles or a dense list, each entry badged with its maturity stage. Network Speed Test is the first tool with its own page (stage `alpha`) — Cloudflare's measurement engine, a live line-and-area chart per direction, an AIM quality score, and an authenticated round-trip probe beside it; the rest still read \"Soon\" and land one at a time."
     },
     {
       "slice": "PDF render engine",
@@ -1568,7 +1569,304 @@
           "by": "Opus 4.8"
         },
         "ui": {
+          "state": "done",
+          "by": "Fable 5"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "done",
+          "by": "Fable 5"
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": "Merge the public page + history branches, then run the deploy-activation checklist (status.magnacarta.esq)",
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "`@magna-carta/status` + `apps/status-worker` (isolated, `STATUS_KV`-only) + the new `platform_operator` principal; extends ADR-0048. The public page is server-rendered zero-JS HTML from the live snapshot, with same-origin assets (Atkinson + hashed stylesheet), light/dark, text ladder, and a subscribe-panel front door. `status-page-history` adds the 90-day per-component uptime record (a third cron-owned `status:history` key, sample-counted) and makes an upstream provider's trouble an advisory rather than our verdict."
+    },
+    {
+      "slice": "File Repair & Salvage",
+      "group": "cross-cutting",
+      "order": 21,
+      "stages": {
+        "research": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "spec": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "plan": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "built": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "ui": {
           "state": "todo"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "done",
+          "by": "Opus 4.8",
+          "awaiting": true
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": "attach-to-matter UI (post-0·7a); connect the magna-carta-file-repair Worker to Workers Builds + run the deploy smoke test",
+      "links": {
+        "spec": "docs/specs/2026-06-28-file-repair-salvage-design.md",
+        "plan": "docs/specs/2026-07-03-file-repair-salvage-plan-6b-attach-to-matter.md",
+        "adrs": [
+          "file-repair-single-container-lane",
+          "engine-host-r2-optional"
+        ]
+      },
+      "blockedBy": [],
+      "notes": "SP2 of the engine-host program. `crates/recovery-core` (pure Rust, native-only) — ZIP/OOXML + CFB/OLE2 + PDF xref-rebuild + carving pillars, each returning an honest loss manifest — hosted in `containers/file-repair` on the engine-host harness (the first container-on-harness engine), reached via `apps/file-repair-worker` + `FILE_REPAIR_SERVICE`. Stateless `/api/v1/file-repair/{diagnose,repair,carve}` re-scan reconstructed output and withhold anything flagged; attach-to-matter `/{repair,carve}/attach` save output as a server-side upload riding the existing ingest gate (repair→new version or new file, carve→N files; flagged→quarantine; the honest loss manifest is persisted per version in `file_repair_provenance` for chain of custody). `documents`→`files` tool group; `tools:fileRepair`. UI + deploy smoke test deferred."
+    },
+    {
+      "slice": "EyebrowLink component",
+      "group": "cross-cutting",
+      "order": 22,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "n/a"
+        },
+        "plan": {
+          "state": "n/a"
+        },
+        "built": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "ui": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "done",
+          "by": "Opus 4.8"
+        }
+      },
+      "branch": "eyebrow-link",
+      "activeWork": "docs/active-work/eyebrow-link.md",
+      "next": "Container VRT baselines once Docker is available; owner browser confirmation of the arrow geometry.",
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "**A masthead eyebrow that navigates** — a label, not a control, so it carries no control height and its ink sits flush with the block-start edge. Retires the button-based back-link workaround (inline letter-spacing + negative-margin pull). Storybook + play-function behaviour tests land; VRT baselines await the pinned Playwright container."
+    },
+    {
+      "slice": "File Unlock & Password Recovery",
+      "group": "cross-cutting",
+      "order": 23,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "plan": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "built": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "ui": {
+          "state": "todo"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "done",
+          "by": "Opus 4.8",
+          "awaiting": true
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": "GPU rung Stage 1 (benchmark harness @magna-carta/gpu-benchmark) built — owner benchmark run + Stage 2 wiring next; end-user UI (post-0·7); connect the magna-carta-recovery Worker to Workers Builds",
+      "links": {
+        "spec": "docs/specs/2026-06-26-decryption-tool-design.md",
+        "plan": "docs/specs/2026-06-26-decryption-slice-2-plan-2-orchestration-implementation-plan.md",
+        "adrs": [
+          "decryption-file-unlock-recovery",
+          "decryption-recovery-orchestration"
+        ]
+      },
+      "blockedBy": [],
+      "notes": "`crates/decryption-core` (pure Rust → wasm + native) behind `FormatAdapter`: unlock (`/decryption/inspect` + `/unlock`) and recover (DO-coordinated fan-out over `apps/recovery-worker` shards, `/decryption/recover*`). PDF/ZIP/OOXML; hash-only recovery boundary; GPU rungs + UI deferred."
+    },
+    {
+      "slice": "File-manager UI primitives (FileIcon · Breadcrumb · ContextMenu · Tree · Dropzone)",
+      "group": "cross-cutting",
+      "order": 24,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "n/a"
+        },
+        "plan": {
+          "state": "n/a"
+        },
+        "built": {
+          "state": "done",
+          "by": "Opus 4.8",
+          "gap": true
+        },
+        "ui": {
+          "state": "done",
+          "by": "Opus 4.8",
+          "gap": true
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "in-progress",
+          "by": "Opus 4.8",
+          "gap": true
+        }
+      },
+      "branch": "file-manager-primitives",
+      "activeWork": null,
+      "next": "Container VRT baselines (Docker unavailable locally — land via CI); NVDA pass; owner Storybook sign-off",
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "`@magna-carta/design-system/file-icon` + `/breadcrumb` — file-type iconography (content-type/extension → Lucide glyph, folder variant, recipe-sized) and folder-path navigation (nav landmark, `aria-current` leaf, middle-collapse behind an ellipsis). `/context-menu` — the right-click sibling of DropdownMenu over the Bits UI ContextMenu primitive (same part shape, floating presence, and recipe look). `/tree` — a folder tree with the full WAI-ARIA tree view keyboard model (roving tabindex, arrows to expand/collapse/descend/ascend, Home/End, typeahead), built without a Bits primitive because bits-ui 2.18.1 ships none; expansion is a bindable controlled set. `/dropzone` — the drag-and-drop upload surface over the FileInput primitive (drag-over state, drop forwarded to the consumer, keyboard/SR-operable through the underlying input, rejects nothing). Token-pure recipes; behaviour tests wrapped in named `step()` calls, including explicit Tree keyboard coverage and Dropzone drag/drop."
+    },
+    {
+      "slice": "OCR Engine",
+      "group": "cross-cutting",
+      "order": 25,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "done"
+        },
+        "plan": {
+          "state": "done"
+        },
+        "built": {
+          "state": "done"
+        },
+        "ui": {
+          "state": "todo"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "done"
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": "Deploy with `git push origin main:release` to run Workers Builds (Docker unavailable locally) — confirm the image builds on trixie, the SHA-256 hash guard fails a bad pin, and the container boots and passes /ready, then exercise the model-backed recognition tests (`--ignored`) in the container CI job.",
+      "links": {
+        "spec": "docs/specs/2026-07-09-ocr-engine-design.md",
+        "plan": "docs/specs/2026-07-09-ocr-engine-implementation-plan.md",
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "`crates/ocr-core` (PaddleOCR PP-OCRv6, small tier, via `ort`/ONNX) + `containers/ocr` + `apps/ocr-worker`; `POST /api/v1/ocr`, `tools:ocr` permission. Page selection weighs visible-text coverage against raster coverage rather than glyph presence, so a Bates-stamped scan is still recognized; outsize pages are rastered to fit a pixel budget and geometry bombs refused. Page-walk, skip-gate, coordinate-transform, raster-cap, and wire-mapping logic are unit- and integration-tested green; model-backed recognition runs in the container CI job. UI deferred."
+    },
+    {
+      "slice": "Searchable-PDF Writer",
+      "group": "cross-cutting",
+      "order": 26,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "done"
+        },
+        "plan": {
+          "state": "n/a"
+        },
+        "built": {
+          "state": "done"
+        },
+        "ui": {
+          "state": "todo"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "done"
+        }
+      },
+      "branch": "main",
+      "activeWork": "docs/active-work/searchable-pdf-writer.md",
+      "next": "Deferred seams — rotated-page (`/Rotate` 90/180/270) placement: the layer is written in the unrotated frame, so selection geometry is off on rotated scans (text stays searchable) — needs a counter-rotating text matrix like `bates.rs`; ingest-pipeline wiring (queues, per-job Durable Object, search index; blocked on the unbuilt discovery/search subsystem); skewed-quad placement beyond axis-aligned bounds; embedding a glyphless font if a target viewer needs a rendered selection glyph; and the UI. (The conversion orchestrator's scanned→searchable edge is now wired — `pdf → searchable-pdf` in the conversion registry, dispatched to the OCR service. An adversarial review hardened the writer: non-BMP characters, font-name collisions, and degenerate word boxes are fixed.)",
+      "links": {
+        "spec": "docs/specs/2026-07-14-searchable-pdf-writer-design.md",
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "`pdf_core::write_searchable_text_layer` writes an invisible (`3 Tr`) OCR text layer over a scanned page — selectable, copyable, searchable, with no visible change — reusing the Bates additive-append rule (existing bytes untouched, one shared non-embedded Type0/Identity-H font + ToUnicode, byte-identical output; Latin/CJK/Greek covered). Reachable end to end: the OCR container serves `POST /ocr/searchable` (PDF in, searchable PDF out, owning the line-text/word-box split), the ocr-worker proxies it, and the main worker exposes `POST /api/v1/ocr/searchable` behind `tools:ocr`, streaming the PDF back. A pdf-eval operation checks the additive-only invariant. UI and ingest/orchestrator dispatch deferred."
+    },
+    {
+      "slice": "Email parse core",
+      "group": "cross-cutting",
+      "order": 30,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "plan": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "built": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "ui": {
+          "state": "n/a"
         },
         "load-profile": {
           "state": "n/a"
@@ -1580,14 +1878,57 @@
       },
       "branch": "main",
       "activeWork": null,
-      "next": null,
+      "next": "LZFu decoder for compressed-RTF .msg bodies; the email-to-PDF render engine that closes the conversion registry's eml/msg edges; then the capture subsystem builds on this record model",
       "links": {
-        "spec": null,
-        "plan": null,
+        "spec": "docs/specs/2026-07-09-email-core-parse-engine-design.md",
+        "plan": "docs/specs/2026-07-09-email-core-parse-engine-implementation-plan.md",
         "adrs": []
       },
       "blockedBy": [],
-      "notes": "`@magna-carta/status` + `apps/status-worker` (isolated, `STATUS_KV`-only) + the new `platform_operator` principal; extends ADR-0048. UI deferred."
+      "notes": "The pure-Rust `email-core` engine (`.eml` / `.msg` / mbox) on the engine-host seam, its WASM edge, the `@magna-carta/email` wrapper, and the Email Inspector worker route + tool. `.msg` is read over `cfb` with MAPI decoding written and bounded in-house (`msg_parser` audited and rejected for a release-profile panic reachable on the unwind-less WASM runtime). Parse-only: rendering and DKIM verification stand outside it; the container/native lane is deferred until Discovery's bulk mbox parsing needs it."
+    },
+    {
+      "slice": "Email filing — record model & forward/CC capture",
+      "group": "cross-cutting",
+      "order": 31,
+      "stages": {
+        "research": {
+          "state": "done"
+        },
+        "spec": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "plan": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "built": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "ui": {
+          "state": "todo"
+        },
+        "load-profile": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "tested": {
+          "state": "done",
+          "by": "Opus 4.8"
+        }
+      },
+      "branch": "main",
+      "activeWork": null,
+      "next": "Merge slice 1; then the fast-follows — the native add-in (Outlook/Gmail Save & File over the built file-to-matter API), the emails:manageCaptureAddresses mint/rotate route + the capture-subdomain DNS onboarding, the DKIM verifier behind the placed seam, guardrailed auto-file rules, and the matter correspondence timeline UI (deferred to the UI plan). Participant resolution is wired live via the merged Directory reverse lookup.",
+      "links": {
+        "spec": "docs/specs/2026-07-14-email-filing-record-and-forward-capture-design.md",
+        "plan": "docs/specs/2026-07-14-email-filing-record-and-forward-capture-implementation-plan.md",
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "Slice 1 of the Email filing & capture subsystem: the matter-email record model (`email_message` / `email_thread` DAG / `email_matter_link` junction / `email_participant` / `email_attachment`) and the CASA-free forward/CC Email Worker capture, both converging on one `captureEmail` over the built `@magna-carta/email` parser and the built ingest/quarantine chokepoint. Also ships the authenticated `file this MIME to matter` API the later add-in slice posts to. Gate check (2026-07-14): the upload/quarantine pipeline (2·1) is green and directly reusable; Directory (1·3) is partial — the party graph + `matter_party` bridge are built but address→entity resolution is not, so participant resolution degrades gracefully and is deferred. The add-in, mailbox sync, conflict engine, DKIM verdict, and the correspondence-timeline UI are later slices; their seams are placed."
     },
     {
       "slice": "3·1 — Time tracking + WIP + rate engine",
@@ -1714,6 +2055,49 @@
       },
       "blockedBy": [],
       "notes": "`@magna-carta/costs` + `@magna-carta/billing-core` (shared WIP lifecycle); first per-firm queue consumer; recoverable-charge seam. cost→A/R + LEDES → 3·4."
+    },
+    {
+      "slice": "4·1 — Conflicts matching engine",
+      "group": "phase-4",
+      "order": 1,
+      "stages": {
+        "research": {
+          "state": "done"
+        },
+        "spec": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "plan": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "built": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "ui": {
+          "state": "todo"
+        },
+        "load-profile": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "tested": {
+          "state": "done",
+          "by": "Opus 4.8"
+        }
+      },
+      "branch": "slice-4-1-conflicts",
+      "activeWork": "docs/active-work/slice-4-1-conflicts.md",
+      "next": "Reviewer adjudication UX (deferred); Beider-Morse; the Content source class",
+      "links": {
+        "spec": "docs/specs/2026-07-09-slice-4-1-conflicts-design.md",
+        "plan": "docs/specs/2026-07-09-slice-4-1-conflicts-implementation-plan.md",
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "No-scorer evidence-tier engine; typed source registry + firm floor; three append-only log tables. Firm personnel resolved as a source, not a Directory node type."
     }
   ]
 }

@@ -73,12 +73,21 @@ describe("GET /api/v1/me", () => {
       // the one tools:* permission no role carried).
       // Sorted.
       permissions: [
+        // conflicts:read / conflicts:run are seeded onto every default role (any member may screen a
+        // prospective matter); conflicts:dispose is narrower and reaches Owner/Admin + Attorney only.
+        "conflicts:dispose",
+        "conflicts:read",
+        "conflicts:run",
         "costs:approve",
         "costs:track",
         "customFields:manage",
         "customFields:purge",
         "directory:edit",
         "directory:viewSensitiveIdentifiers",
+        "emails:file",
+        "emails:manageCaptureAddresses",
+        "emails:manageLinks",
+        "emails:read",
         "files:delete",
         "files:manageDocumentTypes",
         "files:organize",

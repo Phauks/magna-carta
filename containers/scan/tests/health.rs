@@ -36,6 +36,11 @@ async fn ready_returns_ok() {
 // `verdict` union, and the per-engine timings are always present.
 #[tokio::test]
 async fn scan_returns_raw_facts_with_timings() {
+    // The handler spools the body into the clamd-shared scratch dir — the fixed /scan the container's
+    // entrypoint creates, which exists nowhere else. Point the spool at the OS temp dir so this test
+    // exercises the real spool path on any host; the spooled file removes itself on drop.
+    std::env::set_var("SCAN_SCRATCH_DIR", std::env::temp_dir());
+
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
     tokio::spawn(async move {
@@ -50,8 +55,7 @@ async fn scan_returns_raw_facts_with_timings() {
         .unwrap();
     assert_eq!(response.status(), 200);
 
-    let body: serde_json::Value =
-        serde_json::from_str(&response.text().await.unwrap()).unwrap();
+    let body: serde_json::Value = serde_json::from_str(&response.text().await.unwrap()).unwrap();
     assert!(body.get("matches").is_some(), "matches must be present");
     assert!(body.get("timings").is_some(), "timings must be present");
     assert!(body.get("clam").is_some(), "clam fact must be present");
