@@ -1066,7 +1066,7 @@ export const mattersOpenMutation = (options?: Partial<Options<MattersOpenData>>)
 };
 
 /**
- * Closes a matter (archived-but-additive — it leaves active lists but still accepts documents). Runs the close-precondition registry; a failure returns the precondition codes.
+ * Closes a matter (archived-but-additive — it leaves active lists but still accepts documents). Runs the close-precondition registry; a failure returns the precondition codes. Refuses a matter that is already closed, so its recorded close date never moves.
  */
 export const mattersCloseMutation = (options?: Partial<Options<MattersCloseData>>): MutationOptions<MattersCloseResponse, MattersCloseError, Options<MattersCloseData>> => {
     const mutationOptions: MutationOptions<MattersCloseResponse, MattersCloseError, Options<MattersCloseData>> = {

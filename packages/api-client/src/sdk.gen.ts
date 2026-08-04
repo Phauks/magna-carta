@@ -518,7 +518,7 @@ export const mattersUpdate = <ThrowOnError extends boolean = false>(options: Opt
 export const mattersOpen = <ThrowOnError extends boolean = false>(options: Options<MattersOpenData, ThrowOnError>): RequestResult<MattersOpenResponses, MattersOpenErrors, ThrowOnError> => (options.client ?? client).post<MattersOpenResponses, MattersOpenErrors, ThrowOnError>({ url: '/api/v1/matters/{id}/open', ...options });
 
 /**
- * Closes a matter (archived-but-additive — it leaves active lists but still accepts documents). Runs the close-precondition registry; a failure returns the precondition codes.
+ * Closes a matter (archived-but-additive — it leaves active lists but still accepts documents). Runs the close-precondition registry; a failure returns the precondition codes. Refuses a matter that is already closed, so its recorded close date never moves.
  */
 export const mattersClose = <ThrowOnError extends boolean = false>(options: Options<MattersCloseData, ThrowOnError>): RequestResult<MattersCloseResponses, MattersCloseErrors, ThrowOnError> => (options.client ?? client).post<MattersCloseResponses, MattersCloseErrors, ThrowOnError>({ url: '/api/v1/matters/{id}/close', ...options });
 

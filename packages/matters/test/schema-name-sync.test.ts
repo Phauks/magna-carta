@@ -2,6 +2,7 @@ import { getTableConfig } from "drizzle-orm/sqlite-core";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import {
   matter,
+  matterNumberAllocation,
   matterNumberCounter,
   matterType,
   numberingScheme,
@@ -30,7 +31,9 @@ import {
   updateMatterFieldsStatement,
 } from "../src/matter-statements.ts";
 import {
+  MATTER_NUMBER_ALLOCATION_TABLE,
   MATTER_NUMBER_COUNTER_TABLE,
+  allocateCounterValueStatement,
   ensureCounterRowStatement,
   guardedIncrementStatement,
   selectCounterValueStatement,
@@ -79,6 +82,7 @@ describe("schema name sync (matters SQL pinned to @magna-carta/database)", () =>
     expect(getTableConfig(matter).name).toBe(MATTER_TABLE);
     expect(getTableConfig(numberingScheme).name).toBe(NUMBERING_SCHEME_TABLE);
     expect(getTableConfig(matterNumberCounter).name).toBe(MATTER_NUMBER_COUNTER_TABLE);
+    expect(getTableConfig(matterNumberAllocation).name).toBe(MATTER_NUMBER_ALLOCATION_TABLE);
   });
 
   it("every column the matter SQL names exists in the schema", () => {
@@ -122,6 +126,14 @@ describe("schema name sync (matters SQL pinned to @magna-carta/database)", () =>
       counterStatements,
       new Set([MATTER_NUMBER_COUNTER_TABLE, ...columnsOf(matterNumberCounter)]),
       "counter",
+    );
+    const allocationSql = sqlOf(
+      allocateCounterValueStatement(stub, "k", 1, MATTER_ID, "2026-06-13T12:00:00.000Z"),
+    );
+    expectOnlyKnownIdentifiers(
+      allocationSql,
+      new Set([MATTER_NUMBER_ALLOCATION_TABLE, ...columnsOf(matterNumberAllocation)]),
+      "allocation",
     );
   });
 

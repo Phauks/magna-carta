@@ -12781,7 +12781,7 @@
     },
     "/api/v1/matters/{id}/close": {
       "post": {
-        "description": "Closes a matter (archived-but-additive — it leaves active lists but still accepts documents). Runs the close-precondition registry; a failure returns the precondition codes.",
+        "description": "Closes a matter (archived-but-additive — it leaves active lists but still accepts documents). Runs the close-precondition registry; a failure returns the precondition codes. Refuses a matter that is already closed, so its recorded close date never moves.",
         "operationId": "matters.close",
         "tags": [
           "matters"

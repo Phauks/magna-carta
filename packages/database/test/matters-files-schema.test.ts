@@ -6,6 +6,7 @@ import {
   fileVersion,
   location,
   matter,
+  matterNumberAllocation,
   matterNumberCounter,
   storageMeter,
 } from "../src/per-firm-schema.ts";
@@ -79,6 +80,32 @@ describe("matters / locations / file-manager schema", () => {
       "artifact_role",
       "prefix",
     ]);
+  });
+
+  it("matter_number_allocation: the drawn counter value is unique per scope at the DDL level", () => {
+    const config = getTableConfig(matterNumberAllocation);
+    expect(config.primaryKeys[0]?.columns.map((column) => column.name)).toEqual([
+      "scope_key",
+      "drawn_value",
+    ]);
+
+    // The constraint the matter numbering draw leans on: a scheme whose variable segments are not
+    // all scoping renders different numbers from the same counter value, so nothing about
+    // matter_number can catch two draws sharing one value — this can, and does it in the database
+    // rather than in a service that cannot hold a transaction open across the read and the write.
+    const raw = new DatabaseSync(":memory:");
+    applyMigrations(raw, loadMigrationsFromDisk("per-firm"));
+    raw.exec("PRAGMA foreign_keys = OFF;"); // isolate the key from the matter_id FK
+    const allocate = (scopeKey: string, drawnValue: number, matterId: string) =>
+      raw
+        .prepare(
+          "INSERT INTO matter_number_allocation (scope_key, drawn_value, matter_id, allocated_at) VALUES (?, ?, ?, '2026-06-13T12:00:00.000Z')",
+        )
+        .run(scopeKey, drawnValue, matterId);
+    allocate("RENO", 1, "matter_one");
+    allocate("VEGAS", 1, "matter_two"); // a per-scope counter, so the same value elsewhere is fine
+    expect(() => allocate("RENO", 1, "matter_three")).toThrow(/UNIQUE constraint failed/);
+    raw.close();
   });
 
   it("the matter status CHECK fires at the DDL level — an untyped writer cannot land 'Prospective'", () => {
