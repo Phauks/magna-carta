@@ -36,8 +36,19 @@ import {
   missingBindings,
   readStamp,
 } from "./artefact-verification.mjs";
+import { callerDirectory, refusalReason } from "./invocation-environment.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
+
+// Before anything else: is this the checkout the caller meant, and are its dependencies installed?
+// Both can be false while every command still exits 0 — invocation-environment.mjs explains how — and a
+// bootstrap that silently succeeds against the wrong tree is worse than one that never ran, because the
+// next failure surfaces somewhere else entirely.
+const refusal = refusalReason({ scriptRoot: ROOT, invokedFrom: callerDirectory() });
+if (refusal !== null) {
+  console.error(refusal);
+  process.exit(1);
+}
 
 /** The generated-artefact graph: one wasm-bindgen output per crate, consumed by one TypeScript package. */
 const ARTEFACTS = [

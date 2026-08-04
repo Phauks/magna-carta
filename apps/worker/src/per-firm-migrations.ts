@@ -17,6 +17,8 @@ import seedEsignSealSql from "@magna-carta/database/drizzle/per-firm/20260803T12
 import matterNumberAllocationSql from "@magna-carta/database/drizzle/per-firm/20260804T072255_matter-number-allocation.sql";
 import indexSplitDocumentVersionSql from "@magna-carta/database/drizzle/per-firm/20260804T082351_index-split-document-version.sql";
 import shipmentPurchaseClaimSql from "@magna-carta/database/drizzle/per-firm/20260804T120000_shipment-purchase-claim.sql";
+import custodianRegisterSql from "@magna-carta/database/drizzle/per-firm/20260804T160000_custodian-register.sql";
+import seedCustodyCatalogSql from "@magna-carta/database/drizzle/per-firm/20260804T160001_seed-custody-catalog.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the FirmDatabase
 // Durable Object runs this lineage against its own SQLite storage on wake (firm-database-object.ts),
@@ -44,6 +46,8 @@ export function perFirmMigrations(): Migration[] {
     "20260804T072255_matter-number-allocation": matterNumberAllocationSql,
     "20260804T082351_index-split-document-version": indexSplitDocumentVersionSql,
     "20260804T120000_shipment-purchase-claim": shipmentPurchaseClaimSql,
+    "20260804T160000_custodian-register": custodianRegisterSql,
+    "20260804T160001_seed-custody-catalog": seedCustodyCatalogSql,
   });
 }
 

@@ -9,7 +9,8 @@ built: done
 ui: todo
 load-profile: n/a
 tested: done
-active-work: docs/active-work/searchable-pdf-writer.md
+branch: main
+active-work:
 next: Deferred seams — rotated-page (`/Rotate` 90/180/270) placement: the layer is written in the unrotated frame, so selection geometry is off on rotated scans (text stays searchable) — needs a counter-rotating text matrix like `bates.rs`; ingest-pipeline wiring (queues, per-job Durable Object, search index; blocked on the unbuilt discovery/search subsystem); skewed-quad placement beyond axis-aligned bounds; embedding a glyphless font if a target viewer needs a rendered selection glyph; and the UI. (The conversion orchestrator's scanned→searchable edge is now wired — `pdf → searchable-pdf` in the conversion registry, dispatched to the OCR service. An adversarial review hardened the writer: non-BMP characters, font-name collisions, and degenerate word boxes are fixed.)
 link-spec: docs/specs/2026-07-14-searchable-pdf-writer-design.md
 link-plan:

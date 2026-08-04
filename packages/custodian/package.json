@@ -1,0 +1,44 @@
+{
+  "name": "@magna-carta/custodian",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./types": "./src/types.ts",
+    "./validation": "./src/validation.ts",
+    "./audit": "./src/audit.ts",
+    "./location-statements": "./src/location-statements.ts",
+    "./location-service": "./src/location-service.ts",
+    "./item-type-statements": "./src/item-type-statements.ts",
+    "./item-type-service": "./src/item-type-service.ts",
+    "./packet-statements": "./src/packet-statements.ts",
+    "./packet-service": "./src/packet-service.ts",
+    "./item-service": "./src/item-service.ts",
+    "./movement-statements": "./src/movement-statements.ts",
+    "./movement-service": "./src/movement-service.ts",
+    "./hold-statements": "./src/hold-statements.ts",
+    "./hold-service": "./src/hold-service.ts",
+    "./scan-statements": "./src/scan-statements.ts",
+    "./scan-service": "./src/scan-service.ts",
+    "./numbering/counter-statements": "./src/numbering/counter-statements.ts",
+    "./numbering/render": "./src/numbering/render.ts",
+    "./queries": "./src/queries.ts"
+  },
+  "scripts": {
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@magna-carta/data-access": "workspace:*",
+    "@magna-carta/database": "workspace:*",
+    "@magna-carta/identifiers": "workspace:*",
+    "@magna-carta/matters": "workspace:*",
+    "@magna-carta/money": "workspace:*"
+  },
+  "devDependencies": {
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "drizzle-orm": "catalog:",
+    "vitest": "catalog:"
+  }
+}

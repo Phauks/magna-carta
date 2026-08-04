@@ -1,0 +1,105 @@
+@layer components {
+  /*
+   * MergeFieldChip (Tier 1). The token standing in for an inserted merge field: a status glyph, the
+   * field's human label, and an optional value-type affordance, with an optional remove button.
+   *
+   * A subtle-tint register, like the status badges — a chip appears INSIDE running document text and
+   * inside dense field lists, so a saturated block would shout over the prose it sits in. The status
+   * tint is paired with its own subtle border so the chip still has an edge on a tinted surface.
+   */
+  .mc-merge-field-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--mc-space-4);
+    padding-block: var(--mc-space-4);
+    padding-inline: var(--mc-space-8);
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: transparent;
+    border-radius: var(--mc-radius-md);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-xs);
+    line-height: var(--mc-leading-tight);
+    vertical-align: baseline;
+  }
+  /* The label is the chip's subject: it carries the weight and is the part allowed to truncate. */
+  .mc-merge-field-chip-label {
+    font-weight: var(--mc-weight-semibold);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  /*
+   * The value-type affordance. Deliberately quieter than the label and set in the monospace face —
+   * it is a machine fact about the field, not part of its name, and the face keeps "Date" from
+   * reading as another word in the label.
+   */
+  .mc-merge-field-chip-type {
+    flex: none;
+    padding-inline: var(--mc-space-4);
+    border-radius: var(--mc-radius-sm);
+    background-color: var(--mc-surface-default);
+    color: var(--mc-text-muted);
+    font-family: var(--mc-font-mono);
+    font-size: var(--mc-font-size-xs);
+    font-weight: var(--mc-weight-regular);
+  }
+  .mc-merge-field-chip-icon {
+    flex: none;
+    inline-size: var(--mc-space-12);
+    block-size: var(--mc-space-12);
+  }
+  /* The one interaction a chip owns. Flush, so it never widens the chip's rhythm. */
+  .mc-merge-field-chip-remove {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    padding: var(--mc-space-0);
+    border-style: none;
+    border-radius: var(--mc-radius-sm);
+    background-color: transparent;
+    color: inherit;
+    cursor: pointer;
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-focus-ring-offset);
+    transition-property: outline-color, opacity;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+  }
+  .mc-merge-field-chip-remove:focus-visible {
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+  }
+  .mc-merge-field-chip-remove-icon {
+    inline-size: var(--mc-space-12);
+    block-size: var(--mc-space-12);
+  }
+
+  /* Fills itself from firm data — the calm, expected case. */
+  .mc-merge-field-chip-automatic {
+    background-color: var(--mc-status-info-subtle);
+    border-color: var(--mc-status-info-subtle-border);
+    color: var(--mc-status-info-subtle-foreground);
+  }
+  /* Work waiting for a person, so it carries the attention register. */
+  .mc-merge-field-chip-manual {
+    background-color: var(--mc-status-warning-subtle);
+    border-color: var(--mc-status-warning-subtle-border);
+    color: var(--mc-status-warning-subtle-foreground);
+  }
+  /* Will render blank or as a marker: quiet, because nothing is wrong — the value simply is not there. */
+  .mc-merge-field-chip-unavailable {
+    background-color: var(--mc-surface-sunken);
+    border-color: var(--mc-border-default);
+    color: var(--mc-text-muted);
+  }
+  /* Not a field the catalog carries: the template cannot be used until this is resolved. */
+  .mc-merge-field-chip-invalid {
+    background-color: var(--mc-status-danger-subtle);
+    border-color: var(--mc-status-danger-subtle-border);
+    color: var(--mc-status-danger-subtle-foreground);
+  }
+}

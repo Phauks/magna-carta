@@ -33,6 +33,9 @@
       "path": "../../packages/costs/tsconfig.build.json"
     },
     {
+      "path": "../../packages/custodian/tsconfig.build.json"
+    },
+    {
       "path": "../../packages/custom-fields/tsconfig.build.json"
     },
     {

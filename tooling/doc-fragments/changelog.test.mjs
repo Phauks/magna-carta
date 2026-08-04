@@ -19,6 +19,34 @@ describe("parseFragment", () => {
       text: "A bug.",
     });
   });
+
+  it("drops a leading list marker, which foldFragments is the one to add", () => {
+    // Written as it would read in the file, the two markers stacked into `- - **The Oxlint...**`.
+    expect(parseFragment("---\ncategory: Changed\n---\n\n- **A change.** Detail.\n").text).toBe(
+      "**A change.** Detail.",
+    );
+  });
+
+  it("drops the other list markers an author might reach for", () => {
+    expect(parseFragment("---\ncategory: Added\n---\n\n* A thing.\n").text).toBe("A thing.");
+    expect(parseFragment("---\ncategory: Added\n---\n\n+ A thing.\n").text).toBe("A thing.");
+  });
+
+  it("leaves a body that only starts with a dash-like character alone", () => {
+    // An em dash opening a sentence is prose, not a bullet, and a marker needs its space.
+    expect(parseFragment("---\ncategory: Added\n---\n\n-1 is now accepted.\n").text).toBe(
+      "-1 is now accepted.",
+    );
+    expect(parseFragment("---\ncategory: Added\n---\n\n— a dash opener.\n").text).toBe(
+      "— a dash opener.",
+    );
+  });
+
+  it("strips only the FIRST marker, so a nested list inside the entry survives", () => {
+    expect(parseFragment("---\ncategory: Added\n---\n\n- Top.\n  - Nested.\n").text).toBe(
+      "Top.\n  - Nested.",
+    );
+  });
 });
 
 describe("foldFragments", () => {
@@ -39,6 +67,13 @@ describe("foldFragments", () => {
     ]);
     expect(out).toContain("- Existing thing.\n- New thing.");
     expect(out).toContain("### Fixed\n\n- A fix.");
+  });
+
+  it("renders exactly one bullet for a fragment the author wrote as a bullet", () => {
+    const fragment = parseFragment("---\ncategory: Added\n---\n\n- **New thing.** Detail.\n");
+    const out = foldFragments(changelog, [fragment]);
+    expect(out).toContain("- **New thing.** Detail.");
+    expect(out).not.toContain("- - ");
   });
 
   it("throws when the [Unreleased] section is missing", () => {

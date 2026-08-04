@@ -9,8 +9,8 @@ built: in-progress
 ui: todo
 load-profile: todo
 tested: done
-branch: claude/search-write-pipeline
-active-work: docs/active-work/claude/search-write-pipeline.md
+branch: main
+active-work:
 next: Deploy-gated — `apps/search-worker` (the always-warm Container that range-reads splits from R2 and serves `/index`, `/query`, `/remove`) is the only thing between the parked `deferred` jobs and real hits; the adapter already calls exactly those endpoints, so deploying it needs no code change here. Then the semantic half (Vectorize namespace-per-firm through `InferencePort.embed`; the RRF that fuses it is done), the matter-scoped `/api/v1` route behind a `discovery:search` permission plus its UI (built after the engine, so the route never ships returning engine-not-implemented), and compaction (merge the small per-document splits, swap the catalog). One known extract gap: a born-digital PDF's existing text layer is not read back out — the recognition engine skips such pages — so it records `unextractable` rather than indexing empty; closing it needs `crates/pdf-core`'s `page_text_glyphs` exposed through `packages/pdf`, behind the same `TextExtractionPort`.
 link-spec: docs/specs/2026-07-17-discovery-search-index-stateful-service-design.md
 link-plan:

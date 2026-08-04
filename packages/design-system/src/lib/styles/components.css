@@ -55,3 +55,8 @@
 @import "../components/data-table/data-table.css";
 @import "../components/sidebar/sidebar.css";
 @import "../components/resizable/resizable.css";
+/* The merge-field family. The chip is imported before the picker and the review list because both
+   of those render chips, so the chip's base recipe must already be in the cascade. */
+@import "../components/merge-field-chip/merge-field-chip.css";
+@import "../components/merge-field-picker/merge-field-picker.css";
+@import "../components/merge-field-review-list/merge-field-review-list.css";
