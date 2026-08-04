@@ -15,21 +15,33 @@ reason = "Pre-existing transitive dev/build-tooling advisory (lodash), no produc
 
 # --- Tracked advisories (surfaced when osv-scanner first audited the Rust supply chain 2026-07-16).
 # Each is accepted with cause and a time-boxed ignoreUntil forcing function that re-surfaces it for review.
-# lopdf (RUSTSEC-2026-0187) was remediated by upgrading to 0.42.0 and is no longer listed. The three below
-# cannot be cleared by a simple carrier bump today — the reason on each records why, and each re-surfaces
-# at ignoreUntil to be re-checked against a newer upstream.
+# Entries leave this file as soon as they are genuinely remediated, never by quietly extending the clock:
+# lopdf (RUSTSEC-2026-0187) left when the carrier moved to 0.42.0; the esbuild advisory left when GitHub
+# withdrew it; the uuid advisory (GHSA-w5hq-g745-h8pq) left on the 2026-08-04 review when the
+# pnpm-workspace.yaml override forced uuid 11.1.1 onto postman-collection. The two below are the ones no
+# available upgrade reaches, and each records the reachability analysis behind its extension.
+
+# 2026-08-04 review — both quick-xml entries re-checked before the 2026-10-14 lapse and extended to
+# 2027-02-14. What was checked and why the date moved rather than the advisory clearing:
+#
+#   * A fix exists (quick-xml 0.41.0) but is unreachable from this workspace. quick-xml has exactly one
+#     consumer in every audited lockfile — office-crypto, via crates/decryption-core — and office-crypto
+#     0.3.0, its newest release, still declares `quick-xml ^0.38.4`. Cargo will not resolve 0.41 under a
+#     `^0.38` requirement, and `[patch.crates-io]` does not lift that constraint either: a patch entry
+#     must still satisfy the original requirement, so reaching 0.41 would mean vendoring a fork of a
+#     15 000-line XML parser under a falsified version number. That trades a bounded, analyzed exposure
+#     for an unaudited parser fork the scanner can no longer even identify — a worse position, not a
+#     better one. Replacing office-crypto outright (decryption-core already owns the agile verifier and
+#     its own descriptor parser) is the real exit and is the plan for the next review.
+#   * Re-check at the new date: whether office-crypto has released against quick-xml >= 0.41, and
+#     whether the office-crypto replacement has landed. Either clears both entries.
 
 [[IgnoredVulns]]
 id = "RUSTSEC-2026-0194"
-ignoreUntil = 2026-10-14
-reason = "quick-xml quadratic duplicate-attribute scan (CVSS 7.5), fixed in quick-xml 0.41.0. Reached only through office-crypto, which still requires quick-xml ^0.38.4 as of office-crypto 0.3.0 — so no carrier upgrade clears this, and cargo cannot resolve 0.41 under that requirement. Remediation needs an upstream office-crypto bump, a [patch] override, or dropping the crate; re-decide before ignoreUntil."
+ignoreUntil = 2027-02-14
+reason = "quick-xml quadratic duplicate-attribute scan (CVSS 7.5 availability), fixed in quick-xml 0.41.0, which office-crypto 0.3.0 still cannot resolve (it requires ^0.38.4). REACHABLE but bounded: office-crypto iterates `BytesStart::attributes()` with the default duplicate check over the agile EncryptionInfo descriptor of an uploaded document, so an attacker-supplied file does reach the quadratic scan. crates/decryption-core/src/ooxml.rs now caps that descriptor at 64 KiB (MAX_ENCRYPTION_INFO_BYTES) before office-crypto sees the bytes, which caps the attribute count near 16 000 and the scan at well under a second — the cost no longer scales with the uploaded file. The cap is verified by the `rejects_oversized_encryption_info_descriptor` test in that module."
 
 [[IgnoredVulns]]
 id = "RUSTSEC-2026-0195"
-ignoreUntil = 2026-10-14
-reason = "Second quick-xml advisory (CVSS 7.5), same carrier and same blocker as RUSTSEC-2026-0194: office-crypto 0.3.0 still requires quick-xml ^0.38.4, and the fix lands in 0.41.0."
-
-[[IgnoredVulns]]
-id = "GHSA-w5hq-g745-h8pq"
-ignoreUntil = 2026-10-14
-reason = "uuid unchecked-buffer-bounds in v3/v5/v6, fixed in uuid 11.1.1. CVSS 7.5 (GitHub labels it Moderate); flagged because this gate keys npm severity off CVSS. Dev-only path: @stoplight/prism-cli and @stoplight/spectral-cli -> @stoplight/http-spec -> postman-collection -> uuid 8.3.2. Upgrading the carrier does NOT clear it — postman-collection hard-pins uuid 8.3.2 through its newest release (5.3.1) — so the only remediation is a pnpm override forcing uuid, which must be weighed against breaking the v8 API these tools call."
+ignoreUntil = 2027-02-14
+reason = "quick-xml unbounded namespace-declaration allocation in NsReader (CVSS 7.5 availability), fixed in quick-xml 0.41.0, same carrier and same resolution blocker as RUSTSEC-2026-0194. NOT REACHABLE here: the advisory affects only NsReader and direct NamespaceResolver::push callers, and quick-xml confines NamespaceResolver to its ns_reader module. office-crypto's only parse builds a plain `quick_xml::reader::Reader` (Reader::from_str over the EncryptionInfo descriptor) and never resolves namespaces, so no code path in this workspace constructs an NsReader. Listed rather than dropped because the vulnerable version is genuinely in the tree; it clears when RUSTSEC-2026-0194 does."

@@ -50,7 +50,7 @@ futures-util = { version = "0.3", default-features = false, features = ["std"] }
 yara-x = "1.18"
 # Structural-heuristic parsers (all pure Rust). zip uses the lean deflate-flate2 feature set so it
 # pulls no bzip2/zstd/lzma C deps (Windows-clean); encrypted-entry detection still works without AES.
-lopdf = "0.42"
+lopdf = "0.44"
 cfb = "0.14"
 zip = { version = "8.6", default-features = false, features = ["deflate-flate2"] }
 # Inflate `/Type /ObjStm` object-stream bodies in the PDF abort guard so the structural depth pre-check

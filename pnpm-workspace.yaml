@@ -154,5 +154,10 @@ overrides:
   fast-uri: 3.1.5
   sharp: 0.35.0
   postcss: 8.5.18
+  # uuid arrives only through postman-collection (the Prism/Spectral contract tooling), which
+  # hard-pins 8.3.2 through its newest release, so no carrier bump reaches the fixed line. 11.1.1
+  # is the newest release that still ships a CommonJS entry point — postman-collection does
+  # `require('uuid').v4()`, and uuid 12+ is ESM-only, so this is the highest safe floor.
+  uuid: 11.1.1
 patchedDependencies:
   bits-ui@2.18.1: patches/bits-ui@2.18.1.patch
