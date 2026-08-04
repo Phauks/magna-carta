@@ -1,5 +1,6 @@
-// The two telemetry-minted handles, wrapping @magna-carta/identifiers so there is ONE
-// source for each (the slice 0·5 problem module delegates errorId minting here — Task 6).
+// The two telemetry-minted handles, wrapping @magna-carta/identifiers so there is ONE source for
+// each — the RFC 9457 problem builder delegates errorId minting here rather than calling
+// newIdentifier itself, so the prefix and the mint site cannot drift apart.
 //   - correlation id (correlation_): created per request, rides every event and every problem response.
 //   - error id (error_): minted when an error is captured; the public key joining a user-visible
 //     failure to its redacted server trace.
