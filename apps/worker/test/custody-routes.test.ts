@@ -344,3 +344,164 @@ describe("the custody chokepoint contract", () => {
     expect(will?.intrinsicValueDefault).toBe(true);
   });
 });
+
+describe("review dates, reminders, reports, and labels", () => {
+  it("schedules a review, completes it, and rolls the date forward on its anniversary", async () => {
+    const safe = await createLocation("Review safe", "safe");
+    const ownerEntityId = await createPerson("Review", "Owner");
+    const logged = await post("/api/v1/custody/packets", {
+      name: "Review packet",
+      owners: [{ entityId: ownerEntityId }],
+      currentLocationId: safe,
+    });
+    const { id: packetId } = (await logged.json()) as { id: string };
+
+    const scheduled = await patch(`/api/v1/custody/packets/${packetId}`, {
+      reviewOn: "2026-05-01",
+      reviewIntervalMonths: 60,
+    });
+    expect(scheduled.status).toBe(200);
+
+    const reminders = await get("/api/v1/custody/reminders?asOf=2026-08-04");
+    expect(reminders.status).toBe(200);
+    const reminderBody = (await reminders.json()) as {
+      data: Array<{ packetId: string; reason: string; bucket: string }>;
+    };
+    expect(
+      reminderBody.data.some((row) => row.packetId === packetId && row.reason === "review-due"),
+    ).toBe(true);
+
+    const completed = await post(`/api/v1/custody/packets/${packetId}/reviews`, {
+      occurredAt: "2026-08-04T09:00:00.000Z",
+    });
+    expect(completed.status).toBe(201);
+    // Anchored on the schedule, not on today: a review done late does not drag the cycle with it.
+    expect(await completed.json()).toMatchObject({ nextReviewOn: "2031-05-01" });
+
+    const detail = await get(`/api/v1/custody/packets/${packetId}`);
+    const detailBody = (await detail.json()) as { reviewOn: string | null };
+    expect(detailBody.reviewOn).toBe("2031-05-01");
+
+    // A completed review is a ledger entry, because the ledger is the only record this subsystem
+    // keeps that anything happened.
+    const history = await get(`/api/v1/custody/packets/${packetId}/movements`);
+    const historyBody = (await history.json()) as { data: Array<{ kind: string }> };
+    expect(historyBody.data.map((movement) => movement.kind)).toContain("reviewed");
+
+    // And it is no longer on the reminder list.
+    const after = await get("/api/v1/custody/reminders?asOf=2026-08-04");
+    const afterBody = (await after.json()) as { data: Array<{ packetId: string }> };
+    expect(afterBody.data.some((row) => row.packetId === packetId)).toBe(false);
+  });
+
+  it("records a retried review exactly once", async () => {
+    const safe = await createLocation("Retry review safe", "safe");
+    const ownerEntityId = await createPerson("RetryReview", "Owner");
+    const logged = await post("/api/v1/custody/packets", {
+      name: "Retry review packet",
+      owners: [{ entityId: ownerEntityId }],
+      currentLocationId: safe,
+    });
+    const { id: packetId } = (await logged.json()) as { id: string };
+    await patch(`/api/v1/custody/packets/${packetId}`, { reviewOn: "2026-05-01" });
+
+    const key = crypto.randomUUID();
+    const body = { occurredAt: "2026-08-04T09:00:00.000Z" };
+    const first = await post(`/api/v1/custody/packets/${packetId}/reviews`, body, ownerCookie, key);
+    const replay = await post(
+      `/api/v1/custody/packets/${packetId}/reviews`,
+      body,
+      ownerCookie,
+      key,
+    );
+    expect(first.status).toBe(201);
+    expect(await replay.json()).toEqual(await first.json());
+
+    const history = await get(`/api/v1/custody/packets/${packetId}/movements`);
+    const historyBody = (await history.json()) as { data: Array<{ kind: string }> };
+    expect(historyBody.data.filter((movement) => movement.kind === "reviewed")).toHaveLength(1);
+  });
+
+  it("reports holdings by owner and by location, and lists holds in force", async () => {
+    const office = await createLocation("Report office", "office");
+    const safe = await createLocation("Report safe", "safe", office);
+    const ownerEntityId = await createPerson("Report", "Owner");
+    const logged = await post("/api/v1/custody/packets", {
+      name: "Report packet",
+      owners: [{ entityId: ownerEntityId }],
+      currentLocationId: safe,
+    });
+    const { id: packetId } = (await logged.json()) as { id: string };
+    const held = await post(`/api/v1/custody/packets/${packetId}/holds`, {
+      kind: "legal",
+      reason: "Estate dispute",
+    });
+    expect(held.status).toBe(201);
+
+    const byOwner = await get("/api/v1/custody/reports/holdings-by-owner?limit=500");
+    expect(byOwner.status).toBe(200);
+    const byOwnerBody = (await byOwner.json()) as {
+      data: Array<{ entityId: string; packetsHeld: number; packetsUnderHold: number }>;
+    };
+    expect(byOwnerBody.data.find((entry) => entry.entityId === ownerEntityId)).toMatchObject({
+      packetsHeld: 1,
+      packetsUnderHold: 1,
+    });
+
+    const byLocation = await get("/api/v1/custody/reports/holdings-by-location");
+    expect(byLocation.status).toBe(200);
+    const byLocationBody = (await byLocation.json()) as {
+      data: Array<{ locationId: string; directOccupancy: number; subtreeOccupancy: number }>;
+    };
+    expect(
+      byLocationBody.data.find((entry) => entry.locationId === office)?.subtreeOccupancy,
+    ).toBeGreaterThanOrEqual(1);
+    expect(byLocationBody.data.find((entry) => entry.locationId === safe)?.directOccupancy).toBe(1);
+
+    const holds = await get("/api/v1/custody/reports/holds");
+    expect(holds.status).toBe(200);
+    const holdsBody = (await holds.json()) as { data: Array<{ packetId: string; kind: string }> };
+    expect(holdsBody.data.some((entry) => entry.packetId === packetId)).toBe(true);
+  });
+
+  it("renders a printable label sheet as SVG, and refuses one that would not fit", async () => {
+    const safe = await createLocation("Label safe", "safe");
+    const ownerEntityId = await createPerson("Label", "Owner");
+    const logged = await post("/api/v1/custody/packets", {
+      name: "Label packet",
+      owners: [{ entityId: ownerEntityId }],
+      currentLocationId: safe,
+    });
+    const packet = (await logged.json()) as { id: string; custodyNumber: string };
+
+    const sheet = await get(
+      `/api/v1/custody/labels?packetIds=${packet.id}&locationIds=${safe}&startPosition=2`,
+    );
+    expect(sheet.status).toBe(200);
+    expect(sheet.headers.get("content-type")).toContain("image/svg+xml");
+    const svg = await sheet.text();
+    expect(svg.startsWith("<svg")).toBe(true);
+    // The barcode carries the handle a scanner resolves; the custody number is what a person reads.
+    expect(svg).toContain(packet.id);
+    expect(svg).toContain(packet.custodyNumber);
+
+    // One sheet per request: a label that fell onto a second page is a label on the wrong box.
+    const overfull = await get(
+      `/api/v1/custody/labels?packetIds=${Array.from({ length: 25 }, () => packet.id).join(",")}`,
+    );
+    expect(overfull.status).toBe(422);
+  });
+
+  it("refuses the reports and the label sheet to a caller lacking custody:read (403)", async () => {
+    for (const path of [
+      "/api/v1/custody/reminders",
+      "/api/v1/custody/reports/holdings-by-owner",
+      "/api/v1/custody/reports/holdings-by-location",
+      "/api/v1/custody/reports/holds",
+      "/api/v1/custody/labels?packetIds=custodyPacket_unreachable",
+    ]) {
+      const response = await get(path, noPermissionCookie);
+      expect(response.status, path).toBe(403);
+    }
+  });
+});

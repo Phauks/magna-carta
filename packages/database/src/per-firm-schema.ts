@@ -2418,6 +2418,12 @@ export const custodyPacket = sqliteTable(
     // foreign key on the Directory handle (the matter_party precedent).
     depositorEntityId: text("depositor_entity_id"),
     depositedAt: text("deposited_at"),
+    // "Look at this again", not a deadline and not a retention clock. A firm sets the date; nothing
+    // derives one, nothing expires when it passes, and a passed date only puts the packet on the
+    // reviews-due report. The interval rolls the date forward on its anniversary when a review is
+    // recorded, so a nine-year-old envelope keeps coming back round instead of being forgotten.
+    reviewOn: text("review_on"),
+    reviewIntervalMonths: integer("review_interval_months"),
     notes: text("notes"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
@@ -2435,6 +2441,10 @@ export const custodyPacket = sqliteTable(
     check(
       "custody_packet_status_check",
       sql`${table.status} IN ('held', 'out', 'released', 'destroyed', 'lost')`,
+    ),
+    check(
+      "custody_packet_review_interval_check",
+      sql`${table.reviewIntervalMonths} IS NULL OR (${table.reviewIntervalMonths} > 0 AND ${table.reviewIntervalMonths} <= 600)`,
     ),
   ],
 );
@@ -2471,6 +2481,11 @@ export const custodyItem = sqliteTable(
     })
       .notNull()
       .default("held"),
+    // An item carries its own review schedule because the thing that needs looking at again is
+    // often one object inside the envelope — a passport that expires, a share certificate whose
+    // registrar changed — not the envelope itself.
+    reviewOn: text("review_on"),
+    reviewIntervalMonths: integer("review_interval_months"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
@@ -2487,6 +2502,10 @@ export const custodyItem = sqliteTable(
     check(
       "custody_item_declared_value_check",
       sql`(${table.declaredValueAmountMinor} IS NULL) = (${table.declaredValueCurrency} IS NULL)`,
+    ),
+    check(
+      "custody_item_review_interval_check",
+      sql`${table.reviewIntervalMonths} IS NULL OR (${table.reviewIntervalMonths} > 0 AND ${table.reviewIntervalMonths} <= 600)`,
     ),
   ],
 );
@@ -2561,6 +2580,7 @@ export const custodyMovement = sqliteTable(
         "destroyed",
         "lost",
         "found",
+        "reviewed",
         "hold_placed",
         "hold_released",
         "correction",
@@ -2599,7 +2619,7 @@ export const custodyMovement = sqliteTable(
     index("custody_movement_borrower_entity_index").on(table.borrowerEntityId),
     check(
       "custody_movement_kind_check",
-      sql`${table.kind} IN ('logged', 'itemized', 'moved', 'checked_out', 'returned', 'withdrawn', 'released', 'superseded', 'destroyed', 'lost', 'found', 'hold_placed', 'hold_released', 'correction')`,
+      sql`${table.kind} IN ('logged', 'itemized', 'moved', 'checked_out', 'returned', 'withdrawn', 'released', 'superseded', 'destroyed', 'lost', 'found', 'reviewed', 'hold_placed', 'hold_released', 'correction')`,
     ),
     check(
       "custody_movement_borrower_kind_check",

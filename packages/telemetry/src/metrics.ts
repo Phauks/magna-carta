@@ -142,6 +142,22 @@ export const custodyHoldBlocked = defineMetric("custody.holdBlocked", [
 // Draw contention on the custody-number counter, mirroring what the matters counter already teaches
 // us to watch.
 export const custodyNumberDraw = defineMetric("custody.numberDraw", ["outcome"] as const);
+// Reminders the register surfaced, by why they surfaced and how long they have been waiting. This is
+// the aggregate view of the emission point both review dates and overdue check-outs resolve through,
+// so a firm-level "how far behind is this register" is one counter rather than two that can disagree.
+export const custodyRemindersDue = defineMetric("custody.remindersDue", [
+  "reason",
+  "bucket",
+] as const);
+// Completed reviews, by what was reviewed and whether the cycle rolled forward or ended. A review
+// that never reschedules is a firm that set a date once and will not be reminded again.
+export const custodyReviewsCompleted = defineMetric("custody.reviewsCompleted", [
+  "target",
+  "outcome",
+] as const);
+// Label sheets printed, by what went on them. Nothing identifying is a dimension: a label carries a
+// custody number and an identifier handle, and neither is ever counted by value.
+export const custodyLabelsRendered = defineMetric("custody.labelsRendered", ["target"] as const);
 
 // The catalog itself, derived from the declarations above so it cannot drift from them.
 const CATALOG: readonly MetricDefinition[] = [
@@ -168,6 +184,9 @@ const CATALOG: readonly MetricDefinition[] = [
   custodyPacketsOverdue,
   custodyHoldBlocked,
   custodyNumberDraw,
+  custodyRemindersDue,
+  custodyReviewsCompleted,
+  custodyLabelsRendered,
 ];
 
 const BY_NAME = new Map(CATALOG.map((definition) => [definition.metricName, definition]));

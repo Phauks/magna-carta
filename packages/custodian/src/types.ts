@@ -57,11 +57,21 @@ export const CUSTODY_MOVEMENT_KINDS = [
   "destroyed",
   "lost",
   "found",
+  // A completed review changes nothing about where the property is or what state it is in — it
+  // records that a person looked at it, which is the only evidence "we last checked the Smith
+  // envelope in March 2024" has. The ledger is this subsystem's only record that anything happened,
+  // so a review that left no row would be a review nobody can prove.
+  "reviewed",
   "hold_placed",
   "hold_released",
   "correction",
 ] as const;
 export type CustodyMovementKind = (typeof CUSTODY_MOVEMENT_KINDS)[number];
+
+// The longest recurring review cycle the schema accepts, in months — fifty years. It is a sanity
+// bound on a typed number, not a policy: a firm choosing five years, ten, or twenty is choosing, and
+// nothing here supplies a default interval or derives one from an item type.
+export const MAX_CUSTODY_REVIEW_INTERVAL_MONTHS = 600;
 
 // All three shapes really occur, and recording which one it is makes each correct: a partner takes
 // the deed to a completion meeting (member), the client's accountant collects a share certificate

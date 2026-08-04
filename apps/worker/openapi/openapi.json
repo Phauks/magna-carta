@@ -5336,6 +5336,18 @@
               "null"
             ]
           },
+          "reviewOn": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reviewIntervalMonths": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
           "notes": {
             "type": [
               "string",
@@ -5388,6 +5400,8 @@
           "matterId",
           "depositorEntityId",
           "depositedAt",
+          "reviewOn",
+          "reviewIntervalMonths",
           "notes",
           "locationPath",
           "filingMatterId",
@@ -5446,6 +5460,18 @@
               "lost",
               "superseded"
             ]
+          },
+          "reviewOn": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reviewIntervalMonths": {
+            "type": [
+              "integer",
+              "null"
+            ]
           }
         },
         "required": [
@@ -5457,7 +5483,9 @@
           "intrinsicValue",
           "declaredValueAmountMinor",
           "declaredValueCurrency",
-          "status"
+          "status",
+          "reviewOn",
+          "reviewIntervalMonths"
         ]
       },
       "CustodyOwner": {
@@ -5605,6 +5633,21 @@
               "null"
             ]
           },
+          "reviewOn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 40
+          },
+          "reviewIntervalMonths": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "maximum": 600
+          },
           "notes": {
             "type": [
               "string",
@@ -5694,6 +5737,21 @@
           },
           "declaredValue": {
             "$ref": "#/components/schemas/CustodyDeclaredValue"
+          },
+          "reviewOn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 40
+          },
+          "reviewIntervalMonths": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "maximum": 600
           }
         }
       },
@@ -5736,6 +5794,7 @@
               "destroyed",
               "lost",
               "found",
+              "reviewed",
               "hold_placed",
               "hold_released",
               "correction"
@@ -5856,6 +5915,7 @@
               "destroyed",
               "lost",
               "found",
+              "reviewed",
               "hold_placed",
               "hold_released",
               "correction"
@@ -6109,6 +6169,232 @@
           "dueBackOn",
           "borrowerKind",
           "daysOverdue"
+        ]
+      },
+      "CompletedCustodyReviewResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "nextReviewOn": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "nextReviewOn"
+        ]
+      },
+      "CompleteCustodyReviewRequest": {
+        "type": "object",
+        "properties": {
+          "itemId": {
+            "type": "string",
+            "pattern": "^custodyItem_[A-Za-z0-9_-]{21}$"
+          },
+          "occurredAt": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "nextReviewOn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 40
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        }
+      },
+      "CustodyReminder": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "enum": [
+              "review-due",
+              "checkout-overdue"
+            ]
+          },
+          "packetId": {
+            "type": "string"
+          },
+          "itemId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "custodyNumber": {
+            "type": "string"
+          },
+          "dueOn": {
+            "type": "string"
+          },
+          "daysOverdue": {
+            "type": "integer"
+          },
+          "bucket": {
+            "type": "string",
+            "enum": [
+              "0-7d",
+              "8-30d",
+              "31-90d",
+              "over-90d"
+            ]
+          }
+        },
+        "required": [
+          "reason",
+          "packetId",
+          "itemId",
+          "custodyNumber",
+          "dueOn",
+          "daysOverdue",
+          "bucket"
+        ]
+      },
+      "CustodyHoldingsByOwner": {
+        "type": "object",
+        "properties": {
+          "entityId": {
+            "type": "string"
+          },
+          "packetsHeld": {
+            "type": "integer"
+          },
+          "packetsOut": {
+            "type": "integer"
+          },
+          "itemsDescribed": {
+            "type": "integer"
+          },
+          "packetsUnderHold": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "entityId",
+          "packetsHeld",
+          "packetsOut",
+          "itemsDescribed",
+          "packetsUnderHold"
+        ]
+      },
+      "CustodyLocationOccupancy": {
+        "type": "object",
+        "properties": {
+          "locationId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "office",
+              "room",
+              "safe",
+              "cabinet",
+              "shelf",
+              "box",
+              "position",
+              "offsite",
+              "bank"
+            ]
+          },
+          "parentLocationId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "closed"
+            ]
+          },
+          "depth": {
+            "type": "integer"
+          },
+          "directOccupancy": {
+            "type": "integer"
+          },
+          "subtreeOccupancy": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "locationId",
+          "name",
+          "kind",
+          "parentLocationId",
+          "status",
+          "depth",
+          "directOccupancy",
+          "subtreeOccupancy"
+        ]
+      },
+      "CustodyPacketUnderHold": {
+        "type": "object",
+        "properties": {
+          "holdId": {
+            "type": "string"
+          },
+          "packetId": {
+            "type": "string"
+          },
+          "itemId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "custodyNumber": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "legal",
+              "discovery",
+              "client_instruction",
+              "dispute",
+              "unclaimed"
+            ]
+          },
+          "placedAt": {
+            "type": "string"
+          },
+          "packetStatus": {
+            "type": "string",
+            "enum": [
+              "held",
+              "out",
+              "released",
+              "destroyed",
+              "lost"
+            ]
+          }
+        },
+        "required": [
+          "holdId",
+          "packetId",
+          "itemId",
+          "custodyNumber",
+          "kind",
+          "placedAt",
+          "packetStatus"
         ]
       },
       "CustomFieldAck": {
@@ -24121,6 +24407,626 @@
           },
           "404": {
             "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/custody/packets/{packetId}/reviews": {
+      "post": {
+        "description": "Records that a packet, or one item inside it, has been looked at again, and rolls its review date forward by the firm's own interval. The next date lands on the original anniversary rather than a period after today, so a review done late does not drag the cycle with it. A review is not a deadline and nothing expires when one passes.",
+        "operationId": "custody.completeReview",
+        "tags": [
+          "custody"
+        ],
+        "x-mc-operationId": "custody.completeReview",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "custody:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "custody"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^custodyPacket_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "packetId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteCustodyReviewRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The recorded review",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompletedCustodyReviewResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress, a hold forbids the action, a location is still occupied, or a custody number could not be allocated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/custody/reminders": {
+      "get": {
+        "description": "Everything the register is waiting on, in one list, oldest first: review dates that have come round and check-outs that have not come back. This is the single place those two are decided, so a reminder that arrives by any other route says the same thing this one does.",
+        "operationId": "custody.listReminders",
+        "tags": [
+          "custody"
+        ],
+        "x-mc-operationId": "custody.listReminders",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "custody:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "custody"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 40
+            },
+            "required": false,
+            "name": "asOf",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reminders due",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/CustodyReminder"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/custody/reports/holdings-by-owner": {
+      "get": {
+        "description": "What the firm currently holds for each person or organization: packets in the safe, packets out, items described, and packets under hold. Owners are returned as directory handles, not names — the caller resolves them through the directory it already reads.",
+        "operationId": "custody.reportHoldingsByOwner",
+        "tags": [
+          "custody"
+        ],
+        "x-mc-operationId": "custody.reportHoldingsByOwner",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "custody:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "custody"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Holdings per owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/CustodyHoldingsByOwner"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/custody/reports/holdings-by-location": {
+      "get": {
+        "description": "The container tree with occupancy counts — what is at each node, and what is at that node or anywhere beneath it. A packet that is checked out is at no location, so a shelf whose contents are all out reads as empty, which is what a person standing in front of it would see.",
+        "operationId": "custody.reportHoldingsByLocation",
+        "tags": [
+          "custody"
+        ],
+        "x-mc-operationId": "custody.reportHoldingsByLocation",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "custody:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "custody"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "Occupancy per location",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/CustodyLocationOccupancy"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/custody/reports/holds": {
+      "get": {
+        "description": "Every hold in force across the register, oldest first. A hold nobody can see is a hold nobody will remember to release.",
+        "operationId": "custody.reportHolds",
+        "tags": [
+          "custody"
+        ],
+        "x-mc-operationId": "custody.reportHolds",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "custody:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "custody"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Packets under hold",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/CustodyPacketUnderHold"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/custody/labels": {
+      "get": {
+        "description": "Returns a printable label sheet as SVG for the packets and locations named, at true size on A4 label stock. Each label carries a scannable barcode of the object's own identifier, the custody number or node name in large type, and the packet name. Start part-way down a partly-used sheet with startPosition. One sheet per request — a label that fell onto a second page is a label that ends up on the wrong box.",
+        "operationId": "custody.renderLabels",
+        "tags": [
+          "custody"
+        ],
+        "x-mc-operationId": "custody.renderLabels",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "custody:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "custody"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 2000
+            },
+            "required": false,
+            "name": "packetIds",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 2000
+            },
+            "required": false,
+            "name": "locationIds",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 23
+            },
+            "required": false,
+            "name": "startPosition",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The label sheet",
+            "content": {
+              "image/svg+xml": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload",
             "content": {
               "application/problem+json": {
                 "schema": {

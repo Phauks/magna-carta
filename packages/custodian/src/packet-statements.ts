@@ -25,11 +25,13 @@ export interface CustodyPacketRow {
   readonly matter_id: MatterId | null;
   readonly depositor_entity_id: string | null;
   readonly deposited_at: string | null;
+  readonly review_on: string | null;
+  readonly review_interval_months: number | null;
   readonly notes: string | null;
 }
 
 const PACKET_COLUMNS =
-  "id, custody_number, number_source, name, current_location_id, status, matter_id, depositor_entity_id, deposited_at, notes";
+  "id, custody_number, number_source, name, current_location_id, status, matter_id, depositor_entity_id, deposited_at, review_on, review_interval_months, notes";
 
 export interface InsertCustodyPacketRow {
   readonly id: CustodyPacketId;
@@ -87,13 +89,15 @@ export function updateCustodyPacketFieldsStatement(
     readonly matterId: MatterId | null;
     readonly depositorEntityId: string | null;
     readonly depositedAt: string | null;
+    readonly reviewOn: string | null;
+    readonly reviewIntervalMonths: number | null;
     readonly notes: string | null;
   },
   updatedAt: string,
 ): SqlStatement {
   return database
     .prepare(
-      `UPDATE ${CUSTODY_PACKET_TABLE} SET name = ?2, matter_id = ?3, depositor_entity_id = ?4, deposited_at = ?5, notes = ?6, updated_at = ?7 WHERE id = ?1`,
+      `UPDATE ${CUSTODY_PACKET_TABLE} SET name = ?2, matter_id = ?3, depositor_entity_id = ?4, deposited_at = ?5, review_on = ?6, review_interval_months = ?7, notes = ?8, updated_at = ?9 WHERE id = ?1`,
     )
     .bind(
       id,
@@ -101,6 +105,8 @@ export function updateCustodyPacketFieldsStatement(
       fields.matterId,
       fields.depositorEntityId,
       fields.depositedAt,
+      fields.reviewOn,
+      fields.reviewIntervalMonths,
       fields.notes,
       updatedAt,
     );
@@ -204,10 +210,12 @@ export interface CustodyItemRow {
   readonly declared_value_amount_minor: number | null;
   readonly declared_value_currency: string | null;
   readonly status: CustodyItemStatus;
+  readonly review_on: string | null;
+  readonly review_interval_months: number | null;
 }
 
 const ITEM_COLUMNS =
-  "id, packet_id, ordinal, item_type_id, description, instrument_date, intrinsic_value, declared_value_amount_minor, declared_value_currency, status";
+  "id, packet_id, ordinal, item_type_id, description, instrument_date, intrinsic_value, declared_value_amount_minor, declared_value_currency, status, review_on, review_interval_months";
 
 export interface InsertCustodyItemRow {
   readonly id: CustodyItemId;
@@ -254,12 +262,14 @@ export function updateCustodyItemFieldsStatement(
     readonly intrinsicValue: boolean;
     readonly declaredValueAmountMinor: number | null;
     readonly declaredValueCurrency: string | null;
+    readonly reviewOn: string | null;
+    readonly reviewIntervalMonths: number | null;
   },
   updatedAt: string,
 ): SqlStatement {
   return database
     .prepare(
-      `UPDATE ${CUSTODY_ITEM_TABLE} SET item_type_id = ?2, description = ?3, instrument_date = ?4, intrinsic_value = ?5, declared_value_amount_minor = ?6, declared_value_currency = ?7, updated_at = ?8 WHERE id = ?1`,
+      `UPDATE ${CUSTODY_ITEM_TABLE} SET item_type_id = ?2, description = ?3, instrument_date = ?4, intrinsic_value = ?5, declared_value_amount_minor = ?6, declared_value_currency = ?7, review_on = ?8, review_interval_months = ?9, updated_at = ?10 WHERE id = ?1`,
     )
     .bind(
       id,
@@ -269,6 +279,8 @@ export function updateCustodyItemFieldsStatement(
       fields.intrinsicValue ? 1 : 0,
       fields.declaredValueAmountMinor,
       fields.declaredValueCurrency,
+      fields.reviewOn,
+      fields.reviewIntervalMonths,
       updatedAt,
     );
 }

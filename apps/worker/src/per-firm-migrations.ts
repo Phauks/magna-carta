@@ -21,6 +21,7 @@ import documentAutomationSql from "@magna-carta/database/drizzle/per-firm/202608
 import seedDocumentAutomationPermissionsSql from "@magna-carta/database/drizzle/per-firm/20260804T150001_seed-document-automation-permissions.sql";
 import custodianRegisterSql from "@magna-carta/database/drizzle/per-firm/20260804T160000_custodian-register.sql";
 import seedCustodyCatalogSql from "@magna-carta/database/drizzle/per-firm/20260804T160001_seed-custody-catalog.sql";
+import custodyReviewScheduleSql from "@magna-carta/database/drizzle/per-firm/20260804T170000_custody-review-schedule.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the FirmDatabase
 // Durable Object runs this lineage against its own SQLite storage on wake (firm-database-object.ts),
@@ -52,6 +53,7 @@ export function perFirmMigrations(): Migration[] {
     "20260804T150001_seed-document-automation-permissions": seedDocumentAutomationPermissionsSql,
     "20260804T160000_custodian-register": custodianRegisterSql,
     "20260804T160001_seed-custody-catalog": seedCustodyCatalogSql,
+    "20260804T170000_custody-review-schedule": custodyReviewScheduleSql,
   });
 }
 
@@ -59,10 +61,13 @@ export function perFirmMigrations(): Migration[] {
 // control-plane-migrations.ts exposes. Tests assert against this instead of a literal tag, so
 // adding a migration does not break an unrelated provisioning assertion.
 export function perFirmHeadSchemaVersion(): string {
-  const lastEntry = [...perFirmJournal.entries]
-    // sort on the spread copy (non-mutating); toSorted is not in this worker's TS lib target.
-    .sort((a, b) => (a.tag < b.tag ? -1 : a.tag > b.tag ? 1 : 0))
-    .at(-1);
-  if (lastEntry === undefined) throw new Error("per-firm migration journal is empty");
-  return lastEntry.tag;
+  // A single pass for the greatest tag rather than a sort: the journal is already in order, only the
+  // maximum is wanted, and neither `sort` (which mutates, so it needs a defensive copy) nor
+  // `toSorted` (absent from this worker's TypeScript lib target) survives a formatter pass intact.
+  let headTag: string | undefined;
+  for (const entry of perFirmJournal.entries) {
+    if (headTag === undefined || entry.tag > headTag) headTag = entry.tag;
+  }
+  if (headTag === undefined) throw new Error("per-firm migration journal is empty");
+  return headTag;
 }

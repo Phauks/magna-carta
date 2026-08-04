@@ -46,7 +46,7 @@ import {
   updateCustodyPacketFieldsStatement,
   type CustodyPacketRow,
 } from "./packet-statements.ts";
-import { CustodyValidationError } from "./validation.ts";
+import { assertReviewIntervalMonths, CustodyValidationError } from "./validation.ts";
 
 // Logging a packet is the subsystem's central write, and it does four things at once that all have
 // to commit together: it draws the firm-scoped custody number, it lands the packet, it lands at
@@ -343,6 +343,10 @@ export interface UpdateCustodyPacketInput {
   readonly matterId?: MatterId | null;
   readonly depositorEntityId?: string | null;
   readonly depositedAt?: string | null;
+  // The review schedule a firm sets. Both are nullable and neither has a default: nothing in this
+  // subsystem derives a review date, and nothing expires when one passes.
+  readonly reviewOn?: string | null;
+  readonly reviewIntervalMonths?: number | null;
   readonly notes?: string | null;
 }
 
@@ -360,6 +364,11 @@ export async function updateCustodyPacket(
   if (name.length === 0) {
     throw new CustodyValidationError("custody-empty-name", "a custody packet needs a name");
   }
+  const reviewIntervalMonths =
+    patch.reviewIntervalMonths === undefined
+      ? existing.review_interval_months
+      : patch.reviewIntervalMonths;
+  assertReviewIntervalMonths(reviewIntervalMonths);
   const now = options.clock.now();
   return {
     effect: {
@@ -376,6 +385,8 @@ export async function updateCustodyPacket(
                 : patch.depositorEntityId,
             depositedAt:
               patch.depositedAt === undefined ? existing.deposited_at : patch.depositedAt,
+            reviewOn: patch.reviewOn === undefined ? existing.review_on : patch.reviewOn,
+            reviewIntervalMonths,
             notes: patch.notes === undefined ? existing.notes : patch.notes,
           },
           now,

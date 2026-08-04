@@ -24,6 +24,12 @@ surrounding context — [`docs/Magna-Carta-White-Paper.md`](../../docs/Magna-Car
 - `src/scan-service.ts` — links an already-ingested `file` to a packet; resolves the filing matter
 - `src/numbering/` — the counter + allocation statements and the fixed number shape
 - `src/queries.ts` — the register list, the location-subtree filter, and the overdue check-out sweep
+- `src/review-service.ts` / `src/review-statements.ts` — review dates: completing one, the
+  anniversary-anchored roll forward, and the reviews-due read
+- `src/reminders.ts` — **the reminder emission point**: the one place a due review and an overdue
+  check-out are decided, in one shape
+- `src/reports.ts` — the register reports: holdings per owner, occupancy per location, holds in force
+- `src/label-service.ts` + `src/labels/` — printable label sheets, and the Code 128 encoder under them
 
 ## Invariants that apply here
 
@@ -45,7 +51,8 @@ surrounding context — [`docs/Magna-Carta-White-Paper.md`](../../docs/Magna-Car
 - **No retention defaults, ever.** No column carries a default retention and no code path derives one;
   the purity test fails on any identifier that looks like it does. Retention for client property is
   the most jurisdiction-bound fact in this subsystem, and a platform default is a platform opinion
-  about when to destroy a client's irreplaceable property.
+  about when to destroy a client's irreplaceable property. A **review date is not a retention clock**
+  — nothing expires when one passes, and the only consequence is that the object appears on a list.
 - **No money as a float.** A declared value is `declared_value_amount_minor` plus a currency, and the
   schema refuses one without the other.
 - **Nothing identifying is a telemetry dimension or an audit-metadata field.** No custody number, no
@@ -76,6 +83,26 @@ surrounding context — [`docs/Magna-Carta-White-Paper.md`](../../docs/Magna-Car
 - **Scan bytes never come through here.** They ride the File Manager's presigned upload and quarantine
   chokepoint, onto the matter `resolveCustodyFilingMatter` names; `linkCustodyScan` only links the
   resulting handle, and refuses a file filed anywhere else.
+- **Widening the movement vocabulary means rebuilding `custody_movement`.** The kind list is a CHECK
+  constraint, and SQLite can only replace one by rebuilding the table — which is why
+  `20260804T170000_custody-review-schedule.sql` drops the three append-only triggers, copies into a
+  new table, and recreates them. It is safe only because the ledger carries **no referential
+  dependency**: `corrects_movement_id` is a self-reference deliberately declared without a foreign
+  key. Keep it that way, and re-prove the append-only triggers against the table that came out of any
+  future rebuild — `test/append-only.test.ts` does exactly that.
+- **A review rolls forward on its anniversary, not from today.** `nextReviewDate` steps whole
+  intervals from the scheduled date until it lands past the review, so a five-year cycle reviewed
+  eight months late stays on its anniversary instead of drifting a third of a year every cycle — and
+  a review left a decade takes as many steps as it needs, so the answer is never already overdue.
+- **There is one reminder emission point and it is a query, not a scheduler.**
+  `collectCustodyReminders` is where both a due review and an overdue check-out are decided. No cron,
+  no queue, no timer lives here. When the Notifications registry lands, delivery subscribes to that
+  function rather than growing a second definition of what is due — two definitions would eventually
+  disagree, and the one people act on would be whichever they saw last.
+- **A label's barcode carries the identifier handle, never the custody number.** A number is
+  firm-defined and re-renderable; the handle is the row. A label is a physical object that outlives
+  every software change made after it was printed, so a scan must resolve through no lookup rule that
+  can change under it.
 - **The subtree read shape is provisional.** `selectCustodyLocationSubtreeStatement` is a recursive
   common table expression. A materialized path and a closure table are both additive to the same row
   and differ only in the index set, so the choice belongs to a measurement against the load-profile

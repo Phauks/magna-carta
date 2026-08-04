@@ -21,6 +21,13 @@
     "./hold-service": "./src/hold-service.ts",
     "./scan-statements": "./src/scan-statements.ts",
     "./scan-service": "./src/scan-service.ts",
+    "./review-statements": "./src/review-statements.ts",
+    "./review-service": "./src/review-service.ts",
+    "./reminders": "./src/reminders.ts",
+    "./reports": "./src/reports.ts",
+    "./label-service": "./src/label-service.ts",
+    "./labels/code128": "./src/labels/code128.ts",
+    "./labels/label-sheet": "./src/labels/label-sheet.ts",
     "./numbering/counter-statements": "./src/numbering/counter-statements.ts",
     "./numbering/render": "./src/numbering/render.ts",
     "./queries": "./src/queries.ts"
