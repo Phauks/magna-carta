@@ -1,0 +1,29 @@
+{
+  "name": "@magna-carta/email-filing",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./dedup": "./src/dedup.ts",
+    "./thread": "./src/thread.ts",
+    "./record": "./src/record.ts",
+    "./capture": "./src/capture.ts",
+    "./already-filed": "./src/already-filed.ts",
+    "./seams": "./src/seams.ts"
+  },
+  "scripts": {
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@magna-carta/email": "workspace:*",
+    "@magna-carta/identifiers": "workspace:*"
+  },
+  "devDependencies": {
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
+  }
+}

@@ -1,6 +1,6 @@
 # Email filing — record model & forward/CC capture (slice 1) — design
 
-**Status:** Draft — proposed for acceptance · **Date:** 2026-07-14 · **Owner:** Trevor Goldsmith
+**Status:** Accepted · **Date:** 2026-07-14 · **Accepted:** 2026-07-16 · **Owner:** Trevor Goldsmith
 **Parent design:** [`2026-06-16-email-filing-design.md`](2026-06-16-email-filing-design.md) (the subsystem brainstorm; Draft). This document refines that brainstorm's **first slice** — the matter-email **record model** plus the **forward/CC capture** path — into an acceptance-ready, buildable scope. It does not re-open the subsystem's settled decisions; it selects the launchable subset and pins the concrete shapes.
 **White-paper home:** _Communications layer_ (email) — the inbound email-to-matter capture seam. Relates to _Matters and File Manager_, _Directory_, _Conflicts Check_, _Discovery_, _Client portal_.
 **Foundation already built:** the pure-Rust `email-core` parse engine and its `@magna-carta/email` WASM wrapper ([`2026-07-09-email-core-parse-engine-design.md`](2026-07-09-email-core-parse-engine-design.md)); the source-agnostic ingest / quarantine pipeline (`@magna-carta/file-manager` + the worker `files/` consumer); per-firm D1 over the `FirmDatabase` Durable Object; the firm-scoped data-access layer.
