@@ -211,6 +211,51 @@ describe("directory sensitive-identifier read gate", () => {
   });
 });
 
+describe("directory merged-entity write refusal", () => {
+  it("keeps reading a merged-away entity but refuses a write to it with a 409 naming the master", async () => {
+    const masterResponse = await post("/api/v1/directory/persons", {
+      given: "Merged",
+      family: "Master",
+    });
+    const { id: masterId } = (await masterResponse.json()) as { id: string };
+    const subordinateResponse = await post("/api/v1/directory/persons", {
+      given: "Merged",
+      family: "Subordinate",
+    });
+    const { id: subordinateId } = (await subordinateResponse.json()) as { id: string };
+
+    const merged = await post("/api/v1/directory/merges", { masterId, subordinateId });
+    expect(merged.status).toBe(201);
+
+    // The READ is unchanged: the subordinate is still fetchable and carries the pointer to follow.
+    const read = await get(`/api/v1/directory/persons/${subordinateId}`);
+    expect(read.status).toBe(200);
+    const person = (await read.json()) as { status: string; mergedIntoId: string | null };
+    expect(person.status).toBe("merged_into");
+    expect(person.mergedIntoId).toBe(masterId);
+
+    // The WRITE is refused as a conflict — not a 404 — and the problem detail names the master the
+    // caller should address instead.
+    const write = await post(`/api/v1/directory/entities/${subordinateId}/names`, {
+      given: "Merged",
+      family: "Alias",
+      nameRole: "alias",
+    });
+    expect(write.status).toBe(409);
+    expect(write.headers.get("content-type")).toContain("application/problem+json");
+    const problem = (await write.json()) as { detail: string };
+    expect(problem.detail).toContain(masterId);
+
+    // The same write against the surviving master still succeeds.
+    const onMaster = await post(`/api/v1/directory/entities/${masterId}/names`, {
+      given: "Merged",
+      family: "Alias",
+      nameRole: "alias",
+    });
+    expect(onMaster.status).toBe(201);
+  });
+});
+
 describe("directory contract", () => {
   it("registers the directory operations in the OpenAPI document", () => {
     const document = buildOpenAPIDocument();

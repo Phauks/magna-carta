@@ -6,13 +6,16 @@ import {
 } from "@magna-carta/data-access/firm-key-provider";
 import { generateFirmKeyBytes, importRootKek, wrapFirmKey } from "@magna-carta/encryption/keys";
 import { seededRandomSource } from "@magna-carta/identifiers/random";
-import type { FirmId, UserId } from "@magna-carta/identifiers/types";
+import type { DirectoryPersonId, FirmId, UserId } from "@magna-carta/identifiers/types";
 import { assertPermission } from "@magna-carta/access-control/registry";
 import { expect, test } from "vitest";
 import { createPerson } from "../src/person.ts";
 import { createEdge } from "../src/edges.ts";
 import { createCategory, assignCategory } from "../src/categories.ts";
-import { type DirectoryIdentifierContext } from "../src/identifiers.ts";
+import { addName, changeName } from "../src/name-history.ts";
+import { linkMatterParty } from "../src/party.ts";
+import { addIdentifier, type DirectoryIdentifierContext } from "../src/identifiers.ts";
+import { MergedEntityError } from "../src/entity-kind.ts";
 import { findDuplicateCandidates } from "../src/search.ts";
 import {
   mergeEntities,
@@ -308,7 +311,7 @@ test("merge ABSORBS a shared category instead of aborting on the composite prima
   });
 });
 
-test("merge ABSORBS a subordinate↔master edge instead of leaving a self-loop", async () => {
+test("merge ABSORBS a subordinate-to-master edge to archive instead of leaving a self-loop", async () => {
   const { database, ctx, options } = await directoryTestContext("t13-selfloop");
 
   const master = await createPerson(
@@ -339,12 +342,47 @@ test("merge ABSORBS a subordinate↔master edge instead of leaving a self-loop",
 
   await mergeEntities(ctx, { masterId: master, subordinateId: dup, survivorship: {} });
 
-  // The edge was deleted, not turned into a master→master self-loop.
+  // The edge survives — archived under the master, not destroyed and not left as a live self-loop.
   const { results: edgeRows } = await database
-    .prepare("SELECT id FROM directory_edge WHERE id = ?1")
+    .prepare(
+      "SELECT from_entity_id, to_entity_id, edge_type, deleted_at, valid_to FROM directory_edge WHERE id = ?1",
+    )
     .bind(selfEdge)
+    .all<{
+      from_entity_id: string;
+      to_entity_id: string;
+      edge_type: string;
+      deleted_at: string | null;
+      valid_to: string | null;
+    }>();
+  expect(edgeRows).toHaveLength(1);
+  expect(edgeRows[0]?.from_entity_id).toBe(master);
+  expect(edgeRows[0]?.deleted_at).toBe(clock.now());
+  expect(edgeRows[0]?.valid_to).toBe(clock.now());
+  // Its content is intact, so an audit can still see the relationship the subordinate carried.
+  expect(edgeRows[0]?.edge_type).toBe("relationship");
+
+  // The live read never surfaces it — readEdges filters soft-deleted rows.
+  const { results: liveEdges } = await database
+    .prepare(
+      "SELECT id FROM directory_edge WHERE (from_entity_id = ?1 OR to_entity_id = ?1) AND deleted_at IS NULL",
+    )
+    .bind(master)
     .all<{ id: string }>();
-  expect(edgeRows).toHaveLength(0);
+  expect(liveEdges).toHaveLength(0);
+
+  // The absorption is recorded in the merge event.
+  const { results: events } = await database
+    .prepare("SELECT repointed FROM entity_merge WHERE subordinate_id = ?1")
+    .bind(dup)
+    .all<{ repointed: string }>();
+  expect(JSON.parse(events[0]!.repointed)).toContainEqual({
+    table: "directory_edge",
+    row: selfEdge,
+    from: dup,
+    to: master,
+    absorbed: true,
+  });
 });
 
 test("merge ABSORBS a duplicate matter party (same matter + role) rather than double-linking", async () => {
@@ -368,13 +406,48 @@ test("merge ABSORBS a duplicate matter party (same matter + role) rather than do
 
   await mergeEntities(ctx, { masterId: master, subordinateId: dup, survivorship: {} });
 
-  // Exactly one client link to the master remains — the subordinate's duplicate was absorbed.
+  // Exactly one LIVE client link to the master remains — the subordinate's duplicate was absorbed.
   const { results: parties } = await database
     .prepare(
       "SELECT entity_id FROM matter_party WHERE matter_id = 'mat_dup' AND role = 'client' AND deleted_at IS NULL",
     )
     .all<{ entity_id: string }>();
   expect(parties.map((p) => p.entity_id)).toEqual([master]);
+
+  // …and the absorbed link SURVIVES, archived under the master: the record that the subordinate played
+  // that role on that matter is still queryable rather than destroyed.
+  const absorbedPartyId = `matterParty_client_${dup.slice(-8)}`;
+  const { results: absorbed } = await database
+    .prepare(
+      "SELECT entity_id, matter_id, role, deleted_at, valid_to FROM matter_party WHERE id = ?1",
+    )
+    .bind(absorbedPartyId)
+    .all<{
+      entity_id: string;
+      matter_id: string;
+      role: string;
+      deleted_at: string | null;
+      valid_to: string | null;
+    }>();
+  expect(absorbed).toHaveLength(1);
+  expect(absorbed[0]?.entity_id).toBe(master);
+  expect(absorbed[0]?.matter_id).toBe("mat_dup");
+  expect(absorbed[0]?.role).toBe("client");
+  expect(absorbed[0]?.deleted_at).toBe(clock.now());
+  expect(absorbed[0]?.valid_to).toBe(clock.now());
+
+  // The merge event names it, so the absorption is auditable and reversible from recorded data.
+  const { results: events } = await database
+    .prepare("SELECT repointed FROM entity_merge WHERE subordinate_id = ?1")
+    .bind(dup)
+    .all<{ repointed: string }>();
+  expect(JSON.parse(events[0]!.repointed)).toContainEqual({
+    table: "matter_party",
+    row: absorbedPartyId,
+    from: dup,
+    to: master,
+    absorbed: true,
+  });
 });
 
 test("repoints a contact-reference custom value and absorbs an owned value to history on merge", async () => {
@@ -773,4 +846,335 @@ test("a merge key reused with a different payload surfaces a fingerprint-mismatc
       { masterId: master, subordinateId: dup, survivorship: {} },
     ),
   ).rejects.toBeInstanceOf(DirectoryIdempotencyConflictError);
+});
+
+// ── merge chains ─────────────────────────────────────────────────────────────
+// Resolution follows exactly ONE hop (the search channels' COALESCE(merged_into_id, id) and its
+// in-code twins), so a chain of merges must be flattened as it is created: after merging B into A,
+// nothing may still point at B. These prove both ways a chain could be built.
+
+test("a second merge flattens the first — every historical entity resolves to the final master", async () => {
+  const { database, ctx, options } = await directoryTestContext("t13-chain");
+
+  const finalMaster = await createPerson(
+    database,
+    { given: "Alice", family: "Johnson" },
+    { ...options, randomSource: seededRandomSource("t13ch-final") },
+  );
+  const middle = await createPerson(
+    database,
+    { given: "Alice", family: "Zimmerman" },
+    { ...options, randomSource: seededRandomSource("t13ch-middle") },
+  );
+  const oldest = await createPerson(
+    database,
+    { given: "Alice", family: "Quintero" },
+    { ...options, randomSource: seededRandomSource("t13ch-oldest") },
+  );
+
+  // oldest into middle, then middle into finalMaster. The second merge must carry oldest along.
+  await mergeEntities(ctx, { masterId: middle, subordinateId: oldest, survivorship: {} });
+  await mergeEntities(ctx, { masterId: finalMaster, subordinateId: middle, survivorship: {} });
+
+  const { results: rows } = await database
+    .prepare("SELECT id, status, merged_into_id FROM directory_person WHERE id IN (?1, ?2)")
+    .bind(oldest, middle)
+    .all<{ id: string; status: string; merged_into_id: string | null }>();
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  // The chain is gone: BOTH historical entities point straight at the final master in one hop.
+  expect(byId.get(oldest)?.merged_into_id).toBe(finalMaster);
+  expect(byId.get(oldest)?.status).toBe("merged_into");
+  expect(byId.get(middle)?.merged_into_id).toBe(finalMaster);
+
+  // Nothing at all still points at the entity that was merged away in between.
+  await expect(assertNoDanglingToSubordinate(database, middle)).resolves.toBeUndefined();
+
+  // The read path proves it end to end: the OLDEST entity's own surname still matches, and resolves
+  // to the final master rather than to the middle entity that has itself been merged away.
+  const candidates = await findDuplicateCandidates(ctx, {
+    kind: "person",
+    given: "Alice",
+    family: "Quintero",
+  });
+  const entityIds = candidates.map((candidate) => candidate.entityId);
+  expect(entityIds).toContain(finalMaster);
+  expect(entityIds).not.toContain(middle);
+  expect(entityIds).not.toContain(oldest);
+
+  // The flattening is recorded in the second merge's event, like every other repoint.
+  const { results: events } = await database
+    .prepare("SELECT repointed FROM entity_merge WHERE subordinate_id = ?1")
+    .bind(middle)
+    .all<{ repointed: string }>();
+  expect(JSON.parse(events[0]!.repointed)).toContainEqual({
+    table: "directory_person",
+    row: oldest,
+    from: middle,
+    to: finalMaster,
+  });
+});
+
+test("a three-deep chain flattens at every step", async () => {
+  const { database, ctx, options } = await directoryTestContext("t13-chain-deep");
+
+  const families = ["Ashford", "Bellamy", "Cortland", "Danforth"] as const;
+  const entities: string[] = [];
+  for (const family of families) {
+    entities.push(
+      await createPerson(
+        database,
+        { given: "Morgan", family },
+        { ...options, randomSource: seededRandomSource(`t13cd-${family}`) },
+      ),
+    );
+  }
+  const [oldest, older, middle, finalMaster] = entities as [string, string, string, string];
+
+  await mergeEntities(ctx, { masterId: older, subordinateId: oldest, survivorship: {} });
+  await mergeEntities(ctx, { masterId: middle, subordinateId: older, survivorship: {} });
+  await mergeEntities(ctx, { masterId: finalMaster, subordinateId: middle, survivorship: {} });
+
+  const { results: rows } = await database
+    .prepare("SELECT id, merged_into_id FROM directory_person WHERE status = 'merged_into'")
+    .all<{ id: string; merged_into_id: string | null }>();
+  expect(rows).toHaveLength(3);
+  expect(rows.every((row) => row.merged_into_id === finalMaster)).toBe(true);
+});
+
+test("a merge INTO an already-merged master is refused, so a chain never forms that way", async () => {
+  const { database, ctx, options } = await directoryTestContext("t13-chain-refused");
+
+  const finalMaster = await createPerson(
+    database,
+    { given: "Rae", family: "Alderton" },
+    { ...options, randomSource: seededRandomSource("t13cr-final") },
+  );
+  const middle = await createPerson(
+    database,
+    { given: "Rae", family: "Braddock" },
+    { ...options, randomSource: seededRandomSource("t13cr-middle") },
+  );
+  const other = await createPerson(
+    database,
+    { given: "Rae", family: "Calloway" },
+    { ...options, randomSource: seededRandomSource("t13cr-other") },
+  );
+
+  await mergeEntities(ctx, { masterId: finalMaster, subordinateId: middle, survivorship: {} });
+
+  // The other build order — merging a third entity INTO the now-merged-away middle — is refused
+  // outright, so the only chain-forming path left is the one the merge itself flattens.
+  await expect(
+    mergeEntities(ctx, { masterId: middle, subordinateId: other, survivorship: {} }),
+  ).rejects.toBeInstanceOf(MergeAlreadyMergedError);
+
+  const { results: rows } = await database
+    .prepare("SELECT status, merged_into_id FROM directory_person WHERE id = ?1")
+    .bind(other)
+    .all<{ status: string; merged_into_id: string | null }>();
+  expect(rows[0]?.status).toBe("active");
+  expect(rows[0]?.merged_into_id).toBeNull();
+});
+
+// ── writes against a merged-away entity ──────────────────────────────────────
+// A merged-away entity keeps its rows for the search/conflicts corpus, but it is no longer a place new
+// data may be attached: every inbound reference has already moved to the master. Each write path
+// refuses and names that master, and the same calls against a live entity are unaffected.
+
+test("every entity write path refuses a merged-away entity and names the surviving master", async () => {
+  const { database, ctx, options } = await directoryTestContext("t13-merged-writes");
+
+  const master = await createPerson(
+    database,
+    { given: "Write", family: "Master" },
+    { ...options, randomSource: seededRandomSource("t13mw-master") },
+  );
+  const dup = await createPerson(
+    database,
+    { given: "Write", family: "Dup" },
+    { ...options, randomSource: seededRandomSource("t13mw-dup") },
+  );
+  const other = await createPerson(
+    database,
+    { given: "Write", family: "Other" },
+    { ...options, randomSource: seededRandomSource("t13mw-other") },
+  );
+  const { id: categoryId } = await createCategory(
+    database,
+    { name: "VIP", appliesTo: "both" },
+    { ...options, randomSource: seededRandomSource("t13mw-cat") },
+  );
+  await seedMatter(database, "mat_merged_writes");
+
+  await mergeEntities(ctx, { masterId: master, subordinateId: dup, survivorship: {} });
+
+  const attempts: Array<readonly [string, () => Promise<unknown>]> = [
+    [
+      "addName",
+      () =>
+        addName(
+          database,
+          dup,
+          { given: "Write", family: "Alias", nameRole: "alias" },
+          { ...options, randomSource: seededRandomSource("t13mw-add") },
+        ),
+    ],
+    [
+      "changeName",
+      () =>
+        changeName(
+          database,
+          dup,
+          { given: "Write", family: "Renamed" },
+          { ...options, randomSource: seededRandomSource("t13mw-change") },
+        ),
+    ],
+    [
+      "addIdentifier",
+      () =>
+        addIdentifier({ ...ctx, randomSource: seededRandomSource("t13mw-identifier") }, dup, {
+          type: "ssn",
+          value: "123-45-6789",
+        }),
+    ],
+    [
+      "createEdge",
+      () =>
+        createEdge(
+          database,
+          {
+            from: dup,
+            to: other,
+            edgeType: "relationship",
+            role: null,
+            note: null,
+            validFrom: null,
+            validTo: null,
+          },
+          { ...options, randomSource: seededRandomSource("t13mw-edge") },
+        ),
+    ],
+    [
+      "assignCategory",
+      () =>
+        assignCategory(
+          database,
+          { entityId: dup, categoryId },
+          { ...options, randomSource: seededRandomSource("t13mw-assign") },
+        ),
+    ],
+    [
+      "linkMatterParty",
+      () =>
+        linkMatterParty(
+          database,
+          { matterId: "mat_merged_writes", entityId: dup, role: "witness" },
+          { ...options, randomSource: seededRandomSource("t13mw-link") },
+        ),
+    ],
+  ];
+
+  for (const [label, attempt] of attempts) {
+    await expect(attempt(), label).rejects.toBeInstanceOf(MergedEntityError);
+    await expect(attempt(), label).rejects.toMatchObject({
+      code: "entity-merged",
+      masterId: master,
+    });
+  }
+
+  // Nothing landed on the dead entity: no new name row, no identifier, no edge, no category, no party.
+  const counts = await Promise.all(
+    [
+      "SELECT COUNT(*) AS n FROM directory_name WHERE entity_id = ?1 AND name_role != 'current'",
+      "SELECT COUNT(*) AS n FROM directory_identifier WHERE entity_id = ?1",
+      "SELECT COUNT(*) AS n FROM directory_edge WHERE from_entity_id = ?1 OR to_entity_id = ?1",
+      "SELECT COUNT(*) AS n FROM directory_entity_category WHERE entity_id = ?1",
+      "SELECT COUNT(*) AS n FROM matter_party WHERE entity_id = ?1",
+    ].map(async (query) => {
+      const { results } = await database.prepare(query).bind(dup).all<{ n: number }>();
+      return results[0]?.n ?? -1;
+    }),
+  );
+  expect(counts).toEqual([0, 0, 0, 0, 0]);
+});
+
+test("the same write paths still succeed against a live entity after an unrelated merge", async () => {
+  const { database, ctx, options } = await directoryTestContext("t13-live-writes");
+
+  const master = await createPerson(
+    database,
+    { given: "Live", family: "Master" },
+    { ...options, randomSource: seededRandomSource("t13lw-master") },
+  );
+  const dup = await createPerson(
+    database,
+    { given: "Live", family: "Dup" },
+    { ...options, randomSource: seededRandomSource("t13lw-dup") },
+  );
+  const other = await createPerson(
+    database,
+    { given: "Live", family: "Other" },
+    { ...options, randomSource: seededRandomSource("t13lw-other") },
+  );
+
+  await mergeEntities(ctx, { masterId: master, subordinateId: dup, survivorship: {} });
+
+  // The master — and any unrelated entity — is untouched by the guard.
+  await addName(
+    database,
+    master,
+    { given: "Live", family: "Alias", nameRole: "alias" },
+    { ...options, randomSource: seededRandomSource("t13lw-add") },
+  );
+  await changeName(
+    database,
+    master,
+    { given: "Live", family: "Renamed" },
+    { ...options, randomSource: seededRandomSource("t13lw-change") },
+  );
+  await createEdge(
+    database,
+    {
+      from: master,
+      to: other,
+      edgeType: "relationship",
+      role: null,
+      note: null,
+      validFrom: null,
+      validTo: null,
+    },
+    { ...options, randomSource: seededRandomSource("t13lw-edge") },
+  );
+
+  // The original current name flipped to former, plus the alias, plus the new current name.
+  const { results: names } = await database
+    .prepare("SELECT name_role, is_current FROM directory_name WHERE entity_id = ?1")
+    .bind(master)
+    .all<{ name_role: string; is_current: number }>();
+  expect(names).toHaveLength(3);
+  expect(names.filter((name) => name.is_current === 1)).toHaveLength(1);
+
+  const { results: edges } = await database
+    .prepare("SELECT id FROM directory_edge WHERE from_entity_id = ?1 AND deleted_at IS NULL")
+    .bind(master)
+    .all<{ id: string }>();
+  expect(edges).toHaveLength(1);
+});
+
+test("changeName refuses an entity that does not exist and writes nothing", async () => {
+  const { database, options } = await directoryTestContext("t13-rename-unknown");
+
+  await expect(
+    changeName(
+      database,
+      "directoryPerson_doesnotexist" as DirectoryPersonId,
+      { given: "Ghost", family: "Writer" },
+      { ...options, randomSource: seededRandomSource("t13ru-change") },
+    ),
+  ).rejects.toMatchObject({ code: "unknown-entity" });
+
+  const { results: names } = await database
+    .prepare("SELECT COUNT(*) AS n FROM directory_name")
+    .all<{ n: number }>();
+  expect(names[0]?.n).toBe(0);
 });

@@ -5,6 +5,12 @@ export { createPerson, readPerson, updatePerson } from "./person.ts";
 export { createOrganization, readOrganization } from "./organization.ts";
 export { addName, changeName } from "./name-history.ts";
 export { createEdge, readEdges, InvalidEdgeTypeError, UnknownEntityError } from "./edges.ts";
+export {
+  assertEntityExists,
+  entityKindFromId,
+  nodeTableForEntityId,
+  MergedEntityError,
+} from "./entity-kind.ts";
 export type { CreateEdgeInput, DirectoryEdge } from "./edges.ts";
 export { searchNames, findDuplicateCandidates } from "./search.ts";
 export type { NameSearchHit, FindDuplicateCandidatesInput, DuplicateCandidate } from "./search.ts";

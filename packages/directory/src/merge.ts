@@ -84,9 +84,10 @@ export interface MergeEntitiesInput {
 // One recorded repoint: a reference that moved from the subordinate to the master. table/row locate
 // the exact row that changed; from/to are the old and new entity ids. The full list is stored in the
 // entity_merge event as the reversible record of what the merge touched. `absorbed` marks a row that
-// could NOT be repointed because the master already carried the same reference (a duplicate that would
-// collide on a unique key) or because repointing would create a self-loop — that row is deleted from
-// the subordinate instead, and recorded here so the merge stays reversible.
+// could NOT be repointed as a LIVE reference because the master already carried the same one (a
+// duplicate that would collide on a unique key) or because repointing would create a self-loop — that
+// row still moves to the master but lands archived (soft-deleted, or flipped out of currency), and is
+// recorded here so the merge stays reversible.
 interface RepointRecord {
   readonly table: string;
   readonly row: string;
@@ -117,20 +118,28 @@ const SURVIVABLE_COLUMNS: Readonly<Record<EntityKind, readonly string[]>> = {
 // a composite key with no id, so its category_id is the discriminator). extraColumns are read alongside
 // the identity so `collides` can decide whether repointing this row would clash with a reference the
 // master already holds (a unique-key duplicate) or would create a self-loop — when it would, the row is
-// ABSORBED (deleted from the subordinate) instead of repointed, so the merge never aborts on a
-// constraint and never leaves a meaningless duplicate or self-relationship behind.
+// ABSORBED instead of repointed live, so the merge never aborts on a constraint and never leaves a
+// meaningless duplicate or self-relationship behind. Absorption still MOVES the row to the master; what
+// it changes is that the row lands archived rather than live, because a merge never destroys the record
+// that the subordinate once held that relationship.
 interface RepointTarget {
   readonly table: string;
   readonly column: string;
   readonly rowColumn: string;
   readonly extraColumns: readonly string[];
-  // What to do with a colliding row. "delete" removes the subordinate's duplicate (the original four
-  // targets: a real-indexed reference the master already holds, or a would-be self-loop, carries no
-  // content worth keeping). "archive-to-history" instead moves the losing row onto the master and flips
-  // it to history (is_current = 0, valid_to = now) — used where the row carries content the user entered
-  // (a custom-field value), so a field-level survivorship preserves the loser as a prior value rather
-  // than discarding it.
-  readonly onCollision: "delete" | "archive-to-history";
+  // How a colliding row is absorbed — one of three archival shapes, chosen by what the table can carry:
+  //   "soft-delete"        the row moves to the master and is soft-deleted there (deleted_at = now,
+  //                        valid_to closed) — the whole row survives and stays queryable, which is the
+  //                        only way a matter-party link or an edge keeps its role/type/notes/dates.
+  //   "archive-to-history" the row moves to the master and flips out of currency (is_current = 0,
+  //                        valid_to = now) — used where the table models history rather than deletion
+  //                        (a custom-field value), so the loser becomes a prior value under the master.
+  //   "record-only"        the row is removed and the entity_merge event is the sole surviving record.
+  //                        Reserved for a pure composite-key join row whose ENTIRE content is the pair
+  //                        (entity, other) already written into that event: nothing is lost that the
+  //                        event does not carry, and the composite primary key leaves no room to keep a
+  //                        second row under the master.
+  readonly onCollision: "soft-delete" | "archive-to-history" | "record-only";
   readonly collides: (
     database: BatchDatabase,
     masterId: string,
@@ -145,7 +154,7 @@ const REPOINT_TARGETS: readonly RepointTarget[] = [
     column: "entity_id",
     rowColumn: "id",
     extraColumns: ["matter_id", "role", "deleted_at"],
-    onCollision: "delete",
+    onCollision: "soft-delete",
     collides: async (database, masterId, row) => {
       if (row.deleted_at !== null) return false; // a soft-deleted link cannot become a live duplicate
       const { results } = await database
@@ -163,7 +172,7 @@ const REPOINT_TARGETS: readonly RepointTarget[] = [
     column: "from_entity_id",
     rowColumn: "id",
     extraColumns: ["to_entity_id"],
-    onCollision: "delete",
+    onCollision: "soft-delete",
     collides: async (_database, masterId, row) => row.to_entity_id === masterId,
   },
   {
@@ -172,17 +181,20 @@ const REPOINT_TARGETS: readonly RepointTarget[] = [
     column: "to_entity_id",
     rowColumn: "id",
     extraColumns: ["from_entity_id"],
-    onCollision: "delete",
+    onCollision: "soft-delete",
     collides: async (_database, masterId, row) => row.from_entity_id === masterId,
   },
   {
     // The composite primary key (entity_id, category_id): if the master already holds the category, a
-    // repoint to (master, category_id) collides on the PK. Absorb the subordinate's duplicate link.
+    // repoint to (master, category_id) collides on the PK, and the table has no soft-delete column to
+    // park the loser in. Nothing is lost by removing it: the row IS the pair, and the pair is written
+    // verbatim into the entity_merge event (table + category_id + the subordinate it came from), so the
+    // link is fully reconstructible from recorded data.
     table: "directory_entity_category",
     column: "entity_id",
     rowColumn: "category_id",
     extraColumns: [],
-    onCollision: "delete",
+    onCollision: "record-only",
     collides: async (database, masterId, row) => {
       const { results } = await database
         .prepare(
@@ -201,7 +213,7 @@ const REPOINT_TARGETS: readonly RepointTarget[] = [
     column: "value_reference_id",
     rowColumn: "id",
     extraColumns: [],
-    onCollision: "delete", // unreachable: collides() is always false for this target.
+    onCollision: "record-only", // unreachable: collides() is always false for this target.
     collides: async () => false,
   },
   {
@@ -267,7 +279,9 @@ async function readNodeRow(
 // mergeEntities folds the subordinate into the master in ONE atomic batch:
 //   1. Archive the subordinate node row (status='merged_into', merged_into_id=master) — never deleted.
 //   2. Repoint every inbound real-indexed reference (matter parties, both edge endpoints, category
-//      links) from the subordinate to the master, recording each repoint exactly.
+//      links) from the subordinate to the master, recording each repoint exactly — including the merge
+//      pointers of entities previously merged INTO the subordinate, so a chain never forms and every
+//      historical entity resolves to the final master in one hop.
 //   3. Apply field-level survivorship to the master, recording the master's PRIOR value per field.
 //   4. Write the append-only entity_merge event (survivorship + the exact repoint list) AND a
 //      directory.entity.merged audit row.
@@ -317,8 +331,9 @@ export async function mergeEntities(
   // row-scoped UPDATE per match. A row-scoped UPDATE (not a blanket WHERE column = subordinate) keeps the
   // recorded list and the actual writes provably identical. When repointing a row would collide with a
   // reference the master already holds (a unique-key duplicate) or would create a self-loop, the row is
-  // ABSORBED instead — deleted from the subordinate and recorded as absorbed — so a merge of two real
-  // duplicates that share a category, a matter role, or a mutual edge never aborts on a constraint.
+  // ABSORBED instead — moved to the master in an archived form and recorded as absorbed — so a merge of
+  // two real duplicates that share a category, a matter role, or a mutual edge never aborts on a
+  // constraint and never destroys the record that the subordinate held that relationship.
   for (const target of REPOINT_TARGETS) {
     const selectColumns = [`${target.rowColumn} AS row`, ...target.extraColumns].join(", ");
     const { results } = await database
@@ -338,7 +353,23 @@ export async function mergeEntities(
               )
               .bind(rowId, masterId, now),
           );
+        } else if (target.onCollision === "soft-delete") {
+          // Move the losing row onto the master and soft-delete it there. The row keeps everything it
+          // carried — the matter and role it played, the edge type, role, note, and dates — so the fact
+          // that the subordinate once held that relationship stays queryable instead of being destroyed;
+          // the reads that matter (readEdges, readMatterParties) filter deleted_at, so an archived row is
+          // invisible to ordinary use while remaining available to an audit or an unmerge. COALESCE keeps
+          // an already-archived row's original timestamps rather than restamping them with the merge time.
+          statements.push(
+            database
+              .prepare(
+                `UPDATE ${target.table} SET ${target.column} = ?2, deleted_at = COALESCE(deleted_at, ?3), valid_to = COALESCE(valid_to, ?3), updated_at = ?3 WHERE ${target.rowColumn} = ?1 AND ${target.column} = ?4`,
+              )
+              .bind(rowId, masterId, now, subordinateId),
+          );
         } else {
+          // "record-only": the entity_merge event below carries the row's entire content, so removing it
+          // loses nothing (see the target's own note for why it cannot be parked under the master).
           statements.push(
             database
               .prepare(
@@ -372,6 +403,42 @@ export async function mergeEntities(
     }
   }
 
+  // 2b. Follow the merge chain: every entity ALREADY merged into the subordinate is repointed to the new
+  // master in the same batch. Without this, a second merge leaves a two-hop chain (C -> B -> A) and every
+  // consumer that follows a single hop lands on B, an entity that has itself been merged away.
+  //
+  // Repointing here rather than resolving transitively at read time is the cheaper half of the trade by a
+  // wide margin: the resolution paths are one-hop by construction — the name and identifier channels
+  // resolve in SQL with COALESCE(merged_into_id, id) inside their join (search.ts), and the in-code twins
+  // (search.ts resolveMergedId, contact-email.ts resolveLiveEntity, conflicts matching) read one node row
+  // — so making resolution transitive would mean a recursive CTE plus a cycle guard in every one of those
+  // read paths, on every read. Flattening the chain at merge time costs one extra UPDATE per chained
+  // entity, once, and leaves every existing one-hop read correct. It also makes a cycle unrepresentable
+  // rather than merely survivable: merged_into_id always points at a live entity, so there is no chain to
+  // walk and nothing to guard against. Each repoint is recorded in the entity_merge event like any other.
+  //
+  // Only the kind's own node table is scanned: a cross-kind merge is refused above, so a subordinate's
+  // prior subordinates are always of the same kind.
+  const { results: chainedSubordinates } = await database
+    .prepare(`SELECT id FROM ${NODE_TABLE[kind]} WHERE merged_into_id = ?1`)
+    .bind(subordinateId)
+    .all<{ id: string }>();
+  for (const chained of chainedSubordinates) {
+    statements.push(
+      database
+        .prepare(
+          `UPDATE ${NODE_TABLE[kind]} SET merged_into_id = ?2, updated_at = ?3 WHERE id = ?1 AND merged_into_id = ?4`,
+        )
+        .bind(chained.id, masterId, now, subordinateId),
+    );
+    repointed.push({
+      table: NODE_TABLE[kind],
+      row: chained.id,
+      from: subordinateId,
+      to: masterId,
+    });
+  }
+
   // 3. Field-level survivorship: the master takes the subordinate's value for each chosen column;
   // record the master's prior value so an unmerge could restore it. Unknown/non-survivable columns
   // are rejected — a typo'd key must not silently no-op.
@@ -401,10 +468,15 @@ export async function mergeEntities(
   }
 
   // 1. Archive the subordinate — status flip + merge pointer, touch updated_at, NEVER soft-delete.
+  // The `status = 'active'` predicate re-checks at write time what the guard above checked at read time:
+  // D1 has no interactive transaction, so two merges of the same subordinate into different masters can
+  // both pass the read-time guard. The predicate makes the loser's flip a no-op instead of pointing the
+  // subordinate at a master that received none of its references. (Serializing merges per entity through
+  // the firm database Durable Object is the complete answer and is not built yet.)
   statements.push(
     database
       .prepare(
-        `UPDATE ${NODE_TABLE[kind]} SET status = 'merged_into', merged_into_id = ?2, updated_at = ?3 WHERE id = ?1`,
+        `UPDATE ${NODE_TABLE[kind]} SET status = 'merged_into', merged_into_id = ?2, updated_at = ?3 WHERE id = ?1 AND status = 'active'`,
       )
       .bind(subordinateId, masterId, now),
   );
