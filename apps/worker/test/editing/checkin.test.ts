@@ -148,6 +148,20 @@ describe("POST /api/v1/documents/{fileId}/checkin", () => {
     expect((await checkin(otherFileId, checkoutId, ownerCookie)).status).toBe(404);
   });
 
+  it("404s a check-in against a file that was soft-deleted while the copy was out", async () => {
+    const { fileId, checkoutId } = await seedCheckedOutFile();
+    await firmDb.prepare("UPDATE file SET deleted_at = ?2 WHERE id = ?1").bind(fileId, ISO).run();
+
+    // No new version is cut onto a deleted file — the offline copy stays on the client, and an
+    // undelete is what makes the return leg possible again.
+    expect((await checkin(fileId, checkoutId, ownerCookie)).status).toBe(404);
+    const versions = await firmDb
+      .prepare("SELECT COUNT(*) AS n FROM file_version WHERE file_id = ?1")
+      .bind(fileId)
+      .first<{ n: number }>();
+    expect(versions?.n).toBe(1);
+  });
+
   it("denies a member without documents:checkout", async () => {
     const { fileId, checkoutId } = await seedCheckedOutFile();
     expect((await checkin(fileId, checkoutId, noPermCookie)).status).toBe(403);

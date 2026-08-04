@@ -49,6 +49,11 @@ runs logic mid-transaction.
   bytes against the recorded hash.
 - **Versions are immutable; soft-delete only.** A committed version's bytes/metadata never change; a new
   version is a new row + a new R2 key. Files soft-delete (`deleted_at`); versions are untouched.
+- **A soft-deleted file takes no writes.** Every mutation in `file-service.ts` resolves its file through
+  `requireLiveFile`, which refuses a row with `deleted_at` set (`file-deleted`); the routes answer that
+  with the same 404 an unknown file gets, so a write is never the path that reveals a deleted file.
+  `requireFileIncludingDeleted` exists for the one surface that must see a deleted row — the undelete.
+  A new write path picks the live helper unless it is part of recovery.
 - **A verdict binds to bytes, not to a key.** The presigned PUT that delivered an upload outlives the
   commit, so the object behind a committed version can be overwritten. An R2 object-create event for an
   already-committed version is therefore an overwrite signal: the ingest consumer re-measures the stored
@@ -68,8 +73,14 @@ runs logic mid-transaction.
   meter under the `files/` logical dimension. The bytes bypass the Worker (direct-to-R2 via presigned URLs).
 - **No-op version skip.** A re-upload whose content hash equals the file's current version's hash marks
   the session completed and the new version abandoned — one logical version, not a duplicate.
-- **Ingest is one read.** `runIngest` tees a single stream: head bytes to the magic-byte sniff, the full
-  stream through `crypto.DigestStream` and the scan port. A multi-GB object never buffers.
+- **Ingest is one read.** `runIngest` reads the object once: a short tee gives the magic-byte sniff its
+  head bytes (then cancels), and what follows splits on the inspectable-size cap. Over the cap only the
+  digest consumes the body, so it streams into `crypto.DigestStream` and a multi-GB object never
+  buffers. Under the cap the digest AND the scan port both need every byte; that body is read into
+  memory once and both are fed from it, because a second tee couples nothing (the faster consumer runs
+  ahead and the runtime holds the rest for the slower one anyway) while the cap does bound the buffer.
+  The read stops the moment the body exceeds the size R2 reported, so a lying object size cannot grow
+  it past the cap.
 - **Uninspectable-file split (inspectable-size short-circuit).** Files that exceed the inspectable-size
   cap bypass the scan port and commit unconditionally as `unscanned` with `scan_detail: "oversize"` — no
   extension allow-list classification occurs at this boundary; large legitimate files are not suspicious

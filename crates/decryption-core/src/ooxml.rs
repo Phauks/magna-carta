@@ -12,6 +12,29 @@ const HASHCAT_MODE_OFFICE_AGILE: u32 = 9600;
 /// to prevent an attacker from inducing CPU-exhaustion via a crafted large spin count.
 const MAX_SPIN_COUNT: u32 = 10_000_000;
 
+/// Upper bound on the `EncryptionInfo` stream accepted from an untrusted OOXML container
+/// before it is handed to `office-crypto` for the decryption path.
+///
+/// `office-crypto` parses the agile descriptor that follows the stream's 8-byte header with
+/// `quick_xml::Reader`, and iterates each start tag's attributes with quick-xml's default
+/// duplicate-name check enabled. In every quick-xml release before 0.41 that check is a
+/// linear scan per attribute, so one start tag carrying `N` distinct attribute names costs
+/// `O(N²)` byte comparisons with no internal bound on `N` — a start tag of a few tens of
+/// megabytes pins a CPU core for minutes. `office-crypto` 0.3 (the newest release) still
+/// requires `quick-xml ^0.38`, so the fixed parser cannot be resolved by a carrier bump.
+///
+/// A real ECMA-376 agile descriptor is one to two kilobytes; even a certificate-bearing
+/// `keyEncryptor` list stays far below this cap. 64 KiB therefore accepts every legitimate
+/// document while capping the attacker-reachable attribute count at roughly 16 000, which
+/// bounds the quadratic scan to well under a second — the cost stops scaling with the
+/// uploaded file and becomes ordinary parsing work.
+///
+/// This is the same defensive-perimeter pattern as the `EncryptedPackage` size-prefix guard
+/// in `strip_with_key`: validate the untrusted structure with `cfb` first, then let
+/// `office-crypto` see only inputs whose cost is bounded. Remove it when `office-crypto`
+/// resolves quick-xml 0.41 or later.
+const MAX_ENCRYPTION_INFO_BYTES: u64 = 64 * 1024;
+
 /// Fixed block keys from MS-OFFCRYPTO §2.3.4.13. Each is concatenated onto the iterative
 /// password hash before a final SHA-512 to derive the AES key for one of the two verifier
 /// blobs — `Hblock = SHA512(H ‖ blockKey)`, first `key_bits/8` bytes taken as the key.
@@ -71,6 +94,26 @@ impl OoxmlAdapter {
             if !compound_file.is_stream("/EncryptionInfo") {
                 return Err(DecryptError::NotEncrypted);
             }
+
+            // Bound the agile descriptor before office-crypto's quick-xml parse sees it —
+            // see MAX_ENCRYPTION_INFO_BYTES. The directory-entry length is the authoritative
+            // bound: office-crypto's own OLE reader sizes its read from the same field, so a
+            // stream that passes here cannot expand once it crosses the boundary.
+            let encryption_info_length = compound_file
+                .entry("/EncryptionInfo")
+                .map_err(|error| {
+                    DecryptError::Malformed(format!(
+                        "cannot read the EncryptionInfo directory entry: {error}"
+                    ))
+                })?
+                .len();
+            if encryption_info_length > MAX_ENCRYPTION_INFO_BYTES {
+                return Err(DecryptError::Malformed(format!(
+                    "EncryptionInfo stream is {encryption_info_length} bytes, above the \
+                     {MAX_ENCRYPTION_INFO_BYTES}-byte limit for an agile descriptor"
+                )));
+            }
+
             if !compound_file.is_stream("/EncryptedPackage") {
                 return Err(DecryptError::Malformed(
                     "OLE2 compound file is missing the required EncryptedPackage stream".to_owned(),
@@ -735,8 +778,9 @@ mod tests {
                 let mut stream = compound_file
                     .create_stream("/EncryptionInfo")
                     .expect("cfb: create EncryptionInfo stream");
-                // Minimal placeholder — the guard only checks stream presence,
-                // not content, so any bytes will do here.
+                // Minimal placeholder — the guard checks that this stream exists
+                // and is within the descriptor size cap, never its content, so
+                // any short byte string will do here.
                 stream
                     .write_all(b"\x04\x00\x04\x00placeholder")
                     .expect("cfb: write EncryptionInfo");
@@ -767,6 +811,68 @@ mod tests {
             ),
             "a tiny EncryptedPackage total_size must be rejected as Malformed, not panic"
         );
+    }
+
+    /// Regression: an `EncryptionInfo` stream larger than the descriptor cap must be
+    /// rejected as `Malformed` before office-crypto parses it with quick-xml.
+    ///
+    /// quick-xml before 0.41 scans a start tag's attributes for duplicate names in
+    /// `O(N²)`, and office-crypto cannot resolve a fixed quick-xml today. Capping the
+    /// descriptor caps `N`, so the scan cannot be driven past a bounded cost by an
+    /// uploaded document. A tag carrying enough attributes to matter needs megabytes;
+    /// this fixture uses one oversized attribute-shaped payload to prove the size gate
+    /// fires without spending the memory of a real attack.
+    #[test]
+    fn rejects_oversized_encryption_info_descriptor() {
+        let malicious_bytes = {
+            let buffer = Cursor::new(Vec::new());
+            let mut compound_file =
+                cfb::CompoundFile::create(buffer).expect("cfb: create compound file");
+
+            {
+                let mut stream = compound_file
+                    .create_stream("/EncryptionInfo")
+                    .expect("cfb: create EncryptionInfo stream");
+                // Version 4.4 header followed by a start tag padded past the cap with
+                // distinct attribute names — the exact shape the quadratic scan feeds on.
+                stream
+                    .write_all(b"\x04\x00\x04\x00\x40\x00\x00\x00<keyData")
+                    .expect("cfb: write EncryptionInfo header");
+                for index in 0..(MAX_ENCRYPTION_INFO_BYTES / 8 + 1) {
+                    stream
+                        .write_all(format!(" a{index}=\"1\"").as_bytes())
+                        .expect("cfb: write EncryptionInfo attribute");
+                }
+                stream
+                    .write_all(b"/>")
+                    .expect("cfb: close EncryptionInfo tag");
+            }
+
+            {
+                let mut stream = compound_file
+                    .create_stream("/EncryptedPackage")
+                    .expect("cfb: create EncryptedPackage stream");
+                // A total_size above the 4096-byte segment boundary, so the reject can
+                // only come from the descriptor cap and not the tiny-package guard.
+                let mut prefix = [0u8; 24];
+                prefix[0..4].copy_from_slice(&8192u32.to_le_bytes());
+                stream
+                    .write_all(&prefix)
+                    .expect("cfb: write EncryptedPackage");
+            }
+
+            compound_file.into_inner().into_inner()
+        };
+
+        let error = OoxmlAdapter::strip_with_key(&malicious_bytes, "test")
+            .expect_err("an oversized EncryptionInfo descriptor must be rejected");
+        match error {
+            crate::DecryptError::Malformed(message) => assert!(
+                message.contains("EncryptionInfo stream is"),
+                "the rejection must name the descriptor size cap, got: {message}"
+            ),
+            other => panic!("expected Malformed, got {other:?}"),
+        }
     }
 
     /// Regression: a `$office$` hash string with an absurdly large spinCount must be

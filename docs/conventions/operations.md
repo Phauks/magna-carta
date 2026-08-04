@@ -74,12 +74,15 @@ Per ADR-0073, a firm provisioned beyond the pre-declared `DB_FIRM_POOL_*` pool n
 
 ## 5. Dependency audit allowlist (accepted advisories)
 
-The CI `pnpm audit --audit-level high` gate fails on any **new** high+ advisory. Two pre-existing **transitive dev/build-tooling** advisories are accepted in `package.json` → `pnpm.auditConfig.ignoreGhsas`, neither with a production-runtime exploit path:
+The CI dependency-audit gate runs **osv-scanner** over both supply chains — the pnpm lockfile and every first-party `Cargo.lock` — and fails on any remaining **HIGH or CRITICAL** finding (CVSS >= 7.0). It replaced the npm-only `pnpm audit`, and the `package.json` → `pnpm.auditConfig.ignoreGhsas` list it used to read is gone. The invocation lives in [`.github/workflows/gate.yml`](../../.github/workflows/gate.yml).
 
-- **`GHSA-gv7w-rqvm-qjhr`** (esbuild — dev-server CORS): esbuild is build-time only (Vite/Wrangler bundling); the Worker runs no esbuild dev server. Arrives via `vitest-pool-workers`, `vite-plus`, `drizzle-kit`.
-- **`GHSA-r5fr-rjxr-66jc`** (lodash — `_.template` code injection): transitive via `better-auth` / `drizzle-kit`; the vulnerable template path is not invoked by our usage.
+**The accepted-advisory list has exactly one home: [`osv-scanner.toml`](../../osv-scanner.toml) at the repository root.** Do not restate entries here — each one carries its own cause, and the time-boxed ones carry the reachability analysis and the re-check plan alongside the `ignoreUntil` date. Reproduce the gate's answer locally by running the same `osv-scanner scan source --config osv-scanner.toml …` command the workflow runs.
 
-Each entry **drops** when Renovate upgrades the carrying dependency past the fix. Adding a new entry is an explicit security decision — never a quick unblock.
+Working rules for that file:
+
+- Adding an entry is an explicit security decision — never a quick unblock. Every entry records _why_ the advisory is accepted, not just that it is.
+- An `ignoreUntil` date is a forcing function, not a snooze button. When one approaches, re-check whether a fix has become reachable; if it has not, the extension must land with a written justification (what was checked, why no upgrade reaches it, what mitigations bound the exposure, what to re-check next time).
+- An entry **leaves** the file the moment it is genuinely remediated — a carrier upgrade, a `pnpm-workspace.yaml` override, or an upstream withdrawal. osv-scanner reports unused ignores, so a stale entry is detectable: run the scan and prune what it names.
 
 ## 6. Dashboard one-time toggles (slice 0·6)
 

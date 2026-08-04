@@ -821,7 +821,7 @@ mod tests {
         // surgery's non-recursion into XObjects can never leak text past the gate.
         let mut doc = lopdf::Document::load_mem(&hello_bytes()).unwrap();
         let page_id = *doc.get_pages().get(&1).unwrap();
-        let content = doc.get_page_content(page_id).unwrap();
+        let content = doc.get_page_content(page_id);
         let page_resources = doc
             .get_dictionary(page_id)
             .unwrap()

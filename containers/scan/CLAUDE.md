@@ -111,7 +111,7 @@ firm's policy can re-tier it with no re-scan. Detection-only — it reports, nev
 - **Cross-platform compile.** Talk to clamd over `Tcp` (loopback), not the Unix-socket client (which is
   `#[cfg(unix)]` and won't build on a Windows dev host).
 - **Crate pins are verified against docs.rs before use** (golden rule 11): axum 0.8, yara-x 1.18,
-  lopdf 0.42, cfb 0.14, zip 8.6 (lean `deflate-flate2` features — no bzip2/zstd C deps). Cargo.lock is
+  lopdf 0.44, cfb 0.14, zip 8.6 (lean `deflate-flate2` features — no bzip2/zstd C deps). Cargo.lock is
   committed (binary crate).
 
 ## Commands

@@ -242,10 +242,14 @@ jobs:
     needs: [changes, wasm]
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
-    # tsgolint building the app worker's whole-program type graph is the tall pole (~24 min for the whole
-    # repo). Cap well above that so a genuine tsgolint deadlock or runaway fails fast and visibly instead
-    # of burning the runner to GitHub's 6-hour default; raise this if the honest whole-repo time grows.
-    timeout-minutes: 45
+    # tsgolint building the app worker's whole-program type graph is the tall pole. The whole-repo pass
+    # measured ~45 min on a 4-core/16 GB box (1851 files) — it was ~24 min when this cap was first set,
+    # and it grew with the package count, so the cap has to lead that growth rather than track it. Cap
+    # well above the honest time so a genuine tsgolint deadlock or runaway fails fast and visibly instead
+    # of burning the runner to GitHub's 6-hour default; re-measure and raise this when the repo grows.
+    # Only the merge and scheduled tiers pay the whole-repo pass — a pull request lints the affected
+    # packages plus one hop, which is seconds to minutes and nowhere near this cap.
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
@@ -256,7 +260,7 @@ jobs:
       - name: Lint (type-aware, affected packages only)
         # The `changes` job computed the affected set — the changed packages plus their dependents (a
         # type-aware finding in an unchanged file can flip when a dependency changes), or ALL when a
-        # global input moved. Scoping the paths scopes tsgolint's cost; the whole repo is the ~24-min
+        # global input moved. Scoping the paths scopes tsgolint's cost; the whole repo is the ~45-min
         # tall pole, one package is seconds. The dependent walk is one hop deep on a pull request and
         # unbounded on every other trigger, so the full closure is always proved before a change can
         # ship. Only lint is scoped — type-check/tests/contracts still run whole-repo. Mechanism +

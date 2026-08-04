@@ -1,4 +1,4 @@
-# claude-fix-pdf-core-annots
+# claude/fix-pdf-core-annots
 
 **Branch:** `claude/fix-pdf-core-annots` · **Off:** main (ed2723b) · **Owner:** Trevor Goldsmith · **Started:** 2026-08-04
 

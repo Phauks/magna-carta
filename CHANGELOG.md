@@ -610,6 +610,162 @@ consumer — the first moment a version is durable, scanned, and current — and
 failure to enqueue can never unwind an ingest that already succeeded. A new `TextExtractionPort` covers
 the extract stage over the recognition engine, with typed outcomes that let the consumer tell "no engine
 yet" from "these bytes are unreadable".
+- **The LibreOffice conversion engine — the four registered office edges now have a body.**
+`docx→pdf`, `odt→pdf`, `docx→odt`, and `wpd→odt` have been declared conversions for two months and
+resolved to a deferred port that failed every job; `wpd→pdf` chains across them. `containers/libreoffice`
+is the engine that runs them: a Rust supervisor with an axum surface, plus a pool of warm worker child
+processes that each load LibreOffice once through a `dlopen`'d C ABI and convert one document at a time.
+
+The suite is owner-consented C++ under the memory-safety rule — no Rust library reads those formats with
+anything approaching this fidelity — and the consent buys exactly one thing: loading a shared library at
+run time. Everything around it is Rust, the container has no outbound network, and the suite always runs
+as an isolated child process, so a wedged or segfaulting conversion kills its own child and nothing else.
+A worker is replaced (never rebuilt in place — the binding segfaults if an instance is recreated) when it
+crosses its conversion budget, its resident-set ceiling, its deadline, or dies; a scheduled replacement is
+warmed alongside the outgoing worker, so recycling is not charged to the request that triggered it.
+
+`/ready` is honest: 503 until a worker has actually finished suite initialisation, which takes tens of
+seconds, so the container never hands that delay to the first user request as an unexplained stall. A
+failure is always a status, never an empty success — 415 for a format pair this engine does not serve, 422
+for a document that reached the suite and could not be converted (including a password-protected one,
+which is never guessed at), 503 when no worker was available, 504 on the conversion deadline.
+
+Carlito and Caladea ship in the image and the acceptance suite asserts the embedded font names, so a
+Calibri or Cambria document that silently fell back to Liberation — a layout shift, not an error — turns
+the build red instead. The supervisor's whole state machine is proved by `cargo test` against a fake
+worker that can be told to hang, crash, abort on a signal, run away with memory, or answer with garbage,
+so the part most likely to be wrong is covered on any machine with no office suite installed.
+
+Deploy is ordered: the convert worker carries the new Container class before the app worker starts routing
+the engine. Still to come on this container: the email-to-PDF render engine, which consumes the job-package
+seam and adds one dispatch arm.
+- **A user guide for capture-address management.** Minting, rotating, and revoking the forward/CC address
+a matter files mail through — plus what the firm-wide catch-all does and why a firm holds only one —
+now have written guidance in _Filing email to a matter_, including the two things that surprise people:
+the address is shown exactly once, and a brand-new one bounces mail for a moment before it starts
+delivering.
+- **Design spec and implementation plan for document automation (slice 2·6).** The last unbuilt
+promise in Phase 2 now has an implementation-grade design. A template is a `.docx` stored in per-firm
+R2 and catalogued in per-firm D1, versioned exactly like a file — immutable versions, content hash,
+the same quarantine status gate, the same supersede-to-Infrequent-Access tiering — so an assembled
+document can always name the exact template version that produced it. Placeholders are `{{key}}` text
+delimiters (Word `MERGEFIELD` constructs are recognized as an equivalent authoring form), and the
+fiddly half of DOCX templating — finding a placeholder Word split across five runs — is paid **once,
+at template registration**, not on every assembly: registration normalizes each placeholder into one
+contiguous run, records a field manifest, refuses macro-bearing packages, and scrubs the template's
+authoring history so no tracked change or comment can propagate into a filed document.
+
+Merge fields resolve through a declarative data dictionary over matter, Locations, firm, Directory
+party, and custom-field sources, with one hard rule stated as a test rather than a convention: a
+merge field never issues a query, so a 150-field template costs the same reads as a four-field one.
+Custom fields bind by handle, never by name — the property the custom-fields engine was built to have
+— and the reciprocal obligation slice 1·4 deferred is taken up here: the custom-field hard-delete
+guard gains its template-binding arm. Location fields resolve from **the matter's** home office, so a
+document assembled by one office on another's matter carries the correct letterhead and remit-to.
+Money renders from `amount_minor` by moving a decimal point, never by multiplying; a merge field bound
+to a `protected()` value resolves only through the decrypt-permission-plus-audit chokepoint and fails
+by name rather than emitting a blank.
+
+The assembly engine is built in-house in TypeScript over `fflate` and `fast-xml-parser` — the same
+substrate the metadata inspector and scrubber already use to rewrite OOXML safely — and runs in a
+Worker queue consumer behind a `DocumentAssemblyJob` Durable Object. docxtemplater's MIT core was the
+real alternative and is recorded as a scoped fallback behind the same port; it was declined because it
+would bring a second zip stack beside `fflate`, because image insertion (the letterhead logo, next
+slice) sits behind a paid module, and because its richer expressions are evaluated from template
+content — where this design deliberately keeps the expression language non-executable, so a
+firm-authored `.docx` can never become an execution surface. Driving the consented LibreOffice
+container's mail merge was rejected outright: it is the only memory-unsafe route and would push party
+names, settlement amounts, and decrypted identifiers through the one C++ dependency, for no fidelity
+gain when input and output are both `.docx`. LibreOffice keeps exactly the job the conversion design
+gave it, DOCX to PDF.
+
+The assembled document enters the **normal ingest chokepoint, scan included, with no bypass** — the
+moment there are two ways for a version to reach `clean`, the invariant that every file read filters
+on status stops being enforceable by construction. Absence is a declared decision per field
+(`blank` / `placeholder` / `fail`, defaulting to a visible placeholder) because a blank where a party
+name should be, filed without anyone noticing, is the failure mode that matters. Resolved merge values
+live in memory for the life of the job and are never persisted, logged, or placed on a queue; the
+provenance row stores which keys were absent, never what the present ones held.
+
+Nine owner decisions are flagged, including the placeholder syntax (user-visible, and a migration to
+change later), court-form and clause-library scope, the expression ceiling that separates a template
+a paralegal maintains from one that needs a developer, and whether merge fields may bind to protected
+identifiers at all.
+
+Specs: `docs/specs/2026-08-04-document-automation-design.md` and
+`docs/specs/2026-08-04-document-automation-implementation-plan.md`. Decisions:
+`docs/decisions/pending/document-automation-assembly-engine.md` and
+`docs/decisions/pending/document-automation-template-model.md`.
+- **Design spec and implementation plan for Custodian (slice 4·2).** The second half of the Phase 4
+deliverable now has an implementation-grade design: the register of physical originals a firm holds
+in safekeeping — wills, deeds, share certificates, keys, sealed instructions — with the location tree,
+the movement ledger, and the compliance seams specified against what is already on `main`.
+
+**A packet is the unit of custody; an item is the unit of description.** A packet is the envelope or
+deed box that physically moves and carries the number, the location, the owners, and the optional
+matter link; an item is one thing inside it, with a type drawn from a per-firm catalog and an
+intrinsic-value flag a human asserts. An item never moves between packets by an edit — re-packeting
+is a ledger entry, because "when did the will move out of the family envelope" has to have an answer.
+**Ownership anchors at a Directory entity and is mandatory**, not at a matter: a firm holds a will for
+a client whose last matter closed eleven years ago, for the adult child of a client, for an estate,
+and rooting custody at the matter would make every one of those either impossible or a fake matter.
+The catastrophic outcome in safe custody is not a misplaced packet but an unattributable one, so
+orphan prevention is structural rather than a reminder.
+
+**One recursive location tree, rooted optionally at a firm Location** — the sentence the Locations
+model has carried since slice 1·1, made enforceable for the first time. A root bound to a Location is
+an office root, which is what makes "which office physically holds this original" answerable for a
+multi-office practice; a root of kind `offsite` or `bank` is an external custody site, because a bank
+vault is not a firm office and minting a Location for one would corrupt the letterhead picker and the
+per-office reporting dimension every other subsystem reads. Capacity is explicitly out of scope with
+no column reserved: it is a count for a pigeonhole rack, a volume for a safe, a weight for a shelf,
+and a contractual allowance for a bank, and a schema that picks one is wrong for the other three.
+
+**The movement ledger is append-only, enforced by database triggers, and `POST /movements` is the only
+state-change path in the whole subsystem.** There is no check-out route, no check-in route, no move
+route, no mark-lost route — all of them are one movement kind, so one place enforces the invariant,
+writes the derived status in the same atomic batch, and composes the audit row. A correction is a new
+compensating row, never an edit. `occurred_at` and `recorded_at` are separate columns so back-dating a
+Friday event on a Monday is supported and visible rather than indistinguishable from falsification.
+Borrower is three-way (firm member, Directory entity, or an external name) because forcing a courier
+into the Directory would pollute the conflicts corpus, and `due_back_on` ships in the first slice
+because an overdue check-out is _the_ operational signal a custody register produces and retrofitting
+the column leaves every earlier check-out permanently silent. A movement can reference a `shipment`,
+so the offsite transport leg reuses the shipping subsystem — carrier, tracking, signature on delivery,
+insured value — rather than growing a second one.
+
+**Custody numbers reuse the matters allocation-ledger idiom** (ensure-row, guarded increment,
+allocation claim, bounded retry) rather than re-deriving the race, with a fixed number shape instead
+of a second segment-template engine. **Scanned copies are ordinary File Manager files** behind the
+ordinary quarantine chokepoint with no bypass, linked through a `custody_scan` row; the awkward part —
+`file.matter_id` is `NOT NULL` and a custody owner may have no matter — is resolved by filing a
+matterless packet's scans onto a per-firm `system` holding matter rather than weakening an invariant
+seven subsystems depend on. A scan never satisfies any destruction gate: "we have a scan" is precisely
+the reasoning that destroys an original will.
+
+**Retention ships as mechanism with no policy.** Holds (`legal`, `discovery`, `client_instruction`,
+`dispute`, `unclaimed`) block release and destruction while still permitting a move to a fireproof
+safe, and become the first real consumer of the Custodian hold blocker the deleted-file lifecycle was
+written against. Destruction is a two-person request-and-approval workflow, refused under any hold and
+refused outright on an intrinsic-value item with **no override in the API**. But no retention periods
+ship, no jurisdiction catalog ships, and no destruction sweep exists: retention for client property is
+the most jurisdiction-bound fact in the subsystem — five years under the model rule and Texas, seven
+in New York and Illinois, fifteen in Ontario, ten under one liability fund's guidance — while the
+guidance that governs originals of intrinsic value says they sit outside the routine clock entirely.
+A platform default there is a platform opinion about when to destroy a client's irreplaceable property.
+
+The earlier brainstorm on `main` (`docs/specs/2026-06-16-safe-custody-design.md`) is evaluated rather
+than inherited: its MVP-first framing, the Location-rooted tree, mandatory ownership, and the deferred
+will-on-death engine are kept; its flat item model, its invented co-ownership enum, and its
+per-item-type retention defaults are discarded, each with the reason stated. Eleven owner decisions
+are flagged, including the packet/item split, whether the mandatory owner link admits any exception,
+the scan-filing shape, and whether the will-on-death statutory engine — the largest piece of deferred
+value and the clearest separation from the incumbents — is wanted at all.
+
+Specs: `docs/specs/2026-08-04-custodian-design.md` and
+`docs/specs/2026-08-04-custodian-implementation-plan.md`. Decisions:
+`docs/decisions/pending/custodian-register-model.md` and
+`docs/decisions/pending/custodian-retention-jurisdiction-posture.md`.
 
 ### Fixed
 
@@ -1030,6 +1186,85 @@ turned a quarter-turn either way.
   guide now also says plainly what a merge does _not_ move — the subordinate's own names, identifiers,
   and contact rows stay where they are and resolve through the merge pointer, which is what makes a
   merged-away alias still surface in search and conflicts.
+- **The conversion queue consumer now resolves its R2 bucket through the firm-bucket seam.** It read the
+source object and wrote the converted result through the bound binding directly while the conversion
+routes presigned both legs through `resolveFirmBucket` — precisely the split the seam exists to prevent,
+and one that would send a job's bytes to a bucket the other half never looks in the moment a firm gets
+its own bucket. The firm's recorded bucket now travels on the conversion queue message (as it already
+does for a bundle build), so the consumer reads and writes through the very bucket the upload was
+presigned against rather than deriving one of its own, and the status route heads the result artifact
+through the same resolved handle. The fitness scan that holds modules to the resolver covers both
+conversion modules, so the bypass cannot come back unnoticed.
+
+**`pnpm check:scoped` no longer diffs against a frozen `main`.** It resolved its base by trying local
+`main` first and only falling back to `origin/main`, so in any worktree whose local `main` has not moved
+since it was created — every agent worktree — the merge-base landed hundreds of commits behind and the
+scoped gate stopped being scoped: it linted every file the trunk had touched in the meantime, slowly and
+noisily, and a few hundred files was enough to take the linter down with it. The base is now the newest
+of the merge-bases the trunk refs offer, ordered by ancestry rather than by commit date (a rebased commit
+can carry an older date than a commit it descends from), with the previous behaviour intact whenever only
+one ref resolves and `--base <ref>` still overriding both.
+
+**`vp run bootstrap` no longer reports success over stale wasm.** Staleness was an mtime comparison
+between the Rust sources and the emitted `.wasm`, which cannot see the failure that actually happens:
+every worktree shares one cargo target directory, so a build can be served from a cached compilation of
+sources that are not the ones on disk, wasm-bindgen re-emits the bindings from that cached artefact, and
+the emitted files get a fresh mtime that reads as "current" — leaving a package missing a function it is
+supposed to export, with the failure surfacing much later as `X is not a function` at runtime. Each
+output now carries a stamp holding the content hash of the sources it was built from (its crate, that
+crate's workspace-local path dependencies — which the mtime check never looked at — and the workspace
+manifests), and no build is believed until the emitted bindings are verified to export everything the
+crate's `#[wasm_bindgen]` surface declares. An artefact that comes out incomplete has its crate's cargo
+cache discarded and is rebuilt once; if it is still incomplete the command fails loudly instead of
+stamping a broken artefact as current.
+- - **Editing (WOPI):** the two file-access callbacks now agree on what a token may reach. `GetFile`
+  re-checks the file and the version the token names on every call, so a soft-deleted file, a version
+  withdrawn by the custody check, or a version a re-scan has flagged is refused rather than streamed
+  under a still-valid token — the same answer `CheckFileInfo` already gave. `CheckFileInfo` also
+  reports the **token's** version size and identifier instead of the file's current version, so a
+  version cut by another writer mid-session no longer makes the advertised metadata describe different
+  bytes than the ones served.
+- **Matters:** a retried `open` or `reopen` carrying the same `Idempotency-Key` now replays its stored
+  response instead of being refused by the precondition its own first attempt satisfied. Close already
+  behaved this way; a genuinely new request, which carries its own key, is still refused.
+- **File manager:** a version left `pending` by a dead-lettered ingest — the upload finished, the
+  session closed, and nothing was left to commit it — is now detected on the daily pass and re-driven
+  through the ingest path, with an operator counter for the rate.
+- **File manager:** the folder-move cycle check is carried inside the `UPDATE`, so two concurrent
+  cross moves can no longer commit a parent cycle that permanently detaches a subtree.
+- **File manager:** a blank or whitespace-only folder or file name is refused with its own code and a
+  422, instead of a misleading "name taken" on create or a raw constraint failure on rename.
+- **File manager:** a version-lifecycle batch (commit, check-in, no-op skip, quarantine) now fails as
+  a unit when its guarded status change loses a race, rather than committing the meter delta,
+  current-version pointer move, session flip, audit row, and outbox event for a change that never
+  happened.
+- **Automated ADR numbering is chronological again.** The `assemble-docs` workflow checked out at the
+default depth of one commit, and the assembler orders pending decision fragments by the commit that
+first added each file. With no history to read, every fragment scored the same and the tie-break
+assigned numbers alphabetically by slug — so each bot-assembled batch of ADRs was numbered in the wrong
+order, with nothing failing to signal it. The checkout now fetches full history.
+
+**The active-work registry can see namespaced streams.** Stream notes are named after the branch they
+describe, so a `claude/<name>` branch's note lives one directory down — but `vp run worktrees` listed
+only the top level of `docs/active-work/`, which meant every nested note was invisible and its stream
+reported as having none. The listing now walks the tree, and the twelve notes that had been flattened
+to `claude-<name>.md` to work around it are back at the path their branch name dictates.
+- **A soft-deleted file no longer accepts writes.** Every file mutation resolved its target through a
+helper that did not look at `deleted_at`, so a rename, a move, a document-type assignment, a second
+delete, a new upload version, and the return leg of an offline checkout all still succeeded against a
+file in the recycle bin — changes nothing could see, until an undelete handed back a file that had
+quietly moved or grown a version while it was gone. Mutations now resolve through `requireLiveFile`
+and refuse a deleted file (`file-deleted`), which the routes answer with the same 404 every read of
+that file gives, so a write is never the path that reveals it. The recovery surfaces are unchanged:
+the deleted-inclusive listing still finds the file and the undelete still restores it.
+
+**Upload ingest no longer buffers a body twice over to feed the scanner.** Within the
+inspectable-size cap the pipeline tee'd the object into a hash branch and a malware-scan branch, which
+couples nothing: whichever consumer read faster ran ahead and the runtime held every chunk the slower
+one had not taken — a scan engine that read nothing pinned the whole body in memory with no bound of
+its own. That lane now reads the body once and feeds both consumers from it, bounded by the cap that
+already governs the lane and by the size R2 reported for the object. The over-cap lane is untouched
+and still streams straight into the digest, so a multi-GB object never buffers.
 
 ### Changed
 
@@ -1135,6 +1370,23 @@ and the convert worker dispatches on that header to the executing Container — 
 serves both raster interconversion and image-to-PDF; an engine id with no Container yet stays a typed
 `engine-not-implemented` failure. This removes the single-engine assumption so the LibreOffice, email,
 and FFmpeg engine Containers can each land as an additive dispatch entry with no orchestration change.
+- - **The gate's lint hang guard is re-measured and raised — it had grown tight enough to fail honest
+  runs.** The type-aware `lint` job was capped at `timeout-minutes: 45`, set when the whole-repo pass
+  took ~24 minutes. Re-measured on today's tree, that pass takes **~45 minutes** (0 errors, ~820
+  advisory warnings across ~1850 files, 4-core/16 GB box) — the repo has roughly doubled the tall pole
+  as packages were added, so the cap had drifted from "comfortably above the honest time" to just
+  under it, and the merge and scheduled tiers (the ones that pay the whole-repo pass) were at risk of
+  being killed mid-run and reported as a red gate. Raised to 75 minutes, still far below GitHub's
+  6-hour default, so a genuine tsgolint deadlock fails fast while an honest slow run completes. Pull
+  requests are unaffected — they lint the affected packages plus one hop, which is seconds to minutes.
+  Every place quoting the stale ~24-minute figure (`tooling/affected-lint`, the gate comments,
+  [`docs/conventions/build-performance.md`](docs/conventions/build-performance.md)) now carries the
+  measured number and says to re-measure rather than trust it.
+- **The lint ruleset's documented home matched the config again.** `docs/conventions/typescript.md`
+  listed `eslint/no-await-in-loop` as off (it is on, as a `perf` warning) and called `correctness` a
+  hard error in one paragraph while the next said it keeps its inherited advisory severity. Both are
+  corrected against the live `vite.config.ts`, and `oxc/no-barrel-file` is now stated as the one rule
+  set to error.
 
 ### Security
 
@@ -1164,6 +1416,77 @@ advisory (GHSA-w5hq-g745-h8pq) is fixed in uuid 11.1.1 but arrives through `post
 hard-pins uuid 8.3.2 through its newest release (5.3.1) — so an override, not an upgrade, is the only
 remediation. Both entries keep their 2026-10-14 `ignoreUntil` forcing function.
 - Upgraded lopdf to 0.42.0 across every first-party Rust workspace (`crates/` and the `scan`/`ocr`/`recovery`/`file-repair` containers), remediating RUSTSEC-2026-0187 — the stack-overflow denial-of-service in lopdf's PDF parser, on the untrusted-file path. The osv-scanner CI gate's accepted-advisory list drops that entry. The scan container's structural-PDF SIGABRT guards are retained as defense-in-depth. The three remaining tracked advisories (quick-xml x2, npm uuid) stay accepted with corrected, documented reasons: quick-xml is reachable only through office-crypto 0.2.0 (its latest release, which pins quick-xml 0.38, so it cannot be cleared without a newer office-crypto), and the npm uuid advisory is a transitive dev-tooling dependency of postman-collection with no production-runtime exploit path.
+- **Telemetry's redact-by-default posture now holds on the counter path and against non-string values.**
+The event allowlist was structural for field NAMES but not for field VALUES: a declared field typed
+`FieldValue` could still be handed an object by any call site that reached the builder through `any`,
+and `JSON.stringify` then wrote that object into the log line with every nested key intact — past the
+allowlist, and past the scrubber, which only ever walked strings. Values are now forced back to a flat
+primitive at the same boundary as the keys; anything else is replaced outright rather than serialised,
+and the Workers logger raises a `telemetry.unloggable` counter naming the event and field so the call
+site is visible instead of silent. As a side effect, a `bigint` or a symbol in a field can no longer
+throw inside `JSON.stringify` and take the emit down with it.
+
+`Logger.count()` was the other door, and it was unguarded end to end: free-form metric names and
+free-form dimension values reached Analytics Engine with no allowlist, no scrub, and no tripwire — the
+cheapest way to get privileged content into the dataset, and the one nothing would have caught. The
+queue consumer's `costs.recovery.unhandled_topic` counter was already passing a value straight off a
+queue message. Counters now go through a **metric catalog** (`@magna-carta/telemetry/metrics`), the
+counter-side twin of the event catalog: each metric declares its ordered dimension keys, blobs are laid
+out from that declaration, dimension values are scrubbed, and anything undeclared — a metric or a
+dimension key — is dropped rather than guessed at, against a tripwire counter. A fitness scan over
+every `apps/*/src` and `packages/*/src` fails a `count()` call site naming a metric the catalog does
+not declare, or building a metric name by interpolation.
+
+Declaring the dimension keys fixes a second, quieter problem: the Analytics Engine column contract used
+to be whichever order each call site happened to write its object literal in. Reordering two keys in a
+literal — an edit no reviewer would question — silently re-labelled every column of that metric in the
+dataset. The layout is now one declared fact.
+
+The scrub backstop also stopped missing the shapes people actually write. Its denylist caught an
+unbroken run of nine or more digits, so a card number typed the way a payment form asks for it —
+`4111 1111 1111 1111` — and any phone number at all passed through verbatim with the tripwire silent,
+in `messageHead`, the one free-text field in the catalog and the one carrying a user's own words.
+Separated 12-to-19-digit groups and phone numbers (dashes, dots, spaces, parenthesised area codes,
+country codes) are now scrubbed and tripped.
+
+Finally, the scrubber's minted-handle exemption no longer restates the token length and alphabet that
+`@magna-carta/identifiers` owns; it and the package's own per-entity validators both build their
+patterns from one exported fragment, so changing the token shape cannot leave a stale copy behind that
+starts mangling Error IDs.
+- **The uuid advisory is fixed rather than accepted.** `GHSA-w5hq-g745-h8pq` (missing buffer bounds
+checks in uuid's `v3`/`v5`/`v6` when the caller supplies an output buffer) reached the tree only
+through the API-contract tooling — `@stoplight/prism-cli` and `@stoplight/spectral-cli` pull
+`postman-collection`, which hard-pins uuid 8.3.2 through its newest release, so no carrier bump
+cleared it. A `pnpm-workspace.yaml` override now forces uuid 11.1.1, the newest release that still
+ships a CommonJS entry point (uuid 12+ is ESM-only, and `postman-collection` does
+`require('uuid').v4()`). Its accepted-advisory entry is gone from `osv-scanner.toml` rather than
+carried to a later date.
+
+**Password-protected Office uploads no longer scale an attacker's cost.** `office-crypto` parses the
+agile `EncryptionInfo` descriptor with quick-xml, and every quick-xml before 0.41 scans a start tag's
+attributes for duplicate names in quadratic time (`RUSTSEC-2026-0194`) — so a crafted upload with one
+enormous start tag could pin a CPU core for minutes. `office-crypto` 0.3, its newest release, still
+requires `quick-xml ^0.38`, so the fixed parser cannot be resolved. `crates/decryption-core` now caps
+the descriptor at 64 KiB before `office-crypto` sees the bytes, which bounds the scan to well under a
+second and stops the cost scaling with the uploaded file — the same defensive-perimeter pattern as the
+existing `EncryptedPackage` size-prefix guard.
+
+**The remaining quick-xml acceptances say what was checked.** Both quick-xml entries in
+`osv-scanner.toml` were re-checked before their 2026-10-14 lapse and extended to 2027-02-14 with the
+reachability analysis written into the file: `RUSTSEC-2026-0194` is reachable but now bounded, and
+`RUSTSEC-2026-0195` is not reachable at all — it affects only quick-xml's `NsReader`, and
+`office-crypto` builds a plain `Reader` that never resolves namespaces.
+
+**The operations runbook stopped duplicating the advisory list.** Its dependency-audit section still
+described the retired `pnpm audit` gate and restated two accepted advisories, one of which GitHub had
+withdrawn. It now points at `osv-scanner.toml` as the single home and records the working rules for
+adding, extending, and pruning entries.
+
+**PDF handling picks up upstream decompression-bomb guards.** lopdf moved 0.42 to 0.44 across all six
+lockfiles, adding bounded stream decompression, a `LoadOptions.max_decompressed_size` limit for
+load-time object and cross-reference streams, and a fix that rejects incremental saves of encrypted
+documents. `Document::get_page_content` is infallible in 0.44, so its five call sites in
+`crates/pdf-core` dropped their `Result` handling.
 
 ### Added
 

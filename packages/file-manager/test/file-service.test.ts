@@ -1,13 +1,22 @@
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
-import type { FileId, FileVersionId, FolderId, MatterId } from "@magna-carta/identifiers/types";
+import type {
+  DocumentCheckoutId,
+  FileId,
+  FileVersionId,
+  FolderId,
+  MatterId,
+} from "@magna-carta/identifiers/types";
 import { describe, expect, it } from "vitest";
 import {
+  assignDocumentType,
   commitEditedVersion,
   commitVersion,
+  initiateCheckin,
   initiateUpload,
   moveFile,
   quarantineVersion,
   recordRescanVerdict,
+  renameFile,
   restoreFile,
   restoreVersion,
   softDeleteFile,
@@ -550,6 +559,99 @@ describe("restoreFile", () => {
     const restored = await restoreFile(database, fileId, options);
     await commitEffectBatch(database, restored.effect, { now });
     expect((await listFiles(database, { matterId })).data.map((row) => row.id)).toEqual([fileId]);
+  });
+});
+
+// A soft-deleted file is invisible to every consumer read, so a write that still landed on one would
+// change something nobody can see — and an undelete would then hand back a file that quietly moved,
+// was renamed, or grew a version while it was in the recycle bin.
+describe("writes against a soft-deleted file", () => {
+  async function deletedFile(database: ReturnType<typeof freshDatabase>) {
+    const matterId = await seedMatter(database);
+    const { fileId, versionId } = await initiate(database, matterId);
+    await commit(database, versionId, "hash-a");
+    await commitEffectBatch(database, (await softDeleteFile(database, fileId, options)).effect, {
+      now,
+    });
+    return { matterId, fileId };
+  }
+
+  it("refuses a rename", async () => {
+    const database = freshDatabase();
+    const { fileId } = await deletedFile(database);
+    await expect(renameFile(database, fileId, "renamed.pdf", options)).rejects.toMatchObject({
+      code: "file-deleted",
+    });
+  });
+
+  it("refuses a move", async () => {
+    const database = freshDatabase();
+    const { fileId } = await deletedFile(database);
+    await expect(moveFile(database, fileId, null, options)).rejects.toMatchObject({
+      code: "file-deleted",
+    });
+  });
+
+  it("refuses a document-type assignment", async () => {
+    const database = freshDatabase();
+    const { fileId } = await deletedFile(database);
+    await expect(assignDocumentType(database, fileId, null, options)).rejects.toMatchObject({
+      code: "file-deleted",
+    });
+  });
+
+  it("refuses a new version on the file", async () => {
+    const database = freshDatabase();
+    const { matterId, fileId } = await deletedFile(database);
+    await expect(initiate(database, matterId, { fileId })).rejects.toMatchObject({
+      code: "file-deleted",
+    });
+  });
+
+  it("refuses the return leg of an offline checkout", async () => {
+    const database = freshDatabase();
+    const { fileId } = await deletedFile(database);
+    await expect(
+      initiateCheckin(
+        database,
+        {
+          fileId,
+          checkoutId: "documentCheckout_x" as DocumentCheckoutId,
+          declaredSize: null,
+          declaredContentType: null,
+          uploadedBy: ACTOR,
+        },
+        options,
+      ),
+    ).rejects.toMatchObject({ code: "file-deleted" });
+  });
+
+  it("refuses a second delete rather than re-stamping deleted_at", async () => {
+    const database = freshDatabase();
+    const { fileId } = await deletedFile(database);
+    await expect(softDeleteFile(database, fileId, options)).rejects.toMatchObject({
+      code: "file-deleted",
+    });
+  });
+
+  it("still lets the recovery view read it and the undelete restore it", async () => {
+    const database = freshDatabase();
+    const { matterId, fileId } = await deletedFile(database);
+    // The recovery surface is the one place a deleted file is legitimately visible.
+    expect(
+      (await listFiles(database, { matterId, includeDeleted: true })).data.map((row) => row.id),
+    ).toEqual([fileId]);
+    await commitEffectBatch(database, (await restoreFile(database, fileId, options)).effect, {
+      now,
+    });
+    // …and once it is back, the writes it was refusing are allowed again.
+    const renamed = await renameFile(database, fileId, "renamed.pdf", options);
+    await commitEffectBatch(database, renamed.effect, { now });
+    const { results } = await database
+      .prepare("SELECT name FROM file WHERE id = ?1")
+      .bind(fileId)
+      .all<{ name: string }>();
+    expect(results[0]?.name).toBe("renamed.pdf");
   });
 });
 
