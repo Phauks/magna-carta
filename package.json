@@ -10,6 +10,7 @@
     "generate-client": "pnpm --filter @magna-carta/api-client run generate",
     "lint:process-refs": "node tooling/lint-process-references.mjs",
     "seed-dev-firm": "node tooling/seed-dev-firm.mjs",
+    "platform-seal-certificate": "node tooling/platform-seal-certificate/index.mts",
     "lint:licenses": "node tooling/lint-licenses.mjs",
     "lint:status": "node tooling/lint-status.mjs",
     "lint:test-registration": "node tooling/lint-test-registration.mjs",

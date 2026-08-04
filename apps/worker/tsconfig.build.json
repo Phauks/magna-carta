@@ -99,6 +99,9 @@
       "path": "../../packages/shipping/tsconfig.build.json"
     },
     {
+      "path": "../../packages/signing/tsconfig.build.json"
+    },
+    {
       "path": "../../packages/status/tsconfig.build.json"
     },
     {
