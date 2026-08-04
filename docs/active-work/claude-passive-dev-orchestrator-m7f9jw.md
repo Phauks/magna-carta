@@ -45,23 +45,29 @@ at full capacity. Keep it current at every milestone — it is the durable memor
   MC docs-sync (Mon 13:03), Cloudflare blog monitor (daily 14:00, reports not
   persisted), dependency updates (Mon 14:30).
 
-## State snapshot (2026-08-04 ~04:30 UTC — verify against live PRs/branches on revival)
+## State snapshot (2026-08-04 ~07:45 UTC — verify against live PRs/branches on revival)
 
-Done today: PR #42 merged (hygiene + merge-ability proof); PR #29 merged (docs
-assembly unstuck — ruleset bypass works); PR #41 closed superseded; PR #35 repaired
-(head `bb209ff`, gate was running, merge on green); PR #43 opened (PII registry fix
-for the six email tables — review then merge on green; flags for owner: first
-value-keyed subjectKeys recorded in `docs/decisions/pending/pii-classify-email-tables.md`,
-and no email column is in PROTECTED_COLUMNS — unencrypted subjects/addresses in D1).
+Merged today (14): #42 #29 #43 #35 #44 #45 #50 #47 #49 #52 #48 #51 #53 #54 —
+the whole inherited backlog, the CI cost package (gate tiered + cached, nightly
+sweep), the dependency refresh (hono security bump), fix batches
+B1 B2 B3 B4 B7 B10, and the 2·4 conversion close-out. #41 closed superseded.
+Audit standing: most of the 27 critical/high findings fixed on main; ledger
+update still owed (sweep task).
 
-Agents in flight at writing (die on restart — check their branches/PRs; if absent,
-redispatch from the batch specs below):
-
-- `claude/fix-tenancy-shipping-uploads` — B1 (F-140 shipping label cross-firm R2
-  read; F-072 presign/read bucket split).
-- `claude/fix-usage-bundle-scan-trio` — B10 (F-031/157 reached-middleware error
-  boundary + waitUntil; F-073 bundle rebuild on artifactMissing; F-109 scan DO
-  sharding vs max_instances 5).
+Agents in flight at writing (die on restart — check branches/PRs; redispatch
+from the batch specs if absent): B6 ingest custody
+(`claude/fix-ingest-custody`), B8 matters numbering
+(`claude/fix-matters-numbering`), B9 editing guards (PR #55 open), the mint
+route (`claude/email-capture-mint-route`), and the 2·5 seal landing
+(`claude/2-5-analysis-prep-0n2kxw`). Remaining queue: B5 shipping/whois after
+the OpenAPI-touching PRs clear; the sweeps (tasks 21, 26, 27); the
+linter-stream reconciliation (task 24); a fresh docs-sync (task 3); then the
+LibreOffice engine (task 7) and the search write pipeline (task 8). Owner
+asks are on the status artifact: install the Renovate app; optionally enable
+a merge queue; the advisories lapsing 2026-10-14 (task 23). Operational
+lessons: remove each agent's worktree at merge (the disk filled once); never
+run vp check --fix repo-wide; resolve merge conflicts by hunk, never by
+whole file.
 
 ## Fix campaign — whole-program review (the owner-designated work basis)
 
