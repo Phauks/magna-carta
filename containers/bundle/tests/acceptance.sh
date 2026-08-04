@@ -15,6 +15,8 @@ CONTAINER=magna-carta-bundle-acceptance
 BUNDLE_PORT=18090
 R2_PORT=18091
 BUNDLE_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=../../docker-build.sh
+. "$BUNDLE_DIR/../docker-build.sh"
 STORE_DIR="$(mktemp -d)"
 R2_PID=""
 
@@ -66,7 +68,7 @@ PY
 }
 
 echo "building $IMAGE (linux/amd64) ..."
-docker build --platform linux/amd64 -t "$IMAGE" "$BUNDLE_DIR"
+container_build --platform linux/amd64 -t "$IMAGE" "$BUNDLE_DIR"
 
 echo "seeding the R2 stub input ..."
 mkdir -p "$STORE_DIR/inputs"

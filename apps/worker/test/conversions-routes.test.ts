@@ -18,7 +18,7 @@ import {
 // path) with 422. Route A and Route C are checked for presence (not 404) against a seeded session.
 //
 // The end-to-end suite (further below) drives the full transient convert→download journey through
-// real Miniflare bindings using a FAKE engine injected through conversionQueue's resolvePort seam:
+// real Miniflare bindings using a FAKE engine injected through conversionQueue's resolver seam:
 // upload slot → source bytes in R2 → submit → drain queue → poll status → verified result.
 
 let firmId: FirmId;
@@ -209,8 +209,8 @@ describe("GET /api/v1/conversions/{jobId}", () => {
 // End-to-end journey: upload → submit → drain queue → poll result
 // ---------------------------------------------------------------------------
 // These three scenarios exercise the full transient convert→download path through real Miniflare
-// bindings. The libvips Container is deploy-time; a FAKE engine is injected through conversionQueue's
-// third-argument resolvePort seam so the consumer logic runs end-to-end without the Container.
+// bindings. The engine Container is deploy-time; a FAKE engine is injected through conversionQueue's
+// third-argument resolver seam so the consumer logic runs end-to-end without the Container.
 
 describe("E2E: happy path — upload→submit→drain→done", () => {
   it("authed member converts png→webp through a fake engine and retrieves a presigned result URL", async () => {

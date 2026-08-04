@@ -12,6 +12,7 @@
     "./custom-field-value-service": "./src/custom-field-value-service.ts",
     "./reads": "./src/reads.ts",
     "./coercion": "./src/coercion.ts",
+    "./number-scale": "./src/number-scale.ts",
     "./convert": "./src/convert.ts",
     "./purge": "./src/purge.ts",
     "./fitness": "./src/fitness.ts"

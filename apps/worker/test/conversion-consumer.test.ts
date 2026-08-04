@@ -6,9 +6,9 @@ import type { ConversionJob } from "../src/conversions/conversion-coordinator.ts
 import type { ConversionMessage } from "../src/conversions/conversion-types.ts";
 
 // The CONVERSION queue consumer over real Miniflare bindings (R2 + ConversionJob DO). A fake
-// resolvePort is injected in place of the Container-backed port so the test exercises the consumer
-// logic without needing the libvips Container to be running. Format IDs are registry keys ("png",
-// "webp") — not media types — so pathfinding resolves the png→webp edge registered in the graph.
+// engine resolver is injected in place of the Container-backed ports so the test exercises the
+// consumer logic without needing the engine Container to be running. Format IDs are registry keys
+// ("png", "webp") — not media types — so pathfinding resolves the png→webp edge in the graph.
 
 function makeBatch(message: ConversionMessage) {
   const acks: string[] = [];

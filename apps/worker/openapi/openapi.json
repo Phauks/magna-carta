@@ -10437,7 +10437,9 @@
                   },
                   "contentBase64": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 20971524,
+                    "pattern": "^[A-Za-z0-9+/]*={0,2}$"
                   }
                 },
                 "required": [
@@ -10535,7 +10537,9 @@
                   },
                   "contentBase64": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 20971524,
+                    "pattern": "^[A-Za-z0-9+/]*={0,2}$"
                   },
                   "options": {
                     "$ref": "#/components/schemas/MetadataScrubOptions"

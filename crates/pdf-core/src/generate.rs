@@ -3,6 +3,7 @@
 //! untouched. These are visible, reversible document operations — they do not remove
 //! hidden content or metadata; use `redact`/`sanitize` for that.
 
+use crate::annotations::{page_annotation_entries, set_page_annotations};
 use crate::surgery::{resolve_inherited_resources, resolve_mediabox, resolve_rotate};
 use lopdf::{dictionary, Dictionary, Document, Object, ObjectId, StringFormat};
 use std::collections::BTreeSet;
@@ -148,14 +149,180 @@ fn catalog_and_pages_root(doc: &Document) -> Result<(ObjectId, ObjectId), Genera
     Ok((root, pages))
 }
 
+/// Every object reachable from `roots`, following references through dictionaries,
+/// arrays, and stream dictionaries.
+///
+/// Traversal never enters an object listed in `stop` and never follows a dictionary key
+/// listed in `skip`. Both exist because a page's graph is not a tree: `/Parent` climbs
+/// back to the page-tree root and from there reaches every other page, so a walk that
+/// followed it would report "everything" from any starting point. The visited set makes
+/// a cyclic or shared graph terminate and be walked once.
+fn reachable(
+    doc: &Document,
+    roots: &[ObjectId],
+    skip: &[&[u8]],
+    stop: &BTreeSet<ObjectId>,
+) -> BTreeSet<ObjectId> {
+    let mut seen: BTreeSet<ObjectId> = BTreeSet::new();
+    let mut stack: Vec<ObjectId> = roots.to_vec();
+    let mut refs = Vec::new();
+    while let Some(id) = stack.pop() {
+        if stop.contains(&id) || !seen.insert(id) {
+            continue;
+        }
+        let Ok(object) = doc.get_object(id) else {
+            continue;
+        };
+        refs.clear();
+        collect_references(object, skip, &mut refs);
+        stack.extend(refs.iter().copied());
+    }
+    seen
+}
+
+/// Append every indirect reference `object` holds, skipping the values of dictionary
+/// keys named in `skip` (at any nesting depth — the keys this is used with, `/Parent`
+/// and `/Annots`, only carry their page-tree meaning on a page or annotation dictionary,
+/// and skipping a same-named key deeper in costs nothing).
+fn collect_references(object: &Object, skip: &[&[u8]], out: &mut Vec<ObjectId>) {
+    let from_dict = |dict: &Dictionary, out: &mut Vec<ObjectId>| {
+        for (key, value) in dict.iter() {
+            if !skip.contains(&key.as_slice()) {
+                collect_references(value, skip, out);
+            }
+        }
+    };
+    match object {
+        Object::Reference(id) => out.push(*id),
+        Object::Array(items) => {
+            for item in items {
+                collect_references(item, skip, out);
+            }
+        }
+        Object::Dictionary(dict) => from_dict(dict, out),
+        Object::Stream(stream) => from_dict(&stream.dict, out),
+        _ => {}
+    }
+}
+
+/// The objects a split output must not carry: everything reachable from a dropped page
+/// that the kept pages' own content does not also use. A font or an XObject shared with
+/// a kept page is reached from both and is not in this set; a dropped page's dictionary,
+/// its content streams, and its private resources are only reached from it, and are.
+///
+/// The kept-page walk deliberately excludes `/Annots`: an annotation reaching a dropped
+/// page is the leak being measured, so counting it as legitimate kept-page content would
+/// define the problem away.
+fn dropped_page_objects(
+    doc: &Document,
+    kept: &[ObjectId],
+    dropped: &[ObjectId],
+) -> BTreeSet<ObjectId> {
+    let kept_set: BTreeSet<ObjectId> = kept.iter().copied().collect();
+    let dropped_set: BTreeSet<ObjectId> = dropped.iter().copied().collect();
+    let kept_content = reachable(doc, kept, &[b"Parent", b"Annots"], &dropped_set);
+    reachable(doc, dropped, &[b"Parent"], &kept_set)
+        .into_iter()
+        .filter(|id| !kept_content.contains(id))
+        .collect()
+}
+
+/// Annotation keys that point at another object rather than describing this annotation:
+/// the page it belongs to, the popup window and markup thread it is part of, and where
+/// activating it navigates to. Each can name a dropped page, and each can be removed on
+/// its own — an annotation with no popup, no thread parent, and no destination is still
+/// a valid annotation, where one carrying a reference to a page that is not in the
+/// document is not.
+const ANNOTATION_LINK_KEYS: &[&[u8]] = &[
+    b"P", b"Popup", b"Parent", b"IRT", b"Dest", b"A", b"AA", b"Next",
+];
+
+/// The objects one `/Annots` entry reaches, stopping at the kept pages (an annotation
+/// naming its own page is ordinary, not a leak).
+fn annotation_reach(
+    doc: &Document,
+    entry: &Object,
+    kept: &BTreeSet<ObjectId>,
+) -> BTreeSet<ObjectId> {
+    let mut roots = Vec::new();
+    collect_references(entry, &[], &mut roots);
+    reachable(doc, &roots, &[], kept)
+}
+
+/// Sever every path from a kept page's annotations into the dropped pages, and report
+/// the objects that must not survive.
+///
+/// Stripping the catalog's document-level entries is not enough on its own: the object
+/// graph is walked from what remains, so a kept page's annotation that still names a
+/// dropped page — through `/Popup`, `/Parent`, a `/Dest` link target, or the page it
+/// claims to belong to — pulls that page's dictionary, content streams, and resources
+/// into the output, where they are invisible to a reader and fully recoverable from the
+/// bytes. A link whose target left the document is broken either way; dropping the
+/// reference is the honest repair. An annotation that cannot be repaired that way is
+/// removed whole, because what remains of it is a fragment of a page that was excluded.
+fn prune_dropped_page_annotations(
+    doc: &mut Document,
+    kept: &[ObjectId],
+    dropped: &[ObjectId],
+) -> BTreeSet<ObjectId> {
+    let leaked = dropped_page_objects(doc, kept, dropped);
+    if leaked.is_empty() {
+        return leaked;
+    }
+    let kept_set: BTreeSet<ObjectId> = kept.iter().copied().collect();
+    let leaks = |reach: &BTreeSet<ObjectId>| reach.iter().any(|id| leaked.contains(id));
+
+    for &page in kept {
+        let entries = page_annotation_entries(doc, page);
+        if entries.is_empty() {
+            continue;
+        }
+        let mut survivors: Vec<Object> = Vec::with_capacity(entries.len());
+        for entry in entries {
+            if !leaks(&annotation_reach(doc, &entry, &kept_set)) {
+                survivors.push(entry);
+                continue;
+            }
+            // Try the narrow repair first: drop only the linking keys that reach a
+            // dropped page, keeping the annotation itself.
+            let Ok(annotation) = entry.as_reference() else {
+                continue; // An inline annotation dictionary is dropped whole.
+            };
+            let doomed_keys: Vec<&[u8]> = ANNOTATION_LINK_KEYS
+                .iter()
+                .copied()
+                .filter(|key| {
+                    doc.get_dictionary(annotation)
+                        .ok()
+                        .and_then(|dict| dict.get(key).ok())
+                        .map(|value| leaks(&annotation_reach(doc, value, &kept_set)))
+                        .unwrap_or(false)
+                })
+                .collect();
+            if let Ok(dict) = doc.get_object_mut(annotation).and_then(|o| o.as_dict_mut()) {
+                for key in doomed_keys {
+                    dict.remove(key);
+                }
+            }
+            if !leaks(&annotation_reach(doc, &entry, &kept_set)) {
+                survivors.push(entry);
+            }
+        }
+        set_page_annotations(doc, page, survivors);
+    }
+    leaked
+}
+
 /// Split a document into one output PDF per page range (inclusive, 0-based).
 ///
 /// Each output is an independent single document containing only its range's pages.
 /// Inherited `/MediaBox`, `/Resources`, and `/Rotate` are flattened onto the kept pages
 /// so they stay correct after the page tree is rebuilt. Document-level interactive and
 /// structural entries (outlines, named destinations, AcroForm, open action, page labels,
-/// the structure tree, …) are dropped — a subset cannot preserve them. An inverted or
-/// out-of-range range is [`GenerateError::PageOutOfRange`].
+/// the structure tree, …) are dropped — a subset cannot preserve them — and so are the
+/// kept pages' annotation references into pages the range excludes, which would
+/// otherwise carry those pages' content into the output. An inverted or out-of-range
+/// range is [`GenerateError::PageOutOfRange`].
 pub fn split(bytes: &[u8], ranges: &[PageRange]) -> Result<Vec<Vec<u8>>, GenerateError> {
     crate::guard::guard_input(bytes, &crate::guard::GuardLimits::default())
         .map_err(|_| GenerateError::Rejected)?;
@@ -172,7 +339,13 @@ pub fn split(bytes: &[u8], ranges: &[PageRange]) -> Result<Vec<Vec<u8>>, Generat
         }
         let mut doc = source.clone();
         let (catalog_id, pages_root) = catalog_and_pages_root(&doc)?;
-        let kept: Vec<ObjectId> = page_ids(&doc)[range.start..=range.end].to_vec();
+        let all: Vec<ObjectId> = page_ids(&doc);
+        let kept: Vec<ObjectId> = all[range.start..=range.end].to_vec();
+        let dropped: Vec<ObjectId> = all
+            .iter()
+            .copied()
+            .filter(|id| !kept.contains(id))
+            .collect();
 
         // Make each kept page self-contained, then re-parent it to the root.
         for &page in &kept {
@@ -206,7 +379,24 @@ pub fn split(bytes: &[u8], ranges: &[PageRange]) -> Result<Vec<Vec<u8>>, Generat
                 catalog.remove(key);
             }
         }
+
+        let leaked = prune_dropped_page_annotations(&mut doc, &kept, &dropped);
         doc.prune_objects();
+        // Fail closed on the property that matters: a page the caller excluded must be
+        // absent from the bytes, not merely unreachable through the page tree. If one of
+        // its objects is still here, some reference the repair above did not model kept
+        // it alive — so drop the kept pages' annotations wholesale and re-prune, and
+        // refuse to emit the range at all if even that leaves the page behind.
+        let survives = |doc: &Document| leaked.iter().any(|id| doc.objects.contains_key(id));
+        if survives(&doc) {
+            for &page in &kept {
+                set_page_annotations(&mut doc, page, Vec::new());
+            }
+            doc.prune_objects();
+            if survives(&doc) {
+                return Err(GenerateError::Reassemble);
+            }
+        }
 
         let mut out = Vec::new();
         doc.save_to(&mut out)
@@ -721,6 +911,196 @@ mod tests {
         assert_eq!(
             split(&multi_page_doc(3), &[PageRange { start: 2, end: 1 }]),
             Err(GenerateError::PageOutOfRange)
+        );
+    }
+
+    /// A two-page document where page 0 carries a link annotation pointing into page 1:
+    /// the link's `/Dest` names page 1, and its `/Popup` is an annotation that lives on
+    /// page 1 and claims page 1 as its `/P`. Page 1's content stream and its annotation
+    /// each carry a distinctive literal string, so a split that keeps only page 0 can be
+    /// checked at the byte level for page 1's content.
+    fn doc_with_cross_page_annotation() -> Vec<u8> {
+        let mut doc = Document::with_version("1.5");
+        let pages_id = doc.new_object_id();
+        let link_id = doc.new_object_id();
+        let popup_id = doc.new_object_id();
+
+        let kept_content = doc.add_object(Object::Stream(Stream::new(
+            dictionary! {},
+            b"BT (kept page) Tj ET".to_vec(),
+        )));
+        let kept_page = doc.add_object(dictionary! {
+            b"Type" => Object::Name(b"Page".to_vec()),
+            b"Parent" => Object::Reference(pages_id),
+            b"MediaBox" => Object::Array(vec![
+                Object::Integer(0), Object::Integer(0),
+                Object::Integer(612), Object::Integer(792),
+            ]),
+            b"Contents" => Object::Reference(kept_content),
+            b"Resources" => Object::Dictionary(dictionary! { b"Font" => Object::Dictionary(dictionary! {}) }),
+            b"Annots" => Object::Array(vec![Object::Reference(link_id)]),
+        });
+
+        let dropped_content = doc.add_object(Object::Stream(Stream::new(
+            dictionary! {},
+            b"BT (DroppedPageContentSecret) Tj ET".to_vec(),
+        )));
+        let dropped_page = doc.add_object(dictionary! {
+            b"Type" => Object::Name(b"Page".to_vec()),
+            b"Parent" => Object::Reference(pages_id),
+            b"MediaBox" => Object::Array(vec![
+                Object::Integer(0), Object::Integer(0),
+                Object::Integer(612), Object::Integer(792),
+            ]),
+            b"Contents" => Object::Reference(dropped_content),
+            b"Resources" => Object::Dictionary(dictionary! { b"Font" => Object::Dictionary(dictionary! {}) }),
+            b"Annots" => Object::Array(vec![Object::Reference(popup_id)]),
+        });
+
+        doc.objects.insert(
+            link_id,
+            Object::Dictionary(dictionary! {
+                b"Type" => Object::Name(b"Annot".to_vec()),
+                b"Subtype" => Object::Name(b"Link".to_vec()),
+                b"Rect" => Object::Array(vec![
+                    Object::Integer(10), Object::Integer(10),
+                    Object::Integer(90), Object::Integer(30),
+                ]),
+                b"P" => Object::Reference(kept_page),
+                b"Popup" => Object::Reference(popup_id),
+                b"Dest" => Object::Array(vec![
+                    Object::Reference(dropped_page), Object::Name(b"Fit".to_vec()),
+                ]),
+            }),
+        );
+        doc.objects.insert(
+            popup_id,
+            Object::Dictionary(dictionary! {
+                b"Type" => Object::Name(b"Annot".to_vec()),
+                b"Subtype" => Object::Name(b"Popup".to_vec()),
+                b"Rect" => Object::Array(vec![
+                    Object::Integer(10), Object::Integer(40),
+                    Object::Integer(90), Object::Integer(80),
+                ]),
+                b"P" => Object::Reference(dropped_page),
+                b"Contents" => Object::String(
+                    b"DroppedAnnotationSecret".to_vec(), StringFormat::Literal,
+                ),
+            }),
+        );
+
+        doc.objects.insert(
+            pages_id,
+            Object::Dictionary(dictionary! {
+                b"Type" => Object::Name(b"Pages".to_vec()),
+                b"Kids" => Object::Array(vec![
+                    Object::Reference(kept_page), Object::Reference(dropped_page),
+                ]),
+                b"Count" => Object::Integer(2),
+            }),
+        );
+        finish(
+            &mut doc,
+            dictionary! {
+                b"Type" => Object::Name(b"Catalog".to_vec()),
+                b"Pages" => Object::Reference(pages_id),
+            },
+        )
+    }
+
+    fn contains(haystack: &[u8], needle: &[u8]) -> bool {
+        haystack.windows(needle.len()).any(|w| w == needle)
+    }
+
+    #[test]
+    fn split_does_not_carry_a_dropped_page_through_an_annotation() {
+        // The kept page's link names the dropped page as its destination and shares a
+        // popup that lives on it. The object-graph walk that decides what to keep follows
+        // every reference, so leaving those in place carries the dropped page's dictionary,
+        // its content stream, and its own annotation into the output — invisible to a
+        // reader, plainly readable in the bytes. Splitting out page 0 must leave nothing of
+        // page 1 behind.
+        let bytes = doc_with_cross_page_annotation();
+        assert!(
+            contains(&bytes, b"DroppedPageContentSecret"),
+            "fixture must actually contain the dropped page's content"
+        );
+
+        let outs = split(&bytes, &[PageRange { start: 0, end: 0 }]).unwrap();
+        assert_eq!(page_count(&outs[0]), 1);
+        assert!(
+            !contains(&outs[0], b"DroppedPageContentSecret"),
+            "the dropped page's content stream survived in the split output"
+        );
+        assert!(
+            !contains(&outs[0], b"DroppedAnnotationSecret"),
+            "the dropped page's annotation survived in the split output"
+        );
+        // The kept page's own content is untouched, and the output still loads.
+        assert!(contains(&outs[0], b"kept page"));
+        assert_eq!(
+            crate::Document::load(outs[0].clone()).unwrap().page_count(),
+            1
+        );
+    }
+
+    #[test]
+    fn split_keeps_an_annotation_whose_targets_are_all_kept() {
+        // Pruning is targeted, not a blanket strip: keep both pages and the link survives
+        // with its destination and popup intact, because nothing it names left the range.
+        let outs = split(
+            &doc_with_cross_page_annotation(),
+            &[PageRange { start: 0, end: 1 }],
+        )
+        .unwrap();
+        let out_doc = Document::load_mem(&outs[0]).unwrap();
+        let first_page = page_ids(&out_doc)[0];
+        let annots = out_doc
+            .get_dictionary(first_page)
+            .unwrap()
+            .get(b"Annots")
+            .and_then(Object::as_array)
+            .expect("the kept page keeps its annotation");
+        let link = out_doc
+            .get_dictionary(annots[0].as_reference().unwrap())
+            .unwrap();
+        assert!(link.has(b"Dest"), "an in-range destination is kept");
+        assert!(link.has(b"Popup"), "an in-range popup is kept");
+    }
+
+    #[test]
+    fn split_drops_only_the_out_of_range_annotation_links() {
+        // A link whose destination left the document is broken however it is handled;
+        // dropping the reference is the repair that does not smuggle the target along.
+        // The annotation itself — its rectangle, its subtype, its own page — stays.
+        let outs = split(
+            &doc_with_cross_page_annotation(),
+            &[PageRange { start: 0, end: 0 }],
+        )
+        .unwrap();
+        let out_doc = Document::load_mem(&outs[0]).unwrap();
+        let kept_page = page_ids(&out_doc)[0];
+        let annots = out_doc
+            .get_dictionary(kept_page)
+            .unwrap()
+            .get(b"Annots")
+            .and_then(Object::as_array)
+            .expect("the link annotation itself is kept");
+        let link = out_doc
+            .get_dictionary(annots[0].as_reference().unwrap())
+            .unwrap();
+        assert!(
+            !link.has(b"Dest"),
+            "the out-of-range destination is dropped"
+        );
+        assert!(
+            !link.has(b"Popup"),
+            "the popup on a dropped page is dropped"
+        );
+        assert_eq!(
+            link.get(b"P").and_then(Object::as_reference).unwrap(),
+            kept_page,
+            "the annotation still belongs to the page it is on"
         );
     }
 

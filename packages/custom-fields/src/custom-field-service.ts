@@ -9,7 +9,7 @@ import {
 } from "./custom-field-statements.ts";
 import { runCustomFieldEffect, type CustomFieldWriteOptions } from "./run-custom-field-effect.ts";
 import { CustomFieldError, type CustomFieldKind, type CustomFieldTarget } from "./types.ts";
-import { MAX_FIELDS_PER_SCOPE, MAX_FIELDS_PER_FIRM } from "./limits.ts";
+import { MAX_FIELDS_PER_SCOPE, MAX_FIELDS_PER_FIRM, MAX_NUMBER_SCALE } from "./limits.ts";
 
 export interface DefineCustomFieldInput {
   readonly name: string;
@@ -45,11 +45,25 @@ async function assertWithinFieldCaps(
     );
 }
 
+// A field's number_scale is the exponent every write and every conversion scales by, so it has to stay
+// inside the range where 10^scale is still an exact integer — a wild scale turns each stored value into
+// a rounded or infinite number long before anything else notices.
+function assertNumberScaleInRange(numberScale: number | null | undefined): void {
+  if (numberScale === null || numberScale === undefined) return;
+  if (!Number.isInteger(numberScale) || numberScale < 0 || numberScale > MAX_NUMBER_SCALE) {
+    throw new CustomFieldError(
+      "number-scale-out-of-range",
+      `A field's number scale must be a whole number from 0 to ${MAX_NUMBER_SCALE}.`,
+    );
+  }
+}
+
 export async function defineCustomField(
   database: BatchDatabase,
   input: DefineCustomFieldInput,
   options: CustomFieldWriteOptions,
 ) {
+  assertNumberScaleInRange(input.numberScale);
   await assertWithinFieldCaps(database, input);
   const fieldId = newIdentifier("customField", options.randomSource) as CustomFieldId;
   return runCustomFieldEffect<{ customFieldId: CustomFieldId }>(database, options, 201, () => {
