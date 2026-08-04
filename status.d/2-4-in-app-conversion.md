@@ -11,7 +11,7 @@ load-profile: n/a
 tested: todo
 branch: main
 active-work: docs/active-work/claude-repo-status-roadmap-xhdvyb.md
-next: Activate magna-carta-convert (Workers Build project + conversions/ R2 lifecycle rule); then the LibreOffice engine design cycle, the email→PDF render engine, and the matter-attached save-as-version path
+next: Activate magna-carta-convert (Workers Build project + conversions/ R2 lifecycle rule); then build the LibreOffice engine to its design (docs/specs/2026-08-04-libreoffice-conversion-engine-design.md), the email→PDF render engine on that container's job-package seam, and the matter-attached save-as-version path
 link-spec: docs/specs/2026-06-21-slice-2-4a-conversion-core-design.md
 link-plan: docs/specs/2026-06-21-slice-2-4a-conversion-core-implementation-plan.md
 adrs:
