@@ -45,6 +45,11 @@ function userContentDomain(env: Bindings): string {
 // document's co-editors converge on ONE container; opaque, so the public hostname leaks no fileId. The
 // magna-carta-edit worker reads this label and keys its container by it. The WOPI access token, not the
 // hostname, authorizes — so the key need only be collision-resistant and leak-free, not secret.
+//
+// The shape produced here — exactly 52 lowercase hex characters — is a contract: the edit worker refuses
+// any Host label that does not match it rather than booting a container for it, so changing the length or
+// the alphabet means changing DOCUMENT_KEY_PATTERN in apps/magna-carta-edit/src/document-routing.ts in
+// the same commit.
 async function deriveDocumentKey(fileId: FileId): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(fileId));
   return [...new Uint8Array(digest)]
