@@ -10,8 +10,8 @@ ui: todo
 load-profile: n/a
 tested: in-progress by="Opus 4.8"
 branch: claude/2-5-analysis-prep-0n2kxw
-active-work: docs/active-work/claude-2-5-analysis-prep-0n2kxw.md
-next: Land the seal branch, then deploy magna-carta-sign before the app worker (the SIGN_SERVICE binding blocks the app-worker deploy until the sign worker exists); after that, timestamp/LTV levels behind a TSA, independent-validator conformance, and the consumer/UI surfaces.
+active-work: docs/active-work/claude/2-5-analysis-prep-0n2kxw.md
+next: Deploy magna-carta-sign before the app worker (the SIGN_SERVICE binding blocks the app-worker deploy until the sign worker exists), then provision the platform seal identity with pnpm run platform-seal-certificate; after that, timestamp/LTV levels behind a TSA, independent-validator (pyHanko/DSS) conformance, cross-reference-stream originals in the seal primitive (classic tables only today), and the consumer/UI surfaces.
 link-spec: docs/specs/2026-07-17-slice-2-5-pdf-services-esignature-analysis.md
 link-plan:
 adrs:
