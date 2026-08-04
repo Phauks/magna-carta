@@ -60,5 +60,13 @@ Touches `crates/pdf-core/src/{sign.rs,lib.rs,wasm.rs}`, `packages/signing/**`, `
 + `apps/worker/{wrangler.jsonc,vitest.config.ts,test/conformance.test.ts,test/document-seal-route.test.ts,openapi/openapi.json}`
 + `apps/worker/package.json`, `packages/access-control/src/registry.ts`, the new per-firm seed migration
 + journal, `packages/api-client/**` (regenerated), the pnpm catalog + lockfile, generated
-`tsconfig.build.json` refs, my `status.d/2-5-*.md` fragment, and doc fragments. **Next:** platform-cert
-provisioning, then independent-validator (pyHanko/DSS) conformance and the timestamp/LTV levels.
+`tsconfig.build.json` refs, my `status.d/2-5-*.md` fragment, and doc fragments. 8. The seal can be **provisioned**: `generatePlatformSealIdentity`
+   (`packages/signing/src/platform-certificate.ts`) mints the RSA-3072 key + self-signed X.509 v3
+   document-signing certificate — `basicConstraints`/`keyUsage`/EKU id-kp-documentSigning/SKI via
+   RFC 7093 (no SHA-1)/random positive serial/one-attribute-per-RDN — behind the
+   `pnpm run platform-seal-certificate` CLI (`tooling/platform-seal-certificate/index.mts`), which
+   writes the key `0600`, never prints it, and emits the `wrangler secret put` commands. Verified
+   independently with openssl (parses, RDNs separate, self-signature `OK`). Runbook: operations.md
+   §16, which also flags that the app worker now **cannot deploy until `magna-carta-sign` exists**.
+
+**Next:** independent-validator (pyHanko/DSS) conformance and the timestamp/LTV levels.

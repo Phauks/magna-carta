@@ -11,6 +11,7 @@ import * as asn1js from "asn1js";
 import * as pkijs from "pkijs";
 
 import { toArrayBuffer } from "./bytes.ts";
+import { ensureEngine } from "./webcrypto-engine.ts";
 
 // CMS attribute OIDs (RFC 5652 §11; RFC 5035 for signing-certificate-v2).
 const OID_CONTENT_TYPE = "1.2.840.113549.1.9.3";
@@ -39,21 +40,6 @@ export interface DetachedCmsInput {
   signingTime: Date;
   /** The digest algorithm for the message digest and the signature. Defaults to SHA-256. */
   hashAlgorithm?: CmsHashAlgorithm;
-}
-
-let engineConfigured = false;
-
-/** Point pkijs at the ambient WebCrypto once. Idempotent, so callers need not coordinate. */
-function ensureEngine(): void {
-  if (engineConfigured) return;
-  const engine = new pkijs.CryptoEngine({
-    name: "magna-carta-webcrypto",
-    crypto: crypto as unknown as Crypto,
-  });
-  // pkijs 3.4's `CryptoEngine` does not declare the KEM methods its own `ICryptoEngine` lists, so
-  // the type rejects it though it is exactly the engine `setEngine` expects.
-  pkijs.setEngine("magna-carta-webcrypto", engine as unknown as pkijs.ICryptoEngine);
-  engineConfigured = true;
 }
 
 function asCertificate(certificate: Uint8Array | pkijs.Certificate): pkijs.Certificate {

@@ -374,7 +374,7 @@ Control-plane D1 migrations apply **automatically** — no manual deploy step is
 
 ## 14. Placeholder service workers — REPLACE before activating slices 2·1 / 2·4
 
-The `magna-carta` app worker declares three sibling service bindings (`SCAN_SERVICE`, `BUNDLE_SERVICE`, `CONVERT`). Cloudflare rejects a deploy whose service binding points at a worker that does not exist, so to deploy the editing slice (2·2) without first standing up the bulk-download and conversion subsystems, two of those targets are currently **503 placeholder workers**, deployed 2026-06-27:
+The `magna-carta` app worker declares sibling service bindings for every dedicated engine worker (`SCAN_SERVICE`, `BUNDLE_SERVICE`, `CONVERT`, `FILE_REPAIR_SERVICE`, `RECOVERY_SERVICE`, `OCR_SERVICE`, `SIGN_SERVICE`). Cloudflare rejects a deploy whose service binding points at a worker that does not exist, so **every** name must resolve before the app worker deploys — see §16 for the ordering rule the seal worker introduces. To deploy the editing slice (2·2) without first standing up the bulk-download and conversion subsystems, two of those targets are currently **503 placeholder workers**, deployed 2026-06-27:
 
 - **`magna-carta-bundle`** — placeholder. The real worker (`apps/bundle-worker`, with its `BundleContainer` Rust archive builder) belongs to **slice 2·1 (async bulk-download)**. Until it deploys, the app worker's bundle download lanes return 503 (the code's graceful fallback).
 - **`magna-carta-convert`** — placeholder. The real worker (`apps/convert-worker`, with its `RasterEngineContainer`) belongs to **slice 2·4 (in-app conversion)**. Until it deploys, `resolveEnginePort` falls back to the deferred port.
@@ -398,3 +398,40 @@ The development R2 upload route (`apps/worker/src/routes/dev-r2-upload.ts`) is *
 - **`MaxAgeSeconds`** — preflight cache lifetime (`3600`).
 
 **To apply:** paste the artifact JSON under **R2 → the production files bucket → Settings → CORS policy → Add CORS policy** — the artifact is in R2's dashboard format (the bare rule array). The same rules can instead be `PUT` via the S3 API with the Object Read & Write token from §3 (`aws s3api put-bucket-cors --endpoint-url https://<account>.r2.cloudflarestorage.com --bucket <bucket> --cors-configuration '{"CORSRules": <the array from r2-cors.json>}'` — the S3 API wraps the array under a `CORSRules` key). Re-apply whenever the app gains a new serving origin (custom-domain cutover, a new preview environment). The configuration is idempotent — re-applying replaces the whole rule set.
+
+## 16. E-signature seal Worker — deploy order, then platform identity provisioning
+
+The platform seal runs in its own Worker (`apps/sign-worker`, service `magna-carta-sign`): the pure-Rust PDF engine (WASM) and the pkijs CMS producer run in-process, and it holds the platform signing identity. Its only surface is `POST /seal`, reached from the app Worker over a `SIGN_SERVICE` service binding through the shared `SealPort` wire contract. The signing key lives in exactly one Worker and is never reachable from the app Worker, the browser, or any firm-scoped code path.
+
+> **Deploy order — the app Worker will not deploy until `magna-carta-sign` exists.** Cloudflare rejects a deploy whose service binding points at a Worker that does not exist, and `apps/worker/wrangler.jsonc` now declares `SIGN_SERVICE → magna-carta-sign`. **Deploy `apps/sign-worker` first** (it needs no secrets to deploy — see below), then the app Worker. If the app Worker must ship before the real sign worker is ready, stand up a 503 placeholder named `magna-carta-sign`, exactly as §14 describes for `magna-carta-bundle` and `magna-carta-convert`.
+
+**Activation is deferred and safe by construction.** The sign worker deploys *without* its secrets: `resolvePlatformIdentity` returns `null` when either is absent, the worker answers `503 seal-not-configured`, and `POST /api/v1/documents/seal` surfaces that as a `503`. No redeploy is needed once the secrets are set — the next request picks them up. So a deploy is never blocked on provisioning, and an unprovisioned seal never fabricates a signature.
+
+### Provisioning the platform identity
+
+1. **Generate the identity.** From a clean checkout, on a machine you trust:
+
+   ```sh
+   pnpm run platform-seal-certificate -- --out ./platform-seal --country US
+   ```
+
+   This mints an RSA-3072 signing key and a self-signed X.509 v3 certificate valid for ten years (`--years`, `--modulus`, `--common-name`, `--organization` all override). It writes `PLATFORM_SEAL_KEY.base64` (mode `0600`), `PLATFORM_SEAL_CERT.base64`, and `platform-seal-certificate.pem`, and prints the certificate's SHA-256 fingerprint. The private key is written to a file and **never printed**, so it does not pass through a shell argument, scrollback, or a chat transcript.
+
+2. **Load the two secrets into the sign worker**, piping the files so the values never reach shell history:
+
+   ```sh
+   wrangler secret put PLATFORM_SEAL_KEY  --name magna-carta-sign < ./platform-seal/PLATFORM_SEAL_KEY.base64
+   wrangler secret put PLATFORM_SEAL_CERT --name magna-carta-sign < ./platform-seal/PLATFORM_SEAL_CERT.base64
+   ```
+
+3. **Record the fingerprint, then destroy the local copy.** Keep `platform-seal-certificate.pem` and the printed fingerprint in the account-of-record store (§7); delete the whole `./platform-seal` directory. The sign worker is the only place the private key should exist — it re-imports the PKCS#8 bytes as a **non-extractable** `CryptoKey` that can sign and nothing else.
+
+4. **Verify.** `wrangler secret list --name magna-carta-sign` shows both names. An authenticated `POST /api/v1/documents/seal` that returned `503` before provisioning returns a sealed document after it, with no redeploy in between.
+
+### The trust posture — self-signed is the design, not a shortcut
+
+The seal is **tamper-evidence, not identity attestation**. ESIGN/UETA validate an electronic signature on intent, consent, association, and attribution — none of which require a publicly-chained certificate; the legal weight lives in the Certificate of Completion assembled from the server-observed audit trail, and the seal's job is to make the completed record demonstrably unaltered. A PDF validator will therefore report the signature as cryptographically intact but the signer as **untrusted** until the certificate is distributed as a trust anchor — which is why the fingerprint is published alongside it. Buying a publicly-trusted document-signing certificate would change only the trust-chain UI in a viewer, not the legal footing.
+
+**What a public CA would buy, and when to revisit.** Adobe's AATL/CDS programs are what make a viewer show a green check without a manually installed anchor. Revisit if clients or courts begin rejecting documents on the viewer's trust banner alone, or when the timestamp/LTV levels (PAdES B-T and above, which need a TSA) land — those two decisions are naturally taken together.
+
+**Rotation.** Generate a new identity and overwrite both secrets; documents sealed under the old certificate stay verifiable against the old certificate, which is why the PEM and fingerprint of every identity are retained rather than discarded on rotation. Without a timestamp authority, a signature cannot be proven to predate the certificate's expiry, so keep the validity window long and rotate deliberately.

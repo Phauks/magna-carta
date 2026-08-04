@@ -40,6 +40,11 @@ export {
   type SigningIntent,
 } from "./esign.ts";
 export {
+  generatePlatformSealIdentity,
+  type PlatformSealIdentity,
+  type PlatformSealIdentityOptions,
+} from "./platform-certificate.ts";
+export {
   sealDocument,
   toPdfDate,
   type SealDocumentInput,

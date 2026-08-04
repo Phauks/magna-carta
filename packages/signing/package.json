@@ -9,6 +9,7 @@
     "./cms": "./src/cms.ts",
     "./engine": "./src/engine.ts",
     "./esign": "./src/esign.ts",
+    "./platform-certificate": "./src/platform-certificate.ts",
     "./port": "./src/port.ts",
     "./seal": "./src/seal.ts",
     ".": "./src/index.ts"
