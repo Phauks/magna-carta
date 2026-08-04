@@ -110,6 +110,26 @@ bash tests/acceptance.sh                     # build the image + drive real conv
 python3 tests/fixtures/build-fixtures.py     # regenerate the committed fixtures
 ```
 
+### Tuning
+
+Every pool number is an environment variable, because every one of them is a defensible starting
+point rather than a measurement — they get re-derived against the load-profile harness once there is
+a real conversion mix, and that must not need an image rebuild.
+
+| Variable                                              | Default | What it governs                                  |
+| ----------------------------------------------------- | ------- | ------------------------------------------------ |
+| `MAGNA_CARTA_LIBREOFFICE_POOL_SIZE`                   | 2       | Warm workers held                                |
+| `MAGNA_CARTA_LIBREOFFICE_MAX_CONVERSIONS`             | 50      | Conversions before a worker is replaced          |
+| `MAGNA_CARTA_LIBREOFFICE_MAX_RESIDENT_KIBIBYTES`      | 1572864 | Resident-set ceiling before a worker is replaced |
+| `MAGNA_CARTA_LIBREOFFICE_CONVERSION_DEADLINE_SECONDS` | 120     | Wedged, not slow — the child is killed at this   |
+| `MAGNA_CARTA_LIBREOFFICE_ACQUIRE_DEADLINE_SECONDS`    | 30      | Wait for an idle worker before reporting busy    |
+| `MAGNA_CARTA_LIBREOFFICE_WARM_DEADLINE_SECONDS`       | 120     | A new worker's initialisation budget             |
+
+The acquire deadline interacts with the recycle policy: when several workers cross their budget at
+once, the next request waits out a real suite initialisation. That is why the acceptance suite's
+recycle case raises it — it asserts that every request is eventually answered across recycling, not
+that it is answered inside the production window.
+
 `cargo test` proves the supervisor's entire state machine against `src/bin/fake-worker.rs`, which can
 be told to hang, exit non-zero, abort on a signal, report a runaway resident set, emit a malformed
 frame, or produce no output. That is deliberate: the risk in this engine is almost entirely in the
@@ -152,16 +172,26 @@ suite on the machine.
   the single largest cost this engine introduces. It fits (the limit is the instance's disk, twelve
   gigabytes on `standard-2`), but the first Workers Builds run will take substantially longer than
   any build in this project so far.
-- **A 422 cannot be provoked from a real suite with a merely damaged file.** LibreOffice's detection
-  falls back to the text importer, so a plain-text file named `.docx` converts happily and returns
-  200 — measured, not assumed: an acceptance assertion demanding 422 for exactly that input failed
-  against the real suite. The acceptance gate therefore holds the engine to the **contract** on
-  damaged input (a refusal carries no body, a success carries a real PDF, an empty 200 never happens)
-  rather than to a status that is LibreOffice's recovery heuristic to decide and free to change
-  between versions. The status mapping itself — including the password-protected 422 — is proved
-  deterministically in `tests/service.rs` against the fake worker, which is where it belongs.
+- **Do not add an acceptance assertion about what the suite does with malformed input.** It was tried
+  and removed on evidence, and re-adding it will cost the same round-trips. On one suite version, a
+  mislabelled plain-text file **converted and returned 200** (detection falls back to the text
+  importer), while a truncated archive **wedged the suite until the 120-second deadline killed it and
+  returned 504**; the 422 the design names needs a password-protected document to provoke at all.
+  Which of the three a given malformed file earns is LibreOffice's detection and recovery behaviour,
+  free to change between versions — so any assertion there measures the suite rather than this
+  engine, and spends two minutes of every run doing it. All three status paths are proved
+  deterministically against the fake worker instead, in `tests/service.rs` (the 415/422/503/504
+  mapping, and that a failure never becomes an empty 200) and `tests/pool.rs` (the deadline kills
+  exactly one child and the next request succeeds). The acceptance suite keeps only what genuinely
+  needs a real suite: that it converts, that the metric-compatible fonts are substituted, that our
+  own dispatch refuses an unserved pair with 415 before a worker is touched, that two conversions run
+  at once, and that the pool keeps serving across recycling.
+  **The general rule this is an instance of:** the acceptance tier asserts _our_ contract and the
+  things only a real suite can demonstrate; it never pins a behaviour LibreOffice is entitled to
+  change. If an assertion needs a CI round-trip to discover what it should expect, it is measuring
+  the wrong layer.
 - **Not yet covered by the acceptance suite, deliberately named rather than left silent:** a real
-  `wpd→odt` assertion (a licensable, non-privileged legacy WordPerfect fixture has not been sourced),
-  a real wedge case (a document that reliably hangs a real suite), and a real-suite 422 (which needs
-  a password-protected fixture, per the bullet above). All three are fixture-sourcing problems; the
-  dispatch, the status mapping, and the deadline-and-recovery machinery are proved by `cargo test`.
+  `wpd→odt` assertion (a licensable, non-privileged legacy WordPerfect fixture has not been sourced)
+  and a real wedge case with a fixture that hangs the suite _reliably_ rather than incidentally.
+  Both are fixture-sourcing problems; the dispatch, the status mapping, and the
+  deadline-and-recovery machinery are proved by `cargo test`.

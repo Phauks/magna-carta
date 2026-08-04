@@ -92,8 +92,20 @@ async fn main() -> std::io::Result<()> {
             "MAGNA_CARTA_LIBREOFFICE_CONVERSION_DEADLINE_SECONDS",
             DEFAULT_CONVERSION_DEADLINE_SECONDS,
         )),
-        acquire_deadline: Duration::from_secs(DEFAULT_ACQUIRE_DEADLINE_SECONDS),
-        warm_deadline: Duration::from_secs(DEFAULT_WARM_DEADLINE_SECONDS),
+        // Configurable for the same reason the thresholds above are: every one of these numbers is a
+        // defensible starting point rather than a measurement, and they are re-derived against the
+        // load-profile harness once there is a real conversion mix. The acquire deadline in
+        // particular interacts with the recycle policy -- when several workers cross their budget at
+        // once, the next request waits out a real suite initialisation -- so it has to be tunable
+        // without an image rebuild.
+        acquire_deadline: Duration::from_secs(environment_number(
+            "MAGNA_CARTA_LIBREOFFICE_ACQUIRE_DEADLINE_SECONDS",
+            DEFAULT_ACQUIRE_DEADLINE_SECONDS,
+        )),
+        warm_deadline: Duration::from_secs(environment_number(
+            "MAGNA_CARTA_LIBREOFFICE_WARM_DEADLINE_SECONDS",
+            DEFAULT_WARM_DEADLINE_SECONDS,
+        )),
         reconcile_interval: Duration::from_secs(5),
     });
 
