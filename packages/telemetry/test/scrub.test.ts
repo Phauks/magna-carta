@@ -1,6 +1,7 @@
+import { makeTokenGenerator, TOKEN_SIZE } from "@magna-carta/identifiers/token";
 import { describe, expect, it } from "vitest";
 import type { TelemetryEvent } from "../src/event.ts";
-import { scrubStrings } from "../src/scrub.ts";
+import { scrubStrings, scrubText } from "../src/scrub.ts";
 
 function eventWith(fields: TelemetryEvent["fields"]): TelemetryEvent {
   return {
@@ -83,5 +84,88 @@ describe("scrubStrings — the backstop tripwire", () => {
     const input = eventWith({ messageHead: "x@y.com" });
     scrubStrings(input);
     expect(input.fields.messageHead).toBe("x@y.com");
+  });
+});
+
+// Planted-PII coverage for the shapes people actually WRITE. messageHead is the one free-text field
+// in the catalog — the first slice of an error message, which is where a user's own typing ends up —
+// and the unbroken-digit-run pattern only ever caught a number pasted as one uninterrupted string.
+describe("scrubStrings — separated digit groups in the one free-text field", () => {
+  const cardShapes = [
+    ["space-separated 16-digit", "charge failed for 4111 1111 1111 1111 today"],
+    ["dash-separated 16-digit", "charge failed for 4111-1111-1111-1111 today"],
+    ["American Express 4-6-5", "charge failed for 3782 822463 10005 today"],
+    ["dash-separated 12-digit", "charge failed for 4111-1111-1111 today"],
+    ["19-digit five groups", "charge failed for 4111 1111 1111 1111 111 today"],
+  ] as const;
+
+  for (const [label, planted] of cardShapes) {
+    it(`scrubs a ${label} card number and trips`, () => {
+      const { event, trips } = scrubStrings(eventWith({ messageHead: planted }));
+      expect(event.fields.messageHead).toBe("charge failed for [scrubbed] today");
+      expect(trips).toEqual([{ field: "messageHead" }]);
+    });
+  }
+
+  const phoneShapes = [
+    ["dashes", "call 555-123-4567 back"],
+    ["dots", "call 555.123.4567 back"],
+    ["spaces", "call 555 123 4567 back"],
+    ["parenthesised area code", "call (555) 123-4567 back"],
+    ["country code", "call +1 555-123-4567 back"],
+  ] as const;
+
+  for (const [label, planted] of phoneShapes) {
+    it(`scrubs a phone number written with ${label} and trips`, () => {
+      const { event, trips } = scrubStrings(eventWith({ messageHead: planted }));
+      expect(event.fields.messageHead).toBe("call [scrubbed] back");
+      expect(trips).toEqual([{ field: "messageHead" }]);
+    });
+  }
+
+  it("still scrubs a run longer than any card, which the length-bounded pattern alone would miss", () => {
+    // The separated-group pattern is bounded at 19 digits, so a longer unbroken run matches none of
+    // its lengths; the plain digit-run pattern is what catches it. Both are needed.
+    const { event, trips } = scrubStrings(eventWith({ messageHead: `acct ${"9".repeat(25)} x` }));
+    expect(event.fields.messageHead).toBe("acct [scrubbed] x");
+    expect(trips).toEqual([{ field: "messageHead" }]);
+  });
+
+  it("leaves the shapes ordinary telemetry is made of alone (no spurious trips)", () => {
+    const benign = [
+      "/api/v1/matters/:matterId/files/:fileId",
+      "2026-06-13T00:00:00.000Z",
+      "completed in 1234 ms",
+      "HTTP 404 on attempt 3 of 5",
+      "version 1.2.3-rc.4",
+      "amount_minor 250000 USD",
+    ];
+    for (const value of benign) {
+      expect(scrubText(value), value).toEqual({ text: value, tripped: false });
+    }
+  });
+});
+
+// The handle exemption must track the identifier generator, not a copy of its shape.
+describe("scrubStrings — the handle exemption is derived from the identifier seam", () => {
+  it("exempts a token of the generator's REAL length and alphabet, whatever it mints", () => {
+    // A seeded-free real generator: whatever the seam currently produces must be recognised, so a
+    // change to the token length or alphabet fails here instead of silently mangling Error IDs.
+    const nextToken = makeTokenGenerator((bytes) =>
+      Uint8Array.from({ length: bytes }, (_unused, index) => (index * 37) % 256),
+    );
+    for (let attempt = 0; attempt < 50; attempt++) {
+      const handle = `error_${nextToken()}`;
+      expect(scrubText(handle), handle).toEqual({ text: handle, tripped: false });
+    }
+  });
+
+  it("does NOT exempt a body of the wrong length (a near-miss is content, not a handle)", () => {
+    // One character longer than a real token: the same value with a TOKEN_SIZE body is exempt (the
+    // dash-flanked-digit-run case above), so length is provably what decides it.
+    const overlongBody = "aa-123456789-bbbbbbbbb";
+    expect(overlongBody).toHaveLength(TOKEN_SIZE + 1);
+    expect(scrubText(`error_${overlongBody}`).tripped).toBe(true);
+    expect(scrubText(`error_${overlongBody.slice(1)}`).tripped).toBe(false);
   });
 });

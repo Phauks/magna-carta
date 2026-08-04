@@ -9,6 +9,7 @@
 ## The method
 
 - **One logging path.** Every Worker and the frontend log through the single standard utility — never ad-hoc `console.log` of domain data. **Redact by default:** events are assembled from an allowlist; a scrubbing pass at the boundary is the backstop. A **correlation ID** rides every request.
+- **Both emission paths are allowlisted — events and counters.** An event declares its loggable fields, and a declared field carries only a flat primitive (a structure has no way through). A counter declares its metric name and its **ordered dimension keys**, which are the Analytics Engine column contract; an undeclared metric or dimension is dropped, and dimension values are scrubbed like any other string. Counter dimensions are enum-like labels, never identifiers or free text. Both catalogs live in `@magna-carta/telemetry` and both are enforced by fitness functions.
 - **Error ID.** Every error surfaces a short, user-visible **Error ID** that maps to the server-side trace. Operational traces are always captured (Workers Logs/Logpush → R2 / Analytics Engine); they are monitoring, not an incident.
 - **In-house client reporter.** A Svelte error boundary + global `onerror`/`unhandledrejection` handlers + a **breadcrumb ring buffer** (actions/IDs, never field content). **No third-party error SaaS** — privileged stacks/context never egress.
 - **Two report surfaces.** "Send to developer" on the crash screen; an always-available "Report a problem" in the help menu.

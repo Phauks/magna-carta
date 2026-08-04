@@ -589,8 +589,10 @@ export interface FirmBackfillReport {
 // The generic per-firm backfill runner: walk a supplied set of firms, run one idempotent step
 // against each, and isolate a single firm's failure (logged through the one telemetry pipeline, the
 // next pass retries) so one broken firm cannot starve the rest of the fleet. The progress count
-// rides a counter (ids/totals only — never any protected value). `name` tags the operation label
-// and the counter so the two sweeps are distinguishable in telemetry.
+// rides a counter (ids/totals only — never any protected value). `name` tags the operation label and
+// rides the counter as a DIMENSION, so the two sweeps are distinguishable in telemetry without every
+// backfill minting its own metric name — a name built by interpolation cannot be declared in the
+// catalog (@magna-carta/telemetry/metrics), and the emission path drops what it cannot lay out.
 async function runFirmBackfill<TFirm extends { readonly firmId: string }>(
   name: string,
   logger: Logger,
@@ -605,7 +607,7 @@ async function runFirmBackfill<TFirm extends { readonly firmId: string }>(
       const affected = await step(firm);
       rowsAffected += affected;
       firmsProcessed += 1;
-      if (affected > 0) logger.count(`backfill.${name}`, {}, affected);
+      if (affected > 0) logger.count("backfill.rows_affected", { backfill: name }, affected);
     } catch (caught) {
       logOperationFailed(logger, `cron:backfill:${name}:${firm.firmId}`, caught, correlationId);
     }
