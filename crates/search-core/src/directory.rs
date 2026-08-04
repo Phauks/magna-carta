@@ -303,7 +303,13 @@ mod tests {
         // corpus size. A rare-term query touches the term dictionary, one short postings list, and one
         // stored-doc block — never the whole split. The fraction shrinks as the corpus grows (the
         // postings and store grow with it while the query still reads only its slice); even at this
-        // small scale, where fixed per-segment metadata dominates, it stays under half.
+        // small scale, where fixed per-segment metadata dominates, it stays around a quarter.
+        //
+        // Both numbers are exact, not approximate: `build_split` indexes on one thread, so the batch
+        // lands as one segment and neither the split's size nor the bytes this query walks depend on
+        // how the machine happened to schedule anything (a_batch_lands_as_a_single_segment in lib.rs
+        // pins that). A multi-segment split makes both vary run to run — a searcher consults every
+        // segment's term dictionary, so the ratio swings with the segment count.
         assert!(
             read < split_len / 2,
             "a rare-term query must read well under half the split; read {read} of {split_len}"

@@ -73,9 +73,18 @@ pub fn build_split(documents: &[IndexDocument]) -> Result<Vec<u8>, SearchError> 
     let search_schema = SearchSchema::build();
     let index = Index::create_in_dir(scratch.path(), search_schema.schema().clone())?;
 
-    // 50 MiB writer heap: enough for a batch-sized segment without spilling, well under a Container's
-    // memory. Batch size is bounded upstream by the pipeline, not here.
-    let mut writer = index.writer(50_000_000)?;
+    // ONE indexing thread, deliberately. Tantivy's default writer spawns one worker per core and each
+    // worker that receives documents commits a segment of its own, so the same batch lands as two,
+    // five, or eight segments depending purely on how the machine scheduled the workers. That is wrong
+    // for a split twice over: a query has to consult every segment's term dictionary, which is exactly
+    // the per-query I/O the split model exists to avoid, and the resulting split has no stable size or
+    // read cost to reason about. Indexing on one thread makes a batch exactly one segment, every time.
+    // The cost is single-threaded indexing throughput, which is acceptable because batch size is
+    // bounded upstream by the pipeline and the build runs off the request path in a Container.
+    //
+    // 50 MiB writer heap: enough for a batch-sized segment without spilling (it is the whole budget
+    // now that there is one worker to share it), and well under a Container's memory.
+    let mut writer = index.writer_with_num_threads(1, 50_000_000)?;
     for document in documents {
         let mut tantivy_document = TantivyDocument::default();
         tantivy_document.add_text(search_schema.document_id(), &document.document_id);

@@ -79,6 +79,44 @@ mod tests {
     }
 
     #[test]
+    fn a_batch_lands_as_a_single_segment() {
+        // A split is one immutable unit and must hold exactly one Tantivy segment. Two reasons, and the
+        // test guards both: a query consults every segment's term dictionary, so extra segments are
+        // per-query I/O the split model exists to avoid; and the segment count decides a split's size
+        // and read cost, so anything that lets it vary makes both unmeasurable. It varies as soon as
+        // indexing is multi-threaded — each worker that receives documents commits its own segment, and
+        // which workers receive any is up to the scheduler. Enough documents here that a multi-threaded
+        // writer would reliably spread them.
+        let documents: Vec<IndexDocument> = (0..200)
+            .map(|i| {
+                doc(
+                    &format!("doc-{i}"),
+                    &format!("doc-{i}:p1"),
+                    "the parties agree to the terms set forth in this agreement",
+                )
+            })
+            .collect();
+        let footer = read_footer(&build_split(&documents).unwrap()).unwrap();
+
+        // Tantivy names every file of a segment `<segment-id>.<extension>`; the index-level files
+        // (meta.json, .managed.json) carry no segment id. So the distinct stems of the segment files
+        // are the segments.
+        let segments: std::collections::BTreeSet<&str> = footer
+            .files
+            .iter()
+            .map(|file| file.name.as_str())
+            .filter(|name| !name.starts_with('.') && *name != "meta.json")
+            .filter_map(|name| name.split('.').next())
+            .collect();
+
+        assert_eq!(
+            segments.len(),
+            1,
+            "a batch must build exactly one segment, got {segments:?}"
+        );
+    }
+
+    #[test]
     fn a_keyword_query_finds_the_document_that_contains_the_term() {
         let split = build_split(&corpus()).unwrap();
         let hits = query_split(&split, "indemnify", 10).unwrap();

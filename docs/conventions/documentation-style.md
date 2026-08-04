@@ -62,6 +62,8 @@ State briefly, in order: **Symptom** (observable failure) · **Root cause** · *
 
 Author prose **unwrapped**: one line per paragraph (a line break ends the paragraph). Do not insert manual breaks to hit a column width — every paragraph in the white paper, ADRs, and specs is a single long line, soft-wrapped by the editor. Hand-wrapping produces noisy diffs (editing one word reflows the wrap points across the whole paragraph), whereas an unwrapped paragraph changes exactly one line. A **semantic line break** (one sentence per line) is fine where a long paragraph benefits from sentence-level diffs — a deliberate authoring choice, not column-wrapping. The formatter enforces it: Oxfmt runs with `proseWrap: "preserve"`, so it never reflows prose. Code wrapping is the formatter's job (`printWidth: 100`), never manual — see [`code-style.md`](code-style.md).
 
+Keep an inline code span on **one line**, especially inside a list item: Oxfmt is not idempotent over a code span that already spans a line break — successive runs keep moving it, so the file never reaches a fixed point and `vp check` disagrees with itself between runs.
+
 ## Canonical terminology
 
 Use the left term, avoid the right, in **all** docs — this is the shared glossary. Extend it as domain terms settle.
