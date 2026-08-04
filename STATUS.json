@@ -1836,7 +1836,7 @@
       },
       "branch": "main",
       "activeWork": "docs/active-work/searchable-pdf-writer.md",
-      "next": "Deferred seams — the conversion orchestrator's scanned-to-searchable edge dispatching to `POST /api/v1/ocr/searchable`, ingest-pipeline wiring (queues, per-job Durable Object, search index), rotated/skewed-quad placement beyond axis-aligned bounds, embedding a glyphless font if a target viewer needs a rendered selection glyph, and the UI.",
+      "next": "Deferred seams — rotated-page (`/Rotate` 90/180/270) placement: the layer is written in the unrotated frame, so selection geometry is off on rotated scans (text stays searchable) — needs a counter-rotating text matrix like `bates.rs`; ingest-pipeline wiring (queues, per-job Durable Object, search index; blocked on the unbuilt discovery/search subsystem); skewed-quad placement beyond axis-aligned bounds; embedding a glyphless font if a target viewer needs a rendered selection glyph; and the UI. (The conversion orchestrator's scanned→searchable edge is now wired — `pdf → searchable-pdf` in the conversion registry, dispatched to the OCR service. An adversarial review hardened the writer: non-BMP characters, font-name collisions, and degenerate word boxes are fixed.)",
       "links": {
         "spec": "docs/specs/2026-07-14-searchable-pdf-writer-design.md",
         "plan": null,
@@ -1904,21 +1904,24 @@
           "by": "Opus 4.8"
         },
         "built": {
-          "state": "todo"
+          "state": "done",
+          "by": "Opus 4.8"
         },
         "ui": {
           "state": "todo"
         },
         "load-profile": {
-          "state": "todo"
+          "state": "done",
+          "by": "Opus 4.8"
         },
         "tested": {
-          "state": "todo"
+          "state": "done",
+          "by": "Opus 4.8"
         }
       },
       "branch": "main",
       "activeWork": null,
-      "next": "Owner acceptance of the slice-1 design; then build Tasks 1-10 (record schema -> pure email-filing package -> statements -> emails:* permissions -> capture + attachments -> API entrance -> Email Worker forward path). The Directory address->entity resolution prerequisite is now BUILT and merged to main (directory_email write path + reverse findEntitiesByEmailAddress lookup + normalized-address index), so participant resolution can light up rather than stay deferred.",
+      "next": "Merge slice 1; then the fast-follows — the native add-in (Outlook/Gmail Save & File over the built file-to-matter API), the emails:manageCaptureAddresses mint/rotate route + the capture-subdomain DNS onboarding, the DKIM verifier behind the placed seam, guardrailed auto-file rules, and the matter correspondence timeline UI (deferred to the UI plan). Participant resolution is wired live via the merged Directory reverse lookup.",
       "links": {
         "spec": "docs/specs/2026-07-14-email-filing-record-and-forward-capture-design.md",
         "plan": "docs/specs/2026-07-14-email-filing-record-and-forward-capture-implementation-plan.md",
@@ -2052,6 +2055,49 @@
       },
       "blockedBy": [],
       "notes": "`@magna-carta/costs` + `@magna-carta/billing-core` (shared WIP lifecycle); first per-firm queue consumer; recoverable-charge seam. cost→A/R + LEDES → 3·4."
+    },
+    {
+      "slice": "4·1 — Conflicts matching engine",
+      "group": "phase-4",
+      "order": 1,
+      "stages": {
+        "research": {
+          "state": "done"
+        },
+        "spec": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "plan": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "built": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "ui": {
+          "state": "todo"
+        },
+        "load-profile": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "tested": {
+          "state": "done",
+          "by": "Opus 4.8"
+        }
+      },
+      "branch": "slice-4-1-conflicts",
+      "activeWork": "docs/active-work/slice-4-1-conflicts.md",
+      "next": "Reviewer adjudication UX (deferred); Beider-Morse; the Content source class",
+      "links": {
+        "spec": "docs/specs/2026-07-09-slice-4-1-conflicts-design.md",
+        "plan": "docs/specs/2026-07-09-slice-4-1-conflicts-implementation-plan.md",
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "No-scorer evidence-tier engine; typed source registry + firm floor; three append-only log tables. Firm personnel resolved as a source, not a Directory node type."
     }
   ]
 }

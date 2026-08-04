@@ -1,4 +1,5 @@
 ---
+number: 193
 slug: email-capture-single-zone-token-routing
 status: Accepted
 date: 2026-08-03
