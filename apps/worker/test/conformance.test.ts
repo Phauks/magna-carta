@@ -137,11 +137,14 @@ function auditedMutatingViolations(document: ReturnType<typeof buildOpenAPIDocum
 // coincide for `firm`, but a capability can govern a resource rooted elsewhere — `files:*` operates on
 // matter-rooted file objects, so its routes carry resource "matter". This map is the explicit binding
 // the original strict-equality rule's comment anticipated would need revisiting once such a permission
-// landed (slice 1·1's files/matters/locations). It stays a guard, not a suppression: each namespace
-// maps to EXACTLY ONE allowed resource, so a route naming a permission from an unrelated subsystem
-// still fails. A new permission subsystem adds its row here (and a genuinely multi-resource subsystem
-// would widen the value to a set — revisit deliberately, never delete the check).
-const RESOURCE_BY_PERMISSION_NAMESPACE: Record<string, string> = {
+// landed (slice 1·1's files/matters/locations). It stays a guard, not a suppression: a namespace maps
+// to a CLOSED set of allowed resources — almost always exactly one — so a route naming a permission
+// from an unrelated subsystem still fails. A new permission subsystem adds its row here; widening a
+// row to a second resource is the deliberate revisit the original single-value rule anticipated, and
+// is warranted only when the subsystem genuinely governs objects rooted in two places (emails, whose
+// per-matter addresses are matter-rooted while the firm catch-all has no matter at all). Never delete
+// the check.
+const RESOURCE_BY_PERMISSION_NAMESPACE: Record<string, string | readonly string[]> = {
   firm: "firm",
   matters: "matter",
   locations: "location",
@@ -170,10 +173,13 @@ const RESOURCE_BY_PERMISSION_NAMESPACE: Record<string, string> = {
   // diagnostics:* is the read-only system-state surface granted only by a diagnostic support session;
   // no firm role holds it. The resource is the firm — the overview is per-firm state.
   diagnostics: "firm",
-  // emails:* governs filing email to matters and reading a matter's filed threads; email links are
-  // matter-rooted (the files:* precedent), so every emails route carries the matter resource — even the
-  // firm-level "already filed" read, which access-filters to the caller's matters in the handler.
-  emails: "matter",
+  // emails:* governs filing email to matters, reading a matter's filed threads, and managing the
+  // forward/CC capture addresses. Email links are matter-rooted (the files:* precedent), so almost
+  // every emails route carries the matter resource — including the firm-level "already filed" read,
+  // which access-filters to the caller's matters in the handler. The firm CATCH-ALL capture address is
+  // the deliberate exception: it has no matter by construction (matter_id is null), its tenancy root
+  // is the firm, and binding it to "matter" would name a resource it does not have.
+  emails: ["matter", "firm"],
 };
 
 // Rule: every named permission exists in the registry, and its namespace binds to the route's
@@ -195,16 +201,19 @@ function permissionRegistryViolations(document: ReturnType<typeof buildOpenAPIDo
     }
     const namespace = permission.split(":")[0] ?? "";
     const resource = operation["x-mc-resource"];
-    const expectedResource = RESOURCE_BY_PERMISSION_NAMESPACE[namespace];
-    if (expectedResource === undefined) {
+    const binding = RESOURCE_BY_PERMISSION_NAMESPACE[namespace];
+    if (binding === undefined) {
       violations.push(
         `${label}: permission namespace "${namespace}" has no RESOURCE_BY_PERMISSION_NAMESPACE binding`,
       );
       continue;
     }
-    if (resource !== expectedResource) {
+    const allowedResources = typeof binding === "string" ? [binding] : binding;
+    if (typeof resource !== "string" || !allowedResources.includes(resource)) {
       violations.push(
-        `${label}: permission namespace "${namespace}" must bind to x-mc-resource "${expectedResource}", got "${String(resource)}"`,
+        `${label}: permission namespace "${namespace}" must bind to x-mc-resource ${allowedResources
+          .map((allowed) => `"${allowed}"`)
+          .join(" or ")}, got "${String(resource)}"`,
       );
     }
   }
@@ -602,6 +611,12 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "emails.file",
       "emails.get",
       "emails.list",
+      "emails.listCaptureAddresses",
+      "emails.mintCaptureAddress",
+      "emails.mintFirmCaptureAddress",
+      "emails.revokeCaptureAddress",
+      "emails.revokeFirmCaptureAddress",
+      "emails.rotateCaptureAddress",
       "emails.unlink",
       "fileIntegrity.hash",
       "fileIntegrity.verify",
