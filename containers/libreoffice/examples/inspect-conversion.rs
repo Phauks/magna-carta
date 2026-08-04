@@ -50,7 +50,7 @@ fn main() -> std::process::ExitCode {
 /// meant to avoid.
 fn embedded_font_names(document: &lopdf::Document) -> BTreeSet<String> {
     let mut names = BTreeSet::new();
-    for (_, object) in document.objects.iter() {
+    for object in document.objects.values() {
         let Ok(dictionary) = object.as_dict() else {
             continue;
         };
