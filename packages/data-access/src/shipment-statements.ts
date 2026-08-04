@@ -120,6 +120,20 @@ export function insertLabelStatement(database: SqlDatabase, row: InsertLabelRow)
     );
 }
 
+// The label rows for a shipment, newest first. Scoped to the caller's own firm database, so the row
+// existing at all is the proof that this firm owns the label — which is what makes the stored r2_key
+// safe to read bytes with. A shipment id from another firm simply finds nothing here.
+export function selectShipmentLabelsStatement(
+  database: SqlDatabase,
+  shipmentRef: ShipmentId,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT id, format, r2_key, voided, created_at FROM ${SHIPMENT_LABEL_TABLE} WHERE shipment_ref = ?1 ORDER BY created_at DESC`,
+    )
+    .bind(shipmentRef);
+}
+
 export interface InsertTrackingEventRow {
   readonly id: TrackingEventId;
   readonly shipmentRef: ShipmentId;

@@ -5,6 +5,7 @@ import { insertConnectionStatement } from "@magna-carta/data-access/integration-
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import {
   insertTrackingEventStatement,
+  selectShipmentLabelsStatement,
   selectShipmentStatement,
 } from "@magna-carta/data-access/shipment-statements";
 import {
@@ -31,6 +32,7 @@ import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { idempotencyKeyHeader } from "../contracts/common.ts";
 import { problemJson, Problem, type ProblemResponse } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
+import { resolveFirmBucket } from "../files/firm-bucket.ts";
 import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-problems.ts";
 import { buildIntegrationRegistry } from "../plugins/registry.ts";
 import type { PluginRuntime } from "../plugins/runtime.ts";
@@ -502,10 +504,14 @@ export function registerShippingRoutes(
       const resolved = await registry.resolve<ShippingPort>("shipping", { firmId });
       if (!resolved.ok) return shippingDispatchProblem(c, resolved);
 
+      // The label bytes go to the firm's own bucket, resolved through the one seam every R2 path
+      // here shares (files/firm-bucket.ts).
+      const { bucket } = resolveFirmBucket(c.env, firm.bucketName);
+
       // The chokepoint idempotency key doubles as the EasyPost Idempotency-Key. A thrown effect
       // commits no idempotency record (runIdempotentEffect re-executes on retry), so that header is
       // what prevents a double-buy: EasyPost returns the same label for the same key. The R2 key is
-      // derived from the shipment id, so the put is idempotent across retries too.
+      // derived from the firm id and the shipment id, so the put is idempotent across retries too.
       const result = await runIdempotentEffect({
         database: firm.firmDatabase,
         key: idempotency.key,
@@ -520,8 +526,12 @@ export function registerShippingRoutes(
           if (!bought.ok) throw new ShippingDispatchError(bought);
           const label = bought.value;
           const labelResponse = await fetch(label.labelUrl);
-          const r2Key = `labels/${id}.pdf`;
-          await c.env.R2.put(r2Key, await labelResponse.arrayBuffer(), {
+          // Firm-scoped key. A label carries the recipient's postal address, so two firms must never
+          // be able to name the same object: the firm id in the prefix makes the key space disjoint
+          // even where firms share one bucket, and the read path resolves the key from this firm's
+          // own database rather than rebuilding it from a request parameter.
+          const r2Key = `labels/${firmId}/${id}.pdf`;
+          await bucket.put(r2Key, await labelResponse.arrayBuffer(), {
             httpMetadata: { contentType: label.labelFormat },
           });
           const recorded = await recordPurchase(
@@ -569,8 +579,20 @@ export function registerShippingRoutes(
   app.openapi(
     { ...labelRoute, middleware: chokepointMiddleware(chokepoint, labelRoute) },
     async (c) => {
-      const id = c.req.valid("param").id;
-      const object = await c.env.R2.get(`labels/${id}.pdf`);
+      const firm = requireChokepointFirmContext(c);
+      const id = c.req.valid("param").id as ShipmentId;
+      // Resolve the object key from THIS firm's own database before touching any bytes: the label row
+      // is what proves the firm owns the shipment, and its stored r2_key is server-recorded, never
+      // rebuilt from the path parameter. A shipment id belonging to another firm finds no row here and
+      // is answered 404 — the same absence-not-refusal answer every other cross-firm read gives, so a
+      // caller cannot use the status code to learn that the shipment exists somewhere.
+      const { results } = await selectShipmentLabelsStatement(firm.firmDatabase, id).all<{
+        r2_key: string;
+      }>();
+      const label = results[0];
+      if (label === undefined) return notFoundProblem(c);
+      const { bucket } = resolveFirmBucket(c.env, firm.bucketName);
+      const object = await bucket.get(label.r2_key);
       if (object === null) return notFoundProblem(c);
       return new Response(object.body, {
         status: 200,

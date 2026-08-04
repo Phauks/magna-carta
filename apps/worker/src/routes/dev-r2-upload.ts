@@ -7,16 +7,16 @@ import { requireChokepointFirmContext } from "../chokepoint/context-accessors.ts
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { problemJson } from "../contracts/problem.ts";
 import type { RouteMeta } from "../contracts/route-meta.ts";
+import { resolveFirmBucket } from "../files/firm-bucket.ts";
 import { enqueueDevIngestEvent } from "../files/presign.ts";
 import { devUploadEmulationActive } from "../files/presigner-wiring.ts";
-import { requireBucket } from "../files/require-bucket.ts";
 
 // The DEVELOPMENT-ONLY upload target. Production upload is a direct-to-R2 ceremony: the client PUTs
 // bytes to a presigned R2 URL and an R2 object-create event feeds the files-ingest queue. Local
 // object storage (Miniflare) resolves no such presigned host and emits no such event, so this route
 // stands in for R2 during `wrangler dev`: it accepts the same client PUT (single-shot and multipart
-// parts) that the worker-origin dev presigner (files/presign.ts) points at, writes the bytes to
-// env.R2 — the exact handle the ingest consumer reads — and enqueues the ingest event R2 would have
+// parts) that the worker-origin dev presigner (files/presign.ts) points at, writes the bytes to the
+// firm's resolved bucket — the exact handle the ingest consumer reads — and enqueues the event R2 would have
 // fired. The client performs the identical four-step ceremony against both environments; nothing is
 // stubbed on the client.
 //
@@ -103,11 +103,13 @@ export function registerDevR2UploadRoute(app: DevUploadApp, chokepoint: Chokepoi
         });
       }
       const bytes = await c.req.arrayBuffer();
-      // Write through env.R2 — the exact handle handleIngestMessage reads — so the object lands where
-      // ingest loads it. Buffered because Miniflare's R2 put stores nothing for an unknown-length
-      // stream; a dev upload is small and this is not a production write path.
-      await c.env.R2.put(key, bytes);
-      await enqueueDevIngestEvent(c.env, requireBucket(firm.bucketName), key, bytes.byteLength);
+      // Write through the firm's resolved bucket — the exact handle handleIngestMessage reads — so the
+      // object lands where ingest loads it, and the event carries that same bucket's name. Buffered
+      // because Miniflare's R2 put stores nothing for an unknown-length stream; a dev upload is small
+      // and this is not a production write path.
+      const { bucket, bucketName } = resolveFirmBucket(c.env, firm.bucketName);
+      await bucket.put(key, bytes);
+      await enqueueDevIngestEvent(c.env, bucketName, key, bytes.byteLength);
       return c.body(null, 200);
     },
   );

@@ -183,6 +183,12 @@ export type Bindings = {
   // call the network.
   R2_S3_ACCESS_KEY_ID?: string;
   R2_S3_SECRET_ACCESS_KEY?: string;
+  // The name of the bucket bound above as R2. An R2Bucket handle carries no name, so the bucket
+  // resolver (files/firm-bucket.ts) cannot otherwise tell whether the bucket a presigned URL
+  // addresses is the same one this Worker reads through — which is exactly the mismatch that would
+  // send a firm's uploaded bytes somewhere no read path can reach. A public resource name, not a
+  // secret: bound via wrangler.jsonc vars alongside the binding it names.
+  R2_BUCKET_NAME?: string;
   // The files-ingest queue's Cloudflare UUID — the REST FirmResourceProvider targets it when
   // configuring a firm bucket's object-create notification. A deploy-time fact (absent locally,
   // where the dev adapter runs and Miniflare delivers no R2 notifications).

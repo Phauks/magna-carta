@@ -20,8 +20,8 @@ import type { Logger } from "@magna-carta/telemetry/logger";
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import type { Bindings } from "../app.ts";
 import type { ProxyBatchDatabase } from "../firm-database/firm-database-proxy.ts";
+import { resolveFirmBucket } from "../files/firm-bucket.ts";
 import { enqueueDevIngestEvent } from "../files/presign.ts";
-import { requireBucket } from "../files/require-bucket.ts";
 
 // The largest attachment part the Worker will materialize in memory to extract. Above this the part
 // records an `oversize` outcome and is not extracted (the add-in path handles larger attachments). Sized
@@ -155,7 +155,9 @@ async function fileOneAttachment(
   );
   await commitEffectBatch(firmDatabase, initiated.effect, { now });
 
-  await env.R2.put(initiated.r2Key, bytes);
+  // The write and the event that drives ingest name one bucket, resolved once.
+  const { bucket, bucketName } = resolveFirmBucket(env, input.bucketName);
+  await bucket.put(initiated.r2Key, bytes);
 
   const completed = await completeUploadSession(
     firmDatabase,
@@ -189,12 +191,7 @@ async function fileOneAttachment(
 
   // Drive ingest: the bytes were written server-side, so enqueue the object-create event the ingest
   // consumer processes (magic-byte sniff → scan → commit or quarantine). Idempotent at the consumer.
-  await enqueueDevIngestEvent(
-    env,
-    requireBucket(input.bucketName),
-    initiated.r2Key,
-    bytes.byteLength,
-  );
+  await enqueueDevIngestEvent(env, bucketName, initiated.r2Key, bytes.byteLength);
 }
 
 function oversizeRow(

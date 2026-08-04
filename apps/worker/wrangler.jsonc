@@ -31,8 +31,12 @@
   // value lets the Miniflare test pool exercise the host branch. The editor half is USERCONTENT_DOMAIN
   // (the bare content domain), which defaults to magnacartausercontent.com in code — no deploy var, prod
   // can't forget it; only local dev overrides it.
+  // R2_BUCKET_NAME names the bucket bound below as R2. An R2Bucket handle carries no name, so this is
+  // how the bucket resolver (src/files/firm-bucket.ts) proves that the bucket a presigned URL addresses
+  // is the same one this Worker reads through. Keep it byte-identical to the r2_buckets bucket_name.
   "vars": {
     "FILES_ORIGIN": "files.example.com",
+    "R2_BUCKET_NAME": "magna-carta-production-platform-files",
   },
   // Real production resources (created 2026-06-09; naming convention in ADR-0075:
   // magna-carta-<environment>-<scope>[-<purpose-or-slug>]). Binding names are the code-facing
