@@ -6,7 +6,7 @@
 
 ## Why now
 
-The engine substrates the discovery pipeline stands on are shipped — OCR recognition, the searchable-PDF writer (`crates/pdf-core/src/searchable.rs`), file hashing, ingest-to-R2 — but nothing feeds an index, and there is no index to feed. `roadmap.d/discovery.md` records every `discovery.search.*` node as not-started with the same evidence line: "No Tantivy crate or index code anywhere," "No Vectorize/discovery embedding code." The decision of *what* to build is settled (ADR-0012: Tantivy keyword + Vectorize semantic, full production workflow, large-scale designed-out-but-deferred). The decision of *how the index is stored, isolated, scaled, and rebuilt* is the open gap ADR-0167 names explicitly:
+The engine substrates the discovery pipeline stands on are shipped — OCR recognition, the searchable-PDF writer (`crates/pdf-core/src/searchable.rs`), file hashing, ingest-to-R2 — but nothing feeds an index, and there is no index to feed. `roadmap.d/discovery.md` records every `discovery.search.*` node as not-started with the same evidence line: "No Tantivy crate or index code anywhere," "No Vectorize/discovery embedding code." The decision of _what_ to build is settled (ADR-0012: Tantivy keyword + Vectorize semantic, full production workflow, large-scale designed-out-but-deferred). The decision of _how the index is stored, isolated, scaled, and rebuilt_ is the open gap ADR-0167 names explicitly:
 
 > A subsystem whose state **is** a durable, per-firm dataset fails ⑤ [the statelessness test] and is **not** this pattern. Full-text search (Tantivy) is the example: its index is firm data, not stateless compute; extracting it raises index storage, per-tenant isolation, and rebuild questions that this rubric does not answer. It gets its own spec as a **stateful service** when search is scheduled, and must not be modeled as "scan again."
 
@@ -29,7 +29,7 @@ A per-firm, per-matter search index that answers keyword and semantic queries ov
 ## Explicitly out of scope
 
 - **The review and production workflows.** Search returns document hits; assembling them into review sets, tagging, privilege logging, and Bates-stamped production are separate slices (`roadmap.d/discovery.md`). This spec stops at "a ranked, firm-scoped hit list with highlight offsets."
-- **Massive-scale features** — index **sharding across Containers**, **massively parallel OCR**, TAR/predictive coding (`discovery.search.large-scale`). Named as seams here, built when measured. The single-Container-per-firm model is the moderate-scale target; the split model is chosen precisely because it *extends* to sharding without a rewrite.
+- **Massive-scale features** — index **sharding across Containers**, **massively parallel OCR**, TAR/predictive coding (`discovery.search.large-scale`). Named as seams here, built when measured. The single-Container-per-firm model is the moderate-scale target; the split model is chosen precisely because it _extends_ to sharding without a rewrite.
 - **Desktop-local indexing** (`discovery.desktop`) — the Tauri local-ingest/index accelerator with server fallback. The `SearchIndexPort` is the seam it will implement locally; not built here.
 - **Any UI.** No search box, no results page. Query is exercised through the port and the worker route in tests only.
 - **Deploy / release.** The worker is specced and buildable; activating it in production (image build, service binding, R2 lifecycle) is a deploy step, not this design.
@@ -49,7 +49,7 @@ Keyword and semantic are different data structures with different homes, unified
 
 The scan/OCR Container pattern (ADR-0167) moves **stateless compute** into a dedicated Worker: bytes in, verdict/text out, no firm state resident. Search inverts that. The index **is** firm state — it accumulates over a matter's life, must be isolated per firm, must survive between queries, and must be rebuildable. So the search Worker is a **stateful service**: it owns durable per-firm data (splits in R2, catalog in the firm DO) and a **warm** Container that keeps hot index state resident between queries. Three properties follow, and they are the whole design:
 
-1. **State lives in R2, not the Container.** The Container is a cache/compute layer over R2-resident splits; a cold Container rebuilds its working set from R2, it does not *own* the index. This is what lets the Container scale/restart/shard without data loss.
+1. **State lives in R2, not the Container.** The Container is a cache/compute layer over R2-resident splits; a cold Container rebuilds its working set from R2, it does not _own_ the index. This is what lets the Container scale/restart/shard without data loss.
 2. **The Container stays warm.** A cron warm-poke (the ADR-0167 template's `*/20`) keeps one instance and its NVMe split-cache hot, so the common query is a cache hit, not an R2 fetch. Cold-start latency is a first-query tax, not a per-query one.
 3. **Isolation is structural, at two layers.** Every split's R2 key is under the firm's prefix, and the catalog the query prunes against is the firm's own `FirmDatabase` DO lineage — a query can only ever name splits its own firm owns. A firm cannot reach another firm's index even by guessing a key, exactly as the bundle-download DO name carries the session firm id.
 
@@ -64,7 +64,7 @@ This is the answer to "scan large amounts of data whenever searches are ongoing.
 **Query — pruning + ranged reads, so you read kilobytes of a gigabyte index:**
 
 1. The query names a matter. The catalog returns that matter's live split list (already firm-scoped).
-2. For each split, the Container reads the **footer** only (a small ranged GET, or a hit in the warm cache). The footer's term dictionary says whether the query's terms *could* be in this split; splits whose range/terms exclude the query are **pruned without reading their postings at all**.
+2. For each split, the Container reads the **footer** only (a small ranged GET, or a hit in the warm cache). The footer's term dictionary says whether the query's terms _could_ be in this split; splits whose range/terms exclude the query are **pruned without reading their postings at all**.
 3. For surviving splits, the Container issues **HTTP range GETs** against R2 for exactly the postings lists and doc-store blocks the query touches — not the whole split. Tantivy's `Directory` abstraction is backed by an R2 range-reader; a `.split` on R2 is queried as if local, fetching only the byte ranges the query walks.
 4. Hits merge across splits, BM25-rank, and return with per-hit highlight offsets.
 
@@ -74,7 +74,7 @@ The volume scanned per query is proportional to the **query's selectivity**, not
 
 ### 4. The warm cache — sub-second, not just correct
 
-Range-reads against R2 are correct but not sub-second cold. The Container keeps a **local NVMe cache** of hot split footers and recently-read postings, LRU by matter. The warm-poke cron keeps the instance and its cache resident, so the working set of an actively-reviewed matter stays local. R2 is the durable backing store; the NVMe cache is the latency layer. A cache miss costs one R2 round trip; a cache hit costs a local read. This is the standard three-tier shape — managed object store (durable) → Container NVMe (warm) → in-memory footer index (hot) — and it is why the Container is *warm* (ADR-0167 property) rather than spun per request like scan.
+Range-reads against R2 are correct but not sub-second cold. The Container keeps a **local NVMe cache** of hot split footers and recently-read postings, LRU by matter. The warm-poke cron keeps the instance and its cache resident, so the working set of an actively-reviewed matter stays local. R2 is the durable backing store; the NVMe cache is the latency layer. A cache miss costs one R2 round trip; a cache hit costs a local read. This is the standard three-tier shape — managed object store (durable) → Container NVMe (warm) → in-memory footer index (hot) — and it is why the Container is _warm_ (ADR-0167 property) rather than spun per request like scan.
 
 ### 5. The index catalog — the firm's source of truth
 
@@ -86,7 +86,7 @@ Semantic search reuses the shipped inference substrate: `InferencePort.embed` pr
 
 **Per-firm isolation and capacity.** Vectorize partitions by **namespace**; each firm (or matter, if a firm's corpus is large) gets its own namespace, so a topK query is confined to one firm's vectors — the semantic mirror of the split catalog's structural scoping. Capacity is the constraint to design against, not discover later:
 
-- ~**5M vector-dimensions per index** is the Vectorize ceiling — at 1024 dims/vector that is ~5,000 vectors per *index* before partitioning matters, so **namespaces, not one flat index, are mandatory**, and a very large corpus needs an index-per-firm (or index-per-matter) allocation, not one global index. The exact allocation (namespace-per-matter within a firm index, vs. index-per-firm) is sized against the load-profile fixtures at build; this spec fixes the *shape* (partitioned, never flat) and flags the ceiling.
+- ~**5M vector-dimensions per index** is the Vectorize ceiling — at 1024 dims/vector that is ~5,000 vectors per _index_ before partitioning matters, so **namespaces, not one flat index, are mandatory**, and a very large corpus needs an index-per-firm (or index-per-matter) allocation, not one global index. The exact allocation (namespace-per-matter within a firm index, vs. index-per-firm) is sized against the load-profile fixtures at build; this spec fixes the _shape_ (partitioned, never flat) and flags the ceiling.
 - ≤**10 KiB metadata/vector** — enough for `{ documentId, matterId, chunkId, page }` to hydrate a hit through the data-access layer; the chunk **text** is not stored in Vectorize (it lives in R2/the keyword doc-store), only the pointer.
 - **topK ≤ 100** — the semantic candidate set per query is bounded; fusion (§7) reconciles it with the keyword set.
 
@@ -117,13 +117,13 @@ E-discovery demands provable state: a document withdrawn from a matter must be p
 
 ### 10. Scale seams (deferred, but shaped-in)
 
-The split model is chosen because moderate-scale and large-scale are the *same* design with a bigger fan-out, not a rewrite:
+The split model is chosen because moderate-scale and large-scale are the _same_ design with a bigger fan-out, not a rewrite:
 
 - **Index sharding across Containers** — splits are already independent and location-transparent; sharding is routing split-ranges to multiple Container instances and merging their partial results. The query path (prune → range-read → merge) is unchanged; only the fan-out widens.
 - **Massively parallel OCR** — the extract stage is per-document and queue-driven; parallelism is a queue-concurrency knob, not a new pipeline.
 - **Desktop-local indexing** — the `SearchIndexPort` is the seam; the Tauri client implements it locally over the same `crates/search-core`, with the server index as fallback (feature parity, golden rule 6).
 
-Each is built when the load-profile harness measures the moderate-scale design running out of headroom (golden rule 10), and each is a **widening** of this design, so building it now would be speculative machinery. What is *not* deferred, and is built up front, is everything that is expensive to retrofit: the split boundary, the catalog, per-firm namespace partitioning, the port seam, and index-generation versioning.
+Each is built when the load-profile harness measures the moderate-scale design running out of headroom (golden rule 10), and each is a **widening** of this design, so building it now would be speculative machinery. What is _not_ deferred, and is built up front, is everything that is expensive to retrofit: the split boundary, the catalog, per-firm namespace partitioning, the port seam, and index-generation versioning.
 
 ## Interfaces
 

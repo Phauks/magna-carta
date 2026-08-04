@@ -10,7 +10,7 @@ conversion subsystem already models (a `SearchIndexJob` Durable Object keyed `fi
 over a `search-index` queue with its own dead-letter queue).
 
 **One split per document version, so a retry converges instead of duplicating.** The split id is
-*derived* — a content-addressed handle from `documentId + version` (new `deriveIdentifier` in
+_derived_ — a content-addressed handle from `documentId + version` (new `deriveIdentifier` in
 `@magna-carta/identifiers`) — which fixes both the split's identity and its R2 key
 (`search/<matterId>/splits/<splitId>.split`). Every attempt at the same version therefore writes the
 same object and replaces the same catalog row: a retried job overwrites its own half-finished work

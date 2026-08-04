@@ -17,13 +17,13 @@ worker per-firm-migrations 9 + search/hybrid 12 + conformance 25 · pdf-core 249
 
 ### What exists
 
-| Layer | Where | What it does |
-|---|---|---|
-| Design | `docs/specs/2026-07-17-discovery-search-index-stateful-service-design.md` + pending ADR | Splits in per-firm R2, footer-pruning + ranged reads, catalog in the firm DO, Vectorize namespace-per-firm, RRF |
-| Engine core | `crates/search-core` (Tantivy 0.26, pure Rust) | Build/store/query a **split**; a read-only `Directory` over a `RangeReader` so a query reads only the postings it walks |
-| Catalog | `index_split` per-firm table + `@magna-carta/data-access/index-split-statements` | Which splits are live for a matter; insert / list-live / supersede / delete |
-| Port | `@magna-carta/search` — `port.ts`, `fusion.ts` | `SearchIndexPort` (index/remove/query), typed outcomes, reciprocal rank fusion |
-| Worker | `apps/worker/src/search/` | `resolveSearchIndexPort` (service binding or deferred), `runKeywordSearch` (catalog → engine), `runHybridSearch` (RRF, degrades gracefully) |
+| Layer       | Where                                                                                   | What it does                                                                                                                                |
+| ----------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Design      | `docs/specs/2026-07-17-discovery-search-index-stateful-service-design.md` + pending ADR | Splits in per-firm R2, footer-pruning + ranged reads, catalog in the firm DO, Vectorize namespace-per-firm, RRF                             |
+| Engine core | `crates/search-core` (Tantivy 0.26, pure Rust)                                          | Build/store/query a **split**; a read-only `Directory` over a `RangeReader` so a query reads only the postings it walks                     |
+| Catalog     | `index_split` per-firm table + `@magna-carta/data-access/index-split-statements`        | Which splits are live for a matter; insert / list-live / supersede / delete                                                                 |
+| Port        | `@magna-carta/search` — `port.ts`, `fusion.ts`                                          | `SearchIndexPort` (index/remove/query), typed outcomes, reciprocal rank fusion                                                              |
+| Worker      | `apps/worker/src/search/`                                                               | `resolveSearchIndexPort` (service binding or deferred), `runKeywordSearch` (catalog → engine), `runHybridSearch` (RRF, degrades gracefully) |
 
 ### What does not exist yet
 
@@ -49,7 +49,7 @@ The owner chose **per-document splits** for idempotency. Concretely:
   path (the `ConversionJob` DO + `CONVERSION` queue is the shape to copy). Idempotent on
   `documentId + version`; a failure dead-letters and retries — never silently drops a document, which
   would be a defensibility failure.
-- The OCR/searchable-PDF work already on `main` is the *extract* half; this wires it to the index.
+- The OCR/searchable-PDF work already on `main` is the _extract_ half; this wires it to the index.
 
 ### 2. `apps/search-worker` — the engine runtime (deploy-gated)
 
@@ -95,7 +95,7 @@ is very likely `PII_TABLES` with a subject key, not a blanket non-PII entry). Ro
 
 - **Do not run `vp check --fix` blind on files using `.sort()`.** The autofix rewrites it to
   `.toSorted()`, which is not in the ES2022 lib several packages pin — it broke typecheck once here.
-  The `.sort()` lint finding is a *warning* that `main` also carries; leave it.
+  The `.sort()` lint finding is a _warning_ that `main` also carries; leave it.
 - **Migration journal conflicts are routine.** Parallel branches both claim the next `idx`. Keep both
   entries, order by timestamp tag, renumber `idx` monotonically, and add the import + map entry in
   `apps/worker/src/per-firm-migrations.ts`.
