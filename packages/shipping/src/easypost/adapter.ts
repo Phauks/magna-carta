@@ -7,6 +7,7 @@ import type { ShippingPort } from "../port.ts";
 import {
   classifyError,
   mapAddress,
+  mapInsurance,
   mapLabel,
   mapRatedShipment,
   mapRefund,
@@ -54,14 +55,13 @@ export function createEasyPostAdapter(deps: EasyPostAdapterDeps): Adapter<Shippi
         path: string,
         body: unknown,
         map: (json: unknown) => T,
-        extraHeaders: Record<string, string> = {},
       ): Promise<Dispatch<T>> {
         let response;
         try {
           response = await deps.http.request({
             method,
             url: `${baseUrl}${path}`,
-            headers: { ...headers, ...extraHeaders },
+            headers,
             body: body === undefined ? undefined : JSON.stringify(body),
           });
         } catch {
@@ -130,18 +130,16 @@ export function createEasyPostAdapter(deps: EasyPostAdapterDeps): Adapter<Shippi
           );
         },
         buyLabel(input: BuyLabelRequest) {
+          // EasyPost has no idempotency-key facility on any endpoint, so a retried buy is a second
+          // real purchase. Double-buy protection therefore lives on our side of the boundary, in
+          // the caller's per-shipment purchase claim — never in a header this API would ignore.
           const body = {
             rate: { id: input.remoteRateId },
             label_format: input.labelFormat ?? "PDF",
+            ...mapInsurance(input.insuranceAmountMinor),
           };
-          const extra: Record<string, string> =
-            input.idempotencyKey === undefined ? {} : { "Idempotency-Key": input.idempotencyKey };
-          return call(
-            "POST",
-            `/shipments/${input.remoteShipmentId}/buy`,
-            body,
-            (json) => mapLabel(json as never),
-            extra,
+          return call("POST", `/shipments/${input.remoteShipmentId}/buy`, body, (json) =>
+            mapLabel(json as never),
           );
         },
         getTracking(trackingCode: string) {

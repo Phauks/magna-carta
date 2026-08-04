@@ -9,8 +9,10 @@ Send mail and packages — including **USPS Certified Mail** with return receipt
 ## Common tasks (once the screens ship)
 
 - **Connect your account.** An administrator connects the firm's shipping provider account. See the administrator guide for setup. _(Provider: EasyPost.)_
-- **Create a shipment.** Enter the recipient address, package details, and any options (certified mail, return receipt, signature).
-- **Compare rates and buy a label.** Pick a rate, buy the label, and print it.
+- **Change or remove the connection.** An administrator can disconnect the account, or connect again with a new key to replace the old one — the usual way to rotate a key you no longer trust. While no account is connected, rating, buying, and tracking are unavailable.
+- **Create a shipment.** Enter the recipient address, package details, and any options (certified mail, return receipt, signature, declared insurance value).
+- **Compare rates and buy a label.** Pick a rate, buy the label, and print it. Any insurance you declared on the shipment is bought together with the label; insurance is billed separately from postage.
+- **Buy a label once.** A shipment can hold only one live label. If you try to buy again for the same shipment, Magna Carta refuses rather than risk a second charge — refund the existing label first if you need to rebuy.
 - **Track a package.** Open a shipment to see its latest tracking status.
 
 ## Related features
