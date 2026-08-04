@@ -2,7 +2,13 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { pad, parseAdrFile, serializeAdrFile } from "./adr-file.mjs";
+import {
+  assertValidAdrRecord,
+  collectAdrRecords,
+  pad,
+  parseAdrFile,
+  serializeAdrFile,
+} from "./adr-file.mjs";
 import { assignNumbers } from "./assign.mjs";
 import { planMigration } from "./migrate-decisions.mjs";
 import { renderRegister, replaceRegister } from "./render-register.mjs";
@@ -13,11 +19,18 @@ const PENDING_DIR = join(DECISIONS_DIR, "pending");
 const LOG_PATH = join(ROOT, "docs/Decision-Log.md");
 const ID_PREFIX = "ADR-";
 
+// Every numbered file is read through the same validation as a pending fragment. They are generated
+// output, but a corrupt one renders a corrupt register bullet forever, and the register is the only
+// place most readers ever look — so the assembly stops rather than re-emitting the damage.
 function numberedFiles() {
   if (!existsSync(DECISIONS_DIR)) return [];
   return readdirSync(DECISIONS_DIR)
     .filter((name) => /^\d{4}-.+\.md$/.test(name))
-    .map((name) => parseAdrFile(readFileSync(join(DECISIONS_DIR, name), "utf8")));
+    .map((name) => {
+      const context = `docs/decisions/${name}`;
+      const record = parseAdrFile(readFileSync(join(DECISIONS_DIR, name), "utf8"), context);
+      return assertValidAdrRecord(record, context);
+    });
 }
 
 function firstCommitTime(path) {
@@ -86,6 +99,25 @@ export function partitionPending(presentNames, trackedNames) {
   return { number, skipped };
 }
 
+// Read and validate the whole pending set BEFORE anything is numbered, renamed, or deleted. A
+// fragment is consumed by folding it, so a failure discovered halfway through would leave the
+// branch half-assembled; validating first makes a malformed fragment a clean, loud no-op.
+function readPendingRecords(names) {
+  const { records, problems } = collectAdrRecords(
+    names.map((name) => ({
+      key: name,
+      context: `docs/decisions/pending/${name}`,
+      markdown: readFileSync(join(PENDING_DIR, name), "utf8"),
+    })),
+  );
+  if (problems.length > 0) {
+    throw new Error(
+      `decisions: ${problems.length} pending fragment(s) are malformed and none were numbered.\n\n${problems.join("\n")}\n\nFix the fragment(s) and re-run. Format: docs/decisions/README.md. Check them anytime with \`pnpm run lint:decisions\`.`,
+    );
+  }
+  return records;
+}
+
 function assemblePending() {
   if (!existsSync(PENDING_DIR)) return;
   const present = readdirSync(PENDING_DIR).filter((name) => name.endsWith(".md"));
@@ -96,6 +128,7 @@ function assemblePending() {
     );
   }
   if (pendingNames.length === 0) return;
+  const records = readPendingRecords(pendingNames);
   const ordered = pendingNames
     .map((name) => ({ name, time: firstCommitTime(join(PENDING_DIR, name)) }))
     .sort((left, right) => left.time - right.time || left.name.localeCompare(right.name))
@@ -106,7 +139,7 @@ function assemblePending() {
     ordered.map((name) => name.replace(/\.md$/, "")),
   );
   for (const { slug, number } of assigned) {
-    const record = parseAdrFile(readFileSync(join(PENDING_DIR, `${slug}.md`), "utf8"));
+    const record = records.get(`${slug}.md`);
     record.number = number;
     record.slug = slug;
     writeFileSync(join(DECISIONS_DIR, `${pad(number)}-${slug}.md`), serializeAdrFile(record));
@@ -123,8 +156,15 @@ function regenerateRegister() {
 // Run the side effects only when invoked as a script — importing this module (e.g. from a test for
 // partitionPending) must not rewrite the real register.
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  if (process.argv.includes("--migrate")) migrate();
-  assemblePending();
-  regenerateRegister();
+  try {
+    if (process.argv.includes("--migrate")) migrate();
+    assemblePending();
+    regenerateRegister();
+  } catch (error) {
+    // A malformed decision file must stop the assembly with a readable reason, not a stack trace
+    // over a half-written register.
+    console.error(`\n${error.message}\n`);
+    process.exit(1);
+  }
   console.log("decisions: register regenerated");
 }

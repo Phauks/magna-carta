@@ -1,16 +1,13 @@
 ---
 number: 212
 slug: custodian-register-model
-status:
-date:
-area:
+status: Accepted
+date: 2026-08-04
+area: Custodian
+summary: "A packet is the unit of custody and an item the unit of description: `custody_packet` carries the number, location, status, owners, depositor, and optional matter link, and a movement always moves a packet; `custody_item` describes one thing inside it and never moves between packets by an edit. Ownership anchors at a Directory entity and is MANDATORY — at least one `custody_owner` link at creation, enforced in the write path — because the catastrophic outcome in safe custody is an unattributable packet, not a misplaced one; the matter link stays nullable. One recursive `custody_location` tree roots optionally at a firm Location, so a bank vault or offsite vendor participates without becoming a `location` row; capacity is out of scope with no column reserved. `POST /movements` is the only state-change path and the ledger is append-only behind BEFORE UPDATE / BEFORE DELETE / replace-guard triggers, with corrections as compensating rows and `occurred_at` separate from `recorded_at`. Custody numbers reuse the matters allocation-ledger idiom, and scanned copies are ordinary File Manager files, with a matterless packet filing onto a per-firm `system` holding matter rather than relaxing `file.matter_id`."
 ---
 
-# Custodian register model — packet over item, owner at the Directory, one append-only movement path
-
-**Status:** Proposed
-**Date:** 2026-08-04
-**Area:** Custodian
+**A packet is the unit of custody, ownership anchors at a mandatory Directory link, and every state change is one append-only movement through a single route.**
 
 ## Context
 
@@ -61,6 +58,10 @@ write, allocation claim, bounded retry — with a fixed number shape rather than
 segment-template engine. **Scanned copies are ordinary File Manager files** linked through a
 `custody_scan` row; a matterless packet files onto a per-firm `system` holding matter rather than
 relaxing `file.matter_id`.
+
+**Owner decision, 2026-08-04.** All three schema recommendations are accepted as written: the
+packet/item hierarchy, the mandatory Directory owner link, and the per-firm `system` holding matter
+for matterless scans.
 
 ## Considered options
 
