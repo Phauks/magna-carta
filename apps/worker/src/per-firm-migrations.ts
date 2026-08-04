@@ -17,6 +17,8 @@ import seedEsignSealSql from "@magna-carta/database/drizzle/per-firm/20260803T12
 import matterNumberAllocationSql from "@magna-carta/database/drizzle/per-firm/20260804T072255_matter-number-allocation.sql";
 import indexSplitDocumentVersionSql from "@magna-carta/database/drizzle/per-firm/20260804T082351_index-split-document-version.sql";
 import shipmentPurchaseClaimSql from "@magna-carta/database/drizzle/per-firm/20260804T120000_shipment-purchase-claim.sql";
+import documentAutomationSql from "@magna-carta/database/drizzle/per-firm/20260804T150000_document-automation.sql";
+import seedDocumentAutomationPermissionsSql from "@magna-carta/database/drizzle/per-firm/20260804T150001_seed-document-automation-permissions.sql";
 import custodianRegisterSql from "@magna-carta/database/drizzle/per-firm/20260804T160000_custodian-register.sql";
 import seedCustodyCatalogSql from "@magna-carta/database/drizzle/per-firm/20260804T160001_seed-custody-catalog.sql";
 
@@ -46,6 +48,8 @@ export function perFirmMigrations(): Migration[] {
     "20260804T072255_matter-number-allocation": matterNumberAllocationSql,
     "20260804T082351_index-split-document-version": indexSplitDocumentVersionSql,
     "20260804T120000_shipment-purchase-claim": shipmentPurchaseClaimSql,
+    "20260804T150000_document-automation": documentAutomationSql,
+    "20260804T150001_seed-document-automation-permissions": seedDocumentAutomationPermissionsSql,
     "20260804T160000_custodian-register": custodianRegisterSql,
     "20260804T160001_seed-custody-catalog": seedCustodyCatalogSql,
   });

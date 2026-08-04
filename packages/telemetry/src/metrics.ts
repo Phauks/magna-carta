@@ -106,6 +106,25 @@ export const costsRecoveryUnhandledTopic = defineMetric("costs.recovery.unhandle
   "topic",
 ] as const);
 
+// Document automation. A MERGE-FIELD KEY IS NOT A DIMENSION here: dictionary-declared keys are
+// enum-like and would be tolerable, but a firm's own custom-field entries are keyed by firm-defined
+// handles, and a rule that admits one and not the other is a rule that gets applied wrongly. `source`
+// is the dimension; the key is recorded on the per-firm assembly row instead.
+export const documentAssemblyJobs = defineMetric("documentAssembly.jobs", [
+  "outcome",
+  "stage",
+] as const);
+// How often each dictionary source fails to resolve — the signal that a firm's templates and a firm's
+// data have drifted apart, which is the condition the field inspector exists to repair.
+export const documentAssemblyAbsentField = defineMetric("documentAssembly.absentField", [
+  "source",
+] as const);
+// How often registration rejects a template and which authoring form it came from — the signal that
+// says whether text delimiters were the right primary form.
+export const documentTemplateNormalization = defineMetric("documentTemplate.normalization", [
+  "outcome",
+  "placeholderForm",
+] as const);
 // Custodian — the register of physical client originals. Every dimension here is an enum-like label
 // from a closed set; a CUSTODY NUMBER is never one, for the same reason a merge-field key is not: it
 // is firm-defined, high-cardinality, and printed on a physical object a person can be identified by.
@@ -142,6 +161,9 @@ const CATALOG: readonly MetricDefinition[] = [
   costsRecoveryReplayedAfterPurge,
   costsRecoveryFingerprintMismatch,
   costsRecoveryUnhandledTopic,
+  documentAssemblyJobs,
+  documentAssemblyAbsentField,
+  documentTemplateNormalization,
   custodyMovements,
   custodyPacketsOverdue,
   custodyHoldBlocked,

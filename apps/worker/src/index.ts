@@ -1,6 +1,8 @@
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import { createApp, type Bindings } from "./app.ts";
+import { documentAssemblyQueue } from "./assemblies/assembly-consumer.ts";
+import type { DocumentAssemblyMessage } from "./assemblies/assembly-types.ts";
 import { conversionQueue } from "./conversions/conversion-consumer.ts";
 import type { ConversionMessage } from "./conversions/conversion-types.ts";
 import { perFirmQueue, type PerFirmQueueMessage } from "./costs/recoverable-charge-consumer.ts";
@@ -25,6 +27,10 @@ export { BundleBuildCoordinator } from "./downloads/bundle-coordinator.ts";
 // The conversion-job coordinator Durable Object: keyed firmId:jobId, single-flights one conversion
 // per job. Exported so the runtime can instantiate the class named in wrangler.jsonc's binding.
 export { ConversionJob } from "./conversions/conversion-coordinator.ts";
+
+// The document-assembly job coordinator Durable Object: keyed firmId:assemblyId, single-flights one
+// assembly per job. Exported so the runtime can instantiate the class named in wrangler.jsonc's binding.
+export { DocumentAssemblyJob } from "./assemblies/assembly-coordinator.ts";
 
 // The per-firm SQLite-backed database Durable Object: one instance per firm (idFromName(firmId)),
 // self-migrating on wake. Must be exported here so the runtime can instantiate the class named in
@@ -66,6 +72,10 @@ const EMAILS_CAPTURE_QUEUE = "magna-carta-production-emails-capture";
 // The search-index queue's name — the queue() handler routes its batches to the index consumer, which
 // extracts one document version's text, builds its split, and converges the per-firm split catalog.
 const SEARCH_INDEX_QUEUE = "magna-carta-production-search-index";
+
+// The document-assembly queue's name — the queue() handler routes its batches to the assembly consumer,
+// which merges one template version against one matter and files the result through the ingest gate.
+const DOCUMENT_ASSEMBLY_QUEUE = "magna-carta-production-document-assembly";
 
 // createApp defaults the plugin runtime to the production seam — the firm_secret credential store
 // throws until the marketplace wires the live credential read; carrier calls use a fetch-backed
@@ -143,6 +153,10 @@ export default {
     // The search-index queue routes to the index consumer (extract -> build split -> catalog).
     if (batch.queue === SEARCH_INDEX_QUEUE) {
       return searchIndexQueue(batch as MessageBatch<SearchIndexMessage>, env);
+    }
+    // The document-assembly queue routes to the assembly consumer (resolve -> merge -> file).
+    if (batch.queue === DOCUMENT_ASSEMBLY_QUEUE) {
+      return documentAssemblyQueue(batch as MessageBatch<DocumentAssemblyMessage>, env);
     }
     // Both the interactive files-ingest queue and the bulk files-ingest-bulk queue route to the
     // same ingest handler — the lane separation is entirely in queue topology and concurrency.

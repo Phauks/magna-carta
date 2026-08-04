@@ -1871,6 +1871,135 @@ export type ConversionStatus = {
     reason?: string;
 };
 
+export type TemplateUploadResponse = {
+    uploadKey: string;
+    uploadUrl: string;
+};
+
+export type RegisteredTemplate = {
+    templateId: string;
+    versionId: string;
+    versionNumber: number;
+    status: string;
+    fieldCount: number;
+    macroPartsRemoved: number;
+    mergeFieldsConverted: boolean;
+    mergeFieldsDetected: Array<TemplateMergeFieldDetection>;
+    warnings: Array<TemplateNormalizationWarning>;
+};
+
+export type TemplateMergeFieldDetection = {
+    fieldName: string;
+    mappedKey: string;
+    part: string;
+    occurrences: number;
+    form: string;
+    mapsToKnownField: boolean;
+};
+
+export type TemplateNormalizationWarning = {
+    code: string;
+    part: string;
+    detail: string;
+};
+
+export type RegisterTemplateRequest = {
+    uploadKey: string;
+    name: string;
+    description?: string | null;
+    matterTypeId?: string | null;
+    locationId?: string | null;
+    /**
+     * Whether to convert Word merge fields in the uploaded document into this system's {{field}} form. Leave this off to see what the document contains first: the response lists every Word merge field found, and the document is left exactly as you authored it. Turning it on rewrites each one in place — the document you registered is not the document you uploaded — and is required before a document that uses Word merge fields can be registered, because Word merge fields are not filled in by this system as they stand.
+     */
+    convertMergeFields?: boolean;
+};
+
+export type RegisterTemplateVersionRequest = {
+    uploadKey: string;
+    /**
+     * Whether to convert Word merge fields in the uploaded document into this system's {{field}} form. Leave this off to see what the document contains first: the response lists every Word merge field found, and the document is left exactly as you authored it. Turning it on rewrites each one in place — the document you registered is not the document you uploaded — and is required before a document that uses Word merge fields can be registered, because Word merge fields are not filled in by this system as they stand.
+     */
+    convertMergeFields?: boolean;
+};
+
+export type TemplatePage = {
+    data: Array<TemplateSummary>;
+    nextCursor: string | null;
+};
+
+export type TemplateSummary = {
+    templateId: string;
+    name: string;
+    description: string | null;
+    matterTypeId: string | null;
+    locationId: string | null;
+    status: string;
+    currentVersionId: string | null;
+    createdAt: string;
+    updatedAt: string;
+};
+
+export type TemplateFields = {
+    templateId: string;
+    versionId: string;
+    versionNumber: number;
+    normalizerVersion: number;
+    fields: Array<TemplateFieldEntry>;
+    warnings: Array<TemplateNormalizationWarning>;
+};
+
+export type TemplateFieldEntry = {
+    key: string;
+    format: string | null;
+    occurrences: number;
+    parts: Array<string>;
+    forms: Array<string>;
+    source: string | null;
+    valueType: string | null;
+    absence: string | null;
+    description: string | null;
+};
+
+export type ArchivedTemplate = {
+    templateId: string;
+    status: 'archived';
+};
+
+export type MergeFields = {
+    fields: Array<MergeFieldEntry>;
+};
+
+export type MergeFieldEntry = {
+    key: string;
+    source: string;
+    valueType: string;
+    defaultFormat: string;
+    formats: Array<string>;
+    absence: string;
+    description: string;
+};
+
+export type SubmittedAssembly = {
+    assemblyId: string;
+    status: 'queued';
+};
+
+export type SubmitAssemblyRequest = {
+    templateVersionId: string;
+    folderId?: string | null;
+};
+
+export type AssemblyStatus = {
+    assemblyId: string;
+    status: 'queued' | 'running' | 'done' | 'failed';
+    outcome: string | null;
+    fileId: string | null;
+    fileVersionId: string | null;
+    absentFieldKeys: Array<string>;
+    reason: string | null;
+};
+
 export type SupportGrantSummary = {
     id: string;
     tier: 'diagnostic' | 'privileged';
@@ -11626,6 +11755,412 @@ export type ConversionsStatusResponses = {
 };
 
 export type ConversionsStatusResponse = ConversionsStatusResponses[keyof ConversionsStatusResponses];
+
+export type TemplatesUploadData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/templates/upload';
+};
+
+export type TemplatesUploadErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or no such template
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TemplatesUploadError = TemplatesUploadErrors[keyof TemplatesUploadErrors];
+
+export type TemplatesUploadResponses = {
+    /**
+     * The staging key and the presigned upload URL
+     */
+    200: TemplateUploadResponse;
+};
+
+export type TemplatesUploadResponse = TemplatesUploadResponses[keyof TemplatesUploadResponses];
+
+export type TemplatesListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        cursor?: string;
+        status?: 'active' | 'archived';
+        matterTypeId?: string;
+    };
+    url: '/api/v1/templates';
+};
+
+export type TemplatesListErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or no such template
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TemplatesListError = TemplatesListErrors[keyof TemplatesListErrors];
+
+export type TemplatesListResponses = {
+    /**
+     * A cursor-paginated page of templates
+     */
+    200: TemplatePage;
+};
+
+export type TemplatesListResponse = TemplatesListResponses[keyof TemplatesListResponses];
+
+export type TemplatesRegisterData = {
+    body: RegisterTemplateRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/templates';
+};
+
+export type TemplatesRegisterErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or no such template
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * The uploaded document cannot be registered as a template
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TemplatesRegisterError = TemplatesRegisterErrors[keyof TemplatesRegisterErrors];
+
+export type TemplatesRegisterResponses = {
+    /**
+     * The template and its first version were registered
+     */
+    201: RegisteredTemplate;
+};
+
+export type TemplatesRegisterResponse = TemplatesRegisterResponses[keyof TemplatesRegisterResponses];
+
+export type TemplatesAddVersionData = {
+    body: RegisterTemplateVersionRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        templateId: string;
+    };
+    query?: never;
+    url: '/api/v1/templates/{templateId}/versions';
+};
+
+export type TemplatesAddVersionErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or no such template
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * The uploaded document cannot be registered as a template version
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TemplatesAddVersionError = TemplatesAddVersionErrors[keyof TemplatesAddVersionErrors];
+
+export type TemplatesAddVersionResponses = {
+    /**
+     * The new version was registered
+     */
+    201: RegisteredTemplate;
+};
+
+export type TemplatesAddVersionResponse = TemplatesAddVersionResponses[keyof TemplatesAddVersionResponses];
+
+export type TemplatesFieldsData = {
+    body?: never;
+    path: {
+        templateId: string;
+        versionId: string;
+    };
+    query?: never;
+    url: '/api/v1/templates/{templateId}/versions/{versionId}/fields';
+};
+
+export type TemplatesFieldsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or no such template
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TemplatesFieldsError = TemplatesFieldsErrors[keyof TemplatesFieldsErrors];
+
+export type TemplatesFieldsResponses = {
+    /**
+     * The version's field manifest, resolved against the merge-field dictionary
+     */
+    200: TemplateFields;
+};
+
+export type TemplatesFieldsResponse = TemplatesFieldsResponses[keyof TemplatesFieldsResponses];
+
+export type TemplatesArchiveData = {
+    body?: never;
+    path: {
+        templateId: string;
+    };
+    query?: never;
+    url: '/api/v1/templates/{templateId}/archive';
+};
+
+export type TemplatesArchiveErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or no such template
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TemplatesArchiveError = TemplatesArchiveErrors[keyof TemplatesArchiveErrors];
+
+export type TemplatesArchiveResponses = {
+    /**
+     * The template is archived
+     */
+    200: ArchivedTemplate;
+};
+
+export type TemplatesArchiveResponse = TemplatesArchiveResponses[keyof TemplatesArchiveResponses];
+
+export type TemplatesMergeFieldsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/merge-fields';
+};
+
+export type TemplatesMergeFieldsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or no such template
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TemplatesMergeFieldsError = TemplatesMergeFieldsErrors[keyof TemplatesMergeFieldsErrors];
+
+export type TemplatesMergeFieldsResponses = {
+    /**
+     * The merge-field dictionary as this firm sees it
+     */
+    200: MergeFields;
+};
+
+export type TemplatesMergeFieldsResponse = TemplatesMergeFieldsResponses[keyof TemplatesMergeFieldsResponses];
+
+export type AssembliesSubmitData = {
+    body: SubmitAssemblyRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        matterId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/assemblies';
+};
+
+export type AssembliesSubmitErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks documents:assemble
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or no such matter or assembly
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * The template version cannot be assembled from
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type AssembliesSubmitError = AssembliesSubmitErrors[keyof AssembliesSubmitErrors];
+
+export type AssembliesSubmitResponses = {
+    /**
+     * The assembly was accepted and is now queued
+     */
+    202: SubmittedAssembly;
+};
+
+export type AssembliesSubmitResponse = AssembliesSubmitResponses[keyof AssembliesSubmitResponses];
+
+export type AssembliesStatusData = {
+    body?: never;
+    path: {
+        matterId: string;
+        assemblyId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/assemblies/{assemblyId}';
+};
+
+export type AssembliesStatusErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks documents:assemble
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or no such matter or assembly
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type AssembliesStatusError = AssembliesStatusErrors[keyof AssembliesStatusErrors];
+
+export type AssembliesStatusResponses = {
+    /**
+     * The assembly's current state
+     */
+    200: AssemblyStatus;
+};
+
+export type AssembliesStatusResponse = AssembliesStatusResponses[keyof AssembliesStatusResponses];
 
 export type SupportGrantsListData = {
     body?: never;

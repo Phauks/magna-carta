@@ -38,6 +38,9 @@ import type {
   DirectoryPartyRoleId,
   DirectoryPersonId,
   DirectoryPhoneId,
+  DocumentAssemblyId,
+  DocumentTemplateId,
+  DocumentTemplateVersionId,
   DocumentTypeId,
   DocumentCheckoutId,
   EmailAttachmentId,
@@ -2117,6 +2120,186 @@ export const emailCaptureAddress = sqliteTable(
     uniqueIndex("email_capture_address_token_unique_index").on(table.token),
     index("email_capture_address_matter_id_index").on(table.matterId),
     check("email_capture_address_kind_check", sql`${table.kind} IN ('matter', 'catchAll')`),
+  ],
+);
+
+// ---------------------------------------------------------------------------------------------
+// Document automation — the assembly-template catalogue and the provenance of what it produced.
+// ---------------------------------------------------------------------------------------------
+
+// The catalogue row for one assembly template. Firm-level and never a matter document: a template
+// carries no matter data, which is why it lives here rather than as a `file` row (file.matter_id is NOT
+// NULL, and relaxing that would touch the quarantine gate and every matter-scoped read in the File
+// Manager for one consumer's convenience).
+//
+// Soft-archive only, never deleted — a template that produced a filed document must remain explicable.
+// `matter_type_id` and `location_id` are optional NARROWINGS of an otherwise firm-wide template: when
+// set they limit which matters offer it; they never gate who may read the catalogue.
+export const documentTemplate = sqliteTable(
+  "document_template",
+  {
+    id: text("id").primaryKey().$type<DocumentTemplateId>(), // documentTemplate_ handle
+    name: text("name").notNull(),
+    description: text("description"),
+    matterTypeId: text("matter_type_id")
+      .$type<MatterTypeId>()
+      .references(() => matterType.id),
+    locationId: text("location_id")
+      .$type<LocationId>()
+      .references(() => location.id),
+    status: text("status", { enum: ["active", "archived"] })
+      .notNull()
+      .default("active"),
+    // Forward reference — set when a version's bytes clear the ingest gate, exactly like
+    // file.current_version_id.
+    currentVersionId: text("current_version_id")
+      .$type<DocumentTemplateVersionId>()
+      .references((): AnySQLiteColumn => documentTemplateVersion.id),
+    createdBy: text("created_by").$type<UserId>(), // not an FK — the authoring fact outlives the member row
+    archivedAt: text("archived_at"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    // The catalogue list filters on status and sorts by name; one composite serves both.
+    index("document_template_status_name_index").on(table.status, table.name),
+    index("document_template_matter_type_id_index").on(table.matterTypeId),
+    check("document_template_name_nonempty_check", sql`length(${table.name}) > 0`),
+    check("document_template_status_check", sql`${table.status} IN ('active', 'archived')`),
+  ],
+);
+
+// An immutable registered version of a template's bytes, mirroring file_version's shape and its gate:
+// the status ladder (pending -> clean | quarantined | abandoned) is the quarantine mechanism, and only a
+// `clean` version may be assembled from. Nothing outside the firm-scoped data-access layer may assume
+// the stored object is raw bytes — storage_encoding is the discriminator that keeps that true.
+//
+// The field manifest is stored, not re-derived: it is what lets an assembly plan its reads before
+// touching any XML, and it is what the field inspector shows an author. `normalizer_version` records the
+// transform that produced these bytes, so two versions registered under different normalizers stay
+// explicable rather than mysteriously different.
+export const documentTemplateVersion = sqliteTable(
+  "document_template_version",
+  {
+    id: text("id").primaryKey().$type<DocumentTemplateVersionId>(), // documentTemplateVersion_ handle
+    templateId: text("template_id")
+      .notNull()
+      .$type<DocumentTemplateId>()
+      .references((): AnySQLiteColumn => documentTemplate.id),
+    versionNumber: integer("version_number").notNull(),
+    r2Key: text("r2_key").notNull(),
+    sizeBytes: integer("size_bytes"),
+    contentSha256: text("content_sha256"),
+    storageEncoding: text("storage_encoding").notNull().default("full"),
+    storageClass: text("storage_class", { enum: ["standard", "infrequent_access"] })
+      .notNull()
+      .default("standard"),
+    status: text("status", { enum: ["pending", "clean", "quarantined", "abandoned"] })
+      .notNull()
+      .default("pending"),
+    scanVerdict: text("scan_verdict", { enum: ["unscanned", "clean", "flagged"] }),
+    scanEngineVersion: text("scan_engine_version"),
+    scanDetail: text("scan_detail"),
+    // The serialized field manifest and the normalization warnings the registration pass produced.
+    fieldManifestJson: text("field_manifest_json").notNull().default("{}"),
+    normalizationWarningsJson: text("normalization_warnings_json").notNull().default("[]"),
+    normalizerVersion: integer("normalizer_version").notNull().default(0),
+    // How many macro payload parts were stripped out of the upload before it was stored. A non-zero
+    // count is what the catalogue tells an administrator was removed from the template they registered.
+    macroPartsRemoved: integer("macro_parts_removed").notNull().default(0),
+    createdBy: text("created_by").$type<UserId>(),
+    createdAt: text("created_at").notNull(),
+    committedAt: text("committed_at"),
+  },
+  (table) => [
+    uniqueIndex("document_template_version_r2_key_unique_index").on(table.r2Key),
+    uniqueIndex("document_template_version_template_version_number_unique_index").on(
+      table.templateId,
+      table.versionNumber,
+    ),
+    index("document_template_version_template_id_created_at_id_index").on(
+      table.templateId,
+      table.createdAt,
+      table.id,
+    ),
+    check(
+      "document_template_version_status_check",
+      sql`${table.status} IN ('pending', 'clean', 'quarantined', 'abandoned')`,
+    ),
+    check(
+      "document_template_version_storage_class_check",
+      sql`${table.storageClass} IN ('standard', 'infrequent_access')`,
+    ),
+    check(
+      "document_template_version_scan_verdict_check",
+      sql`${table.scanVerdict} IS NULL OR ${table.scanVerdict} IN ('unscanned', 'clean', 'flagged')`,
+    ),
+  ],
+);
+
+// One row per assembly job — the reason the subsystem is auditable. It records the exact template
+// version used, so a document assembled in March and one assembled in September from a template revised
+// in June are explainably different rather than mysteriously so.
+//
+// It stores NO RESOLVED VALUES. The merge context exists in memory for the life of the job and is never
+// persisted, never logged, and never placed on a queue message; the only field-level record here is the
+// list of keys that were ABSENT, which by construction held nothing.
+export const documentAssembly = sqliteTable(
+  "document_assembly",
+  {
+    id: text("id").primaryKey().$type<DocumentAssemblyId>(), // documentAssembly_ handle
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    templateId: text("template_id")
+      .notNull()
+      .$type<DocumentTemplateId>()
+      .references((): AnySQLiteColumn => documentTemplate.id),
+    templateVersionId: text("template_version_id")
+      .notNull()
+      .$type<DocumentTemplateVersionId>()
+      .references((): AnySQLiteColumn => documentTemplateVersion.id),
+    folderId: text("folder_id")
+      .$type<FolderId>()
+      .references(() => folder.id),
+    status: text("status", { enum: ["queued", "running", "done", "failed"] })
+      .notNull()
+      .default("queued"),
+    outcome: text("outcome", { enum: ["succeeded", "succeeded_with_absences", "failed"] }),
+    // An error CODE from a closed set, never a failing value: a merge failure reports which key failed,
+    // never what it held.
+    failureReason: text("failure_reason"),
+    fileId: text("file_id")
+      .$type<FileId>()
+      .references(() => file.id),
+    fileVersionId: text("file_version_id")
+      .$type<FileVersionId>()
+      .references(() => fileVersion.id),
+    engineVersion: integer("engine_version").notNull().default(0),
+    dictionaryVersion: integer("dictionary_version").notNull().default(0),
+    absentFieldCount: integer("absent_field_count").notNull().default(0),
+    absentFieldKeysJson: text("absent_field_keys_json").notNull().default("[]"),
+    requestedBy: text("requested_by").$type<UserId>(),
+    createdAt: text("created_at").notNull(),
+    completedAt: text("completed_at"),
+  },
+  (table) => [
+    // A matter's assembly history keyset-paginates on (created_at DESC, id DESC) under a matter filter.
+    index("document_assembly_matter_id_created_at_id_index").on(
+      table.matterId,
+      table.createdAt,
+      table.id,
+    ),
+    index("document_assembly_template_version_id_index").on(table.templateVersionId),
+    check(
+      "document_assembly_status_check",
+      sql`${table.status} IN ('queued', 'running', 'done', 'failed')`,
+    ),
+    check(
+      "document_assembly_outcome_check",
+      sql`${table.outcome} IS NULL OR ${table.outcome} IN ('succeeded', 'succeeded_with_absences', 'failed')`,
+    ),
   ],
 );
 

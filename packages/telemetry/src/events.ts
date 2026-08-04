@@ -104,6 +104,18 @@ export const usageFeature = defineEvent("usage.feature", [
   "appVersion",
 ] as const);
 
+// document.assembled — one per finished assembly job. Redaction is structural: there is NO slot for a
+// template name, a matter identifier, a merge-field key, or a resolved value — only the outcome
+// classification, an error code from a closed set, and how many fields the matter could not supply.
+// That makes the "documents are being filed with holes in them" signal observable without any of the
+// document's content, and the absent KEYS (never values) are recorded on the assembly row instead,
+// which is per-firm data behind the firm-scoped data-access layer rather than cross-firm analytics.
+export const documentAssembled = defineEvent("document.assembled", [
+  "outcome",
+  "reason",
+  "absenceCount",
+] as const);
+
 // custody.movementRecorded — one per appended row of the physical-custody ledger. The redaction is
 // structural: there is NO slot for a packet handle, a custody number, a location name, a borrower, or
 // an item description. That matters more here than almost anywhere else — the register is a list of
@@ -131,5 +143,6 @@ export const EVENT_NAMES = [
   authDenied,
   ingestVerdict,
   usageFeature,
+  documentAssembled,
   custodyMovementRecorded,
 ].map((builder) => builder.eventName);

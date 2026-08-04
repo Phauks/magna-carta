@@ -1,0 +1,655 @@
+import { isLegalFormat, lookupDictionaryEntry } from "./dictionary.ts";
+import { readPartText, writePartText, type PartMap } from "./ooxml/package.ts";
+import { contentPartNames } from "./ooxml/parts.ts";
+import { attributesOf, buildXml, nodeTag, parseXml, textOf, type XmlNode } from "./ooxml/xml.ts";
+import type {
+  FieldManifest,
+  ManifestField,
+  MergeFieldDetection,
+  NormalizationWarning,
+  PlaceholderForm,
+} from "./types.ts";
+
+// Normalization is the load-bearing move of the whole subsystem: the fiddly, failure-prone half of DOCX
+// templating — a placeholder Word split across five runs, a `{{` in one run and its `}}` in the next, a
+// Word mail-merge field instead of typed text — runs ONCE per template version, at the moment a human is
+// looking at the result, and its output is the version's stored bytes. Every assembly thereafter is a
+// deterministic substitution over runs whose contents are already known.
+//
+// `{{key}}` text delimiters are the canonical form a paralegal types, and a registered template version
+// carries exactly that one form, so nothing downstream has to understand two. Content controls
+// (`w:sdt`) are a named seam, deferred until a browser authoring surface can emit them.
+//
+// A Word MERGEFIELD construct is an equivalent authoring form that CAN be converted into brace form
+// here — but conversion is OPT-IN, never automatic. Rewriting a firm's uploaded template is a change to
+// the firm's own document, so this pass always DETECTS what it found and reports it, and only rewrites
+// when the caller explicitly asked. A template carrying merge fields the caller did not opt in to
+// convert is refused rather than registered: an unconverted MERGEFIELD is invisible to the merge engine
+// and renders Word's frozen cached result, which would produce a filed document that looks complete and
+// is wrong — the exact failure the absence model exists to prevent.
+
+// The transform's version, recorded on every template version row. A normalizer change does not
+// retroactively apply to already-registered versions — correct, since versions are immutable — but it
+// does mean two versions registered under different normalizers can behave differently, so the version
+// that produced a package's bytes is stored alongside them and the difference stays explicable.
+export const NORMALIZER_VERSION = 1;
+
+export type NormalizationFailureCode =
+  | "unclosed-delimiter"
+  | "stray-delimiter"
+  | "empty-key"
+  | "unknown-key"
+  | "unknown-format"
+  | "block-syntax-unsupported"
+  | "merge-field-conversion-required"
+  | "unreadable-part";
+
+// A failure the author has to fix, with enough location for the field inspector to point at it.
+export interface NormalizationFailure {
+  readonly code: NormalizationFailureCode;
+  readonly part: string;
+  // The paragraph text the finding sits in, clipped — enough for an author to find the spot without
+  // reproducing a whole clause in an error payload.
+  readonly excerpt: string;
+  readonly detail: string;
+}
+
+export interface NormalizationResult {
+  readonly parts: PartMap;
+  readonly manifest: FieldManifest;
+  readonly warnings: readonly NormalizationWarning[];
+  readonly failures: readonly NormalizationFailure[];
+  // Every Word merge field the pass found, whether or not it converted any of them. This is the
+  // feedback half of the opt-in: it is what a caller shows an administrator so the decision to convert
+  // is an informed one.
+  readonly mergeFieldDetections: readonly MergeFieldDetection[];
+  readonly normalizerVersion: number;
+}
+
+export interface NormalizeOptions {
+  // OPT-IN. Absent or false: merge fields are detected and reported, and the document is left exactly as
+  // authored. True: each one is rewritten into the canonical brace form.
+  readonly convertMergeFields?: boolean;
+  // How a Word merge-field name maps onto a merge-field key. Identity by default; the per-firm
+  // field-mapping library replaces it (see MergeFieldNameResolver).
+  readonly resolveMergeFieldName?: MergeFieldNameResolver;
+}
+
+const EXCERPT_LIMIT = 120;
+
+function excerptOf(text: string): string {
+  const collapsed = text.replace(/\s+/g, " ").trim();
+  return collapsed.length <= EXCERPT_LIMIT ? collapsed : `${collapsed.slice(0, EXCERPT_LIMIT)}…`;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Building the one run a normalized placeholder lives in
+// ---------------------------------------------------------------------------------------------
+
+// A `w:t` written by this pass always carries xml:space="preserve". Word strips leading and trailing
+// whitespace from a text element that does not declare it, and a merge value legitimately begins or ends
+// with a space; without the attribute the document would silently lose it at exactly the join between a
+// substituted value and the sentence around it.
+function textElement(text: string): XmlNode {
+  return { "w:t": [{ "#text": text }], ":@": { "@_xml:space": "preserve" } };
+}
+
+function runElement(text: string, runProperties: XmlNode | undefined): XmlNode {
+  const children: XmlNode[] = [];
+  if (runProperties !== undefined) children.push(runProperties);
+  children.push(textElement(text));
+  return { "w:r": children };
+}
+
+function runPropertiesOf(run: XmlNode): XmlNode | undefined {
+  const children = run["w:r"];
+  if (!Array.isArray(children)) return undefined;
+  return (children as XmlNode[]).find((child) => nodeTag(child) === "w:rPr");
+}
+
+// ---------------------------------------------------------------------------------------------
+// Pass one — Word MERGEFIELD constructs to brace form
+// ---------------------------------------------------------------------------------------------
+
+// ` MERGEFIELD  "Client Name"  \* MERGEFORMAT ` -> `Client Name`. Returns undefined for any other field
+// instruction (PAGE, DATE, TOC and the rest), which is left exactly as authored — those are Word's
+// fields, not ours, and rewriting one would change what the document renders.
+function mergeFieldNameOf(instruction: string): string | undefined {
+  const match = /^\s*MERGEFIELD\s+(?:"([^"]*)"|([^\s\\]+))/i.exec(instruction);
+  if (match === null) return undefined;
+  return match[1] ?? match[2];
+}
+
+function fieldCharTypeOf(node: XmlNode): string | undefined {
+  const children = node["w:r"];
+  if (!Array.isArray(children)) return undefined;
+  for (const child of children as XmlNode[]) {
+    if (nodeTag(child) !== "w:fldChar") continue;
+    const type = attributesOf(child)["@_w:fldCharType"];
+    if (typeof type === "string") return type;
+  }
+  return undefined;
+}
+
+// The instruction text a run contributes. Word splits a long field instruction across several runs, so
+// the caller concatenates these in document order before parsing.
+function instructionTextOf(node: XmlNode): string {
+  const children = node["w:r"];
+  if (!Array.isArray(children)) return "";
+  let text = "";
+  for (const child of children as XmlNode[]) {
+    if (nodeTag(child) !== "w:instrText") continue;
+    for (const leaf of (child["w:instrText"] as XmlNode[] | undefined) ?? []) {
+      text += textOf(leaf);
+    }
+  }
+  return text;
+}
+
+// Maps a Word merge-field name onto a merge-field key. The identity mapping today: a template authored
+// against this platform names its fields the way the dictionary does, so `matter.number` maps to
+// `matter.number` and an unrecognized name stays unrecognized rather than being guessed at.
+//
+// It is a seam because the mapping is the part that has to become a firm's own knowledge. A firm
+// migrating from an older system has fields called `ClientName` and `FileNo`, and the durable answer is
+// a PER-FIRM FIELD-MAPPING LIBRARY: a firm-scoped store of confirmed name-to-key mappings that grows as
+// an administrator confirms them, so the second template import reuses what the first one established
+// instead of asking again. That store replaces this resolver; nothing else in the pass changes, because
+// everything downstream already works in dictionary keys.
+export type MergeFieldNameResolver = (fieldName: string) => string;
+
+const identityMergeFieldNameResolver: MergeFieldNameResolver = (fieldName) => fieldName;
+
+interface ConversionTally {
+  count: number;
+  // The keys the conversion emitted, so the manifest can record that an occurrence arrived as a Word
+  // merge field rather than as typed braces — without pass two having to know anything about fields.
+  readonly keys: Set<string>;
+  // Every construct found, converted or not. Detection is unconditional; conversion is not.
+  readonly detections: Map<
+    string,
+    { fieldName: string; occurrences: number; form: "simple" | "complex" }
+  >;
+  // Whether this pass is allowed to REWRITE what it finds. False means detect and report only, leaving
+  // the firm's document exactly as it was authored.
+  readonly convert: boolean;
+  readonly resolveName: MergeFieldNameResolver;
+}
+
+function recordDetection(
+  tally: ConversionTally,
+  fieldName: string,
+  form: "simple" | "complex",
+): void {
+  const existing = tally.detections.get(fieldName);
+  if (existing === undefined) {
+    tally.detections.set(fieldName, { fieldName, occurrences: 1, form });
+    return;
+  }
+  existing.occurrences += 1;
+}
+
+// Walk the complex field constructs (`begin` / `instrText` / `separate` / result / `end`) and simple
+// fields (`w:fldSimple`) in one sibling list, recording every merge field found and — only when the
+// caller opted in — rewriting each into the canonical brace form. Nesting is tracked by depth so a
+// MERGEFIELD inside another field's result is handled once, at the level it belongs to.
+function convertMergeFieldsInList(nodes: XmlNode[], tally: ConversionTally): XmlNode[] {
+  const out: XmlNode[] = [];
+  let index = 0;
+  while (index < nodes.length) {
+    const node = nodes[index];
+    if (node === undefined) {
+      index += 1;
+      continue;
+    }
+    const tag = nodeTag(node);
+
+    if (tag === "w:fldSimple") {
+      const instruction = attributesOf(node)["@_w:instr"];
+      const name = typeof instruction === "string" ? mergeFieldNameOf(instruction) : undefined;
+      const children = Array.isArray(node["w:fldSimple"]) ? (node["w:fldSimple"] as XmlNode[]) : [];
+      if (name !== undefined) {
+        recordDetection(tally, name, "simple");
+        if (!tally.convert) {
+          out.push(node);
+          index += 1;
+          continue;
+        }
+        const key = tally.resolveName(name);
+        const resultRun = children.find((child) => nodeTag(child) === "w:r");
+        out.push(
+          runElement(
+            `{{${key}}}`,
+            resultRun === undefined ? undefined : runPropertiesOf(resultRun),
+          ),
+        );
+        tally.count += 1;
+        tally.keys.add(key);
+      } else {
+        out.push({ ...node, "w:fldSimple": convertMergeFieldsInList(children, tally) });
+      }
+      index += 1;
+      continue;
+    }
+
+    if (tag === "w:r" && fieldCharTypeOf(node) === "begin") {
+      const start = index;
+      let depth = 0;
+      let instruction = "";
+      let firstResultRun: XmlNode | undefined;
+      let separated = false;
+      let end = -1;
+      for (let scan = index; scan < nodes.length; scan += 1) {
+        const candidate = nodes[scan];
+        if (candidate === undefined) continue;
+        const characterType = nodeTag(candidate) === "w:r" ? fieldCharTypeOf(candidate) : undefined;
+        if (characterType === "begin") {
+          depth += 1;
+          continue;
+        }
+        if (characterType === "end") {
+          depth -= 1;
+          if (depth === 0) {
+            end = scan;
+            break;
+          }
+          continue;
+        }
+        if (depth !== 1) continue;
+        if (characterType === "separate") {
+          separated = true;
+          continue;
+        }
+        if (separated) {
+          if (firstResultRun === undefined && nodeTag(candidate) === "w:r") {
+            firstResultRun = candidate;
+          }
+          continue;
+        }
+        instruction += instructionTextOf(candidate);
+      }
+
+      const name = end === -1 ? undefined : mergeFieldNameOf(instruction);
+      if (name !== undefined) {
+        recordDetection(tally, name, "complex");
+        if (!tally.convert) {
+          // Detected, reported, and left exactly as authored: the whole construct is emitted back
+          // untouched so the firm's document is unchanged.
+          for (let scan = start; scan <= end; scan += 1) {
+            const original = nodes[scan];
+            if (original !== undefined) out.push(original);
+          }
+          index = end + 1;
+          continue;
+        }
+        const key = tally.resolveName(name);
+        out.push(
+          runElement(
+            `{{${key}}}`,
+            firstResultRun === undefined ? undefined : runPropertiesOf(firstResultRun),
+          ),
+        );
+        tally.count += 1;
+        tally.keys.add(key);
+        index = end + 1;
+        continue;
+      }
+      // Not a merge field (or an unterminated construct): emit it exactly as authored.
+      out.push(node);
+      index = start + 1;
+      continue;
+    }
+
+    if (tag !== undefined && Array.isArray(node[tag])) {
+      out.push({ ...node, [tag]: convertMergeFieldsInList(node[tag] as XmlNode[], tally) });
+      index += 1;
+      continue;
+    }
+    out.push(node);
+    index += 1;
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Pass two — reassembling run-split brace placeholders
+// ---------------------------------------------------------------------------------------------
+
+interface TextLeaf {
+  readonly holder: XmlNode; // the w:t element
+  readonly text: string;
+}
+
+// Every w:t leaf under a paragraph, in document order. w:instrText and w:delText are deliberately not
+// collected: instruction text is a field's machinery (pass one already dealt with it) and deleted text
+// is not part of the document a reader sees, so a placeholder inside either is not a placeholder.
+function collectTextLeaves(node: XmlNode, out: TextLeaf[]): void {
+  const tag = nodeTag(node);
+  if (tag === undefined) return;
+  const children = node[tag];
+  if (!Array.isArray(children)) return;
+  if (tag === "w:t") {
+    let text = "";
+    for (const leaf of children as XmlNode[]) text += textOf(leaf);
+    out.push({ holder: node, text });
+    return;
+  }
+  for (const child of children as XmlNode[]) collectTextLeaves(child, out);
+}
+
+function setLeafText(holder: XmlNode, text: string): void {
+  holder["w:t"] = [{ "#text": text }];
+  holder[":@"] = { ...attributesOf(holder), "@_xml:space": "preserve" };
+}
+
+const PLACEHOLDER_PATTERN = /\{\{([^{}]*)\}\}/g;
+
+interface ParsedPlaceholder {
+  readonly key: string;
+  readonly format: string | null;
+  readonly canonical: string;
+}
+
+// `key`, or `key:format`, with surrounding whitespace tolerated on both — a paralegal who types
+// `{{ matter.number }}` has authored the same field as one who does not.
+function parsePlaceholderBody(body: string): ParsedPlaceholder {
+  const separator = body.indexOf(":");
+  if (separator === -1) {
+    const key = body.trim();
+    return { key, format: null, canonical: `{{${key}}}` };
+  }
+  const key = body.slice(0, separator).trim();
+  const format = body.slice(separator + 1).trim();
+  return { key, format, canonical: `{{${key}:${format}}}` };
+}
+
+const BLOCK_MARKER_PATTERN = /^[#/]/;
+
+interface FieldAccumulator {
+  key: string;
+  format: string | null;
+  occurrences: number;
+  parts: Set<string>;
+  forms: Set<PlaceholderForm>;
+}
+
+interface ParagraphOutcome {
+  readonly failures: NormalizationFailure[];
+}
+
+function normalizeParagraph(
+  paragraph: XmlNode,
+  partName: string,
+  accumulators: Map<string, FieldAccumulator>,
+  convertedKeys: ReadonlySet<string>,
+): ParagraphOutcome {
+  const failures: NormalizationFailure[] = [];
+  const leaves: TextLeaf[] = [];
+  collectTextLeaves(paragraph, leaves);
+  if (leaves.length === 0) return { failures };
+
+  const joined = leaves.map((leaf) => leaf.text).join("");
+  if (!joined.includes("{{") && !joined.includes("}}")) return { failures };
+  const excerpt = excerptOf(joined);
+
+  // The replacement plan, in joined-paragraph coordinates: what to emit where a placeholder starts, and
+  // which characters the placeholder consumed.
+  const replacementAt = new Map<number, string>();
+  const consumed = new Uint8Array(joined.length);
+  let matched = 0;
+
+  PLACEHOLDER_PATTERN.lastIndex = 0;
+  for (const match of joined.matchAll(PLACEHOLDER_PATTERN)) {
+    const start = match.index;
+    const whole = match[0];
+    const body = match[1] ?? "";
+    const parsed = parsePlaceholderBody(body);
+
+    if (BLOCK_MARKER_PATTERN.test(parsed.key)) {
+      failures.push({
+        code: "block-syntax-unsupported",
+        part: partName,
+        excerpt,
+        detail: `"${whole}" is a conditional or repeating block marker; those are built in slice 2·6·2. Remove it, or register this template once they ship.`,
+      });
+      continue;
+    }
+    if (parsed.key === "") {
+      failures.push({
+        code: "empty-key",
+        part: partName,
+        excerpt,
+        detail: `"${whole}" names no merge field.`,
+      });
+      continue;
+    }
+    const entry = lookupDictionaryEntry(parsed.key);
+    if (entry === undefined) {
+      failures.push({
+        code: "unknown-key",
+        part: partName,
+        excerpt,
+        detail: `"${parsed.key}" is not a merge field this firm has. Check the field list for the spelling.`,
+      });
+      continue;
+    }
+    if (parsed.format !== null && !isLegalFormat(entry, parsed.format)) {
+      failures.push({
+        code: "unknown-format",
+        part: partName,
+        excerpt,
+        detail: `"${parsed.format}" is not a rendering "${parsed.key}" supports.`,
+      });
+      continue;
+    }
+
+    matched += 1;
+    replacementAt.set(start, parsed.canonical);
+    consumed.fill(1, start, start + whole.length);
+
+    const accumulatorKey = `${parsed.key} ${parsed.format ?? ""}`;
+    let accumulator = accumulators.get(accumulatorKey);
+    if (accumulator === undefined) {
+      accumulator = {
+        key: parsed.key,
+        format: parsed.format,
+        occurrences: 0,
+        parts: new Set(),
+        forms: new Set(),
+      };
+      accumulators.set(accumulatorKey, accumulator);
+    }
+    accumulator.occurrences += 1;
+    accumulator.parts.add(partName);
+    accumulator.forms.add(convertedKeys.has(parsed.key) ? "mergeField" : "brace");
+  }
+
+  // Anything left uncovered is a delimiter with no partner. Reported rather than passed through, because
+  // a stray `{{` in a filed document is a visible defect and a lone `}}` usually means the opening brace
+  // landed in a different paragraph.
+  const residue = joined.replace(/\{\{[^{}]*\}\}/g, "");
+  if (residue.includes("{{")) {
+    failures.push({
+      code: "unclosed-delimiter",
+      part: partName,
+      excerpt,
+      detail: "A merge field opens with {{ and is never closed in the same paragraph.",
+    });
+  } else if (residue.includes("}}")) {
+    failures.push({
+      code: "stray-delimiter",
+      part: partName,
+      excerpt,
+      detail: "A }} appears with no matching {{ in the same paragraph.",
+    });
+  }
+
+  if (matched === 0) return { failures };
+
+  // Rewrite the leaves. Every character a placeholder consumed is dropped, and the whole canonical
+  // placeholder is emitted at its start offset — which lands it in exactly one w:t, in the run that held
+  // the opening brace, however many runs Word had scattered it across.
+  let offset = 0;
+  for (const leaf of leaves) {
+    let rewritten = "";
+    let touched = false;
+    for (let index = 0; index < leaf.text.length; index += 1) {
+      const absolute = offset + index;
+      const replacement = replacementAt.get(absolute);
+      if (replacement !== undefined) {
+        rewritten += replacement;
+        touched = true;
+      }
+      if (consumed[absolute] === 1) {
+        touched = true;
+        continue;
+      }
+      rewritten += leaf.text[index];
+    }
+    if (touched) setLeafText(leaf.holder, rewritten);
+    offset += leaf.text.length;
+  }
+
+  return { failures };
+}
+
+function forEachParagraph(nodes: XmlNode[], visit: (paragraph: XmlNode) => void): void {
+  for (const node of nodes) {
+    const tag = nodeTag(node);
+    if (tag === undefined) continue;
+    if (tag === "w:p") {
+      visit(node);
+      continue;
+    }
+    const children = node[tag];
+    if (Array.isArray(children)) forEachParagraph(children as XmlNode[], visit);
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
+// The pass
+// ---------------------------------------------------------------------------------------------
+
+export function normalizeTemplate(
+  parts: PartMap,
+  options: NormalizeOptions = {},
+): NormalizationResult {
+  const normalized: PartMap = new Map(parts);
+  const accumulators = new Map<string, FieldAccumulator>();
+  const warnings: NormalizationWarning[] = [];
+  const failures: NormalizationFailure[] = [];
+  const detections: MergeFieldDetection[] = [];
+  const convert = options.convertMergeFields === true;
+  const resolveName = options.resolveMergeFieldName ?? identityMergeFieldNameResolver;
+
+  for (const partName of contentPartNames(normalized.keys())) {
+    const xml = readPartText(normalized, partName);
+    if (xml === undefined) {
+      failures.push({
+        code: "unreadable-part",
+        part: partName,
+        excerpt: "",
+        detail: "The part could not be read as text.",
+      });
+      continue;
+    }
+
+    let nodes: XmlNode[];
+    try {
+      nodes = parseXml(xml);
+    } catch {
+      failures.push({
+        code: "unreadable-part",
+        part: partName,
+        excerpt: "",
+        detail: "The part is not well-formed XML.",
+      });
+      continue;
+    }
+
+    const tally: ConversionTally = {
+      count: 0,
+      keys: new Set(),
+      detections: new Map(),
+      convert,
+      resolveName,
+    };
+    const converted = convertMergeFieldsInList(nodes, tally);
+
+    for (const detection of tally.detections.values()) {
+      const mappedKey = resolveName(detection.fieldName);
+      detections.push({
+        fieldName: detection.fieldName,
+        mappedKey,
+        part: partName,
+        occurrences: detection.occurrences,
+        form: detection.form,
+        mapsToKnownField: lookupDictionaryEntry(mappedKey) !== undefined,
+      });
+    }
+
+    if (tally.count > 0) {
+      warnings.push({
+        code: "merge-field-converted",
+        part: partName,
+        detail: `${tally.count} Word merge field${tally.count === 1 ? "" : "s"} rewritten into the {{field}} form this template now stores.`,
+      });
+    }
+    // Detected but not converted: refuse rather than register. Left as authored, a merge field is
+    // invisible to the assembly engine — the document would render Word's frozen cached result and
+    // look finished. The caller either opts in to conversion or removes the fields in Word.
+    if (!convert && tally.detections.size > 0) {
+      const names = [...tally.detections.keys()].sort().join(", ");
+      failures.push({
+        code: "merge-field-conversion-required",
+        part: partName,
+        excerpt: names,
+        detail: `This document uses ${tally.detections.size} Word merge field${tally.detections.size === 1 ? "" : "s"} (${names}). Word merge fields are not filled in by this system as they stand. Register again asking for them to be converted to this system's {{field}} form, or replace them in Word first.`,
+      });
+    }
+
+    forEachParagraph(converted, (paragraph) => {
+      const outcome = normalizeParagraph(paragraph, partName, accumulators, tally.keys);
+      failures.push(...outcome.failures);
+    });
+
+    writePartText(normalized, partName, buildXml(converted));
+  }
+
+  const fields: ManifestField[] = [...accumulators.values()]
+    .map((accumulator) => ({
+      key: accumulator.key,
+      format: accumulator.format,
+      occurrences: accumulator.occurrences,
+      parts: [...accumulator.parts].sort(),
+      forms: [...accumulator.forms].sort(),
+    }))
+    .sort((left, right) =>
+      left.key === right.key
+        ? (left.format ?? "").localeCompare(right.format ?? "")
+        : left.key.localeCompare(right.key),
+    );
+
+  const totalOccurrences = fields.reduce((sum, field) => sum + field.occurrences, 0);
+  if (failures.length === 0 && fields.length === 0) {
+    warnings.push({
+      code: "no-placeholders",
+      part: "",
+      detail:
+        "The template carries no merge fields, so every assembly of it produces the same document.",
+    });
+  }
+
+  return {
+    parts: normalized,
+    manifest: { fields, totalOccurrences },
+    warnings,
+    failures,
+    mergeFieldDetections: detections.sort((left, right) =>
+      left.part === right.part
+        ? left.fieldName.localeCompare(right.fieldName)
+        : left.part.localeCompare(right.part),
+    ),
+    normalizerVersion: NORMALIZER_VERSION,
+  };
+}
