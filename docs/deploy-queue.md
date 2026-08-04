@@ -37,6 +37,35 @@ _Last updated: 2026-08-04 (second pass — tenancy fixes merged)._
    `pnpm run platform-seal-certificate` and set the emitted
    `wrangler secret put` values. The seal route serves 503 until then — safe.
 
+## LibreOffice conversion engine activation
+
+The engine (`containers/libreoffice`) gives bodies to the four registered office
+edges. Everything is committed; the steps below are the deploy, in order.
+
+1. **Deploy `apps/convert-worker` first, with the new Container class.** Its
+   `wrangler.jsonc` now carries a second `containers` entry
+   (`LibreOfficeEngineContainer`, `standard-2`), its Durable Object binding
+   (`LIBREOFFICE_ENGINE`), and migration tag `v2`. The app worker's
+   `CONVERT_WORKER_ENGINE_IDS` already names `libreoffice`, so deploying the app
+   worker first would route the engine id at a convert worker that does not know
+   it: a 501 the adapter maps to `adapter-error` and the job fails cleanly. That
+   is a degradation rather than an outage, which makes the order a strong
+   preference rather than a hazard — but it is free to get right.
+2. **Expect a long first build.** This image bakes an office suite and lands
+   around a gigabyte — an order of magnitude above every other container here —
+   so its first Workers Builds run will take substantially longer than any build
+   in this project so far. It fits: the limit is the instance disk (twelve
+   gigabytes on `standard-2`) against a fifty-gigabyte account image allowance.
+3. **No new bucket step.** The `conversions/` R2 lifecycle rule already on this
+   queue covers this engine's outputs too.
+4. **Verify readiness honestly.** This container's `/ready` answers 503 until a
+   worker has finished suite initialisation (tens of seconds), so a freshly
+   deployed instance reporting not-ready for half a minute is correct behaviour,
+   not a fault. If it never becomes ready, `docker logs` on the instance carries
+   the worker's initialisation error — the most likely causes are a missing
+   system library (the build gates on that with `ldd`, so it should be caught
+   earlier) or a suite that could not write its user profile.
+
 ## Email capture activation (after the mint route ships)
 
 Runbook: `docs/conventions/operations.md` section 2a.

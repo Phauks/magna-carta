@@ -1,7 +1,7 @@
 {
-  // The standalone document-conversion worker. It owns the RasterEngineContainer Durable Object
-  // (a Container-backed DO that runs the pure-Rust raster engine on port 8080) and is reached
-  // only via a service binding from the main app worker — it has no public routes.
+  // The standalone document-conversion worker. It owns the engine Container Durable Objects (each a
+  // Container-backed DO running an engine's HTTP service on port 8080) and is reached only via a
+  // service binding from the main app worker — it has no public routes.
   "name": "magna-carta-convert",
   "main": "./src/index.ts",
   "compatibility_date": "2026-06-05",
@@ -9,22 +9,49 @@
   // No public surface: this worker is an internal service reached only via service binding.
   "workers_dev": false,
   "preview_urls": false,
-  // The pure-Rust raster engine Container Durable Object (Container-backed, sqlite-class).
-  // The Container runs the raster engine HTTP service (POST /convert, GET /ready) on port 8080.
   "containers": [
     {
+      // The pure-Rust raster engine (POST /convert, GET /ready on port 8080).
       "class_name": "RasterEngineContainer",
       "image": "../../containers/raster/Dockerfile",
       "max_instances": 5,
       "instance_type": "standard-1",
     },
+    {
+      // The LibreOffice office-conversion engine. Its build context is the REPOSITORY ROOT, not the
+      // container directory: the crate path-depends on crates/engine-host today and will
+      // path-depend on crates/email-core when the email render engine lands on this same container.
+      //
+      // standard-2 (one vCPU, six gibibytes) because the suite is single-threaded per instance: the
+      // intra-container concurrency ceiling is the processor count, so the real concurrency lever
+      // for this engine is max_instances — horizontal — not pool depth. Two warm workers plus one
+      // warming replacement fit six gibibytes with headroom for the supervisor and the page cache
+      // the suite depends on. These are a defensible starting point rather than a measurement; the
+      // instance type and pool size are re-derived against the load-profile harness once there is a
+      // real conversion mix, and standard-1 with more instances may well win.
+      //
+      // The first build of this image is roughly a gigabyte and will take substantially longer than
+      // any build in this project so far.
+      "class_name": "LibreOfficeEngineContainer",
+      "image": "../../containers/libreoffice/Dockerfile",
+      "image_build_context": "../../",
+      "max_instances": 3,
+      "instance_type": "standard-2",
+    },
   ],
   "durable_objects": {
-    "bindings": [{ "name": "RASTER_ENGINE", "class_name": "RasterEngineContainer" }],
+    "bindings": [
+      { "name": "RASTER_ENGINE", "class_name": "RasterEngineContainer" },
+      { "name": "LIBREOFFICE_ENGINE", "class_name": "LibreOfficeEngineContainer" },
+    ],
   },
-  // SQLite-backed DO class introduced via migration tag; first migration for this worker.
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RasterEngineContainer"] }],
-  // No cron triggers: the Container scales to zero after its sleepAfter (it bills only while a
+  // SQLite-backed DO classes introduced by migration tag. Each tag is append-only: v1 is never
+  // edited, because the platform replays the ledger and a rewritten entry is a different history.
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["RasterEngineContainer"] },
+    { "tag": "v2", "new_sqlite_classes": ["LibreOfficeEngineContainer"] },
+  ],
+  // No cron triggers: the Containers scale to zero after their sleepAfter (they bill only while a
   // conversion runs). Conversions are bursty/on-demand, so a warm-poke cron would pay for an
   // always-on instance to save a cold start that rarely matters.
   "observability": { "enabled": true, "head_sampling_rate": 1 },

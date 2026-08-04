@@ -538,6 +538,7 @@ jobs:
             -L crates/Cargo.lock \
             -L containers/bundle/Cargo.lock \
             -L containers/file-repair/Cargo.lock \
+            -L containers/libreoffice/Cargo.lock \
             -L containers/ocr/Cargo.lock \
             -L containers/raster/Cargo.lock \
             -L containers/recovery/Cargo.lock \
@@ -679,12 +680,13 @@ jobs:
         # artifacts built by the previous compiler, which the old key permitted — prunes the saved
         # target dirs down to dependency artifacts (the workspace's own crates recompile anyway, and
         # leaving them in is what made these entries enormous), and skips the save entirely when
-        # nothing changed. Each container is its own Cargo workspace, so all six are listed.
+        # nothing changed. Each container is its own Cargo workspace, so all seven are listed.
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: |
             containers/bundle
             containers/file-repair
+            containers/libreoffice
             containers/ocr
             containers/raster
             containers/recovery
@@ -743,6 +745,10 @@ jobs:
               scan) bash containers/scan/tests/eicar_e2e.sh ;;
               recovery) bash containers/recovery/tests/recover_e2e.sh ;;
               bundle) bash containers/bundle/tests/acceptance.sh ;;
+              # The heaviest gate in this job by a wide margin: the image is roughly a gigabyte
+              # because it carries an office suite, so the layer cache above is what keeps it
+              # tolerable, and the path filter is what keeps it off everyone else's builds.
+              libreoffice) bash containers/libreoffice/tests/acceptance.sh ;;
               # Known not-yet-covered: unit-tested above where a Cargo workspace exists, but no
               # acceptance suite yet. Listed by name so the gap stays visible on every run that touches
               # them — and so anything NOT listed fails below instead of passing green untested.
