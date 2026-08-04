@@ -1,6 +1,10 @@
 // Stable machine-readable refusal codes for the File Manager — callers branch on the code, never the
 // message. One error type for the whole module (the ledger pattern).
 export type FileManagerValidationCode =
+  // A folder or file name that is empty or only whitespace. Shared by folders and files: the rule is
+  // the same one the database CHECK enforces, applied here so a bad name is a named refusal the route
+  // can map, not a raw constraint failure surfacing as a server error.
+  | "invalid-name"
   // Folders
   | "unknown-folder"
   | "folder-name-taken"

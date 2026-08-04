@@ -14,7 +14,8 @@ runs logic mid-transaction.
 
 ## Key files / entry points
 
-- `src/folder-service.ts` — create/rename/move/delete folders (delete only when empty; cycle-checked)
+- `src/folder-service.ts` — create/rename/move/delete folders (delete only when empty; cycle-checked in
+  the service AND again inside the move `UPDATE`, since the read-then-write window is real)
 - `src/file-service.ts` — `initiateUpload`, `commitVersion` (with the no-op hash-skip), `quarantineVersion`, rename/move/soft-delete, upload-session lifecycle
 - `src/ingest-core.ts` — the pure single-read pipeline (`runIngest`); the Worker consumer is a thin shell. Also `measureContent`, the hash-only re-measurement the consumer's custody check runs against an already-committed object
 - `src/content-type-equivalence.ts` — `contentTypesAgree`: does the sniffed container type describe the same bytes as the declared type (the compound-file and ZIP families), with unknown pairs failing closed
@@ -32,6 +33,20 @@ runs logic mid-transaction.
   `status = 'clean'` (and `deleted_at IS NULL` for default lists). A pending or quarantined version is
   never servable. A source-scan fitness function rejects any `file_version` SELECT without a status
   predicate (allowlist a legitimate all-status read with an inline `fitness:allow-no-status` marker).
+- **A version-lifecycle batch is all-or-nothing.** The guarded status change (`… AND status = 'pending'`)
+  protects only the statement carrying it; everything that follows from it — the meter delta, the
+  current-version bump, the session flip, the audit row, the outbox message — has no such predicate.
+  Every such batch therefore carries `assertVersionStatusStatement` immediately after the status change:
+  it is a no-op when the change landed and a constraint violation when it did not, so a lost race to an
+  abort or expiry rolls the whole batch back instead of committing the consequences of a change that
+  never happened. Adding a statement to one of these batches means keeping it behind that assertion.
+- **A pending version always has a path out.** Two sweeps in the worker's daily pass close the two ways
+  one gets stuck: `sweepStalePendingUploads` reclaims sessions the client abandoned (still `open` past
+  their expiry), and `redriveStrandedPendingVersions` re-enqueues the ingest for a `completed` session
+  whose version is still `pending` past `STRANDED_PENDING_DEADLINE_MILLISECONDS` — the shape a
+  dead-lettered ingest leaves behind. The re-drive is safe to repeat: a still-pending version ingests
+  normally, and one that committed meanwhile takes the custody branch, which re-verifies the stored
+  bytes against the recorded hash.
 - **Versions are immutable; soft-delete only.** A committed version's bytes/metadata never change; a new
   version is a new row + a new R2 key. Files soft-delete (`deleted_at`); versions are untouched.
 - **A verdict binds to bytes, not to a key.** The presigned PUT that delivered an upload outlives the

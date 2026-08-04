@@ -323,6 +323,60 @@ export async function getFileWithCurrentCleanVersion(
   };
 }
 
+// The file row plus ONE NAMED version of that file — the read for a caller that already holds a
+// version handle and must be served exactly that version, not whatever the file's current pointer has
+// advanced to since. The version is resolved only when it is clean AND belongs to this file, so a
+// handle naming another file's version, a withdrawn version, or a still-pending one resolves to null.
+// The file row still comes back either way, so the caller distinguishes absent (undefined) from
+// deleted (deletedAt set) from no-longer-servable (version null) without a second read.
+export interface FileWithNamedVersion {
+  readonly name: string;
+  readonly matterId: MatterId;
+  readonly deletedAt: string | null;
+  readonly version: CleanVersion | null;
+}
+
+export async function getFileWithNamedVersion(
+  database: SqlDatabase,
+  fileId: FileId,
+  versionId: FileVersionId,
+): Promise<FileWithNamedVersion | undefined> {
+  const { results } = await database
+    .prepare(
+      `SELECT f.name, f.matter_id, f.deleted_at, v.id AS version_id, v.r2_key, v.size_bytes, v.version_number, v.scan_verdict, v.scan_detail FROM ${FILE_TABLE} f LEFT JOIN ${FILE_VERSION_TABLE} v ON v.id = ?2 AND v.file_id = f.id AND v.status = 'clean' WHERE f.id = ?1`,
+    )
+    .bind(fileId, versionId)
+    .all<{
+      name: string;
+      matter_id: MatterId;
+      deleted_at: string | null;
+      version_id: FileVersionId | null;
+      r2_key: string | null;
+      size_bytes: number | null;
+      version_number: number | null;
+      scan_verdict: "unscanned" | "clean" | "flagged" | null;
+      scan_detail: string | null;
+    }>();
+  const row = results[0];
+  if (row === undefined) return undefined;
+  return {
+    name: row.name,
+    matterId: row.matter_id,
+    deletedAt: row.deleted_at,
+    version:
+      row.version_id === null
+        ? null
+        : {
+            id: row.version_id,
+            r2Key: row.r2_key as string,
+            sizeBytes: row.size_bytes,
+            versionNumber: row.version_number as number,
+            scanVerdict: row.scan_verdict,
+            scanDetail: row.scan_detail,
+          },
+  };
+}
+
 export async function getCurrentCleanVersion(
   database: SqlDatabase,
   fileId: FileId,

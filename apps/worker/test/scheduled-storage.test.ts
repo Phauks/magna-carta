@@ -4,6 +4,7 @@ import type { FirmId } from "@magna-carta/identifiers/types";
 import { beforeAll, describe, expect, it } from "vitest";
 import {
   listReachableActiveFirms,
+  redriveStrandedPendingVersions,
   runStorageReconciliation,
   sweepStalePendingUploads,
 } from "../src/scheduled.ts";
@@ -102,6 +103,102 @@ describe("sweepStalePendingUploads", () => {
       .bind(sessionId)
       .all<{ status: string }>();
     expect(sessionResults[0]?.status).toBe("open");
+  });
+});
+
+// The other way a version gets stuck pending: the client's upload FINISHED (the session is
+// 'completed', the bytes are in R2, the UI reported success) but the ingest that would have committed
+// it dead-lettered. The expired-open-session sweep above cannot see these — it matches open sessions —
+// so without the re-drive the version stays pending forever and the file is never downloadable.
+async function seedStrandedPendingVersion(
+  versionCreatedAt: string,
+): Promise<{ versionId: string; r2Key: string }> {
+  const matterId = newIdentifier("matter");
+  const fileId = newIdentifier("file");
+  const versionId = newIdentifier("fileVersion");
+  const sessionId = newIdentifier("uploadSession");
+  const now = new Date().toISOString();
+  const r2Key = `files/${fileId}/${versionId}`;
+  const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, poolFirmId);
+  await firmDatabase
+    .prepare(
+      "INSERT INTO member (user_id, display_name, status, created_at) VALUES ('user_x', 'Sweeper', 'active', ?1) ON CONFLICT (user_id) DO NOTHING",
+    )
+    .bind(now)
+    .run();
+  await firmDatabase
+    .prepare(
+      "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'Stranded Matter', 'open', 'user_x', ?2, ?2)",
+    )
+    .bind(matterId, now)
+    .run();
+  await firmDatabase
+    .prepare(
+      "INSERT INTO file (id, matter_id, name, created_at, updated_at) VALUES (?1, ?2, 'deposition.pdf', ?3, ?3)",
+    )
+    .bind(fileId, matterId, now)
+    .run();
+  await firmDatabase
+    .prepare(
+      "INSERT INTO file_version (id, file_id, version_number, r2_key, status, uploaded_by, created_at) VALUES (?1, ?2, 1, ?3, 'pending', 'user_x', ?4)",
+    )
+    .bind(versionId, fileId, r2Key, versionCreatedAt)
+    .run();
+  await firmDatabase
+    .prepare(
+      "INSERT INTO upload_session (id, file_version_id, mode, declared_size, declared_content_type, status, created_at, expires_at) VALUES (?1, ?2, 'put', 2048, 'application/pdf', 'completed', ?3, NULL)",
+    )
+    .bind(sessionId, versionId, versionCreatedAt)
+    .run();
+  return { versionId, r2Key };
+}
+
+// A stand-in for the FILES_INGEST producer binding: the real one delivers to the ingest consumer, and
+// this sweep's contract is what it enqueues, not what the consumer then does with it.
+function recordingQueue(): { sent: unknown[]; binding: Queue } {
+  const sent: unknown[] = [];
+  const binding = {
+    send: async (body: unknown) => {
+      sent.push(body);
+    },
+    sendBatch: async (messages: Iterable<{ body: unknown }>) => {
+      for (const message of messages) sent.push(message.body);
+    },
+  } as unknown as Queue;
+  return { sent, binding };
+}
+
+describe("redriveStrandedPendingVersions", () => {
+  it("re-enqueues an object-create event for a completed session whose version never left pending", async () => {
+    const stranded = new Date(Date.now() - 24 * 60 * 60_000).toISOString();
+    const { r2Key } = await seedStrandedPendingVersion(stranded);
+    const [firm] = await listReachableActiveFirms(env);
+    const queue = recordingQueue();
+
+    const redriven = await redriveStrandedPendingVersions(
+      { ...env, FILES_INGEST: queue.binding },
+      firm!,
+    );
+
+    expect(redriven).toBeGreaterThanOrEqual(1);
+    expect(queue.sent).toContainEqual({
+      bucket: "R2",
+      object: { key: r2Key, size: 2048 },
+      action: "PutObject",
+    });
+  });
+
+  it("leaves a version still inside the deadline alone (the queue may simply be retrying)", async () => {
+    const recent = new Date(Date.now() - 60_000).toISOString();
+    const { r2Key } = await seedStrandedPendingVersion(recent);
+    const [firm] = await listReachableActiveFirms(env);
+    const queue = recordingQueue();
+
+    await redriveStrandedPendingVersions({ ...env, FILES_INGEST: queue.binding }, firm!);
+
+    expect(
+      queue.sent.some((body) => (body as { object: { key: string } }).object.key === r2Key),
+    ).toBe(false);
   });
 });
 
