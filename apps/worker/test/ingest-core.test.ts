@@ -226,6 +226,135 @@ describe("runIngest", () => {
   });
 });
 
+// A body delivered as `chunkCount` chunks of `chunkSize`, counting how many the pipeline pulls.
+function chunkedBody(
+  chunkSize: number,
+  chunkCount: number,
+): { stream: ReadableStream<Uint8Array>; pulls: () => number } {
+  let pulled = 0;
+  const stream = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      if (pulled === chunkCount) {
+        controller.close();
+        return;
+      }
+      const chunk = new Uint8Array(chunkSize);
+      if (pulled === 0) chunk.set(PDF_BYTES, 0); // the first chunk carries the magic bytes
+      pulled += 1;
+      controller.enqueue(chunk);
+    },
+  });
+  return { stream, pulls: () => pulled };
+}
+
+async function drain(stream: ReadableStream<Uint8Array>): Promise<Uint8Array> {
+  const reader = stream.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    total += value.byteLength;
+  }
+  const all = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    all.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return all;
+}
+
+// The sub-cap lane feeds two consumers (the digest and the scan port) from ONE read of the body: the
+// bytes are read into memory once, bounded by the inspectable-size cap, rather than tee'd — a tee
+// couples nothing, so the faster consumer runs ahead and the runtime buffers the whole body for the
+// slower one anyway, with no bound of its own.
+describe("runIngest sub-cap body handling", () => {
+  it("hands the scan port exactly the bytes the digest covered", async () => {
+    let scanned: Uint8Array | null = null;
+    const port: MalwareScanPort = {
+      async scan(body) {
+        scanned = await drain(body);
+        return {
+          engineVersion: "e1",
+          clam: { state: "clean" },
+          heuristic: { kind: "none" },
+          matches: [],
+          timings: { clamdMs: 1, yaraMs: 1 },
+        };
+      },
+    };
+    const outcome = await runIngest(
+      input(HELLO, {
+        scanPort: port,
+        policy: POLICY,
+        version: {
+          declaredSize: HELLO.byteLength,
+          declaredContentType: "text/plain",
+          r2Key: "files/a/v1",
+          fileName: "hello.txt",
+        },
+      }),
+    );
+    expect(outcome).toMatchObject({ kind: "commit", contentSha256: HELLO_SHA256 });
+    // The scan port saw the whole body — the same bytes the recorded hash describes.
+    expect(scanned === null ? null : [...(scanned as Uint8Array)]).toEqual([...HELLO]);
+  });
+
+  it("still commits when the scan port never reads the body it is handed", async () => {
+    // The pathological consumer the old tee was worst for: one side reads nothing at all.
+    const outcome = await runIngest(
+      input(HELLO, {
+        scanPort: {
+          scan: async () => ({
+            engineVersion: "e1",
+            clam: { state: "clean" },
+            heuristic: { kind: "none" },
+            matches: [],
+            timings: { clamdMs: 1, yaraMs: 1 },
+          }),
+        },
+        version: {
+          declaredSize: HELLO.byteLength,
+          declaredContentType: "text/plain",
+          r2Key: "files/a/v1",
+          fileName: "hello.txt",
+        },
+      }),
+    );
+    expect(outcome).toMatchObject({
+      kind: "commit",
+      scanVerdict: "clean",
+      contentSha256: HELLO_SHA256,
+    });
+  });
+
+  it("stops reading a body that runs past the size R2 reported", async () => {
+    // 8 chunks on offer, but the object metadata claims one chunk's worth. The read must refuse as
+    // soon as it passes that, not drain the stream — that bound is what keeps the buffer under the
+    // inspectable-size cap even when the reported size is a lie.
+    const chunkSize = 8192;
+    const { stream, pulls } = chunkedBody(chunkSize, 8);
+    const outcome = await runIngest(
+      input(PDF_BYTES, {
+        objectBody: stream,
+        objectSize: chunkSize,
+        version: {
+          declaredSize: chunkSize,
+          declaredContentType: "application/pdf",
+          r2Key: "files/a/v1",
+          fileName: "doc.pdf",
+        },
+      }),
+    );
+    expect(outcome).toEqual({ kind: "quarantine", reason: "size-mismatch", scanDetail: null });
+    // One chunk satisfies the head sniff and the claimed size; the next one blows the bound and ends
+    // the read. Nothing near the eight chunks the stream would have handed over.
+    expect(pulls()).toBeLessThanOrEqual(3);
+  });
+});
+
 const fixedScan = (result: RawScanResult): MalwareScanPort => ({
   async scan() {
     return result;

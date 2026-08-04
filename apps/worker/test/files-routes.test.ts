@@ -302,6 +302,23 @@ describe("file list / get / patch / delete", () => {
     expect(got.status).toBe(404);
   });
 
+  it("404s a patch or a second delete of a soft-deleted file, like every read of it", async () => {
+    const { fileId } = await seedCleanFile("gone.txt", null, "bytes");
+    expect((await del(`/api/v1/files/${fileId}`)).status).toBe(200);
+
+    // The file is invisible to reads, so the writes answer the same way — a mutation must not be the
+    // one surface that confirms a deleted file is still there.
+    expect((await patch(`/api/v1/files/${fileId}`, { name: "resurrected.txt" })).status).toBe(404);
+    expect((await del(`/api/v1/files/${fileId}`)).status).toBe(404);
+
+    // …and the refused rename left nothing behind on the deleted row.
+    const rowResult = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("SELECT name FROM file WHERE id = ?1")
+      .bind(fileId)
+      .all<{ name: string }>();
+    expect(rowResult.results[0]?.name).toBe("gone.txt");
+  });
+
   it("lists a file's clean version history", async () => {
     const { fileId } = await seedCleanFile("versioned.txt", null, "v1-bytes");
     const response = await get(`/api/v1/files/${fileId}/versions`);
