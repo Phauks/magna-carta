@@ -1,8 +1,9 @@
 ---
+number: 214
 slug: consensual-guided-data-conversion
 status: Accepted
-area: Product posture / Data conversion
 date: 2026-08-04
+area: Product posture / Data conversion
 summary: "Conversion of user data into the platform is CONSENSUAL AND GUIDED, everywhere it happens. Wherever a conversion of a firm's data takes place or may take place — template import, migration from another practice-management system, format normalization, encoding or schema translation — three rules hold: DETECTION AND REPORTING ARE ALWAYS ON (the platform inspects what it was given and tells the firm what it found, whether or not anything is done about it); CONVERSION IS OPT-IN (a rewrite of the firm's data runs on an explicit request, never as a silent side effect of uploading or importing); and the product OFFERS INPUT, GUIDANCE, AND FEEDBACK at the decision — what will change, what it will become, what cannot be carried across, and the result once it has run. Confirmations a firm gives during a conversion are worth keeping: where a conversion asks the same question repeatedly across a set, the answers accumulate as reusable per-firm mappings so a bulk migration converges on one pass of human confirmation rather than one per item. The posture binds the whole product, not one importer; the document-automation template model's opt-in MERGEFIELD conversion with its per-firm field-mapping library is its first instantiation."
 ---
 

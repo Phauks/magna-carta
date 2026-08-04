@@ -1,8 +1,9 @@
 ---
+number: 216
 slug: merge-field-input-contract-seam
 status: Accepted
-area: Documents & automation
 date: 2026-08-04
+area: Documents & automation
 summary: "The merge-field input interface is built against a typed catalog contract in its own package (`@magna-carta/merge-field-catalog-contract`) with a mock provider over a realistic fixture catalog, and every consuming surface takes a `MergeFieldCatalogProvider` rather than importing the mock — so switching to the live dictionary and template-fields endpoints is an edit to one composition root; the design-system components stay free of domain types, taking structural option shapes that a per-app adapter maps into; and a placeholder detected in an uploaded document is modelled as a PROPOSAL with no applied state, so no surface can render a conversion as something that already happened."
 ---
 
