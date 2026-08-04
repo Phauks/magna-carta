@@ -26,6 +26,12 @@ pub struct RedactionRegion {
 /// to excise only the glyphs that fall inside the redaction rectangles, keeping
 /// the remainder as live text; an outcome gate verifies each surgered page and
 /// falls back to `Flatten` for any page that does not pass.
+///
+/// Neither route leaves the page's annotations over a redaction rectangle: an
+/// annotation is not part of the content stream, and can hold a second copy of what
+/// the rectangle covers. `Flatten` drops every annotation on the page it rasterizes;
+/// `Surgery` drops those standing over a rectangle, and the markup thread bound to
+/// them, keeping the rest of the page's annotations live.
 #[derive(Debug, Clone, Copy, Default)]
 pub enum RedactionMode {
     #[default]
@@ -87,15 +93,147 @@ pub enum RedactError {
     },
 }
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
-use lopdf::{Dictionary, Object, Stream};
+use lopdf::{Dictionary, Object, ObjectId, Stream};
 
 use crate::Document;
 
+/// Annotation keys that bind one annotation to another: the popup window that displays a
+/// markup annotation's text, the markup annotation a popup belongs to, and the annotation
+/// a reply is in reply to. Each of the two annotations shows the same words, so removing
+/// one without the other leaves the text in the file.
+const ANNOTATION_THREAD_KEYS: &[&[u8]] = &[b"Popup", b"Parent", b"IRT"];
+
+/// Replace each object with null, so nothing it carried survives in the file and every
+/// stream only it referenced — an appearance stream, most of all — becomes unreferenced
+/// for the caller's prune to drop.
+///
+/// Blanking rather than deleting outright is deliberate: an annotation can be referenced
+/// from outside the page too (an AcroForm `/Fields` entry names a widget), and those
+/// references then point at a well-formed nothing rather than at a missing object.
+fn blank_objects(doc: &mut lopdf::Document, ids: &BTreeSet<ObjectId>) {
+    for &id in ids {
+        if doc.objects.contains_key(&id) {
+            doc.objects.insert(id, Object::Null);
+        }
+    }
+}
+
+/// The annotations on `page_id` that a redaction covering `rects` must not leave behind.
+///
+/// A redaction rewrites what the page *draws*, and annotations are not part of that: a
+/// sticky note's `/Contents`, a FreeText caption, a link's URI, and any of their
+/// appearance streams sit beside the content stream and survive a rewrite of it
+/// untouched — so the words a rectangle was drawn to remove can stay in the file, shown
+/// by any viewer that draws annotations. Every annotation whose rectangle meets a
+/// redaction rectangle therefore goes, and so does any annotation on the page bound to it
+/// through the markup thread, which repeats its text.
+///
+/// An annotation whose `/Rect` cannot be read goes too: one that cannot be proven clear
+/// of the rectangles is treated as inside them, the same way every other decision on this
+/// path resolves an unknown against the document rather than against confidentiality.
+fn annotations_over_rects(
+    doc: &lopdf::Document,
+    page_id: ObjectId,
+    rects: &[Rect],
+) -> BTreeSet<ObjectId> {
+    let on_page: Vec<ObjectId> = crate::annotations::page_annotation_entries(doc, page_id)
+        .iter()
+        .filter_map(|entry| entry.as_reference().ok())
+        .collect();
+    let meets_rects = |id: ObjectId| match doc.get_dictionary(id) {
+        Ok(dict) => match crate::annotations::annotation_rect(dict) {
+            Some(rect) => rects
+                .iter()
+                .any(|r| crate::detect::rects_intersect(&rect, r)),
+            None => true,
+        },
+        // A broken reference resolves to no annotation, so there is nothing to remove.
+        Err(_) => false,
+    };
+    let mut doomed: BTreeSet<ObjectId> = on_page
+        .iter()
+        .copied()
+        .filter(|&id| meets_rects(id))
+        .collect();
+
+    // Walk the markup thread until it stops growing. Only annotations listed on this page
+    // join the set: a widget's `/Parent` is its form field, which other pages' widgets can
+    // share, and blanking that would reach outside the page being redacted.
+    let linked = |id: ObjectId| -> Vec<ObjectId> {
+        let Ok(dict) = doc.get_dictionary(id) else {
+            return Vec::new();
+        };
+        ANNOTATION_THREAD_KEYS
+            .iter()
+            .filter_map(|key| dict.get(key).ok()?.as_reference().ok())
+            .collect()
+    };
+    loop {
+        let mut grew = false;
+        for &id in &on_page {
+            let bound = linked(id).iter().any(|target| doomed.contains(target))
+                || doomed
+                    .iter()
+                    .any(|&doomed_id| linked(doomed_id).contains(&id));
+            if bound && doomed.insert(id) {
+                grew = true;
+            }
+        }
+        if !grew {
+            break;
+        }
+    }
+    doomed
+}
+
+/// Remove from `page_id` the annotations a redaction covering `rects` must not leave
+/// behind, blanking their objects so their appearance streams go with them.
+fn purge_annotations_over_rects(doc: &mut lopdf::Document, page_id: ObjectId, rects: &[Rect]) {
+    let entries = crate::annotations::page_annotation_entries(doc, page_id);
+    if entries.is_empty() {
+        return;
+    }
+    let doomed = annotations_over_rects(doc, page_id, rects);
+    let mut survivors = Vec::with_capacity(entries.len());
+    for entry in entries {
+        let keep = match entry.as_reference() {
+            Ok(id) => !doomed.contains(&id),
+            // An annotation written straight into the array has no object of its own to
+            // blank, so it is kept only when it is provably clear of the rectangles; the
+            // rest of its bytes go with the array rewrite below.
+            Err(_) => crate::surgery::resolve_dict(doc, &entry)
+                .and_then(crate::annotations::annotation_rect)
+                .map(|rect| {
+                    !rects
+                        .iter()
+                        .any(|r| crate::detect::rects_intersect(&rect, r))
+                })
+                .unwrap_or(false),
+        };
+        if keep {
+            survivors.push(entry);
+        }
+    }
+    crate::annotations::set_page_annotations(doc, page_id, survivors);
+    blank_objects(doc, &doomed);
+}
+
+/// Remove every annotation on `page_id`: the page is being replaced by pixels, so nothing
+/// that sat beside its content stream may stay behind it.
+fn purge_all_annotations(doc: &mut lopdf::Document, page_id: ObjectId) {
+    let annotations: BTreeSet<ObjectId> = crate::annotations::page_annotation_entries(doc, page_id)
+        .iter()
+        .filter_map(|entry| entry.as_reference().ok())
+        .collect();
+    crate::annotations::set_page_annotations(doc, page_id, Vec::new());
+    blank_objects(doc, &annotations);
+}
+
 pub(crate) fn reassemble_page(
     doc: &mut lopdf::Document,
-    page_id: lopdf::ObjectId,
+    page_id: ObjectId,
     rgb: &[u8],
     px_w: u32,
     px_h: u32,
@@ -109,6 +247,9 @@ pub(crate) fn reassemble_page(
     img_dict.set("Height", Object::Integer(px_h as i64));
     img_dict.set("ColorSpace", Object::Name(b"DeviceRGB".to_vec()));
     img_dict.set("BitsPerComponent", Object::Integer(8));
+
+    purge_all_annotations(doc, page_id);
+
     let mut img_stream = Stream::new(img_dict, rgb.to_vec());
     img_stream.compress().map_err(|_| RedactError::Reassemble)?; // FlateDecode (lossless)
     let img_id = doc.add_object(img_stream);
@@ -137,7 +278,6 @@ pub(crate) fn reassemble_page(
         ]),
     );
     page.set("Rotate", Object::Integer(0));
-    page.remove(b"Annots");
     Ok(())
 }
 
@@ -344,29 +484,14 @@ pub(crate) fn surgery_candidate_passes_gate(
             // so it falls back to the full-raster flatten, which overwrites the
             // pixels entirely.
             //
-            // Intersection test: two axis-aligned rects A and B overlap iff neither
-            // is fully to the left, right, above, or below the other.
             if !any_inside {
                 'image_loop: for cover in &obs.covers {
                     if !cover.is_image {
                         continue;
                     }
                     let image_rect = crate::detect::to_display_rect(cover.bbox, obs.height_pt);
-                    // Normalise corners (min/max) so the intersection test is
-                    // orientation-independent.
-                    let (ix0, ix1) = (
-                        image_rect.x0.min(image_rect.x1),
-                        image_rect.x0.max(image_rect.x1),
-                    );
-                    let (iy0, iy1) = (
-                        image_rect.y0.min(image_rect.y1),
-                        image_rect.y0.max(image_rect.y1),
-                    );
                     for rect in rects {
-                        let (rx0, rx1) = (rect.x0.min(rect.x1), rect.x0.max(rect.x1));
-                        let (ry0, ry1) = (rect.y0.min(rect.y1), rect.y0.max(rect.y1));
-                        let disjoint = rx1 <= ix0 || rx0 >= ix1 || ry1 <= iy0 || ry0 >= iy1;
-                        if !disjoint {
+                        if crate::detect::rects_intersect(&image_rect, rect) {
                             any_inside = true;
                             break 'image_loop;
                         }
@@ -442,6 +567,10 @@ pub fn redact(
                             .get_dictionary_mut(page_id)
                             .map_err(|_| RedactError::Reassemble)?;
                         page_dict.set("Contents", lopdf::Object::Reference(content_id));
+                        // The surgery stream is only the page's content. Annotations over
+                        // the same region are a second copy of what the rectangles cover,
+                        // and no rewrite of the content stream reaches them.
+                        purge_annotations_over_rects(&mut lo, page_id, rects);
                         surgery_candidates.push(SurgeryCandidate {
                             page,
                             page_id,
@@ -483,8 +612,14 @@ pub fn redact(
         let probe_pdf = hayro::hayro_syntax::Pdf::new(probe).map_err(|_| RedactError::Parse)?;
 
         for candidate in surgery_candidates {
+            // Two independent conditions, either of which sends the page to flatten: no
+            // glyph or image the page draws may remain inside a rectangle, and no
+            // annotation may still stand over one. The second is checked against the
+            // model rather than the render because an annotation carries text a viewer
+            // never draws — a note's body, a link's URI — which no observation can see.
             let passes_gate =
-                surgery_candidate_passes_gate(&probe_pdf, candidate.page, &candidate.rects);
+                surgery_candidate_passes_gate(&probe_pdf, candidate.page, &candidate.rects)
+                    && annotations_over_rects(&lo, candidate.page_id, &candidate.rects).is_empty();
 
             if passes_gate {
                 surgered.push(candidate.page);
@@ -1087,6 +1222,216 @@ mod tests {
                 .contains("Hello"),
             "target text must be absent after surgery"
         );
+    }
+
+    /// `hello.pdf` with a markup annotation added to page 1: its `/Contents` note, its
+    /// popup's note, and its appearance stream each carry a distinct string, and its
+    /// rectangle sits over `rect`. Nothing here is part of the page's content stream, so
+    /// a content-stream rewrite leaves all of it untouched.
+    fn hello_with_annotation_over(rect: [i64; 4]) -> Vec<u8> {
+        let mut doc = lopdf::Document::load_mem(&hello_bytes()).unwrap();
+        let page_id = *doc.get_pages().get(&1).unwrap();
+
+        // An appearance stream that draws a plain filled box — no glyphs, so the page
+        // still qualifies for surgery and the leak is not masked by a flatten fallback.
+        let mut appearance_dict = Dictionary::new();
+        appearance_dict.set("Type", Object::Name(b"XObject".to_vec()));
+        appearance_dict.set("Subtype", Object::Name(b"Form".to_vec()));
+        appearance_dict.set(
+            "BBox",
+            Object::Array(vec![
+                Object::Integer(0),
+                Object::Integer(0),
+                Object::Integer(rect[2] - rect[0]),
+                Object::Integer(rect[3] - rect[1]),
+            ]),
+        );
+        let appearance_id = doc.add_object(Stream::new(
+            appearance_dict,
+            b"% AnnotationAppearanceSecret\n0 0 1 rg 0 0 4 4 re f".to_vec(),
+        ));
+
+        let popup_id = doc.add_object(Object::Dictionary({
+            let mut popup = Dictionary::new();
+            popup.set("Type", Object::Name(b"Annot".to_vec()));
+            popup.set("Subtype", Object::Name(b"Popup".to_vec()));
+            // Deliberately off to the side: the popup is bound to a doomed annotation,
+            // not standing over the rectangle itself.
+            popup.set(
+                "Rect",
+                Object::Array(vec![
+                    Object::Integer(500),
+                    Object::Integer(700),
+                    Object::Integer(560),
+                    Object::Integer(760),
+                ]),
+            );
+            popup.set("P", Object::Reference(page_id));
+            popup.set("Contents", Object::string_literal("AnnotationPopupSecret"));
+            popup
+        }));
+        let annotation_id = doc.add_object(Object::Dictionary({
+            let mut annotation = Dictionary::new();
+            annotation.set("Type", Object::Name(b"Annot".to_vec()));
+            annotation.set("Subtype", Object::Name(b"FreeText".to_vec()));
+            annotation.set(
+                "Rect",
+                Object::Array(rect.iter().map(|&v| Object::Integer(v)).collect()),
+            );
+            annotation.set("P", Object::Reference(page_id));
+            annotation.set(
+                "Contents",
+                Object::string_literal("AnnotationContentsSecret"),
+            );
+            annotation.set("Popup", Object::Reference(popup_id));
+            annotation.set(
+                "AP",
+                Object::Dictionary({
+                    let mut ap = Dictionary::new();
+                    ap.set("N", Object::Reference(appearance_id));
+                    ap
+                }),
+            );
+            annotation
+        }));
+        doc.get_dictionary_mut(popup_id)
+            .unwrap()
+            .set("Parent", Object::Reference(annotation_id));
+        doc.get_dictionary_mut(page_id).unwrap().set(
+            "Annots",
+            Object::Array(vec![
+                Object::Reference(annotation_id),
+                Object::Reference(popup_id),
+            ]),
+        );
+
+        let mut bytes = Vec::new();
+        doc.save_to(&mut bytes).unwrap();
+        bytes
+    }
+
+    fn contains(haystack: &[u8], needle: &[u8]) -> bool {
+        haystack.windows(needle.len()).any(|w| w == needle)
+    }
+
+    #[test]
+    fn surgery_removes_annotation_text_standing_over_a_redaction() {
+        // Content-stream surgery rewrites what the page draws. An annotation is not in
+        // that stream: its note, its popup's note, and its appearance stream all survive
+        // the rewrite, so a page redacted this way could still carry the redacted words in
+        // full, plainly readable in the bytes and shown by any viewer that draws
+        // annotations. Redacting the region the annotation stands over must take it.
+        let bytes = hello_with_annotation_over([0, 0, 200, 100]);
+        assert!(
+            contains(&bytes, b"AnnotationContentsSecret"),
+            "fixture must actually carry the annotation text"
+        );
+
+        let regions = [RedactionRegion {
+            page: 0,
+            rect: Rect {
+                x0: 0.0,
+                y0: 0.0,
+                x1: 1000.0,
+                y1: 1000.0,
+            },
+            reason: None,
+        }];
+        let opts = RedactionOptions {
+            mode: RedactionMode::Surgery,
+            ..RedactionOptions::default()
+        };
+        let outcome = redact(bytes, &regions, &opts).expect("surgery redaction succeeds");
+        assert!(
+            outcome.report.pages_surgered.contains(&0),
+            "the page must be surgered, so the annotation path is what is under test; \
+             report: surgered={:?} flattened={:?}",
+            outcome.report.pages_surgered,
+            outcome.report.pages_flattened,
+        );
+        for secret in [
+            b"AnnotationContentsSecret".as_slice(),
+            b"AnnotationPopupSecret",
+            b"AnnotationAppearanceSecret",
+        ] {
+            assert!(
+                !contains(&outcome.pdf, secret),
+                "annotation content survived surgery redaction: {}",
+                String::from_utf8_lossy(secret)
+            );
+        }
+        // The page itself is still a live, text-preserving page.
+        let reloaded = lopdf::Document::load_mem(&outcome.pdf).unwrap();
+        let page_id = *reloaded.get_pages().get(&1).unwrap();
+        assert!(crate::annotations::page_annotation_entries(&reloaded, page_id).is_empty());
+    }
+
+    #[test]
+    fn surgery_keeps_annotations_clear_of_the_redaction() {
+        // The removal is bounded by the rectangles: an annotation elsewhere on the page is
+        // untouched, so a redaction does not quietly strip a document's whole markup.
+        let bytes = hello_with_annotation_over([150, 150, 190, 190]);
+        let regions = [RedactionRegion {
+            page: 0,
+            rect: Rect {
+                x0: 0.0,
+                y0: 0.0,
+                x1: 40.0,
+                y1: 40.0,
+            },
+            reason: None,
+        }];
+        let opts = RedactionOptions {
+            mode: RedactionMode::Surgery,
+            ..RedactionOptions::default()
+        };
+        let outcome = redact(bytes, &regions, &opts).expect("surgery redaction succeeds");
+        assert!(outcome.report.pages_surgered.contains(&0));
+        assert!(
+            contains(&outcome.pdf, b"AnnotationContentsSecret"),
+            "an annotation clear of every rectangle must be kept"
+        );
+    }
+
+    #[test]
+    fn flatten_removes_annotation_text_from_the_page_it_rasterizes() {
+        // A rasterized page keeps nothing but pixels, and unlinking `/Annots` alone does
+        // not achieve that: an annotation named from elsewhere in the file (an AcroForm
+        // field entry) is still reachable, so pruning keeps it and its text.
+        let bytes = hello_with_annotation_over([0, 0, 200, 100]);
+        let mut doc = lopdf::Document::load_mem(&bytes).unwrap();
+        let page_id = *doc.get_pages().get(&1).unwrap();
+        let annotation = crate::annotations::page_annotation_entries(&doc, page_id)[0]
+            .as_reference()
+            .unwrap();
+        let acroform_id = doc.add_object(Object::Dictionary({
+            let mut acroform = Dictionary::new();
+            acroform.set("Fields", Object::Array(vec![Object::Reference(annotation)]));
+            acroform
+        }));
+        doc.catalog_mut()
+            .unwrap()
+            .set("AcroForm", Object::Reference(acroform_id));
+        let mut seeded = Vec::new();
+        doc.save_to(&mut seeded).unwrap();
+
+        let regions = [RedactionRegion {
+            page: 0,
+            rect: Rect {
+                x0: 0.0,
+                y0: 0.0,
+                x1: 1000.0,
+                y1: 1000.0,
+            },
+            reason: None,
+        }];
+        let outcome = redact(seeded, &regions, &RedactionOptions::default()).unwrap();
+        assert!(outcome.report.pages_flattened.contains(&0));
+        assert!(
+            !contains(&outcome.pdf, b"AnnotationContentsSecret"),
+            "annotation content survived a flatten redaction"
+        );
+        assert!(!contains(&outcome.pdf, b"AnnotationAppearanceSecret"));
     }
 
     /// Build a minimal one-page PDF whose sole content is a raster image XObject that
