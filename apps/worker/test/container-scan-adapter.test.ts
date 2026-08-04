@@ -66,6 +66,31 @@ describe("containerScanAdapter", () => {
     }
   });
 
+  it("sends the caller's stable content key so the engine can route on it, and omits it otherwise", async () => {
+    const cleanResult: RawScanResult = {
+      engineVersion: "e/1",
+      clam: { state: "clean" },
+      heuristic: { kind: "none" },
+      matches: [],
+      timings: { clamdMs: 0, yaraMs: 0 },
+    };
+    const seen: string[] = [];
+    const recording: ScanContainerFetcher = {
+      fetch: async (request) => {
+        seen.push(request.url);
+        return new Response(JSON.stringify(cleanResult), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      },
+    };
+    const adapter = containerScanAdapter(recording);
+    await adapter.scan(emptyBody(), { ...meta, contentKey: "files/file_abc/version_1" });
+    await adapter.scan(emptyBody(), meta);
+    expect(new URL(seen[0]!).searchParams.get("shardKey")).toBe("files/file_abc/version_1");
+    expect(new URL(seen[1]!).searchParams.has("shardKey")).toBe(false);
+  });
+
   it("throws on a non-200 response (never returns clean)", async () => {
     const adapter = containerScanAdapter(
       fakeContainer(

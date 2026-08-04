@@ -1,4 +1,5 @@
 import { getContainer } from "@cloudflare/containers";
+import { engineTargetFor } from "./engine-dispatch.ts";
 import { forwardConvert } from "./forward-convert.ts";
 
 // The convert worker's runtime bindings. Stateless: no D1, R2, or Queues. The only binding is the
@@ -20,15 +21,17 @@ export { RasterEngineContainer } from "./raster-engine-container.ts";
 // request after an idle period is the right trade against paying for an always-on instance. (Warming
 // on demand — booting when a job is enqueued — is the lever to add if cold-start latency ever bites.)
 export default {
-  // POST /convert — receives the streamed source body + target-format/recipe headers from the app
-  // worker (via service binding) and forwards to the engine Container, returning its bytes verbatim.
-  // No auth: the service binding is the trust boundary (not reachable from the public internet).
+  // POST /convert — receives the streamed source body + engine-id/format/recipe headers from the app
+  // worker (via service binding), dispatches by x-engine-id to the engine Container, and returns its
+  // bytes verbatim. No auth: the service binding is the trust boundary (not reachable from the
+  // public internet). An engine id with no Container here is 501 — the app worker's resolver keeps
+  // unbuilt engines deferred, so this is a guard, not a working path.
   async fetch(request: Request, env: Bindings): Promise<Response> {
     const url = new URL(request.url);
     if (request.method === "POST" && url.pathname === "/convert") {
-      // Only the raster engine is wired today; engineId-based routing to additional engine Containers
-      // (LibreOffice, FFmpeg) is added when those edges land.
-      return forwardConvert(request, getContainer(env.RASTER_ENGINE, "raster"));
+      const target = engineTargetFor(request.headers.get("x-engine-id"));
+      if (target === undefined) return new Response("unknown engine", { status: 501 });
+      return forwardConvert(request, getContainer(env.RASTER_ENGINE, target));
     }
     return new Response("Not Found", { status: 404 });
   },

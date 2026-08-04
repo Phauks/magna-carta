@@ -159,6 +159,42 @@ describe("WOPI host surface", () => {
     expect(conflict.headers.get("X-WOPI-Lock")).toBe("LOCK-1");
   });
 
+  it("GetFile serves the working copy to the session that wrote it and the committed version to anyone else", async () => {
+    const { fileId, versionId } = await seedFile();
+    const sessionId = await openSession(fileId, true);
+    const edited = new TextEncoder().encode("edited working copy");
+    await wopi(
+      `${fileId}/contents?access_token=${encodeURIComponent(await token(fileId, versionId, "edit", sessionId))}`,
+      { method: "POST", body: edited },
+    );
+
+    const owner = await wopi(
+      `${fileId}/contents?access_token=${encodeURIComponent(await token(fileId, versionId, "edit", sessionId))}`,
+    );
+    expect(new Uint8Array(await owner.arrayBuffer())).toEqual(edited);
+
+    // A token minted for a different session — a viewer that never joined, or a stale token from a
+    // session already reaped — reads the immutable version it names, not the live bytes.
+    const outsider = await wopi(
+      `${fileId}/contents?access_token=${encodeURIComponent(await token(fileId, versionId, "view", "session-elsewhere"))}`,
+    );
+    expect(new Uint8Array(await outsider.arrayBuffer())).toEqual(VERSION_BYTES);
+
+    // CheckFileInfo agrees with the bytes each of them is served.
+    const sizeSeenBy = async (accessToken: string): Promise<number> => {
+      const body = (await (
+        await wopi(`${fileId}?access_token=${encodeURIComponent(accessToken)}`)
+      ).json()) as Record<string, unknown>;
+      return body.Size as number;
+    };
+    expect(await sizeSeenBy(await token(fileId, versionId, "edit", sessionId))).toBe(
+      edited.byteLength,
+    );
+    expect(await sizeSeenBy(await token(fileId, versionId, "view", "session-elsewhere"))).toBe(
+      VERSION_BYTES.byteLength,
+    );
+  });
+
   it("rejects a missing or malformed token with 401", async () => {
     const { fileId } = await seedFile();
     expect((await wopi(`${fileId}`)).status).toBe(401);

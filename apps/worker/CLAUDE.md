@@ -91,8 +91,13 @@ delivery (instead of polling) and a Container escalation for outlier-large bundl
 The server-side file conversion path (`src/conversions/`) holds the **orchestration** — the
 `ConversionJob` Durable Object (keyed `firmId:jobId`), the `CONVERSION` queue + consumer, and the
 routes — and is wired but **dormant** until the engines are reachable. `resolveEnginePort` in
-`conversion-engine.ts` returns the deferred port (`engine-not-implemented`) for now, so the routes are
-fully functional in tests and in production, they just cannot yet execute real conversions.
+`conversion-engine.ts` resolves **each hop of a path by its engine id**, so a multi-hop path can
+cross services: an engine backed by the convert worker gets the service-binding port (which stamps
+`x-engine-id` so that worker dispatches to the right Container); the `ocr` engine is its own live
+service and resolves to the `OCR_SERVICE` binding instead; an engine whose Container is not built
+yet (`libreoffice`, `email`, `ffmpeg`) resolves to the deferred port (`engine-not-implemented`), as
+does any engine whose binding is absent — so the routes are fully functional in tests and in
+production, they just cannot yet execute every conversion.
 
 The **engines** (the pure-Rust raster service, LibreOffice headless, FFmpeg, the future Rust PDF
 engine) do **not** belong in this app worker — they are the same CPU/memory-bound, untrusted-bytes,
@@ -120,7 +125,7 @@ The dedicated-worker split is a cross-cutting decision shared with the scan, edi
 subsystems (search is the exception — its index is durable per-firm data); land it as one shared
 decision, coordinated via `vp run worktrees`, with `apps/scan-worker` as the working template.
 
-Until step 2 is done, `resolveEnginePort` returns the deferred port and all three conversion routes operate correctly (upload, submit → 202, poll → `engine-not-implemented` failure). The Container binding cannot run under the local Miniflare test pool, which is why `resolveEnginePort` is injectable and the e2e tests supply a fake engine.
+Until step 2 is done, `resolveEnginePort` returns the deferred port for every convert-worker engine and all three conversion routes operate correctly (upload, submit → 202, poll → `engine-not-implemented` failure). The Container binding cannot run under the local Miniflare test pool, which is why `resolveEnginePort` is injectable and the e2e tests supply a fake engine.
 
 ## Release channels — the two doors and the flag catalog
 

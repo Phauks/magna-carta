@@ -167,6 +167,7 @@ function matterErrorResponse(
       });
     case "matter-not-prospective":
     case "matter-not-closed":
+    case "matter-already-closed":
     case "matter-number-taken":
       return problemJson(c, {
         type: "conflict",
@@ -517,7 +518,8 @@ const closeMatterRoute = defineOpenAPIRoute(closeMatterMeta, {
   path: "/api/v1/matters/{id}/close",
   description:
     "Closes a matter (archived-but-additive — it leaves active lists but still accepts documents). " +
-    "Runs the close-precondition registry; a failure returns the precondition codes.",
+    "Runs the close-precondition registry; a failure returns the precondition codes. Refuses a " +
+    "matter that is already closed, so its recorded close date never moves.",
   request: { headers: idempotencyKeyHeader, params: matterParam },
   responses: {
     200: {

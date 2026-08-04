@@ -3,6 +3,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import type { FirmId } from "@magna-carta/identifiers/types";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import { firmResourceName } from "../src/firm-resource-provider.ts";
+import { perFirmHeadSchemaVersion } from "../src/per-firm-migrations.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 
 // POST /api/v1/firms end-to-end (Miniflare): the platform-admin guard, the resumable provisioner
@@ -197,7 +198,7 @@ describe("POST /api/v1/firms", () => {
     const latestApplied = await firmDatabase
       .prepare("SELECT tag FROM _migrations ORDER BY tag DESC LIMIT 1")
       .all<{ tag: string }>();
-    expect(latestApplied.results[0]?.tag).toBe("20260717T181411_conflicts-hit-co-party");
+    expect(latestApplied.results[0]?.tag).toBe(perFirmHeadSchemaVersion());
     const ownerRole = await firmDatabase
       .prepare("SELECT id FROM role WHERE name = 'Owner/Admin'")
       .all<{ id: string }>();

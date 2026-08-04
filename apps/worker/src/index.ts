@@ -114,11 +114,10 @@ export default {
     if (batch.queue === CONVERSION_QUEUE) {
       return conversionQueue(batch as MessageBatch<ConversionMessage>, env);
     }
-    // The shared per-firm job queue carries the outbox relay's per-firm topics (firmId-tagged). The
-    // recoverable-charge consumer owns shipment.purchased (matter cost recovery) and ACK-AND-IGNOREs
-    // every other topic on the bus. (Routes here only once the queue is declared a consumer in
-    // wrangler.jsonc — a deploy-activation step deferred from this slice; the branch is dormant in
-    // production until then.)
+    // The shared per-firm job queue carries the outbox relay's per-firm topics (firmId-tagged). Its
+    // dispatch table owns shipment.purchased (matter cost recovery) and emailCaptureAddress.minted
+    // (registering a capture token in the control-plane routing index), and ACK-AND-IGNOREs every
+    // other topic on the bus.
     if (batch.queue === PER_FIRM_JOB_QUEUE) {
       return perFirmQueue(batch as MessageBatch<PerFirmQueueMessage>, env);
     }

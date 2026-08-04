@@ -12,7 +12,7 @@ function coordinatorFor(env: Bindings, message: ConversionMessage) {
 async function convertOne(
   env: Bindings,
   message: ConversionMessage,
-  resolvePort: (env: Bindings) => EngineResolver,
+  resolveEngines: (env: Bindings) => EngineResolver,
 ): Promise<void> {
   const coordinator = coordinatorFor(env, message);
   await coordinator.markRunning();
@@ -22,9 +22,10 @@ async function convertOne(
     return; // terminal — do not retry a reaped source
   }
   const bytes = new Uint8Array(await source.arrayBuffer());
-  // resolvePort(env) is a per-engineId resolver, so each hop of a multi-hop path reaches the service
-  // that runs its engine (the convert worker, or the OCR service for the searchable-PDF hop).
-  const result = await runConversion(message.from, message.to, bytes, resolvePort(env));
+  // resolveEngines(env) is a per-engineId resolver, so each hop of a multi-hop path reaches the
+  // service that runs its engine (the convert worker, or the OCR service for the searchable-PDF hop);
+  // a hop whose engine is not wired yet fails typed (engine-not-implemented) and stops the chain.
+  const result = await runConversion(message.from, message.to, bytes, resolveEngines(env));
   if (!result.ok) {
     await coordinator.markFailed(result.reason); // typed, terminal
     return;
@@ -38,11 +39,11 @@ async function convertOne(
 export async function conversionQueue(
   batch: MessageBatch<ConversionMessage>,
   env: Bindings,
-  resolvePort: (env: Bindings) => EngineResolver = resolveEnginePort,
+  resolveEngines: (env: Bindings) => EngineResolver = resolveEnginePort,
 ): Promise<void> {
   for (const message of batch.messages) {
     try {
-      await convertOne(env, message.body, resolvePort);
+      await convertOne(env, message.body, resolveEngines);
       message.ack();
     } catch (error) {
       // Transport/unexpected failure: mark failed (the DO guards against clobbering a done) and retry.

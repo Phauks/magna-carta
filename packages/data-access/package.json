@@ -10,6 +10,7 @@
     "./idempotency-statements": "./src/idempotency-statements.ts",
     "./member-statements": "./src/member-statements.ts",
     "./email-filing-statements": "./src/email-filing-statements.ts",
+    "./email-capture-route-statements": "./src/email-capture-route-statements.ts",
     "./auth-audit-statements": "./src/auth-audit-statements.ts",
     "./audit-statements": "./src/audit-statements.ts",
     "./setting-statements": "./src/setting-statements.ts",

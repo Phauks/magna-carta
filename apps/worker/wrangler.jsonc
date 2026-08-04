@@ -31,8 +31,12 @@
   // value lets the Miniflare test pool exercise the host branch. The editor half is USERCONTENT_DOMAIN
   // (the bare content domain), which defaults to magnacartausercontent.com in code — no deploy var, prod
   // can't forget it; only local dev overrides it.
+  // R2_BUCKET_NAME names the bucket bound below as R2. An R2Bucket handle carries no name, so this is
+  // how the bucket resolver (src/files/firm-bucket.ts) proves that the bucket a presigned URL addresses
+  // is the same one this Worker reads through. Keep it byte-identical to the r2_buckets bucket_name.
   "vars": {
     "FILES_ORIGIN": "files.example.com",
+    "R2_BUCKET_NAME": "magna-carta-production-platform-files",
   },
   // Real production resources (created 2026-06-09; naming convention in ADR-0075:
   // magna-carta-<environment>-<scope>[-<purpose-or-slug>]). Binding names are the code-facing
@@ -114,6 +118,16 @@
     // Both the interactive files-ingest queue and the bulk files-ingest-bulk queue route to the same
     // ingest handler; the lane separation is entirely in queue topology and max_concurrency.
     "consumers": [
+      // The shared per-firm job queue: everything the per-firm outbox relay sweeps crosses this one
+      // queue, firmId-tagged, and the dispatch table in src/costs/recoverable-charge-consumer.ts
+      // routes each message to the handler that owns its topic (unowned topics are acked and
+      // ignored). Declaring it a consumer is what makes a per-firm outbox row actually reach its
+      // effect — email capture-address minting depends on it to write the control-plane routing row,
+      // without which a minted address never receives mail.
+      {
+        "queue": "magna-carta-production-platform-jobs",
+        "dead_letter_queue": "magna-carta-production-platform-jobs-deadletter",
+      },
       {
         "queue": "magna-carta-production-files-ingest",
         "dead_letter_queue": "magna-carta-production-files-ingest-deadletter",

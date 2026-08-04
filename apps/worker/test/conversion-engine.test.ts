@@ -32,10 +32,24 @@ const pdfInput = {
 };
 
 describe("resolveEnginePort", () => {
-  it("resolves a convert-worker engine to the deferred port when CONVERT is unbound", async () => {
-    const result = await resolveEnginePort({} as Bindings)("libvips").convert(rasterInput);
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.reason).toBe("engine-not-implemented");
+  it("resolves every convert-worker engine to the deferred port when CONVERT is unbound", async () => {
+    const resolve = resolveEnginePort({} as Bindings);
+    for (const engineId of ["libvips", "image-pdf", "libreoffice", "email", "ffmpeg"] as const) {
+      const result = await resolve(engineId).convert(rasterInput);
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.reason).toBe("engine-not-implemented");
+    }
+  });
+
+  it("keeps an engine without a Container deferred even when CONVERT is bound", async () => {
+    const convert = fakeBinding(new Response(new Uint8Array([9]), { status: 200 }));
+    const resolve = resolveEnginePort({ CONVERT: convert } as unknown as Bindings);
+    for (const engineId of ["libreoffice", "email", "ffmpeg"] as const) {
+      const result = await resolve(engineId).convert(rasterInput);
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.reason).toBe("engine-not-implemented");
+    }
+    expect(convert.seen()).toBeUndefined();
   });
 
   it("routes a convert-worker engine to the CONVERT binding and maps its 2xx to bytes + media type", async () => {
@@ -52,6 +66,22 @@ describe("resolveEnginePort", () => {
       expect(new Uint8Array(result.bytes)).toEqual(out);
       expect(result.mediaType).toBe("image/webp");
     }
+  });
+
+  it("sends the resolved engine id as x-engine-id so the convert worker can dispatch", async () => {
+    const convert = fakeBinding(
+      new Response(new Uint8Array([9]), {
+        status: 200,
+        headers: { "Content-Type": "application/pdf" },
+      }),
+    );
+    const resolve = resolveEnginePort({ CONVERT: convert } as unknown as Bindings);
+    await resolve("image-pdf").convert({ ...rasterInput, to: "pdf", recipeRef: "image-pdf" });
+    const headers = convert.seen()?.headers;
+    expect(headers?.get("x-engine-id")).toBe("image-pdf");
+    expect(headers?.get("x-source-format")).toBe("png");
+    expect(headers?.get("x-target-format")).toBe("pdf");
+    expect(headers?.get("x-recipe")).toBe("image-pdf");
   });
 
   it("maps a convert-worker non-2xx to adapter-error (never throws)", async () => {

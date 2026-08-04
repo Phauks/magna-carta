@@ -9,6 +9,7 @@
     "./registry": "./src/registry.ts",
     "./types": "./src/types.ts",
     "./generate": "./src/generate.ts",
+    "./token": "./src/nanoid.ts",
     "./validate": "./src/validate.ts"
   },
   "scripts": {

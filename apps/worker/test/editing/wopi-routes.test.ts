@@ -11,10 +11,12 @@ import { firmDatabaseHandle } from "../support/firm-database-handle.ts";
 // FirmDatabase Durable Object, the R2 binding). The handlers receive already-verified token claims (the
 // guard + firm-database resolution happen upstream), so these tests construct the claims directly and assert
 // the protocol shaping: UserCanWrite tracks capability, the file's display name and size come from the
-// firm metadata, LastModifiedTime echoes the session's host-assigned timestamp, and GetFile streams
-// the version bytes for a read-only viewer but the live `current` working object for an edit session.
+// firm metadata, LastModifiedTime echoes the session's host-assigned timestamp, and the file-access
+// handlers read the live `current` working object only for the session that owns it — every other caller
+// reads the immutable version its token names.
 
 const ISO = "2026-06-20T00:00:00.000Z";
+const LIVE_SESSION = "wopiSession_test";
 const memberId = newIdentifier("user");
 let matterId: string;
 let firmId: FirmId;
@@ -54,6 +56,7 @@ function claimsFor(
   fileId: FileId,
   versionId: FileVersionId,
   capability: "view" | "edit",
+  sessionId: string = LIVE_SESSION,
 ): EditTokenClaims {
   return {
     firmId,
@@ -62,7 +65,7 @@ function claimsFor(
     versionId,
     memberId,
     capability,
-    sessionId: "wopiSession_test",
+    sessionId,
     exp: Date.parse(ISO) + 60 * 60 * 1000,
     jti: "test-jti",
   };
@@ -94,6 +97,7 @@ describe("WOPI CheckFileInfo", () => {
       database: firmDb,
       bucket: env.R2,
       currentMeta: null,
+      liveSessionId: null,
     });
 
     expect(info.BaseFileName).toBe("Brief.docx");
@@ -113,6 +117,7 @@ describe("WOPI CheckFileInfo", () => {
       database: firmDb,
       bucket: env.R2,
       currentMeta: null,
+      liveSessionId: null,
     });
 
     expect(info.UserCanWrite).toBe(false);
@@ -130,59 +135,191 @@ describe("WOPI CheckFileInfo", () => {
       database: firmDb,
       bucket: env.R2,
       currentMeta,
+      liveSessionId: LIVE_SESSION,
     });
 
     expect(info.LastModifiedTime).toBe("2026-06-21T09:30:00.000Z");
     // The live working-copy size supersedes the committed version's size.
     expect(info.Size).toBe(12345);
   });
-});
 
-describe("WOPI GetFile", () => {
-  it("streams the committed version bytes for a read-only viewer", async () => {
-    const { fileId, versionId } = await seedCleanFile("View.docx", "committed-bytes");
-
-    const response = await getFile(claimsFor(fileId, versionId, "view"), {
+  // The advertised size/version must describe the bytes GetFile will hand back: a token minted outside
+  // the live session reads the committed version, so it must be told the committed version's metadata.
+  it("reports the committed version's metadata to a token that does not own the live working copy", async () => {
+    const { fileId, versionId } = await seedCleanFile("Foreign.docx", "committed");
+    const deps = {
       database: firmDb,
       bucket: env.R2,
-      currentMeta: null,
-    });
+      currentMeta: {
+        sha256: "live-hash",
+        sizeBytes: 999_999,
+        wopiTimestamp: "2026-06-21T11:00:00.000Z",
+      },
+      liveSessionId: LIVE_SESSION,
+    };
 
-    expect(response.status).toBe(200);
-    expect(await response.text()).toBe("committed-bytes");
+    const outsider = await checkFileInfo(
+      claimsFor(fileId, versionId, "view", "wopiSession_other"),
+      deps,
+    );
+    expect(outsider.Size).toBe("committed".length);
+    expect(outsider.Version).toBe(versionId);
+    expect(outsider.LastModifiedTime).toBeNull();
+
+    // The same file, read by the session that owns the working copy, still reports the live metadata.
+    const owner = await checkFileInfo(claimsFor(fileId, versionId, "edit"), deps);
+    expect(owner.Size).toBe(999_999);
+    expect(owner.Version).toBe("2026-06-21T11:00:00.000Z");
   });
 
-  it("streams the live `current` working object for an edit session", async () => {
+  it("reports the committed version's metadata once the live session is gone", async () => {
+    const { fileId, versionId } = await seedCleanFile("Reaped.docx", "committed");
+
+    const info = await checkFileInfo(claimsFor(fileId, versionId, "edit"), {
+      database: firmDb,
+      bucket: env.R2,
+      // A reap clears the session state; the working-copy metadata goes with it.
+      currentMeta: null,
+      liveSessionId: null,
+    });
+
+    expect(info.Size).toBe("committed".length);
+    expect(info.Version).toBe(versionId);
+  });
+});
+
+// The live working copy is served to the session that owns it and to nobody else. `current` is one
+// mutable object per file that outlives the session that wrote it, so ownership — not capability — is
+// what makes it the right bytes: an owning session gets its own working copy, and every other caller
+// (an editor whose session was reaped, a token minted outside the live session, a read-only viewer that
+// never joined) gets the immutable version its token names.
+const liveMeta: CurrentObjectMeta = {
+  sha256: "live-hash",
+  sizeBytes: "live-working-copy".length,
+  wopiTimestamp: "2026-06-21T10:00:00.000Z",
+};
+
+describe("WOPI GetFile", () => {
+  it("streams the live `current` working object to the session that owns it", async () => {
     const { fileId, versionId } = await seedCleanFile("Edit.docx", "committed-bytes");
-    const currentKey = `files/${fileId}/current`;
-    await env.R2.put(currentKey, "live-working-copy");
-    const currentMeta: CurrentObjectMeta = {
-      sha256: "live-hash",
-      sizeBytes: "live-working-copy".length,
-      wopiTimestamp: "2026-06-21T10:00:00.000Z",
-    };
+    await env.R2.put(`files/${fileId}/current`, "live-working-copy");
 
     const response = await getFile(claimsFor(fileId, versionId, "edit"), {
       database: firmDb,
       bucket: env.R2,
-      currentMeta,
+      currentMeta: liveMeta,
+      liveSessionId: LIVE_SESSION,
     });
 
     expect(response.status).toBe(200);
     expect(await response.text()).toBe("live-working-copy");
   });
 
-  it("falls back to the committed version when an edit session has not yet materialized `current`", async () => {
+  it("streams the live working copy to a read-only viewer that joined that session (reading is never blocked)", async () => {
+    const { fileId, versionId } = await seedCleanFile("Watch.docx", "committed-bytes");
+    await env.R2.put(`files/${fileId}/current`, "live-working-copy");
+
+    const response = await getFile(claimsFor(fileId, versionId, "view"), {
+      database: firmDb,
+      bucket: env.R2,
+      currentMeta: liveMeta,
+      liveSessionId: LIVE_SESSION,
+    });
+
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe("live-working-copy");
+  });
+
+  it("streams the version a token names — never the live bytes — when the token belongs to another session", async () => {
+    const { fileId, versionId } = await seedCleanFile("Outsider.docx", "committed-bytes");
+    await env.R2.put(`files/${fileId}/current`, "live-working-copy");
+    const deps = {
+      database: firmDb,
+      bucket: env.R2,
+      currentMeta: liveMeta,
+      liveSessionId: LIVE_SESSION,
+    };
+
+    const served = await Promise.all(
+      (["view", "edit"] as const).map(async (capability) => {
+        const response = await getFile(
+          claimsFor(fileId, versionId, capability, "wopiSession_other"),
+          deps,
+        );
+        expect(response.status).toBe(200);
+        return response.text();
+      }),
+    );
+
+    expect(served).toEqual(["committed-bytes", "committed-bytes"]);
+  });
+
+  it("streams the committed version when no session is live, even though a `current` object lingers", async () => {
+    const { fileId, versionId } = await seedCleanFile("Stale.docx", "committed-bytes");
+    // A reaped session leaves its working object behind (the reap cuts a version, it does not delete
+    // `current`), so a fresh session must not pick those bytes up as its editing base.
+    await env.R2.put(`files/${fileId}/current`, "abandoned-working-copy");
+
+    const served = await Promise.all(
+      (["view", "edit"] as const).map(async (capability) => {
+        const response = await getFile(claimsFor(fileId, versionId, capability), {
+          database: firmDb,
+          bucket: env.R2,
+          currentMeta: null,
+          liveSessionId: null,
+        });
+        expect(response.status).toBe(200);
+        return response.text();
+      }),
+    );
+
+    expect(served).toEqual(["committed-bytes", "committed-bytes"]);
+  });
+
+  it("streams the committed version while a live session has not yet written a working copy", async () => {
     const { fileId, versionId } = await seedCleanFile("Fresh.docx", "version-bytes");
+    // The session is live and this token owns it, but nothing has been saved — and the leftover object
+    // from an earlier session is not this session's base.
+    await env.R2.put(`files/${fileId}/current`, "abandoned-working-copy");
 
     const response = await getFile(claimsFor(fileId, versionId, "edit"), {
       database: firmDb,
       bucket: env.R2,
       currentMeta: null,
+      liveSessionId: LIVE_SESSION,
     });
 
     expect(response.status).toBe(200);
     expect(await response.text()).toBe("version-bytes");
+  });
+
+  it("404s rather than substituting other bytes when the owned working copy is gone", async () => {
+    const { fileId, versionId } = await seedCleanFile("Vanished.docx", "committed-bytes");
+    // The session owns a working copy the bucket no longer holds (a soft-delete destroys `current`).
+    // Serving the committed version instead would hand the editor a different document under the size
+    // and version CheckFileInfo already advertised.
+    await expect(
+      getFile(claimsFor(fileId, versionId, "edit"), {
+        database: firmDb,
+        bucket: env.R2,
+        currentMeta: liveMeta,
+        liveSessionId: LIVE_SESSION,
+      }),
+    ).rejects.toMatchObject({ code: "not-found" });
+  });
+
+  it("404s when neither the working copy nor the named version exists", async () => {
+    const fileId = newIdentifier("file");
+    const versionId = newIdentifier("fileVersion");
+
+    await expect(
+      getFile(claimsFor(fileId, versionId, "view"), {
+        database: firmDb,
+        bucket: env.R2,
+        currentMeta: null,
+        liveSessionId: null,
+      }),
+    ).rejects.toMatchObject({ code: "not-found" });
   });
 });
 

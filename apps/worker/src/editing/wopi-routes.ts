@@ -38,11 +38,35 @@ export class WopiRouteError extends Error {
 
 // The bindings + live-session state a file-access handler reads from. `currentMeta` is the working-copy
 // metadata the session Durable Object recorded on the last PutFile (null when no live session has
-// written `current` yet); it makes the live size/timestamp authoritative over the committed version's.
+// written `current` yet); `liveSessionId` is the session identity the DO currently holds (null when no
+// editing session is live). Together they decide whether this caller may read the live working copy.
 export interface WopiFileDeps {
   readonly database: ProxyBatchDatabase;
   readonly bucket: R2Bucket;
   readonly currentMeta: CurrentObjectMeta | null;
+  readonly liveSessionId: string | null;
+}
+
+// Whether the token's session owns the live working copy — the one condition under which the mutable
+// `files/{fileId}/current` object is the right content for this caller. All three must hold: an editing
+// session is live, the token was minted for THAT session, and the session has recorded a working copy it
+// wrote. Anything else reads the immutable version the token names.
+//
+// The token's session id is the ownership proof, not its capability: `current` is one mutable object per
+// file that outlives the session that wrote it (a reap cuts a version but leaves the object in place), so
+// gating on capability alone hands a NEW editing session a stale working copy as its base, and hands any
+// token minted outside the live session bytes it was never scoped to. Reading is never blocked by this —
+// a read-only viewer that joined the live session carries its session id and follows the live edits;
+// everyone else still gets the committed version their token names.
+function ownsLiveWorkingCopy(
+  claims: EditTokenClaims,
+  deps: Pick<WopiFileDeps, "currentMeta" | "liveSessionId">,
+): boolean {
+  return (
+    deps.liveSessionId !== null &&
+    deps.currentMeta !== null &&
+    claims.sessionId === deps.liveSessionId
+  );
 }
 
 // The CheckFileInfo response. WOPI requires BaseFileName, OwnerId, Size, UserId and Version; the rest
@@ -68,11 +92,15 @@ export async function checkFileInfo(
   if (file === undefined || file.deletedAt !== null) throw new WopiRouteError("not-found");
 
   const cleanVersion = file.currentVersion;
-  // The live working copy's size supersedes the committed version's once a session has saved.
-  const size = deps.currentMeta?.sizeBytes ?? cleanVersion?.sizeBytes ?? 0;
+  // The live working copy's metadata is reported ONLY to the session that owns it — the same gate GetFile
+  // serves the bytes under, so the size/version this call advertises always describes the bytes the next
+  // GetFile returns.
+  const liveWorkingCopy = ownsLiveWorkingCopy(claims, deps) ? deps.currentMeta : null;
+  // The live working copy's size supersedes the committed version's once that session has saved.
+  const size = liveWorkingCopy?.sizeBytes ?? cleanVersion?.sizeBytes ?? 0;
   // Version must change whenever the bytes change: the host-assigned timestamp during a live session,
   // else the committed version's identifier (stable until the next cut).
-  const version = deps.currentMeta?.wopiTimestamp ?? cleanVersion?.id ?? "0";
+  const version = liveWorkingCopy?.wopiTimestamp ?? cleanVersion?.id ?? "0";
 
   return {
     BaseFileName: file.name,
@@ -82,20 +110,22 @@ export async function checkFileInfo(
     OwnerId: `file:${fileId}`,
     UserId: claims.memberId,
     UserCanWrite: claims.capability === "edit",
-    LastModifiedTime: deps.currentMeta?.wopiTimestamp ?? null,
+    LastModifiedTime: liveWorkingCopy?.wopiTimestamp ?? null,
   };
 }
 
 export async function getFile(claims: EditTokenClaims, deps: WopiFileDeps): Promise<Response> {
   const fileId = claims.fileId as FileId;
 
-  // An edit session reads the live working copy; before it is materialized (or for a read-only viewer)
-  // the committed base version is served. Both keys are derived from the verified token.
-  let object: R2ObjectBody | null = null;
-  if (claims.capability === "edit") {
-    object = await deps.bucket.get(currentObjectKey(fileId));
-  }
-  object ??= await deps.bucket.get(fileVersionKey(fileId, claims.versionId as FileVersionId));
+  // Exactly one object is served, and which one is decided BEFORE any read: the live working copy when
+  // the token's session owns it, otherwise the immutable version the token names. There is no fallback
+  // between the two — falling back would silently hand the caller different bytes under the size and
+  // version CheckFileInfo already advertised, which for an editor means saving edits onto the wrong base.
+  // Both keys are derived from the verified token, never the request line.
+  const key = ownsLiveWorkingCopy(claims, deps)
+    ? currentObjectKey(fileId)
+    : fileVersionKey(fileId, claims.versionId as FileVersionId);
+  const object = await deps.bucket.get(key);
   if (object === null) throw new WopiRouteError("not-found");
 
   return new Response(object.body, { status: 200 });

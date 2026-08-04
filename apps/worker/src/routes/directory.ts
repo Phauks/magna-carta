@@ -10,6 +10,7 @@ import {
   type DirectoryIdentifierContext,
 } from "@magna-carta/directory/identifiers";
 import { createEdge, InvalidEdgeTypeError, UnknownEntityError } from "@magna-carta/directory/edges";
+import { MergedEntityError } from "@magna-carta/directory/entity-kind";
 import {
   assignCategory,
   createCategory,
@@ -352,7 +353,14 @@ function directoryErrorResponse(
       detail: caught.message,
     });
   }
-  if (caught instanceof MergeAlreadyMergedError || caught instanceof MergeSameEntityError) {
+  // A write aimed at a merged-away entity is a conflict, not a 404: the entity is still readable and
+  // still carries its merge pointer, so the caller is told the write cannot land there and which
+  // surviving master to address instead — the detail names it.
+  if (
+    caught instanceof MergeAlreadyMergedError ||
+    caught instanceof MergeSameEntityError ||
+    caught instanceof MergedEntityError
+  ) {
     return problemJson(c, {
       type: "conflict",
       title: "Merge conflict",

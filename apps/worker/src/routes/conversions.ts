@@ -12,8 +12,8 @@ import type { AppVariables } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { Problem, problemJson } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
+import { resolveFirmBucket } from "../files/firm-bucket.ts";
 import { presignerForEnv } from "../files/presigner-wiring.ts";
-import { requireBucket } from "../files/require-bucket.ts";
 
 // The three-route conversion surface: presign an upload slot, submit a job, and poll its state.
 // All three are firm-scoped and traverse the same chokepoint under the tools:fileConverter permission.
@@ -195,7 +195,7 @@ export function registerConversionRoutes(app: ConversionsApp, chokepoint: Chokep
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const firmId = requireChokepointFirmId(c);
-      const bucket = requireBucket(firm.bucketName);
+      const bucket = resolveFirmBucket(c.env, firm.bucketName).bucketName;
       const jobId = newIdentifier("conversionJob");
       const sourceKey = `conversions/${firmId}/${jobId}/source`;
       const uploadUrl = await presignerForEnv(c.env).presignPut(
@@ -251,7 +251,7 @@ export function registerConversionRoutes(app: ConversionsApp, chokepoint: Chokep
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const firmId = requireChokepointFirmId(c);
-      const bucket = requireBucket(firm.bucketName);
+      const bucket = resolveFirmBucket(c.env, firm.bucketName).bucketName;
       const { jobId } = c.req.valid("param");
 
       const coordinator = c.env.CONVERSION_JOB.get(

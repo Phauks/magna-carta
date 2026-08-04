@@ -9,9 +9,14 @@ export type FindingCategory =
   | "comments" // reviewer comments and the names attached to them
   | "hidden-content" // text marked hidden (vanish)
   | "custom-properties" // arbitrary custom document properties
+  | "edit-history" // revision save identifiers: which passages were written in which sitting
+  | "document-settings" // stored variables, mail-merge data source, attached template path
+  | "embedded-preview" // a rendered preview image of the document's first page
+  | "embedded-data" // custom XML data parts carried inside the document
   | "image-location" // GPS / camera EXIF
   | "image-software" // editing-software / XMP markers
-  | "image-other"; // remaining EXIF/IPTC/comment segments
+  | "image-other" // remaining EXIF/IPTC/comment segments
+  | "image-trailing-data"; // bytes appended after the end of the image stream
 
 export interface Finding {
   readonly category: FindingCategory;

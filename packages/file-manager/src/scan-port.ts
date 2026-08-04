@@ -29,7 +29,16 @@ export type RawScanResult = {
 export interface MalwareScanPort {
   scan(
     body: ReadableStream<Uint8Array>,
-    meta: { sizeBytes: number; sniffedContentType: string | null },
+    meta: {
+      sizeBytes: number;
+      sniffedContentType: string | null;
+      // A stable identifier for the bytes being scanned — the version's storage key, where the caller
+      // has one. The engine runs a fleet of container instances and routes on this key, so every
+      // attempt at the same content (a queue retry included) reaches the same instance. Opaque and
+      // optional: a caller with nothing stable to name, such as an ad-hoc diagnostic upload, omits it
+      // and the engine picks an instance itself.
+      contentKey?: string;
+    },
   ): Promise<RawScanResult>;
 }
 

@@ -40,6 +40,7 @@ describe("WOPI surface diagnostics", () => {
         database: {} as unknown as ProxyBatchDatabase,
         bucket: throwingBucket,
         currentMeta: null,
+        liveSessionId: null,
       }),
     );
 

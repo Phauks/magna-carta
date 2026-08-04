@@ -32,8 +32,8 @@ import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { identifierField, identifierPathParam } from "../contracts/common.ts";
 import { Problem, problemJson } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
+import { resolveFirmBucket } from "../files/firm-bucket.ts";
 import { presignerForEnv } from "../files/presigner-wiring.ts";
-import { requireBucket } from "../files/require-bucket.ts";
 
 // How long a checkout's download URL is valid. Short — the client fetches the working copy promptly;
 // the offline edit then lives on the client until check-in.
@@ -326,7 +326,7 @@ export function registerDocumentCheckoutRoutes(
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const memberId = requireChokepointUserId(c);
-      const bucket = requireBucket(firm.bucketName);
+      const bucket = resolveFirmBucket(c.env, firm.bucketName).bucketName;
       const fileId = c.req.param("fileId") as FileId;
 
       const lockType = c.req.valid("json")?.lockType ?? "offline_working_copy";
@@ -405,7 +405,7 @@ export function registerDocumentCheckoutRoutes(
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const memberId = requireChokepointUserId(c);
-      const bucket = requireBucket(firm.bucketName);
+      const bucket = resolveFirmBucket(c.env, firm.bucketName).bucketName;
       const fileId = c.req.param("fileId") as FileId;
       const { checkoutId } = c.req.valid("json");
 
@@ -499,8 +499,9 @@ export function registerDocumentCheckoutRoutes(
           { fileId, sourceVersionId: primary.id, uploadedBy: memberId },
           { clock: { now }, actorUserId: memberId },
           async (fromKey, toKey) => {
-            const object = await c.env.R2.get(fromKey);
-            if (object !== null) await c.env.R2.put(toKey, object.body);
+            const { bucket } = resolveFirmBucket(c.env, firm.bucketName);
+            const object = await bucket.get(fromKey);
+            if (object !== null) await bucket.put(toKey, object.body);
           },
         );
         statements.push(...restored.effect.statements);

@@ -12,14 +12,19 @@ export interface AuditContext {
 }
 
 // Composes the per-firm audit_log row for an effect batch via the shared domain audit wrapper —
-// minting the audit-log id with null metadata (the event, subject, actor, and instant are the
-// record). A thin positional adapter so a matters call site reads matterAuditStatement(db, ctx,
-// event, subject).
+// minting the audit-log id. A thin positional adapter so a matters call site reads
+// matterAuditStatement(db, ctx, event, subject).
+//
+// Most matters events carry no metadata: the event, subject, actor, and instant are the whole
+// record. Pass metadata only where the mutation destroys a value nothing else retains — a renumber
+// overwrites the previous matter number in place, and a filing or invoice that quotes the old number
+// is unresolvable without it. Ids and non-privileged fields only, never privileged content.
 export function matterAuditStatement(
   database: SqlDatabase,
   context: AuditContext,
   event: string,
   subjectId: string,
+  metadata?: unknown,
 ): SqlStatement {
   return domainAuditStatement(database, {
     event,
@@ -27,5 +32,6 @@ export function matterAuditStatement(
     actorUserId: context.actorUserId,
     clock: context.clock,
     randomSource: context.randomSource,
+    metadata,
   });
 }
