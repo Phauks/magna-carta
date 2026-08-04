@@ -844,6 +844,29 @@ the will-on-death jurisdiction engine.
 Design: `docs/specs/2026-08-04-custodian-design.md`. User guide:
 `docs/user/features/safe-custody-register.md`.
 - **The merge-field input infrastructure — the user-facing half of document automation, built against a contract rather than a backend.** A new pure package `@magna-carta/merge-field-catalog-contract` declares what a merge-field catalog entry and a template version's field manifest are — key, human label, group, value type, example rendering, availability and where the value comes from, sensitivity, legal formats — and ships a mock provider over a realistic fixture catalog, so every consuming surface takes a `MergeFieldCatalogProvider` and holds only the interface. Three design-system components join the catalog: **MergeFieldPicker**, a grouped searchable picker composed from the existing Popover and Command (rows lead with the human label, search matches label, key, group, and description, and every typed term must match so a second word narrows); **MergeFieldChip**, the token for an inserted field, whose status says in colour, glyph, and words whether the reader has to do anything about it; and **MergeFieldReviewList**, where placeholders detected in an uploaded document are presented one at a time for confirmation — every row a proposal, with no state that could render as a conversion that already happened. In the web app, an assembly input area lays a template's fields against the catalog and renders a form grouped by source: a control typed to each value a person must supply, read-only context for the fields that fill themselves, per-field guidance saying where each value comes from, and a validation summary that errors on a missing required value and only warns where the matter's own data may still cover it. Reachable as a staged display page at `/forms/assemble` (sample data throughout — nothing reads or writes a matter); the visual design is deliberately plain and left for owner review.
+- **Document automation — template catalogue and merge assembly.** A firm can register a `.docx`
+template, and assemble it against a matter into a filed document. Templates live in their own
+firm-level catalogue with immutable versions (`document_template`, `document_template_version`), and
+every assembly records the exact version it came from (`document_assembly`). The merge engine is
+in-house TypeScript over the same OOXML substrate the metadata inspector uses — no new runtime, no
+container hop.
+
+Registration does the expensive work once, while a human is looking at the result: placeholders Word
+split across runs are reassembled into one run each, the document's drafting history is scrubbed, and
+the bytes are scanned before the version can be assembled from. Two things it reports rather than
+doing silently — **macro projects are removed and the removal is reported**, and **Word merge fields
+are detected and listed but converted only when you ask for it** (`convertMergeFields` on the
+registration request). A stripped package is independently re-verified as macro-free before it can
+register at all.
+
+An assembled document enters the matter through the same upload-and-scan path every other file
+crosses; there is no second route to a clean version. Merge values exist in memory for the life of the
+job and are never persisted, logged, or placed on a queue — the provenance row records which fields
+were _absent_, never what the present ones held.
+
+New permissions: `templates:manage` (Owner/Admin) and `documents:assemble` (the practising roles).
+Conditional and repeating blocks, custom-field bindings, letterhead images, and PDF output are later
+slices.
 
 ### Fixed
 
