@@ -45,9 +45,12 @@ found:
 - **The document's drafting history is removed** — tracked changes, comments, hidden text, and the
   author and company recorded in its properties. Every document produced from the template starts
   clean, so a letter to a client never carries the notes you made writing the template.
-- **Macros are taken out, and we tell you they were.** If your document contains a macro project, it is
-  removed and the count is reported back to you. The template is then re-checked from scratch to
-  confirm nothing was left behind; if anything survives, the template is not registered at all.
+- **Macros are removed only if you ask.** A template is run against your clients' data, so one carrying
+  macros cannot be stored — but taking them out changes the document you sent us, so it is your call.
+  Register asking for the macros to be removed and the macro project goes, the count is reported back
+  to you, and the result is re-checked from scratch to confirm nothing was left behind; if anything
+  survives, the template is not registered at all. Without that, an upload containing macros is refused
+  and tells you what was found. Uploading a macro-free copy of the file is the other way through.
 - **The file is scanned**, exactly as any file you upload is.
 
 You can narrow a template to a matter type or an office, which limits which matters offer it. Every
@@ -59,24 +62,32 @@ have.
 ## If your template came from Word mail merge
 
 Word's own merge fields (the grey ones you insert from the Insert Field dialog) are **not** filled in
-by this system as they stand — left alone, they would print whatever text Word last cached in them,
-which is how a document ends up looking finished and being wrong.
+by this system. Left alone, each one prints whatever text Word last cached in it — which is how a
+document ends up looking finished and being wrong.
 
-So we look for them and tell you: registering a document that uses them reports **every merge field it
-found**, by name, with how many times each appears and which of our fields it would become. Nothing is
-changed yet — the document you uploaded is still exactly as you wrote it.
+The template still registers, and we make sure that field is never out of sight. Registering a document
+that uses them reports **every merge field it found**, by name, with how many times each appears, which
+of our fields it would become, and **the text it will actually print**. Nothing is changed — the
+document we store is exactly the file you uploaded. The field list keeps showing them, and **every
+document you assemble from that template reports them again** and is marked as needing review, in the
+same place a missing value would be.
 
 You then choose:
 
 - **Convert them.** Register again asking for conversion, and each merge field is rewritten into the
-  `{{field}}` form. This changes the document we store — it is no longer byte-for-byte the file you
-  uploaded — which is why it happens only when you ask.
+  `{{field}}` form and filled in from then on. This changes the document we store — it is no longer
+  byte-for-byte the file you uploaded — which is why it happens only when you ask.
 - **Replace them yourself in Word.** Delete the merge fields and type the field names between braces.
+- **Leave them.** Sometimes the frozen text is what you want — a caption that never changes. Now you
+  can see which fields those are.
 
-If your Word fields are named differently from ours (`ClientName` where we have
-`client.displayName`), the report says so rather than guessing at a match, and conversion leaves those
-fields unrecognized. Fix the names in Word for now; remembering your firm's own naming between imports
-is coming.
+**We remember what your field names mean.** If your Word fields are named differently from ours
+(`ClientName` where we have `client.displayName`), the report says so rather than guessing at a match.
+Once you confirm the meaning by converting a template that uses our name for it, the mapping is kept:
+importing the next document from the same source arrives already mapped instead of asking again. You
+can see the whole list of what your firm has confirmed, and remove any entry you no longer want — a
+mapping is your firm's statement about your own documents, so you can withdraw it. Removing one changes
+nothing already registered.
 
 ## Updating a template
 
@@ -100,6 +111,10 @@ missing, the document shows a marker like `[LOCATION REMIT TO]` rather than an i
 result lists every field that was missing. Some fields are too important to leave a marker for — a
 matter number on a pleading caption, the client's name — and an assembly that cannot supply one fails
 and names it rather than producing a document you might file.
+
+**Word merge fields left in the template are reported the same way.** They print text left over from
+the template rather than a value from the matter, so the result names each one and marks the document
+as needing review before you file it — a blank that does not look like a blank is still a blank.
 
 Assembling needs the **assemble documents** permission, which attorneys, paralegals, and administrators
 have.

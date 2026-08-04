@@ -17,17 +17,25 @@ import {
 // CHOKEPOINT — a pending file_version and an open-then-completed upload session, never a row written
 // straight to `clean`.
 
-// TWO firms, because the rate-limit bucket is keyed by firm and the registration and assembly blocks
-// each make close to a bucket's worth of `expensive` calls. Splitting them also keeps each block's
-// catalogue state independent, which is what makes the list assertions readable.
-let firmId: FirmId;
+// SEVERAL firms, because the rate-limit bucket is keyed by firm and each block here makes close to a
+// bucket's worth of `expensive` calls (a registration and a submit are both expensive). Splitting them
+// also keeps each block's catalogue and mapping-library state independent, which is what makes the
+// list assertions readable — a shared firm would make every assertion depend on the block above it.
 let ownerCookie: string;
+
+let mappingCookie: string;
 
 let assemblyFirmId: FirmId;
 let assemblyCookie: string;
 let assemblyUserId: string;
 let matterId: string;
 let assemblyBucketName: string;
+
+let frozenFirmId: FirmId;
+let frozenCookie: string;
+let frozenUserId: string;
+let frozenMatterId: string;
+let frozenBucketName: string;
 
 const DECLARATION = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
 const WORD_NAMESPACE = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"';
@@ -76,17 +84,37 @@ function templateDocx(overrides: TemplateOverrides = {}): Uint8Array {
   return zipSync(files);
 }
 
-// The complex field construct Word writes for an inserted merge field.
-function mergeFieldParagraph(fieldName: string): string {
+// The complex field construct Word writes for an inserted merge field. `cachedResult` is what the
+// document actually prints today — the text Word froze into the field the last time it was merged.
+function mergeFieldParagraph(fieldName: string, cachedResult = `«${fieldName}»`): string {
   return (
     "<w:p>" +
     '<w:r><w:fldChar w:fldCharType="begin"/></w:r>' +
     `<w:r><w:instrText xml:space="preserve"> MERGEFIELD  ${fieldName}  \\* MERGEFORMAT </w:instrText></w:r>` +
     '<w:r><w:fldChar w:fldCharType="separate"/></w:r>' +
-    `<w:r><w:t>«${fieldName}»</w:t></w:r>` +
+    `<w:r><w:t>${cachedResult}</w:t></w:r>` +
     '<w:r><w:fldChar w:fldCharType="end"/></w:r>' +
     "</w:p>"
   );
+}
+
+// The package shape a macro-bearing upload takes: the payload part, the content-type Default that
+// declares it, the relationship that reaches it, and the macro-enabled main-document declaration.
+function macroBearingOverrides(): TemplateOverrides {
+  return {
+    contentTypes:
+      `${DECLARATION}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">` +
+      '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+      '<Default Extension="xml" ContentType="application/xml"/>' +
+      '<Default Extension="bin" ContentType="application/vnd.ms-office.vbaProject"/>' +
+      '<Override PartName="/word/document.xml" ContentType="application/vnd.ms-word.document.macroEnabled.main+xml"/>' +
+      "</Types>",
+    documentRels:
+      `${DECLARATION}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
+      '<Relationship Id="rId5" Type="http://schemas.microsoft.com/office/2006/relationships/vbaProject" Target="vbaProject.bin"/>' +
+      "</Relationships>",
+    extra: { "word/vbaProject.bin": strToU8("stand-in vbaProject payload") },
+  };
 }
 
 async function post(path: string, body: unknown, cookie = ownerCookie): Promise<Response> {
@@ -138,9 +166,23 @@ interface RegisteredTemplateBody {
   versionNumber: number;
   status: string;
   fieldCount: number;
+  macrosStripped: boolean;
   macroPartsRemoved: number;
   mergeFieldsConverted: boolean;
-  mergeFieldsDetected: { fieldName: string; mappedKey: string; mapsToKnownField: boolean }[];
+  mergeFieldsDetected: {
+    fieldName: string;
+    mappedKey: string;
+    mapsToKnownField: boolean;
+    mappedFromLibrary: boolean;
+    frozenText: string;
+  }[];
+  unconvertedMergeFields: {
+    fieldName: string;
+    part: string;
+    occurrences: number;
+    frozenText: string;
+  }[];
+  confirmedFieldMappings: { fieldName: string; mergeKey: string }[];
 }
 
 async function registerTemplate(
@@ -176,34 +218,33 @@ function makeBatch(message: DocumentAssemblyMessage): {
   return { batch, acks, retries };
 }
 
-beforeAll(async () => {
-  await applyControlPlaneMigrations(env.DB_CONTROL);
+interface SeededFirm {
+  readonly firmId: FirmId;
+  readonly cookie: string;
+  readonly userId: string;
+  readonly bucketName: string;
+}
 
-  firmId = (await seedFirm({ name: "Document Automation Firm" })).firmId;
+// One firm with an owner signed in and its bucket named. Every block here gets its own, so no block's
+// assertions depend on what the block above it registered — and so each starts with a fresh
+// `expensive` rate-limit bucket.
+async function seedOwnedFirm(name: string, email: string, bucketName: string): Promise<SeededFirm> {
+  const { firmId: seededFirmId } = await seedFirm({ name });
   await env.DB_CONTROL.prepare("UPDATE firm SET bucket_name = ?2 WHERE id = ?1")
-    .bind(firmId, "document-automation-firm-bucket")
+    .bind(seededFirmId, bucketName)
     .run();
-  const owner = await seedCredentialedUser("automation-owner@example.com", {
-    userName: "Automation Owner",
-    firmId,
-  });
-  await mirrorMemberWithOwnerRole(owner.userId, "Automation Owner", firmId);
-  ownerCookie = await signInForSessionCookie("automation-owner@example.com");
+  const owner = await seedCredentialedUser(email, { userName: name, firmId: seededFirmId });
+  await mirrorMemberWithOwnerRole(owner.userId, name, seededFirmId);
+  return {
+    firmId: seededFirmId,
+    cookie: await signInForSessionCookie(email),
+    userId: owner.userId,
+    bucketName,
+  };
+}
 
-  assemblyBucketName = "document-automation-assembly-bucket";
-  assemblyFirmId = (await seedFirm({ name: "Document Assembly Firm" })).firmId;
-  await env.DB_CONTROL.prepare("UPDATE firm SET bucket_name = ?2 WHERE id = ?1")
-    .bind(assemblyFirmId, assemblyBucketName)
-    .run();
-  const assemblyOwner = await seedCredentialedUser("assembly-owner@example.com", {
-    userName: "Assembly Owner",
-    firmId: assemblyFirmId,
-  });
-  assemblyUserId = assemblyOwner.userId;
-  await mirrorMemberWithOwnerRole(assemblyOwner.userId, "Assembly Owner", assemblyFirmId);
-  assemblyCookie = await signInForSessionCookie("assembly-owner@example.com");
-
-  // A matter number is drawn from the firm's active numbering scheme, so an open matter needs one.
+// An open matter on a seeded firm, with the numbering scheme its number is drawn from.
+async function seedMatter(firm: SeededFirm, title: string, client: string): Promise<string> {
   const scheme = await put(
     "/api/v1/numbering-scheme",
     {
@@ -212,22 +253,62 @@ beforeAll(async () => {
         { kind: "counter", padWidth: 4 },
       ],
     },
-    assemblyCookie,
+    firm.cookie,
   );
   expect(scheme.status, await scheme.clone().text()).toBe(200);
-
   const created = await post(
     "/api/v1/matters",
     {
-      title: "Riverside Contract Dispute",
+      title,
       status: "open",
-      responsibleMemberId: assemblyUserId,
-      clientDisplayName: "Acme Holdings LLC",
+      responsibleMemberId: firm.userId,
+      clientDisplayName: client,
     },
-    assemblyCookie,
+    firm.cookie,
   );
   expect(created.status, await created.clone().text()).toBe(201);
-  matterId = ((await created.json()) as { matterId: string }).matterId;
+  return (await created.json()).matterId;
+}
+
+beforeAll(async () => {
+  await applyControlPlaneMigrations(env.DB_CONTROL);
+
+  const registrationFirm = await seedOwnedFirm(
+    "Document Automation Firm",
+    "automation-owner@example.com",
+    "document-automation-firm-bucket",
+  );
+  ownerCookie = registrationFirm.cookie;
+
+  mappingCookie = (
+    await seedOwnedFirm(
+      "Field Mapping Firm",
+      "mapping-owner@example.com",
+      "document-automation-mapping-bucket",
+    )
+  ).cookie;
+
+  const assemblyFirm = await seedOwnedFirm(
+    "Document Assembly Firm",
+    "assembly-owner@example.com",
+    "document-automation-assembly-bucket",
+  );
+  assemblyFirmId = assemblyFirm.firmId;
+  assemblyCookie = assemblyFirm.cookie;
+  assemblyUserId = assemblyFirm.userId;
+  assemblyBucketName = assemblyFirm.bucketName;
+  matterId = await seedMatter(assemblyFirm, "Riverside Contract Dispute", "Acme Holdings LLC");
+
+  const frozenFirm = await seedOwnedFirm(
+    "Frozen Field Firm",
+    "frozen-owner@example.com",
+    "document-automation-frozen-bucket",
+  );
+  frozenFirmId = frozenFirm.firmId;
+  frozenCookie = frozenFirm.cookie;
+  frozenUserId = frozenFirm.userId;
+  frozenBucketName = frozenFirm.bucketName;
+  frozenMatterId = await seedMatter(frozenFirm, "Harbourside Estate", "Beacon Trust");
 });
 
 describe("the merge-field dictionary", () => {
@@ -267,7 +348,7 @@ describe("template registration", () => {
     const manifest = (await fields.json()) as {
       fields: { key: string; source: string; absence: string }[];
     };
-    expect(manifest.fields.map((field) => field.key).sort()).toEqual([
+    expect(manifest.fields.map((field) => field.key).toSorted()).toEqual([
       "client.displayName",
       "matter.number",
     ]);
@@ -307,23 +388,39 @@ describe("template registration", () => {
     expect(problem.errors?.[0]?.detail).toContain("matter.numbre");
   });
 
-  it("REFUSES a Word merge-field template by default, and reports every field it found", async () => {
-    // Conversion is opt-in: the firm's own uploaded document is never rewritten unasked, and the
-    // refusal carries the list so a caller can present the choice rather than a dead end.
+  it("REGISTERS a Word merge-field template without conversion, recording what each field will print", async () => {
+    // Conversion is opt-in: the firm's own uploaded document is never rewritten unasked. It is also
+    // not refused — the fields are recorded against the template with the text they render, which is
+    // what makes them visible to the field inspector and to every assembly instead of invisible.
     const response = await registerTemplate(
-      templateDocx({ body: mergeFieldParagraph("matter.number") }),
+      templateDocx({ body: mergeFieldParagraph("matter.number", "2019-CV-00041") }),
       "Mail Merge Letter",
     );
-    expect(response.status).toBe(422);
-    const problem = (await response.json()) as {
-      errors?: { path: string; code: string; detail: string }[];
-    };
-    const codes = (problem.errors ?? []).map((error) => error.code);
-    expect(codes).toContain("merge-field-conversion-required");
-    expect(codes).toContain("word-merge-field");
-    expect(problem.errors?.find((error) => error.code === "word-merge-field")?.detail).toContain(
-      "matter.number",
+    expect(response.status).toBe(201);
+    const body = (await response.json()) as RegisteredTemplateBody;
+    expect(body.mergeFieldsConverted).toBe(false);
+    expect(body.unconvertedMergeFields).toEqual([
+      expect.objectContaining({
+        fieldName: "matter.number",
+        part: "word/document.xml",
+        occurrences: 1,
+        frozenText: "2019-CV-00041",
+      }),
+    ]);
+    // Registered, not converted — so no mapping was confirmed and no {{field}} was minted.
+    expect(body.confirmedFieldMappings).toEqual([]);
+    expect(body.fieldCount).toBe(0);
+
+    // The field inspector shows them too, which is where an author goes to fix a template.
+    const fields = await get(
+      `/api/v1/templates/${body.templateId}/versions/${body.versionId}/fields`,
     );
+    const manifest = (await fields.json()) as {
+      unconvertedMergeFields: { fieldName: string; frozenText: string }[];
+    };
+    expect(manifest.unconvertedMergeFields).toEqual([
+      expect.objectContaining({ fieldName: "matter.number", frozenText: "2019-CV-00041" }),
+    ]);
   });
 
   it("converts Word merge fields when the caller opts in, and says that it did", async () => {
@@ -343,28 +440,36 @@ describe("template registration", () => {
       }),
     ]);
     expect(body.fieldCount).toBe(1);
+    expect(body.unconvertedMergeFields).toEqual([]);
   });
 
-  it("ACCEPTS a macro-bearing template, strips the macro project, and reports that it did", async () => {
+  it("REFUSES a macro-bearing template without the strip opt-in, naming both ways through", async () => {
+    // Removing macros rewrites the firm's own document, so it never happens unasked; storing them is
+    // never an option, because a template is run against privileged client data. Both remedies are
+    // named, and what was found rides the refusal.
     const response = await registerTemplate(
-      templateDocx({
-        contentTypes:
-          `${DECLARATION}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">` +
-          '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
-          '<Default Extension="xml" ContentType="application/xml"/>' +
-          '<Default Extension="bin" ContentType="application/vnd.ms-office.vbaProject"/>' +
-          '<Override PartName="/word/document.xml" ContentType="application/vnd.ms-word.document.macroEnabled.main+xml"/>' +
-          "</Types>",
-        documentRels:
-          `${DECLARATION}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
-          '<Relationship Id="rId5" Type="http://schemas.microsoft.com/office/2006/relationships/vbaProject" Target="vbaProject.bin"/>' +
-          "</Relationships>",
-        extra: { "word/vbaProject.bin": strToU8("stand-in vbaProject payload") },
-      }),
-      "Macro Letter",
+      templateDocx(macroBearingOverrides()),
+      "Macro Letter Refused",
     );
+    expect(response.status).toBe(422);
+    const problem = (await response.json()) as {
+      type: string;
+      detail: string;
+      errors?: { path: string; code: string; detail: string }[];
+    };
+    expect(problem.type).toContain("template-macro-consent-required");
+    expect(problem.detail).toContain("asking for the macros to be removed");
+    expect(problem.detail).toContain("macro-free copy");
+    expect((problem.errors ?? []).map((error) => error.code)).toContain("macro-part");
+  });
+
+  it("strips the macro project when the caller opts in, and reports that it did", async () => {
+    const response = await registerTemplate(templateDocx(macroBearingOverrides()), "Macro Letter", {
+      stripMacros: true,
+    });
     expect(response.status).toBe(201);
     const body = (await response.json()) as RegisteredTemplateBody;
+    expect(body.macrosStripped).toBe(true);
     expect(body.macroPartsRemoved).toBe(1);
     expect(body.status).toBe("clean");
   });
@@ -404,6 +509,105 @@ describe("template registration", () => {
   });
 });
 
+describe("the per-firm field-mapping library", () => {
+  it("accumulates a confirmed mapping on the first import and reuses it on the second", async () => {
+    // The engine never guesses that `ClientName` means `client.displayName`. The FIRM says so, once,
+    // by converting a template whose fields carry the platform's own names alongside it — and from then
+    // on every import of a document from the same source arrives already mapped.
+    //
+    // First import: the Word name is unrecognized, so it is reported as unmapped and converting it
+    // would leave the field unbound. This is the state a migration starts in.
+    const first = await registerTemplate(
+      templateDocx({ body: mergeFieldParagraph("ClientName") }),
+      "Migrated Letter One",
+      {},
+      mappingCookie,
+    );
+    expect(first.status).toBe(201);
+    const firstBody = (await first.json()) as RegisteredTemplateBody;
+    expect(firstBody.mergeFieldsDetected[0]).toMatchObject({
+      fieldName: "ClientName",
+      mappedKey: "ClientName",
+      mapsToKnownField: false,
+      mappedFromLibrary: false,
+    });
+
+    // The firm confirms the meaning by converting a template that uses the platform's own name, which
+    // is the mapping this library records.
+    const confirming = await registerTemplate(
+      templateDocx({ body: mergeFieldParagraph("client.displayName") }),
+      "Migrated Letter Confirming",
+      { convertMergeFields: true },
+      mappingCookie,
+    );
+    expect(confirming.status).toBe(201);
+    expect((await confirming.json()).confirmedFieldMappings).toEqual([
+      { fieldName: "client.displayName", mergeKey: "client.displayName" },
+    ]);
+
+    // The library is visible: what this firm has confirmed, and how often it has been used.
+    const listed = await get("/api/v1/merge-field-mappings", mappingCookie);
+    expect(listed.status).toBe(200);
+    const page = (await listed.json()) as {
+      data: { mappingId: string; fieldName: string; mergeKey: string; timesApplied: number }[];
+    };
+    const entry = page.data.find((row) => row.fieldName === "client.displayName");
+    expect(entry).toMatchObject({ mergeKey: "client.displayName", timesApplied: 1 });
+
+    // A later registration consults it: re-converting the same name reuses the stored answer and the
+    // times-applied count moves, which is the evidence the library is being read and not just written.
+    const second = await registerTemplate(
+      templateDocx({ body: mergeFieldParagraph("client.displayName") }),
+      "Migrated Letter Two",
+      { convertMergeFields: true },
+      mappingCookie,
+    );
+    expect(second.status).toBe(201);
+    expect((await second.json()).mergeFieldsDetected[0]).toMatchObject({
+      mappedKey: "client.displayName",
+      // Confirmed once already, so this detection came THROUGH the library rather than past it.
+      mappedFromLibrary: true,
+    });
+    const relisted = await get("/api/v1/merge-field-mappings", mappingCookie);
+    const reentry = (await relisted.json()).data.find(
+      (row) => row.fieldName === "client.displayName",
+    );
+    expect(reentry?.timesApplied).toBe(2);
+
+    // And it is editable: a mapping is a statement the firm made, so it can withdraw it.
+    const mappingId = entry?.mappingId ?? "";
+    const deleted = await SELF.fetch(
+      `https://example.com/api/v1/merge-field-mappings/${mappingId}`,
+      {
+        method: "DELETE",
+        headers: { origin: "https://example.com", cookie: mappingCookie },
+      },
+    );
+    expect(deleted.status).toBe(200);
+    const afterDelete = (await (
+      await get("/api/v1/merge-field-mappings", mappingCookie)
+    ).json()) as {
+      data: { fieldName: string }[];
+    };
+    expect(afterDelete.data.map((row) => row.fieldName)).not.toContain("client.displayName");
+  });
+
+  it("404s a delete of a mapping that does not exist", async () => {
+    const response = await SELF.fetch(
+      `https://example.com/api/v1/merge-field-mappings/documentTemplateFieldMapping_${"0".repeat(21)}`,
+      { method: "DELETE", headers: { origin: "https://example.com", cookie: mappingCookie } },
+    );
+    expect(response.status).toBe(404);
+  });
+
+  it("is not reachable without a session", async () => {
+    const response = await SELF.fetch("https://example.com/api/v1/merge-field-mappings", {
+      headers: { origin: "https://example.com" },
+    });
+    expect(response.status).toBe(401);
+  });
+});
+
 describe("assembly, end to end through the ingest chokepoint", () => {
   it("assembles a template onto a matter and files the result as a scanned document", async () => {
     const registered = (await (
@@ -422,7 +626,7 @@ describe("assembly, end to end through the ingest chokepoint", () => {
       `/api/v1/matters/${matterId}/assemblies/${assemblyId}`,
       assemblyCookie,
     );
-    expect(((await queued.json()) as { status: string }).status).toBe("queued");
+    expect((await queued.json()).status).toBe("queued");
 
     const { batch, acks } = makeBatch({
       firmId: assemblyFirmId,
@@ -565,6 +769,86 @@ describe("assembly, end to end through the ingest chokepoint", () => {
     expect(row?.absent_field_keys_json).not.toContain("Acme");
   });
 
+  it("reports the frozen merge fields an assembled document carries, in the response and on the row", async () => {
+    // A template registered without conversion still carries its Word merge fields. Nothing substitutes
+    // them, so the produced document prints the text Word cached — a blank that does not look like a
+    // blank, and the one hole the merge itself cannot see. The manifest recorded it at registration
+    // precisely so the assembly can report it here.
+    const registered = (await (
+      await registerTemplate(
+        templateDocx({
+          body:
+            paragraph("Matter {{matter.number}} — ") +
+            mergeFieldParagraph("FileNo", "2019-CV-00041"),
+        }),
+        "Frozen Field Letter",
+        {},
+        frozenCookie,
+      )
+    ).json()) as RegisteredTemplateBody;
+    expect(registered.unconvertedMergeFields).toHaveLength(1);
+
+    const submitted = await post(
+      `/api/v1/matters/${frozenMatterId}/assemblies`,
+      { templateVersionId: registered.versionId },
+      frozenCookie,
+    );
+    const { assemblyId } = (await submitted.json()) as { assemblyId: string };
+    await documentAssemblyQueue(
+      makeBatch({
+        firmId: frozenFirmId,
+        bucketName: frozenBucketName,
+        assemblyId,
+        matterId: frozenMatterId,
+        templateVersionId: registered.versionId,
+        folderId: null,
+        requestedBy: frozenUserId,
+      }).batch,
+      env,
+    );
+
+    const state = (await (
+      await get(`/api/v1/matters/${frozenMatterId}/assemblies/${assemblyId}`, frozenCookie)
+    ).json()) as {
+      status: string;
+      outcome: string;
+      absentFieldKeys: string[];
+      frozenMergeFieldNames: string[];
+      fileVersionId: string;
+    };
+    expect(state.status).toBe("done");
+    // Everything the matter could supply resolved — and the document still needs a human, because a
+    // field in it prints text left over from the template.
+    expect(state.absentFieldKeys).toEqual([]);
+    expect(state.frozenMergeFieldNames).toEqual(["FileNo"]);
+    expect(state.outcome).toBe("succeeded_with_absences");
+
+    // The provenance row records the same thing: NAMES only, never the frozen text, which is template
+    // content rather than provenance.
+    const row = await queryFirstRow<{
+      frozen_field_names_json: string;
+      frozen_field_count: number;
+    }>(
+      "SELECT frozen_field_names_json, frozen_field_count FROM document_assembly WHERE id = ?1",
+      [assemblyId],
+      frozenFirmId,
+    );
+    expect(JSON.parse(row?.frozen_field_names_json ?? "[]")).toEqual(["FileNo"]);
+    expect(row?.frozen_field_count).toBe(1);
+    expect(row?.frozen_field_names_json).not.toContain("2019-CV-00041");
+
+    // And the produced document really does carry the stale text, which is what the report is about.
+    const version = await queryFirstRow<{ r2_key: string }>(
+      "SELECT r2_key FROM file_version WHERE id = ?1",
+      [state.fileVersionId],
+      frozenFirmId,
+    );
+    const object = await env.R2.get(version?.r2_key ?? "");
+    const produced = new Uint8Array(await (object as R2ObjectBody).arrayBuffer());
+    const documentText = new TextDecoder().decode(readZipEntry(produced, "word/document.xml"));
+    expect(documentText).toContain("2019-CV-00041");
+  });
+
   it("refuses a submit against an archived template", async () => {
     const registered = (await (
       await registerTemplate(templateDocx(), "Archived Letter", {}, assemblyCookie)
@@ -582,9 +866,7 @@ describe("assembly, end to end through the ingest chokepoint", () => {
       assemblyCookie,
     );
     expect(submitted.status).toBe(422);
-    expect(((await submitted.json()) as { type: string }).type).toContain(
-      "template-not-activatable",
-    );
+    expect((await submitted.json()).type).toContain("template-not-activatable");
   });
 
   it("404s a submit against a template version that does not exist", async () => {
@@ -614,9 +896,13 @@ describe("assembly, end to end through the ingest chokepoint", () => {
 // Helpers
 // ---------------------------------------------------------------------------------------------
 
-async function queryFirstRow<T>(sql: string, bindings: unknown[]): Promise<T | undefined> {
+async function queryFirstRow<T>(
+  sql: string,
+  bindings: unknown[],
+  targetFirmId: FirmId = assemblyFirmId,
+): Promise<T | undefined> {
   const { firmDatabaseFor } = await import("../src/firm-database/firm-database-proxy.ts");
-  const database = firmDatabaseFor(env.FIRM_DATABASE, assemblyFirmId);
+  const database = firmDatabaseFor(env.FIRM_DATABASE, targetFirmId);
   const { results } = await database
     .prepare(sql)
     .bind(...bindings)

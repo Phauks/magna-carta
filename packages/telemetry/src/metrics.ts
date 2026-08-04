@@ -119,6 +119,15 @@ export const documentAssemblyJobs = defineMetric("documentAssembly.jobs", [
 export const documentAssemblyAbsentField = defineMetric("documentAssembly.absentField", [
   "source",
 ] as const);
+// How often an assembly produces a document containing a Word merge field nobody converted, which
+// therefore prints Word's frozen cached text instead of a merged value. The counterpart to the absent
+// field: an absence is a value the firm's data could not supply, this is a blank the merge engine was
+// never asked to fill, and both end as a document a human has to look at before it is filed. The
+// dimension is the construct's FORM, not its name — a Word field name is firm-defined and
+// high-cardinality, the same reason a merge-field key is not a dimension.
+export const documentAssemblyFrozenField = defineMetric("documentAssembly.frozenMergeField", [
+  "form",
+] as const);
 // How often registration rejects a template and which authoring form it came from — the signal that
 // says whether text delimiters were the right primary form.
 export const documentTemplateNormalization = defineMetric("documentTemplate.normalization", [
@@ -163,6 +172,7 @@ const CATALOG: readonly MetricDefinition[] = [
   costsRecoveryUnhandledTopic,
   documentAssemblyJobs,
   documentAssemblyAbsentField,
+  documentAssemblyFrozenField,
   documentTemplateNormalization,
   custodyMovements,
   custodyPacketsOverdue,

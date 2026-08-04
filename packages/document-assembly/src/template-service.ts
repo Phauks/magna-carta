@@ -10,6 +10,7 @@ import type {
   MatterTypeId,
   UserId,
 } from "@magna-carta/identifiers/types";
+import { confirmFieldMappingStatements } from "./field-mapping-statements.ts";
 import {
   archiveDocumentTemplateStatement,
   insertDocumentTemplateStatement,
@@ -78,6 +79,17 @@ function versionStatements(
       createdBy: options.actorUserId,
       createdAt: options.clock.now(),
     }),
+    // The mappings this registration's conversion confirmed ride the same commit as the version they
+    // came from: a library entry that survived a rolled-back registration would claim the firm confirmed
+    // something it never successfully registered.
+    ...confirmFieldMappingStatements(
+      database,
+      input.preparation.confirmedMergeFieldMappings.map((mapping) => ({
+        fieldName: mapping.fieldName,
+        mergeKey: mapping.mergeKey,
+      })),
+      options,
+    ),
   ];
 }
 

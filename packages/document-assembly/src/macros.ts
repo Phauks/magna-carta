@@ -9,9 +9,12 @@ import { attributesOf, buildXml, nodeTag, parseXml, type XmlNode } from "./ooxml
 
 // Macro removal is a security boundary, not a tidy-up. A template is executed against privileged firm
 // and client data on the firm's behalf, so a template package must carry no code — and a firm migrating
-// from an older system has macro-bearing templates it will ask us to accept. The resolution is to accept
-// the upload and STRIP it, then re-verify the stripped package before it is allowed to register: a
-// template version whose bytes still show any macro residue is refused outright rather than stored.
+// from an older system has macro-bearing templates it will ask us to accept. The resolution is to offer
+// the strip and, WHEN THE FIRM ASKS FOR IT, remove every payload and re-verify the stripped package
+// before it is allowed to register: a template version whose bytes still show any macro residue is
+// refused outright rather than stored. Nothing here decides whether to run — the strip is a transform of
+// the firm's own document, so the consent gate lives with the registration pipeline in register.ts; a
+// macro-bearing upload is never registered carrying live macros and never stripped without being asked.
 //
 // Detection is driven by the CONTENT-TYPES MAP and the RELATIONSHIP TYPES, never by file name alone. A
 // package that puts its VBA project at word/embeddings/settings.bin and declares it with an Override
@@ -291,11 +294,12 @@ export interface MacroResidueFinding {
   readonly detail: string;
 }
 
-// The verification gate. Run over the STRIPPED package's re-emitted bytes; a non-empty result means the
-// stripper could not make the package clean and the template version must not register. This is
-// deliberately a separate, independent scan rather than a boolean the stripper returns: the stripper
-// asserting its own success is the failure mode this exists to catch.
-export function macroResidue(parts: PartMap): MacroResidueFinding[] {
+// Every macro fact a package carries, by all three nets plus the macro-enabled declaration. One home
+// for "is this package macro-bearing, and how", used for two different questions: the CONSENT question
+// asked of the upload (may this be stripped at all — the strip is opt-in, and a macro-bearing upload
+// without the opt-in is refused rather than quietly registered or quietly rewritten), and the
+// VERIFICATION question asked of the bytes that will be stored.
+export function macroContentFindings(parts: PartMap): MacroResidueFinding[] {
   const findings: MacroResidueFinding[] = [];
   for (const name of detectMacroParts(parts)) {
     findings.push({ kind: "part", detail: name });
@@ -315,8 +319,19 @@ export function macroResidue(parts: PartMap): MacroResidueFinding[] {
       findings.push({ kind: "relationship", detail: relationship.type });
     }
   }
+  return findings;
+}
+
+// The verification gate. Run over the STRIPPED package's re-emitted bytes; a non-empty result means the
+// stripper could not make the package clean and the template version must not register. This is
+// deliberately a separate, independent scan rather than a boolean the stripper returns: the stripper
+// asserting its own success is the failure mode this exists to catch.
+export function macroResidue(parts: PartMap): MacroResidueFinding[] {
+  const findings = macroContentFindings(parts);
   // An Override left behind for a part the package no longer carries is not macro residue, but it does
-  // make the package invalid, so it is surfaced through the same gate rather than a second one.
+  // make the package invalid, so it is surfaced through the same gate rather than a second one. It is
+  // deliberately NOT in macroContentFindings: a stray Override in an UPLOAD says nothing about macros,
+  // and treating it as one would refuse a macro-free template for want of a consent it does not need.
   for (const override of contentTypeOverrides(parts)) {
     if (!parts.has(override)) {
       findings.push({ kind: "content-type", detail: `Override for absent part ${override}` });

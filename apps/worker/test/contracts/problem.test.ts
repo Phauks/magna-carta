@@ -56,6 +56,7 @@ describe("problem-type URI registry", () => {
         "service-unavailable",
         "template-normalization-failed",
         "template-not-activatable",
+        "template-macro-consent-required",
         "merge-field-unresolvable",
       ].sort(),
     );

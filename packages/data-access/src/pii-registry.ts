@@ -127,6 +127,18 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "retain-under-matter",
     note: "who produced a document on a matter, and from which template version, is that document's provenance",
   },
+  // The firm's merge-field mapping library. Its CONTENT is about documents, not people — a Word field
+  // name and the merge key the firm confirmed it means — so the only subject reference is the member
+  // who confirmed the mapping. That is administrative provenance on a firm-configuration row, the line
+  // integration_connection.created_by and email_capture_address.created_by already sit on, so the
+  // reference is pseudonymized and the mapping itself outlives the member: a template registered under
+  // it must stay explicable after that person leaves.
+  {
+    table: "document_template_field_mapping",
+    subjectKey: "confirmed_by",
+    action: "pseudonymize-keep",
+    note: "which member confirmed what a Word field name means is configuration provenance the firm keeps",
+  },
   // Custodian — the register of physical client originals a firm holds. Its METADATA alone is
   // sensitive: "this firm holds an original will for Jane Smith" is a disclosure with no document
   // attached. Three tables carry a structured reference to a person; the rest of the group is

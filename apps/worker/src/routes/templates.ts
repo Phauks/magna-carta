@@ -5,7 +5,14 @@ import {
   lookupDictionaryEntry,
   dictionaryForFirm,
 } from "@magna-carta/document-assembly/dictionary";
+import {
+  deleteFieldMappingEffect,
+  fieldMappingResolverFor,
+  listFieldMappings,
+  readFieldMapping,
+} from "@magna-carta/document-assembly/field-mapping-statements";
 import { legalFormatsFor } from "@magna-carta/document-assembly/format";
+import type { ConfirmedMergeFieldMapping } from "@magna-carta/document-assembly/normalize";
 import { prepareTemplateVersion } from "@magna-carta/document-assembly/register";
 import {
   composeTemplateArchive,
@@ -32,6 +39,7 @@ import { computeVerdict } from "@magna-carta/file-manager/verdict";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { cryptoRandomSource } from "@magna-carta/identifiers/random";
 import type {
+  DocumentTemplateFieldMappingId,
   DocumentTemplateId,
   DocumentTemplateVersionId,
   LocationId,
@@ -93,20 +101,35 @@ const TemplateUploadResponse = z
   .object({ uploadKey: z.string(), uploadUrl: z.string() })
   .openapi("TemplateUploadResponse");
 
-// The opt-in flag, described once and shared by both registration operations. Converting a firm's own
-// uploaded document is a change to that document, so the product asks rather than assumes: the fields
-// are always detected and reported, and the rewrite happens only when this says so.
+// The two opt-in flags, described once and shared by both registration operations. Each one authorizes
+// a change to the firm's OWN uploaded document, so the product asks rather than assumes: what the
+// document contains is always detected and reported, and a rewrite happens only when the request says
+// so.
 const convertMergeFieldsField = z
   .boolean()
   .optional()
   .openapi({
     description:
       "Whether to convert Word merge fields in the uploaded document into this system's {{field}} form. " +
-      "Leave this off to see what the document contains first: the response lists every Word merge field " +
-      "found, and the document is left exactly as you authored it. Turning it on rewrites each one in " +
-      "place — the document you registered is not the document you uploaded — and is required before a " +
-      "document that uses Word merge fields can be registered, because Word merge fields are not filled " +
-      "in by this system as they stand.",
+      "Leave this off and the document registers exactly as you authored it, with every Word merge " +
+      "field listed in the response and recorded against the template — but those fields are not filled " +
+      "in by this system, so every document assembled from the template prints the text Word last " +
+      "cached in them, and each assembly reports that too. Turning it on rewrites each one in place: " +
+      "the document registered is then not the document uploaded.",
+  });
+
+const stripMacrosField = z
+  .boolean()
+  .optional()
+  .openapi({
+    description:
+      "Whether to remove macro content from the uploaded document. A template is run against " +
+      "privileged client data, so one carrying macros cannot be stored: without this, an upload that " +
+      "contains any is refused, and the response lists what was found. Turning it on removes the macro " +
+      "project along with the content-type and relationship declarations that reference it, re-checks " +
+      "the result from scratch, and refuses the registration outright if anything survived — the " +
+      "document registered is then not the document uploaded. Uploading a macro-free copy of the file " +
+      "is the other way through.",
   });
 
 const RegisterTemplateRequest = z
@@ -117,11 +140,16 @@ const RegisterTemplateRequest = z
     matterTypeId: z.string().nullable().optional(),
     locationId: z.string().nullable().optional(),
     convertMergeFields: convertMergeFieldsField,
+    stripMacros: stripMacrosField,
   })
   .openapi("RegisterTemplateRequest");
 
 const RegisterTemplateVersionRequest = z
-  .object({ uploadKey: z.string().min(1), convertMergeFields: convertMergeFieldsField })
+  .object({
+    uploadKey: z.string().min(1),
+    convertMergeFields: convertMergeFieldsField,
+    stripMacros: stripMacrosField,
+  })
   .openapi("RegisterTemplateVersionRequest");
 
 const NormalizationWarningSchema = z
@@ -138,8 +166,28 @@ const MergeFieldDetectionSchema = z
     occurrences: z.number(),
     form: z.string(),
     mapsToKnownField: z.boolean(),
+    // Whether the key came from this firm's own confirmed mappings rather than from the Word name
+    // already matching a merge field.
+    mappedFromLibrary: z.boolean(),
+    // The text this field prints today — what Word cached in it the last time the document was merged.
+    frozenText: z.string(),
   })
   .openapi("TemplateMergeFieldDetection");
+
+// One Word merge field the REGISTERED version still carries, because conversion was not asked for.
+// Recorded against the template, not refused: the field is then something every later reader can see
+// and report, including every assembly, instead of a template nobody can register or inspect.
+const UnconvertedMergeFieldSchema = z
+  .object({
+    fieldName: z.string(),
+    mappedKey: z.string(),
+    part: z.string(),
+    occurrences: z.number(),
+    form: z.string(),
+    mapsToKnownField: z.boolean(),
+    frozenText: z.string(),
+  })
+  .openapi("TemplateUnconvertedMergeField");
 
 const RegisteredTemplateResponse = z
   .object({
@@ -148,12 +196,20 @@ const RegisteredTemplateResponse = z
     versionNumber: z.number(),
     status: z.string(),
     fieldCount: z.number(),
-    // How many macro payload parts were removed from the upload before it was stored. A non-zero count
-    // is what tells an administrator that the template they registered had code in it.
+    // Whether the macro removal was asked for and ran, and how many payload parts it took out. Zero
+    // with macrosStripped true means the removal was requested and the document had nothing in it.
+    macrosStripped: z.boolean(),
     macroPartsRemoved: z.number(),
     // What was found in the uploaded document, and what was done to it.
     mergeFieldsConverted: z.boolean(),
     mergeFieldsDetected: z.array(MergeFieldDetectionSchema),
+    // The merge fields the stored version still carries. Empty when conversion ran, or when the
+    // document never used any. A non-empty list means documents assembled from this template will
+    // print frozen text where those fields sit.
+    unconvertedMergeFields: z.array(UnconvertedMergeFieldSchema),
+    // The name-to-key mappings this registration added to the firm's field-mapping library, so a later
+    // import of documents from the same source arrives already mapped.
+    confirmedFieldMappings: z.array(z.object({ fieldName: z.string(), mergeKey: z.string() })),
     warnings: z.array(NormalizationWarningSchema),
   })
   .openapi("RegisteredTemplate");
@@ -195,6 +251,9 @@ const TemplateFieldsResponse = z
     versionNumber: z.number(),
     normalizerVersion: z.number(),
     fields: z.array(TemplateFieldEntry),
+    // The Word merge fields this version carries unconverted, with the text each one prints. The field
+    // inspector's other half: these are blanks that do not look like blanks.
+    unconvertedMergeFields: z.array(UnconvertedMergeFieldSchema),
     warnings: z.array(NormalizationWarningSchema),
   })
   .openapi("TemplateFields");
@@ -216,6 +275,30 @@ const MergeFieldsResponse = z.object({ fields: z.array(MergeFieldEntry) }).opena
 const ArchivedTemplateResponse = z
   .object({ templateId: z.string(), status: z.literal("archived") })
   .openapi("ArchivedTemplate");
+
+// The firm's field-mapping library: what this firm has confirmed a Word field name means. Visible and
+// editable because it is the firm's own statement about its own documents — a mapping nobody can see is
+// one nobody can correct, and it silently steers every later import.
+const FieldMappingEntry = z
+  .object({
+    mappingId: z.string(),
+    fieldName: z.string(),
+    mergeKey: z.string(),
+    timesApplied: z.number(),
+    createdAt: z.string(),
+    updatedAt: z.string(),
+  })
+  .openapi("MergeFieldMappingEntry");
+
+const FieldMappingPage = paginated(FieldMappingEntry).openapi("MergeFieldMappingPage");
+
+const DeletedFieldMappingResponse = z
+  .object({ mappingId: z.string(), deleted: z.literal(true) })
+  .openapi("DeletedMergeFieldMapping");
+
+const fieldMappingParam = z.object({
+  mappingId: identifierPathParam("documentTemplateFieldMapping", "mappingId"),
+});
 
 // ---------------------------------------------------------------------------------------------
 // Route metadata
@@ -299,13 +382,16 @@ const registerRoute = defineOpenAPIRoute(manageMeta("register", true, "required"
   path: "/api/v1/templates",
   description:
     "Registers an uploaded .docx as a new template and its first version. The upload is prepared " +
-    "before it is stored: any macro content is removed and the result re-verified as macro-free, " +
-    "placeholders are rewritten into one contiguous run each, the document's drafting history is " +
-    "scrubbed, and the resulting bytes are scanned. The response reports everything that was found " +
-    "and changed — including any macro project that was removed and every Word merge field detected. " +
-    "Word merge fields are converted only when convertMergeFields is set; without it, a document that " +
-    "uses them is refused with the list of fields so the choice can be made deliberately. Returns 422 " +
-    "when a placeholder names no merge field, or when the document cannot be made safe to store.",
+    "before it is stored: placeholders are rewritten into one contiguous run each, the document's " +
+    "drafting history is scrubbed, and the resulting bytes are scanned. The response reports " +
+    "everything that was found and everything that changed. Neither transform of your own document " +
+    "runs unasked: macro content is removed only when stripMacros is set, and an upload carrying any " +
+    "without it is refused with what was found; Word merge fields are converted only when " +
+    "convertMergeFields is set, and without it the document registers exactly as authored with every " +
+    "such field recorded against the template — those fields are not filled in by this system, so " +
+    "every assembly of it prints the text Word cached in them and says so. Returns 422 when a " +
+    "placeholder names no merge field, when macro content is present without the removal opt-in, or " +
+    "when the document cannot be made safe to store.",
   request: {
     headers: idempotencyKeyHeader,
     body: { content: { "application/json": { schema: RegisterTemplateRequest } }, required: true },
@@ -348,9 +434,10 @@ const addVersionRoute = defineOpenAPIRoute(manageMeta("addVersion", true, "requi
   description:
     "Registers a new version of an existing template from an uploaded .docx. A template is never " +
     "edited in place: the new version is prepared and stored exactly as a first version is — same " +
-    "macro removal, same placeholder normalization, same opt-in for converting Word merge fields — and " +
-    "the catalogue's current version moves to it once its bytes clear the scan. Superseded versions " +
-    "stay readable, because every assembled document records the exact version it came from.",
+    "placeholder normalization, same opt-ins for removing macro content and converting Word merge " +
+    "fields — and the catalogue's current version moves to it once its bytes clear the scan. " +
+    "Superseded versions stay readable, because every assembled document records the exact version it " +
+    "came from.",
   request: {
     params: templateParam,
     headers: idempotencyKeyHeader,
@@ -542,6 +629,85 @@ const mergeFieldsRoute = defineOpenAPIRoute(readMeta("mergeFields"), {
   },
 });
 
+const fieldMappingsRoute = defineOpenAPIRoute(manageMeta("fieldMappings", false, "optional"), {
+  method: "get",
+  path: "/api/v1/merge-field-mappings",
+  description:
+    "Lists what this firm has confirmed its Word merge-field names mean. Each entry was recorded when " +
+    "a template registration converted that field, and every later registration consults the list, so " +
+    "importing a second document from the same source does not ask the same question again. Nothing " +
+    "is ever added by guessing: a name this firm has not confirmed is reported as unmapped rather " +
+    "than matched to something that looked close.",
+  request: { query: z.object({ cursor: z.string().optional() }) },
+  responses: {
+    200: {
+      description: "A cursor-paginated page of confirmed merge-field mappings",
+      content: { "application/json": { schema: FieldMappingPage } },
+    },
+    401: {
+      description: "No valid session",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    403: {
+      description: "The session member lacks the required capability",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    404: {
+      description: "The firm is unreachable, the member is deactivated, or no such template",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    409: {
+      description: "A request with this Idempotency-Key is already in progress",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    429: {
+      description: "Rate limit exceeded",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+  },
+});
+
+const deleteFieldMappingRoute = defineOpenAPIRoute(
+  manageMeta("deleteFieldMapping", true, "optional"),
+  {
+    method: "delete",
+    path: "/api/v1/merge-field-mappings/{mappingId}",
+    description:
+      "Withdraws a confirmed merge-field mapping. A mapping is a statement this firm made about its " +
+      "own documents, so it is removed outright rather than archived. Nothing already registered " +
+      "changes: a template version's stored bytes and its field list are immutable, and the mapping " +
+      "only ever acted at the moment a registration converted a field. The next registration that " +
+      "meets this Word field name will report it as unmapped again.",
+    request: { params: fieldMappingParam },
+    responses: {
+      200: {
+        description: "The mapping is withdrawn",
+        content: { "application/json": { schema: DeletedFieldMappingResponse } },
+      },
+      401: {
+        description: "No valid session",
+        content: { "application/problem+json": { schema: Problem } },
+      },
+      403: {
+        description: "The session member lacks the required capability",
+        content: { "application/problem+json": { schema: Problem } },
+      },
+      404: {
+        description: "The firm is unreachable, the member is deactivated, or no such mapping",
+        content: { "application/problem+json": { schema: Problem } },
+      },
+      409: {
+        description: "A request with this Idempotency-Key is already in progress",
+        content: { "application/problem+json": { schema: Problem } },
+      },
+      429: {
+        description: "Rate limit exceeded",
+        content: { "application/problem+json": { schema: Problem } },
+      },
+    },
+  },
+);
+
 // ---------------------------------------------------------------------------------------------
 // Handlers
 // ---------------------------------------------------------------------------------------------
@@ -587,14 +753,31 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
+// What a registration tells the administrator about their own document: what was found, what was done
+// to it, and what the stored version still carries. One home, so a first version and a new version of
+// an existing template can never report differently on the same facts.
+function registrationFeedback(prepared: PreparedUpload) {
+  return {
+    macrosStripped: prepared.macrosStripped,
+    macroPartsRemoved: prepared.removedMacroParts.length,
+    mergeFieldsConverted: prepared.mergeFieldsConverted,
+    mergeFieldsDetected: prepared.mergeFieldDetections,
+    unconvertedMergeFields: prepared.manifest.unconvertedMergeFields,
+    confirmedFieldMappings: prepared.confirmedMergeFieldMappings,
+    warnings: prepared.warnings,
+  };
+}
+
 interface PreparedUpload {
   readonly bytes: Uint8Array;
   readonly manifest: FieldManifest;
   readonly warnings: readonly NormalizationWarning[];
   readonly normalizerVersion: number;
   readonly removedMacroParts: readonly string[];
+  readonly macrosStripped: boolean;
   readonly mergeFieldDetections: readonly MergeFieldDetection[];
   readonly mergeFieldsConverted: boolean;
+  readonly confirmedMergeFieldMappings: readonly ConfirmedMergeFieldMapping[];
   readonly contentSha256: string;
 }
 
@@ -602,13 +785,18 @@ type PreparationOutcome =
   | { readonly ok: true; readonly prepared: PreparedUpload }
   | { readonly ok: false; readonly response: ProblemResponse<422> };
 
+export interface RegistrationConsent {
+  readonly convertMergeFields: boolean;
+  readonly stripMacros: boolean;
+}
+
 // Read the staged upload, run it through the whole preparation pipeline, and hand back the bytes to
 // store. Every refusal is a 422 problem naming what the author has to fix — never a partial
 // registration, and never a stored version whose bytes nothing verified.
 async function prepareStagedUpload(
   c: TemplatesContext,
   uploadKey: string,
-  convertMergeFields: boolean,
+  consent: RegistrationConsent,
 ): Promise<PreparationOutcome> {
   const firm = requireChokepointFirmContext(c);
   const firmId = requireChokepointFirmId(c);
@@ -654,6 +842,10 @@ async function prepareStagedUpload(
   const { SCRUB_ALL } = await import("@magna-carta/metadata");
   const metadataPort = createMetadataPort();
 
+  // The firm's field-mapping library, read ONCE and handed in as a resolver: a template with a hundred
+  // Word fields must not cost a hundred lookups, the same batching rule the merge context follows.
+  const resolveMergeFieldName = await fieldMappingResolverFor(firm.firmDatabase);
+
   const preparation = await prepareTemplateVersion(
     uploadedBytes,
     async (bytes) => {
@@ -661,11 +853,9 @@ async function prepareStagedUpload(
       return outcome.ok ? outcome.bytes : undefined;
     },
     {
-      convertMergeFields,
-      // The identity mapping today. The per-firm field-mapping library — a firm-scoped store of
-      // confirmed Word-field-name to merge-field-key mappings that grows as an administrator confirms
-      // them, so a second template import reuses what the first established — plugs in here and
-      // nowhere else.
+      convertMergeFields: consent.convertMergeFields,
+      stripMacros: consent.stripMacros,
+      resolveMergeFieldName,
     },
   );
 
@@ -675,13 +865,20 @@ async function prepareStagedUpload(
       placeholderForm: "brace",
     });
     const normalizationFailure = preparation.reason === "normalization-failed";
+    const macroConsent = preparation.reason === "macro-consent-required";
     return {
       ok: false,
       response: problemJson(c, {
-        type: normalizationFailure ? "template-normalization-failed" : "template-not-activatable",
+        type: normalizationFailure
+          ? "template-normalization-failed"
+          : macroConsent
+            ? "template-macro-consent-required"
+            : "template-not-activatable",
         title: normalizationFailure
           ? "The template's merge fields need fixing"
-          : "The document cannot be registered as a template",
+          : macroConsent
+            ? "This document contains macros"
+            : "The document cannot be registered as a template",
         status: 422,
         detail: preparation.detail,
         // The findings ride the standard field-error list so the authoring surface can point at each
@@ -697,13 +894,14 @@ async function prepareStagedUpload(
                 ? finding.detail
                 : `${finding.detail} (near: ${finding.excerpt})`,
           })),
+          // Feedback rides the refusal, and especially the macro one: what was found is listed, so a
+          // caller can offer the choice (remove them, or upload a macro-free copy) rather than a dead
+          // end.
           ...preparation.macroFindings.map((finding) => ({
             path: "package",
             code: `macro-${finding.kind}`,
             detail: finding.detail,
           })),
-          // Feedback rides the refusal: every Word merge field found is listed, so a caller can offer
-          // the choice (convert, or edit the document in Word) rather than a dead end.
           ...preparation.mergeFieldDetections.map((detection) => ({
             path: detection.part,
             code: "word-merge-field",
@@ -812,11 +1010,10 @@ export function registerTemplatesRoutes(app: TemplatesApp, chokepoint: Chokepoin
       const idempotency = requireChokepointIdempotency(c);
       const request = c.req.valid("json");
 
-      const outcome = await prepareStagedUpload(
-        c,
-        request.uploadKey,
-        request.convertMergeFields === true,
-      );
+      const outcome = await prepareStagedUpload(c, request.uploadKey, {
+        convertMergeFields: request.convertMergeFields === true,
+        stripMacros: request.stripMacros === true,
+      });
       if (!outcome.ok) return outcome.response;
 
       const now = (): string => new Date().toISOString();
@@ -857,10 +1054,7 @@ export function registerTemplatesRoutes(app: TemplatesApp, chokepoint: Chokepoin
             versionNumber: 1,
             status: gate.activated ? "clean" : "quarantined",
             fieldCount: outcome.prepared.manifest.fields.length,
-            macroPartsRemoved: outcome.prepared.removedMacroParts.length,
-            mergeFieldsConverted: outcome.prepared.mergeFieldsConverted,
-            mergeFieldsDetected: outcome.prepared.mergeFieldDetections,
-            warnings: outcome.prepared.warnings,
+            ...registrationFeedback(outcome.prepared),
           };
           return {
             write: {
@@ -910,11 +1104,10 @@ export function registerTemplatesRoutes(app: TemplatesApp, chokepoint: Chokepoin
         });
       }
 
-      const outcome = await prepareStagedUpload(
-        c,
-        request.uploadKey,
-        request.convertMergeFields === true,
-      );
+      const outcome = await prepareStagedUpload(c, request.uploadKey, {
+        convertMergeFields: request.convertMergeFields === true,
+        stripMacros: request.stripMacros === true,
+      });
       if (!outcome.ok) return outcome.response;
 
       const now = (): string => new Date().toISOString();
@@ -957,10 +1150,7 @@ export function registerTemplatesRoutes(app: TemplatesApp, chokepoint: Chokepoin
             versionNumber: version?.versionNumber ?? 0,
             status: gate.activated ? "clean" : "quarantined",
             fieldCount: outcome.prepared.manifest.fields.length,
-            macroPartsRemoved: outcome.prepared.removedMacroParts.length,
-            mergeFieldsConverted: outcome.prepared.mergeFieldsConverted,
-            mergeFieldsDetected: outcome.prepared.mergeFieldDetections,
-            warnings: outcome.prepared.warnings,
+            ...registrationFeedback(outcome.prepared),
           };
           return {
             write: {
@@ -1047,6 +1237,7 @@ export function registerTemplatesRoutes(app: TemplatesApp, chokepoint: Chokepoin
               description: entry?.description ?? null,
             };
           }),
+          unconvertedMergeFields: manifest.unconvertedMergeFields.map((field) => ({ ...field })),
           warnings: warnings.map((warning) => ({
             code: warning.code,
             part: warning.part,
@@ -1081,6 +1272,67 @@ export function registerTemplatesRoutes(app: TemplatesApp, chokepoint: Chokepoin
     },
   );
 
+  // GET /api/v1/merge-field-mappings — the firm's own confirmed Word-name-to-key mappings.
+  app.openapi(
+    { ...fieldMappingsRoute, middleware: chokepointMiddleware(chokepoint, fieldMappingsRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const query = c.req.valid("query");
+      const pageSize = 100;
+      // The cursor is the last row's field name, which is unique in this table, so no tiebreaker is
+      // needed to keep the page boundary stable.
+      const rows = await listFieldMappings(firm.firmDatabase, {
+        limit: pageSize + 1,
+        afterFieldName: query.cursor === undefined ? undefined : atob(query.cursor),
+      });
+      const page = rows.slice(0, pageSize);
+      const last = page.at(-1);
+      return c.json(
+        {
+          data: page.map((row) => ({
+            mappingId: row.id,
+            fieldName: row.fieldName,
+            mergeKey: row.mergeKey,
+            timesApplied: row.timesApplied,
+            createdAt: row.createdAt,
+            updatedAt: row.updatedAt,
+          })),
+          nextCursor: rows.length > pageSize && last !== undefined ? btoa(last.fieldName) : null,
+        },
+        200,
+      );
+    },
+  );
+
+  // DELETE /api/v1/merge-field-mappings/{mappingId} — withdraw one.
+  app.openapi(
+    {
+      ...deleteFieldMappingRoute,
+      middleware: chokepointMiddleware(chokepoint, deleteFieldMappingRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const { mappingId } = c.req.valid("param");
+      const existing = await readFieldMapping(
+        firm.firmDatabase,
+        mappingId as DocumentTemplateFieldMappingId,
+      );
+      if (existing === undefined) return notFound(c, "No such merge-field mapping.");
+      const now = (): string => new Date().toISOString();
+      await commitEffectBatch(
+        firm.firmDatabase,
+        deleteFieldMappingEffect(firm.firmDatabase, existing.id, {
+          clock: { now },
+          actorUserId: userId,
+          randomSource: cryptoRandomSource,
+        }),
+        { now },
+      );
+      return c.json({ mappingId: existing.id, deleted: true as const }, 200);
+    },
+  );
+
   // GET /api/v1/merge-fields — the dictionary a template is authored against.
   app.openapi(
     { ...mergeFieldsRoute, middleware: chokepointMiddleware(chokepoint, mergeFieldsRoute) },
@@ -1108,9 +1360,14 @@ function parseManifestJson(json: string): FieldManifest {
     return {
       fields: Array.isArray(parsed.fields) ? parsed.fields : [],
       totalOccurrences: typeof parsed.totalOccurrences === "number" ? parsed.totalOccurrences : 0,
+      // Absent on a manifest stored before the field existed, which is a template that carried no
+      // unconverted merge fields by construction — registration refused those outright at the time.
+      unconvertedMergeFields: Array.isArray(parsed.unconvertedMergeFields)
+        ? parsed.unconvertedMergeFields
+        : [],
     };
   } catch {
-    return { fields: [], totalOccurrences: 0 };
+    return { fields: [], totalOccurrences: 0, unconvertedMergeFields: [] };
   }
 }
 
