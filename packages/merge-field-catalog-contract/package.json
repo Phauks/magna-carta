@@ -1,0 +1,21 @@
+{
+  "name": "@magna-carta/merge-field-catalog-contract",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./types": "./src/types.ts",
+    "./fixture-catalog": "./src/fixture-catalog.ts",
+    "./mock-catalog-provider": "./src/mock-catalog-provider.ts",
+    "./catalog-grouping": "./src/catalog-grouping.ts"
+  },
+  "scripts": {
+    "test": "vp test run"
+  },
+  "devDependencies": {
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "vitest": "catalog:"
+  }
+}
