@@ -30,6 +30,12 @@ export const DEFAULT_UPLOAD_POLICY: UploadPolicy = {
     "application/vnd.openxmlformats-officedocument.*",
     "application/vnd.ms-excel",
     "application/vnd.ms-powerpoint",
+    // The gate re-checks against the SNIFFED type, and every pre-2007 Office document sniffs as the
+    // compound-file container rather than as msword/ms-excel/ms-powerpoint above — those three names
+    // only ever arrive as a client's declaration. Without the container type here, allowing the
+    // declared names allows nothing: each .doc/.xls/.ppt clears initiate and is quarantined at the
+    // gate. Executables that share the container (.msi) are refused by the extension blocklist below.
+    "application/x-cfb",
     "application/vnd.oasis.opendocument.*",
     "application/rtf",
     "text/*",
