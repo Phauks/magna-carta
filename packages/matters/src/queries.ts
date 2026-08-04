@@ -33,7 +33,10 @@ export function listMattersStatement(
   cursor: SortCursor | undefined,
   limit: number,
 ): SqlStatement {
-  const conditions: string[] = [];
+  // A system matter is platform-owned plumbing, not a client engagement: it holds the scans of
+  // originals kept for people who have no matter, and it must never appear in a caseload list, a
+  // report, a conflicts corpus, or a bill. Excluded here rather than filtered by every caller.
+  const conditions: string[] = ["system_key IS NULL"];
   const bindings: unknown[] = [];
   if (filters.status !== undefined) {
     conditions.push("status = ?");

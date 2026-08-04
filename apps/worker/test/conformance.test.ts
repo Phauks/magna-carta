@@ -158,6 +158,12 @@ const RESOURCE_BY_PERMISSION_NAMESPACE: Record<string, string | readonly string[
   esign: "firm",
   shipping: "firm",
   tools: "firm",
+  // custody:* governs the register of physical client originals a firm holds. It binds the FIRM
+  // rather than the matter — a deliberate call against the files:* precedent: a custody packet may
+  // have no matter at all by construction (a will held for a client whose last matter closed eleven
+  // years ago is the steady state, not an edge case), so binding to "matter" would name a resource
+  // half the rows do not have. Same reasoning as the firm catch-all exception in the emails:* row.
+  custody: "firm",
   // customFields:* governs firm-defined fields on matter/entity records; its routes carry the
   // matter resource (the nearest tenancy root — custom fields extend matter/entity records).
   customFields: "matter",
@@ -557,6 +563,25 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "costs.submit",
       "costs.update",
       "costs.void",
+      "custody.addItem",
+      "custody.addOwner",
+      "custody.createItemType",
+      "custody.createLocation",
+      "custody.createPacket",
+      "custody.deactivateItemType",
+      "custody.getPacket",
+      "custody.linkScan",
+      "custody.listItemTypes",
+      "custody.listLocations",
+      "custody.listMovements",
+      "custody.listOverdue",
+      "custody.listPackets",
+      "custody.placeHold",
+      "custody.recordMovement",
+      "custody.releaseHold",
+      "custody.updateItem",
+      "custody.updateLocation",
+      "custody.updatePacket",
       "customFields.applyConvert",
       "customFields.archiveField",
       "customFields.archiveOption",

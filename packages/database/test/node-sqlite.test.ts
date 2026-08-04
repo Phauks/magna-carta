@@ -87,6 +87,10 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "conflicts:read",
         "conflicts:run",
         "costs:track",
+        // A paralegal files originals into the safe and takes them back out, so this role carries
+        // both custody keys; Billing and Read-only get custody:read alone.
+        "custody:manage",
+        "custody:read",
         "emails:file",
         "emails:manageLinks",
         "emails:read",
@@ -110,13 +114,16 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
       ].sort(),
     );
     // Billing and Read-only carry only the every-role set (firm:reportIncident, the firm-wide
-    // tools, support:request, conflicts:read/run, emails:read); Billing additionally carries
-    // costs:approve.
+    // tools, support:request, conflicts:read/run, custody:read, emails:read); Billing additionally
+    // carries costs:approve. custody:read is deliberately in the every-role set: "do we hold the
+    // deed for this client" is a question a billing clerk legitimately asks, and custody:manage —
+    // which moves originals — is exactly what they must not have.
     expect(grantsFor("Billing").sort()).toEqual(
       [
         "conflicts:read",
         "conflicts:run",
         "costs:approve",
+        "custody:read",
         "emails:read",
         "firm:reportIncident",
         "firm:scanFile",
@@ -138,6 +145,7 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
       [
         "conflicts:read",
         "conflicts:run",
+        "custody:read",
         "emails:read",
         "firm:reportIncident",
         "firm:scanFile",

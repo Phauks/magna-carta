@@ -43,6 +43,7 @@ describe("schema conformance (fitness functions)", () => {
     //  - account_balance: the materialized balance row of its ledger_account (owner's handle).
     //  - member: the per-firm mirror of the control-plane user — keyed by the GLOBAL user handle.
     //  - matter_number_counter: a counter keyed by its scope (like the migration tracker, _migrations).
+    //  - custody_number_counter: the same counter shape for custody numbers, keyed by its scope.
     //  - setting: key/value config keyed by the setting key.
     //  - platform_operator: one row per elevated user — keyed by the GLOBAL user handle, same idiom as member.
     //  - email_capture_route: the control-plane token->firm routing index — the opaque routing token IS
@@ -52,6 +53,7 @@ describe("schema conformance (fitness functions)", () => {
       account_balance: "account_id",
       member: "user_id",
       matter_number_counter: "scope_key",
+      custody_number_counter: "scope_key",
       setting: "key",
       platform_operator: "user_id",
       email_capture_route: "token",
@@ -76,13 +78,17 @@ describe("schema conformance (fitness functions)", () => {
       "directory_name_phonetic_code",
       "directory_entity_category",
       "matter_number_allocation",
+      "custody_number_allocation",
       "scan_cache",
       "scoped_setting",
     ]);
-    // Composite key columns are TEXT with one documented exception: the value a matter number draw
-    // reserves is a counter value, and constraining the NUMBER is the entire point of the row — a
-    // string spelling of it would let '01' and '1' both be drawn.
-    const integerCompositeKeyColumns = new Set(["matter_number_allocation.drawn_value"]);
+    // Composite key columns are TEXT with two documented exceptions, both the same shape: the value a
+    // number draw reserves is a counter value, and constraining the NUMBER is the entire point of the
+    // row — a string spelling of it would let '01' and '1' both be drawn.
+    const integerCompositeKeyColumns = new Set([
+      "matter_number_allocation.drawn_value",
+      "custody_number_allocation.drawn_value",
+    ]);
 
     for (const table of ALL_TABLES) {
       const config = getTableConfig(table);

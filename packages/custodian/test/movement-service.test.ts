@@ -1,0 +1,293 @@
+import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
+import type { CustodyLocationId } from "@magna-carta/identifiers/types";
+import { describe, expect, it } from "vitest";
+import { addCustodyItem } from "../src/item-service.ts";
+import { createCustodyLocation } from "../src/location-service.ts";
+import { recordCustodyMovement } from "../src/movement-service.ts";
+import { readCustodyMovements } from "../src/movement-statements.ts";
+import { createCustodyPacket } from "../src/packet-service.ts";
+import { readCustodyItem, readCustodyPacket } from "../src/packet-statements.ts";
+import { readOverdueCustodyCheckouts } from "../src/queries.ts";
+import type { CustodyMovementKind, CustodyPacketStatus } from "../src/types.ts";
+import { ACTOR, commit, migratedDatabase, options, seedMember } from "./support.ts";
+
+const SMITH = "directoryPerson_smith0000000000000";
+
+async function scaffold() {
+  const { database, raw } = migratedDatabase();
+  seedMember(raw);
+  const safe = await node(database, "Main safe", "safe");
+  const offsite = await node(database, "Offsite vault", "offsite");
+  const created = await createCustodyPacket(
+    database,
+    {
+      name: "Smith family deeds",
+      owners: [{ entityId: SMITH }],
+      currentLocationId: safe,
+    },
+    { ...options, responsibleMemberId: ACTOR },
+  );
+  return { database, raw, safe, offsite, packetId: created.packetId };
+}
+
+async function node(
+  database: BatchDatabase,
+  name: string,
+  kind: Parameters<typeof createCustodyLocation>[1]["kind"],
+): Promise<CustodyLocationId> {
+  const { locationId, effect } = await createCustodyLocation(database, { name, kind }, options);
+  await commit(database, effect);
+  return locationId;
+}
+
+describe("the movement ledger is the one write path for every state change", () => {
+  // The status effect of every kind, asserted as a table rather than one test per kind, so a kind
+  // added to the enum without a status rule is visible as a missing row here.
+  const packetTransitions: ReadonlyArray<
+    readonly [CustodyMovementKind, CustodyPacketStatus, boolean]
+  > = [
+    ["moved", "held", true],
+    ["checked_out", "out", false],
+    ["released", "released", false],
+    ["destroyed", "destroyed", false],
+    ["lost", "lost", false],
+  ];
+
+  for (const [kind, expectedStatus, needsDestination] of packetTransitions) {
+    it(`a ${kind} movement leaves the packet ${expectedStatus}`, async () => {
+      const { database, offsite, packetId } = await scaffold();
+      await recordCustodyMovement(
+        database,
+        packetId,
+        {
+          kind,
+          ...(needsDestination ? { toLocationId: offsite } : {}),
+          ...(kind === "checked_out"
+            ? { borrower: { kind: "member" as const, userId: ACTOR }, dueBackOn: "2026-08-11" }
+            : {}),
+        },
+        options,
+      );
+      const packet = await readCustodyPacket(database, packetId);
+      expect(packet?.status).toBe(expectedStatus);
+    });
+  }
+
+  // A check-out, release, destruction, or loss takes the packet out of the tree: recording a shelf
+  // it is not on would falsify the occupancy count the register reports.
+  it("clears the location on a check-out and restores it on the return", async () => {
+    const { database, safe, packetId } = await scaffold();
+    await recordCustodyMovement(
+      database,
+      packetId,
+      {
+        kind: "checked_out",
+        borrower: { kind: "external", name: "M. Alvarez (courier)" },
+        dueBackOn: "2026-08-11",
+      },
+      options,
+    );
+    expect(await readCustodyPacket(database, packetId)).toMatchObject({
+      status: "out",
+      current_location_id: null,
+    });
+
+    await recordCustodyMovement(
+      database,
+      packetId,
+      { kind: "returned", toLocationId: safe },
+      options,
+    );
+    expect(await readCustodyPacket(database, packetId)).toMatchObject({
+      status: "held",
+      current_location_id: safe,
+    });
+  });
+
+  it("refuses a second check-out while the packet is already out", async () => {
+    const { database, packetId } = await scaffold();
+    await recordCustodyMovement(
+      database,
+      packetId,
+      { kind: "checked_out", borrower: { kind: "member", userId: ACTOR } },
+      options,
+    );
+    await expect(
+      recordCustodyMovement(
+        database,
+        packetId,
+        { kind: "checked_out", borrower: { kind: "member", userId: ACTOR } },
+        options,
+      ),
+    ).rejects.toMatchObject({ code: "custody-invalid-movement" });
+  });
+
+  it("refuses an ordinary movement on a released packet but accepts a correction", async () => {
+    const { database, offsite, packetId } = await scaffold();
+    const released = await recordCustodyMovement(database, packetId, { kind: "released" }, options);
+    await expect(
+      recordCustodyMovement(database, packetId, { kind: "moved", toLocationId: offsite }, options),
+    ).rejects.toMatchObject({ code: "custody-packet-closed" });
+
+    const correction = await recordCustodyMovement(
+      database,
+      packetId,
+      {
+        kind: "correction",
+        correctsMovementId: released.movementId,
+        reason: "released to the wrong family member; the original is back in the safe",
+      },
+      options,
+    );
+    expect(correction.movementId).toBeDefined();
+  });
+
+  it("refuses a correction that names no corrected movement", async () => {
+    const { database, packetId } = await scaffold();
+    await expect(
+      recordCustodyMovement(database, packetId, { kind: "correction" }, options),
+    ).rejects.toMatchObject({ code: "custody-invalid-movement" });
+  });
+
+  it("refuses a borrower kind with no borrower named", async () => {
+    const { database, packetId } = await scaffold();
+    await expect(
+      recordCustodyMovement(
+        database,
+        packetId,
+        { kind: "checked_out", borrower: { kind: "external", name: "  " } },
+        options,
+      ),
+    ).rejects.toMatchObject({ code: "custody-invalid-movement" });
+  });
+
+  // A found packet reopens a loss without falsifying the earlier entry — property does turn up.
+  it("accepts a found movement on a lost packet", async () => {
+    const { database, safe, packetId } = await scaffold();
+    await recordCustodyMovement(
+      database,
+      packetId,
+      { kind: "lost", reason: "not in box 4" },
+      options,
+    );
+    await recordCustodyMovement(database, packetId, { kind: "found", toLocationId: safe }, options);
+    expect(await readCustodyPacket(database, packetId)).toMatchObject({
+      status: "held",
+      current_location_id: safe,
+    });
+  });
+
+  // A single item can be withdrawn and released to its owner while the envelope stays in the safe.
+  it("moves an item's status without touching the packet's", async () => {
+    const { database, packetId } = await scaffold();
+    const { itemId, effect } = await addCustodyItem(
+      database,
+      packetId,
+      { description: "Original will of Jane Smith dated 14 March 2019" },
+      options,
+    );
+    await commit(database, effect);
+
+    await recordCustodyMovement(database, packetId, { kind: "withdrawn", itemId }, options);
+    expect(await readCustodyItem(database, itemId)).toMatchObject({ status: "out" });
+    expect(await readCustodyPacket(database, packetId)).toMatchObject({ status: "held" });
+  });
+
+  // A Friday collection typed in on Monday is the ordinary case. The register reports on
+  // occurred_at; recorded_at proves when the assertion was made, and the gap stays visible.
+  it("keeps occurred_at and recorded_at apart so back-dating stays visible", async () => {
+    const { database, offsite, packetId } = await scaffold();
+    const moved = await recordCustodyMovement(
+      database,
+      packetId,
+      { kind: "moved", toLocationId: offsite, occurredAt: "2026-08-01T09:00:00.000Z" },
+      options,
+    );
+    const history = await readCustodyMovements(database, packetId, 10);
+    expect(history.find((movement) => movement.id === moved.movementId)).toMatchObject({
+      occurred_at: "2026-08-01T09:00:00.000Z",
+      recorded_at: "2026-08-04T12:00:00.000Z",
+    });
+    // The history sorts on occurred_at, so a back-dated row lands where the event happened rather
+    // than where it was typed — which is the whole point of keeping the two columns apart.
+    expect(history.map((movement) => movement.id).at(-1)).toBe(moved.movementId);
+  });
+
+  // A retried request must not produce two ledger rows — the whole reason the movement route
+  // requires an Idempotency-Key.
+  it("produces exactly one row for a retried movement", async () => {
+    const { database, offsite, packetId } = await scaffold();
+    const idempotency = { key: "movement-retry-key", fingerprint: "fingerprint-1" };
+    const first = await recordCustodyMovement(
+      database,
+      packetId,
+      { kind: "moved", toLocationId: offsite },
+      { ...options, idempotency },
+    );
+    const second = await recordCustodyMovement(
+      database,
+      packetId,
+      { kind: "moved", toLocationId: offsite },
+      { ...options, idempotency },
+    );
+    expect(second.movementId).toBe(first.movementId);
+    expect(second.replayed).toBe(true);
+    const movements = await readCustodyMovements(database, packetId, 20);
+    expect(movements.filter((movement) => movement.kind === "moved")).toHaveLength(1);
+  });
+
+  it("reads a packet's history newest first, keyset-paginated", async () => {
+    const { database, safe, offsite, packetId } = await scaffold();
+    await recordCustodyMovement(
+      database,
+      packetId,
+      { kind: "moved", toLocationId: offsite, occurredAt: "2026-08-05T00:00:00.000Z" },
+      options,
+    );
+    await recordCustodyMovement(
+      database,
+      packetId,
+      { kind: "moved", toLocationId: safe, occurredAt: "2026-08-06T00:00:00.000Z" },
+      options,
+    );
+    const firstPage = await readCustodyMovements(database, packetId, 2);
+    expect(firstPage.map((movement) => movement.occurred_at)).toEqual([
+      "2026-08-06T00:00:00.000Z",
+      "2026-08-05T00:00:00.000Z",
+    ]);
+    const last = firstPage.at(-1);
+    const secondPage = await readCustodyMovements(database, packetId, 2, {
+      occurredAt: last?.occurred_at ?? "",
+      id: last?.id ?? "",
+    });
+    expect(secondPage.map((movement) => movement.kind)).toEqual(["logged"]);
+  });
+});
+
+describe("the overdue check-out read", () => {
+  it("surfaces a packet past its due-back date and drops it once returned", async () => {
+    const { database, safe, packetId } = await scaffold();
+    await recordCustodyMovement(
+      database,
+      packetId,
+      {
+        kind: "checked_out",
+        borrower: { kind: "member", userId: ACTOR },
+        dueBackOn: "2026-08-01",
+        occurredAt: "2026-07-28T09:00:00.000Z",
+      },
+      options,
+    );
+    const overdue = await readOverdueCustodyCheckouts(database, "2026-08-11");
+    expect(overdue).toHaveLength(1);
+    expect(overdue[0]).toMatchObject({ packetId, dueBackOn: "2026-08-01", daysOverdue: 10 });
+
+    await recordCustodyMovement(
+      database,
+      packetId,
+      { kind: "returned", toLocationId: safe, occurredAt: "2026-08-09T09:00:00.000Z" },
+      options,
+    );
+    expect(await readOverdueCustodyCheckouts(database, "2026-08-11")).toEqual([]);
+  });
+});

@@ -1,0 +1,44 @@
+// Every refusal this subsystem raises, as a code the route maps to a problem type. Codes — never
+// messages — drive the mapping, so a message can be reworded without changing the contract.
+export type CustodyValidationCode =
+  // A packet cannot exist without at least one owner link. The orphan-prevention invariant: the
+  // catastrophic outcome in safe custody is not a misplaced packet but an unattributable one.
+  | "custody-owner-required"
+  // A hold is in force and forbids this action (release, destruction).
+  | "custody-hold-blocks-action"
+  // An item flagged as an irreplaceable original is never destructible through the API.
+  | "custody-intrinsic-value-not-destructible"
+  // Re-parenting a location into its own subtree, or past the depth cap.
+  | "custody-location-cycle"
+  | "custody-location-too-deep"
+  // Closing a location that still holds packets, or has children that do.
+  | "custody-location-occupied"
+  // The number draw did not converge, or a manual number is already taken.
+  | "custody-number-exhausted"
+  | "custody-number-taken"
+  // Destruction is a two-person action by construction.
+  | "custody-approver-must-differ"
+  // Ordinary shape and lifecycle refusals.
+  | "custody-empty-name"
+  | "custody-empty-description"
+  | "custody-unknown-location"
+  | "custody-unknown-packet"
+  | "custody-unknown-item"
+  | "custody-unknown-item-type"
+  | "custody-unknown-hold"
+  | "custody-hold-already-released"
+  | "custody-item-type-name-taken"
+  | "custody-item-type-code-taken"
+  | "custody-invalid-movement"
+  | "custody-packet-closed"
+  | "custody-scan-file-not-filed-here";
+
+export class CustodyValidationError extends Error {
+  constructor(
+    readonly code: CustodyValidationCode,
+    message: string,
+  ) {
+    super(message);
+    this.name = "CustodyValidationError";
+  }
+}

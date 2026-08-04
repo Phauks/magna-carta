@@ -28,6 +28,7 @@ import { registerNarrativeTemplatesRoutes } from "./routes/narrative-templates.t
 import { registerMyDayRoutes } from "./routes/my-day.ts";
 import { registerDirectoryRoutes } from "./routes/directory.ts";
 import { registerConflictsRoutes } from "./routes/conflicts.ts";
+import { registerCustodyRoutes } from "./routes/custody.ts";
 import { registerDocumentTypesRoutes } from "./routes/document-types.ts";
 import { registerDownloadsRoutes } from "./routes/downloads.ts";
 import { registerDocumentCheckoutRoutes } from "./editing/checkout-routes.ts";
@@ -527,6 +528,10 @@ export function createApp(options: CreateAppOptions = {}) {
   // The conflicts-of-interest check surface: run a check against the directory corpus, read a
   // completed check back with its hits, and record a reviewer's disposition of a hit.
   registerConflictsRoutes(app, chokepoint);
+  // Custodian — the register of physical client originals the firm holds in safekeeping: the
+  // container tree, packets and their items, Directory ownership, the append-only movement ledger,
+  // holds, and scanned copies bound over ordinary File Manager files.
+  registerCustodyRoutes(app, chokepoint);
   // Slice 1·4: firm-defined custom fields (definitions, picklist options, temporal values, the
   // non-destructive Convert, and the compliance purge seam) — composed through the same chokepoint.
   registerCustomFieldsRoutes(app, chokepoint);
