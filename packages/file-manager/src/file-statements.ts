@@ -273,6 +273,33 @@ export function commitVersionStatement(database: SqlDatabase, row: CommitVersion
     );
 }
 
+// The in-batch precondition assertion for a version-lifecycle batch. Every statement that MOVES a
+// version's status is guarded (`… AND status = 'pending'`), which makes that one statement replay-safe
+// — but a D1 batch is a transaction, not a chain: the statements that DEPEND on the move (the meter
+// delta, the current-version bump, the session flip, the audit row, the outbox message) carry no such
+// predicate and run regardless. So a lost race — an abort or expiry that flips the version first —
+// leaves the guarded UPDATE matching zero rows while every consequence of it commits anyway: the meter
+// inflates, the file's current pointer can be aimed at a version that was abandoned, and an audit trail
+// plus a downstream event both claim a commit that never happened.
+//
+// This restores the all-or-nothing property. Placed AFTER the guarded statement, it observes the state
+// that statement was supposed to produce: if the version reached `expectedStatus`, the SELECT is empty
+// and nothing happens. If it did not, the SELECT yields the row and re-inserting its own primary key
+// violates the constraint — which aborts the whole batch, rolling back every dependent write with it.
+// The caller sees the failure and retries, which is correct: on the retry the version is no longer
+// pending, so the status-first guard reads it as already handled and the work is not repeated.
+export function assertVersionStatusStatement(
+  database: SqlDatabase,
+  versionId: FileVersionId,
+  expectedStatus: "clean" | "quarantined" | "abandoned",
+): SqlStatement {
+  return database
+    .prepare(
+      `INSERT INTO ${FILE_VERSION_TABLE} (id, file_id, version_number, r2_key, status, created_at) SELECT id, file_id, version_number, r2_key, status, created_at FROM ${FILE_VERSION_TABLE} WHERE id = ?1 AND status <> ?2`,
+    )
+    .bind(versionId, expectedStatus);
+}
+
 export interface RescanVerdictRow {
   readonly versionId: FileVersionId;
   readonly scanVerdict: "clean" | "flagged";
@@ -425,6 +452,34 @@ export function selectExpiredOpenSessionsStatement(
         `LIMIT ${STALE_PENDING_SWEEP_BATCH}`,
     )
     .bind(now);
+}
+
+// How long after a version was minted a still-`pending` row behind a COMPLETED session counts as
+// stranded. The client finished its PUT and the session closed, so the only thing that can still move
+// the version is the ingest queue — which retries with backoff and then dead-letters. Past this window
+// no delivery is outstanding, so the version is not slow, it is stuck. Generous by design: re-driving
+// an ingest that is merely still retrying costs one redundant pass (the status-first guard makes it a
+// no-op), while too short a window would fight the queue's own backoff.
+export const STRANDED_PENDING_DEADLINE_MILLISECONDS = 6 * 60 * 60 * 1000;
+
+// Versions abandoned by a FAILED ingest rather than by an abandoned upload: the session reached
+// 'completed' (the bytes are in R2 and the client believes the upload succeeded) but the version never
+// left 'pending', because its queue message dead-lettered. The expired-open-session sweep cannot see
+// these — that sweep matches `s.status = 'open'`, and these sessions are closed — so they would sit
+// pending forever, invisible to the meter and undownloadable, with no operator signal. Bounded by the
+// same batch size as the expired sweep so one pass is never unbounded.
+export function selectStrandedPendingVersionsStatement(
+  database: SqlDatabase,
+  mintedBeforeIso: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT v.id, v.r2_key, s.declared_size ` +
+        `FROM ${UPLOAD_SESSION_TABLE} s JOIN ${FILE_VERSION_TABLE} v ON v.id = s.file_version_id ` +
+        `WHERE s.status = 'completed' AND v.status = 'pending' AND v.created_at < ?1 ` +
+        `LIMIT ${STALE_PENDING_SWEEP_BATCH}`,
+    )
+    .bind(mintedBeforeIso);
 }
 
 // Records R2's multipart upload id on the open session after createMultipartUpload — composed into

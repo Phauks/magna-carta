@@ -422,7 +422,13 @@ export async function openMatter(
   if (matter === undefined) {
     throw new MatterValidationError("matter-not-found", `no such matter: ${matterId}`);
   }
-  if (matter.status !== "prospective") {
+  // Skipped on an idempotent retry: the mutation this key names is the one that moved the matter off
+  // prospective, so refusing here would 409 the caller on its own completed work instead of replaying
+  // the number it already drew. Only a genuinely new request — which carries its own key — is refused.
+  if (
+    matter.status !== "prospective" &&
+    !(await isIdempotentRetry(database, options.idempotency?.key))
+  ) {
     throw new MatterValidationError(
       "matter-not-prospective",
       `matter ${matterId} is ${matter.status}, not prospective`,
@@ -505,7 +511,13 @@ export async function reopenMatter(
   if (matter === undefined) {
     throw new MatterValidationError("matter-not-found", `no such matter: ${matterId}`);
   }
-  if (matter.status !== "closed") {
+  // Same replay rule as the open and close preconditions: a retry under an already-seen key is the
+  // request that reopened the matter, so the stored response is replayed rather than the caller being
+  // told its own reopen never happened.
+  if (
+    matter.status !== "closed" &&
+    !(await isIdempotentRetry(database, options.idempotency?.key))
+  ) {
     throw new MatterValidationError(
       "matter-not-closed",
       `matter ${matterId} is ${matter.status}, not closed`,

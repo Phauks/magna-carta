@@ -287,6 +287,63 @@ describe("commitVersion", () => {
       code: "version-not-pending",
     });
   });
+
+  // The status = 'pending' guard protects only the UPDATE that carries it. Everything the commit
+  // implies — the meter delta, the current-version pointer, the session flip, the audit row, the
+  // outbox event — has no such predicate, so a lost race to an abort or expiry would otherwise commit
+  // every consequence of a commit that never happened. The batch must fail as a unit instead.
+  it("commits nothing at all when the version was abandoned between the read and the batch", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const { fileId, versionId } = await initiate(database, matterId);
+
+    const result = await commitVersion(
+      database,
+      {
+        versionId,
+        sizeBytes: 1024,
+        sniffedContentType: "application/pdf",
+        contentSha256: "hash-a",
+        scanVerdict: "unscanned",
+        scanEngineVersion: null,
+        scanDetail: null,
+        now: now(),
+      },
+      options,
+    );
+    // The racing abort lands first: the version leaves 'pending', so the guarded commit UPDATE in the
+    // prepared batch will match nothing.
+    await database
+      .prepare("UPDATE file_version SET status = 'abandoned' WHERE id = ?1")
+      .bind(versionId)
+      .run();
+
+    await expect(commitEffectBatch(database, result.effect, { now })).rejects.toThrow();
+
+    const version = await database
+      .prepare("SELECT status FROM file_version WHERE id = ?1")
+      .bind(versionId)
+      .all<{ status: string }>();
+    expect(version.results[0]?.status).toBe("abandoned");
+    const file = await database
+      .prepare("SELECT current_version_id FROM file WHERE id = ?1")
+      .bind(fileId)
+      .all<{ current_version_id: string | null }>();
+    expect(file.results[0]?.current_version_id).toBeNull();
+    const meter = await database
+      .prepare("SELECT bytes FROM storage_meter WHERE prefix = 'files'")
+      .all<{ bytes: number }>();
+    expect(meter.results).toHaveLength(0);
+    // No trail claiming a commit — neither the audit row nor the event the batch would have appended.
+    const audit = await database
+      .prepare("SELECT id FROM audit_log WHERE event = 'file.version_committed'")
+      .all();
+    expect(audit.results).toHaveLength(0);
+    const outbox = await database
+      .prepare("SELECT id FROM outbox WHERE topic = 'file.version_committed'")
+      .all();
+    expect(outbox.results).toHaveLength(0);
+  });
 });
 
 describe("quarantineVersion", () => {

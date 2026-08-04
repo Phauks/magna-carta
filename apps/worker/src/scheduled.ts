@@ -12,7 +12,9 @@ import {
   abandonVersionStatement,
   FILES_PREFIX,
   selectExpiredOpenSessionsStatement,
+  selectStrandedPendingVersionsStatement,
   setUploadSessionStatusByIdStatement,
+  STRANDED_PENDING_DEADLINE_MILLISECONDS,
 } from "@magna-carta/file-manager/file-statements";
 import {
   meterCorrectionStatements,
@@ -280,6 +282,13 @@ export async function runScheduledSweep(env: Bindings): Promise<ScheduledSweepRe
       });
       await purgeExpiredIdempotencyRecordsStatement(firm.database, idempotencyCutoff).run();
       await sweepStalePendingUploads(env, firm);
+      const redriven = await redriveStrandedPendingVersions(env, firm);
+      if (redriven > 0) {
+        // A counter, not an event: the rate is the alertable signal (a persistently non-zero count
+        // means ingest is failing for real, not that one message was slow), and the per-version detail
+        // — keys, ids — has no place in a structured log.
+        logger.count("ingest.stranded_pending_redriven", {}, redriven);
+      }
       firmSweeps++;
       logger.log(
         outboxSwept(
@@ -365,6 +374,50 @@ export async function sweepStalePendingUploads(
       { now },
     );
   }
+  return results.length;
+}
+
+// The stranded-pending re-drive: the counterpart sweep for an ingest that FAILED rather than an upload
+// that was abandoned. The sweep above reclaims sessions the client never finished; this one finds
+// sessions the client DID finish whose version never left `pending` — the shape a dead-lettered ingest
+// leaves behind, where the bytes are in R2, the user was told the upload succeeded, and nothing is left
+// to move the version. Each one is re-enqueued as the same R2-event message the object's original
+// create notification carried, so it re-enters the one ingest path rather than a second, divergent
+// commit path here.
+//
+// Re-driving is safe to repeat. A version still pending is picked up by the status-first guard and
+// ingested normally; one that has since committed takes the custody branch instead, which re-measures
+// the stored bytes against the hash the committed row asserts and withdraws the version if they no
+// longer match — so a redundant re-drive re-verifies custody rather than double-committing. Returns the
+// count re-driven (for tests and the operator counter).
+export async function redriveStrandedPendingVersions(
+  env: Bindings,
+  firm: ReachableActiveFirm,
+): Promise<number> {
+  const queue = env.FILES_INGEST;
+  // No producer binding (or no bucket registered for the firm) means there is nothing to re-drive
+  // onto; the rows stay put for the next pass rather than being silently dropped.
+  if (queue === undefined || firm.bucketName === null) return 0;
+  const mintedBefore = new Date(Date.now() - STRANDED_PENDING_DEADLINE_MILLISECONDS).toISOString();
+  const { results } = await selectStrandedPendingVersionsStatement(
+    firm.database,
+    mintedBefore,
+  ).all<{ id: FileVersionId; r2_key: string; declared_size: number | null }>();
+  if (results.length === 0) return 0;
+  const bucket = firm.bucketName;
+  await queue.sendBatch(
+    results.map((version) => ({
+      body: {
+        bucket,
+        // The consumer reads the key; the size is informational (it measures the real object itself).
+        object: { key: version.r2_key, size: version.declared_size ?? 0 },
+        // The action an object-create notification carries, because that is what this message stands
+        // in for — and it is what makes the custody re-verification run if the version has committed
+        // since this batch was read.
+        action: "PutObject",
+      },
+    })),
+  );
   return results.length;
 }
 

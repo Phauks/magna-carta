@@ -16,6 +16,7 @@ import { fileAuditStatement, type AuditContext } from "./audit.ts";
 import { getCheckoutById, setCheckoutStatusStatement } from "./checkout-statements.ts";
 import {
   abandonVersionStatement,
+  assertVersionStatusStatement,
   assignDocumentTypeStatement,
   BULK_PREFIX,
   bumpFileCurrentVersionStatement,
@@ -420,6 +421,9 @@ export async function commitVersion(
       effect: {
         statements: [
           abandonVersionStatement(database, input.versionId),
+          // The session flip and the audit row below are consequences of that abandon; if a racing
+          // writer moved the version first, none of them may stand.
+          assertVersionStatusStatement(database, input.versionId, "abandoned"),
           setUploadSessionStatusStatement(database, input.versionId, "completed"),
           fileAuditStatement(database, options, "file.version_skipped", input.versionId),
         ],
@@ -442,6 +446,10 @@ export async function commitVersion(
           scanDetail: input.scanDetail,
           committedAt: input.now,
         }),
+        // Everything after this point — the pointer bump, the session flip, the meter delta, the audit
+        // row, and the outbox event appended to this same batch — asserts that the commit happened.
+        // The assertion makes that true or takes the whole batch down with it.
+        assertVersionStatusStatement(database, input.versionId, "clean"),
         bumpFileCurrentVersionStatement(database, version.fileId, input.versionId, input.now),
         setUploadSessionStatusStatement(database, input.versionId, "completed"),
         ...meterCommitStatements(
@@ -585,6 +593,7 @@ export async function commitCheckinVersion(
         effect: {
           statements: [
             abandonVersionStatement(database, input.versionId),
+            assertVersionStatusStatement(database, input.versionId, "abandoned"),
             setUploadSessionStatusStatement(database, input.versionId, "completed"),
             setCheckoutStatusStatement(database, input.checkoutId, "released"),
             fileAuditStatement(database, options, "document.checkin_skipped", version.fileId),
@@ -600,6 +609,7 @@ export async function commitCheckinVersion(
       effect: {
         statements: [
           commitStatement,
+          assertVersionStatusStatement(database, input.versionId, "clean"),
           bumpFileCurrentVersionStatement(database, version.fileId, input.versionId, input.now),
           setUploadSessionStatusStatement(database, input.versionId, "completed"),
           ...meterStatements,
@@ -625,6 +635,7 @@ export async function commitCheckinVersion(
     effect: {
       statements: [
         commitStatement,
+        assertVersionStatusStatement(database, input.versionId, "clean"),
         markVersionConflictStatement(database, input.versionId, checkout.baseVersionId),
         setUploadSessionStatusStatement(database, input.versionId, "completed"),
         ...meterStatements,
@@ -820,6 +831,9 @@ export async function quarantineVersion(
         // outbox message and the telemetry event are transient, and a reviewer opening a quarantined
         // version months later has only this column to distinguish a malware hit from a size lie.
         quarantineVersionStatement(database, input.versionId, input.scanDetail ?? input.reason),
+        // The audit row and the file.quarantined event this batch also carries must not outlive a
+        // quarantine that lost its race to an abort or expiry.
+        assertVersionStatusStatement(database, input.versionId, "quarantined"),
         fileAuditStatement(database, options, "file.quarantined", input.versionId),
       ],
       outboxMessages: [
@@ -886,6 +900,12 @@ export async function renameFile(
   name: string,
   options: FileServiceOptions,
 ): Promise<{ effect: EffectWrite }> {
+  // The same blank-name rule the folder service applies, for the same reason: the schema CHECK would
+  // otherwise reject a whitespace-only rename as a raw constraint failure — a server error for what is
+  // a plainly bad request.
+  if (name.trim().length === 0) {
+    throw new FileManagerValidationError("invalid-name", "a name cannot be blank");
+  }
   await requireFile(database, fileId);
   return {
     effect: {

@@ -323,6 +323,95 @@ describe("WOPI GetFile", () => {
   });
 });
 
+// The two file-access handlers must answer the same question the same way. A token is a capability
+// over ONE version of one file for a fixed window, and everything it depends on can change inside that
+// window — the file can be soft-deleted, the named version withdrawn behind the status gate, a re-scan
+// can flag it, or another writer can cut a newer version. Each case is asserted against BOTH handlers,
+// because the failure that matters is not either refusal on its own: it is one handler serving bytes
+// the other has already decided are not servable.
+describe("WOPI CheckFileInfo + GetFile agree on what the token may reach", () => {
+  const deps = () => ({
+    database: firmDb,
+    bucket: env.R2,
+    currentMeta: null,
+    liveSessionId: null,
+  });
+
+  it("refuses a soft-deleted file on both handlers", async () => {
+    const { fileId, versionId } = await seedCleanFile("Deleted.docx", "committed-bytes");
+    await firmDb.prepare("UPDATE file SET deleted_at = ?2 WHERE id = ?1").bind(fileId, ISO).run();
+
+    const claims = claimsFor(fileId, versionId, "edit");
+    await expect(checkFileInfo(claims, deps())).rejects.toMatchObject({ code: "not-found" });
+    await expect(getFile(claims, deps())).rejects.toMatchObject({ code: "not-found" });
+  });
+
+  it("refuses a version withdrawn behind the status gate after the token was minted", async () => {
+    const { fileId, versionId } = await seedCleanFile("Withdrawn.docx", "committed-bytes");
+    // The custody check found the stored bytes no longer match the hash the version asserts, so the
+    // version was withdrawn. The token predates that and its bytes are still at the version key.
+    await firmDb
+      .prepare("UPDATE file_version SET status = 'quarantined' WHERE id = ?1")
+      .bind(versionId)
+      .run();
+
+    const claims = claimsFor(fileId, versionId, "view");
+    await expect(checkFileInfo(claims, deps())).rejects.toMatchObject({ code: "not-found" });
+    await expect(getFile(claims, deps())).rejects.toMatchObject({ code: "not-found" });
+  });
+
+  it("refuses a version a re-scan flagged, which stays clean-status and visible elsewhere", async () => {
+    const { fileId, versionId } = await seedCleanFile("Flagged.docx", "committed-bytes");
+    await firmDb
+      .prepare("UPDATE file_version SET scan_verdict = 'flagged' WHERE id = ?1")
+      .bind(versionId)
+      .run();
+
+    const claims = claimsFor(fileId, versionId, "edit");
+    await expect(checkFileInfo(claims, deps())).rejects.toMatchObject({ code: "not-found" });
+    await expect(getFile(claims, deps())).rejects.toMatchObject({ code: "not-found" });
+  });
+
+  it("refuses a version handle that names another file's version", async () => {
+    const { fileId } = await seedCleanFile("Own.docx", "own-bytes");
+    const other = await seedCleanFile("Other.docx", "other-bytes");
+
+    const claims = claimsFor(fileId, other.versionId, "edit");
+    await expect(checkFileInfo(claims, deps())).rejects.toMatchObject({ code: "not-found" });
+    await expect(getFile(claims, deps())).rejects.toMatchObject({ code: "not-found" });
+  });
+
+  // The divergence a mid-token version cut used to open: CheckFileInfo described the file's CURRENT
+  // version while GetFile served the version the token names. The editor then saved against a base
+  // whose size and version identifier it had been told belonged to different bytes.
+  it("reports the token's version, not a newer one another writer cut mid-token", async () => {
+    const { fileId, versionId } = await seedCleanFile("Superseded.docx", "the-token-version");
+    // A second writer commits v2 and advances the file's current pointer while this token is live.
+    const newerVersionId = newIdentifier("fileVersion");
+    const newerKey = `files/${fileId}/${newerVersionId}`;
+    await firmDb
+      .prepare(
+        "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, declared_content_type, sniffed_content_type, content_sha256, status, uploaded_by, created_at, committed_at) " +
+          "VALUES (?1, ?2, 2, ?3, ?4, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', NULL, 'newer-hash', 'clean', ?5, ?6, ?6)",
+      )
+      .bind(newerVersionId, fileId, newerKey, "a-much-longer-newer-version".length, memberId, ISO)
+      .run();
+    await firmDb
+      .prepare("UPDATE file SET current_version_id = ?2 WHERE id = ?1")
+      .bind(fileId, newerVersionId)
+      .run();
+    await env.R2.put(newerKey, "a-much-longer-newer-version");
+
+    const claims = claimsFor(fileId, versionId, "edit");
+    const info = await checkFileInfo(claims, deps());
+    expect(info.Version).toBe(versionId);
+    expect(info.Size).toBe("the-token-version".length);
+
+    const response = await getFile(claims, deps());
+    expect(await response.text()).toBe("the-token-version");
+  });
+});
+
 async function sha256Hex(value: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");

@@ -118,7 +118,19 @@ describe("schema name sync (file-manager SQL pinned to @magna-carta/database)", 
       sqlOf(selectFolderIdByNameStatement(stub, M, FOLD, "n")),
       sqlOf(selectFolderChildFolderStatement(stub, FOLD)),
     ].join("\n");
-    expectKnown(sql, new Set([FOLDER_TABLE, ...columnsOf(folder)]), "folder");
+    expectKnown(
+      sql,
+      new Set([
+        FOLDER_TABLE,
+        // The move's in-UPDATE cycle guard: `ancestors(id, depth)` is the recursive CTE that climbs
+        // from the new parent, and `parent` aliases the folder table inside its recursive term.
+        "ancestors",
+        "depth",
+        "parent",
+        ...columnsOf(folder),
+      ]),
+      "folder",
+    );
   });
 
   it("file + version + session SQL names only schema identifiers", () => {
