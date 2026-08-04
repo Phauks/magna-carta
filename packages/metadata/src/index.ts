@@ -1,5 +1,6 @@
 export const PACKAGE_NAME = "@magna-carta/metadata";
 export { createMetadataPort } from "./metadata.ts";
+export { MAX_INPUT_BYTES } from "./guards.ts";
 export { SCRUB_ALL } from "./options.ts";
 export type { ScrubOptions } from "./options.ts";
 export type { Finding, FindingCategory, MetadataReport, RiskLevel } from "./model.ts";

@@ -10,6 +10,10 @@ export interface DocxParts {
   custom?: string;
   comments?: string;
   header?: string;
+  settings?: string;
+  styles?: string;
+  // Any further part, keyed by its full OPC part name (e.g. "docProps/thumbnail.jpeg").
+  extra?: Record<string, string | Uint8Array>;
 }
 
 const DECL = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
@@ -37,5 +41,10 @@ export function buildDocx(overrides: Partial<DocxParts> = {}): Uint8Array {
   if (parts.custom !== undefined) files["docProps/custom.xml"] = strToU8(parts.custom);
   if (parts.comments !== undefined) files["word/comments.xml"] = strToU8(parts.comments);
   if (parts.header !== undefined) files["word/header1.xml"] = strToU8(parts.header);
+  if (parts.settings !== undefined) files["word/settings.xml"] = strToU8(parts.settings);
+  if (parts.styles !== undefined) files["word/styles.xml"] = strToU8(parts.styles);
+  for (const [name, content] of Object.entries(parts.extra ?? {})) {
+    files[name] = typeof content === "string" ? strToU8(content) : content;
+  }
   return zipSync(files);
 }

@@ -26,9 +26,10 @@ export function createMetadataPort(): MetadataPort {
   return {
     async inspect(input: MetadataInput) {
       if (oversize(input.bytes)) return { ok: false, reason: "too-large" };
-      const format = detect(input.bytes);
-      if (format === "unsupported") return { ok: false, reason: "unsupported-format" };
       try {
+        // detect() is inside the try because its zip probe enforces the archive caps and can throw.
+        const format = detect(input.bytes);
+        if (format === "unsupported") return { ok: false, reason: "unsupported-format" };
         const report = await engineFor(format).inspect(input.bytes);
         return { ok: true, report };
       } catch (error) {
@@ -38,9 +39,10 @@ export function createMetadataPort(): MetadataPort {
 
     async scrub(input: MetadataInput, options: ScrubOptions): Promise<ScrubOutcome> {
       if (oversize(input.bytes)) return { ok: false, reason: "too-large" };
-      const format = detect(input.bytes);
-      if (format === "unsupported") return { ok: false, reason: "unsupported-format" };
       try {
+        // detect() is inside the try because its zip probe enforces the archive caps and can throw.
+        const format = detect(input.bytes);
+        if (format === "unsupported") return { ok: false, reason: "unsupported-format" };
         const engine = engineFor(format);
         const bytes = await engine.scrub(input.bytes, options);
         const report = await engine.inspect(bytes); // re-inspect the OUTPUT so callers can confirm clean

@@ -122,6 +122,56 @@ describe("POST /api/v1/metadata/inspect", () => {
     expect(body.findings.some((f) => f.category === "identifying-metadata")).toBe(true);
   });
 
+  it("rejects a body that is not base64 without letting the decode throw", async () => {
+    const { userId } = await seedCredentialedUser("metadata-badbase64@example.com", {
+      userName: "Bad Base64",
+      firmId: poolFirmId,
+    });
+    await mirrorMemberWithOwnerRole(userId, "Bad Base64", poolFirmId);
+    const cookie = await signInForSessionCookie("metadata-badbase64@example.com");
+    const post = async (contentBase64: string): Promise<Response> =>
+      await app.request(
+        "https://example.com/api/v1/metadata/inspect",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json", origin: "https://example.com", cookie },
+          body: JSON.stringify({ filename: "a.docx", contentBase64 }),
+        },
+        env,
+      );
+
+    // Characters outside the alphabet are refused by the request schema.
+    const invalid = await post("!!!! not base64 !!!!");
+    expect(invalid.status).toBe(422);
+    // A string in the alphabet can still be an impossible length; the decoder throws on it, and the
+    // answer must be a stated failure rather than an unhandled error.
+    const undecodable = await post("A");
+    expect(undecodable.status).toBe(400);
+    expect(undecodable.headers.get("content-type")).toContain("application/problem+json");
+  });
+
+  it("refuses an over-long body on the schema, before it is decoded", async () => {
+    const { userId } = await seedCredentialedUser("metadata-toolong@example.com", {
+      userName: "Too Long",
+      firmId: poolFirmId,
+    });
+    await mirrorMemberWithOwnerRole(userId, "Too Long", poolFirmId);
+    const cookie = await signInForSessionCookie("metadata-toolong@example.com");
+    // Longer than any accepted file can encode to: decoding it first would allocate tens of
+    // megabytes to answer a request that is refused either way.
+    const overLong = "A".repeat(21_000_000);
+    const response = await app.request(
+      "https://example.com/api/v1/metadata/inspect",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json", origin: "https://example.com", cookie },
+        body: JSON.stringify({ filename: "a.docx", contentBase64: overLong }),
+      },
+      env,
+    );
+    expect(response.status).toBe(422);
+  });
+
   it("rejects an unsupported file with 400", async () => {
     const { userId } = await seedCredentialedUser("metadata-unsupported@example.com", {
       userName: "Unsupported File",
