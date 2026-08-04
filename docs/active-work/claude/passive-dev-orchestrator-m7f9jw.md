@@ -45,28 +45,53 @@ at full capacity. Keep it current at every milestone — it is the durable memor
   MC docs-sync (Mon 13:03), Cloudflare blog monitor (daily 14:00, reports not
   persisted), dependency updates (Mon 14:30).
 
-## Day-end position (2026-08-04 ~12:30 UTC)
+## Day-end position (2026-08-04 ~19:15 UTC)
 
-Thirty pull requests merged; zero open. On top of the earlier waves, the day's
-last three landed together: the LibreOffice conversion engine (#66 — the
-containers job took three rounds, every failure a test over-specification, the
-engine itself sound; nondeterministic engine behavior is now proved in
-fake-worker unit tests, only the deterministic contract in CI acceptance), the
-tooling batch (#68 — conversion consumer through the firm-bucket seam with the
-bucket riding the queue message, check:scoped diffing against the newest
-merge-base by ancestry instead of a frozen local main, bootstrap staleness by
-content stamp + wasm-bindgen export verification), and the worker follow-ups
-batch (#69 — one shared WOPI token-content gate for CheckFileInfo/GetFile
-covering soft-deleted/withdrawn/flagged versions, matters open/reopen
-idempotent replay, stranded-pending re-drive sweep, in-UPDATE folder-cycle
-check, in-batch version-status assertion). All agent worktrees swept; ~25G
-free. The verification ledger backlog shrank again: F-065/F-068 confirmed
-already fixed; F-063/F-069 confirmed open (task 33). In flight: the telemetry
-runtime batch (`claude/telemetry-runtime-batch`) and the docs-pipeline
-follow-ups (`claude/docs-pipeline-followups`). Queue after those: task 23
-(advisories lapsing 2026-10-14), task 24 (linter-stream reconcile), task 33
-(file-manager residue pair), then next backend slices by value (2·6 document
-automation, 4·2 custodian; 3·2 trust = analysis + owner flag).
+Forty-seven pull requests merged. The whole-program-review fix campaign is
+COMPLETE (all ten batches + every confirmed-open residue item). The October
+advisory deadline is resolved early (#77: uuid fixed by pnpm override,
+quick-xml quadratic scan mitigated by a 64 KiB descriptor cap in
+decryption-core, lopdf 0.44 taken; the named exit is replacing office-crypto —
+its own slice). The LibreOffice engine, the tooling/hygiene batches, the
+telemetry runtime fixes, and the file-manager residue all landed.
+
+THE OWNER RETURNED mid-day and decided: F1 braces are the one canonical
+placeholder form with MERGEFIELD CONVERTED at registration (opt-in, see
+below); F7 in-house TypeScript OOXML engine; F8 macros accepted-and-stripped
+(deviation from spec recommendation, security-boundary tests required);
+custodian C1/C2/C3 all as recommended. NEW BINDING POSTURE (ADR on main,
+`consensual-guided-data-conversion`): data conversion into the platform is
+consensual and guided — detection/reporting always on, conversion opt-in,
+never silent; confirmations accumulate as per-firm mapping libraries. The
+owner also AUTHORIZED the field-input UI infrastructure carve-out (delivered:
+#87 — merge-field catalog contract + design-system picker components +
+assembly input area over a mock provider; one file swaps when the real API
+wires up), and stated: no production firms exist, so migration ceremony is
+low-stakes and the schema gets condensed to a fresh baseline pre-beta (task
+45, owner-timed).
+
+Built on those decisions same-day: custodian slice 4·2·1 (#86 — packet
+register, location tree, trigger-enforced append-only movements, custody
+numbering, journal idx 17/18) and document automation slice 2·6·1 (PR #88, in
+reconciliation: template catalogue, registration-time normalization with
+opt-in MERGEFIELD conversion and always-on detection, adversarial macro
+stripping with independent re-verification, merge assembly through the ingest
+chokepoint). #88's agent made two recorded judgment calls: macro stripping
+stays unconditional (changes what a document DOES, not says) and unconverted
+merge-field templates are REFUSED with the field list rather than registered
+inert (frozen cached text is invisible to the absence model). The register
+pipeline defect (#84) is fixed: fragment validation is loud, lint:decisions
+gates PRs, ADR-0210-0213 restored whole with the owner's decisions recorded.
+
+In flight: PR #88 merging main to renumber the migration journal (its
+tags 20260804T150000/150001 sort before custodian's 160000/160001 — resolver
+briefed), assembly bot PR #85. Queue after: task 40 (engine-host stack
+overflow flake), 46 (fix:scoped script), 45 (pre-beta baseline, owner-timed),
+then next slices by value — 2·6·2 conditionals, the per-firm field-mapping
+library, the office-crypto replacement slice, 3·2 trust = analysis + owner
+flag only. Owner-blocked: deploy queue, Renovate install, stale remote
+branches, bot self-merge setting, custodian flags C4-C11 and automation flags
+F2-F6/F9 (all non-blocking).
 
 ## Earlier snapshot (superseded, kept for the resume trail)
 
@@ -192,6 +217,15 @@ Batches in order (details in task board; sequencing notes inline):
   unused ignore — prune when in the file.
 - Environment: no `gh` CLI (GitHub tool server instead); git proxy 403s ref
   deletions (branch cleanup is owner-manual); osv-scanner binary not downloadable.
+- Keep-both conflict resolution on additive registries (per-firm-schema.ts,
+  pii-registry.ts, telemetry events) can SILENTLY INTERLEAVE blocks: git aligns
+  on shared trailing lines (createdAt/updatedAt, closing brackets) and splices
+  one subsystem's declarations inside the other's. Typecheck catches most but a
+  schema-shaped splice can look plausible — after any registry merge, verify each
+  subsystem's block is contiguous (grep the export boundaries) before trusting it.
+- The advisories above were RESOLVED 2026-08-04 (uuid override; quick-xml capped +
+  extended to 2027-02-14 with reachability analysis; the exit is replacing
+  office-crypto). The osv line above is kept for the mechanism, not the dates.
 - Deploys: Workers Builds production branch is `release`, not `main`.
 
 ## Revival procedure (cold start)
