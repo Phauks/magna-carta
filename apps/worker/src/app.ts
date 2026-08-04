@@ -158,6 +158,18 @@ export type Bindings = {
   // It alone holds the platform signing key. Optional: absent in every test environment and until the
   // deploy-time binding is added; while unset, the seal route returns 503 (deferred activation).
   SIGN_SERVICE?: Fetcher;
+  // The dedicated discovery search-index worker (magna-carta-search), reached over a service binding.
+  // It owns the Tantivy engine Container (crates/search-core) and range-reads splits from R2. Optional:
+  // absent in every test environment and until the deploy-time binding is added; while unset,
+  // resolveSearchIndexPort returns the deferred port (engine-not-implemented).
+  SEARCH_SERVICE?: Fetcher;
+  // The search-index job coordinator: keyed firmId:documentId:version, single-flights one index build
+  // per document version and holds its outcome — including the `deferred` state a job parks in while the
+  // engines are undeployed.
+  SEARCH_INDEX_JOB: DurableObjectNamespace<import("./search/index-coordinator.ts").SearchIndexJob>;
+  // The search-index queue the coordinator enqueues onto; the consumer extracts a document version's
+  // text, builds its split through the SearchIndexPort, and converges the per-firm split catalog.
+  SEARCH_INDEX: Queue<import("./search/index-types.ts").SearchIndexMessage>;
   // The authenticated Workers AI binding — the only path inference reaches the gateway through (no raw
   // gateway token in any firm-reachable config). Pre-authenticated within the account.
   AI: Ai;

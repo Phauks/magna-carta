@@ -1,0 +1,27 @@
+{
+  "name": "@magna-carta/search",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./port": "./src/port.ts",
+    "./fusion": "./src/fusion.ts",
+    "./extraction": "./src/extraction.ts",
+    "./settings": "./src/settings.ts",
+    "./split": "./src/split.ts"
+  },
+  "scripts": {
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@magna-carta/data-access": "workspace:*",
+    "@magna-carta/identifiers": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "vitest": "catalog:"
+  }
+}

@@ -6,16 +6,17 @@
   name: Discovery
   scope: E-discovery for moderate scale (thousands to tens of thousands of docs per matter) with seams for larger scale; ingest, OCR, index, review, production.
   status: partial
-  adrs: ADR-0012, ADR-0060
-  evidence: Engine substrates shipped (OCR engine, PDF redaction/Bates, file hashing); the discovery pipeline, search, review, and production workflows do not exist.
-  notes: No discovery subsystem spec yet; the white paper defers several engine questions to it.
+  adrs: ADR-0012, ADR-0060, ADR-0167
+  evidence: Engine substrates shipped (OCR engine, PDF redaction/Bates, file hashing); the search index is designed (spec + storage-architecture ADR) but unbuilt; review and production workflows do not exist.
+  notes: The search index has its stateful-service spec (docs/specs/2026-07-17-discovery-search-index-stateful-service-design.md), the design ADR-0167 deferred; the white paper defers several remaining engine questions to the subsystem.
 
 - id: discovery.pipeline
   name: Extraction pipeline
   scope: Ingest to R2, queue-driven extraction/OCR in Containers, then index.
-  status: not-started
-  evidence: No extraction-to-index pipeline; the generic untrusted-upload ingest pipeline (status.d/2-1) is a substrate, not discovery.
-  notes: Upload/scan/R2 storage exists via the file pipeline; nothing feeds an index.
+  status: designed
+  spec: docs/specs/2026-07-17-discovery-search-index-stateful-service-design.md
+  evidence: The extract→index write path is designed (§8 of the search-index spec); no pipeline code yet. The generic untrusted-upload ingest pipeline (status.d/2-1) is a substrate, not discovery.
+  notes: Upload/scan/R2 storage exists via the file pipeline; nothing feeds an index yet. The pipeline is idempotent on documentId+version and off the hot path (queue + per-job coordination).
 
 - id: discovery.ocr
   name: OCR engine
@@ -43,21 +44,25 @@
 - id: discovery.search
   name: Search
   scope: Full-text and semantic search over the discovery corpus.
-  status: not-started
-  evidence: No search index code on the tree.
+  status: designed
+  adrs: ADR-0012, ADR-0167
+  spec: docs/specs/2026-07-17-discovery-search-index-stateful-service-design.md
+  evidence: Stateful-service design accepted (index = immutable Tantivy splits in per-firm R2, pruned + range-read from an always-warm search Worker; catalog in the FirmDatabase DO; Vectorize namespace-per-firm; both behind one SearchIndexPort, fused by RRF). No index code on the tree yet.
 
 - id: discovery.search.keyword
   name: Tantivy keyword search
   scope: Tantivy (Rust) behind a swappable index interface.
-  status: not-started
-  evidence: No Tantivy crate or index code anywhere in packages/, crates/, or apps/.
+  status: designed
+  spec: docs/specs/2026-07-17-discovery-search-index-stateful-service-design.md
+  evidence: crates/search-core (pure Rust, tantivy 0.26) has the split format (segment bundle + footer), build→split→query round trip, multi-split merge, generation gating, AND the range-reading directory — a read-only tantivy Directory over a RangeReader seam so a query fetches only the bytes it walks (an instrumented test proves a rare-term query reads under half a split, footer reads touch only the tail). All unit-tested. Not yet wired to a worker/port/R2 (the RangeReader's R2 adapter is the next slice); the footer pruning digest is deferred within the same format.
 
 - id: discovery.search.semantic
   name: Semantic search
   scope: Vectorize-backed semantic search alongside keyword search.
-  status: not-started
+  status: designed
   slices: ai-inference-foundation
-  evidence: No Vectorize/discovery embedding code; packages/inference (AI inference foundation) exists only as a substrate.
+  spec: docs/specs/2026-07-17-discovery-search-index-stateful-service-design.md
+  evidence: Designed as a per-firm Vectorize namespace (1024-dim bge-large-en-v1.5 via the shipped InferencePort.embed), fused with BM25 by reciprocal rank fusion; ~5M-dim/index ceiling designed against. No discovery embedding/upsert code yet.
 
 - id: discovery.review
   name: Review workflow
