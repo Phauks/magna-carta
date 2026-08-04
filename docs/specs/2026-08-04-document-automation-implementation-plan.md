@@ -46,6 +46,10 @@ Every task's requirements implicitly include this section.
   `file_version` row directly, and never edit `packages/file-manager/src/ingest-core.ts`.
 - **Resolved merge values never leave memory.** Not persisted, not logged, not on a queue message.
   Queue messages carry identifiers; the consumer resolves.
+- **Template content is never executable.** No `eval`, no `new Function`, no dynamic `import`, no
+  `with`, no `Reflect`, no regular expression built from template text, no property traversal, and no
+  template-supplied string used as a JavaScript property key. Template expressions are a closed,
+  total, in-house grammar checked at registration — not code we sandbox.
 - **TDD:** write the failing test, watch it fail, implement the minimum, watch it pass, commit.
 - **Migration ordinals and ADR numbers reconcile at merge** if a sibling slice lands first.
 
@@ -217,28 +221,161 @@ document and the stuck alarm failing a job that never reports.
 
 ---
 
-# Build slice 2·6·2 — Conditionals, repeats, and the full dictionary
+# Build slice 2·6·2 — The expression language, conditionals, repeats, and the full dictionary
 
-## Task 11 — The block grammar
+The expression ceiling grew on an owner decision: expressions compute. Grammar, evaluator,
+conditionals, repeats, and computed fields land as five independently testable steps in that order,
+so the language is proven correct as a language before it ever meets an OOXML package — the two
+hardest problems here (a grammar's totality and a table row's banding) never have to be debugged at
+the same time. Design:
+[`docs/specs/2026-08-04-template-expression-language-design.md`](2026-08-04-template-expression-language-design.md).
 
-- [ ] `src/blocks.ts` — parse `{{#if}}` / `{{#unless}}` / `{{/if}}` and `{{#each}}` / `{{/each}}`
-      during normalization, recording block ranges on the manifest. Nesting is validated at
+**The line that binds every task below:** an expression is never executable template-supplied code.
+No `eval`, no `new Function`, no dynamic `import`, no `with`, no `Reflect`, no regular expression
+built from template text, no property traversal, and no template-supplied string used as a
+JavaScript property key. A source-scan fitness test over `src/expression/` refuses all of them.
+
+## Task 11 — The grammar: lexer, parser, checker, limits
+
+Input a string, output a checked syntax tree or a located failure. No dictionary values, no document,
+no evaluation.
+
+- [ ] `src/expression/limits.ts` — every bound in one module (source length, token count, tree depth,
+      call nodes, keys per expression, expressions per template version, numeric magnitude and scale,
+      text result size, step budget, loop items, block nesting, expanded blocks). One test per bound
+      that hits it exactly and asserts the named refusal, never a timeout.
+- [ ] `src/expression/lex.ts` — tokens over **already-decoded** text (the XML layer decodes; the
+      lexer never decodes again). A merge key such as `matter.number` is ONE atom: the dot is part of
+      the identifier's lexical form, never an operator. `/` is recognized only to emit the error that
+      names `divideExact`, `divideRounded`, and `allocate`.
+- [ ] `src/expression/parse.ts` — recursive descent over the closed grammar. Word boolean operators
+      (`and` / `or` / `not`), non-associative comparison, no member access, no indexing, no
+      assignment, no ternary, no lambda, no comments. Returns a typed failure with a character
+      offset; never throws.
+- [ ] `src/expression/catalog.ts` — the helper allowlist as a frozen table built from a literal
+      array and looked up through a `Map`. A template-supplied name is never used to index a
+      JavaScript object.
+- [ ] `src/expression/check.ts` — name resolution against the dictionary and the enclosing loop
+      scope, then static typing: operand types, helper arity and parameter types, the block's
+      required result type, and a computed field's `:format` suffix against the shipped
+      `legalFormatsFor` table.
+- [ ] Registration failure codes: `expression-syntax-error`, `expression-unknown-key`,
+      `expression-type-error`, `expression-too-complex`, `expression-format-illegal`,
+      `block-unbalanced`, `block-nesting-too-deep`. Retire `block-syntax-unsupported` — blocks are
+      supported now, and a code meaning "we refuse to read this" must not survive as a vaguer version
+      of the six that replace it.
+- [ ] `test/expression-denied-constructs.test.ts` — the committed hostile corpus, each entry
+      asserting a PARSE OR CHECK failure and never an evaluation: `__proto__.constructor`,
+      `constructor.constructor("return process")()`, `this`, `[].map(x)`, `a["b"]`,
+      `(function(){})()`, `x = 1`, `import("y")`, `/re/`, prototype-named keys, 32-deep nested
+      `concat`, a 10^6-character literal, and every symbol operator the grammar does not have.
+- [ ] `test/expression-fuzz.test.ts` — a structure-aware generator over the grammar and a byte-level
+      generator of arbitrary strings, both seeded through `seededRandomSource` from
+      `@magna-carta/identifiers` so a CI failure reproduces from its seed. Properties: parse and
+      check never throw, always terminate, always return a tagged result with a location; and
+      pretty-print-then-reparse yields an identical tree (the parser-ambiguity detector).
+- [ ] `test/expression-purity.test.ts` — the source scan for dynamic-code constructs, plus the
+      assertion that `src/expression/` imports nothing from `src/ooxml/` (the checker has to stay
+      runnable in a browser for the authoring surface built in slice 2·6·4).
+
+**Verify:** `pnpm --filter @magna-carta/document-assembly test`; `pnpm check:scoped`.
+
+## Task 12 — The evaluator
+
+A checked tree plus a synthetic merge context. Still no document.
+
+- [ ] `src/expression/evaluate.ts` — a single post-order walk over a closed set of node kinds,
+      returning `Value | Unresolved | Refusal`. Pure: no clock, no randomness, no environment, no
+      I/O, no database handle, no locale beyond the time zone the merge context carries. Nothing in
+      the folder throws.
+- [ ] Exact arithmetic, no floating point anywhere: money is minor units at scale 2, rates are
+      `rate_e4` at scale 4, numbers are `(significand, scale)` pairs. Every intermediate is checked
+      against `Number.isSafeInteger` BEFORE the operation, so `@magna-carta/money`'s own
+      `assertSafeInteger` throw is unreachable from here and a breach is a typed refusal naming the
+      operation.
+- [ ] Money rules: same-currency addition and subtraction (a mismatch refuses and names both keys —
+      there is no currency conversion in this language), `money * integer` exact, `money + number` a
+      static type error. Division is not an operator: `divideExact` refuses when inexact,
+      `divideRounded` and `applyRate` and `percentOf` round HALF TO EVEN through the money package's
+      `roundLedger`, and `allocate` returns parts that sum exactly to the input through the money
+      package's `allocate`.
+- [ ] Date math over calendar dates in the matter's office time zone, through the existing
+      `timeZoneForLocation` seam — `addDays` / `addMonths` / `addYears` (end-of-month CLAMPS),
+      `daysBetween`, `year` / `month` / `day` / `monthName`, and comparisons. There is no instant
+      type in the language and therefore no time-of-day arithmetic; no business-day or court-deadline
+      helper ships.
+- [ ] The three total forms that eliminate absence — `has(key)`, `default(expression, fallback)`, and
+      `choose(condition, a, b)` with a lazy unselected arm — and `unresolved` propagation through
+      everything else.
+- [ ] The shared per-assembly step budget, charged per node visited and per list element.
+- [ ] `test/expression-arithmetic-oracle.test.ts` — money and decimal operations against an
+      independent exact reference; half-to-even proven on the exact tie cases in both signs;
+      `allocate`'s parts proven to sum to the input for every generated split; `divideExact` proven
+      to refuse exactly when the quotient is inexact.
+
+**Verify:** package tests green, including the generated-expression property that evaluation always
+terminates inside the budget and the result type always matches the checked type.
+
+## Task 13 — Conditionals
+
+- [ ] `src/blocks.ts` — recognize `{{#if}}` / `{{#unless}}` / `{{/if}}` during normalization,
+      recording block ranges and the condition source on the manifest. Nesting is validated at
       registration; an unbalanced block is a registration failure with a location.
-- [ ] The expression evaluator: presence, negation, and equality against a literal. **No
-      arithmetic, no function calls, no evaluation of template-supplied code** — enforced by a test
-      that asserts the parser rejects anything outside the grammar.
-
-## Task 12 — Block removal and repeat expansion
-
+- [ ] A bare merge key as the whole condition means its VALUE when the key's declared type is
+      boolean and its PRESENCE otherwise; inside a larger expression a key is always a value.
 - [ ] Removal operates on **whole paragraphs and whole table rows only** — a marker in a row's first
       cell makes the row the unit.
 - [ ] Numbering and list continuity preserved across a removed middle element; banded table
       formatting survives a removed row.
-- [ ] Repeat expansion clones the block per item and rebinds `{{collection.field}}` per iteration.
+- [ ] An unresolved condition defaults to FAILING the assembly, naming the key: a wrong branch is
+      invisible, because nobody reads a contract and notices the paragraph that is not there. The
+      author who means "omit it when we have no spouse on file" writes `has(...)`, which is total.
 - [ ] Tests: a numbered list with a removed middle item renumbers correctly; a banded table with a
-      removed row keeps its banding; a nested `each` inside an `if` behaves.
+      removed row keeps its banding; the unresolved-condition policy in each of its three modes.
 
-## Task 13 — Directory, custom-field, and logo sources
+## Task 14 — Repeats
+
+- [ ] `{{#each collectionKey}}` over a list-valued dictionary key or `allocate` — never an arbitrary
+      expression, never a filtered or sorted list. Expressions do not iterate; `{{#each}}` iterates
+      data.
+- [ ] The loop scope: the current item's fields plus `loop.index` (1-based), `loop.count`,
+      `loop.first`, `loop.last`. A loop reference outside a loop is a registration error.
+- [ ] List-valued dictionary sources and their batched read — ONE read for a whole collection, never
+      one per item. Repeats are the first list-valued source, so this is where the batching rule
+      meets its first real test.
+- [ ] Expansion clones the block per item and rebinds the scope per iteration; per-loop item cap,
+      nesting cap, and per-assembly expansion cap all enforced from `limits.ts`.
+- [ ] Tests: a nested `each` inside an `if`; a repeat that exceeds the item cap fails loudly; a
+      table-row repeat keeps its banding.
+
+## Task 15 — Computed fields
+
+- [ ] `{{= expression}}` and `{{= expression:format}}` — a deliberately distinct marker, so a plain
+      `{{matter.number}}` keeps exactly the meaning slice 2·6·1 shipped and no registered template
+      changes behaviour.
+- [ ] The format suffix is checked STATICALLY against the result type's legal formats; the default is
+      the type's default (`plain` for text and number, `currency` for money, `long` for date). A bare
+      boolean without a format is a type error.
+- [ ] An unresolved computed field defaults to a visible `placeholder`, the same bias the absence
+      model already takes for merge fields.
+- [ ] Manifest entries carry the expression SOURCE, its static result type, and the keys it reads —
+      and those keys join the manifest's key set, so the one-read-per-source rule survives
+      expressions. Assembly re-parses and re-checks from the source rather than a stored tree, which
+      is what catches dictionary drift (a template bound to a custom field archived three months
+      later fails naming the key).
+- [ ] Telemetry: `documentTemplate.expressionCheck` `[outcome, failureKind]` and
+      `documentAssembly.expression` `[outcome, site]`. No expression text, no merge-field key, no
+      value is ever a dimension. Problem types `template-expression-invalid` and
+      `assembly-expression-refused`.
+- [ ] Load profile: two measured operations accreted onto the existing `documentAutomation` volume
+      profile — registration-time checking of a template carrying 64 expressions, and an assembly
+      whose repeat expands 200 rows.
+- [ ] The user guide for template authors under `docs/user/`, and the `status.d/` and `changelog.d/`
+      fragments.
+
+**Verify:** `pnpm check`, `pnpm test`, `pnpm lint:process-refs`.
+
+## Task 16 — Directory, custom-field, and logo sources
 
 - [ ] Dictionary sources widened: Directory party roles through the matter's party links, and
       `custom.<handle>` entries derived from `custom_field` — **bound by handle, never by name**.
@@ -260,18 +397,18 @@ permission); `pnpm check`.
 
 # Build slice 2·6·3 — PDF output, signature hand-off, and form filling
 
-## Task 14 — PDF output
+## Task 17 — PDF output
 
 - [ ] An optional `outputFormat: "docx" | "pdf"` on the assembly request; the `pdf` arm chains the
       existing `docx→pdf` conversion edge after the merge, in the same job, and files the result.
       No new engine, no new registry edge.
 
-## Task 15 — Signature hand-off
+## Task 18 — Signature hand-off
 
 - [ ] The assembly result carries the produced file and version handles in the shape the sealing
       route already accepts, so "assemble then send for signature" is a link rather than a new path.
 
-## Task 16 — Fillable-form filling
+## Task 19 — Fillable-form filling
 
 - [ ] Firm-supplied fillable PDFs registered as templates of a `pdfForm` kind; the field manifest
       comes from the AcroForm field set that `crates/pdf-core`'s forms engine already reads, bound to
@@ -282,13 +419,13 @@ permission); `pnpm check`.
 
 # Build slice 2·6·4 — Authoring surfaces
 
-## Task 17 — Template editing in the browser
+## Task 20 — Template editing in the browser
 
 - [ ] Gated on open question 1 in the design (the WOPI token's subject discriminator), which needs
       the editing area's agreement. If the answer is "not yet", this task is dropped and templates
       stay Word-authored and uploaded.
 
-## Task 18 — Assembly preview
+## Task 21 — Assembly preview
 
 - [ ] A dry-run mode on the resolution path that returns the resolved values and absence warnings
       **without** assembling or filing, so the assemble dialog can show a member what they are about
@@ -299,12 +436,19 @@ permission); `pnpm check`.
 ## Sequencing and gates
 
 Slice 2·6·1 is self-contained and depends only on what is already on `main`. Slice 2·6·2 depends on
-2·6·1's normalization pass. Slice 2·6·3 depends on the LibreOffice conversion engine being live for
-its PDF arm (the `docx→pdf` edge currently resolves to the deferred engine) and on the sign worker
-being deployed for its hand-off. Slice 2·6·4 is gated on the editing area's answer to the token
-question.
+2·6·1's normalization pass, and internally is a straight line: Task 11 (grammar) gates Task 12
+(evaluator), which gates Tasks 13 through 15 (conditionals, repeats, computed fields). Tasks 11 and
+12 touch no document at all and can be built and reviewed in full before any OOXML work starts; Task
+16 (the widened dictionary sources) depends only on 2·6·1 and can run alongside them. Slice 2·6·3
+depends on the LibreOffice conversion engine being live for its PDF arm (the `docx→pdf` edge
+currently resolves to the deferred engine) and on the sign worker being deployed for its hand-off.
+Slice 2·6·4 is gated on the editing area's answer to the token question.
 
-Owner decisions F1, F7, and F8 (section 13 of the design) block the start of slice 2·6·1: the
-placeholder syntax, the own-versus-adopt engine call, and the macro-template policy are all baked
-into Task 4 and Task 7. F6 (the expression ceiling) blocks slice 2·6·2. F2, F3, F4, F5, and F9 do
-not block 2·6·1 and can be answered while it is built.
+Owner decisions F1, F7, and F8 (section 13 of the design) blocked the start of slice 2·6·1 and are
+answered: the placeholder syntax, the own-versus-adopt engine call, and the macro-template policy are
+all baked into Task 4 and Task 7. **F6 (the expression ceiling) is answered — the ceiling grows to
+computed expressions**, and slice 2·6·2 is unblocked; the language is designed in
+[`docs/specs/2026-08-04-template-expression-language-design.md`](2026-08-04-template-expression-language-design.md),
+whose own flags G1 (what an unresolved condition does) and G2 (one rounding mode or three) are the
+only ones that change code inside Tasks 12 and 13, and both have a recommended answer built to by
+default. F2, F3, F4, F5, and F9 block nothing here.
