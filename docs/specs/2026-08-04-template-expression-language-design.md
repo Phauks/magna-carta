@@ -54,11 +54,11 @@ clock, no randomness, no environment, no network, no database handle, no file sy
 
 One grammar serves three constructs, and they differ only in what is done with the result:
 
-| Construct              | Form                                            | Result type   |
-| ---------------------- | ----------------------------------------------- | ------------- |
-| **Conditional block**  | `{{#if expression}}` … `{{/if}}`, `{{#unless}}` | `boolean`     |
-| **Repeating block**    | `{{#each collectionKey}}` … `{{/each}}`         | a list source |
-| **Computed field**     | `{{= expression}}` or `{{= expression:format}}` | any scalar    |
+| Construct             | Form                                            | Result type   |
+| --------------------- | ----------------------------------------------- | ------------- |
+| **Conditional block** | `{{#if expression}}` … `{{/if}}`, `{{#unless}}` | `boolean`     |
+| **Repeating block**   | `{{#each collectionKey}}` … `{{/each}}`         | a list source |
+| **Computed field**    | `{{= expression}}` or `{{= expression:format}}` | any scalar    |
 
 Three constructs, one lexer, one parser, one checker, one evaluator. The alternative — a small
 condition language and a separate arithmetic language for computed fields — is two grammars to keep
@@ -255,13 +255,13 @@ into inexact arithmetic.
 targeted error naming the three helpers that replace it. Division is where a money engine either
 states its rounding or lies about it, and an infix `/` states nothing.
 
-| Helper                             | Rule                                                                                                                                          |
-| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| `divideExact(money, integer)`      | The quotient at the operand's scale, or a **refusal** if it is not exact. `$100.00 / 4` is `$25.00`; `$100.00 / 3` refuses and names the key.  |
-| `divideRounded(money, integer)`    | **Banker's rounding — half to even**, through the money package's `roundLedger`. `$100.00 / 3` is `$33.33`, and the remaining penny is gone.   |
-| `allocate(money, integer)`         | `n` parts that **sum exactly to the input**, largest-remainder, through the money package's `allocate`. This is the correct primitive for a split, and the only one whose parts reconcile. |
-| `applyRate(money, rate)`           | Money times a stored `rate_e4`, banker's rounding at the boundary.                                                                            |
-| `percentOf(money, number)`         | Money times a decimal, banker's rounding at the boundary.                                                                                     |
+| Helper                          | Rule                                                                                                                                                                                       |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `divideExact(money, integer)`   | The quotient at the operand's scale, or a **refusal** if it is not exact. `$100.00 / 4` is `$25.00`; `$100.00 / 3` refuses and names the key.                                              |
+| `divideRounded(money, integer)` | **Banker's rounding — half to even**, through the money package's `roundLedger`. `$100.00 / 3` is `$33.33`, and the remaining penny is gone.                                               |
+| `allocate(money, integer)`      | `n` parts that **sum exactly to the input**, largest-remainder, through the money package's `allocate`. This is the correct primitive for a split, and the only one whose parts reconcile. |
+| `applyRate(money, rate)`        | Money times a stored `rate_e4`, banker's rounding at the boundary.                                                                                                                         |
+| `percentOf(money, number)`      | Money times a decimal, banker's rounding at the boundary.                                                                                                                                  |
 
 Banker's rounding is the single rounding mode exposed to template authors, and it is the money
 package's `roundLedger` rather than a fourth implementation. The other two shipped modes
@@ -326,7 +326,7 @@ it has no iteration construct of its own, no `map`, no `filter`, no `reduce`, an
 The consequence worth naming: **there is no aggregate.** A settlement statement wanting "the total of
 all disbursements" cannot express it, and that will be the first thing a firm asks for. The honest
 position is that a bounded aggregate over resolved data (`sum(disbursements.amount)`, with a literal
-field path, never over a computed expression) would be *safe* — its cost is bounded by the data, not
+field path, never over a computed expression) would be _safe_ — its cost is bounded by the data, not
 by the expression, exactly as `{{#each}}` is — but it is iteration inside an expression, which is the
 line the owner drew. It is a named seam, not a feature, and it is owner flag G4.
 
@@ -357,10 +357,10 @@ every operator and every helper except the three total forms: `has(key)` (always
 unselected arm (which is never evaluated). What happens then depends on where it happened, and the
 asymmetry is the point:
 
-| Site                | Default             | Why                                                                                                                                     |
-| ------------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| A **condition**     | **`fail`**          | An unresolved condition means we do not know whether a clause belongs in the document. Choosing a branch anyway is an invisible error — nobody reads a contract and notices the paragraph that is not there. |
-| A **computed field** | **`placeholder`**   | A hole in the output is visible on the page, which is the house bias the absence model already takes for merge fields.                  |
+| Site                 | Default           | Why                                                                                                                                                                                                          |
+| -------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| A **condition**      | **`fail`**        | An unresolved condition means we do not know whether a clause belongs in the document. Choosing a branch anyway is an invisible error — nobody reads a contract and notices the paragraph that is not there. |
+| A **computed field** | **`placeholder`** | A hole in the output is visible on the page, which is the house bias the absence model already takes for merge fields.                                                                                       |
 
 Both are overridable per placeholder through the same `blank` / `placeholder` / `fail` vocabulary the
 dictionary already uses, and an author who genuinely means "omit the clause when we have no spouse on
@@ -381,22 +381,22 @@ Every one of these is a tagged result. Nothing in `src/expression/` throws.
 Enforced in one module, `expression/limits.ts`, so a later change moves a number in one place rather
 than discovering there were four. Each bound has a test that hits it exactly.
 
-| Bound                                          | Value       | What it stops                                                             |
-| ---------------------------------------------- | ----------- | ------------------------------------------------------------------------- |
-| Expression source length                       | 512 chars   | A computation that needs more belongs in the platform, not a template.    |
-| Tokens per expression                          | 256         | Lexer work is linear and capped before the parser runs.                   |
-| Syntax-tree depth                              | 32          | The recursive-descent parser and the post-order evaluator cannot blow the stack. |
-| Call nodes per expression                      | 64          | Bounds `concat`-style output growth together with the per-result cap.     |
-| Merge keys read per expression                 | 32          | Keeps the manifest's read plan bounded.                                   |
-| Expressions per template version               | 512         | Registration work stays bounded for a pathological upload.                |
-| Numeric magnitude                              | safe integer| Every intermediate is checked before the operation; a breach refuses.     |
-| Numeric scale                                  | 9           | Bounds exact-decimal multiplication's scale growth.                       |
-| Text result per helper                         | 4,096 chars | With the depth cap, kills nested-`concat` doubling.                       |
-| Expression-produced text per assembly          | 256 KB      | The aggregate backstop for the same class.                                |
-| Evaluation steps per assembly                  | 100,000     | Charged per node visited and per list element; a shared budget across every expression in the document, not per expression. |
-| Items per `{{#each}}`                          | 1,000       | A repeat over an unexpectedly large collection fails loudly.              |
-| Block nesting depth                            | 5           | Bounds expansion multiplicatively with the item cap.                      |
-| Expanded blocks per assembly                   | 10,000      | The aggregate backstop for nested repeats.                                |
+| Bound                                 | Value        | What it stops                                                                                                               |
+| ------------------------------------- | ------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| Expression source length              | 512 chars    | A computation that needs more belongs in the platform, not a template.                                                      |
+| Tokens per expression                 | 256          | Lexer work is linear and capped before the parser runs.                                                                     |
+| Syntax-tree depth                     | 32           | The recursive-descent parser and the post-order evaluator cannot blow the stack.                                            |
+| Call nodes per expression             | 64           | Bounds `concat`-style output growth together with the per-result cap.                                                       |
+| Merge keys read per expression        | 32           | Keeps the manifest's read plan bounded.                                                                                     |
+| Expressions per template version      | 512          | Registration work stays bounded for a pathological upload.                                                                  |
+| Numeric magnitude                     | safe integer | Every intermediate is checked before the operation; a breach refuses.                                                       |
+| Numeric scale                         | 9            | Bounds exact-decimal multiplication's scale growth.                                                                         |
+| Text result per helper                | 4,096 chars  | With the depth cap, kills nested-`concat` doubling.                                                                         |
+| Expression-produced text per assembly | 256 KB       | The aggregate backstop for the same class.                                                                                  |
+| Evaluation steps per assembly         | 100,000      | Charged per node visited and per list element; a shared budget across every expression in the document, not per expression. |
+| Items per `{{#each}}`                 | 1,000        | A repeat over an unexpectedly large collection fails loudly.                                                                |
+| Block nesting depth                   | 5            | Bounds expansion multiplicatively with the item cap.                                                                        |
+| Expanded blocks per assembly          | 10,000       | The aggregate backstop for nested repeats.                                                                                  |
 
 The step budget is **not** the termination guarantee — section 10 is. It is the second line of
 defence against the product of the other bounds, and the number it enforces is a real number a real
@@ -579,16 +579,16 @@ The implementation plan carries this as tasks 11 through 15 of build slice 2·6�
 
 The expansion answers F6 and raises seven questions that the narrow ceiling never had to face.
 
-| Flag   | Decision                                                                                                                                                                                                                                                                                       |
-| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Flag   | Decision                                                                                                                                                                                                                                                                                        |
+| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **G1** | **What an unresolved condition does by default.** Recommended: `fail`. The alternative (treat as false) never interrupts anyone and produces documents silently missing clauses. This is the single most product-visible choice in the design.                                                  |
 | **G2** | **One rounding mode or three.** Recommended: banker's rounding only, through the money package's `roundLedger`. Exposing `roundTax` and `roundInvoiceLine` to template authors invites a template to reimplement billing.                                                                       |
 | **G3** | **Business-day and court-deadline date math.** Recommended: never, without a maintained per-jurisdiction holiday calendar treated as a content obligation with an owner. A wrong answer here is a missed filing.                                                                                |
-| **G4** | **Aggregates over a repeat collection** — `sum(disbursements.amount)` with a literal field path. Safe (bounded by data, like `{{#each}}` itself), genuinely wanted by a settlement statement, and on the wrong side of the "expressions do not iterate" line as drawn. Excluded now; flagged.    |
+| **G4** | **Aggregates over a repeat collection** — `sum(disbursements.amount)` with a literal field path. Safe (bounded by data, like `{{#each}}` itself), genuinely wanted by a settlement statement, and on the wrong side of the "expressions do not iterate" line as drawn. Excluded now; flagged.   |
 | **G5** | **Pronoun and verb agreement.** The original design deferred it as "a conditional the author writes". With helpers now allowed, a `pronoun(party, "subject")` becomes expressible — but it requires recording a gender attribute on a party. Recommended: still no; `choose` covers it visibly. |
-| **G6** | **Firm-level named expressions.** Reusable named computations are the next natural ask and remain non-executable — and they are precisely what turned HotDocs authoring into a specialist job. Recommended: not in this ceiling; decide deliberately if asked.                                   |
-| **G7** | **Does the checker ship to the browser** for the slice 2·6·4 authoring surface? Cheap now (keep the module OOXML-free, which this design does); awkward to retrofit. Needs no answer to build, only to not foreclose.                                                                            |
-| **G8** | **How a computed field appears in the merge-field input contract.** An expression is not a fillable field, and the field-input stream's catalog contract has no shape for one. Coordination, not a blocker.                                                                                      |
+| **G6** | **Firm-level named expressions.** Reusable named computations are the next natural ask and remain non-executable — and they are precisely what turned HotDocs authoring into a specialist job. Recommended: not in this ceiling; decide deliberately if asked.                                  |
+| **G7** | **Does the checker ship to the browser** for the slice 2·6·4 authoring surface? Cheap now (keep the module OOXML-free, which this design does); awkward to retrofit. Needs no answer to build, only to not foreclose.                                                                           |
+| **G8** | **How a computed field appears in the merge-field input contract.** An expression is not a fillable field, and the field-input stream's catalog contract has no shape for one. Coordination, not a blocker.                                                                                     |
 
 ## 15. Open questions
 
