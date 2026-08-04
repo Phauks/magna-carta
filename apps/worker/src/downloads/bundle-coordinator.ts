@@ -15,8 +15,20 @@ const STUCK_DEADLINE_MS = 10 * 60 * 1000;
 export class BundleBuildCoordinator extends DurableObject<Bindings> implements BundleCoordinator {
   async requestBundle(message: BundleBuildMessage): Promise<BundleJobState> {
     const existing = (await this.ctx.storage.get<BundleJobState>("state")) ?? null;
-    // A live (building/ready) job is shared; only a previously failed job is rebuilt.
-    if (existing !== null && existing.status !== "failed") return existing;
+    // A build still in flight is always shared — that is the single-flight dedup this DO exists for.
+    if (existing !== null && existing.status === "building") return existing;
+    // A `ready` job is shared only while its artifact is still there. This DO's state is durable but
+    // the artifact is not: the `bundles/` R2 lifecycle rule expires the object, and a bundle whose
+    // object has been reaped would otherwise keep reporting `ready` with a key that no longer resolves
+    // and could never be rebuilt. Treating a missing artifact as rebuildable is what makes the
+    // artifact a regenerable cache rather than a one-shot. A `failed` job always rebuilds.
+    if (
+      existing !== null &&
+      existing.status === "ready" &&
+      (await this.artifactsPresent(existing))
+    ) {
+      return existing;
+    }
     const state: BundleJobState = {
       status: "building",
       manifestHash: message.manifestHash,
@@ -27,6 +39,21 @@ export class BundleBuildCoordinator extends DurableObject<Bindings> implements B
     await this.ctx.storage.setAlarm(Date.now() + STUCK_DEADLINE_MS);
     await this.env.BUNDLE_BUILD.send(message);
     return state;
+  }
+
+  // True only when every artifact a `ready` state recorded is still in the firm's bucket. The optioned
+  // container lane records N volumes (a 7z split is unusable if any single volume is gone), the plain
+  // client-zip lane records one key. A `ready` state recording neither is nothing the client can be
+  // handed, so it counts as missing and rebuilds.
+  private async artifactsPresent(state: BundleJobState): Promise<boolean> {
+    if (state.volumes !== undefined) {
+      if (state.volumes.length === 0) return false;
+      // One round trip for the whole set, not one per volume in series — a split bundle can carry many.
+      const heads = await Promise.all(state.volumes.map((volume) => this.env.R2.head(volume.key)));
+      return heads.every((head) => head !== null);
+    }
+    if (state.r2Key === null) return false;
+    return (await this.env.R2.head(state.r2Key)) !== null;
   }
 
   async markReady(r2Key: string): Promise<void> {

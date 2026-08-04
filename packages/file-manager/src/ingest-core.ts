@@ -144,6 +144,9 @@ export async function runIngest(input: IngestInput): Promise<IngestOutcome> {
     input.scanPort.scan(scanStream, {
       sizeBytes: input.objectSize,
       sniffedContentType,
+      // The storage key is stable per version, so a redelivered ingest scans on the same engine
+      // instance as the first attempt.
+      contentKey: input.version.r2Key,
     }),
     hashAndCount(hashStream),
   ]);

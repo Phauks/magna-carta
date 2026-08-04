@@ -1,7 +1,9 @@
 import type { MiddlewareHandler } from "hono";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import type { Logger } from "@magna-carta/telemetry/logger";
+import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import type { Bindings } from "../app.ts";
+import { runInBackground } from "../background.ts";
 import {
   optionalChokepointFirmContext,
   optionalChokepointFirmId,
@@ -37,19 +39,32 @@ export function usageReachedMiddleware(
     const logger = c.get("logger") as Logger | undefined;
     if (logger === undefined) return;
 
-    const consented = await deps.consent.resolve(firmContext.firmDatabase, firmId, userId);
-    await emitUsage({
-      logger,
-      consented,
-      pepper: deps.pepperFor(c.env),
-      correlationId: c.get("correlationId") ?? "",
-      now: now(),
-      feature,
-      phase: "reached",
-      surface: null,
-      appVersion: null,
-      firmId,
-      userId,
+    // Telemetry is never allowed to disturb the response the route already produced. The consent read
+    // is a database call and the emit hashes identifiers — either can fail, and both run AFTER the
+    // handler has committed its status and body, so a throw here would turn a delivered 2xx into a 500.
+    // The work is therefore moved off the response path (the platform keeps it alive past the return)
+    // and its failure is reported through the standard background-failure pipeline instead of thrown.
+    const correlationId = c.get("correlationId") ?? "";
+    const pepper = deps.pepperFor(c.env);
+    const emittedAt = now();
+    const work = (async () => {
+      const consented = await deps.consent.resolve(firmContext.firmDatabase, firmId, userId);
+      await emitUsage({
+        logger,
+        consented,
+        pepper,
+        correlationId,
+        now: emittedAt,
+        feature,
+        phase: "reached",
+        surface: null,
+        appVersion: null,
+        firmId,
+        userId,
+      });
+    })().catch((caught: unknown) => {
+      logOperationFailed(logger, "usage-reached", caught, correlationId);
     });
+    runInBackground(c, work);
   };
 }

@@ -12,6 +12,9 @@
   // The scan Container Durable Object (Container-backed, sqlite-class).
   // The Container runs clamd + the Rust scan service on port 8080 with outbound networking
   // disabled (untrusted bytes never reach the network).
+  // max_instances is a ceiling, not a fan-out: one instance runs per Durable Object id, so the
+  // capacity is only reachable because src/scan-shard.ts addresses that many distinct DO names.
+  // SCAN_SHARD_COUNT there must be changed with this number.
   "containers": [
     {
       "class_name": "ScanContainer",

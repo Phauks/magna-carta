@@ -79,10 +79,24 @@ const app = createApp({
 });
 
 let poolFirmId: FirmId;
+// A second, unrelated firm — the one that must not be able to read the first firm's label.
+let otherFirmId: FirmId;
+// The purchased shipment, carried from the happy-path test into the cross-firm test below.
+let purchasedShipmentId: string | undefined;
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
   poolFirmId = (await seedFirm({ name: "Ship Firm", databaseIdentifier: "DB_FIRM_POOL_1" })).firmId;
+  otherFirmId = (await seedFirm({ name: "Other Ship Firm", databaseIdentifier: "DB_FIRM_POOL_2" }))
+    .firmId;
+  // Label bytes live in the firm's own bucket, so each firm needs one recorded. They differ, as
+  // provisioning makes them differ; the test pool binds a single bucket that stands in for both.
+  await env.DB_CONTROL.prepare("UPDATE firm SET bucket_name = ?2 WHERE id = ?1")
+    .bind(poolFirmId, "ship-firm-bucket")
+    .run();
+  await env.DB_CONTROL.prepare("UPDATE firm SET bucket_name = ?2 WHERE id = ?1")
+    .bind(otherFirmId, "other-ship-firm-bucket")
+    .run();
   // The purchase route copies the label bytes from EasyPost's transient URL into R2 via global fetch;
   // stub it to return a minimal PDF. SELF.fetch (sign-in) dispatches to the worker, not global fetch.
   globalThis.fetch = (async () =>
@@ -174,6 +188,8 @@ describe("shipping e2e", () => {
     expect((await purchase.json()) as { trackingCode: string }).toMatchObject({
       trackingCode: "9400111",
     });
+    // Handed to the cross-firm test below, which asks whether another firm can read this label.
+    purchasedShipmentId = id;
 
     const label = await app.request(
       `${base}/shipments/${id}/label`,
@@ -183,6 +199,9 @@ describe("shipping e2e", () => {
     expect(label.status).toBe(200);
     expect(label.headers.get("content-type")).toBe("application/pdf");
 
+    // The stored object is keyed under the owning firm, so no two firms can ever name one label.
+    expect(await env.R2.get(`labels/${poolFirmId}/${id}.pdf`)).not.toBeNull();
+
     const tracking = await app.request(
       `${base}/shipments/${id}/tracking`,
       { method: "POST", headers: authedJson(cookie, false) },
@@ -190,5 +209,37 @@ describe("shipping e2e", () => {
     );
     expect(tracking.status).toBe(200);
     expect(((await tracking.json()) as { events: unknown[] }).events.length).toBeGreaterThan(0);
+  });
+
+  it("refuses another firm's shipment label", async () => {
+    expect(purchasedShipmentId).toBeDefined();
+    // A member of a different firm, with the shipping permission in their OWN firm — the permission
+    // is not the question; whether the label belongs to their firm is.
+    const { userId } = await seedCredentialedUser("outsider@example.com", {
+      userName: "Outsider",
+      firmId: otherFirmId,
+    });
+    await mirrorMemberWithOwnerRole(userId, "Outsider", otherFirmId);
+    const cookie = await signInForSessionCookie("outsider@example.com");
+
+    // Plant bytes at the key a read path would derive straight from the URL parameter. The answer
+    // must still be 404: ownership is proved by finding the label row in the CALLER's own firm
+    // database, never by an object happening to exist under a derivable key.
+    await env.R2.put(
+      `labels/${purchasedShipmentId ?? ""}.pdf`,
+      new TextEncoder().encode("%PDF-1.4 another firm's label"),
+    );
+
+    const label = await app.request(
+      `https://example.com/api/v1/shipments/${purchasedShipmentId}/label`,
+      { method: "GET", headers: { cookie } },
+      env,
+    );
+    // 404, not 403: a shipment outside the caller's firm does not exist as far as they are
+    // concerned, and a distinguishable refusal would confirm the id names something real.
+    expect(label.status).toBe(404);
+    expect(label.headers.get("content-type")).toContain("application/problem+json");
+    // Nothing of the other firm's label came back.
+    expect(await label.text()).not.toContain("%PDF");
   });
 });

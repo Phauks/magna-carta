@@ -33,6 +33,7 @@ import { runPendingMigrations } from "@magna-carta/database/migration-runner";
 import { d1MigrationTarget } from "@magna-carta/database/d1-migration-target";
 import type { Bindings } from "./app.ts";
 import { controlPlaneMigrations } from "./control-plane-migrations.ts";
+import { resolveFirmBucket } from "./files/firm-bucket.ts";
 import { presignerForEnv } from "./files/presigner-wiring.ts";
 import { firmDatabaseFor, type ProxyBatchDatabase } from "./firm-database/firm-database-proxy.ts";
 import { firmKeyProviderForEnv } from "./firm-key-provider-wiring.ts";
@@ -350,7 +351,9 @@ export async function sweepStalePendingUploads(
     // Abort the multipart upload at R2 first (idempotent; a 404 there is success), then commit the
     // status flip — a thrown abort leaves the session open so the next pass retries it.
     if (session.mode === "multipart" && session.r2_upload_id !== null && firm.bucketName !== null) {
-      await presigner.abortMultipartUpload(firm.bucketName, session.r2_key, session.r2_upload_id);
+      // Abort against the same bucket the session's parts were presigned into.
+      const { bucketName } = resolveFirmBucket(env, firm.bucketName);
+      await presigner.abortMultipartUpload(bucketName, session.r2_key, session.r2_upload_id);
     }
     await commitEffectBatch(
       firm.database,
@@ -399,15 +402,15 @@ async function readMeterRows(database: ProxyBatchDatabase): Promise<MeterRow[]> 
 // corrections; drift is logged (totals only — never object contents) for operator visibility.
 //
 // The clean-key filter is load-bearing: the meter counts clean commits only, so a pending/quarantined/
-// abandoned object (its bytes never metered, never deleted from R2) must not inflate the meter; and the
-// single bound env.R2 is SHARED across dev-pool firms, so another firm's object — whose key is not in
-// this firm's clean set — must not be counted against this firm. Both are excluded by keeping only the
-// listed objects whose key is in this firm's clean-version set.
+// abandoned object (its bytes never metered, never deleted from R2) must not inflate the meter; and a
+// bucket shared across firms carries other firms' objects — whose keys are not in this firm's clean
+// set — which must not be counted against this firm. Both are excluded by keeping only the listed
+// objects whose key is in this firm's clean-version set.
 //
-// PER-FIRM BUCKET SEAM: it reads the single bound env.R2 (the dev pool shares one bucket); in
-// production a firm's bytes live in its own bucket bound per-firm, resolved through the same seam the
-// ingest consumer documents. D1 stays authoritative; the AE trend seam (the telemetry package)
-// consumes the corrected meter on its own path.
+// PER-FIRM BUCKET SEAM: the LIST runs against the bucket resolveFirmBucket (files/firm-bucket.ts)
+// gives for this firm — the same resolver the upload and ingest paths use, so the pass counts the
+// bytes those paths actually wrote. D1 stays authoritative; the analytics trend seam (the telemetry
+// package) consumes the corrected meter on its own path.
 export async function runStorageReconciliation(env: Bindings): Promise<ReconciliationReport> {
   // One logger + correlation id per pass — the same one-pipeline discipline as runScheduledSweep
   // (golden rule 4; the console ban is structural).
@@ -418,6 +421,9 @@ export async function runStorageReconciliation(env: Bindings): Promise<Reconcili
   let corrections = 0;
   for (const firm of firms) {
     try {
+      // A firm still mid-provisioning has no bucket recorded and therefore no objects to count;
+      // resolving throws, which the per-firm catch below turns into a skip plus a logged failure.
+      const { bucket } = resolveFirmBucket(env, firm.bucketName);
       // This firm's authoritative clean-version set: only these keys count toward its meter.
       const cleanKeys = new Set(
         (await listCleanVersionR2Keys(firm.database)).map((version) => version.r2Key),
@@ -427,7 +433,7 @@ export async function runStorageReconciliation(env: Bindings): Promise<Reconcili
       for (;;) {
         // Build options without a cursor key on the first page — passing an explicit `cursor:
         // undefined` makes Miniflare's R2 return an empty page.
-        const page = await env.R2.list(
+        const page = await bucket.list(
           cursor === undefined ? { prefix: "files/" } : { prefix: "files/", cursor },
         );
         for (const object of page.objects) {
@@ -449,7 +455,7 @@ export async function runStorageReconciliation(env: Bindings): Promise<Reconcili
       // to appear as files/ for the reconciliation diff.
       let bulkCursor: string | undefined;
       for (;;) {
-        const page = await env.R2.list(
+        const page = await bucket.list(
           bulkCursor === undefined ? { prefix: "bulk/" } : { prefix: "bulk/", cursor: bulkCursor },
         );
         for (const object of page.objects) {
