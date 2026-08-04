@@ -1,5 +1,5 @@
 // Computes the minimal path set the CI type-aware lint (`vp check --no-fmt <paths>`) must cover for a
-// given change, so the gate lints only what a change can affect instead of the whole repo (~24 min).
+// given change, so the gate lints only what a change can affect instead of the whole repo (~45 min).
 // The type-aware pass builds its type program lazily from the passed files' import closure, so linting
 // one package is seconds where the whole repo is minutes — the win is real and needs no upstream cache.
 //
@@ -47,7 +47,7 @@ export const GLOBAL_TRIGGER_PATHS = new Set([
 
 // Repo-relative path prefixes whose change re-verifies the whole repo. `.github/` is deliberately NOT
 // here: a workflow or action YAML change (e.g. gate.yml) cannot move a type-aware lint result, so it must
-// not force the ~24-min whole-repo lint. A genuinely lintable file under `.github/` (a JS-based action) is
+// not force the ~45-min whole-repo lint. A genuinely lintable file under `.github/` (a JS-based action) is
 // still caught below by the "lintable source outside any package" rule, which forces ALL — so dropping the
 // blanket prefix narrows the trigger to real lint inputs without a soundness gap.
 export const GLOBAL_TRIGGER_PREFIXES = [

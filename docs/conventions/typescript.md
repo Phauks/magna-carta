@@ -39,9 +39,12 @@ Rationale and rejected alternatives: **ADR-0070**. This is the boundary-rules ca
 
 Enabled:
 
-- **Categories.** `correctness` is a hard **error** (code that is wrong, unsafe, or useless). `suspicious` and `perf` are **warn** — high-signal but with enough justified existing cases that a hard failure would block unrelated work; warnings do not fail `vp check`, so they are advisory until burned down.
+- **Categories.** `suspicious` and `perf` are **warn** — high-signal but with enough justified existing cases that a hard failure would block unrelated work; warnings do not fail `vp check`, so they are advisory until burned down. `correctness` is **not overridden** and keeps its inherited (advisory) severity — promoting it to a hard error is tracked below, not done.
 - **Plugins.** `typescript`, `unicorn`, `oxc`. No `react`/`jsx-a11y`: the app is Svelte with no `.tsx`/`.jsx`, and Svelte a11y is svelte-check's job. `import` and `vitest` are held back — enabling them turns real findings in existing code into gate errors, so each is adopted behind its own cleanup pass.
-- **Off, on purpose.** `typescript/no-unsafe-type-assertion` (reviewed `as` at typed parse/deserialize/branded-id seams is the intended tool; repo-wide enforcement is low-signal noise) and `eslint/no-await-in-loop` (sequential D1/Queue batches are deliberate; hot-path loops are a measured call per golden rule 10, not a lint).
+- **Errors.** `oxc/no-barrel-file` is the one rule set to **error** — the barrel-file ban is structural, so it blocks rather than advises.
+- **Off, on purpose.** `typescript/no-unsafe-type-assertion` only: reviewed `as` at typed parse/deserialize/branded-id seams is the intended tool, so repo-wide enforcement is low-signal noise. `eslint/no-await-in-loop` is **on** as a warning through the `perf` category — sequential D1/Queue batches are usually deliberate, but the count is a tenable backlog and a genuinely hot-path loop is worth surfacing, so it stays advisory rather than off.
+
+The whole-repo pass currently reports **0 errors and ~820 warnings across ~1850 files**, and takes ~45 minutes on a 4-core runner. That runtime is why the gate lints only the affected packages on a pull request and pays the whole-repo pass on the merge and scheduled tiers — see [`build-performance.md`](build-performance.md).
 
 A change to `vite.config.ts` is a global lint input: `tooling/affected-lint` re-lints the **whole repo** for it (the ruleset can move findings anywhere), so a ruleset edit pays the full type-aware pass in CI.
 
