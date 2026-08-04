@@ -1,8 +1,9 @@
 ---
+number: 217
 slug: document-automation-registration-transforms
 status: Accepted
-area: Document Automation
 date: 2026-08-04
+area: Document Automation
 summary: "How template registration realizes the consensual-guided-data-conversion posture, and where it deliberately differs. Word MERGEFIELD constructs are always detected and reported (name, occurrences, part, the merge-field key each would map to, and whether that key exists for this firm) and converted to the canonical brace form only on an explicit convertMergeFields request; a template that uses them WITHOUT the opt-in is REFUSED rather than registered with the fields left inert, because an unconverted merge field is invisible to the assembly engine and renders Word's frozen cached result — a filed document that looks complete and is wrong, which the absence model cannot catch because there is no placeholder to be absent. Macro removal takes the OPPOSITE default under the same feedback rule: a macro-bearing template is accepted, its VBA project and every declaration referencing it are stripped, and the removal is reported — acting without asking is right there because removing code cannot make a document assert something untrue, while leaving it would run code against privileged data. Macro detection is driven by the content-types map and relationship types rather than file names, and the stripped bytes are re-verified by an independent scan before the version may register, because a stripper vouching for itself is the failure mode the gate exists to catch. The Word-name-to-key mapping is an injectable resolver, the identity mapping today, and is the seam the per-firm field-mapping library plugs into."
 ---
 
