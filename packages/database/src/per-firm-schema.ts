@@ -1314,8 +1314,11 @@ export const shipment = sqliteTable(
     matterRef: text("matter_ref")
       .$type<MatterId>()
       .references(() => matter.id),
+    // `purchasing` is the exclusive claim a label purchase takes before it spends money at the
+    // carrier: the carrier has no idempotency facility, so the claim (not a request header) is what
+    // makes a retried or concurrent purchase unable to buy a second label for one shipment.
     status: text("status", {
-      enum: ["draft", "rated", "purchased", "in_transit", "delivered", "refunded"],
+      enum: ["draft", "rated", "purchasing", "purchased", "in_transit", "delivered", "refunded"],
     })
       .notNull()
       .default("draft"),
@@ -1324,6 +1327,9 @@ export const shipment = sqliteTable(
     parcel: text("parcel").notNull(), // JSON
     options: text("options").notNull().default("{}"), // JSON ShipmentOptions
     remoteShipmentId: text("remote_shipment_id"), // EasyPost shipment id, set once rated/bought
+    // Who holds the in-flight purchase claim (the request's idempotency key). Only the holder may
+    // release it, so a failed attempt cannot be cleared out from under a purchase still in flight.
+    purchaseClaimKey: text("purchase_claim_key"),
     carrier: text("carrier"),
     service: text("service"),
     trackingCode: text("tracking_code"),

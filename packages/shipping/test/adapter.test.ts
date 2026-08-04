@@ -100,7 +100,7 @@ describe("EasyPost adapter", () => {
     if (result.ok) expect(result.value.trackingCode).toBe("9400");
   });
 
-  it("buyLabel sends an Idempotency-Key header when given a key", async () => {
+  it("buyLabel sends the requested insurance as a dollar string on the buy body", async () => {
     let seen: HttpRequest | undefined;
     const port = portWith(
       fakeHttp((req) => {
@@ -119,9 +119,34 @@ describe("EasyPost adapter", () => {
     await port.buyLabel({
       remoteShipmentId: "shp_1",
       remoteRateId: "rate_1",
-      idempotencyKey: "key-123",
+      insuranceAmountMinor: 24999,
     });
-    expect(seen?.headers["Idempotency-Key"]).toBe("key-123");
+    expect(JSON.parse(seen?.body ?? "{}")).toMatchObject({
+      rate: { id: "rate_1" },
+      insurance: "249.99",
+    });
+    // EasyPost has no idempotency facility; the buy must not pretend otherwise.
+    expect(seen?.headers["Idempotency-Key"]).toBeUndefined();
+  });
+
+  it("buyLabel omits insurance entirely when none was requested", async () => {
+    let seen: HttpRequest | undefined;
+    const port = portWith(
+      fakeHttp((req) => {
+        seen = req;
+        return {
+          status: 200,
+          body: {
+            id: "shp_1",
+            tracking_code: "9400",
+            selected_rate: { carrier: "USPS", service: "Priority", rate: "7.45", currency: "USD" },
+            postage_label: { label_url: "https://ep/l.pdf", label_file_type: "application/pdf" },
+          },
+        };
+      }),
+    );
+    await port.buyLabel({ remoteShipmentId: "shp_1", remoteRateId: "rate_1" });
+    expect(JSON.parse(seen?.body ?? "{}")).not.toHaveProperty("insurance");
   });
 
   it("getTracking with an empty trackers list returns ok([]), not a throw", async () => {

@@ -1656,6 +1656,11 @@ export type ShippingConnectRequest = {
     apiKey: string;
 };
 
+export type ShippingDisconnectAck = {
+    id: string;
+    status: string;
+};
+
 export type ShipmentAck = {
     id: string;
 };
@@ -10618,6 +10623,58 @@ export type SupportDiagnosticsOverviewResponses = {
 };
 
 export type SupportDiagnosticsOverviewResponse = SupportDiagnosticsOverviewResponses[keyof SupportDiagnosticsOverviewResponses];
+
+export type ShippingDisconnectCarrierData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/integrations/shipping/connection';
+};
+
+export type ShippingDisconnectCarrierErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks shipping:manage
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the shipment is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, or the postage account is not connected
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ShippingDisconnectCarrierError = ShippingDisconnectCarrierErrors[keyof ShippingDisconnectCarrierErrors];
+
+export type ShippingDisconnectCarrierResponses = {
+    /**
+     * Disconnected
+     */
+    200: ShippingDisconnectAck;
+};
+
+export type ShippingDisconnectCarrierResponse = ShippingDisconnectCarrierResponses[keyof ShippingDisconnectCarrierResponses];
 
 export type ShippingConnectData = {
     body: ShippingConnectRequest;

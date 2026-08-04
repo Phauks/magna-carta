@@ -16,13 +16,20 @@ export interface InsertConnectionRow {
   readonly createdAt: string;
 }
 
-export function insertConnectionStatement(
+// Connect, or RE-connect. A principal has at most one connection per category (the unique index
+// says so), and re-connecting is the normal way a firm rotates a credential or recovers a
+// connection the health model parked in `needs_reauth` — so a second connect must land on the
+// existing row rather than collide with it. Re-arming the status to `connected` is the whole point:
+// `needs_reauth` means "supply credentials again", and this IS that supply. The row id is stable
+// across a reconnect (ON CONFLICT updates, never replaces), so anything referencing the connection
+// keeps referencing it.
+export function upsertConnectionStatement(
   database: SqlDatabase,
   row: InsertConnectionRow,
 ): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO ${INTEGRATION_CONNECTION_TABLE} (id, category, adapter_id, scope, principal_ref, credential_ref, status, capability_snapshot, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'connected', ?7, ?8, ?8)`,
+      `INSERT INTO ${INTEGRATION_CONNECTION_TABLE} (id, category, adapter_id, scope, principal_ref, credential_ref, status, capability_snapshot, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'connected', ?7, ?8, ?8) ON CONFLICT (category, principal_ref) DO UPDATE SET adapter_id = excluded.adapter_id, scope = excluded.scope, credential_ref = excluded.credential_ref, status = 'connected', capability_snapshot = excluded.capability_snapshot, updated_at = excluded.updated_at`,
     )
     .bind(
       row.id,

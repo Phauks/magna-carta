@@ -697,6 +697,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "scanPolicy.update",
       "shipping.connect",
       "shipping.createShipment",
+      "shipping.disconnectCarrier",
       "shipping.label",
       "shipping.purchase",
       "shipping.rateShipment",
