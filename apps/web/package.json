@@ -13,9 +13,11 @@
   },
   "dependencies": {
     "@cloudflare/speedtest": "catalog:",
+    "@internationalized/date": "catalog:",
     "@lucide/svelte": "catalog:",
     "@magna-carta/design-system": "workspace:*",
     "@magna-carta/design-tokens": "workspace:*",
+    "@magna-carta/merge-field-catalog-contract": "workspace:*",
     "@magna-carta/tools": "workspace:*"
   },
   "devDependencies": {

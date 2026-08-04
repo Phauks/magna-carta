@@ -22,4 +22,14 @@ export const FIXTURE_GROUPS: readonly DevPageGroup[] = [
         matter.matterNumber === null ? matter.status : `${matter.status} · ${matter.matterNumber}`,
     })),
   },
+  {
+    title: "Document automation",
+    pages: [
+      {
+        label: "Assemble a document",
+        href: "/forms/assemble",
+        note: "Field input area · sample data",
+      },
+    ],
+  },
 ];

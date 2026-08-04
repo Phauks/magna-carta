@@ -1,0 +1,120 @@
+@layer components {
+  /*
+   * MergeFieldPicker (Tier 4, Bits UI via Popover + Command). Only two things need recipes of their
+   * own: the TRIGGER, which is a form control and therefore shares the Input/Select box and the
+   * single merged focus edge, and the option ROW's two-line shape (label over description, with the
+   * value type held to the inline-end). The panel, the search row, the group headings, the empty
+   * message, and the highlight state are all the Command and Popover recipes, unchanged.
+   */
+  .mc-merge-field-picker-trigger {
+    display: flex;
+    align-items: center;
+    gap: var(--mc-space-8);
+    min-block-size: var(--mc-density-control-md);
+    padding-inline: var(--mc-space-12);
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: var(--mc-border-default);
+    border-radius: var(--mc-radius-md);
+    background-color: var(--mc-surface-field);
+    color: var(--mc-text-default);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    line-height: var(--mc-leading-tight);
+    text-align: start;
+    cursor: pointer;
+    transition-property: border-color, outline-color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  /* Nothing chosen yet: the trigger reads as a hint, the same as an Input's placeholder. */
+  .mc-merge-field-picker-trigger[data-placeholder] {
+    color: var(--mc-text-muted);
+  }
+  /* The label takes the room and truncates; the type chip and chevron never get pushed out. */
+  .mc-merge-field-picker-trigger-label {
+    flex: auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .mc-merge-field-picker-trigger-type {
+    flex: none;
+    padding-inline: var(--mc-space-4);
+    border-radius: var(--mc-radius-sm);
+    background-color: var(--mc-surface-sunken);
+    color: var(--mc-text-muted);
+    font-family: var(--mc-font-mono);
+    font-size: var(--mc-font-size-xs);
+  }
+  .mc-merge-field-picker-trigger-icon {
+    flex: none;
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+    color: var(--mc-text-muted);
+  }
+  /*
+   * Focus is one merged edge, not a detached ring — the house rule for every control that already
+   * has a resting border (see input.css): border and flush outline both take the focus colour.
+   */
+  .mc-merge-field-picker-trigger:focus-visible {
+    border-color: var(--mc-focus-ring);
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+    outline-offset: var(--mc-space-0);
+  }
+  /*
+   * Invalid is declared AFTER focus so a field that is both focused and invalid still reads as
+   * invalid — the state a person needs to see is the one that tells them something is wrong.
+   */
+  .mc-merge-field-picker-trigger[data-invalid] {
+    border-color: var(--mc-status-danger);
+  }
+  .mc-merge-field-picker-trigger[data-invalid]:focus-visible {
+    outline-color: var(--mc-status-danger);
+  }
+  /* Disabled reads at REST, by colour — never by cursor alone (house rule). */
+  .mc-merge-field-picker-trigger[data-disabled] {
+    background-color: var(--mc-action-disabled);
+    color: var(--mc-action-disabled-foreground);
+    cursor: not-allowed;
+  }
+
+  /* An option row is two lines of text with the value type held to the inline-end. */
+  .mc-merge-field-picker-item {
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+  .mc-merge-field-picker-item-text {
+    display: flex;
+    flex: auto;
+    flex-direction: column;
+    gap: var(--mc-space-0);
+    overflow: hidden;
+  }
+  .mc-merge-field-picker-item-label {
+    font-weight: var(--mc-weight-medium);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  /* The one line saying what the field is. Quiet — it explains, it does not compete with the label. */
+  .mc-merge-field-picker-item-description {
+    color: var(--mc-text-muted);
+    font-size: var(--mc-font-size-xs);
+    line-height: var(--mc-leading-normal);
+  }
+  .mc-merge-field-picker-item-type {
+    flex: none;
+    padding-inline: var(--mc-space-4);
+    border-radius: var(--mc-radius-sm);
+    background-color: var(--mc-surface-sunken);
+    color: var(--mc-text-muted);
+    font-family: var(--mc-font-mono);
+    font-size: var(--mc-font-size-xs);
+  }
+}
