@@ -21,6 +21,7 @@ import {
   type CustomFieldValueInput,
 } from "@magna-carta/custom-fields/custom-field-value-service";
 import { applyConvert, previewConvert } from "@magna-carta/custom-fields/convert";
+import { effectiveNumberScale } from "@magna-carta/custom-fields/number-scale";
 import { purgeCustomField } from "@magna-carta/custom-fields/purge";
 import {
   readCurrentValues,
@@ -60,11 +61,6 @@ import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 // customFields:manage and an Idempotency-Key; the reads are open to any authenticated firm member.
 
 // ---- shared helpers ----
-
-// The currency minor-unit scale a currency field defaults to when it declares no explicit
-// number_scale: the firm-currency minor unit is two places (cents), matching @magna-carta/money's
-// MONEY_SCALE. A field that overrides number_scale (e.g. a four-place rate) supplies its own.
-const CURRENCY_MINOR_UNIT_SCALE = 2;
 
 // The write options every custom-field mutation reads: the real clock, the authenticated actor, the
 // production Web Crypto random source, and the chokepoint's idempotency context (its firm-scoped
@@ -119,8 +115,11 @@ function customFieldErrorResponse(
         detail: error.message,
       });
     default:
-      // reference-kind-handle-mismatch, too-many-fields-for-scope/-firm, too-many-options-for-field,
-      // convert-has-parked-values, cannot-protect-reference-or-picklist-kind,
+      // reference-kind-handle-mismatch, reference-kind-not-convertible, value-kind-mismatch,
+      // value-not-a-scaled-integer, value-text-too-long, unknown-picklist-option,
+      // picklist-option-archived, field-archived, number-scale-out-of-range,
+      // too-many-fields-for-scope/-firm, too-many-options-for-field, convert-has-parked-values,
+      // convert-too-many-values, cannot-protect-reference-or-picklist-kind,
       // kind-immutable-during-convert — a malformed/refused request.
       return problemJson(c, {
         type: "validation",
@@ -147,7 +146,9 @@ async function fieldNumberScale(
 }
 
 // Turns the validated value-write body into the domain CustomFieldValueInput, scaling a number/currency
-// decimal by 10^number_scale into the integer value_number stores. Non-numeric kinds pass through.
+// decimal by 10^number_scale into the integer value_number stores — the one place that scaling happens
+// (the domain package validates the integer it receives and never re-scales it). Every other kind, and
+// a field the read did not find, passes through untouched for the value service to refuse.
 async function valueInputForWrite(
   database: SqlDatabase,
   fieldId: string,
@@ -157,12 +158,11 @@ async function valueInputForWrite(
     return value;
   }
   const field = await fieldNumberScale(database, fieldId);
-  const isCurrencyOrNumber = field?.kind === "currency" || field?.kind === "number";
-  // The minor-unit exponent: the field's explicit number_scale, else the money scale for currency,
-  // else 0 (a plain integer count) — a non-numeric field never reaches here.
-  const scale = field?.numberScale ?? (field?.kind === "currency" ? CURRENCY_MINOR_UNIT_SCALE : 0);
-  const scaled = isCurrencyOrNumber ? Math.round(value.number * 10 ** scale) : value.number;
-  return { kind: "number", number: scaled };
+  if (field === null || (field.kind !== "currency" && field.kind !== "number")) {
+    return value;
+  }
+  const scale = effectiveNumberScale(field.kind, field.numberScale);
+  return { kind: "number", number: Math.round(value.number * 10 ** scale) };
 }
 
 // ---- request/response contracts ----

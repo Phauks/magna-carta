@@ -9,6 +9,8 @@ import conflictsSql from "@magna-carta/database/drizzle/per-firm/20260709T120000
 import seedConflictsPermissionsSql from "@magna-carta/database/drizzle/per-firm/20260709T120001_seed-conflicts-permissions.sql";
 import seedToolsEmailInspectorSql from "@magna-carta/database/drizzle/per-firm/20260710T120000_seed-tools-email-inspector.sql";
 import directoryEmailNormalizedAddressSql from "@magna-carta/database/drizzle/per-firm/20260714T210000_directory-email-normalized-address.sql";
+import emailFilingRecordsSql from "@magna-carta/database/drizzle/per-firm/20260717T120000_email-filing-records.sql";
+import seedEmailsPermissionsSql from "@magna-carta/database/drizzle/per-firm/20260717T120001_seed-emails-permissions.sql";
 import conflictsHitCoPartySql from "@magna-carta/database/drizzle/per-firm/20260717T181411_conflicts-hit-co-party.sql";
 import seedEsignSealSql from "@magna-carta/database/drizzle/per-firm/20260803T120000_seed-esign-seal.sql";
 
@@ -30,6 +32,8 @@ export function perFirmMigrations(): Migration[] {
     "20260709T120001_seed-conflicts-permissions": seedConflictsPermissionsSql,
     "20260710T120000_seed-tools-email-inspector": seedToolsEmailInspectorSql,
     "20260714T210000_directory-email-normalized-address": directoryEmailNormalizedAddressSql,
+    "20260717T120000_email-filing-records": emailFilingRecordsSql,
+    "20260717T120001_seed-emails-permissions": seedEmailsPermissionsSql,
     "20260717T181411_conflicts-hit-co-party": conflictsHitCoPartySql,
     "20260803T120000_seed-esign-seal": seedEsignSealSql,
   });

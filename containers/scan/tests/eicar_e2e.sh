@@ -14,12 +14,14 @@ IMAGE=magna-carta-scan:e2e
 CONTAINER=magna-carta-scan-e2e
 PORT=18080
 SCAN_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=../../docker-build.sh
+. "$SCAN_DIR/../docker-build.sh"
 
 cleanup() { docker rm -f "$CONTAINER" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 
 echo "building $IMAGE (linux/amd64) ..."
-docker build --platform linux/amd64 -t "$IMAGE" "$SCAN_DIR"
+container_build --platform linux/amd64 -t "$IMAGE" "$SCAN_DIR"
 
 echo "starting container ..."
 docker run -d --name "$CONTAINER" -p "$PORT:8080" "$IMAGE" >/dev/null

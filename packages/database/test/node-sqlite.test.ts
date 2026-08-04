@@ -87,6 +87,9 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "conflicts:read",
         "conflicts:run",
         "costs:track",
+        "emails:file",
+        "emails:manageLinks",
+        "emails:read",
         "files:organize",
         "files:upload",
         "firm:reportIncident",
@@ -107,12 +110,14 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
       ].sort(),
     );
     // Billing and Read-only carry only the every-role set (firm:reportIncident, the firm-wide
-    // tools, support:request, conflicts:read/run); Billing additionally carries costs:approve.
+    // tools, support:request, conflicts:read/run, emails:read); Billing additionally carries
+    // costs:approve.
     expect(grantsFor("Billing").sort()).toEqual(
       [
         "conflicts:read",
         "conflicts:run",
         "costs:approve",
+        "emails:read",
         "firm:reportIncident",
         "firm:scanFile",
         "support:request",
@@ -133,6 +138,7 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
       [
         "conflicts:read",
         "conflicts:run",
+        "emails:read",
         "firm:reportIncident",
         "firm:scanFile",
         "support:request",

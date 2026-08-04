@@ -58,8 +58,8 @@ beforeAll(async () => {
     databaseIdentifier: "DB_FIRM_POOL_1",
   });
   firmDb = firmDatabaseFor(env.FIRM_DATABASE, firmId);
-  // The download route calls requireBucket(firm.bucketName) before options validation; set a bucket
-  // so the handler reaches the options check without throwing.
+  // The download route resolves the firm's bucket before options validation; set one so the handler
+  // reaches the options check without throwing.
   await env.DB_CONTROL.prepare("UPDATE firm SET bucket_name = 'R2' WHERE id = ?1")
     .bind(firmId)
     .run();

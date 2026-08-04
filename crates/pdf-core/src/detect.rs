@@ -335,23 +335,9 @@ const OBSCURING_ANNOTATIONS: &[&[u8]] = &[
 ];
 
 fn page_annot_rects(doc: &lopdf::Document, page_id: lopdf::ObjectId) -> Vec<Rect> {
-    let page = match doc.get_object(page_id).and_then(|o| o.as_dict()) {
-        Ok(p) => p,
-        Err(_) => return Vec::new(),
-    };
-    let annots = match page.get(b"Annots") {
-        Ok(lopdf::Object::Array(a)) => a.clone(),
-        Ok(lopdf::Object::Reference(r)) => doc
-            .get_object(*r)
-            .ok()
-            .and_then(|o| o.as_array().ok())
-            .cloned()
-            .unwrap_or_default(),
-        _ => Vec::new(),
-    };
     let mut rects = Vec::new();
-    for a in &annots {
-        let Some(dict) = a
+    for entry in crate::annotations::page_annotation_entries(doc, page_id) {
+        let Some(dict) = entry
             .as_reference()
             .ok()
             .and_then(|id| doc.get_object(id).ok())
@@ -368,24 +354,8 @@ fn page_annot_rects(doc: &lopdf::Document, page_id: lopdf::ObjectId) -> Vec<Rect
         if !obscuring {
             continue;
         }
-        if let Ok(arr) = dict.get(b"Rect").and_then(|o| o.as_array()) {
-            let n: Vec<f32> = arr
-                .iter()
-                .filter_map(|o| {
-                    o.as_float()
-                        .ok()
-                        .or_else(|| o.as_i64().ok().map(|i| i as f32))
-                })
-                .collect();
-            if n.len() == 4 {
-                // PDF /Rect corners may be unordered; normalize to a display-point Rect.
-                rects.push(Rect {
-                    x0: n[0].min(n[2]),
-                    y0: n[1].min(n[3]),
-                    x1: n[0].max(n[2]),
-                    y1: n[1].max(n[3]),
-                });
-            }
+        if let Some(rect) = crate::annotations::annotation_rect(dict) {
+            rects.push(rect);
         }
     }
     rects
@@ -393,6 +363,18 @@ fn page_annot_rects(doc: &lopdf::Document, page_id: lopdf::ObjectId) -> Vec<Rect
 
 pub(crate) fn rect_contains(r: &Rect, x: f32, y: f32) -> bool {
     x >= r.x0 && x <= r.x1 && y >= r.y0 && y <= r.y1
+}
+
+/// Whether two axis-aligned rectangles overlap: neither is fully to the left, right,
+/// above, or below the other. Corners are normalised first, so a rectangle given with
+/// its corners in either order tests the same. Touching edges do not overlap — a
+/// rectangle that merely abuts another shares no area with it.
+pub(crate) fn rects_intersect(a: &Rect, b: &Rect) -> bool {
+    let (ax0, ax1) = (a.x0.min(a.x1), a.x0.max(a.x1));
+    let (ay0, ay1) = (a.y0.min(a.y1), a.y0.max(a.y1));
+    let (bx0, bx1) = (b.x0.min(b.x1), b.x0.max(b.x1));
+    let (by0, by1) = (b.y0.min(b.y1), b.y0.max(b.y1));
+    !(bx1 <= ax0 || bx0 >= ax1 || by1 <= ay0 || by0 >= ay1)
 }
 
 pub(crate) fn annotation_findings(

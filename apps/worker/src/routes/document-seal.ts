@@ -3,7 +3,8 @@ import { insertAuditLogStatement } from "@magna-carta/data-access/audit-statemen
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import { readInspectableSizeCap } from "@magna-carta/file-manager/upload-policy";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
-import type { SealPort, SealRequest, SignerCompletion } from "@magna-carta/signing/port";
+import type { SignerCompletion } from "@magna-carta/signing/esign";
+import type { SealPort, SealRequest } from "@magna-carta/signing/port";
 import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
@@ -302,7 +303,10 @@ export function registerDocumentSealRoutes(
         {
           sealedPdfBase64: encodeBase64(sealed.sealedPdf),
           documentHashSha256: sealed.documentHashSha256,
-          certificate: sealed.certificate,
+          // The certificate models an immutable record, so its signer list is a readonly array;
+          // the response body is a plain JSON value, so copy it into a mutable one here rather
+          // than weakening the record's own type.
+          certificate: { ...sealed.certificate, signers: [...sealed.certificate.signers] },
           certificateText: sealed.certificateText,
         },
         200,

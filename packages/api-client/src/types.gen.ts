@@ -176,6 +176,57 @@ export type FileIntegrityVerifyResponse = {
     receipt?: unknown;
 };
 
+export type EmailCaptureAck = {
+    jobId: string;
+    status: 'accepted';
+};
+
+export type MatterEmailList = {
+    data: Array<{
+        emailMessageId: string;
+        threadId: string;
+        subject: string | null;
+        fromDisplay: string | null;
+        fromAddress: string | null;
+        sentAt: string | null;
+        receivedAt: string;
+        linkState: 'staged' | 'filed' | 'unlinked';
+    }>;
+    nextCursor: string | null;
+};
+
+export type EmailAlreadyFiled = {
+    captured: boolean;
+    matters: Array<string>;
+    hiddenMatterCount: number;
+    totalMatterCount: number;
+};
+
+export type EmailMessageDetail = {
+    emailMessageId: string;
+    threadId: string;
+    subject: string | null;
+    fromDisplay: string | null;
+    fromAddress: string | null;
+    sentAt: string | null;
+    receivedAt: string;
+    dkimVerdict: string;
+    participants: Array<{
+        kind: string;
+        displayName: string | null;
+        address: string | null;
+        directoryEntityId: string | null;
+    }>;
+    alsoFiledMatterIds: Array<string>;
+    hiddenMatterCount: number;
+};
+
+export type EmailLinkActionAck = {
+    emailMessageId: string;
+    matterId: string;
+    state: string;
+};
+
 export type FileRepairDiagnosis = {
     detectedFormat: string | null;
     corruption: Array<string>;
@@ -2376,6 +2427,245 @@ export type EmailInspectorInspectResponses = {
 };
 
 export type EmailInspectorInspectResponse = EmailInspectorInspectResponses[keyof EmailInspectorInspectResponses];
+
+export type EmailsListData = {
+    body?: never;
+    path: {
+        matterId: string;
+    };
+    query?: {
+        cursor?: string;
+    };
+    url: '/api/v1/matters/{matterId}/emails';
+};
+
+export type EmailsListErrors = {
+    /**
+     * No session
+     */
+    401: Problem;
+    /**
+     * Missing emails:read
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type EmailsListError = EmailsListErrors[keyof EmailsListErrors];
+
+export type EmailsListResponses = {
+    /**
+     * A page of filed emails
+     */
+    200: MatterEmailList;
+};
+
+export type EmailsListResponse = EmailsListResponses[keyof EmailsListResponses];
+
+export type EmailsFileData = {
+    body: unknown;
+    path: {
+        matterId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/emails';
+};
+
+export type EmailsFileErrors = {
+    /**
+     * Empty body
+     */
+    400: Problem;
+    /**
+     * No session
+     */
+    401: Problem;
+    /**
+     * Missing emails:file
+     */
+    403: Problem;
+    /**
+     * Unknown matter
+     */
+    404: Problem;
+    /**
+     * Message exceeds the inspectable-size cap
+     */
+    413: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type EmailsFileError = EmailsFileErrors[keyof EmailsFileErrors];
+
+export type EmailsFileResponses = {
+    /**
+     * Capture accepted; filing runs off the request path
+     */
+    202: EmailCaptureAck;
+};
+
+export type EmailsFileResponse = EmailsFileResponses[keyof EmailsFileResponses];
+
+export type EmailsAlreadyFiledData = {
+    body?: never;
+    path?: never;
+    query?: {
+        messageId?: string;
+        contentHash?: string;
+    };
+    url: '/api/v1/emails/already-filed';
+};
+
+export type EmailsAlreadyFiledErrors = {
+    /**
+     * No session
+     */
+    401: Problem;
+    /**
+     * Missing emails:read
+     */
+    403: Problem;
+    /**
+     * Neither messageId nor contentHash provided
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type EmailsAlreadyFiledError = EmailsAlreadyFiledErrors[keyof EmailsAlreadyFiledErrors];
+
+export type EmailsAlreadyFiledResponses = {
+    /**
+     * The wall-safe already-filed signal
+     */
+    200: EmailAlreadyFiled;
+};
+
+export type EmailsAlreadyFiledResponse = EmailsAlreadyFiledResponses[keyof EmailsAlreadyFiledResponses];
+
+export type EmailsGetData = {
+    body?: never;
+    path: {
+        emailMessageId: string;
+    };
+    query?: never;
+    url: '/api/v1/emails/{emailMessageId}';
+};
+
+export type EmailsGetErrors = {
+    /**
+     * No session
+     */
+    401: Problem;
+    /**
+     * Missing emails:read
+     */
+    403: Problem;
+    /**
+     * Unknown message, or one the caller cannot access
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type EmailsGetError = EmailsGetErrors[keyof EmailsGetErrors];
+
+export type EmailsGetResponses = {
+    /**
+     * The message and its wall-safe multi-matter context
+     */
+    200: EmailMessageDetail;
+};
+
+export type EmailsGetResponse = EmailsGetResponses[keyof EmailsGetResponses];
+
+export type EmailsAcceptData = {
+    body?: never;
+    path: {
+        matterId: string;
+        emailMessageId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/emails/{emailMessageId}/accept';
+};
+
+export type EmailsAcceptErrors = {
+    /**
+     * No session
+     */
+    401: Problem;
+    /**
+     * Missing emails:manageLinks
+     */
+    403: Problem;
+    /**
+     * No staged link for this message on this matter
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type EmailsAcceptError = EmailsAcceptErrors[keyof EmailsAcceptErrors];
+
+export type EmailsAcceptResponses = {
+    /**
+     * The link was filed (or was already filed)
+     */
+    200: EmailLinkActionAck;
+};
+
+export type EmailsAcceptResponse = EmailsAcceptResponses[keyof EmailsAcceptResponses];
+
+export type EmailsUnlinkData = {
+    body?: never;
+    path: {
+        matterId: string;
+        emailMessageId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/emails/{emailMessageId}';
+};
+
+export type EmailsUnlinkErrors = {
+    /**
+     * No session
+     */
+    401: Problem;
+    /**
+     * Missing emails:manageLinks
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type EmailsUnlinkError = EmailsUnlinkErrors[keyof EmailsUnlinkErrors];
+
+export type EmailsUnlinkResponses = {
+    /**
+     * The link was unlinked (or was already unlinked)
+     */
+    200: EmailLinkActionAck;
+};
+
+export type EmailsUnlinkResponse = EmailsUnlinkResponses[keyof EmailsUnlinkResponses];
 
 export type FileRepairDiagnoseData = {
     body: unknown;

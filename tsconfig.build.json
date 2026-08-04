@@ -11,6 +11,9 @@
       "path": "apps/convert-worker/tsconfig.build.json"
     },
     {
+      "path": "apps/email-worker/tsconfig.build.json"
+    },
+    {
       "path": "apps/file-repair-worker/tsconfig.build.json"
     },
     {
@@ -72,6 +75,9 @@
     },
     {
       "path": "packages/directory/tsconfig.build.json"
+    },
+    {
+      "path": "packages/email-filing/tsconfig.build.json"
     },
     {
       "path": "packages/email/tsconfig.build.json"

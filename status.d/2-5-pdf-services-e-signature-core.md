@@ -2,17 +2,17 @@
 slice: 2·5 — PDF services + e-signature core
 group: phase-2
 order: 5
-research: in-progress
-spec: in-progress
-plan: in-progress
-built: in-progress
+research: done by="Opus 4.8"
+spec: in-progress by="Opus 4.8"
+plan: in-progress by="Opus 4.8"
+built: in-progress by="Opus 4.8"
 ui: todo
 load-profile: n/a
-tested: todo
-branch: main
-active-work:
-next:
-link-spec:
+tested: in-progress by="Opus 4.8"
+branch: claude/2-5-analysis-prep-0n2kxw
+active-work: docs/active-work/claude-2-5-analysis-prep-0n2kxw.md
+next: Land the seal branch, then deploy magna-carta-sign before the app worker (the SIGN_SERVICE binding blocks the app-worker deploy until the sign worker exists); after that, timestamp/LTV levels behind a TSA, independent-validator conformance, and the consumer/UI surfaces.
+link-spec: docs/specs/2026-07-17-slice-2-5-pdf-services-esignature-analysis.md
 link-plan:
 adrs:
 blocked-by:

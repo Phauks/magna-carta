@@ -93,6 +93,13 @@ export const PERMISSIONS = [
   // keys carry NO decrypt capability, so privileged content stays unreachable from a diagnostic session.
   // Never seeded to a firm role — granted only by holding a diagnostic support session.
   "diagnostics:overview", // firm system-state overview (status, schema version, member count, storage)
+  // Emails — filing/recording emails to matters, reading a matter's filed threads, managing the
+  // per-matter links, and administering the forward/CC capture addresses. Email links are matter-rooted
+  // (the files:* precedent), so every emails:* route binds resource: "matter".
+  "emails:file", // capture/file an email to a matter (the API entrance)
+  "emails:read", // read a matter's filed emails and threads, and the wall-safe "already filed" signal
+  "emails:manageLinks", // accept a staged link, link to additional matters, unlink
+  "emails:manageCaptureAddresses", // mint/rotate a matter's forward token, manage the firm catch-all (admin)
 ] as const;
 
 // KnownPermission is for hardcoded compile-checked keys (route metadata, role seeds);
