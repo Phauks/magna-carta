@@ -1,8 +1,9 @@
 ---
+number: 206
 slug: remediate-lopdf-advisory
 status: Accepted
-area: Supply-chain security
 date: 2026-07-17
+area: Supply-chain security
 summary: Remediate RUSTSEC-2026-0187 by upgrading lopdf to 0.42.0 everywhere; keep the three remaining osv-tracked advisories (quick-xml x2, npm uuid) accepted with documented upstream blockers rather than force risky version bumps.
 ---
 
