@@ -1348,8 +1348,10 @@ pub(crate) fn try_build_surgery(
     page_id: lopdf::ObjectId,
     rects: &[crate::redact::Rect],
 ) -> Option<Vec<u8>> {
-    // Obtain and decode the content stream.
-    let raw = doc.get_page_content(page_id).ok()?;
+    // Obtain and decode the content stream. `get_page_content` is infallible — a page
+    // with no resolvable content stream yields an empty buffer, which `Content::decode`
+    // then reads as an empty operator list.
+    let raw = doc.get_page_content(page_id);
     let content = lopdf::content::Content::decode(&raw).ok()?;
 
     // Resolve page geometry and fonts.
@@ -1459,7 +1461,7 @@ pub fn compare_surgery_paths(
 ) -> Option<SurgeryPathComparison> {
     let doc = lopdf::Document::load_mem(pdf_bytes).ok()?;
     let page_id = *doc.get_pages().get(&((page + 1) as u32))?;
-    let raw = doc.get_page_content(page_id).ok()?;
+    let raw = doc.get_page_content(page_id);
     let content = lopdf::content::Content::decode(&raw).ok()?;
     let fonts = page_fonts(&doc, page_id);
     let [llx, lly, _, _] = resolve_mediabox(&doc, page_id)?;
@@ -2006,7 +2008,7 @@ mod tests {
             .join("tests/fixtures/surgery_simple.pdf");
         let doc = lopdf::Document::load(&fixture).unwrap();
         let page_id = *doc.get_pages().values().next().unwrap();
-        let raw = doc.get_page_content(page_id).unwrap();
+        let raw = doc.get_page_content(page_id);
         let content = lopdf::content::Content::decode(&raw).unwrap();
         let fonts = page_fonts(&doc, page_id);
         let [llx, lly, _, _] = resolve_mediabox(&doc, page_id).unwrap();
@@ -2306,9 +2308,7 @@ mod tests {
 
         // Verify that the stream differs from the original (excision appended
         // redaction boxes and rewrote at least the content structure).
-        let original_raw = doc
-            .get_page_content(page_id)
-            .expect("original content must be accessible");
+        let original_raw = doc.get_page_content(page_id);
         assert_ne!(
             stream_bytes, original_raw,
             "a full-page rect must produce a stream that differs from the original"

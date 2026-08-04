@@ -18,7 +18,7 @@ publish = false
 [workspace.dependencies]
 hayro = "0.7"
 image = "0.25"
-lopdf = "0.42"
+lopdf = "0.44"
 
 [profile.release]
 opt-level = "z"
