@@ -419,7 +419,7 @@ The platform seal runs in its own Worker (`apps/sign-worker`, service `magna-car
 
 > **Deploy order — the app Worker will not deploy until `magna-carta-sign` exists.** Cloudflare rejects a deploy whose service binding points at a Worker that does not exist, and `apps/worker/wrangler.jsonc` now declares `SIGN_SERVICE → magna-carta-sign`. **Deploy `apps/sign-worker` first** (it needs no secrets to deploy — see below), then the app Worker. If the app Worker must ship before the real sign worker is ready, stand up a 503 placeholder named `magna-carta-sign`, exactly as §14 describes for `magna-carta-bundle` and `magna-carta-convert`.
 
-**Activation is deferred and safe by construction.** The sign worker deploys *without* its secrets: `resolvePlatformIdentity` returns `null` when either is absent, the worker answers `503 seal-not-configured`, and `POST /api/v1/documents/seal` surfaces that as a `503`. No redeploy is needed once the secrets are set — the next request picks them up. So a deploy is never blocked on provisioning, and an unprovisioned seal never fabricates a signature.
+**Activation is deferred and safe by construction.** The sign worker deploys _without_ its secrets: `resolvePlatformIdentity` returns `null` when either is absent, the worker answers `503 seal-not-configured`, and `POST /api/v1/documents/seal` surfaces that as a `503`. No redeploy is needed once the secrets are set — the next request picks them up. So a deploy is never blocked on provisioning, and an unprovisioned seal never fabricates a signature.
 
 ### Provisioning the platform identity
 
