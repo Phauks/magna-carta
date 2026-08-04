@@ -679,7 +679,7 @@
         }
       },
       "branch": "main",
-      "activeWork": "docs/active-work/claude/repo-status-roadmap-xhdvyb.md",
+      "activeWork": null,
       "next": "Activate magna-carta-convert (Workers Build project + conversions/ R2 lifecycle rule), then deploy the LibreOffice engine in order (convert worker with the new Container class before the app worker routes the engine id — docs/deploy-queue.md); then the email→PDF render engine on that container's job-package seam, a licensable WordPerfect acceptance fixture, and the matter-attached save-as-version path",
       "links": {
         "spec": "docs/specs/2026-06-21-slice-2-4a-conversion-core-design.md",
@@ -721,8 +721,8 @@
           "by": "Opus 4.8"
         }
       },
-      "branch": "claude/2-5-analysis-prep-0n2kxw",
-      "activeWork": "docs/active-work/claude/2-5-analysis-prep-0n2kxw.md",
+      "branch": "main",
+      "activeWork": null,
       "next": "Deploy magna-carta-sign before the app worker (the SIGN_SERVICE binding blocks the app-worker deploy until the sign worker exists), then provision the platform seal identity with pnpm run platform-seal-certificate; after that, timestamp/LTV levels behind a TSA, independent-validator (pyHanko/DSS) conformance, cross-reference-stream originals in the seal primitive (classic tables only today), and the consumer/UI surfaces.",
       "links": {
         "spec": "docs/specs/2026-07-17-slice-2-5-pdf-services-esignature-analysis.md",
@@ -1840,7 +1840,7 @@
         }
       },
       "branch": "main",
-      "activeWork": "docs/active-work/searchable-pdf-writer.md",
+      "activeWork": null,
       "next": "Deferred seams — rotated-page (`/Rotate` 90/180/270) placement: the layer is written in the unrotated frame, so selection geometry is off on rotated scans (text stays searchable) — needs a counter-rotating text matrix like `bates.rs`; ingest-pipeline wiring (queues, per-job Durable Object, search index; blocked on the unbuilt discovery/search subsystem); skewed-quad placement beyond axis-aligned bounds; embedding a glyphless font if a target viewer needs a rendered selection glyph; and the UI. (The conversion orchestrator's scanned→searchable edge is now wired — `pdf → searchable-pdf` in the conversion registry, dispatched to the OCR service. An adversarial review hardened the writer: non-BMP characters, font-name collisions, and degenerate word boxes are fixed.)",
       "links": {
         "spec": "docs/specs/2026-07-14-searchable-pdf-writer-design.md",
@@ -1962,8 +1962,8 @@
           "state": "done"
         }
       },
-      "branch": "claude/search-write-pipeline",
-      "activeWork": "docs/active-work/claude/search-write-pipeline.md",
+      "branch": "main",
+      "activeWork": null,
       "next": "Deploy-gated — `apps/search-worker` (the always-warm Container that range-reads splits from R2 and serves `/index`, `/query`, `/remove`) is the only thing between the parked `deferred` jobs and real hits; the adapter already calls exactly those endpoints, so deploying it needs no code change here. Then the semantic half (Vectorize namespace-per-firm through `InferencePort.embed`; the RRF that fuses it is done), the matter-scoped `/api/v1` route behind a `discovery:search` permission plus its UI (built after the engine, so the route never ships returning engine-not-implemented), and compaction (merge the small per-document splits, swap the catalog). One known extract gap: a born-digital PDF's existing text layer is not read back out — the recognition engine skips such pages — so it records `unextractable` rather than indexing empty; closing it needs `crates/pdf-core`'s `page_text_glyphs` exposed through `packages/pdf`, behind the same `TextExtractionPort`.",
       "links": {
         "spec": "docs/specs/2026-07-17-discovery-search-index-stateful-service-design.md",
@@ -2131,8 +2131,8 @@
           "by": "Opus 4.8"
         }
       },
-      "branch": "slice-4-1-conflicts",
-      "activeWork": "docs/active-work/slice-4-1-conflicts.md",
+      "branch": "main",
+      "activeWork": null,
       "next": "Reviewer adjudication UX (deferred); Beider-Morse; the Content source class",
       "links": {
         "spec": "docs/specs/2026-07-09-slice-4-1-conflicts-design.md",
@@ -2141,6 +2141,47 @@
       },
       "blockedBy": [],
       "notes": "No-scorer evidence-tier engine; typed source registry + firm floor; three append-only log tables. Firm personnel resolved as a source, not a Directory node type."
+    },
+    {
+      "slice": "4·2 — Custodian (safe-custody register)",
+      "group": "phase-4",
+      "order": 2,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "plan": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "built": {
+          "state": "in-progress",
+          "by": "Opus 4.8"
+        },
+        "ui": {
+          "state": "todo"
+        },
+        "load-profile": {
+          "state": "todo"
+        },
+        "tested": {
+          "state": "todo"
+        }
+      },
+      "branch": "claude/custodian-build-slice-1",
+      "activeWork": "docs/active-work/claude/custodian-build-slice-1.md",
+      "next": "Load-profile volume profile + the six measured operations; then 4·2·2 (review dates, destruction workflow, labels, reports)",
+      "links": {
+        "spec": "docs/specs/2026-08-04-custodian-design.md",
+        "plan": "docs/specs/2026-08-04-custodian-implementation-plan.md",
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "Slice 4·2·1 (the register) built: eleven per-firm tables, trigger-enforced append-only movement ledger, mandatory Directory ownership, allocation-ledger custody numbers, holds, scan binding via a system holding matter, and nineteen routes. Later custodian slices not started."
     }
   ]
 }

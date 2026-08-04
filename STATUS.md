@@ -104,6 +104,7 @@ Slice set firmed up in the [phase-3 slice map](docs/specs/2026-06-21-phase-3-fin
 | Slice | Research | Spec | Plan | Built | UI | Load profile | Tested | Notes |
 | --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | --- |
 | 4·1 — Conflicts matching engine | [x] | [x] Opus 4.8 | [x] Opus 4.8 | [x] Opus 4.8 | [ ] | [x] Opus 4.8 | [x] Opus 4.8 | No-scorer evidence-tier engine; typed source registry + firm floor; three append-only log tables. Firm personnel resolved as a source, not a Directory node type. |
+| 4·2 — Custodian (safe-custody register) | [-] | [x] Opus 4.8 | [x] Opus 4.8 | [~] Opus 4.8 | [ ] | [ ] | [ ] | Slice 4·2·1 (the register) built: eleven per-firm tables, trigger-enforced append-only movement ledger, mandatory Directory ownership, allocation-ledger custody numbers, holds, scan binding via a system holding matter, and nineteen routes. Later custodian slices not started. |
 
 ## Phases 5–7 — sliced provisionally (no rows yet)
 

@@ -766,6 +766,84 @@ Specs: `docs/specs/2026-08-04-custodian-design.md` and
 `docs/specs/2026-08-04-custodian-implementation-plan.md`. Decisions:
 `docs/decisions/pending/custodian-register-model.md` and
 `docs/decisions/pending/custodian-retention-jurisdiction-posture.md`.
+- **Custodian — the safe-custody register (slice 4·2·1).** The second half of the Phase 4 deliverable
+now has code behind it: a firm can build its physical container tree, log a packet owned by a
+Directory entity with no matter, itemize it, link a scan, check it out to a named borrower with a
+due-back date, see it turn up on the overdue list, check it back in, and read a history that tells the
+whole story in order. The new `@magna-carta/custodian` package sits on the established
+structure-versus-access seam — pure TypeScript, no binding, no clock, no `env` — and the whole surface
+is nineteen routes through the one chokepoint.
+
+**Eleven per-firm tables, and two structural invariants the schema and the write path defend
+together.** `custody_location` is one recursive tree whose root either binds a firm office or stands
+for an external site (a bank vault, an offsite records vendor) — a bank is not one of the firm's
+offices, so it never becomes a `location` row and never pollutes the letterhead picker or the
+per-office reporting dimension. `custody_packet` is the unit of custody and `custody_item` the unit of
+description, with `custody_owner` as the temporal link to the Directory. **A packet cannot exist
+without at least one owner link** — enforced on the one creation path, with no "log it now, attribute
+it later" escape hatch, because the catastrophic outcome in safe custody is not a misplaced envelope
+but an unattributable one, and ending the last current owner is refused for the same reason.
+
+**The movement ledger is genuinely append-only.** `custody_movement` carries `BEFORE UPDATE`, `BEFORE
+DELETE`, and a `BEFORE INSERT … WHEN EXISTS` replace-guard that each `RAISE(ABORT)`, proved by
+migration tests that attempt all three against real SQLite; a source-scan fitness test refuses any
+`UPDATE` or `DELETE` naming the table so the failure lands at review rather than at runtime. A
+correction is a new compensating row that names the row it corrects — there is no edit path anywhere.
+`occurred_at` and `recorded_at` are separate columns, so a Friday collection typed in on Monday is
+recorded honestly instead of being indistinguishable from falsification.
+
+**`POST /movements` is the only state-change path in the subsystem.** There is no check-out route, no
+check-in route, no move route and no mark-lost route: every one is a movement kind, so a single place
+enforces the append-only invariant, writes the derived packet or item status in the same atomic batch,
+and composes the audit row. Because D1 has no interactive transaction, each movement composes a
+precondition fence first — an insert that collides with the row's own primary key exactly when the
+status is not what the caller observed — so a concurrent movement aborts the whole batch instead of
+letting a guarded `UPDATE` match zero rows in silence. Borrower is three-way (firm member, Directory
+entity, or an external name), and `due_back_on` ships now rather than later because an overdue
+check-out is _the_ signal a custody register produces and a retrofitted column leaves every earlier
+check-out permanently silent.
+
+**Custody numbers reuse the matters allocation-ledger idiom** — ensure-row, guarded increment,
+allocation claim on the drawn value, bounded retry — with a fixed number shape rather than a second
+segment-template engine. Concurrent draws yield distinct sequential numbers; a manually assigned
+number carried in from a paper deeds register touches no counter and takes no allocation row, so a
+firm migrating thirty years of physical labels does not have to re-label a safe.
+
+**Holds block release and destruction, and deliberately do not block a move** — a held original still
+has to be movable to a fireproof safe. Placing and releasing each append a movement, so the ledger
+stays the complete story, and `readActiveCustodyHoldsForFile` is the blocker read a hold-aware
+destruction sweep calls: a scan bound to a held packet is not destroyable.
+
+**Scanned copies are ordinary File Manager files.** There is no upload route in Custodian at all —
+bytes ride the existing presigned-upload and quarantine chokepoint, and `custody_scan` links the
+resulting handle, so a custody scan is previewable, convertible, searchable, and holdable like any
+other document. The awkward part (`file.matter_id` is `NOT NULL`, and a custody owner may have no
+matter) is answered by a per-firm **system holding matter**: `matter.system_key` marks it, a partial
+unique index makes two concurrent first uses collapse onto one row, and `listMatters` excludes it —
+rather than relaxing an invariant seven subsystems depend on.
+
+**No retention policy ships, and that is the decision.** `custody_destruction_request` lands as a
+schema seam with its two-person constraint checked at the database, but no retention period, no
+default, no derived date, and no sweep — a purity test fails the build on anything that looks like
+one. Retention for client property is the most jurisdiction-bound fact in the subsystem, and the
+guidance governing originals of intrinsic value places them outside the routine clock entirely; a
+platform default there is a platform opinion about when to destroy a client's irreplaceable property.
+
+Two permissions, `custody:read` and `custody:manage`, both binding `resource: "firm"` — a deliberate
+call against the `files:*` precedent, because a packet may have no matter by construction and binding
+to `"matter"` would name a resource half the rows do not have. `custody:read` is seeded to every
+default role (a billing clerk answering "do we hold the deed" needs it); `custody:manage` reaches only
+the roles trusted with the safe. Telemetry declares one event and four counters in which no custody
+number, packet handle, location name, borrower, or item description has a slot to exist in: the
+register is a list of the most sensitive things a firm holds, and its metadata alone is a disclosure.
+
+Deferred to later custodian slices: review dates and their reminders, the destruction workflow itself,
+labels and barcodes, register reports, gated release and receipts, portal visibility, stocktake, and
+the will-on-death jurisdiction engine.
+
+Design: `docs/specs/2026-08-04-custodian-design.md`. User guide:
+`docs/user/features/safe-custody-register.md`.
+- **The merge-field input infrastructure — the user-facing half of document automation, built against a contract rather than a backend.** A new pure package `@magna-carta/merge-field-catalog-contract` declares what a merge-field catalog entry and a template version's field manifest are — key, human label, group, value type, example rendering, availability and where the value comes from, sensitivity, legal formats — and ships a mock provider over a realistic fixture catalog, so every consuming surface takes a `MergeFieldCatalogProvider` and holds only the interface. Three design-system components join the catalog: **MergeFieldPicker**, a grouped searchable picker composed from the existing Popover and Command (rows lead with the human label, search matches label, key, group, and description, and every typed term must match so a second word narrows); **MergeFieldChip**, the token for an inserted field, whose status says in colour, glyph, and words whether the reader has to do anything about it; and **MergeFieldReviewList**, where placeholders detected in an uploaded document are presented one at a time for confirmation — every row a proposal, with no state that could render as a conversion that already happened. In the web app, an assembly input area lays a template's fields against the catalog and renders a form grouped by source: a control typed to each value a person must supply, read-only context for the fields that fill themselves, per-field guidance saying where each value comes from, and a validation summary that errors on a missing required value and only warns where the matter's own data may still cover it. Reachable as a staged display page at `/forms/assemble` (sample data throughout — nothing reads or writes a matter); the visual design is deliberately plain and left for owner review.
 
 ### Fixed
 
@@ -1265,6 +1343,8 @@ one had not taken — a scan engine that read nothing pinned the whole body in m
 its own. That lane now reads the body once and feeds both consumers from it, bounded by the cap that
 already governs the lane and by the size R2 reported for the object. The over-cap lane is untouched
 and still streams straight into the digest, so a multi-GB object never buffers.
+- Decision-register entries can no longer render blank. Four decision fragments were authored with a Markdown title where the frontmatter belongs; the assembler's reader looked for a `---` fence, did not find one, and returned a record whose status, date, and area were all empty with the whole fragment — title included — as the body, so the register rendered four bullets with two blank fields and the title standing in for the decision text. Nothing threw, so the degraded output merged. Reading a decision file is now a validating operation: a missing frontmatter fence, an unknown frontmatter key, an empty slug/status/area, a status outside the lifecycle, a date that is not `YYYY-MM-DD`, or register text that is empty or starts with `#` all stop the assembly with a message naming the file, and the whole pending set is validated before any fragment is numbered so a bad one is a clean no-op rather than a half-consumed assembly. The same validation runs as `pnpm run lint:decisions` in the gate's governance job, so an author sees the problem on their own pull request instead of after the merge that consumes the fragment. The four affected entries were repaired in place, keeping their assigned numbers, and a corpus test now asserts every decision file in the repository renders a complete register bullet.
+- **Four tooling and hygiene repairs.** **Bootstrap refuses instead of silently succeeding against the wrong checkout** — `pnpm exec vp run bootstrap` in a worktree without `node_modules` resolves `vp` from a parent checkout (worktrees live under `.claude/worktrees/`, so the binary lookup walks up into it), runs the parent's already-current bootstrap, and exits 0 while the worktree stays unbootstrapped. `tooling/bootstrap/invocation-environment.mjs` now compares the checkout the script belongs to against the one the caller's shell is standing in — nearest enclosing `pnpm-workspace.yaml`, not a path prefix, so a nested worktree is not read as part of its parent — and refuses with `run pnpm install first`; it also refuses when its own checkout has no dependencies installed. **The changelog assembler no longer doubles a leading bullet** — a fragment body written as `- **Entry.**` stacked with the `- ` the assembler prepends; `parseFragment` now strips one leading list marker (`-`, `*`, `+`), leaving nested lists and prose openers alone. **`search-core`'s selectivity test is deterministic** — `build_split` indexed on Tantivy's default thread-per-core writer, so a batch landed as two-to-eight segments depending on scheduling and both a split's size and a query's read cost varied run to run (the rare-term read ranged from 28% to 51% of the split). It now indexes on one thread, so a batch is exactly one segment, every time; extra segments were also per-query I/O the split model exists to avoid, since a searcher consults every segment's term dictionary. **Thirty-one stale `docs/active-work/` notes swept** for streams whose work is fully on `main`, with the five `status.d` fragments that pointed at them flipped to `branch: main`.
 
 ### Changed
 
