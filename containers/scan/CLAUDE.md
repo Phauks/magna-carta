@@ -65,8 +65,9 @@ firm's policy can re-tier it with no re-scan. Detection-only — it reports, nev
   honest `engineVersion: null` + `clam: unavailable` is the engine-less launch adapter's alone
   (`packages/file-manager/src/scan-port.ts`).
 - **No reachable panic/abort on the per-file path.** Ordinary engine panics are caught; the one fault
-  `catch_unwind` cannot catch is a **stack overflow → SIGABRT**, which lopdf 0.41's unbounded-recursion
-  parser can hit on a crafted deeply-nested PDF. `heuristics::pdf` guards it on two fronts before
+  `catch_unwind` cannot catch is a **stack overflow → SIGABRT**, which a recursive PDF parser can hit on a
+  crafted deeply-nested PDF (lopdf's unbounded-recursion DoS, fixed in 0.42; the guards below stay as
+  defense-in-depth — clamd + yara scan the raw bytes regardless). `heuristics::pdf` guards it on two fronts before
   `Document::load_mem`: a cheap iterative max-nesting-depth pre-check on the raw bytes, AND — because lopdf
   also decompresses and recursively parses `/Type /ObjStm` object streams, where nesting is invisible to a
   raw-byte scan — keeping any object-stream-bearing file away from `load_mem` entirely (it routes to an
@@ -110,7 +111,7 @@ firm's policy can re-tier it with no re-scan. Detection-only — it reports, nev
 - **Cross-platform compile.** Talk to clamd over `Tcp` (loopback), not the Unix-socket client (which is
   `#[cfg(unix)]` and won't build on a Windows dev host).
 - **Crate pins are verified against docs.rs before use** (golden rule 11): axum 0.8, yara-x 1.18,
-  lopdf 0.41, cfb 0.14, zip 8.6 (lean `deflate-flate2` features — no bzip2/zstd C deps). Cargo.lock is
+  lopdf 0.42, cfb 0.14, zip 8.6 (lean `deflate-flate2` features — no bzip2/zstd C deps). Cargo.lock is
   committed (binary crate).
 
 ## Commands

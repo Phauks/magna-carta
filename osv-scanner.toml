@@ -17,26 +17,23 @@ reason = "Pre-existing transitive dev/build-tooling advisory (esbuild), no produ
 id = "GHSA-r5fr-rjxr-66jc"
 reason = "Pre-existing transitive dev/build-tooling advisory (lodash), no production-runtime exploit path; drops when Renovate upgrades the carrier."
 
-# --- Tracked for remediation (surfaced when osv-scanner first audited the Rust supply chain 2026-07-16).
-# Accepted temporarily so the gate protects against NEW advisories immediately; each is to be fixed by
-# upgrading its carrier. Re-surfaces for review after ignoreUntil. (ADR: osv-scanner audit gate.)
-
-[[IgnoredVulns]]
-id = "RUSTSEC-2026-0187"
-ignoreUntil = 2026-10-14
-reason = "lopdf stack-overflow DoS parsing untrusted PDFs (CVSS 7.5). On the untrusted-input path; fix by upgrading lopdf to >=0.42.0. Tracked for remediation."
+# --- Tracked advisories (surfaced when osv-scanner first audited the Rust supply chain 2026-07-16).
+# Each is accepted with cause and a time-boxed ignoreUntil forcing function that re-surfaces it for review.
+# lopdf (RUSTSEC-2026-0187) was remediated by upgrading to 0.42.0 and is no longer listed. The three below
+# cannot be cleared by a simple carrier bump today — the reason on each records why, and each re-surfaces
+# at ignoreUntil to be re-checked against a newer upstream.
 
 [[IgnoredVulns]]
 id = "RUSTSEC-2026-0194"
 ignoreUntil = 2026-10-14
-reason = "quick-xml advisory (CVSS 7.5) in crates/ and containers/recovery. Tracked for remediation by upgrading quick-xml."
+reason = "quick-xml (CVSS 7.5) in crates/ and containers/recovery. Reachable only transitively through office-crypto 0.2.0 (its latest release), which pins quick-xml 0.38; there is no office-crypto release on quick-xml >=0.41 yet, so this cannot be cleared without patching a third-party crate's internals. Re-check when office-crypto ships an update."
 
 [[IgnoredVulns]]
 id = "RUSTSEC-2026-0195"
 ignoreUntil = 2026-10-14
-reason = "quick-xml advisory (CVSS 7.5) in crates/ and containers/recovery. Tracked for remediation by upgrading quick-xml."
+reason = "quick-xml (CVSS 7.5) in crates/ and containers/recovery. Same carrier as RUSTSEC-2026-0194 — transitive via office-crypto 0.2.0 pinning quick-xml 0.38, no fixed office-crypto release yet. Re-check when office-crypto ships an update."
 
 [[IgnoredVulns]]
 id = "GHSA-w5hq-g745-h8pq"
 ignoreUntil = 2026-10-14
-reason = "uuid advisory, CVSS 7.5 (GitHub labels it Moderate). Flagged because this gate keys npm severity off CVSS. Tracked for remediation by upgrading uuid."
+reason = "uuid 8.3.2 (CVSS 7.5; GitHub labels it Moderate — flagged because this gate keys npm severity off CVSS). Transitive dev-tooling dependency of postman-collection 4.5.0 (API-contract test tooling), not on any production-runtime path; the advisory is a buffer-bounds issue in v3/v5/v6 with caller-supplied output buffers, which this tool does not exercise with untrusted input. A forced 8->11 major bump risks the tool. Re-check when postman-collection moves off uuid 8."

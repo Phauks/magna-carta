@@ -32,6 +32,7 @@ import type { OutboxMessage } from "@magna-carta/data-access/outbox-statements";
 import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type { Context } from "hono";
 import type { Bindings } from "../app.ts";
+import { runInBackground } from "../background.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,
@@ -44,8 +45,8 @@ import { idempotencyKeyHeader, identifierField, identifierPathParam } from "../c
 import { Problem, problemJson, type ProblemResponse } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { maybeEnqueueRescanOnAccess } from "../files/access-rescan.ts";
+import { resolveFirmBucket } from "../files/firm-bucket.ts";
 import { presignerForEnv } from "../files/presigner-wiring.ts";
-import { requireBucket } from "../files/require-bucket.ts";
 import {
   problemResponseForIdempotencyConflict,
   storedResponseBody,
@@ -458,18 +459,6 @@ function fileErrorResponse(c: Context, error: FileManagerValidationError): Probl
   throw error;
 }
 
-// Fire-and-forget background work that must NEVER block or fail the response. Uses
-// executionCtx.waitUntil when an execution context is present (production + most test paths); falls
-// back to a detached, error-swallowed promise where there is none (some test harnesses construct a
-// request without one — c.executionCtx is a throwing getter there), so the handler still returns.
-function runInBackground(c: Context, work: Promise<unknown>): void {
-  try {
-    c.executionCtx.waitUntil(work);
-  } catch {
-    void Promise.resolve(work).catch(() => {});
-  }
-}
-
 // Projects the file-manager summary onto the FileSummary wire shape — shared by the list and the
 // single-file detail read so the two never drift.
 function toFileSummaryResponse(file: FileListItem): z.infer<typeof FileSummary> {
@@ -728,7 +717,8 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
         // Destroy the live working copy only on the winning execution (a replay's batch rolled back and
         // the winner already handled it); the committed versions and their bytes are retained.
         if (result.kind === "executed" && currentR2KeyToDestroy !== null) {
-          await c.env.R2.delete(currentR2KeyToDestroy);
+          // Destroy it in the firm's own bucket — the one the working copy was written to.
+          await resolveFirmBucket(c.env, firm.bucketName).bucket.delete(currentR2KeyToDestroy);
         }
         if (result.kind === "replayed") c.header("Idempotency-Replayed", "true");
         const body = JSON.parse(storedResponseBody(result)) as z.infer<typeof FileActionAck>;
@@ -749,7 +739,7 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const userId = requireChokepointUserId(c);
-      const bucket = requireBucket(firm.bucketName);
+      const bucket = resolveFirmBucket(c.env, firm.bucketName).bucketName;
       const { id } = c.req.valid("param");
       const version = await getCurrentCleanVersion(firm.firmDatabase, id);
       if (version === undefined) {
@@ -874,7 +864,7 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
     },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
-      const bucket = requireBucket(firm.bucketName);
+      const bucket = resolveFirmBucket(c.env, firm.bucketName).bucketName;
       const { id } = c.req.valid("param");
       const version = await getCurrentCleanVersionForPreview(firm.firmDatabase, id);
       if (version === undefined) {
