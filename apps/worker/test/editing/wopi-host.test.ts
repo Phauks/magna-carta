@@ -181,14 +181,16 @@ describe("WOPI host surface", () => {
     expect(new Uint8Array(await outsider.arrayBuffer())).toEqual(VERSION_BYTES);
 
     // CheckFileInfo agrees with the bytes each of them is served.
-    const info = async (accessToken: string) =>
-      (await (await wopi(`${fileId}?access_token=${encodeURIComponent(accessToken)}`)).json()) as {
-        Size: number;
-      };
-    expect((await info(await token(fileId, versionId, "edit", sessionId))).Size).toBe(
+    const sizeSeenBy = async (accessToken: string): Promise<number> => {
+      const body = (await (
+        await wopi(`${fileId}?access_token=${encodeURIComponent(accessToken)}`)
+      ).json()) as Record<string, unknown>;
+      return body.Size as number;
+    };
+    expect(await sizeSeenBy(await token(fileId, versionId, "edit", sessionId))).toBe(
       edited.byteLength,
     );
-    expect((await info(await token(fileId, versionId, "view", "session-elsewhere"))).Size).toBe(
+    expect(await sizeSeenBy(await token(fileId, versionId, "view", "session-elsewhere"))).toBe(
       VERSION_BYTES.byteLength,
     );
   });

@@ -240,14 +240,18 @@ describe("WOPI GetFile", () => {
       liveSessionId: LIVE_SESSION,
     };
 
-    for (const capability of ["view", "edit"] as const) {
-      const response = await getFile(
-        claimsFor(fileId, versionId, capability, "wopiSession_other"),
-        deps,
-      );
-      expect(response.status).toBe(200);
-      expect(await response.text()).toBe("committed-bytes");
-    }
+    const served = await Promise.all(
+      (["view", "edit"] as const).map(async (capability) => {
+        const response = await getFile(
+          claimsFor(fileId, versionId, capability, "wopiSession_other"),
+          deps,
+        );
+        expect(response.status).toBe(200);
+        return response.text();
+      }),
+    );
+
+    expect(served).toEqual(["committed-bytes", "committed-bytes"]);
   });
 
   it("streams the committed version when no session is live, even though a `current` object lingers", async () => {
@@ -256,16 +260,20 @@ describe("WOPI GetFile", () => {
     // `current`), so a fresh session must not pick those bytes up as its editing base.
     await env.R2.put(`files/${fileId}/current`, "abandoned-working-copy");
 
-    for (const capability of ["view", "edit"] as const) {
-      const response = await getFile(claimsFor(fileId, versionId, capability), {
-        database: firmDb,
-        bucket: env.R2,
-        currentMeta: null,
-        liveSessionId: null,
-      });
-      expect(response.status).toBe(200);
-      expect(await response.text()).toBe("committed-bytes");
-    }
+    const served = await Promise.all(
+      (["view", "edit"] as const).map(async (capability) => {
+        const response = await getFile(claimsFor(fileId, versionId, capability), {
+          database: firmDb,
+          bucket: env.R2,
+          currentMeta: null,
+          liveSessionId: null,
+        });
+        expect(response.status).toBe(200);
+        return response.text();
+      }),
+    );
+
+    expect(served).toEqual(["committed-bytes", "committed-bytes"]);
   });
 
   it("streams the committed version while a live session has not yet written a working copy", async () => {
