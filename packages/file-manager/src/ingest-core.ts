@@ -14,10 +14,14 @@ interface DigestStreamConstructor {
 }
 const DigestStream = (crypto as unknown as { DigestStream: DigestStreamConstructor }).DigestStream;
 
-// The pure single-read ingest pipeline. The uploaded bytes are read ONCE: tee'd into a head-sniff
-// branch, a hash+size branch (streaming SHA-256 via crypto.DigestStream — multi-GB objects must
-// never buffer), and a scan-port branch. The outcome is commit (with the measured facts) or
-// quarantine (a named, individually-tested reason). The Worker consumer is a thin shell around this.
+// The pure single-read ingest pipeline. The uploaded bytes are read ONCE, off a short tee whose head
+// branch takes the magic-byte sniff (≤ 4 KiB, then cancelled). What happens to the rest depends on
+// the inspectable-size cap: past it, nothing but the digest consumes the body, so it streams straight
+// into crypto.DigestStream and a multi-GB object never buffers; within it, the body feeds both the
+// digest and the scan port, so it is read into memory once and both are fed from that — the cap
+// bounds what that costs, and a second tee would have buffered the same bytes anyway without
+// bounding anything. The outcome is commit (with the measured facts) or quarantine (a named,
+// individually-tested reason). The Worker consumer is a thin shell around this.
 
 // file-type needs only the head bytes (≤ 4 KiB) to sniff a magic-byte signature.
 const SNIFF_BYTES = 4096;
@@ -116,6 +120,50 @@ async function hashAndCount(
   return { hash: toHex(digest), size };
 }
 
+// Reads a body into memory, stopping the moment it grows past `expectedSize` bytes. Returns null when
+// the body is not exactly that long — the same judgment the streaming lane reaches from its byte
+// count, made before any of those bytes are handed to a consumer. The bound is what keeps the read
+// honest: the caller only reaches here for an object the inspectable-size cap admits, and a lying
+// object size cannot make this allocate past it. The copy it returns is backed by a plain
+// ArrayBuffer, which is what crypto.subtle.digest takes — a chunk off the wire is typed over the
+// wider ArrayBufferLike and would not satisfy it.
+async function readWholeBody(
+  stream: ReadableStream<Uint8Array>,
+  expectedSize: number,
+): Promise<Uint8Array<ArrayBuffer> | null> {
+  const reader = stream.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      total += value.byteLength;
+      if (total > expectedSize) return null;
+    }
+  } finally {
+    await reader.cancel().catch(() => {});
+  }
+  if (total !== expectedSize) return null;
+  const body = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return body;
+}
+
+function streamFromBytes(bytes: Uint8Array): ReadableStream<Uint8Array> {
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(bytes);
+      controller.close();
+    },
+  });
+}
+
 // The measured identity of a stored object: the streaming SHA-256 of its bytes and how many there
 // were. This is the same measurement `runIngest` records on a commit, exposed on its own for the
 // custody re-verification the ingest consumer runs when an object-create event lands on an
@@ -158,22 +206,29 @@ export async function runIngest(input: IngestInput): Promise<IngestOutcome> {
     };
   }
 
-  const [hashStream, scanStream] = bodyStream.tee();
-  const [raw, hashed] = await Promise.all([
-    input.scanPort.scan(scanStream, {
-      sizeBytes: input.objectSize,
-      sniffedContentType,
-      // The storage key is stable per version, so a redelivered ingest scans on the same engine
-      // instance as the first attempt.
-      contentKey: input.version.r2Key,
-    }),
-    hashAndCount(hashStream),
-  ]);
+  // Under the cap the bytes feed two consumers — the hash and the scan port — and a tee does not
+  // couple them: whichever side reads faster runs ahead, and the runtime holds every chunk the slower
+  // side has not taken yet, so the whole body ends up buffered regardless. A scan port that never
+  // reads its stream buffers all of it. Since that buffer is unavoidable here, take it deliberately:
+  // read the body once and feed both consumers from it. The cap is what makes that sound — this branch
+  // runs only for an object the inspectable-size cap admits, and readWholeBody stops the moment the
+  // body exceeds the size R2 reported, so neither a huge object nor a lying object size can grow the
+  // buffer past the cap. The over-cap lane above is the one that must never buffer, and it does not:
+  // it streams straight into the digest.
+  const body = await readWholeBody(bodyStream, input.objectSize);
+  // The byte count must match the object's metadata exactly — a mismatch means truncation or a lie —
+  // and readWholeBody already refused anything else.
+  if (body === null) return { kind: "quarantine", reason: "size-mismatch", scanDetail: null };
+  const contentSha256 = toHex(await crypto.subtle.digest("SHA-256", body));
+  const raw = await input.scanPort.scan(streamFromBytes(body), {
+    sizeBytes: input.objectSize,
+    sniffedContentType,
+    // The storage key is stable per version, so a redelivered ingest scans on the same engine
+    // instance as the first attempt.
+    contentKey: input.version.r2Key,
+  });
 
-  // The streamed byte count must match the object's metadata, and (when declared) the declared size —
-  // tolerance is exact. A mismatch means truncation or a lie.
-  if (hashed.size !== input.objectSize)
-    return { kind: "quarantine", reason: "size-mismatch", scanDetail: null };
+  // The declared size, when the client gave one, must match too.
   if (input.version.declaredSize !== null && input.objectSize !== input.version.declaredSize) {
     return { kind: "quarantine", reason: "size-mismatch", scanDetail: null };
   }
@@ -218,7 +273,7 @@ export async function runIngest(input: IngestInput): Promise<IngestOutcome> {
       kind: "commit",
       sizeBytes: input.objectSize,
       sniffedContentType,
-      contentSha256: hashed.hash,
+      contentSha256,
       scanVerdict: "flagged",
       scanEngineVersion: raw.engineVersion,
       scanDetail: fileVerdict.reason,
@@ -229,7 +284,7 @@ export async function runIngest(input: IngestInput): Promise<IngestOutcome> {
     kind: "commit",
     sizeBytes: input.objectSize,
     sniffedContentType,
-    contentSha256: hashed.hash,
+    contentSha256,
     scanVerdict: fileVerdict.verdict === "clean" ? "clean" : "unscanned",
     // Both the committed `scan_engine_version` and the dedup-cache key derive from the SAME honest
     // source — the raw result's `engineVersion` — so a clean commit always repopulates the cache under

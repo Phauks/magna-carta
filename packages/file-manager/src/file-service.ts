@@ -89,10 +89,26 @@ async function loadFile(database: SqlDatabase, id: FileId): Promise<StoredFile |
   };
 }
 
-async function requireFile(database: SqlDatabase, id: FileId): Promise<StoredFile> {
+// Resolves a file whatever its deleted state. Only the recovery surface wants this — an undelete has
+// to find the row precisely because it is soft-deleted. Every other caller wants requireLiveFile.
+async function requireFileIncludingDeleted(database: SqlDatabase, id: FileId): Promise<StoredFile> {
   const file = await loadFile(database, id);
   if (file === undefined) {
     throw new FileManagerValidationError("unknown-file", `no such file: ${id}`);
+  }
+  return file;
+}
+
+// Resolves a file that is still live — the default for every write path. A soft-deleted file refuses
+// its mutations: `deleted_at` is the visibility gate every consumer read filters on (queries.ts), so a
+// rename, a move, a document-type assignment, or a new version applied to a deleted row is a change
+// nobody can observe until an undelete resurrects a file that quietly moved while it was gone. The
+// refusal carries its own code but the routes map it to the same not-found response an unknown file
+// gets, so a mutation never becomes the one path that confirms a deleted file still exists.
+async function requireLiveFile(database: SqlDatabase, id: FileId): Promise<StoredFile> {
+  const file = await requireFileIncludingDeleted(database, id);
+  if (file.deletedAt !== null) {
+    throw new FileManagerValidationError("file-deleted", `file is deleted: ${id}`);
   }
   return file;
 }
@@ -170,7 +186,7 @@ export async function initiateUpload(
   let fileId: FileId;
   let versionNumber: number;
   if (input.fileId !== undefined) {
-    const existing = await requireFile(database, input.fileId);
+    const existing = await requireLiveFile(database, input.fileId);
     // A new version rides the existing file's matter; a payload claiming a different matter is a
     // mismatch (the folder is validated against that same matter above).
     if (existing.matterId !== input.matterId) {
@@ -263,7 +279,7 @@ export async function initiateCheckin(
   input: InitiateCheckinInput,
   options: FileServiceOptions,
 ): Promise<InitiatedCheckin> {
-  await requireFile(database, input.fileId);
+  await requireLiveFile(database, input.fileId);
   const { results } = await selectMaxVersionNumberStatement(database, input.fileId).all<{
     n: number;
   }>();
@@ -906,7 +922,7 @@ export async function renameFile(
   if (name.trim().length === 0) {
     throw new FileManagerValidationError("invalid-name", "a name cannot be blank");
   }
-  await requireFile(database, fileId);
+  await requireLiveFile(database, fileId);
   return {
     effect: {
       statements: [
@@ -924,7 +940,7 @@ export async function moveFile(
   folderId: FolderId | null,
   options: FileServiceOptions,
 ): Promise<{ effect: EffectWrite }> {
-  const file = await requireFile(database, fileId);
+  const file = await requireLiveFile(database, fileId);
   if (folderId !== null) {
     // The target folder must live in the file's matter — a file never crosses matters on a move.
     const folderMatterId = await loadFolderMatter(database, folderId);
@@ -955,7 +971,7 @@ export async function assignDocumentType(
   documentTypeId: DocumentTypeId | null,
   options: FileServiceOptions,
 ): Promise<{ effect: EffectWrite }> {
-  await requireFile(database, fileId);
+  await requireLiveFile(database, fileId);
   return {
     effect: {
       statements: [
@@ -976,7 +992,9 @@ export async function softDeleteFile(
   fileId: FileId,
   options: FileServiceOptions,
 ): Promise<{ effect: EffectWrite; currentR2Key: string | null }> {
-  const file = await requireFile(database, fileId);
+  // Already deleted refuses rather than re-stamping deleted_at: a second delete would move the
+  // recovery window's start and write another audit row for a file that is already gone.
+  const file = await requireLiveFile(database, fileId);
   return {
     currentR2Key: file.currentR2Key,
     effect: {
@@ -998,7 +1016,9 @@ export async function restoreFile(
   fileId: FileId,
   options: FileServiceOptions,
 ): Promise<{ effect: EffectWrite }> {
-  await requireFile(database, fileId);
+  // The one write that must resolve a soft-deleted row — undeleting a live file is a harmless no-op,
+  // undeleting a deleted one is the whole point.
+  await requireFileIncludingDeleted(database, fileId);
   return {
     effect: {
       statements: [

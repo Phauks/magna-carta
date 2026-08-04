@@ -23,9 +23,12 @@
 // AcroForm / widget structure, the exact `/ByteRange`, the reserved `/Contents`
 // placeholder, and the splice. The cryptography (building the CMS, holding the platform
 // certificate) is the caller's — host-side by design, so a private key never enters this
-// engine. Classic cross-reference tables only; a source file whose last section is a
-// cross-reference STREAM is refused rather than mis-appended (see `SignError::XrefStream`)
-// — the stream-update path is a later increment, and refusing is safe where guessing is not.
+// engine. The appended update always carries a CLASSIC cross-reference table, whatever the
+// base file uses: it chains through `/Prev` to the previous section, and a reader follows
+// that link onto a classic table or a cross-reference STREAM alike. So a modern (PDF 1.5+,
+// xref-stream) document signs without being rewritten. The one structural prerequisite is a
+// trailing `startxref` to chain from — a file without one is refused as `SignError::Parse`
+// rather than appended to at a guessed offset.
 
 use lopdf::{Dictionary, Document, Object, ObjectId, StringFormat};
 

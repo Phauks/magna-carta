@@ -19,6 +19,7 @@ import {
   getConflictPendingVersions,
   getCurrentCleanVersion,
 } from "@magna-carta/file-manager/queries";
+import { FileManagerValidationError } from "@magna-carta/file-manager/validation";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { DocumentCheckoutId, FileId } from "@magna-carta/identifiers/types";
 import type { Bindings } from "../app.ts";
@@ -428,18 +429,37 @@ export function registerDocumentCheckoutRoutes(
       }
 
       const now = () => new Date().toISOString();
-      const initiated = await initiateCheckin(
-        firm.firmDatabase,
-        {
-          fileId,
-          checkoutId: checkoutId as DocumentCheckoutId,
-          declaredSize: null,
-          declaredContentType: null,
-          uploadedBy: memberId,
-          expiresAt: new Date(Date.now() + CHECKIN_SESSION_TTL_MS).toISOString(),
-        },
-        { clock: { now }, actorUserId: memberId },
-      );
+      let initiated: Awaited<ReturnType<typeof initiateCheckin>>;
+      try {
+        initiated = await initiateCheckin(
+          firm.firmDatabase,
+          {
+            fileId,
+            checkoutId: checkoutId as DocumentCheckoutId,
+            declaredSize: null,
+            declaredContentType: null,
+            uploadedBy: memberId,
+            expiresAt: new Date(Date.now() + CHECKIN_SESSION_TTL_MS).toISOString(),
+          },
+          { clock: { now }, actorUserId: memberId },
+        );
+      } catch (caught) {
+        // The document went away while the offline copy was out — deleted, or never there at all.
+        // Both answer not-found, matching every read of the same file; the copy stays on the client
+        // and an undelete makes check-in possible again.
+        if (
+          caught instanceof FileManagerValidationError &&
+          (caught.code === "file-deleted" || caught.code === "unknown-file")
+        ) {
+          return problemJson(c, {
+            type: "not-found",
+            status: 404,
+            title: "Not found",
+            detail: "No such document in this firm.",
+          });
+        }
+        throw caught;
+      }
       await commitEffectBatch(firm.firmDatabase, initiated.effect, { now });
 
       const url = await presignerForEnv(c.env).presignPut(

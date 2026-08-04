@@ -456,6 +456,9 @@ function fileErrorResponse(
   }
   if (
     error.code === "unknown-file" ||
+    // A soft-deleted file is 404 on every read, so a write against one answers the same way — the
+    // mutation paths must not be where a caller learns a deleted file is still there.
+    error.code === "file-deleted" ||
     error.code === "unknown-folder" ||
     // A move whose target folder lives in another matter targets a resource not in this matter —
     // surfaced as not-found, never a 500.

@@ -489,6 +489,9 @@ export function registerUploadsRoutes(app: UploadsApp, chokepoint: Chokepoint): 
           }
           if (
             caught.code === "unknown-file" ||
+            // A new version of a soft-deleted file is refused the same way a missing one is: the
+            // file is invisible to every read, and an upload must not be what reveals it.
+            caught.code === "file-deleted" ||
             caught.code === "unknown-folder" ||
             // A cross-matter target (file's matter, or its folder's) is not a resource of the
             // requested matter — surfaced as not-found, never a 500.
