@@ -155,7 +155,7 @@ custom fields, no PDF.
 ## Task 7 — Substitution and the assembly port
 
 - [ ] `src/assemble.ts` — `DocumentAssemblyPort.assemble(templateBytes, mergeContext) →
-    AssemblyResult` (typed outcome, never a throw): substitute normalized runs, re-emit the
+  AssemblyResult` (typed outcome, never a throw): substitute normalized runs, re-emit the
       package, report absences.
 - [ ] Assert the output package's integrity — content types, relationships, and part set intact —
       because a text assertion cannot see a package no reader will open.
