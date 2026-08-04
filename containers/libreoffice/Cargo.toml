@@ -1,0 +1,59 @@
+[package]
+name = "magna-carta-libreoffice"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+# The supervisor library: format dispatch, the job package, the worker pipe protocol, the process
+# pool, and the axum surface. Everything here is host-testable — nothing in the library links or
+# loads LibreOffice.
+[lib]
+name = "magna_carta_libreoffice"
+path = "src/lib.rs"
+
+# The supervisor: the axum host plus the worker pool. It holds no LibreOfficeKit state of its own,
+# which is what keeps a segfaulting conversion confined to one child process.
+[[bin]]
+name = "magna-carta-libreoffice"
+path = "src/main.rs"
+
+# The worker child: initialises LibreOfficeKit exactly once and then converts one document at a
+# time, by path, for the rest of its life. This is the only binary that touches the suite.
+[[bin]]
+name = "magna-carta-libreoffice-worker"
+path = "src/bin/worker.rs"
+
+# A test double speaking the same pipe protocol, instructable to hang, crash, abort on a signal,
+# report a runaway resident set, or emit a malformed frame. The pool state machine is proved
+# against THIS, so the supervisor is covered on any machine with no LibreOffice installed. The
+# image never copies it.
+[[bin]]
+name = "magna-carta-libreoffice-fake-worker"
+path = "src/bin/fake-worker.rs"
+
+[dependencies]
+# The shared container host skeleton. Only `with_panic_net` and `serve` are taken: this container
+# defines its own `/ready`, because a static 200 would be a lie while the pool is still warming.
+# The `r2` feature stays off — no R2 egress here, so no reqwest/rustls/ring enters the image.
+engine_host = { path = "../../crates/engine-host", package = "magna-carta-engine-host" }
+# The LibreOfficeKit binding. Pinned exactly: an upgrade is a deliberate change with a golden-file
+# review, never a range resolution. No build.rs, no cc, no bindgen, no -sys crate — the suite is
+# reached through dlopen2 at run time, so nothing memory-unsafe is compiled into our binary.
+libreofficekit = "=0.5.0"
+tokio = { version = "1", features = ["full"] }
+axum = "0.8"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
+http-body-util = "0.1"
+# The acceptance suite's structural inspector (examples/inspect-conversion.rs) reads the converted
+# PDF's page count, extracted text, and embedded font names. lopdf is the same reader crates/pdf-core
+# extracts text with, at the same pinned version, so this reuses the repository's PDF reader rather
+# than introducing a second one — and taking it directly instead of through pdf-core keeps hayro and
+# the image codecs out of this workspace's test build.
+lopdf = "0.42"
+# Loopback HTTP client for the full-app tests, matching containers/file-repair. default-features off
+# + rustls keeps the TLS backend pure Rust; a test binary never ships.
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }

@@ -10,10 +10,18 @@ import {
 import type { Bindings } from "../app.ts";
 
 // The engine ids the convert worker can execute today. Both raster-served paths (raster
-// interconversion and image-to-PDF) run in its RasterEngineContainer; LibreOffice/email/FFmpeg
-// join this set when their Containers land in the convert worker. OCR is not here — it is its own
-// already-live service, resolved below.
-const CONVERT_WORKER_ENGINE_IDS: ReadonlySet<EngineId> = new Set(["libvips", "image-pdf"]);
+// interconversion and image-to-PDF) run in its RasterEngineContainer; the office edges run in its
+// LibreOfficeEngineContainer. email/FFmpeg join this set when their Containers land in the convert
+// worker. OCR is not here — it is its own already-live service, resolved below.
+//
+// Adding an id here is what actually turns an engine on, so it is the LAST step of that engine's
+// deploy rather than the first: the convert worker must already carry the Container class, or an id
+// it does not recognise comes back 501 and the job fails cleanly as adapter-error.
+const CONVERT_WORKER_ENGINE_IDS: ReadonlySet<EngineId> = new Set([
+  "libvips",
+  "image-pdf",
+  "libreoffice",
+]);
 
 // An engine ConversionPort: POST the source bytes + engine-id/format/recipe headers to the dedicated
 // conversion worker (magna-carta-convert) over its service binding, and read back the converted bytes
