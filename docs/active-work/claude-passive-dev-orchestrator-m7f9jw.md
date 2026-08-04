@@ -56,6 +56,7 @@ and no email column is in PROTECTED_COLUMNS — unencrypted subjects/addresses i
 
 Agents in flight at writing (die on restart — check their branches/PRs; if absent,
 redispatch from the batch specs below):
+
 - `claude/fix-tenancy-shipping-uploads` — B1 (F-140 shipping label cross-firm R2
   read; F-072 presign/read bucket split).
 - `claude/fix-usage-bundle-scan-trio` — B10 (F-031/157 reached-middleware error
@@ -70,6 +71,7 @@ never been run; 27 confirmed-open critical/high; F-059 and F-120 likely fixed
 already. **Update the verification ledger as each batch lands.**
 
 Batches in order (details in task board; sequencing notes inline):
+
 - **B1** (running) F-140, F-072 — tenancy. **B10** (running) F-031/157, F-073, F-109.
 - **B2** pdf-core: F-162 split() keeps dropped pages via kept-page /Annots
   (generate.rs), F-163 surgery redaction never strips /Annots (redact.rs). Pure
