@@ -1,4 +1,5 @@
 ---
+number: 207
 slug: discovery-search-index-splits-in-r2-stateful-service
 status: Accepted
 date: 2026-07-17
