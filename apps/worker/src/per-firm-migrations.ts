@@ -38,3 +38,15 @@ export function perFirmMigrations(): Migration[] {
     "20260804T072255_matter-number-allocation": matterNumberAllocationSql,
   });
 }
+
+// The lineage head (latest journal tag), ordered by the monotonic migration id — the same shape
+// control-plane-migrations.ts exposes. Tests assert against this instead of a literal tag, so
+// adding a migration does not break an unrelated provisioning assertion.
+export function perFirmHeadSchemaVersion(): string {
+  const lastEntry = [...perFirmJournal.entries]
+    // sort on the spread copy (non-mutating); toSorted is not in this worker's TS lib target.
+    .sort((a, b) => (a.tag < b.tag ? -1 : a.tag > b.tag ? 1 : 0))
+    .at(-1);
+  if (lastEntry === undefined) throw new Error("per-firm migration journal is empty");
+  return lastEntry.tag;
+}
