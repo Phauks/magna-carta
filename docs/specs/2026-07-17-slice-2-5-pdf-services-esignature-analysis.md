@@ -43,7 +43,7 @@ The **prepare → (host signs) → embed** shape stays exactly right; only the e
 
 PAdES requires the signed content to be a `/ByteRange` in which **the original document bytes are preserved as a literal prefix**, with the signature added by a **PDF incremental update** (appended objects + a new xref section whose `/Prev` chains to the old `startxref` + a new `startxref`), and a single contiguous **zero-filled `/Contents` gap** excluded from the range and later spliced with the detached CMS.
 
-The engine does **not** have this today. Its "additive" writers (`bates.rs`, `searchable.rs`) are additive **at the object-graph level** but serialize with **lopdf `doc.save_to()` — a full re-serialization** (verified in `searchable.rs:129`, `bates.rs:442`). "Byte-identical output" there means *deterministic across runs*, **not** *original bytes preserved as a prefix*. lopdf re-numbers/re-lays-out objects, so a Bates/searchable output is **not** a valid incremental update of its input and cannot carry a PAdES `/ByteRange`.
+The engine does **not** have this today. Its "additive" writers (`bates.rs`, `searchable.rs`) are additive **at the object-graph level** but serialize with **lopdf `doc.save_to()` — a full re-serialization** (verified in `searchable.rs:129`, `bates.rs:442`). "Byte-identical output" there means _deterministic across runs_, **not** _original bytes preserved as a prefix_. lopdf re-numbers/re-lays-out objects, so a Bates/searchable output is **not** a valid incremental update of its input and cannot carry a PAdES `/ByteRange`.
 
 **Therefore the slice must build a true incremental-update writer in `pdf-core`** (or a signing-specific writer that: appends the signature dictionary + AcroForm `/Sig` field + `/ByteRange` array + reserved `/Contents` placeholder as an incremental section, leaving input bytes untouched, then computes the digest over the two `/ByteRange` spans and splices the CMS into the reserved gap). This is the single most load-bearing technical item and belongs at the front of the spec. It pairs naturally with the existing byte-level surgery machinery (`content_tokens.rs`, `surgery.rs`'s `build_byte_splice`) — the same "splice exact bytes into a reserved region, self-verify" discipline.
 
@@ -70,22 +70,22 @@ New pure-domain package (the natural Fable-owned unit per the signing-options do
 
 ### 3.4 Delivery + data model
 
-Per-firm schema for envelopes/fields/signing-events/certificates (through the firm-scoped data-access layer, golden rule 3; bulk artifacts to R2, never D1). Worker routes through the slice 0·5 chokepoint (audited, RBAC-gated — a new `esign:*` permission namespace), the `signing.*` OpenAPI surface, and the completion→_Tasks/workflows_ + _Communications layer_ notification seams. Load-profile extension in-area (ADR-0078 accretion rule) — envelopes/events at volume. **UI is deferred** (0·7 design-system gate + the model-split policy makes UI a Fable matter) — the client-side field-placement/signing surfaces (§18.6 "client-side except the seal") land with the portal/0·7 work.
+Per-firm schema for envelopes/fields/signing-events/certificates (through the firm-scoped data-access layer, golden rule 3; bulk artifacts to R2, never D1). Worker routes through the slice 0·5 chokepoint (audited, RBAC-gated — a new `esign:*` permission namespace), the `signing.*` OpenAPI surface, and the completion→*Tasks/workflows* + _Communications layer_ notification seams. Load-profile extension in-area (ADR-0078 accretion rule) — envelopes/events at volume. **UI is deferred** (0·7 design-system gate + the model-split policy makes UI a Fable matter) — the client-side field-placement/signing surfaces (§18.6 "client-side except the seal") land with the portal/0·7 work.
 
 ---
 
 ## 4. Reuse map — build on, don't reinvent (golden rule 1)
 
-| Need | Reuse |
-| --- | --- |
-| Splice exact bytes into a reserved region + self-verify | `pdf-core` `content_tokens.rs` + `surgery.rs` `build_byte_splice` discipline |
+| Need                                                           | Reuse                                                                                                                                    |
+| -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Splice exact bytes into a reserved region + self-verify        | `pdf-core` `content_tokens.rs` + `surgery.rs` `build_byte_splice` discipline                                                             |
 | Additive object-graph write (sig dict, AcroForm field, widget) | the `bates.rs`/`searchable.rs` append patterns (but **replace** the `save_to` full-serialize tail with a true incremental append — §3.1) |
-| Detached signature over a digest | Workers Web Crypto (RSA/ECDSA) or a RustCrypto signer in `pdf-core`/WASM |
-| Verification (does content survive / is the range intact) | the redaction **verification-gate** pattern (re-extract, refuse on doubt) |
-| Corpus-driven correctness measurement | `crates/pdf-eval` — add a `sign`/`verify` operation, as every capability does |
-| Immutable audit + Error-ID correlation | `@magna-carta/telemetry` + the per-firm `audit_log` (golden rule 4) |
-| Money/scaling, identifiers, idempotency, outbox | the 0·2 foundational packages (envelope IDs, idempotent send) |
-| Host-side key handling | `@magna-carta/encryption` seams (the platform cert is a Worker-secret-rooted anchor, not a per-firm envelope key — confirm placement) |
+| Detached signature over a digest                               | Workers Web Crypto (RSA/ECDSA) or a RustCrypto signer in `pdf-core`/WASM                                                                 |
+| Verification (does content survive / is the range intact)      | the redaction **verification-gate** pattern (re-extract, refuse on doubt)                                                                |
+| Corpus-driven correctness measurement                          | `crates/pdf-eval` — add a `sign`/`verify` operation, as every capability does                                                            |
+| Immutable audit + Error-ID correlation                         | `@magna-carta/telemetry` + the per-firm `audit_log` (golden rule 4)                                                                      |
+| Money/scaling, identifiers, idempotency, outbox                | the 0·2 foundational packages (envelope IDs, idempotent send)                                                                            |
+| Host-side key handling                                         | `@magna-carta/encryption` seams (the platform cert is a Worker-secret-rooted anchor, not a per-firm envelope key — confirm placement)    |
 
 ---
 
@@ -111,6 +111,7 @@ From the white paper's `> Needs development` block (§18.6) and ADR-0045's "veri
 The engine handoff sets owner order: **PAdES, then OCR** (OCR has since landed). Recommended sub-slice arc for 2·5's e-signature core:
 
 **Tier 0 — cheap prep, do first (from the engine handoff, before the feature grows the code):**
+
 - **(a)** Run the surgery corpus and settle "bar B" (`pdf-eval validate`) — closes the loop on shipped surgery, and either simplifies the engine or surfaces a defect **before** signing touches the same files. Needs `corpus-fetch` + network.
 - **(b)** Split `crates/pdf-core/src/surgery.rs` (~2600 lines) on its own branch — signing will touch the same byte-splice machinery; cheapest to refactor while fresh.
 
