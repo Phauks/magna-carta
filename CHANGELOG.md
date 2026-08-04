@@ -639,6 +639,11 @@ so the part most likely to be wrong is covered on any machine with no office sui
 Deploy is ordered: the convert worker carries the new Container class before the app worker starts routing
 the engine. Still to come on this container: the email-to-PDF render engine, which consumes the job-package
 seam and adds one dispatch arm.
+- **A user guide for capture-address management.** Minting, rotating, and revoking the forward/CC address
+a matter files mail through — plus what the firm-wide catch-all does and why a firm holds only one —
+now have written guidance in _Filing email to a matter_, including the two things that surprise people:
+the address is shown exactly once, and a brand-new one bounces mail for a moment before it starts
+delivering.
 
 ### Fixed
 
@@ -1111,6 +1116,17 @@ stamping a broken artefact as current.
   a unit when its guarded status change loses a race, rather than committing the meter delta,
   current-version pointer move, session flip, audit row, and outbox event for a change that never
   happened.
+- **Automated ADR numbering is chronological again.** The `assemble-docs` workflow checked out at the
+default depth of one commit, and the assembler orders pending decision fragments by the commit that
+first added each file. With no history to read, every fragment scored the same and the tie-break
+assigned numbers alphabetically by slug — so each bot-assembled batch of ADRs was numbered in the wrong
+order, with nothing failing to signal it. The checkout now fetches full history.
+
+**The active-work registry can see namespaced streams.** Stream notes are named after the branch they
+describe, so a `claude/<name>` branch's note lives one directory down — but `vp run worktrees` listed
+only the top level of `docs/active-work/`, which meant every nested note was invisible and its stream
+reported as having none. The listing now walks the tree, and the twelve notes that had been flattened
+to `claude-<name>.md` to work around it are back at the path their branch name dictates.
 
 ### Changed
 
