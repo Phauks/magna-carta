@@ -14,74 +14,42 @@
 // The whole-repo gate of record is GitHub Actions (`.github/workflows/gate.yml`, full `pnpm check` +
 // `vp test` on every pull request and push to `main`), not this. This is what you run while working.
 //
+// To APPLY the formatter and the lint autofixes to the same change set, run `pnpm fix:scoped`
+// (fix.mjs) — never a bare repo-wide `vp check --fix`.
+//
 // Usage: pnpm check:scoped [--base <ref>]
 
-import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { resolveDiffBase } from "./diff-base.mjs";
-
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
-const sh = (cmd, cmdArgs) =>
-  execFileSync(cmd, cmdArgs, {
-    cwd: ROOT,
-    encoding: "utf8",
-    shell: process.platform === "win32",
-  }).trim();
+import { spawnSync } from "node:child_process";
+import {
+  collectChangedFiles,
+  LINT_ONLY_PATTERN,
+  parseBaseFlag,
+  resolveBase,
+  ROOT,
+  SCRIPT_PATTERN,
+} from "./changed-files.mjs";
 
 const argv = process.argv.slice(2);
-const baseFlag = argv.indexOf("--base");
-const explicitBase = baseFlag !== -1 ? argv[baseFlag + 1] : null;
 
 // The fork point with the trunk: everything since then is "the change". Which trunk ref to believe is
 // diff-base.mjs's decision — a worktree whose local `main` is frozen at clone time must not be diffed
-// against it.
-const base = resolveDiffBase({
-  explicitBase,
-  mergeBaseWith: (ref) => {
-    try {
-      return sh("git", ["merge-base", "HEAD", ref]);
-    } catch {
-      return null; // ref absent in this worktree
-    }
-  },
-  isAncestor: (ancestor, descendant) => {
-    const probe = spawnSync("git", ["merge-base", "--is-ancestor", ancestor, descendant], {
-      cwd: ROOT,
-      stdio: "ignore",
-      shell: process.platform === "win32",
-    });
-    return probe.status === 0;
-  },
-});
-const lines = (out) =>
-  out
-    .split("\n")
-    .map((l) => l.trim())
-    .filter(Boolean);
-let changed = [];
+// against it. The change set itself is changed-files.mjs, shared with `pnpm fix:scoped` so the fixer
+// cannot rewrite a different set of files than this gate checks.
+const base = resolveBase({ explicitBase: parseBaseFlag(argv) });
+let files = [];
 try {
-  changed = [
-    ...lines(sh("git", ["diff", "--name-only", `${base}...HEAD`])),
-    ...lines(sh("git", ["diff", "--name-only", "HEAD"])),
-    ...lines(sh("git", ["diff", "--name-only", "--cached"])),
-    ...lines(sh("git", ["ls-files", "--others", "--exclude-standard"])),
-  ];
+  files = collectChangedFiles({ base });
 } catch (error) {
   console.error("check:scoped: could not read the git diff —", error.message);
   process.exit(1);
 }
 
-// Deleted paths still show in the diff; fmt/lint can only be pointed at files that exist.
-const files = [...new Set(changed)].filter((f) => existsSync(path.join(ROOT, f)));
 if (files.length === 0) {
   console.log("check:scoped: no changes against " + base.slice(0, 12) + " — nothing to check");
   process.exit(0);
 }
 
-const LINTABLE = /\.(ts|tsx|mts|cts|js|mjs|cjs|svelte)$/;
-const lintable = files.filter((f) => LINTABLE.test(f));
+const lintable = files.filter((f) => SCRIPT_PATTERN.test(f) || LINT_ONLY_PATTERN.test(f));
 const touchedRust = files.some((f) => f.startsWith("crates/") || f.endsWith(".rs"));
 const touchedSvelteApp = files.some((f) => f.endsWith(".svelte") && f.startsWith("apps/web/"));
 const touchedSvelteDs = files.some(

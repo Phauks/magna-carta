@@ -74,6 +74,18 @@ what that change can break: fmt + lint on the changed paths, the incremental `ts
 `svelte-check` or the Rust gate **only when a `.svelte` file or a crate was actually touched**. It prints
 what it skipped and why — a gate that quietly checks nothing is worse than a slow one.
 
+**Fix the same scope you check: `pnpm fix:scoped`** (`tooling/check-scoped/fix.mjs`) is the default way
+to apply the formatter and the lint autofixes, and a bare repo-wide `vp check --fix` is not. Given no
+paths, `vp check --fix` rewrites the whole repository — it has landed dozens of files nobody in the
+change had touched, and not every autofix is safe everywhere (the `sort()` → `toSorted()` rewrite breaks
+a package whose compile target predates it). `fix:scoped` runs it over exactly the change set
+`check:scoped` verifies — the two share one implementation (`changed-files.mjs`), so the set fixed and
+the set checked cannot drift — and includes markdown and the other prose/data formats. Each pass gets
+only the paths it can parse: `.svelte` is linted with `--no-fmt` (no Svelte formatter), markdown / JSON /
+CSS / HTML / YAML / TOML are formatted with `--no-lint` (no lint rules for them), scripts take both.
+`pnpm fix:scoped --no-lint` skips the autofixes entirely when only the formatting is wanted, and
+`--base <ref>` scopes it like the gate. Rust is not in scope — that is `cargo fmt`.
+
 Which trunk ref that merge-base is taken against is not a detail: a worktree whose local `main` is frozen
 at clone time (every agent worktree) would otherwise be diffed against an ancient commit, and the
 "scoped" gate would lint every file the trunk has touched since. So the base is the **newest** of the
