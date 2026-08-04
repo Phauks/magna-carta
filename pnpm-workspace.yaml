@@ -134,6 +134,12 @@ catalog:
   # Vite+ test distribution); opted into per test file via the `@vitest-environment happy-dom`
   # pragma so everything else stays in the default node pool.
   happy-dom: 20.11.1
+  # PAdES e-signature CMS (the platform seal). pkijs builds the detached CMS/PKCS#7 over WebCrypto —
+  # the firm key stays a non-extractable CryptoKey in the Worker, never extractable, never client-side.
+  # Pure JS (memory-safe, golden rule 14); the Rust pdf-core engine owns the PDF structure and takes
+  # the CMS as an opaque blob. asn1js is pkijs's ASN.1 layer, used directly to build signed attributes.
+  pkijs: 3.4.0
+  asn1js: 3.0.10
 
 overrides:
   vite: "npm:@voidzero-dev/vite-plus-core@0.1.24"

@@ -37,3 +37,6 @@ docs/research/trust-rules/_tmp_*
 # TypeScript project-references build output: composite .d.ts + .tsbuildinfo emitted by
 # `tsc -b tsconfig.build.json` (regenerable; the shipped declarations come from the bundler).
 .tsbuild/
+# A direct `tsc -b <package>` (rather than the tsconfig.build.json entry point) drops its incremental
+# state beside the tsconfig instead of in .tsbuild/. Same regenerable artifact, so ignore it there too.
+tsconfig.tsbuildinfo

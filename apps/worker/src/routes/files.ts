@@ -832,6 +832,12 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
         ),
       );
       const presigner = presignerForEnv(c.env);
+      // The signed URL binds to the KEY, not to the bytes: R2 serves whatever object sits at that key
+      // when the client follows the redirect. What makes the clean verdict this route just read
+      // trustworthy is the ingest consumer's custody gate (../files/ingest-consumer.ts) — an
+      // object-create event for an already-committed version re-measures the stored bytes against the
+      // hash recorded at commit and withdraws the version when they differ, so a swapped object stops
+      // passing this route's status gate rather than being served under the old verdict.
       const url = await presigner.presignGet(bucket, version.r2Key, DOWNLOAD_TTL_SECONDS);
       // The export is recorded before the redirect — metadata names the version exported, no content.
       const now = new Date().toISOString();

@@ -1276,6 +1276,42 @@ pub(crate) fn resolve_rotate(doc: &lopdf::Document, page_id: lopdf::ObjectId) ->
     0
 }
 
+/// The text matrix `Tm = [a b c d e f]` (text space -> user space) that places upright text
+/// at displayed-bottom-left-frame origin `(dx, dy)` on a page whose unrotated MediaBox is
+/// `[llx lly urx ury]` under normalized rotation `r` (0/90/180/270).
+///
+/// The linear part counter-rotates the glyphs so they read upright on the *displayed* page
+/// (after the viewer applies `/Rotate`); the translation maps the displayed origin back into
+/// unrotated user space, where content is actually drawn. `w = urx - llx` and `h = ury - lly`
+/// are the unrotated MediaBox dimensions. The linear part carries no scale — the caller sets
+/// glyph size through the font size (`Tf`), so a text run keeps its size operator separate.
+///
+/// This is the one home for the display->user coordinate frame: both the Bates stamp and the
+/// searchable-text-layer writer place displayed-frame text on rotated pages through it.
+pub(crate) fn text_matrix(
+    rotation: i64,
+    llx: f32,
+    lly: f32,
+    w: f32,
+    h: f32,
+    dx: f32,
+    dy: f32,
+) -> [f32; 6] {
+    // For the quarter turns the displayed frame swaps axes: /Rotate 90/270 shows a `w`-wide,
+    // `h`-tall page as `h` wide and `w` tall. A viewer rotates /Rotate 90 a quarter-turn clockwise,
+    // so a displayed origin `(dx, dy)` maps to unrotated user `(llx + w - dy, lly + dx)` — the
+    // translation along the unrotated x-axis is bounded by the page WIDTH `w`, not its height. (270
+    // is the mirror: its y-translation is bounded by `h`.) Getting these swapped places text a
+    // `(h - w)` offset off a non-square page — invisible on a square page, off-page on a portrait one.
+    match rotation {
+        90 => [0.0, 1.0, -1.0, 0.0, llx + w - dy, lly + dx],
+        180 => [-1.0, 0.0, 0.0, -1.0, llx + w - dx, lly + h - dy],
+        270 => [0.0, -1.0, 1.0, 0.0, llx + dy, lly + h - dx],
+        // 0 and any unexpected value fall through to the unrotated frame.
+        _ => [1.0, 0.0, 0.0, 1.0, llx + dx, lly + dy],
+    }
+}
+
 /// Whether lopdf can faithfully re-encode this content stream: encode, then re-decode,
 /// and the operation count is preserved. A re-encode that fails to re-decode counts as
 /// non-round-tripping. This is the production decision for op-path (round-trips) vs

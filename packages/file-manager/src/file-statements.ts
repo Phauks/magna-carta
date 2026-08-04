@@ -327,6 +327,46 @@ export function quarantineVersionStatement(
     .bind(versionId, scanDetail);
 }
 
+// The custody withdrawal: an ALREADY-COMMITTED version (status = 'clean') whose stored bytes no
+// longer hash to the value recorded at commit is pulled back behind the status gate. Every read path
+// filters status = 'clean', so this one UPDATE is what stops the swapped bytes being served, and it
+// is gated on status = 'clean' so it can never disturb a pending row or re-quarantine an already
+// quarantined one. scan_verdict moves to 'flagged' alongside the status because the verdict on the
+// row described bytes that are gone. The recorded hash/size are LEFT AS THEY WERE: they are the
+// evidence of what was measured, not a live mirror of whatever now sits at the key.
+export function quarantineCommittedVersionStatement(
+  database: SqlDatabase,
+  versionId: FileVersionId,
+  scanDetail: string | null,
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${FILE_VERSION_TABLE} SET status = 'quarantined', scan_verdict = 'flagged', scan_detail = ?2 WHERE id = ?1 AND status = 'clean'`,
+    )
+    .bind(versionId, scanDetail);
+}
+
+// Repoints a file's current version after the version it pointed at was withdrawn. current_version_id
+// is clean-BY-CONSTRUCTION — the file listing joins through it without a status predicate on the
+// strength of that — so a withdrawal that left the pointer where it was would put a quarantined
+// version back on every listing row. The pointer falls back to the newest version that is still
+// clean, or to NULL when none is (the file then has no servable content and drops out of the default
+// listing, which is the honest answer). MUST run AFTER the withdrawal in the same batch, so the
+// subquery already sees the withdrawn version as non-clean; the `current_version_id = ?2` guard keeps
+// it a no-op when the pointer had already moved on.
+export function repointCurrentVersionAfterWithdrawalStatement(
+  database: SqlDatabase,
+  fileId: FileId,
+  withdrawnVersionId: FileVersionId,
+  updatedAt: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${FILE_TABLE} SET current_version_id = (SELECT id FROM ${FILE_VERSION_TABLE} WHERE file_id = ?1 AND status = 'clean' ORDER BY version_number DESC LIMIT 1), updated_at = ?3 WHERE id = ?1 AND current_version_id = ?2`,
+    )
+    .bind(fileId, withdrawnVersionId, updatedAt);
+}
+
 // The no-op skip: identical re-upload abandons the freshly-minted pending version.
 export function abandonVersionStatement(
   database: SqlDatabase,

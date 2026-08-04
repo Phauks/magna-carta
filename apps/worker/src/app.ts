@@ -1,4 +1,5 @@
 import { OpenAPIHono } from "@hono/zod-openapi";
+import type { SealPort } from "@magna-carta/signing/port";
 import type { Logger } from "@magna-carta/telemetry/logger";
 import {
   createWorkersLogger,
@@ -54,6 +55,7 @@ import { registerToolsTurnCredentialsRoute } from "./routes/tools-turn-credentia
 import { registerWhoisRoute, type WhoisRouteDeps } from "./routes/whois.ts";
 import { registerSafeBrowseRoute, type SafeBrowseRouteDeps } from "./routes/safe-browse.ts";
 import { registerDecryptionRoutes } from "./routes/decryption.ts";
+import { registerDocumentSealRoutes } from "./routes/document-seal.ts";
 import { registerRecoveryRoutes } from "./routes/recovery.ts";
 import { registerFileIntegrityRoutes } from "./routes/file-integrity.ts";
 import { registerFileTypeRoutes } from "./routes/file-type.ts";
@@ -152,6 +154,22 @@ export type Bindings = {
   // Optional: absent in every test environment and until the deploy-time binding is added; while
   // unset, the ocr route returns 503 (the same posture the file-type and file-repair routes take).
   OCR_SERVICE?: Fetcher;
+  // The dedicated e-signature/seal engine worker (magna-carta-sign), reached over a service binding.
+  // It alone holds the platform signing key. Optional: absent in every test environment and until the
+  // deploy-time binding is added; while unset, the seal route returns 503 (deferred activation).
+  SIGN_SERVICE?: Fetcher;
+  // The dedicated discovery search-index worker (magna-carta-search), reached over a service binding.
+  // It owns the Tantivy engine Container (crates/search-core) and range-reads splits from R2. Optional:
+  // absent in every test environment and until the deploy-time binding is added; while unset,
+  // resolveSearchIndexPort returns the deferred port (engine-not-implemented).
+  SEARCH_SERVICE?: Fetcher;
+  // The search-index job coordinator: keyed firmId:documentId:version, single-flights one index build
+  // per document version and holds its outcome — including the `deferred` state a job parks in while the
+  // engines are undeployed.
+  SEARCH_INDEX_JOB: DurableObjectNamespace<import("./search/index-coordinator.ts").SearchIndexJob>;
+  // The search-index queue the coordinator enqueues onto; the consumer extracts a document version's
+  // text, builds its split through the SearchIndexPort, and converges the per-firm split catalog.
+  SEARCH_INDEX: Queue<import("./search/index-types.ts").SearchIndexMessage>;
   // The authenticated Workers AI binding — the only path inference reaches the gateway through (no raw
   // gateway token in any firm-reachable config). Pre-authenticated within the account.
   AI: Ai;
@@ -323,6 +341,9 @@ export interface CreateAppOptions {
   // Production defaults: createBrowserRenderer(c.env.BROWSER) + createFetchRedirectProbe().
   // Tests ALWAYS supply safeBrowseDeps so c.env.BROWSER is never accessed in the test pool.
   safeBrowseDeps?: SafeBrowseRouteDeps;
+  // Overrides the seal port for tests (a fake SealPort). Production resolves it from the SIGN_SERVICE
+  // binding inside the route; while that binding is unset, the route returns 503 (deferred activation).
+  sealPort?: SealPort;
 }
 
 export function createApp(options: CreateAppOptions = {}) {
@@ -461,6 +482,7 @@ export function createApp(options: CreateAppOptions = {}) {
   registerCaptureAddressRoutes(app, chokepoint);
   registerFileRepairRoutes(app, chokepoint);
   registerOcrRoutes(app, chokepoint);
+  registerDocumentSealRoutes(app, chokepoint, options.sealPort);
   registerAiDetectionRoutes(app, chokepoint);
   registerMetadataRoutes(app, chokepoint);
   registerMembersRoute(app, chokepoint, authForEnv);

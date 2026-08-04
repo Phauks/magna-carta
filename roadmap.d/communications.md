@@ -7,13 +7,13 @@
   scope: Email, messaging (SMS/MMS/RCS), and voice/telephony unified behind one templating and trigger engine, all logged to the matter/Directory.
   status: partial
   adrs: ADR-0047
-  evidence: Email parse engine and the transactional email adapter are shipped; messaging and voice ports, templates, and the trigger engine do not exist.
+  evidence: Email parse engine, the transactional email adapter, and forward/CC email capture are shipped; messaging and voice ports, templates, and the trigger engine do not exist.
 
 - id: communications.email
   name: Email
   scope: Dual send paths — firm's own mailbox for matter correspondence, transactional provider for billing/system mail — plus the in-house parse engine.
   status: partial
-  evidence: Transactional adapter and parse core shipped; mailbox integration/filing is design-only.
+  evidence: Transactional adapter, parse core, and the forward/CC capture path are shipped; the firm-mailbox (Gmail/Outlook plugin) integration is still design-only.
 
 - id: communications.email.transactional
   name: Transactional email adapter
@@ -26,9 +26,12 @@
 - id: communications.email.filing
   name: Firm-mailbox email filing
   scope: Matter correspondence through the firm's own Gmail/Outlook mailbox via the email plugin, threaded in the mailbox and logged to the matter.
-  status: designed
+  status: partial
+  slices: email-filing
+  adrs: ADR-0200, ADR-0202
   spec: docs/specs/2026-06-16-email-filing-design.md
-  evidence: Design on main; no filing code. Remote branch claude/email-capabilities-analysis-y06ji3 holds analysis work.
+  evidence: packages/email-filing (record, thread, dedup, capture, capture-address, capture-token) + apps/worker/src/routes/capture-addresses.ts + emails.ts on main; capture-address mint, rotate, and revoke are built and the six email tables are classified in the PII registry.
+  notes: Slice 1 is the record model plus forward/CC capture, functionally complete pending the deploy that activates the inbound route; the firm-mailbox Gmail/Outlook plugin path is not built.
 
 - id: communications.email.parse-engine
   name: Email parse core

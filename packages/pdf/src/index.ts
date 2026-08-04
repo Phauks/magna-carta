@@ -709,3 +709,101 @@ export async function watermarkDocument(
     mapGuardError(error);
   }
 }
+
+// ── PAdES seal ──────────────────────────────────────────────────────────────
+//
+// The engine owns the PDF structure; the CMS is opaque. A seal is three host-side steps:
+// prepare (reserve the signature dict + /Contents, compute /ByteRange), sign the byte range
+// off-engine (never here — the key stays host-side), then embed the CMS. `createSealEngine`
+// packages these as the `SealEngine` the `@magna-carta/signing` `sealDocument` orchestrator drives.
+
+import {
+  prepareSignature as wasmPrepareSignature,
+  embedSignature as wasmEmbedSignature,
+} from "./pkg/pdf_core.js";
+
+export interface SealOptions {
+  /** `/Name` — the seal/signer name. */
+  name?: string;
+  /** `/Reason`. */
+  reason?: string;
+  /** `/Location`. */
+  location?: string;
+  /** `/ContactInfo`. */
+  contactInfo?: string;
+  /** `/M` — a PDF date string, e.g. `"D:20260718120000Z"`. */
+  signingTime?: string;
+  /** Bytes reserved for the CMS; `/Contents` holds twice this in hex. Defaults to 16 KiB. */
+  contentsCapacity?: number;
+}
+
+export interface PreparedSeal {
+  /** The incremental-updated PDF (input preserved as its prefix), with a zero-filled `/Contents`. */
+  document: Uint8Array;
+  /** `[0, gapStart, gapEnd, suffixLength]` — the signed bytes are the two spans it names. */
+  byteRange: readonly [number, number, number, number];
+  /** The reserved hex-digit span, strictly between the `<` and `>` of `/Contents`. */
+  contentsSpan: readonly [number, number];
+}
+
+/** The PDF-structure operations `@magna-carta/signing`'s `sealDocument` needs. */
+export interface SealEngine {
+  prepare(pdf: Uint8Array, options: SealOptions): Promise<PreparedSeal>;
+  signedBytes(prepared: PreparedSeal): Uint8Array;
+  embed(prepared: PreparedSeal, cmsDer: Uint8Array): Promise<Uint8Array>;
+}
+
+/**
+ * Append the signature structure and reserve `/Contents`, preserving the input as the prefix of
+ * the returned document. No cryptography — the reserved gap is filled later by `embedSignature`.
+ */
+export async function prepareSignature(
+  bytes: Uint8Array,
+  options: SealOptions = {},
+  wasmInput?: BufferSource | WebAssembly.Module,
+): Promise<PreparedSeal> {
+  await ensureReady(wasmInput);
+  try {
+    return wasmPrepareSignature(bytes, options) as PreparedSeal;
+  } catch (error) {
+    mapGuardError(error);
+  }
+}
+
+/**
+ * Splice a detached CMS (DER) into a prepared document's reserved `/Contents`, returning the sealed
+ * PDF. Throws if the CMS is larger than the reservation. The `/ByteRange` — and the digest the CMS
+ * signs — is untouched.
+ */
+export async function embedSignature(
+  document: Uint8Array,
+  contentsSpan: readonly [number, number],
+  cmsDer: Uint8Array,
+  wasmInput?: BufferSource | WebAssembly.Module,
+): Promise<Uint8Array> {
+  await ensureReady(wasmInput);
+  try {
+    return wasmEmbedSignature(document, contentsSpan, cmsDer) as Uint8Array;
+  } catch (error) {
+    mapGuardError(error);
+  }
+}
+
+/**
+ * The seal engine backed by this WASM module. `prepare` and `embed` run in the engine; `signedBytes`
+ * is a pure slice of the prepared document (the two `/ByteRange` spans), so it needs no engine call.
+ */
+export function createSealEngine(wasmInput?: BufferSource | WebAssembly.Module): SealEngine {
+  return {
+    prepare: (pdf, options) => prepareSignature(pdf, options, wasmInput),
+    signedBytes(prepared) {
+      const [, gapStart, gapEnd, suffixLength] = prepared.byteRange;
+      const out = new Uint8Array(gapStart + suffixLength);
+      out.set(prepared.document.subarray(0, gapStart), 0);
+      out.set(prepared.document.subarray(gapEnd, gapEnd + suffixLength), gapStart);
+      return out;
+    },
+    embed: (prepared, cmsDer) =>
+      embedSignature(prepared.document, prepared.contentsSpan, cmsDer, wasmInput),
+  };
+}

@@ -34,8 +34,11 @@ beforeAll(async () => {
   firmId = (
     await seedFirm({ name: "Conversion Routes Firm", databaseIdentifier: "DB_FIRM_POOL_1" })
   ).firmId;
-  await env.DB_CONTROL.prepare("UPDATE firm SET bucket_name = 'R2' WHERE id = ?1")
-    .bind(firmId)
+  // Each firm records its own bucket name, as provisioning makes them differ (firm.bucket_name is
+  // UNIQUE — it is what an R2 event resolves back to a firm). The test pool binds a single bucket
+  // that stands in for both.
+  await env.DB_CONTROL.prepare("UPDATE firm SET bucket_name = ?2 WHERE id = ?1")
+    .bind(firmId, "conversion-routes-firm-bucket")
     .run();
   const owner = await seedCredentialedUser("conversion-owner@example.com", {
     userName: "Conversion Owner",
@@ -47,8 +50,8 @@ beforeAll(async () => {
   firmId2 = (
     await seedFirm({ name: "Conversion Tenant B Firm", databaseIdentifier: "DB_FIRM_POOL_2" })
   ).firmId;
-  await env.DB_CONTROL.prepare("UPDATE firm SET bucket_name = 'R2' WHERE id = ?1")
-    .bind(firmId2)
+  await env.DB_CONTROL.prepare("UPDATE firm SET bucket_name = ?2 WHERE id = ?1")
+    .bind(firmId2, "conversion-tenant-b-firm-bucket")
     .run();
   const owner2 = await seedCredentialedUser("conversion-owner-b@example.com", {
     userName: "Conversion Owner B",

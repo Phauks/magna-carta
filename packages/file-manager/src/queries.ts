@@ -844,3 +844,49 @@ export async function listCleanCurrentVersionsByMatter(
     sizeBytes: row.size_bytes,
   }));
 }
+
+// The facts the discovery-search write pipeline needs about a just-committed version, resolved from the
+// version handle in one read: which file and matter it belongs to (the index is matter-scoped), which
+// version number it is (the index is idempotent on file + version), where its bytes are, and what the
+// sniff decided it is. Filtered to `clean` and to a live file, so a quarantined or deleted document can
+// never be enqueued for indexing — the same read mediation every other consumer read applies.
+export interface IndexableVersion {
+  readonly versionId: FileVersionId;
+  readonly fileId: FileId;
+  readonly matterId: MatterId;
+  readonly versionNumber: number;
+  readonly r2Key: string;
+  readonly contentType: string | null;
+}
+
+export async function loadIndexableVersion(
+  database: SqlDatabase,
+  versionId: FileVersionId,
+): Promise<IndexableVersion | undefined> {
+  const { results } = await database
+    .prepare(
+      `SELECT v.id, v.file_id, f.matter_id, v.version_number, v.r2_key, v.sniffed_content_type, v.declared_content_type FROM ${FILE_VERSION_TABLE} v JOIN ${FILE_TABLE} f ON f.id = v.file_id WHERE v.id = ?1 AND v.status = 'clean' AND f.deleted_at IS NULL`,
+    )
+    .bind(versionId)
+    .all<{
+      id: FileVersionId;
+      file_id: FileId;
+      matter_id: MatterId;
+      version_number: number;
+      r2_key: string;
+      sniffed_content_type: string | null;
+      declared_content_type: string | null;
+    }>();
+  const row = results[0];
+  if (row === undefined) return undefined;
+  return {
+    versionId: row.id,
+    fileId: row.file_id,
+    matterId: row.matter_id,
+    versionNumber: row.version_number,
+    r2Key: row.r2_key,
+    // The sniffed type is what the bytes actually are; the declared one is only what the uploader
+    // claimed. Prefer the sniff and fall back, so the extract stage is told the truth when we know it.
+    contentType: row.sniffed_content_type ?? row.declared_content_type,
+  };
+}

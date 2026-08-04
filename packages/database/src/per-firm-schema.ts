@@ -45,6 +45,7 @@ import type {
   GrantId,
   IdempotencyRecordId,
   IncidentId,
+  IndexSplitId,
   IntegrationConnectionId,
   LedgerAccountId,
   LedgerEntryId,
@@ -1822,6 +1823,55 @@ export const conflictsDisposition = sqliteTable(
       "conflicts_disposition_kind_check",
       sql`${table.kind} IN ('cleared', 'waiver_obtained', 'wall_erected', 'representation_declined')`,
     ),
+  ],
+);
+
+// Discovery search-index catalog: one row per immutable Tantivy split stored in the firm's R2. This is
+// the authority a query enumerates to know which splits are live for a matter — never an R2 bucket list,
+// which would be slower and would not carry firm scoping structurally. Firm data (the index is durable
+// per-firm data, unlike the transient scan/conversion artifacts), access-gated with the matter it
+// belongs to. A split is immutable: rows are inserted on publish and marked superseded by compaction,
+// never mutated in place. `superseded_at IS NULL` is the live set.
+export const indexSplit = sqliteTable(
+  "index_split",
+  {
+    id: text("id").primaryKey().$type<IndexSplitId>(),
+    matterId: text("matter_id").notNull().$type<MatterId>(),
+    // The one document version this split indexes, for a split the write pipeline publishes. The write
+    // pipeline builds one split per document version so a re-index converges: the split id is derived
+    // from these two columns, a retry rebuilds the same split, and the publish deletes the document's
+    // prior rows and objects before inserting the new one instead of accumulating duplicates.
+    // Both are NULL for a split that spans many documents — the shape a later compaction pass publishes
+    // when it merges the small per-document splits — so the merged split is simply unconstrained here.
+    documentId: text("document_id").$type<FileId>(),
+    version: integer("version"),
+    // The split object's key in the firm's R2 bucket (e.g. search/<matter>/splits/<id>.split).
+    objectKey: text("object_key").notNull(),
+    // How many passages the split indexes, and its size — the inputs a compaction decision reads
+    // without opening the split.
+    documentCount: integer("document_count").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    // The Tantivy schema generation the split was built with; a query refuses a split whose generation
+    // it does not understand, so a schema change never silently mixes incompatible splits.
+    schemaGeneration: integer("schema_generation").notNull(),
+    createdAt: text("created_at").notNull(), // ISO-8601 instant
+    // Null while the split is live; set to the instant compaction replaced it. A superseded split's row
+    // is kept until its object is garbage-collected, so an in-flight query against it still resolves.
+    supersededAt: text("superseded_at"),
+  },
+  (table) => [
+    // The live-splits-for-a-matter read: WHERE matter_id = ? AND superseded_at IS NULL.
+    index("index_split_matter_superseded_index").on(table.matterId, table.supersededAt),
+    // The document's own splits: the read the write pipeline makes before publishing, to find the rows
+    // and R2 objects a re-index must delete.
+    index("index_split_document_index").on(table.documentId),
+    // At most one LIVE split per document version. This is the convergence guarantee the write pipeline
+    // rests on: a duplicate delivery that raced past the delete cannot leave two live splits indexing
+    // the same version, so a query can never count a document twice. Partial, so the many-document
+    // splits a compaction publishes (document_id NULL) are outside it.
+    uniqueIndex("index_split_document_version_unique")
+      .on(table.documentId, table.version)
+      .where(sql`${table.documentId} IS NOT NULL AND ${table.supersededAt} IS NULL`),
   ],
 );
 
