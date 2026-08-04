@@ -79,6 +79,7 @@ export function registerWopiHostRoutes(
         database: firmDatabase,
         bucket: c.env.R2,
         currentMeta: state.current,
+        liveSessionId: state.sessionId,
       });
       return Response.json(body);
     }),
@@ -104,7 +105,14 @@ export function registerWopiHostRoutes(
   // GetFile — GET /wopi/files/{fileId}/contents
   app.get("/wopi/files/:fileId/contents", (c) =>
     withWopi(c, "wopi:get-file", async ({ claims, firmDatabase, state }) =>
-      getFile(claims, { database: firmDatabase, bucket: c.env.R2, currentMeta: state.current }),
+      getFile(claims, {
+        database: firmDatabase,
+        bucket: c.env.R2,
+        currentMeta: state.current,
+        // The live session identity is what decides whether this token may read the working copy, so it
+        // is passed through even though a read never mutates it.
+        liveSessionId: state.sessionId,
+      }),
     ),
   );
 

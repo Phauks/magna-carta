@@ -61,6 +61,7 @@ import { registerFileIntegrityRoutes } from "./routes/file-integrity.ts";
 import { registerFileTypeRoutes } from "./routes/file-type.ts";
 import { registerEmailInspectorRoutes } from "./routes/email-inspector.ts";
 import { registerEmailsRoutes } from "./routes/emails.ts";
+import { registerCaptureAddressRoutes } from "./routes/capture-addresses.ts";
 import { registerFileRepairRoutes } from "./routes/file-repair.ts";
 import { registerOcrRoutes } from "./routes/ocr.ts";
 import { registerAiDetectionRoutes } from "./routes/ai-detection.ts";
@@ -195,6 +196,12 @@ export type Bindings = {
   // send a firm's uploaded bytes somewhere no read path can reach. A public resource name, not a
   // secret: bound via wrangler.jsonc vars alongside the binding it names.
   R2_BUCKET_NAME?: string;
+  // The zone every forward/CC capture address lives on (e.g. in.magnacarta.esq) — the mint composes
+  // `<token>@<this>` so a person can copy the address straight out of the response. A public hostname,
+  // not a secret: bound via wrangler.jsonc vars. Optional, because the same default the receiving
+  // Email Worker applies (@magna-carta/email-filing/capture-address) is correct for the production
+  // zone; a deployment on another zone sets it here and on that worker together.
+  CAPTURE_ROOT_DOMAIN?: string;
   // The files-ingest queue's Cloudflare UUID — the REST FirmResourceProvider targets it when
   // configuring a firm bucket's object-create notification. A deploy-time fact (absent locally,
   // where the dev adapter runs and Miniflare delivers no R2 notifications).
@@ -458,6 +465,9 @@ export function createApp(options: CreateAppOptions = {}) {
   registerFileTypeRoutes(app, chokepoint);
   registerEmailInspectorRoutes(app, chokepoint);
   registerEmailsRoutes(app, chokepoint);
+  // The writer for the forward/CC token index: minting an address is what makes a capture token
+  // resolve to a firm and a matter. Registered beside the emails surface it feeds.
+  registerCaptureAddressRoutes(app, chokepoint);
   registerFileRepairRoutes(app, chokepoint);
   registerOcrRoutes(app, chokepoint);
   registerDocumentSealRoutes(app, chokepoint, options.sealPort);

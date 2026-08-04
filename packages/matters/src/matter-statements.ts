@@ -69,6 +69,12 @@ export function selectMatterStatement(database: SqlDatabase, id: MatterId): SqlS
 
 // The number draw on an existing prospective: prospective -> open, carrying the rendered number and
 // its draw/open instants. The matter_number UNIQUE index aborts the batch on a colliding draw.
+//
+// `status = 'prospective'` is the in-batch belt behind the service's read-then-write precondition:
+// D1 has no interactive transaction, so a concurrent open (or a close) can land between that read
+// and this commit. Without the predicate the second writer silently rewrites an already-open
+// matter's frozen number and its opened_at. With it the UPDATE matches zero rows instead, and the
+// service confirms after the commit that the row really carries the number this call drew.
 export function openMatterStatement(
   database: SqlDatabase,
   id: MatterId,
@@ -77,7 +83,7 @@ export function openMatterStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `UPDATE ${MATTER_TABLE} SET status = 'open', matter_number = ?2, numbered_at = ?3, opened_at = ?3, updated_at = ?3 WHERE id = ?1`,
+      `UPDATE ${MATTER_TABLE} SET status = 'open', matter_number = ?2, numbered_at = ?3, opened_at = ?3, updated_at = ?3 WHERE id = ?1 AND status = 'prospective'`,
     )
     .bind(id, matterNumber, openedAt);
 }
@@ -105,6 +111,9 @@ export function updateMatterFieldsStatement(
     );
 }
 
+// closed_at is the instant retention and archival clocks run from, so a re-close must never move it.
+// `status != 'closed'` is the in-batch belt behind the service's already-closed refusal: a close
+// racing another close matches zero rows here instead of stamping a second, later closed_at.
 export function closeMatterStatement(
   database: SqlDatabase,
   id: MatterId,
@@ -112,7 +121,7 @@ export function closeMatterStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `UPDATE ${MATTER_TABLE} SET status = 'closed', closed_at = ?2, updated_at = ?2 WHERE id = ?1`,
+      `UPDATE ${MATTER_TABLE} SET status = 'closed', closed_at = ?2, updated_at = ?2 WHERE id = ?1 AND status != 'closed'`,
     )
     .bind(id, closedAt);
 }

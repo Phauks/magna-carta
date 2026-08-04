@@ -15,3 +15,15 @@ export const TOKEN_SIZE = 21;
 export function makeTokenGenerator(randomSource: RandomSource): () => string {
   return customRandom(TOKEN_ALPHABET, TOKEN_SIZE, randomSource);
 }
+
+// The same seam for a token that must live in a NARROWER alphabet than the URL-safe default — an
+// email local part, for instance, cannot carry the default alphabet's '-'/'_' safely across every
+// forwarder. The factory keeps the masking/rejection-sampling that removes modulo bias in one place;
+// callers choose only the alphabet and the length (and own the entropy argument for that choice).
+export function makeCustomTokenGenerator(
+  alphabet: string,
+  size: number,
+  randomSource: RandomSource,
+): () => string {
+  return customRandom(alphabet, size, randomSource);
+}

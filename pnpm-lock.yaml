@@ -295,6 +295,10 @@ importers:
         version: 4.110.0(@cloudflare/workers-types@5.20260713.1)
 
   apps/email-worker:
+    dependencies:
+      '@magna-carta/email-filing':
+        specifier: workspace:*
+        version: link:../../packages/email-filing
     devDependencies:
       '@cloudflare/workers-types':
         specifier: 'catalog:'

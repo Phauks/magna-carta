@@ -67,14 +67,22 @@ describe("schema conformance (fitness functions)", () => {
     // scoped_setting is keyed by (key, scope_tier, scoped_id) — the triple IS the identity of a
     // setting row (which key, at which scope tier, for which scoped entity); a separate handle
     // would add nothing and every read would need an extra join to find a row by its natural triple.
+    // matter_number_allocation is keyed by (scope_key, drawn_value) — the counter value a matter
+    // number draw consumed, in the scope it came from. That pair IS the reservation; a handle would
+    // add nothing and would need a unique lookup on every draw to find the row by its natural pair.
     const compositeKeyTables = new Set([
       "storage_meter",
       "token_usage_meter",
       "directory_name_phonetic_code",
       "directory_entity_category",
+      "matter_number_allocation",
       "scan_cache",
       "scoped_setting",
     ]);
+    // Composite key columns are TEXT with one documented exception: the value a matter number draw
+    // reserves is a counter value, and constraining the NUMBER is the entire point of the row — a
+    // string spelling of it would let '01' and '1' both be drawn.
+    const integerCompositeKeyColumns = new Set(["matter_number_allocation.drawn_value"]);
 
     for (const table of ALL_TABLES) {
       const config = getTableConfig(table);
@@ -83,7 +91,10 @@ describe("schema conformance (fitness functions)", () => {
         expect(composite, config.name).toBeDefined();
         expect(composite?.columns.length, config.name).toBeGreaterThan(1);
         for (const column of composite?.columns ?? []) {
-          expect(column.getSQLType(), `${config.name}.${column.name}`).toBe("text");
+          const qualified = `${config.name}.${column.name}`;
+          expect(column.getSQLType(), qualified).toBe(
+            integerCompositeKeyColumns.has(qualified) ? "integer" : "text",
+          );
         }
         continue;
       }

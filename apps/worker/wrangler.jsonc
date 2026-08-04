@@ -118,6 +118,16 @@
     // Both the interactive files-ingest queue and the bulk files-ingest-bulk queue route to the same
     // ingest handler; the lane separation is entirely in queue topology and max_concurrency.
     "consumers": [
+      // The shared per-firm job queue: everything the per-firm outbox relay sweeps crosses this one
+      // queue, firmId-tagged, and the dispatch table in src/costs/recoverable-charge-consumer.ts
+      // routes each message to the handler that owns its topic (unowned topics are acked and
+      // ignored). Declaring it a consumer is what makes a per-firm outbox row actually reach its
+      // effect — email capture-address minting depends on it to write the control-plane routing row,
+      // without which a minted address never receives mail.
+      {
+        "queue": "magna-carta-production-platform-jobs",
+        "dead_letter_queue": "magna-carta-production-platform-jobs-deadletter",
+      },
       {
         "queue": "magna-carta-production-files-ingest",
         "dead_letter_queue": "magna-carta-production-files-ingest-deadletter",
