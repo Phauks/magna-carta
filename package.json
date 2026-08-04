@@ -13,6 +13,7 @@
     "platform-seal-certificate": "node tooling/platform-seal-certificate/index.mts",
     "lint:licenses": "node tooling/lint-licenses.mjs",
     "lint:status": "node tooling/lint-status.mjs",
+    "lint:decisions": "node tooling/lint-decisions.mjs",
     "lint:test-registration": "node tooling/lint-test-registration.mjs",
     "postinstall": "node tooling/setup-hooks/index.mjs",
     "test": "vp test"

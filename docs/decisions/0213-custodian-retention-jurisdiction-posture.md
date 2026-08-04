@@ -1,16 +1,13 @@
 ---
 number: 213
 slug: custodian-retention-jurisdiction-posture
-status:
-date:
-area:
+status: "Proposed — owner decision pending"
+date: 2026-08-04
+area: Custodian
+summary: "Custodian ships the retention MECHANISM and supplies no policy. What ships: `review_on` and `review_interval_months` as dates a firm sets; `retention_until` as a nullable column a firm sets per packet or item, with no default, no derived value, and no code path that computes one; a `custody_hold` table with kinds legal / discovery / client_instruction / dispute / unclaimed, blocking release and destruction while permitting a location move; a two-person destruction request/approval workflow where requester and approver must differ; and no destruction sweep. One hard refusal is encoded with no API override — an item flagged `intrinsic_value` cannot be destroyed — because no jurisdiction's rules produce 'destroy the client's original will because a timer expired'. Retention periods, will-deposit deadlines, release authority, notification, and escheat treatment are flagged as jurisdiction-specific and therefore owner or verified-catalog decisions, never defaults this design invents; a future catalog would follow the trust-rules pattern, verified against primary legal text, shipped one jurisdiction at a time, with an explicit not-encoded state and never a silent generic fallback. Whether that catalog is wanted at all, and which jurisdiction is encoded first, remains an open owner decision."
 ---
 
-# Custodian retention and destruction — mechanism ships, policy does not
-
-**Status:** Proposed
-**Date:** 2026-08-04
-**Area:** Custodian
+**Custodian ships the retention mechanism and supplies no policy; the one encoded refusal is that an intrinsic-value item cannot be destroyed.**
 
 ## Context
 

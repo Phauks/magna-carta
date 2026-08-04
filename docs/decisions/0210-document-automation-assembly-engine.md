@@ -1,16 +1,13 @@
 ---
 number: 210
 slug: document-automation-assembly-engine
-status:
-date:
-area:
+status: Accepted
+date: 2026-08-04
+area: Document Automation
+summary: "The document-automation merge is built in-house as a pure TypeScript package, `@magna-carta/document-assembly`, over fflate and fast-xml-parser — the substrate the OOXML metadata inspector and scrubber already use — running in a Worker queue consumer behind a `DocumentAssemblyPort.assemble(templateBytes, mergeContext)` seam, so the substitution layer is replaceable without touching the dictionary, the resolution pipeline, the job model, or the filing path. Rust compiled to WebAssembly is rejected for this slice but not designed out (no candidate crate carries templating semantics, and the workload is not CPU-bound); adopting docxtemplater's MIT core is the real alternative and is declined — a second zip stack beside fflate, image and HTML insertion behind paid modules, and expressions evaluated from template content — while remaining the documented, scoped fallback behind the same port; driving the consented LibreOffice container's mail merge is rejected outright as the only memory-unsafe route and the only one that would push privileged merge values through the one C++ dependency for no fidelity gain, so LibreOffice keeps DOCX-to-PDF and nothing else."
 ---
 
-# Document-automation assembly engine — in-house OOXML merge in a Worker
-
-**Status:** Proposed
-**Date:** 2026-08-04
-**Area:** Document Automation
+**The document-automation merge engine is built in-house in TypeScript and runs in a Worker; docxtemplater's core is the recorded scoped fallback, and the consented LibreOffice container never sees a merge value.**
 
 ## Context
 
@@ -29,6 +26,10 @@ exactly the job the conversion design gave it, DOCX to PDF, and never sees a mer
 The engine sits behind `DocumentAssemblyPort.assemble(templateBytes, mergeContext) → bytes`, so the
 substitution layer is replaceable without touching the dictionary, the resolution pipeline, the job
 model, or the filing path.
+
+**Owner decision, 2026-08-04.** The recommendation is accepted as written. The in-house TypeScript
+merge is the decision; docxtemplater's open-source core stays a scoped fallback behind the same port
+rather than a second engine anyone builds now.
 
 ## Considered options
 

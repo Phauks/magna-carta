@@ -1,16 +1,13 @@
 ---
 number: 211
 slug: document-automation-template-model
-status:
-date:
-area:
+status: Accepted
+date: 2026-08-04
+area: Document Automation
+summary: "Template placeholders are `{{key}}` double-brace text delimiters, and that is the one canonical form: a Word MERGEFIELD construct in an uploaded template is CONVERTED to the brace form by registration-time normalization — the same pass that rewrites a run-split placeholder into a single contiguous run — rather than carried as a permanently supported second syntax, so migrating a Word mail-merge template is free but a registered template has exactly one placeholder form; content controls (`w:sdt`) stay a named, deferred seam. Normalization runs once at registration, not once per assembly, and stores the normalized package as the version's bytes. A macro-bearing upload is ACCEPTED AND STRIPPED — registration removes `vbaProject.bin` with its content-type entries and relationships and then re-verifies that the stripped package sniffs as a clean macro-free `.docx`, refusing only if it does not — deviating from the recommendation to refuse macro-bearing packages outright. Templates live in their own catalogue versioned exactly like files: `document_template` plus an immutable `document_template_version` mirroring `file` / `file_version`."
 ---
 
-# Document-automation template model — normalize at registration, version like a file
-
-**Status:** Proposed
-**Date:** 2026-08-04
-**Area:** Document Automation
+**Placeholders are `{{key}}` and nothing else after registration; normalization runs once at registration, converts MERGEFIELD constructs into the brace form, strips any macro project and re-verifies the result, and stores the normalized package as the version's bytes; templates are versioned exactly like files.**
 
 ## Context
 
@@ -22,17 +19,34 @@ different runs than the key. Every DOCX templating system pays for that somewher
 
 ## Decision
 
-**Placeholders are `{{key}}` text delimiters.** Word `MERGEFIELD` constructs are recognized as an
-equivalent authoring form and normalized to the same internal representation; content controls
-(`w:sdt`) are a named seam, deferred until a browser authoring surface can emit them, because
+**Placeholders are `{{key}}` text delimiters, and that is the one canonical form.** _Owner decision,
+2026-08-04._ A Word `MERGEFIELD` construct found in an uploaded template is **converted** to the
+brace form by registration-time normalization — the same pass that repairs run-split placeholders —
+rather than recognized as a permanently supported second syntax. Migration from a Word mail-merge
+template is therefore free, while a registered template has exactly one placeholder form, so the
+field inspector, the authoring help, and every error message speak about one thing. Content controls
+(`w:sdt`) remain a named seam, deferred until a browser authoring surface can emit them, because
 Collabora's structured-document-tag support is uneven and authoring one in Word is a developer-tab
 exercise.
 
 **Normalization runs once, at template registration, not once per assembly.** Registering a version
-finds every placeholder however it was split, rewrites each into a single contiguous run, records a
-field manifest, refuses macro-bearing packages, runs the existing OOXML scrub over the result, and
-stores the normalized package as the version's bytes. Every assembly thereafter substitutes over
-known runs.
+finds every placeholder however it was split or spelled, rewrites each into a single contiguous run
+in the brace form, records a field manifest, strips any macro project (below), runs the existing
+OOXML scrub over the result, and stores the normalized package as the version's bytes. Every
+assembly thereafter substitutes over known runs.
+
+**A macro-bearing upload is accepted and stripped, not refused.** _Owner decision, 2026-08-04 —
+this deviates from the recommendation, which was to refuse a macro-bearing package outright._
+Registration removes `vbaProject.bin` together with its `[Content_Types].xml` entries and the
+relationships that reference it, and then **re-verifies the stripped package**: it is accepted only
+if the result sniffs as a clean, macro-free `.docx`, and refused otherwise. A firm's existing
+letterhead templates routinely carry a macro project nobody needs, and refusing them outright
+pushes the firm into stripping macros in Word — the least supervised place it could happen — so the
+platform does it under audit instead. The stripping path is **security-boundary code**: it decides
+that an untrusted package no longer carries executable content, so it carries adversarial tests
+(a macro part reached by an unusual relationship chain, a duplicate or mis-cased part name, a part
+re-added under a different extension, a content-type override left behind) and fails closed on
+anything it cannot account for.
 
 **Templates live in their own catalogue, versioned exactly like files.** `document_template` plus an
 immutable `document_template_version`, mirroring `file` / `file_version` — content hash, storage
@@ -50,6 +64,19 @@ non-reproducible for a given template version.
 splitting, but it fails the paralegal test today and risks control loss when a template is edited in
 the browser. Deferred, not designed out.
 
+**`MERGEFIELD` as a permanently supported second syntax** — rejected. Carrying two authoring forms
+forever means every downstream surface (field inspector, authoring help, error messages, the
+normalizer's own repair rules) has to describe both, and a template edited in the browser can pick
+up either. Converting at registration keeps the migration benefit and drops the standing cost.
+
+**Refusing a macro-bearing package outright** — the recommendation, and the owner deviated from it.
+Refusing is the simpler rule and needs no code that must be right about executable content, but it
+rejects a firm's real letterhead templates and moves the macro stripping to Word on a paralegal's
+desktop, unaudited and unverified. Accepting and stripping keeps the operation inside the platform
+where it is verified and logged, at the cost of owning a security boundary; the re-verification step
+is what makes that cost bounded — the package is re-sniffed after stripping, so the decision that it
+is macro-free is made about the bytes we stored, not about the bytes we received.
+
 **Templates as `file` rows in a firm-level folder** — rejected. `file.matter_id` is `NOT NULL`, and
 relaxing it would touch the quarantine gate and every matter-scoped read and index in the File
 Manager for one consumer's convenience. A narrow parallel pair is the smaller change.
@@ -60,12 +87,21 @@ Manager for one consumer's convenience. A narrow parallel pair is the smaller ch
 the field inspector can point at a location, rather than at 4:55pm on a filing deadline. The
 per-assembly path is cheap enough to stay in a Worker. Immutable versions make an isolate-level
 template cache safe and make "why does the March document differ from the September one" answerable.
-Templates are scanned, macro-refused, and scrubbed once rather than per output.
+Templates are scanned, macro-stripped, and scrubbed once rather than per output. A firm can upload
+the templates it already has, including macro-bearing ones, without a preparation step outside the
+platform.
 
 **Negative.** A normalizer change does not retroactively apply to already-registered versions
 (correct, since versions are immutable) so two templates registered under different normalizer
 versions can behave differently; the normalizer version is recorded on the row so the difference is
 explicable. The catalogue is a second, deliberately narrow storage surface beside the File Manager.
+Converting `MERGEFIELD` at registration means the stored bytes no longer match what the firm
+uploaded, so the registration result has to be shown back to the author rather than silently
+accepted. And accepting macro-bearing uploads puts a security boundary in the registration path that
+would not otherwise exist — a stripping bug is a macro surviving into a stored template, which is
+why the re-verification and the adversarial tests are part of the decision rather than an
+implementation detail.
 
-**Open.** The placeholder syntax is user-visible and is an owner decision; changing it after firms
-have authored templates is a migration.
+**Risk.** The placeholder syntax is user-visible, so it is now settled before firms author against
+it; changing it later would be a migration over stored template bytes, which is exactly what
+deciding it now avoids.
