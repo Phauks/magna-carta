@@ -13,14 +13,11 @@
 id = "GHSA-r5fr-rjxr-66jc"
 reason = "Pre-existing transitive dev/build-tooling advisory (lodash), no production-runtime exploit path. Drops when the carrier upgrades; note this needs a deliberate bump, not an automated one, until the Renovate app is actually installed on the repository."
 
-# --- Tracked for remediation (surfaced when osv-scanner first audited the Rust supply chain 2026-07-16).
-# Accepted temporarily so the gate protects against NEW advisories immediately; each is to be fixed by
-# upgrading its carrier. Re-surfaces for review after ignoreUntil. (ADR: osv-scanner audit gate.)
-
-[[IgnoredVulns]]
-id = "RUSTSEC-2026-0187"
-ignoreUntil = 2026-10-14
-reason = "lopdf stack-overflow DoS parsing untrusted PDFs (CVSS 7.5). On the untrusted-input path; fix by upgrading lopdf to >=0.42.0. Tracked for remediation."
+# --- Tracked advisories (surfaced when osv-scanner first audited the Rust supply chain 2026-07-16).
+# Each is accepted with cause and a time-boxed ignoreUntil forcing function that re-surfaces it for review.
+# lopdf (RUSTSEC-2026-0187) was remediated by upgrading to 0.42.0 and is no longer listed. The three below
+# cannot be cleared by a simple carrier bump today — the reason on each records why, and each re-surfaces
+# at ignoreUntil to be re-checked against a newer upstream.
 
 [[IgnoredVulns]]
 id = "RUSTSEC-2026-0194"
