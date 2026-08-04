@@ -117,6 +117,41 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "retain-under-matter",
     note: "which firm member filed a message to a matter, and when, is the filing's provenance on that matter record",
   },
+  // Custodian — the register of physical client originals a firm holds. Its METADATA alone is
+  // sensitive: "this firm holds an original will for Jane Smith" is a disclosure with no document
+  // attached. Three tables carry a structured reference to a person; the rest of the group is
+  // location structure, catalogs, and bookkeeping and is declared non-personal below.
+  //
+  // The owner link and the depositor take retain-under-matter on the same reasoning matter_party
+  // does: the fact that a firm holds property for a person is itself a record it is obliged to
+  // keep — it is what makes the property releasable to the right person — and the subject-side
+  // scrub happens at the Directory entity.
+  {
+    table: "custody_owner",
+    subjectKey: "entity_id",
+    action: "retain-under-matter",
+    note: "whose property the firm physically holds is the record that makes it releasable at all",
+  },
+  {
+    table: "custody_packet",
+    subjectKey: "depositor_entity_id",
+    action: "retain-under-matter",
+    note: "who handed the property over is a fact about the deposit event, not current state",
+  },
+  // The movement ledger is append-only (RAISE(ABORT) triggers forbid deletion), so its subject
+  // references are pseudonymized in place and the row is never removed — the same discipline
+  // audit_log, entity_merge, and the conflicts log take. It resolves to a subject two ways, and the
+  // second is why one key is not enough: an EXTERNAL borrower (a courier's named driver signing for
+  // a deed) has no Directory record by construction, so keying only on the entity id would leave
+  // exactly those people unreachable by erasure. The frozen-name key follows the frozen-address
+  // precedent email_message and email_participant already set.
+  { table: "custody_movement", subjectKey: "borrower_entity_id", action: "pseudonymize-keep" },
+  {
+    table: "custody_movement",
+    subjectKey: "borrower_name",
+    action: "pseudonymize-keep",
+    note: "an external borrower with no Directory record — the only handle erasure has on them",
+  },
 ];
 
 // Per-firm tables that hold NO personal data — the explicit non-PII half of the coverage fitness.
@@ -223,4 +258,30 @@ export const NO_PII_TABLES: readonly string[] = [
   // provenance on a configuration row — current state, not an activity record about the member (the
   // same line integration_connection and scoped_setting sit on).
   "email_capture_address",
+  // Custodian structure and catalogs. The three tables that reference a person are registered in
+  // PII_TABLES above; these carry none of their own.
+  // The container tree is the firm's own safes, shelves, and offsite sites — the firm's premises,
+  // not a person's address (the same line `location` sits on).
+  "custody_location",
+  // The item-type catalog is a classification vocabulary (original will, deed, keys), like
+  // matter_type and document_type.
+  "custody_item_type",
+  // An item describes an OBJECT: its type, a free-text description, the instrument's own date, and a
+  // declared value. A description can name the person the instrument concerns ("original will of
+  // Jane Smith"), but that is free-text content with no structured subject column to resolve — the
+  // same residual class as matter.description and the shipment address JSON, handled by the residue
+  // report rather than by a key here. The subject's own erasure anchor is the owner link above.
+  "custody_item",
+  // A hold, a scan link, and a destruction request each carry only firm-member provenance
+  // (placed_by / captured_by / requested_by / approved_by) on a control row about an OBJECT — current
+  // operational state and administrative provenance, the line integration_connection and
+  // email_capture_address.created_by already sit on. The scanned document's own retention is
+  // expressed by its `file` entry, exactly as for file_version and email_attachment.
+  "custody_hold",
+  "custody_scan",
+  "custody_destruction_request",
+  // Custody-numbering bookkeeping: a scope key, the integer drawn, the packet it went to, and when.
+  // No column about a person (the matter_number_counter / matter_number_allocation precedent).
+  "custody_number_counter",
+  "custody_number_allocation",
 ];

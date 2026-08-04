@@ -1192,6 +1192,249 @@ export type RecordConflictsDispositionRequest = {
     rationale: string;
 };
 
+export type CustodyLocation = {
+    id: string;
+    name: string;
+    kind: 'office' | 'room' | 'safe' | 'cabinet' | 'shelf' | 'box' | 'position' | 'offsite' | 'bank';
+    parentLocationId: string | null;
+    firmLocationId: string | null;
+    address: string | null;
+    status: 'active' | 'closed';
+    notes: string | null;
+};
+
+export type CustodyIdAck = {
+    id: string;
+};
+
+export type CreateCustodyLocationRequest = {
+    name: string;
+    kind: 'office' | 'room' | 'safe' | 'cabinet' | 'shelf' | 'box' | 'position' | 'offsite' | 'bank';
+    parentLocationId?: string;
+    firmLocationId?: string;
+    address?: string | null;
+    notes?: string | null;
+};
+
+export type CustodyAck = {
+    ok: boolean;
+};
+
+export type UpdateCustodyLocationRequest = {
+    name?: string;
+    parentLocationId?: string | null;
+    address?: string | null;
+    notes?: string | null;
+    close?: boolean;
+};
+
+export type CustodyPacketPage = {
+    data: Array<CustodyPacketSummary>;
+    nextCursor: string | null;
+};
+
+export type CustodyPacketSummary = {
+    id: string;
+    custodyNumber: string;
+    name: string;
+    status: 'held' | 'out' | 'released' | 'destroyed' | 'lost';
+    currentLocationId: string | null;
+    matterId: string | null;
+    createdAt: string;
+};
+
+export type CreatedCustodyPacketResponse = {
+    id: string;
+    custodyNumber: string;
+    filingMatterId: string;
+};
+
+export type CreateCustodyPacketRequest = {
+    name: string;
+    owners: Array<CustodyOwnerInput>;
+    currentLocationId: string;
+    matterId?: string;
+    depositorEntityId?: string;
+    depositedAt?: string;
+    notes?: string | null;
+    manualCustodyNumber?: string;
+};
+
+export type CustodyOwnerInput = {
+    entityId: string;
+    ownershipRole?: string | null;
+};
+
+export type CustodyPacketDetail = {
+    id: string;
+    custodyNumber: string;
+    numberSource: 'drawn' | 'manual';
+    name: string;
+    status: 'held' | 'out' | 'released' | 'destroyed' | 'lost';
+    matterId: string | null;
+    depositorEntityId: string | null;
+    depositedAt: string | null;
+    notes: string | null;
+    locationPath: Array<CustodyLocation>;
+    filingMatterId: string | null;
+    items: Array<CustodyItem>;
+    owners: Array<CustodyOwner>;
+    holds: Array<CustodyHold>;
+    scans: Array<CustodyScan>;
+};
+
+export type CustodyItem = {
+    id: string;
+    ordinal: number;
+    itemTypeId: string | null;
+    description: string;
+    instrumentDate: string | null;
+    intrinsicValue: boolean;
+    declaredValueAmountMinor: number | null;
+    declaredValueCurrency: string | null;
+    status: 'held' | 'out' | 'released' | 'destroyed' | 'lost' | 'superseded';
+};
+
+export type CustodyOwner = {
+    id: string;
+    entityId: string;
+    ownershipRole: string | null;
+    effectiveFrom: string;
+    effectiveTo: string | null;
+};
+
+export type CustodyHold = {
+    id: string;
+    itemId: string | null;
+    kind: 'legal' | 'discovery' | 'client_instruction' | 'dispute' | 'unclaimed';
+    placedAt: string;
+    reason: string | null;
+    releasedAt: string | null;
+};
+
+export type CustodyScan = {
+    id: string;
+    itemId: string | null;
+    fileId: string;
+    kind: 'scan' | 'photograph' | 'receipt' | 'appraisal' | 'correspondence';
+    capturedAt: string;
+};
+
+export type UpdateCustodyPacketRequest = {
+    name?: string;
+    matterId?: string | null;
+    depositorEntityId?: string | null;
+    depositedAt?: string | null;
+    notes?: string | null;
+};
+
+export type AddCustodyItemRequest = {
+    description: string;
+    itemTypeId?: string;
+    instrumentDate?: string | null;
+    intrinsicValue?: boolean;
+    declaredValue?: CustodyDeclaredValue;
+    occurredAt?: string;
+};
+
+export type CustodyDeclaredValue = {
+    amountMinor: number;
+    currency: string;
+} | null;
+
+export type UpdateCustodyItemRequest = {
+    description?: string;
+    itemTypeId?: string | null;
+    instrumentDate?: string | null;
+    intrinsicValue?: boolean;
+    declaredValue?: CustodyDeclaredValue;
+};
+
+export type RecordedCustodyMovementResponse = {
+    id: string;
+    packetStatus: 'held' | 'out' | 'released' | 'destroyed' | 'lost';
+};
+
+export type RecordCustodyMovementRequest = {
+    kind: 'logged' | 'itemized' | 'moved' | 'checked_out' | 'returned' | 'withdrawn' | 'released' | 'superseded' | 'destroyed' | 'lost' | 'found' | 'hold_placed' | 'hold_released' | 'correction';
+    itemId?: string;
+    occurredAt?: string;
+    toLocationId?: string;
+    borrower?: CustodyBorrower;
+    dueBackOn?: string;
+    reason?: string;
+    correctsMovementId?: string;
+    shipmentId?: string;
+    note?: string;
+};
+
+export type CustodyBorrower = {
+    kind: 'member' | 'entity' | 'external';
+    userId?: string;
+    entityId?: string;
+    name?: string;
+};
+
+export type CustodyMovementPage = {
+    data: Array<CustodyMovement>;
+    nextCursor: string | null;
+};
+
+export type CustodyMovement = {
+    id: string;
+    itemId: string | null;
+    kind: 'logged' | 'itemized' | 'moved' | 'checked_out' | 'returned' | 'withdrawn' | 'released' | 'superseded' | 'destroyed' | 'lost' | 'found' | 'hold_placed' | 'hold_released' | 'correction';
+    occurredAt: string;
+    recordedAt: string;
+    recordedByUserId: string | null;
+    fromLocationId: string | null;
+    toLocationId: string | null;
+    borrowerKind: 'member' | 'entity' | 'external' | null;
+    borrowerUserId: string | null;
+    borrowerEntityId: string | null;
+    borrowerName: string | null;
+    dueBackOn: string | null;
+    reason: string | null;
+    correctsMovementId: string | null;
+    shipmentId: string | null;
+    note: string | null;
+};
+
+export type PlaceCustodyHoldRequest = {
+    kind: 'legal' | 'discovery' | 'client_instruction' | 'dispute' | 'unclaimed';
+    itemId?: string;
+    reason?: string;
+};
+
+export type LinkCustodyScanRequest = {
+    fileId: string;
+    kind: 'scan' | 'photograph' | 'receipt' | 'appraisal' | 'correspondence';
+    itemId?: string;
+    capturedAt?: string;
+};
+
+export type CustodyItemType = {
+    id: string;
+    name: string;
+    code: string | null;
+    intrinsicValueDefault: boolean;
+    active: boolean;
+};
+
+export type CreateCustodyItemTypeRequest = {
+    name: string;
+    code?: string | null;
+    intrinsicValueDefault?: boolean;
+};
+
+export type OverdueCustodyCheckout = {
+    packetId: string;
+    custodyNumber: string;
+    dueBackOn: string;
+    borrowerKind: 'member' | 'entity' | 'external' | null;
+    daysOverdue: number;
+};
+
 export type CustomFieldAck = {
     id: string;
 };
@@ -7276,6 +7519,913 @@ export type ConflictsRecordDispositionResponses = {
 };
 
 export type ConflictsRecordDispositionResponse = ConflictsRecordDispositionResponses[keyof ConflictsRecordDispositionResponses];
+
+export type CustodyListLocationsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/custody/locations';
+};
+
+export type CustodyListLocationsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustodyListLocationsError = CustodyListLocationsErrors[keyof CustodyListLocationsErrors];
+
+export type CustodyListLocationsResponses = {
+    /**
+     * The custody location tree
+     */
+    200: {
+        data: Array<CustodyLocation>;
+    };
+};
+
+export type CustodyListLocationsResponse = CustodyListLocationsResponses[keyof CustodyListLocationsResponses];
+
+export type CustodyCreateLocationData = {
+    body: CreateCustodyLocationRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/custody/locations';
+};
+
+export type CustodyCreateLocationErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, a hold forbids the action, a location is still occupied, or a custody number could not be allocated
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustodyCreateLocationError = CustodyCreateLocationErrors[keyof CustodyCreateLocationErrors];
+
+export type CustodyCreateLocationResponses = {
+    /**
+     * The created node
+     */
+    201: CustodyIdAck;
+};
+
+export type CustodyCreateLocationResponse = CustodyCreateLocationResponses[keyof CustodyCreateLocationResponses];
+
+export type CustodyUpdateLocationData = {
+    body: UpdateCustodyLocationRequest;
+    path: {
+        locationId: string;
+    };
+    query?: never;
+    url: '/api/v1/custody/locations/{locationId}';
+};
+
+export type CustodyUpdateLocationErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, a hold forbids the action, a location is still occupied, or a custody number could not be allocated
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustodyUpdateLocationError = CustodyUpdateLocationErrors[keyof CustodyUpdateLocationErrors];
+
+export type CustodyUpdateLocationResponses = {
+    /**
+     * Updated
+     */
+    200: CustodyAck;
+};
+
+export type CustodyUpdateLocationResponse = CustodyUpdateLocationResponses[keyof CustodyUpdateLocationResponses];
+
+export type CustodyListPacketsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        cursor?: string;
+        status?: 'held' | 'out' | 'released' | 'destroyed' | 'lost';
+        ownerEntityId?: string;
+        matterId?: string;
+        locationSubtreeId?: string;
+        search?: string;
+    };
+    url: '/api/v1/custody/packets';
+};
+
+export type CustodyListPacketsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustodyListPacketsError = CustodyListPacketsErrors[keyof CustodyListPacketsErrors];
+
+export type CustodyListPacketsResponses = {
+    /**
+     * A page of packets
+     */
+    200: CustodyPacketPage;
+};
+
+export type CustodyListPacketsResponse = CustodyListPacketsResponses[keyof CustodyListPacketsResponses];
+
+export type CustodyCreatePacketData = {
+    body: CreateCustodyPacketRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/custody/packets';
+};
+
+export type CustodyCreatePacketErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, a hold forbids the action, a location is still occupied, or a custody number could not be allocated
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustodyCreatePacketError = CustodyCreatePacketErrors[keyof CustodyCreatePacketErrors];
+
+export type CustodyCreatePacketResponses = {
+    /**
+     * The logged packet
+     */
+    201: CreatedCustodyPacketResponse;
+};
+
+export type CustodyCreatePacketResponse = CustodyCreatePacketResponses[keyof CustodyCreatePacketResponses];
+
+export type CustodyGetPacketData = {
+    body?: never;
+    path: {
+        packetId: string;
+    };
+    query?: never;
+    url: '/api/v1/custody/packets/{packetId}';
+};
+
+export type CustodyGetPacketErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustodyGetPacketError = CustodyGetPacketErrors[keyof CustodyGetPacketErrors];
+
+export type CustodyGetPacketResponses = {
+    /**
+     * The packet
+     */
+    200: CustodyPacketDetail;
+};
+
+export type CustodyGetPacketResponse = CustodyGetPacketResponses[keyof CustodyGetPacketResponses];
+
+export type CustodyUpdatePacketData = {
+    body: UpdateCustodyPacketRequest;
+    path: {
+        packetId: string;
+    };
+    query?: never;
+    url: '/api/v1/custody/packets/{packetId}';
+};
+
+export type CustodyUpdatePacketErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, a hold forbids the action, a location is still occupied, or a custody number could not be allocated
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustodyUpdatePacketError = CustodyUpdatePacketErrors[keyof CustodyUpdatePacketErrors];
+
+export type CustodyUpdatePacketResponses = {
+    /**
+     * Updated
+     */
+    200: CustodyAck;
+};
+
+export type CustodyUpdatePacketResponse = CustodyUpdatePacketResponses[keyof CustodyUpdatePacketResponses];
+
+export type CustodyAddItemData = {
+    body: AddCustodyItemRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        packetId: string;
+    };
+    query?: never;
+    url: '/api/v1/custody/packets/{packetId}/items';
+};
+
+export type CustodyAddItemErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, a hold forbids the action, a location is still occupied, or a custody number could not be allocated
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustodyAddItemError = CustodyAddItemErrors[keyof CustodyAddItemErrors];
+
+export type CustodyAddItemResponses = {
+    /**
+     * The added item
+     */
+    201: CustodyIdAck;
+};
+
+export type CustodyAddItemResponse = CustodyAddItemResponses[keyof CustodyAddItemResponses];
+
+export type CustodyUpdateItemData = {
+    body: UpdateCustodyItemRequest;
+    path: {
+        packetId: string;
+        itemId: string;
+    };
+    query?: never;
+    url: '/api/v1/custody/packets/{packetId}/items/{itemId}';
+};
+
+export type CustodyUpdateItemErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, a hold forbids the action, a location is still occupied, or a custody number could not be allocated
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustodyUpdateItemError = CustodyUpdateItemErrors[keyof CustodyUpdateItemErrors];
+
+export type CustodyUpdateItemResponses = {
+    /**
+     * Updated
+     */
+    200: CustodyAck;
+};
+
+export type CustodyUpdateItemResponse = CustodyUpdateItemResponses[keyof CustodyUpdateItemResponses];
+
+export type CustodyAddOwnerData = {
+    body: CustodyOwnerInput;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        packetId: string;
+    };
+    query?: never;
+    url: '/api/v1/custody/packets/{packetId}/owners';
+};
+
+export type CustodyAddOwnerErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, a hold forbids the action, a location is still occupied, or a custody number could not be allocated
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustodyAddOwnerError = CustodyAddOwnerErrors[keyof CustodyAddOwnerErrors];
+
+export type CustodyAddOwnerResponses = {
+    /**
+     * The added owner link
+     */
+    201: CustodyIdAck;
+};
+
+export type CustodyAddOwnerResponse = CustodyAddOwnerResponses[keyof CustodyAddOwnerResponses];
+
+export type CustodyListMovementsData = {
+    body?: never;
+    path: {
+        packetId: string;
+    };
+    query?: {
+        cursor?: string;
+    };
+    url: '/api/v1/custody/packets/{packetId}/movements';
+};
+
+export type CustodyListMovementsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustodyListMovementsError = CustodyListMovementsErrors[keyof CustodyListMovementsErrors];
+
+export type CustodyListMovementsResponses = {
+    /**
+     * A page of the packet's history
+     */
+    200: CustodyMovementPage;
+};
+
+export type CustodyListMovementsResponse = CustodyListMovementsResponses[keyof CustodyListMovementsResponses];
+
+export type CustodyRecordMovementData = {
+    body: RecordCustodyMovementRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        packetId: string;
+    };
+    query?: never;
+    url: '/api/v1/custody/packets/{packetId}/movements';
+};
+
+export type CustodyRecordMovementErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, a hold forbids the action, a location is still occupied, or a custody number could not be allocated
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustodyRecordMovementError = CustodyRecordMovementErrors[keyof CustodyRecordMovementErrors];
+
+export type CustodyRecordMovementResponses = {
+    /**
+     * The recorded movement
+     */
+    201: RecordedCustodyMovementResponse;
+};
+
+export type CustodyRecordMovementResponse = CustodyRecordMovementResponses[keyof CustodyRecordMovementResponses];
+
+export type CustodyPlaceHoldData = {
+    body: PlaceCustodyHoldRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        packetId: string;
+    };
+    query?: never;
+    url: '/api/v1/custody/packets/{packetId}/holds';
+};
+
+export type CustodyPlaceHoldErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, a hold forbids the action, a location is still occupied, or a custody number could not be allocated
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustodyPlaceHoldError = CustodyPlaceHoldErrors[keyof CustodyPlaceHoldErrors];
+
+export type CustodyPlaceHoldResponses = {
+    /**
+     * The placed hold
+     */
+    201: CustodyIdAck;
+};
+
+export type CustodyPlaceHoldResponse = CustodyPlaceHoldResponses[keyof CustodyPlaceHoldResponses];
+
+export type CustodyReleaseHoldData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        holdId: string;
+    };
+    query?: never;
+    url: '/api/v1/custody/holds/{holdId}/release';
+};
+
+export type CustodyReleaseHoldErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, a hold forbids the action, a location is still occupied, or a custody number could not be allocated
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustodyReleaseHoldError = CustodyReleaseHoldErrors[keyof CustodyReleaseHoldErrors];
+
+export type CustodyReleaseHoldResponses = {
+    /**
+     * Released
+     */
+    200: CustodyAck;
+};
+
+export type CustodyReleaseHoldResponse = CustodyReleaseHoldResponses[keyof CustodyReleaseHoldResponses];
+
+export type CustodyLinkScanData = {
+    body: LinkCustodyScanRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        packetId: string;
+    };
+    query?: never;
+    url: '/api/v1/custody/packets/{packetId}/scans';
+};
+
+export type CustodyLinkScanErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, a hold forbids the action, a location is still occupied, or a custody number could not be allocated
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustodyLinkScanError = CustodyLinkScanErrors[keyof CustodyLinkScanErrors];
+
+export type CustodyLinkScanResponses = {
+    /**
+     * The linked scan
+     */
+    201: CustodyIdAck;
+};
+
+export type CustodyLinkScanResponse = CustodyLinkScanResponses[keyof CustodyLinkScanResponses];
+
+export type CustodyListItemTypesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        includeInactive?: 'true' | 'false';
+    };
+    url: '/api/v1/custody/item-types';
+};
+
+export type CustodyListItemTypesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustodyListItemTypesError = CustodyListItemTypesErrors[keyof CustodyListItemTypesErrors];
+
+export type CustodyListItemTypesResponses = {
+    /**
+     * The catalog
+     */
+    200: {
+        data: Array<CustodyItemType>;
+    };
+};
+
+export type CustodyListItemTypesResponse = CustodyListItemTypesResponses[keyof CustodyListItemTypesResponses];
+
+export type CustodyCreateItemTypeData = {
+    body: CreateCustodyItemTypeRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/custody/item-types';
+};
+
+export type CustodyCreateItemTypeErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, a hold forbids the action, a location is still occupied, or a custody number could not be allocated
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustodyCreateItemTypeError = CustodyCreateItemTypeErrors[keyof CustodyCreateItemTypeErrors];
+
+export type CustodyCreateItemTypeResponses = {
+    /**
+     * The created type
+     */
+    201: CustodyIdAck;
+};
+
+export type CustodyCreateItemTypeResponse = CustodyCreateItemTypeResponses[keyof CustodyCreateItemTypeResponses];
+
+export type CustodyDeactivateItemTypeData = {
+    body?: never;
+    path: {
+        itemTypeId: string;
+    };
+    query?: never;
+    url: '/api/v1/custody/item-types/{itemTypeId}';
+};
+
+export type CustodyDeactivateItemTypeErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, a hold forbids the action, a location is still occupied, or a custody number could not be allocated
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustodyDeactivateItemTypeError = CustodyDeactivateItemTypeErrors[keyof CustodyDeactivateItemTypeErrors];
+
+export type CustodyDeactivateItemTypeResponses = {
+    /**
+     * Deactivated
+     */
+    200: CustodyAck;
+};
+
+export type CustodyDeactivateItemTypeResponse = CustodyDeactivateItemTypeResponses[keyof CustodyDeactivateItemTypeResponses];
+
+export type CustodyListOverdueData = {
+    body?: never;
+    path?: never;
+    query?: {
+        asOf?: string;
+    };
+    url: '/api/v1/custody/overdue';
+};
+
+export type CustodyListOverdueErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustodyListOverdueError = CustodyListOverdueErrors[keyof CustodyListOverdueErrors];
+
+export type CustodyListOverdueResponses = {
+    /**
+     * Overdue check-outs
+     */
+    200: {
+        data: Array<OverdueCustodyCheckout>;
+    };
+};
+
+export type CustodyListOverdueResponse = CustodyListOverdueResponses[keyof CustodyListOverdueResponses];
 
 export type CustomFieldsDefineFieldData = {
     body: DefineCustomFieldRequest;
