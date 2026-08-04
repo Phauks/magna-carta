@@ -83,6 +83,52 @@ describe("BundleBuildCoordinator", () => {
     });
   });
 
+  it("a ready job whose artifact was reaped rebuilds instead of reporting a dead bundle", async () => {
+    const stub = coordinatorStub("firm_1:hash-reaped");
+    await runInDurableObject(stub, async (instance: BundleBuildCoordinator) => {
+      const sends = recordSends(instance);
+      await instance.requestBundle(message("hash-reaped"));
+      // Completed, then the `bundles/` lifecycle rule expires the object: the DO state survives, the
+      // artifact does not. Nothing is ever written to R2 under this key, which is exactly that state.
+      await instance.markReady("bundles/hash-reaped.zip");
+      const state = await instance.requestBundle(message("hash-reaped"));
+      expect(state.status).toBe("building");
+      expect(sends).toHaveLength(2);
+    });
+  });
+
+  it("a ready job whose artifact is still present is shared (no rebuild)", async () => {
+    await env.R2.put("bundles/hash-present.zip", "zip bytes");
+    const stub = coordinatorStub("firm_1:hash-present");
+    await runInDurableObject(stub, async (instance: BundleBuildCoordinator) => {
+      const sends = recordSends(instance);
+      await instance.requestBundle(message("hash-present"));
+      await instance.markReady("bundles/hash-present.zip");
+      const state = await instance.requestBundle(message("hash-present"));
+      expect(state.status).toBe("ready");
+      expect(state.r2Key).toBe("bundles/hash-present.zip");
+      expect(sends).toHaveLength(1);
+    });
+  });
+
+  it("a ready split bundle rebuilds when any one of its volumes is gone", async () => {
+    await env.R2.put("bundles/hash-split/part1", "volume one");
+    const stub = coordinatorStub("firm_1:hash-split");
+    await runInDurableObject(stub, async (instance: BundleBuildCoordinator) => {
+      const sends = recordSends(instance);
+      await instance.requestBundle(message("hash-split"));
+      // The second volume was never written (reaped): a split archive missing one volume is unusable,
+      // so the whole bundle rebuilds.
+      await instance.markReadyVolumes([
+        { key: "bundles/hash-split/part1", sizeBytes: 10 },
+        { key: "bundles/hash-split/part2", sizeBytes: 10 },
+      ]);
+      const state = await instance.requestBundle(message("hash-split"));
+      expect(state.status).toBe("building");
+      expect(sends).toHaveLength(2);
+    });
+  });
+
   it("markFailed never clobbers a job that already reached ready (zombie attempt)", async () => {
     const stub = coordinatorStub("firm_1:hash-zombie");
     await runInDurableObject(stub, async (instance: BundleBuildCoordinator) => {

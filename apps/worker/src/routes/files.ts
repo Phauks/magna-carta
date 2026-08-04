@@ -32,6 +32,7 @@ import type { OutboxMessage } from "@magna-carta/data-access/outbox-statements";
 import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type { Context } from "hono";
 import type { Bindings } from "../app.ts";
+import { runInBackground } from "../background.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,
@@ -456,18 +457,6 @@ function fileErrorResponse(c: Context, error: FileManagerValidationError): Probl
     });
   }
   throw error;
-}
-
-// Fire-and-forget background work that must NEVER block or fail the response. Uses
-// executionCtx.waitUntil when an execution context is present (production + most test paths); falls
-// back to a detached, error-swallowed promise where there is none (some test harnesses construct a
-// request without one — c.executionCtx is a throwing getter there), so the handler still returns.
-function runInBackground(c: Context, work: Promise<unknown>): void {
-  try {
-    c.executionCtx.waitUntil(work);
-  } catch {
-    void Promise.resolve(work).catch(() => {});
-  }
 }
 
 // Projects the file-manager summary onto the FileSummary wire shape — shared by the list and the

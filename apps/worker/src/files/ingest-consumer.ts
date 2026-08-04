@@ -252,6 +252,8 @@ async function handleRescanMessage(
         raw = await scanPort.scan(object.body, {
           sizeBytes: object.size,
           sniffedContentType: null,
+          // Same stable key the first ingest scan used: a re-scan lands on the same engine instance.
+          contentKey: message.object.key,
         });
         fromCache = false;
       }
