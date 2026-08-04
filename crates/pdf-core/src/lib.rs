@@ -1,6 +1,7 @@
 #[cfg(target_arch = "wasm32")]
 mod wasm;
 
+mod annotations;
 mod guard;
 mod standard_fonts;
 mod standard_fonts_data;

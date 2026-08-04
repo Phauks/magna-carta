@@ -176,21 +176,7 @@ fn scrub_attachments(doc: &mut Document) {
     // File-attachment annotations (and /AF) on every page.
     let page_ids: Vec<ObjectId> = doc.get_pages().values().copied().collect();
     for page_id in page_ids {
-        let annots: Vec<Object> = match doc
-            .get_object(page_id)
-            .ok()
-            .and_then(|o| o.as_dict().ok())
-            .and_then(|d| d.get(b"Annots").ok())
-        {
-            Some(Object::Array(arr)) => arr.clone(),
-            Some(Object::Reference(id)) => doc
-                .get_object(*id)
-                .ok()
-                .and_then(|o| o.as_array().ok())
-                .cloned()
-                .unwrap_or_default(),
-            _ => Vec::new(),
-        };
+        let annots = crate::annotations::page_annotation_entries(doc, page_id);
         if !annots.is_empty() {
             let kept: Vec<Object> = annots
                 .into_iter()
@@ -280,16 +266,7 @@ pub(crate) fn verify_scrub_absence(doc: &Document, opts: &ScrubOptions) -> Resul
             if page.has(b"AF") {
                 return fail("a page /AF survived scrub");
             }
-            let annots = match page.get(b"Annots") {
-                Ok(Object::Array(array)) => array.clone(),
-                Ok(Object::Reference(id)) => doc
-                    .get_object(*id)
-                    .ok()
-                    .and_then(|o| o.as_array().ok())
-                    .cloned()
-                    .unwrap_or_default(),
-                _ => Vec::new(),
-            };
+            let annots = crate::annotations::page_annotation_entries(doc, page_id);
             for annot in &annots {
                 let is_file_attachment = annot
                     .as_reference()
