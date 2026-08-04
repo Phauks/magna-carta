@@ -17,6 +17,15 @@ import type {
   ConflictsDispositionId,
   ConflictsHitId,
   CostEntryId,
+  CustodyDestructionRequestId,
+  CustodyHoldId,
+  CustodyItemId,
+  CustodyItemTypeId,
+  CustodyLocationId,
+  CustodyMovementId,
+  CustodyOwnerId,
+  CustodyPacketId,
+  CustodyScanId,
   CustomFieldId,
   CustomFieldValueId,
   DirectoryAddressId,
@@ -468,6 +477,13 @@ export const matter = sqliteTable(
     eBilling: integer("e_billing").notNull().default(0),
     matterNumber: text("matter_number"), // null until open draws it; frozen thereafter
     numberedAt: text("numbered_at"),
+    // Names a platform-owned matter that exists to satisfy a structural requirement rather than to
+    // hold a client engagement — today only the custody holding matter, which is where a scan of an
+    // original held for someone with no matter is filed. Null on every real matter. Marked rather
+    // than hidden by convention so list reads, reports, conflicts, and billing have one column to
+    // exclude, and so the alternative (relaxing file.matter_id to nullable, which seven subsystems
+    // depend on) is not forced by one consumer's need.
+    systemKey: text("system_key"),
     openedAt: text("opened_at"),
     closedAt: text("closed_at"),
     createdAt: text("created_at").notNull(),
@@ -477,6 +493,11 @@ export const matter = sqliteTable(
     uniqueIndex("matter_matter_number_unique_index")
       .on(table.matterNumber)
       .where(sql`${table.matterNumber} IS NOT NULL`),
+    // At most one matter per firm per system key — the find-or-insert guard that collapses two
+    // concurrent first-use creations onto one row.
+    uniqueIndex("matter_system_key_unique_index")
+      .on(table.systemKey)
+      .where(sql`${table.systemKey} IS NOT NULL`),
     index("matter_status_index").on(table.status),
     // List reads keyset-paginate on (created_at DESC, id DESC). SQLite walks an ASC index in reverse,
     // so these ASC composites serve the sort order from the index itself — no temporary B-tree. The
@@ -2279,5 +2300,470 @@ export const documentAssembly = sqliteTable(
       "document_assembly_outcome_check",
       sql`${table.outcome} IS NULL OR ${table.outcome} IN ('succeeded', 'succeeded_with_absences', 'failed')`,
     ),
+  ],
+);
+
+// ---- Custodian: the register of physical client originals the firm holds in safekeeping ----
+//
+// Two structural invariants govern this group and are enforced wherever SQLite can express them: a
+// movement is appended and never updated or deleted (the RAISE(ABORT) triggers live in the
+// hand-written migration, the only place triggers can be expressed at all), and a packet cannot
+// exist without at least one owner link (an "at least one" constraint over a child table, which
+// SQLite cannot state as a column check, so the write path in @magna-carta/custodian enforces it).
+// Retention periods are deliberately absent: no column here carries a default retention and no code
+// path derives one — destroying a client's irreplaceable original is never a platform default.
+
+// One node of the physical container tree. A ROOT node (parent_location_id IS NULL) either binds a
+// firm office through firm_location_id — which is what makes "which office holds this original"
+// answerable for a multi-office practice — or binds none and stands for an external custody site (a
+// bank vault, an offsite records vendor), carrying its own name and address. A bank is not one of the
+// firm's offices, so it must not become a `location` row: that table drives letterhead, remit-to, the
+// matter-number segment, and staff assignment for every other subsystem that reads it. `kind` drives
+// iconography and grouping only — nothing in the engine branches on it.
+export const custodyLocation = sqliteTable(
+  "custody_location",
+  {
+    id: text("id").primaryKey().$type<CustodyLocationId>(), // custodyLocation_ handle
+    name: text("name").notNull(),
+    kind: text("kind", {
+      enum: ["office", "room", "safe", "cabinet", "shelf", "box", "position", "offsite", "bank"],
+    }).notNull(),
+    parentLocationId: text("parent_location_id").$type<CustodyLocationId>(), // null on a root node
+    firmLocationId: text("firm_location_id")
+      .$type<LocationId>()
+      .references(() => location.id), // set only on an office root
+    address: text("address"), // free text, for an external site that is not a firm office
+    status: text("status", { enum: ["active", "closed"] })
+      .notNull()
+      .default("active"),
+    notes: text("notes"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    index("custody_location_parent_index").on(table.parentLocationId),
+    index("custody_location_firm_location_index").on(table.firmLocationId),
+    check("custody_location_name_check", sql`length(${table.name}) > 0`),
+    check(
+      "custody_location_kind_check",
+      sql`${table.kind} IN ('office', 'room', 'safe', 'cabinet', 'shelf', 'box', 'position', 'offsite', 'bank')`,
+    ),
+    check("custody_location_status_check", sql`${table.status} IN ('active', 'closed')`),
+    // Only a root may name a firm office: a shelf inside a safe inherits its office from the root,
+    // and letting a mid-tree node claim a different one would make a packet's office ambiguous.
+    check(
+      "custody_location_firm_binding_check",
+      sql`${table.firmLocationId} IS NULL OR ${table.parentLocationId} IS NULL`,
+    ),
+  ],
+);
+
+// The per-firm item-type catalog — original will, codicil, deed, share certificate, keys, and
+// whatever else a firm holds. A catalog table rather than a platform enum for the same reason
+// matter_type and document_type are: a firm that holds something nobody thought of must not be
+// blocked, and a growing list of similar things is a declaration, not code. Soft-deactivate only.
+// intrinsic_value_default seeds an item's own flag; a human always overrides it on the object.
+export const custodyItemType = sqliteTable(
+  "custody_item_type",
+  {
+    id: text("id").primaryKey().$type<CustodyItemTypeId>(), // custodyItemType_ handle
+    name: text("name").notNull(),
+    code: text("code"),
+    intrinsicValueDefault: integer("intrinsic_value_default", { mode: "boolean" })
+      .notNull()
+      .default(false),
+    active: integer("active", { mode: "boolean" }).notNull().default(true),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("custody_item_type_name_unique_index").on(table.name),
+    uniqueIndex("custody_item_type_code_unique_index").on(table.code),
+    check("custody_item_type_name_check", sql`length(${table.name}) > 0`),
+  ],
+);
+
+// A packet is the unit of custody: the envelope, deed box, or sealed wallet the firm physically holds
+// and physically moves. It carries the firm-scoped custody number a person writes on a label and
+// reads over the phone, the current location, the derived status, and the optional matter link.
+//
+// current_location_id is nullable and that is deliberate: a packet checked out to a borrower, or
+// released to its owner, is not in the tree, and recording a location it is not at would falsify the
+// occupancy count the register reports. A packet being logged always names one.
+//
+// matter_id is nullable and that is the whole point of the subsystem — a will held for a client whose
+// last matter closed eleven years ago is the steady state, and rooting custody at the matter would
+// make that case either impossible or a fake matter. Closing a matter never touches a packet.
+export const custodyPacket = sqliteTable(
+  "custody_packet",
+  {
+    id: text("id").primaryKey().$type<CustodyPacketId>(), // custodyPacket_ handle
+    custodyNumber: text("custody_number").notNull(),
+    // 'drawn' consumed a counter value and holds an allocation row; 'manual' is a number a firm
+    // carried in from a paper deeds register or a prior system and touches no counter.
+    numberSource: text("number_source", { enum: ["drawn", "manual"] }).notNull(),
+    name: text("name").notNull(),
+    currentLocationId: text("current_location_id")
+      .$type<CustodyLocationId>()
+      .references(() => custodyLocation.id),
+    status: text("status", { enum: ["held", "out", "released", "destroyed", "lost"] })
+      .notNull()
+      .default("held"),
+    matterId: text("matter_id")
+      .$type<MatterId>()
+      .references(() => matter.id),
+    // The person who physically handed the packet over — routinely neither an owner nor a client (a
+    // son deposits his mother's will), and a fact about the deposit EVENT that must not be overwritten
+    // when ownership changes. Null is honest for a packet inherited in a firm merger. No cross-domain
+    // foreign key on the Directory handle (the matter_party precedent).
+    depositorEntityId: text("depositor_entity_id"),
+    depositedAt: text("deposited_at"),
+    notes: text("notes"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("custody_packet_custody_number_unique_index").on(table.custodyNumber),
+    // The register list filters on status and orders by number; one composite serves both.
+    index("custody_packet_status_number_index").on(table.status, table.custodyNumber),
+    index("custody_packet_current_location_index").on(table.currentLocationId),
+    index("custody_packet_matter_index").on(table.matterId),
+    index("custody_packet_depositor_index").on(table.depositorEntityId),
+    check("custody_packet_name_check", sql`length(${table.name}) > 0`),
+    check("custody_packet_number_check", sql`length(${table.custodyNumber}) > 0`),
+    check("custody_packet_number_source_check", sql`${table.numberSource} IN ('drawn', 'manual')`),
+    check(
+      "custody_packet_status_check",
+      sql`${table.status} IN ('held', 'out', 'released', 'destroyed', 'lost')`,
+    ),
+  ],
+);
+
+// An item is the unit of description: one thing inside a packet. It never moves between packets by an
+// edit — re-packeting is a movement in the ledger, because "when did the will move out of the family
+// envelope" has to have an answer. `ordinal` is packet-relative (CUS-00042-3): an item's identity is
+// only meaningful inside its packet, so a second global counter would buy nothing.
+//
+// `superseded` exists only here: a will replaced by a later will is not destroyed, released, or lost,
+// and firms hold both. intrinsic_value is defaulted from the type and always overridable, because it
+// is the flag the destruction path reads and so must be a fact a person asserted about THIS object. A
+// declared value is money, so it is minor units plus a currency, never a float.
+export const custodyItem = sqliteTable(
+  "custody_item",
+  {
+    id: text("id").primaryKey().$type<CustodyItemId>(), // custodyItem_ handle
+    packetId: text("packet_id")
+      .notNull()
+      .$type<CustodyPacketId>()
+      .references(() => custodyPacket.id),
+    ordinal: integer("ordinal").notNull(),
+    itemTypeId: text("item_type_id")
+      .$type<CustodyItemTypeId>()
+      .references(() => custodyItemType.id),
+    description: text("description").notNull(),
+    // The instrument's own date (a will dated 14 March 2019) — what a firm actually searches by.
+    instrumentDate: text("instrument_date"),
+    intrinsicValue: integer("intrinsic_value", { mode: "boolean" }).notNull().default(false),
+    declaredValueAmountMinor: integer("declared_value_amount_minor"),
+    declaredValueCurrency: text("declared_value_currency"),
+    status: text("status", {
+      enum: ["held", "out", "released", "destroyed", "lost", "superseded"],
+    })
+      .notNull()
+      .default("held"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("custody_item_packet_ordinal_unique_index").on(table.packetId, table.ordinal),
+    index("custody_item_item_type_index").on(table.itemTypeId),
+    check("custody_item_description_check", sql`length(${table.description}) > 0`),
+    check("custody_item_ordinal_check", sql`${table.ordinal} > 0`),
+    check(
+      "custody_item_status_check",
+      sql`${table.status} IN ('held', 'out', 'released', 'destroyed', 'lost', 'superseded')`,
+    ),
+    // An amount with no currency cannot be interpreted, and a currency with no amount says nothing.
+    check(
+      "custody_item_declared_value_check",
+      sql`(${table.declaredValueAmountMinor} IS NULL) = (${table.declaredValueCurrency} IS NULL)`,
+    ),
+  ],
+);
+
+// The owner link — the subsystem's orphan-prevention invariant made structural. The catastrophic
+// outcome in safe custody is not a misplaced packet but an unattributable one: a sealed envelope with
+// a name on it that matches nobody, which can therefore never be released and never destroyed.
+// Ownership is temporal: an ownership change writes a new row and end-dates the old, never an
+// overwrite. `ownership_role` is a short firm-supplied label (owner, joint owner, life tenant,
+// trustee, executor) rather than a closed platform enum of tenancy forms — tenancy forms are
+// jurisdiction-specific and there is no release-authority engine to consume them, so a closed
+// vocabulary here would be false precision a later engine has to migrate away from.
+export const custodyOwner = sqliteTable(
+  "custody_owner",
+  {
+    id: text("id").primaryKey().$type<CustodyOwnerId>(), // custodyOwner_ handle
+    packetId: text("packet_id")
+      .notNull()
+      .$type<CustodyPacketId>()
+      .references(() => custodyPacket.id),
+    // A directoryPerson_/directoryOrganization_ handle. No cross-domain foreign key (the matter_party
+    // precedent) — the Directory is the only anchor that survives a matter closing.
+    entityId: text("entity_id").notNull(),
+    ownershipRole: text("ownership_role"),
+    effectiveFrom: text("effective_from").notNull(),
+    effectiveTo: text("effective_to"), // null while the link is current
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    index("custody_owner_packet_index").on(table.packetId),
+    // The register's primary filter: everything this firm holds for one Directory entity.
+    index("custody_owner_entity_index").on(table.entityId, table.effectiveTo),
+  ],
+);
+
+// The append-only custody ledger. The register's whole value in a dispute is that it is a
+// contemporaneous record nobody could have made say otherwise afterwards, so a correction is a new
+// compensating row carrying corrects_movement_id, never an edit. The RAISE(ABORT) triggers that make
+// that a guarantee rather than a convention are in the hand-written migration.
+//
+// occurred_at and recorded_at are separate columns because custody events happen in the physical
+// world and are typed in afterwards — sometimes on a Monday for a Friday. Collapsing them would make
+// back-dating either impossible or indistinguishable from falsification; kept apart, the register
+// reports on occurred_at while recorded_at proves when the assertion was made.
+//
+// shipment_id binds a movement to a real carrier shipment rather than growing tracking columns here.
+// The movement is written when the packet leaves, independently of whether the shipment is later
+// delivered: a carrier failure must be visible as a custody event, and a package marked delivered is
+// not proof the recipient was the right person.
+export const custodyMovement = sqliteTable(
+  "custody_movement",
+  {
+    id: text("id").primaryKey().$type<CustodyMovementId>(), // custodyMovement_ handle
+    packetId: text("packet_id")
+      .notNull()
+      .$type<CustodyPacketId>()
+      .references(() => custodyPacket.id),
+    itemId: text("item_id")
+      .$type<CustodyItemId>()
+      .references(() => custodyItem.id), // set when the movement concerns one item, not the packet
+    kind: text("kind", {
+      enum: [
+        "logged",
+        "itemized",
+        "moved",
+        "checked_out",
+        "returned",
+        "withdrawn",
+        "released",
+        "superseded",
+        "destroyed",
+        "lost",
+        "found",
+        "hold_placed",
+        "hold_released",
+        "correction",
+      ],
+    }).notNull(),
+    occurredAt: text("occurred_at").notNull(),
+    recordedAt: text("recorded_at").notNull(),
+    recordedByUserId: text("recorded_by_user_id").$type<UserId>(),
+    fromLocationId: text("from_location_id")
+      .$type<CustodyLocationId>()
+      .references(() => custodyLocation.id),
+    toLocationId: text("to_location_id")
+      .$type<CustodyLocationId>()
+      .references(() => custodyLocation.id),
+    // Who has it. All three shapes really occur: a partner takes the deed to a completion meeting
+    // (member), the client's accountant collects a share certificate (entity), a courier's named
+    // driver signs for it (external). Forcing an external borrower into the Directory would pollute
+    // the conflicts corpus with people who are party to nothing; forcing a real Directory entity into
+    // free text loses the link.
+    borrowerKind: text("borrower_kind", { enum: ["member", "entity", "external"] }),
+    borrowerUserId: text("borrower_user_id").$type<UserId>(),
+    borrowerEntityId: text("borrower_entity_id"),
+    borrowerName: text("borrower_name"),
+    dueBackOn: text("due_back_on"),
+    reason: text("reason"),
+    correctsMovementId: text("corrects_movement_id").$type<CustodyMovementId>(),
+    shipmentId: text("shipment_id")
+      .$type<ShipmentId>()
+      .references(() => shipment.id),
+    note: text("note"),
+  },
+  (table) => [
+    // The packet history read, keyset-paginated newest first; also the order the register renders.
+    index("custody_movement_packet_occurred_index").on(table.packetId, table.occurredAt, table.id),
+    index("custody_movement_item_index").on(table.itemId),
+    index("custody_movement_borrower_entity_index").on(table.borrowerEntityId),
+    check(
+      "custody_movement_kind_check",
+      sql`${table.kind} IN ('logged', 'itemized', 'moved', 'checked_out', 'returned', 'withdrawn', 'released', 'superseded', 'destroyed', 'lost', 'found', 'hold_placed', 'hold_released', 'correction')`,
+    ),
+    check(
+      "custody_movement_borrower_kind_check",
+      sql`${table.borrowerKind} IS NULL OR ${table.borrowerKind} IN ('member', 'entity', 'external')`,
+    ),
+    // A borrower kind names which column carries the borrower; a kind with no matching value is a
+    // check-out that cannot answer the question the register exists to answer.
+    check(
+      "custody_movement_borrower_shape_check",
+      sql`(${table.borrowerKind} IS NULL) OR (${table.borrowerKind} = 'member' AND ${table.borrowerUserId} IS NOT NULL) OR (${table.borrowerKind} = 'entity' AND ${table.borrowerEntityId} IS NOT NULL) OR (${table.borrowerKind} = 'external' AND ${table.borrowerName} IS NOT NULL)`,
+    ),
+    check(
+      "custody_movement_correction_check",
+      sql`${table.correctsMovementId} IS NULL OR ${table.kind} = 'correction'`,
+    ),
+  ],
+);
+
+// A hold blocks release and destruction. It does NOT block a location move: a held original still has
+// to be movable to a fireproof safe or an offsite site — what a hold forbids is the property leaving
+// the firm's custody or ceasing to exist. `unclaimed` is a hold kind rather than a status because "we
+// cannot locate the owner" is exactly a do-not-destroy condition, and modelling it as a hold means it
+// inherits the blocker for free. Placing and releasing each also append a movement, so the ledger
+// stays the complete story.
+export const custodyHold = sqliteTable(
+  "custody_hold",
+  {
+    id: text("id").primaryKey().$type<CustodyHoldId>(), // custodyHold_ handle
+    packetId: text("packet_id")
+      .notNull()
+      .$type<CustodyPacketId>()
+      .references(() => custodyPacket.id),
+    itemId: text("item_id")
+      .$type<CustodyItemId>()
+      .references(() => custodyItem.id),
+    kind: text("kind", {
+      enum: ["legal", "discovery", "client_instruction", "dispute", "unclaimed"],
+    }).notNull(),
+    placedAt: text("placed_at").notNull(),
+    placedBy: text("placed_by").$type<UserId>(),
+    reason: text("reason"),
+    releasedAt: text("released_at"),
+    releasedBy: text("released_by").$type<UserId>(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    // The blocker read asks "is anything in force on this packet", so released_at rides the index.
+    index("custody_hold_packet_released_index").on(table.packetId, table.releasedAt),
+    index("custody_hold_item_index").on(table.itemId),
+    check(
+      "custody_hold_kind_check",
+      sql`${table.kind} IN ('legal', 'discovery', 'client_instruction', 'dispute', 'unclaimed')`,
+    ),
+  ],
+);
+
+// A scanned copy, bound as a LINK over an ordinary File Manager file rather than as a parallel store.
+// The bytes ride the existing presigned upload and quarantine chokepoint with no bypass, so a custody
+// scan is previewable, convertible, searchable, and holdable exactly like any other document — there
+// is no upload route in Custodian at all. A scan is never a substitute for the original and satisfies
+// no gate: "we have a scan" is precisely the reasoning that destroys an original will.
+export const custodyScan = sqliteTable(
+  "custody_scan",
+  {
+    id: text("id").primaryKey().$type<CustodyScanId>(), // custodyScan_ handle
+    packetId: text("packet_id")
+      .notNull()
+      .$type<CustodyPacketId>()
+      .references(() => custodyPacket.id),
+    itemId: text("item_id")
+      .$type<CustodyItemId>()
+      .references(() => custodyItem.id),
+    fileId: text("file_id")
+      .notNull()
+      .$type<FileId>()
+      .references(() => file.id),
+    kind: text("kind", {
+      enum: ["scan", "photograph", "receipt", "appraisal", "correspondence"],
+    }).notNull(),
+    capturedAt: text("captured_at").notNull(),
+    capturedBy: text("captured_by").$type<UserId>(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    // One file belongs to one custody link, so the hold arm resolves a file to exactly one packet.
+    uniqueIndex("custody_scan_file_unique_index").on(table.fileId),
+    index("custody_scan_packet_index").on(table.packetId),
+    index("custody_scan_item_index").on(table.itemId),
+    check(
+      "custody_scan_kind_check",
+      sql`${table.kind} IN ('scan', 'photograph', 'receipt', 'appraisal', 'correspondence')`,
+    ),
+  ],
+);
+
+// The destruction request record. The workflow over it — request, approve, execute, each appending a
+// movement — is built in slice 4·2·2; the table lands with the rest of the register so its shape is
+// not retrofitted around live data. Two refusals are structural rather than configurable: destruction
+// is a two-person action (the approver must differ from the requester, checked here), and no request
+// may execute against an item flagged intrinsic_value. Deliberately absent: any retention period,
+// default, or derived date — no jurisdiction's rules produce "destroy the client's original will
+// because a timer expired".
+export const custodyDestructionRequest = sqliteTable(
+  "custody_destruction_request",
+  {
+    id: text("id").primaryKey().$type<CustodyDestructionRequestId>(), // custodyDestructionRequest_ handle
+    packetId: text("packet_id")
+      .notNull()
+      .$type<CustodyPacketId>()
+      .references(() => custodyPacket.id),
+    itemId: text("item_id")
+      .$type<CustodyItemId>()
+      .references(() => custodyItem.id),
+    requestedBy: text("requested_by").$type<UserId>(),
+    requestedAt: text("requested_at").notNull(),
+    basis: text("basis").notNull(), // the reason and authority the requester asserts, in their words
+    approvedBy: text("approved_by").$type<UserId>(),
+    approvedAt: text("approved_at"),
+    executedAt: text("executed_at"),
+    outcome: text("outcome", { enum: ["approved", "refused", "executed", "withdrawn"] }),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    index("custody_destruction_request_packet_index").on(table.packetId),
+    check("custody_destruction_request_basis_check", sql`length(${table.basis}) > 0`),
+    check(
+      "custody_destruction_request_approver_check",
+      sql`${table.approvedBy} IS NULL OR ${table.requestedBy} IS NULL OR ${table.approvedBy} <> ${table.requestedBy}`,
+    ),
+    check(
+      "custody_destruction_request_outcome_check",
+      sql`${table.outcome} IS NULL OR ${table.outcome} IN ('approved', 'refused', 'executed', 'withdrawn')`,
+    ),
+  ],
+);
+
+// The custody-number counter, one row per {firm, scope_key} — the same ensure-row + guarded-increment
+// shape matter_number_counter carries, for the same reason: concurrent draws must yield distinct,
+// sequential numbers with no interactive transaction available.
+export const custodyNumberCounter = sqliteTable("custody_number_counter", {
+  scopeKey: text("scope_key").primaryKey(),
+  nextValue: integer("next_value").notNull(),
+});
+
+// One row per counter value a draw consumed. This composite primary key — not the unique index on the
+// rendered custody_number string — is the load-bearing backstop on the draw race: a scheme carrying a
+// location code renders different strings from the same counter value in different scopes, so only a
+// claim on the VALUE catches two draws that observed the same counter.
+export const custodyNumberAllocation = sqliteTable(
+  "custody_number_allocation",
+  {
+    scopeKey: text("scope_key").notNull(),
+    drawnValue: integer("drawn_value").notNull(),
+    packetId: text("packet_id")
+      .notNull()
+      .$type<CustodyPacketId>()
+      .references(() => custodyPacket.id),
+    allocatedAt: text("allocated_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.scopeKey, table.drawnValue] }),
+    index("custody_number_allocation_packet_index").on(table.packetId),
   ],
 );

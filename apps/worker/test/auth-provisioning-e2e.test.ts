@@ -252,6 +252,11 @@ describe("end-to-end", () => {
         "conflicts:run",
         "costs:approve",
         "costs:track",
+        // custody:read reaches every default role (a billing clerk answering "do we hold the deed"
+        // needs it); custody:manage moves physical originals and reaches Owner/Admin, Attorney, and
+        // Paralegal only (20260804T160001_seed-custody-catalog).
+        "custody:manage",
+        "custody:read",
         "customFields:manage",
         "customFields:purge",
         "directory:edit",

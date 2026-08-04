@@ -135,6 +135,22 @@ export const ENTITY_PREFIXES = {
   documentTemplate: "documentTemplate",
   documentTemplateVersion: "documentTemplateVersion",
   documentAssembly: "documentAssembly",
+  // Custodian — the register of physical client originals the firm holds. A `custodyPacket` is the
+  // unit of custody (the envelope or deed box that physically moves); a `custodyItem` is one thing
+  // described inside it; `custodyLocation` is a node of the physical container tree; `custodyOwner`
+  // is the link to the Directory entity the property belongs to; `custodyMovement` is one row of the
+  // append-only custody ledger; `custodyHold` blocks release and destruction; `custodyScan` links a
+  // File Manager file to a packet or item; `custodyItemType` is the per-firm classification catalog;
+  // `custodyDestructionRequest` is the two-person destruction workflow record.
+  custodyLocation: "custodyLocation",
+  custodyPacket: "custodyPacket",
+  custodyItem: "custodyItem",
+  custodyItemType: "custodyItemType",
+  custodyOwner: "custodyOwner",
+  custodyMovement: "custodyMovement",
+  custodyHold: "custodyHold",
+  custodyScan: "custodyScan",
+  custodyDestructionRequest: "custodyDestructionRequest",
 } as const;
 
 export type EntityType = keyof typeof ENTITY_PREFIXES;

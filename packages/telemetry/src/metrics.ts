@@ -125,6 +125,23 @@ export const documentTemplateNormalization = defineMetric("documentTemplate.norm
   "outcome",
   "placeholderForm",
 ] as const);
+// Custodian — the register of physical client originals. Every dimension here is an enum-like label
+// from a closed set; a CUSTODY NUMBER is never one, for the same reason a merge-field key is not: it
+// is firm-defined, high-cardinality, and printed on a physical object a person can be identified by.
+export const custodyMovements = defineMetric("custody.movements", ["kind", "outcome"] as const);
+// A periodic gauge of check-outs past their due-back date, in coarse buckets. An overdue check-out is
+// THE operational signal a custody register produces, and a firm-level number is worth having in
+// aggregate even though no individual packet is nameable here.
+export const custodyPacketsOverdue = defineMetric("custody.packetsOverdue", ["bucket"] as const);
+// How often a hold actually stops something — the evidence that the blocker is load-bearing rather
+// than theoretical.
+export const custodyHoldBlocked = defineMetric("custody.holdBlocked", [
+  "action",
+  "holdKind",
+] as const);
+// Draw contention on the custody-number counter, mirroring what the matters counter already teaches
+// us to watch.
+export const custodyNumberDraw = defineMetric("custody.numberDraw", ["outcome"] as const);
 
 // The catalog itself, derived from the declarations above so it cannot drift from them.
 const CATALOG: readonly MetricDefinition[] = [
@@ -147,6 +164,10 @@ const CATALOG: readonly MetricDefinition[] = [
   documentAssemblyJobs,
   documentAssemblyAbsentField,
   documentTemplateNormalization,
+  custodyMovements,
+  custodyPacketsOverdue,
+  custodyHoldBlocked,
+  custodyNumberDraw,
 ];
 
 const BY_NAME = new Map(CATALOG.map((definition) => [definition.metricName, definition]));

@@ -116,6 +116,18 @@ export const documentAssembled = defineEvent("document.assembled", [
   "absenceCount",
 ] as const);
 
+// custody.movementRecorded — one per appended row of the physical-custody ledger. The redaction is
+// structural: there is NO slot for a packet handle, a custody number, a location name, a borrower, or
+// an item description. That matters more here than almost anywhere else — the register is a list of
+// the most sensitive things a firm holds, and its metadata alone is a disclosure ("this firm holds an
+// original will for Jane Smith" needs no document attached). What remains is the shape of the
+// activity: which kind of event, which class of borrower, and whether a carrier was involved.
+export const custodyMovementRecorded = defineEvent("custody.movementRecorded", [
+  "kind",
+  "borrowerKind",
+  "hasShipment",
+] as const);
+
 // The catalog's event names — derived from the builders themselves (each carries its `eventName`),
 // so this registry cannot drift from the real builders and the uniqueness fitness test checks the
 // actual catalog, not a hand-copied parallel list. Adding a builder above adds it here.
@@ -132,4 +144,5 @@ export const EVENT_NAMES = [
   ingestVerdict,
   usageFeature,
   documentAssembled,
+  custodyMovementRecorded,
 ].map((builder) => builder.eventName);

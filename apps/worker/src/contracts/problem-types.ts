@@ -45,6 +45,25 @@ export const PROBLEM_TYPES = {
   // Distinct from `validation` (request-shape failures) — the request is well-formed; a business
   // rule gates the channel transition on explicit opt-in.
   "beta-consent-required": "beta-consent-required",
+  // A custody packet logged without a Directory owner (HTTP 422). The register's structural
+  // invariant: an original the firm holds for nobody it can name can never be released and never be
+  // destroyed, so the write path refuses it rather than accepting a record it cannot act on.
+  "custody-owner-required": "custody-owner-required",
+  // A hold in force forbids the requested action (HTTP 409) — a release or a destruction. A hold
+  // deliberately does not block a location move, so this never fires on one.
+  "custody-hold-blocks-action": "custody-hold-blocks-action",
+  // A location refused because moving it would put it inside its own subtree, or past the depth cap
+  // (HTTP 422). DISTINCT from `validation`: the request is well-formed; the tree refuses the shape.
+  "custody-location-cycle": "custody-location-cycle",
+  // A location closed while it or its subtree still physically holds packets (HTTP 409). Closing it
+  // anyway would orphan originals in a container nobody looks at any more.
+  "custody-location-occupied": "custody-location-occupied",
+  // The custody-number draw did not converge, or a manual number is already taken (HTTP 409).
+  "custody-number-exhausted": "custody-number-exhausted",
+  // A movement the register refuses on its own terms (HTTP 422): a second check-out of a packet
+  // already out, a new movement on a released packet, a correction naming nothing, a borrower kind
+  // with no borrower.
+  "custody-invalid-movement": "custody-invalid-movement",
   // An unexpected, unhandled server error (HTTP 500). The telemetry middleware's final catch maps
   // any escaped exception to this — the one error type the client cannot have caused, carrying only
   // the Error ID to quote.

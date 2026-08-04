@@ -108,6 +108,13 @@ export const PERMISSIONS = [
   // what they can assemble, and a member who cannot has no use for the list.
   "templates:manage", // register, version, and archive assembly templates (administrative)
   "documents:assemble", // list the template catalogue and assemble a document onto a matter
+  // Custodian — the register of physical client originals the firm holds in safekeeping. Two keys,
+  // because reading a register and moving originals in it are genuinely different capabilities: a
+  // billing clerk answering "do we hold the deed" needs the read and must not have the write. Both
+  // bind resource: "firm" — a custody packet may have no matter by construction, so the firm is its
+  // tenancy root.
+  "custody:read", // read the register — locations, packets, items, owners, movements, holds, scans
+  "custody:manage", // create/edit packets, items, locations and the type catalog; record movements; place and release holds
 ] as const;
 
 // KnownPermission is for hardcoded compile-checked keys (route metadata, role seeds);
