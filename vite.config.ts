@@ -112,6 +112,7 @@ export default defineConfig({
       "apps/ocr-worker/vitest.config.ts",
       "apps/recovery-worker/vitest.config.ts",
       "apps/scan-worker/vitest.config.ts",
+      "apps/sign-worker/vitest.config.ts",
       "packages/*/vitest.config.ts",
       "packages/design-system/vitest.storybook.config.ts",
       "tooling/doc-fragments/vitest.config.ts",

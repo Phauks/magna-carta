@@ -1,8 +1,9 @@
 //! Write an invisible text layer over a scanned page, turning an image-only PDF into
 //! one that is selectable, copyable, and searchable. The text and its boxes come from
-//! the OCR engine (recognized text in PDF user space); this module places that text
-//! back onto the page it was read from, drawn in render mode 3 (neither filled nor
-//! stroked) so nothing new is visible.
+//! the OCR engine (recognized text in the page's displayed frame); this module places
+//! that text back onto the page it was read from, drawn in render mode 3 (neither filled
+//! nor stroked) so nothing new is visible, counter-rotating it on a rotated page so the
+//! invisible layer lines up with the displayed glyphs.
 //!
 //! The layer is strictly additive, following the same non-destructive append rule as
 //! Bates stamping in `bates.rs`: existing objects and bytes are untouched, and the
@@ -57,14 +58,17 @@ fn assign_character_codes(pages: &[PageTextLayer]) -> BTreeMap<char, u16> {
     codes
 }
 
-/// One recognized run of text and the box it occupies, in PDF user space (bottom-left
-/// origin, the same frame the page content is drawn in). A run is typically a word; it
-/// may be a whole line where per-word boxes are unavailable.
+/// One recognized run of text and the box it occupies, in the page's **displayed** bottom-left
+/// frame — the frame the OCR engine reads, i.e. the page after the viewer applies `/Rotate`. On a
+/// page with no `/Rotate` the displayed frame is the unrotated user space; on a rotated page the
+/// writer counter-rotates the run so it lines up with the displayed content. A run is typically a
+/// word; it may be a whole line where per-word boxes are unavailable.
 #[derive(Debug, Clone, PartialEq)]
 pub struct TextRun {
     pub text: String,
-    /// Four corners of the run's quad, in PDF user space. Placement uses the axis-aligned
-    /// bounds; a rotated quad is placed upright within its bounds (skew is not yet honored).
+    /// Four corners of the run's quad, in the displayed bottom-left frame. Placement uses the
+    /// axis-aligned bounds; a rotated quad is placed upright within its bounds (skew is not yet
+    /// honored).
     pub quad: [(f32, f32); 4],
 }
 
@@ -117,7 +121,8 @@ pub fn write_searchable_text_layer(
     let font_name = free_font_name(&doc, targets.iter().map(|(_, id)| *id));
 
     for (index, page_id) in targets {
-        let content = page_content(&pages[index].runs, &codes, &font_name);
+        let geometry = PageGeometry::resolve(&doc, page_id);
+        let content = page_content(&pages[index].runs, &codes, &font_name, &geometry);
         if content.is_empty() {
             continue;
         }
@@ -130,12 +135,47 @@ pub fn write_searchable_text_layer(
     Ok(bytes)
 }
 
+/// A target page's placement geometry: its normalized `/Rotate` and unrotated MediaBox, resolved
+/// once per page so every run on it counter-rotates into the same displayed frame.
+struct PageGeometry {
+    rotation: i64,
+    llx: f32,
+    lly: f32,
+    width: f32,
+    height: f32,
+}
+
+impl PageGeometry {
+    /// Resolve from the page dictionary. A page with no resolvable MediaBox falls back to a
+    /// zero-origin, zero-size, unrotated frame — which reduces the placement matrix to the plain
+    /// translation the unrotated path already used, so a missing box never makes placement worse.
+    fn resolve(doc: &Document, page_id: lopdf::ObjectId) -> Self {
+        let (llx, lly, width, height) = match crate::surgery::resolve_mediabox(doc, page_id) {
+            Some([llx, lly, urx, ury]) => (llx, lly, urx - llx, ury - lly),
+            None => (0.0, 0.0, 0.0, 0.0),
+        };
+        let rotation = crate::surgery::resolve_rotate(doc, page_id).rem_euclid(360);
+        Self {
+            rotation,
+            llx,
+            lly,
+            width,
+            height,
+        }
+    }
+}
+
 /// The content stream for one page's runs: each run an invisible (`3 Tr`) text-showing
 /// operator placed and scaled to its box. Empty when no run is placeable.
-fn page_content(runs: &[TextRun], codes: &BTreeMap<char, u16>, font_name: &[u8]) -> Vec<u8> {
+fn page_content(
+    runs: &[TextRun],
+    codes: &BTreeMap<char, u16>,
+    font_name: &[u8],
+    geometry: &PageGeometry,
+) -> Vec<u8> {
     let mut out = String::new();
     for run in runs {
-        if let Some(op) = run_operator(run, codes, font_name) {
+        if let Some(op) = run_operator(run, codes, font_name, geometry) {
             out.push_str(&op);
         }
     }
@@ -144,7 +184,12 @@ fn page_content(runs: &[TextRun], codes: &BTreeMap<char, u16>, font_name: &[u8])
 
 /// One run's operators, or `None` when the run is degenerate (no text, or a box with no
 /// height or width to place it in).
-fn run_operator(run: &TextRun, codes: &BTreeMap<char, u16>, font_name: &[u8]) -> Option<String> {
+fn run_operator(
+    run: &TextRun,
+    codes: &BTreeMap<char, u16>,
+    font_name: &[u8],
+    geometry: &PageGeometry,
+) -> Option<String> {
     if run.text.is_empty() {
         return None;
     }
@@ -176,21 +221,34 @@ fn run_operator(run: &TextRun, codes: &BTreeMap<char, u16>, font_name: &[u8]) ->
 
     let hex: String = glyphs.iter().map(|code| format!("{code:04X}")).collect();
 
-    // 3 Tr = render mode "neither fill nor stroke": the text is present and extractable
-    // but never painted. The text matrix carries the font size on its diagonal and places
-    // the run at the box's bottom-left. The linear part is identity: this assumes the run's
-    // coordinates are in the page's unrotated user space, which holds for a page with no
-    // `/Rotate`. A rotated page needs a counter-rotating matrix (as `bates.rs` uses) so the
-    // layer lines up with the displayed content — placement on rotated pages is a known gap.
-    // `font_name` is ASCII by construction (the constant plus a decimal suffix), so it is
-    // valid UTF-8 and a valid PDF resource name.
+    // The run's box is in the *displayed* bottom-left frame (the OCR reads the rendered,
+    // rotation-applied page), so `(x_min, y_min)` is the displayed origin. `text_matrix` maps
+    // that origin to a text matrix whose linear part counter-rotates the glyphs to read upright
+    // on the displayed page and whose translation lands them in unrotated user space, where the
+    // content is drawn. On an unrotated page the linear part is the identity and this reduces to
+    // a translation to `(llx + x_min, lly + y_min)`.
+    let [a, b, c, d, e, f] = crate::surgery::text_matrix(
+        geometry.rotation,
+        geometry.llx,
+        geometry.lly,
+        geometry.width,
+        geometry.height,
+        x_min,
+        y_min,
+    );
+
+    // 3 Tr = render mode "neither fill nor stroke": the text is present and extractable but
+    // never painted. Size comes from `Tf` and the width fit from `Tz` alone — putting the font
+    // size on the matrix diagonal too would scale the run a second time (the glyphs would extract
+    // at a box many times larger than the recognized one, throwing off selection and any
+    // position-based redaction), so the matrix carries only rotation and position, never size.
+    // `font_name` is ASCII by construction (the constant plus a decimal suffix), so it is valid
+    // UTF-8 and a valid PDF resource name.
     Some(format!(
-        "q BT 3 Tr /{name} {size:.4} Tf {scale:.4} Tz {size:.4} 0 0 {size:.4} {x:.4} {y:.4} Tm <{hex}> Tj ET Q\n",
+        "q BT 3 Tr /{name} {size:.4} Tf {scale:.4} Tz {a:.4} {b:.4} {c:.4} {d:.4} {e:.4} {f:.4} Tm <{hex}> Tj ET Q\n",
         name = String::from_utf8_lossy(font_name),
         size = font_size,
         scale = horizontal_scale,
-        x = x_min,
-        y = y_min,
     ))
 }
 
@@ -425,6 +483,38 @@ mod tests {
         bytes
     }
 
+    /// A one-page PDF with the given unrotated MediaBox and `/Rotate`, so a test can exercise
+    /// placement on a rotated page.
+    fn blank_rotated(width: i64, height: i64, rotation: i64) -> Vec<u8> {
+        let mut doc = Document::with_version("1.5");
+        let pages_id = doc.add_object(dictionary! {
+            "Type" => Object::Name(b"Pages".to_vec()),
+            "Kids" => Object::Array(vec![]),
+            "Count" => Object::Integer(0),
+        });
+        let catalog_id = doc.add_object(dictionary! {
+            "Type" => Object::Name(b"Catalog".to_vec()),
+            "Pages" => Object::Reference(pages_id),
+        });
+        doc.trailer.set("Root", Object::Reference(catalog_id));
+        let content_id = doc.add_object(Object::Stream(Stream::new(dictionary! {}, b"".to_vec())));
+        let page_id = doc.add_object(dictionary! {
+            "Type" => Object::Name(b"Page".to_vec()),
+            "Parent" => Object::Reference(pages_id),
+            "MediaBox" => Object::Array(vec![0.into(), 0.into(), width.into(), height.into()]),
+            "Rotate" => Object::Integer(rotation),
+            "Contents" => Object::Reference(content_id),
+            "Resources" => Object::Dictionary(dictionary! { "Font" => Object::Dictionary(dictionary! {}) }),
+        });
+        if let Ok(Object::Dictionary(pages_dict)) = doc.get_object_mut(pages_id) {
+            pages_dict.set("Kids", Object::Array(vec![Object::Reference(page_id)]));
+            pages_dict.set("Count", Object::Integer(1));
+        }
+        let mut bytes = Vec::new();
+        doc.save_to(&mut bytes).expect("serialize rotated pdf");
+        bytes
+    }
+
     fn run(text: &str, x_min: f32, y_min: f32, x_max: f32, y_max: f32) -> TextRun {
         TextRun {
             text: text.to_string(),
@@ -434,6 +524,18 @@ mod tests {
                 (x_max, y_max),
                 (x_min, y_max),
             ],
+        }
+    }
+
+    /// An unrotated US-Letter geometry, matching `blank()`'s MediaBox — the frame the direct
+    /// `run_operator` tests place into.
+    fn unrotated_letter() -> PageGeometry {
+        PageGeometry {
+            rotation: 0,
+            llx: 0.0,
+            lly: 0.0,
+            width: 612.0,
+            height: 792.0,
         }
     }
 
@@ -464,6 +566,115 @@ mod tests {
             visible < 0.001,
             "the layer must add no visible ink, got coverage {visible}"
         );
+    }
+
+    #[test]
+    fn the_layer_is_placed_at_the_recognized_box_not_grossly_oversized() {
+        // The invisible run must occupy roughly its recognized box, so selection highlights
+        // and position-based redaction land on it. Regression guard for the double-scale bug
+        // (font size on both Tf and the text-matrix diagonal), which rendered the run about
+        // an order of magnitude larger than its box.
+        let out = write_searchable_text_layer(
+            blank(),
+            &[PageTextLayer {
+                page_index: 0,
+                runs: vec![run("Hello", 100.0, 100.0, 260.0, 120.0)],
+            }],
+        )
+        .unwrap();
+        let doc = crate::Document::load(out).unwrap();
+        let glyphs = doc.page_text_glyphs(0).unwrap();
+        assert!(!glyphs.is_empty(), "the run must be extractable");
+        let mut x0 = f32::INFINITY;
+        let mut y0 = f32::INFINITY;
+        let mut x1 = f32::NEG_INFINITY;
+        let mut y1 = f32::NEG_INFINITY;
+        for glyph in &glyphs {
+            x0 = x0.min(glyph.rect.x0.min(glyph.rect.x1));
+            y0 = y0.min(glyph.rect.y0.min(glyph.rect.y1));
+            x1 = x1.max(glyph.rect.x0.max(glyph.rect.x1));
+            y1 = y1.max(glyph.rect.y0.max(glyph.rect.y1));
+        }
+        let (width, height) = (x1 - x0, y1 - y0);
+        // Box is 160 x 20. Allow a generous font-metric margin, but nothing near the ~10x
+        // blow-up the bug produced.
+        assert!(
+            height < 40.0,
+            "height must be near the 20pt box, got {height}"
+        );
+        assert!(
+            width < 320.0,
+            "width must be near the 160pt box, got {width}"
+        );
+        assert!(
+            x0 > 60.0 && x1 < 300.0,
+            "x range must sit around the box, got [{x0},{x1}]"
+        );
+        assert!(
+            y0 > 80.0 && y1 < 145.0,
+            "y range must sit around the box, got [{y0},{y1}]"
+        );
+    }
+
+    /// Centroid of the rendered glyphs on page 0, in hayro's render frame (rotation applied) — the
+    /// same raw observation `bates.rs`'s rotation test trusts, so it reflects where the invisible
+    /// layer actually renders on the displayed page.
+    fn rendered_centroid(out: Vec<u8>) -> (f64, f64) {
+        use hayro::hayro_syntax::Pdf;
+        let pdf = Pdf::new(out).expect("load written pdf");
+        let obs = crate::textpos::observe_page(&pdf, 0).expect("observe page");
+        let centers: Vec<kurbo::Point> = obs
+            .glyphs
+            .iter()
+            .filter(|g| !g.text.is_empty())
+            .map(|g| g.bbox.center())
+            .collect();
+        assert!(!centers.is_empty(), "the run must render glyphs");
+        let n = centers.len() as f64;
+        (
+            centers.iter().map(|p| p.x).sum::<f64>() / n,
+            centers.iter().map(|p| p.y).sum::<f64>() / n,
+        )
+    }
+
+    #[test]
+    fn rotation_does_not_move_the_layer_off_the_displayed_content() {
+        // The OCR engine reads the displayed (rotation-applied) page, so a run's box is in the
+        // displayed frame. On a rotated page the writer must counter-rotate the run into user space
+        // (where content is drawn) so that, once the viewer re-applies /Rotate, the invisible layer
+        // renders on the same displayed spot as it would on an unrotated page — otherwise selection
+        // and position-based redaction miss the visible glyphs.
+        //
+        // The invariant: the SAME displayed box on an unrotated page and on a rotated page of the
+        // SAME displayed dimensions must RENDER at the same place. This checks the rendered position
+        // (as `bates.rs` does), not a readback frame. A correct counter-rotation makes the rendered
+        // centroids agree; the old /Rotate-ignoring placement drove them apart (the rotated layer
+        // rendered off the displayed content entirely).
+        //
+        // Displayed frame 300 wide x 200 high, run "Hi" at displayed box [50,20,90,40].
+        let placed = |input: Vec<u8>| {
+            rendered_centroid(
+                write_searchable_text_layer(
+                    input,
+                    &[PageTextLayer {
+                        page_index: 0,
+                        runs: vec![run("Hi", 50.0, 20.0, 90.0, 40.0)],
+                    }],
+                )
+                .unwrap(),
+            )
+        };
+        // Unrotated page whose MediaBox already is the displayed frame.
+        let flat = placed(blank_rotated(300, 200, 0));
+        // Quarter-turn pages whose unrotated MediaBox, once /Rotate is applied, displays as 300x200.
+        for (rotation, w, h) in [(90, 200, 300), (270, 200, 300)] {
+            let rotated = placed(blank_rotated(w, h, rotation));
+            assert!(
+                (rotated.0 - flat.0).abs() < 3.0 && (rotated.1 - flat.1).abs() < 3.0,
+                "r={rotation}: layer must render where the unrotated layer does; \
+                 flat={flat:?} rotated={rotated:?}"
+            );
+        }
     }
 
     #[test]
@@ -618,17 +829,25 @@ mod tests {
             page_index: 0,
             runs: vec![word.clone()],
         }]);
-        assert!(run_operator(&word, &codes, FONT_RESOURCE_NAME)
+        let geometry = unrotated_letter();
+        assert!(run_operator(&word, &codes, FONT_RESOURCE_NAME, &geometry)
             .unwrap()
             .contains("3 Tr"));
         // No height, no width, no text: nothing to place.
         assert!(run_operator(
             &run("word", 0.0, 0.0, 50.0, 0.0),
             &codes,
-            FONT_RESOURCE_NAME
+            FONT_RESOURCE_NAME,
+            &geometry
         )
         .is_none());
-        assert!(run_operator(&run("", 0.0, 0.0, 50.0, 10.0), &codes, FONT_RESOURCE_NAME).is_none());
+        assert!(run_operator(
+            &run("", 0.0, 0.0, 50.0, 10.0),
+            &codes,
+            FONT_RESOURCE_NAME,
+            &geometry
+        )
+        .is_none());
     }
 
     #[test]

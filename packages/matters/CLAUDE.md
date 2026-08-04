@@ -14,7 +14,7 @@ list/consultations queries. Validates in memory and composes statements into @ma
 
 - `src/numbering/segments.ts` — `NumberSegment` types + the zod scheme schema (exactly one counter)
 - `src/numbering/render.ts` — `renderMatterNumber` + `deriveScopeKey` (pure; dates/codes arrive as strings)
-- `src/numbering/counter-statements.ts` — ensure-row + guarded-increment builders
+- `src/numbering/counter-statements.ts` — ensure-row + guarded-increment + allocation builders
 - `src/numbering/scheme-service.ts` / `scheme-statements.ts` — the one-active-scheme write path
 - `src/matter-service.ts` — `createMatter`/`openMatter`/`closeMatter`/`reopenMatter`/`renumberMatter`/`updateMatter`
 - `src/close-preconditions.ts` — the named close-precondition hook registry (empty this slice; Phase 3 registers the zero-balance rule)
@@ -26,11 +26,21 @@ list/consultations queries. Validates in memory and composes statements into @ma
 - **The number is drawn at open, frozen at assignment.** A prospective consultation carries no number;
   `openMatter` draws it. Once assigned, a matter number never changes except by deliberate `renumberMatter`.
 - **Counter idiom (atomic, race-proof).** Read `next_value` → render → compose [ensure-row INSERT,
-  **guarded** `UPDATE … WHERE scope_key = ? AND next_value = ?`, matter INSERT]. A concurrent draw makes
-  the guard match zero rows and the loser's matter INSERT hits the **UNIQUE index on `matter_number`**,
-  aborting its batch — retried by the bounded-retry idiom. The UNIQUE backstop is load-bearing.
+  **guarded** `UPDATE … WHERE scope_key = ? AND next_value = ?`, matter write, **allocation INSERT**].
+  A zero-row guarded UPDATE is not an error, so the guard alone aborts nothing: the backstop is the
+  **`matter_number_allocation` primary key `{scope_key, drawn_value}`** — the loser's batch aborts on the
+  drawn VALUE and the bounded-retry idiom re-reads the advanced counter. The **UNIQUE index on
+  `matter_number`** stays for what it alone covers: a rendered number colliding with a manually assigned
+  court/legacy number. It cannot catch the general race — a scheme may render a variable segment that is
+  not marked scoping, so two draws in one scope produce different strings from the same value.
 - **Scope key = scoping segment values in template order, `:`-joined** (rendered values are URL-safe, so
-  `:` cannot collide); empty string = firm-wide. Manual numbers touch no counter.
+  `:` cannot collide); empty string = firm-wide. Manual numbers touch no counter and get no allocation row.
+- **Lifecycle transitions are guarded in the batch, not only pre-read.** D1 has no interactive
+  transaction, so every read-then-write precondition needs its predicate on the UPDATE too: `openMatter`
+  writes `AND status = 'prospective'` and confirms after the commit that the row carries the number it
+  drew; `closeMatter` writes `AND status != 'closed'` so a racing close never moves `closed_at`. A
+  precondition is skipped when the Idempotency-Key has already been seen — that is the same request
+  retried, and the shared primitive replays its stored response.
 - **Closed = archived-but-additive.** A closed matter still accepts documents; close runs the precondition
   registry first (empty this slice).
 - **Every mutation audited.** The spec §10 outbox event + an `audit_log` row ride in the same batch.

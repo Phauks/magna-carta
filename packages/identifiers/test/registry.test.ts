@@ -23,7 +23,7 @@ describe("prefix registry", () => {
     expect(prefixFor("auditLog")).toBe("auditLog");
   });
 
-  it("maps the telemetry entity types to their prefixes (slice 0·6)", () => {
+  it("maps the telemetry entity types to their prefixes", () => {
     expect(prefixFor("correlation")).toBe("correlation");
     expect(prefixFor("incident")).toBe("incident");
   });

@@ -1,5 +1,6 @@
-// The Workers Logger adapter — THE one legal console.* call site (the console-ban fitness function,
-// Task 7, allow-lists exactly this file). It scrubs every event on the way out (scrub.ts backstop),
+// The Workers Logger adapter — THE one legal console.* call site (the console-ban fitness function
+// in test/console-ban.test.ts allow-lists exactly this file). It scrubs every event on the way out
+// (scrub.ts backstop),
 // emits one structured-JSON line (Workers Logs captures it), counts scrub trips, and mirrors
 // counters to an Analytics Engine dataset binding. AE writes are fire-and-forget: writeDataPoint is
 // sync and non-blocking, never awaited, and a missing binding degrades silently.

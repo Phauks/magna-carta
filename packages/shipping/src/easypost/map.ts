@@ -25,6 +25,17 @@ export function dollarsToMinor(amount: string): number {
   return sign * (wholeMinor + Number.parseInt(cents, 10));
 }
 
+// The inverse: integer minor units back to the decimal-dollar string EasyPost expects. Built by
+// string assembly rather than division-and-toFixed so no binary float ever holds the amount.
+export function minorToDollars(amountMinor: number): string {
+  const rounded = Math.trunc(amountMinor);
+  const sign = rounded < 0 ? "-" : "";
+  const absolute = Math.abs(rounded);
+  const whole = Math.floor(absolute / 100);
+  const cents = absolute % 100;
+  return `${sign}${whole}.${String(cents).padStart(2, "0")}`;
+}
+
 interface EpRate {
   id: string;
   carrier: string;
@@ -172,6 +183,17 @@ export function mapShipmentOptions(options: ShipmentOptions | undefined): Record
       options.signatureConfirmation === "adult" ? "ADULT_SIGNATURE" : "SIGNATURE";
   }
   return out;
+}
+
+// Insurance is NOT an EasyPost `options` key and is not in minor units: it is a top-level
+// decimal-dollar string on the buy request ("249.99"), declaring the value to insure. It rides the
+// buy call rather than a follow-up insure call so a parcel is never briefly bought-but-uninsured —
+// if the buy fails, nothing is charged and nothing is covered, which is the state the caller can
+// reason about. Zero, null, and undefined all mean "no insurance", so the key is omitted entirely
+// (sending "0.00" would be a request to insure nothing).
+export function mapInsurance(amountMinor: number | null | undefined): Record<string, string> {
+  if (amountMinor == null || amountMinor <= 0) return {};
+  return { insurance: minorToDollars(amountMinor) };
 }
 
 // HTTP status → the one integration taxonomy. Title is caller-safe; the upstream body is never

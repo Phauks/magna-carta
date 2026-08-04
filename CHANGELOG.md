@@ -377,6 +377,128 @@ image reaches a searchable PDF too — wrapped into a PDF and then recognized �
 engine is deployed. The OCR engine runs as its own already-live service, so this hop works today without
 waiting on the dedicated conversion worker; the job coordinator, queue, and polling are the same ones
 every conversion uses.
+- **The Certificate of Completion is assembled and rendered.** `@magna-carta/signing` gains the ESIGN/UETA
+defensibility artifact that travels with a sealed document: `assembleCertificateOfCompletion` builds it
+from the sealed document's SHA-256, the seal time, and the server-observed signer records — refusing to
+emit an incomplete record (no signers, a non-SHA-256 hash, or a missing seal time) — and
+`renderCertificateOfCompletion` produces a stable, deterministic plain-text record naming each signer's
+attribution, adopted signature, affirmed intent, and consent to transact electronically. Pure and
+reproducible; the signing workflow that captures the acts feeds it, the way the seal engine feeds
+`sealDocument`.
+- **The platform seal is reachable from the app: `POST /api/v1/documents/seal`.** A firm member with the
+new `esign:seal` permission (seeded to Owner/Admin and Attorney) can submit a PDF and receive it sealed
+— the PAdES CMS signature embedded, plus the sealed-range digest and a Certificate of Completion. The
+route runs through the standard chokepoint (tenancy → authn → RBAC → idempotency → rate-limit) and
+forwards to the dedicated `sign-worker` over a `SIGN_SERVICE` service binding through a reusable
+`SealPort` adapter, so the signing key never leaves that one worker. The signing time and the observed
+signer IP are server-authoritative (never client self-reported); nothing is stored here — only a
+redacted `esign.sealed` audit row (digest + signer count + actor, never document content). Until the
+sign worker's signing identity is configured the route honestly returns `503`, matching the deferred
+activation of the scan, OCR, and conversion engines.
+- - **Forward/CC capture addresses can now be minted, rotated, and revoked — the forward path works.**
+  The email filing slice shipped the inbound Email Worker, the token index, and the capture consumer,
+  but nothing that WROTE a token: the routing index stayed empty and every forwarded message bounced.
+  Six routes close that gap, all behind `emails:manageCaptureAddresses` (Owner/Admin): mint and list a
+  matter's capture addresses, rotate one, revoke one, and mint or revoke the firm-wide catch-all.
+  Minting returns the address to forward or CC mail to — `<token>@in.magnacarta.esq` — and that is the
+  only time the token is ever shown, because the token is itself the credential; lists return a
+  four-character prefix and metadata.
+- **Rotation replaces an over-shared address in one step.** Rotate retires the old token and returns a
+  fresh one for the same matter; replaying the same `Idempotency-Key` returns that same new token
+  rather than rotating twice.
+- **The two halves of a capture address are written in deliberately opposite orders.** Minting commits
+  the firm's address row and its outbox row in one atomic batch and lets the relay register the routing
+  token, so a brand-new address exists but is briefly not yet routable — mail sent in that window
+  bounces rather than landing anywhere unexpected, and the mint response says so. Revoking and
+  rotating write the routing index FIRST, so a revoked address stops receiving mail the moment the
+  request returns.
+- **The shared per-firm job queue is now a declared consumer.** The per-firm outbox relay has always
+  published to it, but nothing consumed it, so per-firm outbox effects were never applied in
+  production. Deploying this requires the `magna-carta-production-platform-jobs-deadletter` queue to
+  exist alongside the queue itself.
+- **The platform seal gets a typed service contract (`SealPort`).** `@magna-carta/signing` gains the
+`SealPort` interface and its shared wire codec — the reuse seam for the dedicated sealing service: a
+request (document + seal metadata + signer records + signing time) in, a response (sealed PDF +
+document hash + Certificate of Completion + rendered text) out, with `encode`/`decode` helpers so both
+sides of the service binding serialize identically and never drift. Binary fields cross base64-encoded
+in a JSON envelope (chunked base64 helpers added to the bytes util). `@magna-carta/pdf` now also exports
+its compiled WASM as a subpath so a Worker can import it as a `WebAssembly.Module` (the established
+email/decryption route mechanic). This is the contract the sign-worker implements and the app worker
+forwards to.
+- **The PAdES seal's signing backend is settled and proven: pkijs over WebCrypto, in the Worker.** The
+detached CMS/PKCS#7 that fills the seal primitive's reserved `/Contents` is built in TypeScript with
+pkijs, running on the Cloudflare Workers WebCrypto runtime, with the firm's signing key held as a
+non-extractable `CryptoKey` — the key does only a raw signature over the CMS digest and never leaves the
+host or becomes extractable. The pure-Rust `pdf-core` engine keeps owning the PDF structure and takes
+the CMS as an opaque blob, so no cryptography enters the engine. A workerd test proves the path end to
+end: a detached CMS with signed attributes (contentType, messageDigest, signingTime) over an external
+byte range verifies, and a tampered range is rejected. Chosen over a Rust CMS crate in the engine (no
+first-class host-side-key signer) and over `@signpdf` (basic level, no native long-term-validation path);
+pkijs also carries the timestamp/revocation primitives the later PAdES levels need. Independent-validator
+(pyHanko/DSS) conformance and the `@magna-carta/signing` product layer follow.
+- **The PAdES seal now carries the ESS signing-certificate-v2 attribute — the baseline is complete.** The
+detached CMS gains the `signing-certificate-v2` signed attribute (RFC 5035): a hash of the signer
+certificate's DER, bound into what the signature covers, so the seal is tied to _this_ certificate and
+not just its issuer-and-serial (closing the certificate-substitution gap a PAdES-baseline signature must
+close). pkijs has no `SigningCertificateV2` type, so the `SigningCertificateV2`/`ESSCertIDv2`/`IssuerSerial`
+structure is built directly, omitting the `hashAlgorithm` for the SHA-256 default per DER and including it
+for SHA-384/512. Verified in node and on the Worker runtime: the attribute's hash matches the certificate,
+and the seal still verifies end to end.
+- **The PAdES seal is wired end to end: the WASM engine drives the real seal.** `@magna-carta/pdf` now
+exposes the seal primitive at its edge — `prepareSignature`, `embedSignature`, and `createSealEngine`,
+which packages them (with a pure `signedBytes` slice) as the `SealEngine` that `@magna-carta/signing`'s
+`sealDocument` orchestrates. So a real PDF flows prepare (WASM, prefix-preserving incremental update) →
+sign the byte range host-side (WebCrypto/pkijs) → embed the CMS (WASM), and the sealed document
+verifies. An end-to-end test proves it on a real document: the seal verifies, the sealed PDF still
+parses through the render engine (hayro), and a tampered range fails. The cryptography stays host-side;
+no key enters the engine. Remaining before a firm can rely on it: ESS signing-certificate-v2,
+platform-certificate provisioning, and independent-validator (pyHanko/DSS) conformance.
+- **PDF signing gains its structural foundation — the PAdES seal primitive.** The pure-Rust PDF
+engine can now prepare a document for signing without disturbing a byte of it: `prepare_signature`
+appends a PAdES signature dictionary, an AcroForm, and an invisible signature widget as a true
+incremental update, so the original file survives verbatim as the literal prefix of the output —
+the property every signature depends on and that the additive Bates/searchable writers (which
+re-serialize) deliberately do not provide. It writes an exact `/ByteRange` covering the whole file
+except the reserved `/Contents`, exposes the bytes a signer must digest (`signed_bytes`), and splices
+a caller-supplied detached CMS into the reservation (`embed_signature`) without moving a signed byte —
+so embedding the signature can never invalidate the digest it signs. Multiple signatures chain, each
+preserving the prior signed revision. The cryptography stays the caller's, host-side, by design: no
+private key enters the engine. Classic and cross-reference-stream base documents are both handled (the
+update always appends a classic table chained via `/Prev`). This is the engine half of first-party
+e-signature; the CMS builder, platform certificate, and the ESIGN/UETA product layer follow.
+- **The platform seal can be provisioned: one command mints the signing identity.**
+`pnpm run platform-seal-certificate` generates the RSA-3072 signing key and the self-signed X.509 v3
+certificate the seal is applied with, then prints the two `wrangler secret put` commands that activate
+the sign worker. The certificate carries what a document-signing certificate is expected to carry —
+`basicConstraints` (not a CA), `keyUsage` restricted to digitalSignature + contentCommitment,
+`extendedKeyUsage` of id-kp-documentSigning (RFC 9336), a subject key identifier computed without
+SHA-1 (RFC 7093), a random positive serial, and a proper one-attribute-per-RDN name. The private key is
+written to a `0600` file and never printed, so it never passes through a shell argument, scrollback, or
+a transcript. The generator is a tested library function (`@magna-carta/signing/platform-certificate`),
+not a script: its test re-imports the exported key non-extractably and proves the resulting CMS
+verifies, so what provisioning produces is known to seal before it ever reaches a secret store.
+- **The platform seal has a home: the dedicated `sign-worker`.** A new internal Worker
+(`magna-carta-sign`) applies the PAdES seal — the pure-Rust PDF engine (prepare/embed) and the pkijs
+CMS run in-process, and it holds the platform signing key (`PLATFORM_SEAL_KEY` / `PLATFORM_SEAL_CERT`
+Worker secrets) so the key lives in exactly one minimal-surface worker. Its only surface is
+`POST /seal`, reached over a service binding, returning the `SealPort` wire shape (sealed PDF +
+document hash + Certificate of Completion). Activation is deferred: the worker deploys without the
+secrets and returns `503 seal-not-configured` until an operator sets them, then seals — no redeploy.
+Proven in the real Worker runtime: pool-workers (workerd) tests seal a real PDF and verify the embedded
+CMS end to end (the first WASM-only dedicated worker here), and the worker bundles to ~2.6 MB gzip,
+well under the Workers limit.
+- **`@magna-carta/signing` — the e-signature product layer, first increment.** A new package that owns the
+PAdES seal's CMS and the ESIGN/UETA model, sitting above the pure-Rust PDF engine (which owns the
+signature structure). It ships: the detached CMS/PKCS#7 builder and verifier over WebCrypto
+(`buildDetachedCms`/`verifyDetachedCms`) — the firm key stays a non-extractable `CryptoKey`, only ever
+signing the CMS digest; the `SealEngine` port mirroring the engine's `prepare`/`signedBytes`/`embed`, so
+the seal orchestration is testable without the WASM binding; `sealDocument`, which threads prepare →
+sign-host-side → embed into one call and reports the document hash for the Certificate of Completion;
+and the ESIGN/UETA model — the four elements (intent, consent, association, attribution), the attribution
+assurance ladder (`attributionMeets`), and the Certificate-of-Completion shape. Verified in node and on
+the Workers runtime (workerd). Deferred: the real `@magna-carta/pdf` WASM adapter for `SealEngine`, ESS
+signing-certificate-v2, platform-certificate provisioning, RFC 3161 timestamping / long-term validation,
+and independent-validator (pyHanko/DSS) conformance.
 
 ### Fixed
 
@@ -497,6 +619,226 @@ invisible-text-layer writer, found before it ships:
 Known remaining gap: on a page with a non-zero `/Rotate`, the invisible layer is placed in the
 unrotated frame, so selection geometry is off (the text is still searchable). A rotation-aware placement
 is a tracked follow-up.
+- - **Retyping a custom field no longer shifts its amounts by a factor of a hundred.** Convert moved each
+  stored integer to the new kind untouched, but what that integer means depends on the kind: a plain
+  number field counts whole units while a currency field counts minor units. A number field holding
+  `500` therefore read as **$5.00** the moment it was retyped to currency, while every later write of
+  $500 stored `50000` — one field permanently holding two different scales, with no error anywhere.
+  Convert now re-expresses every numeric value at the target kind's scale, moving the decimal point
+  exactly rather than multiplying (no rounding, no floating-point remainder), and **parks** any value
+  that cannot be re-expressed exactly — $500.50 retyped to a whole-unit number field is held aside for
+  review instead of being quietly rounded, with its original preserved in history as always. The same
+  rule now covers every scale-crossing pair: a checkbox or typed text converted to currency reads as the
+  amount a person wrote (`"1,234.56"` becomes $1,234.56, not $12.34), and a currency field converted to
+  text renders `"500.00"` rather than `"50000"`, so converting back restores the original amount. The
+  preview runs the identical classification, so the clean/parked counts an administrator approves are
+  exactly what applying commits.
+
+- **A custom-field value is now checked against the field's definition before it is stored.** The value
+  write composed its statements without ever reading the field it was writing to, so the "typed" field
+  engine accepted values it had no type agreement with: a value stored against a field that does not
+  exist (an orphan row, answered `200`), a text value on a currency field, a fractional number in a
+  column that must hold whole minor units, a value written to an archived field, and a picklist choice
+  that belonged to a different field or had been archived — the last of which stored a value that
+  rendered blank and was destroyed the moment a later conversion read it. Each is now refused before
+  anything is written, with its own reason: an unknown field is a `404`, and a kind disagreement, a
+  fractional amount, an archived field, a foreign or archived picklist option, and an over-long text
+  value are each a `422` naming what was wrong. A per-value text ceiling and a bound on a field's
+  declared number scale keep a single record from pushing hundreds of kilobytes into a row, and keep a
+  wild scale from turning every write into a rounded or infinite number.
+
+- **Two adjacent custom-field refusals that used to surface as server errors or silent overload.**
+  Previewing or applying a conversion on a reference field (or to one) raised an untyped error that
+  reached the client as a `500` for an ordinary administrative action, and a reference field holding no
+  values "converted" successfully into a kind that cannot hold references; both directions are now a
+  clear refusal that does not depend on how many values the field holds. Retyping a field whose value
+  count exceeds what one atomic pass can carry is likewise refused with the count and the ceiling, rather
+  than being attempted as a single enormous commit — the background pass for larger fields is still to
+  come. The confirmed-rule coercion path ("500k" → 500000) now also produces a whole number at the
+  target field's scale, or refuses, instead of a fractional amount.
+- - **Directory merges no longer strand chained entities, destroy absorbed relationships, or accept
+  writes on merged-away records.** Three defects in the merge subsystem are closed. (1) Merging an
+  entity that had already absorbed others left a two-hop chain: resolution follows exactly one hop, so
+  the earlier subordinates resolved to an entity that had itself been merged away. A merge now
+  repoints the merge pointer of every entity previously merged into the subordinate onto the new
+  master in the same atomic batch, so `merged_into_id` always names a live entity and every historical
+  entity resolves to the final master in one hop — chosen over transitive resolution because it costs
+  one write per chained entity once, instead of a recursive lookup on every read path forever.
+  (2) A reference that could not be repointed live during absorption — a matter-party link or an edge
+  the master already carried, or an edge that would have become a self-loop — was hard-deleted,
+  destroying the record that the merged-away entity ever held that relationship. Those rows now move
+  to the master and land archived (soft-deleted, temporally closed) with their content intact, mirroring
+  the archive-to-history handling custom-field values already used, and each absorption stays recorded
+  in the `entity_merge` event. (3) The shared existence assertion ignored entity status, so names,
+  identifiers, edges, category assignments, and matter-party links could still be attached to a
+  merged-away entity. Those writes are now refused with a conflict that names the surviving master;
+  reads are unchanged and still return the merged entity with its pointer to follow.
+- **Renaming a Directory entity now verifies the entity first.** `changeName` was missing the guard its
+  sibling `addName` carries, so renaming an unknown entity inserted an orphan current-flagged name row
+  and its phonetic codes into the conflicts corpus and still reported success.
+- **A merge no longer repoints a subordinate that another merge already claimed.** The archive write
+  re-checks at write time what the guard checked at read time, so where two concurrent merges of the
+  same subordinate both pass the read-time guard, the loser cannot point it at a master that received
+  none of its references.
+- - **The editor's live working copy is now served only to the session that owns it.** The WOPI file-access
+  handlers chose between the mutable `files/{fileId}/current` object and the immutable version the access
+  token names by the token's capability, so any edit token got `current` whenever the object existed. That
+  object outlives the session that wrote it — an idle reap cuts a version but leaves the object in place —
+  so a newly opened editing session could pick up an abandoned working copy as its base and save on top of
+  it, and a token minted outside the live session could be handed bytes it was never scoped to. Both
+  handlers now share one rule: read `current` only when an editing session is live, the token was minted
+  for that session, and that session recorded the working copy; everyone else reads the version their token
+  names, with no fallback between the two. `CheckFileInfo` applies the same rule, so the size and version it
+  advertises always describe the bytes the next `GetFile` returns. Reading is still never blocked — a
+  read-only viewer that joined the live session follows the live edits.
+- **The document editor worker no longer boots a container for an invented hostname.** Its per-document
+  routing accepted any nonempty first Host label as a container key, so any request carrying a plausible
+  `Host` started an isolated multi-gigabyte Collabora container. The label is now validated against the
+  shape the editor-launch actually mints — 52 lowercase hex characters of a SHA-256 digest — before
+  anything addresses a container, and anything else gets a cheap 404.
+- - **A file's clean verdict now binds to the bytes it was computed from.** The presigned PUT that
+  delivers an upload stays valid for the rest of its lifetime, so the same URL could overwrite the
+  object minutes after ingest had already committed the version clean — and the overwrite's own R2
+  object-create event no-opped, because the only branch that ran for a non-pending version looked at
+  the scan engine's version and never at the bytes. The swapped content was then served to every firm
+  member under `scan_verdict = 'clean'` with a hash that described content that no longer existed.
+  An object-create event for an already-committed version is now treated as what it is — a second
+  write — and the stored bytes are re-measured against the hash recorded at commit. Matching bytes
+  leave the verdict standing (an at-least-once redelivery changes nothing); differing bytes withdraw
+  the version behind the status gate, scan the replacement content so the row records what arrived,
+  repoint the file's current version at the newest version that is still clean, and emit the ordinary
+  quarantine audit/outbox/telemetry trio. A scan that cannot run is never a reason to leave swapped
+  bytes servable — the withdrawal happens either way.
+- **Legacy Office documents are no longer quarantined for telling the truth.** The ingest gate
+  compared the sniffed content type to the declared one with byte-exact string equality, but a
+  magic-byte sniff names the container: every pre-2007 Word, Excel, PowerPoint and Outlook file sniffs
+  as `application/x-cfb`, while a browser declares `application/msword` and friends from the
+  extension. Each one was read as a lie and quarantined — and the sniffed container type was missing
+  from the default upload policy's allowed list too, so nothing could have let it through. The
+  comparison now normalizes case and parameters and consults an explicit table of container
+  relationships (the compound-file family; ZIP against the OOXML/OpenDocument formats, in both
+  directions, since the sniffer reports the bare archive when its markers fall outside the head
+  window). Every pair outside that table still disagrees and still quarantines.
+- **A gate quarantine records why it happened.** A version rejected for a type lie, a size lie or a
+  policy breach persisted a null `scan_detail`, so the reason reached only the outbox message and the
+  telemetry event; a reviewer opening the row later could not tell a malware hit from a size mismatch.
+  The reason is now written to the row.
+- **`firm.bucket_name` is UNIQUE.** The ingest consumer resolves an R2 event's bucket name back to a
+  firm with `WHERE bucket_name = ?`, and the provisioner's comments already described the stored name
+  as per-firm unique, but nothing enforced it — two firms sharing a name would have made that lookup
+  ambiguous. Added as a control-plane migration; SQLite treats NULLs as distinct, so firms whose
+  bucket is not yet provisioned are unaffected.
+- - **Two matters opened at the same instant can no longer be handed the same place in the firm's
+  numbering sequence.** A number draw reserved its place by re-reading a counter and then advancing it
+  only if nobody else had — and where that check lost, the duplicate was expected to be caught by the
+  rule that no two matters may carry the same number. That rule only sees the finished number, so it
+  caught nothing whenever the firm's scheme mixes something that varies per matter into the number
+  without also resetting the counter on it: a client code, staff initials, a matter-type code. Two
+  matters opened together for different clients then rendered `ACME-0001` and `BRIGHTON-0001` — two
+  different numbers, both claiming the firm's first file of the sequence, with the counter left at 2 so
+  the duplication was invisible from then on. Each draw now records the sequence position it consumed,
+  and the database refuses a second claim on a position already taken: the losing request rolls back
+  whole and immediately re-draws on the next number. Numbers a firm has already assigned are untouched.
+
+- **Opening a matter twice no longer overwrites the number it was already given.** The open path
+  checked that a matter was still a prospective consultation and then wrote the new number as a
+  separate step, so two opens in flight together — or an open arriving just after someone closed the
+  matter — could rewrite an already-open matter's number, its opening date, and its state, with the
+  displaced number simply gone. The write is now conditional on the matter still being a prospective
+  consultation, and the request that loses is told the matter was opened or closed concurrently instead
+  of being handed a number that ended up on no matter at all.
+
+- **A closed matter can no longer be closed a second time.** Re-closing silently moved the recorded
+  close date and announced a second closure to everything downstream — a January closure re-run in June
+  moved the date that retention and archival clocks run from by five months, with nothing recording
+  that it had moved. Closing an already-closed matter is now refused, and a close that arrives at the
+  same moment as another close leaves the first close date standing. A retried request carrying the
+  same idempotency key still replays its original response, as before.
+
+- **Changing a matter's number now records the number it replaced.** A manual, court, or legacy number
+  overwrites the previous one in place, and nothing retained the old value — so a filing or invoice
+  quoting the earlier number resolved to nothing anywhere in the system. The audit entry and the change
+  event now both carry the displaced number.
+- - **The metadata scrubber no longer leaves revision, whole-part, or appended-data residue in a file it
+  reports clean.** Accepting tracked changes now covers the entire word-processing revision
+  vocabulary rather than deletions and move-out content alone: move range markers (which carry the
+  reviser's name, the date, and the passage that moved), every property-change record, table row and
+  cell revisions — a row or cell deleted under tracked changes is now removed rather than having its
+  marker stripped while its text stays — and the revision save identifiers that link passages to
+  individual writing sessions across the document, styles, and settings. Whole part classes that
+  used to travel through a one-click scrub untouched and unreported are now handled: the rendered
+  preview image of page one (which still showed the markup the XML pass had just removed), embedded
+  custom XML data (where a document-management system stores its client and matter record), and the
+  stored document variables, mail-merge data source, and attached-template path in the document
+  settings — including the network locations those carry in their relationships. Dropping a part now
+  also removes its content-type declaration and the relationships that point at it, so a scrubbed
+  document stays valid for a strict reader; relationships are matched by what they resolve to rather
+  than by the end of their address, so an external link whose URL merely ends in a removed part's
+  name survives. Every rewritten part is written with a single XML declaration — a second one made
+  the part malformed. For images, a JPEG scrub now ends the copy at the end of the image instead of
+  carrying forward everything after it, which could be an entire embedded file, and both JPEG and PNG
+  inspection report appended data; an image whose structure cannot be parsed is refused as unreadable
+  instead of being returned as a header-only picture. The inspection report gained matching entries
+  for the newly covered classes: embedded preview, embedded data, document settings, edit history,
+  and appended image data.
+
+- **The metadata tool's decompression guards now apply everywhere an archive is opened, at a limit the
+  runtime can survive.** Format detection used to inflate the main document part with no guard at
+  all, ahead of every guarded read, so a small crafted archive could exhaust the runtime before any
+  cap was consulted; detection now answers whether the part exists without decompressing anything,
+  under the same entry-count and declared-size caps as every other read. The total inflated-size cap
+  was set above the memory available to the whole request, which meant it could never fire in time;
+  it is now set well below it, with room for the buffers held at the same time. The upload endpoints
+  also bound and validate the encoded body on the request schema, so an over-long or malformed upload
+  is refused before it is decoded rather than allocating first or failing as an unexpected error.
+- Closed two ways the PDF engine could carry content past an operation meant to remove it, both through page annotations — which sit beside a page's content stream and so are untouched by any rewrite of it. `split` left each kept page's `/Annots` as it found them, so a link, popup, or parent reference naming an excluded page pulled that page's dictionary, content streams, and resources into the output through the object-graph walk that decides what to keep: invisible to a reader, plainly readable in the bytes. Split now severs those references — dropping the out-of-range link and keeping the annotation, or dropping the annotation when it is entirely about an excluded page — and refuses to emit a range at all if an excluded page's objects somehow survive. Surgical (text-preserving) redaction removed glyphs from the content stream but never touched annotations, so a note's `/Contents`, a FreeText caption, a link URI, or an appearance stream could still carry the redacted words; it now removes every annotation standing over a redaction rectangle, together with the popup and reply annotations that repeat its text, and falls back to a raster flatten for any page whose annotations cannot be cleared. Flatten redaction, which already unlinked `/Annots`, now blanks the annotation objects themselves, so one still named from elsewhere in the file (an AcroForm field entry) cannot survive pruning with its text intact.
+- - **A shipment's label PDF is now readable only by the firm that bought it.** The label download derived
+  its object key straight from the URL's shipment id and streamed whatever bytes it found, with nothing
+  proving the shipment belonged to the caller's firm — so any authenticated member of any firm holding
+  `shipping:manage` could fetch another firm's label, and a label carries the recipient's full postal
+  address. The read now resolves the label row through the caller's own firm-scoped database first and
+  serves the server-recorded key from that row; a shipment outside the caller's firm finds no row and is
+  answered `404` (absence, not a distinguishable refusal). Label objects are also keyed under the owning
+  firm now (`labels/<firmId>/<shipmentId>.pdf`), so two firms cannot name one object even where they
+  share a bucket. Labels bought before this change keep working — the read follows the key recorded on
+  the label row, whatever its shape.
+
+- **Uploads are presigned into, and read back from, one bucket.** The upload routes signed direct-to-R2
+  URLs against the firm's own provisioned bucket while the ingest consumer and the storage sweeps read
+  through the single bound R2 binding. On any deployment where those are not the same bucket — which is
+  what firm provisioning actually creates, a per-firm `magna-carta-production-firm-<slug>` bucket — the
+  bytes landed where nothing could read them: ingest would find no object, retry, and dead-letter, so
+  uploads failed silently. Both ends now resolve the firm's bucket through one seam
+  (`apps/worker/src/files/firm-bucket.ts`), which hands back the name a URL is signed against and the
+  handle bytes are read through as a single answer, and refuses to mint a presigned URL for a bucket
+  this Worker cannot read back (the new `R2_BUCKET_NAME` var names the bound bucket, since an R2 handle
+  carries no name of its own). Every route that presigns or writes a firm's bytes goes through that
+  resolver, pinned by a source scan.
+- **Three defects fixed: usage telemetry could fail a served request, a reaped bulk-download bundle could
+never be rebuilt, and the malware scanner ran on one container instead of five.** (1) The server-side
+usage `reached` event resolved analytics consent and emitted _after_ the route had already committed its
+response, with no error boundary — a consent-read failure turned a delivered 2xx into a 500. That work
+now runs off the response path and reports any failure through the standard background-failure pipeline,
+so telemetry can no longer disturb a served request. (2) The bulk-download coordinator shared any
+non-failed job as-is, so once the `bundles/` R2 lifecycle rule expired an artifact the job kept reporting
+`ready` with a key that no longer resolved and the bundle could never be rebuilt; the coordinator now
+confirms the recorded artifact (or every volume of a split archive) still exists before sharing a `ready`
+state, and rebuilds when it is gone — in-flight builds are still single-flighted exactly as before.
+(3) Every request to the scan worker addressed one Durable Object name, so the five container instances
+it is configured for were unreachable and concurrent scans queued behind a single container; scans are
+now spread across one shard per configured instance, keyed on the file version's storage key so a retry
+lands on the instance that already handled it. The engine-global histogram read, the file-type identify,
+and the warm-poke cron stay on the shard the poke keeps resident.
+- - **The email-filing tables are now classified in the PII/erasure registry.** The six per-firm tables
+  the email filing record model added (`email_thread`, `email_message`, `email_matter_link`,
+  `email_participant`, `email_attachment`, `email_capture_address`) landed unclassified, so the
+  registry's coverage fitness function was red on `main`. `email_message` (frozen sender address),
+  `email_participant` (each frozen from/to/cc/bcc address, plus its resolved Directory entity where one
+  exists), and `email_matter_link` (which firm member filed a message to a matter) are registered as
+  personal data retained under the matter corpus; `email_thread`, `email_attachment`, and
+  `email_capture_address` are recorded as explicitly non-PII structure. Participants are keyed by
+  frozen address value as well as by resolved entity id, so a participant the Directory never matched
+  is still reachable by erasure.
 
 ### Changed
 
@@ -570,6 +912,38 @@ files in the local loop. See [`docs/conventions/build-performance.md`](docs/conv
   type-aware run: it is CPU-bound, not deadlocked — the worker's type program spans ~32 packages, so
   it is simply the documented tall pole. The guard defends against a _future_ genuine deadlock.)
 - The gate's affected-lint scoping no longer treats a `.github/` change as a global trigger. A workflow or action YAML edit (e.g. `gate.yml`) cannot move a type-aware lint result, so it no longer forces the ~24-minute whole-repo lint — a CI-config change now runs the fast scoped lint (or none) like any other non-lint-input change. A genuinely lintable JS/TS file under `.github/` (a JS-based action) still forces a whole-repo lint via the existing "lintable source outside any package" rule, so there is no soundness gap.
+- - **The gate now runs the pass each trigger can uniquely contribute, instead of the same battery three
+  times.** A pull request runs the full test battery with the type-aware lint scoped one hop deep; the
+  push that merges it runs the whole-repo type-check and the **full** transitive lint closure and skips
+  the test battery the pull request already ran on the identical tree; a new nightly schedule runs
+  everything cold and unscoped; and a `merge_group` trigger is wired so enabling a merge queue gets full
+  post-merge proof with no workflow change. The required `gate` status is unchanged — it still treats an
+  intended skip as a pass and any failure or cancellation as a failure. Reasoning and the soundness
+  argument for each tier: `docs/conventions/build-performance.md`.
+- **Documentation and the rendered trackers no longer boot the code battery.** The `changes` job
+  classified anything that was not markdown as code, so `STATUS.json` — regenerated by the per-merge
+  docs-assembly commit — put every merge through the full code battery. `docs/**`, `changelog.d/**`,
+  `status.d/**`, `roadmap.d/**` and `STATUS.json` are now non-code, with a file carrying a source
+  extension kept in scope wherever it lives.
+- **`tooling/affected-lint` takes a `--max-hops` bound** on the dependent walk (`1` = the changed
+  packages plus their direct dependents; absent or `all` = the full transitive closure, unchanged
+  default).
+- **The gate caches the work it was repeating.** The workspace `node_modules` tree is cached on the
+  exact lockfile hash, so the dozen-job fan-out stops paying a full link pass each time;
+  `Swatinem/rust-cache` replaces the hand-rolled cargo caches (it also keys on the `rustc` version,
+  which the old key did not — a toolchain bump could reuse artifacts built by the previous compiler);
+  the container acceptance builds go through buildx with a per-container layer cache that outlives the
+  runner; and the `typecheck` job persists its `.tsbuild` state so `tsc -b` is incremental in CI.
+- **`test-worker` shards follow the diff** — two shards on a small change, four otherwise. `--shard=i/N`
+  partitions the same file set for either count, so this trades wall-clock against each shard's fixed
+  setup cost and never changes which tests run.
+- **Conversion hops now resolve their engine per id, end to end.** The conversion queue consumer's
+resolver seam passes each hop's engine id through (`resolveEnginePort` returns an `EngineResolver`
+instead of one port for every hop), the service-binding adapter stamps `x-engine-id` on each request,
+and the convert worker dispatches on that header to the executing Container — the raster Container
+serves both raster interconversion and image-to-PDF; an engine id with no Container yet stays a typed
+`engine-not-implemented` failure. This removes the single-engine assumption so the LibreOffice, email,
+and FFmpeg engine Containers can each land as an additive dispatch entry with no orchestration change.
 
 ### Security
 
@@ -578,6 +952,27 @@ files in the local loop. See [`docs/conventions/build-performance.md`](docs/conv
 - **Cleared twelve HIGH osv-scanner advisories by upgrading their dependency carriers to patched versions.** The CI dependency-audit gate began failing after advisory-database drift surfaced twelve HIGH (CVSS ≥ 7) npm advisories across eight transitive/direct carriers — `better-auth`, `fast-xml-parser`, `postcss`, `undici`, `sharp`, `js-yaml`, `fast-uri`, and `brace-expansion`. Rather than accept them, each carrier was pinned forward to the version that fixes its advisory: `better-auth` 1.6.16 → 1.6.22 (catalog) and `fast-xml-parser` → ^5.10.1 (direct), with the rest pinned through the pnpm-workspace `overrides` block alongside the existing Vite+ aliases (`postcss` 8.5.18, `undici` 7.29.0, `sharp` 0.35.0, `js-yaml` 3.15.0/4.3.0, `fast-uri` 3.1.5, `brace-expansion` 1.1.18). The `better-auth` upgrade also required adopting its new `twoFactor` brute-force lockout fields (`failed_verification_count`, `locked_until`) into the control-plane schema via an additive migration, so the two-factor enable/verify flow stays green. The osv-scanner gate now reports zero HIGH/CRITICAL npm advisories.
 - Hardened and consolidated the dependency-audit setup around the osv-scanner CI gate. The gate now pins the osv-scanner binary by SHA256 (verified against the release's published checksum before it runs, failing closed on any mismatch) so a swapped or compromised release asset can't execute. The pre-push git hook's local `pnpm audit` step is removed — it covered only npm, depended on npm's retiring audit endpoint, and duplicated the authoritative CI gate that now audits both the npm and Rust supply chains — and the `package.json` `pnpm.auditConfig` it read is dropped. `osv-scanner.toml` is now the single home for accepted advisories.
 - CI dependency-audit gate migrated to osv-scanner, now covering the Rust supply chain alongside npm. The gate previously ran npm-only `pnpm audit`; it now runs osv-scanner (v2.4.0) over the npm lockfile and every first-party `Cargo.lock` (`crates/` + `containers/`) against the OSV database (GHSA + RUSTSEC), failing on any HIGH/CRITICAL (CVSS >= 7.0) and failing closed on a scan error. This immediately surfaced four real high-severity advisories the npm-only audit could never see — including a stack-overflow DoS (`RUSTSEC-2026-0187`, lopdf) on the untrusted-PDF-parsing path — now accepted with cause and a time-boxed `ignoreUntil` in `osv-scanner.toml` and tracked for remediation by carrier upgrades. The pre-push hook still runs `pnpm audit` for fast local feedback (migrating it is a follow-up).
+- **Refreshed the npm dependency catalog and recorded verified remediation verdicts for the advisories the
+audit gate still accepts.** `hono` moved 4.12.27 → 4.13.0, which crosses 4.12.34 — the release that fixed
+four security defects reachable from a Worker: cross-request data disclosure in JSX, a whitespace-tolerant
+CORS origin regex (ReDoS), an algorithmic-complexity denial of service in the Language middleware, and
+response-header leakage in the proxy helper. Alongside it, `@hono/zod-openapi` 1.4.0 → 1.5.1,
+`@tanstack/svelte-query` 6.1.34 → 6.1.38, `@internationalized/date` 3.12.2 → 3.12.3, `@lucide/svelte`
+1.17.0 → 1.28.0, `@cloudflare/speedtest` 1.11.0 → 1.13.0, the three self-hosted font packages → 5.3.0, and
+the dev tooling `@faker-js/faker` 10.5.0, `@types/node` 26.1.2, `@stoplight/spectral-cli` 6.16.3,
+`@stoplight/prism-cli` 5.16.0, and `happy-dom` 20.11.1.
+
+The accepted-advisory list in `osv-scanner.toml` also lost a dead entry and gained real verdicts.
+`GHSA-gv7w-rqvm-qjhr` was removed: GitHub withdrew it on 2026-06-17 because the affected package was
+misidentified — the flaw was in the esbuild Deno module, not the npm package — so the gate had been
+carrying an ignore that matched nothing. The remaining tracked entries now record what was actually
+checked rather than a bare "upgrade the carrier": the `quick-xml` advisories (RUSTSEC-2026-0194/0195) are
+fixed in quick-xml 0.41.0 but reached only through `office-crypto`, which still requires `^0.38.4` as of
+its newest release (0.3.0, published 2026-07-22), so no carrier upgrade can clear them; and the npm `uuid`
+advisory (GHSA-w5hq-g745-h8pq) is fixed in uuid 11.1.1 but arrives through `postman-collection`, which
+hard-pins uuid 8.3.2 through its newest release (5.3.1) — so an override, not an upgrade, is the only
+remediation. Both entries keep their 2026-10-14 `ignoreUntil` forcing function.
+- Upgraded lopdf to 0.42.0 across every first-party Rust workspace (`crates/` and the `scan`/`ocr`/`recovery`/`file-repair` containers), remediating RUSTSEC-2026-0187 — the stack-overflow denial-of-service in lopdf's PDF parser, on the untrusted-file path. The osv-scanner CI gate's accepted-advisory list drops that entry. The scan container's structural-PDF SIGABRT guards are retained as defense-in-depth. The three remaining tracked advisories (quick-xml x2, npm uuid) stay accepted with corrected, documented reasons: quick-xml is reachable only through office-crypto 0.2.0 (its latest release, which pins quick-xml 0.38, so it cannot be cleared without a newer office-crypto), and the npm uuid advisory is a transitive dev-tooling dependency of postman-collection with no production-runtime exploit path.
 
 ### Added
 

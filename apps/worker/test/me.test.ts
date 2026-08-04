@@ -88,6 +88,7 @@ describe("GET /api/v1/me", () => {
         "emails:manageCaptureAddresses",
         "emails:manageLinks",
         "emails:read",
+        "esign:seal",
         "files:delete",
         "files:manageDocumentTypes",
         "files:organize",

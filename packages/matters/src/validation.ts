@@ -5,6 +5,7 @@ export type MatterValidationCode =
   | "matter-not-found"
   | "matter-not-prospective"
   | "matter-not-closed"
+  | "matter-already-closed"
   | "scheme-missing"
   | "matter-number-not-url-safe"
   | "matter-number-taken"

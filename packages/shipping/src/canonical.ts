@@ -101,6 +101,7 @@ export interface BuyLabelRequest {
   readonly remoteShipmentId: string;
   readonly remoteRateId: string;
   readonly labelFormat?: "PDF" | "ZPL" | "PNG";
-  // Forwarded as the EasyPost `Idempotency-Key` header so a retried purchase never double-charges.
-  readonly idempotencyKey?: string;
+  // The declared value to insure, in integer minor units, carried from the draft's ShipmentOptions.
+  // The adapter converts it to the carrier's own representation; omitted/zero means no insurance.
+  readonly insuranceAmountMinor?: number | null;
 }

@@ -12,6 +12,8 @@ import type { RegistrationResult } from "./types.ts";
 
 // IANA bootstrap document URLs for different address families.
 const IANA_BOOTSTRAP_DOMAIN_URL = "https://data.iana.org/rdap/dns.json";
+const IANA_BOOTSTRAP_IPV4_URL = "https://data.iana.org/rdap/ipv4.json";
+const IANA_BOOTSTRAP_IPV6_URL = "https://data.iana.org/rdap/ipv6.json";
 
 // Bootstrap document shape: an array of [matchKeys[], baseUrls[]] tuples.
 // matchKeys are TLD labels (for DNS) or CIDR prefixes (for IP).
@@ -30,11 +32,18 @@ const RDAP_EVENT_LAST_CHANGED = "last changed";
  * RDAP server (the registry omits entries for those, so absence is a valid signal).
  */
 export async function resolveRdapBase(target: string, http: HttpClient): Promise<string | null> {
-  // Determine whether the target looks like an IP address or a domain name.
-  // A simple heuristic: if it contains only digits and dots/colons it is an IP.
-  const isIpAddress = /^[\d.:]+$/.test(target);
+  // An IP target is one that actually parses as an address literal — not one that merely looks
+  // numeric. The older digits-and-punctuation heuristic mis-classified both directions: it sent
+  // hex-bearing IPv6 literals ("2001:db8::1") down the domain path, and sent dotted fragments that
+  // are not addresses ("1.2.3") down the IP path.
+  const address = parseIpAddress(target);
 
-  const bootstrapUrl = isIpAddress ? resolveIpBootstrapUrl(target) : IANA_BOOTSTRAP_DOMAIN_URL;
+  const bootstrapUrl =
+    address === null
+      ? IANA_BOOTSTRAP_DOMAIN_URL
+      : address.width === 32
+        ? IANA_BOOTSTRAP_IPV4_URL
+        : IANA_BOOTSTRAP_IPV6_URL;
 
   const response = await http.request({
     method: "GET",
@@ -47,8 +56,8 @@ export async function resolveRdapBase(target: string, http: HttpClient): Promise
   const document = (await response.json()) as BootstrapDocument;
   const services = document.services ?? [];
 
-  if (isIpAddress) {
-    return resolveIpBase(target, services);
+  if (address !== null) {
+    return resolveIpBase(address, services);
   }
 
   // For a domain, match by the registrable TLD — the last label of the domain name.
@@ -76,8 +85,7 @@ export async function queryRdap(
   base: string,
   http: HttpClient,
 ): Promise<RegistrationResult> {
-  const isIpAddress = /^[\d.:]+$/.test(target);
-  const pathSegment = isIpAddress ? "ip" : "domain";
+  const pathSegment = parseIpAddress(target) === null ? "domain" : "ip";
 
   // Normalise: ensure exactly one slash between the base and the path segment.
   const normalizedBase = base.endsWith("/") ? base : `${base}/`;
@@ -118,36 +126,152 @@ function extractTld(domain: string): string | null {
   return lastLabel === null ? null : lastLabel.toLowerCase();
 }
 
-/**
- * Choose the IANA bootstrap URL for an IP address.
- * IPv6 addresses contain colons; everything else is treated as IPv4.
- */
-function resolveIpBootstrapUrl(ipAddress: string): string {
-  return ipAddress.includes(":")
-    ? "https://data.iana.org/rdap/ipv6.json"
-    : "https://data.iana.org/rdap/ipv4.json";
+/** A parsed IP address: its numeric value and the address family's bit width. */
+interface IpAddress {
+  readonly value: bigint;
+  readonly width: 32 | 128;
+}
+
+/** A parsed CIDR block: the masked network address, its bit width, and the prefix length. */
+interface CidrBlock {
+  readonly network: bigint;
+  readonly width: 32 | 128;
+  readonly prefixLength: number;
 }
 
 /**
- * Match an IP address against IP-bootstrap services.
- * This is a best-effort MVP that returns the first service whose match keys include a
- * prefix the address starts with (sufficient for the most common delegations).
+ * Parse an IPv4 or IPv6 literal into its numeric value, or return null when the text is not an
+ * address. Surrounding brackets on an IPv6 literal (`[2001:db8::1]`) are stripped, and an IPv4
+ * mapped tail (`::ffff:192.0.2.1`) is folded into the low 32 bits, so both spellings of the same
+ * address compare equal.
  */
-function resolveIpBase(ipAddress: string, services: BootstrapService[]): string | null {
+function parseIpAddress(text: string): IpAddress | null {
+  const trimmed = text.trim();
+  const unbracketed =
+    trimmed.startsWith("[") && trimmed.endsWith("]") ? trimmed.slice(1, -1) : trimmed;
+  if (unbracketed.includes(":")) {
+    const value = parseIpv6(unbracketed);
+    return value === null ? null : { value, width: 128 };
+  }
+  const value = parseIpv4(unbracketed);
+  return value === null ? null : { value, width: 32 };
+}
+
+function parseIpv4(text: string): bigint | null {
+  const octets = text.split(".");
+  if (octets.length !== 4) return null;
+  let value = 0n;
+  for (const octet of octets) {
+    // Reject "01", "+1", "0x0a" and empty labels: only a plain 0-255 decimal is an octet.
+    if (!/^(0|[1-9]\d{0,2})$/.test(octet)) return null;
+    const parsed = Number(octet);
+    if (parsed > 255) return null;
+    value = (value << 8n) | BigInt(parsed);
+  }
+  return value;
+}
+
+function parseIpv6(text: string): bigint | null {
+  // Split on the one permitted "::" run, then expand it to the zero groups it stands for.
+  const halves = text.split("::");
+  if (halves.length > 2) return null;
+  const headText = halves[0] ?? "";
+  const tailText = halves.length === 2 ? (halves[1] ?? "") : "";
+
+  const head = headText === "" ? [] : headText.split(":");
+  const tail = tailText === "" ? [] : tailText.split(":");
+  const groups: bigint[] = [];
+
+  // A trailing dotted-quad occupies the final two groups (`::ffff:192.0.2.1`).
+  const last = tail.length > 0 ? tail[tail.length - 1] : head[head.length - 1];
+  let embeddedIpv4: bigint | null = null;
+  if (last !== undefined && last.includes(".")) {
+    embeddedIpv4 = parseIpv4(last);
+    if (embeddedIpv4 === null) return null;
+    if (tail.length > 0) tail.pop();
+    else head.pop();
+  }
+
+  const embeddedGroups = embeddedIpv4 === null ? 0 : 2;
+  const explicitGroups = head.length + tail.length + embeddedGroups;
+  if (halves.length === 1 ? explicitGroups !== 8 : explicitGroups > 7) return null;
+
+  for (const group of [...head, ...tail]) {
+    if (!/^[0-9a-fA-F]{1,4}$/.test(group)) return null;
+  }
+
+  for (const group of head) groups.push(BigInt(Number.parseInt(group, 16)));
+  const zeroGroups = 8 - explicitGroups;
+  for (let index = 0; index < zeroGroups; index += 1) groups.push(0n);
+  for (const group of tail) groups.push(BigInt(Number.parseInt(group, 16)));
+  if (embeddedIpv4 !== null) {
+    groups.push((embeddedIpv4 >> 16n) & 0xffffn, embeddedIpv4 & 0xffffn);
+  }
+  if (groups.length !== 8) return null;
+
+  let value = 0n;
+  for (const group of groups) value = (value << 16n) | group;
+  return value;
+}
+
+/** Parse a bootstrap match key ("198.51.100.0/22", "2001:db8::/32") into a masked CIDR block. */
+function parseCidrBlock(text: string): CidrBlock | null {
+  const slash = text.lastIndexOf("/");
+  // A bootstrap key may omit the prefix length; a bare address is its own host route.
+  const addressText = slash === -1 ? text : text.slice(0, slash);
+  const address = parseIpAddress(addressText);
+  if (address === null) return null;
+  let prefixLength: number = address.width;
+  if (slash !== -1) {
+    const lengthText = text.slice(slash + 1);
+    if (!/^\d{1,3}$/.test(lengthText)) return null;
+    prefixLength = Number(lengthText);
+    if (prefixLength > address.width) return null;
+  }
+  return {
+    network: address.value & maskFor(address.width, prefixLength),
+    width: address.width,
+    prefixLength,
+  };
+}
+
+/** The contiguous high-bit mask for a prefix of `prefixLength` bits in a `width`-bit space. */
+function maskFor(width: number, prefixLength: number): bigint {
+  const hostBits = BigInt(width - prefixLength);
+  const all = (1n << BigInt(width)) - 1n;
+  return (all >> hostBits) << hostBits;
+}
+
+/** True when `address` falls inside `block` — masked-integer containment, not text comparison. */
+function cidrContains(block: CidrBlock, address: IpAddress): boolean {
+  if (block.width !== address.width) return false;
+  return (address.value & maskFor(block.width, block.prefixLength)) === block.network;
+}
+
+/**
+ * Match an IP address against the IP-bootstrap services by real CIDR containment, longest prefix
+ * first. Text comparison cannot do this: a prefix that does not land on an octet boundary
+ * ("198.51.100.0/22") covers addresses whose text shares no leading label with the network
+ * address, and a shorter prefix that happens to share leading text is not a match at all.
+ * Longest-prefix wins because IANA delegates sub-blocks out of larger ones, and the most specific
+ * delegation is the authoritative one.
+ */
+function resolveIpBase(address: IpAddress, services: BootstrapService[]): string | null {
+  let bestPrefixLength = -1;
+  let bestBase: string | null = null;
   for (const [matchKeys, baseUrls] of services) {
-    for (const prefix of matchKeys) {
-      const networkAddress = prefix.split("/")[0] ?? "";
-      const parentNetwork =
-        networkAddress
-          .split(".")
-          .slice(0, networkAddress.split(".").length - 1)
-          .join(".") + ".";
-      if (ipAddress.startsWith(parentNetwork) || ipAddress.startsWith(networkAddress)) {
-        if (baseUrls.length > 0) return baseUrls[0] ?? null;
-      }
+    const base = baseUrls[0];
+    if (base === undefined) continue;
+    for (const key of matchKeys) {
+      const block = parseCidrBlock(key);
+      if (block === null) continue;
+      if (block.prefixLength <= bestPrefixLength) continue;
+      if (!cidrContains(block, address)) continue;
+      bestPrefixLength = block.prefixLength;
+      bestBase = base;
     }
   }
-  return null;
+  return bestBase;
 }
 
 /** Extract the eventDate for a given eventAction from the RDAP events array. */

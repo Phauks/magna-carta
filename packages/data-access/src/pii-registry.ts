@@ -155,6 +155,9 @@ export const NO_PII_TABLES: readonly string[] = [
   "document_type",
   "numbering_scheme",
   "matter_number_counter",
+  // The drawn-number allocation ledger behind that counter: a scope key, the integer drawn, the matter
+  // it went to, and when. Numbering bookkeeping about a matter, carrying no column about a person.
+  "matter_number_allocation",
   // matter is matter-scoped metadata, BUT matter.client_display_name/client_code can hold a
   // prospective client's name pre-Directory-link, with no structured subject key to resolve — a known
   // residual in the same class as shipment-address JSON (handled by the residue report / a product
@@ -201,6 +204,11 @@ export const NO_PII_TABLES: readonly string[] = [
   "utbms_code",
   "non_billable_category",
   "narrative_template",
+  // Discovery search-index catalog — index metadata only (split object key, document/byte counts,
+  // schema generation, timestamps, and the matter id). The searchable text and any personal data it
+  // contains live in the split object in R2 and are erased by re-indexing the source, not by a row
+  // here; this catalog carries no data-subject personal data.
+  "index_split",
   // Email filing structure — the personal data of a captured message lives on email_message and
   // email_participant (both registered above); these three carry none of their own.
   // A thread row is the conversation grouping key plus a normalized-subject fallback; a subject line is

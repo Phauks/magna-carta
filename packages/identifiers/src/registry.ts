@@ -124,6 +124,10 @@ export const ENTITY_PREFIXES = {
   emailParticipant: "emailParticipant",
   emailAttachment: "emailAttachment",
   emailCaptureAddress: "emailCaptureAddress",
+  // Discovery search index. An `indexSplit` is one immutable Tantivy split — a self-contained bundle of
+  // index files stored as one object in the firm's R2 — recorded in the per-firm catalog that a query
+  // enumerates to know which splits are live for a matter.
+  indexSplit: "indexSplit",
 } as const;
 
 export type EntityType = keyof typeof ENTITY_PREFIXES;

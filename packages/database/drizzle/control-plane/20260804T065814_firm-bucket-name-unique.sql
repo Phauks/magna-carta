@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX `firm_bucket_name_unique` ON `firm` (`bucket_name`);

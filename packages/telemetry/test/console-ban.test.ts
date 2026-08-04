@@ -3,11 +3,13 @@ import { join, relative, sep } from "node:path";
 import { describe, expect, it } from "vitest";
 
 // The console ban — the one-logging-path rule (docs/conventions/error-logging.md) made structural.
-// Application code logs ONLY through the telemetry Logger; a raw console.* anywhere in
-// apps/worker/src or packages/*/src fails CI. This scan lives here because the telemetry package
-// owns the one logging path, runs in the node pool (fs available, unlike the worker's workerd pool),
-// and reads every package's source from the repo root. (scripts/ and test/ are out of scope —
-// tooling may print.)
+// That rule binds EVERY Worker, not just the API worker, so the scan enumerates every app and every
+// package rather than naming apps/worker: a raw console.* anywhere in apps/*/src or packages/*/src
+// fails CI. Enumerating (instead of listing) is the point — an extracted worker app is inside the
+// ban the moment it exists, with no test edit to remember. This scan lives here because the
+// telemetry package owns the one logging path, runs in the node pool (fs available, unlike the
+// worker's workerd pool), and reads every app's and package's source from the repo root. (scripts/
+// and test/ are out of scope — tooling may print.)
 
 // packages/telemetry/test -> repo root.
 const REPO_ROOT = join(import.meta.dirname, "..", "..", "..");
@@ -27,14 +29,35 @@ const ALLOWLIST = new Set([
   // product (benchmark results), not application logging.
   join("packages", "gpu-benchmark", "src", "cli.ts"),
   join("packages", "gpu-benchmark", "src", "run.ts"),
+  // The bundle worker's guarded post-deploy self-test — an operator-invoked diagnostic, not request
+  // handling. Its product is the structured report it returns; these lines only mirror a leaked-object
+  // count and the run id into Workers Logs so an ignored report still leaves a trace. That worker
+  // carries no telemetry binding of its own, so there is no Logger to route them through; they move
+  // onto the Logger when it gains one. Nothing here can carry domain data — no field exists for it.
+  join("apps", "bundle-worker", "src", "self-test.ts"),
 ]);
 
-// Every .ts file under apps/worker/src and packages/*/src (skipping node_modules/test/dist/build).
-async function sourceFiles(): Promise<string[]> {
-  const roots = [join(REPO_ROOT, "apps", "worker", "src")];
+// The app source roots. Every app is scanned EXCEPT the web app: it is browser code, whose logging
+// path is the in-app developer console (apps/web/src/lib/developer/), not the Workers Logger this
+// ban funnels server code into. Excluded by name so a new worker app is covered automatically.
+const UNSCANNED_APPS = new Set(["web"]);
+
+async function sourceRoots(): Promise<string[]> {
+  const roots: string[] = [];
+  for (const entry of await readdir(join(REPO_ROOT, "apps"), { withFileTypes: true })) {
+    if (entry.isDirectory() && !UNSCANNED_APPS.has(entry.name)) {
+      roots.push(join(REPO_ROOT, "apps", entry.name, "src"));
+    }
+  }
   for (const entry of await readdir(join(REPO_ROOT, "packages"), { withFileTypes: true })) {
     if (entry.isDirectory()) roots.push(join(REPO_ROOT, "packages", entry.name, "src"));
   }
+  return roots;
+}
+
+// Every .ts file under those roots (skipping node_modules/test/dist/build).
+async function sourceFiles(): Promise<string[]> {
+  const roots = await sourceRoots();
   const files: string[] = [];
   async function walk(dir: string): Promise<void> {
     const entries = await readdir(dir, { withFileTypes: true }).catch(() => null);
@@ -69,6 +92,32 @@ describe("console ban (the one-logging-path rule, made structural)", () => {
     expect(offenders).toEqual([]);
     // Vacuity guard: the scan actually walked a meaningful corpus, not zero files.
     expect(scanned).toBeGreaterThan(20);
+  });
+
+  it("covers every app but the web app, so an extracted worker cannot fall outside the ban", async () => {
+    const apps = (await readdir(join(REPO_ROOT, "apps"), { withFileTypes: true }))
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name);
+    // The enumeration must see the real apps directory, not an empty one.
+    expect(apps.length).toBeGreaterThan(1);
+
+    const scannedRoots = new Set(await sourceRoots());
+    for (const app of apps) {
+      const root = join(REPO_ROOT, "apps", app, "src");
+      expect(scannedRoots.has(root), `apps/${app}/src`).toBe(!UNSCANNED_APPS.has(app));
+    }
+
+    // Spot-check the extracted workers by name: the scan must reach files inside them, not merely
+    // list their roots. A root that walks to nothing would leave the app silently unenforced.
+    const scanned = (await sourceFiles()).map((file) =>
+      relative(REPO_ROOT, file).split(sep).join("/"),
+    );
+    for (const app of ["scan-worker", "bundle-worker", "convert-worker"]) {
+      expect(
+        scanned.some((file) => file.startsWith(`apps/${app}/src/`)),
+        `apps/${app}/src`,
+      ).toBe(true);
+    }
   });
 
   it("the detector matches the full console.* surface incl. bracket notation (reads content, not filenames)", () => {

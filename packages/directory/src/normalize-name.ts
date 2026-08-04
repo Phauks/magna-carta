@@ -3,7 +3,7 @@
  *
  * FROZEN CONTRACT — do not change the transform without coordinating a full
  * phonetic-code and search-index rebuild across every firm's data. The output
- * of this function is stored in directory_name.normalized_name and drives
+ * of this function is stored in directory_name.normalized_display and drives
  * fuzzy search, duplicate detection, and phonetic encoding; changing it
  * silently produces stale index rows that will never match incoming queries
  * until every firm is re-indexed. Treat any modification like a database

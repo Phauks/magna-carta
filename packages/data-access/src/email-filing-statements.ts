@@ -274,6 +274,114 @@ export function insertEmailCaptureAddressStatement(
     .bind(input.id, input.token, input.kind, input.matterId, input.createdBy, now);
 }
 
+// Retire a capture address. Guarded on active = 1 so a repeat revoke (a retry, a rotate replayed) is
+// a zero-change no-op rather than a rewrite of the original retirement instant. `rotated_at` records
+// WHEN this address stopped being the live one — it is set by both a plain revoke and the revoke half
+// of a rotate, because from the address's own point of view those are the same event.
+export function revokeEmailCaptureAddressStatement(
+  database: SqlDatabase,
+  emailCaptureAddressId: EmailCaptureAddressId,
+  now: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${EMAIL_CAPTURE_ADDRESS_TABLE}
+       SET active = 0, rotated_at = ?1, updated_at = ?1
+       WHERE id = ?2 AND active = 1`,
+    )
+    .bind(now, emailCaptureAddressId);
+}
+
+export interface CaptureAddressRow {
+  readonly id: EmailCaptureAddressId;
+  readonly token: string;
+  readonly kind: "matter" | "catchAll";
+  readonly matterId: MatterId | null;
+  readonly active: boolean;
+  readonly createdBy: UserId | null;
+  readonly rotatedAt: string | null;
+  readonly createdAt: string;
+}
+
+const CAPTURE_ADDRESS_COLUMNS =
+  "id, token, kind, matter_id, active, created_by, rotated_at, created_at";
+
+interface CaptureAddressResultRow {
+  id: string;
+  token: string;
+  kind: string;
+  matter_id: string | null;
+  active: number;
+  created_by: string | null;
+  rotated_at: string | null;
+  created_at: string;
+}
+
+function toCaptureAddressRow(row: CaptureAddressResultRow): CaptureAddressRow {
+  return {
+    id: row.id as EmailCaptureAddressId,
+    token: row.token,
+    kind: row.kind as "matter" | "catchAll",
+    matterId: row.matter_id === null ? null : (row.matter_id as MatterId),
+    active: row.active === 1,
+    createdBy: row.created_by === null ? null : (row.created_by as UserId),
+    rotatedAt: row.rotated_at,
+    createdAt: row.created_at,
+  };
+}
+
+// One capture address by handle, whatever its state. The revoke and rotate paths read it to learn the
+// token they must retire in the control plane — the caller supplies a handle, never a raw token, so a
+// token value never has to travel in from the client to operate on the address it names.
+export async function readCaptureAddressById(
+  database: SqlDatabase,
+  emailCaptureAddressId: EmailCaptureAddressId,
+): Promise<CaptureAddressRow | null> {
+  const { results } = await database
+    .prepare(
+      `SELECT ${CAPTURE_ADDRESS_COLUMNS} FROM ${EMAIL_CAPTURE_ADDRESS_TABLE} WHERE id = ?1 LIMIT 1`,
+    )
+    .bind(emailCaptureAddressId)
+    .all<CaptureAddressResultRow>();
+  const row = results[0];
+  return row === undefined ? null : toCaptureAddressRow(row);
+}
+
+// Every capture address minted for one matter, live and retired, newest first. A matter holds a
+// handful of these (one live address, plus whatever rotation left behind), so this is deliberately
+// unpaginated — a keyset cursor would cost more than it saves at this cardinality.
+export async function readMatterCaptureAddresses(
+  database: SqlDatabase,
+  matterId: MatterId,
+): Promise<CaptureAddressRow[]> {
+  const { results } = await database
+    .prepare(
+      `SELECT ${CAPTURE_ADDRESS_COLUMNS} FROM ${EMAIL_CAPTURE_ADDRESS_TABLE}
+       WHERE matter_id = ?1 AND kind = 'matter'
+       ORDER BY created_at DESC, id DESC`,
+    )
+    .bind(matterId)
+    .all<CaptureAddressResultRow>();
+  return results.map(toCaptureAddressRow);
+}
+
+// The firm's live catch-all, if it has one. The catch-all has no matter, so it is found by kind — and
+// only one may be live at a time, which is what makes minting a second one a conflict rather than a
+// second address.
+export async function readActiveCatchAllCaptureAddress(
+  database: SqlDatabase,
+): Promise<CaptureAddressRow | null> {
+  const { results } = await database
+    .prepare(
+      `SELECT ${CAPTURE_ADDRESS_COLUMNS} FROM ${EMAIL_CAPTURE_ADDRESS_TABLE}
+       WHERE kind = 'catchAll' AND active = 1
+       ORDER BY created_at DESC, id DESC LIMIT 1`,
+    )
+    .all<CaptureAddressResultRow>();
+  const row = results[0];
+  return row === undefined ? null : toCaptureAddressRow(row);
+}
+
 // ── Reads.
 
 export interface DedupHit {

@@ -6,7 +6,12 @@ The shipping & postage domain: the `ShippingPort` (our vocabulary — `validateA
 - Pure package — no D1, no Hono, no `env`. The adapter takes an injected `HttpClient`; the worker
   backs it with `fetch`, tests with a fake.
 - Certified mail / return receipt / signature / insurance are canonical `ShipmentOptions`, not
-  operations — the adapter maps them to EasyPost `options`.
+  operations. Certified mail, return receipt, and signature map into EasyPost `options`; **insurance
+  does not** — EasyPost takes it as a top-level decimal-dollar string on the buy request, so it rides
+  `BuyLabelRequest.insuranceAmountMinor` and is converted at the boundary like any other money field.
+- **EasyPost supports no idempotency key**, on any endpoint. A retried buy is a second real purchase,
+  so double-buy protection belongs to the caller (the worker's per-shipment purchase claim) — never to
+  a request header this API ignores. Do not reintroduce one.
 - Canonical records carry `remoteId` + opt-in `raw`, built with `canonicalRecordSchema` and validated
   at the boundary (EasyPost output is untrusted).
 - The credential is an API key (`{ kind: "apiKey", scope: "firm" }`) — one postage account per firm.

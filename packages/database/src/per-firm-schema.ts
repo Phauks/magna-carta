@@ -45,6 +45,7 @@ import type {
   GrantId,
   IdempotencyRecordId,
   IncidentId,
+  IndexSplitId,
   IntegrationConnectionId,
   LedgerAccountId,
   LedgerEntryId,
@@ -487,6 +488,30 @@ export const matter = sqliteTable(
     check("matter_status_check", sql`${table.status} IN ('prospective', 'open', 'closed')`),
     check("matter_title_nonempty_check", sql`length(${table.title}) > 0`),
     check("matter_e_billing_check", sql`${table.eBilling} IN (0, 1)`),
+  ],
+);
+
+// Every counter value a number draw actually consumed, one row per {scope_key, drawn_value}. The
+// guarded increment alone cannot keep concurrent draws distinct: when the active scheme carries a
+// variable segment that is NOT marked scoping (a client code, staff initials, a matter-type code),
+// two draws in the same counter scope render DIFFERENT numbers from the SAME value, so
+// matter_matter_number_unique_index never fires and the losing draw silently commits a duplicate of
+// the winner's counter value. This composite primary key is the constraint that does fire: the
+// loser's whole batch aborts and its bounded retry re-reads the advanced counter.
+export const matterNumberAllocation = sqliteTable(
+  "matter_number_allocation",
+  {
+    scopeKey: text("scope_key").notNull(), // the matter_number_counter row this value came from
+    drawnValue: integer("drawn_value").notNull(), // the counter value this draw consumed
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    allocatedAt: text("allocated_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.scopeKey, table.drawnValue] }),
+    index("matter_number_allocation_matter_id_index").on(table.matterId),
   ],
 );
 
@@ -1314,8 +1339,11 @@ export const shipment = sqliteTable(
     matterRef: text("matter_ref")
       .$type<MatterId>()
       .references(() => matter.id),
+    // `purchasing` is the exclusive claim a label purchase takes before it spends money at the
+    // carrier: the carrier has no idempotency facility, so the claim (not a request header) is what
+    // makes a retried or concurrent purchase unable to buy a second label for one shipment.
     status: text("status", {
-      enum: ["draft", "rated", "purchased", "in_transit", "delivered", "refunded"],
+      enum: ["draft", "rated", "purchasing", "purchased", "in_transit", "delivered", "refunded"],
     })
       .notNull()
       .default("draft"),
@@ -1324,6 +1352,9 @@ export const shipment = sqliteTable(
     parcel: text("parcel").notNull(), // JSON
     options: text("options").notNull().default("{}"), // JSON ShipmentOptions
     remoteShipmentId: text("remote_shipment_id"), // EasyPost shipment id, set once rated/bought
+    // Who holds the in-flight purchase claim (the request's idempotency key). Only the holder may
+    // release it, so a failed attempt cannot be cleared out from under a purchase still in flight.
+    purchaseClaimKey: text("purchase_claim_key"),
     carrier: text("carrier"),
     service: text("service"),
     trackingCode: text("tracking_code"),
@@ -1792,6 +1823,55 @@ export const conflictsDisposition = sqliteTable(
       "conflicts_disposition_kind_check",
       sql`${table.kind} IN ('cleared', 'waiver_obtained', 'wall_erected', 'representation_declined')`,
     ),
+  ],
+);
+
+// Discovery search-index catalog: one row per immutable Tantivy split stored in the firm's R2. This is
+// the authority a query enumerates to know which splits are live for a matter — never an R2 bucket list,
+// which would be slower and would not carry firm scoping structurally. Firm data (the index is durable
+// per-firm data, unlike the transient scan/conversion artifacts), access-gated with the matter it
+// belongs to. A split is immutable: rows are inserted on publish and marked superseded by compaction,
+// never mutated in place. `superseded_at IS NULL` is the live set.
+export const indexSplit = sqliteTable(
+  "index_split",
+  {
+    id: text("id").primaryKey().$type<IndexSplitId>(),
+    matterId: text("matter_id").notNull().$type<MatterId>(),
+    // The one document version this split indexes, for a split the write pipeline publishes. The write
+    // pipeline builds one split per document version so a re-index converges: the split id is derived
+    // from these two columns, a retry rebuilds the same split, and the publish deletes the document's
+    // prior rows and objects before inserting the new one instead of accumulating duplicates.
+    // Both are NULL for a split that spans many documents — the shape a later compaction pass publishes
+    // when it merges the small per-document splits — so the merged split is simply unconstrained here.
+    documentId: text("document_id").$type<FileId>(),
+    version: integer("version"),
+    // The split object's key in the firm's R2 bucket (e.g. search/<matter>/splits/<id>.split).
+    objectKey: text("object_key").notNull(),
+    // How many passages the split indexes, and its size — the inputs a compaction decision reads
+    // without opening the split.
+    documentCount: integer("document_count").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    // The Tantivy schema generation the split was built with; a query refuses a split whose generation
+    // it does not understand, so a schema change never silently mixes incompatible splits.
+    schemaGeneration: integer("schema_generation").notNull(),
+    createdAt: text("created_at").notNull(), // ISO-8601 instant
+    // Null while the split is live; set to the instant compaction replaced it. A superseded split's row
+    // is kept until its object is garbage-collected, so an in-flight query against it still resolves.
+    supersededAt: text("superseded_at"),
+  },
+  (table) => [
+    // The live-splits-for-a-matter read: WHERE matter_id = ? AND superseded_at IS NULL.
+    index("index_split_matter_superseded_index").on(table.matterId, table.supersededAt),
+    // The document's own splits: the read the write pipeline makes before publishing, to find the rows
+    // and R2 objects a re-index must delete.
+    index("index_split_document_index").on(table.documentId),
+    // At most one LIVE split per document version. This is the convergence guarantee the write pipeline
+    // rests on: a duplicate delivery that raced past the delete cannot leave two live splits indexing
+    // the same version, so a query can never count a document twice. Partial, so the many-document
+    // splits a compaction publishes (document_id NULL) are outside it.
+    uniqueIndex("index_split_document_version_unique")
+      .on(table.documentId, table.version)
+      .where(sql`${table.documentId} IS NOT NULL AND ${table.supersededAt} IS NULL`),
   ],
 );
 
