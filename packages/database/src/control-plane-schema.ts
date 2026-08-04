@@ -38,7 +38,13 @@ export const firm = sqliteTable("firm", {
   // through feature flags, never schema. DEFAULT keeps pre-channel rows valid (expand-contract).
   releaseChannel: text("release_channel").notNull().default("stable"),
   // The per-firm R2 bucket backing this firm. Null = the bucket has not been provisioned yet.
-  bucketName: text("bucket_name"),
+  // UNIQUE: an R2 object-create event names only its bucket, and the ingest consumer turns that name
+  // back into a firm with `WHERE bucket_name = ?`. Two firms sharing a name would make that lookup
+  // ambiguous — a firm's uploads could be ingested into another firm's per-firm database. The
+  // provisioner already mints a deterministic per-firm name; the constraint is what makes the
+  // one-name-one-firm assumption the read depends on true. SQLite treats NULLs as distinct, so
+  // any number of not-yet-provisioned firms coexist.
+  bucketName: text("bucket_name").unique(),
   // WHO owns the firm: set in the same activation batch that inserts the owner user
   // — the provisioner's already-active no-op matches the REQUESTED owner against this column, so a
   // mere invited member's email cannot impersonate the owner. Null while provisioning and for

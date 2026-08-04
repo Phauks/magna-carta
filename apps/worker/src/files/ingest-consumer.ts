@@ -3,14 +3,18 @@ import {
   commitCheckinVersion,
   commitVersion,
   loadPendingVersionForIngest,
+  quarantineCommittedVersion,
   quarantineVersion,
   recordRescanVerdict,
 } from "@magna-carta/file-manager/file-service";
-import { runIngest } from "@magna-carta/file-manager/ingest-core";
-import { loadCommittedVersionByR2Key } from "@magna-carta/file-manager/queries";
+import { measureContent, runIngest } from "@magna-carta/file-manager/ingest-core";
+import {
+  loadCommittedVersionByR2Key,
+  type CommittedVersionForRescan,
+} from "@magna-carta/file-manager/queries";
 import { lookupScanCache } from "@magna-carta/file-manager/scan-cache";
 import type { MalwareScanPort, RawScanResult } from "@magna-carta/file-manager/scan-port";
-import { computeVerdict } from "@magna-carta/file-manager/verdict";
+import { computeVerdict, ScanFaultError } from "@magna-carta/file-manager/verdict";
 import {
   readInspectableSizeCap,
   readScanEngineVersion,
@@ -48,6 +52,14 @@ import { resolveScanPort } from "./scan-port-binding.ts";
 // bucket they are read back from can never be two different buckets. Today that resolves to the
 // single bound binding for every firm; binding a firm's own bucket is a config-commit + deploy step
 // the resolver absorbs without changing this consumer.
+//
+// CUSTODY: a verdict binds to BYTES, not to a key. The presigned PUT that delivered an upload stays
+// valid for the rest of its TTL, so the same URL can overwrite the object minutes after this consumer
+// committed the version clean — and the object-create event for that overwrite arrives here with the
+// version no longer pending. Such an event is therefore treated as an overwrite signal: the stored
+// bytes are re-measured against the hash recorded at commit, and a mismatch withdraws the version
+// behind the status gate (handleCommittedObjectEvent below). A clean verdict is NEVER left standing
+// over bytes it did not describe.
 
 // The R2 event-notification message shape this consumer needs (the documented payload — full message
 // also carries account/eventTime; only these fields are read).
@@ -57,6 +69,13 @@ export interface R2EventMessage {
   readonly action: string;
   readonly eventTime?: string;
 }
+
+// The actions R2 reports when somebody WROTE bytes at a key — exactly the set the provisioner
+// registers each firm bucket's object-create notification for (firm-resource-provider.ts). An event
+// carrying one of these is a real write; every other action reaching this consumer is a message the
+// platform enqueued itself (the access-triggered and per-matter re-scans), which moves no bytes.
+// Registering a further action there means adding it here, or its writes go unverified.
+const OBJECT_WRITE_ACTIONS: ReadonlySet<string> = new Set(["PutObject", "CompleteMultipartUpload"]);
 
 // Process one event. Returns (acks) for every terminal outcome — commit, quarantine, or a no-op
 // (unknown bucket / unbound firm / no pending version). THROWS only on a transient condition (the
@@ -83,10 +102,17 @@ export async function handleIngestMessage(
   // Status-first: only a pending version is ingested (the replay guard).
   const pending = await loadPendingVersionForIngest(firmDatabase, message.object.key);
   if (pending === undefined) {
-    // No pending version → this may be an access-triggered re-scan of an ALREADY-COMMITTED version
-    // (the dispatch's second branch). It acks as a no-op unless it finds a committed version whose
-    // recorded engine version is stale relative to the firm's current scan engine.
-    await handleRescanMessage(message, firmDatabase, scanPort, bucket);
+    // No pending version → the key belongs to an ALREADY-COMMITTED version (or to nothing at all).
+    // Two things can bring an event here: somebody overwrote the committed object, or the platform
+    // enqueued a re-scan of it. Both are handled below; neither ever leaves a stale clean verdict.
+    await handleCommittedObjectEvent(
+      message,
+      firmDatabase,
+      scanPort,
+      bucket,
+      logger,
+      correlationId,
+    );
     return;
   }
 
@@ -219,6 +245,156 @@ export async function handleIngestMessage(
   }
 }
 
+// The dispatch for an event whose key has no pending version. An unknown key acks as a no-op; a
+// committed one takes the custody check first (an event from a real write means the object was
+// written AGAIN, since the write that created it was consumed while the version was still pending),
+// and only bytes that still match the committed hash go on to the staleness-driven re-scan.
+async function handleCommittedObjectEvent(
+  message: R2EventMessage,
+  firmDatabase: ProxyBatchDatabase,
+  scanPort: MalwareScanPort,
+  bucket: R2Bucket,
+  logger: Logger | undefined,
+  correlationId: string,
+): Promise<void> {
+  const committed = await loadCommittedVersionByR2Key(firmDatabase, message.object.key);
+  if (committed === undefined) return; // not a committed version → nothing to verify or re-scan
+  if (OBJECT_WRITE_ACTIONS.has(message.action)) {
+    const withdrawn = await withdrawOnContentDrift(
+      message,
+      firmDatabase,
+      scanPort,
+      bucket,
+      committed,
+      logger,
+      correlationId,
+    );
+    if (withdrawn) return; // the version is quarantined — there is nothing left to re-scan in place
+  }
+  await rescanCommittedVersion(message, firmDatabase, scanPort, bucket, committed);
+}
+
+// THE CUSTODY GATE. An object-create event for an already-committed version means the stored bytes
+// were written after this consumer measured them, so the committed row's hash, size, sniffed type and
+// scan verdict may all now describe content that no longer exists. Re-measure and compare against the
+// recorded hash:
+//
+//   - Identical hash → the write landed the same bytes (a queue redelivery of the original create
+//     event, or a client re-PUTting what it already sent). Nothing changed; the verdict still holds.
+//   - Different hash → the bytes were swapped. The version is withdrawn behind the status gate and
+//     the replacement bytes are scanned so the record says what arrived, never re-committed: a
+//     committed version is immutable, and new content belongs to a new version.
+//
+// The comparison is the recorded SHA-256 rather than the ETag the event payload also reports. R2
+// gives a multipart object an ETag that is a digest OF ITS PART DIGESTS with a part-count suffix, not
+// a hash of the content — so an ETag comparison would be meaningless exactly where the large evidence
+// files live, and would read a reassembly of identical bytes under a different part layout as a
+// change. The SHA-256 this pipeline already computes is format-independent and is the fact the
+// committed row actually asserts.
+//
+// Returns true when the version was withdrawn.
+async function withdrawOnContentDrift(
+  message: R2EventMessage,
+  firmDatabase: ProxyBatchDatabase,
+  scanPort: MalwareScanPort,
+  bucket: R2Bucket,
+  committed: CommittedVersionForRescan,
+  logger: Logger | undefined,
+  correlationId: string,
+): Promise<boolean> {
+  const object = await bucket.get(message.object.key);
+  if (object === null) {
+    // The write's notification beat the object's durability — transient; retry rather than judge.
+    throw new Error(
+      `R2 object not readable for a committed-version overwrite check: ${message.object.key}`,
+    );
+  }
+  const measured = await measureContent(object.body);
+  if (committed.contentSha256 !== null && measured.contentSha256 === committed.contentSha256) {
+    return false; // same bytes as the ones that were scanned — the committed verdict still describes them
+  }
+
+  // A committed version with no recorded hash cannot be verified at all. Fail closed: an unverifiable
+  // version whose object was just rewritten is exactly the case this gate exists for, and every path
+  // that commits a version records a hash, so this is a guard against rows no live code produces.
+  const reason = committed.contentSha256 === null ? "content-unverifiable" : "content-drift";
+  const scanDetail = await describeReplacementBytes(
+    message,
+    firmDatabase,
+    scanPort,
+    bucket,
+    reason,
+    logger,
+    correlationId,
+  );
+
+  const now = () => new Date().toISOString();
+  // Keyed by the version AND the hash of what replaced its bytes, so a redelivery of the same
+  // overwrite event no-ops while a second, different overwrite is judged on its own.
+  await runIdempotentEffect({
+    database: firmDatabase,
+    key: `content-drift:${committed.id}:${measured.contentSha256}`,
+    fingerprint: `${committed.id}:${measured.contentSha256}`,
+    now,
+    effect: () => {
+      const withdrawal = quarantineCommittedVersion(
+        firmDatabase,
+        { fileId: committed.fileId, versionId: committed.id, reason, scanDetail },
+        { clock: { now }, actorUserId: null },
+      );
+      return Promise.resolve({
+        write: withdrawal.effect,
+        responseCode: 200,
+        responseBody: JSON.stringify({ versionId: committed.id }),
+      });
+    },
+  });
+
+  // The withdrawal is a terminal outcome, so it emits the same one verdict event a gate quarantine
+  // does — rates stay observable, and the allowlist still has no slot for anything identifying.
+  logger?.log(
+    ingestVerdict(
+      { correlationId, now: new Date().toISOString() },
+      { outcome: "quarantine", scanVerdict: null, scanDetail, quarantineReason: reason },
+    ),
+  );
+  return true;
+}
+
+// What replaced the committed bytes: scan them so the quarantined row records whether the swap
+// carried malware or was merely different content. The scan is ENRICHMENT ONLY — the withdrawal
+// happens either way. A scan that cannot run (no engine, an engine fault, a read that now fails) must
+// never be a reason to leave compromised bytes servable, so every failure resolves to a detail string
+// and is reported through the telemetry pipeline rather than thrown.
+async function describeReplacementBytes(
+  message: R2EventMessage,
+  firmDatabase: ProxyBatchDatabase,
+  scanPort: MalwareScanPort,
+  bucket: R2Bucket,
+  reason: string,
+  logger: Logger | undefined,
+  correlationId: string,
+): Promise<string> {
+  try {
+    const object = await bucket.get(message.object.key);
+    if (object === null) return `${reason}: replacement bytes unreadable`;
+    const scanPolicy = await readFirmScanPolicy(firmDatabase);
+    const raw = await scanPort.scan(object.body, {
+      sizeBytes: object.size,
+      sniffedContentType: null,
+      contentKey: message.object.key,
+    });
+    const fileVerdict = computeVerdict(raw, scanPolicy);
+    if (fileVerdict.verdict === "clean") return reason;
+    return `${reason}: ${fileVerdict.reason}`;
+  } catch (error) {
+    if (logger !== undefined && !(error instanceof ScanFaultError)) {
+      logOperationFailed(logger, `ingest:content-drift-rescan:${reason}`, error, correlationId);
+    }
+    return `${reason}: replacement bytes not scanned`;
+  }
+}
+
 // The access-triggered re-scan path for an ALREADY-COMMITTED version (dispatched when a queued event
 // has no pending version). Only a committed version whose recorded engine version is STALE relative to
 // the firm's CURRENT engine is re-scanned; cache-first, so identical content already scanned under the
@@ -229,16 +405,18 @@ export async function handleIngestMessage(
 // scan), and a deployed engine reporting unavailable throws ScanFaultError → the queue retries. Idempotent
 // on `rescan:<versionId>:<engineVersion>` so a redelivery under the same engine no-ops, while a later
 // engine version legitimately re-scans.
-async function handleRescanMessage(
+async function rescanCommittedVersion(
   message: R2EventMessage,
   firmDatabase: ProxyBatchDatabase,
   scanPort: MalwareScanPort,
   // The firm's bucket, already resolved by the caller — the re-scan reads the very object the
   // ingest read would have.
   bucket: R2Bucket,
+  // The committed version behind this key, loaded once by the dispatch above. Its bytes have already
+  // passed the custody gate when the event came from a write, so re-scanning them re-judges exactly
+  // the content the committed hash describes.
+  committed: CommittedVersionForRescan,
 ): Promise<void> {
-  const committed = await loadCommittedVersionByR2Key(firmDatabase, message.object.key);
-  if (committed === undefined) return; // not a committed version → nothing to re-scan
   if (committed.contentSha256 === null) return; // no content hash (legacy) → cannot dedup/cache; skip
 
   const currentEngineVersion = await readScanEngineVersion(firmDatabase);

@@ -16,7 +16,8 @@ runs logic mid-transaction.
 
 - `src/folder-service.ts` — create/rename/move/delete folders (delete only when empty; cycle-checked)
 - `src/file-service.ts` — `initiateUpload`, `commitVersion` (with the no-op hash-skip), `quarantineVersion`, rename/move/soft-delete, upload-session lifecycle
-- `src/ingest-core.ts` — the pure single-read pipeline (`runIngest`); the Worker consumer is a thin shell
+- `src/ingest-core.ts` — the pure single-read pipeline (`runIngest`); the Worker consumer is a thin shell. Also `measureContent`, the hash-only re-measurement the consumer's custody check runs against an already-committed object
+- `src/content-type-equivalence.ts` — `contentTypesAgree`: does the sniffed container type describe the same bytes as the declared type (the compound-file and ZIP families), with unknown pairs failing closed
 - `src/scan-port.ts` — `MalwareScanPort` (returns a `RawScanResult` of engine facts: clamd state, structural heuristic, YARA matches with tier/score, per-leg timings) + the engine-less `unscannedAdapter` launch adapter
 - `src/verdict.ts` — `computeVerdict(raw, policy)` turns the raw facts + a firm scan policy into a `clean | flagged | unscanned` file verdict (the per-firm decision, app-side); `ScanFaultError` marks a deployed-engine-unavailable fault the consumer must retry
 - `src/queries.ts` — the status-gated reads (`listFiles`, `getCurrentCleanVersion`, `listCleanVersions`, `listFoldersByMatter`, `listCleanCurrentVersionsByMatter`)
@@ -33,6 +34,20 @@ runs logic mid-transaction.
   predicate (allowlist a legitimate all-status read with an inline `fitness:allow-no-status` marker).
 - **Versions are immutable; soft-delete only.** A committed version's bytes/metadata never change; a new
   version is a new row + a new R2 key. Files soft-delete (`deleted_at`); versions are untouched.
+- **A verdict binds to bytes, not to a key.** The presigned PUT that delivered an upload outlives the
+  commit, so the object behind a committed version can be overwritten. An R2 object-create event for an
+  already-committed version is therefore an overwrite signal: the ingest consumer re-measures the stored
+  bytes against the recorded `content_sha256` and, on a mismatch, withdraws the version
+  (`quarantineCommittedVersion`) and scans what replaced it — the swapped content is never re-committed
+  onto the version, and a clean verdict is never left standing over content nothing inspected. The
+  withdrawal repoints `file.current_version_id` at the newest still-clean version (or null), because the
+  file listing joins through that pointer on the strength of it being clean by construction.
+- **Sniffed-vs-declared is a container comparison, not string equality.** A magic-byte sniff names the
+  container: every pre-2007 Office document reports `application/x-cfb`, and an OOXML/OpenDocument file
+  reports the bare archive whenever its marker entries fall outside the head window. `contentTypesAgree`
+  (content-type-equivalence.ts) normalizes case/parameters and consults an explicit table of container
+  relationships; pairs outside the table still quarantine as `type-mismatch`. The gate re-checks the
+  upload policy against the SNIFFED type, so agreeing here never widens what a firm accepts.
 - **R2 keys are opaque and server-minted** — `files/{fileId}/{versionId}` (interactive lane) or
   `bulk/{fileId}/{versionId}` (bulk lane) — never derived from a client-supplied path. Both key prefixes
   meter under the `files/` logical dimension. The bytes bypass the Worker (direct-to-R2 via presigned URLs).

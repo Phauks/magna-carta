@@ -28,8 +28,10 @@ import {
   insertUploadSessionStatement,
   markVersionConflictStatement,
   moveFileStatement,
+  quarantineCommittedVersionStatement,
   quarantineVersionStatement,
   renameFileStatement,
+  repointCurrentVersionAfterWithdrawalStatement,
   rescanVerdictStatement,
   restoreFileStatement,
   selectCleanVersionByIdStatement,
@@ -813,13 +815,65 @@ export async function quarantineVersion(
   return {
     effect: {
       statements: [
-        quarantineVersionStatement(database, input.versionId, input.scanDetail),
+        // Gate quarantines (a type lie, a size lie, a policy breach) carry no scan detail — nothing
+        // scanned them. Persist the REASON in that case so the row itself says why it was pulled: the
+        // outbox message and the telemetry event are transient, and a reviewer opening a quarantined
+        // version months later has only this column to distinguish a malware hit from a size lie.
+        quarantineVersionStatement(database, input.versionId, input.scanDetail ?? input.reason),
         fileAuditStatement(database, options, "file.quarantined", input.versionId),
       ],
       outboxMessages: [
         {
           topic: "file.quarantined",
           payload: { versionId: input.versionId, reason: input.reason },
+        },
+      ],
+    },
+  };
+}
+
+// Withdraws an ALREADY-COMMITTED version whose stored bytes no longer match the hash recorded at
+// commit. The committed row asserts "these bytes, this hash, this verdict"; once the object behind it
+// changes, every one of those facts describes bytes that are gone, and serving the version would put
+// a clean verdict on content nothing ever inspected. So the version goes behind the status gate and
+// stays there — it is NOT re-committed with the new facts, because a committed version is immutable
+// by construction (new bytes are a new version, minted through the upload path with its own ingest).
+//
+// Recovery is a deliberate act: the file's owner uploads the intended content as a new version, which
+// ingests normally. There is no path that returns these bytes to 'clean'.
+//
+// The storage meter is NOT reversed: the object is still in the firm's bucket occupying real storage,
+// and the meter counts bytes held, not bytes servable.
+export function quarantineCommittedVersion(
+  database: SqlDatabase,
+  input: {
+    fileId: FileId;
+    versionId: FileVersionId;
+    reason: string;
+    scanDetail: string | null;
+  },
+  options: FileServiceOptions,
+): { effect: EffectWrite } {
+  return {
+    effect: {
+      statements: [
+        quarantineCommittedVersionStatement(
+          database,
+          input.versionId,
+          input.scanDetail ?? input.reason,
+        ),
+        repointCurrentVersionAfterWithdrawalStatement(
+          database,
+          input.fileId,
+          input.versionId,
+          options.clock.now(),
+        ),
+        fileAuditStatement(database, options, "file.quarantined", input.versionId),
+      ],
+      outboxMessages: [
+        {
+          topic: "file.quarantined",
+          payload: { fileId: input.fileId, versionId: input.versionId, reason: input.reason },
         },
       ],
     },

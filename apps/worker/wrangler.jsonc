@@ -211,6 +211,8 @@
   //     routes 503 until it is bound.
   //   RECOVERY_SERVICE: the password-recovery worker; optional, falls back when absent.
   //   OCR_SERVICE: the text-recognition engine worker (POST /ocr); the ocr route 503s until it is bound.
+  //   SIGN_SERVICE: the e-signature/seal worker (POST /seal), which alone holds the platform signing
+  //     key; the documents/seal route 503s until it is bound (deferred activation).
   "services": [
     { "binding": "SCAN_SERVICE", "service": "magna-carta-scan" },
     { "binding": "BUNDLE_SERVICE", "service": "magna-carta-bundle" },
@@ -218,6 +220,7 @@
     { "binding": "FILE_REPAIR_SERVICE", "service": "magna-carta-file-repair" },
     { "binding": "RECOVERY_SERVICE", "service": "magna-carta-recovery" },
     { "binding": "OCR_SERVICE", "service": "magna-carta-ocr" },
+    { "binding": "SIGN_SERVICE", "service": "magna-carta-sign" },
   ],
   // Browser Rendering Workers binding — used by POST /api/v1/safe-browse to render suspect URLs
   // in Cloudflare's isolated remote browser. Requires compatibility_date >= 2026-03-24 for

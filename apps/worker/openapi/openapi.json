@@ -1159,6 +1159,118 @@
           "loss"
         ]
       },
+      "DocumentSealResponse": {
+        "type": "object",
+        "properties": {
+          "sealedPdfBase64": {
+            "type": "string"
+          },
+          "documentHashSha256": {
+            "type": "string"
+          },
+          "certificate": {
+            "type": "object",
+            "properties": {
+              "documentHashSha256": {
+                "type": "string"
+              },
+              "sealedAt": {
+                "type": "string"
+              },
+              "signers": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "intent": {
+                      "type": "object",
+                      "properties": {
+                        "signerId": {
+                          "type": "string"
+                        },
+                        "adoption": {
+                          "type": "string",
+                          "enum": [
+                            "typed",
+                            "drawn",
+                            "uploaded"
+                          ]
+                        },
+                        "affirmedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "signerId",
+                        "adoption",
+                        "affirmedAt"
+                      ]
+                    },
+                    "consent": {
+                      "type": "object",
+                      "properties": {
+                        "disclosureVersion": {
+                          "type": "string"
+                        },
+                        "consentedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "disclosureVersion",
+                        "consentedAt"
+                      ]
+                    },
+                    "attribution": {
+                      "type": "object",
+                      "properties": {
+                        "level": {
+                          "type": "string",
+                          "enum": [
+                            "email-link",
+                            "access-code",
+                            "id-verified",
+                            "portal-authenticated",
+                            "firm-authenticated"
+                          ]
+                        },
+                        "observedIp": {
+                          "type": "string"
+                        },
+                        "proofReference": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "level"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "intent",
+                    "consent",
+                    "attribution"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "documentHashSha256",
+              "sealedAt",
+              "signers"
+            ]
+          },
+          "certificateText": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "sealedPdfBase64",
+          "documentHashSha256",
+          "certificate",
+          "certificateText"
+        ]
+      },
       "AiDetectionReport": {
         "type": "object",
         "properties": {
@@ -11024,6 +11136,214 @@
           },
           "503": {
             "description": "Recognition engine unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/documents/seal": {
+      "post": {
+        "description": "Apply the platform seal to a PDF (base64): the sign service embeds a PAdES CMS signature over the document with the platform signing identity, returning the sealed PDF, the sealed-range digest, and a Certificate of Completion assembled from the supplied signer records. The seal makes the completed record tamper-evident; it is not a per-signer certificate. Nothing is stored here; only a redacted audit record is written.",
+        "operationId": "esign.seal",
+        "tags": [
+          "esign"
+        ],
+        "x-mc-operationId": "esign.seal",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "esign:seal",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "expensive",
+        "x-mc-tags": [
+          "esign"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "documentBase64": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "signers": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "intent": {
+                          "type": "object",
+                          "properties": {
+                            "signerId": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "adoption": {
+                              "type": "string",
+                              "enum": [
+                                "typed",
+                                "drawn",
+                                "uploaded"
+                              ]
+                            },
+                            "affirmedAt": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": [
+                            "signerId",
+                            "adoption",
+                            "affirmedAt"
+                          ]
+                        },
+                        "consent": {
+                          "type": "object",
+                          "properties": {
+                            "disclosureVersion": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "consentedAt": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": [
+                            "disclosureVersion",
+                            "consentedAt"
+                          ]
+                        },
+                        "attribution": {
+                          "type": "object",
+                          "properties": {
+                            "level": {
+                              "type": "string",
+                              "enum": [
+                                "email-link",
+                                "access-code",
+                                "id-verified",
+                                "portal-authenticated",
+                                "firm-authenticated"
+                              ]
+                            },
+                            "proofReference": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "level"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "intent",
+                        "consent",
+                        "attribution"
+                      ]
+                    },
+                    "minItems": 1
+                  },
+                  "seal": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "reason": {
+                        "type": "string"
+                      },
+                      "location": {
+                        "type": "string"
+                      },
+                      "contactInfo": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "required": [
+                  "documentBase64",
+                  "signers"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The sealed PDF (base64), the sealed-range SHA-256, and the Certificate of Completion",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentSealResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "File too large to seal, or the document bytes could not be decoded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but the member lacks esign:seal",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The document could not be sealed (unparseable, no page to anchor, capacity)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The platform seal is not configured (the sign service has no signing identity yet)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -28826,6 +29146,9 @@
     },
     {
       "name": "emails"
+    },
+    {
+      "name": "esign"
     },
     {
       "name": "fileIntegrity"

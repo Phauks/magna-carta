@@ -260,6 +260,7 @@ describe("end-to-end", () => {
         "emails:manageCaptureAddresses",
         "emails:manageLinks",
         "emails:read",
+        "esign:seal",
         "files:delete",
         "files:manageDocumentTypes",
         "files:organize",

@@ -3,6 +3,7 @@ import controlPlaneJournal from "@magna-carta/database/drizzle/control-plane/met
 import baselineSql from "@magna-carta/database/drizzle/control-plane/20260704T041516_baseline.sql";
 import emailCaptureRouteSql from "@magna-carta/database/drizzle/control-plane/20260803T222618_email-capture-route.sql";
 import twoFactorLockoutFieldsSql from "@magna-carta/database/drizzle/control-plane/20260803T230717_two-factor-lockout-fields.sql";
+import firmBucketNameUniqueSql from "@magna-carta/database/drizzle/control-plane/20260804T065814_firm-bucket-name-unique.sql";
 
 // The control-plane migration lineage bundled INTO the worker (no filesystem at runtime): the
 // scheduled handler is the single-flighted sole applier of these against DB_CONTROL. Mirrors
@@ -14,6 +15,7 @@ export function controlPlaneMigrations(): Migration[] {
     "20260704T041516_baseline": baselineSql,
     "20260803T222618_email-capture-route": emailCaptureRouteSql,
     "20260803T230717_two-factor-lockout-fields": twoFactorLockoutFieldsSql,
+    "20260804T065814_firm-bucket-name-unique": firmBucketNameUniqueSql,
   });
 }
 

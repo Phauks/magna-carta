@@ -13,6 +13,7 @@ import emailFilingRecordsSql from "@magna-carta/database/drizzle/per-firm/202607
 import seedEmailsPermissionsSql from "@magna-carta/database/drizzle/per-firm/20260717T120001_seed-emails-permissions.sql";
 import conflictsHitCoPartySql from "@magna-carta/database/drizzle/per-firm/20260717T181411_conflicts-hit-co-party.sql";
 import indexSplitCatalogSql from "@magna-carta/database/drizzle/per-firm/20260717T224037_index-split-catalog.sql";
+import seedEsignSealSql from "@magna-carta/database/drizzle/per-firm/20260803T120000_seed-esign-seal.sql";
 import matterNumberAllocationSql from "@magna-carta/database/drizzle/per-firm/20260804T072255_matter-number-allocation.sql";
 import indexSplitDocumentVersionSql from "@magna-carta/database/drizzle/per-firm/20260804T082351_index-split-document-version.sql";
 
@@ -38,6 +39,7 @@ export function perFirmMigrations(): Migration[] {
     "20260717T120001_seed-emails-permissions": seedEmailsPermissionsSql,
     "20260717T181411_conflicts-hit-co-party": conflictsHitCoPartySql,
     "20260717T224037_index-split-catalog": indexSplitCatalogSql,
+    "20260803T120000_seed-esign-seal": seedEsignSealSql,
     "20260804T072255_matter-number-allocation": matterNumberAllocationSql,
     "20260804T082351_index-split-document-version": indexSplitDocumentVersionSql,
   });

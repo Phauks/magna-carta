@@ -984,6 +984,177 @@ describe("handleIngestMessage — access-triggered re-scan", () => {
   });
 });
 
+describe("handleIngestMessage — post-commit byte swap (custody)", () => {
+  // The presigned PUT that delivered an upload stays valid for the rest of its TTL, so the same URL
+  // can overwrite the object after ingest already committed the version clean. The overwrite's own
+  // object-create event lands here with the version no longer pending: it must re-measure the stored
+  // bytes against the hash recorded at commit and withdraw the version when they differ. A clean
+  // verdict over bytes nobody inspected is the failure this guards.
+
+  const OTHER_PDF_BYTES = new TextEncoder().encode(
+    "%PDF-1.4\n1 0 obj\n<< /Swapped true >>\nendobj\ntrailer\n%%EOF\n",
+  );
+
+  async function seedCommittedCleanVersion(name: string, bytes: Uint8Array) {
+    const { versionId, r2Key } = await seedPendingVersion(name, "application/pdf", bytes);
+    await handleIngestMessage(env, event(BUCKET, r2Key, bytes.byteLength));
+    const row = await firmDatabase
+      .prepare("SELECT status, content_sha256 FROM file_version WHERE id = ?1")
+      .bind(versionId)
+      .first<{ status: string; content_sha256: string }>();
+    expect(row?.status).toBe("clean");
+    return { versionId, r2Key, contentSha256: row!.content_sha256 };
+  }
+
+  it("quarantines the committed version when the object is overwritten after the clean commit", async () => {
+    const { versionId, r2Key, contentSha256 } = await seedCommittedCleanVersion(
+      "swapped.pdf",
+      PDF_BYTES,
+    );
+
+    // The attack: re-use the still-valid presigned PUT to replace the bytes behind the committed key.
+    await env.R2.put(r2Key, OTHER_PDF_BYTES);
+    await handleIngestMessage(env, event(BUCKET, r2Key, OTHER_PDF_BYTES.byteLength));
+
+    const version = await firmDatabase
+      .prepare(
+        "SELECT status, scan_verdict, scan_detail, content_sha256 FROM file_version WHERE id = ?1",
+      )
+      .bind(versionId)
+      .first<{
+        status: string;
+        scan_verdict: string;
+        scan_detail: string;
+        content_sha256: string;
+      }>();
+    // Withdrawn behind the status gate — no read path serves a non-clean version.
+    expect(version?.status).toBe("quarantined");
+    expect(version?.scan_verdict).not.toBe("clean");
+    expect(version?.scan_detail).toContain("content-drift");
+    // The recorded hash is untouched: it is the evidence of what was measured, not a live mirror of
+    // whatever now sits at the key.
+    expect(version?.content_sha256).toBe(contentSha256);
+
+    // The swapped-over version is no longer visible to a status-gated listing.
+    const files = await listFiles(firmDatabase, { matterId });
+    expect(files.data.some((f) => f.name === "swapped.pdf")).toBe(false);
+
+    const quarantined = await firmDatabase
+      .prepare(
+        "SELECT COUNT(*) AS n FROM outbox WHERE topic = 'file.quarantined' AND payload LIKE ?1",
+      )
+      .bind(`%${versionId}%`)
+      .first<{ n: number }>();
+    expect(quarantined?.n).toBe(1);
+  });
+
+  it("scans the replacement bytes and records what they were", async () => {
+    const { versionId, r2Key } = await seedCommittedCleanVersion("swapped-malware.pdf", PDF_BYTES);
+    const infectedPort: MalwareScanPort = {
+      scan: async (body) => {
+        await body.cancel();
+        return {
+          engineVersion: "test-drift-1",
+          clam: { state: "infected", signature: "Eicar-Swapped" },
+          heuristic: { kind: "none" },
+          matches: [],
+          timings: { clamdMs: 1, yaraMs: 1 },
+        };
+      },
+    };
+
+    await env.R2.put(r2Key, OTHER_PDF_BYTES);
+    await handleIngestMessage(env, event(BUCKET, r2Key, OTHER_PDF_BYTES.byteLength), infectedPort);
+
+    const version = await firmDatabase
+      .prepare("SELECT status, scan_detail FROM file_version WHERE id = ?1")
+      .bind(versionId)
+      .first<{ status: string; scan_detail: string }>();
+    expect(version?.status).toBe("quarantined");
+    expect(version?.scan_detail).toContain("content-drift");
+    expect(version?.scan_detail).toContain("Eicar-Swapped");
+  });
+
+  it("withdraws even when the scan of the replacement bytes cannot run", async () => {
+    // A scan that cannot run must never be a reason to leave swapped bytes servable.
+    const { versionId, r2Key } = await seedCommittedCleanVersion("swapped-nolook.pdf", PDF_BYTES);
+    const brokenPort: MalwareScanPort = {
+      scan: async () => {
+        throw new Error("scan service unreachable");
+      },
+    };
+
+    await env.R2.put(r2Key, OTHER_PDF_BYTES);
+    await handleIngestMessage(env, event(BUCKET, r2Key, OTHER_PDF_BYTES.byteLength), brokenPort);
+
+    const version = await firmDatabase
+      .prepare("SELECT status, scan_detail FROM file_version WHERE id = ?1")
+      .bind(versionId)
+      .first<{ status: string; scan_detail: string }>();
+    expect(version?.status).toBe("quarantined");
+    expect(version?.scan_detail).toContain("content-drift");
+  });
+
+  it("leaves the version clean when a redelivered event finds the very same bytes", async () => {
+    // At-least-once delivery means the original create event can arrive again after the commit. The
+    // bytes still hash to the recorded value, so nothing drifted and the verdict stands.
+    const { versionId, r2Key } = await seedCommittedCleanVersion("redelivered.pdf", PDF_BYTES);
+
+    await handleIngestMessage(env, event(BUCKET, r2Key, PDF_BYTES.byteLength));
+
+    const version = await firmDatabase
+      .prepare("SELECT status, scan_detail FROM file_version WHERE id = ?1")
+      .bind(versionId)
+      .first<{ status: string; scan_detail: string | null }>();
+    expect(version?.status).toBe("clean");
+    expect(version?.scan_detail ?? "").not.toContain("content-drift");
+  });
+
+  it("emits one quarantine verdict event and is idempotent across redeliveries of the overwrite", async () => {
+    const { versionId, r2Key } = await seedCommittedCleanVersion("swapped-twice.pdf", PDF_BYTES);
+    await env.R2.put(r2Key, OTHER_PDF_BYTES);
+
+    const logger = createMemoryLogger();
+    const evt = event(BUCKET, r2Key, OTHER_PDF_BYTES.byteLength);
+    await handleIngestMessage(env, evt, undefined, logger);
+    // The overwrite's event is redelivered: the version is already quarantined, so there is no second
+    // withdrawal and no second audit/outbox pair.
+    await handleIngestMessage(env, evt, undefined, logger);
+
+    const verdictEvents = logger.events.filter((e) => e.name === "ingest.verdict");
+    expect(verdictEvents).toHaveLength(1);
+    expect(verdictEvents[0]!.fields.outcome).toBe("quarantine");
+    expect(verdictEvents[0]!.fields.quarantineReason).toBe("content-drift");
+
+    const audit = await firmDatabase
+      .prepare(
+        "SELECT COUNT(*) AS n FROM audit_log WHERE event = 'file.quarantined' AND subject_id = ?1",
+      )
+      .bind(versionId)
+      .first<{ n: number }>();
+    expect(audit?.n).toBe(1);
+  });
+
+  it("does not re-measure for a platform-enqueued re-scan message (no write happened)", async () => {
+    // Only an action R2 reports for a real write is an overwrite signal; the platform's own re-scan
+    // enqueues move no bytes, so they go straight to the staleness check.
+    const { versionId, r2Key } = await seedCommittedCleanVersion("access-path.pdf", PDF_BYTES);
+    await env.R2.put(r2Key, OTHER_PDF_BYTES);
+
+    await handleIngestMessage(env, {
+      bucket: BUCKET,
+      object: { key: r2Key, size: OTHER_PDF_BYTES.byteLength },
+      action: "AccessRescan",
+    });
+
+    const version = await firmDatabase
+      .prepare("SELECT status FROM file_version WHERE id = ?1")
+      .bind(versionId)
+      .first<{ status: string }>();
+    expect(version?.status).toBe("clean");
+  });
+});
+
 describe("handleIngestMessage — firm flagged-treatment policy", () => {
   // Verifies that the consumer honours the firm's scan.flagged_treatment setting: an infected file
   // should be committed as flagged (status='clean', scan_verdict='flagged') when the firm opts in to
