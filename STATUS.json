@@ -738,16 +738,20 @@
       "order": 6,
       "stages": {
         "research": {
-          "state": "todo"
+          "state": "done",
+          "by": "Opus 4.8"
         },
         "spec": {
-          "state": "todo"
+          "state": "done",
+          "by": "Opus 4.8"
         },
         "plan": {
-          "state": "todo"
+          "state": "done",
+          "by": "Opus 4.8"
         },
         "built": {
-          "state": "todo"
+          "state": "in-progress",
+          "by": "Opus 4.8"
         },
         "ui": {
           "state": "todo"
@@ -756,19 +760,23 @@
           "state": "todo"
         },
         "tested": {
-          "state": "todo"
+          "state": "in-progress",
+          "by": "Opus 4.8"
         }
       },
-      "branch": "main",
-      "activeWork": null,
-      "next": null,
+      "branch": "claude/document-automation-slice-1",
+      "activeWork": "docs/active-work/claude/document-automation-slice-1.md",
+      "next": "Slice 2·6·2 — conditional and repeating blocks, the Directory/custom-field/letterhead-logo dictionary sources, and protected-value binding. Then the per-firm merge-field mapping library behind the MergeFieldNameResolver seam, and a location time-zone column behind timeZoneForLocation.",
       "links": {
-        "spec": null,
-        "plan": null,
-        "adrs": []
+        "spec": "docs/specs/2026-08-04-document-automation-design.md",
+        "plan": "docs/specs/2026-08-04-document-automation-implementation-plan.md",
+        "adrs": [
+          "ADR-0210",
+          "ADR-0211"
+        ]
       },
       "blockedBy": [],
-      "notes": "Not started."
+      "notes": "Build slice 2·6·1 shipped: the walking slice, template registration through to a filed document.\n`@magna-carta/document-assembly` is a pure package over `fflate` + `fast-xml-parser` (the\n`@magna-carta/metadata` substrate) holding the guarded OOXML reader/writer, the macro stripper and its\nindependent re-verification gate, the normalization pass, the declarative merge-field dictionary and\nits formatters, the batched resolution pipeline, and the substitution engine. Three per-firm tables\n(`document_template`, immutable `document_template_version`, `document_assembly`), seven catalogue\nroutes plus submit/poll, a `DocumentAssemblyJob` Durable Object over a dedicated queue, and the\nassembled document filed through `initiateUpload` / `completeUploadSession` — the one ingest\nchokepoint, no bypass. Owner decisions taken: `{{key}}` is the single stored placeholder form; the\nmerge is in-house rather than an adopted library; macro-bearing templates are accepted, stripped, and\nre-verified rather than refused; and **converting Word merge fields is opt-in** — detection always\nruns and is reported, the rewrite happens only when the caller asks, and a template using them is\nrefused with the list until the choice is made. Remaining for the subsystem: conditionals and repeats\n(2·6·2), PDF output and the signature hand-off (2·6·3), authoring surfaces (2·6·4), the interface\nseams, and the load-profile volume profile."
     },
     {
       "slice": "Load-profile harness",
