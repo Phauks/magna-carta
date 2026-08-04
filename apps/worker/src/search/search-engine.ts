@@ -36,6 +36,7 @@ function serviceBindingPort(search: Pick<Fetcher, "fetch">): SearchIndexPort {
           matterId: input.matterId,
           documentId: input.documentId,
           version: input.version,
+          objectKey: input.objectKey,
           passages: input.passages,
         });
         if (!response.ok) return searchAdapterError(`search service ${response.status}`);

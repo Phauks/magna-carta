@@ -1,6 +1,6 @@
 import { env } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
-import type { DocumentId, FirmId, IndexSplitId, MatterId } from "@magna-carta/identifiers/types";
+import type { FileId, FirmId, IndexSplitId, MatterId } from "@magna-carta/identifiers/types";
 import { insertIndexSplitStatement } from "@magna-carta/data-access/index-split-statements";
 import { found, type SearchIndexPort } from "@magna-carta/search/port";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
@@ -25,6 +25,8 @@ describe("runKeywordSearch", () => {
       insertIndexSplitStatement(database, {
         id: "indexSplit_test0000000000000000001" as IndexSplitId,
         matterId: MATTER,
+        documentId: null,
+        version: null,
         objectKey: "search/matter/splits/a.split",
         documentCount: 10,
         sizeBytes: 100,
@@ -34,6 +36,8 @@ describe("runKeywordSearch", () => {
       insertIndexSplitStatement(database, {
         id: "indexSplit_test0000000000000000002" as IndexSplitId,
         matterId: MATTER,
+        documentId: null,
+        version: null,
         objectKey: "search/matter/splits/b.split",
         documentCount: 20,
         sizeBytes: 200,
@@ -50,7 +54,7 @@ describe("runKeywordSearch", () => {
         capturedSplitKeys = input.splitKeys;
         return Promise.resolve(
           found([
-            { documentId: "document_test00000000000000001" as DocumentId, chunkId: "c1", score: 1 },
+            { documentId: "file_test00000000000000000001" as FileId, chunkId: "c1", score: 1 },
           ]),
         );
       },
@@ -69,7 +73,7 @@ describe("runKeywordSearch", () => {
       "search/matter/splits/b.split",
     ]);
     expect(result.ok).toBe(true);
-    if (result.ok) expect(result.hits[0]?.documentId).toBe("document_test00000000000000001");
+    if (result.ok) expect(result.hits[0]?.documentId).toBe("file_test00000000000000000001");
   });
 
   it("falls back to the deferred engine when no search service is bound", async () => {

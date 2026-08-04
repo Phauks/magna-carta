@@ -157,6 +157,13 @@ export type Bindings = {
   // absent in every test environment and until the deploy-time binding is added; while unset,
   // resolveSearchIndexPort returns the deferred port (engine-not-implemented).
   SEARCH_SERVICE?: Fetcher;
+  // The search-index job coordinator: keyed firmId:documentId:version, single-flights one index build
+  // per document version and holds its outcome — including the `deferred` state a job parks in while the
+  // engines are undeployed.
+  SEARCH_INDEX_JOB: DurableObjectNamespace<import("./search/index-coordinator.ts").SearchIndexJob>;
+  // The search-index queue the coordinator enqueues onto; the consumer extracts a document version's
+  // text, builds its split through the SearchIndexPort, and converges the per-firm split catalog.
+  SEARCH_INDEX: Queue<import("./search/index-types.ts").SearchIndexMessage>;
   // The authenticated Workers AI binding — the only path inference reaches the gateway through (no raw
   // gateway token in any firm-reachable config). Pre-authenticated within the account.
   AI: Ai;

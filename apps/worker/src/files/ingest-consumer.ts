@@ -27,6 +27,7 @@ import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import type { Bindings } from "../app.ts";
 import { firmDatabaseFor, type ProxyBatchDatabase } from "../firm-database/firm-database-proxy.ts";
+import { enqueueVersionForIndexing } from "../search/enqueue-index.ts";
 import { resolveFirmBucket } from "./firm-bucket.ts";
 import { resolveScanPort } from "./scan-port-binding.ts";
 
@@ -179,6 +180,23 @@ export async function handleIngestMessage(
   // field (structural redaction: the allowlist has no slot for id, name, key, or content).
   // Only the delivery that won the idempotency race emits the event: a replayed result means the
   // effect was already applied by a concurrent delivery, so the event was already emitted once.
+  // A version that just committed clean joins the matter's searchable corpus. Only the delivery that
+  // won the idempotency race enqueues, for the same reason it is the only one that emits the verdict
+  // event: the other delivery's effect was already applied by this one. Gated per firm and best-effort
+  // — see enqueue-index.ts for why a failure here must not unwind an ingest that already succeeded.
+  if (idempotentResult.kind === "executed" && outcome.kind === "commit") {
+    try {
+      await enqueueVersionForIndexing(env, firm.id, pending.id, firmDatabase);
+    } catch (error) {
+      logOperationFailed(
+        logger ?? createWorkersLogger(env.TELEMETRY),
+        `search-index-enqueue:${pending.id}`,
+        error,
+        correlationId,
+      );
+    }
+  }
+
   if (idempotentResult.kind === "executed") {
     logger?.log(
       ingestVerdict(

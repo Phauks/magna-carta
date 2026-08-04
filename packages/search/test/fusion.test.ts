@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { DocumentId } from "@magna-carta/identifiers/types";
+import type { FileId } from "@magna-carta/identifiers/types";
 import type { SearchHit } from "../src/port.ts";
 import { reciprocalRankFusion } from "../src/fusion.ts";
 
 function hit(doc: string, chunk: string, score: number): SearchHit {
-  return { documentId: doc as DocumentId, chunkId: chunk, score };
+  return { documentId: doc as FileId, chunkId: chunk, score };
 }
 
 describe("reciprocalRankFusion", () => {

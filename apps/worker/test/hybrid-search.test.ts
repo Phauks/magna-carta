@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { DocumentId, FirmId, MatterId } from "@magna-carta/identifiers/types";
+import type { FileId, FirmId, MatterId } from "@magna-carta/identifiers/types";
 import { found, searchEngineNotImplemented, type SearchHit } from "@magna-carta/search/port";
 import type { Bindings } from "../src/app.ts";
 import type { KeywordSearchInput } from "../src/search/keyword-search.ts";
@@ -13,7 +13,7 @@ const INPUT: KeywordSearchInput = {
 };
 
 function hit(doc: string, chunk: string, score: number): SearchHit {
-  return { documentId: doc as DocumentId, chunkId: chunk, score };
+  return { documentId: doc as FileId, chunkId: chunk, score };
 }
 
 const half =

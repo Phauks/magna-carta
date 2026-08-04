@@ -14,6 +14,7 @@ import seedEmailsPermissionsSql from "@magna-carta/database/drizzle/per-firm/202
 import conflictsHitCoPartySql from "@magna-carta/database/drizzle/per-firm/20260717T181411_conflicts-hit-co-party.sql";
 import indexSplitCatalogSql from "@magna-carta/database/drizzle/per-firm/20260717T224037_index-split-catalog.sql";
 import matterNumberAllocationSql from "@magna-carta/database/drizzle/per-firm/20260804T072255_matter-number-allocation.sql";
+import indexSplitDocumentVersionSql from "@magna-carta/database/drizzle/per-firm/20260804T082351_index-split-document-version.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the FirmDatabase
 // Durable Object runs this lineage against its own SQLite storage on wake (firm-database-object.ts),
@@ -38,6 +39,7 @@ export function perFirmMigrations(): Migration[] {
     "20260717T181411_conflicts-hit-co-party": conflictsHitCoPartySql,
     "20260717T224037_index-split-catalog": indexSplitCatalogSql,
     "20260804T072255_matter-number-allocation": matterNumberAllocationSql,
+    "20260804T082351_index-split-document-version": indexSplitDocumentVersionSql,
   });
 }
 

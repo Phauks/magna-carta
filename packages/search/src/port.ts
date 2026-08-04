@@ -1,4 +1,4 @@
-import type { DocumentId, FirmId, MatterId } from "@magna-carta/identifiers/types";
+import type { FileId, FirmId, MatterId } from "@magna-carta/identifiers/types";
 
 // SearchIndexPort is the single chokepoint every discovery-search feature reaches the index through,
 // named in our domain vocabulary — never a vendor's, never the engine's. It has three operations:
@@ -24,17 +24,24 @@ export interface Passage {
 export interface IndexDocumentInput {
   readonly firmId: FirmId;
   readonly matterId: MatterId;
-  readonly documentId: DocumentId;
-  // Monotonic version of the document; indexing is idempotent on documentId + version, so a retry or a
+  // A "document" here is the File Manager file the corpus is made of (packages/file-manager); its
+  // committed versions are what actually get indexed, one split each.
+  readonly documentId: FileId;
+  // The file's version number; indexing is idempotent on documentId + version, so a retry or a
   // re-index converges rather than duplicating.
   readonly version: number;
+  // Where the engine writes the built split, derived by the caller (@magna-carta/search/split). The
+  // caller names the key for the same reason it names the split keys a query reads: it is the side that
+  // owns firm scoping and the catalog, so the engine never chooses where a firm's bytes land. Deriving
+  // the key from documentId + version is also what makes a retry overwrite its own object.
+  readonly objectKey: string;
   readonly passages: readonly Passage[];
 }
 
 export interface RemoveDocumentInput {
   readonly firmId: FirmId;
   readonly matterId: MatterId;
-  readonly documentId: DocumentId;
+  readonly documentId: FileId;
 }
 
 // Which index halves a query runs. `keyword` is Tantivy/BM25 only; `semantic` is Vectorize only;
@@ -56,7 +63,7 @@ export interface SearchQueryInput {
 // A ranked result. Carries only the pointers needed to hydrate the passage through the data-access
 // layer — never its text, which is re-read from R2.
 export interface SearchHit {
-  readonly documentId: DocumentId;
+  readonly documentId: FileId;
   readonly chunkId: string;
   readonly score: number;
 }
@@ -64,6 +71,8 @@ export interface SearchHit {
 // The metadata of a split the engine just published, which the caller records in the catalog. `index`
 // builds the split and writes it to R2; the caller inserts this row so a later query can find it.
 export interface PublishedSplit {
+  // Echoes back the key the engine was told to write — confirmation of where the bytes landed, which is
+  // what the catalog records.
   readonly objectKey: string;
   readonly documentCount: number;
   readonly sizeBytes: number;
