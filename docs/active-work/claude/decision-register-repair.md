@@ -42,9 +42,18 @@ assembly pull request. Verified locally by running the assembler and reverting i
 
 - **Assembly engine** — accepted as recommended: the in-house TypeScript OOXML merge is the decision;
   docxtemplater's core stays a scoped fallback behind the same port.
-- **Template model, merge-field syntax** — `{{key}}` is the one canonical form; a `MERGEFIELD`
-  construct is **converted** at registration rather than supported as a second syntax; content
-  controls stay a deferred seam.
+- **Template model, merge-field syntax** — `{{key}}` is the one canonical form once a template is
+  registered, and `MERGEFIELD` is not a second supported syntax. Detection and reporting of
+  `MERGEFIELD` constructs are **always on**; conversion to the brace form is **opt-in**, run only on
+  an explicit request rather than as a side effect of registration; and confirmed
+  name-to-key mappings accumulate in a **per-firm field-mapping library** so later imports reuse
+  earlier confirmations. Content controls stay a deferred seam.
+- **Data conversion posture (new pending fragment)** — the general principle the template-model
+  amendment instantiates: conversion of user data into the platform is **consensual and guided**
+  everywhere it happens. Detection and reporting always on, conversion opt-in and never silent, the
+  product supplying input/guidance/feedback at the decision, and repeated confirmations accumulating
+  as reusable per-firm mappings so a bulk migration converges on one pass. Slug:
+  `consensual-guided-data-conversion`.
 - **Template model, macro handling** — macro-bearing uploads are **accepted and stripped**, a
   deviation from the recommendation to refuse them outright: registration removes `vbaProject.bin`
   with its content-type entries and relationships, then re-verifies the stripped package sniffs as a

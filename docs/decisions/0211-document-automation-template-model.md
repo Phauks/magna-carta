@@ -4,10 +4,10 @@ slug: document-automation-template-model
 status: Accepted
 date: 2026-08-04
 area: Document Automation
-summary: "Template placeholders are `{{key}}` double-brace text delimiters, and that is the one canonical form: a Word MERGEFIELD construct in an uploaded template is CONVERTED to the brace form by registration-time normalization — the same pass that rewrites a run-split placeholder into a single contiguous run — rather than carried as a permanently supported second syntax, so migrating a Word mail-merge template is free but a registered template has exactly one placeholder form; content controls (`w:sdt`) stay a named, deferred seam. Normalization runs once at registration, not once per assembly, and stores the normalized package as the version's bytes. A macro-bearing upload is ACCEPTED AND STRIPPED — registration removes `vbaProject.bin` with its content-type entries and relationships and then re-verifies that the stripped package sniffs as a clean macro-free `.docx`, refusing only if it does not — deviating from the recommendation to refuse macro-bearing packages outright. Templates live in their own catalogue versioned exactly like files: `document_template` plus an immutable `document_template_version` mirroring `file` / `file_version`."
+summary: "Template placeholders are `{{key}}` double-brace text delimiters, and that is the one canonical form once a template is registered. Word MERGEFIELD constructs are always DETECTED and REPORTED back to the person registering the template, but conversion to the brace form is OPT-IN — it runs only on an explicit request, never silently as a side effect of registration — and each confirmed MERGEFIELD-name-to-key mapping accumulates in a per-firm field-mapping library so later imports reuse earlier confirmations instead of re-asking. Content controls (`w:sdt`) stay a named, deferred seam. Normalization runs once at registration, not once per assembly, and stores the normalized package as the version's bytes. A macro-bearing upload is ACCEPTED AND STRIPPED — registration removes `vbaProject.bin` with its content-type entries and relationships and then re-verifies that the stripped package sniffs as a clean macro-free `.docx`, refusing only if it does not — deviating from the recommendation to refuse macro-bearing packages outright. Templates live in their own catalogue versioned exactly like files: `document_template` plus an immutable `document_template_version` mirroring `file` / `file_version`."
 ---
 
-**Placeholders are `{{key}}` and nothing else after registration; normalization runs once at registration, converts MERGEFIELD constructs into the brace form, strips any macro project and re-verifies the result, and stores the normalized package as the version's bytes; templates are versioned exactly like files.**
+**Placeholders are `{{key}}` and nothing else once a template is registered; MERGEFIELD constructs are always detected and reported but converted only on request; normalization runs once at registration, strips any macro project and re-verifies the result, and stores the normalized package as the version's bytes; templates are versioned exactly like files.**
 
 ## Context
 
@@ -19,21 +19,33 @@ different runs than the key. Every DOCX templating system pays for that somewher
 
 ## Decision
 
-**Placeholders are `{{key}}` text delimiters, and that is the one canonical form.** _Owner decision,
-2026-08-04._ A Word `MERGEFIELD` construct found in an uploaded template is **converted** to the
-brace form by registration-time normalization — the same pass that repairs run-split placeholders —
-rather than recognized as a permanently supported second syntax. Migration from a Word mail-merge
-template is therefore free, while a registered template has exactly one placeholder form, so the
-field inspector, the authoring help, and every error message speak about one thing. Content controls
-(`w:sdt`) remain a named seam, deferred until a browser authoring surface can emit them, because
-Collabora's structured-document-tag support is uneven and authoring one in Word is a developer-tab
-exercise.
+**Placeholders are `{{key}}` text delimiters, and that is the one canonical form once a template is
+registered.** _Owner decision, 2026-08-04._ Word `MERGEFIELD` constructs are not a second supported
+authoring syntax — but they are also never rewritten behind the firm's back:
+
+- **Detection and reporting are always on.** Registration finds every `MERGEFIELD` construct in the
+  uploaded package and reports them back to the person registering the template — what was found,
+  where, and which merge key each would map to. A firm always learns what is in its own document,
+  whether or not it asks for anything to be done about it.
+- **Conversion is opt-in.** Rewriting `MERGEFIELD` constructs into the brace form runs only on an
+  **explicit request** at registration, never as a silent side effect of uploading. A template that
+  is registered without that request keeps its constructs exactly as authored and is simply reported
+  as carrying unconverted fields.
+- **Confirmations accumulate in a per-firm field-mapping library.** Each confirmed
+  `MERGEFIELD`-name-to-merge-key mapping is recorded for the firm, so a later import that meets the
+  same field name proposes the mapping the firm already confirmed instead of asking again. The
+  library is the seam that makes bulk migration of a firm's template set converge on one pass of
+  human confirmation rather than one per template.
+
+Content controls (`w:sdt`) remain a named seam, deferred until a browser authoring surface can emit
+them, because Collabora's structured-document-tag support is uneven and authoring one in Word is a
+developer-tab exercise.
 
 **Normalization runs once, at template registration, not once per assembly.** Registering a version
-finds every placeholder however it was split or spelled, rewrites each into a single contiguous run
-in the brace form, records a field manifest, strips any macro project (below), runs the existing
-OOXML scrub over the result, and stores the normalized package as the version's bytes. Every
-assembly thereafter substitutes over known runs.
+finds every placeholder however it was split, rewrites each into a single contiguous run, records a
+field manifest, applies the requested `MERGEFIELD` conversion (if any), strips any macro project
+(below), runs the existing OOXML scrub over the result, and stores the normalized package as the
+version's bytes. Every assembly thereafter substitutes over known runs.
 
 **A macro-bearing upload is accepted and stripped, not refused.** _Owner decision, 2026-08-04 —
 this deviates from the recommendation, which was to refuse a macro-bearing package outright._
@@ -67,7 +79,15 @@ the browser. Deferred, not designed out.
 **`MERGEFIELD` as a permanently supported second syntax** — rejected. Carrying two authoring forms
 forever means every downstream surface (field inspector, authoring help, error messages, the
 normalizer's own repair rules) has to describe both, and a template edited in the browser can pick
-up either. Converting at registration keeps the migration benefit and drops the standing cost.
+up either. Offering conversion at registration keeps the migration benefit and drops the standing
+cost.
+
+**Converting `MERGEFIELD` automatically at registration** — the shape first written down, and the
+owner changed it. Automatic conversion is a silent rewrite of a document the firm supplied: the
+stored bytes stop matching what was uploaded, with no moment at which anyone said yes, and a
+mis-mapped field name becomes a wrong value in an assembled document rather than a question. Making
+detection unconditional and conversion opt-in keeps the whole benefit — the firm still learns
+exactly what its template contains — while leaving the rewrite a decision someone made.
 
 **Refusing a macro-bearing package outright** — the recommendation, and the owner deviated from it.
 Refusing is the simpler rule and needs no code that must be right about executable content, but it
@@ -89,15 +109,20 @@ per-assembly path is cheap enough to stay in a Worker. Immutable versions make a
 template cache safe and make "why does the March document differ from the September one" answerable.
 Templates are scanned, macro-stripped, and scrubbed once rather than per output. A firm can upload
 the templates it already has, including macro-bearing ones, without a preparation step outside the
-platform.
+platform. Because detection reports without acting, a firm can register its whole existing template
+set, read what the platform found, and decide about conversion afterwards — and the field-mapping
+library means that decision is made once per field name rather than once per template.
 
 **Negative.** A normalizer change does not retroactively apply to already-registered versions
 (correct, since versions are immutable) so two templates registered under different normalizer
 versions can behave differently; the normalizer version is recorded on the row so the difference is
 explicable. The catalogue is a second, deliberately narrow storage surface beside the File Manager.
-Converting `MERGEFIELD` at registration means the stored bytes no longer match what the firm
-uploaded, so the registration result has to be shown back to the author rather than silently
-accepted. And accepting macro-bearing uploads puts a security boundary in the registration path that
+Opt-in conversion means the catalogue holds templates in two states — converted and reported-only —
+so the field manifest, the inspector, and the assembly-time absence policy all have to handle a
+template that still carries unconverted constructs, rather than being able to assume one shape.
+The field-mapping library is a third piece of per-firm state with its own lifecycle: a confirmed
+mapping that was wrong stays wrong until someone corrects it, so it needs to be visible and editable
+rather than an invisible cache. And accepting macro-bearing uploads puts a security boundary in the registration path that
 would not otherwise exist — a stripping bug is a macro surviving into a stored template, which is
 why the re-verification and the adversarial tests are part of the decision rather than an
 implementation detail.
