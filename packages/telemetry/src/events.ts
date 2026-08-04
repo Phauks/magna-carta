@@ -33,8 +33,8 @@ export const outboxSwept = defineEvent("outbox.swept", [
 ] as const);
 
 // migration.applied — a per-database migration apply ({ database, tag }). DEFINED-FOR-WIRING seam:
-// the producer is the provisioning migrate-to-head path (slice 0·4 firm-provisioner); this slice
-// ships the builder so provisioning wires it without a catalog change. Not yet emitted.
+// the producer is the provisioning migrate-to-head path (apps/worker/src/firm-provisioner-wiring.ts).
+// The builder ships ahead of that wiring so the producer needs no catalog change. Not yet emitted.
 export const migrationApplied = defineEvent("migration.applied", ["database", "tag"] as const);
 
 // email.sent — a transactional email send outcome (never the body).
@@ -76,7 +76,8 @@ export const outboxDeadLettered = defineEvent("outbox.deadLettered", [
 // denial CAUSE (the operator signal — `unconfigured`/`missing-header`/`mismatch`) against the same
 // errorId the client receives, while the client still sees one field-identical 401. The allowlist is
 // the redaction: there is NO field for the presented or configured key, so neither can ever be
-// logged (the structural replacement for slice 0·4's interim console.error seam).
+// logged — the structural replacement for the raw console.error the guard used to reach for, which
+// had no such slot discipline.
 export const authDenied = defineEvent("auth.denied", ["cause", "route", "errorId"] as const);
 
 // ingest.verdict — one per terminal ingest outcome (commit or quarantine). Redaction is structural:
