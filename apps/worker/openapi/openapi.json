@@ -683,6 +683,241 @@
           "computedAt"
         ]
       },
+      "EmailCaptureAck": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "accepted"
+            ]
+          }
+        },
+        "required": [
+          "jobId",
+          "status"
+        ]
+      },
+      "MatterEmailList": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "emailMessageId": {
+                  "type": "string"
+                },
+                "threadId": {
+                  "type": "string"
+                },
+                "subject": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "fromDisplay": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "fromAddress": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "sentAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "receivedAt": {
+                  "type": "string"
+                },
+                "linkState": {
+                  "type": "string",
+                  "enum": [
+                    "staged",
+                    "filed",
+                    "unlinked"
+                  ]
+                }
+              },
+              "required": [
+                "emailMessageId",
+                "threadId",
+                "subject",
+                "fromDisplay",
+                "fromAddress",
+                "sentAt",
+                "receivedAt",
+                "linkState"
+              ]
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "data",
+          "nextCursor"
+        ]
+      },
+      "EmailAlreadyFiled": {
+        "type": "object",
+        "properties": {
+          "captured": {
+            "type": "boolean"
+          },
+          "matters": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "hiddenMatterCount": {
+            "type": "number"
+          },
+          "totalMatterCount": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "captured",
+          "matters",
+          "hiddenMatterCount",
+          "totalMatterCount"
+        ]
+      },
+      "EmailMessageDetail": {
+        "type": "object",
+        "properties": {
+          "emailMessageId": {
+            "type": "string"
+          },
+          "threadId": {
+            "type": "string"
+          },
+          "subject": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fromDisplay": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fromAddress": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sentAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "receivedAt": {
+            "type": "string"
+          },
+          "dkimVerdict": {
+            "type": "string"
+          },
+          "participants": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string"
+                },
+                "displayName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "address": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "directoryEntityId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "kind",
+                "displayName",
+                "address",
+                "directoryEntityId"
+              ]
+            }
+          },
+          "alsoFiledMatterIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "hiddenMatterCount": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "emailMessageId",
+          "threadId",
+          "subject",
+          "fromDisplay",
+          "fromAddress",
+          "sentAt",
+          "receivedAt",
+          "dkimVerdict",
+          "participants",
+          "alsoFiledMatterIds",
+          "hiddenMatterCount"
+        ]
+      },
+      "EmailLinkActionAck": {
+        "type": "object",
+        "properties": {
+          "emailMessageId": {
+            "type": "string"
+          },
+          "matterId": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "emailMessageId",
+          "matterId",
+          "state"
+        ]
+      },
       "FileRepairDiagnosis": {
         "type": "object",
         "properties": {
@@ -8508,6 +8743,549 @@
           },
           "422": {
             "description": "The bytes could not be read as an email, or are not a format this tool supports",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{matterId}/emails": {
+      "post": {
+        "description": "File a raw email message (.eml or .msg bytes) to this matter. The bytes are staged and the parse, dedup, thread-linking, and attachment extraction run off the request path; the response returns a job identifier. A message the firm already holds is deduped to one record and linked, never duplicated. This is the endpoint the native add-in's Save & File posts to.",
+        "operationId": "emails.file",
+        "tags": [
+          "emails"
+        ],
+        "x-mc-operationId": "emails.file",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "emails:file",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "expensive",
+        "x-mc-tags": [
+          "emails"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {}
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Capture accepted; filing runs off the request path",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailCaptureAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Empty body",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing emails:file",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown matter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Message exceeds the inspectable-size cap",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "description": "List the emails filed to this matter, newest first (cursor-paginated).",
+        "operationId": "emails.list",
+        "tags": [
+          "emails"
+        ],
+        "x-mc-operationId": "emails.list",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "emails:read",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "emails"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of filed emails",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterEmailList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing emails:read",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/emails/already-filed": {
+      "get": {
+        "description": "The wall-safe 'already filed' signal: given a Message-ID or a content hash, report whether the firm has captured it and, if so, the matters it is filed to that the caller can access plus a bare count of the rest. A caller walled from every matter it is filed to learns only that it was captured, never a matter identity. This backs the add-in's 'Already filed to {Matter}' indicator.",
+        "operationId": "emails.alreadyFiled",
+        "tags": [
+          "emails"
+        ],
+        "x-mc-operationId": "emails.alreadyFiled",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "emails:read",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "emails"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "messageId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "contentHash",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The wall-safe already-filed signal",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailAlreadyFiled"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing emails:read",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Neither messageId nor contentHash provided",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/emails/{emailMessageId}": {
+      "get": {
+        "description": "Read one captured message with its participants and the wall-safe list of other matters it is filed to that the caller can access. A caller who can access none of the matters it is filed to receives 404 (absence, never a leak of a walled matter).",
+        "operationId": "emails.get",
+        "tags": [
+          "emails"
+        ],
+        "x-mc-operationId": "emails.get",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "emails:read",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "emails"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^emailMessage_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "emailMessageId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The message and its wall-safe multi-matter context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailMessageDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing emails:read",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown message, or one the caller cannot access",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{matterId}/emails/{emailMessageId}/accept": {
+      "post": {
+        "description": "Accept a staged email link onto this matter (staged → filed). Traverses the filing-time conflict/ethical-wall hook before filing.",
+        "operationId": "emails.accept",
+        "tags": [
+          "emails"
+        ],
+        "x-mc-operationId": "emails.accept",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "emails:manageLinks",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "emails"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^emailMessage_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "emailMessageId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The link was filed (or was already filed)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailLinkActionAck"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing emails:manageLinks",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No staged link for this message on this matter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{matterId}/emails/{emailMessageId}": {
+      "delete": {
+        "description": "Unlink an email from this matter (the link → unlinked). Never deletes the message: it stays on any other matters it is filed to.",
+        "operationId": "emails.unlink",
+        "tags": [
+          "emails"
+        ],
+        "x-mc-operationId": "emails.unlink",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "emails:manageLinks",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "emails"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^emailMessage_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "emailMessageId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The link was unlinked (or was already unlinked)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailLinkActionAck"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing emails:manageLinks",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -27317,6 +28095,9 @@
     },
     {
       "name": "emailInspector"
+    },
+    {
+      "name": "emails"
     },
     {
       "name": "fileIntegrity"

@@ -106,6 +106,7 @@ export default defineConfig({
       "apps/status-worker/vitest.config.ts",
       "apps/bundle-worker/vitest.config.ts",
       "apps/convert-worker/vitest.config.ts",
+      "apps/email-worker/vitest.config.ts",
       "apps/file-repair-worker/vitest.config.ts",
       "apps/magna-carta-edit/vitest.config.ts",
       "apps/ocr-worker/vitest.config.ts",

@@ -58,6 +58,7 @@ import { registerRecoveryRoutes } from "./routes/recovery.ts";
 import { registerFileIntegrityRoutes } from "./routes/file-integrity.ts";
 import { registerFileTypeRoutes } from "./routes/file-type.ts";
 import { registerEmailInspectorRoutes } from "./routes/email-inspector.ts";
+import { registerEmailsRoutes } from "./routes/emails.ts";
 import { registerFileRepairRoutes } from "./routes/file-repair.ts";
 import { registerOcrRoutes } from "./routes/ocr.ts";
 import { registerAiDetectionRoutes } from "./routes/ai-detection.ts";
@@ -117,6 +118,10 @@ export type Bindings = {
   // (src/inference/inference-consumer.ts) runs env.AI.run, so a single firm cannot starve the shared
   // gateway cap synchronously on the request path. Distinct from QUEUE (jobs) and FILES_INGEST.
   INFERENCE: Queue;
+  // The email-capture queue: both entrances (the forward/CC Email Worker and the authenticated
+  // file-to-matter API) enqueue a pointer to the staged raw MIME; the emails-capture consumer runs the
+  // parse/dedup/thread-link/attachment work off the request path.
+  EMAILS_CAPTURE: Queue<import("./emails/capture-consumer.ts").EmailsCaptureMessage>;
   // The conversion-job coordinator: keyed firmId:jobId, single-flights one conversion per job.
   CONVERSION_JOB: DurableObjectNamespace<
     import("./conversions/conversion-coordinator.ts").ConversionJob
@@ -442,6 +447,7 @@ export function createApp(options: CreateAppOptions = {}) {
   registerFileIntegrityRoutes(app, chokepoint);
   registerFileTypeRoutes(app, chokepoint);
   registerEmailInspectorRoutes(app, chokepoint);
+  registerEmailsRoutes(app, chokepoint);
   registerFileRepairRoutes(app, chokepoint);
   registerOcrRoutes(app, chokepoint);
   registerAiDetectionRoutes(app, chokepoint);

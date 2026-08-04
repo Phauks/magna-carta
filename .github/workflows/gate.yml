@@ -169,6 +169,14 @@ jobs:
         # still run whole-repo. Mechanism + soundness: tooling/affected-lint, docs build-performance.md.
         env:
           SCOPE: ${{ needs.changes.outputs.lint_scope }}
+          # tsgolint is a Go program: on the whole-repo pass its live type graph is only a few GB, but the
+          # Go runtime lets the heap balloon to ~2x the live set before collecting, and that transient
+          # overshoot crosses the 16 GB runner ceiling and OOM-aborts (SIGABRT) at whatever diagnostic it
+          # is formatting when memory runs out — a moving crash point, not a lint error. A soft heap limit
+          # forces the collector to run before the overshoot instead of after, keeping peak RSS under the
+          # runner. Sized well above the observed ~6 GB live set (no GC thrash) and well under 16 GB
+          # (headroom for the node/oxc driver + OS). Raise it if the honest live graph grows.
+          GOMEMLIMIT: 10GiB
         run: |
           # vp's stdout must be a FILE here, not the runner's pipe. Node flips a pipe stdout to
           # non-blocking, and Vite+'s native lint printer panics on the resulting EAGAIN ("failed
@@ -285,8 +293,9 @@ jobs:
       - name: Tests — node (shard ${{ matrix.shard }}/${{ env.SHARD_TOTAL }})
         run: >-
           pnpm exec vp test run --project='!storybook' --shard=${{ matrix.shard }}/${{ env.SHARD_TOTAL }}
-          packages apps/web apps/bundle-worker apps/convert-worker apps/file-repair-worker
-          apps/magna-carta-edit apps/ocr-worker apps/recovery-worker apps/scan-worker tooling
+          packages apps/web apps/bundle-worker apps/convert-worker apps/email-worker
+          apps/file-repair-worker apps/magna-carta-edit apps/ocr-worker apps/recovery-worker
+          apps/scan-worker tooling
 
   # The Miniflare worker suites (@cloudflare/vitest-pool-workers) — the heaviest substrate, since each file
   # stands up its own Workers runtime with the wrangler bindings. Its own sharded job; no browser.
