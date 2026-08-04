@@ -1,8 +1,9 @@
 ---
+number: 205
 slug: esign-platform-seal-service
 status: Accepted
-area: Documents / E-signature
 date: 2026-07-18
+area: Documents / E-signature
 summary: The PAdES platform seal runs in a dedicated sign-worker (WASM engine + pkijs CMS + the platform key), reached through a typed SealPort service binding, not in-process in the app worker. The platform seal uses a single self-signed Magna Carta certificate with the private key held as a Worker secret on the sign-worker; the app worker route resolves the port with a deferred adapter so it works before the worker is deployed.
 ---
 
