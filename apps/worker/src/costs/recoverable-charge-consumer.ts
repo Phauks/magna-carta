@@ -5,21 +5,26 @@ import { captureCost } from "@magna-carta/costs/cost-entry-service";
 import { CostValidationError } from "@magna-carta/costs/cost-validation";
 import { chargeToCaptureInputs } from "@magna-carta/costs/recoverable-charge";
 import { recoverPlatformFeeDefinition } from "@magna-carta/costs/recovery-policy";
+import { assertIdentifier } from "@magna-carta/identifiers/validate";
 import { newCorrelationId } from "@magna-carta/telemetry/ids";
 import type { Logger } from "@magna-carta/telemetry/logger";
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import type { Bindings } from "../app.ts";
+import { CAPTURE_ROUTE_TOPIC } from "../emails/capture-address-service.ts";
+import { consumeCaptureRouteRegistration } from "../emails/capture-route-consumer.ts";
 import { firmDatabaseFor, type ProxyBatchDatabase } from "../firm-database/firm-database-proxy.ts";
 import {
   buildShipmentRecoverableCharge,
   parseShipmentPurchasedPayload,
 } from "./shipping-cost-recovery.ts";
 
-// The first per-firm queue consumer: it posts matter disbursements for the financial core off the
-// shared per-firm queue. Every active firm's outbox rows cross the SINGLE bound env.QUEUE, so the
-// relay tags each message with the originating firmId — the consumer has no other handle on which
-// physical database a row came from, and resolves the firm database from the message.
+// The dispatcher for the shared per-firm queue, and the home of its first topic: posting matter
+// disbursements for the financial core. Every active firm's outbox rows cross the SINGLE bound
+// env.QUEUE, so the relay tags each message with the originating firmId — the consumer has no other
+// handle on which physical database a row came from, and resolves the firm database from the message.
+// Topics beyond cost recovery register their handler in the table below and implement it in their own
+// subsystem's module (the email capture-route registration is the first of those).
 //
 // The dispatch table mirrors the control-plane CONSUMERS map (scheduled.ts), with ONE deliberate
 // difference: the control-plane sweep THROWS on an unregistered topic because it owns its whole
@@ -61,7 +66,10 @@ function isRecoveryRefConflict(error: unknown): boolean {
 
 // A per-topic handler: the firm database is already resolved (the dispatcher addresses the firm's
 // FirmDatabase Durable Object by firmId), and the handler reads what it needs from the message payload.
+// `env` rides along because a per-firm effect may have a CONTROL-PLANE consequence — the capture-route
+// registration is one: its business row is per-firm, but the routing index it must reach is shared.
 type PerFirmTopicHandler = (
+  env: Bindings,
   firmDatabase: ProxyBatchDatabase,
   message: PerFirmQueueMessage,
   logger: Logger,
@@ -70,13 +78,37 @@ type PerFirmTopicHandler = (
 // Topic → handler. Mirrors CONTROL_PLANE_CONSUMERS; add a row to own a new per-firm topic.
 const PER_FIRM_CONSUMERS: Readonly<Record<string, PerFirmTopicHandler>> = {
   "shipment.purchased": handleShipmentPurchased,
+  [CAPTURE_ROUTE_TOPIC]: handleCaptureRouteRegistration,
 };
+
+// Completes an email capture-address mint by writing its control-plane routing row — the step that
+// turns a minted address into one that actually receives mail. The per-firm batch that created the
+// address wrote this message in the same commit, so the message is proof the address exists; a
+// failure here is transient by definition (the row is durable, the retry re-applies), which is why it
+// propagates rather than being acked away.
+function handleCaptureRouteRegistration(
+  env: Bindings,
+  _firmDatabase: ProxyBatchDatabase,
+  message: PerFirmQueueMessage,
+  _logger: Logger,
+): Promise<void> {
+  return consumeCaptureRouteRegistration(
+    {
+      controlPlaneDatabase: env.DB_CONTROL,
+      firmId: assertIdentifier(message.firmId, "firm"),
+      now: () => new Date().toISOString(),
+    },
+    message.id,
+    message.payload,
+  );
+}
 
 // Posts the recovered matter disbursements for a purchased shipment. The producer adapter reads the
 // matter link back from the shipment row and builds the neutral recoverable-charge event; this handler
 // resolves the firm's per-category recovery policy, maps the event into cost captures, and commits each
 // capture through the idempotency chokepoint.
 async function handleShipmentPurchased(
+  _env: Bindings,
   firmDatabase: ProxyBatchDatabase,
   message: PerFirmQueueMessage,
   logger: Logger,
@@ -224,7 +256,7 @@ async function dispatchMessage(
   if (results[0] === undefined) return;
   const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, message.firmId);
 
-  await handler(firmDatabase, message, logger);
+  await handler(env, firmDatabase, message, logger);
 }
 
 // The queue() handler for the shared per-firm queue. One logger per batch; a transient failure routes

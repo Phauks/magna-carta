@@ -1,3 +1,4 @@
+import { DEFAULT_CAPTURE_ROOT_DOMAIN } from "@magna-carta/email-filing/capture-address";
 import { resolveCaptureRouting, type FirmResolver } from "./routing.ts";
 
 // The Cloudflare Email Worker forward/CC capture entrance. Cloudflare Email Routing delivers a forwarded
@@ -12,8 +13,6 @@ import { resolveCaptureRouting, type FirmResolver } from "./routing.ts";
 // add-in path handles larger messages), and the sender is told rather than the message being silently
 // dropped.
 const OVERSIZE_CEILING_BYTES = 40 * 1024 * 1024;
-
-const DEFAULT_CAPTURE_ROOT_DOMAIN = "in.magnacarta.esq";
 
 // The emails-capture job shape — matches @magna-carta/worker's capture consumer (the queue is the
 // contract boundary; the JSON message is the shared shape).

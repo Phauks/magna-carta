@@ -10,6 +10,9 @@
     "deploy": "wrangler deploy",
     "test": "vp test run"
   },
+  "dependencies": {
+    "@magna-carta/email-filing": "workspace:*"
+  },
   "devDependencies": {
     "@cloudflare/workers-types": "catalog:",
     "@magna-carta/tsconfig": "workspace:*",

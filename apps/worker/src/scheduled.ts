@@ -193,9 +193,8 @@ export async function findUnprovisionedMembers(
 
 // The Cron entry point: one pass =
 //   1. control-plane outbox sweep — the consumer map applies member mirrors directly;
-//   2. per-firm outbox sweep over active firms — rows publish to env.QUEUE (nothing consumes the
-//      per-firm queue yet this slice; publishing realizes the relay contract and the consumer
-//      arrives with the first per-firm topic) — plus that firm's idempotency TTL purge;
+//   2. per-firm outbox sweep over active firms — rows publish to env.QUEUE, whose consumer routes
+//      each message to the handler owning its topic — plus that firm's idempotency TTL purge;
 //   3. control-plane idempotency TTL purge;
 //   4. the reconciliation backstop — logged (ids only) when non-empty; the finding heals through
 //      the relay (a fresh invite's row may appear for one pass mid-flight — the next pass clears it).
@@ -256,10 +255,9 @@ export async function runScheduledSweep(env: Bindings): Promise<ScheduledSweepRe
           // The Queue message mirrors the outbox row (consumers dedup on id, order by
           // (aggregateKey, seq)); the payload is already redacted canonical JSON.
           // firmId tags the originating tenant: per-firm messages cross the single SHARED env.QUEUE,
-          // so the first per-firm consumer (slice 0·5+) resolves the firm from the message — it has
-          // no other handle on which physical database the row came from. (Control-plane outbox
-          // topics are consumed DIRECTLY in this worker, never over the queue, so they need no such
-          // tag.)
+          // so the consumer resolves the firm from the message — it has no other handle on which
+          // physical database the row came from. (Control-plane outbox topics are consumed DIRECTLY
+          // in this worker, never over the queue, so they need no such tag.)
           await env.QUEUE.send({
             id: row.id,
             firmId: firm.firmId,

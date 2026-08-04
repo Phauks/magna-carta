@@ -227,6 +227,36 @@ export type EmailLinkActionAck = {
     state: string;
 };
 
+export type MintedCaptureAddress = {
+    emailCaptureAddressId: string;
+    kind: 'matter' | 'catchAll';
+    matterId: string | null;
+    address: string;
+    token: string;
+    routable: false;
+    createdAt: string;
+};
+
+export type RevokedCaptureAddress = {
+    emailCaptureAddressId: string;
+    active: false;
+};
+
+export type CaptureAddressList = {
+    data: Array<CaptureAddressSummary>;
+};
+
+export type CaptureAddressSummary = {
+    emailCaptureAddressId: string;
+    kind: 'matter' | 'catchAll';
+    matterId: string | null;
+    active: boolean;
+    tokenPreview: string;
+    createdBy: string | null;
+    createdAt: string;
+    rotatedAt: string | null;
+};
+
 export type FileRepairDiagnosis = {
     detectedFormat: string | null;
     corruption: Array<string>;
@@ -2640,6 +2670,275 @@ export type EmailsUnlinkResponses = {
 };
 
 export type EmailsUnlinkResponse = EmailsUnlinkResponses[keyof EmailsUnlinkResponses];
+
+export type EmailsRevokeFirmCaptureAddressData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/capture-address';
+};
+
+export type EmailsRevokeFirmCaptureAddressErrors = {
+    /**
+     * No session
+     */
+    401: Problem;
+    /**
+     * Missing emails:manageCaptureAddresses
+     */
+    403: Problem;
+    /**
+     * The firm holds no live catch-all address
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type EmailsRevokeFirmCaptureAddressError = EmailsRevokeFirmCaptureAddressErrors[keyof EmailsRevokeFirmCaptureAddressErrors];
+
+export type EmailsRevokeFirmCaptureAddressResponses = {
+    /**
+     * The catch-all no longer routes (or already did not)
+     */
+    200: RevokedCaptureAddress;
+};
+
+export type EmailsRevokeFirmCaptureAddressResponse = EmailsRevokeFirmCaptureAddressResponses[keyof EmailsRevokeFirmCaptureAddressResponses];
+
+export type EmailsMintFirmCaptureAddressData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/capture-address';
+};
+
+export type EmailsMintFirmCaptureAddressErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No session
+     */
+    401: Problem;
+    /**
+     * Missing emails:manageCaptureAddresses
+     */
+    403: Problem;
+    /**
+     * The firm already holds a live catch-all address, or a request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type EmailsMintFirmCaptureAddressError = EmailsMintFirmCaptureAddressErrors[keyof EmailsMintFirmCaptureAddressErrors];
+
+export type EmailsMintFirmCaptureAddressResponses = {
+    /**
+     * The minted catch-all address, with its token shown once
+     */
+    201: MintedCaptureAddress;
+};
+
+export type EmailsMintFirmCaptureAddressResponse = EmailsMintFirmCaptureAddressResponses[keyof EmailsMintFirmCaptureAddressResponses];
+
+export type EmailsListCaptureAddressesData = {
+    body?: never;
+    path: {
+        matterId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/capture-addresses';
+};
+
+export type EmailsListCaptureAddressesErrors = {
+    /**
+     * No session
+     */
+    401: Problem;
+    /**
+     * Missing emails:manageCaptureAddresses
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type EmailsListCaptureAddressesError = EmailsListCaptureAddressesErrors[keyof EmailsListCaptureAddressesErrors];
+
+export type EmailsListCaptureAddressesResponses = {
+    /**
+     * The matter's capture addresses
+     */
+    200: CaptureAddressList;
+};
+
+export type EmailsListCaptureAddressesResponse = EmailsListCaptureAddressesResponses[keyof EmailsListCaptureAddressesResponses];
+
+export type EmailsMintCaptureAddressData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        matterId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/capture-addresses';
+};
+
+export type EmailsMintCaptureAddressErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No session
+     */
+    401: Problem;
+    /**
+     * Missing emails:manageCaptureAddresses
+     */
+    403: Problem;
+    /**
+     * Unknown matter
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type EmailsMintCaptureAddressError = EmailsMintCaptureAddressErrors[keyof EmailsMintCaptureAddressErrors];
+
+export type EmailsMintCaptureAddressResponses = {
+    /**
+     * The minted address, with its token shown once
+     */
+    201: MintedCaptureAddress;
+};
+
+export type EmailsMintCaptureAddressResponse = EmailsMintCaptureAddressResponses[keyof EmailsMintCaptureAddressResponses];
+
+export type EmailsRotateCaptureAddressData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        matterId: string;
+        emailCaptureAddressId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/capture-addresses/{emailCaptureAddressId}/rotate';
+};
+
+export type EmailsRotateCaptureAddressErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No session
+     */
+    401: Problem;
+    /**
+     * Missing emails:manageCaptureAddresses
+     */
+    403: Problem;
+    /**
+     * No live capture address with this handle on this matter
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type EmailsRotateCaptureAddressError = EmailsRotateCaptureAddressErrors[keyof EmailsRotateCaptureAddressErrors];
+
+export type EmailsRotateCaptureAddressResponses = {
+    /**
+     * The replacement address, with its token shown once
+     */
+    201: MintedCaptureAddress;
+};
+
+export type EmailsRotateCaptureAddressResponse = EmailsRotateCaptureAddressResponses[keyof EmailsRotateCaptureAddressResponses];
+
+export type EmailsRevokeCaptureAddressData = {
+    body?: never;
+    path: {
+        matterId: string;
+        emailCaptureAddressId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/capture-addresses/{emailCaptureAddressId}';
+};
+
+export type EmailsRevokeCaptureAddressErrors = {
+    /**
+     * No session
+     */
+    401: Problem;
+    /**
+     * Missing emails:manageCaptureAddresses
+     */
+    403: Problem;
+    /**
+     * No capture address with this handle on this matter
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type EmailsRevokeCaptureAddressError = EmailsRevokeCaptureAddressErrors[keyof EmailsRevokeCaptureAddressErrors];
+
+export type EmailsRevokeCaptureAddressResponses = {
+    /**
+     * The address no longer routes (or already did not)
+     */
+    200: RevokedCaptureAddress;
+};
+
+export type EmailsRevokeCaptureAddressResponse = EmailsRevokeCaptureAddressResponses[keyof EmailsRevokeCaptureAddressResponses];
 
 export type FileRepairDiagnoseData = {
     body: unknown;
