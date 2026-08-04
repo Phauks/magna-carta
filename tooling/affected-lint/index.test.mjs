@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeAffected } from "./index.mjs";
+import { computeAffected, parseMaxHops } from "./index.mjs";
 
 // A small synthetic graph: money is a leaf; data-access depends on money; worker depends on data-access;
 // web depends on worker. So a change to money must pull in data-access, worker, and web (transitively).
@@ -91,6 +91,61 @@ describe("computeAffected", () => {
 
   it("returns none when only a non-source file outside any package changed", () => {
     expect(computeAffected({ changedFiles: ["ROADMAP.txt"], packages }).mode).toBe("none");
+  });
+
+  it("stops at the direct dependents when the walk is capped at one hop", () => {
+    // money -> data-access -> worker -> web. One hop from money is data-access only.
+    const result = computeAffected({
+      changedFiles: ["packages/money/src/dinero.ts"],
+      packages,
+      maxHops: 1,
+    });
+    expect(result.paths).toEqual(["packages/data-access", "packages/money"]);
+  });
+
+  it("walks exactly as many hops as asked", () => {
+    const twoHops = computeAffected({
+      changedFiles: ["packages/money/src/dinero.ts"],
+      packages,
+      maxHops: 2,
+    });
+    expect(twoHops.paths).toEqual(["apps/worker", "packages/data-access", "packages/money"]);
+    // A cap at or beyond the graph's depth is identical to the unbounded default.
+    const deep = computeAffected({
+      changedFiles: ["packages/money/src/dinero.ts"],
+      packages,
+      maxHops: 9,
+    });
+    const unbounded = computeAffected({ changedFiles: ["packages/money/src/dinero.ts"], packages });
+    expect(deep.paths).toEqual(unbounded.paths);
+  });
+
+  it("a capped walk never narrows the global-input or outside-a-package escape hatches", () => {
+    // Capping is a depth dial on the dependent walk only — the whole-repo triggers still win.
+    expect(computeAffected({ changedFiles: ["vite.config.ts"], packages, maxHops: 1 }).mode).toBe(
+      "all",
+    );
+    expect(
+      computeAffected({ changedFiles: ["tooling/some-script/run.mjs"], packages, maxHops: 1 }).mode,
+    ).toBe("all");
+  });
+
+  it("rejects a nonsensical hop cap rather than silently linting less", () => {
+    expect(() =>
+      computeAffected({ changedFiles: ["packages/money/src/a.ts"], packages, maxHops: 0 }),
+    ).toThrow(/at least 1/);
+  });
+
+  it("parses the --max-hops flag, defaulting to the full closure", () => {
+    expect(parseMaxHops(["node", "index.mjs", "--base", "HEAD~1"])).toBe(Number.POSITIVE_INFINITY);
+    expect(parseMaxHops(["node", "index.mjs", "--max-hops", "all"])).toBe(Number.POSITIVE_INFINITY);
+    expect(parseMaxHops(["node", "index.mjs", "--max-hops", "1"])).toBe(1);
+    expect(() => parseMaxHops(["node", "index.mjs", "--max-hops", "0"])).toThrow(
+      /positive integer/,
+    );
+    expect(() => parseMaxHops(["node", "index.mjs", "--max-hops", "-2"])).toThrow(
+      /positive integer/,
+    );
   });
 
   it("maps a nested path to its package (longest-prefix wins), not an ancestor", () => {
