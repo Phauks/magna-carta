@@ -45,21 +45,28 @@ at full capacity. Keep it current at every milestone — it is the durable memor
   MC docs-sync (Mon 13:03), Cloudflare blog monitor (daily 14:00, reports not
   persisted), dependency updates (Mon 14:30).
 
-## Day-end position (2026-08-04 ~10:45 UTC)
+## Day-end position (2026-08-04 ~12:30 UTC)
 
-Twenty-five pull requests merged; zero open. Every inherited handover stream is
-on main: the docs/security backlog, the 2·4 conversion close-out plus the
-accepted LibreOffice engine design, email capture functionally complete
-(record model through mint/rotate/revoke), the whole discovery-search
-subsystem plus its write pipeline, and the 2·5 platform seal. The
-whole-program-review campaign landed all ten batches: the verification ledger
-now reads 46 fixed / 13 still-open (the honest backlog) / 5 obsolete. The
-docs pipeline is current (docs-sync 2026-08-04 folded 25 fragments,
-ADR-0200-0206). In flight: the LibreOffice engine build
-(`claude/libreoffice-engine-build`). Queue: tasks 23-32 (small scoped
-batches), then next backend slices by value (2·6 document automation, 4·2
-custodian; 3·2 trust = analysis + owner flag). Watch: the docs-assembly bot
-PR must prove it can self-merge post-ruleset-fix, else owner list.
+Thirty pull requests merged; zero open. On top of the earlier waves, the day's
+last three landed together: the LibreOffice conversion engine (#66 — the
+containers job took three rounds, every failure a test over-specification, the
+engine itself sound; nondeterministic engine behavior is now proved in
+fake-worker unit tests, only the deterministic contract in CI acceptance), the
+tooling batch (#68 — conversion consumer through the firm-bucket seam with the
+bucket riding the queue message, check:scoped diffing against the newest
+merge-base by ancestry instead of a frozen local main, bootstrap staleness by
+content stamp + wasm-bindgen export verification), and the worker follow-ups
+batch (#69 — one shared WOPI token-content gate for CheckFileInfo/GetFile
+covering soft-deleted/withdrawn/flagged versions, matters open/reopen
+idempotent replay, stranded-pending re-drive sweep, in-UPDATE folder-cycle
+check, in-batch version-status assertion). All agent worktrees swept; ~25G
+free. The verification ledger backlog shrank again: F-065/F-068 confirmed
+already fixed; F-063/F-069 confirmed open (task 33). In flight: the telemetry
+runtime batch (`claude/telemetry-runtime-batch`) and the docs-pipeline
+follow-ups (`claude/docs-pipeline-followups`). Queue after those: task 23
+(advisories lapsing 2026-10-14), task 24 (linter-stream reconcile), task 33
+(file-manager residue pair), then next backend slices by value (2·6 document
+automation, 4·2 custodian; 3·2 trust = analysis + owner flag).
 
 ## Earlier snapshot (superseded, kept for the resume trail)
 
