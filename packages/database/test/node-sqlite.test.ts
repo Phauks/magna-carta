@@ -73,6 +73,12 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
     ).toEqual(roles.map((row) => row.id).sort());
     // The matters/locations/files grants extend the seed per the role distribution.
     expect(grantsFor("Owner/Admin")).toContain("matters:create");
+    // Configuring the machine that files mail is narrower than filing mail: the two roles that own
+    // the correspondence decision carry it by seed, and a paralegal receives it only by an explicit
+    // firm grant. It is therefore absent from the Paralegal set asserted exhaustively below.
+    expect(grantsFor("Owner/Admin")).toContain("emails:manageAutoFileRules");
+    expect(grantsFor("Attorney")).toContain("emails:manageAutoFileRules");
+    expect(grantsFor("Paralegal")).not.toContain("emails:manageAutoFileRules");
     // Paralegal carries the practitioner set: file/matter work plus the firm-wide tools. The
     // firm-wide tool grants (whois/safeBrowse, scanFile, metadataScrubber, fileIntegrity,
     // fileTypeVerifier, aiTextDetection, decryption, fileRepair, ocr) and support:request are

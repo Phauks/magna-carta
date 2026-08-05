@@ -15,7 +15,7 @@
     "./matter-suggestion": "./src/matter-suggestion.ts",
     "./capture-token": "./src/capture-token.ts",
     "./capture-address": "./src/capture-address.ts",
-    "./already-filed": "./src/already-filed.ts",
+    "./auto-file-rules": "./src/auto-file-rules.ts",
     "./seams": "./src/seams.ts"
   },
   "scripts": {

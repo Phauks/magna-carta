@@ -239,6 +239,13 @@
       "when": 1785960000000,
       "tag": "20260805T200000_trust-reconciliation",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "6",
+      "when": 1785967200000,
+      "tag": "20260805T220000_auto-file-rules",
+      "breakpoints": true
     }
   ]
 }

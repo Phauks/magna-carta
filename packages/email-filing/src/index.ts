@@ -36,6 +36,26 @@ export type {
   MatterSuggestionRanking,
   MatterSuggestionSignal,
 } from "./matter-suggestion.ts";
+export {
+  resolveAutoFileDecision,
+  AUTO_FILE_MAX_FIRES_PER_WINDOW,
+  AUTO_FILE_MAX_UNDOS_IN_RECENT_FIRES,
+  AUTO_FILE_RECENT_FIRE_WINDOW,
+} from "./auto-file-rules.ts";
+export type {
+  AutoFileCandidateRule,
+  AutoFileDecision,
+  AutoFileDemotionReason,
+  AutoFileEvidence,
+  AutoFileExistingLink,
+  AutoFilePromotion,
+  AutoFileRuleKind,
+  AutoFileRuleState,
+  AutoFileSuppressionReason,
+  AutoFileSuspendedReason,
+  AutoFileSuspensionRecommendation,
+  AutoFileTargetMatter,
+} from "./auto-file-rules.ts";
 export { verifyDkim, UNVERIFIED } from "./dkim.ts";
 export type {
   DkimKeyLookup,
