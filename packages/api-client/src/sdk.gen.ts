@@ -109,7 +109,15 @@ export const decryptionRecoverStatus = <ThrowOnError extends boolean = false>(op
 /**
  * Compute MD5, SHA-1, SHA-256, SHA-384 and SHA-512 digests of the request body in a single pass. Optionally report which algorithm matches an expected digest. Nothing is stored.
  */
-export const fileIntegrityHash = <ThrowOnError extends boolean = false>(options?: Options<FileIntegrityHashData, ThrowOnError>): RequestResult<FileIntegrityHashResponses, FileIntegrityHashErrors, ThrowOnError> => (options?.client ?? client).post<FileIntegrityHashResponses, FileIntegrityHashErrors, ThrowOnError>({ url: '/api/v1/file-integrity/hash', ...options });
+export const fileIntegrityHash = <ThrowOnError extends boolean = false>(options: Options<FileIntegrityHashData, ThrowOnError>): RequestResult<FileIntegrityHashResponses, FileIntegrityHashErrors, ThrowOnError> => (options.client ?? client).post<FileIntegrityHashResponses, FileIntegrityHashErrors, ThrowOnError>({
+    bodySerializer: null,
+    url: '/api/v1/file-integrity/hash',
+    ...options,
+    headers: {
+        'Content-Type': 'application/octet-stream',
+        ...options.headers
+    }
+});
 
 /**
  * Recompute a stored file's digests from its bytes at rest and compare the SHA-256 to the digest recorded at intake, recording the check. Returns the digests, the baseline result, and a hash receipt.
@@ -900,7 +908,15 @@ export const documentsForceRelease = <ThrowOnError extends boolean = false>(opti
 /**
  * Scans an uploaded file — the raw bytes as the application/octet-stream request body — through the malware-scan engine and returns its verdict + details. A one-off diagnostic: the file is NOT stored and is NOT associated with any matter. Returns an honest `unscanned` verdict until the scan Container is activated (the engine-less adapter never reports a false `clean`).
  */
-export const scanDiagnose = <ThrowOnError extends boolean = false>(options?: Options<ScanDiagnoseData, ThrowOnError>): RequestResult<ScanDiagnoseResponses, ScanDiagnoseErrors, ThrowOnError> => (options?.client ?? client).post<ScanDiagnoseResponses, ScanDiagnoseErrors, ThrowOnError>({ url: '/api/v1/scan/diagnose', ...options });
+export const scanDiagnose = <ThrowOnError extends boolean = false>(options: Options<ScanDiagnoseData, ThrowOnError>): RequestResult<ScanDiagnoseResponses, ScanDiagnoseErrors, ThrowOnError> => (options.client ?? client).post<ScanDiagnoseResponses, ScanDiagnoseErrors, ThrowOnError>({
+    bodySerializer: null,
+    url: '/api/v1/scan/diagnose',
+    ...options,
+    headers: {
+        'Content-Type': 'application/octet-stream',
+        ...options.headers
+    }
+});
 
 /**
  * Queues a background malware re-scan of every current file in a matter whose scan is stale relative to the firm's current engine (a file already scanned under the current engine is skipped, so a matter already current enqueues nothing). User-initiated; the scans run off the request path on the bulk lane. No-op (enqueued 0) when no current engine version is recorded. `capped` is true when more stale files remain than one request fans out — re-run to continue (any uncapped file is still re-scanned on next access).

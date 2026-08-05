@@ -11362,6 +11362,14 @@
             "in": "query"
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {}
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "The five digests and byte size of the supplied body",
@@ -21366,6 +21374,14 @@
           "scan"
         ],
         "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {}
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "The scan diagnosis",
