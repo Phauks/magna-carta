@@ -355,6 +355,15 @@ export const NO_PII_TABLES: readonly string[] = [
   // No column about a person (the matter_number_counter / matter_number_allocation precedent).
   "custody_number_counter",
   "custody_number_allocation",
+  // A stocktake is a control row about counting OBJECTS: the firm's own label, a location scope, and
+  // firm-member provenance (opened_by / closed_by) — the custody_hold / custody_scan line. A sighting
+  // adds observed_by (the same provenance class) and, for an unregistered object only, a free-text
+  // description of the thing on the shelf. That description can name the person an instrument
+  // concerns, but it is content with no structured subject column to resolve — the residual class
+  // custody_item.description established, handled by the residue report rather than by a key here.
+  // Both rows are append-only by trigger, so were a key ever added it would take pseudonymize-keep.
+  "custody_stocktake",
+  "custody_stocktake_sighting",
   // Trust accounting. The one table with a structured subject reference (trust_ledger_node) is
   // registered in PII_TABLES above; these three carry none of their own.
   // A trust account is the FIRM's bank account, bound to the firm's own office — the same line
