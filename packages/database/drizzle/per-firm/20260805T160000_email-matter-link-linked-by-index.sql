@@ -1,0 +1,11 @@
+-- The index behind "which matters have I been filing mail to lately" — the mail-client add-in's
+-- quick-pick list of a member's own recent filing targets.
+--
+-- The existing composite on email_matter_link leads with matter_id, which serves a matter's own email
+-- list and nothing else: a per-member read filtered on linked_by and ordered newest-first cannot use
+-- it and would scan every link row in the firm. This composite leads with linked_by so the walk is
+-- confined to one member's filings, then carries created_at and id so the newest-first order comes
+-- straight out of the index with no temporary B-tree.
+--
+-- Index-only: no column is added, no row is touched, and nothing already written changes meaning.
+CREATE INDEX `email_matter_link_linked_by_created_index` ON `email_matter_link` (`linked_by`,`created_at`,`id`);

@@ -64,6 +64,7 @@ import { registerRecoveryRoutes } from "./routes/recovery.ts";
 import { registerFileIntegrityRoutes } from "./routes/file-integrity.ts";
 import { registerFileTypeRoutes } from "./routes/file-type.ts";
 import { registerEmailInspectorRoutes } from "./routes/email-inspector.ts";
+import { registerEmailAddInRoutes } from "./routes/email-add-in.ts";
 import { registerEmailsRoutes } from "./routes/emails.ts";
 import { registerCaptureAddressRoutes } from "./routes/capture-addresses.ts";
 import { registerFileRepairRoutes } from "./routes/file-repair.ts";
@@ -492,6 +493,10 @@ export function createApp(options: CreateAppOptions = {}) {
   registerFileIntegrityRoutes(app, chokepoint);
   registerFileTypeRoutes(app, chokepoint);
   registerEmailInspectorRoutes(app, chokepoint);
+  // The mail-client surface — matter suggestions, capture status, the member's filing context.
+  // Registered BEFORE registerEmailsRoutes deliberately: that bundle owns /api/v1/emails/{id}, and a
+  // parameterized route registered first swallows the static siblings on its prefix.
+  registerEmailAddInRoutes(app, chokepoint);
   registerEmailsRoutes(app, chokepoint);
   // The writer for the forward/CC token index: minting an address is what makes a capture token
   // resolve to a firm and a matter. Registered beside the emails surface it feeds.

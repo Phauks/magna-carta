@@ -10,9 +10,36 @@ Capture your firm's email correspondence into the right matter, so a matter's fi
 
 - **Forward or CC it to a capture address.** Each matter can have its own capture address; forwarding or CC'ing a message there files it to that matter. Your firm also has a general capture address that drops mail into a queue for staff to route to the right matter. This works from any email program, on any device.
 - **Upload a saved message.** Save an email from your mail program as an `.eml` or `.msg` file and upload it to a matter.
-- **(Coming) Save & File from your inbox.** A one-click button in Outlook and Gmail that files the open message to a suggested matter — this is the same filing, done from your inbox.
+- **(Coming) Save & File from your inbox.** A one-click button in Outlook and Gmail that files the open message to a suggested matter — this is the same filing, done from your inbox. Everything it needs is built: the suggestions below, the filing itself, and the confirmation that it landed.
 
 Every capture lands **staged** for someone to confirm onto the matter — nothing is silently auto-filed to the wrong place.
+
+## Suggested matters
+
+You should not have to search for a matter you are about to file to. When a message is opened for
+filing, the right matter is suggested — usually the one you would have picked — from what the message
+itself says:
+
+- **The conversation is already on a matter.** A reply to a thread your firm has already filed is
+  proposed for that matter. This is the strongest suggestion and is usually the right one.
+- **The subject line carries a matter number.** Your firm's own number, written where someone put it.
+- **A correspondent is a party on a matter.** Someone on the message is in your Directory and is a
+  party on a matter — a client, opposing counsel, an expert.
+- **What you typed.** Start typing a client, a title, or a number and matching matters join the list.
+
+Each suggestion says **why** it was suggested and how confident it is, so you can tell a strong answer
+from a thin one at a glance. When two matters are equally plausible, none is pre-selected and you are
+asked — a suggestion is an offer, never a decision. Nothing is filed until you choose.
+
+**You are only ever suggested matters you can already open.** A matter you have no access to is never
+proposed, never named in a reason, and never hinted at by a count.
+
+## Knowing it filed
+
+Filing a message hands it off and finishes in the background, so a slow or large message never leaves
+you waiting on a spinner. You can check on it afterward and be told plainly whether it landed on the
+matter, whether it is staged for someone to confirm, and whether your firm already held the same
+message — in which case it was added to the existing record rather than filed a second time.
 
 ## Managing capture addresses
 

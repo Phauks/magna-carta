@@ -1,7 +1,9 @@
 import { ensureReady, parseMessage } from "@magna-carta/email";
 import emailWasmModule from "@magna-carta/email/src/pkg/email_core_bg.wasm";
+import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import {
+  captureIdempotencyKey,
   findByDedupKey,
   findCaptureAddressByToken,
   findThreadIdsByMessageIds,
@@ -156,14 +158,27 @@ export async function handleCaptureMessage(
       // One atomic batch: the capture writes + the idempotency record, keyed on the capture job id.
       // A redelivery replays without re-writing; a concurrent same-message capture that loses the
       // dedup_key race rolls back wholesale and re-runs, converging on the one record.
+      //
+      // The record carries the outcome, not just the fact of completion: the entrance handed the
+      // client a job id and nothing else, and this is what turns that id back into "it landed on this
+      // matter as filed" when the client asks (readCaptureOutcome reads exactly this body). It rides
+      // the SAME batch as the writes it describes, so a body can never claim a capture that rolled
+      // back. Identifiers and enums only — an idempotency body is read by more paths than the message
+      // row, so no subject, no address, no content goes in it.
       const outcome = await runIdempotentEffect({
         database: firmDatabase,
-        key: `capture:${message.jobId}`,
+        key: captureIdempotencyKey(message.jobId),
         fingerprint: message.jobId,
         effect: async () => ({
           write: { statements, outboxMessages: [] },
           responseCode: 200,
-          responseBody: null,
+          responseBody: canonicalJsonStringify({
+            emailMessageId: plan.emailMessageId,
+            threadId: plan.threadId,
+            matterId: plan.link?.matterId ?? null,
+            linkState: plan.link?.state ?? "none",
+            deduplicated: plan.dedupState === "existing",
+          }),
         }),
       });
       if (outcome.kind === "fingerprint-mismatch") {

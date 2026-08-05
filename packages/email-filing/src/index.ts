@@ -24,6 +24,18 @@ export {
   DKIM_VERDICT_UNVERIFIED,
 } from "./seams.ts";
 export type { FilingConflictInput, FilingConflictResult, EmailFiledNotification } from "./seams.ts";
+export {
+  candidateMatterNumbers,
+  rankMatterSuggestions,
+  MAX_SUBJECT_NUMBER_CANDIDATES,
+} from "./matter-suggestion.ts";
+export type {
+  MatterSuggestion,
+  MatterSuggestionConfidence,
+  MatterSuggestionEvidence,
+  MatterSuggestionRanking,
+  MatterSuggestionSignal,
+} from "./matter-suggestion.ts";
 export { verifyDkim, UNVERIFIED } from "./dkim.ts";
 export type {
   DkimKeyLookup,

@@ -4,11 +4,13 @@ import { seededRandomSource } from "@magna-carta/identifiers/random";
 import type { UserId } from "@magna-carta/identifiers/types";
 import { expect, test } from "vitest";
 import { createPerson } from "../src/person.ts";
+import { addEmail, removeEmail } from "../src/contact-email.ts";
 import {
   createPartyRole,
   linkMatterParty,
   listPartyRoles,
   readMatterParties,
+  readMatterPartiesForEmailAddresses,
 } from "../src/party.ts";
 
 const clock = { now: () => "2026-06-17T00:00:00.000Z" };
@@ -97,6 +99,59 @@ test("listPartyRoles orders by position and excludes archived roles", async () =
 
   const roles = await listPartyRoles(database);
   expect(roles.map((role) => role.name)).toEqual(["Client", "Expert"]);
+});
+
+test("readMatterPartiesForEmailAddresses maps a correspondent's address to the matters they are a party on", async () => {
+  const database = freshDatabase();
+  await seedMatter(database, "mat_reverse");
+  const options = { clock, actorUserId: ACTOR, randomSource: seededRandomSource("t14-reverse") };
+  const personId = await createPerson(database, { given: "Ada", family: "Doe" }, options);
+  await addEmail(database, { entityId: personId, address: "Ada@Example.COM" }, options);
+  await linkMatterParty(
+    database,
+    { matterId: "mat_reverse", entityId: personId, role: "opposing_party" },
+    options,
+  );
+
+  // The lookup key is the normalized address, so the caller's casing does not matter.
+  const matches = await readMatterPartiesForEmailAddresses(database, ["ada@example.com"]);
+  expect(matches).toEqual([
+    {
+      matterId: "mat_reverse",
+      entityId: personId,
+      role: "opposing_party",
+      normalizedAddress: "ada@example.com",
+    },
+  ]);
+  expect(await readMatterPartiesForEmailAddresses(database, [])).toEqual([]);
+  expect(await readMatterPartiesForEmailAddresses(database, ["nobody@example.com"])).toEqual([]);
+});
+
+test("readMatterPartiesForEmailAddresses drops a removed address and a soft-deleted party link", async () => {
+  const database = freshDatabase();
+  await seedMatter(database, "mat_dropped");
+  const options = { clock, actorUserId: ACTOR, randomSource: seededRandomSource("t14-dropped") };
+  const personId = await createPerson(database, { given: "Grace", family: "Doe" }, options);
+  const emailId = await addEmail(
+    database,
+    { entityId: personId, address: "grace@example.com" },
+    options,
+  );
+  const matterPartyId = await linkMatterParty(
+    database,
+    { matterId: "mat_dropped", entityId: personId, role: "client" },
+    options,
+  );
+  expect(await readMatterPartiesForEmailAddresses(database, ["grace@example.com"])).toHaveLength(1);
+
+  await database
+    .prepare(`UPDATE matter_party SET deleted_at = ?1 WHERE id = ?2`)
+    .bind(clock.now(), matterPartyId)
+    .run();
+  expect(await readMatterPartiesForEmailAddresses(database, ["grace@example.com"])).toEqual([]);
+
+  await removeEmail(database, emailId, options);
+  expect(await readMatterPartiesForEmailAddresses(database, ["grace@example.com"])).toEqual([]);
 });
 
 test("linkMatterParty rejects a non-existent entity with UnknownEntityError", async () => {

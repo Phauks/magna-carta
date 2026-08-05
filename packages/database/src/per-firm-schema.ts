@@ -2055,6 +2055,14 @@ export const emailMatterLink = sqliteTable(
       table.id,
     ),
     index("email_matter_link_email_message_id_index").on(table.emailMessageId),
+    // "Which matters have I been filing mail to lately" — the mail-client quick-pick list. Leading
+    // with linked_by confines the walk to one member's own filings; created_at then id carry the
+    // newest-first order, so the read is an index walk rather than a scan of the firm's every link.
+    index("email_matter_link_linked_by_created_index").on(
+      table.linkedBy,
+      table.createdAt,
+      table.id,
+    ),
     check("email_matter_link_state_check", sql`${table.state} IN ('staged', 'filed', 'unlinked')`),
     check(
       "email_matter_link_captured_via_check",
