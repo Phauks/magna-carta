@@ -22,6 +22,7 @@ import {
 
 let poolFirmId: FirmId;
 let ownerCookie: string;
+let ownerUserId: UserId;
 let noPermissionCookie: string;
 let firmDatabase: ReturnType<typeof firmDatabaseFor>;
 
@@ -50,6 +51,7 @@ beforeAll(async () => {
     firmId: poolFirmId,
   });
   await mirrorMemberWithOwnerRole(owner.userId, "Custody Owner", poolFirmId);
+  ownerUserId = owner.userId;
   ownerCookie = await signInForSessionCookie("custody-owner@example.com");
 
   const noPermission = await seedCredentialedUser("custody-nopermission@example.com", {
@@ -119,6 +121,20 @@ async function createLocation(
   expect(response.status).toBe(201);
   const { id } = (await response.json()) as { id: string };
   return id;
+}
+
+// A release that satisfies the gate. Every test whose subject is something else — a hold, a chokepoint
+// contract — posts this, so the gate is never accidentally the thing being asserted.
+function authorizedRelease() {
+  return {
+    kind: "released",
+    borrower: { kind: "external", name: "A. Collector" },
+    releaseAuthorization: {
+      authorityBasis: "owner collecting their own original in person",
+      identityEvidence: "photographic identification checked against the Directory record",
+      identityVerifiedByUserId: ownerUserId,
+    },
+  };
 }
 
 describe("the custody register end to end", () => {
@@ -244,9 +260,11 @@ describe("the custody register end to end", () => {
     expect(placed.status).toBe(201);
     const { id: holdId } = (await placed.json()) as { id: string };
 
-    const blocked = await post(`/api/v1/custody/packets/${packetId}/movements`, {
-      kind: "released",
-    });
+    // Authorized in full, so the 409 is the hold refusing it and not the release gate.
+    const blocked = await post(
+      `/api/v1/custody/packets/${packetId}/movements`,
+      authorizedRelease(),
+    );
     expect(blocked.status).toBe(409);
 
     // A hold forbids the property leaving, not being moved somewhere safer.
@@ -259,10 +277,77 @@ describe("the custody register end to end", () => {
 
     const released = await post(`/api/v1/custody/holds/${holdId}/release`, {});
     expect(released.status).toBe(200);
-    const nowReleasable = await post(`/api/v1/custody/packets/${packetId}/movements`, {
-      kind: "released",
-    });
+    const nowReleasable = await post(
+      `/api/v1/custody/packets/${packetId}/movements`,
+      authorizedRelease(),
+    );
     expect(nowReleasable.status).toBe(201);
+  });
+
+  // Gated release over the wire: the refusal carries its own problem type, because a client shows
+  // "this release still needs an identity check" differently from "that request was malformed".
+  it("refuses a release that captures no authority or identity, then accepts it once captured", async () => {
+    const safe = await createLocation("Gated safe", "safe");
+    const ownerEntityId = await createPerson("Gated", "Owner");
+    const logged = await post("/api/v1/custody/packets", {
+      name: "Gated release packet",
+      owners: [{ entityId: ownerEntityId }],
+      currentLocationId: safe,
+    });
+    const { id: packetId } = (await logged.json()) as { id: string };
+
+    const ungated = await post(`/api/v1/custody/packets/${packetId}/movements`, {
+      kind: "released",
+      borrower: { kind: "external", name: "A. Collector" },
+    });
+    expect(ungated.status).toBe(422);
+    expect(await ungated.json()).toMatchObject({
+      type: "https://api.magnacarta.esq/problems/custody-release-not-authorized",
+    });
+
+    // The refusal wrote nothing: the packet is still held, so the corrected retry a moment later is
+    // an ordinary release rather than a movement on a packet the failed attempt already closed.
+    const stillHeld = await get(`/api/v1/custody/packets/${packetId}`);
+    expect(await stillHeld.json()).toMatchObject({ status: "held" });
+
+    const authorized = await post(
+      `/api/v1/custody/packets/${packetId}/movements`,
+      authorizedRelease(),
+    );
+    expect(authorized.status).toBe(201);
+    expect(await authorized.json()).toMatchObject({ packetStatus: "released" });
+
+    // The capture is on the ledger row, which is the only place it could be worth anything: the row
+    // cannot be updated or deleted, so what was recorded before the property left stays recorded.
+    const history = await get(`/api/v1/custody/packets/${packetId}/movements`);
+    const historyBody = (await history.json()) as {
+      data: Array<{ kind: string; releaseAuthorityBasis: string | null }>;
+    };
+    expect(historyBody.data.find((movement) => movement.kind === "released")).toMatchObject({
+      releaseAuthorityBasis: "owner collecting their own original in person",
+    });
+  });
+
+  // Release capture on anything else would read as evidence of a check nobody made, on a movement
+  // nothing gates.
+  it("refuses release capture attached to a check-out (422)", async () => {
+    const safe = await createLocation("Miscapture safe", "safe");
+    const ownerEntityId = await createPerson("Miscapture", "Owner");
+    const logged = await post("/api/v1/custody/packets", {
+      name: "Miscaptured packet",
+      owners: [{ entityId: ownerEntityId }],
+      currentLocationId: safe,
+    });
+    const { id: packetId } = (await logged.json()) as { id: string };
+
+    const response = await post(`/api/v1/custody/packets/${packetId}/movements`, {
+      ...authorizedRelease(),
+      kind: "checked_out",
+    });
+    expect(response.status).toBe(422);
+    expect(await response.json()).toMatchObject({
+      type: "https://api.magnacarta.esq/problems/custody-invalid-movement",
+    });
   });
 
   it("produces exactly one ledger row for a retried movement", async () => {
@@ -293,7 +378,7 @@ describe("the custody register end to end", () => {
       key,
     );
     expect(retry.status).toBe(201);
-    expect(((await retry.json()) as { id: string }).id).toBe(firstId);
+    expect((await retry.json()).id).toBe(firstId);
 
     const history = await get(`/api/v1/custody/packets/${packetId}/movements`);
     const historyBody = (await history.json()) as { data: Array<{ kind: string }> };

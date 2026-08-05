@@ -177,6 +177,20 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "pseudonymize-keep",
     note: "an external borrower with no Directory record — the only handle erasure has on them",
   },
+  // The release gate's identity capture resolves to the same person the borrower columns above name —
+  // whoever collected the property — so it is keyed and pseudonymized on the same footing, and for the
+  // same reason the frozen borrower name is: an external collector has no Directory record to scrub at.
+  // The verifier and the witness are firm members, and sit in the administrative-provenance class
+  // recorded_by_user_id already sits in. release_authority_basis is deliberately NOT a key: it
+  // describes a document ("grant of probate dated 3 March"), and where it names a person it does so as
+  // free text with no structured subject to resolve — the residue class custody_item.description and
+  // matter.description sit in, alongside this table's own reason and note.
+  {
+    table: "custody_movement",
+    subjectKey: "release_identity_evidence",
+    action: "pseudonymize-keep",
+    note: "how the person collecting an original was identified, frozen on an append-only row that can never be edited",
+  },
   // Trust accounting. The sub-ledger node is the one trust table with a structured subject
   // reference: it says the firm holds money for this client on this matter. That is retained on the
   // same basis as matter_party and the custody owner link — a record of client money the firm is
