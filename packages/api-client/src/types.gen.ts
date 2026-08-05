@@ -2813,7 +2813,7 @@ export type DecryptionRecoverStatusResponses = {
 export type DecryptionRecoverStatusResponse = DecryptionRecoverStatusResponses[keyof DecryptionRecoverStatusResponses];
 
 export type FileIntegrityHashData = {
-    body?: never;
+    body: unknown;
     path?: never;
     query?: {
         expected?: string;
@@ -6962,7 +6962,7 @@ export type DocumentsForceReleaseResponses = {
 export type DocumentsForceReleaseResponse = DocumentsForceReleaseResponses[keyof DocumentsForceReleaseResponses];
 
 export type ScanDiagnoseData = {
-    body?: never;
+    body: unknown;
     path?: never;
     query?: never;
     url: '/api/v1/scan/diagnose';
