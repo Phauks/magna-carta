@@ -210,7 +210,7 @@ document and the stuck alarm failing a job that never reports.
       (`[outcome, reason, absenceCount]`). `metrics.ts` — `documentAssembly.jobs` `[outcome, stage]`,
       `documentAssembly.absentField` `[source]`, `documentTemplate.normalization`
       `[outcome, placeholderForm]`. No merge-field key is ever a dimension.
-- [ ] `packages/fixtures/src/load-profile/` — a `documentAutomation` volume profile (templates per
+- [x] `packages/fixtures/src/load-profile/` — a `documentAutomation` volume profile (templates per
       firm, fields per template, assemblies per matter) plus the four measured operations from the
       design's load-profile section; regenerate the committed baseline and confirm the plan scan
       shows index walks.

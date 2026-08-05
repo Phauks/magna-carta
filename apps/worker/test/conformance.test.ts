@@ -12,8 +12,26 @@ import {
   defineOpenAPIRoute,
   isMutatingMethod,
   MUTATING_METHODS,
+  nonJsonRequestBodyMediaTypes,
   type RouteMeta,
 } from "../src/contracts/route-meta.ts";
+
+// The route sources, inlined at build time, for the raw-body source scan below. Declared here on the
+// same pattern the billing fitness scans use (see billing-freeze-fitness.test.ts).
+declare global {
+  interface ImportMeta {
+    glob(
+      pattern: string,
+      options: { query: string; import: string; eager: true },
+    ): Record<string, string>;
+  }
+}
+
+const ROUTE_SOURCES = import.meta.glob("../src/routes/*.ts", {
+  query: "?raw",
+  import: "default",
+  eager: true,
+});
 
 type Operation = Record<string, unknown>;
 const OPERATION_ID_SHAPE = /^[a-z][a-zA-Z0-9]*\.[a-z][a-zA-Z0-9]*$/;
@@ -269,6 +287,60 @@ function moneyRegistrationGapViolations(
         `${method.toUpperCase()} ${path}: "${namespace}" is a money subsystem — add it to MONEY_NAMESPACES so the idempotency-required gate covers it`,
       );
     }
+  }
+  return violations;
+}
+
+// Rule: no operation with a non-JSON request body declares idempotency: required.
+//
+// The chokepoint's required-idempotency gate fingerprints a request by reading its body through Hono's
+// body cache, which caches the DECODED TEXT. Bytes that are not valid UTF-8 do not survive that round
+// trip, so a raw-bytes body on a required-idempotency route reaches the handler mangled — and a handler
+// that stores it as the firm's verbatim original stores a corrupted copy that hashes to nothing.
+// defineOpenAPIRoute refuses the combination at registration time; this is the document-level backstop
+// (a hand-edited snapshot, or a route not built through the wrapper), and it applies the same media-type
+// rule the guard applies rather than a second copy of it.
+function binaryBodyIdempotencyViolations(
+  document: ReturnType<typeof buildOpenAPIDocument>,
+): string[] {
+  const violations: string[] = [];
+  for (const { path, method, operation } of operations(document)) {
+    if (operation["x-mc-idempotency"] !== "required") continue;
+    const body = operation.requestBody as { content?: Record<string, unknown> } | undefined;
+    const nonJson = nonJsonRequestBodyMediaTypes({ request: { body } });
+    if (nonJson.length > 0) {
+      violations.push(
+        `${method.toUpperCase()} ${path}: x-mc-idempotency "required" with the non-JSON request body media type(s) ${nonJson.join(", ")} — the gate's fingerprint would mangle those bytes; declare "optional" and key the effect in the handler`,
+      );
+    }
+  }
+  return violations;
+}
+
+// The companion source scan, closing the blind spot the document rule cannot see: a route that reads
+// the request body as RAW BYTES without declaring a request body at all (fileIntegrity.hash and
+// scan.diagnose both stream `c.req.raw.body` under an undeclared body). The emitted document shows no
+// media type for those, so the rule above would not notice one flipping to "required" — but the
+// corruption would be identical. Granularity is the route MODULE: a module that reads a request body
+// raw must not also declare idempotency: "required", because the two cannot be paired safely and a
+// module doing both deserves a human deciding which route is which.
+const RAW_REQUEST_BODY_READ_PATTERN =
+  /\b(?:c|context)\.req\.(?:raw\.body|arrayBuffer\(\)|blob\(\)|bytes\(\)|formData\(\))/;
+const REQUIRED_IDEMPOTENCY_DECLARATION = /idempotency:\s*"required"/;
+// The escape hatch, matching the marker convention the billing fitness scans use: a module that
+// legitimately pairs a raw-bytes route with an unrelated required-idempotency route marks itself, and
+// the marker is the record that a human made that call.
+const RAW_BODY_ALLOW_MARKER = "fitness:allow-raw-body-with-required-idempotency";
+
+function rawBodyModuleIdempotencyViolations(sources: Record<string, string>): string[] {
+  const violations: string[] = [];
+  for (const [path, source] of Object.entries(sources)) {
+    if (source.includes(RAW_BODY_ALLOW_MARKER)) continue;
+    if (!RAW_REQUEST_BODY_READ_PATTERN.test(source)) continue;
+    if (!REQUIRED_IDEMPOTENCY_DECLARATION.test(source)) continue;
+    violations.push(
+      `${path}: reads the request body as raw bytes AND declares idempotency: "required" — the required-idempotency gate's fingerprint decodes the body as text, so those bytes would reach the handler mangled`,
+    );
   }
   return violations;
 }
@@ -536,7 +608,7 @@ function documentForRoute(
   return app.getOpenAPI31Document({
     openapi: "3.1.0",
     info: { title: "neg", version: "0.0.0" },
-  }) as ReturnType<typeof buildOpenAPIDocument>;
+  });
 }
 
 // Some invariants are ALSO guarded by defineOpenAPIRoute at registration time (operationId shape, a
@@ -1079,6 +1151,114 @@ describe("conformance — the committed contract holds, and each rule catches a 
       expect(componentNameCollisions(app as ReturnType<typeof createApp>).length).toBeGreaterThan(
         0,
       );
+    });
+  });
+
+  describe("a raw-bytes request body never rides the required-idempotency gate", () => {
+    it("the committed contract satisfies it", () => {
+      expect(binaryBodyIdempotencyViolations(document)).toEqual([]);
+    });
+
+    it("is not vacuous — the document really carries both required-idempotency and non-JSON-body routes", () => {
+      // Either half missing would make the rule pass trivially: with no required-idempotency route
+      // there is nothing to check, and with no octet-stream route the hazard could not arise at all.
+      let requiredCount = 0;
+      let nonJsonBodyCount = 0;
+      for (const { operation } of operations(document)) {
+        if (operation["x-mc-idempotency"] === "required") requiredCount += 1;
+        const body = operation.requestBody as { content?: Record<string, unknown> } | undefined;
+        if (nonJsonRequestBodyMediaTypes({ request: { body } }).length > 0) nonJsonBodyCount += 1;
+      }
+      expect(requiredCount).toBeGreaterThan(10);
+      expect(nonJsonBodyCount).toBeGreaterThan(0);
+    });
+
+    it("flags an operation pairing a required-idempotency posture with an octet-stream body", () => {
+      const violations = binaryBodyIdempotencyViolations(
+        documentWithOperations([
+          {
+            method: "post",
+            path: "/api/v1/widgets",
+            operation: rawOperation({
+              "x-mc-idempotency": "required",
+              requestBody: { content: { "application/octet-stream": { schema: {} } } },
+            }),
+          },
+        ]),
+      );
+      expect(violations.length).toBe(1);
+      expect(violations[0]).toContain("application/octet-stream");
+    });
+
+    it("allows a JSON body and the +json structured suffix under required idempotency", () => {
+      for (const mediaType of ["application/json", "application/merge-patch+json"]) {
+        expect(
+          binaryBodyIdempotencyViolations(
+            documentWithOperations([
+              {
+                method: "post",
+                path: "/api/v1/widgets",
+                operation: rawOperation({
+                  "x-mc-idempotency": "required",
+                  requestBody: { content: { [mediaType]: { schema: {} } } },
+                }),
+              },
+            ]),
+          ),
+        ).toEqual([]);
+      }
+    });
+
+    it("defineOpenAPIRoute refuses the combination at registration time", () => {
+      // The document rule above is the backstop; the guard is what makes the hazard unreachable, so a
+      // route author gets a startup failure rather than a CI failure after the fact.
+      expect(() =>
+        defineOpenAPIRoute(baseMeta({ idempotency: "required" }), {
+          method: "post",
+          path: "/api/v1/widgets",
+          description: "A deliberately-constructed route for the conformance negative control.",
+          request: {
+            headers: z.object({ "idempotency-key": z.string() }),
+            body: { content: { "application/octet-stream": { schema: z.any() } } },
+          },
+          responses: okResponse,
+        }),
+      ).toThrow(/application\/octet-stream/);
+    });
+
+    it("no route module pairs a raw request-body read with a required-idempotency declaration", () => {
+      // Non-vacuity floors first: the glob resolved the route modules, and it really sees both a
+      // raw-body reader and a required-idempotency declaration among them — otherwise the scan below
+      // would be checking an empty intersection of two empty sets.
+      const sources: Record<string, string> = ROUTE_SOURCES;
+      expect(Object.keys(sources).length).toBeGreaterThan(20);
+      const rawBodyModules = Object.keys(sources).filter((key) =>
+        RAW_REQUEST_BODY_READ_PATTERN.test(sources[key]!),
+      );
+      const requiredModules = Object.keys(sources).filter((key) =>
+        REQUIRED_IDEMPOTENCY_DECLARATION.test(sources[key]!),
+      );
+      expect(rawBodyModules.length).toBeGreaterThan(0);
+      expect(requiredModules.length).toBeGreaterThan(0);
+
+      expect(rawBodyModuleIdempotencyViolations(sources)).toEqual([]);
+    });
+
+    it("flags a module that reads the body raw and declares required idempotency", () => {
+      const violations = rawBodyModuleIdempotencyViolations({
+        "src/routes/widgets.ts":
+          'const meta = { idempotency: "required" };\nconst body = c.req.raw.body;\n',
+      });
+      expect(violations.length).toBe(1);
+      expect(violations[0]).toContain("src/routes/widgets.ts");
+    });
+
+    it("honours the allow marker for a module that legitimately carries both", () => {
+      expect(
+        rawBodyModuleIdempotencyViolations({
+          "src/routes/widgets.ts": `// ${RAW_BODY_ALLOW_MARKER}: the raw-bytes route and the keyed route are different routes.\nconst meta = { idempotency: "required" };\nconst body = c.req.raw.body;\n`,
+        }),
+      ).toEqual([]);
     });
   });
 

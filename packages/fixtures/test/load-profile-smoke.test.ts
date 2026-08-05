@@ -47,6 +47,12 @@ import {
   conflictsMeasurements,
   CONFLICTS_PLAN_SCAN_ALLOWLIST,
 } from "../src/load-profile/conflicts-measurements.ts";
+import {
+  documentAutomationHotPathPlans,
+  documentAutomationMeasurementHandle,
+  documentAutomationMeasurements,
+  DOCUMENT_AUTOMATION_PLAN_SCAN_ALLOWLIST,
+} from "../src/load-profile/document-automation-measurements.ts";
 import { ledgerVolume, scaleProfile } from "../src/load-profile/profile.ts";
 import { findFullScans, findTempBtreeSorts, runMeasurements } from "../src/load-profile/runner.ts";
 import { loadProfileSnapshot, type LoadedSnapshot } from "../src/load-profile/snapshot.ts";
@@ -214,6 +220,29 @@ describe("load-profile smoke", () => {
       expect(result.minMs).toBeGreaterThanOrEqual(0);
     }
 
+    // The document-automation measured set runs under its own (async) handle — it parses the probe
+    // version's stored manifest and derives the firm's dictionary from the same catalogue read the
+    // production path uses, so a manifest or a dictionary that stopped resolving fails here.
+    const automationHandle = await documentAutomationMeasurementHandle(snapshot);
+    expect(automationHandle.probeCustomHandles.length).toBeGreaterThan(0);
+    const automationResults = await runMeasurements(
+      automationHandle,
+      documentAutomationMeasurements,
+      { warmupIterations: 1, iterations: 2 },
+    );
+    expect(automationResults.map((result) => result.name).sort()).toEqual(
+      [
+        "templates.list-catalogue",
+        "templates.version-for-assembly",
+        "assembly.merge-context",
+        "templates.custom-field-catalog",
+      ].sort(),
+    );
+    for (const result of automationResults) {
+      expect(result.iterations).toBe(2);
+      expect(result.minMs).toBeGreaterThanOrEqual(0);
+    }
+
     // The co-party surfacing path is not merely timed but PROVEN expressed: the identically-named
     // co-party pair makes each member a co-party hit of the other, so the append-only log the checks
     // just wrote into the working copy carries at least one row flagged co_party = 1.
@@ -338,6 +367,24 @@ describe("load-profile smoke", () => {
       ].sort(),
     );
     expect(findFullScans(conflictsPlans, CONFLICTS_PLAN_SCAN_ALLOWLIST)).toEqual([]);
+
+    // The document-automation hot-path plans: same label-set-first guard, then the scan check. The
+    // catalogue list walks (status, name); the version resolve seeks the version's primary key and joins
+    // its catalogue row's; the merge context's three reads each seek by matter or by handle. Only the
+    // firm's field catalogue — table-wide by nature, since the dictionary IS the whole set — is
+    // allowlisted.
+    const automationPlans = documentAutomationHotPathPlans(automationHandle);
+    expect(automationPlans.map((plan) => plan.label).sort()).toEqual(
+      [
+        "templates.list-catalogue",
+        "templates.version-for-assembly",
+        "assembly.merge-context.matter",
+        "assembly.merge-context.parties",
+        "assembly.merge-context.custom-field-values",
+        "templates.custom-field-catalog",
+      ].sort(),
+    );
+    expect(findFullScans(automationPlans, DOCUMENT_AUTOMATION_PLAN_SCAN_ALLOWLIST)).toEqual([]);
 
     snapshot.close();
   });

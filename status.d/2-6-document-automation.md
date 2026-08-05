@@ -7,7 +7,7 @@ spec: done by="Opus 4.8"
 plan: done by="Opus 4.8"
 built: in-progress by="Opus 4.8"
 ui: todo
-load-profile: todo
+load-profile: done by="Opus 4.8"
 tested: in-progress by="Opus 4.8"
 branch: claude/automation-letterhead-custom-fields
 active-work: docs/active-work/claude-automation-letterhead-custom-fields.md
@@ -104,6 +104,30 @@ a declared content type**, enforced at the write and re-checked at assembly; SVG
 TIFF are refused with the reasoning recorded. An office with no logo, or one whose object has gone,
 assembles with a visible marker.
 
+The **load-profile volume profile** deferred by all three build slices is now in the harness. A
+`documentAutomation` volume lays down the firm's template catalogue with its immutable version history,
+an archived tail, the confirmed Word-name-to-merge-key mapping library, and the assembly provenance
+rows — every write through the real composed effects, never a raw insert — plus, on one probe matter
+deliberately chosen NOT to be the custom-field measurements' own probe, the merge-context hot case: the
+firm's own matter-axis fields with current values, and a full party list. At the committed baseline
+that is 181 templates over 479 versions with 27 archived, 1,605 assemblies, 120 mapping rows, and a
+probe matter carrying 40 custom-field values and 13 party links.
+
+The four measured operations the design names are on the clock: the catalogue list taken at a real
+keyset boundary rather than at the head of the table, the one-read current-version resolve every job
+starts with, the whole batched merge context for the widest template the firm's dictionary can offer,
+and the custom-field manifest read the dictionary is derived from. **Every hot-path plan is an index
+walk — the scan allowlist for this set is empty.** The read the design flagged as the likely table-wide
+exception, the firm's field catalogue, walks `custom_field_scope_index` instead. What the merge-context
+measurement is really for is the batching rule: its cost tracks the number of SOURCES, not the number
+of fields, so a per-field resolver reintroduced later shows up as a curve rather than as a code review.
+
+The declared-field count per template version is bounded by the dictionary rather than by the profile:
+a manifest field is keyed by its merge key, so the probe template declares every key the firm has for
+that matter — 17 platform keys plus its 40 custom bindings, at 113 placeholder occurrences. The number
+the batching rule is about is the 40-handle bound-parameter list of the one value statement, and that
+is the parameter the profile carries.
+
 Remaining for the subsystem: Directory role sources and protected-value binding, PDF output and the
-signature hand-off (2·6·3), authoring surfaces (2·6·4), the office-settings UI for the logo, the
-interface seams, and the load-profile volume profile.
+signature hand-off (2·6·3), authoring surfaces (2·6·4), the office-settings UI for the logo, and the
+interface seams.

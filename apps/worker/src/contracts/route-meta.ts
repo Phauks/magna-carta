@@ -81,6 +81,25 @@ type DescribedRouteConfig<P extends string> = Omit<RouteConfig, "path"> & {
   description: string;
 };
 
+// A request body media type the chokepoint's required-idempotency gate can fingerprint safely.
+// The gate derives its fingerprint with `req.json()`, which populates Hono's body cache with the
+// DECODED TEXT; every later read of the body is re-encoded from that cached text, so bytes that are
+// not valid UTF-8 do not survive the round trip and a handler's own `arrayBuffer()` either returns
+// mangled bytes or inherits the cached rejection. JSON (and the `+json` structured-suffix family) is
+// text by definition, so it round-trips exactly; anything else does not.
+const JSON_MEDIA_TYPE_PATTERN = /^application\/json$|\+json$/;
+
+// The media types a route's declared request body offers that the fingerprint cannot round-trip.
+// Exported so the conformance fitness function over the emitted document applies the SAME rule this
+// registration-time guard applies — one definition of "non-JSON body", two enforcement points.
+export function nonJsonRequestBodyMediaTypes(routeConfig: {
+  request?: { body?: { content?: Record<string, unknown> } };
+}): string[] {
+  const content = routeConfig.request?.body?.content;
+  if (content === undefined) return [];
+  return Object.keys(content).filter((mediaType) => !JSON_MEDIA_TYPE_PATTERN.test(mediaType));
+}
+
 // Documentation-only flip for idempotency-required routes: the shared
 // idempotencyKeyHeader fragment is optional at the schema layer (presence enforcement belongs to
 // the chokepoint middleware, which replies with the registered idempotency-key-missing problem),
@@ -173,6 +192,26 @@ export function defineOpenAPIRoute<P extends string, R extends DescribedRouteCon
         `(mutating) route but names permission: null — the chokepoint would read that as ` +
         `"any authenticated user," letting any logged-in user perform it (privilege escalation by ` +
         `omission); name the capability this mutation requires from the access-control registry.`,
+    );
+  }
+
+  // #3 A route whose request body is raw bytes cannot use the chokepoint's required-idempotency
+  // gate. The gate fingerprints the request by reading its body through Hono's body cache, which
+  // caches the decoded TEXT — so a `.msg`, an image, or any other 8-bit body reaches the handler
+  // re-encoded from that text (every invalid UTF-8 sequence replaced), and a handler that stores it
+  // as the firm's verbatim original stores a corrupted copy that hashes to nothing. The supported
+  // form for such a route is `idempotency: "optional"` plus the handler running runIdempotentEffect
+  // itself, fingerprinted over the bytes it actually received — see
+  // apps/worker/src/routes/emails.ts, which does exactly that. This is a startup failure rather than
+  // a review convention because the corruption is silent at every layer below it.
+  const nonJsonBodyTypes = nonJsonRequestBodyMediaTypes(routeConfig);
+  if (meta.idempotency === "required" && nonJsonBodyTypes.length > 0) {
+    throw new TypeError(
+      `Route ${JSON.stringify(meta.operationId)} declares idempotency: "required" but its request ` +
+        `body offers the non-JSON media type(s) ${nonJsonBodyTypes.map((type) => JSON.stringify(type)).join(", ")} — ` +
+        `the required-idempotency gate fingerprints the body through Hono's text-decoding body ` +
+        `cache, so those bytes would reach the handler mangled. Declare idempotency: "optional" ` +
+        `and honour the Idempotency-Key in the handler, against the bytes it received.`,
     );
   }
 

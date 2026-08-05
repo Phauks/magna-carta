@@ -213,13 +213,14 @@ export interface ListTemplatesParams {
   readonly afterId?: string;
 }
 
-// The catalogue list. Filters on status and sorts by name, which is exactly what the
+// The catalogue list's statement. Filters on status and sorts by name, which is exactly what the
 // (status, name) index covers, so this is an index walk rather than a scan even at the top of the
-// expected range (a few hundred templates per firm).
-export async function listDocumentTemplates(
+// expected range (a few hundred templates per firm). Split out from the read below so the load-profile
+// harness's EXPLAIN probe runs the REAL query rather than a copy of it that could drift.
+export function listDocumentTemplatesStatement(
   database: SqlDatabase,
   params: ListTemplatesParams,
-): Promise<DocumentTemplateRow[]> {
+): SqlStatement {
   const status = params.status ?? "active";
   const conditions = ["status = ?1"];
   const bindings: unknown[] = [status];
@@ -232,12 +233,21 @@ export async function listDocumentTemplates(
     conditions.push(`(name, id) > (?${bindings.length - 1}, ?${bindings.length})`);
   }
   bindings.push(params.limit);
-  const { results } = await database
+  return database
     .prepare(
       `${SELECT_TEMPLATE_COLUMNS} WHERE ${conditions.join(" AND ")} ORDER BY name ASC, id ASC LIMIT ?${bindings.length}`,
     )
-    .bind(...bindings)
-    .all<DocumentTemplateColumns>();
+    .bind(...bindings);
+}
+
+export async function listDocumentTemplates(
+  database: SqlDatabase,
+  params: ListTemplatesParams,
+): Promise<DocumentTemplateRow[]> {
+  const { results } = await listDocumentTemplatesStatement(
+    database,
+    params,
+  ).all<DocumentTemplateColumns>();
   return results.map(toDocumentTemplateRow);
 }
 
@@ -325,27 +335,35 @@ export interface TemplateVersionForAssembly {
   readonly normalizerVersion: number;
 }
 
+// Split out from the read below for the same reason as the catalogue list's: the load-profile harness
+// probes the REAL query rather than a copy that could drift out of step with it.
+export function readTemplateVersionForAssemblyStatement(
+  database: SqlDatabase,
+  versionId: DocumentTemplateVersionId,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT v.id AS id, v.template_id AS template_id, t.name AS template_name, t.status AS template_status, v.version_number AS version_number, v.r2_key AS r2_key, v.content_sha256 AS content_sha256, v.status AS status, v.field_manifest_json AS field_manifest_json, v.normalizer_version AS normalizer_version FROM ${DOCUMENT_TEMPLATE_VERSION_TABLE} v JOIN ${DOCUMENT_TEMPLATE_TABLE} t ON t.id = v.template_id WHERE v.id = ?1`,
+    )
+    .bind(versionId);
+}
+
 export async function readTemplateVersionForAssembly(
   database: SqlDatabase,
   versionId: DocumentTemplateVersionId,
 ): Promise<TemplateVersionForAssembly | undefined> {
-  const { results } = await database
-    .prepare(
-      `SELECT v.id AS id, v.template_id AS template_id, t.name AS template_name, t.status AS template_status, v.version_number AS version_number, v.r2_key AS r2_key, v.content_sha256 AS content_sha256, v.status AS status, v.field_manifest_json AS field_manifest_json, v.normalizer_version AS normalizer_version FROM ${DOCUMENT_TEMPLATE_VERSION_TABLE} v JOIN ${DOCUMENT_TEMPLATE_TABLE} t ON t.id = v.template_id WHERE v.id = ?1`,
-    )
-    .bind(versionId)
-    .all<{
-      id: string;
-      template_id: string;
-      template_name: string;
-      template_status: string;
-      version_number: number;
-      r2_key: string;
-      content_sha256: string | null;
-      status: string;
-      field_manifest_json: string;
-      normalizer_version: number;
-    }>();
+  const { results } = await readTemplateVersionForAssemblyStatement(database, versionId).all<{
+    id: string;
+    template_id: string;
+    template_name: string;
+    template_status: string;
+    version_number: number;
+    r2_key: string;
+    content_sha256: string | null;
+    status: string;
+    field_manifest_json: string;
+    normalizer_version: number;
+  }>();
   const row = results[0];
   if (row === undefined) return undefined;
   return {

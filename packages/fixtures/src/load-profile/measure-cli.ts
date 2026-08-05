@@ -51,6 +51,12 @@ import {
   conflictsMeasurements,
   CONFLICTS_PLAN_SCAN_ALLOWLIST,
 } from "./conflicts-measurements.ts";
+import {
+  documentAutomationHotPathPlans,
+  documentAutomationMeasurementHandle,
+  documentAutomationMeasurements,
+  DOCUMENT_AUTOMATION_PLAN_SCAN_ALLOWLIST,
+} from "./document-automation-measurements.ts";
 import { ledgerVolume } from "./profile.ts";
 import { findFullScans, runMeasurements, writeBaselineFile } from "./runner.ts";
 import { loadProfileSnapshot } from "./snapshot.ts";
@@ -69,8 +75,12 @@ const snapshot = await loadProfileSnapshot(ledgerVolume, BASELINE_SEED, { allowS
 // dev-only CLI either moves onto the telemetry logger or gets an explicit exemption (never Worker
 // code).
 console.log(
-  `snapshot ${snapshot.cacheKey}: ${snapshot.manifest.entryCount} entries, ${snapshot.manifest.matterCount} matters, ${snapshot.manifest.fileCount} files (${snapshot.manifest.fileVersionCount} versions), ${snapshot.manifest.folderCount} folders, ${snapshot.manifest.incidentCount} sealed incidents, ${snapshot.manifest.firmSecretCount} firm secrets, ${snapshot.manifest.directoryPersonCount} persons, ${snapshot.manifest.directoryOrganizationCount} organizations, ${snapshot.manifest.shipmentCount} shipments (${snapshot.manifest.trackingEventCount} tracking events), ${snapshot.manifest.customFieldDefinitionCount} custom fields (${snapshot.manifest.customFieldValueCount} values), ${snapshot.manifest.timeEntryCount} time entries (${snapshot.manifest.rateCount} rates, ${snapshot.manifest.rateCardCount} cards) (profile v${snapshot.manifest.profile.version})`,
+  `snapshot ${snapshot.cacheKey}: ${snapshot.manifest.entryCount} entries, ${snapshot.manifest.matterCount} matters, ${snapshot.manifest.fileCount} files (${snapshot.manifest.fileVersionCount} versions), ${snapshot.manifest.folderCount} folders, ${snapshot.manifest.incidentCount} sealed incidents, ${snapshot.manifest.firmSecretCount} firm secrets, ${snapshot.manifest.directoryPersonCount} persons, ${snapshot.manifest.directoryOrganizationCount} organizations, ${snapshot.manifest.shipmentCount} shipments (${snapshot.manifest.trackingEventCount} tracking events), ${snapshot.manifest.customFieldDefinitionCount} custom fields (${snapshot.manifest.customFieldValueCount} values), ${snapshot.manifest.timeEntryCount} time entries (${snapshot.manifest.rateCount} rates, ${snapshot.manifest.rateCardCount} cards), ${snapshot.manifest.documentTemplateCount} document templates (${snapshot.manifest.documentTemplateVersionCount} versions, ${snapshot.manifest.archivedDocumentTemplateCount} archived), ${snapshot.manifest.documentAssemblyCount} assemblies, ${snapshot.manifest.documentFieldMappingCount} field mappings (profile v${snapshot.manifest.profile.version})`,
 );
+
+// The automation handle is built before the scan gate: its plan probes bind to the probe manifest's
+// own custom-field handles, so the handle has to exist before the plans can be taken.
+const automationHandle = await documentAutomationMeasurementHandle(snapshot);
 
 const scans = [
   ...findFullScans(hotPathPlans(snapshot), PLAN_SCAN_ALLOWLIST),
@@ -82,6 +92,10 @@ const scans = [
   ...findFullScans(editingHotPathPlans(snapshot), EDITING_PLAN_SCAN_ALLOWLIST),
   ...findFullScans(timekeepingHotPathPlans(snapshot), TIMEKEEPING_PLAN_SCAN_ALLOWLIST),
   ...findFullScans(conflictsHotPathPlans(snapshot), CONFLICTS_PLAN_SCAN_ALLOWLIST),
+  ...findFullScans(
+    documentAutomationHotPathPlans(automationHandle),
+    DOCUMENT_AUTOMATION_PLAN_SCAN_ALLOWLIST,
+  ),
 ];
 if (scans.length > 0) {
   // A scan regression must never be baked into a committed baseline — fail before measuring.
@@ -126,6 +140,10 @@ const results = [
     conflictsMeasurements,
     { warmupIterations: 3, iterations: 30 },
   )),
+  ...(await runMeasurements(automationHandle, documentAutomationMeasurements, {
+    warmupIterations: 3,
+    iterations: 30,
+  })),
 ];
 for (const result of results) {
   console.log(
