@@ -106,6 +106,34 @@ export const costsRecoveryUnhandledTopic = defineMetric("costs.recovery.unhandle
   "topic",
 ] as const);
 
+// Document automation. A MERGE-FIELD KEY IS NOT A DIMENSION here: dictionary-declared keys are
+// enum-like and would be tolerable, but a firm's own custom-field entries are keyed by firm-defined
+// handles, and a rule that admits one and not the other is a rule that gets applied wrongly. `source`
+// is the dimension; the key is recorded on the per-firm assembly row instead.
+export const documentAssemblyJobs = defineMetric("documentAssembly.jobs", [
+  "outcome",
+  "stage",
+] as const);
+// How often each dictionary source fails to resolve — the signal that a firm's templates and a firm's
+// data have drifted apart, which is the condition the field inspector exists to repair.
+export const documentAssemblyAbsentField = defineMetric("documentAssembly.absentField", [
+  "source",
+] as const);
+// How often an assembly produces a document containing a Word merge field nobody converted, which
+// therefore prints Word's frozen cached text instead of a merged value. The counterpart to the absent
+// field: an absence is a value the firm's data could not supply, this is a blank the merge engine was
+// never asked to fill, and both end as a document a human has to look at before it is filed. The
+// dimension is the construct's FORM, not its name — a Word field name is firm-defined and
+// high-cardinality, the same reason a merge-field key is not a dimension.
+export const documentAssemblyFrozenField = defineMetric("documentAssembly.frozenMergeField", [
+  "form",
+] as const);
+// How often registration rejects a template and which authoring form it came from — the signal that
+// says whether text delimiters were the right primary form.
+export const documentTemplateNormalization = defineMetric("documentTemplate.normalization", [
+  "outcome",
+  "placeholderForm",
+] as const);
 // Custodian — the register of physical client originals. Every dimension here is an enum-like label
 // from a closed set; a CUSTODY NUMBER is never one, for the same reason a merge-field key is not: it
 // is firm-defined, high-cardinality, and printed on a physical object a person can be identified by.
@@ -123,6 +151,22 @@ export const custodyHoldBlocked = defineMetric("custody.holdBlocked", [
 // Draw contention on the custody-number counter, mirroring what the matters counter already teaches
 // us to watch.
 export const custodyNumberDraw = defineMetric("custody.numberDraw", ["outcome"] as const);
+// Reminders the register surfaced, by why they surfaced and how long they have been waiting. This is
+// the aggregate view of the emission point both review dates and overdue check-outs resolve through,
+// so a firm-level "how far behind is this register" is one counter rather than two that can disagree.
+export const custodyRemindersDue = defineMetric("custody.remindersDue", [
+  "reason",
+  "bucket",
+] as const);
+// Completed reviews, by what was reviewed and whether the cycle rolled forward or ended. A review
+// that never reschedules is a firm that set a date once and will not be reminded again.
+export const custodyReviewsCompleted = defineMetric("custody.reviewsCompleted", [
+  "target",
+  "outcome",
+] as const);
+// Label sheets printed, by what went on them. Nothing identifying is a dimension: a label carries a
+// custody number and an identifier handle, and neither is ever counted by value.
+export const custodyLabelsRendered = defineMetric("custody.labelsRendered", ["target"] as const);
 
 // The catalog itself, derived from the declarations above so it cannot drift from them.
 const CATALOG: readonly MetricDefinition[] = [
@@ -142,10 +186,17 @@ const CATALOG: readonly MetricDefinition[] = [
   costsRecoveryReplayedAfterPurge,
   costsRecoveryFingerprintMismatch,
   costsRecoveryUnhandledTopic,
+  documentAssemblyJobs,
+  documentAssemblyAbsentField,
+  documentAssemblyFrozenField,
+  documentTemplateNormalization,
   custodyMovements,
   custodyPacketsOverdue,
   custodyHoldBlocked,
   custodyNumberDraw,
+  custodyRemindersDue,
+  custodyReviewsCompleted,
+  custodyLabelsRendered,
 ];
 
 const BY_NAME = new Map(CATALOG.map((definition) => [definition.metricName, definition]));

@@ -1,0 +1,40 @@
+{
+  "name": "@magna-carta/document-assembly",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./types": "./src/types.ts",
+    "./ooxml-package": "./src/ooxml/package.ts",
+    "./ooxml-parts": "./src/ooxml/parts.ts",
+    "./ooxml-xml": "./src/ooxml/xml.ts",
+    "./macros": "./src/macros.ts",
+    "./normalize": "./src/normalize.ts",
+    "./dictionary": "./src/dictionary.ts",
+    "./format": "./src/format.ts",
+    "./resolve": "./src/resolve.ts",
+    "./assemble": "./src/assemble.ts",
+    "./register": "./src/register.ts",
+    "./template-service": "./src/template-service.ts",
+    "./template-statements": "./src/template-statements.ts",
+    "./field-mapping-statements": "./src/field-mapping-statements.ts",
+    "./assembly-statements": "./src/assembly-statements.ts"
+  },
+  "scripts": {
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@magna-carta/data-access": "workspace:*",
+    "@magna-carta/database": "workspace:*",
+    "@magna-carta/identifiers": "workspace:*",
+    "@magna-carta/money": "workspace:*",
+    "fast-xml-parser": "^5.10.1",
+    "fflate": "^0.8.3"
+  },
+  "devDependencies": {
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "vitest": "catalog:"
+  }
+}

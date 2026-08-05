@@ -71,9 +71,49 @@ describe("custody_movement is append-only at the database", () => {
     }[];
     expect(rows[0]?.total).toBe(2);
   });
+
+  // The ledger table was rebuilt to widen its kind vocabulary — SQLite can only replace a CHECK
+  // constraint that way — so the guarantee has to be re-proved on the table that came out of the
+  // rebuild, not only on the one that went in. These are the three assertions above, plus the two
+  // below that say the rebuild neither lost the old vocabulary nor left the new one out.
+  it("accepts a review as a movement kind", () => {
+    const { raw } = migratedDatabase();
+    seedPacket(raw);
+    raw.exec(
+      `INSERT INTO custody_movement (${MOVEMENT_COLUMNS})
+         VALUES ('custodyMovement_reviewed0000000000', 'custodyPacket_seed0000000000000000', NULL, 'reviewed', '2026-08-05T00:00:00.000Z', '2026-08-05T00:00:00.000Z', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)`,
+    );
+    const rows = raw
+      .prepare(`SELECT kind FROM custody_movement WHERE id = 'custodyMovement_reviewed0000000000'`)
+      .all() as { kind: string }[];
+    expect(rows[0]?.kind).toBe("reviewed");
+  });
+
+  it("still refuses a movement kind outside the vocabulary", () => {
+    const { raw } = migratedDatabase();
+    seedPacket(raw);
+    expect(() =>
+      raw.exec(
+        `INSERT INTO custody_movement (${MOVEMENT_COLUMNS})
+           VALUES ('custodyMovement_invented0000000000', 'custodyPacket_seed0000000000000000', NULL, 'shredded', '2026-08-05T00:00:00.000Z', '2026-08-05T00:00:00.000Z', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)`,
+      ),
+    ).toThrow(/custody_movement_kind_check/);
+  });
 });
 
 describe("the custody schema landed with the register's structural constraints", () => {
+  it("refuses a review interval of zero months", () => {
+    const { raw } = migratedDatabase();
+    seedPacket(raw);
+    // Zero is refused rather than read as "no cycle": reading it as null would let a typo silently
+    // disable a recurring review, which is exactly the failure the review date exists to prevent.
+    expect(() =>
+      raw.exec(
+        `UPDATE custody_packet SET review_interval_months = 0 WHERE id = 'custodyPacket_seed0000000000000000'`,
+      ),
+    ).toThrow(/custody_packet_review_interval_check/);
+  });
+
   it("refuses a check-out that names a borrower kind with no borrower", () => {
     const { raw } = migratedDatabase();
     seedPacket(raw);

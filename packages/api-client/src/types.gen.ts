@@ -1274,6 +1274,8 @@ export type CustodyPacketDetail = {
     matterId: string | null;
     depositorEntityId: string | null;
     depositedAt: string | null;
+    reviewOn: string | null;
+    reviewIntervalMonths: number | null;
     notes: string | null;
     locationPath: Array<CustodyLocation>;
     filingMatterId: string | null;
@@ -1293,6 +1295,8 @@ export type CustodyItem = {
     declaredValueAmountMinor: number | null;
     declaredValueCurrency: string | null;
     status: 'held' | 'out' | 'released' | 'destroyed' | 'lost' | 'superseded';
+    reviewOn: string | null;
+    reviewIntervalMonths: number | null;
 };
 
 export type CustodyOwner = {
@@ -1325,6 +1329,8 @@ export type UpdateCustodyPacketRequest = {
     matterId?: string | null;
     depositorEntityId?: string | null;
     depositedAt?: string | null;
+    reviewOn?: string | null;
+    reviewIntervalMonths?: number | null;
     notes?: string | null;
 };
 
@@ -1348,6 +1354,8 @@ export type UpdateCustodyItemRequest = {
     instrumentDate?: string | null;
     intrinsicValue?: boolean;
     declaredValue?: CustodyDeclaredValue;
+    reviewOn?: string | null;
+    reviewIntervalMonths?: number | null;
 };
 
 export type RecordedCustodyMovementResponse = {
@@ -1356,7 +1364,7 @@ export type RecordedCustodyMovementResponse = {
 };
 
 export type RecordCustodyMovementRequest = {
-    kind: 'logged' | 'itemized' | 'moved' | 'checked_out' | 'returned' | 'withdrawn' | 'released' | 'superseded' | 'destroyed' | 'lost' | 'found' | 'hold_placed' | 'hold_released' | 'correction';
+    kind: 'logged' | 'itemized' | 'moved' | 'checked_out' | 'returned' | 'withdrawn' | 'released' | 'superseded' | 'destroyed' | 'lost' | 'found' | 'reviewed' | 'hold_placed' | 'hold_released' | 'correction';
     itemId?: string;
     occurredAt?: string;
     toLocationId?: string;
@@ -1383,7 +1391,7 @@ export type CustodyMovementPage = {
 export type CustodyMovement = {
     id: string;
     itemId: string | null;
-    kind: 'logged' | 'itemized' | 'moved' | 'checked_out' | 'returned' | 'withdrawn' | 'released' | 'superseded' | 'destroyed' | 'lost' | 'found' | 'hold_placed' | 'hold_released' | 'correction';
+    kind: 'logged' | 'itemized' | 'moved' | 'checked_out' | 'returned' | 'withdrawn' | 'released' | 'superseded' | 'destroyed' | 'lost' | 'found' | 'reviewed' | 'hold_placed' | 'hold_released' | 'correction';
     occurredAt: string;
     recordedAt: string;
     recordedByUserId: string | null;
@@ -1433,6 +1441,57 @@ export type OverdueCustodyCheckout = {
     dueBackOn: string;
     borrowerKind: 'member' | 'entity' | 'external' | null;
     daysOverdue: number;
+};
+
+export type CompletedCustodyReviewResponse = {
+    id: string;
+    nextReviewOn: string | null;
+};
+
+export type CompleteCustodyReviewRequest = {
+    itemId?: string;
+    occurredAt?: string;
+    nextReviewOn?: string | null;
+    note?: string;
+};
+
+export type CustodyReminder = {
+    reason: 'review-due' | 'checkout-overdue';
+    packetId: string;
+    itemId: string | null;
+    custodyNumber: string;
+    dueOn: string;
+    daysOverdue: number;
+    bucket: '0-7d' | '8-30d' | '31-90d' | 'over-90d';
+};
+
+export type CustodyHoldingsByOwner = {
+    entityId: string;
+    packetsHeld: number;
+    packetsOut: number;
+    itemsDescribed: number;
+    packetsUnderHold: number;
+};
+
+export type CustodyLocationOccupancy = {
+    locationId: string;
+    name: string;
+    kind: 'office' | 'room' | 'safe' | 'cabinet' | 'shelf' | 'box' | 'position' | 'offsite' | 'bank';
+    parentLocationId: string | null;
+    status: 'active' | 'closed';
+    depth: number;
+    directOccupancy: number;
+    subtreeOccupancy: number;
+};
+
+export type CustodyPacketUnderHold = {
+    holdId: string;
+    packetId: string;
+    itemId: string | null;
+    custodyNumber: string;
+    kind: 'legal' | 'discovery' | 'client_instruction' | 'dispute' | 'unclaimed';
+    placedAt: string;
+    packetStatus: 'held' | 'out' | 'released' | 'destroyed' | 'lost';
 };
 
 export type CustomFieldAck = {
@@ -1869,6 +1928,182 @@ export type ConversionStatus = {
     url?: string;
     mediaType?: string;
     reason?: string;
+};
+
+export type TemplateUploadResponse = {
+    uploadKey: string;
+    uploadUrl: string;
+};
+
+export type RegisteredTemplate = {
+    templateId: string;
+    versionId: string;
+    versionNumber: number;
+    status: string;
+    fieldCount: number;
+    macrosStripped: boolean;
+    macroPartsRemoved: number;
+    mergeFieldsConverted: boolean;
+    mergeFieldsDetected: Array<TemplateMergeFieldDetection>;
+    unconvertedMergeFields: Array<TemplateUnconvertedMergeField>;
+    confirmedFieldMappings: Array<{
+        fieldName: string;
+        mergeKey: string;
+    }>;
+    warnings: Array<TemplateNormalizationWarning>;
+};
+
+export type TemplateMergeFieldDetection = {
+    fieldName: string;
+    mappedKey: string;
+    part: string;
+    occurrences: number;
+    form: string;
+    mapsToKnownField: boolean;
+    mappedFromLibrary: boolean;
+    frozenText: string;
+};
+
+export type TemplateUnconvertedMergeField = {
+    fieldName: string;
+    mappedKey: string;
+    part: string;
+    occurrences: number;
+    form: string;
+    mapsToKnownField: boolean;
+    frozenText: string;
+};
+
+export type TemplateNormalizationWarning = {
+    code: string;
+    part: string;
+    detail: string;
+};
+
+export type RegisterTemplateRequest = {
+    uploadKey: string;
+    name: string;
+    description?: string | null;
+    matterTypeId?: string | null;
+    locationId?: string | null;
+    /**
+     * Whether to convert Word merge fields in the uploaded document into this system's {{field}} form. Leave this off and the document registers exactly as you authored it, with every Word merge field listed in the response and recorded against the template — but those fields are not filled in by this system, so every document assembled from the template prints the text Word last cached in them, and each assembly reports that too. Turning it on rewrites each one in place: the document registered is then not the document uploaded.
+     */
+    convertMergeFields?: boolean;
+    /**
+     * Whether to remove macro content from the uploaded document. A template is run against privileged client data, so one carrying macros cannot be stored: without this, an upload that contains any is refused, and the response lists what was found. Turning it on removes the macro project along with the content-type and relationship declarations that reference it, re-checks the result from scratch, and refuses the registration outright if anything survived — the document registered is then not the document uploaded. Uploading a macro-free copy of the file is the other way through.
+     */
+    stripMacros?: boolean;
+};
+
+export type RegisterTemplateVersionRequest = {
+    uploadKey: string;
+    /**
+     * Whether to convert Word merge fields in the uploaded document into this system's {{field}} form. Leave this off and the document registers exactly as you authored it, with every Word merge field listed in the response and recorded against the template — but those fields are not filled in by this system, so every document assembled from the template prints the text Word last cached in them, and each assembly reports that too. Turning it on rewrites each one in place: the document registered is then not the document uploaded.
+     */
+    convertMergeFields?: boolean;
+    /**
+     * Whether to remove macro content from the uploaded document. A template is run against privileged client data, so one carrying macros cannot be stored: without this, an upload that contains any is refused, and the response lists what was found. Turning it on removes the macro project along with the content-type and relationship declarations that reference it, re-checks the result from scratch, and refuses the registration outright if anything survived — the document registered is then not the document uploaded. Uploading a macro-free copy of the file is the other way through.
+     */
+    stripMacros?: boolean;
+};
+
+export type TemplatePage = {
+    data: Array<TemplateSummary>;
+    nextCursor: string | null;
+};
+
+export type TemplateSummary = {
+    templateId: string;
+    name: string;
+    description: string | null;
+    matterTypeId: string | null;
+    locationId: string | null;
+    status: string;
+    currentVersionId: string | null;
+    createdAt: string;
+    updatedAt: string;
+};
+
+export type TemplateFields = {
+    templateId: string;
+    versionId: string;
+    versionNumber: number;
+    normalizerVersion: number;
+    fields: Array<TemplateFieldEntry>;
+    unconvertedMergeFields: Array<TemplateUnconvertedMergeField>;
+    warnings: Array<TemplateNormalizationWarning>;
+};
+
+export type TemplateFieldEntry = {
+    key: string;
+    format: string | null;
+    occurrences: number;
+    parts: Array<string>;
+    forms: Array<string>;
+    source: string | null;
+    valueType: string | null;
+    absence: string | null;
+    description: string | null;
+};
+
+export type ArchivedTemplate = {
+    templateId: string;
+    status: 'archived';
+};
+
+export type MergeFieldMappingPage = {
+    data: Array<MergeFieldMappingEntry>;
+    nextCursor: string | null;
+};
+
+export type MergeFieldMappingEntry = {
+    mappingId: string;
+    fieldName: string;
+    mergeKey: string;
+    timesApplied: number;
+    createdAt: string;
+    updatedAt: string;
+};
+
+export type DeletedMergeFieldMapping = {
+    mappingId: string;
+    deleted: true;
+};
+
+export type MergeFields = {
+    fields: Array<MergeFieldEntry>;
+};
+
+export type MergeFieldEntry = {
+    key: string;
+    source: string;
+    valueType: string;
+    defaultFormat: string;
+    formats: Array<string>;
+    absence: string;
+    description: string;
+};
+
+export type SubmittedAssembly = {
+    assemblyId: string;
+    status: 'queued';
+};
+
+export type SubmitAssemblyRequest = {
+    templateVersionId: string;
+    folderId?: string | null;
+};
+
+export type AssemblyStatus = {
+    assemblyId: string;
+    status: 'queued' | 'running' | 'done' | 'failed';
+    outcome: string | null;
+    fileId: string | null;
+    fileVersionId: string | null;
+    absentFieldKeys: Array<string>;
+    frozenMergeFieldNames: Array<string>;
+    reason: string | null;
 };
 
 export type SupportGrantSummary = {
@@ -8427,6 +8662,267 @@ export type CustodyListOverdueResponses = {
 
 export type CustodyListOverdueResponse = CustodyListOverdueResponses[keyof CustodyListOverdueResponses];
 
+export type CustodyCompleteReviewData = {
+    body: CompleteCustodyReviewRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        packetId: string;
+    };
+    query?: never;
+    url: '/api/v1/custody/packets/{packetId}/reviews';
+};
+
+export type CustodyCompleteReviewErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, a hold forbids the action, a location is still occupied, or a custody number could not be allocated
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustodyCompleteReviewError = CustodyCompleteReviewErrors[keyof CustodyCompleteReviewErrors];
+
+export type CustodyCompleteReviewResponses = {
+    /**
+     * The recorded review
+     */
+    201: CompletedCustodyReviewResponse;
+};
+
+export type CustodyCompleteReviewResponse = CustodyCompleteReviewResponses[keyof CustodyCompleteReviewResponses];
+
+export type CustodyListRemindersData = {
+    body?: never;
+    path?: never;
+    query?: {
+        asOf?: string;
+    };
+    url: '/api/v1/custody/reminders';
+};
+
+export type CustodyListRemindersErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustodyListRemindersError = CustodyListRemindersErrors[keyof CustodyListRemindersErrors];
+
+export type CustodyListRemindersResponses = {
+    /**
+     * Reminders due
+     */
+    200: {
+        data: Array<CustodyReminder>;
+    };
+};
+
+export type CustodyListRemindersResponse = CustodyListRemindersResponses[keyof CustodyListRemindersResponses];
+
+export type CustodyReportHoldingsByOwnerData = {
+    body?: never;
+    path?: never;
+    query?: {
+        limit?: number;
+    };
+    url: '/api/v1/custody/reports/holdings-by-owner';
+};
+
+export type CustodyReportHoldingsByOwnerErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustodyReportHoldingsByOwnerError = CustodyReportHoldingsByOwnerErrors[keyof CustodyReportHoldingsByOwnerErrors];
+
+export type CustodyReportHoldingsByOwnerResponses = {
+    /**
+     * Holdings per owner
+     */
+    200: {
+        data: Array<CustodyHoldingsByOwner>;
+    };
+};
+
+export type CustodyReportHoldingsByOwnerResponse = CustodyReportHoldingsByOwnerResponses[keyof CustodyReportHoldingsByOwnerResponses];
+
+export type CustodyReportHoldingsByLocationData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/custody/reports/holdings-by-location';
+};
+
+export type CustodyReportHoldingsByLocationErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustodyReportHoldingsByLocationError = CustodyReportHoldingsByLocationErrors[keyof CustodyReportHoldingsByLocationErrors];
+
+export type CustodyReportHoldingsByLocationResponses = {
+    /**
+     * Occupancy per location
+     */
+    200: {
+        data: Array<CustodyLocationOccupancy>;
+    };
+};
+
+export type CustodyReportHoldingsByLocationResponse = CustodyReportHoldingsByLocationResponses[keyof CustodyReportHoldingsByLocationResponses];
+
+export type CustodyReportHoldsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        limit?: number;
+    };
+    url: '/api/v1/custody/reports/holds';
+};
+
+export type CustodyReportHoldsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustodyReportHoldsError = CustodyReportHoldsErrors[keyof CustodyReportHoldsErrors];
+
+export type CustodyReportHoldsResponses = {
+    /**
+     * Packets under hold
+     */
+    200: {
+        data: Array<CustodyPacketUnderHold>;
+    };
+};
+
+export type CustodyReportHoldsResponse = CustodyReportHoldsResponses[keyof CustodyReportHoldsResponses];
+
+export type CustodyRenderLabelsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        packetIds?: string;
+        locationIds?: string;
+        startPosition?: number | null;
+    };
+    url: '/api/v1/custody/labels';
+};
+
+export type CustodyRenderLabelsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustodyRenderLabelsError = CustodyRenderLabelsErrors[keyof CustodyRenderLabelsErrors];
+
+export type CustodyRenderLabelsResponses = {
+    /**
+     * The label sheet
+     */
+    200: Blob | File;
+};
+
+export type CustodyRenderLabelsResponse = CustodyRenderLabelsResponses[keyof CustodyRenderLabelsResponses];
+
 export type CustomFieldsDefineFieldData = {
     body: DefineCustomFieldRequest;
     headers: {
@@ -11626,6 +12122,498 @@ export type ConversionsStatusResponses = {
 };
 
 export type ConversionsStatusResponse = ConversionsStatusResponses[keyof ConversionsStatusResponses];
+
+export type TemplatesUploadData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/templates/upload';
+};
+
+export type TemplatesUploadErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or no such template
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TemplatesUploadError = TemplatesUploadErrors[keyof TemplatesUploadErrors];
+
+export type TemplatesUploadResponses = {
+    /**
+     * The staging key and the presigned upload URL
+     */
+    200: TemplateUploadResponse;
+};
+
+export type TemplatesUploadResponse = TemplatesUploadResponses[keyof TemplatesUploadResponses];
+
+export type TemplatesListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        cursor?: string;
+        status?: 'active' | 'archived';
+        matterTypeId?: string;
+    };
+    url: '/api/v1/templates';
+};
+
+export type TemplatesListErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or no such template
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TemplatesListError = TemplatesListErrors[keyof TemplatesListErrors];
+
+export type TemplatesListResponses = {
+    /**
+     * A cursor-paginated page of templates
+     */
+    200: TemplatePage;
+};
+
+export type TemplatesListResponse = TemplatesListResponses[keyof TemplatesListResponses];
+
+export type TemplatesRegisterData = {
+    body: RegisterTemplateRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/templates';
+};
+
+export type TemplatesRegisterErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or no such template
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * The uploaded document cannot be registered as a template
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TemplatesRegisterError = TemplatesRegisterErrors[keyof TemplatesRegisterErrors];
+
+export type TemplatesRegisterResponses = {
+    /**
+     * The template and its first version were registered
+     */
+    201: RegisteredTemplate;
+};
+
+export type TemplatesRegisterResponse = TemplatesRegisterResponses[keyof TemplatesRegisterResponses];
+
+export type TemplatesAddVersionData = {
+    body: RegisterTemplateVersionRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        templateId: string;
+    };
+    query?: never;
+    url: '/api/v1/templates/{templateId}/versions';
+};
+
+export type TemplatesAddVersionErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or no such template
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * The uploaded document cannot be registered as a template version
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TemplatesAddVersionError = TemplatesAddVersionErrors[keyof TemplatesAddVersionErrors];
+
+export type TemplatesAddVersionResponses = {
+    /**
+     * The new version was registered
+     */
+    201: RegisteredTemplate;
+};
+
+export type TemplatesAddVersionResponse = TemplatesAddVersionResponses[keyof TemplatesAddVersionResponses];
+
+export type TemplatesFieldsData = {
+    body?: never;
+    path: {
+        templateId: string;
+        versionId: string;
+    };
+    query?: never;
+    url: '/api/v1/templates/{templateId}/versions/{versionId}/fields';
+};
+
+export type TemplatesFieldsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or no such template
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TemplatesFieldsError = TemplatesFieldsErrors[keyof TemplatesFieldsErrors];
+
+export type TemplatesFieldsResponses = {
+    /**
+     * The version's field manifest, resolved against the merge-field dictionary
+     */
+    200: TemplateFields;
+};
+
+export type TemplatesFieldsResponse = TemplatesFieldsResponses[keyof TemplatesFieldsResponses];
+
+export type TemplatesArchiveData = {
+    body?: never;
+    path: {
+        templateId: string;
+    };
+    query?: never;
+    url: '/api/v1/templates/{templateId}/archive';
+};
+
+export type TemplatesArchiveErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or no such template
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TemplatesArchiveError = TemplatesArchiveErrors[keyof TemplatesArchiveErrors];
+
+export type TemplatesArchiveResponses = {
+    /**
+     * The template is archived
+     */
+    200: ArchivedTemplate;
+};
+
+export type TemplatesArchiveResponse = TemplatesArchiveResponses[keyof TemplatesArchiveResponses];
+
+export type TemplatesFieldMappingsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        cursor?: string;
+    };
+    url: '/api/v1/merge-field-mappings';
+};
+
+export type TemplatesFieldMappingsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or no such template
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TemplatesFieldMappingsError = TemplatesFieldMappingsErrors[keyof TemplatesFieldMappingsErrors];
+
+export type TemplatesFieldMappingsResponses = {
+    /**
+     * A cursor-paginated page of confirmed merge-field mappings
+     */
+    200: MergeFieldMappingPage;
+};
+
+export type TemplatesFieldMappingsResponse = TemplatesFieldMappingsResponses[keyof TemplatesFieldMappingsResponses];
+
+export type TemplatesDeleteFieldMappingData = {
+    body?: never;
+    path: {
+        mappingId: string;
+    };
+    query?: never;
+    url: '/api/v1/merge-field-mappings/{mappingId}';
+};
+
+export type TemplatesDeleteFieldMappingErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or no such mapping
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TemplatesDeleteFieldMappingError = TemplatesDeleteFieldMappingErrors[keyof TemplatesDeleteFieldMappingErrors];
+
+export type TemplatesDeleteFieldMappingResponses = {
+    /**
+     * The mapping is withdrawn
+     */
+    200: DeletedMergeFieldMapping;
+};
+
+export type TemplatesDeleteFieldMappingResponse = TemplatesDeleteFieldMappingResponses[keyof TemplatesDeleteFieldMappingResponses];
+
+export type TemplatesMergeFieldsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/merge-fields';
+};
+
+export type TemplatesMergeFieldsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or no such template
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TemplatesMergeFieldsError = TemplatesMergeFieldsErrors[keyof TemplatesMergeFieldsErrors];
+
+export type TemplatesMergeFieldsResponses = {
+    /**
+     * The merge-field dictionary as this firm sees it
+     */
+    200: MergeFields;
+};
+
+export type TemplatesMergeFieldsResponse = TemplatesMergeFieldsResponses[keyof TemplatesMergeFieldsResponses];
+
+export type AssembliesSubmitData = {
+    body: SubmitAssemblyRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        matterId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/assemblies';
+};
+
+export type AssembliesSubmitErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks documents:assemble
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or no such matter or assembly
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * The template version cannot be assembled from
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type AssembliesSubmitError = AssembliesSubmitErrors[keyof AssembliesSubmitErrors];
+
+export type AssembliesSubmitResponses = {
+    /**
+     * The assembly was accepted and is now queued
+     */
+    202: SubmittedAssembly;
+};
+
+export type AssembliesSubmitResponse = AssembliesSubmitResponses[keyof AssembliesSubmitResponses];
+
+export type AssembliesStatusData = {
+    body?: never;
+    path: {
+        matterId: string;
+        assemblyId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/assemblies/{assemblyId}';
+};
+
+export type AssembliesStatusErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks documents:assemble
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or no such matter or assembly
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type AssembliesStatusError = AssembliesStatusErrors[keyof AssembliesStatusErrors];
+
+export type AssembliesStatusResponses = {
+    /**
+     * The assembly's current state
+     */
+    200: AssemblyStatus;
+};
+
+export type AssembliesStatusResponse = AssembliesStatusResponses[keyof AssembliesStatusResponses];
 
 export type SupportGrantsListData = {
     body?: never;

@@ -53,7 +53,30 @@ This file is a **build output**: `vp run status-build` assembles it (and [`STATU
 | 2·3 — Inline preview + safe-delivery sandbox | [-] | [x] Opus 4.8 | [x] Opus 4.8 | [x] Opus 4.8\* | [ ] | [-] | [x] Opus 4.8\* | Cookieless `files.*` subresource delivery under a first-party HMAC token; backend on main. Player UI → 0·7. |
 | 2·4 — In-app conversion | [x] Opus 4.8 | [~] Opus 4.8 | [~] Opus 4.8 | [~] Sonnet 4.6 | [-] | [-] | [ ] | Sub-slices a–e built (core + orchestration + convert worker + pure-Rust raster engine + image→PDF) with per-engine dispatch wired; prod dormant behind the deploy activation. The LibreOffice engine is built too — the four office edges have bodies, a warm worker pool with process-replacement recycling, and an honest readiness probe; its supervisor is host-tested and its image is proved only by the container CI job. Remaining: email/FFmpeg engine bodies, matter-attached save, UI. |
 | 2·5 — PDF services + e-signature core | [x] Opus 4.8 | [~] Opus 4.8 | [~] Opus 4.8 | [~] Opus 4.8 | [ ] | [-] | [~] Opus 4.8 | The pure-Rust PDF **engine** substrate is built (see _PDF render engine_, cross-cutting). E-signature core substantially built (Opus 4.8), end to end and proven: the PAdES **seal primitive** in `pdf-core` (prefix-preserving incremental update + exact `/ByteRange` + reserved `/Contents` + CMS splice) with **WASM bindings** and the real `@magna-carta/pdf` `createSealEngine` adapter; the **CMS backend** (`@magna-carta/signing`, pkijs/WebCrypto, key host-side) now at **PAdES-B-B baseline** with ESS **signing-certificate-v2**; the `SealEngine` port + `sealDocument` orchestrator; the ESIGN/UETA model + **Certificate of Completion** (assemble + render). The seal now has a **home and a door**: the dedicated **`sign-worker`** (`magna-carta-sign`) runs the engine + CMS in-process and holds the platform signing key (proven on workerd — it seals a real PDF and verifies the embedded CMS), and the app worker exposes **`POST /api/v1/documents/seal`** (permission `esign:seal`, chokepoint, redacted `esign.sealed` audit) forwarding to it over a `SIGN_SERVICE` binding through a reusable `SealPort` adapter, with deferred-activation `503` until the signing identity is set. An **e2e test** drives a real PDF prepare→sign→embed and verifies the seal (node + workerd); the route is covered end to end (chokepoint, sealed shape, server-set signing-time/observed-IP, not-configured `503`). **Provisioning is a single command**: `pnpm run platform-seal-certificate` mints the RSA-3072 key + self-signed document-signing certificate (correct `keyUsage`/EKU/SKI/serial/RDN encoding, verified independently by openssl) and prints the two `wrangler secret put` commands that activate the seal; the generator is a tested library function whose test proves the exported key re-imports and seals. Runbook: _E-signature seal Worker_ in [`operations.md`](docs/conventions/operations.md). Remaining: timestamp/LTV levels (B-T/B-LT/B-LTA, needs a TSA), independent-validator (pyHanko/DSS) conformance, and the consumer/UI surfaces. |
-| 2·6 — Document automation | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | Not started. |
+| 2·6 — Document automation | [x] Opus 4.8 | [x] Opus 4.8 | [x] Opus 4.8 | [~] Opus 4.8 | [ ] | [ ] | [~] Opus 4.8 | Build slice 2·6·1 shipped: the walking slice, template registration through to a filed document.
+`@magna-carta/document-assembly` is a pure package over `fflate` + `fast-xml-parser` (the
+`@magna-carta/metadata` substrate) holding the guarded OOXML reader/writer, the macro stripper and its
+independent re-verification gate, the normalization pass, the declarative merge-field dictionary and
+its formatters, the batched resolution pipeline, and the substitution engine. Four per-firm tables
+(`document_template`, immutable `document_template_version`, `document_template_field_mapping`,
+`document_assembly`), nine catalogue routes plus submit/poll, a `DocumentAssemblyJob` Durable Object
+over a dedicated queue, and the assembled document filed through `initiateUpload` /
+`completeUploadSession` — the one ingest chokepoint, no bypass. Owner decisions taken: `{{key}}` is
+the single stored placeholder form, and the merge is in-house rather than an adopted library.
+
+Both registration transforms of the firm's own document are **opt-in and always reported**, revised
+on 2026-08-04 evening. Converting Word merge fields runs only on request, and a template registered
+without it keeps them — each recorded on the field manifest with the part it sits in and the frozen
+cached text it will print, reported again by every assembly in the response and on the provenance row,
+and landing the assembly on `succeeded_with_absences`, so a blank that does not look like a blank
+meets the same absence model an ordinary missing value does. Removing macros likewise runs only on
+request; a macro-bearing upload without the opt-in is refused with both remedies named, never stored
+carrying live macros and never stripped silently. The per-firm **field-mapping library** behind
+`MergeFieldNameResolver` is built: confirmed Word-name-to-key mappings written when a conversion
+confirms them, read once per registration, listed and deletable under `templates:manage`.
+
+Remaining for the subsystem: conditionals and repeats (2·6·2), PDF output and the signature hand-off
+(2·6·3), authoring surfaces (2·6·4), the interface seams, and the load-profile volume profile. |
 
 ## Cross-cutting — phase-independent slices
 
@@ -104,6 +127,7 @@ Slice set firmed up in the [phase-3 slice map](docs/specs/2026-06-21-phase-3-fin
 | Slice | Research | Spec | Plan | Built | UI | Load profile | Tested | Notes |
 | --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | --- |
 | 4·1 — Conflicts matching engine | [x] | [x] Opus 4.8 | [x] Opus 4.8 | [x] Opus 4.8 | [ ] | [x] Opus 4.8 | [x] Opus 4.8 | No-scorer evidence-tier engine; typed source registry + firm floor; three append-only log tables. Firm personnel resolved as a source, not a Directory node type. |
+| 4·2 — Custodian (safe-custody register) | [-] | [x] Opus 4.8 | [x] Opus 4.8 | [~] Opus 4.8 | [ ] | [ ] | [ ] | Slice 4·2·1 (the register) built: eleven per-firm tables, trigger-enforced append-only movement ledger, mandatory Directory ownership, allocation-ledger custody numbers, holds, and scan binding via a system holding matter. Slice 4·2·2 built the review-and-reporting half: review dates with an anniversary-anchored roll forward and a `reviewed` ledger entry, one query-shaped reminder emission point covering both reviews and overdue check-outs, three register reports (holdings per owner, occupancy per location, holds in force), and printable Code 128 label sheets — twenty-five routes in total. The destruction workflow and any retention policy remain deliberately unbuilt and owner-gated; `custody_destruction_request` is still a table with no service and no route. |
 
 ## Phases 5–7 — sliced provisionally (no rows yet)
 

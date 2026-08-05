@@ -91,6 +91,7 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         // both custody keys; Billing and Read-only get custody:read alone.
         "custody:manage",
         "custody:read",
+        "documents:assemble",
         "emails:file",
         "emails:manageLinks",
         "emails:read",

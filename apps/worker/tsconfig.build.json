@@ -51,6 +51,9 @@
       "path": "../../packages/directory/tsconfig.build.json"
     },
     {
+      "path": "../../packages/document-assembly/tsconfig.build.json"
+    },
+    {
       "path": "../../packages/email/tsconfig.build.json"
     },
     {

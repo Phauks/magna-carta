@@ -72,6 +72,24 @@ export const PROBLEM_TYPES = {
   // the route schema and lane routing are in place but the backing implementation lands in a later
   // task. Clients should treat this like a transient error and retry after a deployment.
   "not-implemented": "not-implemented",
+  // A template upload whose placeholders cannot be normalized (HTTP 422): an unclosed delimiter, a key
+  // no merge field matches, a rendering the key's type does not support. DISTINCT from `validation`
+  // (request-shape) — the request is well-formed; the uploaded document's authoring is not. Carries the
+  // findings with their locations so the authoring surface can point at each one.
+  "template-normalization-failed": "template-normalization-failed",
+  // A template version that cannot be activated (HTTP 422): its bytes were flagged by the scan engine,
+  // or macro content survived removal and the package could not be made safe to store. A registration
+  // refusal, never a silent downgrade.
+  "template-not-activatable": "template-not-activatable",
+  // A template upload carrying macro content, registered without asking for the macros to be removed
+  // (HTTP 422). Not an error in the document and not a scan verdict: a template is run against
+  // privileged client data, so one carrying code is never stored, and removing the code rewrites the
+  // firm's own document, so it is never done unasked. The problem carries what was found and names
+  // both ways through — opt in to the removal, or upload a macro-free copy.
+  "template-macro-consent-required": "template-macro-consent-required",
+  // An assembly whose merge fields cannot be resolved (HTTP 422): the matter supplies no value for a
+  // field declared to fail rather than render a blank. Names WHICH keys failed, never what they held.
+  "merge-field-unresolvable": "merge-field-unresolvable",
   // A required downstream service is absent or unreachable (HTTP 503): the worker cannot fulfil
   // the request because a backing worker service binding is not configured. Callers should retry
   // after a short delay; the condition resolves when the binding is activated at deploy time.

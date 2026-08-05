@@ -679,7 +679,7 @@
         }
       },
       "branch": "main",
-      "activeWork": "docs/active-work/claude/repo-status-roadmap-xhdvyb.md",
+      "activeWork": null,
       "next": "Activate magna-carta-convert (Workers Build project + conversions/ R2 lifecycle rule), then deploy the LibreOffice engine in order (convert worker with the new Container class before the app worker routes the engine id — docs/deploy-queue.md); then the email→PDF render engine on that container's job-package seam, a licensable WordPerfect acceptance fixture, and the matter-attached save-as-version path",
       "links": {
         "spec": "docs/specs/2026-06-21-slice-2-4a-conversion-core-design.md",
@@ -721,8 +721,8 @@
           "by": "Opus 4.8"
         }
       },
-      "branch": "claude/2-5-analysis-prep-0n2kxw",
-      "activeWork": "docs/active-work/claude/2-5-analysis-prep-0n2kxw.md",
+      "branch": "main",
+      "activeWork": null,
       "next": "Deploy magna-carta-sign before the app worker (the SIGN_SERVICE binding blocks the app-worker deploy until the sign worker exists), then provision the platform seal identity with pnpm run platform-seal-certificate; after that, timestamp/LTV levels behind a TSA, independent-validator (pyHanko/DSS) conformance, cross-reference-stream originals in the seal primitive (classic tables only today), and the consumer/UI surfaces.",
       "links": {
         "spec": "docs/specs/2026-07-17-slice-2-5-pdf-services-esignature-analysis.md",
@@ -738,16 +738,20 @@
       "order": 6,
       "stages": {
         "research": {
-          "state": "todo"
+          "state": "done",
+          "by": "Opus 4.8"
         },
         "spec": {
-          "state": "todo"
+          "state": "done",
+          "by": "Opus 4.8"
         },
         "plan": {
-          "state": "todo"
+          "state": "done",
+          "by": "Opus 4.8"
         },
         "built": {
-          "state": "todo"
+          "state": "in-progress",
+          "by": "Opus 4.8"
         },
         "ui": {
           "state": "todo"
@@ -756,19 +760,24 @@
           "state": "todo"
         },
         "tested": {
-          "state": "todo"
+          "state": "in-progress",
+          "by": "Opus 4.8"
         }
       },
-      "branch": "main",
-      "activeWork": null,
-      "next": null,
+      "branch": "claude/automation-consent-refinements",
+      "activeWork": "docs/active-work/claude/automation-consent-refinements.md",
+      "next": "Slice 2·6·2 — conditional and repeating blocks, the Directory/custom-field/letterhead-logo dictionary sources, and protected-value binding. Then a location time-zone column behind timeZoneForLocation.",
       "links": {
-        "spec": null,
-        "plan": null,
-        "adrs": []
+        "spec": "docs/specs/2026-08-04-document-automation-design.md",
+        "plan": "docs/specs/2026-08-04-document-automation-implementation-plan.md",
+        "adrs": [
+          "ADR-0210",
+          "ADR-0211",
+          "ADR-0217"
+        ]
       },
       "blockedBy": [],
-      "notes": "Not started."
+      "notes": "Build slice 2·6·1 shipped: the walking slice, template registration through to a filed document.\n`@magna-carta/document-assembly` is a pure package over `fflate` + `fast-xml-parser` (the\n`@magna-carta/metadata` substrate) holding the guarded OOXML reader/writer, the macro stripper and its\nindependent re-verification gate, the normalization pass, the declarative merge-field dictionary and\nits formatters, the batched resolution pipeline, and the substitution engine. Four per-firm tables\n(`document_template`, immutable `document_template_version`, `document_template_field_mapping`,\n`document_assembly`), nine catalogue routes plus submit/poll, a `DocumentAssemblyJob` Durable Object\nover a dedicated queue, and the assembled document filed through `initiateUpload` /\n`completeUploadSession` — the one ingest chokepoint, no bypass. Owner decisions taken: `{{key}}` is\nthe single stored placeholder form, and the merge is in-house rather than an adopted library.\n\nBoth registration transforms of the firm's own document are **opt-in and always reported**, revised\non 2026-08-04 evening. Converting Word merge fields runs only on request, and a template registered\nwithout it keeps them — each recorded on the field manifest with the part it sits in and the frozen\ncached text it will print, reported again by every assembly in the response and on the provenance row,\nand landing the assembly on `succeeded_with_absences`, so a blank that does not look like a blank\nmeets the same absence model an ordinary missing value does. Removing macros likewise runs only on\nrequest; a macro-bearing upload without the opt-in is refused with both remedies named, never stored\ncarrying live macros and never stripped silently. The per-firm **field-mapping library** behind\n`MergeFieldNameResolver` is built: confirmed Word-name-to-key mappings written when a conversion\nconfirms them, read once per registration, listed and deletable under `templates:manage`.\n\nRemaining for the subsystem: conditionals and repeats (2·6·2), PDF output and the signature hand-off\n(2·6·3), authoring surfaces (2·6·4), the interface seams, and the load-profile volume profile."
     },
     {
       "slice": "Load-profile harness",
@@ -1840,7 +1849,7 @@
         }
       },
       "branch": "main",
-      "activeWork": "docs/active-work/searchable-pdf-writer.md",
+      "activeWork": null,
       "next": "Deferred seams — rotated-page (`/Rotate` 90/180/270) placement: the layer is written in the unrotated frame, so selection geometry is off on rotated scans (text stays searchable) — needs a counter-rotating text matrix like `bates.rs`; ingest-pipeline wiring (queues, per-job Durable Object, search index; blocked on the unbuilt discovery/search subsystem); skewed-quad placement beyond axis-aligned bounds; embedding a glyphless font if a target viewer needs a rendered selection glyph; and the UI. (The conversion orchestrator's scanned→searchable edge is now wired — `pdf → searchable-pdf` in the conversion registry, dispatched to the OCR service. An adversarial review hardened the writer: non-BMP characters, font-name collisions, and degenerate word boxes are fixed.)",
       "links": {
         "spec": "docs/specs/2026-07-14-searchable-pdf-writer-design.md",
@@ -1962,8 +1971,8 @@
           "state": "done"
         }
       },
-      "branch": "claude/search-write-pipeline",
-      "activeWork": "docs/active-work/claude/search-write-pipeline.md",
+      "branch": "main",
+      "activeWork": null,
       "next": "Deploy-gated — `apps/search-worker` (the always-warm Container that range-reads splits from R2 and serves `/index`, `/query`, `/remove`) is the only thing between the parked `deferred` jobs and real hits; the adapter already calls exactly those endpoints, so deploying it needs no code change here. Then the semantic half (Vectorize namespace-per-firm through `InferencePort.embed`; the RRF that fuses it is done), the matter-scoped `/api/v1` route behind a `discovery:search` permission plus its UI (built after the engine, so the route never ships returning engine-not-implemented), and compaction (merge the small per-document splits, swap the catalog). One known extract gap: a born-digital PDF's existing text layer is not read back out — the recognition engine skips such pages — so it records `unextractable` rather than indexing empty; closing it needs `crates/pdf-core`'s `page_text_glyphs` exposed through `packages/pdf`, behind the same `TextExtractionPort`.",
       "links": {
         "spec": "docs/specs/2026-07-17-discovery-search-index-stateful-service-design.md",
@@ -2131,8 +2140,8 @@
           "by": "Opus 4.8"
         }
       },
-      "branch": "slice-4-1-conflicts",
-      "activeWork": "docs/active-work/slice-4-1-conflicts.md",
+      "branch": "main",
+      "activeWork": null,
       "next": "Reviewer adjudication UX (deferred); Beider-Morse; the Content source class",
       "links": {
         "spec": "docs/specs/2026-07-09-slice-4-1-conflicts-design.md",
@@ -2141,6 +2150,47 @@
       },
       "blockedBy": [],
       "notes": "No-scorer evidence-tier engine; typed source registry + firm floor; three append-only log tables. Firm personnel resolved as a source, not a Directory node type."
+    },
+    {
+      "slice": "4·2 — Custodian (safe-custody register)",
+      "group": "phase-4",
+      "order": 2,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "plan": {
+          "state": "done",
+          "by": "Opus 4.8"
+        },
+        "built": {
+          "state": "in-progress",
+          "by": "Opus 4.8"
+        },
+        "ui": {
+          "state": "todo"
+        },
+        "load-profile": {
+          "state": "todo"
+        },
+        "tested": {
+          "state": "todo"
+        }
+      },
+      "branch": "claude/custodian-build-slice-2",
+      "activeWork": "docs/active-work/claude/custodian-build-slice-2.md",
+      "next": "Load-profile volume profile + the six measured operations; then the destruction workflow (owner-gated) and 4·2·3 (gated release, receipts, portal visibility)",
+      "links": {
+        "spec": "docs/specs/2026-08-04-custodian-design.md",
+        "plan": "docs/specs/2026-08-04-custodian-implementation-plan.md",
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "Slice 4·2·1 (the register) built: eleven per-firm tables, trigger-enforced append-only movement ledger, mandatory Directory ownership, allocation-ledger custody numbers, holds, and scan binding via a system holding matter. Slice 4·2·2 built the review-and-reporting half: review dates with an anniversary-anchored roll forward and a `reviewed` ledger entry, one query-shaped reminder emission point covering both reviews and overdue check-outs, three register reports (holdings per owner, occupancy per location, holds in force), and printable Code 128 label sheets — twenty-five routes in total. The destruction workflow and any retention policy remain deliberately unbuilt and owner-gated; `custody_destruction_request` is still a table with no service and no route."
     }
   ]
 }

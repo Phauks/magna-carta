@@ -128,6 +128,17 @@ export const ENTITY_PREFIXES = {
   // index files stored as one object in the firm's R2 — recorded in the per-firm catalog that a query
   // enumerates to know which splits are live for a matter.
   indexSplit: "indexSplit",
+  // Document automation. `documentTemplate` is the firm-level catalogue row for one assembly template;
+  // `documentTemplateVersion` is one immutable registered upload of that template's bytes (the version a
+  // finished document records it was produced from); `documentAssembly` is the provenance row for one
+  // assembly job — which template version, which matter, what outcome. A
+  // `documentTemplateFieldMapping` is one confirmed Word-merge-field-name to merge-key mapping in the
+  // firm's own mapping library, which is what makes a second template import reuse the first one's
+  // answers instead of asking again.
+  documentTemplate: "documentTemplate",
+  documentTemplateVersion: "documentTemplateVersion",
+  documentTemplateFieldMapping: "documentTemplateFieldMapping",
+  documentAssembly: "documentAssembly",
   // Custodian — the register of physical client originals the firm holds. A `custodyPacket` is the
   // unit of custody (the envelope or deed box that physically moves); a `custodyItem` is one thing
   // described inside it; `custodyLocation` is a node of the physical container tree; `custodyOwner`

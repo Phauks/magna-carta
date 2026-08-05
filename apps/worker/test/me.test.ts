@@ -70,7 +70,10 @@ describe("GET /api/v1/me", () => {
       // tools:decryption (in the 20260704T041516 baseline) +
       // tools:fileRepair (20260704T041517_seed-tools-file-repair) — both seeded onto every default role +
       // tools:speedTest (20260704T041519_seed-tools-speed-test, seeded onto every default role; it was
-      // the one tools:* permission no role carried).
+      // the one tools:* permission no role carried) +
+      // templates:manage / documents:assemble (20260804T150001_seed-document-automation-permissions:
+      // templates:manage is administrative and reaches Owner/Admin only; documents:assemble goes to
+      // the practising roles).
       // Sorted.
       permissions: [
         // conflicts:read / conflicts:run are seeded onto every default role (any member may screen a
@@ -89,6 +92,7 @@ describe("GET /api/v1/me", () => {
         "customFields:purge",
         "directory:edit",
         "directory:viewSensitiveIdentifiers",
+        "documents:assemble",
         "emails:file",
         "emails:manageCaptureAddresses",
         "emails:manageLinks",
@@ -118,6 +122,7 @@ describe("GET /api/v1/me", () => {
         "support:cosign",
         "support:manage",
         "support:request",
+        "templates:manage",
         "time:approve",
         "time:manageRates",
         "time:manageSettings",

@@ -54,6 +54,10 @@ describe("problem-type URI registry", () => {
         "not-implemented",
         "beta-consent-required",
         "service-unavailable",
+        "template-normalization-failed",
+        "template-not-activatable",
+        "template-macro-consent-required",
+        "merge-field-unresolvable",
       ].sort(),
     );
   });

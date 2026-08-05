@@ -5336,6 +5336,18 @@
               "null"
             ]
           },
+          "reviewOn": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reviewIntervalMonths": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
           "notes": {
             "type": [
               "string",
@@ -5388,6 +5400,8 @@
           "matterId",
           "depositorEntityId",
           "depositedAt",
+          "reviewOn",
+          "reviewIntervalMonths",
           "notes",
           "locationPath",
           "filingMatterId",
@@ -5446,6 +5460,18 @@
               "lost",
               "superseded"
             ]
+          },
+          "reviewOn": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reviewIntervalMonths": {
+            "type": [
+              "integer",
+              "null"
+            ]
           }
         },
         "required": [
@@ -5457,7 +5483,9 @@
           "intrinsicValue",
           "declaredValueAmountMinor",
           "declaredValueCurrency",
-          "status"
+          "status",
+          "reviewOn",
+          "reviewIntervalMonths"
         ]
       },
       "CustodyOwner": {
@@ -5605,6 +5633,21 @@
               "null"
             ]
           },
+          "reviewOn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 40
+          },
+          "reviewIntervalMonths": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "maximum": 600
+          },
           "notes": {
             "type": [
               "string",
@@ -5694,6 +5737,21 @@
           },
           "declaredValue": {
             "$ref": "#/components/schemas/CustodyDeclaredValue"
+          },
+          "reviewOn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 40
+          },
+          "reviewIntervalMonths": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "maximum": 600
           }
         }
       },
@@ -5736,6 +5794,7 @@
               "destroyed",
               "lost",
               "found",
+              "reviewed",
               "hold_placed",
               "hold_released",
               "correction"
@@ -5856,6 +5915,7 @@
               "destroyed",
               "lost",
               "found",
+              "reviewed",
               "hold_placed",
               "hold_released",
               "correction"
@@ -6109,6 +6169,232 @@
           "dueBackOn",
           "borrowerKind",
           "daysOverdue"
+        ]
+      },
+      "CompletedCustodyReviewResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "nextReviewOn": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "nextReviewOn"
+        ]
+      },
+      "CompleteCustodyReviewRequest": {
+        "type": "object",
+        "properties": {
+          "itemId": {
+            "type": "string",
+            "pattern": "^custodyItem_[A-Za-z0-9_-]{21}$"
+          },
+          "occurredAt": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "nextReviewOn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 40
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        }
+      },
+      "CustodyReminder": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "enum": [
+              "review-due",
+              "checkout-overdue"
+            ]
+          },
+          "packetId": {
+            "type": "string"
+          },
+          "itemId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "custodyNumber": {
+            "type": "string"
+          },
+          "dueOn": {
+            "type": "string"
+          },
+          "daysOverdue": {
+            "type": "integer"
+          },
+          "bucket": {
+            "type": "string",
+            "enum": [
+              "0-7d",
+              "8-30d",
+              "31-90d",
+              "over-90d"
+            ]
+          }
+        },
+        "required": [
+          "reason",
+          "packetId",
+          "itemId",
+          "custodyNumber",
+          "dueOn",
+          "daysOverdue",
+          "bucket"
+        ]
+      },
+      "CustodyHoldingsByOwner": {
+        "type": "object",
+        "properties": {
+          "entityId": {
+            "type": "string"
+          },
+          "packetsHeld": {
+            "type": "integer"
+          },
+          "packetsOut": {
+            "type": "integer"
+          },
+          "itemsDescribed": {
+            "type": "integer"
+          },
+          "packetsUnderHold": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "entityId",
+          "packetsHeld",
+          "packetsOut",
+          "itemsDescribed",
+          "packetsUnderHold"
+        ]
+      },
+      "CustodyLocationOccupancy": {
+        "type": "object",
+        "properties": {
+          "locationId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "office",
+              "room",
+              "safe",
+              "cabinet",
+              "shelf",
+              "box",
+              "position",
+              "offsite",
+              "bank"
+            ]
+          },
+          "parentLocationId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "closed"
+            ]
+          },
+          "depth": {
+            "type": "integer"
+          },
+          "directOccupancy": {
+            "type": "integer"
+          },
+          "subtreeOccupancy": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "locationId",
+          "name",
+          "kind",
+          "parentLocationId",
+          "status",
+          "depth",
+          "directOccupancy",
+          "subtreeOccupancy"
+        ]
+      },
+      "CustodyPacketUnderHold": {
+        "type": "object",
+        "properties": {
+          "holdId": {
+            "type": "string"
+          },
+          "packetId": {
+            "type": "string"
+          },
+          "itemId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "custodyNumber": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "legal",
+              "discovery",
+              "client_instruction",
+              "dispute",
+              "unclaimed"
+            ]
+          },
+          "placedAt": {
+            "type": "string"
+          },
+          "packetStatus": {
+            "type": "string",
+            "enum": [
+              "held",
+              "out",
+              "released",
+              "destroyed",
+              "lost"
+            ]
+          }
+        },
+        "required": [
+          "holdId",
+          "packetId",
+          "itemId",
+          "custodyNumber",
+          "kind",
+          "placedAt",
+          "packetStatus"
         ]
       },
       "CustomFieldAck": {
@@ -7828,6 +8114,682 @@
         },
         "required": [
           "status"
+        ]
+      },
+      "TemplateUploadResponse": {
+        "type": "object",
+        "properties": {
+          "uploadKey": {
+            "type": "string"
+          },
+          "uploadUrl": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "uploadKey",
+          "uploadUrl"
+        ]
+      },
+      "RegisteredTemplate": {
+        "type": "object",
+        "properties": {
+          "templateId": {
+            "type": "string"
+          },
+          "versionId": {
+            "type": "string"
+          },
+          "versionNumber": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string"
+          },
+          "fieldCount": {
+            "type": "number"
+          },
+          "macrosStripped": {
+            "type": "boolean"
+          },
+          "macroPartsRemoved": {
+            "type": "number"
+          },
+          "mergeFieldsConverted": {
+            "type": "boolean"
+          },
+          "mergeFieldsDetected": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TemplateMergeFieldDetection"
+            }
+          },
+          "unconvertedMergeFields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TemplateUnconvertedMergeField"
+            }
+          },
+          "confirmedFieldMappings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "fieldName": {
+                  "type": "string"
+                },
+                "mergeKey": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "fieldName",
+                "mergeKey"
+              ]
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TemplateNormalizationWarning"
+            }
+          }
+        },
+        "required": [
+          "templateId",
+          "versionId",
+          "versionNumber",
+          "status",
+          "fieldCount",
+          "macrosStripped",
+          "macroPartsRemoved",
+          "mergeFieldsConverted",
+          "mergeFieldsDetected",
+          "unconvertedMergeFields",
+          "confirmedFieldMappings",
+          "warnings"
+        ]
+      },
+      "TemplateMergeFieldDetection": {
+        "type": "object",
+        "properties": {
+          "fieldName": {
+            "type": "string"
+          },
+          "mappedKey": {
+            "type": "string"
+          },
+          "part": {
+            "type": "string"
+          },
+          "occurrences": {
+            "type": "number"
+          },
+          "form": {
+            "type": "string"
+          },
+          "mapsToKnownField": {
+            "type": "boolean"
+          },
+          "mappedFromLibrary": {
+            "type": "boolean"
+          },
+          "frozenText": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "fieldName",
+          "mappedKey",
+          "part",
+          "occurrences",
+          "form",
+          "mapsToKnownField",
+          "mappedFromLibrary",
+          "frozenText"
+        ]
+      },
+      "TemplateUnconvertedMergeField": {
+        "type": "object",
+        "properties": {
+          "fieldName": {
+            "type": "string"
+          },
+          "mappedKey": {
+            "type": "string"
+          },
+          "part": {
+            "type": "string"
+          },
+          "occurrences": {
+            "type": "number"
+          },
+          "form": {
+            "type": "string"
+          },
+          "mapsToKnownField": {
+            "type": "boolean"
+          },
+          "frozenText": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "fieldName",
+          "mappedKey",
+          "part",
+          "occurrences",
+          "form",
+          "mapsToKnownField",
+          "frozenText"
+        ]
+      },
+      "TemplateNormalizationWarning": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "part": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "part",
+          "detail"
+        ]
+      },
+      "RegisterTemplateRequest": {
+        "type": "object",
+        "properties": {
+          "uploadKey": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2000
+          },
+          "matterTypeId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "locationId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "convertMergeFields": {
+            "type": "boolean",
+            "description": "Whether to convert Word merge fields in the uploaded document into this system's {{field}} form. Leave this off and the document registers exactly as you authored it, with every Word merge field listed in the response and recorded against the template — but those fields are not filled in by this system, so every document assembled from the template prints the text Word last cached in them, and each assembly reports that too. Turning it on rewrites each one in place: the document registered is then not the document uploaded."
+          },
+          "stripMacros": {
+            "type": "boolean",
+            "description": "Whether to remove macro content from the uploaded document. A template is run against privileged client data, so one carrying macros cannot be stored: without this, an upload that contains any is refused, and the response lists what was found. Turning it on removes the macro project along with the content-type and relationship declarations that reference it, re-checks the result from scratch, and refuses the registration outright if anything survived — the document registered is then not the document uploaded. Uploading a macro-free copy of the file is the other way through."
+          }
+        },
+        "required": [
+          "uploadKey",
+          "name"
+        ]
+      },
+      "RegisterTemplateVersionRequest": {
+        "type": "object",
+        "properties": {
+          "uploadKey": {
+            "type": "string",
+            "minLength": 1
+          },
+          "convertMergeFields": {
+            "type": "boolean",
+            "description": "Whether to convert Word merge fields in the uploaded document into this system's {{field}} form. Leave this off and the document registers exactly as you authored it, with every Word merge field listed in the response and recorded against the template — but those fields are not filled in by this system, so every document assembled from the template prints the text Word last cached in them, and each assembly reports that too. Turning it on rewrites each one in place: the document registered is then not the document uploaded."
+          },
+          "stripMacros": {
+            "type": "boolean",
+            "description": "Whether to remove macro content from the uploaded document. A template is run against privileged client data, so one carrying macros cannot be stored: without this, an upload that contains any is refused, and the response lists what was found. Turning it on removes the macro project along with the content-type and relationship declarations that reference it, re-checks the result from scratch, and refuses the registration outright if anything survived — the document registered is then not the document uploaded. Uploading a macro-free copy of the file is the other way through."
+          }
+        },
+        "required": [
+          "uploadKey"
+        ]
+      },
+      "TemplatePage": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TemplateSummary"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "data",
+          "nextCursor"
+        ]
+      },
+      "TemplateSummary": {
+        "type": "object",
+        "properties": {
+          "templateId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "matterTypeId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "locationId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string"
+          },
+          "currentVersionId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "templateId",
+          "name",
+          "description",
+          "matterTypeId",
+          "locationId",
+          "status",
+          "currentVersionId",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "TemplateFields": {
+        "type": "object",
+        "properties": {
+          "templateId": {
+            "type": "string"
+          },
+          "versionId": {
+            "type": "string"
+          },
+          "versionNumber": {
+            "type": "number"
+          },
+          "normalizerVersion": {
+            "type": "number"
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TemplateFieldEntry"
+            }
+          },
+          "unconvertedMergeFields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TemplateUnconvertedMergeField"
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TemplateNormalizationWarning"
+            }
+          }
+        },
+        "required": [
+          "templateId",
+          "versionId",
+          "versionNumber",
+          "normalizerVersion",
+          "fields",
+          "unconvertedMergeFields",
+          "warnings"
+        ]
+      },
+      "TemplateFieldEntry": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "format": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "occurrences": {
+            "type": "number"
+          },
+          "parts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "forms": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "valueType": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "absence": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "key",
+          "format",
+          "occurrences",
+          "parts",
+          "forms",
+          "source",
+          "valueType",
+          "absence",
+          "description"
+        ]
+      },
+      "ArchivedTemplate": {
+        "type": "object",
+        "properties": {
+          "templateId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "archived"
+            ]
+          }
+        },
+        "required": [
+          "templateId",
+          "status"
+        ]
+      },
+      "MergeFieldMappingPage": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MergeFieldMappingEntry"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "data",
+          "nextCursor"
+        ]
+      },
+      "MergeFieldMappingEntry": {
+        "type": "object",
+        "properties": {
+          "mappingId": {
+            "type": "string"
+          },
+          "fieldName": {
+            "type": "string"
+          },
+          "mergeKey": {
+            "type": "string"
+          },
+          "timesApplied": {
+            "type": "number"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "mappingId",
+          "fieldName",
+          "mergeKey",
+          "timesApplied",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "DeletedMergeFieldMapping": {
+        "type": "object",
+        "properties": {
+          "mappingId": {
+            "type": "string"
+          },
+          "deleted": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          }
+        },
+        "required": [
+          "mappingId",
+          "deleted"
+        ]
+      },
+      "MergeFields": {
+        "type": "object",
+        "properties": {
+          "fields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MergeFieldEntry"
+            }
+          }
+        },
+        "required": [
+          "fields"
+        ]
+      },
+      "MergeFieldEntry": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "valueType": {
+            "type": "string"
+          },
+          "defaultFormat": {
+            "type": "string"
+          },
+          "formats": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "absence": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "source",
+          "valueType",
+          "defaultFormat",
+          "formats",
+          "absence",
+          "description"
+        ]
+      },
+      "SubmittedAssembly": {
+        "type": "object",
+        "properties": {
+          "assemblyId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued"
+            ]
+          }
+        },
+        "required": [
+          "assemblyId",
+          "status"
+        ]
+      },
+      "SubmitAssemblyRequest": {
+        "type": "object",
+        "properties": {
+          "templateVersionId": {
+            "type": "string",
+            "pattern": "^documentTemplateVersion_[A-Za-z0-9_-]{21}$"
+          },
+          "folderId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^folder_[A-Za-z0-9_-]{21}$"
+          }
+        },
+        "required": [
+          "templateVersionId"
+        ]
+      },
+      "AssemblyStatus": {
+        "type": "object",
+        "properties": {
+          "assemblyId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "done",
+              "failed"
+            ]
+          },
+          "outcome": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fileId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fileVersionId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "absentFieldKeys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "frozenMergeFieldNames": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "assemblyId",
+          "status",
+          "outcome",
+          "fileId",
+          "fileVersionId",
+          "absentFieldKeys",
+          "frozenMergeFieldNames",
+          "reason"
         ]
       },
       "SupportGrantSummary": {
@@ -23631,6 +24593,626 @@
         }
       }
     },
+    "/api/v1/custody/packets/{packetId}/reviews": {
+      "post": {
+        "description": "Records that a packet, or one item inside it, has been looked at again, and rolls its review date forward by the firm's own interval. The next date lands on the original anniversary rather than a period after today, so a review done late does not drag the cycle with it. A review is not a deadline and nothing expires when one passes.",
+        "operationId": "custody.completeReview",
+        "tags": [
+          "custody"
+        ],
+        "x-mc-operationId": "custody.completeReview",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "custody:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "custody"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^custodyPacket_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "packetId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteCustodyReviewRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The recorded review",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompletedCustodyReviewResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress, a hold forbids the action, a location is still occupied, or a custody number could not be allocated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/custody/reminders": {
+      "get": {
+        "description": "Everything the register is waiting on, in one list, oldest first: review dates that have come round and check-outs that have not come back. This is the single place those two are decided, so a reminder that arrives by any other route says the same thing this one does.",
+        "operationId": "custody.listReminders",
+        "tags": [
+          "custody"
+        ],
+        "x-mc-operationId": "custody.listReminders",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "custody:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "custody"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 40
+            },
+            "required": false,
+            "name": "asOf",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reminders due",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/CustodyReminder"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/custody/reports/holdings-by-owner": {
+      "get": {
+        "description": "What the firm currently holds for each person or organization: packets in the safe, packets out, items described, and packets under hold. Owners are returned as directory handles, not names — the caller resolves them through the directory it already reads.",
+        "operationId": "custody.reportHoldingsByOwner",
+        "tags": [
+          "custody"
+        ],
+        "x-mc-operationId": "custody.reportHoldingsByOwner",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "custody:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "custody"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Holdings per owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/CustodyHoldingsByOwner"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/custody/reports/holdings-by-location": {
+      "get": {
+        "description": "The container tree with occupancy counts — what is at each node, and what is at that node or anywhere beneath it. A packet that is checked out is at no location, so a shelf whose contents are all out reads as empty, which is what a person standing in front of it would see.",
+        "operationId": "custody.reportHoldingsByLocation",
+        "tags": [
+          "custody"
+        ],
+        "x-mc-operationId": "custody.reportHoldingsByLocation",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "custody:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "custody"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "Occupancy per location",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/CustodyLocationOccupancy"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/custody/reports/holds": {
+      "get": {
+        "description": "Every hold in force across the register, oldest first. A hold nobody can see is a hold nobody will remember to release.",
+        "operationId": "custody.reportHolds",
+        "tags": [
+          "custody"
+        ],
+        "x-mc-operationId": "custody.reportHolds",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "custody:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "custody"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Packets under hold",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/CustodyPacketUnderHold"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/custody/labels": {
+      "get": {
+        "description": "Returns a printable label sheet as SVG for the packets and locations named, at true size on A4 label stock. Each label carries a scannable barcode of the object's own identifier, the custody number or node name in large type, and the packet name. Start part-way down a partly-used sheet with startPosition. One sheet per request — a label that fell onto a second page is a label that ends up on the wrong box.",
+        "operationId": "custody.renderLabels",
+        "tags": [
+          "custody"
+        ],
+        "x-mc-operationId": "custody.renderLabels",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "custody:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "custody"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 2000
+            },
+            "required": false,
+            "name": "packetIds",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 2000
+            },
+            "required": false,
+            "name": "locationIds",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 23
+            },
+            "required": false,
+            "name": "startPosition",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The label sheet",
+            "content": {
+              "image/svg+xml": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/custom-fields/fields": {
       "post": {
         "description": "Defines a custom field on a matter type or entity category.",
@@ -31098,6 +32680,1130 @@
         }
       }
     },
+    "/api/v1/templates/upload": {
+      "post": {
+        "description": "Mints a staging slot for a template document and returns a short-lived presigned PUT URL the client uploads the .docx to directly (bytes never transit the Worker). After uploading, register the template with POST /api/v1/templates, or add a version with POST /api/v1/templates/{templateId}/versions.",
+        "operationId": "templates.upload",
+        "tags": [
+          "templates"
+        ],
+        "x-mc-operationId": "templates.upload",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "templates:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "templates"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The staging key and the presigned upload URL",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateUploadResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or no such template",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is already in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/templates": {
+      "post": {
+        "description": "Registers an uploaded .docx as a new template and its first version. The upload is prepared before it is stored: placeholders are rewritten into one contiguous run each, the document's drafting history is scrubbed, and the resulting bytes are scanned. The response reports everything that was found and everything that changed. Neither transform of your own document runs unasked: macro content is removed only when stripMacros is set, and an upload carrying any without it is refused with what was found; Word merge fields are converted only when convertMergeFields is set, and without it the document registers exactly as authored with every such field recorded against the template — those fields are not filled in by this system, so every assembly of it prints the text Word cached in them and says so. Returns 422 when a placeholder names no merge field, when macro content is present without the removal opt-in, or when the document cannot be made safe to store.",
+        "operationId": "templates.register",
+        "tags": [
+          "templates"
+        ],
+        "x-mc-operationId": "templates.register",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "templates:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "expensive",
+        "x-mc-tags": [
+          "templates"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterTemplateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The template and its first version were registered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegisteredTemplate"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or no such template",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is already in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The uploaded document cannot be registered as a template",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "description": "Lists the firm's assembly templates, newest page first by name. Every template is visible to every member who can assemble; a template bound to a matter type is still listed, and the binding narrows which matters offer it. Filter by matter type to see only what a matter of that type would offer.",
+        "operationId": "templates.list",
+        "tags": [
+          "templates"
+        ],
+        "x-mc-operationId": "templates.list",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "documents:assemble",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "templates"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "archived"
+              ]
+            },
+            "required": false,
+            "name": "status",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "matterTypeId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A cursor-paginated page of templates",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplatePage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or no such template",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is already in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/templates/{templateId}/versions": {
+      "post": {
+        "description": "Registers a new version of an existing template from an uploaded .docx. A template is never edited in place: the new version is prepared and stored exactly as a first version is — same placeholder normalization, same opt-ins for removing macro content and converting Word merge fields — and the catalogue's current version moves to it once its bytes clear the scan. Superseded versions stay readable, because every assembled document records the exact version it came from.",
+        "operationId": "templates.addVersion",
+        "tags": [
+          "templates"
+        ],
+        "x-mc-operationId": "templates.addVersion",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "templates:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "expensive",
+        "x-mc-tags": [
+          "templates"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^documentTemplate_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "templateId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterTemplateVersionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The new version was registered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegisteredTemplate"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or no such template",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is already in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The uploaded document cannot be registered as a template version",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/templates/{templateId}/versions/{versionId}/fields": {
+      "get": {
+        "description": "Returns the merge fields a template version uses — every key, how it is rendered, how many times and in which parts of the document it appears, and what happens when the matter has no value for it — plus anything the preparation pass noticed. This is the authoring feedback surface: it is what turns a template that will not assemble cleanly into a fixable message.",
+        "operationId": "templates.fields",
+        "tags": [
+          "templates"
+        ],
+        "x-mc-operationId": "templates.fields",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "documents:assemble",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "templates"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^documentTemplate_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "templateId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^documentTemplateVersion_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "versionId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The version's field manifest, resolved against the merge-field dictionary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateFields"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or no such template",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is already in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/templates/{templateId}/archive": {
+      "post": {
+        "description": "Archives a template so it is no longer offered for assembly. Never a delete: a template that produced a filed document has to remain explicable, so the catalogue row and every version of it stay readable.",
+        "operationId": "templates.archive",
+        "tags": [
+          "templates"
+        ],
+        "x-mc-operationId": "templates.archive",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "templates:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "templates"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^documentTemplate_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "templateId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The template is archived",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchivedTemplate"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or no such template",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is already in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/merge-field-mappings": {
+      "get": {
+        "description": "Lists what this firm has confirmed its Word merge-field names mean. Each entry was recorded when a template registration converted that field, and every later registration consults the list, so importing a second document from the same source does not ask the same question again. Nothing is ever added by guessing: a name this firm has not confirmed is reported as unmapped rather than matched to something that looked close.",
+        "operationId": "templates.fieldMappings",
+        "tags": [
+          "templates"
+        ],
+        "x-mc-operationId": "templates.fieldMappings",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "templates:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "templates"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A cursor-paginated page of confirmed merge-field mappings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MergeFieldMappingPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or no such template",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is already in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/merge-field-mappings/{mappingId}": {
+      "delete": {
+        "description": "Withdraws a confirmed merge-field mapping. A mapping is a statement this firm made about its own documents, so it is removed outright rather than archived. Nothing already registered changes: a template version's stored bytes and its field list are immutable, and the mapping only ever acted at the moment a registration converted a field. The next registration that meets this Word field name will report it as unmapped again.",
+        "operationId": "templates.deleteFieldMapping",
+        "tags": [
+          "templates"
+        ],
+        "x-mc-operationId": "templates.deleteFieldMapping",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "templates:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "templates"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^documentTemplateFieldMapping_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "mappingId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The mapping is withdrawn",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeletedMergeFieldMapping"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or no such mapping",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is already in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/merge-fields": {
+      "get": {
+        "description": "Returns the merge fields a template author may use, with the renderings each one supports and what a document shows when the matter has no value for it. This is the list a template is authored against; a placeholder naming anything outside it is refused at registration.",
+        "operationId": "templates.mergeFields",
+        "tags": [
+          "templates"
+        ],
+        "x-mc-operationId": "templates.mergeFields",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "documents:assemble",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "templates"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The merge-field dictionary as this firm sees it",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MergeFields"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or no such template",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is already in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{matterId}/assemblies": {
+      "post": {
+        "description": "Assembles a document from a template version against this matter and files it into the matter's documents. Returns 202 with a handle to poll: the merge runs in the background and the produced document enters the matter through the same upload and scan path every other file does. The output is always a NEW document, never a new version of an existing one.",
+        "operationId": "assemblies.submit",
+        "tags": [
+          "assemblies"
+        ],
+        "x-mc-operationId": "assemblies.submit",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "documents:assemble",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "expensive",
+        "x-mc-tags": [
+          "assemblies"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitAssemblyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "The assembly was accepted and is now queued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubmittedAssembly"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks documents:assemble",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or no such matter or assembly",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is already in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The template version cannot be assembled from",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{matterId}/assemblies/{assemblyId}": {
+      "get": {
+        "description": "Returns an assembly's current state. A finished assembly carries the document and version it produced, plus the merge fields the matter could not supply and any Word merge fields the template still carries — which a caller must surface, because a document that completed with blanks in it, or with fields printing text left over from the template, is the failure this reports. A Word merge field is not filled in by this system: it prints whatever text Word last cached in it, which is why an assembly that meets one completes as succeeded_with_absences.",
+        "operationId": "assemblies.status",
+        "tags": [
+          "assemblies"
+        ],
+        "x-mc-operationId": "assemblies.status",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "documents:assemble",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "assemblies"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^documentAssembly_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "assemblyId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The assembly's current state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssemblyStatus"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks documents:assemble",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or no such matter or assembly",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is already in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/support/grants": {
       "post": {
         "description": "A firm member requests time-boxed help-desk access to their firm. The request is the consent anchor — the requester's identity is the scope, and any staff who redeems the grant acts only within the tier the requester chose. A diagnostic grant opens immediately; a privileged grant waits for admin co-sign when the firm's co-sign policy is on.",
@@ -32565,6 +35271,9 @@
       "name": "aiDetection"
     },
     {
+      "name": "assemblies"
+    },
+    {
       "name": "conflicts"
     },
     {
@@ -32698,6 +35407,9 @@
     },
     {
       "name": "supportSessions"
+    },
+    {
+      "name": "templates"
     },
     {
       "name": "timeEntries"

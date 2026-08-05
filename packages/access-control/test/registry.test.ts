@@ -128,6 +128,7 @@ describe("permission registry", () => {
       "documents:checkout",
       "documents:forceReleaseLock",
       "documents:reconcile",
+      "documents:assemble",
     ]);
   });
 

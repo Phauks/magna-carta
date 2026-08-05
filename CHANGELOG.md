@@ -766,6 +766,128 @@ Specs: `docs/specs/2026-08-04-custodian-design.md` and
 `docs/specs/2026-08-04-custodian-implementation-plan.md`. Decisions:
 `docs/decisions/pending/custodian-register-model.md` and
 `docs/decisions/pending/custodian-retention-jurisdiction-posture.md`.
+- **Custodian — the safe-custody register (slice 4·2·1).** The second half of the Phase 4 deliverable
+now has code behind it: a firm can build its physical container tree, log a packet owned by a
+Directory entity with no matter, itemize it, link a scan, check it out to a named borrower with a
+due-back date, see it turn up on the overdue list, check it back in, and read a history that tells the
+whole story in order. The new `@magna-carta/custodian` package sits on the established
+structure-versus-access seam — pure TypeScript, no binding, no clock, no `env` — and the whole surface
+is nineteen routes through the one chokepoint.
+
+**Eleven per-firm tables, and two structural invariants the schema and the write path defend
+together.** `custody_location` is one recursive tree whose root either binds a firm office or stands
+for an external site (a bank vault, an offsite records vendor) — a bank is not one of the firm's
+offices, so it never becomes a `location` row and never pollutes the letterhead picker or the
+per-office reporting dimension. `custody_packet` is the unit of custody and `custody_item` the unit of
+description, with `custody_owner` as the temporal link to the Directory. **A packet cannot exist
+without at least one owner link** — enforced on the one creation path, with no "log it now, attribute
+it later" escape hatch, because the catastrophic outcome in safe custody is not a misplaced envelope
+but an unattributable one, and ending the last current owner is refused for the same reason.
+
+**The movement ledger is genuinely append-only.** `custody_movement` carries `BEFORE UPDATE`, `BEFORE
+DELETE`, and a `BEFORE INSERT … WHEN EXISTS` replace-guard that each `RAISE(ABORT)`, proved by
+migration tests that attempt all three against real SQLite; a source-scan fitness test refuses any
+`UPDATE` or `DELETE` naming the table so the failure lands at review rather than at runtime. A
+correction is a new compensating row that names the row it corrects — there is no edit path anywhere.
+`occurred_at` and `recorded_at` are separate columns, so a Friday collection typed in on Monday is
+recorded honestly instead of being indistinguishable from falsification.
+
+**`POST /movements` is the only state-change path in the subsystem.** There is no check-out route, no
+check-in route, no move route and no mark-lost route: every one is a movement kind, so a single place
+enforces the append-only invariant, writes the derived packet or item status in the same atomic batch,
+and composes the audit row. Because D1 has no interactive transaction, each movement composes a
+precondition fence first — an insert that collides with the row's own primary key exactly when the
+status is not what the caller observed — so a concurrent movement aborts the whole batch instead of
+letting a guarded `UPDATE` match zero rows in silence. Borrower is three-way (firm member, Directory
+entity, or an external name), and `due_back_on` ships now rather than later because an overdue
+check-out is _the_ signal a custody register produces and a retrofitted column leaves every earlier
+check-out permanently silent.
+
+**Custody numbers reuse the matters allocation-ledger idiom** — ensure-row, guarded increment,
+allocation claim on the drawn value, bounded retry — with a fixed number shape rather than a second
+segment-template engine. Concurrent draws yield distinct sequential numbers; a manually assigned
+number carried in from a paper deeds register touches no counter and takes no allocation row, so a
+firm migrating thirty years of physical labels does not have to re-label a safe.
+
+**Holds block release and destruction, and deliberately do not block a move** — a held original still
+has to be movable to a fireproof safe. Placing and releasing each append a movement, so the ledger
+stays the complete story, and `readActiveCustodyHoldsForFile` is the blocker read a hold-aware
+destruction sweep calls: a scan bound to a held packet is not destroyable.
+
+**Scanned copies are ordinary File Manager files.** There is no upload route in Custodian at all —
+bytes ride the existing presigned-upload and quarantine chokepoint, and `custody_scan` links the
+resulting handle, so a custody scan is previewable, convertible, searchable, and holdable like any
+other document. The awkward part (`file.matter_id` is `NOT NULL`, and a custody owner may have no
+matter) is answered by a per-firm **system holding matter**: `matter.system_key` marks it, a partial
+unique index makes two concurrent first uses collapse onto one row, and `listMatters` excludes it —
+rather than relaxing an invariant seven subsystems depend on.
+
+**No retention policy ships, and that is the decision.** `custody_destruction_request` lands as a
+schema seam with its two-person constraint checked at the database, but no retention period, no
+default, no derived date, and no sweep — a purity test fails the build on anything that looks like
+one. Retention for client property is the most jurisdiction-bound fact in the subsystem, and the
+guidance governing originals of intrinsic value places them outside the routine clock entirely; a
+platform default there is a platform opinion about when to destroy a client's irreplaceable property.
+
+Two permissions, `custody:read` and `custody:manage`, both binding `resource: "firm"` — a deliberate
+call against the `files:*` precedent, because a packet may have no matter by construction and binding
+to `"matter"` would name a resource half the rows do not have. `custody:read` is seeded to every
+default role (a billing clerk answering "do we hold the deed" needs it); `custody:manage` reaches only
+the roles trusted with the safe. Telemetry declares one event and four counters in which no custody
+number, packet handle, location name, borrower, or item description has a slot to exist in: the
+register is a list of the most sensitive things a firm holds, and its metadata alone is a disclosure.
+
+Deferred to later custodian slices: review dates and their reminders, the destruction workflow itself,
+labels and barcodes, register reports, gated release and receipts, portal visibility, stocktake, and
+the will-on-death jurisdiction engine.
+
+Design: `docs/specs/2026-08-04-custodian-design.md`. User guide:
+`docs/user/features/safe-custody-register.md`.
+- **The merge-field input infrastructure — the user-facing half of document automation, built against a contract rather than a backend.** A new pure package `@magna-carta/merge-field-catalog-contract` declares what a merge-field catalog entry and a template version's field manifest are — key, human label, group, value type, example rendering, availability and where the value comes from, sensitivity, legal formats — and ships a mock provider over a realistic fixture catalog, so every consuming surface takes a `MergeFieldCatalogProvider` and holds only the interface. Three design-system components join the catalog: **MergeFieldPicker**, a grouped searchable picker composed from the existing Popover and Command (rows lead with the human label, search matches label, key, group, and description, and every typed term must match so a second word narrows); **MergeFieldChip**, the token for an inserted field, whose status says in colour, glyph, and words whether the reader has to do anything about it; and **MergeFieldReviewList**, where placeholders detected in an uploaded document are presented one at a time for confirmation — every row a proposal, with no state that could render as a conversion that already happened. In the web app, an assembly input area lays a template's fields against the catalog and renders a form grouped by source: a control typed to each value a person must supply, read-only context for the fields that fill themselves, per-field guidance saying where each value comes from, and a validation summary that errors on a missing required value and only warns where the matter's own data may still cover it. Reachable as a staged display page at `/forms/assemble` (sample data throughout — nothing reads or writes a matter); the visual design is deliberately plain and left for owner review.
+- **Document automation — template catalogue and merge assembly.** A firm can register a `.docx`
+template, and assemble it against a matter into a filed document. Templates live in their own
+firm-level catalogue with immutable versions (`document_template`, `document_template_version`), and
+every assembly records the exact version it came from (`document_assembly`). The merge engine is
+in-house TypeScript over the same OOXML substrate the metadata inspector uses — no new runtime, no
+container hop.
+
+Registration does the expensive work once, while a human is looking at the result: placeholders Word
+split across runs are reassembled into one run each, the document's drafting history is scrubbed, and
+the bytes are scanned before the version can be assembled from. Two things it reports rather than
+doing silently — **macro projects are removed and the removal is reported**, and **Word merge fields
+are detected and listed but converted only when you ask for it** (`convertMergeFields` on the
+registration request). A stripped package is independently re-verified as macro-free before it can
+register at all.
+
+An assembled document enters the matter through the same upload-and-scan path every other file
+crosses; there is no second route to a clean version. Merge values exist in memory for the life of the
+job and are never persisted, logged, or placed on a queue — the provenance row records which fields
+were _absent_, never what the present ones held.
+
+New permissions: `templates:manage` (Owner/Admin) and `documents:assemble` (the practising roles).
+Conditional and repeating blocks, custom-field bindings, letterhead images, and PDF output are later
+slices.
+- **Cloudflare Agents platform assessment (research).** [`docs/research/2026-08-04-cloudflare-agents-assessment.md`](docs/research/2026-08-04-cloudflare-agents-assessment.md) — what Cloudflare's Agents platform is, what community signal exists, an honest per-candidate fit assessment against the Durable Objects / Queues / Workflows / `@magna-carta/inference` foundation already in place, and a sequenced next-steps list. Grounded in a complete crawl of the Agents documentation (all 123 pages read as raw markdown), which **corrected three load-bearing claims from the first pass**: AI Gateway is first-class from inside an Agent via the same `AI` binding plus `gateway` options the inference package already uses; `AgentClient` is framework-agnostic (only the `useAgent` hooks are React), so a Svelte SPA is not shut out; and `getAgentByName()` lets an agent sit behind the existing request chokepoint with the instance name derived server-side from the session. The one architectural conflict that survives is message persistence — `AIChatAgent` writes conversation history to the agent's own SQLite with a redaction hook but no pluggable storage backend, so privileged transcripts cannot be redirected to the firm-scoped data-access layer. Recommends adopting nothing from the SDK now, taking Durable-Object-native hibernation WebSockets for job push-progress instead, prototyping only a fenced chat-transport shell on synthetic fixtures, deferring the Think harness while it stays experimental, and refusing the managed Agent Memory / AI Search stores and any agentic authority over conflicts, the ledger, or deadlines. Includes a per-class verdict on migrating the seven existing Durable Objects to the Agent class (not worth it for any; actively harmful for `FirmDatabase`, whose firm database would gain framework-reserved tables). Research only — no decision, no code.
+- **Custodian: review dates with a real reminder feed, the register reports, and printable barcode labels.** The safe-custody register now answers the two questions it could not: what needs looking at again, and what the firm holds in aggregate. A packet or an item carries `review_on` and `review_interval_months` — set by the firm, defaulted by nothing — and recording a completed review appends a `reviewed` entry to the append-only ledger and rolls the date forward on its **anniversary** rather than a period after today, so a review done eight months late does not drag a five-year cycle with it. `GET /api/v1/custody/reminders` is the one place a review that has come round and a check-out that has not come back are decided, in one shape, oldest first; when the Notifications registry lands, delivery subscribes to that rather than growing a second definition of what is due. Three register reports join the shipped overdue list: holdings per owner (packets held, out, itemized, and under hold — as directory handles, never names), the container tree with direct and subtree occupancy counts, and every hold in force. `GET /api/v1/custody/labels` returns a true-size A4 label sheet as SVG, with a Code 128 barcode carrying each object's **identifier handle** — a custody number is a string a firm can re-render, and a scan has to resolve through no lookup rule that can change under labels already stuck to boxes in a safe.
+
+**The destruction workflow is still not built, and the platform still ships no retention periods.** `custody_destruction_request` remains a table with no service, no route, and no code path that writes it; there is no `retention_until` column, no default, no derived date, and no sweep. Retention for client property is the most jurisdiction-bound fact in the subsystem, and the guidance that governs its actual contents says originals of intrinsic value sit outside any routine clock — a platform default here would be a platform opinion about when to destroy a client's irreplaceable property.
+
+**One migration statement is not additive, and it is why the migration is hand-written.** Adding `reviewed` to the movement vocabulary means replacing `custody_movement`'s kind CHECK, which SQLite can only do by rebuilding the table. The rebuild is safe precisely because the ledger was designed to carry no referential dependency — `corrects_movement_id` is a self-reference with no foreign key — and the append-only triggers are dropped and recreated around it, with the guarantee re-proved against the table that came out of the rebuild rather than the one that went in.
+- **`pnpm fix:scoped` — the formatter, pointed at the diff instead of the repository.** A bare
+`vp check --fix` takes no paths and rewrites everything; it has three times landed dozens of files
+nobody in the change had touched, including the `sort()` → `toSorted()` autofix that breaks a package
+whose compile target predates it. `pnpm fix:scoped` (`tooling/check-scoped/fix.mjs`) applies the
+formatter and the lint autofixes to exactly the change set `pnpm check:scoped` verifies — markdown and
+the other prose/data formats included — and the two now share one change-set implementation, so the
+files fixed and the files checked cannot drift apart. Each pass receives only the paths its tools can
+parse (`.svelte` is lint-only, markdown/JSON/CSS/HTML/YAML/TOML format-only, scripts both);
+`--no-lint` formats without autofixing and `--base <ref>` re-scopes the diff, as on the gate.
+
+Also in this batch: `magna-carta-engine-host`'s magic-byte detection gained a **constant-stack
+regression guard** — `detect` now runs in a test on a deliberately 64 KiB thread stack, so an
+implementation that recurses into a container or copies its input into a frame fails on every machine
+rather than as an occasional stack overflow on a loaded one.
+- **Trust accounting (slice 3·2) analysis for owner review (research).** [`docs/research/2026-08-04-trust-accounting-analysis.md`](docs/research/2026-08-04-trust-accounting-analysis.md) — the ledger-model options for trust (account-tree shape and sub-ledger granularity, the firm-funds-for-bank-charges carve-out, the three-way bank/book/client reconciliation), the invariants that must hold by construction (no negative client balance on the `account_balance` bounds CHECK, no commingling as a distinct structural guard, fees-never-touch-trust as a composition guard 3·4 and the payments phase inherit, trust-to-operating transfer rules, void-not-delete extended to the tables hung around the ledger, and holds for disputed funds), the jurisdiction variance that must never be defaulted, the integration points against the built 3·1 time and 3·3 costs subsystems plus 3·4 billing and the payments phase, what the pre-alpha per-firm schema baseline collapse means for sequencing, the audit and reporting obligations the state rules impose, and a five-part slice breakdown in which each sub-slice names the owner decisions that must be answered before it can start. Records two findings about the current state: the approved 2026-07-09 jurisdiction-profile design is unbuilt and its typed corpus has not been vendored from the research archive (what `docs/research/trust-rules/` holds today is the earlier narrative catalog), and the phase-3 slice map's chart-of-accounts coordination pin reaches 3·2 as well as 3·4 because trust creates the first real product ledger accounts. Seventeen owner-decision flags and an explicit owner-review checklist. **Analysis only — no code, no schema, no decision; nothing proceeds to spec, plan, or build without owner approval.**
 
 ### Fixed
 
@@ -1265,6 +1387,8 @@ one had not taken — a scan engine that read nothing pinned the whole body in m
 its own. That lane now reads the body once and feeds both consumers from it, bounded by the cap that
 already governs the lane and by the size R2 reported for the object. The over-cap lane is untouched
 and still streams straight into the digest, so a multi-GB object never buffers.
+- Decision-register entries can no longer render blank. Four decision fragments were authored with a Markdown title where the frontmatter belongs; the assembler's reader looked for a `---` fence, did not find one, and returned a record whose status, date, and area were all empty with the whole fragment — title included — as the body, so the register rendered four bullets with two blank fields and the title standing in for the decision text. Nothing threw, so the degraded output merged. Reading a decision file is now a validating operation: a missing frontmatter fence, an unknown frontmatter key, an empty slug/status/area, a status outside the lifecycle, a date that is not `YYYY-MM-DD`, or register text that is empty or starts with `#` all stop the assembly with a message naming the file, and the whole pending set is validated before any fragment is numbered so a bad one is a clean no-op rather than a half-consumed assembly. The same validation runs as `pnpm run lint:decisions` in the gate's governance job, so an author sees the problem on their own pull request instead of after the merge that consumes the fragment. The four affected entries were repaired in place, keeping their assigned numbers, and a corpus test now asserts every decision file in the repository renders a complete register bullet.
+- **Four tooling and hygiene repairs.** **Bootstrap refuses instead of silently succeeding against the wrong checkout** — `pnpm exec vp run bootstrap` in a worktree without `node_modules` resolves `vp` from a parent checkout (worktrees live under `.claude/worktrees/`, so the binary lookup walks up into it), runs the parent's already-current bootstrap, and exits 0 while the worktree stays unbootstrapped. `tooling/bootstrap/invocation-environment.mjs` now compares the checkout the script belongs to against the one the caller's shell is standing in — nearest enclosing `pnpm-workspace.yaml`, not a path prefix, so a nested worktree is not read as part of its parent — and refuses with `run pnpm install first`; it also refuses when its own checkout has no dependencies installed. **The changelog assembler no longer doubles a leading bullet** — a fragment body written as `- **Entry.**` stacked with the `- ` the assembler prepends; `parseFragment` now strips one leading list marker (`-`, `*`, `+`), leaving nested lists and prose openers alone. **`search-core`'s selectivity test is deterministic** — `build_split` indexed on Tantivy's default thread-per-core writer, so a batch landed as two-to-eight segments depending on scheduling and both a split's size and a query's read cost varied run to run (the rare-term read ranged from 28% to 51% of the split). It now indexes on one thread, so a batch is exactly one segment, every time; extra segments were also per-query I/O the split model exists to avoid, since a searcher consults every segment's term dictionary. **Thirty-one stale `docs/active-work/` notes swept** for streams whose work is fully on `main`, with the five `status.d` fragments that pointed at them flipped to `branch: main`.
 
 ### Changed
 
@@ -1387,6 +1511,85 @@ and FFmpeg engine Containers can each land as an additive dispatch entry with no
   hard error in one paragraph while the next said it keeps its inherited advisory severity. Both are
   corrected against the live `vite.config.ts`, and `oxc/no-barrel-file` is now stated as the one rule
   set to error.
+- **Document automation — registering a template asks before it rewrites, and remembers what you tell
+it.** Three changes to how a `.docx` becomes a template.
+
+**A document built from Word mail merge now registers.** It used to be refused until you asked for its
+merge fields to be converted. Now it registers as authored, and every Word merge field in it is
+recorded against the template — its name, where in the document it sits, and **the text it will
+actually print**, which is whatever Word last cached in the field. The field list shows them, and
+every document you assemble from that template reports them again and completes as needing review, so
+a field printing text left over from the template is visible in the same place a missing value is
+rather than looking finished. Converting is still opt-in, and still the way to make those fields fill
+in.
+
+**Macros are now removed only when you ask.** Before, a macro project was stripped out of any upload
+that had one. Removing it changes the document you sent us, so it is now a choice you make:
+`stripMacros` on the registration request removes the macro project and re-checks the result from
+scratch, and an upload carrying macros without it is refused with what was found and both ways
+through — ask for the removal, or upload a macro-free copy. A template is never stored carrying live
+macros, and never quietly rewritten.
+
+**Your firm's merge-field names are remembered between imports.** Confirming what a Word field name
+means — by converting a template that uses it — records the mapping, and every later registration
+consults it, so importing a second document from the same source arrives already mapped instead of
+asking again. Nothing is ever mapped by guessing: a name your firm has not confirmed is reported as
+unmapped. The library is visible and editable at `GET /api/v1/merge-field-mappings` and
+`DELETE /api/v1/merge-field-mappings/{mappingId}`, both under **manage templates**.
+
+An assembly's status now carries `frozenMergeFieldNames` beside `absentFieldKeys`, and the
+registration response carries `unconvertedMergeFields`, `confirmedFieldMappings`, and `macrosStripped`.
+- **The template expression ceiling grows to computed expressions — design only, no code in this
+change.** Document automation's conditional and repeating blocks were designed against a deliberately
+narrow expression ceiling: presence, negation, and equality against a literal. On an owner decision
+that ceiling now grows to **computed expressions** — arithmetic over money and numbers, date math,
+comparisons, and a fixed catalog of formatting, pluralization, ordinal, and case helpers — plus a new
+computed-field placeholder, so a fee agreement can state a cap, a settlement statement can split a
+recovery, and a notice can compute a deadline thirty days out without anyone reaching for a
+calculator and typing the answer in.
+
+**The line that does not move: an expression is never executable template-supplied code.** Not code
+we sandbox, not code we lint — code the grammar cannot express. There is no production for a function
+definition, a property access, an index, an assignment, a lambda, a regular expression, a template
+include, or a call to anything but an allowlist compiled into our own source. A merge key such as
+`matter.number` is **one atom, not a traversal**: names resolve by exact match through a `Map`, so
+`__proto__.constructor` is a missing merge field reported at registration rather than a reachable
+prototype chain. That is the structural difference from the templating libraries that evaluate
+JavaScript expressions from template content, whose sandboxes are denylists over a language that can
+express everything and have failed twice as such.
+
+**Termination is structural rather than a timeout.** No loop, no recursion, no self-reference, no
+includes; a finite tree of bounded depth walked once; the only variadic-cost construct is `{{#each}}`,
+which iterates a finite list of the firm's own data under a cap. Expressions do not iterate — the
+document construct does.
+
+**Money stays integer-exact, and division is not an operator.** No floating point anywhere in the
+evaluator, no currency conversion, and mixed currencies refuse by name. `/` has no production at all;
+in its place are three helpers whose rounding is explicit — `divideExact` (the exact quotient or a
+refusal), `divideRounded` / `applyRate` / `percentOf` (**banker's rounding, half to even**, through
+the money package's existing ledger rounding), and `allocate` (parts that sum exactly to the input).
+Date math runs over calendar dates in the **matter's office** time zone through the existing
+time-zone seam; there is no instant type and therefore no time-of-day arithmetic, and no business-day
+or court-deadline helper ships, because that needs a maintained per-jurisdiction holiday calendar and
+a wrong answer is a missed filing.
+
+**Type errors are registration errors, with a location.** Expressions are lexed, parsed, name-
+resolved, type-checked, and limit-checked when the template version registers, and a failure carries
+the part, the paragraph, and the character offset to the field inspector — never an assembly
+surprise. An unresolved **condition** fails the assembly by default (a wrong branch is invisible;
+nobody reads a contract and notices the paragraph that is not there) while an unresolved **computed
+field** renders a visible placeholder, and `has(...)` is the one-word total form for an author who
+genuinely means "omit it when we have nothing on file".
+
+The build slice is resequenced accordingly — grammar, evaluator, conditionals, repeats, computed
+fields, each independently testable, with the first two touching no document at all so the language
+is proven correct before it meets an OOXML package. The security claim carries a standing fuzzing
+obligation: structure-aware and byte-level generation, a committed hostile-input corpus that must
+fail at parse or check rather than at evaluation, an arithmetic oracle, and one test per resource
+bound.
+
+Design: `docs/specs/2026-08-04-template-expression-language-design.md`. Plan:
+`docs/specs/2026-08-04-document-automation-implementation-plan.md`.
 
 ### Security
 
@@ -1487,6 +1690,38 @@ lockfiles, adding bounded stream decompression, a `LoadOptions.max_decompressed_
 load-time object and cross-reference streams, and a fix that rejects incremental saves of encrypted
 documents. `Document::get_page_content` is infallible in 0.44, so its five call sites in
 `crates/pdf-core` dropped their `Result` handling.
+- **The `office-crypto` dependency is gone; `decryption-core` decrypts Office documents itself.**
+`crates/decryption-core` already owned the ECMA-376 agile verifier, the iterative password hash,
+block-key derivation, its own descriptor parser, and the compound-file validation. The only thing
+`office-crypto` still did was the package decryption loop, which is now implemented in-house:
+MS-OFFCRYPTO agile encryption's 4096-byte segments, each an independent AES-CBC chain under an
+initialization vector derived from the `keyData` salt and the segment index, plus the session-key
+unwrap that precedes them. ECMA-376 **standard** encryption (Office 2007 — AES-ECB under a
+SHA-1-derived key) is ported alongside it, so no document that opened before stops opening; its
+legacy RC4 CryptoAPI variant is refused by name, exactly as it was before.
+
+**This removes both quick-xml advisories from the tree rather than accepting them for another
+review cycle.** `office-crypto` was quick-xml's only consumer in every audited lockfile, and no
+`office-crypto` release resolves the fixed quick-xml 0.41, so replacing it was the only remediation
+that existed — the exit the accepted-advisory entries themselves named. `RUSTSEC-2026-0194` and
+`RUSTSEC-2026-0195` leave `osv-scanner.toml`, which now holds no accepted Rust advisory at all.
+Sixteen crates leave the dependency graph (`office-crypto`, `quick-xml`, `base64`, `bytemuck`,
+`derivative`, `ecb`, `packed_struct` and its codegen, `bitvec` and friends, `serde`, `syn` 1.x);
+none are added — the in-house loop is built on the RustCrypto primitives already in the workspace.
+
+**Three panic paths on untrusted input close with it.** `office-crypto` computed
+`total_size - 4096` as unsigned arithmetic with no bounds check, unwrapped its XML reader outright
+on a malformed descriptor, and read `spinCount` from an uploaded document with no cap — so a
+crafted file could crash the process or pin a core for hours. The in-house path is checked
+throughout: the size prefix is read as the 64-bit quantity it is and converted rather than cast (a
+32-bit concern on the wasm32 target), a prefix promising more plaintext than there is ciphertext is
+refused before a segment is decrypted, and the spin-count cap that guarded hash extraction now
+guards decryption too. Every guard that already existed is kept.
+
+**A wrong password is now refused by the ECMA-376 verifier rather than inferred.** Both schemes
+carry a password verifier and both are checked before any package byte is decrypted, so a wrong
+password costs one key derivation instead of a full decryption, and a genuinely corrupt document is
+reported as malformed rather than as a bad password.
 
 ### Added
 

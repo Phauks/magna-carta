@@ -100,6 +100,14 @@ export const PERMISSIONS = [
   "emails:read", // read a matter's filed emails and threads, and the wall-safe "already filed" signal
   "emails:manageLinks", // accept a staged link, link to additional matters, unlink
   "emails:manageCaptureAddresses", // mint/rotate a matter's forward token, manage the firm catch-all (admin)
+  // Document automation — the firm's assembly-template catalogue and the act of assembling a document
+  // onto a matter. The catalogue is firm-level and carries no matter data, so templates:* binds
+  // resource: "firm"; an assembly is matter-rooted like every other document operation, so
+  // documents:assemble binds resource: "matter" (the files:* precedent). Listing the catalogue is bound
+  // to documents:assemble rather than a third read key: a member who can assemble must be able to see
+  // what they can assemble, and a member who cannot has no use for the list.
+  "templates:manage", // register, version, and archive assembly templates (administrative)
+  "documents:assemble", // list the template catalogue and assemble a document onto a matter
   // Custodian — the register of physical client originals the firm holds in safekeeping. Two keys,
   // because reading a register and moving originals in it are genuinely different capabilities: a
   // billing clerk answering "do we hold the deed" needs the read and must not have the write. Both

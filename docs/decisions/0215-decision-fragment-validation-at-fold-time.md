@@ -1,8 +1,9 @@
 ---
+number: 215
 slug: decision-fragment-validation-at-fold-time
 status: Accepted
-area: Documentation / Decision register
 date: 2026-08-04
+area: Documentation / Decision register
 summary: "Decision files are validated rather than parsed leniently: the assembler now REFUSES a malformed file instead of rendering a degraded register bullet, and the same validation runs as a governance gate (`pnpm run lint:decisions`) on every pull request so an author finds the problem in their own gate. A file must open with a frontmatter fence, carry only known frontmatter keys, name a non-empty slug, a status beginning with a lifecycle word, and an area, date as YYYY-MM-DD when present, and must yield register text that is neither empty nor a Markdown heading. The whole pending set is read and validated BEFORE any fragment is numbered, so a bad one is a clean no-op rather than a half-consumed assembly, and already-numbered files are validated on every run because a corrupt one would otherwise re-render its damage forever."
 ---
 

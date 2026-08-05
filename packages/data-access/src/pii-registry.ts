@@ -117,6 +117,28 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "retain-under-matter",
     note: "which firm member filed a message to a matter, and when, is the filing's provenance on that matter record",
   },
+  // Document automation — the assembly record is the provenance of a document on a matter file, so it
+  // is retained on the same basis as the document itself. Its structured subject is the member who
+  // requested the assembly; the absent-field key list it also carries names FIELDS, never values, and
+  // by construction held nothing.
+  {
+    table: "document_assembly",
+    subjectKey: "requested_by",
+    action: "retain-under-matter",
+    note: "who produced a document on a matter, and from which template version, is that document's provenance",
+  },
+  // The firm's merge-field mapping library. Its CONTENT is about documents, not people — a Word field
+  // name and the merge key the firm confirmed it means — so the only subject reference is the member
+  // who confirmed the mapping. That is administrative provenance on a firm-configuration row, the line
+  // integration_connection.created_by and email_capture_address.created_by already sit on, so the
+  // reference is pseudonymized and the mapping itself outlives the member: a template registered under
+  // it must stay explicable after that person leaves.
+  {
+    table: "document_template_field_mapping",
+    subjectKey: "confirmed_by",
+    action: "pseudonymize-keep",
+    note: "which member confirmed what a Word field name means is configuration provenance the firm keeps",
+  },
   // Custodian — the register of physical client originals a firm holds. Its METADATA alone is
   // sensitive: "this firm holds an original will for Jane Smith" is a disclosure with no document
   // attached. Three tables carry a structured reference to a person; the rest of the group is
@@ -258,6 +280,14 @@ export const NO_PII_TABLES: readonly string[] = [
   // provenance on a configuration row — current state, not an activity record about the member (the
   // same line integration_connection and scoped_setting sit on).
   "email_capture_address",
+  // Document-automation template catalogue — firm-authored assembly inputs and their stored bytes. A
+  // template can itself embed sample or boilerplate personal data in its fixed text, which is content-
+  // level residue for the residue report exactly as a matter document's contents are; the ROWS carry
+  // only the template's name, its narrowing bindings, its scan verdict, and its field manifest, which
+  // names merge fields rather than holding any value of one. created_by is administrative provenance on
+  // a firm configuration row (the same line email_capture_address sits on).
+  "document_template",
+  "document_template_version",
   // Custodian structure and catalogs. The three tables that reference a person are registered in
   // PII_TABLES above; these carry none of their own.
   // The container tree is the firm's own safes, shelves, and offsite sites — the firm's premises,

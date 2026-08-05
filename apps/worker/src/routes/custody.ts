@@ -3,6 +3,8 @@ import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import { placeCustodyHold, releaseCustodyHold } from "@magna-carta/custodian/hold-service";
 import { readActiveCustodyHolds } from "@magna-carta/custodian/hold-statements";
 import { addCustodyItem, updateCustodyItem } from "@magna-carta/custodian/item-service";
+import { buildCustodyLabelSheet } from "@magna-carta/custodian/label-service";
+import { CUSTODY_LABELS_PER_SHEET } from "@magna-carta/custodian/labels/label-sheet";
 import {
   createCustodyItemType,
   deactivateCustodyItemType,
@@ -29,6 +31,13 @@ import {
   readCustodyPacket,
 } from "@magna-carta/custodian/packet-statements";
 import { listCustodyPackets, readOverdueCustodyCheckouts } from "@magna-carta/custodian/queries";
+import { collectCustodyReminders } from "@magna-carta/custodian/reminders";
+import {
+  readCustodyHoldingsByOwner,
+  readCustodyLocationOccupancyReport,
+  readCustodyPacketsUnderHold,
+} from "@magna-carta/custodian/reports";
+import { completeCustodyReview } from "@magna-carta/custodian/review-service";
 import { linkCustodyScan, resolveCustodyFilingMatter } from "@magna-carta/custodian/scan-service";
 import { readCustodyScans } from "@magna-carta/custodian/scan-statements";
 import {
@@ -39,9 +48,11 @@ import {
   CUSTODY_MOVEMENT_KINDS,
   CUSTODY_PACKET_STATUSES,
   CUSTODY_SCAN_KINDS,
+  MAX_CUSTODY_REVIEW_INTERVAL_MONTHS,
 } from "@magna-carta/custodian/types";
 import { CustodyValidationError } from "@magna-carta/custodian/validation";
 import { cryptoRandomSource } from "@magna-carta/identifiers/random";
+import type { CustodyLocationId, CustodyPacketId } from "@magna-carta/identifiers/types";
 import type { Context } from "hono";
 import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
@@ -193,6 +204,19 @@ function custodyErrorResponse(
         status: 422,
         detail: caught.message,
       });
+    // A review with no date set, an out-of-range interval, and a label selection that will not fit a
+    // sheet are all ordinary shape refusals — the caller sent something the register cannot act on,
+    // not a state conflict — so they take the generic validation problem rather than minting three
+    // contract-visible types that carry no extra information for a client.
+    case "custody-no-review-scheduled":
+    case "custody-invalid-review-interval":
+    case "custody-label-selection-invalid":
+      return problemJson(c, {
+        type: "validation",
+        title: "Custody request invalid",
+        status: 422,
+        detail: caught.message,
+      });
     default:
       return problemJson(c, {
         type: "validation",
@@ -291,8 +315,21 @@ const CustodyItem = z
     declaredValueAmountMinor: z.number().int().nullable(),
     declaredValueCurrency: z.string().nullable(),
     status: z.enum(CUSTODY_ITEM_STATUSES),
+    reviewOn: z.string().nullable(),
+    reviewIntervalMonths: z.number().int().nullable(),
   })
   .openapi("CustodyItem");
+
+// A review schedule, as a request field. Both halves are nullable and neither has a default: the
+// register never derives a review date, and nothing expires when one passes.
+const reviewOnField = z.string().max(40).nullable().optional();
+const reviewIntervalMonthsField = z
+  .number()
+  .int()
+  .min(1)
+  .max(MAX_CUSTODY_REVIEW_INTERVAL_MONTHS)
+  .nullable()
+  .optional();
 
 const DeclaredValue = z
   .object({ amountMinor: z.number().int(), currency: z.string().length(3) })
@@ -318,6 +355,8 @@ const UpdateCustodyItemRequest = z
     instrumentDate: z.string().max(40).nullable().optional(),
     intrinsicValue: z.boolean().optional(),
     declaredValue: DeclaredValue.nullable().optional(),
+    reviewOn: reviewOnField,
+    reviewIntervalMonths: reviewIntervalMonthsField,
   })
   .openapi("UpdateCustodyItemRequest");
 
@@ -366,6 +405,8 @@ const CustodyPacketDetail = z
     matterId: z.string().nullable(),
     depositorEntityId: z.string().nullable(),
     depositedAt: z.string().nullable(),
+    reviewOn: z.string().nullable(),
+    reviewIntervalMonths: z.number().int().nullable(),
     notes: z.string().nullable(),
     // Root first, the packet's own node last — the breadcrumb the register renders.
     locationPath: z.array(CustodyLocation),
@@ -407,6 +448,8 @@ const UpdateCustodyPacketRequest = z
     matterId: identifierField("matter").nullable().optional(),
     depositorEntityId: directoryEntityId.nullable().optional(),
     depositedAt: z.string().nullable().optional(),
+    reviewOn: reviewOnField,
+    reviewIntervalMonths: reviewIntervalMonthsField,
     notes: z.string().max(4000).nullable().optional(),
   })
   .openapi("UpdateCustodyPacketRequest");
@@ -514,8 +557,90 @@ const OverdueCustodyCheckout = z
   })
   .openapi("OverdueCustodyCheckout");
 
+const CompleteCustodyReviewRequest = z
+  .object({
+    // Which object was reviewed. Absent means the packet itself; an item id means one thing inside.
+    itemId: identifierField("custodyItem").optional(),
+    occurredAt: z.string().max(40).optional(),
+    // An explicit next date, when the firm wants one the interval would not produce. Null clears the
+    // schedule outright — "we have looked at this and it does not need looking at again".
+    nextReviewOn: z.string().max(40).nullable().optional(),
+    note: z.string().max(2000).optional(),
+  })
+  .openapi("CompleteCustodyReviewRequest");
+
+const CompletedCustodyReviewResponse = z
+  .object({ id: z.string(), nextReviewOn: z.string().nullable() })
+  .openapi("CompletedCustodyReviewResponse");
+
+const CustodyReminder = z
+  .object({
+    reason: z.enum(["review-due", "checkout-overdue"]),
+    packetId: z.string(),
+    itemId: z.string().nullable(),
+    custodyNumber: z.string(),
+    dueOn: z.string(),
+    daysOverdue: z.number().int(),
+    bucket: z.enum(["0-7d", "8-30d", "31-90d", "over-90d"]),
+  })
+  .openapi("CustodyReminder");
+
+const CustodyHoldingsByOwner = z
+  .object({
+    entityId: z.string(),
+    packetsHeld: z.number().int(),
+    packetsOut: z.number().int(),
+    itemsDescribed: z.number().int(),
+    packetsUnderHold: z.number().int(),
+  })
+  .openapi("CustodyHoldingsByOwner");
+
+const CustodyLocationOccupancy = z
+  .object({
+    locationId: z.string(),
+    name: z.string(),
+    kind: z.enum(CUSTODY_LOCATION_KINDS),
+    parentLocationId: z.string().nullable(),
+    status: z.enum(["active", "closed"]),
+    depth: z.number().int(),
+    directOccupancy: z.number().int(),
+    subtreeOccupancy: z.number().int(),
+  })
+  .openapi("CustodyLocationOccupancy");
+
+const CustodyPacketUnderHold = z
+  .object({
+    holdId: z.string(),
+    packetId: z.string(),
+    itemId: z.string().nullable(),
+    custodyNumber: z.string(),
+    kind: z.enum(CUSTODY_HOLD_KINDS),
+    placedAt: z.string(),
+    packetStatus: z.enum(CUSTODY_PACKET_STATUSES),
+  })
+  .openapi("CustodyPacketUnderHold");
+
 const IdAck = z.object({ id: z.string() }).openapi("CustodyIdAck");
 const Ack = z.object({ ok: z.boolean() }).openapi("CustodyAck");
+
+// A comma-separated identifier list in a query string. Labels are a read over a selection the person
+// made in the register, and a GET with the selection in the URL is what makes "print this again"
+// a bookmark rather than a re-selection.
+function identifierList(prefix: string) {
+  return z
+    .string()
+    .max(2000)
+    .optional()
+    .transform((value) =>
+      value === undefined || value.trim().length === 0
+        ? []
+        : value.split(",").map((id) => id.trim()),
+    )
+    .refine(
+      (ids) => ids.every((id) => id.startsWith(`${prefix}_`)),
+      `every id must be a ${prefix} handle`,
+    );
+}
 
 // ---- route metas ----
 //
@@ -989,6 +1114,155 @@ const listOverdueRoute = defineOpenAPIRoute(readMeta("listOverdue"), {
   },
 });
 
+const completeReviewRoute = defineOpenAPIRoute(writeMeta("completeReview", "required"), {
+  method: "post",
+  path: "/api/v1/custody/packets/{packetId}/reviews",
+  description:
+    "Records that a packet, or one item inside it, has been looked at again, and rolls its review " +
+    "date forward by the firm's own interval. The next date lands on the original anniversary " +
+    "rather than a period after today, so a review done late does not drag the cycle with it. A " +
+    "review is not a deadline and nothing expires when one passes.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: packetIdParam,
+    body: {
+      content: { "application/json": { schema: CompleteCustodyReviewRequest } },
+      required: true,
+    },
+  },
+  responses: {
+    201: {
+      description: "The recorded review",
+      content: { "application/json": { schema: CompletedCustodyReviewResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const listRemindersRoute = defineOpenAPIRoute(readMeta("listReminders"), {
+  method: "get",
+  path: "/api/v1/custody/reminders",
+  description:
+    "Everything the register is waiting on, in one list, oldest first: review dates that have come " +
+    "round and check-outs that have not come back. This is the single place those two are decided, " +
+    "so a reminder that arrives by any other route says the same thing this one does.",
+  request: { query: z.object({ asOf: z.string().max(40).optional() }) },
+  responses: {
+    200: {
+      description: "Reminders due",
+      content: { "application/json": { schema: z.object({ data: z.array(CustodyReminder) }) } },
+    },
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    429: authErrors[429],
+  },
+});
+
+const holdingsByOwnerRoute = defineOpenAPIRoute(readMeta("reportHoldingsByOwner"), {
+  method: "get",
+  path: "/api/v1/custody/reports/holdings-by-owner",
+  description:
+    "What the firm currently holds for each person or organization: packets in the safe, packets " +
+    "out, items described, and packets under hold. Owners are returned as directory handles, not " +
+    "names — the caller resolves them through the directory it already reads.",
+  request: { query: z.object({ limit: z.coerce.number().int().min(1).max(500).optional() }) },
+  responses: {
+    200: {
+      description: "Holdings per owner",
+      content: {
+        "application/json": { schema: z.object({ data: z.array(CustodyHoldingsByOwner) }) },
+      },
+    },
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    429: authErrors[429],
+  },
+});
+
+const holdingsByLocationRoute = defineOpenAPIRoute(readMeta("reportHoldingsByLocation"), {
+  method: "get",
+  path: "/api/v1/custody/reports/holdings-by-location",
+  description:
+    "The container tree with occupancy counts — what is at each node, and what is at that node or " +
+    "anywhere beneath it. A packet that is checked out is at no location, so a shelf whose contents " +
+    "are all out reads as empty, which is what a person standing in front of it would see.",
+  responses: {
+    200: {
+      description: "Occupancy per location",
+      content: {
+        "application/json": { schema: z.object({ data: z.array(CustodyLocationOccupancy) }) },
+      },
+    },
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    429: authErrors[429],
+  },
+});
+
+const holdsReportRoute = defineOpenAPIRoute(readMeta("reportHolds"), {
+  method: "get",
+  path: "/api/v1/custody/reports/holds",
+  description:
+    "Every hold in force across the register, oldest first. A hold nobody can see is a hold nobody " +
+    "will remember to release.",
+  request: { query: z.object({ limit: z.coerce.number().int().min(1).max(500).optional() }) },
+  responses: {
+    200: {
+      description: "Packets under hold",
+      content: {
+        "application/json": { schema: z.object({ data: z.array(CustodyPacketUnderHold) }) },
+      },
+    },
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    429: authErrors[429],
+  },
+});
+
+const renderLabelsRoute = defineOpenAPIRoute(readMeta("renderLabels"), {
+  method: "get",
+  path: "/api/v1/custody/labels",
+  description:
+    "Returns a printable label sheet as SVG for the packets and locations named, at true size on " +
+    "A4 label stock. Each label carries a scannable barcode of the object's own identifier, the " +
+    "custody number or node name in large type, and the packet name. Start part-way down a " +
+    "partly-used sheet with startPosition. One sheet per request — a label that fell onto a second " +
+    "page is a label that ends up on the wrong box.",
+  request: {
+    query: z.object({
+      packetIds: identifierList("custodyPacket"),
+      locationIds: identifierList("custodyLocation"),
+      startPosition: z.coerce
+        .number()
+        .int()
+        .min(0)
+        .max(CUSTODY_LABELS_PER_SHEET - 1)
+        .optional(),
+    }),
+  },
+  responses: {
+    200: {
+      description: "The label sheet",
+      content: { "image/svg+xml": { schema: z.string() } },
+    },
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
 // ---- registration ----
 
 function serviceOptions(c: Context<{ Bindings: Bindings; Variables: AppVariables }>) {
@@ -1182,6 +1456,8 @@ export function registerCustodyRoutes(app: CustodyApp, chokepoint: Chokepoint): 
           matterId: packet.matter_id,
           depositorEntityId: packet.depositor_entity_id,
           depositedAt: packet.deposited_at,
+          reviewOn: packet.review_on,
+          reviewIntervalMonths: packet.review_interval_months,
           notes: packet.notes,
           locationPath: locationPath.map(locationView),
           filingMatterId: filingMatterId ?? null,
@@ -1195,6 +1471,8 @@ export function registerCustodyRoutes(app: CustodyApp, chokepoint: Chokepoint): 
             declaredValueAmountMinor: item.declared_value_amount_minor,
             declaredValueCurrency: item.declared_value_currency,
             status: item.status,
+            reviewOn: item.review_on,
+            reviewIntervalMonths: item.review_interval_months,
           })),
           owners: owners.map((owner) => ({
             id: owner.id,
@@ -1502,6 +1780,100 @@ export function registerCustodyRoutes(app: CustodyApp, chokepoint: Chokepoint): 
         asOf ?? new Date().toISOString().slice(0, 10),
       );
       return c.json({ data: rows } as never, 200);
+    },
+  );
+
+  app.openapi(
+    { ...completeReviewRoute, middleware: chokepointMiddleware(chokepoint, completeReviewRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { packetId } = c.req.valid("param");
+      const request = c.req.valid("json");
+      try {
+        const completed = await completeCustodyReview(firm.firmDatabase, packetId, request, {
+          ...serviceOptions(c),
+          idempotency,
+        });
+        return c.json(
+          { id: completed.movementId, nextReviewOn: completed.nextReviewOn } as never,
+          201,
+        );
+      } catch (caught) {
+        return custodyErrorResponse(c, caught);
+      }
+    },
+  );
+
+  app.openapi(
+    { ...listRemindersRoute, middleware: chokepointMiddleware(chokepoint, listRemindersRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { asOf } = c.req.valid("query");
+      const reminders = await collectCustodyReminders(
+        firm.firmDatabase,
+        asOf ?? new Date().toISOString().slice(0, 10),
+      );
+      return c.json({ data: reminders } as never, 200);
+    },
+  );
+
+  app.openapi(
+    {
+      ...holdingsByOwnerRoute,
+      middleware: chokepointMiddleware(chokepoint, holdingsByOwnerRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { limit } = c.req.valid("query");
+      const rows = await readCustodyHoldingsByOwner(firm.firmDatabase, limit);
+      return c.json({ data: rows } as never, 200);
+    },
+  );
+
+  app.openapi(
+    {
+      ...holdingsByLocationRoute,
+      middleware: chokepointMiddleware(chokepoint, holdingsByLocationRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const rows = await readCustodyLocationOccupancyReport(firm.firmDatabase);
+      return c.json({ data: rows } as never, 200);
+    },
+  );
+
+  app.openapi(
+    { ...holdsReportRoute, middleware: chokepointMiddleware(chokepoint, holdsReportRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { limit } = c.req.valid("query");
+      const rows = await readCustodyPacketsUnderHold(firm.firmDatabase, limit);
+      return c.json({ data: rows } as never, 200);
+    },
+  );
+
+  app.openapi(
+    { ...renderLabelsRoute, middleware: chokepointMiddleware(chokepoint, renderLabelsRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const query = c.req.valid("query");
+      try {
+        const sheet = await buildCustodyLabelSheet(firm.firmDatabase, {
+          packetIds: query.packetIds as CustodyPacketId[],
+          locationIds: query.locationIds as CustodyLocationId[],
+          startPosition: query.startPosition,
+        });
+        return new Response(sheet.svg, {
+          status: 200,
+          headers: {
+            "content-type": "image/svg+xml; charset=utf-8",
+            "content-disposition": 'inline; filename="custody-labels.svg"',
+          },
+        });
+      } catch (caught) {
+        return custodyErrorResponse(c, caught);
+      }
     },
   );
 }
