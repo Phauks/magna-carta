@@ -393,7 +393,7 @@ export const emailsListInfiniteOptions = (options: Options<EmailsListData>) => i
 });
 
 /**
- * File a raw email message (.eml or .msg bytes) to this matter. The bytes are staged and the parse, dedup, thread-linking, and attachment extraction run off the request path; the response returns a job identifier. A message the firm already holds is deduped to one record and linked, never duplicated. This is the endpoint the native add-in's Save & File posts to.
+ * File a raw email message (.eml or .msg bytes) to this matter. The bytes are staged and the parse, dedup, thread-linking, and attachment extraction run off the request path; the response returns a job identifier. A message the firm already holds is deduped to one record and linked, never duplicated. This is the endpoint the native add-in's Save & File posts to: send an Idempotency-Key and a retried submission converges on the capture it already started rather than starting another.
  */
 export const emailsFileMutation = (options?: Partial<Options<EmailsFileData>>): MutationOptions<EmailsFileResponse, EmailsFileError, Options<EmailsFileData>> => {
     const mutationOptions: MutationOptions<EmailsFileResponse, EmailsFileError, Options<EmailsFileData>> = {

@@ -10,6 +10,8 @@
     "./thread": "./src/thread.ts",
     "./record": "./src/record.ts",
     "./capture": "./src/capture.ts",
+    "./dkim": "./src/dkim.ts",
+    "./message-format": "./src/message-format.ts",
     "./capture-token": "./src/capture-token.ts",
     "./capture-address": "./src/capture-address.ts",
     "./already-filed": "./src/already-filed.ts",

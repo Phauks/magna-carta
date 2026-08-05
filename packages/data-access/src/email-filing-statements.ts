@@ -47,6 +47,8 @@ export interface EmailMessageInsert {
   readonly referencesRemoteContent: boolean;
   readonly integrity: string;
   readonly dkimVerdict: "unverified" | "pass" | "fail";
+  readonly dkimVerdictReason: string | null;
+  readonly dkimVerifiedDomain: string | null;
   readonly sourceFormat: "eml" | "msg" | "mboxMember";
   readonly capturedVia: "forward" | "api" | "addin" | "sync";
 }
@@ -114,9 +116,9 @@ export function insertEmailMessageStatement(
       `INSERT INTO ${EMAIL_MESSAGE_TABLE}
          (id, message_id_value, message_id_provenance, subject, sent_at, received_at, from_display,
           from_address, thread_id, in_reply_to, content_sha256, dedup_key, original_r2_key,
-          references_remote_content, integrity, dkim_verdict, source_format, captured_via,
-          created_at, updated_at)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?19)`,
+          references_remote_content, integrity, dkim_verdict, dkim_verdict_reason,
+          dkim_verified_domain, source_format, captured_via, created_at, updated_at)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?21)`,
     )
     .bind(
       input.id,
@@ -135,6 +137,8 @@ export function insertEmailMessageStatement(
       input.referencesRemoteContent ? 1 : 0,
       input.integrity,
       input.dkimVerdict,
+      input.dkimVerdictReason,
+      input.dkimVerifiedDomain,
       input.sourceFormat,
       input.capturedVia,
       now,
@@ -616,6 +620,8 @@ export interface MessageDetail {
   readonly sentAt: string | null;
   readonly receivedAt: string;
   readonly dkimVerdict: string;
+  readonly dkimVerdictReason: string | null;
+  readonly dkimVerifiedDomain: string | null;
   readonly participants: {
     readonly kind: string;
     readonly displayName: string | null;
@@ -632,7 +638,8 @@ export async function readMessageById(
 ): Promise<MessageDetail | null> {
   const messageResult = await database
     .prepare(
-      `SELECT id, thread_id, subject, from_display, from_address, sent_at, received_at, dkim_verdict
+      `SELECT id, thread_id, subject, from_display, from_address, sent_at, received_at, dkim_verdict,
+              dkim_verdict_reason, dkim_verified_domain
        FROM ${EMAIL_MESSAGE_TABLE} WHERE id = ?1`,
     )
     .bind(emailMessageId)
@@ -645,6 +652,8 @@ export async function readMessageById(
       sent_at: string | null;
       received_at: string;
       dkim_verdict: string;
+      dkim_verdict_reason: string | null;
+      dkim_verified_domain: string | null;
     }>();
   const message = messageResult.results[0];
   if (message === undefined) return null;
@@ -669,6 +678,8 @@ export async function readMessageById(
     sentAt: message.sent_at,
     receivedAt: message.received_at,
     dkimVerdict: message.dkim_verdict,
+    dkimVerdictReason: message.dkim_verdict_reason,
+    dkimVerifiedDomain: message.dkim_verified_domain,
     participants: participantResult.results.map((row) => ({
       kind: row.kind,
       displayName: row.display_name,

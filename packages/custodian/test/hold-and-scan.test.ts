@@ -10,7 +10,14 @@ import { createCustodyPacket } from "../src/packet-service.ts";
 import { readCustodyItems } from "../src/packet-statements.ts";
 import { linkCustodyScan, resolveCustodyFilingMatter } from "../src/scan-service.ts";
 import { readCustodyScans } from "../src/scan-statements.ts";
-import { ACTOR, commit, migratedDatabase, options, seedMember } from "./support.ts";
+import {
+  ACTOR,
+  AUTHORIZED_RELEASE,
+  commit,
+  migratedDatabase,
+  options,
+  seedMember,
+} from "./support.ts";
 
 const SMITH = "directoryPerson_smith0000000000000";
 
@@ -62,7 +69,7 @@ describe("holds block release and destruction, and nothing else", () => {
     await commit(database, effect);
 
     await expect(
-      recordCustodyMovement(database, packetId, { kind: "released" }, options),
+      recordCustodyMovement(database, packetId, AUTHORIZED_RELEASE, options),
     ).rejects.toMatchObject({ code: "custody-hold-blocks-action" });
     await expect(
       recordCustodyMovement(database, packetId, { kind: "destroyed" }, options),
@@ -97,7 +104,7 @@ describe("holds block release and destruction, and nothing else", () => {
     const released = await releaseCustodyHold(database, placed.holdId, options);
     await commit(database, released.effect);
 
-    const movement = await recordCustodyMovement(database, packetId, { kind: "released" }, options);
+    const movement = await recordCustodyMovement(database, packetId, AUTHORIZED_RELEASE, options);
     expect(movement.packetStatus).toBe("released");
   });
 

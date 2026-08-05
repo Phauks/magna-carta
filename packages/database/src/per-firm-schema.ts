@@ -1972,10 +1972,15 @@ export const emailMessage = sqliteTable(
     referencesRemoteContent: integer("references_remote_content", { mode: "boolean" })
       .notNull()
       .default(false),
-    integrity: text("integrity").notNull(), // JSON: verbatim DKIM signatures, Authentication-Results, Received chain — recorded, no verdict
+    integrity: text("integrity").notNull(), // JSON: verbatim DKIM signatures, Authentication-Results, Received chain — the evidence, recorded exactly as parsed
+    // The adjudication OVER that evidence, kept separate from it. The verdict is informational: nothing
+    // is dropped, refused, or auto-filed on the strength of it. Every inconclusive outcome stays
+    // `unverified` and is told apart by the reason, so the coarse verdict means one thing to a reader.
     dkimVerdict: text("dkim_verdict", { enum: ["unverified", "pass", "fail"] })
       .notNull()
-      .default("unverified"), // the verifier that fills this is a named future consumer; stays unverified now
+      .default("unverified"),
+    dkimVerdictReason: text("dkim_verdict_reason"), // null until a verifier has looked at the message
+    dkimVerifiedDomain: text("dkim_verified_domain"), // the signing domain, set only on a pass
     sourceFormat: text("source_format", { enum: ["eml", "msg", "mboxMember"] }).notNull(),
     capturedVia: text("captured_via", { enum: ["forward", "api", "addin", "sync"] }).notNull(),
     createdAt: text("created_at").notNull(),
@@ -1988,6 +1993,8 @@ export const emailMessage = sqliteTable(
     index("email_message_message_id_value_index").on(table.messageIdValue),
     // The content-hash "already filed" probe and the discovery-readiness content hash resolve by this.
     index("email_message_content_sha256_index").on(table.contentSha256),
+    // No index on the dkim columns: they are read as part of a message already resolved by id, and
+    // there is no "which mail did this domain sign" read to serve. One gets added with its reader.
     check(
       "email_message_provenance_check",
       sql`${table.messageIdProvenance} IN ('header', 'mapi', 'absent')`,
@@ -2688,6 +2695,25 @@ export const custodyMovement = sqliteTable(
       .$type<ShipmentId>()
       .references(() => shipment.id),
     note: text("note"),
+    // The release gate. An original leaving the firm's custody for good is the one movement where
+    // recording after the fact is worth nothing: these four columns are what was established BEFORE
+    // it left, frozen on the same append-only row as the event itself so no later edit can supply
+    // them. A trigger in the migration refuses a `released` row that carries no capture.
+    //
+    // The basis is FREE TEXT the firm writes and no platform vocabulary, deliberately: what document
+    // suffices to release an original — a grant of probate, letters of administration, a power of
+    // attorney and the fact that one dies with its grantor — varies by jurisdiction, and a closed
+    // enum here would be this schema inventing law. The same reasoning the ownership role and the
+    // destruction basis are free text for.
+    releaseAuthorityBasis: text("release_authority_basis"),
+    // What was checked to establish the collector is who they say they are — an assertion about the
+    // check, not a copy of the document. The ledger cannot be edited or deleted, so a passport number
+    // typed here would be permanent.
+    releaseIdentityEvidence: text("release_identity_evidence"),
+    releaseIdentityVerifiedByUserId: text("release_identity_verified_by_user_id").$type<UserId>(),
+    // The second signatory, when the firm requires two. Whether two are required is a per-firm
+    // policy; that the two differ is structural, and a trigger enforces it.
+    releaseWitnessedByUserId: text("release_witnessed_by_user_id").$type<UserId>(),
   },
   (table) => [
     // The packet history read, keyset-paginated newest first; also the order the register renders.

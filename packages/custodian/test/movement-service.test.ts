@@ -9,7 +9,14 @@ import { createCustodyPacket } from "../src/packet-service.ts";
 import { readCustodyItem, readCustodyPacket } from "../src/packet-statements.ts";
 import { readOverdueCustodyCheckouts } from "../src/queries.ts";
 import type { CustodyMovementKind, CustodyPacketStatus } from "../src/types.ts";
-import { ACTOR, commit, migratedDatabase, options, seedMember } from "./support.ts";
+import {
+  ACTOR,
+  AUTHORIZED_RELEASE,
+  commit,
+  migratedDatabase,
+  options,
+  seedMember,
+} from "./support.ts";
 
 const SMITH = "directoryPerson_smith0000000000000";
 
@@ -64,6 +71,14 @@ describe("the movement ledger is the one write path for every state change", () 
           ...(needsDestination ? { toLocationId: offsite } : {}),
           ...(kind === "checked_out"
             ? { borrower: { kind: "member" as const, userId: ACTOR }, dueBackOn: "2026-08-11" }
+            : {}),
+          // A release carries the gate's capture; every other kind in the table carries none. The
+          // status effect is the subject here, so the capture is supplied rather than asserted.
+          ...(kind === "released"
+            ? {
+                borrower: AUTHORIZED_RELEASE.borrower,
+                releaseAuthorization: AUTHORIZED_RELEASE.releaseAuthorization,
+              }
             : {}),
         },
         options,
@@ -124,7 +139,7 @@ describe("the movement ledger is the one write path for every state change", () 
 
   it("refuses an ordinary movement on a released packet but accepts a correction", async () => {
     const { database, offsite, packetId } = await scaffold();
-    const released = await recordCustodyMovement(database, packetId, { kind: "released" }, options);
+    const released = await recordCustodyMovement(database, packetId, AUTHORIZED_RELEASE, options);
     await expect(
       recordCustodyMovement(database, packetId, { kind: "moved", toLocationId: offsite }, options),
     ).rejects.toMatchObject({ code: "custody-packet-closed" });

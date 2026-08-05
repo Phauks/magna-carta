@@ -211,6 +211,8 @@ export type EmailMessageDetail = {
     sentAt: string | null;
     receivedAt: string;
     dkimVerdict: string;
+    dkimVerdictReason: string | null;
+    dkimVerifiedDomain: string | null;
     participants: Array<{
         kind: string;
         displayName: string | null;
@@ -1389,6 +1391,7 @@ export type RecordCustodyMovementRequest = {
     correctsMovementId?: string;
     shipmentId?: string;
     note?: string;
+    releaseAuthorization?: CustodyReleaseAuthorization;
 };
 
 export type CustodyBorrower = {
@@ -1396,6 +1399,25 @@ export type CustodyBorrower = {
     userId?: string;
     entityId?: string;
     name?: string;
+};
+
+export type CustodyReleaseAuthorization = {
+    /**
+     * The authority this release is made on, in the firm's own words. There is no list of acceptable answers: what suffices to release an original varies by jurisdiction.
+     */
+    authorityBasis: string;
+    /**
+     * How the person collecting was identified. Record the check that was made, not the document's numbers — this lands on a ledger row that can never be edited or deleted.
+     */
+    identityEvidence: string;
+    /**
+     * The firm member who made that check.
+     */
+    identityVerifiedByUserId: string;
+    /**
+     * The second signatory, when the firm requires two. Must be a different person from the member who checked identity.
+     */
+    witnessedByUserId?: string;
 };
 
 export type CustodyMovementPage = {
@@ -1421,6 +1443,10 @@ export type CustodyMovement = {
     correctsMovementId: string | null;
     shipmentId: string | null;
     note: string | null;
+    releaseAuthorityBasis: string | null;
+    releaseIdentityEvidence: string | null;
+    releaseIdentityVerifiedByUserId: string | null;
+    releaseWitnessedByUserId: string | null;
 };
 
 export type PlaceCustodyHoldRequest = {
@@ -2995,10 +3021,15 @@ export type EmailsListResponse = EmailsListResponses[keyof EmailsListResponses];
 
 export type EmailsFileData = {
     body: unknown;
+    headers?: {
+        'idempotency-key'?: string;
+    };
     path: {
         matterId: string;
     };
-    query?: never;
+    query?: {
+        source?: 'api' | 'addin';
+    };
     url: '/api/v1/matters/{matterId}/emails';
 };
 
@@ -3016,13 +3047,21 @@ export type EmailsFileErrors = {
      */
     403: Problem;
     /**
-     * Unknown matter
+     * Unknown matter, or one the caller cannot access
      */
     404: Problem;
     /**
-     * Message exceeds the inspectable-size cap
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * Message exceeds the capture size limit
      */
     413: Problem;
+    /**
+     * The bytes are not an email message, the firm's upload policy refuses the format, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
     /**
      * Rate limit exceeded
      */
@@ -7983,7 +8022,7 @@ export type CustodyCreateLocationErrors = {
      */
     409: Problem;
     /**
-     * The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload
+     * The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload
      */
     422: Problem;
     /**
@@ -8030,7 +8069,7 @@ export type CustodyUpdateLocationErrors = {
      */
     409: Problem;
     /**
-     * The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload
+     * The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload
      */
     422: Problem;
     /**
@@ -8126,7 +8165,7 @@ export type CustodyCreatePacketErrors = {
      */
     409: Problem;
     /**
-     * The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload
+     * The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload
      */
     422: Problem;
     /**
@@ -8212,7 +8251,7 @@ export type CustodyUpdatePacketErrors = {
      */
     409: Problem;
     /**
-     * The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload
+     * The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload
      */
     422: Problem;
     /**
@@ -8266,7 +8305,7 @@ export type CustodyAddItemErrors = {
      */
     409: Problem;
     /**
-     * The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload
+     * The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload
      */
     422: Problem;
     /**
@@ -8314,7 +8353,7 @@ export type CustodyUpdateItemErrors = {
      */
     409: Problem;
     /**
-     * The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload
+     * The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload
      */
     422: Problem;
     /**
@@ -8368,7 +8407,7 @@ export type CustodyAddOwnerErrors = {
      */
     409: Problem;
     /**
-     * The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload
+     * The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload
      */
     422: Problem;
     /**
@@ -8463,7 +8502,7 @@ export type CustodyRecordMovementErrors = {
      */
     409: Problem;
     /**
-     * The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload
+     * The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload
      */
     422: Problem;
     /**
@@ -8517,7 +8556,7 @@ export type CustodyPlaceHoldErrors = {
      */
     409: Problem;
     /**
-     * The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload
+     * The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload
      */
     422: Problem;
     /**
@@ -8571,7 +8610,7 @@ export type CustodyReleaseHoldErrors = {
      */
     409: Problem;
     /**
-     * The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload
+     * The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload
      */
     422: Problem;
     /**
@@ -8625,7 +8664,7 @@ export type CustodyLinkScanErrors = {
      */
     409: Problem;
     /**
-     * The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload
+     * The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload
      */
     422: Problem;
     /**
@@ -8711,7 +8750,7 @@ export type CustodyCreateItemTypeErrors = {
      */
     409: Problem;
     /**
-     * The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload
+     * The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload
      */
     422: Problem;
     /**
@@ -8758,7 +8797,7 @@ export type CustodyDeactivateItemTypeErrors = {
      */
     409: Problem;
     /**
-     * The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload
+     * The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload
      */
     422: Problem;
     /**
@@ -8853,7 +8892,7 @@ export type CustodyCompleteReviewErrors = {
      */
     409: Problem;
     /**
-     * The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload
+     * The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload
      */
     422: Problem;
     /**
@@ -9060,7 +9099,7 @@ export type CustodyRenderLabelsErrors = {
      */
     404: Problem;
     /**
-     * The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload
+     * The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload
      */
     422: Problem;
     /**

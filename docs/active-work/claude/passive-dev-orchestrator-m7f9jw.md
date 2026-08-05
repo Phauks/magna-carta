@@ -45,6 +45,35 @@ at full capacity. Keep it current at every milestone — it is the durable memor
   MC docs-sync (Mon 13:03), Cloudflare blog monitor (daily 14:00, reports not
   persisted), dependency updates (Mon 14:30).
 
+## Position update (2026-08-05 ~09:30 UTC) — day-2 morning: owner decisions, austerity, trust foundation
+
+Sixty-eight merged. OWNER DECISIONS 2026-08-05 (all in session): G1-G5 expression
+defaults RATIFIED + aggregates (sum/count/min/max) APPROVED as a follow-up slice;
+TRUST AUTHORIZED — T1 client-to-matter-leaves tree, T17 build before the pre-beta
+baseline; CI BUDGET: Actions minutes exhausted (runs fail with runner_id 0 —
+hard-down), owner chose MERGE ON LOCAL VERIFICATION (agent full local suites +
+orchestrator review) and SUSPEND the whole-repo lint entirely; austerity landed
+(#103, grep "TEMPORARY CI AUSTERITY 2026-08-05" to revert + one dispatched full
+gate before trusting main — task 61); Cloudflare CI question answered (#104):
+DO NOT MIGRATE (10% of billable minutes port; skipped builds emit no check run —
+never make a Cloudflare check required); better levers: 1-core ubuntu-slim
+runners for short jobs (LANDED #107, ~$20-60/mo) and the lint dependency-fanout
+(43% of the bill — task 63, needs design). MERGED this morning: trust 3·2·1
+foundation (#105 — every invariant by construction, T2-T16 seamed, transfers
+refuse by default pending T4); DKIM verifier + add-in hardening (#106 — journal
+idx 25 after an identical-timestamp retag to 120002; the chokepoint idempotency
+gate TEXT-DECODES cached bodies, mangling binary uploads — route kept optional +
+handler-side, audit task 64); drizzle snapshots repaired (#102 — refresh script +
+check-snapshots + NEW RULE in packages/database/CLAUDE.md: hand-written
+migrations refresh the snapshot same commit). Building: 2·6·3 letterhead +
+custom-field bindings, custodian slice 3. Queue: aggregates slice, load profile
+(task 57), tooling pair (54), binary-idempotency audit (64), snapshot format fix
+
+- ubuntu-slim validation (65, folds into austerity revert). Owner ledger:
+  F2-F5/F9, C4-C11, G6-G8, T2-T16 per-slice, ADR-0109 + transcript-as-client-record,
+  deploy queue, Renovate, stale branches, bot self-merge, Actions RESET DATE
+  UNKNOWN — ask the owner when visible.
+
 ## Position update (2026-08-05 ~03:20 UTC) — evening wave complete
 
 Fifty-nine merged through 08-05 01:45Z; the evening wave (#91-#98) all landed:

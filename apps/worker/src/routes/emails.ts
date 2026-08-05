@@ -1,4 +1,5 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
+import type { Context } from "hono";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import {
   acceptStagedLinkStatement,
@@ -10,9 +11,23 @@ import {
   unlinkEmailFromMatterStatement,
 } from "@magna-carta/data-access/email-filing-statements";
 import { domainAuditStatement } from "@magna-carta/data-access/audit-statements";
-import { readInspectableSizeCap } from "@magna-carta/file-manager/upload-policy";
+import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
+import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
+import {
+  checkUploadPolicy,
+  readInspectableSizeCap,
+  readUploadPolicy,
+} from "@magna-carta/file-manager/upload-policy";
+import { FileManagerValidationError } from "@magna-carta/file-manager/validation";
 import { checkFilingConflict } from "@magna-carta/email-filing/seams";
-import type { EmailMessageId } from "@magna-carta/identifiers/types";
+import {
+  fileNameForMessageFormat,
+  mediaTypeForMessageFormat,
+  sniffMessageFormat,
+  MAX_CAPTURED_MESSAGE_BYTES,
+} from "@magna-carta/email-filing/message-format";
+import { selectMatterStatement } from "@magna-carta/matters/matter-statements";
+import type { EmailMessageId, MatterId } from "@magna-carta/identifiers/types";
 import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
@@ -20,11 +35,12 @@ import {
   requireChokepointFirmId,
   requireChokepointUserId,
 } from "../chokepoint/context-accessors.ts";
-import type { AppVariables } from "../chokepoint/ports.ts";
+import type { AppVariables, FirmContext } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
-import { identifierPathParam } from "../contracts/common.ts";
-import { Problem, problemJson } from "../contracts/problem.ts";
+import { idempotencyKeyHeader, identifierPathParam } from "../contracts/common.ts";
+import { Problem, problemJson, type ProblemResponse } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
+import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-problems.ts";
 import { filterAccessibleMatters } from "../emails/matter-access.ts";
 import type { EmailsCaptureMessage } from "../emails/capture-consumer.ts";
 
@@ -37,6 +53,13 @@ const messageParam = z.object({
 const CaptureAck = z
   .object({ jobId: z.string(), status: z.literal("accepted") })
   .openapi("EmailCaptureAck");
+
+// Which client filed the message. It is provenance, recorded on the message row beside the forward/CC
+// entrance's own value — an add-in capture reads the original message intact, a manual upload does
+// not, and later work (the auto-file guardrail, the correspondence view) needs to tell them apart.
+// Only the two entrances that post here are accepted: `forward` belongs to the Email Worker and `sync`
+// to the credentialed adapter, and neither could be claimed honestly by an API caller.
+const CaptureSource = z.enum(["api", "addin"]);
 
 const MatterEmailItem = z.object({
   emailMessageId: z.string(),
@@ -61,7 +84,12 @@ const MessageDetailResponse = z
     fromAddress: z.string().nullable(),
     sentAt: z.string().nullable(),
     receivedAt: z.string(),
+    // The signature adjudication. Informational only: nothing was dropped, refused, or auto-filed on
+    // it. Every inconclusive outcome is `unverified` with the reason saying which one, and the domain
+    // is present only when a signature actually verified.
     dkimVerdict: z.string(),
+    dkimVerdictReason: z.string().nullable(),
+    dkimVerifiedDomain: z.string().nullable(),
     participants: z.array(
       z.object({
         kind: z.string(),
@@ -102,6 +130,10 @@ const captureMeta: RouteMeta = {
   permission: "emails:file",
   resource: "matter",
   audited: true,
+  // Optional, and it has to be: the chokepoint's required-idempotency gate fingerprints a request by
+  // reading its body through Hono's text cache, which would round-trip these raw message bytes through
+  // a UTF-8 decode and hand the handler back a corrupted message. This route therefore honours an
+  // Idempotency-Key itself, in the handler, against the bytes it actually received.
   idempotency: "optional",
   rateLimit: "expensive",
 };
@@ -168,9 +200,12 @@ const captureRoute = defineOpenAPIRoute(captureMeta, {
     "File a raw email message (.eml or .msg bytes) to this matter. The bytes are staged and the parse, " +
     "dedup, thread-linking, and attachment extraction run off the request path; the response returns a " +
     "job identifier. A message the firm already holds is deduped to one record and linked, never " +
-    "duplicated. This is the endpoint the native add-in's Save & File posts to.",
+    "duplicated. This is the endpoint the native add-in's Save & File posts to: send an Idempotency-Key " +
+    "and a retried submission converges on the capture it already started rather than starting another.",
   request: {
     params: matterParam,
+    query: z.object({ source: CaptureSource.optional() }),
+    headers: idempotencyKeyHeader,
     body: { content: { "application/octet-stream": { schema: z.any() } }, required: true },
   },
   responses: {
@@ -191,11 +226,21 @@ const captureRoute = defineOpenAPIRoute(captureMeta, {
       content: { "application/problem+json": { schema: Problem } },
     },
     404: {
-      description: "Unknown matter",
+      description: "Unknown matter, or one the caller cannot access",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    409: {
+      description: "A request with this Idempotency-Key is still in progress",
       content: { "application/problem+json": { schema: Problem } },
     },
     413: {
-      description: "Message exceeds the inspectable-size cap",
+      description: "Message exceeds the capture size limit",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    422: {
+      description:
+        "The bytes are not an email message, the firm's upload policy refuses the format, or the " +
+        "Idempotency-Key was reused with a different payload",
       content: { "application/problem+json": { schema: Problem } },
     },
     429: {
@@ -364,18 +409,67 @@ const unlinkRoute = defineOpenAPIRoute(unlinkMeta, {
   },
 });
 
+type EmailsContext = Context<{ Bindings: Bindings; Variables: AppVariables }>;
+
+// Can this caller file into this matter? Existence and access are answered together and reported the
+// same way, because reporting them separately is what turns a filing endpoint into an oracle for a
+// walled matter's existence.
+async function resolveFilingMatter(
+  firm: FirmContext,
+  userId: string,
+  matterId: MatterId,
+): Promise<boolean> {
+  const matter = await selectMatterStatement(firm.firmDatabase, matterId).all<{ id: string }>();
+  if (matter.results[0] === undefined) return false;
+  const visible = await filterAccessibleMatters(firm, userId, [matterId]);
+  return visible.length > 0;
+}
+
+function oversizeProblem(c: EmailsContext, cap: number): ProblemResponse<413> {
+  return problemJson(c, {
+    type: "upload-not-allowed",
+    title: "Message too large to file",
+    status: 413,
+    detail: `The message exceeds this firm's capture size limit (${cap} bytes).`,
+  });
+}
+
+// A stable, opaque capture job id for one (firm, matter, Idempotency-Key). Hashed rather than
+// concatenated so the client's key never appears in an R2 object name, and firm-scoped so a key chosen
+// by one firm can never address another firm's staged bytes.
+async function deriveCaptureJobId(
+  firmId: string,
+  matterId: string,
+  idempotencyKey: string,
+): Promise<string> {
+  const source = new TextEncoder().encode(`${firmId}:${matterId}:${idempotencyKey}`);
+  return (await sha256Hex(source)).slice(0, 32);
+}
+
+async function sha256Hex(bytes: Uint8Array): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", bytes as unknown as BufferSource);
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
 export function registerEmailsRoutes(
   app: OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>,
   chokepoint: Chokepoint,
 ): void {
-  // POST /matters/{matterId}/emails — stage + enqueue the capture, audit who initiated it.
+  // POST /matters/{matterId}/emails — guard, stage, enqueue the capture, audit who initiated it.
+  //
+  // The guards run in cost order and all of them run BEFORE anything is staged: an unknown matter, a
+  // payload that is not mail, and an oversize message are each refused at the door with a reason the
+  // caller can act on, rather than accepted and left to fail in the consumer where the only outcomes
+  // are a retry loop and a dead letter.
   app.openapi(
     { ...captureRoute, middleware: chokepointMiddleware(chokepoint, captureRoute) },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const firmId = requireChokepointFirmId(c);
       const userId = requireChokepointUserId(c);
+      const idempotencyKey = c.req.header("idempotency-key");
       const { matterId } = c.req.valid("param");
+      const { source } = c.req.valid("query");
       const body = c.req.raw.body;
       if (body === null) {
         return problemJson(c, {
@@ -385,46 +479,132 @@ export function registerEmailsRoutes(
           detail: "Provide the email file bytes as the request body.",
         });
       }
-      const sizeBytes = Number(c.req.header("content-length") ?? "0");
-      const cap = await readInspectableSizeCap(firm.firmDatabase);
-      if (sizeBytes > cap) {
+
+      // Filing into a matter that does not exist, or one this caller cannot reach, is answered as
+      // absence — the same 404 either way, so the reply never distinguishes "no such matter" from
+      // "walled from you".
+      const accessible = await resolveFilingMatter(firm, userId, matterId);
+      if (!accessible) {
         await body.cancel();
         return problemJson(c, {
-          type: "upload-not-allowed",
-          title: "Message too large to file",
-          status: 413,
-          detail: `The message exceeds this firm's inspectable-size cap (${cap} bytes).`,
+          type: "not-found",
+          title: "Matter not found",
+          status: 404,
+          detail: "No such matter, or you cannot access it.",
         });
       }
 
+      // Both capture entrances bound to the same ceiling, so "too large to file" means one thing
+      // whichever door the message came through; a firm that has tightened its own inspectable-size
+      // cap tightens this too.
+      const cap = Math.min(
+        await readInspectableSizeCap(firm.firmDatabase),
+        MAX_CAPTURED_MESSAGE_BYTES,
+      );
+      const declaredSize = Number(c.req.header("content-length") ?? "0");
+      if (Number.isFinite(declaredSize) && declaredSize > cap) {
+        await body.cancel();
+        return oversizeProblem(c, cap);
+      }
+
       const bytes = new Uint8Array(await c.req.arrayBuffer());
-      const jobId = crypto.randomUUID();
+      // A declared Content-Length is a claim, not a measurement — a chunked or mis-declared request
+      // reaches here having never been checked, so the real length is what decides.
+      if (bytes.byteLength > cap) return oversizeProblem(c, cap);
+      if (bytes.byteLength === 0) {
+        return problemJson(c, {
+          type: "validation",
+          title: "Empty body",
+          status: 400,
+          detail: "Provide the email file bytes as the request body.",
+        });
+      }
+
+      // The same policy the ingest chokepoint applies to an uploaded file, applied to the message
+      // itself: the format is taken from the bytes rather than from a declared header, and the firm's
+      // own allowed-type and blocked-extension policy decides. A firm that removes mail from its
+      // policy stops accepting mail at this entrance too, which is the point of having one policy.
+      const format = sniffMessageFormat(bytes);
+      const mediaType = mediaTypeForMessageFormat(format);
+      if (mediaType === null) {
+        return problemJson(c, {
+          type: "validation",
+          title: "Not an email message",
+          status: 422,
+          detail: "The bytes could not be read as an .eml or .msg message.",
+        });
+      }
+      try {
+        checkUploadPolicy(await readUploadPolicy(firm.firmDatabase), {
+          sizeBytes: bytes.byteLength,
+          contentType: mediaType,
+          fileName: fileNameForMessageFormat(format),
+        });
+      } catch (thrown) {
+        if (thrown instanceof FileManagerValidationError) {
+          return problemJson(c, {
+            type: "upload-not-allowed",
+            title: "This firm's upload policy refuses this message",
+            status: 422,
+            detail: "The firm's upload policy does not accept this message format.",
+          });
+        }
+        throw thrown;
+      }
+
+      // The capture job id is derived from the caller's Idempotency-Key rather than minted fresh, so
+      // every layer below converges on a retry: the staged object overwrites itself, the queued job
+      // carries the same id, and the consumer's own idempotency record on that id turns a redelivered
+      // job into a no-op. The firm is hashed in so one firm's key can never name another's staged
+      // bytes. A caller that sends no key gets a fresh id and the old behaviour — each submission is
+      // its own capture.
+      const jobId =
+        idempotencyKey === undefined
+          ? crypto.randomUUID()
+          : await deriveCaptureJobId(firmId, matterId, idempotencyKey);
+
+      // The fingerprint is over the bytes actually received, not a re-read of the body, so reusing one
+      // key for a different message is caught rather than silently answered with the first capture.
+      const now = (): string => new Date().toISOString();
+      const outcome = await runIdempotentEffect({
+        database: firm.firmDatabase,
+        key: idempotencyKey,
+        fingerprint: await sha256Hex(bytes),
+        now,
+        effect: async () => ({
+          write: {
+            statements: [
+              domainAuditStatement(firm.firmDatabase, {
+                event: "emails.capture_initiated",
+                subjectId: matterId,
+                actorUserId: userId,
+                clock: { now },
+                metadata: { jobId, capturedVia: source ?? "api" },
+              }),
+            ],
+            outboxMessages: [],
+          },
+          responseCode: 202,
+          responseBody: canonicalJsonStringify({ jobId, status: "accepted" }),
+        }),
+      });
+      if (outcome.kind === "in-progress" || outcome.kind === "fingerprint-mismatch") {
+        return problemResponseForIdempotencyConflict(c, outcome);
+      }
+
+      // Staged and enqueued on the replay path too, not just the first execution: the job id is the
+      // same either way and the consumer is idempotent on it, so re-sending costs nothing — while a
+      // first attempt that committed its audit and then died before enqueueing would otherwise leave a
+      // capture the firm never receives and a retry that cheerfully reports success.
       const stagedR2Key = `emails/staging/${jobId}`;
       await c.env.R2.put(stagedR2Key, bytes);
-
-      const now = (): string => new Date().toISOString();
-      await commitEffectBatch(
-        firm.firmDatabase,
-        {
-          statements: [
-            domainAuditStatement(firm.firmDatabase, {
-              event: "emails.capture_initiated",
-              subjectId: matterId,
-              actorUserId: userId,
-              clock: { now },
-              metadata: { jobId, capturedVia: "api" },
-            }),
-          ],
-          outboxMessages: [],
-        },
-        { now },
-      );
-
       const message: EmailsCaptureMessage = {
         firmId,
         bucketName: firm.bucketName,
         stagedR2Key,
-        capturedVia: "api",
+        // Provenance the caller declares, defaulting to the manual uploader. The add-in names itself so
+        // a capture that carried an intact original is distinguishable later.
+        capturedVia: source ?? "api",
         matterId,
         captureToken: null,
         linkedBy: userId,
@@ -435,6 +615,7 @@ export function registerEmailsRoutes(
       };
       await c.env.EMAILS_CAPTURE.send(message);
 
+      if (outcome.kind === "replayed") c.header("Idempotency-Replayed", "true");
       return c.json({ jobId, status: "accepted" as const }, 202);
     },
   );
@@ -540,6 +721,8 @@ export function registerEmailsRoutes(
           sentAt: detail.sentAt,
           receivedAt: detail.receivedAt,
           dkimVerdict: detail.dkimVerdict,
+          dkimVerdictReason: detail.dkimVerdictReason,
+          dkimVerifiedDomain: detail.dkimVerifiedDomain,
           participants: detail.participants,
           alsoFiledMatterIds: visible,
           hiddenMatterCount: filed.length - visible.length,

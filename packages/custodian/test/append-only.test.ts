@@ -47,14 +47,16 @@ describe("custody_movement is append-only at the database", () => {
 
   // REPLACE deletes-then-reinserts on a primary-key collision WITHOUT firing the delete or update
   // triggers, so without the BEFORE INSERT guard this would overwrite a ledger row in place — the
-  // one remaining path that could mutate an append-only record.
+  // one remaining path that could mutate an append-only record. The kind is a plain move because
+  // several BEFORE INSERT triggers now sit on this table and SQLite does not order them: a kind that
+  // any other guard would also refuse would leave which one fired to chance.
   it("refuses an INSERT OR REPLACE onto an existing row", () => {
     const { raw } = migratedDatabase();
     seedPacket(raw);
     expect(() =>
       raw.exec(
         `INSERT OR REPLACE INTO custody_movement (${MOVEMENT_COLUMNS})
-           VALUES ('custodyMovement_seed00000000000000', 'custodyPacket_seed0000000000000000', NULL, 'released', '2026-08-04T00:00:00.000Z', '2026-08-04T00:00:00.000Z', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)`,
+           VALUES ('custodyMovement_seed00000000000000', 'custodyPacket_seed0000000000000000', NULL, 'moved', '2026-08-04T00:00:00.000Z', '2026-08-04T00:00:00.000Z', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)`,
       ),
     ).toThrow(/custody_movement is append-only/);
   });
@@ -98,6 +100,114 @@ describe("custody_movement is append-only at the database", () => {
            VALUES ('custodyMovement_invented0000000000', 'custodyPacket_seed0000000000000000', NULL, 'shredded', '2026-08-05T00:00:00.000Z', '2026-08-05T00:00:00.000Z', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)`,
       ),
     ).toThrow(/custody_movement_kind_check/);
+  });
+});
+
+// The release gate is a TRIGGER and not a CHECK, so that releases recorded before it existed stay as
+// they were recorded rather than being made to pass a rule nobody applied at the time. That choice is
+// only defensible if the trigger really binds every row appended from here on, so it is asserted at
+// the database with raw SQL for the same reason the append-only guarantee is.
+describe("a release cannot be appended without its authority and identity capture", () => {
+  const RELEASE_COLUMNS = `${MOVEMENT_COLUMNS}, release_authority_basis, release_identity_evidence, release_identity_verified_by_user_id, release_witnessed_by_user_id`;
+  const RELEASE_PREFIX = `'custodyPacket_seed0000000000000000', NULL, 'released', '2026-08-05T00:00:00.000Z', '2026-08-05T00:00:00.000Z', NULL, 'custodyLocation_seed000000000000000', NULL, 'external', NULL, NULL, 'A. Collector', NULL, NULL, NULL, NULL, NULL`;
+
+  function insertRelease(
+    raw: ReturnType<typeof migratedDatabase>["raw"],
+    id: string,
+    capture: string,
+  ): void {
+    raw.exec(
+      `INSERT INTO custody_movement (${RELEASE_COLUMNS}) VALUES ('${id}', ${RELEASE_PREFIX}, ${capture})`,
+    );
+  }
+
+  it("refuses a release that records no authority at all", () => {
+    const { raw } = migratedDatabase();
+    seedPacket(raw);
+    expect(() =>
+      insertRelease(raw, "custodyMovement_bare0000000000000", "NULL, NULL, NULL, NULL"),
+    ).toThrow(/records the authority relied on and the identity check/);
+  });
+
+  it("refuses a release whose authority is blank rather than absent", () => {
+    const { raw } = migratedDatabase();
+    seedPacket(raw);
+    expect(() =>
+      insertRelease(
+        raw,
+        "custodyMovement_blank000000000000",
+        "'   ', 'passport checked', 'user_verifier00000000000000', NULL",
+      ),
+    ).toThrow(/records the authority relied on and the identity check/);
+  });
+
+  it("refuses a release that names no member as having checked identity", () => {
+    const { raw } = migratedDatabase();
+    seedPacket(raw);
+    expect(() =>
+      insertRelease(
+        raw,
+        "custodyMovement_noChecker00000000",
+        "'grant of probate', 'passport checked', NULL, NULL",
+      ),
+    ).toThrow(/records the authority relied on and the identity check/);
+  });
+
+  it("refuses a witnessed release whose two signatories are the same person", () => {
+    const { raw } = migratedDatabase();
+    seedPacket(raw);
+    expect(() =>
+      insertRelease(
+        raw,
+        "custodyMovement_sameSigner0000000",
+        "'grant of probate', 'passport checked', 'user_verifier00000000000000', 'user_verifier00000000000000'",
+      ),
+    ).toThrow(/two different people/);
+  });
+
+  it("refuses release capture hung on a movement that is not a release", () => {
+    const { raw } = migratedDatabase();
+    seedPacket(raw);
+    expect(() =>
+      raw.exec(
+        `INSERT INTO custody_movement (${RELEASE_COLUMNS})
+           VALUES ('custodyMovement_wrongKind0000000', 'custodyPacket_seed0000000000000000', NULL, 'moved', '2026-08-05T00:00:00.000Z', '2026-08-05T00:00:00.000Z', NULL, NULL, 'custodyLocation_seed000000000000000', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'grant of probate', 'passport checked', 'user_verifier00000000000000', NULL)`,
+      ),
+    ).toThrow(/belongs only to a released movement/);
+  });
+
+  it("accepts a release that carries the whole capture", () => {
+    const { raw } = migratedDatabase();
+    seedPacket(raw);
+    insertRelease(
+      raw,
+      "custodyMovement_authorized0000000",
+      "'grant of probate dated 3 March', 'passport checked against the Directory record', 'user_verifier00000000000000', 'user_witness000000000000000'",
+    );
+    const rows = raw
+      .prepare(
+        `SELECT release_authority_basis FROM custody_movement WHERE id = 'custodyMovement_authorized0000000'`,
+      )
+      .all() as { release_authority_basis: string }[];
+    expect(rows[0]?.release_authority_basis).toBe("grant of probate dated 3 March");
+  });
+
+  // The gate binds what is appended from now on and says nothing about what came before, which is the
+  // whole reason it is a trigger. A release recorded under the old rules is still readable, still
+  // correct, and still the truth about what happened.
+  it("leaves a release recorded before the gate existed exactly as it was", () => {
+    const { raw } = migratedDatabase();
+    seedPacket(raw);
+    raw.exec(
+      `INSERT INTO custody_movement (${MOVEMENT_COLUMNS})
+         VALUES ('custodyMovement_historic000000000', 'custodyPacket_seed0000000000000000', NULL, 'checked_out', '2020-01-01T00:00:00.000Z', '2020-01-01T00:00:00.000Z', NULL, 'custodyLocation_seed000000000000000', NULL, 'external', NULL, NULL, 'A. Collector', NULL, NULL, NULL, NULL, NULL)`,
+    );
+    const rows = raw
+      .prepare(
+        `SELECT release_authority_basis FROM custody_movement WHERE id = 'custodyMovement_historic000000000'`,
+      )
+      .all() as { release_authority_basis: string | null }[];
+    expect(rows[0]?.release_authority_basis).toBeNull();
   });
 });
 

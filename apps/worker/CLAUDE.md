@@ -30,6 +30,13 @@ routes requests through the chokepoint into those packages.
   the DO RPC shape.
 - `src/downloads/` — the async bulk-download build (the DO coordinator, the queue consumer, the shared
   types). See the flow below.
+- `src/emails/` — the email-capture consumer both entrances converge on, attachment extraction onto the
+  ingest chokepoint, and `dkim-dns-resolver.ts`. That resolver makes an outbound call the capture path
+  would not otherwise make: a DNS-over-HTTPS TXT lookup of a signer's `_domainkey` selector, bounded in
+  time and response size, whose failures degrade the recorded DKIM verdict to `unverified` rather than
+  failing the capture. Its target is deployment config (`DKIM_RESOLVER_URL`), never a user-supplied
+  address, so the SSRF rule in `docs/conventions/invariants.md` does not bind — but the name it queries
+  comes from the message, and is constrained to a plain domain before it can shape the request.
 - `src/progress/` — push progress for job coordinators: the WebSocket frame contract
   (`job-progress-protocol.ts`) and the hibernation-aware socket helper (`job-progress-sockets.ts`)
   that `BundleBuildCoordinator` and `ConversionJob` both use. See the section below.

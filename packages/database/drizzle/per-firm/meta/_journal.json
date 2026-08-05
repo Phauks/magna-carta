@@ -180,8 +180,22 @@
     {
       "idx": 25,
       "version": "6",
+      "when": 1785931200002,
+      "tag": "20260805T120002_email-message-dkim-verdict",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "6",
       "when": 1785934800000,
-      "tag": "20260805T130000_location-letterhead-logo",
+      "tag": "20260805T130000_custody-gated-release",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "6",
+      "when": 1785934800001,
+      "tag": "20260805T130001_location-letterhead-logo",
       "breakpoints": true
     }
   ]
