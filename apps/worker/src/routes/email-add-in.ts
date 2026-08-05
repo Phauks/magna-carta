@@ -428,7 +428,7 @@ export function registerEmailAddInRoutes(
                     matterNumber: matter.matterNumber,
                     title: matter.title,
                     clientDisplayName: matter.clientDisplayName,
-                    status: matter.status as string,
+                    status: matter.status,
                     score: suggestion.score,
                     confidence: suggestion.confidence,
                     signals: [...suggestion.signals],
@@ -496,7 +496,7 @@ export function registerEmailAddInRoutes(
                 matterNumber: matter.matterNumber,
                 title: matter.title,
                 clientDisplayName: matter.clientDisplayName,
-                status: matter.status as string,
+                status: matter.status,
                 lastFiledAt: target.lastFiledAt,
                 filedCount: target.filedCount,
                 captureAddressAvailable: preview !== null,
@@ -541,8 +541,15 @@ export function registerEmailAddInRoutes(
         );
       }
       // The result names a matter, so the answer is only this member's to have if the matter is.
-      // Reported as absence, exactly as an unknown job would be — the reply never distinguishes
-      // "no such job" from "that job landed somewhere you are walled from".
+      //
+      // This 404 IS distinguishable from the pending answer above, and that is deliberate rather
+      // than overlooked. A job id is either minted at random or derived by hashing the caller's own
+      // Idempotency-Key with the firm and matter, so it is not a value anyone can guess or
+      // enumerate: the only way to hold one is to have filed it, which required access to the matter
+      // at the time. So the only reader who can ever see this 404 is someone who already knew the
+      // job existed, and answering "pending" instead would tell them nothing they did not have while
+      // leaving a client polling a job that will never move. What the reply withholds is what
+      // matters — the matter, the record, and the link state — and that it withholds completely.
       if (outcome.matterId !== null) {
         const visible = await accessibleMatterIds(firm, userId, [outcome.matterId]);
         if (!visible.has(outcome.matterId)) {
