@@ -170,6 +170,9 @@
       "path": "packages/tools/tsconfig.build.json"
     },
     {
+      "path": "packages/trust/tsconfig.build.json"
+    },
+    {
       "path": "packages/wellbeing-resources/tsconfig.build.json"
     },
     {

@@ -20,6 +20,24 @@ export interface CreateAccountInput {
   readonly parentAccountId?: LedgerAccountId;
 }
 
+// A parent this same effect is creating, which no read can see yet. Building more than one tier of a
+// sub-ledger in one batch is otherwise impossible: the child's parent check reads the database, and
+// the parent row does not exist until the batch commits. Splitting the tiers across batches would
+// mean a window in which a partially built tree exists, which is worse than declaring the parent.
+// Everything the parent check proves is already known for such an account and is re-stated here
+// rather than assumed: an account created in this batch is active, carries no postings (nothing can
+// have posted to a row that does not exist), and has the type and currency the composer gave it.
+export interface PendingParentAccount {
+  readonly type: AccountType;
+  readonly currency: string;
+}
+
+export interface CreateAccountOptions {
+  readonly clock: ClockPort;
+  readonly randomSource?: RandomSource;
+  readonly pendingParents?: ReadonlyMap<string, PendingParentAccount>;
+}
+
 export interface CreatedAccount {
   readonly accountId: LedgerAccountId;
   readonly effect: EffectWrite;
@@ -31,7 +49,7 @@ export interface CreatedAccount {
 export async function createAccount(
   database: SqlDatabase,
   input: CreateAccountInput,
-  options: { clock: ClockPort; randomSource?: RandomSource },
+  options: CreateAccountOptions,
 ): Promise<CreatedAccount> {
   if (input.name.trim().length === 0) {
     throw new LedgerValidationError("empty-account-name", "an account needs a name");
@@ -53,7 +71,19 @@ export async function createAccount(
       `not a registered currency code: ${input.currency}`,
     );
   }
-  if (input.parentAccountId) {
+  const pendingParent = input.parentAccountId
+    ? options.pendingParents?.get(input.parentAccountId)
+    : undefined;
+  if (
+    pendingParent &&
+    (pendingParent.type !== input.type || pendingParent.currency !== input.currency)
+  ) {
+    throw new LedgerValidationError(
+      "parent-mismatch",
+      "a child account must share its parent's type and currency",
+    );
+  }
+  if (input.parentAccountId && !pendingParent) {
     const parents = await loadAccountSnapshots(database, [input.parentAccountId]);
     const parent = parents.get(input.parentAccountId);
     if (!parent) {

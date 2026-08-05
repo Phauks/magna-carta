@@ -41,7 +41,9 @@ New:
 - `packages/email-filing/test/dkim.test.ts`, `packages/email-filing/test/message-format.test.ts`.
 - `apps/worker/src/emails/dkim-dns-resolver.ts` + `apps/worker/test/dkim-dns-resolver.test.ts` — the
   DNS-over-HTTPS `_domainkey` TXT lookup and its answer classification.
-- `packages/database/drizzle/per-firm/20260805T120000_email-message-dkim-verdict.sql`.
+- `packages/database/drizzle/per-firm/20260805T120002_email-message-dkim-verdict.sql` (retagged from
+  `…T120000` on the reconciliation merge — trust slice 3·2·1 took `…T120000`/`…T120001` and journal
+  idx 23/24 while this branch was in flight).
 - `changelog.d/email-filing-dkim-and-addin-hardening.md`,
   `docs/decisions/pending/email-dkim-verdict-informational.md`,
   `docs/decisions/pending/binary-body-route-idempotency.md`.
@@ -60,6 +62,9 @@ Changed:
 - `apps/email-worker/src/index.ts` — the shared ceiling.
 - `apps/worker/openapi/openapi.json`, `packages/api-client/src/**` — regenerated.
 - `packages/data-access/src/pii-registry.ts` — why the new columns resolve to no data subject.
+- `packages/database/drizzle/per-firm/meta/_journal.json` +
+  `meta/0025_snapshot.json` — the journal entry, and the snapshot refreshed to the lineage head as
+  `packages/database/CLAUDE.md` requires after a hand-written migration.
 - `apps/worker/test/emails-routes.test.ts`,
   `packages/data-access/test/email-filing-statements.test.ts`, `apps/worker/CLAUDE.md`,
   `status.d/email-filing.md`, `docs/user/features/filing-email-to-a-matter.md`.

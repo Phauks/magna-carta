@@ -187,27 +187,28 @@
 - id: financial.trust
   name: Trust accounting
   scope: Per-client trust ledgers, jurisdiction-configurable compliance, reconciliation.
-  status: designed
+  status: partial
   slices: 3-2-trust-accounting-jurisdiction-compliance
   adrs: ADR-0009
   spec: docs/specs/2026-07-09-slice-3-2-trust-jurisdiction-schema-design.md
-  evidence: approved jurisdiction-schema design + implementation plan on main via salvage commit c515fa1; status.d/3-2 spec in-progress, built todo; no trust code in tree
-  notes: status.d still marks the plan todo although a full plan file was salvaged to main; ledger substrate gates are already shipped.
+  evidence: packages/trust ships the account tree, the composition guard, holds, the transfer link, and the fitness suite over four per-firm tables (20260805T120000_trust-ledger); movement operations, reconciliation, and the jurisdiction engine are unbuilt
+  notes: Sub-slice 1 (schema + structural guards) is built; fifteen owner flags from the 2026-08-04 analysis stay open and are refused rather than defaulted in code.
 
 - id: financial.trust.client-ledgers
   name: Per-client trust ledgers, no negative balance
   scope: Per-client (per-matter) trust subledgers under a per-account roll-up, with a hard no-negative-balance invariant per client ledger.
-  status: designed
+  status: partial
   slices: 3-2-trust-accounting-jurisdiction-compliance
   adrs: ADR-0009, ADR-0072
-  evidence: design pins enforcement to the shipped account_balance bounds CHECK (min_balance_minor = 0 noted in per-firm-schema.ts for Phase 3); no trust accounts exist yet
+  evidence: the three-level tree ships in packages/trust/src/account-tree.ts and min_balance_minor = 0 is written onto every matter leaf in its creation batch, enforced by the account_balance bounds CHECK; receipts and disbursements as domain operations are the next sub-slice
 
 - id: financial.trust.no-commingling
   name: No commingling
   scope: Firm and client funds never commingle; fees never touch trust (processor/bank fees debit operating only).
-  status: designed
+  status: shipped
   slices: 3-2-trust-accounting-jurisdiction-compliance
-  evidence: phase-3 slice map names slice 3-2 the structural owner of fees-never-touch-trust; no enforcement code yet
+  adrs: ADR-0032
+  evidence: packages/trust/src/composition-guard.ts refuses any entry mixing a trust account's accounts with anything outside it (which is also what leaves a processor fee nowhere to sit on a trust entry), plus a fitness query over posted lines; tests cover the netted-fee and client-to-client cases
 
 - id: financial.trust.jurisdiction-engine
   name: Jurisdiction-configurable compliance engine

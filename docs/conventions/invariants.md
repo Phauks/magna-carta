@@ -12,8 +12,13 @@ These are **scoped, not universal:** each binds only when you work in its area. 
 
 ## Trust
 
-- **No-negative trust balance.** A client trust ledger can never go negative — enforce on write. (_Trust accounting_; ADR-0009)
-- **Fees never touch trust.** Trust/IOLTA deposits land gross; processor fees debit the operating account only, never netted from a trust deposit. (_Payments_; ADR-0032)
+- **No-negative trust balance.** A client trust ledger can never go negative. Enforced by `min_balance_minor = 0` on every matter leaf and the `account_balance` bounds CHECK, which aborts the whole posting batch — never by an application-level balance comparison, which cannot be atomic without an interactive transaction. (_Trust accounting_; ADR-0009, ADR-0072)
+- **Postings land on matter leaves; roll-ups carry no balance.** The trust tree is trust-account liability root → client node → matter leaf. A parent's stored `account_balance` stays at zero forever, so a client-side or account-side total is a `SUM` over descendant leaves and is never read from a parent row. (_Trust accounting_)
+- **No commingling, and fees never touch trust — one composition guard owns both.** An entry touching a trust account may touch nothing outside it: not another trust account, not an operating bank, not an income or expense account. Trust/IOLTA deposits therefore land gross and a processor or bank fee has nowhere to sit on a trust entry at all — it debits the operating account as a separate entry by construction. `@magna-carta/trust`'s `composeTrustEntry` is the only supported way to build a trust entry; billing's apply-funds path and the payments card rail inherit the rule by calling it. (_Trust accounting_, _Payments_; ADR-0032)
+- **One client per entry.** A movement between two clients' trust ledgers is refused outright — it is the classic misappropriation pattern and at the entry level is indistinguishable from one. Two matters of the same client remain expressible. (_Trust accounting_)
+- **Everything hung off the ledger inherits its append-only discipline.** Holds and transfers are append-only (database triggers); a release is a new linked row, never an edit or a status column. (_Trust accounting_; ADR-0008)
+- **Available balance is the disbursement ceiling.** Available is the stored balance minus active holds; a positive balance whose disputed portion is under hold is not money the firm may pay out. (_Trust accounting_)
+- **A jurisdiction fact refuses rather than falling back.** An unresearched or unencoded jurisdiction field never resolves to a baseline, and "no jurisdiction recorded" and "this jurisdiction is not encoded" stay distinct refusals. (_Trust accounting_; ADR-0009)
 
 ## Matters & numbering
 

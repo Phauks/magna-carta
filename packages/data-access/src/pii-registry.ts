@@ -177,6 +177,17 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "pseudonymize-keep",
     note: "an external borrower with no Directory record — the only handle erasure has on them",
   },
+  // Trust accounting. The sub-ledger node is the one trust table with a structured subject
+  // reference: it says the firm holds money for this client on this matter. That is retained on the
+  // same basis as matter_party and the custody owner link — a record of client money the firm is
+  // obliged to keep and to be able to account for, and the subject-side scrub happens at the
+  // Directory entity. Erasing it would leave a balance nobody could return.
+  {
+    table: "trust_ledger_node",
+    subjectKey: "client_entity_id",
+    action: "retain-under-matter",
+    note: "whose money the firm holds is the record that makes it returnable, and the record a bar examiner asks for",
+  },
 ];
 
 // Per-firm tables that hold NO personal data — the explicit non-PII half of the coverage fitness.
@@ -317,4 +328,17 @@ export const NO_PII_TABLES: readonly string[] = [
   // No column about a person (the matter_number_counter / matter_number_allocation precedent).
   "custody_number_counter",
   "custody_number_allocation",
+  // Trust accounting. The one table with a structured subject reference (trust_ledger_node) is
+  // registered in PII_TABLES above; these three carry none of their own.
+  // A trust account is the FIRM's bank account, bound to the firm's own office — the same line
+  // `location` sits on. Its display fragment is four digits of the firm's account number, which is
+  // not a fact about any data subject.
+  "trust_account",
+  // A hold and a transfer are records about MONEY: an amount, a reason, the entries that moved it,
+  // and firm-member provenance (placed_by / authorized_by) on an append-only row. The authorizing
+  // member on a disbursement is the electronic-transfer authorization memo the rules require the
+  // firm to keep, which is the same administrative-provenance class custody_movement's recorder sits
+  // on; the client the money belongs to resolves through the node, not through these.
+  "trust_hold",
+  "trust_transfer",
 ];

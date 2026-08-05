@@ -23,7 +23,9 @@ import custodianRegisterSql from "@magna-carta/database/drizzle/per-firm/2026080
 import seedCustodyCatalogSql from "@magna-carta/database/drizzle/per-firm/20260804T160001_seed-custody-catalog.sql";
 import documentAutomationFieldMappingsSql from "@magna-carta/database/drizzle/per-firm/20260804T170000_document-automation-field-mappings.sql";
 import custodyReviewScheduleSql from "@magna-carta/database/drizzle/per-firm/20260804T170001_custody-review-schedule.sql";
-import emailMessageDkimVerdictSql from "@magna-carta/database/drizzle/per-firm/20260805T120000_email-message-dkim-verdict.sql";
+import trustLedgerSql from "@magna-carta/database/drizzle/per-firm/20260805T120000_trust-ledger.sql";
+import seedTrustPermissionsSql from "@magna-carta/database/drizzle/per-firm/20260805T120001_seed-trust-permissions.sql";
+import emailMessageDkimVerdictSql from "@magna-carta/database/drizzle/per-firm/20260805T120002_email-message-dkim-verdict.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the FirmDatabase
 // Durable Object runs this lineage against its own SQLite storage on wake (firm-database-object.ts),
@@ -57,7 +59,9 @@ export function perFirmMigrations(): Migration[] {
     "20260804T160001_seed-custody-catalog": seedCustodyCatalogSql,
     "20260804T170000_document-automation-field-mappings": documentAutomationFieldMappingsSql,
     "20260804T170001_custody-review-schedule": custodyReviewScheduleSql,
-    "20260805T120000_email-message-dkim-verdict": emailMessageDkimVerdictSql,
+    "20260805T120000_trust-ledger": trustLedgerSql,
+    "20260805T120001_seed-trust-permissions": seedTrustPermissionsSql,
+    "20260805T120002_email-message-dkim-verdict": emailMessageDkimVerdictSql,
   });
 }
 

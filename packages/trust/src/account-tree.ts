@@ -1,0 +1,351 @@
+import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
+import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
+import type { OutboxMessage } from "@magna-carta/data-access/outbox-statements";
+import { newIdentifier } from "@magna-carta/identifiers/generate";
+import type { RandomSource } from "@magna-carta/identifiers/random";
+import type {
+  LocationId,
+  MatterId,
+  TrustAccountId,
+  TrustLedgerNodeId,
+} from "@magna-carta/identifiers/types";
+import { createAccount } from "@magna-carta/ledger/create-account";
+import { setAccountBoundsStatement } from "@magna-carta/ledger/statements";
+import type { ClockPort } from "@magna-carta/ledger/types";
+import {
+  insertTrustAccountStatement,
+  insertTrustLedgerNodeStatement,
+  selectTrustAccountStatement,
+  selectTrustClientNodeStatement,
+  selectTrustMatterNodeStatement,
+  selectTrustNodeStatement,
+} from "./statements.ts";
+import { TrustValidationError } from "./trust-validation.ts";
+import type { TrustAccountSnapshot, TrustLedgerNodeSnapshot } from "./types.ts";
+
+// The floor. Every matter leaf carries min_balance_minor = 0, and the account_balance bounds CHECK
+// is what enforces it: a disbursement that would overdraw fails the CHECK, and because the whole
+// posting is one D1 batch, the entire batch rolls back — the idempotency record, the entry, the
+// lines, the balances, and the outbox row together. This is the ONLY enforcement. There is no
+// application-level balance comparison anywhere in this package that could be forgotten, bypassed by
+// a future caller, or lose a race with a concurrent disbursement, because a pre-check that reads a
+// balance and then writes cannot be atomic on a platform with no interactive transactions.
+export const TRUST_LEAF_MINIMUM_BALANCE_MINOR = 0;
+
+export interface TrustServiceOptions {
+  readonly clock: ClockPort;
+  readonly randomSource?: RandomSource;
+}
+
+interface TrustAccountRow {
+  id: string;
+  currency: string;
+  status: "open" | "closed";
+  jurisdiction: string | null;
+  bank_ledger_account_id: string;
+  client_liability_account_id: string;
+}
+
+interface TrustNodeRow {
+  id: string;
+  trust_account_id: string;
+  ledger_account_id: string;
+  kind: "client" | "matter" | "firm_funds";
+  client_entity_id: string | null;
+  matter_id: string | null;
+  parent_node_id: string | null;
+}
+
+function toNodeSnapshot(row: TrustNodeRow): TrustLedgerNodeSnapshot {
+  return {
+    id: row.id as TrustLedgerNodeId,
+    trustAccountId: row.trust_account_id as TrustAccountId,
+    ledgerAccountId: row.ledger_account_id as TrustLedgerNodeSnapshot["ledgerAccountId"],
+    kind: row.kind,
+    clientEntityId: row.client_entity_id,
+    matterId: row.matter_id as MatterId | null,
+    parentNodeId: row.parent_node_id as TrustLedgerNodeId | null,
+  };
+}
+
+// `.all()` + `results[0]`, never `.first()` — the node-sqlite test adapter has no `.first()`.
+export async function loadTrustAccount(
+  database: SqlDatabase,
+  trustAccountId: TrustAccountId,
+): Promise<TrustAccountSnapshot> {
+  const { results } = await selectTrustAccountStatement(
+    database,
+    trustAccountId,
+  ).all<TrustAccountRow>();
+  const row = results[0];
+  if (!row) {
+    throw new TrustValidationError(
+      "unknown-trust-account",
+      `no such trust account: ${trustAccountId}`,
+    );
+  }
+  return {
+    id: row.id as TrustAccountId,
+    currency: row.currency,
+    status: row.status,
+    jurisdiction: row.jurisdiction,
+    bankLedgerAccountId: row.bank_ledger_account_id as TrustAccountSnapshot["bankLedgerAccountId"],
+    clientLiabilityAccountId:
+      row.client_liability_account_id as TrustAccountSnapshot["clientLiabilityAccountId"],
+  };
+}
+
+export function assertTrustAccountOpen(account: TrustAccountSnapshot): void {
+  if (account.status !== "open") {
+    throw new TrustValidationError(
+      "trust-account-closed",
+      `trust account ${account.id} is closed and takes no further activity`,
+    );
+  }
+}
+
+export interface OpenTrustAccountInput {
+  readonly name: string;
+  readonly locationId: LocationId;
+  // Derived from the office rather than chosen: the rules require a trust account to sit in the
+  // state of the lawyer's office, so a user-picked jurisdiction would be a user-picked answer to a
+  // question the law already settles. Null when the office has none recorded — and a null REFUSES to
+  // resolve later rather than falling back to any baseline.
+  readonly jurisdiction: string | null;
+  readonly currency: string;
+  readonly bankName?: string | null;
+  readonly accountNumberLastFour?: string | null;
+  readonly iolta?: boolean;
+  readonly openedOn: string; // YYYY-MM-DD civil date
+  readonly bankAccountName?: string;
+  readonly liabilityAccountName?: string;
+}
+
+export interface OpenedTrustAccount {
+  readonly trustAccountId: TrustAccountId;
+  readonly bankLedgerAccountId: TrustAccountSnapshot["bankLedgerAccountId"];
+  readonly clientLiabilityAccountId: TrustAccountSnapshot["clientLiabilityAccountId"];
+  readonly effect: EffectWrite;
+}
+
+// Opens a trust account: the asset leaf holding the bank's money, the liability root the client
+// tree hangs under, and the row binding them to an office. All in one effect, so a trust account
+// whose two sides do not both exist is not a state the database can be in.
+//
+// No chart-of-accounts numbering is invented here. The accounts are created through the ledger's own
+// createAccount and carry no classification the operating general ledger has not designed yet — a
+// numbering scheme guessed now is a scheme the real chart would have to migrate away from.
+export async function openTrustAccount(
+  database: SqlDatabase,
+  input: OpenTrustAccountInput,
+  options: TrustServiceOptions,
+): Promise<OpenedTrustAccount> {
+  const createdAt = options.clock.now();
+  const bank = await createAccount(
+    database,
+    {
+      name: input.bankAccountName ?? `${input.name} — bank`,
+      type: "asset",
+      currency: input.currency,
+    },
+    options,
+  );
+  const liabilityRoot = await createAccount(
+    database,
+    {
+      name: input.liabilityAccountName ?? `${input.name} — client trust liability`,
+      type: "liability",
+      currency: input.currency,
+    },
+    options,
+  );
+  const trustAccountId = newIdentifier("trustAccount", options.randomSource);
+  return {
+    trustAccountId,
+    bankLedgerAccountId: bank.accountId,
+    clientLiabilityAccountId: liabilityRoot.accountId,
+    effect: {
+      statements: [
+        ...bank.effect.statements,
+        ...liabilityRoot.effect.statements,
+        insertTrustAccountStatement(database, {
+          id: trustAccountId,
+          name: input.name,
+          locationId: input.locationId,
+          jurisdiction: input.jurisdiction,
+          bankName: input.bankName ?? null,
+          accountNumberLastFour: input.accountNumberLastFour ?? null,
+          currency: input.currency,
+          iolta: input.iolta === false ? 0 : 1,
+          bankLedgerAccountId: bank.accountId,
+          clientLiabilityAccountId: liabilityRoot.accountId,
+          openedOn: input.openedOn,
+          createdAt,
+        }),
+      ],
+      outboxMessages: [...bank.effect.outboxMessages, ...liabilityRoot.effect.outboxMessages],
+    },
+  };
+}
+
+export interface EnsureMatterLeafInput {
+  readonly trustAccountId: TrustAccountId;
+  readonly clientEntityId: string;
+  readonly matterId: MatterId;
+  readonly clientNodeName: string;
+  readonly matterLeafName: string;
+}
+
+export interface EnsuredMatterLeaf {
+  readonly nodeId: TrustLedgerNodeId;
+  readonly ledgerAccountId: TrustLedgerNodeSnapshot["ledgerAccountId"];
+  readonly clientNodeId: TrustLedgerNodeId;
+  readonly created: boolean;
+  readonly effect: EffectWrite;
+}
+
+// Lazy creation: a matter's trust leaf is built at its first trust receipt, not at matter open, so
+// the majority of matters that never hold client money never get an account. The caller CONCATENATES
+// this effect with the posting effect and commits both in one batch — which is the whole point.
+// Creating the account, its balance row, and its zero floor in the same batch as the first posting
+// means a trust leaf that exists without its floor is not a state that exists even for an instant,
+// and a leaf without a floor is a leaf that can be overdrawn.
+export async function ensureMatterTrustLeaf(
+  database: SqlDatabase,
+  input: EnsureMatterLeafInput,
+  options: TrustServiceOptions,
+): Promise<EnsuredMatterLeaf> {
+  const account = await loadTrustAccount(database, input.trustAccountId);
+  assertTrustAccountOpen(account);
+
+  const existingLeaf = await selectTrustMatterNodeStatement(
+    database,
+    input.trustAccountId,
+    input.matterId,
+  ).all<TrustNodeRow>();
+  const leafRow = existingLeaf.results[0];
+  if (leafRow) {
+    const snapshot = toNodeSnapshot(leafRow);
+    return {
+      nodeId: snapshot.id,
+      ledgerAccountId: snapshot.ledgerAccountId,
+      clientNodeId: snapshot.parentNodeId as TrustLedgerNodeId,
+      created: false,
+      effect: { statements: [], outboxMessages: [] },
+    };
+  }
+
+  const createdAt = options.clock.now();
+  const statements: SqlStatement[] = [];
+  const outboxMessages: OutboxMessage[] = [];
+
+  const existingClient = await selectTrustClientNodeStatement(
+    database,
+    input.trustAccountId,
+    input.clientEntityId,
+  ).all<TrustNodeRow>();
+  const clientRow = existingClient.results[0];
+  let clientNodeId: TrustLedgerNodeId;
+  let clientLedgerAccountId: TrustLedgerNodeSnapshot["ledgerAccountId"];
+  // A brand-new client needs two tiers built in ONE batch — the client node and the matter leaf
+  // under it — and the leaf's parent check cannot read a row this same batch has not committed yet.
+  // Declaring the pending parent is what lets the whole tree, its floor, and the first posting be
+  // one atomic write instead of a sequence with a half-built tree in the middle.
+  const pendingParents = new Map<string, { type: "liability"; currency: string }>();
+  if (clientRow) {
+    const snapshot = toNodeSnapshot(clientRow);
+    clientNodeId = snapshot.id;
+    clientLedgerAccountId = snapshot.ledgerAccountId;
+  } else {
+    // The client node is a roll-up and carries no bounds: it never holds a posting, so its stored
+    // balance stays at zero and a floor on it would guard nothing. The client-level no-negative rule
+    // follows from the leaves instead — a sum of accounts that cannot go negative cannot go negative.
+    const clientAccount = await createAccount(
+      database,
+      {
+        name: input.clientNodeName,
+        type: "liability",
+        currency: account.currency,
+        parentAccountId: account.clientLiabilityAccountId,
+      },
+      options,
+    );
+    clientNodeId = newIdentifier("trustLedgerNode", options.randomSource);
+    clientLedgerAccountId = clientAccount.accountId;
+    pendingParents.set(clientAccount.accountId, {
+      type: "liability",
+      currency: account.currency,
+    });
+    statements.push(
+      ...clientAccount.effect.statements,
+      insertTrustLedgerNodeStatement(database, {
+        id: clientNodeId,
+        trustAccountId: input.trustAccountId,
+        ledgerAccountId: clientAccount.accountId,
+        kind: "client",
+        clientEntityId: input.clientEntityId,
+        matterId: null,
+        parentNodeId: null,
+        createdAt,
+      }),
+    );
+    outboxMessages.push(...clientAccount.effect.outboxMessages);
+  }
+
+  const leafAccount = await createAccount(
+    database,
+    {
+      name: input.matterLeafName,
+      type: "liability",
+      currency: account.currency,
+      parentAccountId: clientLedgerAccountId,
+    },
+    { ...options, pendingParents },
+  );
+  const nodeId = newIdentifier("trustLedgerNode", options.randomSource);
+  statements.push(
+    ...leafAccount.effect.statements,
+    // The floor, written in the SAME batch that creates the account and its balance row — never as a
+    // follow-up write. setAccountBoundsStatement runs after insertBalanceRowStatement in this
+    // ordered batch, so it addresses a row that exists; a fresh balance of zero satisfies a floor of
+    // zero, so the bound can never be born already violated.
+    setAccountBoundsStatement(
+      database,
+      leafAccount.accountId,
+      TRUST_LEAF_MINIMUM_BALANCE_MINOR,
+      null,
+      createdAt,
+    ),
+    insertTrustLedgerNodeStatement(database, {
+      id: nodeId,
+      trustAccountId: input.trustAccountId,
+      ledgerAccountId: leafAccount.accountId,
+      kind: "matter",
+      clientEntityId: input.clientEntityId,
+      matterId: input.matterId,
+      parentNodeId: clientNodeId,
+      createdAt,
+    }),
+  );
+  outboxMessages.push(...leafAccount.effect.outboxMessages);
+
+  return {
+    nodeId,
+    ledgerAccountId: leafAccount.accountId,
+    clientNodeId,
+    created: true,
+    effect: { statements, outboxMessages },
+  };
+}
+
+export async function loadTrustNode(
+  database: SqlDatabase,
+  nodeId: TrustLedgerNodeId,
+): Promise<TrustLedgerNodeSnapshot> {
+  const { results } = await selectTrustNodeStatement(database, nodeId).all<TrustNodeRow>();
+  const row = results[0];
+  if (!row) {
+    throw new TrustValidationError("unknown-trust-node", `no such trust ledger node: ${nodeId}`);
+  }
+  return toNodeSnapshot(row);
+}
