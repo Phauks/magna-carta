@@ -9,8 +9,6 @@ built: in-progress by="Opus 4.8"
 ui: todo
 load-profile: todo
 tested: in-progress by="Opus 4.8"
-branch: claude/trust-3-2-2-movements
-active-work: docs/active-work/claude/trust-3-2-2-movements.md
 next: The zero-balance matter-close precondition, then the jurisdiction corpus stream and three-way reconciliation
 link-spec: docs/specs/2026-07-09-slice-3-2-trust-jurisdiction-schema-design.md
 link-plan:

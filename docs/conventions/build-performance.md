@@ -148,6 +148,39 @@ executes (verified on `@magna-carta/fixtures`: 14 files ran with the filter in p
 machines the same invocation hangs outright. `pnpm test run packages/ledger/test/posting.test.ts` is
 the reliable spelling.
 
+#### A positional path is matched per project, against that project's own root
+
+The corollary, and the sharp edge: **a relative path that names an ancestor of a project's root matches
+nothing in that project, and the run reports a green zero.** The runner does not compare your filter
+against the repository-relative path. For each project it takes the candidate file's path _relative to
+that project's own root_ and asks whether the filter is a substring of it — or, failing that, whether
+`relative(projectRoot, filter)` is. So under project `packages/ledger`, a test file is
+`test/posting.test.ts`; the filter `packages` appears nowhere in that, and `relative` reduces it to
+`..`, which appears nowhere either. Every package drops out.
+
+That is why `pnpm test run packages/ledger/test/posting.test.ts` works while `pnpm test run packages`
+runs nothing: a path that resolves **exactly to a project root** reduces to the empty string, which is a
+substring of everything, so the whole project is selected; a path **inside** a project matches by
+substring; a path **above** one matches nothing. There is no error and no warning — an under-scoped
+filter is indistinguishable from a fast suite.
+
+Two rules follow, and CI depends on both:
+
+- **Filter with absolute paths.** An absolute filter takes a different branch entirely — a prefix test
+  against the file's absolute path — so `"$PWD/packages"` selects every package's tests, which is what a
+  reader expects the relative form to do. Every path in the gate's test jobs is spelled `"$PWD/..."` for
+  this reason.
+- **At most one negated `--project`.** Project patterns are OR-ed (`.some`), and a negation compiles to
+  "any name that is not this one". Two negations therefore cancel: `--project='!a' --project='!b'`
+  matches project `a` (it satisfies `!b`) and project `b` (it satisfies `!a`), so the filter degenerates
+  to no filter at all — again silently. Exclude one project by name; select the rest positively.
+
+The gate cannot rely on review to keep this right, so `pnpm run lint:test-collection`
+(`tooling/lint-test-collection.mjs`) re-runs each of the gate's test invocations in list-only mode and
+asserts that the whole-suite collection clears a **committed floor**, that the union of the jobs equals
+it, and that the jobs do not overlap. The floor and its update procedure live in that file, next to the
+number. It runs locally on demand and in CI as the gate's `test-collection` job.
+
 ### Bootstrap the generated artefacts (a fresh worktree is not a runnable worktree)
 
 `packages/{pdf,decryption,email}/src/pkg/` is **generated** wasm-bindgen output and **git-ignored**, so a

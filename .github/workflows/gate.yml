@@ -438,9 +438,17 @@ jobs:
   # other file belongs to exactly one path root. Adding a new test area is TWO registrations: its vitest
   # config into the root vite.config.ts `test.projects` list (a closed list — an unregistered project's
   # tests run nowhere, and nothing can fail on their absence), and its path into test-node (or a new
-  # job), where a mis-scoped path fails loud via --passWithNoTests being off, not silently.
+  # job). The `test-collection` job below proves both registrations landed.
   # The heavy substrates (node, worker) shard within their job; bump the SHARD_TOTAL + matrix pair to
   # change a count. fail-fast off so one shard's failure still lets its siblings report.
+  #
+  # PASS THE PATHS ABSOLUTE — "$PWD/packages", never "packages". The runner matches a positional path
+  # filter PER PROJECT, against the candidate file's path relative to THAT PROJECT'S OWN root, not
+  # against the repository-relative path. A relative filter naming a directory that is an ANCESTOR of a
+  # project root reduces to `..` under that project and matches none of its files, so the job runs
+  # nothing and exits 0 — a mis-scoped path does NOT fail loud, it reports a fast green. An absolute
+  # filter takes the runner's other branch, a prefix test against the file's absolute path, and narrows
+  # the way a reader expects. Mechanism: docs/conventions/build-performance.md.
 
   # Plain node/unit suites — packages + the web app's node tests + the standalone sibling workers +
   # tooling. No Miniflare, no browser; the storybook project is excluded so no Chromium is needed here.
@@ -469,11 +477,14 @@ jobs:
           name: wasm-pkg
       - run: tar -xzf wasm-pkg.tgz
       - name: Tests — node (shard ${{ matrix.shard }}/${{ env.SHARD_TOTAL }})
+        # Absolute paths, for the reason in the block comment above this job. Kept byte-identical to the
+        # copy in tooling/lint-test-collection.mjs, which fails if the two drift.
         run: >-
           pnpm exec vp test run --project='!storybook' --shard=${{ matrix.shard }}/${{ env.SHARD_TOTAL }}
-          packages apps/web apps/bundle-worker apps/convert-worker apps/email-worker
-          apps/file-repair-worker apps/magna-carta-edit apps/ocr-worker apps/recovery-worker
-          apps/scan-worker tooling
+          "$PWD/packages" "$PWD/tooling" "$PWD/apps/web" "$PWD/apps/bundle-worker"
+          "$PWD/apps/convert-worker" "$PWD/apps/email-worker" "$PWD/apps/file-repair-worker"
+          "$PWD/apps/magna-carta-edit" "$PWD/apps/ocr-worker" "$PWD/apps/recovery-worker"
+          "$PWD/apps/scan-worker" "$PWD/apps/sign-worker"
 
   # The Miniflare worker suites (@cloudflare/vitest-pool-workers) — the heaviest substrate, since each file
   # stands up its own Workers runtime with the wrangler bindings. Its own sharded job; no browser.
@@ -503,8 +514,13 @@ jobs:
       - run: tar -xzf wasm-pkg.tgz
       - name: Tests — worker (shard ${{ matrix.shard }}/${{ env.SHARD_TOTAL }})
         # --project='!storybook' is belt-and-suspenders: the paths already exclude the browser project,
-        # this guarantees it can never lazily boot in a job that installs no browser.
-        run: pnpm exec vp test run --project='!storybook' --shard=${{ matrix.shard }}/${{ env.SHARD_TOTAL }} apps/worker apps/status-worker
+        # this guarantees it can never lazily boot in a job that installs no browser. Absolute paths for
+        # the reason in the block comment above test-node — these two happen to resolve to project roots
+        # exactly, which is the one relative spelling that does collect, but the gate does not rely on
+        # that coincidence. Kept byte-identical to tooling/lint-test-collection.mjs.
+        run: >-
+          pnpm exec vp test run --project='!storybook' --shard=${{ matrix.shard }}/${{ env.SHARD_TOTAL }}
+          "$PWD/apps/worker" "$PWD/apps/status-worker"
 
   # The design-system Storybook story tests — the ONLY browser-mode suite (Chromium via Playwright), so
   # this is the ONLY job that installs the browser. One runner: bounded by story count + a single browser
@@ -545,6 +561,34 @@ jobs:
 
       - name: Tests — stories (Storybook browser)
         run: pnpm exec vp test run --project=storybook
+
+  # Prove the three test jobs above actually cover the suite. Nothing in the runner does: a filter that
+  # matches no file exits 0 having run nothing, so an under-scoped test job reports a FAST GREEN rather
+  # than a failure — which is precisely how a relative `packages` filter silently dropped every package's
+  # tests out of test-node while the gate stayed green. This job re-runs each job's own invocation in
+  # list-only mode (no test executes) and asserts three things: the unfiltered whole-suite collection
+  # meets a committed floor, the union of the three jobs equals it, and they do not overlap. It reads the
+  # invocations out of this file, so a filter edited here without the same edit in the lint fails loudly.
+  test-collection:
+    needs: [changes, wasm]
+    # Deliberately NOT gated on test_battery: this verifies the SHAPE of the split, not the tests, and
+    # the tier that skips the battery is exactly the tier that would otherwise never notice a bad split.
+    if: needs.changes.outputs.code == 'true'
+    # 66 s measured on a 4-core dev box: four list-only collections, run serially. The work is Vite
+    # config resolution and file globbing over ~70 projects — single-threaded and I/O-shaped, not
+    # CPU-bound — so the slim runner suits it even allowing for several times that wall-clock. Re-measure
+    # and move it to ubuntu-latest if its honest time creeps toward that runner's 15-minute platform cap.
+    runs-on: ubuntu-slim
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - uses: actions/download-artifact@v8
+        with:
+          name: wasm-pkg
+      - run: tar -xzf wasm-pkg.tgz
+      - name: Test-collection floor and shard-union coverage
+        run: pnpm run lint:test-collection
 
   # Cheap whole-repo guards with no WASM dependency — run on every change so a governance regression can't
   # slip through a docs-only push.
@@ -855,6 +899,7 @@ jobs:
         test-node,
         test-worker,
         test-stories,
+        test-collection,
         governance,
         contracts,
         containers,
