@@ -329,12 +329,14 @@ function binaryBodyIdempotencyViolations(
 }
 
 // The companion source scan, closing the blind spot the document rule cannot see: a route that reads
-// the request body as RAW BYTES without declaring a request body at all (fileIntegrity.hash and
-// scan.diagnose both stream `c.req.raw.body` under an undeclared body). The emitted document shows no
-// media type for those, so the rule above would not notice one flipping to "required" — but the
-// corruption would be identical. Granularity is the route MODULE: a module that reads a request body
-// raw must not also declare idempotency: "required", because the two cannot be paired safely and a
-// module doing both deserves a human deciding which route is which.
+// the request body as RAW BYTES without declaring a request body at all. Every committed route that
+// streams bytes now declares its application/octet-stream body, so the document rule covers them all
+// today — but a route authored without that declaration emits no media type, the rule above would not
+// notice it flipping to "required", and the corruption would be identical. Not every raw-bytes reader
+// is even in the document (the dev-only R2 upload emulator is a bare app.put), which is why this prong
+// reads source rather than the contract. Granularity is the route MODULE: a module that reads a
+// request body raw must not also declare idempotency: "required", because the two cannot be paired
+// safely and a module doing both deserves a human deciding which route is which.
 const RAW_REQUEST_BODY_READ_PATTERN =
   /\b(?:c|context)\.req\.(?:raw\.body|arrayBuffer\(\)|blob\(\)|bytes\(\)|formData\(\))/;
 const REQUIRED_IDEMPOTENCY_DECLARATION = /idempotency:\s*"required"/;

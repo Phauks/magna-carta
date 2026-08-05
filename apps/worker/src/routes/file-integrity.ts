@@ -45,6 +45,10 @@ export const fileIntegrityHashMeta: RouteMeta = {
   permission: "tools:fileIntegrity",
   resource: "firm",
   audited: false,
+  // Optional, and it has to be: the request body is raw bytes, and the chokepoint's
+  // required-idempotency gate fingerprints a request by reading its body through Hono's
+  // text-decoding cache — which would hand the hasher a UTF-8-mangled copy and produce digests of
+  // something the caller never sent. Nothing is stored here, so a replay is free to recompute.
   idempotency: "optional",
   rateLimit: "default",
 };
@@ -56,6 +60,7 @@ export const fileIntegrityHashRoute = defineOpenAPIRoute(fileIntegrityHashMeta, 
     "Compute MD5, SHA-1, SHA-256, SHA-384 and SHA-512 digests of the request body in a single pass. Optionally report which algorithm matches an expected digest. Nothing is stored.",
   request: {
     query: z.object({ expected: z.string().min(1).max(128).optional() }),
+    body: { content: { "application/octet-stream": { schema: z.any() } }, required: true },
   },
   responses: {
     200: {
@@ -164,8 +169,9 @@ function matchExpected(
 
 export function registerFileIntegrityRoutes(app: FileIntegrityApp, chokepoint: Chokepoint): void {
   // POST /api/v1/file-integrity/hash — stream the request body straight through the five-algorithm
-  // digest. No request-body schema (the bytes are binary), so the raw stream reaches the hasher
-  // unbuffered; the size cap is enforced from Content-Length before hashing.
+  // digest. The declared application/octet-stream body carries no zod schema, so nothing parses or
+  // buffers it and the raw stream reaches the hasher unbuffered; the size cap is enforced from
+  // Content-Length before hashing.
   app.openapi(
     {
       ...fileIntegrityHashRoute,

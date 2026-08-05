@@ -43,6 +43,10 @@ const scanDiagnoseMeta: RouteMeta = {
   permission: "firm:scanFile",
   resource: "firm",
   audited: true,
+  // Optional, and it has to be: the request body is the raw file bytes, and the chokepoint's
+  // required-idempotency gate fingerprints a request by reading its body through Hono's
+  // text-decoding cache — which would hand the scan engine a UTF-8-mangled copy and return a verdict
+  // on something the caller never sent. The diagnostic stores nothing, so a replay simply rescans.
   idempotency: "optional",
   rateLimit: "default",
 };
@@ -55,7 +59,9 @@ const scanDiagnoseRoute = defineOpenAPIRoute(scanDiagnoseMeta, {
     "malware-scan engine and returns its verdict + details. A one-off diagnostic: the file is NOT " +
     "stored and is NOT associated with any matter. Returns an honest `unscanned` verdict until the scan " +
     "Container is activated (the engine-less adapter never reports a false `clean`).",
-  request: {},
+  request: {
+    body: { content: { "application/octet-stream": { schema: z.any() } }, required: true },
+  },
   responses: {
     200: {
       description: "The scan diagnosis",
@@ -80,8 +86,9 @@ type ScanApp = OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>;
 
 export function registerScanDiagnoseRoute(app: ScanApp, chokepoint: Chokepoint): void {
   // POST /api/v1/scan/diagnose — stream the request body straight through the scan port and report the
-  // verdict. No request-body schema (the bytes are binary), so the raw stream reaches the engine
-  // unbuffered; the size cap is enforced from Content-Length before the scan runs.
+  // verdict. The declared application/octet-stream body carries no zod schema, so nothing parses or
+  // buffers it and the raw stream reaches the engine unbuffered; the size cap is enforced from
+  // Content-Length before the scan runs.
   app.openapi(
     { ...scanDiagnoseRoute, middleware: chokepointMiddleware(chokepoint, scanDiagnoseRoute) },
     async (c) => {
