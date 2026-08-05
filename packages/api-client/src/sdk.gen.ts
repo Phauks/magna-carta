@@ -2087,7 +2087,7 @@ export const templatesFieldMappings = <ThrowOnError extends boolean = false>(opt
 export const templatesDeleteFieldMapping = <ThrowOnError extends boolean = false>(options: Options<TemplatesDeleteFieldMappingData, ThrowOnError>): RequestResult<TemplatesDeleteFieldMappingResponses, TemplatesDeleteFieldMappingErrors, ThrowOnError> => (options.client ?? client).delete<TemplatesDeleteFieldMappingResponses, TemplatesDeleteFieldMappingErrors, ThrowOnError>({ url: '/api/v1/merge-field-mappings/{mappingId}', ...options });
 
 /**
- * Returns the merge fields a template author may use, with the renderings each one supports and what a document shows when the matter has no value for it. This is the list a template is authored against; a placeholder naming anything outside it is refused at registration.
+ * Returns the merge fields a template author may use, with the renderings each one supports and what a document shows when the matter has no value for it. This is the list a template is authored against; a placeholder naming anything outside it is refused at registration. A field marked protected holds an encrypted value: any author may bind it, and it is filled in only for a member permitted to decrypt it, which is recorded.
  */
 export const templatesMergeFields = <ThrowOnError extends boolean = false>(options?: Options<TemplatesMergeFieldsData, ThrowOnError>): RequestResult<TemplatesMergeFieldsResponses, TemplatesMergeFieldsErrors, ThrowOnError> => (options?.client ?? client).get<TemplatesMergeFieldsResponses, TemplatesMergeFieldsErrors, ThrowOnError>({ url: '/api/v1/merge-fields', ...options });
 

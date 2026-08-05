@@ -4424,7 +4424,7 @@ export const templatesDeleteFieldMappingMutation = (options?: Partial<Options<Te
 export const templatesMergeFieldsQueryKey = (options?: Options<TemplatesMergeFieldsData>) => createQueryKey('templatesMergeFields', options);
 
 /**
- * Returns the merge fields a template author may use, with the renderings each one supports and what a document shows when the matter has no value for it. This is the list a template is authored against; a placeholder naming anything outside it is refused at registration.
+ * Returns the merge fields a template author may use, with the renderings each one supports and what a document shows when the matter has no value for it. This is the list a template is authored against; a placeholder naming anything outside it is refused at registration. A field marked protected holds an encrypted value: any author may bind it, and it is filled in only for a member permitted to decrypt it, which is recorded.
  */
 export const templatesMergeFieldsOptions = (options?: Options<TemplatesMergeFieldsData>) => queryOptions<TemplatesMergeFieldsResponse, TemplatesMergeFieldsError, TemplatesMergeFieldsResponse, ReturnType<typeof templatesMergeFieldsQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {

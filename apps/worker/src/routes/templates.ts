@@ -245,6 +245,10 @@ const TemplateFieldEntry = z
     source: z.string().nullable(),
     valueType: z.string().nullable(),
     absence: z.string().nullable(),
+    // Whether this field's value is held encrypted. A `protected` field is filled in only for a member
+    // who holds the permission to decrypt it, and doing so is recorded; for anyone else it renders as a
+    // marked gap. Carried here so the field-input surface can say that before anyone assembles.
+    sensitivity: z.string().nullable(),
     description: z.string().nullable(),
   })
   .openapi("TemplateFieldEntry");
@@ -271,6 +275,11 @@ const MergeFieldEntry = z
     defaultFormat: z.string(),
     formats: z.array(z.string()),
     absence: z.string(),
+    // Whether the field's value is held encrypted — see TemplateFieldEntry. A template may bind a
+    // protected field whoever registers it: a binding names a key, not a value, and nothing is decrypted
+    // until a document is assembled. Marking it here is what lets the picker say so at the moment an
+    // author chooses it.
+    sensitivity: z.string(),
     description: z.string(),
   })
   .openapi("MergeFieldEntry");
@@ -605,7 +614,9 @@ const mergeFieldsRoute = defineOpenAPIRoute(readMeta("mergeFields"), {
   description:
     "Returns the merge fields a template author may use, with the renderings each one supports and " +
     "what a document shows when the matter has no value for it. This is the list a template is " +
-    "authored against; a placeholder naming anything outside it is refused at registration.",
+    "authored against; a placeholder naming anything outside it is refused at registration. A field " +
+    "marked protected holds an encrypted value: any author may bind it, and it is filled in only for " +
+    "a member permitted to decrypt it, which is recorded.",
   responses: {
     200: {
       description: "The merge-field dictionary as this firm sees it",
@@ -1296,6 +1307,7 @@ export function registerTemplatesRoutes(app: TemplatesApp, chokepoint: Chokepoin
               source: entry?.source ?? null,
               valueType: entry?.valueType ?? null,
               absence: entry?.absence ?? null,
+              sensitivity: entry?.sensitivity ?? null,
               description: entry?.description ?? null,
             };
           }),
@@ -1412,6 +1424,7 @@ export function registerTemplatesRoutes(app: TemplatesApp, chokepoint: Chokepoin
             defaultFormat: entry.defaultFormat,
             formats: [...legalFormatsFor(entry.valueType)],
             absence: entry.absence,
+            sensitivity: entry.sensitivity,
             description: entry.description,
           })),
         },

@@ -1,5 +1,6 @@
 import type { AbsenceBehaviour, MergeSource, MergeValueType, Sensitivity } from "./types.ts";
 import { DIRECTORY_ROLE_DICTIONARY_ENTRIES } from "./directory-role-bindings.ts";
+import { PROTECTED_DICTIONARY_ENTRIES } from "./protected-bindings.ts";
 import { legalFormatsFor } from "./format.ts";
 import type { ExpressionType } from "./expression/catalog.ts";
 import type { ExpressionScope, NameBinding } from "./expression/check.ts";
@@ -20,9 +21,9 @@ export interface DictionaryEntry {
   // The rendering applied when the placeholder names no format of its own.
   readonly defaultFormat: string;
   // A `protected` entry resolves through the protected-field read path and nothing else, so the acting
-  // member's decrypt permission is checked and an audit row is written. No slice-1 entry is protected;
-  // the property is declared now because retrofitting a sensitivity axis onto a shipped dictionary means
-  // re-auditing every entry.
+  // member's decrypt permission is checked and an audit row is written. A member who does not hold that
+  // permission gets a declared absence naming the field and the permission — never the value, never a
+  // silent blank, and never a failed assembly. See protected-bindings.ts.
   readonly sensitivity: Sensitivity;
   readonly absence: AbsenceBehaviour;
   // What the field inspector shows an author. Consumer-facing text: it names the fact, not the schema.
@@ -233,6 +234,10 @@ export const DICTIONARY: readonly DictionaryEntry[] = [
   // its siblings. They resolve from the SAME party read `matter.parties` uses — see
   // directory-role-bindings.ts.
   ...DIRECTORY_ROLE_DICTIONARY_ENTRIES,
+  // The client's sealed identifiers. Every one is `sensitivity: protected`, which is not a label on the
+  // row but the routing decision: resolution reaches these through the protected-field chokepoint's
+  // permission-gated, audited decrypt and through nothing else — see protected-bindings.ts.
+  ...PROTECTED_DICTIONARY_ENTRIES,
 ];
 
 // One index per entry list, built once and remembered against the list itself. A firm's catalogue is

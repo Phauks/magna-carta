@@ -118,7 +118,10 @@ describe("resolution issues one read per source, never one per field", () => {
     });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.reads).toEqual(["matter", "party", "location"]);
+    // `protectedIdentifier` is in the list because the manifest names protected keys, but it issues no
+    // statement of its own: a sealed value is decrypted through the chokepoint reader, which this
+    // manifest was resolved without. The three PREPARED reads are still matter, party, and location.
+    expect(result.reads).toEqual(["matter", "party", "protectedIdentifier", "location"]);
     expect(reads).toHaveLength(3);
   });
 

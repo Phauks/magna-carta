@@ -2319,6 +2319,7 @@ export type TemplateFieldEntry = {
     source: string | null;
     valueType: string | null;
     absence: string | null;
+    sensitivity: string | null;
     description: string | null;
 };
 
@@ -2357,6 +2358,7 @@ export type MergeFieldEntry = {
     defaultFormat: string;
     formats: Array<string>;
     absence: string;
+    sensitivity: string;
     description: string;
 };
 
