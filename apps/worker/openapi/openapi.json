@@ -5847,6 +5847,9 @@
           "note": {
             "type": "string",
             "maxLength": 2000
+          },
+          "releaseAuthorization": {
+            "$ref": "#/components/schemas/CustodyReleaseAuthorization"
           }
         },
         "required": [
@@ -5880,6 +5883,38 @@
         },
         "required": [
           "kind"
+        ]
+      },
+      "CustodyReleaseAuthorization": {
+        "type": "object",
+        "properties": {
+          "authorityBasis": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000,
+            "description": "The authority this release is made on, in the firm's own words. There is no list of acceptable answers: what suffices to release an original varies by jurisdiction."
+          },
+          "identityEvidence": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000,
+            "description": "How the person collecting was identified. Record the check that was made, not the document's numbers — this lands on a ledger row that can never be edited or deleted."
+          },
+          "identityVerifiedByUserId": {
+            "type": "string",
+            "pattern": "^user_[A-Za-z0-9_-]{21}$",
+            "description": "The firm member who made that check."
+          },
+          "witnessedByUserId": {
+            "type": "string",
+            "pattern": "^user_[A-Za-z0-9_-]{21}$",
+            "description": "The second signatory, when the firm requires two. Must be a different person from the member who checked identity."
+          }
+        },
+        "required": [
+          "authorityBasis",
+          "identityEvidence",
+          "identityVerifiedByUserId"
         ]
       },
       "CustodyMovementPage": {
@@ -6018,6 +6053,30 @@
               "string",
               "null"
             ]
+          },
+          "releaseAuthorityBasis": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "releaseIdentityEvidence": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "releaseIdentityVerifiedByUserId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "releaseWitnessedByUserId": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
@@ -6037,7 +6096,11 @@
           "reason",
           "correctsMovementId",
           "shipmentId",
-          "note"
+          "note",
+          "releaseAuthorityBasis",
+          "releaseIdentityEvidence",
+          "releaseIdentityVerifiedByUserId",
+          "releaseWitnessedByUserId"
         ]
       },
       "PlaceCustodyHoldRequest": {
@@ -22748,7 +22811,7 @@
             }
           },
           "422": {
-            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload",
+            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -22862,7 +22925,7 @@
             }
           },
           "422": {
-            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload",
+            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -23118,7 +23181,7 @@
             }
           },
           "422": {
-            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload",
+            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -23314,7 +23377,7 @@
             }
           },
           "422": {
-            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload",
+            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -23447,7 +23510,7 @@
             }
           },
           "422": {
-            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload",
+            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -23570,7 +23633,7 @@
             }
           },
           "422": {
-            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload",
+            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -23703,7 +23766,7 @@
             }
           },
           "422": {
-            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload",
+            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -23836,7 +23899,7 @@
             }
           },
           "422": {
-            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload",
+            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -24059,7 +24122,7 @@
             }
           },
           "422": {
-            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload",
+            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -24182,7 +24245,7 @@
             }
           },
           "422": {
-            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload",
+            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -24315,7 +24378,7 @@
             }
           },
           "422": {
-            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload",
+            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -24514,7 +24577,7 @@
             }
           },
           "422": {
-            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload",
+            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -24618,7 +24681,7 @@
             }
           },
           "422": {
-            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload",
+            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -24846,7 +24909,7 @@
             }
           },
           "422": {
-            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload",
+            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -25333,7 +25396,7 @@
             }
           },
           "422": {
-            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload",
+            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload",
             "content": {
               "application/problem+json": {
                 "schema": {

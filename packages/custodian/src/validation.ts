@@ -20,6 +20,12 @@ export type CustodyValidationCode =
   | "custody-number-taken"
   // Destruction is a two-person action by construction.
   | "custody-approver-must-differ"
+  // An original may not leave the firm's custody until the authority it leaves on and the identity
+  // check made on the person collecting it have both been recorded. The one movement where recording
+  // after the fact is worth nothing, because the property is already gone.
+  | "custody-release-not-authorized"
+  // A firm that requires two signatories on a release requires two people.
+  | "custody-release-signatories-must-differ"
   // Ordinary shape and lifecycle refusals.
   | "custody-empty-name"
   | "custody-empty-description"

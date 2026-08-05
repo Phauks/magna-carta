@@ -115,7 +115,7 @@ const authErrors = {
   },
   422: {
     description:
-      "The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload",
+      "The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload",
     content: { "application/problem+json": { schema: Problem } },
   },
   429: {
@@ -204,6 +204,16 @@ function custodyErrorResponse(
         status: 422,
         detail: caught.message,
       });
+    // Its own type, and not the generic validation problem, because it is a GATE rather than a shape
+    // complaint: the request is well formed and the caller is entitled to make it — what is missing
+    // is the record that has to exist before an original can leave. A client shows that differently.
+    case "custody-release-not-authorized":
+      return problemJson(c, {
+        type: "custody-release-not-authorized",
+        title: "This release is not authorized yet",
+        status: 422,
+        detail: caught.message,
+      });
     // A review with no date set, an out-of-range interval, and a label selection that will not fit a
     // sheet are all ordinary shape refusals — the caller sent something the register cannot act on,
     // not a state conflict — so they take the generic validation problem rather than minting three
@@ -211,6 +221,7 @@ function custodyErrorResponse(
     case "custody-no-review-scheduled":
     case "custody-invalid-review-interval":
     case "custody-label-selection-invalid":
+    case "custody-release-signatories-must-differ":
       return problemJson(c, {
         type: "validation",
         title: "Custody request invalid",
@@ -465,6 +476,37 @@ const CustodyBorrower = z
   })
   .openapi("CustodyBorrower");
 
+// What a release is made on, captured before the property leaves. Required on a `released` movement
+// and refused on every other kind. There is deliberately no vocabulary of acceptable authorities:
+// what document suffices to release an original varies by jurisdiction, so the firm writes what it
+// relied on and the register's job is to make sure something was written and to freeze it.
+const CustodyReleaseAuthorization = z
+  .object({
+    authorityBasis: z
+      .string()
+      .min(1)
+      .max(2000)
+      .describe(
+        "The authority this release is made on, in the firm's own words. There is no list of acceptable answers: what suffices to release an original varies by jurisdiction.",
+      ),
+    identityEvidence: z
+      .string()
+      .min(1)
+      .max(1000)
+      .describe(
+        "How the person collecting was identified. Record the check that was made, not the document's numbers — this lands on a ledger row that can never be edited or deleted.",
+      ),
+    identityVerifiedByUserId: identifierField("user").describe(
+      "The firm member who made that check.",
+    ),
+    witnessedByUserId: identifierField("user")
+      .optional()
+      .describe(
+        "The second signatory, when the firm requires two. Must be a different person from the member who checked identity.",
+      ),
+  })
+  .openapi("CustodyReleaseAuthorization");
+
 const RecordCustodyMovementRequest = z
   .object({
     kind: z.enum(CUSTODY_MOVEMENT_KINDS),
@@ -479,6 +521,7 @@ const RecordCustodyMovementRequest = z
     correctsMovementId: identifierField("custodyMovement").optional(),
     shipmentId: identifierField("shipment").optional(),
     note: z.string().max(2000).optional(),
+    releaseAuthorization: CustodyReleaseAuthorization.optional(),
   })
   .openapi("RecordCustodyMovementRequest");
 
@@ -505,6 +548,12 @@ const CustodyMovement = z
     correctsMovementId: z.string().nullable(),
     shipmentId: z.string().nullable(),
     note: z.string().nullable(),
+    // Populated only on a release: what it was made on, how the collector was identified, who made
+    // that check, and the second signatory when the firm required one.
+    releaseAuthorityBasis: z.string().nullable(),
+    releaseIdentityEvidence: z.string().nullable(),
+    releaseIdentityVerifiedByUserId: z.string().nullable(),
+    releaseWitnessedByUserId: z.string().nullable(),
   })
   .openapi("CustodyMovement");
 
@@ -1643,6 +1692,10 @@ export function registerCustodyRoutes(app: CustodyApp, chokepoint: Chokepoint): 
             correctsMovementId: movement.corrects_movement_id,
             shipmentId: movement.shipment_id,
             note: movement.note,
+            releaseAuthorityBasis: movement.release_authority_basis,
+            releaseIdentityEvidence: movement.release_identity_evidence,
+            releaseIdentityVerifiedByUserId: movement.release_identity_verified_by_user_id,
+            releaseWitnessedByUserId: movement.release_witnessed_by_user_id,
           })),
           nextCursor,
         } as never,

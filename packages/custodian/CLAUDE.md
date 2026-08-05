@@ -20,6 +20,9 @@ surrounding context — [`docs/Magna-Carta-White-Paper.md`](../../docs/Magna-Car
   and the opening ledger entry in one commit; plus the owner add/end pair
 - `src/item-service.ts` — items and their intrinsic-value / declared-value fields
 - `src/movement-service.ts` — **the one write path for every state change**
+- `src/release-gate.ts` — the release gate: what a `released` movement has to capture before an
+  original leaves, and the only place that is decided
+- `src/settings.ts` — the firm's release policy (whether two signatories are required), read by hand
 - `src/hold-service.ts` / `src/hold-statements.ts` — holds, and the blocker read a destruction path calls
 - `src/scan-service.ts` — links an already-ingested `file` to a packet; resolves the filing matter
 - `src/numbering/` — the counter + allocation statements and the fixed number shape
@@ -44,6 +47,19 @@ surrounding context — [`docs/Magna-Carta-White-Paper.md`](../../docs/Magna-Car
   can never be released and never be destroyed.
 - **Status is derived, never set.** Every status and location change is written in the same atomic
   batch as the movement that caused it. No service here exposes a status setter, and no route sets one.
+- **An original does not leave without identity and authority on the row.** A `released` movement
+  must name who collected the property and carry the authority the release is made on, how the
+  collector was identified, and the member who made that check — `resolveCustodyReleaseCapture` in
+  `src/release-gate.ts` is the only place that is decided, and it runs before the identifier is minted
+  so a refused release writes nothing at all. Release is the one movement this subsystem gates,
+  because it is the only one that is irreversible from the firm's side; the daily check-out stays
+  frictionless on purpose, since friction on the movement a firm records daily is how a register
+  stops being kept.
+- **No authority vocabulary, ever.** What document suffices to release an original — a grant of
+  probate, letters of administration, a power of attorney and the fact that one dies with its grantor
+  — is jurisdiction-specific. The basis is free text the firm writes, on the same footing as the
+  ownership role and the destruction basis; nothing here parses it, matches it against a list, or
+  decides whether it is good enough.
 - **Every read-then-write precondition rides the write too.** D1 has no interactive transaction, so
   `recordCustodyMovement` composes `assertCustodyPacketStatusStatement` (and its item twin) FIRST in
   the batch: it re-inserts the row's own primary key when the status is not what the caller observed,
@@ -90,6 +106,18 @@ surrounding context — [`docs/Magna-Carta-White-Paper.md`](../../docs/Magna-Car
   dependency**: `corrects_movement_id` is a self-reference deliberately declared without a foreign
   key. Keep it that way, and re-prove the append-only triggers against the table that came out of any
   future rebuild — `test/append-only.test.ts` does exactly that.
+- **The release gate is a TRIGGER, not a CHECK, and that is the load-bearing part.** Adding a CHECK
+  means rebuilding `custody_movement` and copying every existing row through it — and every release
+  recorded before the gate existed was recorded honestly under the rules that then applied, carrying
+  no capture. Making those rows pass would mean writing a basis nobody asserted into a ledger whose
+  only claim is that nobody could do exactly that. `20260805T130000_custody-gated-release.sql` adds
+  three `BEFORE INSERT` triggers instead, so the gate binds every row appended from here on and
+  leaves history alone. `test/append-only.test.ts` proves all three at the database and asserts that a
+  pre-gate release still reads back as it was written.
+- **Identity capture is an assertion about the check, not a copy of the document.** The evidence
+  column records what was checked. The row is append-only, so a passport number typed there can never
+  be edited out — and nothing the register does needs it. The API description and the user guide both
+  say so, because this is the field a firm will otherwise fill with a photocopy in words.
 - **A review rolls forward on its anniversary, not from today.** `nextReviewDate` steps whole
   intervals from the scheduled date until it lands past the review, so a five-year cycle reviewed
   eight months late stays on its anniversary instead of drifting a third of a year every cycle — and

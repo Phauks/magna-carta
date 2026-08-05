@@ -2676,6 +2676,25 @@ export const custodyMovement = sqliteTable(
       .$type<ShipmentId>()
       .references(() => shipment.id),
     note: text("note"),
+    // The release gate. An original leaving the firm's custody for good is the one movement where
+    // recording after the fact is worth nothing: these four columns are what was established BEFORE
+    // it left, frozen on the same append-only row as the event itself so no later edit can supply
+    // them. A trigger in the migration refuses a `released` row that carries no capture.
+    //
+    // The basis is FREE TEXT the firm writes and no platform vocabulary, deliberately: what document
+    // suffices to release an original — a grant of probate, letters of administration, a power of
+    // attorney and the fact that one dies with its grantor — varies by jurisdiction, and a closed
+    // enum here would be this schema inventing law. The same reasoning the ownership role and the
+    // destruction basis are free text for.
+    releaseAuthorityBasis: text("release_authority_basis"),
+    // What was checked to establish the collector is who they say they are — an assertion about the
+    // check, not a copy of the document. The ledger cannot be edited or deleted, so a passport number
+    // typed here would be permanent.
+    releaseIdentityEvidence: text("release_identity_evidence"),
+    releaseIdentityVerifiedByUserId: text("release_identity_verified_by_user_id").$type<UserId>(),
+    // The second signatory, when the firm requires two. Whether two are required is a per-firm
+    // policy; that the two differ is structural, and a trigger enforces it.
+    releaseWitnessedByUserId: text("release_witnessed_by_user_id").$type<UserId>(),
   },
   (table) => [
     // The packet history read, keyset-paginated newest first; also the order the register renders.
