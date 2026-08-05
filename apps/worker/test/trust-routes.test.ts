@@ -63,7 +63,7 @@ async function openMatter(title: string): Promise<string> {
       responsibleMemberId: ownerUserId,
     }),
   });
-  return ((await created.json()) as { matterId: string }).matterId;
+  return (await created.json()).matterId;
 }
 
 beforeAll(async () => {
@@ -165,8 +165,24 @@ const depositBody = (matterId: string, amountMinor: number, clientEntityId = "en
   purpose: "Advance on fees and costs",
 });
 
+const disbursementBody = (matterId: string, amountMinor: number) => ({
+  trustAccountId,
+  matterId,
+  amountMinor,
+  currency: "USD" as const,
+  effectiveDate: todayInUtc(),
+  description: "Filing fee paid on the client's behalf",
+  method: "check" as const,
+  reference: "2207",
+  payee: "Second Judicial District Court",
+  purpose: "Complaint filing fee",
+});
+
+// This firm has exactly one member holding trust:manage — the owner — which is the case the
+// two-person rule has to answer honestly rather than by making disbursement impossible. The
+// disbursement suite over a firm with several authorizers is trust-authorization-routes.test.ts.
 describe("trust movement routes", () => {
-  it("deposits, disburses, and reads the client ledger back", async () => {
+  it("deposits, disburses through request and approval, and reads the client ledger back", async () => {
     const matterId = await openMatter("Trust Movement Matter");
 
     const deposited = await post("/api/v1/trust/deposits", depositBody(matterId, 500000));
@@ -174,19 +190,34 @@ describe("trust movement routes", () => {
     const depositAck = (await deposited.json()) as { trustMovementId: string };
     expect(depositAck.trustMovementId).toMatch(/^trustMovement_/);
 
-    const disbursed = await post("/api/v1/trust/disbursements", {
-      trustAccountId,
-      matterId,
-      amountMinor: 120000,
-      currency: "USD",
-      effectiveDate: todayInUtc(),
-      description: "Filing fee paid on the client's behalf",
-      method: "check",
-      reference: "2207",
-      payee: "Second Judicial District Court",
-      purpose: "Complaint filing fee",
+    const requested = await post(
+      "/api/v1/trust/disbursement-requests",
+      disbursementBody(matterId, 120000),
+    );
+    expect(requested.status).toBe(201);
+    const requestAck = (await requested.json()) as {
+      trustDisbursementRequestId: string;
+      status: string;
+    };
+    expect(requestAck.trustDisbursementRequestId).toMatch(/^trustDisbursementRequest_/);
+    expect(requestAck.status).toBe("pending");
+
+    // The request on its own moves nothing.
+    const beforeApproval = await get(
+      `/api/v1/trust/matters/${matterId}/ledger?trustAccountId=${trustAccountId}`,
+    );
+    expect((await beforeApproval.json()).balanceMinor).toBe(500000);
+
+    const approved = await post(
+      `/api/v1/trust/disbursement-requests/${requestAck.trustDisbursementRequestId}/approval`,
+      undefined,
+    );
+    expect(approved.status).toBe(201);
+    // The sole trust manager approving their own request is recorded as exactly that, rather than
+    // passing as an ordinary second-person approval.
+    expect(await approved.json()).toMatchObject({
+      authorizationBasis: "sole_trust_manager",
     });
-    expect(disbursed.status).toBe(201);
 
     const ledger = await get(
       `/api/v1/trust/matters/${matterId}/ledger?trustAccountId=${trustAccountId}`,
@@ -196,7 +227,14 @@ describe("trust movement routes", () => {
       balanceMinor: number;
       heldMinor: number;
       availableMinor: number;
-      movements: { kind: string; authorizedBy: string | null; counterpartyName: string | null }[];
+      movements: {
+        kind: string;
+        recordedBy: string;
+        authorizedBy: string | null;
+        counterpartyName: string | null;
+        disbursementRequestId: string | null;
+        authorizationBasis: string | null;
+      }[];
     };
     expect(body.balanceMinor).toBe(380000);
     expect(body.heldMinor).toBe(0);
@@ -204,8 +242,11 @@ describe("trust movement routes", () => {
     expect(body.movements.map((movement) => movement.kind)).toEqual(["deposit", "disbursement"]);
     // The authorizing member is on the record for money going out, and only for money going out.
     expect(body.movements[0]?.authorizedBy).toBeNull();
+    expect(body.movements[1]?.recordedBy).toBe(ownerUserId);
     expect(body.movements[1]?.authorizedBy).toBe(ownerUserId);
     expect(body.movements[1]?.counterpartyName).toBe("Second Judicial District Court");
+    expect(body.movements[1]?.disbursementRequestId).toBe(requestAck.trustDisbursementRequestId);
+    expect(body.movements[1]?.authorizationBasis).toBe("sole_trust_manager");
   });
 
   it("replays a repeated Idempotency-Key instead of moving the money twice", async () => {
@@ -250,21 +291,38 @@ describe("trust movement routes", () => {
       noTrustCookie,
     );
     expect(deposit.status).toBe(403);
+    const requested = await post(
+      "/api/v1/trust/disbursement-requests",
+      disbursementBody(matterId, 100000),
+      noTrustCookie,
+    );
+    expect(requested.status).toBe(403);
+    const approved = await post(
+      `/api/v1/trust/disbursement-requests/${newIdentifier("trustDisbursementRequest")}/approval`,
+      undefined,
+      noTrustCookie,
+    );
+    expect(approved.status).toBe(403);
     const ledger = await get(
       `/api/v1/trust/matters/${matterId}/ledger?trustAccountId=${trustAccountId}`,
       noTrustCookie,
     );
     expect(ledger.status).toBe(403);
+    const queue = await get(
+      `/api/v1/trust/disbursement-requests?trustAccountId=${trustAccountId}`,
+      noTrustCookie,
+    );
+    expect(queue.status).toBe(403);
   });
 
-  it("answers an over-available disbursement with 409 and the trust problem type", async () => {
+  it("answers an over-available disbursement request with 409 and the trust problem type", async () => {
     const matterId = await openMatter("Trust Overdraw Matter");
     expect(
       (await post("/api/v1/trust/deposits", depositBody(matterId, 100000, "entity_overdraw")))
         .status,
     ).toBe(201);
 
-    const response = await post("/api/v1/trust/disbursements", {
+    const response = await post("/api/v1/trust/disbursement-requests", {
       trustAccountId,
       matterId,
       amountMinor: 500000,
@@ -278,6 +336,14 @@ describe("trust movement routes", () => {
     expect(response.status).toBe(409);
     const problem = (await response.json()) as { type: string };
     expect(problem.type).toBe("https://api.magnacarta.esq/problems/trust-insufficient-available");
+  });
+
+  it("answers an unknown disbursement request with 404", async () => {
+    const response = await post(
+      `/api/v1/trust/disbursement-requests/${newIdentifier("trustDisbursementRequest")}/approval`,
+      undefined,
+    );
+    expect(response.status).toBe(404);
   });
 
   it("moves funds between two matters of one client, and refuses a move to another client", async () => {
@@ -305,7 +371,7 @@ describe("trust movement routes", () => {
     const destination = await get(
       `/api/v1/trust/matters/${destinationMatterId}/ledger?trustAccountId=${trustAccountId}`,
     );
-    expect(((await destination.json()) as { balanceMinor: number }).balanceMinor).toBe(150000);
+    expect((await destination.json()).balanceMinor).toBe(150000);
 
     const refused = await post("/api/v1/trust/matter-transfers", {
       trustAccountId,
@@ -319,7 +385,7 @@ describe("trust movement routes", () => {
       purpose: "Reallocation",
     });
     expect(refused.status).toBe(422);
-    expect(((await refused.json()) as { type: string }).type).toBe(
+    expect((await refused.json()).type).toBe(
       "https://api.magnacarta.esq/problems/trust-movement-refused",
     );
   });

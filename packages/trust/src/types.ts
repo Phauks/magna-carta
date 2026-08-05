@@ -3,6 +3,8 @@ import type {
   LedgerEntryId,
   MatterId,
   TrustAccountId,
+  TrustDisbursementDecisionId,
+  TrustDisbursementRequestId,
   TrustHoldId,
   TrustLedgerNodeId,
   TrustMovementId,
@@ -105,6 +107,65 @@ export const TRUST_MOVEMENT_METHODS = [
   "internal",
 ] as const;
 export type TrustMovementMethod = (typeof TRUST_MOVEMENT_METHODS)[number];
+
+// The methods a DISBURSEMENT may claim — every movement method except `internal`, which names a
+// reallocation that never touches a bank. Split out from TRUST_MOVEMENT_METHODS because a pending
+// disbursement request is composed before any entry exists, so the movement shape CHECK that would
+// otherwise catch `internal` is a whole approval cycle away.
+export const TRUST_DISBURSEMENT_METHODS = [
+  "check",
+  "cash",
+  "wire",
+  "electronic_transfer",
+  "card",
+] as const;
+export type TrustDisbursementMethod = (typeof TRUST_DISBURSEMENT_METHODS)[number];
+
+// How a pending disbursement request ended. There is no `pending` member: pending is the DERIVED
+// state of a request no decision names, the same way an active hold is a hold no release names, so
+// there is no status column anywhere that can disagree with the rows.
+export const TRUST_DISBURSEMENT_DECISIONS = ["approved", "rejected", "withdrawn"] as const;
+export type TrustDisbursementDecisionKind = (typeof TRUST_DISBURSEMENT_DECISIONS)[number];
+
+// On what footing an approval was given. `second_person` is the rule — a member other than the one
+// who submitted the request approved it. `sole_trust_manager` is the recorded exception for a firm
+// with only one member holding the trust capability: the submitter authorized their own
+// disbursement, and the record says so in as many words rather than looking like an ordinary
+// approval. The database refuses the exception the moment a second such member exists.
+export const TRUST_DISBURSEMENT_AUTHORIZATION_BASES = [
+  "second_person",
+  "sole_trust_manager",
+] as const;
+export type TrustDisbursementAuthorizationBasis =
+  (typeof TRUST_DISBURSEMENT_AUTHORIZATION_BASES)[number];
+
+export interface TrustDisbursementRequestSnapshot {
+  readonly id: TrustDisbursementRequestId;
+  readonly trustAccountId: TrustAccountId;
+  readonly nodeId: TrustLedgerNodeId;
+  readonly amountMinor: number;
+  readonly currency: string;
+  readonly method: TrustDisbursementMethod;
+  readonly reference: string | null;
+  readonly payee: string;
+  readonly purpose: string;
+  readonly description: string;
+  readonly effectiveDate: string;
+  readonly requestedBy: UserId;
+  readonly requestedAt: string;
+  // Null while the request is pending — the derived state, read from the absence of a decision row.
+  readonly decision: TrustDisbursementDecisionSnapshot | null;
+}
+
+export interface TrustDisbursementDecisionSnapshot {
+  readonly id: TrustDisbursementDecisionId;
+  readonly decision: TrustDisbursementDecisionKind;
+  readonly decidedBy: UserId;
+  readonly decidedAt: string;
+  readonly reason: string | null;
+  readonly authorizationBasis: TrustDisbursementAuthorizationBasis | null;
+  readonly movementId: TrustMovementId | null;
+}
 
 export interface TrustMovementSnapshot {
   readonly id: TrustMovementId;

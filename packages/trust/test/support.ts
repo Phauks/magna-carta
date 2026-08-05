@@ -2,7 +2,7 @@ import { commitEffectBatch, type BatchDatabase } from "@magna-carta/data-access/
 import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
 import { createMigratedNodeDatabase } from "@magna-carta/database/node-sqlite";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
-import type { LedgerAccountId, LocationId, MatterId } from "@magna-carta/identifiers/types";
+import type { LedgerAccountId, LocationId, MatterId, UserId } from "@magna-carta/identifiers/types";
 import { createAccount } from "@magna-carta/ledger/create-account";
 import type { ClockPort } from "@magna-carta/ledger/types";
 import { ensureMatterTrustLeaf, openTrustAccount } from "../src/account-tree.ts";
@@ -117,6 +117,28 @@ export async function seedMatter(
     .bind(matterId, `${label} matter`, fixture.memberUserId, clock.now())
     .run();
   return matterId;
+}
+
+// A member who holds the trust capability, granted directly. The sole-authorizer trigger counts
+// exactly these rows, so a suite that exercises the single-manager path controls how many exist.
+export async function seedTrustManager(
+  fixture: Awaited<ReturnType<typeof trustFixture>>,
+  displayName: string,
+): Promise<UserId> {
+  const userId = newIdentifier("user");
+  await fixture.database.batch([
+    fixture.database
+      .prepare(
+        "INSERT INTO member (user_id, display_name, status, created_at) VALUES (?1, ?2, 'active', ?3)",
+      )
+      .bind(userId, displayName, clock.now()),
+    fixture.database
+      .prepare(
+        "INSERT INTO direct_grant (id, member_user_id, permission, expires_at, granted_by, created_at) VALUES (?1, ?2, 'trust:manage', NULL, ?2, ?3)",
+      )
+      .bind(newIdentifier("grant"), userId, clock.now()),
+  ]);
+  return userId;
 }
 
 export interface SeededMatterLeaf {

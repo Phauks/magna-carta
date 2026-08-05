@@ -215,6 +215,17 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "report-manual",
     note: "the source or payee on a client-ledger record the rules require the firm to keep, held as free text with no structured subject",
   },
+  // A pending disbursement request names its payee as free text for exactly the reason the movement
+  // does — the payee on a trust check is frequently not a Directory contact — so it takes the same
+  // report-manual treatment on the same reasoning. It is not merely a draft of the movement: a
+  // request that was refused or withdrawn has no movement to inherit, and who the firm was ASKED to
+  // pay is a record of its own on an append-only row.
+  {
+    table: "trust_disbursement_request",
+    subjectKey: "payee",
+    action: "report-manual",
+    note: "who a proposed trust payment would have gone to, held as free text with no structured subject, on an append-only row that survives a refusal",
+  },
 ];
 
 // Per-firm tables that hold NO personal data — the explicit non-PII half of the coverage fitness.
@@ -377,4 +388,9 @@ export const NO_PII_TABLES: readonly string[] = [
   // on; the client the money belongs to resolves through the node, not through these.
   "trust_hold",
   "trust_transfer",
+  // The decision that settles a disbursement request carries firm-member provenance (decided_by),
+  // the footing the approval was given on, and the decider's reason for a refusal — administrative
+  // provenance about a firm control, the line custody_destruction_request sits on. The payee the
+  // request named is registered above; nothing about a data subject is repeated here.
+  "trust_disbursement_decision",
 ];
