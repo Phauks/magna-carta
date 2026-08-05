@@ -120,6 +120,20 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "retain-under-matter",
     note: "which firm member filed a message to a matter, and when, is the filing's provenance on that matter record",
   },
+  // An auto-file rule resolves to a subject by its match VALUE for one of its two kinds: a
+  // correspondent rule's match value IS a person's mailbox, frozen the same way email_participant's
+  // address is and reachable by erasure the same way (a thread rule's match value is an internal
+  // thread handle and names nobody). It is retained on the matter's footing rather than deleted
+  // because the rule is the authorizing record behind every automatic filing already made on that
+  // matter — the answer to "why is this message here" — and the subject-side scrub happens at the
+  // Directory entity, as it does for every other row in this group. created_by is the delegating
+  // member and is administrative provenance on the same row, not a second subject key.
+  {
+    table: "email_auto_file_rule",
+    subjectKey: "match_value",
+    action: "retain-under-matter",
+    note: "a correspondent rule's match value is the sender's mailbox, and the rule is what explains every automatic filing it produced",
+  },
   // Document automation — the assembly record is the provenance of a document on a matter file, so it
   // is retained on the same basis as the document itself. Its structured subject is the member who
   // requested the assembly; the absent-field key list it also carries names FIELDS, never values, and
@@ -343,6 +357,11 @@ export const NO_PII_TABLES: readonly string[] = [
   // provenance on a configuration row — current state, not an activity record about the member (the
   // same line integration_connection and scoped_setting sit on).
   "email_capture_address",
+  // The auto-file evaluation ledger. It is built to hold nothing about a person: identifiers, a
+  // closed outcome enum, a closed reason enum, and an evidence structure of identifiers and enums —
+  // never a subject line, an address, or a display name. The rule it names is registered above, and
+  // the message it names carries its own personal data on email_message.
+  "email_auto_file_decision",
   // Document-automation template catalogue — firm-authored assembly inputs and their stored bytes. A
   // template can itself embed sample or boilerplate personal data in its fixed text, which is content-
   // level residue for the residue report exactly as a matter document's contents are; the ROWS carry

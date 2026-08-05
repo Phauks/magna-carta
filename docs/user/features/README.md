@@ -5,7 +5,7 @@ One plain-language guide per user-visible feature. Naming: `<feature>.md` (e.g. 
 Each guide follows the per-feature pattern in [`../README.md`](../README.md): what it does, how to do the common tasks, tips/edge cases, related features — no internal architecture.
 
 - [`document-templates-and-assembly.md`](document-templates-and-assembly.md) — Document templates and assembly: authoring a template in Word, registering it, and producing a document onto a matter (backend built, screens pending).
-- [`filing-email-to-a-matter.md`](filing-email-to-a-matter.md) — Filing email to a matter, including capture-address management (backend built, screens pending).
+- [`filing-email-to-a-matter.md`](filing-email-to-a-matter.md) — Filing email to a matter, including capture-address management and auto-file rules (backend built, screens pending).
 - [`safe-custody-register.md`](safe-custody-register.md) — Safe custody register: physical originals the firm holds, where they are, and whose they are (backend built, screens pending).
 - [`shipping.md`](shipping.md) — Shipping & postage (stub; backend built, screens pending).
 - [`whois-lookup.md`](whois-lookup.md) — WHOIS Lookup (stub; backend built, screens pending).

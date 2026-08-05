@@ -124,6 +124,12 @@ export const ENTITY_PREFIXES = {
   emailParticipant: "emailParticipant",
   emailAttachment: "emailAttachment",
   emailCaptureAddress: "emailCaptureAddress",
+  // Auto-file rules. `emailAutoFileRule` is one typed, matter-bound, revocable delegation — a person
+  // who could have filed a class of messages by hand telling the platform to do it for them;
+  // `emailAutoFileDecision` is one row of the evaluation ledger, recording what a rule did or what
+  // stopped it, in identifiers and enums only.
+  emailAutoFileRule: "emailAutoFileRule",
+  emailAutoFileDecision: "emailAutoFileDecision",
   // Discovery search index. An `indexSplit` is one immutable Tantivy split — a self-contained bundle of
   // index files stored as one object in the firm's R2 — recorded in the per-firm catalog that a query
   // enumerates to know which splits are live for a matter.

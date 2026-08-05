@@ -95,6 +95,7 @@ describe("permission registry", () => {
       "emails:file",
       "emails:read",
       "emails:manageLinks",
+      "emails:manageAutoFileRules",
       "emails:manageCaptureAddresses",
     ]);
   });
