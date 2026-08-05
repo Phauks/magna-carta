@@ -62,6 +62,9 @@ import type {
   IncidentId,
   IndexSplitId,
   IntegrationConnectionId,
+  InvoiceId,
+  InvoiceLineId,
+  InvoiceWipClaimId,
   LedgerAccountId,
   LedgerEntryId,
   LedgerLineId,
@@ -3739,5 +3742,294 @@ export const trustReconciliationMatch = sqliteTable(
     // unmatched lists are built from.
     index("trust_reconciliation_match_line_index").on(table.statementLineId),
     index("trust_reconciliation_match_entry_index").on(table.entryId),
+  ],
+);
+
+// Billing and invoicing — the invoice spine.
+//
+// The tables below are organized by their MUTABILITY posture, which is the property worth organizing
+// a billing subsystem by: getting it wrong in either direction is the characteristic failure of one
+// hung off an append-only ledger. A draft is a working document and is freely editable; a finalized
+// invoice is an evidentiary record frozen by trigger; the numbering pair is append-only from birth;
+// and exactly one row is deliberately mutable — invoice_matter_balance, whose bounds CHECK is the
+// only mechanism that can abort a whole D1 batch on a business condition.
+
+// The invoice header. It carries NO stored total and NO stored balance: both derive from the
+// per-matter balance rows, so a payment never has a reason to touch this row and can never drift
+// from the subledger. The letterhead, remit-to, and client billing name are SNAPSHOT at finalize and
+// never read live — a later edit to an office address must not silently alter a document the firm
+// already gave somebody.
+export const invoice = sqliteTable(
+  "invoice",
+  {
+    id: text("id").primaryKey().$type<InvoiceId>(), // invoice_ handle
+    // Exactly one client per invoice, resolved through matter_party where role = 'client'. An
+    // invoice spanning two clients cannot be applied from trust at all (a trust entry touching two
+    // clients is refused at the composition guard), cannot be sensibly aged, and is
+    // indistinguishable at the row level from a billing error.
+    clientEntityId: text("client_entity_id").notNull(),
+    currency: text("currency").notNull(),
+    status: text("status", { enum: ["draft", "final", "void"] })
+      .notNull()
+      .default("draft"),
+    // Drawn inside the finalize batch, never at draft: a number drawn at draft is a number burned by
+    // every abandoned draft, and gaps are the first thing an auditor asks about.
+    invoiceNumber: text("invoice_number"),
+    numberScopeKey: text("number_scope_key"),
+    numberDrawnValue: integer("number_drawn_value"),
+    billingPeriodStart: text("billing_period_start"), // civil PlainDate
+    billingPeriodEnd: text("billing_period_end"),
+    issueDate: text("issue_date"),
+    dueDate: text("due_date"),
+    notes: text("notes"),
+    // The presentation snapshot: the office whose letterhead the bill was issued on, and the text of
+    // that letterhead as it stood at finalize.
+    locationId: text("location_id")
+      .$type<LocationId>()
+      .references(() => location.id),
+    letterheadAddressBlock: text("letterhead_address_block"),
+    letterheadFooter: text("letterhead_footer"),
+    remitTo: text("remit_to"),
+    clientBillingName: text("client_billing_name"),
+    finalizedAt: text("finalized_at"),
+    finalizedBy: text("finalized_by").$type<UserId>(),
+    voidedAt: text("voided_at"),
+    voidedBy: text("voided_by").$type<UserId>(),
+    voidReason: text("void_reason"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by").$type<UserId>(),
+  },
+  (table) => [
+    index("invoice_client_status_index").on(table.clientEntityId, table.status),
+    index("invoice_status_due_date_index").on(table.status, table.dueDate),
+    index("invoice_created_at_id_index").on(table.createdAt, table.id),
+    uniqueIndex("invoice_number_unique_index")
+      .on(table.invoiceNumber)
+      .where(sql`${table.invoiceNumber} IS NOT NULL`),
+    check("invoice_status_check", sql`${table.status} IN ('draft', 'final', 'void')`),
+    check("invoice_currency_check", sql`length(${table.currency}) = 3`),
+    check(
+      "invoice_number_paired_check",
+      sql`(${table.status} = 'final') = (${table.invoiceNumber} IS NOT NULL)`,
+    ),
+    check(
+      "invoice_number_draw_paired_check",
+      sql`(${table.invoiceNumber} IS NULL) = (${table.numberDrawnValue} IS NULL) AND (${table.invoiceNumber} IS NULL) = (${table.numberScopeKey} IS NULL)`,
+    ),
+    check(
+      "invoice_finalized_paired_check",
+      sql`(${table.status} = 'final') = (${table.finalizedAt} IS NOT NULL)`,
+    ),
+    check(
+      "invoice_voided_paired_check",
+      sql`(${table.status} = 'void') = (${table.voidedAt} IS NOT NULL)`,
+    ),
+    check(
+      "invoice_dates_final_check",
+      sql`${table.status} <> 'final' OR (${table.issueDate} IS NOT NULL AND ${table.dueDate} IS NOT NULL)`,
+    ),
+  ],
+);
+
+// What the client is told, in presentation order. Every line NAMES ITS MATTER — there is no
+// invoice.matter_id, because a stored column that is supposed to agree with the lines is a column
+// that will eventually disagree with them.
+//
+// The description is a SNAPSHOT taken when the line is composed, not a view of the time entry's
+// narrative. Bill review edits the LINE. Two records, both true and both worth keeping: the entry is
+// the timekeeper's contemporaneous record of what was done, and the line is what the client was
+// told. It also makes a finalized invoice self-contained — re-renderable years later without reading
+// a single row from the work-in-progress stores.
+export const invoiceLine = sqliteTable(
+  "invoice_line",
+  {
+    id: text("id").primaryKey().$type<InvoiceLineId>(), // invoiceLine_ handle
+    invoiceId: text("invoice_id")
+      .notNull()
+      .$type<InvoiceId>()
+      .references(() => invoice.id),
+    lineIndex: integer("line_index").notNull(),
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    kind: text("kind", {
+      enum: ["fee", "cost", "flat_fee", "discount", "adjustment", "interest", "tax"],
+    }).notNull(),
+    description: text("description").notNull(),
+    quantityE4: integer("quantity_e4"), // hours at scale 4 on a fee line; null on a flat amount
+    rateE4: integer("rate_e4"), // the rate snapshot the entry carried; billing never re-resolves one
+    // MAY BE NEGATIVE. A discount, write-down, or courtesy adjustment is an ordinary line, which is
+    // why roundInvoiceLine is half-away-from-zero rather than half-up.
+    amountMinor: integer("amount_minor").notNull(),
+    currency: text("currency").notNull(),
+    // The UTBMS codes as strings rather than catalog references: the line is a snapshot, and an
+    // exporter reading a code that was later renamed or deactivated must still emit what was billed.
+    utbmsTaskCode: text("utbms_task_code"),
+    utbmsActivityCode: text("utbms_activity_code"),
+    utbmsExpenseCode: text("utbms_expense_code"),
+    // Resolved at draft and snapshot. A firm that has configured no tax rate produces no tax line at
+    // all, so the default is the empty answer.
+    taxTreatment: text("tax_treatment", { enum: ["taxable", "exempt"] })
+      .notNull()
+      .default("exempt"),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("invoice_line_position_unique_index").on(table.invoiceId, table.lineIndex),
+    index("invoice_line_matter_index").on(table.matterId, table.invoiceId),
+    check(
+      "invoice_line_kind_check",
+      sql`${table.kind} IN ('fee', 'cost', 'flat_fee', 'discount', 'adjustment', 'interest', 'tax')`,
+    ),
+    check("invoice_line_currency_check", sql`length(${table.currency}) = 3`),
+    check("invoice_line_description_nonempty_check", sql`length(${table.description}) > 0`),
+    check("invoice_line_tax_treatment_check", sql`${table.taxTreatment} IN ('taxable', 'exempt')`),
+    check("invoice_line_index_check", sql`${table.lineIndex} >= 0`),
+  ],
+);
+
+// Which work-in-progress rows this invoice has taken. THE CLAIM IS THE TRUTH; the entry's invoice_id
+// column is a MIRROR kept for the "what is still unbilled on this matter" read, which is the hot read
+// and must not join.
+//
+// N claims to one line is representable without inventing anything, which is what lets several
+// entries consolidate onto one line — and what lets a flat fee claim every contributing entry with a
+// null invoice_line_id and a zero claimed amount, so realization reporting can still attribute the
+// work the fee covered.
+export const invoiceWipClaim = sqliteTable(
+  "invoice_wip_claim",
+  {
+    id: text("id").primaryKey().$type<InvoiceWipClaimId>(), // invoiceWipClaim_ handle
+    invoiceId: text("invoice_id")
+      .notNull()
+      .$type<InvoiceId>()
+      .references(() => invoice.id),
+    sourceKind: text("source_kind", { enum: ["time_entry", "cost_entry"] }).notNull(),
+    sourceId: text("source_id").notNull(),
+    invoiceLineId: text("invoice_line_id")
+      .$type<InvoiceLineId>()
+      .references(() => invoiceLine.id),
+    claimedAmountMinor: integer("claimed_amount_minor").notNull(),
+    claimedAt: text("claimed_at").notNull(),
+    // Set when a draft releases the entry back to unbilled work-in-progress. The released row REMAINS,
+    // so "this entry was on a draft that was abandoned on the 3rd" stays answerable, and the partial
+    // unique index makes the released row invisible to uniqueness so the entry can be claimed again.
+    releasedAt: text("released_at"),
+  },
+  (table) => [
+    uniqueIndex("invoice_wip_claim_active_source_unique_index")
+      .on(table.sourceKind, table.sourceId)
+      .where(sql`${table.releasedAt} IS NULL`),
+    index("invoice_wip_claim_invoice_index").on(table.invoiceId),
+    index("invoice_wip_claim_line_index").on(table.invoiceLineId),
+    check(
+      "invoice_wip_claim_source_kind_check",
+      sql`${table.sourceKind} IN ('time_entry', 'cost_entry')`,
+    ),
+  ],
+);
+
+// The derived balance, and the single most important table in the subsystem. Created in the finalize
+// batch, one row per (invoice, matter), and mutable ONLY inside a posting batch — exactly as
+// account_balance is, for exactly the same reason: D1 has no interactive transactions, so a bounds
+// CHECK is the only mechanism that can abort a whole batch on a business condition.
+//
+// Per (invoice, matter) rather than per invoice because an earned-fee transfer draws on one matter
+// leaf, so the ceiling it must respect is that matter's share of the invoice. A single-matter
+// invoice, which is most of them, has exactly one row.
+export const invoiceMatterBalance = sqliteTable(
+  "invoice_matter_balance",
+  {
+    invoiceId: text("invoice_id")
+      .notNull()
+      .$type<InvoiceId>()
+      .references(() => invoice.id),
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    totalMinor: integer("total_minor").notNull(),
+    appliedMinor: integer("applied_minor").notNull().default(0),
+    currency: text("currency").notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.invoiceId, table.matterId] }),
+    index("invoice_matter_balance_matter_index").on(table.matterId),
+    check("invoice_matter_balance_currency_check", sql`length(${table.currency}) = 3`),
+    check(
+      "invoice_matter_balance_bounds_check",
+      sql`${table.appliedMinor} >= 0 AND ${table.appliedMinor} <= ${table.totalMinor}`,
+    ),
+  ],
+);
+
+// The invoice-number sequence. next_value is the sanctioned exception to append-only, as it is for
+// matter numbers; the mechanism lives in packages/sequence-numbering.
+export const invoiceNumberCounter = sqliteTable(
+  "invoice_number_counter",
+  {
+    scopeKey: text("scope_key").primaryKey(), // '' = firm-wide; a Location code for a per-office sequence
+    nextValue: integer("next_value").notNull(),
+  },
+  (table) => [check("invoice_number_counter_next_value_check", sql`${table.nextValue} > 0`)],
+);
+
+// One row per counter value a draw consumed. The composite primary key is the load-bearing backstop
+// on the draw — NOT the invoice_number unique index, which fires only when two draws render the same
+// STRING. Append-only unconditionally by trigger.
+export const invoiceNumberAllocation = sqliteTable(
+  "invoice_number_allocation",
+  {
+    scopeKey: text("scope_key").notNull(),
+    drawnValue: integer("drawn_value").notNull(),
+    invoiceId: text("invoice_id")
+      .notNull()
+      .$type<InvoiceId>()
+      .references(() => invoice.id),
+    allocatedAt: text("allocated_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.scopeKey, table.drawnValue] }),
+    uniqueIndex("invoice_number_allocation_invoice_unique_index").on(table.invoiceId),
+    check("invoice_number_allocation_drawn_value_check", sql`${table.drawnValue} > 0`),
+  ],
+);
+
+// Which of the firm's ledger accounts plays each role a billing posting needs. The product chart of
+// accounts does not exist yet, and this is the seam that stands in for it: an unmapped role REFUSES
+// finalization with a named error rather than posting somewhere plausible. The role set is the stable
+// contract across the boundary the operating chart of accounts will populate.
+export const firmAccountRole = sqliteTable(
+  "firm_account_role",
+  {
+    role: text("role", {
+      enum: [
+        "accounts_receivable",
+        "fee_income",
+        "client_costs_advanced",
+        "cost_recovery_income",
+        "tax_payable",
+        "fee_adjustments",
+        "fee_write_off",
+        "operating_bank",
+        "client_credit_liability",
+      ],
+    }).primaryKey(),
+    ledgerAccountId: text("ledger_account_id")
+      .notNull()
+      .$type<LedgerAccountId>()
+      .references(() => ledgerAccount.id),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    check(
+      "firm_account_role_role_check",
+      sql`${table.role} IN ('accounts_receivable', 'fee_income', 'client_costs_advanced', 'cost_recovery_income', 'tax_payable', 'fee_adjustments', 'fee_write_off', 'operating_bank', 'client_credit_liability')`,
+    ),
   ],
 );

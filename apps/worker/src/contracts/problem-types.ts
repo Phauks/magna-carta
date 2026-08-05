@@ -206,6 +206,28 @@ export const PROBLEM_TYPES = {
   // which nothing but time fixes): here the matter is closable and something specific stands in the
   // way, so `errors[]` names each rule that refused and what clears it.
   "matter-close-refused": "matter-close-refused",
+  // A billing change aimed at an invoice that is no longer a working document (HTTP 409): the
+  // invoice has been finalized or voided, and its header, lines, and work-in-progress claims are
+  // frozen at the database. DISTINCT from `conflict` because nothing about waiting or retrying
+  // changes it — a finalized invoice is corrected by a credit note, which is a different operation
+  // producing a second permanent record rather than editing the first.
+  "billing-invoice-not-editable": "billing-invoice-not-editable",
+  // Two drafts reached for the same unbilled time or cost entry and this one lost (HTTP 409). The
+  // partial unique index on active claims is what arbitrates, so the loser learns it lost rather
+  // than quietly composing a line over work that belongs to somebody else's bill. The remedy is to
+  // look at the invoice that holds it, not to retry.
+  "billing-work-already-claimed": "billing-work-already-claimed",
+  // Finalization needs to know which of the firm's ledger accounts plays a posting role — the
+  // receivable, fee income, advanced client costs — and that role has not been mapped (HTTP 422).
+  // Deliberately a refusal rather than a guess: posting a real receivable into a plausible-looking
+  // account puts money in the wrong place on the firm's balance sheet, and the detail names the
+  // missing role and where to set it.
+  "billing-account-role-unmapped": "billing-account-role-unmapped",
+  // Something the billing rules refuse on their own terms (HTTP 422): a matter belonging to a
+  // different client than the invoice bills, a matter with no client party to bill, non-billable
+  // time, an empty invoice, or more claimed work than one finalize batch can carry. DISTINCT from
+  // `validation` — the request is well-formed; what it asks for is not a bill the rules permit.
+  "billing-refused": "billing-refused",
   // A required downstream service is absent or unreachable (HTTP 503): the worker cannot fulfil
   // the request because a backing worker service binding is not configured. Callers should retry
   // after a short delay; the condition resolves when the binding is activated at deploy time.

@@ -76,6 +76,16 @@ describe("GET /api/v1/me", () => {
       // the practising roles).
       // Sorted.
       permissions: [
+        // The six billing keys split by what they let a member do: reading and drafting reach the
+        // practitioner set, finalizing and crediting reach Owner/Admin + Attorney, applying client
+        // money reaches Owner/Admin + Attorney + Billing, and configuring the account-role map is
+        // Owner/Admin alone (20260805T210000_billing-invoices). Owner/Admin holds all six.
+        "billing:apply",
+        "billing:configure",
+        "billing:credit",
+        "billing:draft",
+        "billing:finalize",
+        "billing:read",
         // conflicts:read / conflicts:run are seeded onto every default role (any member may screen a
         // prospective matter); conflicts:dispose is narrower and reaches Owner/Admin + Attorney only.
         "conflicts:dispose",

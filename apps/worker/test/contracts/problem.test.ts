@@ -76,6 +76,10 @@ describe("problem-type URI registry", () => {
         "trust-reconciliation-already-accounted-for",
         "trust-statement-import-refused",
         "trust-reconciliation-refused",
+        "billing-invoice-not-editable",
+        "billing-work-already-claimed",
+        "billing-account-role-unmapped",
+        "billing-refused",
         "matter-close-refused",
       ].sort(),
     );

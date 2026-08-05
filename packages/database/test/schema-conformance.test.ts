@@ -49,14 +49,22 @@ describe("schema conformance (fitness functions)", () => {
     //  - email_capture_route: the control-plane token->firm routing index — the opaque routing token IS
     //    the row's identity (the Email Worker looks a route up by the local part it parsed), same idiom
     //    as setting keyed by its key.
+    //  - invoice_number_counter: the invoice-number sequence, keyed by its scope — the same counter
+    //    shape as matter_number_counter and custody_number_counter.
+    //  - firm_account_role: which ledger account plays each posting role. The ROLE is the identity —
+    //    the row exists to answer "which account is accounts receivable", and a handle would add a
+    //    lookup to every posting to find the row by the only thing anyone ever asks it by. The role
+    //    set is a closed CHECK, so the key cannot grow a typo.
     const naturalSinglePrimaryKeyNames: Record<string, string> = {
       account_balance: "account_id",
       member: "user_id",
       matter_number_counter: "scope_key",
       custody_number_counter: "scope_key",
+      invoice_number_counter: "scope_key",
       setting: "key",
       platform_operator: "user_id",
       email_capture_route: "token",
+      firm_account_role: "role",
     };
     // storage_meter is keyed by WHAT it rolls up — a composite natural key, no handle. Still all TEXT.
     // token_usage_meter is the same shape — keyed by (day, slot, model_id), all TEXT, append-by-delta.
@@ -72,6 +80,9 @@ describe("schema conformance (fitness functions)", () => {
     // matter_number_allocation is keyed by (scope_key, drawn_value) — the counter value a matter
     // number draw consumed, in the scope it came from. That pair IS the reservation; a handle would
     // add nothing and would need a unique lookup on every draw to find the row by its natural pair.
+    // invoice_number_allocation is the same reservation shape for invoice numbers.
+    // invoice_matter_balance is keyed by (invoice_id, matter_id) — the derived balance IS that pair,
+    // exactly as account_balance IS its account; every read and every delta arrives holding both.
     const compositeKeyTables = new Set([
       "storage_meter",
       "token_usage_meter",
@@ -79,6 +90,8 @@ describe("schema conformance (fitness functions)", () => {
       "directory_entity_category",
       "matter_number_allocation",
       "custody_number_allocation",
+      "invoice_number_allocation",
+      "invoice_matter_balance",
       "scan_cache",
       "scoped_setting",
     ]);
@@ -88,6 +101,7 @@ describe("schema conformance (fitness functions)", () => {
     const integerCompositeKeyColumns = new Set([
       "matter_number_allocation.drawn_value",
       "custody_number_allocation.drawn_value",
+      "invoice_number_allocation.drawn_value",
     ]);
 
     for (const table of ALL_TABLES) {
