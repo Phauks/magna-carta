@@ -5214,7 +5214,7 @@ export type MattersCloseErrors = {
      */
     404: Problem;
     /**
-     * A request with this Idempotency-Key is still in progress, or the matter is in the wrong state
+     * A close precondition refused the matter, a request with this Idempotency-Key is still in progress, or the matter is already closed
      */
     409: Problem;
     /**

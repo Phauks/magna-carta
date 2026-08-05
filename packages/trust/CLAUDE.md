@@ -21,6 +21,8 @@ ADR-0072.) **Invariants:** [`docs/conventions/invariants.md`](../../docs/convent
   `composeMatterToMatterTransfer` + the `TrustDisbursementMethodPolicy` port
 - `src/transfer.ts` — `composeTrustToOperatingTransfer` + the `EarnedFeePrecondition` port
 - `src/jurisdiction.ts` — the resolver contract and the refusing default
+- `src/close-precondition.ts` — `matterTrustClosePrecondition` + `readMatterTrustPositions`: the
+  matter-close gate the app registers against the matter shell's close hook
 - `src/fitness.ts` — re-proves the invariants over stored data
 - `src/statements.ts` / `src/types.ts` / `src/trust-validation.ts`
 
@@ -47,6 +49,13 @@ ADR-0072.) **Invariants:** [`docs/conventions/invariants.md`](../../docs/convent
   release loses at commit); a partial release is a release plus a new, smaller hold. A movement
   correction is a reversing entry with its own movement row. Never add a status column.
 - **Available, not balance, is the disbursement ceiling.** `available = balance - active holds`.
+- **A matter does not close over client money.** A non-zero matter-leaf balance, or an active hold on
+  one, refuses the close outright — no override, and the refusal names the balance, the account, and
+  the movements that clear it. The refusal is proven at commit as well as read before it:
+  `refuseMatterCloseWithTrustBalanceStatement` rides the close batch and aims a `kind` the table's
+  CHECK forbids at exactly the leaves that still hold money, so it matches nothing when the ledger is
+  clear and aborts the whole close when a deposit landed in the meantime. A guard here must never be
+  able to store a row — that is what makes it a guard rather than a write.
 - **A movement records who authorized it.** Money leaving a client ledger — a disbursement or a
   matter-to-matter reallocation — carries `authorized_by`, enforced by the `trust_movement` shape
   CHECK rather than by the composer remembering. A movement also carries its method as a VALUE
@@ -64,7 +73,9 @@ ADR-0072.) **Invariants:** [`docs/conventions/invariants.md`](../../docs/convent
 ## Dependencies & contracts
 
 - Depends on `@magna-carta/ledger` (posting, account creation, bounds), `@magna-carta/data-access`,
-  `@magna-carta/identifiers`, `@magna-carta/money`. Pure and synchronous: returns `EffectWrite` for
+  `@magna-carta/identifiers`, `@magna-carta/money`, and — for the close hook's contract, types only —
+  `@magna-carta/matters`. The dependency runs THIS way and never the other: the matter shell knows
+  nothing about money, and the app hands it the rule. Pure and synchronous: returns `EffectWrite` for
   the caller to commit.
 - **Creation and first posting belong in ONE batch.** `ensureMatterTrustLeaf` returns an effect
   rather than committing precisely so the caller concatenates it with the posting — a trust leaf that

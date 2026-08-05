@@ -1186,7 +1186,7 @@ export const mattersOpenMutation = (options?: Partial<Options<MattersOpenData>>)
 };
 
 /**
- * Closes a matter (archived-but-additive — it leaves active lists but still accepts documents). Runs the close-precondition registry; a failure returns the precondition codes. Refuses a matter that is already closed, so its recorded close date never moves.
+ * Closes a matter (archived-but-additive — it leaves active lists but still accepts documents). Runs the close preconditions first; a matter whose client trust ledger still holds money, or carries an active disputed-funds hold, is refused with the balance and the movements that clear it. Refuses a matter that is already closed, so its recorded close date never moves.
  */
 export const mattersCloseMutation = (options?: Partial<Options<MattersCloseData>>): MutationOptions<MattersCloseResponse, MattersCloseError, Options<MattersCloseData>> => {
     const mutationOptions: MutationOptions<MattersCloseResponse, MattersCloseError, Options<MattersCloseData>> = {

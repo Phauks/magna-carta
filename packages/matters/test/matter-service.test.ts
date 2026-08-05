@@ -2,7 +2,7 @@ import { createMigratedNodeDatabase } from "@magna-carta/database/node-sqlite";
 import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import type { MatterId, UserId } from "@magna-carta/identifiers/types";
 import { describe, expect, it } from "vitest";
-import { ClosePreconditionError } from "../src/close-preconditions.ts";
+import { ClosePreconditionError, type ClosePrecondition } from "../src/close-preconditions.ts";
 import {
   closeMatter,
   createMatter,
@@ -109,6 +109,16 @@ async function readMatter(database: BatchDatabase, matterId: MatterId) {
       closed_at: string | null;
     }>();
   return results[0];
+}
+
+async function countCloseAudits(database: BatchDatabase, matterId: MatterId): Promise<number> {
+  const { results } = await database
+    .prepare(
+      "SELECT COUNT(*) AS closes FROM audit_log WHERE event = 'matter.closed' AND subject_id = ?1",
+    )
+    .bind(matterId)
+    .all<{ closes: number }>();
+  return results[0]?.closes ?? 0;
 }
 
 async function setup(segments: NumberSegment[] = YEAR_COUNTER_SCHEME): Promise<BatchDatabase> {
@@ -328,6 +338,99 @@ describe("closeMatter / reopenMatter", () => {
       matterId,
       idempotentReplay: false,
     });
+  });
+
+  it("surfaces a supplied precondition's refusal and leaves the matter untouched", async () => {
+    const database = await setup();
+    const { matterId } = await createMatter(database, { ...baseInput, status: "open" }, options);
+    const refusing: ClosePrecondition = {
+      check: () =>
+        Promise.resolve([{ code: "held-elsewhere", message: "something still holds this matter" }]),
+    };
+
+    const caught = await closeMatter(database, matterId, {
+      ...options,
+      closePreconditions: [refusing],
+    }).catch((error: unknown) => error);
+
+    expect(caught).toBeInstanceOf(ClosePreconditionError);
+    expect((caught as ClosePreconditionError).failures[0]?.code).toBe("held-elsewhere");
+    expect((await readMatter(database, matterId))?.status).toBe("open");
+    expect(await countCloseAudits(database, matterId)).toBe(0);
+  });
+
+  it("carries a precondition's guard statements in the close batch", async () => {
+    const database = await setup();
+    const { matterId } = await createMatter(database, { ...baseInput, status: "open" }, options);
+    // A guard that leaves a visible mark rather than aborting: if it did not ride the batch, the
+    // mark would not be there after a successful close.
+    const marking: ClosePrecondition = {
+      check: () => Promise.resolve([]),
+      commitGuard: (context) => [
+        context.database
+          .prepare("UPDATE matter SET client_code = 'guard-ran' WHERE id = ?1")
+          .bind(context.matterId),
+      ],
+    };
+
+    await closeMatter(database, matterId, { ...options, closePreconditions: [marking] });
+
+    const { results } = await database
+      .prepare("SELECT status, client_code FROM matter WHERE id = ?1")
+      .bind(matterId)
+      .all<{ status: string; client_code: string | null }>();
+    expect(results[0]).toMatchObject({ status: "closed", client_code: "guard-ran" });
+  });
+
+  it("reports a guard that aborts the batch as the refusal its check now finds", async () => {
+    const database = await setup();
+    const { matterId } = await createMatter(database, { ...baseInput, status: "open" }, options);
+    // The shape of a real race: the check reads a clear state, and by commit time the guard's
+    // condition holds. The guard aborts the batch on a constraint the schema owns.
+    let readsClear = true;
+    const racing: ClosePrecondition = {
+      check: () => {
+        if (readsClear) {
+          readsClear = false;
+          return Promise.resolve([]);
+        }
+        return Promise.resolve([{ code: "arrived-late", message: "it holds something now" }]);
+      },
+      commitGuard: (context) => [
+        context.database
+          .prepare("UPDATE matter SET status = 'not-a-status' WHERE id = ?1")
+          .bind(context.matterId),
+      ],
+    };
+
+    const caught = await closeMatter(database, matterId, {
+      ...options,
+      closePreconditions: [racing],
+    }).catch((error: unknown) => error);
+
+    expect(caught).toBeInstanceOf(ClosePreconditionError);
+    expect((caught as ClosePreconditionError).failures[0]?.code).toBe("arrived-late");
+    // The whole batch rolled back: the close, its audit row, and the guard's own write with it.
+    expect((await readMatter(database, matterId))?.status).toBe("open");
+    expect(await countCloseAudits(database, matterId)).toBe(0);
+  });
+
+  it("re-raises a batch failure that no precondition explains", async () => {
+    const database = await setup();
+    const { matterId } = await createMatter(database, { ...baseInput, status: "open" }, options);
+    const brokenGuard: ClosePrecondition = {
+      check: () => Promise.resolve([]),
+      commitGuard: (context) => [
+        context.database
+          .prepare("UPDATE matter SET status = 'not-a-status' WHERE id = ?1")
+          .bind(context.matterId),
+      ],
+    };
+
+    await expect(
+      closeMatter(database, matterId, { ...options, closePreconditions: [brokenGuard] }),
+    ).rejects.not.toBeInstanceOf(ClosePreconditionError);
+    expect((await readMatter(database, matterId))?.status).toBe("open");
   });
 });
 

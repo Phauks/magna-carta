@@ -138,6 +138,13 @@ export const PROBLEM_TYPES = {
   // and reviewing that jurisdiction. Neither ever resolves to a baseline — a wrong silence about a
   // trust rule states a wrong fact to a lawyer who will act on it.
   "trust-jurisdiction-unavailable": "trust-jurisdiction-unavailable",
+  // A matter close refused by one of the rules the close hook runs (HTTP 409). Today the only such
+  // rule is trust's: a matter whose client trust ledger still holds money, or carries an active
+  // disputed-funds hold, does not close — a closed matter with somebody else's money in it is how
+  // funds become unclaimed. DISTINCT from `conflict` (the matter is in the wrong lifecycle state,
+  // which nothing but time fixes): here the matter is closable and something specific stands in the
+  // way, so `errors[]` names each rule that refused and what clears it.
+  "matter-close-refused": "matter-close-refused",
   // A required downstream service is absent or unreachable (HTTP 503): the worker cannot fulfil
   // the request because a backing worker service binding is not configured. Callers should retry
   // after a short delay; the condition resolves when the binding is activated at deploy time.

@@ -1862,6 +1862,9 @@ importers:
       '@magna-carta/ledger':
         specifier: workspace:*
         version: link:../ledger
+      '@magna-carta/matters':
+        specifier: workspace:*
+        version: link:../matters
       '@magna-carta/money':
         specifier: workspace:*
         version: link:../money

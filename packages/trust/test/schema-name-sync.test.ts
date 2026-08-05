@@ -31,6 +31,8 @@ import {
   insertTrustLedgerNodeStatement,
   insertTrustMovementStatement,
   insertTrustTransferStatement,
+  refuseMatterCloseWithTrustBalanceStatement,
+  selectMatterTrustPositionsStatement,
   selectTrustAccountRolesStatement,
   selectTrustAccountStatement,
   selectTrustAvailableBalanceStatement,
@@ -229,6 +231,8 @@ describe("schema name sync (trust SQL pinned to @magna-carta/database)", () => {
       sqlOf(selectTrustAccountRolesStatement(stub, [LEDGER_ACCOUNT_ID])),
       sqlOf(selectTrustHoldStatement(stub, HOLD_ID)),
       sqlOf(selectTrustAvailableBalanceStatement(stub, NODE_ID)),
+      sqlOf(selectMatterTrustPositionsStatement(stub, "matter_x" as never)),
+      sqlOf(refuseMatterCloseWithTrustBalanceStatement(stub, "matter_x" as never)),
     ].join("\n");
     expectOnlyKnownIdentifiers(
       readSql,
@@ -249,6 +253,7 @@ describe("schema name sync (trust SQL pinned to @magna-carta/database)", () => {
         "node_kind",
         "released_by_hold_id",
         "held_minor",
+        "trust_account_name",
         ...columnsOf(trustAccount),
         ...columnsOf(trustLedgerNode),
         ...columnsOf(trustHold),
