@@ -2,7 +2,7 @@
 slice: 3·4 — Billing & invoicing
 group: phase-3
 order: 4
-research: "-"
+research: n/a
 spec: done by="Opus 4.8"
 plan: done by="Opus 4.8"
 built: in-progress by="Opus 5"
