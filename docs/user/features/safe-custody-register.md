@@ -35,7 +35,14 @@ can never be returned to its owner and never be destroyed.
    that should not be lost when ownership later changes.
 5. Choose where it is going — the safe, box, or shelf it will live in.
 6. Link a **matter** only if there is one. Most packets have none, and that is normal: a will held for
-   a client whose last matter closed eleven years ago is the ordinary case, not an oversight.
+   a client whose last matter closed eleven years ago is the ordinary case, not an oversight. Where a
+   packet is linked to a matter, closing that matter tells the person closing it that you still hold
+   the property — and then closes the matter anyway. It never blocks, because holding a client's will
+   long after their last matter closed is what a safe-custody register is for.
+
+If your firm has written down its own list of ownership roles, the role you choose has to be one of
+them, so a typo does not become a new category. If it has not, anything you type is accepted — the
+platform has no list of its own, because the forms property can be held under vary by jurisdiction.
 
 The register gives the packet a **custody number** — the number you write on the label and read out
 over the phone. If you are moving in from a paper deeds register or another system and your packets
@@ -126,6 +133,83 @@ instruction, a dispute, or because you cannot locate the owner.
 A hold stops the property being **released or destroyed**. It deliberately does **not** stop you
 moving it — a held original still needs to be movable to a fireproof safe or an offsite site. Holds
 are released explicitly, and both the placing and the releasing show up in the packet's history.
+
+## Destroying something
+
+Some things a firm holds really are meant to be destroyed one day — superseded copies, duplicate
+correspondence, papers a client has asked you in writing to shred. Destroying a client's property is
+the one thing in the register that takes **two people**, and the steps are separate on purpose.
+
+1. **Somebody raises a request.** They name the packet, or one item inside it, and write down the
+   reason and the authority they are relying on. Nothing happens to the property at this point.
+2. **Somebody else approves or refuses it.** It has to be a different person — the register will not
+   let one person do both halves, and there is no setting that turns that off. Anyone who can manage
+   the register may refuse a request, including the person who raised it: ending a client's property
+   takes two people, deciding not to takes nobody's agreement.
+3. **Somebody records that it was done**, and what was done — shredded, incinerated, witnessed. That
+   goes into the packet's history like every other event, with the name of the person who recorded it.
+
+Once a request has been refused, carried out, or withdrawn, it is finished. If you want to ask again,
+raise a new one — the register does not rewrite a decision somebody may already have acted on.
+
+### Two things the register will simply not do
+
+**It will not destroy anything under a hold.** You are told so when you raise the request, and asked
+again when you go to carry it out — so a hold placed in between is not stepped over by an approval
+that predates it.
+
+**It will not destroy an original of intrinsic value. Ever.** If an item is marked as an irreplaceable
+original — a will, a deed, a share certificate, an original grant — every route to destroying it is
+closed, and there is no override, no override for administrators, and no way to ask twice. This is the
+one rule the platform takes a position on, and it takes it because no jurisdiction's rules produce
+"destroy the client's original will because a clock ran out". If a thing genuinely is not an
+irreplaceable original, somebody changes that on the item itself — deliberately, on the record, about
+that specific object. That is a change to a fact, not a way round a rule.
+
+And the platform still ships **no retention periods at all**. Nothing expires, nothing sweeps, and
+nothing suggests that something is due for destruction. Every destruction starts with a person who
+wrote down why.
+
+## Will delivery deadlines, where we have checked the law
+
+Holding a client's will comes with a legal duty once that client dies, and it is a duty with real
+teeth. The register can show you **what the statute says**, quoted from the statute itself with the
+citation, for jurisdictions where the law has been read and verified against the published text.
+
+**Nevada is the first.** For Nevada the register shows:
+
+- **NRS 136.050(1)** — any person holding a will must deliver it within **30 days after learning that
+  the person who made it has died**, either to the clerk of the district court with jurisdiction or to
+  the personal representative named in the will. The statute says "any person"; there is no separate
+  rule for attorneys and no exception for holding under a custody agreement. The clock starts at
+  **knowledge** of the death, not at the death.
+- **NRS 136.050(3)** — a holder who neglects that duty without reasonable cause is liable to everyone
+  interested in the will for the damage caused.
+- **NRS 136.050(4)–(5)** — a will delivered to the clerk becomes part of the court's permanent record
+  whether or not anybody files for probate, and is then open to public inspection unless it is sealed.
+  Delivering to the named personal representative instead does not have that effect. Which target you
+  choose is a real decision, and the statute leaves it to you.
+- **NRS 136.060** — where a court orders a will produced, the deadline is whatever the order says, and
+  a holder who refuses can be jailed until they produce it.
+- **Nevada has no lifetime deposit.** There is no way to lodge a will with a Nevada court for
+  safekeeping while the client is alive. This is shown explicitly rather than left blank, because
+  language from a model act that Nevada never adopted circulates widely enough to be mistaken for
+  Nevada law.
+- **Lodging the original with a probate petition is a local rule, not a statewide one.** The register
+  carries it for the **Eighth Judicial District (Clark County)** and the **Second Judicial District
+  (Washoe County)**, which were checked. Nevada's other nine districts have not been checked, so
+  asking about one of them tells you that plainly rather than answering as though the state rule were
+  the whole story.
+
+**Two things this is not.** It is not legal advice, and it decides nothing the law leaves open —
+whether "knowledge of the death" reaches something you arguably should have known, and what counts as
+"reasonable cause", are questions for a lawyer and the register does not answer them. And it is not a
+countdown: nothing in the register records a client's date of death yet, so the 30 days are shown as
+what the statute requires, not as a timer running against a date the platform assumed.
+
+**Anywhere else, you are told so.** Ask about a jurisdiction that has not been researched and verified
+and the register says exactly that, rather than showing you a plausible-looking answer. There is no
+default and no fallback. A sentence you can check is worth more than a confident one you cannot.
 
 ## Scans
 
@@ -255,18 +339,24 @@ register the way you would treat the safe itself.
 
 - **Emailed reminders.** Reviews and overdue check-outs appear on a list you can look at; nothing is
   sent to you yet.
-- **Retention and destruction.** There is no destruction workflow you can run, and the platform ships
-  **no default retention periods** at all — deliberately. How long a firm must keep a client's property
-  varies by jurisdiction, and the guidance that matters most says originals of intrinsic value sit
-  outside any routine clock. Your firm sets its own; the platform will never quietly decide for you.
-  A review date is not a retention clock and never becomes one.
+- **Retention periods.** The destruction workflow above exists, but the platform ships **no default
+  retention periods** at all — deliberately. How long a firm must keep a client's property varies by
+  jurisdiction, and the guidance that matters most says originals of intrinsic value sit outside any
+  routine clock. Your firm sets its own; the platform will never quietly decide for you. A review date
+  is not a retention clock and never becomes one, and nothing anywhere sweeps for things to destroy.
 - **QR codes on labels.** Labels carry a scannable barcode; QR is not printed yet.
 - **Printed deposit and release receipts.** The checks made before an original leaves are recorded
   today; producing a receipt document from your own template is not built yet. In the meantime a
   signed paper receipt can be scanned and attached to the packet like any other document.
 - **"Items we hold for you" in the client portal.**
-- **Will lodgement deadlines on death.** These carry real statutory teeth and vary sharply by state,
-  so they are not encoded until they can be verified against the primary text rather than guessed.
+- **Will delivery deadlines outside Nevada.** Nevada has been researched and verified against the
+  published statutes and court rules. Every other jurisdiction — and nine of Nevada's own eleven
+  judicial districts, for the local lodging rule — is not encoded, and asking about one tells you so
+  rather than guessing.
+- **A running clock on a will.** The register does not record a client's date of death, so it shows
+  you what the statute requires rather than counting days against a date nobody gave it.
+- **Guidance on which delivery target to choose**, and the Nevada electronic-will custodian role. Both
+  are decisions with real consequences that your firm makes, not defaults the platform picks.
 
 ## Related
 

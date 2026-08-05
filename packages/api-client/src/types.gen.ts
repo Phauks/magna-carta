@@ -652,6 +652,14 @@ export type OpenMatterResponse = {
     matterNumber: string;
 };
 
+export type MatterCloseAck = {
+    matterId: string;
+    notices: Array<{
+        code: string;
+        message: string;
+    }>;
+};
+
 export type RenumberMatterRequest = {
     matterNumber: string;
 };
@@ -1695,6 +1703,85 @@ export type CloseCustodyStocktakeRequest = {
      */
     abandoned?: boolean;
     note?: string | null;
+};
+
+export type CustodyDestructionRequestPage = {
+    data: Array<CustodyDestructionRequest>;
+    nextCursor: string | null;
+};
+
+export type CustodyDestructionRequest = {
+    id: string;
+    packetId: string;
+    itemId: string | null;
+    requestedBy: string | null;
+    requestedAt: string;
+    basis: string;
+    approvedBy: string | null;
+    approvedAt: string | null;
+    refusedBy: string | null;
+    refusedAt: string | null;
+    refusalReason: string | null;
+    executedAt: string | null;
+    executedBy: string | null;
+    executedMovementId: string | null;
+    outcome: 'approved' | 'refused' | 'executed' | 'withdrawn' | null;
+};
+
+export type RaiseCustodyDestructionRequest = {
+    packetId: string;
+    itemId?: string;
+    basis: string;
+};
+
+export type RefuseCustodyDestructionRequest = {
+    reason?: string | null;
+};
+
+export type ExecutedCustodyDestruction = {
+    id: string;
+    packetId: string;
+    movementId: string;
+    executedAt: string;
+};
+
+export type ExecuteCustodyDestructionRequest = {
+    method?: string | null;
+    occurredAt?: string;
+};
+
+export type CustodyWillDuties = {
+    jurisdictionKey: string;
+    name: string;
+    duties: Array<CustodyWillDuty>;
+    capabilities: Array<CustodyWillCapability>;
+    encodedSubJurisdictionKeys: Array<string>;
+    compiledThrough: string;
+    encodedJurisdictionKeys: Array<string>;
+};
+
+export type CustodyWillDuty = {
+    key: string;
+    summary: string;
+    trigger: string;
+    dutyHolder: string;
+    deadlineBasis: 'daysAfterTrigger' | 'setByCourtOrder' | 'concurrentWithFiling' | 'noStatutoryDeadline';
+    deadlineDays: number | null;
+    deliveryTargets: Array<string>;
+    consequenceOfNeglect: string | null;
+    sideEffects: Array<string>;
+    citation: string;
+    statutoryText: string;
+    sourceUrl: string;
+    verifiedOn: string;
+};
+
+export type CustodyWillCapability = {
+    key: string;
+    summary: string;
+    available: boolean;
+    basis: string;
+    verifiedOn: string;
 };
 
 export type CustomFieldAck = {
@@ -5676,9 +5763,9 @@ export type MattersCloseError = MattersCloseErrors[keyof MattersCloseErrors];
 
 export type MattersCloseResponses = {
     /**
-     * The matter was closed
+     * The matter was closed, with any advisory notices
      */
-    200: MatterActionAck;
+    200: MatterCloseAck;
 };
 
 export type MattersCloseResponse = MattersCloseResponses[keyof MattersCloseResponses];
@@ -10065,6 +10152,304 @@ export type CustodyRenderLabelsResponses = {
 };
 
 export type CustodyRenderLabelsResponse = CustodyRenderLabelsResponses[keyof CustodyRenderLabelsResponses];
+
+export type CustodyListDestructionRequestsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        cursor?: string;
+        packetId?: string;
+        outcome?: 'pending' | 'approved' | 'refused' | 'executed' | 'withdrawn';
+    };
+    url: '/api/v1/custody/destruction-requests';
+};
+
+export type CustodyListDestructionRequestsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustodyListDestructionRequestsError = CustodyListDestructionRequestsErrors[keyof CustodyListDestructionRequestsErrors];
+
+export type CustodyListDestructionRequestsResponses = {
+    /**
+     * A page of destruction requests
+     */
+    200: CustodyDestructionRequestPage;
+};
+
+export type CustodyListDestructionRequestsResponse = CustodyListDestructionRequestsResponses[keyof CustodyListDestructionRequestsResponses];
+
+export type CustodyRaiseDestructionRequestData = {
+    body: RaiseCustodyDestructionRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/custody/destruction-requests';
+};
+
+export type CustodyRaiseDestructionRequestErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, a hold forbids the action, a location is still occupied, or a custody number could not be allocated
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustodyRaiseDestructionRequestError = CustodyRaiseDestructionRequestErrors[keyof CustodyRaiseDestructionRequestErrors];
+
+export type CustodyRaiseDestructionRequestResponses = {
+    /**
+     * The raised request
+     */
+    201: CustodyIdAck;
+};
+
+export type CustodyRaiseDestructionRequestResponse = CustodyRaiseDestructionRequestResponses[keyof CustodyRaiseDestructionRequestResponses];
+
+export type CustodyApproveDestructionRequestData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        destructionRequestId: string;
+    };
+    query?: never;
+    url: '/api/v1/custody/destruction-requests/{destructionRequestId}/approve';
+};
+
+export type CustodyApproveDestructionRequestErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, a hold forbids the action, a location is still occupied, or a custody number could not be allocated
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustodyApproveDestructionRequestError = CustodyApproveDestructionRequestErrors[keyof CustodyApproveDestructionRequestErrors];
+
+export type CustodyApproveDestructionRequestResponses = {
+    /**
+     * Approved
+     */
+    200: CustodyAck;
+};
+
+export type CustodyApproveDestructionRequestResponse = CustodyApproveDestructionRequestResponses[keyof CustodyApproveDestructionRequestResponses];
+
+export type CustodyRefuseDestructionRequestData = {
+    body?: RefuseCustodyDestructionRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        destructionRequestId: string;
+    };
+    query?: never;
+    url: '/api/v1/custody/destruction-requests/{destructionRequestId}/refuse';
+};
+
+export type CustodyRefuseDestructionRequestErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, a hold forbids the action, a location is still occupied, or a custody number could not be allocated
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustodyRefuseDestructionRequestError = CustodyRefuseDestructionRequestErrors[keyof CustodyRefuseDestructionRequestErrors];
+
+export type CustodyRefuseDestructionRequestResponses = {
+    /**
+     * Refused
+     */
+    200: CustodyAck;
+};
+
+export type CustodyRefuseDestructionRequestResponse = CustodyRefuseDestructionRequestResponses[keyof CustodyRefuseDestructionRequestResponses];
+
+export type CustodyExecuteDestructionRequestData = {
+    body?: ExecuteCustodyDestructionRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        destructionRequestId: string;
+    };
+    query?: never;
+    url: '/api/v1/custody/destruction-requests/{destructionRequestId}/execute';
+};
+
+export type CustodyExecuteDestructionRequestErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, a hold forbids the action, a location is still occupied, or a custody number could not be allocated
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustodyExecuteDestructionRequestError = CustodyExecuteDestructionRequestErrors[keyof CustodyExecuteDestructionRequestErrors];
+
+export type CustodyExecuteDestructionRequestResponses = {
+    /**
+     * The recorded destruction
+     */
+    200: ExecutedCustodyDestruction;
+};
+
+export type CustodyExecuteDestructionRequestResponse = CustodyExecuteDestructionRequestResponses[keyof CustodyExecuteDestructionRequestResponses];
+
+export type CustodyWillDepositDutiesData = {
+    body?: never;
+    path?: never;
+    query: {
+        jurisdiction: string;
+    };
+    url: '/api/v1/custody/will-deposit-duties';
+};
+
+export type CustodyWillDepositDutiesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustodyWillDepositDutiesError = CustodyWillDepositDutiesErrors[keyof CustodyWillDepositDutiesErrors];
+
+export type CustodyWillDepositDutiesResponses = {
+    /**
+     * The encoded duties for that jurisdiction
+     */
+    200: CustodyWillDuties;
+};
+
+export type CustodyWillDepositDutiesResponse = CustodyWillDepositDutiesResponses[keyof CustodyWillDepositDutiesResponses];
 
 export type CustomFieldsDefineFieldData = {
     body: DefineCustomFieldRequest;
