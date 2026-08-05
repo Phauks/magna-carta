@@ -15,7 +15,7 @@ sub-slices 3·4·2 to 3·4·4 and are **not** in this stream.
   extraction; behaviour unchanged)
 - `packages/billing/**` (new)
 - `packages/database/src/per-firm-schema.ts`,
-  `packages/database/drizzle/per-firm/20260805T210000_billing-invoices.sql`, the per-firm snapshot
+  `packages/database/drizzle/per-firm/20260805T230000_billing-invoices.sql`, the per-firm snapshot
   and journal
 - `packages/identifiers/src/registry.ts` + `src/types.ts`
 - `packages/access-control/src/registry.ts` + `test/registry.test.ts`
@@ -29,7 +29,8 @@ sub-slices 3·4·2 to 3·4·4 and are **not** in this stream.
 
 ## Known overlap
 
-The auto-file-rules stream carries migration tag `20260805T220000`, which sorts after
-`20260805T210000`; whichever lands second retags per
-[`packages/database/CLAUDE.md`](../../../packages/database/CLAUDE.md). Both streams regenerate the
-OpenAPI snapshot and the api-client, so the second to merge re-runs both generators.
+The auto-file-rules stream carries migration tag `20260805T220000` and lands first. This stream's tag
+is `20260805T230000`, which sorts after it, so the merge is a clean append: auto-file takes journal
+idx 34 and billing moves to idx 35, with no file rename on either side (the retag rule in
+[`packages/database/CLAUDE.md`](../../../packages/database/CLAUDE.md)). Both streams regenerate the
+OpenAPI snapshot and the api-client, so this one re-runs both generators when it syncs `main`.
