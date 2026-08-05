@@ -236,6 +236,34 @@ rate: a rate has a date and a source, and a document should not carry one nobody
 
 Write text in **double quotes**. A date is written `date "2026-08-04"`.
 
+**Totals across a collection**
+
+Name the collection and the field you want totalled, in that order:
+
+| Write                                | You get                                                 |
+| ------------------------------------ | ------------------------------------------------------- |
+| `sum(matter.parties.amount)`         | Everything in that column added up                      |
+| `minimum(matter.parties.incurredOn)` | The smallest — the earliest, when the field holds dates |
+| `maximum(matter.parties.amount)`     | The largest                                             |
+
+You can total amounts of money, numbers, and — for smallest and largest — dates. A column of names or
+of yes-or-no answers has no total, and the system says so when you register the template. These are the
+only calculations that look at more than one item, and they cannot pick and choose: there is no way to
+total only some of the rows, or to sort them first. If that is what you need, the collection itself is
+what has to change.
+
+**If the collection is empty, the total comes out blank rather than zero** — and so does the whole
+calculation if any one item has nothing on file for that field. That is deliberate. "The smallest of
+nothing" is not a number, and a total of no amounts has no currency to be in; leaving out the items
+that have nothing would give you a total that does not match the rows above it. When your template
+means "nothing on file means nothing owed", say so:
+
+```
+{{#if not isEmpty(matter.parties)}}
+Total: {{= sum(matter.parties.amount)}}
+{{/if}}
+```
+
 **If a calculation cannot be worked out, the document shows a marker** where the value would have
 been — the same visible blank an ordinary missing field leaves — and the result lists it.
 
@@ -257,7 +285,6 @@ is a report, not a template.
 
 - **Your firm's own fields** — the custom fields you defined — and fields drawn from a matter's other
   parties beyond their names and roles.
-- **Totals across a repeat** — "the sum of all disbursements" cannot be written yet.
 - **Your letterhead logo** as a field.
 - **Producing a PDF** directly, and sending an assembled document straight for signature.
 - **Writing templates in the browser** — today they are written in Word and uploaded.

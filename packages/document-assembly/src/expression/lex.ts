@@ -57,6 +57,21 @@ const COMPARISON_OPERATORS: readonly string[] = ["==", "!=", "<=", ">=", "<", ">
 // enclosing loop scope. One to two dots: `matter.number`, `custom.retainerCap`, `exhibits.letter`.
 const NAME_PATTERN = /^[a-z][A-Za-z0-9]*(?:\.[A-Za-z0-9_]+){1,2}$/;
 const HELPER_NAME_PATTERN = /^[a-z][A-Za-z0-9]*$/;
+
+// An aggregate's argument is one atom that names a field of a collection — `matter.parties.role`. The
+// split is LEXICAL and happens here, beside the rule that made the dots part of the name, so neither the
+// checker nor the evaluator grows a notion of member access: this returns two strings, each of which is
+// then looked up by exact match. The last dot separates them, because a collection key carries a dot of
+// its own and an item field does not.
+export function splitListFieldPath(
+  name: string,
+): { readonly collectionKey: string; readonly fieldName: string } | undefined {
+  const lastDot = name.lastIndexOf(".");
+  if (lastDot <= 0 || lastDot === name.length - 1) return undefined;
+  const collectionKey = name.slice(0, lastDot);
+  if (!collectionKey.includes(".")) return undefined;
+  return { collectionKey, fieldName: name.slice(lastDot + 1) };
+}
 // Deliberately looser than either: a word is consumed greedily so a hostile atom is reported ONCE, at
 // its start, rather than lexed into a plausible prefix plus a pile of confusing garbage.
 const WORD_PATTERN = /[A-Za-z_$][A-Za-z0-9_$]*(?:\.[A-Za-z0-9_$]*)*/y;

@@ -1,5 +1,11 @@
-import { helperArity, type ExpressionType, type ParameterSpecification } from "./catalog.ts";
+import {
+  helperArity,
+  type ExpressionType,
+  type HelperSignature,
+  type ParameterSpecification,
+} from "./catalog.ts";
 import { expressionSucceeded, type ExpressionFailure, type ExpressionOutcome } from "./errors.ts";
+import { splitListFieldPath } from "./lex.ts";
 import { EXPRESSION_LIMITS } from "./limits.ts";
 import { parse, type ExpressionNode } from "./parse.ts";
 
@@ -161,8 +167,82 @@ function parameterAccepts(specification: ParameterSpecification, type: Expressio
   if (specification === "scalar") return type !== "list";
   if (specification === "integer") return type === "number";
   if (specification === "mergeKey") return true; // shape-checked separately: it must be a NAME
+  if (specification === "listField") return true; // likewise: it must be a NAME naming a collection field
   if (specification === "sameAsFirst" || specification === "sameAsSecond") return true;
   return specification === type;
+}
+
+// An aggregate's argument, resolved at REGISTRATION: the atom has to name a field that one item of a
+// list-valued key carries, and that field's type has to be one the helper can fold. Every way this can
+// be wrong is an authoring mistake with a character offset, never an assembly surprise — which is the
+// whole reason the stage exists.
+function resolveListField(
+  helper: HelperSignature,
+  argument: ExpressionNode,
+  state: CheckState,
+): ExpressionType {
+  if (argument.kind !== "name") {
+    state.failure ??= failure(
+      "expression-type-error",
+      argument.offset,
+      `${helper.name} takes the name of a field on a list, written out — as in ${helper.name}(matter.parties.role) — rather than a calculation.`,
+    );
+    return "number";
+  }
+
+  const path = splitListFieldPath(argument.name);
+  if (path === undefined) {
+    state.failure ??= failure(
+      "expression-unknown-key",
+      argument.offset,
+      `"${argument.name}" does not name a field on a list. Write the collection and then the field, as in ${helper.name}(matter.parties.role).`,
+    );
+    return "number";
+  }
+
+  const binding = state.scope.get(path.collectionKey);
+  if (binding === undefined) {
+    state.failure ??= failure(
+      "expression-unknown-key",
+      argument.offset,
+      `"${path.collectionKey}" is not a merge field this firm has. Check the field list for the spelling.`,
+    );
+    return "number";
+  }
+  if (binding.type !== "list") {
+    state.failure ??= failure(
+      "expression-type-error",
+      argument.offset,
+      `${helper.name} works across the items of a list, and "${path.collectionKey}" is ${describeType(binding.type)}.`,
+    );
+    return "number";
+  }
+
+  const fieldType = binding.itemFields?.get(path.fieldName);
+  if (fieldType === undefined) {
+    state.failure ??= failure(
+      "expression-unknown-key",
+      argument.offset,
+      `the items of "${path.collectionKey}" carry no field called "${path.fieldName}".`,
+    );
+    return "number";
+  }
+
+  const admissible = helper.elementTypes ?? [];
+  if (!admissible.includes(fieldType)) {
+    state.failure ??= failure(
+      "expression-type-error",
+      argument.offset,
+      `${helper.name} works across ${admissible.map(describeType).join(" or ")}, and "${path.fieldName}" is ${describeType(fieldType)}.`,
+    );
+    return "number";
+  }
+
+  // The COLLECTION is what gets read, once and as a whole; the field costs no read of its own. Recording
+  // the collection rather than the path is what keeps the manifest's read plan honest.
+  if (binding.origin === "dictionary") state.keys.add(path.collectionKey);
+  else state.loopNames.add(path.collectionKey);
+  return fieldType;
 }
 
 function describeParameter(specification: ParameterSpecification): string {
@@ -173,6 +253,8 @@ function describeParameter(specification: ParameterSpecification): string {
       return "a whole number";
     case "mergeKey":
       return "the name of a merge field";
+    case "listField":
+      return "the name of a field on a list";
     case "sameAsFirst":
     case "sameAsSecond":
       return "a value of the same kind as the one before it";
@@ -358,6 +440,14 @@ function typeOf(node: ExpressionNode, state: CheckState): ExpressionType {
           continue;
         }
 
+        // An aggregate's field path is likewise a NAME, resolved against the collection it names rather
+        // than evaluated: the atom means nothing on its own outside a repeating block.
+        if (specification === "listField") {
+          argumentTypes.push(resolveListField(helper, argument, state));
+          if (state.failure !== undefined) break;
+          continue;
+        }
+
         const argumentType = typeOf(argument, state);
         argumentTypes.push(argumentType);
         if (state.failure !== undefined) break;
@@ -380,7 +470,9 @@ function typeOf(node: ExpressionNode, state: CheckState): ExpressionType {
         );
       }
 
-      if (helper.result === "sameAsFirst") return argumentTypes[0] ?? "text";
+      if (helper.result === "sameAsFirst" || helper.result === "fieldOfFirst") {
+        return argumentTypes[0] ?? "text";
+      }
       if (helper.result === "sameAsSecond") return argumentTypes[1] ?? "text";
       return helper.result;
     }
