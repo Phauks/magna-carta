@@ -1,26 +1,36 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { createMigratedNodeDatabase } from "@magna-carta/database/node-sqlite";
 import type {
+  EmailCaptureAddressId,
   EmailMatterLinkId,
   EmailMessageId,
   EmailParticipantId,
   EmailThreadId,
+  IdempotencyRecordId,
   MatterId,
   UserId,
 } from "@magna-carta/identifiers/types";
 import {
   acceptStagedLinkStatement,
+  captureIdempotencyKey,
   filedMatterIdsForMessage,
   findByDedupKey,
   findThreadIdsByMessageIds,
+  insertEmailCaptureAddressStatement,
   insertEmailMatterLinkStatement,
   insertEmailMessageStatement,
   insertEmailParticipantStatement,
   insertEmailThreadStatement,
+  readCaptureOutcome,
+  readFiledMattersForThreads,
+  readLiveCaptureAddressesForMatters,
   readMatterEmails,
+  readRecentFilingTargets,
+  revokeEmailCaptureAddressStatement,
   unlinkEmailFromMatterStatement,
   type EmailMessageInsert,
 } from "../src/email-filing-statements.ts";
+import { insertCompletedIdempotencyRecordStatement } from "../src/idempotency-statements.ts";
 import type { BatchDatabase } from "../src/effect-batch.ts";
 
 const NOW = "2026-07-17T10:00:00.000Z";
@@ -283,5 +293,238 @@ describe("email-filing statements", () => {
     // No message repeats across the two pages.
     const seen = new Set([...page1.data, ...page2.data].map((r) => r.emailMessageId));
     expect(seen.size).toBe(3);
+  });
+});
+
+describe("the mail-client reads", () => {
+  // A second message in the SAME thread — the thread row already exists, so only the message is
+  // written. This is the shape the thread-continuation signal reads: several messages, one thread.
+  async function seedReply(id: string, messageIdValue: string): Promise<void> {
+    await database.batch([
+      insertEmailMessageStatement(
+        database,
+        messageInput({
+          id: id as EmailMessageId,
+          messageIdValue,
+          dedupKey: `messageId:header:${messageIdValue}`,
+          contentSha256: `sha-${id}`,
+        }),
+        NOW,
+      ),
+    ]);
+  }
+
+  async function link(
+    id: string,
+    emailMessageId: string,
+    matterId: MatterId,
+    state: "staged" | "filed",
+    linkedBy: UserId | null,
+    at: string,
+  ): Promise<void> {
+    await database.batch([
+      insertEmailMatterLinkStatement(
+        database,
+        {
+          id: id as EmailMatterLinkId,
+          emailMessageId: emailMessageId as EmailMessageId,
+          matterId,
+          state,
+          linkedBy,
+          linkedAt: state === "filed" ? at : null,
+          capturedVia: "addin",
+        },
+        at,
+      ),
+    ]);
+  }
+
+  it("readFiledMattersForThreads reports each matter a thread is filed to, once, newest first", async () => {
+    await seedMessage(messageInput());
+    await seedReply("emailMessage_b", "<b@example.com>");
+    const older = seedMatter("older000000000000000");
+    const newer = seedMatter("newer000000000000000");
+    await link(
+      "emailMatterLink_1",
+      "emailMessage_a",
+      older,
+      "filed",
+      null,
+      "2026-07-17T09:00:00.000Z",
+    );
+    await link(
+      "emailMatterLink_2",
+      "emailMessage_b",
+      older,
+      "filed",
+      null,
+      "2026-07-17T09:30:00.000Z",
+    );
+    await link(
+      "emailMatterLink_3",
+      "emailMessage_a",
+      newer,
+      "filed",
+      null,
+      "2026-07-17T11:00:00.000Z",
+    );
+
+    const hits = await readFiledMattersForThreads(database, ["emailThread_a" as EmailThreadId]);
+    expect(hits.map((hit) => hit.matterId)).toEqual([newer, older]);
+    expect(hits[1]?.lastFiledAt).toBe("2026-07-17T09:30:00.000Z");
+  });
+
+  it("readFiledMattersForThreads ignores staged and unlinked links, and an empty input", async () => {
+    await seedMessage(messageInput());
+    const matterId = seedMatter("staged00000000000000");
+    await link("emailMatterLink_s", "emailMessage_a", matterId, "staged", null, NOW);
+    expect(await readFiledMattersForThreads(database, ["emailThread_a" as EmailThreadId])).toEqual(
+      [],
+    );
+    expect(await readFiledMattersForThreads(database, [])).toEqual([]);
+  });
+
+  it("readRecentFilingTargets is per-member, newest first, and counts the member's own filings", async () => {
+    await seedMessage(messageInput());
+    await seedReply("emailMessage_b", "<b@example.com>");
+    const mine = seedMatter("mine0000000000000000");
+    const theirs = seedMatter("theirs00000000000000");
+    const me = "user_recent_me" as UserId;
+    const them = "user_recent_them" as UserId;
+    await link(
+      "emailMatterLink_1",
+      "emailMessage_a",
+      mine,
+      "filed",
+      me,
+      "2026-07-17T09:00:00.000Z",
+    );
+    await link(
+      "emailMatterLink_2",
+      "emailMessage_b",
+      mine,
+      "filed",
+      me,
+      "2026-07-17T10:00:00.000Z",
+    );
+    await link(
+      "emailMatterLink_3",
+      "emailMessage_a",
+      theirs,
+      "filed",
+      them,
+      "2026-07-17T11:00:00.000Z",
+    );
+
+    const targets = await readRecentFilingTargets(database, me, 10);
+    expect(targets).toEqual([
+      { matterId: mine, lastFiledAt: "2026-07-17T10:00:00.000Z", filedCount: 2 },
+    ]);
+  });
+
+  it("readRecentFilingTargets honours its limit", async () => {
+    await seedMessage(messageInput());
+    const me = "user_recent_limit" as UserId;
+    const first = seedMatter("first000000000000000");
+    const second = seedMatter("second00000000000000");
+    await link(
+      "emailMatterLink_1",
+      "emailMessage_a",
+      first,
+      "filed",
+      me,
+      "2026-07-17T09:00:00.000Z",
+    );
+    await link(
+      "emailMatterLink_2",
+      "emailMessage_a",
+      second,
+      "filed",
+      me,
+      "2026-07-17T10:00:00.000Z",
+    );
+    const targets = await readRecentFilingTargets(database, me, 1);
+    expect(targets.map((target) => target.matterId)).toEqual([second]);
+  });
+
+  it("readLiveCaptureAddressesForMatters returns only live per-matter addresses for the named matters", async () => {
+    const withAddress = seedMatter("withaddr000000000000");
+    const without = seedMatter("noaddress00000000000");
+    await database.batch([
+      insertEmailCaptureAddressStatement(
+        database,
+        {
+          id: "emailCaptureAddress_live" as EmailCaptureAddressId,
+          token: "livetoken0000",
+          kind: "matter",
+          matterId: withAddress,
+          createdBy: null,
+        },
+        NOW,
+      ),
+      insertEmailCaptureAddressStatement(
+        database,
+        {
+          id: "emailCaptureAddress_dead" as EmailCaptureAddressId,
+          token: "deadtoken0000",
+          kind: "matter",
+          matterId: withAddress,
+          createdBy: null,
+        },
+        NOW,
+      ),
+    ]);
+    await database.batch([
+      revokeEmailCaptureAddressStatement(
+        database,
+        "emailCaptureAddress_dead" as EmailCaptureAddressId,
+        NOW,
+      ),
+    ]);
+
+    const live = await readLiveCaptureAddressesForMatters(database, [withAddress, without]);
+    expect(live.map((row) => row.id)).toEqual(["emailCaptureAddress_live"]);
+    expect(await readLiveCaptureAddressesForMatters(database, [])).toEqual([]);
+  });
+
+  it("readCaptureOutcome reads back what the capture consumer recorded, and null before it lands", async () => {
+    expect(await readCaptureOutcome(database, "job0001")).toBe(null);
+    await database.batch([
+      insertCompletedIdempotencyRecordStatement(database, {
+        id: "idempotencyRecord_1" as IdempotencyRecordId,
+        key: captureIdempotencyKey("job0001"),
+        fingerprint: "job0001",
+        responseCode: 200,
+        responseBody: JSON.stringify({
+          emailMessageId: "emailMessage_a",
+          threadId: "emailThread_a",
+          matterId: "matter_x",
+          linkState: "filed",
+          deduplicated: true,
+        }),
+        createdAt: NOW,
+      }),
+    ]);
+    expect(await readCaptureOutcome(database, "job0001")).toEqual({
+      emailMessageId: "emailMessage_a",
+      threadId: "emailThread_a",
+      matterId: "matter_x",
+      linkState: "filed",
+      deduplicated: true,
+    });
+  });
+
+  it("readCaptureOutcome refuses a record whose body is not a capture outcome", async () => {
+    await database.batch([
+      insertCompletedIdempotencyRecordStatement(database, {
+        id: "idempotencyRecord_2" as IdempotencyRecordId,
+        key: captureIdempotencyKey("job0002"),
+        fingerprint: "job0002",
+        responseCode: 200,
+        responseBody: JSON.stringify({ somethingElse: true }),
+        createdAt: NOW,
+      }),
+    ]);
+    expect(await readCaptureOutcome(database, "job0002")).toBe(null);
   });
 });

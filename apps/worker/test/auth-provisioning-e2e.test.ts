@@ -485,6 +485,9 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
       // Analysis POST: the only write is one incidental ai_detection_usage meter row (telemetry),
       // not an auditable firm-domain mutation; auditing every detection would flood audit_log.
       "aiDetection.detect",
+      // Read-shaped POST: ranks the matters an open message might belong to. The message facts ride
+      // the body rather than a URL because they are the firm's mail; nothing is written or filed.
+      "emails.suggestMatters",
     ]);
 
     for (const { operation, label } of mutatingV1) {

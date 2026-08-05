@@ -30,6 +30,7 @@ import custodyGatedReleaseSql from "@magna-carta/database/drizzle/per-firm/20260
 import locationLetterheadLogoSql from "@magna-carta/database/drizzle/per-firm/20260805T130001_location-letterhead-logo.sql";
 import trustMovementsSql from "@magna-carta/database/drizzle/per-firm/20260805T140000_trust-movements.sql";
 import custodianStocktakeSql from "@magna-carta/database/drizzle/per-firm/20260805T150000_custodian-stocktake.sql";
+import emailMatterLinkLinkedByIndexSql from "@magna-carta/database/drizzle/per-firm/20260805T160000_email-matter-link-linked-by-index.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the FirmDatabase
 // Durable Object runs this lineage against its own SQLite storage on wake (firm-database-object.ts),
@@ -70,6 +71,7 @@ export function perFirmMigrations(): Migration[] {
     "20260805T130001_location-letterhead-logo": locationLetterheadLogoSql,
     "20260805T140000_trust-movements": trustMovementsSql,
     "20260805T150000_custodian-stocktake": custodianStocktakeSql,
+    "20260805T160000_email-matter-link-linked-by-index": emailMatterLinkLinkedByIndexSql,
   });
 }
 

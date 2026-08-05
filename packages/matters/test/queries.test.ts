@@ -1,8 +1,13 @@
 import { createMigratedNodeDatabase } from "@magna-carta/database/node-sqlite";
 import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
-import type { MatterTypeId, UserId } from "@magna-carta/identifiers/types";
+import type { MatterId, MatterTypeId, UserId } from "@magna-carta/identifiers/types";
 import { describe, expect, it } from "vitest";
-import { listConsultations, listMatters } from "../src/queries.ts";
+import {
+  findMattersByNumbers,
+  listConsultations,
+  listMatters,
+  readMattersByIds,
+} from "../src/queries.ts";
 
 const ATTORNEY = "user_attorney" as UserId;
 const OTHER = "user_other" as UserId;
@@ -191,5 +196,61 @@ describe("listConsultations", () => {
     expect([...byId.keys()].sort()).toEqual(["matter_fresh", "matter_stale"]);
     expect(byId.get("matter_stale")).toBe(true);
     expect(byId.get("matter_fresh")).toBe(false);
+  });
+});
+
+describe("readMattersByIds", () => {
+  it("hydrates a known set in one read, regardless of lifecycle status", async () => {
+    const database = await setup();
+    await seedMatter(database, { id: "matter_p", status: "prospective", createdAt: day(1) });
+    await seedMatter(database, { id: "matter_c", status: "closed", createdAt: day(2) });
+    const rows = await readMattersByIds(database, [
+      "matter_p" as MatterId,
+      "matter_c" as MatterId,
+      "matter_absent" as MatterId,
+    ]);
+    expect(rows.map((row) => row.id).sort()).toEqual(["matter_c", "matter_p"]);
+    expect(await readMattersByIds(database, [])).toEqual([]);
+  });
+
+  it("never returns a system matter", async () => {
+    const database = await setup();
+    await seedMatter(database, { id: "matter_system", status: "open", createdAt: day(1) });
+    await database
+      .prepare("UPDATE matter SET system_key = 'scans' WHERE id = 'matter_system'")
+      .run();
+    expect(await readMattersByIds(database, ["matter_system" as MatterId])).toEqual([]);
+  });
+});
+
+describe("findMattersByNumbers", () => {
+  it("matches a number exactly, never as a substring", async () => {
+    const database = await setup();
+    await seedMatter(database, {
+      id: "matter_numbered",
+      status: "open",
+      createdAt: day(1),
+      matterNumber: "2026-0007",
+    });
+    expect((await findMattersByNumbers(database, ["2026-0007"])).map((row) => row.id)).toEqual([
+      "matter_numbered",
+    ]);
+    // A subject line saying "2026" must not drag in every matter opened that year.
+    expect(await findMattersByNumbers(database, ["2026"])).toEqual([]);
+    expect(await findMattersByNumbers(database, [])).toEqual([]);
+  });
+
+  it("never returns a system matter", async () => {
+    const database = await setup();
+    await seedMatter(database, {
+      id: "matter_system_numbered",
+      status: "open",
+      createdAt: day(1),
+      matterNumber: "SYS-0001",
+    });
+    await database
+      .prepare("UPDATE matter SET system_key = 'scans' WHERE id = 'matter_system_numbered'")
+      .run();
+    expect(await findMattersByNumbers(database, ["SYS-0001"])).toEqual([]);
   });
 });

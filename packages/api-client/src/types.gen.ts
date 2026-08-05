@@ -176,6 +176,61 @@ export type FileIntegrityVerifyResponse = {
     receipt?: unknown;
 };
 
+export type MatterSuggestionList = {
+    data: Array<{
+        matterId: string;
+        matterNumber: string | null;
+        title: string;
+        clientDisplayName: string | null;
+        status: string;
+        score: number;
+        confidence: 'high' | 'medium' | 'low';
+        signals: Array<'threadContinuation' | 'subjectMatterNumber' | 'participantParty' | 'searchTerm'>;
+        reasons: Array<string>;
+    }>;
+    ambiguous: boolean;
+};
+
+export type MatterSuggestionRequest = {
+    messageId?: string | null;
+    inReplyTo?: string | null;
+    references?: Array<string>;
+    subject?: string | null;
+    participants?: Array<string>;
+    query?: string;
+    limit?: number;
+};
+
+export type EmailFilingContext = {
+    recentMatters: Array<{
+        matterId: string;
+        matterNumber: string | null;
+        title: string;
+        clientDisplayName: string | null;
+        status: string;
+        lastFiledAt: string;
+        filedCount: number;
+        captureAddressAvailable: boolean;
+        captureAddressPreview: string | null;
+    }>;
+    firmCaptureAddress: {
+        available: boolean;
+        tokenPreview: string | null;
+        createdAt: string | null;
+    };
+    captureRootDomain: string;
+    maxMessageBytes: number;
+};
+
+export type EmailCaptureStatus = {
+    captureJobId: string;
+    status: 'pending' | 'completed';
+    emailMessageId: string | null;
+    matterId: string | null;
+    linkState: 'filed' | 'staged' | 'none';
+    deduplicated: boolean;
+};
+
 export type EmailCaptureAck = {
     jobId: string;
     status: 'accepted';
@@ -3160,6 +3215,113 @@ export type EmailInspectorInspectResponses = {
 };
 
 export type EmailInspectorInspectResponse = EmailInspectorInspectResponses[keyof EmailInspectorInspectResponses];
+
+export type EmailsSuggestMattersData = {
+    body: MatterSuggestionRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/emails/matter-suggestions';
+};
+
+export type EmailsSuggestMattersErrors = {
+    /**
+     * No session
+     */
+    401: Problem;
+    /**
+     * Missing emails:read
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type EmailsSuggestMattersError = EmailsSuggestMattersErrors[keyof EmailsSuggestMattersErrors];
+
+export type EmailsSuggestMattersResponses = {
+    /**
+     * The ranked matter candidates (possibly empty — no signal fired)
+     */
+    200: MatterSuggestionList;
+};
+
+export type EmailsSuggestMattersResponse = EmailsSuggestMattersResponses[keyof EmailsSuggestMattersResponses];
+
+export type EmailsFilingContextData = {
+    body?: never;
+    path?: never;
+    query?: {
+        limit?: number;
+    };
+    url: '/api/v1/emails/filing-context';
+};
+
+export type EmailsFilingContextErrors = {
+    /**
+     * No session
+     */
+    401: Problem;
+    /**
+     * Missing emails:read
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type EmailsFilingContextError = EmailsFilingContextErrors[keyof EmailsFilingContextErrors];
+
+export type EmailsFilingContextResponses = {
+    /**
+     * The member's filing context
+     */
+    200: EmailFilingContext;
+};
+
+export type EmailsFilingContextResponse = EmailsFilingContextResponses[keyof EmailsFilingContextResponses];
+
+export type EmailsCaptureStatusData = {
+    body?: never;
+    path: {
+        captureJobId: string;
+    };
+    query?: never;
+    url: '/api/v1/emails/captures/{captureJobId}';
+};
+
+export type EmailsCaptureStatusErrors = {
+    /**
+     * No session
+     */
+    401: Problem;
+    /**
+     * Missing emails:read
+     */
+    403: Problem;
+    /**
+     * No such capture job, or its result is on a matter the caller cannot access
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type EmailsCaptureStatusError = EmailsCaptureStatusErrors[keyof EmailsCaptureStatusErrors];
+
+export type EmailsCaptureStatusResponses = {
+    /**
+     * The capture job's current state
+     */
+    200: EmailCaptureStatus;
+};
+
+export type EmailsCaptureStatusResponse = EmailsCaptureStatusResponses[keyof EmailsCaptureStatusResponses];
 
 export type EmailsListData = {
     body?: never;

@@ -9,7 +9,11 @@ import type {
   UserId,
 } from "@magna-carta/identifiers/types";
 import { assemblePage, decodeCursor, DEFAULT_PAGE_SIZE, type Page } from "./cursor-pagination.ts";
-import type { SqlDatabase, SqlStatement } from "./idempotency-statements.ts";
+import {
+  selectIdempotencyRecordStatement,
+  type SqlDatabase,
+  type SqlStatement,
+} from "./idempotency-statements.ts";
 
 // Table names tracked against @magna-carta/database's per-firm schema by the schema-name-sync fitness
 // test. These tables exist only in the per-firm database — the caller supplies that handle.
@@ -712,4 +716,148 @@ export async function findCaptureAddressByToken(
         kind: row.kind as "matter" | "catchAll",
         matterId: row.matter_id === null ? null : (row.matter_id as MatterId),
       };
+}
+
+// ── The mail-client reads: where to file, what happened to a filing, what to show the member.
+
+export interface ThreadMatterHit {
+  readonly matterId: MatterId;
+  readonly threadId: EmailThreadId;
+  readonly lastFiledAt: string;
+}
+
+// The matters an already-captured conversation is filed to. The strongest "where does this belong"
+// signal a message carries: it answers a thread the firm has already placed. Two index walks in one
+// statement — email_message_thread_id_index selects the thread's messages,
+// email_matter_link_email_message_id_index joins each to its links — and the whole thread collapses to
+// one row per matter here rather than one round trip per message in the caller.
+export async function readFiledMattersForThreads(
+  database: SqlDatabase,
+  threadIds: readonly EmailThreadId[],
+): Promise<ThreadMatterHit[]> {
+  if (threadIds.length === 0) return [];
+  const placeholders = threadIds.map(() => "?").join(", ");
+  const { results } = await database
+    .prepare(
+      `SELECT ${EMAIL_MATTER_LINK_TABLE}.matter_id AS matter_id,
+              ${EMAIL_MESSAGE_TABLE}.thread_id AS thread_id,
+              MAX(${EMAIL_MATTER_LINK_TABLE}.created_at) AS last_filed_at
+       FROM ${EMAIL_MESSAGE_TABLE}
+       JOIN ${EMAIL_MATTER_LINK_TABLE}
+         ON ${EMAIL_MATTER_LINK_TABLE}.email_message_id = ${EMAIL_MESSAGE_TABLE}.id
+       WHERE ${EMAIL_MESSAGE_TABLE}.thread_id IN (${placeholders})
+         AND ${EMAIL_MATTER_LINK_TABLE}.state = 'filed'
+       GROUP BY ${EMAIL_MATTER_LINK_TABLE}.matter_id, ${EMAIL_MESSAGE_TABLE}.thread_id
+       ORDER BY last_filed_at DESC`,
+    )
+    .bind(...threadIds)
+    .all<{ matter_id: string; thread_id: string; last_filed_at: string }>();
+  return results.map((row) => ({
+    matterId: row.matter_id as MatterId,
+    threadId: row.thread_id as EmailThreadId,
+    lastFiledAt: row.last_filed_at,
+  }));
+}
+
+export interface RecentFilingTarget {
+  readonly matterId: MatterId;
+  readonly lastFiledAt: string;
+  readonly filedCount: number;
+}
+
+// The matters this member has most recently filed email to — the add-in's quick-pick list, and the
+// honest answer to "where do I usually put this". Served by the (linked_by, created_at, id) index, so
+// it is a bounded index walk over one member's own filings rather than a scan of the firm's.
+//
+// Deliberately per-member rather than firm-wide: a shortcut list is a personal working set, and a
+// firm-wide one would quietly surface which matters other people are active on.
+export async function readRecentFilingTargets(
+  database: SqlDatabase,
+  linkedBy: UserId,
+  limit: number,
+): Promise<RecentFilingTarget[]> {
+  const { results } = await database
+    .prepare(
+      `SELECT matter_id, MAX(created_at) AS last_filed_at, COUNT(*) AS filed_count
+       FROM ${EMAIL_MATTER_LINK_TABLE}
+       WHERE linked_by = ?1 AND state = 'filed'
+       GROUP BY matter_id
+       ORDER BY last_filed_at DESC
+       LIMIT ?2`,
+    )
+    .bind(linkedBy, limit)
+    .all<{ matter_id: string; last_filed_at: string; filed_count: number }>();
+  return results.map((row) => ({
+    matterId: row.matter_id as MatterId,
+    lastFiledAt: row.last_filed_at,
+    filedCount: row.filed_count,
+  }));
+}
+
+// The live per-matter capture addresses for a bounded set of matters, in one walk of
+// email_capture_address_matter_id_index. The caller passes the matters it is about to report on, so
+// this never grows with the firm's matter count.
+export async function readLiveCaptureAddressesForMatters(
+  database: SqlDatabase,
+  matterIds: readonly MatterId[],
+): Promise<CaptureAddressRow[]> {
+  if (matterIds.length === 0) return [];
+  const placeholders = matterIds.map(() => "?").join(", ");
+  const { results } = await database
+    .prepare(
+      `SELECT ${CAPTURE_ADDRESS_COLUMNS} FROM ${EMAIL_CAPTURE_ADDRESS_TABLE}
+       WHERE matter_id IN (${placeholders}) AND kind = 'matter' AND active = 1
+       ORDER BY created_at DESC, id DESC`,
+    )
+    .bind(...matterIds)
+    .all<CaptureAddressResultRow>();
+  return results.map(toCaptureAddressRow);
+}
+
+// The idempotency key the capture consumer commits its record under, and the key a status read looks
+// the outcome up by. One home for the prefix: the writer and the reader cannot drift onto different
+// keys, which would silently turn every status read into "still working".
+export function captureIdempotencyKey(jobId: string): string {
+  return `capture:${jobId}`;
+}
+
+// What a capture job produced, as the consumer recorded it. Every field is an identifier or an
+// enum — no subject, no addresses, no body — because this rides an idempotency record, which is
+// ephemeral dedup state read by more paths than the message row itself.
+export interface CaptureOutcome {
+  readonly emailMessageId: EmailMessageId;
+  readonly threadId: EmailThreadId;
+  readonly matterId: MatterId | null;
+  readonly linkState: "staged" | "filed" | "none";
+  // True when the firm already held this message and the capture converged on the existing record
+  // instead of writing a second one.
+  readonly deduplicated: boolean;
+}
+
+// Read a capture job's outcome, or null when the consumer has not finished it (or the record has aged
+// out of the idempotency table's retention). A null is deliberately indistinguishable between "still
+// running" and "long finished and swept": both mean the same thing to a caller — this read cannot
+// tell you, ask the message instead.
+export async function readCaptureOutcome(
+  database: SqlDatabase,
+  jobId: string,
+): Promise<CaptureOutcome | null> {
+  const { results } = await selectIdempotencyRecordStatement(
+    database,
+    captureIdempotencyKey(jobId),
+  ).all<{ status: string; response_body: string | null }>();
+  const row = results[0];
+  if (row === undefined || row.status !== "completed" || row.response_body === null) return null;
+  const parsed: unknown = JSON.parse(row.response_body);
+  if (typeof parsed !== "object" || parsed === null) return null;
+  const record = parsed as Record<string, unknown>;
+  if (typeof record.emailMessageId !== "string" || typeof record.threadId !== "string") return null;
+  return {
+    emailMessageId: record.emailMessageId as EmailMessageId,
+    threadId: record.threadId as EmailThreadId,
+    matterId: typeof record.matterId === "string" ? (record.matterId as MatterId) : null,
+    linkState:
+      record.linkState === "filed" || record.linkState === "staged" ? record.linkState : "none",
+    deduplicated: record.deduplicated === true,
+  };
 }
