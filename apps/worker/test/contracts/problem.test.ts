@@ -58,6 +58,7 @@ describe("problem-type URI registry", () => {
         "template-not-activatable",
         "template-macro-consent-required",
         "merge-field-unresolvable",
+        "websocket-upgrade-required",
       ].sort(),
     );
   });

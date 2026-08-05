@@ -6956,6 +6956,40 @@ export type DownloadsBundleStatusResponses = {
 
 export type DownloadsBundleStatusResponse = DownloadsBundleStatusResponses[keyof DownloadsBundleStatusResponses];
 
+export type DownloadsBundleEventsData = {
+    body?: never;
+    path: {
+        manifestHash: string;
+    };
+    query?: never;
+    url: '/api/v1/downloads/bundles/{manifestHash}/events';
+};
+
+export type DownloadsBundleEventsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks files:organize
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The request did not ask to upgrade to a WebSocket
+     */
+    426: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DownloadsBundleEventsError = DownloadsBundleEventsErrors[keyof DownloadsBundleEventsErrors];
+
 export type DirectoryCreatePersonData = {
     body: CreateDirectoryPersonRequest;
     headers: {
@@ -12122,6 +12156,40 @@ export type ConversionsStatusResponses = {
 };
 
 export type ConversionsStatusResponse = ConversionsStatusResponses[keyof ConversionsStatusResponses];
+
+export type ConversionsEventsData = {
+    body?: never;
+    path: {
+        jobId: string;
+    };
+    query?: never;
+    url: '/api/v1/conversions/{jobId}/events';
+};
+
+export type ConversionsEventsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks tools:fileConverter
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The request did not ask to upgrade to a WebSocket
+     */
+    426: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ConversionsEventsError = ConversionsEventsErrors[keyof ConversionsEventsErrors];
 
 export type TemplatesUploadData = {
     body?: never;
