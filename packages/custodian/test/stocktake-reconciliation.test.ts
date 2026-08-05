@@ -190,7 +190,10 @@ describe("the reconciliation names each way the shelf and the register disagree"
       outcome: "unexpected",
       packetStatus: "out",
       sightedLocationId: safe,
-      proposedMovementKind: "found",
+      // `returned`, not `found`: the register says a borrower has it, and here it is on the shelf —
+      // it came back and nobody recorded the return. A proposal is only worth printing if the write
+      // path would accept it, and `found` is refused on anything but a lost packet.
+      proposedMovementKind: "returned",
       proposedToLocationId: safe,
     });
     // Still out. Seeing it does not check it back in.
@@ -200,6 +203,30 @@ describe("the reconciliation names each way the shelf and the register disagree"
       .all<{ status: string }>();
     expect(results[0]?.status).toBe("out");
     expect(await ledgerKindCounts(database)).toEqual({ logged: 1, checked_out: 1 });
+  });
+
+  it("proposes nothing for an original the register says already left the firm", async () => {
+    const { database, safe } = await scaffold();
+    const packet = await logPacket(database, safe, "Smith family deeds");
+    await recordCustodyMovement(database, packet.packetId, AUTHORIZED_RELEASE, options);
+    const stocktakeId = await openCount(database);
+    await recordCustodyStocktakeSightings(
+      database,
+      stocktakeId,
+      [{ kind: "sighted", packetId: packet.packetId, locationId: safe }],
+      options,
+    );
+
+    const report = await reconcileCustodyStocktake(database, stocktakeId);
+    expect(report.unexpected).toHaveLength(1);
+    // A released original on a shelf is not a data-entry error to fix with a movement — it is a
+    // question about what happened, and the write path refuses every kind but a correction on a
+    // closed packet anyway. A proposal the register would then refuse is worse than none.
+    expect(report.unexpected[0]).toMatchObject({
+      packetStatus: "released",
+      proposedMovementKind: null,
+      proposedToLocationId: null,
+    });
   });
 
   it("reports an object with no register row as unregistered, carrying the observer's description", async () => {

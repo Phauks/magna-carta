@@ -186,12 +186,37 @@ export type CustodyReconciliationOutcome = (typeof CUSTODY_RECONCILIATION_OUTCOM
 // surface. Every proposal here is a movement kind that already exists, recorded by a person through
 // the one movement write path in movement-service.ts or not at all.
 //
-// `missing` proposes nothing. The honest answer to "the will is not where we said it was" is an
-// investigation, and a register that suggested recording a loss the moment a shelf came up empty
-// would be teaching firms to close the record on the exact failure that most needs one open.
-export const CUSTODY_PROPOSED_MOVEMENT_BY_OUTCOME: Partial<
-  Record<CustodyReconciliationOutcome, CustodyMovementKind>
-> = {
-  misplaced: "moved",
-  unexpected: "found",
-};
+// A proposal is only worth printing if the write path would actually accept it, so it is chosen
+// against the packet's status rather than the outcome alone — `assertPacketAcceptsMovement` in
+// movement-service.ts refuses a `found` on anything but a lost packet, and refuses every kind but a
+// correction on a closed one. Suggesting a movement that would then be refused is worse than
+// suggesting none, because it reads as the register knowing the answer.
+//
+// Two outcomes deliberately propose NOTHING. `missing`: the honest answer to "the will is not where
+// we said it was" is an investigation, and a register that suggested recording a loss the moment a
+// shelf came up empty would be teaching firms to close the record on the exact failure that most
+// needs one open. And an original the register says was released or destroyed, turning up on a
+// shelf, is not a data-entry error — it is a question about what actually happened, and the ledger
+// path for it is a correction a person writes in their own words.
+export function proposedCustodyMovement(
+  outcome: CustodyReconciliationOutcome,
+  packetStatus: CustodyPacketStatus | null,
+): CustodyMovementKind | null {
+  if (outcome === "misplaced") return "moved";
+  if (outcome !== "unexpected") return null;
+  switch (packetStatus) {
+    // The register says it is with a borrower and here it is on the shelf: it came back and nobody
+    // recorded the return.
+    case "out":
+      return "returned";
+    // Property does turn up, and saying so must not require falsifying the earlier entry.
+    case "lost":
+      return "found";
+    // Held, but the register names a different shelf from the one it was counted on — the same
+    // correction a misplaced packet needs, reached from outside the counted scope.
+    case "held":
+      return "moved";
+    default:
+      return null;
+  }
+}

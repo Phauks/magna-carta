@@ -667,9 +667,10 @@ describe("stocktake — counting the shelves without changing the register", () 
       proposedMovementKind: "moved",
       proposedToLocationId: safe,
     });
+    // `returned`, not `found`: the register says a courier has it and here it is on the shelf.
     expect(report.unexpected[0]).toMatchObject({
       packetId: checkedOut,
-      proposedMovementKind: "found",
+      proposedMovementKind: "returned",
     });
     expect(report.unregistered[0]?.description).toBe("Sealed envelope, no label");
     // Nothing is frozen while the count is still running.

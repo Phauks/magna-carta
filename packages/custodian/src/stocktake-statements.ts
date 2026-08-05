@@ -335,14 +335,24 @@ export function selectCustodyPacketsByIdStatement(
     .bind(...packetIds);
 }
 
+// How many handles one `IN (...)` may carry. SQLite caps bound parameters per statement, and a count
+// of the whole register can name thousands of packets, so the read is chunked rather than composed
+// into one statement that would fail at exactly the size that matters. Well under any dialect's cap,
+// and a handful of indexed lookups is still nothing beside the per-packet query this replaces.
+const MAX_PACKET_HANDLES_PER_READ = 200;
+
 export async function readCustodyPacketsById(
   database: SqlDatabase,
   packetIds: readonly CustodyPacketId[],
 ): Promise<CustodyExpectedPacketRow[]> {
-  if (packetIds.length === 0) return [];
-  const { results } = await selectCustodyPacketsByIdStatement(
-    database,
-    packetIds,
-  ).all<CustodyExpectedPacketRow>();
-  return results;
+  const rows: CustodyExpectedPacketRow[] = [];
+  for (let start = 0; start < packetIds.length; start += MAX_PACKET_HANDLES_PER_READ) {
+    const chunk = packetIds.slice(start, start + MAX_PACKET_HANDLES_PER_READ);
+    const { results } = await selectCustodyPacketsByIdStatement(
+      database,
+      chunk,
+    ).all<CustodyExpectedPacketRow>();
+    rows.push(...results);
+  }
+  return rows;
 }

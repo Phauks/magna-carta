@@ -15,7 +15,7 @@ import {
   type CustodyStocktakeSightingRow,
 } from "./stocktake-statements.ts";
 import {
-  CUSTODY_PROPOSED_MOVEMENT_BY_OUTCOME,
+  proposedCustodyMovement,
   type CustodyMovementKind,
   type CustodyPacketStatus,
   type CustodyReconciliationOutcome,
@@ -252,7 +252,7 @@ function lineFor(
   packet: CustodyExpectedPacketRow | undefined,
   sighting: CustodyStocktakeSightingRow | undefined,
 ): CustodyReconciliationLine {
-  const proposedMovementKind = CUSTODY_PROPOSED_MOVEMENT_BY_OUTCOME[outcome] ?? null;
+  const proposedMovementKind = proposedCustodyMovement(outcome, packet?.status ?? null);
   return {
     outcome,
     packetId: packet?.id ?? sighting?.packet_id ?? null,
