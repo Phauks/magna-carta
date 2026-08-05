@@ -45,6 +45,36 @@ at full capacity. Keep it current at every milestone — it is the durable memor
   MC docs-sync (Mon 13:03), Cloudflare blog monitor (daily 14:00, reports not
   persisted), dependency updates (Mon 14:30).
 
+## Position update (2026-08-05 ~11:10 UTC) — owner's wave fully shipped, audit closed
+
+Seventy-three merged. The owner's entire selected wave is on main: trust 3·2·1
+foundation (#105), DKIM + add-in hardening (#106), 1-core ubuntu-slim runners
+(#107), 2·6·3 letterhead + custom-field bindings (#109), custodian gated release
+(#110), expression aggregates (#111 — sum/minimum/maximum full names; RULING:
+aggregate over an empty list = declared absence, a sum of no money cannot invent
+a currency; item-missing-field = unresolved, never skipped), and the
+binary-idempotency audit + documentAutomation load profile (#112, tasks 57+64
+closed). #112 outcome: ZERO live required+binary hits across 105 required-
+idempotency and 10 octet-stream operations; enforcement shipped at three depths
+(defineOpenAPIRoute startup guard, conformance rule over the emitted doc, source
+scan over routes/ — the third prong exists because `fileIntegrity.hash` and
+`scan.diagnose` stream `c.req.raw.body` while declaring NO body, invisible to a
+document-level rule; that contract inaccuracy is task 66, its own slice since it
+moves snapshot + client). Load profile v9: 181 templates / 479 versions / 1,605
+assemblies, all four hot paths index walks, scan allowlist EMPTY;
+merge-context median 0.741 ms tracks source count, not field count. Trust
+fitness deliberately NOT wired — the profile lays only subledger accounts;
+3·2 gets its own load-profile stage. GOTCHA reconFIRMED 3×: identical-timestamp
+migration collisions between parallel branches (second-to-merge retags +1s) —
+#94/#98, trust/email at 120000, custodian-3/2·6·3 at 130000; always check the
+journal tail before merging a migration-bearing PR. fix:scoped struck again in
+#112 (~35 lines incl. security-guard boolean churn — reverted; task 54 open).
+Queue: #54 tooling pair, 3·2·2 trust movements (check T4/T5 partial answers;
+unanswered T-flags ship recommended-default + flagged), custodian 4·2·4
+stocktake, directory role sources, add-in client API, task 66. Austerity
+unchanged (merge bar = full local suites + review; revert = task 61, reset date
+still unknown — owner-ask).
+
 ## Position update (2026-08-05 ~09:30 UTC) — day-2 morning: owner decisions, austerity, trust foundation
 
 Sixty-eight merged. OWNER DECISIONS 2026-08-05 (all in session): G1-G5 expression
