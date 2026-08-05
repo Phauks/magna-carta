@@ -32,24 +32,38 @@
 #   • merge_group — the full battery. If a merge queue is ever enabled (a repository setting), the queue
 #     builds the exact post-merge tree, which closes the interleaving window at its source rather than
 #     catching it after the fact. Wired now so enabling the setting needs no workflow change.
+#
+# TEMPORARY CI AUSTERITY 2026-08-05 — revert when Actions minutes reset. Two of the three tiers above
+# are suspended while the Actions budget is exhausted: the push-to-main run and the nightly schedule.
+# What remains is the pull-request tier (the full battery at one-hop lint scope) and `workflow_dispatch`
+# (both still run on every change and on the docs-assembly PR). The merge bar during the window and the
+# revert checklist live in docs/conventions/build-performance.md. Every suspension in this file carries
+# the marker above, so reverting is one grep.
 name: gate
 
 on:
   pull_request:
     branches: [main]
-  push:
-    branches: [main]
+  # TEMPORARY CI AUSTERITY 2026-08-05 — revert when Actions minutes reset. The push-to-main tier is
+  # suspended: it re-verifies a tree the pull request already proved, so it is the cheapest tier to give
+  # up. Uncomment to restore.
+  # push:
+  #   branches: [main]
   # Full-battery proof of a queued merge's real post-merge tree. Inert until a merge queue is enabled
   # on the repository; harmless to carry until then.
   merge_group:
   # The nightly unscoped sweep. Its diff base resolves to nothing (there is no event base and HEAD is
   # already `main`), which the `changes` job's empty-diff branch turns into "run everything, lint ALL" —
   # exactly the cold, unscoped pass this tier is for.
-  schedule:
-    - cron: "0 8 * * *"
+  # TEMPORARY CI AUSTERITY 2026-08-05 — revert when Actions minutes reset. The nightly sweep is the
+  # single most expensive recurring spend here (a cold whole-repo pass every night, whether or not
+  # anything changed), so it is suspended first. Uncomment to restore.
+  # schedule:
+  #   - cron: "0 8 * * *"
   # The assemble-docs workflow dispatches the gate onto its `docs-assembly` branch: a PR created with
   # the workflow's own token fires no pull_request events, so the required `gate` status must be
-  # produced explicitly for auto-merge to complete.
+  # produced explicitly for auto-merge to complete. Kept during the austerity window — it is what lets
+  # the per-merge docs assembly land, and it is also the manual handle for running the sweep on demand.
   workflow_dispatch:
 
 # One in-flight run per ref PER TRIGGER; a newer push cancels the older run. The event name is part of
@@ -289,8 +303,18 @@ jobs:
             return "$code"
           }
           if [ "$SCOPE" = "ALL" ]; then
-            echo "affected-lint: linting the whole repo"
-            run_lint
+            # TEMPORARY CI AUSTERITY 2026-08-05 — revert when Actions minutes reset. The whole-repo
+            # tier is the single most expensive thing this workflow runs (~45 min of runner time on
+            # one job), so it is suspended outright while the Actions budget is exhausted; restore by
+            # deleting this branch's echo and un-commenting `run_lint` below. ONLY this tier is
+            # suspended — a scope of specific package directories (what a pull request computes, the
+            # changed packages plus one hop) still lints exactly as before, so every change is still
+            # type-aware linted over the packages it can affect. What is given up is the fallback that
+            # a global input (the lint ruleset, the lockfile, the shared compiler options) or a
+            # lintable file outside every package triggers. The merge bar covering that gap, and the
+            # checklist for restoring it, are in docs/conventions/build-performance.md.
+            echo "affected-lint: whole-repo lint SUSPENDED (temporary CI austerity) — not linting"
+            # run_lint
           elif [ "$SCOPE" = "NONE" ]; then
             echo "affected-lint: no lintable package affected — nothing to lint"
           elif [ -z "$SCOPE" ]; then

@@ -187,6 +187,56 @@ already produced. So each trigger runs the pass that **only it** can run:
 | `schedule`     | **whole repo**, unscoped, cold      | full         | Nightly backstop for anything the per-change tiers could miss, landing long before a deliberate `git push main:release`. |
 | `merge_group`  | full closure                        | full         | Full proof of a queued merge's real post-merge tree, if a merge queue is enabled.                                        |
 
+### TEMPORARY CI AUSTERITY 2026-08-05 — revert when Actions minutes reset
+
+The account's GitHub Actions minutes are at their budget limit, so the cadence above is deliberately
+reduced until they reset (owner decision, 2026-08-05). Every suspension carries the marker
+`TEMPORARY CI AUSTERITY 2026-08-05 — revert when Actions minutes reset` in the file it touches, so
+finding all of them is one `grep -r "TEMPORARY CI AUSTERITY"`.
+
+**Suspended** (in [`gate.yml`](../../.github/workflows/gate.yml)):
+
+- The **`schedule`** trigger — the nightly cold whole-repo sweep, the largest recurring spend, billed
+  every night whether or not anything changed. Commented out; `workflow_dispatch` remains, so the sweep
+  is still runnable on demand from the Actions tab.
+- The **`push` to `main`** trigger — the tier that re-verifies a tree its pull request already proved.
+  Commented out.
+- The **whole-repo lint tier** — the `ALL` branch of the `lint` job's scope switch, roughly 45 minutes
+  of runner time on one job. Made a no-op.
+
+**Still running:** the `pull_request` tier in full — the whole battery (format, type-check, rust, the
+full test suite, governance, contracts, containers) with the type-aware lint scoped to the changed
+packages plus one hop, exactly as before; `merge_group`, if a merge queue is ever enabled;
+`workflow_dispatch`; and [`assemble-docs.yml`](../../.github/workflows/assemble-docs.yml) on every push
+to `main` (a few runner-minutes, and it is what keeps the rendered trackers current).
+
+**What the window gives up**, precisely: the unbounded dependent-walk lint, the whole-repo lint that a
+global input (the lint ruleset, the lockfile, the shared compiler options) or a lintable file outside
+every package would otherwise force, and the nightly backstop for two branches that merge in quick
+succession and interact semantically without touching the same files. Type-checking, tests, and the
+contract checks are unaffected — they were never scoped, and they still run whole-repo on every pull
+request.
+
+**The merge bar during the window.** Because the post-merge tiers no longer run, verification moves
+forward to the branch: an agent runs **full local verification** on its branch before the merge (the
+whole-repo `pnpm check` and `vp test`, not just `pnpm check:scoped`) and states the result in the pull
+request, and the **orchestrator reviews** the change. A pull request whose local verification cannot be
+run in full says so plainly rather than implying a gate that did not happen.
+
+**Revert checklist** (when the minutes reset):
+
+1. `grep -r "TEMPORARY CI AUSTERITY" --exclude-dir=node_modules .` and restore each site: un-comment the
+   `schedule` and `push` triggers in `gate.yml`, and restore `run_lint` in the `lint` job's `ALL` branch
+   (deleting the suspension echo).
+2. Delete this section and the accompanying note wherever the posture is referenced.
+3. Run **one full whole-repo gate on `main`** (`gh workflow run gate.yml --ref main`) and **one nightly
+   sweep equivalent** — the same dispatch is the sweep, since its empty diff resolves to "run
+   everything, lint `ALL`" — to catch anything the window missed. Fix what it finds before treating
+   `main` as gate-green again.
+4. Only then treat a `git push origin main:release` as backed by the usual evidence.
+
+The rest of this section describes the standing design, which resumes unchanged when the triggers do.
+
 **Why the trimmed push-to-main run is sound.** Skipping the test battery on `main` rests on
 up-to-date-before-merge: a branch that must be current with `main` in order to merge has already run the
 full battery against exactly the tree that lands, so re-running it re-proves a proof. The gap it leaves
@@ -253,7 +303,7 @@ recomputes identically on every run is cached.
 
 The whole-repo type-aware lint (`vp check --no-fmt`, oxlint + tsgolint) is CI's tall pole — **~45 min** on a 4-core/16 GB runner (0 errors, ~820 advisory warnings over ~1850 files, measured 2026-08-04), single-threaded, no cross-run cache upstream. It was ~24 min when this section was first written; the figure tracks the package count, so re-measure it rather than trusting the number here, and raise the `lint` job's `timeout-minutes` in [`gate.yml`](../../.github/workflows/gate.yml) whenever the honest time approaches the cap. But tsgolint builds its type program **lazily from the passed files' import closure**, so `vp check --no-fmt <paths>` scopes the cost to those paths: one small package is ~2 s where the whole repo is ~45 min (measured). The earlier belief that this "depends on a vp mechanism to scope `typeAware`" was wrong — the `vp check [PATHS]` passthrough already is that mechanism, and cross-package types still resolve from the closure.
 
-So the gate's **`lint` job lints only the affected packages**, computed by `tooling/affected-lint`: the changed workspace packages **plus their dependents** — never just the changed files, because a type-aware finding in an unchanged file can flip when a dependency changes (that soundness gap is exactly why `check-scoped`, which lints only changed files, is fine for the local loop but not a merge gate). How far down the dependent chain the walk goes is set by `--max-hops`: **one hop on a pull request, unbounded everywhere else** (see _The CI gate — verify each change once at each level_ above for why depth is a latency dial rather than a correctness one). A change to a global input — the lint ruleset and the shared compiler options (`vite.config.ts` — which is both the lint ruleset home and where `typeAware` lives — plus `tsconfig.base.json`, `packages/tsconfig/`), the lockfile, or the affected-lint logic itself — falls back to a whole-repo lint, as does any lintable source file outside every package (which is what still re-lints the whole repo for a JS-based action under `.github/`). A workflow or action **YAML** change (e.g. `gate.yml`) is deliberately **not** a trigger — it cannot move a type-aware lint result, so it does not pay the whole-repo pass. Only the lint job is scoped this way; type-check, tests, and the contract checks still run whole-repo, so the blast radius of a scoping miss is one type-aware lint rule, not correctness at large. A typical few-package change drops the tall pole from ~45 min to seconds; a foundational package (e.g. `@magna-carta/identifiers`) correctly re-lints its whole dependent set.
+So the gate's **`lint` job lints only the affected packages**, computed by `tooling/affected-lint`: the changed workspace packages **plus their dependents** — never just the changed files, because a type-aware finding in an unchanged file can flip when a dependency changes (that soundness gap is exactly why `check-scoped`, which lints only changed files, is fine for the local loop but not a merge gate). How far down the dependent chain the walk goes is set by `--max-hops`: **one hop on a pull request, unbounded everywhere else** (see _The CI gate — verify each change once at each level_ above for why depth is a latency dial rather than a correctness one). A change to a global input — the lint ruleset and the shared compiler options (`vite.config.ts` — which is both the lint ruleset home and where `typeAware` lives — plus `tsconfig.base.json`, `packages/tsconfig/`), the lockfile, or the affected-lint logic itself — falls back to a whole-repo lint, as does any lintable source file outside every package (which is what still re-lints the whole repo for a JS-based action under `.github/`). A workflow or action **YAML** change (e.g. `gate.yml`) is deliberately **not** a trigger — it cannot move a type-aware lint result, so it does not pay the whole-repo pass. Only the lint job is scoped this way; type-check, tests, and the contract checks still run whole-repo, so the blast radius of a scoping miss is one type-aware lint rule, not correctness at large. A typical few-package change drops the tall pole from ~45 min to seconds; a foundational package (e.g. `@magna-carta/identifiers`) correctly re-lints its whole dependent set. (**TEMPORARY CI AUSTERITY 2026-08-05 — revert when Actions minutes reset:** the whole-repo fallback described here is suspended; the scoped pass is untouched. See the austerity note under _The CI gate — verify each change once at each level_.)
 
 ### Shard the CI test suite across parallel runners (now)
 
