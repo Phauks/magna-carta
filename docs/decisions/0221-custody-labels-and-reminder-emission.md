@@ -1,8 +1,9 @@
 ---
+number: 221
 slug: custody-labels-and-reminder-emission
 status: Accepted
-area: Custodian
 date: 2026-08-04
+area: Custodian
 summary: "Custody labels are rendered IN-HOUSE as Code 128 barcodes on an SVG label sheet, and the barcode carries the object's IDENTIFIER HANDLE rather than its custody number — a number is a string a firm can re-render, and a scan must resolve through no lookup rule that can change under labels already stuck to boxes in a safe. QR is deliberately not shipped: a linear symbology is a published table plus a modulo-103 checksum, while a QR encoder is Reed-Solomon over GF(256) plus mask evaluation for capacity a one-handle label does not need. Separately, custody REMINDERS resolve through ONE collection point that serves both review dates and overdue check-outs, and it is a QUERY, not a scheduler: no cron entry, no queue, no per-firm timer. The register's reports read it today; when the Notifications registry lands, delivery subscribes to that same function rather than growing a second definition of what is due."
 ---
 

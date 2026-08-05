@@ -1,8 +1,9 @@
 ---
+number: 219
 slug: replace-office-crypto-with-in-house-decryption
 status: Accepted
-area: Supply-chain security
 date: 2026-08-04
+area: Supply-chain security
 summary: "Replace the office-crypto dependency with an in-house MS-OFFCRYPTO package decryption loop in crates/decryption-core, retiring both quick-xml advisories (RUSTSEC-2026-0194 and -0195) from the tree rather than accepting them for another review cycle, and closing three panic-on-untrusted-input paths the carrier carried. decryption-core already owned the agile verifier, the iterative hash, block-key derivation, its own descriptor parser and the compound-file validation; office-crypto's remaining contribution was the segment loop and the session-key unwrap, roughly 120 lines against primitives already in the workspace. ECMA-376 standard encryption is ported alongside agile so no capability is silently dropped; its legacy RC4 CryptoAPI variant is refused by a named error exactly as before, and office-crypto's Word-97 binary RC4 path is confirmed to have been unreachable from this adapter. Sixteen crates leave the graph and none are added."
 ---
 
