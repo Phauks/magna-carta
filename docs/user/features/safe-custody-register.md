@@ -171,6 +171,58 @@ Four views over what your firm holds:
   and forgotten is visible rather than only surfacing when it refuses something.
 - **Overdue check-outs** — the list described above.
 
+## Taking a stocktake
+
+A **stocktake** is a physical count: somebody walks the shelves, records what they actually see, and
+the register tells you where it disagrees with them.
+
+Open a count over the whole register, or over one safe, cabinet, or shelf and everything inside it.
+Then record what the counters find, as they find it:
+
+- **Seen** — this packet is on this shelf.
+- **Not found** — I went to the shelf the register named and it was not there. This is deliberately
+  different from simply not having got to a shelf yet, so an unfinished count never looks like a loss.
+- **Something unregistered** — there is an object here the register has no entry for. Describe what
+  you are looking at; that description is the only record of it anywhere.
+
+Close the count and you get a **reconciliation** — which you can also read at any point while the
+count is still running, so a long walk shows its progress:
+
+- **Missing** — the register expected it here and nobody saw it.
+- **Misplaced** — somebody saw it, on a different shelf from the one the register names.
+- **Unexpected** — somebody saw it where the register did not expect it at all: it is recorded as
+  checked out, or as having left the firm.
+- **Unregistered** — the objects with no entry.
+
+### A stocktake never changes anything
+
+This is worth being clear about, because it is the point. **Counting changes nothing.** No original
+is moved, no status changes, no entry is added to any packet's history, and nothing is ever destroyed
+or disposed of. The register is exactly as it was before you counted.
+
+What the reconciliation does is **suggest**. Against a misplaced packet it says "you could record a
+move to the shelf it was actually found on"; against one the register thinks is checked out it says
+"you could record it as found". Acting on a suggestion means recording that movement yourself, the
+same way you record any other — so a person's name is on the correction, which is the whole value of
+having noticed.
+
+Against a **missing** original the reconciliation suggests nothing at all, on purpose. An original
+that is not where it should be is something to go and look for, and offering to write it off the
+moment a shelf comes up empty would be the wrong instinct at exactly the wrong moment.
+
+### Two more things
+
+**What a count found is frozen when you close it.** Put the register right afterwards and the
+reconciliation's lists will update to say so — but the numbers the count produced stay as they were.
+"The March count found three misplaced" is a fact about March, and it should not quietly become zero
+because you fixed them in April.
+
+**A count you never finished is abandoned, not closed.** Abandoning records no findings. A half-done
+walk would otherwise read as a safe full of missing originals, which would be alarming and wrong.
+
+You can also run more than one count at a time — two offices counting two safes on the same Saturday
+is ordinary, and each count reports only on what its own counters saw.
+
 ## Labels
 
 Print a sheet of labels for packets and locations, at true size on standard A4 24-label stock. Each
@@ -208,13 +260,11 @@ register the way you would treat the safe itself.
   varies by jurisdiction, and the guidance that matters most says originals of intrinsic value sit
   outside any routine clock. Your firm sets its own; the platform will never quietly decide for you.
   A review date is not a retention clock and never becomes one.
-- **QR codes on labels.** Labels carry a scannable barcode; QR arrives with stocktake, which is the
-  first thing that would use it.
+- **QR codes on labels.** Labels carry a scannable barcode; QR is not printed yet.
 - **Printed deposit and release receipts.** The checks made before an original leaves are recorded
   today; producing a receipt document from your own template is not built yet. In the meantime a
   signed paper receipt can be scanned and attached to the packet like any other document.
 - **"Items we hold for you" in the client portal.**
-- **Stocktake** — scanning a shelf and reconciling it against what the register expects.
 - **Will lodgement deadlines on death.** These carry real statutory teeth and vary sharply by state,
   so they are not encoded until they can be verified against the primary text rather than guessed.
 

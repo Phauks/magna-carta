@@ -9,6 +9,8 @@ import {
   custodyOwner,
   custodyPacket,
   custodyScan,
+  custodyStocktake,
+  custodyStocktakeSighting,
 } from "@magna-carta/database/per-firm-schema";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import { getTableConfig } from "drizzle-orm/sqlite-core";
@@ -77,6 +79,18 @@ import {
   insertCustodyScanStatement,
   selectCustodyScansStatement,
 } from "../src/scan-statements.ts";
+import {
+  CUSTODY_STOCKTAKE_SIGHTING_TABLE,
+  CUSTODY_STOCKTAKE_TABLE,
+  closeCustodyStocktakeStatement,
+  insertCustodyStocktakeSightingStatement,
+  insertCustodyStocktakeStatement,
+  selectCustodyExpectedPacketsStatement,
+  selectCustodyPacketsByIdStatement,
+  selectCustodyStocktakeSightingsStatement,
+  selectCustodyStocktakeStatement,
+  selectCustodyStocktakesStatement,
+} from "../src/stocktake-statements.ts";
 
 // Fitness function (the ledger pattern): the raw SQL in this package must track
 // @magna-carta/database's schema. Renaming a table or a column there fails here, not in production.
@@ -172,6 +186,8 @@ const MOVEMENT_ID = "custodyMovement_x" as never;
 const HOLD_ID = "custodyHold_x" as never;
 const SCAN_ID = "custodyScan_x" as never;
 const FILE_ID = "file_x" as never;
+const STOCKTAKE_ID = "custodyStocktake_x" as never;
+const SIGHTING_ID = "custodyStocktakeSighting_x" as never;
 
 describe("schema name sync (custodian SQL pinned to @magna-carta/database)", () => {
   it("table name constants match the drizzle schema", () => {
@@ -185,6 +201,8 @@ describe("schema name sync (custodian SQL pinned to @magna-carta/database)", () 
     expect(getTableConfig(custodyScan).name).toBe(CUSTODY_SCAN_TABLE);
     expect(getTableConfig(custodyNumberCounter).name).toBe(CUSTODY_NUMBER_COUNTER_TABLE);
     expect(getTableConfig(custodyNumberAllocation).name).toBe(CUSTODY_NUMBER_ALLOCATION_TABLE);
+    expect(getTableConfig(custodyStocktake).name).toBe(CUSTODY_STOCKTAKE_TABLE);
+    expect(getTableConfig(custodyStocktakeSighting).name).toBe(CUSTODY_STOCKTAKE_SIGHTING_TABLE);
   });
 
   it("every column the location SQL names exists in the schema", () => {
@@ -425,6 +443,79 @@ describe("schema name sync (custodian SQL pinned to @magna-carta/database)", () 
       sql,
       new Set([CUSTODY_ITEM_TYPE_TABLE, ...columnsOf(custodyItemType)]),
       "item type",
+    );
+  });
+
+  it("every column the stocktake SQL names exists in the schema", () => {
+    const stocktakeSql = [
+      sqlOf(
+        insertCustodyStocktakeStatement(stub, {
+          id: STOCKTAKE_ID,
+          name: "March count",
+          scopeLocationId: null,
+          openedAt: "t",
+          openedByUserId: null,
+          note: null,
+          createdAt: "t",
+        }),
+      ),
+      sqlOf(
+        closeCustodyStocktakeStatement(
+          stub,
+          STOCKTAKE_ID,
+          "closed",
+          { matched: 0, missing: 0, misplaced: 0, unexpected: 0, unregistered: 0 },
+          null,
+          "t",
+        ),
+      ),
+      sqlOf(selectCustodyStocktakeStatement(stub, STOCKTAKE_ID)),
+      sqlOf(selectCustodyStocktakesStatement(stub, undefined, 10)),
+      sqlOf(selectCustodyStocktakesStatement(stub, "open", 10)),
+    ].join("\n");
+    expectOnlyKnownIdentifiers(
+      stocktakeSql,
+      new Set([CUSTODY_STOCKTAKE_TABLE, ...columnsOf(custodyStocktake)]),
+      "stocktake",
+    );
+
+    const sightingSql = [
+      sqlOf(
+        insertCustodyStocktakeSightingStatement(stub, {
+          id: SIGHTING_ID,
+          stocktakeId: STOCKTAKE_ID,
+          kind: "sighted",
+          packetId: PACKET_ID,
+          itemId: null,
+          locationId: LOCATION_ID,
+          expectedLocationId: LOCATION_ID,
+          description: null,
+          observedAt: "t",
+          recordedAt: "t",
+          observedByUserId: null,
+          note: null,
+        }),
+      ),
+      sqlOf(selectCustodyStocktakeSightingsStatement(stub, STOCKTAKE_ID, 10)),
+    ].join("\n");
+    expectOnlyKnownIdentifiers(
+      sightingSql,
+      new Set([CUSTODY_STOCKTAKE_SIGHTING_TABLE, ...columnsOf(custodyStocktakeSighting)]),
+      "stocktake sighting",
+    );
+
+    // The reconciliation's two reads run against the packet table, so they are pinned to it rather
+    // than to either stocktake table — the register is what a count is reconciled against.
+    const expectedSql = [
+      sqlOf(selectCustodyExpectedPacketsStatement(stub, undefined, 10)),
+      sqlOf(selectCustodyExpectedPacketsStatement(stub, [], 10)),
+      sqlOf(selectCustodyExpectedPacketsStatement(stub, [LOCATION_ID], 10)),
+      sqlOf(selectCustodyPacketsByIdStatement(stub, [PACKET_ID])),
+    ].join("\n");
+    expectOnlyKnownIdentifiers(
+      expectedSql,
+      new Set([CUSTODY_PACKET_TABLE, ...columnsOf(custodyPacket)]),
+      "stocktake expectation",
     );
   });
 

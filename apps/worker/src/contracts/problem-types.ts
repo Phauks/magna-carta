@@ -71,6 +71,12 @@ export const PROBLEM_TYPES = {
   // the request is well formed and the state allows it — what is missing is the record that has to
   // exist first, and a client offers the caller a way to supply it rather than reporting an error.
   "custody-release-not-authorized": "custody-release-not-authorized",
+  // An observation recorded against, or a second close of, a physical count that has already
+  // finished (HTTP 409). A finished count has produced a reconciliation somebody may have acted on,
+  // and changing it afterwards is the same falsification the append-only sighting rows forbid one
+  // row at a time. DISTINCT from `validation` (request-shape): the request is well formed and the
+  // caller is entitled to make it — the count it names is over, so a client offers to open a new one.
+  "custody-stocktake-closed": "custody-stocktake-closed",
   // An unexpected, unhandled server error (HTTP 500). The telemetry middleware's final catch maps
   // any escaped exception to this — the one error type the client cannot have caused, carrying only
   // the Error ID to quote.

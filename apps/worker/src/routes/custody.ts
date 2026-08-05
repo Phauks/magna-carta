@@ -40,6 +40,18 @@ import {
 import { completeCustodyReview } from "@magna-carta/custodian/review-service";
 import { linkCustodyScan, resolveCustodyFilingMatter } from "@magna-carta/custodian/scan-service";
 import { readCustodyScans } from "@magna-carta/custodian/scan-statements";
+import { reconcileAgainstRegister } from "@magna-carta/custodian/stocktake-reconciliation";
+import {
+  closeCustodyStocktake,
+  MAX_CUSTODY_SIGHTINGS_PER_BATCH,
+  openCustodyStocktake,
+  recordCustodyStocktakeSightings,
+} from "@magna-carta/custodian/stocktake-service";
+import {
+  readCustodyStocktake,
+  readCustodyStocktakes,
+  readCustodyStocktakeSightings,
+} from "@magna-carta/custodian/stocktake-statements";
 import {
   CUSTODY_BORROWER_KINDS,
   CUSTODY_HOLD_KINDS,
@@ -47,7 +59,10 @@ import {
   CUSTODY_LOCATION_KINDS,
   CUSTODY_MOVEMENT_KINDS,
   CUSTODY_PACKET_STATUSES,
+  CUSTODY_RECONCILIATION_OUTCOMES,
   CUSTODY_SCAN_KINDS,
+  CUSTODY_SIGHTING_KINDS,
+  CUSTODY_STOCKTAKE_STATUSES,
   MAX_CUSTODY_REVIEW_INTERVAL_MONTHS,
 } from "@magna-carta/custodian/types";
 import { CustodyValidationError } from "@magna-carta/custodian/validation";
@@ -153,10 +168,22 @@ function custodyErrorResponse(
     case "custody-unknown-location":
     case "custody-unknown-item-type":
     case "custody-unknown-hold":
+    case "custody-unknown-stocktake":
       return problemJson(c, {
         type: "not-found",
         title: "Not found",
         status: 404,
+        detail: caught.message,
+      });
+    // Its own type rather than the generic validation problem, because it is a LIFECYCLE state and
+    // not a shape complaint: the request is well formed and the caller is entitled to make it, but
+    // the count it names has already produced a reconciliation somebody may have acted on. A client
+    // shows that as "this count is finished — open a new one", which is a different screen.
+    case "custody-stocktake-closed":
+      return problemJson(c, {
+        type: "custody-stocktake-closed",
+        title: "This stocktake is finished",
+        status: 409,
         detail: caught.message,
       });
     case "custody-owner-required":
@@ -222,6 +249,7 @@ function custodyErrorResponse(
     case "custody-invalid-review-interval":
     case "custody-label-selection-invalid":
     case "custody-release-signatories-must-differ":
+    case "custody-invalid-sighting":
       return problemJson(c, {
         type: "validation",
         title: "Custody request invalid",
@@ -668,6 +696,166 @@ const CustodyPacketUnderHold = z
     packetStatus: z.enum(CUSTODY_PACKET_STATUSES),
   })
   .openapi("CustodyPacketUnderHold");
+
+// ---- stocktake contracts ----
+//
+// A stocktake OBSERVES. Nothing on this surface disposes of property, relocates it, or corrects the
+// register: the reconciliation names corrective movements as proposals, and a person records each
+// one through POST /packets/{packetId}/movements — the same single write path every other state
+// change goes through — or does not. There is no "apply the reconciliation" route, and its absence
+// is the design, because a count that wrote the register into agreement with itself would erase the
+// difference the count exists to find.
+
+const stocktakeIdParam = z.object({
+  stocktakeId: identifierPathParam("custodyStocktake", "stocktakeId"),
+});
+
+const CustodyStocktakeCounts = z
+  .object({
+    matched: z.number().int(),
+    missing: z.number().int(),
+    misplaced: z.number().int(),
+    unexpected: z.number().int(),
+    unregistered: z.number().int(),
+  })
+  .openapi("CustodyStocktakeCounts");
+
+const CustodyStocktake = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    scopeLocationId: z.string().nullable(),
+    status: z.enum(CUSTODY_STOCKTAKE_STATUSES),
+    openedAt: z.string(),
+    openedByUserId: z.string().nullable(),
+    closedAt: z.string().nullable(),
+    closedByUserId: z.string().nullable(),
+    // Frozen when the count closed; absent while it is open and on an abandoned count.
+    counts: CustodyStocktakeCounts.nullable(),
+    note: z.string().nullable(),
+  })
+  .openapi("CustodyStocktake");
+
+const OpenCustodyStocktakeRequest = z
+  .object({
+    name: z.string().min(1).max(200),
+    // The branch of the container tree this count covers, including everything beneath it. Absent
+    // counts the whole register.
+    scopeLocationId: identifierField("custodyLocation").optional(),
+    openedAt: z.string().max(40).optional(),
+    note: z.string().max(2000).nullable().optional(),
+  })
+  .openapi("OpenCustodyStocktakeRequest");
+
+const CustodySightingInput = z
+  .object({
+    kind: z.enum(CUSTODY_SIGHTING_KINDS),
+    packetId: identifierField("custodyPacket").optional(),
+    itemId: identifierField("custodyItem").optional(),
+    locationId: identifierField("custodyLocation").optional(),
+    description: z
+      .string()
+      .max(2000)
+      .optional()
+      .describe(
+        "What was physically found, in the observer's words. Required on an unregistered observation: it is the only record of that object anywhere.",
+      ),
+    observedAt: z.string().max(40).optional(),
+    note: z.string().max(2000).optional(),
+  })
+  .openapi("CustodySightingInput");
+
+const RecordCustodySightingsRequest = z
+  .object({
+    // A batch, because a person walking a safe with a scanner produces observations in bursts and
+    // one round trip per shelf beats one per envelope. Every observation in a request commits
+    // atomically: a half-recorded batch would report property as missing that was in fact counted.
+    sightings: z.array(CustodySightingInput).min(1).max(MAX_CUSTODY_SIGHTINGS_PER_BATCH),
+  })
+  .openapi("RecordCustodySightingsRequest");
+
+const RecordedCustodySightingsResponse = z
+  .object({ ids: z.array(z.string()) })
+  .openapi("RecordedCustodySightingsResponse");
+
+const CustodySighting = z
+  .object({
+    id: z.string(),
+    kind: z.enum(CUSTODY_SIGHTING_KINDS),
+    packetId: z.string().nullable(),
+    itemId: z.string().nullable(),
+    locationId: z.string().nullable(),
+    // Where the register expected the packet at the moment this observation was recorded, frozen on
+    // the row — so "sighted on the wrong shelf" stays true after somebody moves it to the right one.
+    expectedLocationId: z.string().nullable(),
+    description: z.string().nullable(),
+    observedAt: z.string(),
+    recordedAt: z.string(),
+    observedByUserId: z.string().nullable(),
+    note: z.string().nullable(),
+  })
+  .openapi("CustodySighting");
+
+const CustodyReconciliationLine = z
+  .object({
+    outcome: z.enum(CUSTODY_RECONCILIATION_OUTCOMES),
+    packetId: z.string().nullable(),
+    custodyNumber: z.string().nullable(),
+    packetName: z.string().nullable(),
+    packetStatus: z.enum(CUSTODY_PACKET_STATUSES).nullable(),
+    expectedLocationId: z.string().nullable(),
+    sightedLocationId: z.string().nullable(),
+    description: z.string().nullable(),
+    observedAt: z.string().nullable(),
+    observedByUserId: z.string().nullable(),
+    // The movement a person WOULD record to put the register right. A suggestion printed on a
+    // report: nothing records it, and nothing in this subsystem records it later either. A missing
+    // packet proposes nothing at all, because the honest answer to an empty shelf is an
+    // investigation, not a ledger entry closing the record on it.
+    proposedMovementKind: z.enum(CUSTODY_MOVEMENT_KINDS).nullable(),
+    proposedToLocationId: z.string().nullable(),
+  })
+  .openapi("CustodyReconciliationLine");
+
+const CustodyReconciliation = z
+  .object({
+    stocktakeId: z.string(),
+    name: z.string(),
+    status: z.enum(CUSTODY_STOCKTAKE_STATUSES),
+    scopeLocationId: z.string().nullable(),
+    openedAt: z.string(),
+    closedAt: z.string().nullable(),
+    matchedCount: z.number().int(),
+    missing: z.array(CustodyReconciliationLine),
+    misplaced: z.array(CustodyReconciliationLine),
+    unexpected: z.array(CustodyReconciliationLine),
+    unregistered: z.array(CustodyReconciliationLine),
+    // What the count found, frozen when it closed. The lists above are recomputed against a register
+    // that keeps moving, so they answer "what is different now"; this answers "what did the count
+    // find". The two disagreeing is not a fault — it is the register having been put right since.
+    frozenCounts: CustodyStocktakeCounts.nullable(),
+  })
+  .openapi("CustodyReconciliation");
+
+const CloseCustodyStocktakeRequest = z
+  .object({
+    abandoned: z
+      .boolean()
+      .optional()
+      .describe(
+        "Ends a count that was never finished. An abandoned count freezes no findings: the reconciliation of a half-done walk reads as a safe full of missing originals, which would be alarming and wrong.",
+      ),
+    note: z.string().max(2000).nullable().optional(),
+  })
+  .openapi("CloseCustodyStocktakeRequest");
+
+const ClosedCustodyStocktakeResponse = z
+  .object({
+    id: z.string(),
+    status: z.enum(["closed", "abandoned"]),
+    counts: CustodyStocktakeCounts.nullable(),
+  })
+  .openapi("ClosedCustodyStocktakeResponse");
 
 const IdAck = z.object({ id: z.string() }).openapi("CustodyIdAck");
 const Ack = z.object({ ok: z.boolean() }).openapi("CustodyAck");
@@ -1274,6 +1462,183 @@ const holdsReportRoute = defineOpenAPIRoute(readMeta("reportHolds"), {
     401: authErrors[401],
     403: authErrors[403],
     404: authErrors[404],
+    429: authErrors[429],
+  },
+});
+
+const openStocktakeRoute = defineOpenAPIRoute(writeMeta("openStocktake", "required"), {
+  method: "post",
+  path: "/api/v1/custody/stocktakes",
+  description:
+    "Opens a physical count of the register, or of one branch of the container tree and everything " +
+    "beneath it. A stocktake only observes: nothing it records disposes of property, relocates it, " +
+    "or changes the register. Counting a safe leaves every packet, item, and ledger entry exactly " +
+    "as it was.",
+  request: {
+    headers: idempotencyKeyHeader,
+    body: {
+      content: { "application/json": { schema: OpenCustodyStocktakeRequest } },
+      required: true,
+    },
+  },
+  responses: {
+    201: { description: "The opened count", content: { "application/json": { schema: IdAck } } },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const listStocktakesRoute = defineOpenAPIRoute(readMeta("listStocktakes"), {
+  method: "get",
+  path: "/api/v1/custody/stocktakes",
+  description:
+    "Lists physical counts, most recently opened first, with the findings frozen on each closed one.",
+  request: {
+    query: z.object({
+      status: z.enum(CUSTODY_STOCKTAKE_STATUSES).optional(),
+      limit: z.coerce.number().int().min(1).max(200).optional(),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Stocktakes",
+      content: { "application/json": { schema: z.object({ data: z.array(CustodyStocktake) }) } },
+    },
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    429: authErrors[429],
+  },
+});
+
+const getStocktakeRoute = defineOpenAPIRoute(readMeta("getStocktake"), {
+  method: "get",
+  path: "/api/v1/custody/stocktakes/{stocktakeId}",
+  description: "Returns one physical count and, once it has closed, what it found.",
+  request: { params: stocktakeIdParam },
+  responses: {
+    200: {
+      description: "The stocktake",
+      content: { "application/json": { schema: CustodyStocktake } },
+    },
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    429: authErrors[429],
+  },
+});
+
+const recordSightingsRoute = defineOpenAPIRoute(writeMeta("recordSightings", "required"), {
+  method: "post",
+  path: "/api/v1/custody/stocktakes/{stocktakeId}/sightings",
+  description:
+    "Records what the counters saw, as a batch: a packet seen at a location, a packet looked for " +
+    "and not found, or an object on the shelf the register has no row for. Each observation is " +
+    "append-only — it is a named person's assertion about a physical object on a day, and the " +
+    "database refuses to update or delete one. A mistake is corrected by recording the later, truer " +
+    "observation; both stay on the record. Recording an observation changes nothing about the " +
+    "packet it names.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: stocktakeIdParam,
+    body: {
+      content: { "application/json": { schema: RecordCustodySightingsRequest } },
+      required: true,
+    },
+  },
+  responses: {
+    201: {
+      description: "The recorded observations",
+      content: { "application/json": { schema: RecordedCustodySightingsResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const listSightingsRoute = defineOpenAPIRoute(readMeta("listSightings"), {
+  method: "get",
+  path: "/api/v1/custody/stocktakes/{stocktakeId}/sightings",
+  description:
+    "Every observation recorded during a count, oldest first, each with where the register expected " +
+    "the packet at the moment it was observed.",
+  request: {
+    params: stocktakeIdParam,
+    query: z.object({ limit: z.coerce.number().int().min(1).max(1000).optional() }),
+  },
+  responses: {
+    200: {
+      description: "Observations",
+      content: { "application/json": { schema: z.object({ data: z.array(CustodySighting) }) } },
+    },
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    429: authErrors[429],
+  },
+});
+
+const reconciliationRoute = defineOpenAPIRoute(readMeta("stocktakeReconciliation"), {
+  method: "get",
+  path: "/api/v1/custody/stocktakes/{stocktakeId}/reconciliation",
+  description:
+    "What the count found, against what the register expected: packets expected and not seen " +
+    "(missing), packets seen somewhere other than where the register said (misplaced), packets seen " +
+    "where the register did not expect them at all (unexpected), and objects on the shelf with no " +
+    "register row (unregistered). Readable while the count is still running, so a long walk shows " +
+    "its progress. Each line names the movement a person would record to put the register right — " +
+    "a proposal on a report, never a write. Acting on one means recording that movement yourself, " +
+    "which is the only way this register ever changes.",
+  request: { params: stocktakeIdParam },
+  responses: {
+    200: {
+      description: "The reconciliation",
+      content: { "application/json": { schema: CustodyReconciliation } },
+    },
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    429: authErrors[429],
+  },
+});
+
+const closeStocktakeRoute = defineOpenAPIRoute(writeMeta("closeStocktake", "required"), {
+  method: "post",
+  path: "/api/v1/custody/stocktakes/{stocktakeId}/close",
+  description:
+    "Closes a count and freezes what it found. It writes the stocktake row and nothing else: no " +
+    "movement is recorded, no packet is moved, and no status anywhere in the register changes " +
+    "because a count finished. A count that was never finished closes as abandoned instead, " +
+    "freezing no findings.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: stocktakeIdParam,
+    body: {
+      content: { "application/json": { schema: CloseCustodyStocktakeRequest } },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      description: "The closed count and its findings",
+      content: { "application/json": { schema: ClosedCustodyStocktakeResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
     429: authErrors[429],
   },
 });
@@ -1907,6 +2272,154 @@ export function registerCustodyRoutes(app: CustodyApp, chokepoint: Chokepoint): 
   );
 
   app.openapi(
+    { ...openStocktakeRoute, middleware: chokepointMiddleware(chokepoint, openStocktakeRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const request = c.req.valid("json");
+      try {
+        const { stocktakeId, effect } = await openCustodyStocktake(
+          firm.firmDatabase,
+          request,
+          serviceOptions(c),
+        );
+        await commitEffectBatch(firm.firmDatabase, effect, { now: () => new Date().toISOString() });
+        return c.json({ id: stocktakeId } as never, 201);
+      } catch (caught) {
+        return custodyErrorResponse(c, caught);
+      }
+    },
+  );
+
+  app.openapi(
+    { ...listStocktakesRoute, middleware: chokepointMiddleware(chokepoint, listStocktakesRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { status, limit } = c.req.valid("query");
+      const rows = await readCustodyStocktakes(firm.firmDatabase, status, limit ?? 50);
+      return c.json({ data: rows.map(stocktakeView) } as never, 200);
+    },
+  );
+
+  app.openapi(
+    { ...getStocktakeRoute, middleware: chokepointMiddleware(chokepoint, getStocktakeRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { stocktakeId } = c.req.valid("param");
+      const stocktake = await readCustodyStocktake(firm.firmDatabase, stocktakeId);
+      if (stocktake === undefined) {
+        return problemJson(c, {
+          type: "not-found",
+          title: "Not found",
+          status: 404,
+          detail: "No such custody stocktake in this firm.",
+        });
+      }
+      return c.json(stocktakeView(stocktake) as never, 200);
+    },
+  );
+
+  app.openapi(
+    { ...recordSightingsRoute, middleware: chokepointMiddleware(chokepoint, recordSightingsRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { stocktakeId } = c.req.valid("param");
+      const request = c.req.valid("json");
+      try {
+        const recorded = await recordCustodyStocktakeSightings(
+          firm.firmDatabase,
+          stocktakeId,
+          request.sightings,
+          { ...serviceOptions(c), idempotency },
+        );
+        return c.json({ ids: recorded.sightingIds } as never, 201);
+      } catch (caught) {
+        return custodyErrorResponse(c, caught);
+      }
+    },
+  );
+
+  app.openapi(
+    { ...listSightingsRoute, middleware: chokepointMiddleware(chokepoint, listSightingsRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { stocktakeId } = c.req.valid("param");
+      const { limit } = c.req.valid("query");
+      const rows = await readCustodyStocktakeSightings(
+        firm.firmDatabase,
+        stocktakeId,
+        limit ?? 500,
+      );
+      return c.json(
+        {
+          data: rows.map((row) => ({
+            id: row.id,
+            kind: row.kind,
+            packetId: row.packet_id,
+            itemId: row.item_id,
+            locationId: row.location_id,
+            expectedLocationId: row.expected_location_id,
+            description: row.description,
+            observedAt: row.observed_at,
+            recordedAt: row.recorded_at,
+            observedByUserId: row.observed_by_user_id,
+            note: row.note,
+          })),
+        } as never,
+        200,
+      );
+    },
+  );
+
+  app.openapi(
+    { ...reconciliationRoute, middleware: chokepointMiddleware(chokepoint, reconciliationRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { stocktakeId } = c.req.valid("param");
+      // The row is resolved here rather than inside the reconciliation so this read has exactly two
+      // outcomes — the report, or a 404. A reconciliation is a pure read: there is no state it can
+      // refuse from, and declaring the write surface's conflict responses on it would describe a
+      // failure this route cannot produce.
+      const stocktake = await readCustodyStocktake(firm.firmDatabase, stocktakeId);
+      if (stocktake === undefined) {
+        return problemJson(c, {
+          type: "not-found",
+          title: "Not found",
+          status: 404,
+          detail: "No such custody stocktake in this firm.",
+        });
+      }
+      return c.json((await reconcileAgainstRegister(firm.firmDatabase, stocktake)) as never, 200);
+    },
+  );
+
+  app.openapi(
+    { ...closeStocktakeRoute, middleware: chokepointMiddleware(chokepoint, closeStocktakeRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { stocktakeId } = c.req.valid("param");
+      const request = c.req.valid("json");
+      try {
+        const closed = await closeCustodyStocktake(
+          firm.firmDatabase,
+          stocktakeId,
+          request,
+          serviceOptions(c),
+        );
+        await commitEffectBatch(firm.firmDatabase, closed.effect, {
+          now: () => new Date().toISOString(),
+        });
+        return c.json(
+          { id: closed.stocktakeId, status: closed.status, counts: closed.counts } as never,
+          200,
+        );
+      } catch (caught) {
+        return custodyErrorResponse(c, caught);
+      }
+    },
+  );
+
+  app.openapi(
     { ...renderLabelsRoute, middleware: chokepointMiddleware(chokepoint, renderLabelsRoute) },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
@@ -1929,6 +2442,48 @@ export function registerCustodyRoutes(app: CustodyApp, chokepoint: Chokepoint): 
       }
     },
   );
+}
+
+// The five findings are returned as one nested object rather than five sibling columns: they are one
+// answer to one question, and a client that showed four of them and dropped the fifth would be
+// reporting a cleaner count than the firm actually took.
+function stocktakeView(row: {
+  id: string;
+  name: string;
+  scope_location_id: string | null;
+  status: string;
+  opened_at: string;
+  opened_by_user_id: string | null;
+  closed_at: string | null;
+  closed_by_user_id: string | null;
+  matched_count: number | null;
+  missing_count: number | null;
+  misplaced_count: number | null;
+  unexpected_count: number | null;
+  unregistered_count: number | null;
+  note: string | null;
+}) {
+  return {
+    id: row.id,
+    name: row.name,
+    scopeLocationId: row.scope_location_id,
+    status: row.status,
+    openedAt: row.opened_at,
+    openedByUserId: row.opened_by_user_id,
+    closedAt: row.closed_at,
+    closedByUserId: row.closed_by_user_id,
+    counts:
+      row.matched_count === null
+        ? null
+        : {
+            matched: row.matched_count,
+            missing: row.missing_count ?? 0,
+            misplaced: row.misplaced_count ?? 0,
+            unexpected: row.unexpected_count ?? 0,
+            unregistered: row.unregistered_count ?? 0,
+          },
+    note: row.note,
+  };
 }
 
 function locationView(row: {

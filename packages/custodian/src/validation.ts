@@ -45,7 +45,14 @@ export type CustodyValidationCode =
   | "custody-invalid-review-interval"
   // A label sheet was asked for with nothing on it, or with more than one sheet run can carry.
   | "custody-label-selection-invalid"
-  | "custody-scan-file-not-filed-here";
+  | "custody-scan-file-not-filed-here"
+  // A stocktake that is no longer taking sightings: closed or abandoned. Recording against one, or
+  // closing it a second time, would change a reconciliation somebody has already read and acted on.
+  | "custody-stocktake-closed"
+  | "custody-unknown-stocktake"
+  // A sighting whose shape does not match what its kind asserts — an `unregistered` observation with
+  // no description of what was found, a `sighted` naming no location.
+  | "custody-invalid-sighting";
 
 export class CustodyValidationError extends Error {
   constructor(

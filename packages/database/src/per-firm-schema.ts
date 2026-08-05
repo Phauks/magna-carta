@@ -26,6 +26,8 @@ import type {
   CustodyOwnerId,
   CustodyPacketId,
   CustodyScanId,
+  CustodyStocktakeId,
+  CustodyStocktakeSightingId,
   CustomFieldId,
   CustomFieldValueId,
   DirectoryAddressId,
@@ -2889,6 +2891,129 @@ export const custodyNumberAllocation = sqliteTable(
   (table) => [
     primaryKey({ columns: [table.scopeKey, table.drawnValue] }),
     index("custody_number_allocation_packet_index").on(table.packetId),
+  ],
+);
+
+// One physical count of the register, or of one branch of the container tree. A stocktake OBSERVES
+// and REPORTS; it is the only part of Custodian that touches no packet, no item, and no movement.
+// Nothing on this path disposes of property, relocates it, or corrects the register: a count that
+// silently moved a packet to where somebody said they saw it would destroy the one thing the count is
+// worth having for, which is the difference between what the register claims and what is on the
+// shelf. The reconciliation names corrective movements as PROPOSALS, and a person records each one
+// through the ordinary movement write path or does not.
+//
+// scope_location_id null means the whole register. A scoped count covers the named node and
+// everything beneath it, which is what "we counted the Reno safe" means to the person who did it.
+//
+// The four discrepancy counts are frozen here on close. The lines behind them are recomputed on
+// every read against a register that keeps moving, so they answer "what is different now"; the
+// counts answer "what did the count find", which is the number a firm reports and cannot have drift
+// under it afterwards.
+export const custodyStocktake = sqliteTable(
+  "custody_stocktake",
+  {
+    id: text("id").primaryKey().$type<CustodyStocktakeId>(), // custodyStocktake_ handle
+    name: text("name").notNull(), // the firm's own label for this count
+    scopeLocationId: text("scope_location_id")
+      .$type<CustodyLocationId>()
+      .references(() => custodyLocation.id),
+    // `abandoned` is a real outcome, not a tidy-up: a count begun and not finished must not close as
+    // if it had counted everything, because the reconciliation of a half-done count reads as a safe
+    // full of missing originals. An abandoned stocktake freezes no counts.
+    status: text("status", { enum: ["open", "closed", "abandoned"] }).notNull(),
+    openedAt: text("opened_at").notNull(),
+    openedByUserId: text("opened_by_user_id").$type<UserId>(),
+    closedAt: text("closed_at"),
+    closedByUserId: text("closed_by_user_id").$type<UserId>(),
+    // Frozen on close, null while open and on an abandoned count.
+    matchedCount: integer("matched_count"),
+    missingCount: integer("missing_count"),
+    misplacedCount: integer("misplaced_count"),
+    unexpectedCount: integer("unexpected_count"),
+    unregisteredCount: integer("unregistered_count"),
+    note: text("note"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    index("custody_stocktake_status_opened_index").on(table.status, table.openedAt),
+    index("custody_stocktake_scope_index").on(table.scopeLocationId),
+    check("custody_stocktake_name_check", sql`length(${table.name}) > 0`),
+    check(
+      "custody_stocktake_status_check",
+      sql`${table.status} IN ('open', 'closed', 'abandoned')`,
+    ),
+    // A closed count names when it closed; an open one cannot. Stated in the schema because the
+    // reconciliation read branches on it, and a row that claimed both would make the report lie.
+    check(
+      "custody_stocktake_closure_check",
+      sql`(${table.status} = 'open' AND ${table.closedAt} IS NULL) OR (${table.status} <> 'open' AND ${table.closedAt} IS NOT NULL)`,
+    ),
+  ],
+);
+
+// One observation a person made during a count: what they saw, where they saw it, and — frozen on
+// the same row — where the register expected it at that moment. This is EVIDENTIARY, which is why it
+// carries the movement ledger's append-only discipline rather than the ordinary child-table one: it
+// is a named person's assertion about a physical object at a point in time, and an assertion that
+// can be edited afterwards is worth nothing in the dispute a custody register exists for. A mistake
+// is corrected by recording the later, truer observation; both stay on the record, which is what
+// actually happened.
+//
+// expected_location_id is copied from the packet at the moment of the sighting rather than joined at
+// read time, so "sighted on the wrong shelf" stays a fact about the count even after somebody moves
+// the packet to the right one.
+//
+// Three shapes, and the CHECK holds them apart: a `sighted` row names a packet and where it was seen;
+// a `not_found` row names a packet somebody looked for and did not find (which is a different and
+// much stronger statement than a packet nobody got to); an `unregistered` row names no packet at all,
+// because it is the unlabelled envelope on the shelf that the register has no row for.
+export const custodyStocktakeSighting = sqliteTable(
+  "custody_stocktake_sighting",
+  {
+    id: text("id").primaryKey().$type<CustodyStocktakeSightingId>(), // custodyStocktakeSighting_ handle
+    stocktakeId: text("stocktake_id")
+      .notNull()
+      .$type<CustodyStocktakeId>()
+      .references(() => custodyStocktake.id),
+    kind: text("kind", { enum: ["sighted", "not_found", "unregistered"] }).notNull(),
+    packetId: text("packet_id")
+      .$type<CustodyPacketId>()
+      .references(() => custodyPacket.id),
+    itemId: text("item_id")
+      .$type<CustodyItemId>()
+      .references(() => custodyItem.id),
+    // Where the observation was made. Null only on a `not_found` recorded without naming the place
+    // that was searched.
+    locationId: text("location_id")
+      .$type<CustodyLocationId>()
+      .references(() => custodyLocation.id),
+    // Where the register expected the packet when this observation was recorded. Null when the
+    // register expected it nowhere — it was checked out, released, or never in the register at all.
+    expectedLocationId: text("expected_location_id")
+      .$type<CustodyLocationId>()
+      .references(() => custodyLocation.id),
+    // What the observer physically found, in their words. Required on an `unregistered` row, since
+    // it is the only description of the object that exists anywhere.
+    description: text("description"),
+    // The physical act and the typing are different events, exactly as they are on a movement.
+    observedAt: text("observed_at").notNull(),
+    recordedAt: text("recorded_at").notNull(),
+    observedByUserId: text("observed_by_user_id").$type<UserId>(),
+    note: text("note"),
+  },
+  (table) => [
+    index("custody_stocktake_sighting_stocktake_index").on(table.stocktakeId, table.observedAt),
+    index("custody_stocktake_sighting_packet_index").on(table.packetId),
+    index("custody_stocktake_sighting_location_index").on(table.locationId),
+    check(
+      "custody_stocktake_sighting_kind_check",
+      sql`${table.kind} IN ('sighted', 'not_found', 'unregistered')`,
+    ),
+    check(
+      "custody_stocktake_sighting_shape_check",
+      sql`(${table.kind} = 'sighted' AND ${table.packetId} IS NOT NULL AND ${table.locationId} IS NOT NULL) OR (${table.kind} = 'not_found' AND ${table.packetId} IS NOT NULL) OR (${table.kind} = 'unregistered' AND ${table.packetId} IS NULL AND ${table.itemId} IS NULL AND ${table.locationId} IS NOT NULL AND ${table.description} IS NOT NULL AND length(${table.description}) > 0)`,
+    ),
   ],
 );
 

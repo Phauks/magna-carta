@@ -76,6 +76,11 @@ export interface AssemblyAbsence {
   readonly key: string;
   // What the document shows where the value would have been. Never the value — there is none.
   readonly rendered: "blank" | "placeholder";
+  // Why, when resolution knew why and the marker on the page does not say it — an ambiguous Directory
+  // role names how many candidates the matter had. Null for an ordinary missing value: "the matter has
+  // nothing here" is what the marker already says, and restating it would bury the cases that need
+  // saying. Never a value.
+  readonly reason: string | null;
 }
 
 // How many of each site the assembly worked out, and how each came out. No expression text, no
@@ -116,6 +121,28 @@ export function absenceMarkerFor(key: string): string {
     .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
     .toUpperCase();
   return `[${words}]`;
+}
+
+// One absence, with whatever resolution was able to say about it. Every absence in the walk is recorded
+// through here, so a key can never be recorded with a reason at one site and without it at another.
+function recordAbsence(
+  state: AssemblyState,
+  key: string,
+  rendered: AssemblyAbsence["rendered"],
+): void {
+  state.absences.set(key, {
+    key,
+    rendered,
+    reason: state.context.absenceReasons.get(key) ?? null,
+  });
+}
+
+// What resolution had to say about a key, appended to a failure message when it had anything. A block
+// that will not resolve because the matter has three opposing parties should say so where the author
+// reads the failure, not only in the absence list.
+function reasonSuffix(state: AssemblyState, key: string): string {
+  const reason = state.context.absenceReasons.get(key);
+  return reason === undefined ? "" : ` ${reason}`;
 }
 
 const PLACEHOLDER_PATTERN = /\{\{([^{}]*)\}\}/g;
@@ -386,7 +413,7 @@ function expandBlock(
     fail(
       state,
       "expression-unresolved",
-      `the condition "${source}" cannot be worked out because this matter supplies no value for "${evaluation.name}". Write it as has(${evaluation.name}) if the clause should simply be left out when the value is missing.`,
+      `the condition "${source}" cannot be worked out because this matter supplies no value for "${evaluation.name}".${reasonSuffix(state, evaluation.name)} Write it as has(${evaluation.name}) if the clause should simply be left out when the value is missing.`,
       [evaluation.name],
     );
     return [];
@@ -430,7 +457,7 @@ function expandRepeat(
     fail(
       state,
       "expression-unresolved",
-      `the repeating block over "${source}" cannot be worked out because this matter supplies no value for "${evaluation.name}".`,
+      `the repeating block over "${source}" cannot be worked out because this matter supplies no value for "${evaluation.name}".${reasonSuffix(state, evaluation.name)}`,
       [evaluation.name],
     );
     return [];
@@ -541,7 +568,7 @@ function renderPlaceholder(body: string, frame: Frame, state: AssemblyState): st
     // A key that is not in the dictionary at all cannot have been resolved, so it is an absence rather
     // than a substitution. Registration refuses these, so reaching one here means the dictionary shrank
     // under a template registered against a wider one.
-    state.absences.set(key, { key, rendered: "placeholder" });
+    recordAbsence(state, key, "placeholder");
     return absenceMarkerFor(key);
   }
 
@@ -558,10 +585,10 @@ function renderPlaceholder(body: string, frame: Frame, state: AssemblyState): st
       return absenceMarkerFor(key);
     }
     if (entry.absence === "blank") {
-      state.absences.set(key, { key, rendered: "blank" });
+      recordAbsence(state, key, "blank");
       return "";
     }
-    state.absences.set(key, { key, rendered: "placeholder" });
+    recordAbsence(state, key, "placeholder");
     return absenceMarkerFor(key);
   }
 
@@ -598,7 +625,7 @@ function renderComputedField(body: string, frame: Frame, state: AssemblyState): 
   }
   if (evaluation.kind === "unresolved") {
     tally(state, "computedField", "unresolved");
-    state.absences.set(evaluation.name, { key: evaluation.name, rendered: "placeholder" });
+    recordAbsence(state, evaluation.name, "placeholder");
     return absenceMarkerFor(evaluation.name);
   }
 

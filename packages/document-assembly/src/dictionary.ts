@@ -1,4 +1,5 @@
 import type { AbsenceBehaviour, MergeSource, MergeValueType, Sensitivity } from "./types.ts";
+import { DIRECTORY_ROLE_DICTIONARY_ENTRIES } from "./directory-role-bindings.ts";
 import { legalFormatsFor } from "./format.ts";
 import type { ExpressionType } from "./expression/catalog.ts";
 import type { ExpressionScope, NameBinding } from "./expression/check.ts";
@@ -38,8 +39,9 @@ export interface DictionaryItemField {
   readonly description: string;
 }
 
-// The slice-1 dictionary: matter, the matter's home location, the firm, the matter's client party, and
-// system values. Directory role links and firm-defined custom fields widen it in slice 2·6·2.
+// The platform's shipped entries: matter, the matter's home location, the firm, the matter's client
+// party, the Directory role sources the matter's party links supply, and system values. A firm's own
+// fields widen this list per firm at read time (custom-field-bindings.ts); nothing else does.
 //
 // `location.*` resolves from THE MATTER'S home location, never the acting member's, so a document
 // assembled by a member of one office on a matter belonging to another carries the correct office
@@ -225,6 +227,12 @@ export const DICTIONARY: readonly DictionaryEntry[] = [
     absence: "fail",
     description: "The date the document was assembled, in the matter's office's time zone.",
   },
+  // The matter's other parties, one group of entries per role the platform ships a source for. Generated
+  // rather than written out because the three keys a role contributes are the same three every time, and
+  // a hand-written copy per role is four chances to give one of them a different absence behaviour than
+  // its siblings. They resolve from the SAME party read `matter.parties` uses — see
+  // directory-role-bindings.ts.
+  ...DIRECTORY_ROLE_DICTIONARY_ENTRIES,
 ];
 
 // One index per entry list, built once and remembered against the list itself. A firm's catalogue is

@@ -211,6 +211,113 @@ describe("a release cannot be appended without its authority and identity captur
   });
 });
 
+// A stocktake sighting is a named person's assertion that they physically saw a specific original on
+// a specific shelf on a specific day — the whole evidentiary value of a count. So it carries the
+// movement ledger's append-only discipline, and like the ledger's it is asserted at the database with
+// raw SQL: a service-level test would only prove that the service did not try.
+describe("custody_stocktake_sighting is append-only at the database", () => {
+  const SIGHTING_COLUMNS =
+    "id, stocktake_id, kind, packet_id, item_id, location_id, expected_location_id, description, observed_at, recorded_at, observed_by_user_id, note";
+
+  function seedSighting(raw: ReturnType<typeof migratedDatabase>["raw"]): void {
+    seedPacket(raw);
+    raw.exec(`
+      INSERT INTO custody_stocktake (id, name, status, opened_at, created_at, updated_at)
+        VALUES ('custodyStocktake_seed00000000000', 'March count', 'open', '2026-08-05T00:00:00.000Z', '2026-08-05T00:00:00.000Z', '2026-08-05T00:00:00.000Z');
+      INSERT INTO custody_stocktake_sighting (${SIGHTING_COLUMNS})
+        VALUES ('custodyStocktakeSighting_seed000', 'custodyStocktake_seed00000000000', 'sighted', 'custodyPacket_seed0000000000000000', NULL, 'custodyLocation_seed000000000000000', 'custodyLocation_seed000000000000000', NULL, '2026-08-05T09:00:00.000Z', '2026-08-05T09:00:00.000Z', NULL, NULL);
+    `);
+  }
+
+  it("refuses an UPDATE", () => {
+    const { raw } = migratedDatabase();
+    seedSighting(raw);
+    expect(() =>
+      raw.exec(
+        `UPDATE custody_stocktake_sighting SET kind = 'not_found' WHERE id = 'custodyStocktakeSighting_seed000'`,
+      ),
+    ).toThrow(/custody_stocktake_sighting is append-only/);
+  });
+
+  it("refuses a DELETE", () => {
+    const { raw } = migratedDatabase();
+    seedSighting(raw);
+    expect(() =>
+      raw.exec(
+        `DELETE FROM custody_stocktake_sighting WHERE id = 'custodyStocktakeSighting_seed000'`,
+      ),
+    ).toThrow(/custody_stocktake_sighting is append-only/);
+  });
+
+  // REPLACE deletes-then-reinserts on a primary-key collision WITHOUT firing the delete or update
+  // triggers, so without the BEFORE INSERT guard this would overwrite an evidentiary row in place.
+  it("refuses an INSERT OR REPLACE onto an existing row", () => {
+    const { raw } = migratedDatabase();
+    seedSighting(raw);
+    expect(() =>
+      raw.exec(
+        `INSERT OR REPLACE INTO custody_stocktake_sighting (${SIGHTING_COLUMNS})
+           VALUES ('custodyStocktakeSighting_seed000', 'custodyStocktake_seed00000000000', 'sighted', 'custodyPacket_seed0000000000000000', NULL, 'custodyLocation_seed000000000000000', NULL, NULL, '2026-08-05T10:00:00.000Z', '2026-08-05T10:00:00.000Z', NULL, NULL)`,
+      ),
+    ).toThrow(/custody_stocktake_sighting is append-only/);
+  });
+
+  it("still accepts a later, truer observation of the same packet", () => {
+    const { raw } = migratedDatabase();
+    seedSighting(raw);
+    raw.exec(
+      `INSERT INTO custody_stocktake_sighting (${SIGHTING_COLUMNS})
+         VALUES ('custodyStocktakeSighting_later00', 'custodyStocktake_seed00000000000', 'not_found', 'custodyPacket_seed0000000000000000', NULL, 'custodyLocation_seed000000000000000', 'custodyLocation_seed000000000000000', NULL, '2026-08-05T11:00:00.000Z', '2026-08-05T11:00:00.000Z', NULL, NULL)`,
+    );
+    const rows = raw.prepare(`SELECT COUNT(*) AS total FROM custody_stocktake_sighting`).all() as {
+      total: number;
+    }[];
+    // Both stay. A correction is the later observation, not an edit of the earlier one.
+    expect(rows[0]?.total).toBe(2);
+  });
+
+  it("refuses an observation recorded against a count that has already closed", () => {
+    const { raw } = migratedDatabase();
+    seedSighting(raw);
+    raw.exec(
+      `UPDATE custody_stocktake SET status = 'closed', closed_at = '2026-08-05T12:00:00.000Z' WHERE id = 'custodyStocktake_seed00000000000'`,
+    );
+    expect(() =>
+      raw.exec(
+        `INSERT INTO custody_stocktake_sighting (${SIGHTING_COLUMNS})
+           VALUES ('custodyStocktakeSighting_late000', 'custodyStocktake_seed00000000000', 'sighted', 'custodyPacket_seed0000000000000000', NULL, 'custodyLocation_seed000000000000000', NULL, NULL, '2026-08-05T13:00:00.000Z', '2026-08-05T13:00:00.000Z', NULL, NULL)`,
+      ),
+    ).toThrow(/only be recorded against an open stocktake/);
+  });
+
+  it("refuses an unregistered observation that describes nothing, and one that names a packet", () => {
+    const { raw } = migratedDatabase();
+    seedSighting(raw);
+    expect(() =>
+      raw.exec(
+        `INSERT INTO custody_stocktake_sighting (${SIGHTING_COLUMNS})
+           VALUES ('custodyStocktakeSighting_bare00', 'custodyStocktake_seed00000000000', 'unregistered', NULL, NULL, 'custodyLocation_seed000000000000000', NULL, NULL, '2026-08-05T13:00:00.000Z', '2026-08-05T13:00:00.000Z', NULL, NULL)`,
+      ),
+    ).toThrow(/custody_stocktake_sighting_shape_check/);
+    expect(() =>
+      raw.exec(
+        `INSERT INTO custody_stocktake_sighting (${SIGHTING_COLUMNS})
+           VALUES ('custodyStocktakeSighting_named0', 'custodyStocktake_seed00000000000', 'unregistered', 'custodyPacket_seed0000000000000000', NULL, 'custodyLocation_seed000000000000000', NULL, 'An envelope', '2026-08-05T13:00:00.000Z', '2026-08-05T13:00:00.000Z', NULL, NULL)`,
+      ),
+    ).toThrow(/custody_stocktake_sighting_shape_check/);
+  });
+
+  it("refuses a stocktake that claims to be open and closed at once", () => {
+    const { raw } = migratedDatabase();
+    expect(() =>
+      raw.exec(
+        `INSERT INTO custody_stocktake (id, name, status, opened_at, closed_at, created_at, updated_at)
+           VALUES ('custodyStocktake_bothWays000000', 'March count', 'open', '2026-08-05T00:00:00.000Z', '2026-08-05T12:00:00.000Z', '2026-08-05T00:00:00.000Z', '2026-08-05T00:00:00.000Z')`,
+      ),
+    ).toThrow(/custody_stocktake_closure_check/);
+  });
+});
+
 describe("the custody schema landed with the register's structural constraints", () => {
   it("refuses a review interval of zero months", () => {
     const { raw } = migratedDatabase();
