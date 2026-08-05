@@ -208,7 +208,20 @@ export function insertTrustHoldStatement(
 
 // A hold is active when it is a placement and no row names it as released — status DERIVED from the
 // link, exactly as a ledger entry's reversed status is. There is no released flag to fall out of
-// sync with the rows.
+// sync with the rows. Written once, as a predicate over a hold alias, because every reader of
+// "what is still held" has to agree on it: available balance, the close gate, and the fitness query
+// that re-proves them both.
+export function activeTrustHoldPredicate(holdAlias: string): string {
+  return `${holdAlias}.releases_hold_id IS NULL AND NOT EXISTS (SELECT 1 FROM ${TRUST_HOLD_TABLE} r WHERE r.releases_hold_id = ${holdAlias}.id)`;
+}
+
+// What one node has under active holds, as a scalar subquery over a node alias. Shared by the
+// available-balance read and the matter-close read so the two can never disagree about what is
+// spoken for.
+function heldMinorForNode(nodeAlias: string): string {
+  return `COALESCE((SELECT SUM(p.amount_minor) FROM ${TRUST_HOLD_TABLE} p WHERE p.node_id = ${nodeAlias}.id AND ${activeTrustHoldPredicate("p")}), 0)`;
+}
+
 export function selectTrustHoldStatement(database: SqlDatabase, holdId: TrustHoldId): SqlStatement {
   return database
     .prepare(
@@ -226,9 +239,41 @@ export function selectTrustAvailableBalanceStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `SELECT b.balance_minor AS balance_minor, COALESCE((SELECT SUM(p.amount_minor) FROM ${TRUST_HOLD_TABLE} p WHERE p.node_id = n.id AND p.releases_hold_id IS NULL AND NOT EXISTS (SELECT 1 FROM ${TRUST_HOLD_TABLE} r WHERE r.releases_hold_id = p.id)), 0) AS held_minor FROM ${TRUST_LEDGER_NODE_TABLE} n JOIN ${ACCOUNT_BALANCE_TABLE} b ON b.account_id = n.ledger_account_id WHERE n.id = ?1`,
+      `SELECT b.balance_minor AS balance_minor, ${heldMinorForNode("n")} AS held_minor FROM ${TRUST_LEDGER_NODE_TABLE} n JOIN ${ACCOUNT_BALANCE_TABLE} b ON b.account_id = n.ledger_account_id WHERE n.id = ?1`,
     )
     .bind(nodeId);
+}
+
+// Every matter leaf this matter owns, across every trust account, with what each holds and what is
+// under an active hold. The matter-close gate reads this: a matter with no leaf returns no rows and
+// closes freely, because the absence of a trust ledger is not a refusal.
+export function selectMatterTrustPositionsStatement(
+  database: SqlDatabase,
+  matterId: MatterId,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT n.id AS node_id, n.trust_account_id AS trust_account_id, a.name AS trust_account_name, a.currency AS currency, b.balance_minor AS balance_minor, ${heldMinorForNode("n")} AS held_minor FROM ${TRUST_LEDGER_NODE_TABLE} n JOIN ${TRUST_ACCOUNT_TABLE} a ON a.id = n.trust_account_id JOIN ${ACCOUNT_BALANCE_TABLE} b ON b.account_id = n.ledger_account_id WHERE n.matter_id = ?1 AND n.kind = 'matter' ORDER BY a.name, n.id`,
+    )
+    .bind(matterId);
+}
+
+// THE close guard, and the reason it looks like a write it never performs. It rides the matter-close
+// batch and re-asks, inside that transaction, the question the close read a moment earlier: does any
+// of this matter's client ledgers still hold money, or carry an active disputed-funds hold? When the
+// answer is no it matches no rows and costs the batch nothing. When the answer is yes it tries to
+// write a `kind` the table's CHECK does not permit, and the constraint aborts the entire batch —
+// the close, its audit row, its outbox message, and its idempotency record together. The value can
+// never be stored, so this statement cannot corrupt a node even in the case where it fires.
+export function refuseMatterCloseWithTrustBalanceStatement(
+  database: SqlDatabase,
+  matterId: MatterId,
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${TRUST_LEDGER_NODE_TABLE} SET kind = 'close-refused-trust-balance' WHERE matter_id = ?1 AND kind = 'matter' AND (EXISTS (SELECT 1 FROM ${ACCOUNT_BALANCE_TABLE} b WHERE b.account_id = ${TRUST_LEDGER_NODE_TABLE}.ledger_account_id AND b.balance_minor <> 0) OR EXISTS (SELECT 1 FROM ${TRUST_HOLD_TABLE} p WHERE p.node_id = ${TRUST_LEDGER_NODE_TABLE}.id AND ${activeTrustHoldPredicate("p")}))`,
+    )
+    .bind(matterId);
 }
 
 export interface InsertTrustTransferRow {

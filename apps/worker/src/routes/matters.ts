@@ -11,12 +11,16 @@ import {
   updateMatter,
   type NumberContext,
 } from "@magna-carta/matters/matter-service";
-import { ClosePreconditionError } from "@magna-carta/matters/close-preconditions";
+import {
+  ClosePreconditionError,
+  type ClosePrecondition,
+} from "@magna-carta/matters/close-preconditions";
 import { NumberingRenderError } from "@magna-carta/matters/numbering/render";
 import { listConsultations, listMatters } from "@magna-carta/matters/queries";
 import { staleConsultationAgeDaysDefinition } from "@magna-carta/matters/settings";
 import { MatterValidationError } from "@magna-carta/matters/validation";
 import { selectMatterStatement } from "@magna-carta/matters/matter-statements";
+import { matterTrustClosePrecondition } from "@magna-carta/trust/close-precondition";
 import type { LocationId, MatterId, MatterTypeId, UserId } from "@magna-carta/identifiers/types";
 import type { Context } from "hono";
 import type { Bindings } from "../app.ts";
@@ -138,6 +142,11 @@ const RenumberRequest = z
   .openapi("RenumberMatterRequest");
 
 const matterParam = z.object({ id: identifierPathParam("matter", "id") });
+
+// The close rules, registered here because this app is where the subsystems meet: the matter shell
+// runs whatever it is handed and never imports the subsystem that owns a rule. Trust is the first
+// and, today, the only one — a matter whose client trust ledger still holds money does not close.
+const CLOSE_PRECONDITIONS: readonly ClosePrecondition[] = [matterTrustClosePrecondition];
 
 // ---- shared helpers ----
 
@@ -518,8 +527,9 @@ const closeMatterRoute = defineOpenAPIRoute(closeMatterMeta, {
   path: "/api/v1/matters/{id}/close",
   description:
     "Closes a matter (archived-but-additive — it leaves active lists but still accepts documents). " +
-    "Runs the close-precondition registry; a failure returns the precondition codes. Refuses a " +
-    "matter that is already closed, so its recorded close date never moves.",
+    "Runs the close preconditions first; a matter whose client trust ledger still holds money, or " +
+    "carries an active disputed-funds hold, is refused with the balance and the movements that " +
+    "clear it. Refuses a matter that is already closed, so its recorded close date never moves.",
   request: { headers: idempotencyKeyHeader, params: matterParam },
   responses: {
     200: {
@@ -530,7 +540,11 @@ const closeMatterRoute = defineOpenAPIRoute(closeMatterMeta, {
     401: authErrors[401],
     403: authErrors[403],
     404: authErrors[404],
-    409: idempotencyErrors[409],
+    409: {
+      description:
+        "A close precondition refused the matter, a request with this Idempotency-Key is still in progress, or the matter is already closed",
+      content: { "application/problem+json": { schema: Problem } },
+    },
     422: idempotencyErrors[422],
     429: authErrors[429],
   },
@@ -815,16 +829,17 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
           clock: serviceClock(),
           actorUserId: userId,
           idempotency,
+          closePreconditions: CLOSE_PRECONDITIONS,
         });
         if (result.idempotentReplay) c.header("Idempotency-Replayed", "true");
         return c.json({ matterId: id } as z.infer<typeof StatusAck>, 200);
       } catch (caught) {
         if (caught instanceof ClosePreconditionError) {
           return problemJson(c, {
-            type: "validation",
-            title: "Matter cannot be closed",
-            status: 422,
-            detail: "One or more close preconditions failed.",
+            type: "matter-close-refused",
+            title: "Matter cannot be closed yet",
+            status: 409,
+            detail: "One or more close preconditions refused this matter.",
             errors: caught.failures.map((failure) => ({
               path: "$",
               code: failure.code,

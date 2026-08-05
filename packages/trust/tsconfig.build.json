@@ -27,6 +27,9 @@
       "path": "../ledger/tsconfig.build.json"
     },
     {
+      "path": "../matters/tsconfig.build.json"
+    },
+    {
       "path": "../money/tsconfig.build.json"
     }
   ],

@@ -590,7 +590,7 @@ export const mattersUpdate = <ThrowOnError extends boolean = false>(options: Opt
 export const mattersOpen = <ThrowOnError extends boolean = false>(options: Options<MattersOpenData, ThrowOnError>): RequestResult<MattersOpenResponses, MattersOpenErrors, ThrowOnError> => (options.client ?? client).post<MattersOpenResponses, MattersOpenErrors, ThrowOnError>({ url: '/api/v1/matters/{id}/open', ...options });
 
 /**
- * Closes a matter (archived-but-additive — it leaves active lists but still accepts documents). Runs the close-precondition registry; a failure returns the precondition codes. Refuses a matter that is already closed, so its recorded close date never moves.
+ * Closes a matter (archived-but-additive — it leaves active lists but still accepts documents). Runs the close preconditions first; a matter whose client trust ledger still holds money, or carries an active disputed-funds hold, is refused with the balance and the movements that clear it. Refuses a matter that is already closed, so its recorded close date never moves.
  */
 export const mattersClose = <ThrowOnError extends boolean = false>(options: Options<MattersCloseData, ThrowOnError>): RequestResult<MattersCloseResponses, MattersCloseErrors, ThrowOnError> => (options.client ?? client).post<MattersCloseResponses, MattersCloseErrors, ThrowOnError>({ url: '/api/v1/matters/{id}/close', ...options });
 
@@ -2087,7 +2087,7 @@ export const templatesFieldMappings = <ThrowOnError extends boolean = false>(opt
 export const templatesDeleteFieldMapping = <ThrowOnError extends boolean = false>(options: Options<TemplatesDeleteFieldMappingData, ThrowOnError>): RequestResult<TemplatesDeleteFieldMappingResponses, TemplatesDeleteFieldMappingErrors, ThrowOnError> => (options.client ?? client).delete<TemplatesDeleteFieldMappingResponses, TemplatesDeleteFieldMappingErrors, ThrowOnError>({ url: '/api/v1/merge-field-mappings/{mappingId}', ...options });
 
 /**
- * Returns the merge fields a template author may use, with the renderings each one supports and what a document shows when the matter has no value for it. This is the list a template is authored against; a placeholder naming anything outside it is refused at registration.
+ * Returns the merge fields a template author may use, with the renderings each one supports and what a document shows when the matter has no value for it. This is the list a template is authored against; a placeholder naming anything outside it is refused at registration. A field marked protected holds an encrypted value: any author may bind it, and it is filled in only for a member permitted to decrypt it, which is recorded.
  */
 export const templatesMergeFields = <ThrowOnError extends boolean = false>(options?: Options<TemplatesMergeFieldsData, ThrowOnError>): RequestResult<TemplatesMergeFieldsResponses, TemplatesMergeFieldsErrors, ThrowOnError> => (options?.client ?? client).get<TemplatesMergeFieldsResponses, TemplatesMergeFieldsErrors, ThrowOnError>({ url: '/api/v1/merge-fields', ...options });
 

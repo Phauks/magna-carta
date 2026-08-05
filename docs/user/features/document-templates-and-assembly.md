@@ -192,6 +192,42 @@ it — you are sent to Archive instead. An archived field simply stops filling i
 marker where it would have been, and the result names it, so you find out by reading rather than by
 someone noticing later.
 
+## The client's protected details
+
+Some of a client's details are held encrypted, and reading one of them is a permission you either have
+or do not — a tax identifier, a date of birth. A template can name them, and putting one in a document
+changes nothing about who may see it:
+
+```
+{{client.socialSecurityNumber}}
+{{client.employerIdentificationNumber}}
+{{client.dateOfBirth}}
+{{client.driversLicenseNumber}}
+{{client.accountNumber}}
+{{client.socialSecurityNumberLastFour}}
+```
+
+These fields are marked **protected** in the merge-field list and on a template's own field list, so
+you can see what a template asks for before anyone assembles it.
+
+**Anyone may put one in a template.** Naming a field is not reading it, so writing the template and
+registering it need no special permission — nothing is decrypted until a document is actually
+assembled.
+
+**Whether it fills in depends on who assembles the document.** If you are permitted to see the client's
+protected details, the value is filled in, and the fact that you saw it is recorded — the same record
+written when you look the value up on the client's own record. If you are not permitted, the document
+is still produced: where the value would have been, the draft carries a visible marker, and the result
+tells you which field was left out and which permission would fill it in. Pass the draft to a colleague
+who has that permission, or ask for it yourself.
+
+Nothing you are not permitted to see appears anywhere — not in the document, not in the record of what
+the assembly did, not in what the screen shows you.
+
+**The details come from the client's record in the Directory**, so the matter has to be linked to
+exactly one client there. If it is linked to none, or to more than one, none of these fields fills in
+and the result says which of the two it was.
+
 ## Your letterhead logo
 
 An office can hold your firm's mark, and a template draws it like any other field:
@@ -379,6 +415,8 @@ is a report, not a template.
 
 - **A party's own details** beyond their name and whether they are a person or an organisation — an
   address, a telephone number, an email.
-- **Fields holding protected information**, such as an identifier held encrypted.
+- **Protected details for anyone but the client** — an opposing party's date of birth, say.
+- **Marking one of your own custom fields as protected.** The protected fields today are the client's
+  identifiers held in the Directory.
 - **Producing a PDF** directly, and sending an assembled document straight for signature.
 - **Writing templates in the browser** — today they are written in Word and uploaded.

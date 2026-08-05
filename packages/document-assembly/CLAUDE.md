@@ -224,20 +224,50 @@ from that one sentence.
   The asymmetry is deliberate and load-bearing: a missing clause is invisible, a hole on the page is not.
   `has(key)` is the total form, so the safe reading is one word away.
 
+## The client's protected details (`client.socialSecurityNumber`, and its five siblings)
+
+- **`sensitivity: protected` is the ROUTING decision, not a label.** A protected entry resolves through
+  `src/protected-bindings.ts` and nothing else, and that module holds no ciphertext column name, derives
+  no key, and decrypts nothing. The plaintext arrives from `ResolutionInput.readProtectedIdentifier`, a
+  seam the caller wires to the protected-field chokepoint (`apps/worker/src/assemblies/assembly-consumer.ts`
+  → `@magna-carta/directory`'s `readIdentifier` → `readProtected`): permission gate, decrypt-audit row
+  committed BEFORE any plaintext, AAD-bound decrypt — inseparable and in that order. Adding a merge
+  field that reads an encrypted column any other way is the one change this subsystem must never take.
+- **The refusal is caught by IDENTITY, never re-derived.** `ProtectedReadForbiddenError` from
+  `@magna-carta/data-access/protected-fields` is what becomes an absence. Testing the permission set here
+  instead would be a second copy of the rule deciding who may read a client's sealed details, free to
+  drift from the one that guards the column. Anything that is not that error propagates — a decrypt that
+  broke is not an absence, and filing a document short of a value nobody was denied is the worse failure.
+- **A refusal is an ABSENCE, not an error and not a blank.** The assembly completes, the marker shows,
+  and the reason names the field and the permission — the whole actionable content. Aborting would make
+  one unreadable detail cost the document; a blank would file a document that reads as finished.
+- **The decrypt count is bounded by the MANIFEST, not batched.** Each ciphertext is bound to its own row
+  by its AAD and commits its own audit record, so there is no batch form of the chokepoint and inventing
+  one would mean bypassing it. One decrypt per protected key the manifest names, deduplicated before any
+  value is touched; a refusal costs exactly one attempt, because the permission guarding one sealed
+  identifier guards them all.
+- **The subject rides the party read.** Whose value it is comes from the matter's `client` party link —
+  one column on a read that already happens. A matter linking no single client decrypts NOTHING and
+  reports a reason naming the count, the same answer the ambiguous role sources give.
+- **The audit shape is the chokepoint's, unchanged.** Same event, same subject, same table, no
+  assembly-specific reason code. If assembly context ever needs recording, extend that one composition —
+  never write a second event, or "who saw this value" becomes two answers.
+- **A protected CUSTOM field is a different feature.** `custom_field` carries no protected declaration
+  and `custom_field_value` no ciphertext column; the `sensitivity` line in `src/custom-field-bindings.ts`
+  is where the declaration is read once they exist.
+
 ## Named seams (not built here)
 
-- **Protected-value binding** through the decrypt-permission-plus-audit path. Until it lands, no shipped
-  entry is `sensitivity: protected` — a dictionary entry that claimed it without going through
-  `readProtected` would be a silent downgrade of that invariant rather than an implementation of it.
-  Every list-valued item field (`matter.parties`, the role collections) is text and a firm's own fields
-  are all scalars, so nothing a firm can bind today is aggregable: the aggregates are exercised against
-  synthetic collections, as the money helpers are against synthetic amounts.
 - **A location time zone.** `timeZoneForLocation` in `src/resolve.ts` is the one place the column plugs
   in; every office resolves to the platform's normalized zone until it exists.
 - **A firm currency setting.** `ResolutionInput.currencyCode` is supplied by the caller precisely so
   this stays one line at the composition root when a firm may hold amounts in more than one currency.
 - **Content controls (`w:sdt`)** — structurally the best placeholder binding and immune to run
   splitting, deferred until a browser authoring surface can emit them.
+- **An aggregable collection.** Every list-valued item field (`matter.parties`, the role collections) is
+  text and a firm's own fields are all scalars, so nothing a firm can bind today is foldable: the
+  aggregates are exercised against synthetic collections, as the money helpers are against synthetic
+  amounts.
 
 ## Gotchas
 

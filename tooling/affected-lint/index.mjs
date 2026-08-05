@@ -16,16 +16,27 @@
 //
 // DEPTH (`--max-hops`). How far down the dependent chain to walk is a cost/latency dial, not a
 // correctness one, because the closure is re-walked in full before anything ships. Unbounded (the
-// default) is the complete answer and is what the merge and scheduled passes use. `--max-hops 1` — the
-// changed packages plus their DIRECT dependents — is the pull-request setting: it catches the type flip
-// a change actually propagates in the overwhelming majority of cases, at a fraction of the cost of
-// re-linting a foundational package's entire dependent set, and anything deeper than one hop is caught
-// by the unbounded pass before the change can reach a release.
+// default) is the complete answer. A cap of 1 — the changed packages plus their DIRECT dependents —
+// remains available, but the gate no longer uses it, because graph DISTANCE turned out to be a poor
+// proxy for lint COST here: `apps/worker` depends directly on 39 of the repository's 61 workspace
+// packages, so it sits one hop from nearly every change and a one-hop cap saved almost nothing.
+// `--defer-fanout-sinks` below measures cost directly instead.
+//
+// FAN-OUT SINKS (`--defer-fanout-sinks`). A package's type-aware lint cost is set by the size of the
+// type program the linter has to build, and that program is the package's own files plus everything
+// they import — so `typeProgramWeight` below (the lintable-file count of a package's transitive
+// DEPENDENCY closure) is the cost proxy. One package is a wild outlier on it, and re-linting that one
+// package as a DEPENDENT is most of the merge gate's bill. `--defer-fanout-sinks` drops such a package
+// from the scope when it is merely a dependent — never when it is itself changed, so an author's own
+// code is always linted on their own pull request. The dropped work is not skipped, it MOVES: every
+// trigger other than `pull_request` passes no such flag and lints the full unbounded closure, so the
+// union of the pull-request pass and the post-merge pass still covers everything the unbounded walk
+// covers. Coverage of that union is asserted by scope-fitness.mjs beside this file.
 //
 // Output (stdout): the literal `ALL` (lint the whole repo), the literal `NONE` (no lintable package
 // affected — skip), or a space-separated list of package directories to pass to `vp check --no-fmt`.
 // Human context goes to stderr.
-// Usage: `node tooling/affected-lint/index.mjs --base <ref> [--max-hops <n>]`.
+// Usage: `node tooling/affected-lint/index.mjs --base <ref> [--max-hops <n>] [--defer-fanout-sinks]`.
 
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
@@ -83,11 +94,99 @@ export function discoverPackages(root) {
   return packages;
 }
 
+// Directories that hold no hand-written source and must not count toward a package's weight: build
+// output, the git-ignored Rust->WASM output (`src/pkg`), and generated token/client trees. Counting
+// them would inflate the weight of whichever package happened to have been built in the checkout,
+// making the sink selection depend on build state rather than on the repository.
+const UNCOUNTED_DIRECTORIES = new Set([
+  "node_modules",
+  "dist",
+  "build",
+  "coverage",
+  "target",
+  "pkg",
+  "generated",
+  ".svelte-kit",
+  ".wrangler",
+  ".tsbuild",
+  ".vite",
+]);
+
+function countLintableFiles(directory) {
+  let total = 0;
+  let entries;
+  try {
+    entries = readdirSync(directory, { withFileTypes: true });
+  } catch {
+    return 0;
+  }
+  for (const entry of entries) {
+    if (entry.isDirectory()) {
+      if (!UNCOUNTED_DIRECTORIES.has(entry.name) && !entry.name.startsWith(".")) {
+        total += countLintableFiles(path.join(directory, entry.name));
+      }
+    } else if (LINT_EXTENSIONS.has(path.posix.extname(entry.name))) {
+      total += 1;
+    }
+  }
+  return total;
+}
+
+// The cost proxy: how many lintable files the type-aware linter has to pull into a type program to
+// lint this package — the package's own files plus every file in its transitive DEPENDENCY closure.
+// This is the direction the linter reads (a package's findings depend on what it imports), which is
+// the opposite of the dependent walk the scope is computed with, and it is what makes one package's
+// lint minutes and another's seconds. Returns name -> weight.
+export function computeTypeProgramWeights({ root, packages }) {
+  const ownFiles = new Map();
+  for (const [name, member] of packages) {
+    ownFiles.set(name, countLintableFiles(path.join(root, member.dir)));
+  }
+  const weights = new Map();
+  for (const name of packages.keys()) {
+    const closure = new Set();
+    const stack = [name];
+    while (stack.length > 0) {
+      const current = stack.pop();
+      if (closure.has(current)) continue;
+      closure.add(current);
+      for (const dependency of packages.get(current)?.deps ?? []) stack.push(dependency);
+    }
+    let weight = 0;
+    for (const member of closure) weight += ownFiles.get(member) ?? 0;
+    weights.set(name, weight);
+  }
+  return weights;
+}
+
+// A package is a fan-out sink when its type program is at least this share of every lintable file in
+// the workspace. Expressed as a SHARE rather than a file count so it needs no re-tuning as the repo
+// grows: the point is "this package's lint is effectively a whole-repo lint", which is a ratio, not an
+// absolute. Measured 2026-08-05: apps/worker's closure is 1261 of 1669 lintable files (75.6%); the next
+// package down is 550 (33%) and the median is 34 (2%). At 0.5 the rule selects exactly the one genuine
+// outlier, with the next candidate at two thirds of the threshold. Raise or lower it only with the
+// measured distribution in hand — scope-fitness.mjs beside this file prints it and fails if the rule ever
+// selects a broad slice of the workspace rather than a couple of outliers.
+export const FANOUT_SINK_SHARE = 0.5;
+
+export function selectFanoutSinks({ weights, share = FANOUT_SINK_SHARE, totalLintableFiles }) {
+  const threshold = totalLintableFiles * share;
+  const sinks = new Set();
+  for (const [name, weight] of weights) if (weight >= threshold) sinks.add(name);
+  return sinks;
+}
+
 // Pure core: given the changed files and the discovered package graph, decide the lint scope.
 // `maxHops` bounds how far the dependent walk goes (Infinity = the full transitive closure; 1 = the
-// changed packages plus their direct dependents). Returns { mode: "all" | "none", reason } or
-// { mode: "paths", paths }.
-export function computeAffected({ changedFiles, packages, maxHops = Number.POSITIVE_INFINITY }) {
+// changed packages plus their direct dependents). `sinks` (when given) are dropped from the scope
+// unless they are themselves changed — see the fan-out note at the top of this file. Returns
+// { mode: "all" | "none", reason } or { mode: "paths", paths, deferred }.
+export function computeAffected({
+  changedFiles,
+  packages,
+  maxHops = Number.POSITIVE_INFINITY,
+  sinks = new Set(),
+}) {
   if (!(maxHops >= 1)) {
     throw new Error(`affected-lint: --max-hops must be at least 1 (got ${maxHops})`);
   }
@@ -137,10 +236,29 @@ export function computeAffected({ changedFiles, packages, maxHops = Number.POSIT
     frontier = next;
   }
 
-  const paths = [...affected]
-    .map((name) => packages.get(name).dir)
-    .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
-  return { mode: "paths", paths };
+  // Drop the fan-out sinks that are only in scope AS DEPENDENTS. A sink the change itself touched
+  // stays: the rule is about not re-linting the repository's one whole-program package every time
+  // something it imports moves, never about skipping the author's own code.
+  const deferred = new Set();
+  for (const name of affected) {
+    if (sinks.has(name) && !changed.has(name)) deferred.add(name);
+  }
+  const scoped = [...affected].filter((name) => !deferred.has(name));
+
+  // The scope can never come back empty here: every changed package is in `affected` and none of them
+  // can be deferred, and `changed` is non-empty or we returned above. Asserted rather than assumed,
+  // because an empty scope is the one value the gate's contract has no branch for — it refuses to
+  // guess, so a refactor that broke the invariant would fail the gate on a confusing message instead
+  // of this one.
+  if (scoped.length === 0) {
+    throw new Error(
+      "affected-lint: deferral emptied a non-empty scope — the changed packages are missing",
+    );
+  }
+
+  const toDirectories = (names) =>
+    names.map((name) => packages.get(name).dir).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  return { mode: "paths", paths: toDirectories(scoped), deferred: toDirectories([...deferred]) };
 }
 
 function changedFilesSince(base) {
@@ -170,16 +288,40 @@ export function parseMaxHops(argv) {
   return Number(raw);
 }
 
+// Resolve the fan-out sinks for a real checkout: weigh every package's type program, then take the
+// outliers. Exported so the fitness function reports the same set the gate acts on.
+export function resolveFanoutSinks({ root, packages }) {
+  const weights = computeTypeProgramWeights({ root, packages });
+  // The workspace total is the sum of each package's OWN files, which is what a whole-repo lint
+  // covers; a weight is measured against that, not against the sum of the weights (which
+  // double-counts every shared dependency).
+  let totalLintableFiles = 0;
+  for (const member of packages.values()) {
+    totalLintableFiles += countLintableFiles(path.join(root, member.dir));
+  }
+  return { weights, totalLintableFiles, sinks: selectFanoutSinks({ weights, totalLintableFiles }) };
+}
+
 if (isMain()) {
   const baseIndex = process.argv.indexOf("--base");
   const base = baseIndex >= 0 ? process.argv[baseIndex + 1] : "HEAD~1";
   const maxHops = parseMaxHops(process.argv);
+  const deferSinks = process.argv.includes("--defer-fanout-sinks");
+  const root = process.cwd();
+  const packages = discoverPackages(root);
+  const sinks = deferSinks ? resolveFanoutSinks({ root, packages }).sinks : new Set();
   const result = computeAffected({
     changedFiles: changedFilesSince(base),
-    packages: discoverPackages(process.cwd()),
+    packages,
     maxHops,
+    sinks,
   });
   const depth = maxHops === Number.POSITIVE_INFINITY ? "full closure" : `${maxHops} hop(s)`;
+  if (result.deferred?.length) {
+    console.error(
+      `affected-lint: deferring ${result.deferred.length} fan-out sink(s) to the post-merge pass — ${result.deferred.join(", ")}`,
+    );
+  }
   if (result.mode === "all") {
     console.error(`affected-lint: whole repo — ${result.reason}`);
     console.log("ALL");

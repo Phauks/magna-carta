@@ -1239,7 +1239,7 @@ export const mattersOpenMutation = (options?: Partial<Options<MattersOpenData>>)
 };
 
 /**
- * Closes a matter (archived-but-additive — it leaves active lists but still accepts documents). Runs the close-precondition registry; a failure returns the precondition codes. Refuses a matter that is already closed, so its recorded close date never moves.
+ * Closes a matter (archived-but-additive — it leaves active lists but still accepts documents). Runs the close preconditions first; a matter whose client trust ledger still holds money, or carries an active disputed-funds hold, is refused with the balance and the movements that clear it. Refuses a matter that is already closed, so its recorded close date never moves.
  */
 export const mattersCloseMutation = (options?: Partial<Options<MattersCloseData>>): MutationOptions<MattersCloseResponse, MattersCloseError, Options<MattersCloseData>> => {
     const mutationOptions: MutationOptions<MattersCloseResponse, MattersCloseError, Options<MattersCloseData>> = {
@@ -4424,7 +4424,7 @@ export const templatesDeleteFieldMappingMutation = (options?: Partial<Options<Te
 export const templatesMergeFieldsQueryKey = (options?: Options<TemplatesMergeFieldsData>) => createQueryKey('templatesMergeFields', options);
 
 /**
- * Returns the merge fields a template author may use, with the renderings each one supports and what a document shows when the matter has no value for it. This is the list a template is authored against; a placeholder naming anything outside it is refused at registration.
+ * Returns the merge fields a template author may use, with the renderings each one supports and what a document shows when the matter has no value for it. This is the list a template is authored against; a placeholder naming anything outside it is refused at registration. A field marked protected holds an encrypted value: any author may bind it, and it is filled in only for a member permitted to decrypt it, which is recorded.
  */
 export const templatesMergeFieldsOptions = (options?: Options<TemplatesMergeFieldsData>) => queryOptions<TemplatesMergeFieldsResponse, TemplatesMergeFieldsError, TemplatesMergeFieldsResponse, ReturnType<typeof templatesMergeFieldsQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {

@@ -1214,6 +1214,9 @@ importers:
       '@magna-carta/database':
         specifier: workspace:*
         version: link:../database
+      '@magna-carta/directory':
+        specifier: workspace:*
+        version: link:../directory
       '@magna-carta/identifiers':
         specifier: workspace:*
         version: link:../identifiers
@@ -1862,6 +1865,9 @@ importers:
       '@magna-carta/ledger':
         specifier: workspace:*
         version: link:../ledger
+      '@magna-carta/matters':
+        specifier: workspace:*
+        version: link:../matters
       '@magna-carta/money':
         specifier: workspace:*
         version: link:../money

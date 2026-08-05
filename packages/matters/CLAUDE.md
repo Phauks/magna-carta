@@ -17,7 +17,7 @@ list/consultations queries. Validates in memory and composes statements into @ma
 - `src/numbering/counter-statements.ts` — ensure-row + guarded-increment + allocation builders
 - `src/numbering/scheme-service.ts` / `scheme-statements.ts` — the one-active-scheme write path
 - `src/matter-service.ts` — `createMatter`/`openMatter`/`closeMatter`/`reopenMatter`/`renumberMatter`/`updateMatter`
-- `src/close-preconditions.ts` — the named close-precondition hook registry (empty this slice; Phase 3 registers the zero-balance rule)
+- `src/close-preconditions.ts` — the close-precondition hook: a `check` plus an optional in-batch `commitGuard`
 - `src/matter-type-service.ts` — types CRUD (soft-deactivate)
 - `src/queries.ts` — `listMatters` (excludes prospective by default) + `listConsultations` (with the stale flag)
 
@@ -41,8 +41,15 @@ list/consultations queries. Validates in memory and composes statements into @ma
   drew; `closeMatter` writes `AND status != 'closed'` so a racing close never moves `closed_at`. A
   precondition is skipped when the Idempotency-Key has already been seen — that is the same request
   retried, and the shared primitive replays its stored response.
-- **Closed = archived-but-additive.** A closed matter still accepts documents; close runs the precondition
-  registry first (empty this slice).
+- **Closed = archived-but-additive.** A closed matter still accepts documents; close runs the
+  preconditions first. This package's own registry is EMPTY and stays empty — a rule belongs to the
+  subsystem that owns the thing it guards, and the composition root passes them in through
+  `closePreconditions`, so the matter shell never imports the financial core to find out whether a
+  matter holds money. A precondition may also contribute a `commitGuard`: statements that ride the
+  close batch and abort it if the condition its `check` read has changed by commit time (the read and
+  the write cannot be atomic here). A guard must be a statement that either matches nothing or
+  violates a constraint — a guarded `UPDATE` matching zero rows would leave the audit row, the event,
+  and the idempotency record behind, recording a close that did not happen.
 - **Every mutation audited.** The spec §10 outbox event + an `audit_log` row ride in the same batch.
 
 ## Dependencies & contracts

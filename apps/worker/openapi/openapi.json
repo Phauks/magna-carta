@@ -9796,6 +9796,12 @@
               "null"
             ]
           },
+          "sensitivity": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "description": {
             "type": [
               "string",
@@ -9812,6 +9818,7 @@
           "source",
           "valueType",
           "absence",
+          "sensitivity",
           "description"
         ]
       },
@@ -9941,6 +9948,9 @@
           "absence": {
             "type": "string"
           },
+          "sensitivity": {
+            "type": "string"
+          },
           "description": {
             "type": "string"
           }
@@ -9952,6 +9962,7 @@
           "defaultFormat",
           "formats",
           "absence",
+          "sensitivity",
           "description"
         ]
       },
@@ -17503,7 +17514,7 @@
     },
     "/api/v1/matters/{id}/close": {
       "post": {
-        "description": "Closes a matter (archived-but-additive — it leaves active lists but still accepts documents). Runs the close-precondition registry; a failure returns the precondition codes. Refuses a matter that is already closed, so its recorded close date never moves.",
+        "description": "Closes a matter (archived-but-additive — it leaves active lists but still accepts documents). Runs the close preconditions first; a matter whose client trust ledger still holds money, or carries an active disputed-funds hold, is refused with the balance and the movements that clear it. Refuses a matter that is already closed, so its recorded close date never moves.",
         "operationId": "matters.close",
         "tags": [
           "matters"
@@ -17592,7 +17603,7 @@
             }
           },
           "409": {
-            "description": "A request with this Idempotency-Key is still in progress, or the matter is in the wrong state",
+            "description": "A close precondition refused the matter, a request with this Idempotency-Key is still in progress, or the matter is already closed",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -36721,7 +36732,7 @@
     },
     "/api/v1/merge-fields": {
       "get": {
-        "description": "Returns the merge fields a template author may use, with the renderings each one supports and what a document shows when the matter has no value for it. This is the list a template is authored against; a placeholder naming anything outside it is refused at registration.",
+        "description": "Returns the merge fields a template author may use, with the renderings each one supports and what a document shows when the matter has no value for it. This is the list a template is authored against; a placeholder naming anything outside it is refused at registration. A field marked protected holds an encrypted value: any author may bind it, and it is filled in only for a member permitted to decrypt it, which is recorded.",
         "operationId": "templates.mergeFields",
         "tags": [
           "templates"

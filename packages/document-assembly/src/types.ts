@@ -168,7 +168,18 @@ export interface MergeFieldDetection {
 
 // Which batched read supplies a dictionary key's value. One read per source per assembly, never one
 // per field — see resolve.ts.
-export type MergeSource = "matter" | "party" | "location" | "firm" | "customField" | "system";
+// `protectedIdentifier` is the one source that is not a batched read. A sealed value is decrypted one at
+// a time through the protected-field chokepoint — each ciphertext bound to its own row, each decrypt
+// committing its own audit record — so its cost is fixed by the number of protected keys the MANIFEST
+// names rather than by a read count, and it is the only source for which that distinction exists.
+export type MergeSource =
+  | "matter"
+  | "party"
+  | "location"
+  | "firm"
+  | "customField"
+  | "protectedIdentifier"
+  | "system";
 
 export type MergeValueType =
   | "text"

@@ -1,5 +1,14 @@
+import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { computeAffected, parseMaxHops } from "./index.mjs";
+import {
+  computeAffected,
+  computeTypeProgramWeights,
+  parseMaxHops,
+  resolveFanoutSinks,
+  selectFanoutSinks,
+} from "./index.mjs";
 
 // A small synthetic graph: money is a leaf; data-access depends on money; worker depends on data-access;
 // web depends on worker. So a change to money must pull in data-access, worker, and web (transitively).
@@ -148,6 +157,61 @@ describe("computeAffected", () => {
     );
   });
 
+  it("defers a fan-out sink that is only in scope as a dependent", () => {
+    const result = computeAffected({
+      changedFiles: ["packages/money/src/dinero.ts"],
+      packages,
+      sinks: new Set(["@magna-carta/worker"]),
+    });
+    // The worker drops out; everything else in the closure — including the worker's OWN dependent,
+    // web — stays, because deferral is per package, not a cut of the walk.
+    expect(result.paths).toEqual(["apps/web", "packages/data-access", "packages/money"]);
+    expect(result.deferred).toEqual(["apps/worker"]);
+  });
+
+  it("never defers a sink the change itself touched", () => {
+    const result = computeAffected({
+      changedFiles: ["apps/worker/src/app.ts"],
+      packages,
+      sinks: new Set(["@magna-carta/worker"]),
+    });
+    expect(result.paths).toEqual(["apps/web", "apps/worker"]);
+    expect(result.deferred).toEqual([]);
+  });
+
+  it("still defers the sink as a dependent when the same change also touches it", () => {
+    // Both changed: the worker is linted because it changed, not despite being a sink.
+    const result = computeAffected({
+      changedFiles: ["packages/money/src/dinero.ts", "apps/worker/src/app.ts"],
+      packages,
+      sinks: new Set(["@magna-carta/worker"]),
+    });
+    expect(result.paths).toContain("apps/worker");
+    expect(result.deferred).toEqual([]);
+  });
+
+  it("cannot produce an empty scope, however aggressively the sinks are declared", () => {
+    // Every package a sink: the changed one is still linted, because a changed package is never
+    // deferred. An empty scope is the one value the gate's contract has no branch for.
+    const result = computeAffected({
+      changedFiles: ["packages/data-access/src/b.ts"],
+      packages,
+      sinks: new Set(packages.keys()),
+    });
+    expect(result.paths).toEqual(["packages/data-access"]);
+    expect(result.deferred).toEqual(["apps/web", "apps/worker"]);
+  });
+
+  it("deferral never overrides the whole-repo triggers", () => {
+    expect(
+      computeAffected({
+        changedFiles: ["vite.config.ts"],
+        packages,
+        sinks: new Set(["@magna-carta/worker"]),
+      }).mode,
+    ).toBe("all");
+  });
+
   it("maps a nested path to its package (longest-prefix wins), not an ancestor", () => {
     const nested = new Map([
       ["@magna-carta/outer", { dir: "packages/outer", deps: new Set() }],
@@ -158,5 +222,96 @@ describe("computeAffected", () => {
       packages: nested,
     });
     expect(result.paths).toEqual(["packages/outer/inner"]);
+  });
+});
+
+// A throwaway workspace on disk: the weight is a file count over the real tree, so it needs one.
+function writeWorkspace(layout) {
+  const root = mkdtempSync(path.join(tmpdir(), "affected-lint-"));
+  for (const [name, member] of Object.entries(layout)) {
+    const directory = path.join(root, member.dir, "src");
+    mkdirSync(directory, { recursive: true });
+    writeFileSync(
+      path.join(root, member.dir, "package.json"),
+      JSON.stringify({
+        name,
+        dependencies: Object.fromEntries((member.deps ?? []).map((d) => [d, "workspace:*"])),
+      }),
+    );
+    for (let index = 0; index < member.files; index += 1) {
+      writeFileSync(path.join(directory, `file-${index}.ts`), "export const x = 1;\n");
+    }
+    for (const [uncounted, count] of Object.entries(member.uncounted ?? {})) {
+      const generated = path.join(root, member.dir, uncounted);
+      mkdirSync(generated, { recursive: true });
+      for (let index = 0; index < count; index += 1) {
+        writeFileSync(path.join(generated, `gen-${index}.ts`), "export const y = 1;\n");
+      }
+    }
+  }
+  return root;
+}
+
+describe("type-program weight and fan-out sinks", () => {
+  it("weighs a package by its own files plus its transitive dependency closure", () => {
+    // leaf(2) <- middle(3) <- app(5). The weight is the DEPENDENCY direction, the opposite of the
+    // dependent walk the scope uses: app has to pull all three into a type program, leaf only itself.
+    const graph = new Map([
+      ["@magna-carta/leaf", { dir: "packages/leaf", deps: new Set() }],
+      ["@magna-carta/middle", { dir: "packages/middle", deps: new Set(["@magna-carta/leaf"]) }],
+      ["@magna-carta/app", { dir: "apps/app", deps: new Set(["@magna-carta/middle"]) }],
+    ]);
+    const root = writeWorkspace({
+      "@magna-carta/leaf": { dir: "packages/leaf", files: 2 },
+      "@magna-carta/middle": { dir: "packages/middle", files: 3, deps: ["@magna-carta/leaf"] },
+      "@magna-carta/app": { dir: "apps/app", files: 5, deps: ["@magna-carta/middle"] },
+    });
+    const weights = computeTypeProgramWeights({ root, packages: graph });
+    expect(weights.get("@magna-carta/leaf")).toBe(2);
+    expect(weights.get("@magna-carta/middle")).toBe(5);
+    expect(weights.get("@magna-carta/app")).toBe(10);
+  });
+
+  it("does not count build output or generated trees toward a weight", () => {
+    // Otherwise the sink selection would depend on whether the checkout happened to be built.
+    const graph = new Map([["@magna-carta/leaf", { dir: "packages/leaf", deps: new Set() }]]);
+    const root = writeWorkspace({
+      "@magna-carta/leaf": {
+        dir: "packages/leaf",
+        files: 2,
+        uncounted: { "src/pkg": 40, dist: 40, "node_modules/x": 40 },
+      },
+    });
+    expect(computeTypeProgramWeights({ root, packages: graph }).get("@magna-carta/leaf")).toBe(2);
+  });
+
+  it("selects only the packages whose type program is at least the share of the workspace", () => {
+    const weights = new Map([
+      ["@magna-carta/huge", 80],
+      ["@magna-carta/middling", 49],
+      ["@magna-carta/small", 4],
+    ]);
+    expect([...selectFanoutSinks({ weights, share: 0.5, totalLintableFiles: 100 })]).toEqual([
+      "@magna-carta/huge",
+    ]);
+    // The share is the dial; nothing is hardcoded to a package name.
+    expect([...selectFanoutSinks({ weights, share: 0.4, totalLintableFiles: 100 })]).toEqual([
+      "@magna-carta/huge",
+      "@magna-carta/middling",
+    ]);
+  });
+
+  it("selects nothing when no package's type program dominates the workspace", () => {
+    const root = writeWorkspace({
+      "@magna-carta/a": { dir: "packages/a", files: 10 },
+      "@magna-carta/b": { dir: "packages/b", files: 10 },
+      "@magna-carta/c": { dir: "packages/c", files: 10 },
+    });
+    const graph = new Map([
+      ["@magna-carta/a", { dir: "packages/a", deps: new Set() }],
+      ["@magna-carta/b", { dir: "packages/b", deps: new Set() }],
+      ["@magna-carta/c", { dir: "packages/c", deps: new Set() }],
+    ]);
+    expect([...resolveFanoutSinks({ root, packages: graph }).sinks]).toEqual([]);
   });
 });

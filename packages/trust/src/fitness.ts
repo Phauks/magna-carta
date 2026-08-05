@@ -1,6 +1,7 @@
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import { ACCOUNT_BALANCE_TABLE, LEDGER_LINE_TABLE } from "@magna-carta/ledger/statements";
 import {
+  activeTrustHoldPredicate,
   TRUST_ACCOUNT_TABLE,
   TRUST_HOLD_TABLE,
   TRUST_LEDGER_NODE_TABLE,
@@ -70,7 +71,7 @@ export function trustRollupNodesWithPostingsStatement(database: SqlDatabase): Sq
 export function trustHoldsExceedingBalanceStatement(database: SqlDatabase): SqlStatement {
   return database
     .prepare(
-      `SELECT n.id AS node_id, b.balance_minor, h.held_minor FROM ${TRUST_LEDGER_NODE_TABLE} n JOIN ${ACCOUNT_BALANCE_TABLE} b ON b.account_id = n.ledger_account_id JOIN (SELECT p.node_id AS node_id, SUM(p.amount_minor) AS held_minor FROM ${TRUST_HOLD_TABLE} p WHERE p.releases_hold_id IS NULL AND NOT EXISTS (SELECT 1 FROM ${TRUST_HOLD_TABLE} r WHERE r.releases_hold_id = p.id) GROUP BY p.node_id) h ON h.node_id = n.id WHERE h.held_minor > b.balance_minor`,
+      `SELECT n.id AS node_id, b.balance_minor, h.held_minor FROM ${TRUST_LEDGER_NODE_TABLE} n JOIN ${ACCOUNT_BALANCE_TABLE} b ON b.account_id = n.ledger_account_id JOIN (SELECT p.node_id AS node_id, SUM(p.amount_minor) AS held_minor FROM ${TRUST_HOLD_TABLE} p WHERE ${activeTrustHoldPredicate("p")} GROUP BY p.node_id) h ON h.node_id = n.id WHERE h.held_minor > b.balance_minor`,
     )
     .bind();
 }
