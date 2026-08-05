@@ -45,6 +45,39 @@ export interface ManifestField {
   readonly forms: readonly PlaceholderForm[];
 }
 
+// One conditional or repeating block a template version carries. The EXPRESSION SOURCE is stored, never
+// a serialized syntax tree: assembly re-parses and re-checks from the source, which is the only thing
+// that catches dictionary drift — a template registered in March against a custom field archived in
+// June must fail in September with the key named, rather than evaluate against a stored tree that still
+// believes the key exists. A stored tree would also be a second representation to version, to migrate,
+// and to trust; the source text is already the thing the author wrote and the thing the field inspector
+// shows them.
+export interface ManifestBlock {
+  readonly kind: "if" | "unless" | "each";
+  readonly source: string;
+  // `boolean` for a condition, `list` for a repeat. Recorded so the field inspector can describe the
+  // block without re-checking it.
+  readonly resultType: string;
+  readonly part: string;
+  // The merge fields the block's expression reads. THESE JOIN THE MANIFEST'S KEY SET, which is what
+  // keeps one-read-per-source true once a condition can read anything the dictionary has.
+  readonly keys: readonly string[];
+  // How many blocks enclose this one. Bounded at registration so expansion cannot multiply without a
+  // ceiling.
+  readonly depth: number;
+}
+
+// One `{{= expression}}` placeholder. `format` is the `:format` suffix when the author named one, and
+// null when the placeholder took the result type's default.
+export interface ManifestComputedField {
+  readonly source: string;
+  readonly format: string | null;
+  readonly resultType: string;
+  readonly part: string;
+  readonly keys: readonly string[];
+  readonly occurrences: number;
+}
+
 export interface FieldManifest {
   readonly fields: readonly ManifestField[];
   // Every placeholder occurrence across every part — the denominator the per-field counts sum to.
@@ -54,6 +87,19 @@ export interface FieldManifest {
   // "this template has blanks the merge engine will not fill", which is what makes them visible to the
   // absence model instead of invisible to it.
   readonly unconvertedMergeFields: readonly UnconvertedMergeField[];
+  readonly blocks: readonly ManifestBlock[];
+  readonly computedFields: readonly ManifestComputedField[];
+}
+
+// The keys a manifest reads from EVERY source it has — plain placeholders, block conditions, and
+// computed fields together. Resolution plans its reads from this, so an expression can never be the
+// reason a read happens late.
+export function manifestKeys(manifest: FieldManifest): readonly string[] {
+  const keys = new Set<string>();
+  for (const field of manifest.fields) keys.add(field.key);
+  for (const block of manifest.blocks) for (const key of block.keys) keys.add(key);
+  for (const computed of manifest.computedFields) for (const key of computed.keys) keys.add(key);
+  return [...keys].sort();
 }
 
 // One Word merge field a REGISTERED template version still carries in its stored bytes, because the
@@ -124,7 +170,17 @@ export interface MergeFieldDetection {
 // per field — see resolve.ts.
 export type MergeSource = "matter" | "party" | "location" | "firm" | "customField" | "system";
 
-export type MergeValueType = "text" | "date" | "money" | "number" | "boolean" | "reference";
+export type MergeValueType =
+  | "text"
+  | "date"
+  | "money"
+  | "rate"
+  | "number"
+  | "boolean"
+  | "reference"
+  // A collection a repeating block walks. Not a first-class value: it can be neither constructed,
+  // indexed, assigned, nor passed anywhere but `count`, `isEmpty`, and `{{#each}}`.
+  | "list";
 
 // What an unresolvable value renders as. The default is `placeholder`: the most dangerous failure in
 // document assembly is a blank where a party name should be, filed without anyone noticing.
@@ -142,7 +198,14 @@ export type MergeValue =
   | { readonly kind: "money"; readonly amountMinor: number; readonly currencyCode: string }
   | { readonly kind: "rate"; readonly rateE4: number; readonly currencyCode: string }
   | { readonly kind: "number"; readonly value: number }
-  | { readonly kind: "boolean"; readonly value: boolean };
+  | { readonly kind: "boolean"; readonly value: boolean }
+  // A collection, resolved by ONE batched read for the whole thing rather than one read per item. Each
+  // item is a record of the collection's declared item fields.
+  | { readonly kind: "list"; readonly items: readonly MergeListItem[] };
+
+export interface MergeListItem {
+  readonly fields: ReadonlyMap<string, MergeValue>;
+}
 
 // The resolved inputs for one assembly: a value per key the manifest asked for, the keys that could not
 // be resolved, and the time zone dates render in (the matter's location's, never the server's).

@@ -211,6 +211,8 @@ export type EmailMessageDetail = {
     sentAt: string | null;
     receivedAt: string;
     dkimVerdict: string;
+    dkimVerdictReason: string | null;
+    dkimVerifiedDomain: string | null;
     participants: Array<{
         kind: string;
         displayName: string | null;
@@ -2980,10 +2982,15 @@ export type EmailsListResponse = EmailsListResponses[keyof EmailsListResponses];
 
 export type EmailsFileData = {
     body: unknown;
+    headers?: {
+        'idempotency-key'?: string;
+    };
     path: {
         matterId: string;
     };
-    query?: never;
+    query?: {
+        source?: 'api' | 'addin';
+    };
     url: '/api/v1/matters/{matterId}/emails';
 };
 
@@ -3001,13 +3008,21 @@ export type EmailsFileErrors = {
      */
     403: Problem;
     /**
-     * Unknown matter
+     * Unknown matter, or one the caller cannot access
      */
     404: Problem;
     /**
-     * Message exceeds the inspectable-size cap
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * Message exceeds the capture size limit
      */
     413: Problem;
+    /**
+     * The bytes are not an email message, the firm's upload policy refuses the format, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
     /**
      * Rate limit exceeded
      */
@@ -6955,6 +6970,40 @@ export type DownloadsBundleStatusResponses = {
 };
 
 export type DownloadsBundleStatusResponse = DownloadsBundleStatusResponses[keyof DownloadsBundleStatusResponses];
+
+export type DownloadsBundleEventsData = {
+    body?: never;
+    path: {
+        manifestHash: string;
+    };
+    query?: never;
+    url: '/api/v1/downloads/bundles/{manifestHash}/events';
+};
+
+export type DownloadsBundleEventsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks files:organize
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The request did not ask to upgrade to a WebSocket
+     */
+    426: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DownloadsBundleEventsError = DownloadsBundleEventsErrors[keyof DownloadsBundleEventsErrors];
 
 export type DirectoryCreatePersonData = {
     body: CreateDirectoryPersonRequest;
@@ -12122,6 +12171,40 @@ export type ConversionsStatusResponses = {
 };
 
 export type ConversionsStatusResponse = ConversionsStatusResponses[keyof ConversionsStatusResponses];
+
+export type ConversionsEventsData = {
+    body?: never;
+    path: {
+        jobId: string;
+    };
+    query?: never;
+    url: '/api/v1/conversions/{jobId}/events';
+};
+
+export type ConversionsEventsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks tools:fileConverter
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The request did not ask to upgrade to a WebSocket
+     */
+    426: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ConversionsEventsError = ConversionsEventsErrors[keyof ConversionsEventsErrors];
 
 export type TemplatesUploadData = {
     body?: never;

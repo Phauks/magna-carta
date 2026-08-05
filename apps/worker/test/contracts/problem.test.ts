@@ -57,7 +57,10 @@ describe("problem-type URI registry", () => {
         "template-normalization-failed",
         "template-not-activatable",
         "template-macro-consent-required",
+        "template-expression-invalid",
+        "assembly-expression-refused",
         "merge-field-unresolvable",
+        "websocket-upgrade-required",
       ].sort(),
     );
   });

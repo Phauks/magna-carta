@@ -24,6 +24,10 @@ const ALLOWED_EXTERNALS: ReadonlySet<string> = new Set([
   "@magna-carta/identifiers/types",
   "@magna-carta/money/money",
   "@magna-carta/money/format",
+  // The expression language's rounding and splitting go through the money package rather than through a
+  // second implementation of half-to-even or of a largest-remainder split.
+  "@magna-carta/money/rounding",
+  "@magna-carta/money/allocate",
 ]);
 
 // Specifiers that would mean the package had stopped being pure, listed by the thing they drag in.

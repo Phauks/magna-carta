@@ -1,0 +1,34 @@
+{
+  "name": "@magna-carta/trust",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./types": "./src/types.ts",
+    "./trust-validation": "./src/trust-validation.ts",
+    "./statements": "./src/statements.ts",
+    "./account-tree": "./src/account-tree.ts",
+    "./composition-guard": "./src/composition-guard.ts",
+    "./holds": "./src/holds.ts",
+    "./transfer": "./src/transfer.ts",
+    "./jurisdiction": "./src/jurisdiction.ts",
+    "./fitness": "./src/fitness.ts"
+  },
+  "scripts": {
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@magna-carta/data-access": "workspace:*",
+    "@magna-carta/identifiers": "workspace:*",
+    "@magna-carta/ledger": "workspace:*",
+    "@magna-carta/money": "workspace:*"
+  },
+  "devDependencies": {
+    "@magna-carta/database": "workspace:*",
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "drizzle-orm": "catalog:",
+    "vitest": "catalog:"
+  }
+}

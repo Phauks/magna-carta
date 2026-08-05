@@ -43,9 +43,13 @@ export function raiseEmailFiledNotification(_notification: EmailFiledNotificatio
 }
 
 // ── DKIM verdict boundary.
-// The parse engine records DKIM / Authentication-Results / Received verbatim with no verdict. The
-// record's dkim_verdict stays `unverified`; the cryptographic verifier that fills it is a named future
-// consumer reached through this constant, not built here. (Forwarding breaks the original DKIM, so the
-// forward/CC path could only ever authenticate the forwarding user — the add-in path preserves the
-// original for a real verdict.)
+// The parse engine records DKIM / Authentication-Results / Received verbatim with no verdict; the
+// verifier that adjudicates them is ./dkim.ts, wired into the capture path as a port so the engine
+// keeps its parse-only (and network-free) boundary. This constant remains the value a record holds
+// when nothing has adjudicated it — a capture whose verifier port is unwired, and the column default.
+//
+// Note what the forward/CC entrance can and cannot say: forwarding rewrites headers, so the original
+// signature usually will not verify and a `fail` there is a statement about the forwarding hop, not
+// about the sender. The add-in entrance reads the original message and preserves it, which is why the
+// auto-file "DKIM-authenticated sender" guardrail is scoped to captures that carry an intact original.
 export const DKIM_VERDICT_UNVERIFIED = "unverified" as const;

@@ -225,6 +225,10 @@ export type Bindings = {
   // Email Worker applies (@magna-carta/email-filing/capture-address) is correct for the production
   // zone; a deployment on another zone sets it here and on that worker together.
   CAPTURE_ROOT_DOMAIN?: string;
+  // The DNS-over-HTTPS endpoint the DKIM verifier resolves selector key records through. A public
+  // resolver URL, not a secret; optional, because the default in emails/dkim-dns-resolver.ts is the
+  // right one for production and a deployment that wants its own resolver sets it here.
+  DKIM_RESOLVER_URL?: string;
   // The files-ingest queue's Cloudflare UUID — the REST FirmResourceProvider targets it when
   // configuring a firm bucket's object-create notification. A deploy-time fact (absent locally,
   // where the dev adapter runs and Miniflare delivers no R2 notifications).
@@ -669,6 +673,8 @@ export function emitOpenAPIDocument(
       if (operation?.tags) for (const tag of operation.tags) tagNames.add(tag);
     }
   }
+  // Sorted on a fresh copy, not `toSorted`: that method is absent from this worker's lib target, and
+  // an autofixer will offer the swap again.
   document.tags = [...tagNames].sort().map((name) => ({ name }));
   return document;
 }

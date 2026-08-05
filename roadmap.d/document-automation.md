@@ -7,17 +7,18 @@
   scope: Conditional assembly of .docx templates from matter data, with a data dictionary and dedicated PDF form filling.
   status: partial
   slices: 2-6-document-automation
-  adrs: ADR-0011, ADR-0210, ADR-0211
-  evidence: Build slice 2-6-1 shipped — packages/document-assembly, three per-firm tables, the templates/assemblies routes, and the DocumentAssemblyJob queue consumer. Conditionals/repeats, the widened dictionary, PDF output, and the authoring surfaces are unbuilt.
+  adrs: ADR-0011, ADR-0210, ADR-0211, ADR-0218
+  evidence: Build slices 2-6-1 and 2-6-2 shipped — packages/document-assembly, three per-firm tables, the templates/assemblies routes, the DocumentAssemblyJob queue consumer, and the template expression language behind conditionals, repeats, and computed fields. The widened dictionary sources, PDF output, and the authoring surfaces are unbuilt.
   notes: A firm can register a .docx template and assemble it onto a matter today; the output is filed through the existing ingest chokepoint.
 
 - id: document-automation.conditional-assembly
   name: Conditional document assembly
   scope: Merge fields plus conditional clauses/sections driven by matter data.
-  status: partial
+  status: built
   slices: 2-6-document-automation
-  adrs: ADR-0011
-  evidence: Straight merge-field substitution is built and tested (packages/document-assembly/src/assemble.ts). Block markers are recognized and REFUSED at registration (block-syntax-unsupported) rather than silently read as field names; the conditional/repeat semantics land in slice 2-6-2.
+  adrs: ADR-0011, ADR-0218
+  evidence: Substitution, {{#if}}/{{#unless}} conditional blocks, {{#each}} repeats, and {{= }} computed fields are built and tested over a closed expression language (packages/document-assembly/src/expression/, src/blocks.ts) checked at registration with a character offset. Removal and repetition operate on whole paragraphs and whole table rows, so list numbering and table banding survive. An unresolved condition fails the assembly naming the field; an unresolved calculation renders a visible placeholder.
+  notes: There is no aggregate over a repeat collection (sum of a column) — a named seam, not a feature.
 
 - id: document-automation.docx-templates
   name: DOCX template authoring
@@ -31,7 +32,7 @@
   name: Data dictionary
   scope: Directory/Matter/Location/custom/financial fields exposed as a merge-field dictionary.
   status: partial
-  evidence: A declarative dictionary over matter, client party, location, firm, and system sources with per-type formatters and a declared absence behaviour per entry (packages/document-assembly/src/dictionary.ts), exposed at GET /api/v1/merge-fields. Directory role links, custom-field handles, and protected values land in slice 2-6-2.
+  evidence: A declarative dictionary over matter, client party, location, firm, and system sources with per-type formatters and a declared absence behaviour per entry (packages/document-assembly/src/dictionary.ts), exposed at GET /api/v1/merge-fields. matter.parties is the first list-valued source, read once for the whole collection. Directory role links, custom-field handles, and protected values are the remaining widening.
 
 - id: document-automation.location-identity
   name: Location-resolved office identity

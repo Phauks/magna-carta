@@ -111,14 +111,19 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "tools:ocr",
         "tools:safeBrowse",
         "tools:speedTest",
+        // A paralegal answers "how much of this client's money do we hold"; moving it is
+        // trust:manage, which they deliberately do not have.
+        "trust:read",
         "tools:whois",
       ].sort(),
     );
     // Billing and Read-only carry only the every-role set (firm:reportIncident, the firm-wide
     // tools, support:request, conflicts:read/run, custody:read, emails:read); Billing additionally
-    // carries costs:approve. custody:read is deliberately in the every-role set: "do we hold the
-    // deed for this client" is a question a billing clerk legitimately asks, and custody:manage —
-    // which moves originals — is exactly what they must not have.
+    // carries costs:approve and both trust keys. custody:read is deliberately in the every-role set:
+    // "do we hold the deed for this client" is a question a billing clerk legitimately asks, and
+    // custody:manage — which moves originals — is exactly what they must not have. The trust keys go
+    // the other way: a bookkeeper is exactly who records trust activity, so Billing carries both,
+    // and Read-only carries neither.
     expect(grantsFor("Billing").sort()).toEqual(
       [
         "conflicts:read",
@@ -129,6 +134,8 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "firm:reportIncident",
         "firm:scanFile",
         "support:request",
+        "trust:manage",
+        "trust:read",
         "tools:aiTextDetection",
         "tools:decryption",
         "tools:emailInspector",

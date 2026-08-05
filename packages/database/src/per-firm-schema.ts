@@ -84,6 +84,10 @@ import type {
   ShipmentLabelId,
   TimeEntryId,
   TrackingEventId,
+  TrustAccountId,
+  TrustHoldId,
+  TrustLedgerNodeId,
+  TrustTransferId,
   UploadSessionId,
   UserId,
   UtbmsCodeId,
@@ -1949,10 +1953,15 @@ export const emailMessage = sqliteTable(
     referencesRemoteContent: integer("references_remote_content", { mode: "boolean" })
       .notNull()
       .default(false),
-    integrity: text("integrity").notNull(), // JSON: verbatim DKIM signatures, Authentication-Results, Received chain — recorded, no verdict
+    integrity: text("integrity").notNull(), // JSON: verbatim DKIM signatures, Authentication-Results, Received chain — the evidence, recorded exactly as parsed
+    // The adjudication OVER that evidence, kept separate from it. The verdict is informational: nothing
+    // is dropped, refused, or auto-filed on the strength of it. Every inconclusive outcome stays
+    // `unverified` and is told apart by the reason, so the coarse verdict means one thing to a reader.
     dkimVerdict: text("dkim_verdict", { enum: ["unverified", "pass", "fail"] })
       .notNull()
-      .default("unverified"), // the verifier that fills this is a named future consumer; stays unverified now
+      .default("unverified"),
+    dkimVerdictReason: text("dkim_verdict_reason"), // null until a verifier has looked at the message
+    dkimVerifiedDomain: text("dkim_verified_domain"), // the signing domain, set only on a pass
     sourceFormat: text("source_format", { enum: ["eml", "msg", "mboxMember"] }).notNull(),
     capturedVia: text("captured_via", { enum: ["forward", "api", "addin", "sync"] }).notNull(),
     createdAt: text("created_at").notNull(),
@@ -1965,6 +1974,8 @@ export const emailMessage = sqliteTable(
     index("email_message_message_id_value_index").on(table.messageIdValue),
     // The content-hash "already filed" probe and the discovery-readiness content hash resolve by this.
     index("email_message_content_sha256_index").on(table.contentSha256),
+    // No index on the dkim columns: they are read as part of a message already resolved by id, and
+    // there is no "which mail did this domain sign" read to serve. One gets added with its reader.
     check(
       "email_message_provenance_check",
       sql`${table.messageIdProvenance} IN ('header', 'mapi', 'absent')`,
@@ -2839,5 +2850,254 @@ export const custodyNumberAllocation = sqliteTable(
   (table) => [
     primaryKey({ columns: [table.scopeKey, table.drawnValue] }),
     index("custody_number_allocation_packet_index").on(table.packetId),
+  ],
+);
+
+// Trust accounting. Structure only — the account-tree composers, the entry-composition guard, and
+// the hold/available-balance semantics live in @magna-carta/trust.
+//
+// Client money is a LIABILITY the firm owes back and the bank account holding it is an ASSET, so
+// both sides are ordinary `ledger_account` rows and a trust movement is an ordinary balanced entry.
+// These four tables carry only what the ledger structurally cannot: which ledger account belongs to
+// whom, and the restrictions layered above a balance. No money lives here — every amount that is a
+// balance is `account_balance`, and every amount that moved is a `ledger_line`.
+
+// One real bank account holding client money. The office binding is load-bearing rather than
+// descriptive: the rules require a trust account to sit in the state of the lawyer's office, so the
+// governing jurisdiction is DERIVED from the location and never chosen by a user, and a multi-office
+// firm runs several accounts under several profiles at once.
+export const trustAccount = sqliteTable(
+  "trust_account",
+  {
+    id: text("id").primaryKey().$type<TrustAccountId>(), // trustAccount_ handle
+    name: text("name").notNull(), // the firm's own label ("IOLTA — Reno")
+    locationId: text("location_id")
+      .notNull()
+      .$type<LocationId>()
+      .references(() => location.id),
+    // Copied from the office at open time so a later location edit cannot silently re-govern an
+    // account that already holds client money. NULL means no jurisdiction has been recorded, and a
+    // NULL REFUSES to resolve rather than falling back to any baseline — a jurisdiction fact that
+    // was never researched is a different thing from a rule that is silent, and only the second one
+    // has an answer.
+    jurisdiction: text("jurisdiction"),
+    bankName: text("bank_name"),
+    // The list-view display fragment only. The full account and routing numbers are deliberately
+    // NOT columns here yet: they are the sensitive identifiers of this subsystem and land through
+    // the protected() chokepoint (packages/data-access) once their read-cost split is settled.
+    accountNumberLastFour: text("account_number_last_four"),
+    currency: text("currency").notNull(), // ISO-4217; the tree below inherits it
+    iolta: integer("iolta").notNull().default(1),
+    // The book side: the asset LEAF whose balance is the firm's own record of this bank account.
+    bankLedgerAccountId: text("bank_ledger_account_id")
+      .notNull()
+      .$type<LedgerAccountId>()
+      .references(() => ledgerAccount.id),
+    // The client side: the liability PARENT every client node hangs under. Its stored balance stays
+    // at zero forever — lines land on leaves only — so the client-side total is a SUM over its
+    // descendant leaves and is never read from this row (ledger fitness re-proves the zero).
+    clientLiabilityAccountId: text("client_liability_account_id")
+      .notNull()
+      .$type<LedgerAccountId>()
+      .references(() => ledgerAccount.id),
+    status: text("status", { enum: ["open", "closed"] })
+      .notNull()
+      .default("open"),
+    openedOn: text("opened_on").notNull(), // YYYY-MM-DD civil date
+    closedAt: text("closed_at"), // UTC instant
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    // One ledger account serves exactly one trust account on each side — the uniqueness is what
+    // makes "which trust account does this posting belong to" answerable from a line alone.
+    uniqueIndex("trust_account_bank_ledger_account_unique_index").on(table.bankLedgerAccountId),
+    uniqueIndex("trust_account_client_liability_account_unique_index").on(
+      table.clientLiabilityAccountId,
+    ),
+    index("trust_account_location_index").on(table.locationId),
+    index("trust_account_status_index").on(table.status),
+    check("trust_account_name_nonempty_check", sql`length(${table.name}) > 0`),
+    check("trust_account_status_check", sql`${table.status} IN ('open', 'closed')`),
+    check("trust_account_currency_check", sql`length(${table.currency}) = 3`),
+    // The bank and the client-liability root are opposite sides of the same account; the same
+    // ledger account on both would make every trust entry a self-transfer that balances to nothing.
+    check(
+      "trust_account_distinct_sides_check",
+      sql`${table.bankLedgerAccountId} <> ${table.clientLiabilityAccountId}`,
+    ),
+    check(
+      "trust_account_last_four_check",
+      sql`${table.accountNumberLastFour} IS NULL OR ${table.accountNumberLastFour} GLOB '[0-9][0-9][0-9][0-9]'`,
+    ),
+    check(
+      "trust_account_closed_at_check",
+      sql`(${table.status} = 'closed') = (${table.closedAt} IS NOT NULL)`,
+    ),
+  ],
+);
+
+// The sub-ledger tree: which ledger account under a trust account belongs to which client or matter.
+// Three levels — the trust account's liability root, a CLIENT node per trust client, and a MATTER
+// LEAF under it. Both readings the rules and the product need are then a direct read: the bar's
+// "client ledger" is the client node's roll-up, and a matter's balance is its own leaf.
+//
+// The tier order is not revisable after the fact. `createAccount` refuses a parent that already
+// carries postings (the creation-side half of the leaf-only invariant), so a client tier cannot be
+// inserted above matter leaves that have already posted — the tree is chosen once, before the first
+// row, or rebuilt.
+export const trustLedgerNode = sqliteTable(
+  "trust_ledger_node",
+  {
+    id: text("id").primaryKey().$type<TrustLedgerNodeId>(), // trustLedgerNode_ handle
+    trustAccountId: text("trust_account_id")
+      .notNull()
+      .$type<TrustAccountId>()
+      .references(() => trustAccount.id),
+    ledgerAccountId: text("ledger_account_id")
+      .notNull()
+      .$type<LedgerAccountId>()
+      .references(() => ledgerAccount.id),
+    // `firm_funds` is the permitted bank-charge carve-out — the firm's own money kept in a trust
+    // account to cover service charges, which every researched jurisdiction allows and several
+    // require a record of. The vocabulary is reserved here because widening a CHECK later is a
+    // table rebuild; NOTHING creates one yet, and the composition guard refuses any entry that
+    // touches one, so firm money cannot reach a trust account through this schema today.
+    kind: text("kind", { enum: ["client", "matter", "firm_funds"] }).notNull(),
+    clientEntityId: text("client_entity_id"), // a directoryPerson_/directoryOrganization_ handle
+    matterId: text("matter_id")
+      .$type<MatterId>()
+      .references(() => matter.id),
+    parentNodeId: text("parent_node_id")
+      .$type<TrustLedgerNodeId>()
+      .references((): AnySQLiteColumn => trustLedgerNode.id),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    // A ledger account belongs to at most one node: without this, the same account could be claimed
+    // by two clients and every balance read would be ambiguous.
+    uniqueIndex("trust_ledger_node_ledger_account_unique_index").on(table.ledgerAccountId),
+    uniqueIndex("trust_ledger_node_client_unique_index")
+      .on(table.trustAccountId, table.clientEntityId)
+      .where(sql`${table.kind} = 'client'`),
+    uniqueIndex("trust_ledger_node_matter_unique_index")
+      .on(table.trustAccountId, table.matterId)
+      .where(sql`${table.kind} = 'matter'`),
+    // At most one firm-funds leaf per trust account — "the firm's own money in this account" must
+    // be a single balance a report and a bound can address, not a set of them.
+    uniqueIndex("trust_ledger_node_firm_funds_unique_index")
+      .on(table.trustAccountId)
+      .where(sql`${table.kind} = 'firm_funds'`),
+    index("trust_ledger_node_account_kind_index").on(table.trustAccountId, table.kind),
+    index("trust_ledger_node_matter_index").on(table.matterId),
+    index("trust_ledger_node_parent_index").on(table.parentNodeId),
+    check("trust_ledger_node_kind_check", sql`${table.kind} IN ('client', 'matter', 'firm_funds')`),
+    // Each kind's column shape is stated once, here, so a node cannot exist half-attributed — a
+    // matter leaf with no client, or a client node that also names a matter, would each break a
+    // different roll-up.
+    check(
+      "trust_ledger_node_shape_check",
+      sql`(${table.kind} = 'client' AND ${table.clientEntityId} IS NOT NULL AND ${table.matterId} IS NULL AND ${table.parentNodeId} IS NULL)
+        OR (${table.kind} = 'matter' AND ${table.clientEntityId} IS NOT NULL AND ${table.matterId} IS NOT NULL AND ${table.parentNodeId} IS NOT NULL)
+        OR (${table.kind} = 'firm_funds' AND ${table.clientEntityId} IS NULL AND ${table.matterId} IS NULL AND ${table.parentNodeId} IS NULL)`,
+    ),
+  ],
+);
+
+// A disputed-funds hold: a restriction on part of a node's balance where the money has NOT moved.
+// Where a lawyer and another person both claim an interest in trust property, the disputed portion
+// is kept separate until the dispute resolves while undisputed portions are distributed promptly —
+// which is a restriction, not a transfer, and modelling it as a transfer would move money that did
+// not move. Available balance is the stored balance minus the active holds, and disbursement
+// authorization reads available; the `account_balance` floor still guards zero underneath, so the
+// structural guarantee never depends on this domain layer being correct.
+//
+// APPEND-ONLY, enforced by triggers in the migration: releasing a hold INSERTS a row naming it
+// through `releases_hold_id`, exactly as a ledger correction is a new reversing entry. A hold is
+// active when no row names it. A partial release is a release plus a new, smaller hold.
+export const trustHold = sqliteTable(
+  "trust_hold",
+  {
+    id: text("id").primaryKey().$type<TrustHoldId>(), // trustHold_ handle
+    nodeId: text("node_id")
+      .notNull()
+      .$type<TrustLedgerNodeId>()
+      .references(() => trustLedgerNode.id),
+    amountMinor: integer("amount_minor").notNull(), // always positive; a release repeats the amount
+    currency: text("currency").notNull(),
+    reason: text("reason").notNull(), // on a release row, the reason the hold came off
+    placedAt: text("placed_at").notNull(), // UTC instant
+    placedBy: text("placed_by").$type<UserId>(),
+    releasesHoldId: text("releases_hold_id")
+      .$type<TrustHoldId>()
+      .references((): AnySQLiteColumn => trustHold.id),
+  },
+  (table) => [
+    // UNIQUE makes a double release structurally impossible — the racing duplicate's batch aborts.
+    // SQLite UNIQUE permits many NULLs, so placement rows are unaffected.
+    uniqueIndex("trust_hold_releases_hold_unique_index").on(table.releasesHoldId),
+    // The available-balance read wants the ACTIVE holds on a node, which is a narrow slice of a
+    // table that only grows: a partial index keeps it proportional to the open disputes.
+    index("trust_hold_node_active_index")
+      .on(table.nodeId)
+      .where(sql`${table.releasesHoldId} IS NULL`),
+    check("trust_hold_amount_positive_check", sql`${table.amountMinor} > 0`),
+    check("trust_hold_reason_nonempty_check", sql`length(${table.reason}) > 0`),
+    check("trust_hold_currency_check", sql`length(${table.currency}) = 3`),
+  ],
+);
+
+// The link between the two entries a trust-to-operating movement posts. The movement is TWO entries
+// rather than one — a trust disbursement and an operating receipt — because the two sides clear on
+// different bank statements and reconciliation runs per account; a single entry would put an
+// uncleared operating receipt inside a trust reconciliation. The link is this shared row, never a
+// mutation of either entry.
+//
+// `authorized_by` is the electronic-transfer authorization memo several jurisdictions require: a
+// written record identifying who authorized the movement. It is recorded from the first transfer
+// rather than backfilled, because the gap an examiner asks about is exactly the period before it
+// existed.
+export const trustTransfer = sqliteTable(
+  "trust_transfer",
+  {
+    id: text("id").primaryKey().$type<TrustTransferId>(), // trustTransfer_ handle
+    trustAccountId: text("trust_account_id")
+      .notNull()
+      .$type<TrustAccountId>()
+      .references(() => trustAccount.id),
+    fromNodeId: text("from_node_id")
+      .notNull()
+      .$type<TrustLedgerNodeId>()
+      .references(() => trustLedgerNode.id),
+    amountMinor: integer("amount_minor").notNull(),
+    currency: text("currency").notNull(),
+    trustEntryId: text("trust_entry_id")
+      .notNull()
+      .$type<LedgerEntryId>()
+      .references(() => ledgerEntry.id),
+    operatingEntryId: text("operating_entry_id")
+      .notNull()
+      .$type<LedgerEntryId>()
+      .references(() => ledgerEntry.id),
+    authorizedBy: text("authorized_by").$type<UserId>(),
+    effectiveDate: text("effective_date").notNull(), // YYYY-MM-DD civil date
+    recordedAt: text("recorded_at").notNull(), // UTC instant
+  },
+  (table) => [
+    // Each entry participates in at most one transfer, on one side: a second row claiming either
+    // entry would double-count the movement in every report that joins through this table.
+    uniqueIndex("trust_transfer_trust_entry_unique_index").on(table.trustEntryId),
+    uniqueIndex("trust_transfer_operating_entry_unique_index").on(table.operatingEntryId),
+    index("trust_transfer_from_node_index").on(table.fromNodeId),
+    index("trust_transfer_account_effective_date_index").on(
+      table.trustAccountId,
+      table.effectiveDate,
+    ),
+    check("trust_transfer_amount_positive_check", sql`${table.amountMinor} > 0`),
+    check("trust_transfer_currency_check", sql`length(${table.currency}) = 3`),
+    check(
+      "trust_transfer_distinct_entries_check",
+      sql`${table.trustEntryId} <> ${table.operatingEntryId}`,
+    ),
   ],
 );

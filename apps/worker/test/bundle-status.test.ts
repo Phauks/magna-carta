@@ -97,6 +97,55 @@ describe("GET /api/v1/downloads/bundles/{manifestHash}", () => {
     expect(body.url).toBeUndefined();
   });
 
+  it("refuses a plain GET on the subscribe endpoint and names the poll endpoint", async () => {
+    const hash = "e".repeat(64);
+    const response = await SELF.fetch(
+      `https://example.com/api/v1/downloads/bundles/${hash}/events`,
+      {
+        headers: { cookie: ownerCookie, origin: "https://example.com" },
+      },
+    );
+    expect(response.status).toBe(426);
+    const body = (await response.json()) as { type: string; detail?: string };
+    expect(body.type).toContain("websocket-upgrade-required");
+    expect(body.detail ?? "").toContain(`/api/v1/downloads/bundles/{manifestHash}`);
+  });
+
+  it("upgrades a subscribe request through the chokepoint and pushes the current state", async () => {
+    const hash = "f".repeat(64);
+    await primeBuilding(`${firmId}:${hash}`, hash);
+    const response = await SELF.fetch(
+      `https://example.com/api/v1/downloads/bundles/${hash}/events`,
+      {
+        headers: { cookie: ownerCookie, origin: "https://example.com", Upgrade: "websocket" },
+      },
+    );
+    expect(response.status).toBe(101);
+    const socket = response.webSocket;
+    if (socket === null) throw new Error("no WebSocket on the 101");
+    const first = new Promise<Record<string, unknown>>((resolve) => {
+      socket.addEventListener("message", (event) =>
+        resolve(JSON.parse(event.data as string) as Record<string, unknown>),
+      );
+    });
+    socket.accept();
+    expect(await first).toEqual({
+      type: "state",
+      protocolVersion: 1,
+      state: { status: "building" },
+    });
+    socket.close(1000, "test done");
+  });
+
+  it("rejects a subscribe request with no session before it ever reaches the coordinator", async () => {
+    const hash = "0".repeat(64);
+    const response = await SELF.fetch(
+      `https://example.com/api/v1/downloads/bundles/${hash}/events`,
+      { headers: { origin: "https://example.com", Upgrade: "websocket" } },
+    );
+    expect(response.status).toBe(401);
+  });
+
   it("never reads another firm's job (the DO name carries the session firm id)", async () => {
     const hash = "c".repeat(64);
     const otherFirmId = newIdentifier("firm");

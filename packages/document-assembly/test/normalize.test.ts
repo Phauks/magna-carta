@@ -69,7 +69,7 @@ describe("normalization — run splitting", () => {
 
   it("reassembles a placeholder split one character per run", () => {
     const result = normalizeTemplate(
-      partsOf({ document: documentXml(paragraphOfRuns(...[..."{{firm.name}}"])) }),
+      partsOf({ document: documentXml(paragraphOfRuns(..."{{firm.name}}")) }),
     );
     expect(result.failures).toEqual([]);
     expect(contiguousPlaceholderCount(result.parts)).toBe(1);
@@ -464,16 +464,48 @@ describe("normalization — registration failures carry locations", () => {
     expect(result.failures[0]).toMatchObject({ code: "empty-key" });
   });
 
-  it("refuses block markers, which are not built yet, rather than reading them as a field name", () => {
+  it("reads a balanced conditional block and records it on the manifest", () => {
     const result = normalizeTemplate(
       partsOf({
-        document: documentXml(paragraphOfRuns("{{#if client.code}}"), paragraphOfRuns("{{/if}}")),
+        document: documentXml(
+          paragraphOfRuns("{{#if client.code}}"),
+          paragraphOfRuns("Our reference is {{client.code}}."),
+          paragraphOfRuns("{{/if}}"),
+        ),
       }),
     );
-    expect(result.failures.map((failure) => failure.code)).toEqual([
-      "block-syntax-unsupported",
-      "block-syntax-unsupported",
+    expect(result.failures).toEqual([]);
+    // A BARE MERGE KEY as the whole condition means its PRESENCE when the key is not a boolean.
+    expect(result.manifest.blocks).toEqual([
+      {
+        kind: "if",
+        source: "client.code",
+        resultType: "boolean",
+        part: "word/document.xml",
+        keys: ["client.code"],
+        depth: 0,
+      },
     ]);
+  });
+
+  it("refuses a block that opens and is never closed", () => {
+    const result = normalizeTemplate(
+      partsOf({ document: documentXml(paragraphOfRuns("{{#if client.code}}")) }),
+    );
+    expect(result.failures[0]).toMatchObject({ code: "block-unbalanced" });
+  });
+
+  it("refuses a block marker sharing its paragraph with prose", () => {
+    const result = normalizeTemplate(
+      partsOf({
+        document: documentXml(
+          paragraphOfRuns("Dear client, {{#if client.code}}"),
+          paragraphOfRuns("{{/if}}"),
+        ),
+      }),
+    );
+    expect(result.failures[0]).toMatchObject({ code: "block-unbalanced" });
+    expect(result.failures[0]?.detail).toContain("paragraph of its own");
   });
 
   it("reports a failure in a header with the header's part name", () => {

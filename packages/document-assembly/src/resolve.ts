@@ -4,14 +4,24 @@ import { lookupDictionaryEntry } from "./dictionary.ts";
 import {
   selectLocationForMergeStatement,
   selectMatterForMergeStatement,
+  selectMatterPartiesForMergeStatement,
   toLocationMergeRow,
   toMatterMergeRow,
+  toMatterPartyMergeRow,
   type LocationMergeColumns,
   type LocationMergeRow,
   type MatterMergeColumns,
   type MatterMergeRow,
+  type MatterPartyMergeColumns,
 } from "./merge-statements.ts";
-import type { FieldManifest, MergeContext, MergeSource, MergeValue } from "./types.ts";
+import {
+  manifestKeys,
+  type FieldManifest,
+  type MergeContext,
+  type MergeListItem,
+  type MergeSource,
+  type MergeValue,
+} from "./types.ts";
 
 // THE HARD RULE OF THIS MODULE: a merge field never issues a query.
 //
@@ -55,13 +65,23 @@ export type ResolutionResult =
   | { readonly ok: false; readonly reason: ResolutionFailureReason; readonly detail: string };
 
 // The sources a manifest actually needs. A template that names no location field never reads a location.
+//
+// The keys come from EVERY site the manifest records — plain placeholders, block conditions, and
+// computed fields alike. That is what keeps the batching rule true once a condition can read anything
+// the dictionary has: an expression must never be the reason a read happens late.
 function sourcesFor(manifest: FieldManifest): Set<MergeSource> {
   const sources = new Set<MergeSource>();
-  for (const field of manifest.fields) {
-    const entry = lookupDictionaryEntry(field.key);
+  for (const key of manifestKeys(manifest)) {
+    const entry = lookupDictionaryEntry(key);
     if (entry !== undefined) sources.add(entry.source);
   }
   return sources;
+}
+
+// Whether the manifest asks for a particular key anywhere. A collection is read only when something
+// walks it — a repeat is a read, and a template with no repeat pays for none.
+function manifestWants(manifest: FieldManifest, key: string): boolean {
+  return manifestKeys(manifest).includes(key);
 }
 
 function textValue(text: string | null): MergeValue | undefined {
@@ -85,6 +105,7 @@ function valuesFromMatter(matter: MatterMergeRow, into: Map<string, MergeValue>)
   set("matter.description", textValue(matter.description));
   set("matter.status", textValue(matter.status));
   set("matter.openedOn", instantValue(matter.openedAt));
+  set("matter.eBilling", { kind: "boolean", value: matter.eBilling !== 0 });
   set("client.displayName", textValue(matter.clientDisplayName));
   set("client.code", textValue(matter.clientCode));
 }
@@ -127,6 +148,27 @@ export async function resolveMergeContext(
     valuesFromMatter(matter, values);
   }
 
+  // The matter's parties: ONE read for the whole collection, never one per item. Repeats are the first
+  // list-valued source, so this is where the batching rule meets its first real test.
+  if (manifestWants(input.manifest, "matter.parties")) {
+    reads.push("party");
+    const { results } = await selectMatterPartiesForMergeStatement(
+      database,
+      input.matterId,
+    ).all<MatterPartyMergeColumns>();
+    const items: MergeListItem[] = results.map((row) => {
+      const party = toMatterPartyMergeRow(row);
+      const fields = new Map<string, MergeValue>([
+        ["role", { kind: "text", text: party.role }],
+        ["kind", { kind: "text", text: party.kind }],
+      ]);
+      const displayName = textValue(party.displayName);
+      if (displayName !== undefined) fields.set("displayName", displayName);
+      return { fields };
+    });
+    values.set("matter.parties", { kind: "list", items });
+  }
+
   let location: LocationMergeRow | undefined;
   if (sources.has("location") && matter?.locationId != null) {
     reads.push("location");
@@ -154,9 +196,7 @@ export async function resolveMergeContext(
 
   // Absence is computed against what the MANIFEST asked for, not against the dictionary as a whole: a
   // key a template never uses is not missing from that template's assembly.
-  const absentKeys = [
-    ...new Set(input.manifest.fields.map((field) => field.key).filter((key) => !values.has(key))),
-  ].sort();
+  const absentKeys = manifestKeys(input.manifest).filter((key) => !values.has(key));
 
   return { ok: true, context: { values, absentKeys, timeZone }, reads };
 }

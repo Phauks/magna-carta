@@ -12,3 +12,12 @@ rules:
   # JSONPath dereferences them. Our enums are trivial single-value literals (Health.status, firm
   # status), so the rule carries near-zero value; disabling it unblocks the whole hygiene gate.
   duplicated-entry-in-enum: off
+  # MOVED, not dropped. A WebSocket subscribe endpoint succeeds with 101 — neither 2xx nor 3xx — so
+  # this rule fires on a document that is correct, and Spectral 6.16's per-operation `overrides` do not
+  # take effect for it (tried by JSON pointer at both the operation and the responses node). Rather
+  # than leave the rule on and let CI fail on a correct contract, the check moved to the fitness
+  # function that can express the real rule — "every operation declares a success response, and a 101
+  # is one" — in test/conformance.test.ts, which is where this repo's logic-bearing contract checks
+  # live anyway. The Vitest version is strictly stronger: it also proves a subscribe operation does not
+  # ALSO claim a 2xx.
+  operation-success-response: off

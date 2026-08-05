@@ -30,6 +30,16 @@ routes requests through the chokepoint into those packages.
   the DO RPC shape.
 - `src/downloads/` — the async bulk-download build (the DO coordinator, the queue consumer, the shared
   types). See the flow below.
+- `src/emails/` — the email-capture consumer both entrances converge on, attachment extraction onto the
+  ingest chokepoint, and `dkim-dns-resolver.ts`. That resolver makes an outbound call the capture path
+  would not otherwise make: a DNS-over-HTTPS TXT lookup of a signer's `_domainkey` selector, bounded in
+  time and response size, whose failures degrade the recorded DKIM verdict to `unverified` rather than
+  failing the capture. Its target is deployment config (`DKIM_RESOLVER_URL`), never a user-supplied
+  address, so the SSRF rule in `docs/conventions/invariants.md` does not bind — but the name it queries
+  comes from the message, and is constrained to a plain domain before it can shape the request.
+- `src/progress/` — push progress for job coordinators: the WebSocket frame contract
+  (`job-progress-protocol.ts`) and the hibernation-aware socket helper (`job-progress-sockets.ts`)
+  that `BundleBuildCoordinator` and `ConversionJob` both use. See the section below.
 - `src/files/` — the ingest consumer (single-read pipeline shell over `@magna-carta/file-manager`), the
   presigner wiring, and the malware-scan wiring: `scan-port-binding.ts` (`resolveScanPort` — the
   engine-less adapter, or the remote adapter over the `SCAN_SERVICE` binding when bound) and
@@ -83,8 +93,33 @@ built in the background instead of streamed inline:
 
 **Per-firm isolation, artifact lifecycle, cost:** the manifest hash and the DO name are firm-scoped; the
 artifact lives in the firm's own bucket and is expired by a `bundles/` R2 lifecycle rule (the deploy
-runbook, section 8) — a regenerable cache, so expiry only forces a later rebuild. Notifications-push
-delivery (instead of polling) and a Container escalation for outlier-large bundles are named seams.
+runbook, section 8) — a regenerable cache, so expiry only forces a later rebuild. A Container
+escalation for outlier-large bundles is a named seam.
+
+## Push progress — the hibernation WebSocket surface
+
+`BundleBuildCoordinator` and `ConversionJob` each expose a **subscribe** endpoint beside their poll
+endpoint: `GET /api/v1/downloads/bundles/{manifestHash}/events` and
+`GET /api/v1/conversions/{jobId}/events`. A client that upgrades receives the job's current state
+immediately and every transition as it happens; polling is unchanged and remains the fallback. The
+frame contract and the working rules are in [`docs/conventions/api.md`](../../docs/conventions/api.md)
+(_Push progress over WebSocket_); `src/progress/job-progress-protocol.ts` is the one home for the
+frames themselves.
+
+Local rules for this surface:
+
+- **Nothing about a subscription may live on the Durable Object instance.** Class properties do not
+  survive hibernation. The job state is read from `ctx.storage` and the subscription's context (the
+  firm bucket a signed URL is minted against) from the socket's `serializeAttachment`. That is why
+  `JobProgressSockets` is constructed per call rather than held as a field.
+- **Every state write ends in a `broadcast()`.** A transition that skips it is a client left waiting
+  on a socket that will never move. The early-return paths (a shared build, an idempotent submit)
+  deliberately do not broadcast — nothing transitioned.
+- **Poll and push must resolve through the shared resolver** (`downloads/bundle-progress.ts`,
+  `conversions/conversion-progress.ts`). Adding a field to one and not the other is how the fallback
+  stops being a fallback.
+- The upgrade is a chokepoint route like any other: the object is addressed by the **session** firm
+  id, never a path value, so subscription is scoped exactly as the poll is.
 
 ## Conversion subsystem — orchestration here, engines in a dedicated worker
 

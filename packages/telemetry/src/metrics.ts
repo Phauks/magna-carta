@@ -134,6 +134,21 @@ export const documentTemplateNormalization = defineMetric("documentTemplate.norm
   "outcome",
   "placeholderForm",
 ] as const);
+// How often registration rejects a template EXPRESSION, and which kind of failure it was. This is the
+// instrument that says whether the expression language is teachable: a failure kind that dominates is a
+// grammar or an error message to fix, not a firm to train. The expression TEXT is never a dimension —
+// it names merge fields, and a firm's own custom-field handles are in it.
+export const documentTemplateExpressionCheck = defineMetric("documentTemplate.expressionCheck", [
+  "outcome",
+  "failureKind",
+] as const);
+// How each expression site came out at assembly. A rising `unresolved` on conditions is the
+// template-and-data drift signal, one layer up from `documentAssembly.absentField`: it says a firm's
+// templates are asking questions its data can no longer answer.
+export const documentAssemblyExpression = defineMetric("documentAssembly.expression", [
+  "outcome",
+  "site",
+] as const);
 // Custodian — the register of physical client originals. Every dimension here is an enum-like label
 // from a closed set; a CUSTODY NUMBER is never one, for the same reason a merge-field key is not: it
 // is firm-defined, high-cardinality, and printed on a physical object a person can be identified by.
@@ -190,6 +205,8 @@ const CATALOG: readonly MetricDefinition[] = [
   documentAssemblyAbsentField,
   documentAssemblyFrozenField,
   documentTemplateNormalization,
+  documentTemplateExpressionCheck,
+  documentAssemblyExpression,
   custodyMovements,
   custodyPacketsOverdue,
   custodyHoldBlocked,

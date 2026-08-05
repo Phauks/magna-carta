@@ -7,18 +7,26 @@ import {
 } from "../chokepoint/context-accessors.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
-import { Problem } from "../contracts/problem.ts";
+import { Problem, problemJson } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
+import { resolveBundleProgress } from "../downloads/bundle-progress.ts";
 import { resolveFirmBucket } from "../files/firm-bucket.ts";
-import { presignerForEnv } from "../files/presigner-wiring.ts";
+import { isWebSocketUpgrade, subscribeRequest } from "../progress/job-progress-sockets.ts";
 
-// The async bulk-download poll endpoint: the client that received a 202 from POST /downloads/zip polls
-// here for the job's state. A building/failed job carries no URL; a ready job mints a fresh short-TTL
-// signed GET for its R2 artifact each poll (the URL is never stored). The coordinator DO is addressed
-// by firmId:manifestHash, so one firm can never read another firm's job — the firm id comes from the
-// session, not the path. Same chokepoint + files:organize capability as the download route.
-
-const POLL_URL_TTL_SECONDS = 300;
+// The bulk-download job's two status surfaces, side by side because they must always agree.
+//
+// The POLL endpoint is the one a client that received a 202 from POST /downloads/zip asks repeatedly.
+// The SUBSCRIBE endpoint upgrades to a WebSocket the coordinator pushes each transition down, so a
+// client learns a build finished at the moment it finished instead of on its next poll. Both resolve
+// the job through the same function (downloads/bundle-progress.ts) and hand back the same object, so
+// polling is a complete fallback rather than a second, drifting implementation — which is also what
+// keeps the surface honest for a client that cannot hold a socket open.
+//
+// A building/failed job carries no URL; a ready job mints a fresh short-TTL signed GET each time it
+// is reported (the URL is never stored). Both endpoints address the coordinator DO by
+// firmId:manifestHash with the firm id taken from the SESSION, never the path, so one firm can never
+// reach another firm's job by guessing a hash — and both carry the same files:organize capability as
+// the download route that created it.
 
 const bundleStatusMeta: RouteMeta = {
   operationId: "downloads.bundleStatus",
@@ -75,56 +83,102 @@ const bundleStatusRoute = defineOpenAPIRoute(bundleStatusMeta, {
   },
 });
 
+const bundleEventsMeta: RouteMeta = {
+  operationId: "downloads.bundleEvents",
+  surface: "app",
+  authenticated: true,
+  permission: "files:organize",
+  // Same binding as the poll endpoint: a files:* capability governs matter-rooted file objects.
+  resource: "matter",
+  audited: false,
+  idempotency: "optional",
+  rateLimit: "default",
+};
+
+const bundleEventsRoute = defineOpenAPIRoute(bundleEventsMeta, {
+  method: "get",
+  path: "/api/v1/downloads/bundles/{manifestHash}/events",
+  description:
+    "Subscribes to an async bulk-download build over a WebSocket. The server sends the job's " +
+    "current state on connect and again on every transition; each frame is " +
+    '{ "type": "state", "protocolVersion": 1, "state": { … } } where state is the same object the ' +
+    "poll endpoint returns, so a ready job carries a freshly minted, short-lived signed URL. The " +
+    'client may send { "type": "resync" } to be re-sent the current state and { "type": "ping" } ' +
+    "for a keepalive. A settled job is pushed once and the socket then closes. Requires an Upgrade: " +
+    "websocket request; the poll endpoint is the equivalent answer for a client that cannot upgrade.",
+  request: { params: z.object({ manifestHash: z.string().min(1) }) },
+  responses: {
+    101: { description: "The subscription is open; job state follows as WebSocket frames" },
+    401: {
+      description: "No valid session",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    403: {
+      description: "The session member lacks files:organize",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    404: {
+      description: "The firm is unreachable or the member is deactivated",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    426: {
+      description: "The request did not ask to upgrade to a WebSocket",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    429: {
+      description: "Rate limit exceeded",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+  },
+});
+
 type BundleStatusApp = OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>;
 
 export function registerBundleStatusRoute(app: BundleStatusApp, chokepoint: Chokepoint): void {
+  // The poll endpoint.
   app.openapi(
     { ...bundleStatusRoute, middleware: chokepointMiddleware(chokepoint, bundleStatusRoute) },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const firmId = requireChokepointFirmId(c);
-      const bucket = resolveFirmBucket(c.env, firm.bucketName).bucketName;
+      const bucketName = resolveFirmBucket(c.env, firm.bucketName).bucketName;
       const { manifestHash } = c.req.valid("param");
 
       const coordinator = c.env.BUNDLE_COORDINATOR.get(
         c.env.BUNDLE_COORDINATOR.idFromName(`${firmId}:${manifestHash}`),
       );
-      const state = await coordinator.status();
+      const progress = await resolveBundleProgress(c.env, bucketName, await coordinator.status());
+      return c.json(progress, 200);
+    },
+  );
 
-      // The optioned container lane reports N volume keys (one for a single-file bundle, several for a
-      // 7z split). Sign each into `urls`; the reaped-artifact guard runs per volume, since the
-      // `bundles/` lifecycle rule could have expired any of them. A single missing volume makes the
-      // whole bundle unusable, so any miss reports `expired` and the client re-requests a build.
-      if (state.status === "ready" && state.volumes !== undefined) {
-        const presigner = presignerForEnv(c.env);
-        const urls: string[] = [];
-        for (const volume of state.volumes) {
-          const artifact = await c.env.R2.head(volume.key);
-          if (artifact === null) {
-            return c.json({ status: "expired" }, 200);
-          }
-          urls.push(await presigner.presignGet(bucket, volume.key, POLL_URL_TTL_SECONDS));
-        }
-        return c.json({ status: "ready", urls }, 200);
+  // The subscribe endpoint. The upgrade traverses the chokepoint like any other route — the session
+  // is resolved, the capability checked, and the firm id that addresses the coordinator comes from
+  // that session — and only then is the request handed to the object, which owns the 101. The request
+  // forwarded inward is built here from server-derived values (the firm's resolved bucket), so
+  // nothing the caller sent can influence which bucket a pushed signed URL is minted against.
+  app.openapi(
+    { ...bundleEventsRoute, middleware: chokepointMiddleware(chokepoint, bundleEventsRoute) },
+    async (c) => {
+      if (!isWebSocketUpgrade(c.req.raw)) {
+        return problemJson(c, {
+          type: "websocket-upgrade-required",
+          status: 426,
+          title: "WebSocket upgrade required",
+          detail:
+            "This endpoint serves WebSocket subscriptions. Send Upgrade: websocket, or poll " +
+            "/api/v1/downloads/bundles/{manifestHash} instead.",
+        });
       }
+      const firm = requireChokepointFirmContext(c);
+      const firmId = requireChokepointFirmId(c);
+      const bucketName = resolveFirmBucket(c.env, firm.bucketName).bucketName;
+      const { manifestHash } = c.req.valid("param");
 
-      if (state.status === "ready" && state.r2Key !== null) {
-        // Guard against a reaped artifact: the `bundles/` R2 lifecycle rule expires the object after
-        // its TTL, but the DO state is durable and would keep reporting `ready` with a stale key —
-        // handing out a signed URL that 404s. HEAD the object first; if it is gone, report `expired`
-        // so the client re-requests a build (the download route rebuilds a missing artifact).
-        const artifact = await c.env.R2.head(state.r2Key);
-        if (artifact !== null) {
-          const url = await presignerForEnv(c.env).presignGet(
-            bucket,
-            state.r2Key,
-            POLL_URL_TTL_SECONDS,
-          );
-          return c.json({ status: "ready", url }, 200);
-        }
-        return c.json({ status: "expired" }, 200);
-      }
-      return c.json({ status: state.status }, 200);
+      const coordinator = c.env.BUNDLE_COORDINATOR.get(
+        c.env.BUNDLE_COORDINATOR.idFromName(`${firmId}:${manifestHash}`),
+      );
+      return coordinator.fetch(subscribeRequest(bucketName));
     },
   );
 }

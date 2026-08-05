@@ -1,4 +1,5 @@
 import { DEFAULT_CAPTURE_ROOT_DOMAIN } from "@magna-carta/email-filing/capture-address";
+import { MAX_CAPTURED_MESSAGE_BYTES } from "@magna-carta/email-filing/message-format";
 import { resolveCaptureRouting, type FirmResolver } from "./routing.ts";
 
 // The Cloudflare Email Worker forward/CC capture entrance. Cloudflare Email Routing delivers a forwarded
@@ -9,10 +10,11 @@ import { resolveCaptureRouting, type FirmResolver } from "./routing.ts";
 // consumer. DNS for the capture zone (the `in.magnacarta.esq` subdomain and one DMARC) is a deploy-time
 // step documented in the operations runbook, not code.
 
-// Email Routing caps a message near ~25–40 MiB; over this ceiling the message is not staged (the
-// add-in path handles larger messages), and the sender is told rather than the message being silently
-// dropped.
-const OVERSIZE_CEILING_BYTES = 40 * 1024 * 1024;
+// Email Routing caps a message near ~25–40 MiB; over the shared capture ceiling the message is not
+// staged (the add-in path handles larger messages), and the sender is told rather than the message
+// being silently dropped. The ceiling is shared with the authenticated API entrance so the two doors
+// cannot disagree about what "too large to file" means.
+const OVERSIZE_CEILING_BYTES = MAX_CAPTURED_MESSAGE_BYTES;
 
 // The emails-capture job shape — matches @magna-carta/worker's capture consumer (the queue is the
 // contract boundary; the JSON message is the shared shape).
@@ -20,7 +22,7 @@ interface EmailsCaptureMessage {
   readonly firmId: string;
   readonly bucketName: string | null;
   readonly stagedR2Key: string;
-  readonly capturedVia: "forward" | "api";
+  readonly capturedVia: "forward" | "api" | "addin";
   readonly matterId: string | null;
   readonly captureToken: string | null;
   readonly linkedBy: string | null;

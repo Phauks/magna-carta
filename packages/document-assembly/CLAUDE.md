@@ -14,7 +14,8 @@ runs in one defensible order — **macro consent gate → strip macros → re-em
 scrub → verify the bytes that will be stored**. `assemble(templateBytes, mergeContext)`
 (`src/assemble.ts`) is the per-assembly path. `resolveMergeContext(database, input)` (`src/resolve.ts`)
 sits between them. `src/field-mapping-statements.ts` is the firm's confirmed-mapping store behind the
-name resolver.
+name resolver. `src/expression/` is the template expression language and `src/blocks.ts` is the
+block-marker vocabulary the normalizer validates and the assembly walk expands.
 
 ## Local rules
 
@@ -72,12 +73,66 @@ behaviour, description) plus, if its source already reads, one line in the match
 `valuesFrom*` function in `src/resolve.ts`. The well-formedness fitness test
 (`test/dictionary-wellformed.test.ts`) checks the row is internally consistent.
 
+## The expression language
+
+`src/expression/` is a **closed, total language, not a sandbox**, and every local rule below follows
+from that one sentence.
+
+- **The folder imports nothing but itself and `@magna-carta/money`.** No OOXML, no zip, no XML —
+  asserted by `test/expression-purity.test.ts`, because the checker has to stay runnable in a browser
+  for the authoring surface built in slice 2·6·4. That test is also the source scan that refuses `eval`,
+  `new Function`, dynamic `import`, `with`, `Reflect`, a runtime-built regular expression, a clock,
+  randomness, a locale, and floating-point arithmetic.
+- **Nothing in the folder throws.** Every stage returns a tagged result (`errors.ts`). A throw from a
+  lexer handed a megabyte of unicode is indistinguishable at the call site from a defect in the caller,
+  and the whole claim the language makes is that hostile input produces a NAMED refusal.
+- **A merge key is ONE lexical atom.** The dot is part of the identifier, never an operator; there is no
+  member-access, indexing, assignment, lambda, or regular-expression production anywhere in `parse.ts`.
+  That is why `__proto__.constructor` is uninteresting here rather than dangerous — one atom, one
+  `Map.get`, absent, reported as an unknown merge field. Do not add a traversal production; the security
+  property is structural and a single production removes it.
+- **Names resolve through a Map, layered by copying.** `layerScope` copies rather than chaining
+  prototypes: an inherited scope built with `Object.create` would put a template-supplied name one
+  lookup from a prototype property.
+- **A call node carries a catalog signature resolved at PARSE time** (`catalog.ts`), so by evaluation
+  the only callable things in existence are functions in this repository. Adding a helper is a row in
+  that frozen table plus an arm in `evaluate.ts`'s switch — never a dynamic dispatch on a name.
+- **Every bound is in `limits.ts`, and each has a test that hits it exactly** and asserts the named
+  refusal rather than a timeout. The declared tree-depth bound counts NODES; the parser's own recursion
+  is guarded separately, because most precedence levels produce no node and conflating the two would
+  make pretty-printing an expression change whether it is legal.
+- **No floating point, and every intermediate is checked BEFORE the operation.** Money is minor units at
+  scale 2, a rate is `rate_e4`, a number is an exact `(significand, scale)` pair. The money package's own
+  `assertSafeInteger` throw is unreachable from here by construction. Rounding and splitting go through
+  `roundLedger` and `allocate` rather than a second implementation; `test/expression-arithmetic-oracle.test.ts`
+  checks both against an independent BigInt reference.
+- **The fuzz harness and the denied-construct corpus are obligations, not extras.** Anything that ever
+  produced a crash, a hang, or a wrong answer is committed to the corpus and runs forever after. The
+  round-trip property (pretty-print, reparse, compare trees) is the parser-ambiguity detector and has
+  already caught one real precedence bug.
+
+## Blocks
+
+- **Whole paragraphs and whole rows, never halves.** `src/blocks.ts` decides the unit: a `w:p` whose
+  text is exactly one marker, or a `w:tr` whose FIRST CELL carries one. A partial removal is how a
+  document becomes "damaged" in Word, and nothing in a text assertion catches it.
+- **Markers match among SIBLINGS.** A block that opens in a table cell and closes after the table has
+  no meaningful removal, so it is a `block-unbalanced` registration failure with a location.
+- **Numbering and banding survive because whole units move.** Numbering is a paragraph property
+  (`w:numPr`) and banding is a table property (`w:tblLook`) applied by position, so a deep clone per
+  iteration — every clone carrying its own `w:pPr` and `w:trPr` — is what keeps both correct.
+- **An unresolved CONDITION fails the assembly; an unresolved COMPUTED FIELD renders a placeholder.**
+  The asymmetry is deliberate and load-bearing: a missing clause is invisible, a hole on the page is not.
+  `has(key)` is the total form, so the safe reading is one word away.
+
 ## Named seams (not built here)
 
-- **Conditional and repeating blocks** — the grammar is refused at registration today
-  (`block-syntax-unsupported`) rather than silently read as a field name; built in slice 2·6·2, along
-  with Directory role sources, `custom.<handle>` bindings, the letterhead logo, and protected-value
-  binding through the decrypt-permission-plus-audit path.
+- **The widened dictionary** — Directory role sources, `custom.<handle>` bindings, the letterhead logo,
+  and protected-value binding through the decrypt-permission-plus-audit path. Until they land,
+  `matter.parties` is the only list-valued source and there is no money-typed or rate-typed merge field,
+  so the money helpers are exercised against synthetic merge contexts rather than against a real one.
+- **Aggregates over a repeat collection** (`sum(disbursements.amount)`) — safe, wanted, and on the wrong
+  side of the "expressions do not iterate" line. A named seam, not a feature.
 - **Content controls (`w:sdt`)** — structurally the best placeholder binding and immune to run
   splitting, deferred until a browser authoring surface can emit them.
 

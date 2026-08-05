@@ -17,6 +17,7 @@ import {
   type CapturePorts,
   type CaptureWritePlan,
 } from "@magna-carta/email-filing/capture";
+import { verifyDkim } from "@magna-carta/email-filing/dkim";
 import { findEntitiesByEmailAddress } from "@magna-carta/directory/contact-email";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type {
@@ -32,6 +33,7 @@ import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import type { Bindings } from "../app.ts";
 import { firmDatabaseFor } from "../firm-database/firm-database-proxy.ts";
 import { extractAndFileAttachments } from "./attachment-extraction.ts";
+import { createDkimKeyLookup } from "./dkim-dns-resolver.ts";
 import { raiseEmailFiledNotification } from "@magna-carta/email-filing/seams";
 
 const emailWasm = emailWasmModule as unknown as WebAssembly.Module;
@@ -44,7 +46,10 @@ export interface EmailsCaptureMessage {
   readonly firmId: string;
   readonly bucketName: string | null;
   readonly stagedR2Key: string; // where the entrance staged the raw MIME
-  readonly capturedVia: "forward" | "api";
+  // Which entrance recorded the capture. `forward` is the Email Worker; `api` and `addin` both post to
+  // the authenticated file-to-matter endpoint and are told apart because only an add-in capture
+  // carries the original message intact.
+  readonly capturedVia: "forward" | "api" | "addin";
   readonly matterId: string | null; // a candidate matter already resolved by the entrance (the API path)
   // The forward/CC token, when the entrance could not resolve a matter itself (the Email Worker has no
   // per-firm database handle). The consumer resolves it against the firm's capture-address store.
@@ -110,6 +115,11 @@ export async function handleCaptureMessage(
       }
       return resolved;
     },
+    // Signature adjudication runs here, in the consumer, because it needs a DNS round trip — off the
+    // request path by construction. It is informational: a verdict never gates the capture, and the
+    // capture core records an honest "unverified" if this port is unavailable or throws.
+    verifyDkim: (input) =>
+      verifyDkim(input, { lookupKeyRecords: createDkimKeyLookup(env.DKIM_RESOLVER_URL) }),
     newEmailMessageId: () => newIdentifier("emailMessage"),
     newEmailThreadId: () => newIdentifier("emailThread"),
     newEmailParticipantId: () => newIdentifier("emailParticipant"),
@@ -123,7 +133,7 @@ export async function handleCaptureMessage(
           insertEmailThreadStatement(
             firmDatabase,
             {
-              id: plan.thread.id as EmailThreadId,
+              id: plan.thread.id,
               subjectNormalized: plan.thread.subjectNormalized,
               firstSeenAt: plan.thread.firstSeenAt,
             },
@@ -138,13 +148,7 @@ export async function handleCaptureMessage(
         }
       }
       if (plan.touchMessageId !== null) {
-        statements.push(
-          touchEmailMessageStatement(
-            firmDatabase,
-            plan.touchMessageId as EmailMessageId,
-            timestamp,
-          ),
-        );
+        statements.push(touchEmailMessageStatement(firmDatabase, plan.touchMessageId, timestamp));
       }
       if (plan.link !== null) {
         statements.push(insertEmailMatterLinkStatement(firmDatabase, plan.link, timestamp));
