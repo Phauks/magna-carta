@@ -44,10 +44,26 @@ export function parentAccountsWithPostingsStatement(database: SqlDatabase): SqlS
     .bind();
 }
 
+// A parent's stored balance must stay at zero, forever. A posting batch updates account_balance only
+// for the accounts its lines touch and lines touch leaves only, so a parent row's balance is never
+// written after creation — which means any report that reads a parent's stored balance silently
+// reads zero instead of the roll-up it wanted. The roll-up is a SUM over descendant leaves; this
+// query states the other half of that rule enforceably, so a non-zero parent balance (the signature
+// of a direct posting that slipped past both leaf-only guards, or of a hand-written UPDATE) surfaces
+// as corruption rather than as a quietly wrong total on a client-money report.
+export function parentAccountsWithNonZeroBalanceStatement(database: SqlDatabase): SqlStatement {
+  return database
+    .prepare(
+      `SELECT b.account_id, b.balance_minor FROM ${ACCOUNT_BALANCE_TABLE} b WHERE b.balance_minor <> 0 AND EXISTS(SELECT 1 FROM ${LEDGER_ACCOUNT_TABLE} c WHERE c.parent_account_id = b.account_id)`,
+    )
+    .bind();
+}
+
 const FITNESS_STATEMENTS = [
   ["unbalanced entries", unbalancedEntriesStatement],
   ["inconsistent balances", inconsistentBalancesStatement],
   ["parent accounts with postings", parentAccountsWithPostingsStatement],
+  ["parent accounts with a non-zero balance", parentAccountsWithNonZeroBalanceStatement],
 ] as const;
 
 // The one proof call sites use (scenario assertions, seeding, future diagnostics): every fitness

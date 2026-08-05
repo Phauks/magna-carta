@@ -1,0 +1,93 @@
+import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
+import { ACCOUNT_BALANCE_TABLE, LEDGER_LINE_TABLE } from "@magna-carta/ledger/statements";
+import { TRUST_ACCOUNT_TABLE, TRUST_HOLD_TABLE, TRUST_LEDGER_NODE_TABLE } from "./statements.ts";
+
+// Fitness queries: re-prove the trust invariants over the WHOLE table. Zero rows = healthy.
+//
+// Every rule below is already enforced on the write path. These exist because a write-path guard
+// reads before its batch commits and D1 has no interactive transaction to hold that read still, and
+// because a future caller may find a door around the composition guard. A structural invariant that
+// cannot be re-proved against stored data is an invariant you are trusting rather than holding.
+
+// Which ledger accounts belong to which trust account — the node leaves plus each account's two
+// roots, in one relation. Written once and reused so the commingling query cannot drift between its
+// two halves.
+const TRUST_ACCOUNT_MEMBERSHIP = `SELECT n.ledger_account_id AS account_id, n.trust_account_id AS trust_account_id FROM ${TRUST_LEDGER_NODE_TABLE} n UNION ALL SELECT a.bank_ledger_account_id, a.id FROM ${TRUST_ACCOUNT_TABLE} a UNION ALL SELECT a.client_liability_account_id, a.id FROM ${TRUST_ACCOUNT_TABLE} a`;
+
+// NO COMMINGLING. An entry that touches one trust account's accounts must touch nothing else: not
+// another trust account, and not an operating, income, or expense account. This is the query that
+// would surface a processor fee netted out of a trust deposit, firm money parked in a client ledger,
+// or client money paid straight into the operating account.
+export function commingledTrustEntriesStatement(database: SqlDatabase): SqlStatement {
+  return database
+    .prepare(
+      `SELECT DISTINCT l.entry_id AS entry_id FROM ${LEDGER_LINE_TABLE} l JOIN (${TRUST_ACCOUNT_MEMBERSHIP}) m ON m.account_id = l.account_id WHERE EXISTS (SELECT 1 FROM ${LEDGER_LINE_TABLE} o LEFT JOIN (${TRUST_ACCOUNT_MEMBERSHIP}) m2 ON m2.account_id = o.account_id WHERE o.entry_id = l.entry_id AND (m2.trust_account_id IS NULL OR m2.trust_account_id <> m.trust_account_id))`,
+    )
+    .bind();
+}
+
+// CLIENT-TO-CLIENT IS REFUSED. One entry, at most one client's money. A row here is either a
+// composition guard that was bypassed or a movement between two clients' ledgers, which is the
+// misappropriation pattern the guard exists to make unrepresentable.
+export function multiClientTrustEntriesStatement(database: SqlDatabase): SqlStatement {
+  return database
+    .prepare(
+      `SELECT entry_id, clients FROM (SELECT l.entry_id AS entry_id, COUNT(DISTINCT n.client_entity_id) AS clients FROM ${LEDGER_LINE_TABLE} l JOIN ${TRUST_LEDGER_NODE_TABLE} n ON n.ledger_account_id = l.account_id WHERE n.client_entity_id IS NOT NULL GROUP BY l.entry_id) WHERE clients > 1`,
+    )
+    .bind();
+}
+
+// THE FLOOR IS ACTUALLY SET. min_balance_minor = 0 on every matter leaf is the whole no-negative
+// guarantee; a leaf created without it is a leaf that can be overdrawn, and nothing else in the
+// system would notice until it was.
+export function trustLeavesWithoutZeroFloorStatement(database: SqlDatabase): SqlStatement {
+  return database
+    .prepare(
+      `SELECT n.id AS node_id, b.min_balance_minor FROM ${TRUST_LEDGER_NODE_TABLE} n JOIN ${ACCOUNT_BALANCE_TABLE} b ON b.account_id = n.ledger_account_id WHERE n.kind = 'matter' AND (b.min_balance_minor IS NULL OR b.min_balance_minor <> 0)`,
+    )
+    .bind();
+}
+
+// POSTINGS LAND ON MATTER LEAVES. A client node carrying a line would sit outside the roll-up of the
+// matters beneath it, so the client's ledger total and the sum of that client's matters would
+// silently disagree — and the disagreement would be invisible on both reports.
+export function trustRollupNodesWithPostingsStatement(database: SqlDatabase): SqlStatement {
+  return database
+    .prepare(
+      `SELECT DISTINCT n.id AS node_id, n.kind FROM ${TRUST_LEDGER_NODE_TABLE} n WHERE n.kind <> 'matter' AND EXISTS (SELECT 1 FROM ${LEDGER_LINE_TABLE} l WHERE l.account_id = n.ledger_account_id)`,
+    )
+    .bind();
+}
+
+// HOLDS NEVER EXCEED THE BALANCE THEY RESTRICT. Available balance is balance minus active holds, so
+// holds larger than the balance make available negative — a number no disbursement check can reason
+// about, and a sign that a hold outlived the money it was placed against.
+export function trustHoldsExceedingBalanceStatement(database: SqlDatabase): SqlStatement {
+  return database
+    .prepare(
+      `SELECT n.id AS node_id, b.balance_minor, h.held_minor FROM ${TRUST_LEDGER_NODE_TABLE} n JOIN ${ACCOUNT_BALANCE_TABLE} b ON b.account_id = n.ledger_account_id JOIN (SELECT p.node_id AS node_id, SUM(p.amount_minor) AS held_minor FROM ${TRUST_HOLD_TABLE} p WHERE p.releases_hold_id IS NULL AND NOT EXISTS (SELECT 1 FROM ${TRUST_HOLD_TABLE} r WHERE r.releases_hold_id = p.id) GROUP BY p.node_id) h ON h.node_id = n.id WHERE h.held_minor > b.balance_minor`,
+    )
+    .bind();
+}
+
+const FITNESS_STATEMENTS = [
+  ["commingled trust entries", commingledTrustEntriesStatement],
+  ["entries touching more than one client", multiClientTrustEntriesStatement],
+  ["trust leaves without a zero floor", trustLeavesWithoutZeroFloorStatement],
+  ["roll-up nodes carrying postings", trustRollupNodesWithPostingsStatement],
+  ["holds exceeding the balance they restrict", trustHoldsExceedingBalanceStatement],
+] as const;
+
+// The one proof call sites use. Every query runs, so a query added above is automatically part of
+// every proof. Corruption throws a plain Error — nothing a caller's user can fix — naming the failed
+// query and the offending rows.
+export async function assertTrustFitness(database: SqlDatabase): Promise<void> {
+  for (const [name, statement] of FITNESS_STATEMENTS) {
+    const { results } = await statement(database).all();
+    if (results.length > 0) {
+      throw new Error(
+        `trust fitness: ${name} — ${results.length} offending row(s): ${JSON.stringify(results)}`,
+      );
+    }
+  }
+}

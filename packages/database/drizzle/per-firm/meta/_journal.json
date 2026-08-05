@@ -162,6 +162,20 @@
       "when": 1785862800001,
       "tag": "20260804T170001_custody-review-schedule",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "6",
+      "when": 1785931200000,
+      "tag": "20260805T120000_trust-ledger",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1785931200001,
+      "tag": "20260805T120001_seed-trust-permissions",
+      "breakpoints": true
     }
   ]
 }

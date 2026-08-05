@@ -111,3 +111,7 @@ export type CustodyMovementId = Identifier<"custodyMovement">;
 export type CustodyHoldId = Identifier<"custodyHold">;
 export type CustodyScanId = Identifier<"custodyScan">;
 export type CustodyDestructionRequestId = Identifier<"custodyDestructionRequest">;
+export type TrustAccountId = Identifier<"trustAccount">;
+export type TrustLedgerNodeId = Identifier<"trustLedgerNode">;
+export type TrustHoldId = Identifier<"trustHold">;
+export type TrustTransferId = Identifier<"trustTransfer">;
