@@ -24,6 +24,23 @@ export {
   DKIM_VERDICT_UNVERIFIED,
 } from "./seams.ts";
 export type { FilingConflictInput, FilingConflictResult, EmailFiledNotification } from "./seams.ts";
+export { verifyDkim, UNVERIFIED } from "./dkim.ts";
+export type {
+  DkimKeyLookup,
+  DkimKeyLookupResult,
+  DkimVerification,
+  DkimVerdictReason,
+  DkimVerifyOptions,
+} from "./dkim.ts";
+export {
+  sniffMessageFormat,
+  mediaTypeForMessageFormat,
+  fileNameForMessageFormat,
+  MAX_CAPTURED_MESSAGE_BYTES,
+  EML_MEDIA_TYPE,
+  MSG_MEDIA_TYPE,
+} from "./message-format.ts";
+export type { MessageFormat } from "./message-format.ts";
 export type {
   CapturedVia,
   DkimVerdict,

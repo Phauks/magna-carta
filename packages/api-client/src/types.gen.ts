@@ -211,6 +211,8 @@ export type EmailMessageDetail = {
     sentAt: string | null;
     receivedAt: string;
     dkimVerdict: string;
+    dkimVerdictReason: string | null;
+    dkimVerifiedDomain: string | null;
     participants: Array<{
         kind: string;
         displayName: string | null;
@@ -2980,10 +2982,15 @@ export type EmailsListResponse = EmailsListResponses[keyof EmailsListResponses];
 
 export type EmailsFileData = {
     body: unknown;
+    headers?: {
+        'idempotency-key'?: string;
+    };
     path: {
         matterId: string;
     };
-    query?: never;
+    query?: {
+        source?: 'api' | 'addin';
+    };
     url: '/api/v1/matters/{matterId}/emails';
 };
 
@@ -3001,13 +3008,21 @@ export type EmailsFileErrors = {
      */
     403: Problem;
     /**
-     * Unknown matter
+     * Unknown matter, or one the caller cannot access
      */
     404: Problem;
     /**
-     * Message exceeds the inspectable-size cap
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * Message exceeds the capture size limit
      */
     413: Problem;
+    /**
+     * The bytes are not an email message, the firm's upload policy refuses the format, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
     /**
      * Rate limit exceeded
      */

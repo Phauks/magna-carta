@@ -97,6 +97,9 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     table: "email_message",
     subjectKey: "from_address",
     action: "retain-under-matter",
+    // The DKIM columns are deliberately not a second subject key: the verdict and its reason are facts
+    // about a signature, and the verified domain names the ORGANIZATION that signed — a mail domain,
+    // not a person's mailbox, so it resolves to no data subject the way from_address does.
     note: "the sender frozen as-at receipt; the subject line and the verbatim R2 original are content-level residue for the residue report",
   },
   {

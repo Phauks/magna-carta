@@ -71,6 +71,8 @@ function messageInput(overrides: Partial<EmailMessageInsert> = {}): EmailMessage
     referencesRemoteContent: false,
     integrity: "{}",
     dkimVerdict: "unverified",
+    dkimVerdictReason: null,
+    dkimVerifiedDomain: null,
     sourceFormat: "eml",
     capturedVia: "api",
     ...overrides,
