@@ -251,6 +251,38 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "report-manual",
     note: "the other party as the bank named it on a statement line, held as free text with no structured subject, on an append-only row the firm did not author",
   },
+  // Billing. The invoice header is the one billing table with a structured subject reference: it
+  // says the firm charged this client. It is retained on the same basis as matter_party and the
+  // trust sub-ledger node — a bill the firm issued is a financial record it is obliged to keep and
+  // to be able to account for, and the subject-side scrub happens at the Directory entity. Erasing
+  // it would leave a receivable in the ledger nobody could attribute.
+  {
+    table: "invoice",
+    subjectKey: "client_entity_id",
+    action: "retain-under-matter",
+    note: "who the firm billed, on a record it must be able to produce for its own accounts and for a fee dispute",
+  },
+  // The billing name and letterhead snapshot are the client's name as it was PRINTED on a bill the
+  // firm has already given somebody. There is no separate structured subject to resolve — the row's
+  // client_entity_id above is it — and re-writing the printed name would make the finalized invoice
+  // stop being the document the client received, which is the property the whole snapshot exists to
+  // give. The residue class matter.description and custody_item.description sit in.
+  {
+    table: "invoice",
+    subjectKey: "client_billing_name",
+    action: "report-manual",
+    note: "the client's name as it was printed on a bill already issued, frozen so the finalized invoice re-renders as the document the client received",
+  },
+  // An invoice line's description is the firm's own narrative of work done, snapshot at composition.
+  // Where it names a person it does so as free text with no structured subject — the same residue
+  // class the time-entry narrative it was composed from sits in, and it takes the same treatment for
+  // the same reason, with the line frozen once its invoice is finalized.
+  {
+    table: "invoice_line",
+    subjectKey: "description",
+    action: "report-manual",
+    note: "what the client was told the firm did, held as free text with no structured subject, frozen once the invoice is finalized",
+  },
 ];
 
 // Per-firm tables that hold NO personal data — the explicit non-PII half of the coverage fitness.
@@ -434,4 +466,20 @@ export const NO_PII_TABLES: readonly string[] = [
   // ledger holds resolves through trust_ledger_node, registered above.
   "trust_reconciliation",
   "trust_reconciliation_match",
+  // Billing. The two tables with a subject reference (invoice, invoice_line) are registered in
+  // PII_TABLES above; these five carry none of their own.
+  // A claim says which work-in-progress row an invoice took. It is two handles, an amount, and two
+  // timestamps — a record about the firm's own bookkeeping, whose client resolves through the
+  // invoice, not through this row.
+  "invoice_wip_claim",
+  // A derived balance: an invoice, a matter, and two integers. It is the line account_balance sits
+  // on, and whose money it concerns resolves through the invoice.
+  "invoice_matter_balance",
+  // The numbering pair is a sequence: a scope key, a counter, and which invoice consumed which
+  // value. Nothing about any person.
+  "invoice_number_counter",
+  "invoice_number_allocation",
+  // Which of the firm's own ledger accounts plays each posting role — the firm's chart of accounts
+  // by another name, and configuration rather than personal data (the line `rate_card` sits on).
+  "firm_account_role",
 ];

@@ -219,4 +219,15 @@ describe("permission registry", () => {
   it("registers the ocr tool permission", () => {
     expect(isPermission("tools:ocr")).toBe(true);
   });
+
+  it("permissionsForNamespace('billing') returns exactly the billing keys, in registry order", () => {
+    expect(permissionsForNamespace("billing")).toEqual([
+      "billing:read",
+      "billing:draft",
+      "billing:finalize",
+      "billing:apply",
+      "billing:credit",
+      "billing:configure",
+    ]);
+  });
 });

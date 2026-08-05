@@ -191,6 +191,26 @@ export const ENTITY_PREFIXES = {
   trustBankStatementLine: "trustBankStatementLine",
   trustReconciliation: "trustReconciliation",
   trustReconciliationMatch: "trustReconciliationMatch",
+  // Billing and invoicing. An `invoice` is the header (registered above, alongside the earliest
+  // entities); an `invoiceLine` is what the client is told, in presentation order; an
+  // `invoiceWipClaim` records which work-in-progress row an invoice has taken, and IS the
+  // concurrency control that stops two drafts billing one hour. An `invoiceApplication` is one unit
+  // of value reaching an invoice — a payment, a transfer of earned fees out of trust, a credit note,
+  // a client credit, a write-off, or the reversal of one of those. A `creditNote` and its
+  // `creditNoteLine` correct a finalized invoice without editing it; a `clientCredit` is value owed
+  // back to a client that has not been discharged yet; an `invoiceDelivery` is one attempt at
+  // getting a bill to the client, recorded per attempt because a re-send is not a change to the
+  // financial record. A `billingArrangement` is the effective-dated record of how a matter is
+  // billed, and a `taxRate` is one rate in the firm's own configured catalog.
+  invoiceLine: "invoiceLine",
+  invoiceWipClaim: "invoiceWipClaim",
+  invoiceApplication: "invoiceApplication",
+  creditNote: "creditNote",
+  creditNoteLine: "creditNoteLine",
+  clientCredit: "clientCredit",
+  invoiceDelivery: "invoiceDelivery",
+  billingArrangement: "billingArrangement",
+  taxRate: "taxRate",
 } as const;
 
 export type EntityType = keyof typeof ENTITY_PREFIXES;

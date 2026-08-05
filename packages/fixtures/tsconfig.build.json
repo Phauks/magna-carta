@@ -15,6 +15,9 @@
   },
   "references": [
     {
+      "path": "../billing/tsconfig.build.json"
+    },
+    {
       "path": "../conflicts/tsconfig.build.json"
     },
     {
@@ -58,6 +61,9 @@
     },
     {
       "path": "../timekeeping/tsconfig.build.json"
+    },
+    {
+      "path": "../trust/tsconfig.build.json"
     }
   ],
   "include": [

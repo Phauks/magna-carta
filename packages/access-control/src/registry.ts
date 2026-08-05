@@ -127,6 +127,19 @@ export const PERMISSIONS = [
   // matter, and its sub-ledger spans every matter a client has.
   "trust:read", // read trust accounts, the client/matter sub-ledger, balances, available balances, and holds
   "trust:manage", // open trust accounts, build the sub-ledger, place and release holds, compose trust movements
+  // Billing and invoicing — the firm's own bill, and the money that comes back against it. Six keys
+  // rather than a read/manage pair, because the capabilities genuinely differ and a firm's shape
+  // separates them: a billing clerk assembles drafts for a partner to finalize, so drafting and
+  // finalizing are different keys; applying moves CLIENT money onto a bill, which is the same reason
+  // trust separates reading a balance from moving one; and crediting reverses an evidentiary record
+  // the firm has already given somebody. All bind resource: "firm" — one invoice may bill several of
+  // a client's matters, so the matter is not its tenancy root.
+  "billing:read", // read invoices, lines, unbilled work-in-progress, balances, and the receivables aging
+  "billing:draft", // create a draft invoice, claim work-in-progress onto it, edit its lines, void it
+  "billing:finalize", // turn a draft into an evidentiary record: draw its number and post the receivable
+  "billing:apply", // move client money onto a finalized invoice (payments, earned fees taken from trust)
+  "billing:credit", // credit notes and write-offs against a finalized invoice
+  "billing:configure", // billing arrangements, tax rates, the numbering scheme, the account-role map
 ] as const;
 
 // KnownPermission is for hardcoded compile-checked keys (route metadata, role seeds);
