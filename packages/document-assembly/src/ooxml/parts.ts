@@ -20,6 +20,17 @@ export const RELS_PART_PATTERN = /(^|\/)_rels\/[^/]*\.rels$/;
 // however it was named, and is refused before any transform touches it.
 export const REQUIRED_PARTS: readonly string[] = [CONTENT_TYPES_PART, "word/document.xml"];
 
+// The relationship part that belongs to a part: `word/document.xml` keeps its relationships in
+// `word/_rels/document.xml.rels`, and the package root's in `_rels/.rels`. Relationship ids are local to
+// a part, so every read and every write of one has to start from the part that owns it — deriving the
+// name in one place is what stops a header's picture from being wired into the main document's list.
+export function relationshipPartFor(partName: string): string {
+  const separator = partName.lastIndexOf("/");
+  const directory = separator === -1 ? "" : partName.slice(0, separator + 1);
+  const fileName = separator === -1 ? partName : partName.slice(separator + 1);
+  return `${directory}_rels/${fileName}.rels`;
+}
+
 // Returns the content-bearing parts of a part map, in a stable order so two runs over the same package
 // visit them identically (and so a manifest's part list is reproducible).
 export function contentPartNames(partNames: Iterable<string>): string[] {

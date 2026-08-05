@@ -1,9 +1,9 @@
 # Safe custody register
 
-_The register, its reports, review dates, and printable labels are built, along with the API behind
-them. The screens — the register list, packet detail, the location tree, and check-out/check-in — are
-authored when those surfaces ship. Emailed reminders, destruction approval, and client-portal
-visibility are not built yet._
+_The register, its reports, review dates, printable labels, and the checks made before an original is
+released are built, along with the API behind them. The screens — the register list, packet detail,
+the location tree, and check-out/check-in — are authored when those surfaces ship. Emailed reminders,
+printed receipts, destruction approval, and client-portal visibility are not built yet._
 
 ## What it does
 
@@ -75,8 +75,9 @@ overdue list is built from it, and it is the reason you find out that a deed has
 office for five weeks.
 
 Checking it back in records where it went back to. You can also move a packet between locations, take
-a single item out of a packet, mark something released to its owner, or record that something is
-**lost** — recording a loss honestly is far better than a register that quietly cannot say.
+a single item out of a packet, give an original back to its owner for good (see below — that one
+takes more), or record that something is **lost** — recording a loss honestly is far better than a
+register that quietly cannot say.
 
 Every one of these is written into the packet's history with the date it actually happened, which may
 be earlier than the day you type it in. Back-dating is supported and expected: a Friday collection
@@ -85,6 +86,37 @@ entered on Monday is the normal case.
 **History is never edited.** If you record something wrongly, you record a **correction** that points
 at the entry it corrects. Both stay visible. That is what makes the register worth something if it is
 ever questioned — nobody could have gone back and made it say something else.
+
+## Giving an original back
+
+Handing an original over for good is the one thing the register will not let you record casually, and
+it is the only one. Everything else — moving a packet, checking it out, checking it back in — takes
+one step, because a register that makes the daily work slow is a register people stop keeping. A
+release is different because it is the only step you cannot undo. Once the deed is in someone's hands
+the two questions anyone will ever ask are the same two: on what authority did it leave, and how did
+you know that was the right person.
+
+So recording a release asks for three things, and refuses without them:
+
+- **Who collected it** — a member of your firm, someone from your directory, or a named individual.
+- **The authority it is going out on**, in your own words. "Owner collecting in person." "Grant of
+  probate dated 3 March 2026, original sighted." The register does not have a list of acceptable
+  answers and never will: what authority suffices varies by jurisdiction, and a list we invented would
+  be wrong somewhere. What it does is make sure you wrote something, and then keep it.
+- **How you checked they are who they say they are**, and which member of your firm did the checking.
+
+**Record the check, not the document.** "Photographic identification checked against the directory
+record" is the right thing to write. A passport number is not: this goes onto the packet's permanent
+history, which cannot be edited or deleted by anyone, ever, and nothing about the register needs it.
+
+**Two signatories, if your firm wants them.** Your firm can require a second person to sign an
+original out of the safe. It is off unless you turn it on, because a small office where one person is
+the only person in the building cannot work under a rule imposed on it from outside — and the two
+signatories have to be two different people, which is the whole point. Everything above applies
+whether or not you turn it on.
+
+None of this applies to a check-out. Lending a deed to a partner for a completion meeting is
+reversible, and it stays a single step.
 
 ## Holds
 
@@ -178,7 +210,9 @@ register the way you would treat the safe itself.
   A review date is not a retention clock and never becomes one.
 - **QR codes on labels.** Labels carry a scannable barcode; QR arrives with stocktake, which is the
   first thing that would use it.
-- **Signed deposit and release receipts**, and identity checks before an original leaves.
+- **Printed deposit and release receipts.** The checks made before an original leaves are recorded
+  today; producing a receipt document from your own template is not built yet. In the meantime a
+  signed paper receipt can be scanned and attached to the packet like any other document.
 - **"Items we hold for you" in the client portal.**
 - **Stocktake** — scanning a shelf and reconciling it against what the register expects.
 - **Will lodgement deadlines on death.** These carry real statutory teeth and vary sharply by state,

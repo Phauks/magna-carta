@@ -2806,6 +2806,9 @@
               "string",
               "null"
             ]
+          },
+          "letterheadLogo": {
+            "$ref": "#/components/schemas/LetterheadLogo"
           }
         },
         "required": [
@@ -2816,7 +2819,45 @@
           "numberCode",
           "addressBlock",
           "footer",
-          "remitTo"
+          "remitTo",
+          "letterheadLogo"
+        ]
+      },
+      "LetterheadLogo": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "contentType": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "type": "integer"
+          },
+          "widthPixels": {
+            "type": "integer"
+          },
+          "heightPixels": {
+            "type": "integer"
+          },
+          "printedWidthPoints": {
+            "type": "number"
+          },
+          "updatedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "contentType",
+          "sizeBytes",
+          "widthPixels",
+          "heightPixels",
+          "printedWidthPoints",
+          "updatedAt"
         ]
       },
       "PatchLocationRequest": {
@@ -2857,6 +2898,24 @@
             ]
           }
         }
+      },
+      "LetterheadLogoRequest": {
+        "type": "object",
+        "properties": {
+          "imageBase64": {
+            "type": "string",
+            "minLength": 1
+          },
+          "printedWidthPoints": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 720
+          }
+        },
+        "required": [
+          "imageBase64",
+          "printedWidthPoints"
+        ]
       },
       "LocationAddressesRequest": {
         "type": "object",
@@ -5847,6 +5906,9 @@
           "note": {
             "type": "string",
             "maxLength": 2000
+          },
+          "releaseAuthorization": {
+            "$ref": "#/components/schemas/CustodyReleaseAuthorization"
           }
         },
         "required": [
@@ -5880,6 +5942,38 @@
         },
         "required": [
           "kind"
+        ]
+      },
+      "CustodyReleaseAuthorization": {
+        "type": "object",
+        "properties": {
+          "authorityBasis": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000,
+            "description": "The authority this release is made on, in the firm's own words. There is no list of acceptable answers: what suffices to release an original varies by jurisdiction."
+          },
+          "identityEvidence": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000,
+            "description": "How the person collecting was identified. Record the check that was made, not the document's numbers — this lands on a ledger row that can never be edited or deleted."
+          },
+          "identityVerifiedByUserId": {
+            "type": "string",
+            "pattern": "^user_[A-Za-z0-9_-]{21}$",
+            "description": "The firm member who made that check."
+          },
+          "witnessedByUserId": {
+            "type": "string",
+            "pattern": "^user_[A-Za-z0-9_-]{21}$",
+            "description": "The second signatory, when the firm requires two. Must be a different person from the member who checked identity."
+          }
+        },
+        "required": [
+          "authorityBasis",
+          "identityEvidence",
+          "identityVerifiedByUserId"
         ]
       },
       "CustodyMovementPage": {
@@ -6018,6 +6112,30 @@
               "string",
               "null"
             ]
+          },
+          "releaseAuthorityBasis": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "releaseIdentityEvidence": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "releaseIdentityVerifiedByUserId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "releaseWitnessedByUserId": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
@@ -6037,7 +6155,11 @@
           "reason",
           "correctsMovementId",
           "shipmentId",
-          "note"
+          "note",
+          "releaseAuthorityBasis",
+          "releaseIdentityEvidence",
+          "releaseIdentityVerifiedByUserId",
+          "releaseWitnessedByUserId"
         ]
       },
       "PlaceCustodyHoldRequest": {
@@ -17785,6 +17907,260 @@
         }
       }
     },
+    "/api/v1/locations/{id}/letterhead-logo": {
+      "put": {
+        "description": "Sets the office's letterhead logo — the mark documents assembled for this office's matters are drawn with. The image must be a PNG or a JPEG, decided by reading the file rather than by what the request calls it. Only a printed width is given: the height follows from the image's own proportions, so the mark can never print stretched. Replacing a logo replaces it everywhere at once; already-assembled documents keep the mark they were produced with.",
+        "operationId": "locations.setLetterheadLogo",
+        "tags": [
+          "locations"
+        ],
+        "x-mc-operationId": "locations.setLetterheadLogo",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "locations:manage",
+        "x-mc-resource": "location",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "locations"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^location_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LetterheadLogoRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The letterhead logo was set",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocationAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks locations:manage",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the location is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is in progress, or the firm-default cannot be closed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the file is not a PNG or a JPEG, it is too large, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "description": "Removes the office's letterhead logo. Templates that draw one then assemble with a visible marker where the mark would be, rather than silently losing the letterhead.",
+        "operationId": "locations.clearLetterheadLogo",
+        "tags": [
+          "locations"
+        ],
+        "x-mc-operationId": "locations.clearLetterheadLogo",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "locations:manage",
+        "x-mc-resource": "location",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "locations"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^location_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The letterhead logo was removed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocationAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks locations:manage",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the location is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is in progress, or the firm-default cannot be closed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/locations/{id}/addresses": {
       "put": {
         "description": "Replaces a Location's address set (at most one physical and one mailing address for letterhead).",
@@ -22748,7 +23124,7 @@
             }
           },
           "422": {
-            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload",
+            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -22862,7 +23238,7 @@
             }
           },
           "422": {
-            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload",
+            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -23118,7 +23494,7 @@
             }
           },
           "422": {
-            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload",
+            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -23314,7 +23690,7 @@
             }
           },
           "422": {
-            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload",
+            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -23447,7 +23823,7 @@
             }
           },
           "422": {
-            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload",
+            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -23570,7 +23946,7 @@
             }
           },
           "422": {
-            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload",
+            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -23703,7 +24079,7 @@
             }
           },
           "422": {
-            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload",
+            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -23836,7 +24212,7 @@
             }
           },
           "422": {
-            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload",
+            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -24059,7 +24435,7 @@
             }
           },
           "422": {
-            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload",
+            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -24182,7 +24558,7 @@
             }
           },
           "422": {
-            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload",
+            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -24315,7 +24691,7 @@
             }
           },
           "422": {
-            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload",
+            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -24514,7 +24890,7 @@
             }
           },
           "422": {
-            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload",
+            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -24618,7 +24994,7 @@
             }
           },
           "422": {
-            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload",
+            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -24846,7 +25222,7 @@
             }
           },
           "422": {
-            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload",
+            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -25333,7 +25709,7 @@
             }
           },
           "422": {
-            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, or the Idempotency-Key was reused with a different payload",
+            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload",
             "content": {
               "application/problem+json": {
                 "schema": {

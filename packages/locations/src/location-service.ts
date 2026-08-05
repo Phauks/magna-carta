@@ -6,6 +6,7 @@ import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { RandomSource } from "@magna-carta/identifiers/random";
 import type { LocationId, UserId } from "@magna-carta/identifiers/types";
 import {
+  clearLetterheadLogoStatement,
   closeLocationStatement,
   deleteLocationAddressesStatement,
   deleteMemberLocationsStatement,
@@ -14,6 +15,7 @@ import {
   insertMemberLocationStatement,
   type LocationFields,
   selectLocationStatement,
+  setLetterheadLogoStatement,
   updateLocationFieldsStatement,
 } from "./statements.ts";
 import { LocationValidationError } from "./validation.ts";
@@ -60,6 +62,9 @@ export interface MemberLocationInput {
 interface StoredLocation extends LocationFields {
   readonly id: LocationId;
   readonly status: "active" | "closed";
+  // The object the office's current logo lives at, so a replace or a clear can hand the caller the key
+  // it is about to stop pointing at.
+  readonly letterheadLogoObjectKey: string | null;
 }
 
 function auditStatement(
@@ -96,6 +101,7 @@ async function loadLocation(
     address_block: string | null;
     footer: string | null;
     remit_to: string | null;
+    letterhead_logo_object_key: string | null;
   }>();
   const row = results[0];
   if (row === undefined) return undefined;
@@ -108,6 +114,7 @@ async function loadLocation(
     addressBlock: row.address_block,
     footer: row.footer,
     remitTo: row.remit_to,
+    letterheadLogoObjectKey: row.letterhead_logo_object_key ?? null,
   };
 }
 
@@ -180,6 +187,90 @@ export async function updateLocation(
       ],
       outboxMessages: [{ topic: "location.updated", payload: { locationId } }],
     },
+  };
+}
+
+// The image formats a letterhead logo may be, restated as the enforceable rule at the write.
+//
+// The list is the assembly engine's — PNG and JPEG, and nothing else, because those are the two formats
+// every word processor draws identically and neither of them is a document that can carry markup or a
+// script. It is restated rather than imported because this package depends on no other domain package
+// by design; the format the ROUTE sniffed out of the bytes is what arrives here, and this is the check
+// that a caller cannot store a mark the engine will refuse to draw.
+export const SUPPORTED_LETTERHEAD_LOGO_CONTENT_TYPES: readonly string[] = [
+  "image/png",
+  "image/jpeg",
+];
+
+export interface LetterheadLogoInput {
+  readonly objectKey: string;
+  // Sniffed from the bytes by the caller, never taken from an upload's declared type.
+  readonly contentType: string;
+  readonly sizeBytes: number;
+  readonly sha256: string;
+  readonly widthPixels: number;
+  readonly heightPixels: number;
+  // The width the mark prints at, in English Metric Units. The height is not stored: it follows from
+  // the intrinsic proportions, so a document has no way to print a stretched logo.
+  readonly widthEmu: number;
+}
+
+export async function setLetterheadLogo(
+  database: SqlDatabase,
+  locationId: LocationId,
+  logo: LetterheadLogoInput,
+  options: LocationServiceOptions,
+): Promise<{ effect: EffectWrite; replacedObjectKey: string | null }> {
+  const existing = await loadLocation(database, locationId);
+  if (existing === undefined) {
+    throw new LocationValidationError("unknown-location", `no such location: ${locationId}`);
+  }
+  if (!SUPPORTED_LETTERHEAD_LOGO_CONTENT_TYPES.includes(logo.contentType)) {
+    throw new LocationValidationError(
+      "unsupported-logo-format",
+      `a letterhead logo is a PNG or a JPEG; ${logo.contentType} is neither`,
+    );
+  }
+  if (!Number.isSafeInteger(logo.widthEmu) || logo.widthEmu <= 0) {
+    throw new LocationValidationError(
+      "invalid-logo-width",
+      "a letterhead logo needs a printed width to be drawn at",
+    );
+  }
+  return {
+    effect: {
+      statements: [
+        setLetterheadLogoStatement(database, locationId, logo, options.clock.now()),
+        auditStatement(database, options, "location.letterhead_logo_set", locationId),
+      ],
+      outboxMessages: [{ topic: "location.updated", payload: { locationId } }],
+    },
+    // The object the office was using until now, returned so the caller can remove it from the bucket
+    // in the same operation that stops pointing at it. Reported rather than deleted here: this package
+    // performs no I/O, and an orphaned object is a cost, not a correctness problem, so the caller is
+    // free to leave it if a delete fails.
+    replacedObjectKey: existing.letterheadLogoObjectKey,
+  };
+}
+
+export async function clearLetterheadLogo(
+  database: SqlDatabase,
+  locationId: LocationId,
+  options: LocationServiceOptions,
+): Promise<{ effect: EffectWrite; replacedObjectKey: string | null }> {
+  const existing = await loadLocation(database, locationId);
+  if (existing === undefined) {
+    throw new LocationValidationError("unknown-location", `no such location: ${locationId}`);
+  }
+  return {
+    effect: {
+      statements: [
+        clearLetterheadLogoStatement(database, locationId, options.clock.now()),
+        auditStatement(database, options, "location.letterhead_logo_cleared", locationId),
+      ],
+      outboxMessages: [{ topic: "location.updated", payload: { locationId } }],
+    },
+    replacedObjectKey: existing.letterheadLogoObjectKey,
   };
 }
 

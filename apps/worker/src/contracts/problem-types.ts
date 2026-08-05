@@ -64,6 +64,13 @@ export const PROBLEM_TYPES = {
   // already out, a new movement on a released packet, a correction naming nothing, a borrower kind
   // with no borrower.
   "custody-invalid-movement": "custody-invalid-movement",
+  // A release of an original stopped at the gate (HTTP 422): the movement does not name who collected
+  // the property, or does not record the authority the release is made on and the identity check made
+  // before it left, or the firm requires two signatories and only one signed. DISTINCT from
+  // `validation` (request-shape) and from `custody-invalid-movement` (a state the register refuses):
+  // the request is well formed and the state allows it — what is missing is the record that has to
+  // exist first, and a client offers the caller a way to supply it rather than reporting an error.
+  "custody-release-not-authorized": "custody-release-not-authorized",
   // An unexpected, unhandled server error (HTTP 500). The telemetry middleware's final catch maps
   // any escaped exception to this — the one error type the client cannot have caused, carrying only
   // the Error ID to quote.

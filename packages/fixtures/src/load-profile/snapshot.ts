@@ -28,6 +28,10 @@ import { generateShippingVolume, type ShippingProbes } from "./shipping-generate
 import { generateCustomFieldVolume, type CustomFieldProbes } from "./custom-field-generate.ts";
 import { generateEditingVolume, type EditingProbes } from "./editing-generate.ts";
 import { generateTimeVolume, type TimeProbes } from "./timekeeping-generate.ts";
+import {
+  generateDocumentAutomationVolume,
+  type DocumentAutomationProbes,
+} from "./document-automation-generate.ts";
 import { GENERATOR_VERSION, type LedgerVolumeProfile } from "./profile.ts";
 
 // Snapshot identity: the resolved profile parameters, the generation seed, the per-firm schema
@@ -85,6 +89,16 @@ export interface SnapshotManifest {
   readonly rateCount: number;
   readonly rateCardCount: number;
   readonly timeProbes: TimeProbes;
+  // The document-automation volume laid over the practice + custom-field books (slice 2·6): the template
+  // catalogue with its version history, the assembly provenance rows, and the mapping library — plus the
+  // probe identifiers the automation measurement layer binds its catalogue list / current-version
+  // resolve / batched merge context / custom-field manifest read to.
+  readonly documentTemplateCount: number;
+  readonly archivedDocumentTemplateCount: number;
+  readonly documentTemplateVersionCount: number;
+  readonly documentAssemblyCount: number;
+  readonly documentFieldMappingCount: number;
+  readonly documentAutomationProbes: DocumentAutomationProbes;
 }
 
 export interface LoadedSnapshot extends MigratedNodeDatabase {
@@ -216,6 +230,18 @@ export async function loadProfileSnapshot(
         },
         options,
       );
+      // The document-automation volume rides LAST: it binds templates to the practice generator's
+      // matter types, links parties from the directory generator's entities, and defines its own
+      // matter-axis fields alongside the custom-field generator's — so all three must have run. It is
+      // handed that generator's probe record so it can pick a DIFFERENT matter for its own probe and
+      // leave the custom-field measurements' shape untouched.
+      const documentAutomation = await generateDocumentAutomationVolume(
+        generated.database,
+        context,
+        profile.documentAutomation,
+        customFields.probes.busiestRecordId,
+        options,
+      );
       const manifest: SnapshotManifest = {
         profile,
         seed,
@@ -250,6 +276,12 @@ export async function loadProfileSnapshot(
         rateCount: time.rateCount,
         rateCardCount: time.rateCardCount,
         timeProbes: time.probes,
+        documentTemplateCount: documentAutomation.templateCount,
+        archivedDocumentTemplateCount: documentAutomation.archivedTemplateCount,
+        documentTemplateVersionCount: documentAutomation.templateVersionCount,
+        documentAssemblyCount: documentAutomation.assemblyCount,
+        documentFieldMappingCount: documentAutomation.fieldMappingCount,
+        documentAutomationProbes: documentAutomation.probes,
       };
       // Artifact before manifest: the replay gate above requires BOTH files, so a crash between
       // the two writes leaves a regenerable miss, never a manifest pointing at a missing artifact.

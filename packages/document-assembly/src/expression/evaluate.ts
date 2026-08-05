@@ -10,6 +10,7 @@ import {
 import { roundLedger } from "@magna-carta/money/rounding";
 import { titleCase } from "../format.ts";
 import { refusal, type Refusal } from "./errors.ts";
+import { splitListFieldPath } from "./lex.ts";
 import { EXPRESSION_LIMITS } from "./limits.ts";
 import type { ComparisonOperator, ExpressionNode } from "./parse.ts";
 import type { CheckedExpression } from "./check.ts";
@@ -612,6 +613,12 @@ function evaluateCall(
     return valued({ kind: "boolean", value: context.values.has(target.name) });
   }
 
+  // The aggregates, also handled before the generic argument walk: their argument is a NAME naming a
+  // field of a collection, and that atom resolves to nothing on its own outside a repeating block.
+  if (name === "sum" || name === "minimum" || name === "maximum") {
+    return evaluateAggregate(name, argumentNodes[0], context);
+  }
+
   if (name === "default") {
     const primary = evaluateNode(argumentNodes[0] as ExpressionNode, context);
     if (primary.kind !== "unresolved") return primary;
@@ -785,6 +792,81 @@ function evaluateCall(
       // Kept as a refusal rather than a throw because nothing in this folder throws.
       return refused("invalid-operand", `${name} is not a calculation this system knows.`);
   }
+}
+
+// ONE bounded pass over an already-resolved collection — the same bound a repeating block runs under,
+// and the only place a helper's cost grows with the firm's data. The set of values folded is fixed
+// before the fold starts: the field path was a literal in the source, the collection came from one
+// batched read, the item cap applies unchanged, and every element costs a step against the budget the
+// whole document shares. There is no expression under the fold and nothing an author could write to put
+// one there.
+function evaluateAggregate(
+  name: "sum" | "minimum" | "maximum",
+  target: ExpressionNode | undefined,
+  context: EvaluationContext,
+): Evaluation {
+  if (target === undefined || target.kind !== "name") {
+    return refused("invalid-operand", `${name} was not given the name of a field on a list.`);
+  }
+  const path = splitListFieldPath(target.name);
+  if (path === undefined) {
+    return refused("invalid-operand", `${name} was not given the name of a field on a list.`);
+  }
+
+  const collection = context.values.get(path.collectionKey);
+  if (collection === undefined) return unresolved(path.collectionKey);
+  if (collection.kind !== "list") {
+    return refused("invalid-operand", `${name} works across the items of a list.`);
+  }
+
+  const items = collection.items;
+  if (items.length > EXPRESSION_LIMITS.itemsPerRepeat) {
+    return refused(
+      "repeat-too-large",
+      `a calculation may work across at most ${EXPRESSION_LIMITS.itemsPerRepeat} items.`,
+    );
+  }
+  const overflow = charge(context, items.length);
+  if (overflow !== undefined) return overflow;
+
+  // AN AGGREGATE OVER AN EMPTY COLLECTION IS AN ABSENCE, not a zero. A smallest of nothing has no answer
+  // in any type, and a total of no amounts would have to name a currency — a fact the firm's data
+  // carries, never one a template may invent, which is why there is no money literal either. One rule
+  // for the whole family: a rule that changed with the element type is one an author could not predict.
+  // Absence then flows where absence already flows — a visible placeholder in a computed field, a failed
+  // assembly in a condition — and isEmpty asks the question totally when that is what the author means.
+  if (items.length === 0) return unresolved(path.collectionKey);
+
+  let accumulator: ExpressionValue | undefined;
+  for (const item of items) {
+    const value = item.fields.get(path.fieldName);
+    // An item carrying nothing for that field leaves the answer unknown. Skipping it would silently
+    // understate a total, and a total that is quietly wrong is the failure this whole subsystem exists
+    // to prevent.
+    if (value === undefined) return unresolved(target.name);
+    if (accumulator === undefined) {
+      accumulator = value;
+      continue;
+    }
+    if (name === "sum") {
+      // Through the same addition the `+` operator uses: same currency rule, same safe-integer check
+      // before the operation, same exact-decimal alignment. A second implementation of adding money is
+      // a second place for it to be wrong.
+      const total = addOrSubtract("add", accumulator, value);
+      if (total.kind !== "value") return total;
+      accumulator = total.value;
+      continue;
+    }
+    const ordering = orderOf(accumulator, value);
+    if (ordering.kind === "refusal") return { kind: "refusal", refusal: ordering.refusal };
+    if (ordering.kind === "incomparable") {
+      return refused("invalid-operand", `${name} met two items of different kinds.`);
+    }
+    const takeCandidate = name === "minimum" ? ordering.comparison > 0 : ordering.comparison < 0;
+    if (takeCandidate) accumulator = value;
+  }
+
+  return accumulator === undefined ? unresolved(path.collectionKey) : valued(accumulator);
 }
 
 function divideOrAllocate(

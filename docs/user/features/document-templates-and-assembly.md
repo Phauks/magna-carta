@@ -119,6 +119,51 @@ as needing review before you file it — a blank that does not look like a blank
 Assembling needs the **assemble documents** permission, which attorneys, paralegals, and administrators
 have.
 
+## Your firm's own fields
+
+Every custom field you have defined on matters is a merge field too. Its name in a template is
+`custom.` followed by the field's **handle** — the short code shown beside the field on the field
+list, which you can copy from there:
+
+```
+Retainer cap: {{custom.customField_9nR2vQ7kLm4xZb1cT6yWd}}
+```
+
+The handle is used rather than the field's label on purpose: **renaming a field never breaks a
+template.** Rename "Retainer cap" to "Engagement cap" and every template that binds it goes on working
+exactly as it did.
+
+Values print the way the field is set up. A currency field prints as money, a number field prints with
+the number of decimal places you gave it, a date field prints as a date, a tick-box prints Yes or No,
+and a drop-down or a link to another record prints the **choice or the record's name** rather than an
+internal code. The renderings you can ask for after a colon are the same ones every field of that sort
+offers.
+
+**Archiving a field is safe; deleting it is refused.** If a template uses a field, you cannot hard-delete
+it — you are sent to Archive instead. An archived field simply stops filling in: the document shows a
+marker where it would have been, and the result names it, so you find out by reading rather than by
+someone noticing later.
+
+## Your letterhead logo
+
+An office can hold your firm's mark, and a template draws it like any other field:
+
+```
+{{location.letterheadLogo}}
+```
+
+Put it in the header where the logo belongs. The mark comes from the **matter's office**, not from the
+office of whoever pressed the button, so a document assembled by someone in one office on another
+office's matter still carries the right letterhead.
+
+Upload the image on the office's own settings: **a PNG or a JPEG**. You set how wide it prints, in
+points, and nothing else — the height follows from the picture's own shape, so it can never come out
+stretched, and swapping a wide mark for a tall one re-lays out every letterhead at once without your
+touching a single template.
+
+If an office has no logo yet, a template that draws one assembles with a visible marker where the mark
+would go, and the result names it — the same treatment every other missing value gets.
+
 ## Clauses that appear only sometimes
 
 Wrap the paragraphs in a condition. The opening and closing marks each go **in a paragraph of their
@@ -236,6 +281,35 @@ rate: a rate has a date and a source, and a document should not carry one nobody
 
 Write text in **double quotes**. A date is written `date "2026-08-04"`.
 
+**Totals across a collection**
+
+Name the collection and the field you want totalled, in that order:
+
+| Write                                | You get                                                 |
+| ------------------------------------ | ------------------------------------------------------- |
+| `sum(matter.parties.amount)`         | Everything in that column added up                      |
+| `minimum(matter.parties.incurredOn)` | The smallest — the earliest, when the field holds dates |
+| `maximum(matter.parties.amount)`     | The largest                                             |
+
+You can total amounts of money, numbers, and — for smallest and largest — dates. A column of names or
+of yes-or-no answers has no total, and the system says so when you register the template. These are the
+only calculations that look at more than one item, and they cannot pick and choose: there is no way to
+total only some of the rows, or to sort them first. If that is what you need, the collection itself is
+what has to change. Your firm's own fields hold one value per matter rather than a collection, so there
+is nothing to total across — a total is always over the items of a repeat.
+
+**If the collection is empty, the total comes out blank rather than zero** — and so does the whole
+calculation if any one item has nothing on file for that field. That is deliberate. "The smallest of
+nothing" is not a number, and a total of no amounts has no currency to be in; leaving out the items
+that have nothing would give you a total that does not match the rows above it. When your template
+means "nothing on file means nothing owed", say so:
+
+```
+{{#if not isEmpty(matter.parties)}}
+Total: {{= sum(matter.parties.amount)}}
+{{/if}}
+```
+
 **If a calculation cannot be worked out, the document shows a marker** where the value would have
 been — the same visible blank an ordinary missing field leaves — and the result lists it.
 
@@ -255,9 +329,7 @@ is a report, not a template.
 
 ## What is not here yet
 
-- **Your firm's own fields** — the custom fields you defined — and fields drawn from a matter's other
-  parties beyond their names and roles.
-- **Totals across a repeat** — "the sum of all disbursements" cannot be written yet.
-- **Your letterhead logo** as a field.
+- **Fields drawn from a matter's other parties** beyond their names and roles.
+- **Fields holding protected information**, such as an identifier held encrypted.
 - **Producing a PDF** directly, and sending an assembled document straight for signature.
 - **Writing templates in the browser** — today they are written in Word and uploaded.

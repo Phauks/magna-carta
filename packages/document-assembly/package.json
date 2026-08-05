@@ -18,12 +18,16 @@
     "./expression-check": "./src/expression/check.ts",
     "./expression-evaluate": "./src/expression/evaluate.ts",
     "./dictionary": "./src/dictionary.ts",
+    "./custom-field-bindings": "./src/custom-field-bindings.ts",
+    "./custom-field-statements": "./src/custom-field-statements.ts",
+    "./ooxml-image": "./src/ooxml/image.ts",
     "./format": "./src/format.ts",
     "./resolve": "./src/resolve.ts",
     "./assemble": "./src/assemble.ts",
     "./register": "./src/register.ts",
     "./template-service": "./src/template-service.ts",
     "./template-statements": "./src/template-statements.ts",
+    "./merge-statements": "./src/merge-statements.ts",
     "./field-mapping-statements": "./src/field-mapping-statements.ts",
     "./assembly-statements": "./src/assembly-statements.ts"
   },
@@ -31,6 +35,7 @@
     "test": "vp test run"
   },
   "dependencies": {
+    "@magna-carta/custom-fields": "workspace:*",
     "@magna-carta/data-access": "workspace:*",
     "@magna-carta/database": "workspace:*",
     "@magna-carta/identifiers": "workspace:*",

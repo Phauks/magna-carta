@@ -18,7 +18,7 @@
   slices: 2-6-document-automation
   adrs: ADR-0011, ADR-0218
   evidence: Substitution, {{#if}}/{{#unless}} conditional blocks, {{#each}} repeats, and {{= }} computed fields are built and tested over a closed expression language (packages/document-assembly/src/expression/, src/blocks.ts) checked at registration with a character offset. Removal and repetition operate on whole paragraphs and whole table rows, so list numbering and table banding survive. An unresolved condition fails the assembly naming the field; an unresolved calculation renders a visible placeholder.
-  notes: There is no aggregate over a repeat collection (sum of a column) — a named seam, not a feature.
+  notes: Aggregates over a repeat collection are built — sum, minimum, and maximum over a literal field path of a list-valued key, bounded exactly as a repeat is. An aggregate over an empty collection is an absence rather than a zero.
 
 - id: document-automation.docx-templates
   name: DOCX template authoring
@@ -32,13 +32,13 @@
   name: Data dictionary
   scope: Directory/Matter/Location/custom/financial fields exposed as a merge-field dictionary.
   status: partial
-  evidence: A declarative dictionary over matter, client party, location, firm, and system sources with per-type formatters and a declared absence behaviour per entry (packages/document-assembly/src/dictionary.ts), exposed at GET /api/v1/merge-fields. matter.parties is the first list-valued source, read once for the whole collection. Directory role links, custom-field handles, and protected values are the remaining widening.
+  evidence: A declarative dictionary over matter, client party, location, firm, system, and custom-field sources with per-type formatters and a declared absence behaviour per entry (packages/document-assembly/src/dictionary.ts), exposed at GET /api/v1/merge-fields. matter.parties is the first list-valued source, read once for the whole collection. A firm's own fields enter per firm at read time as custom.\<customField\_ handle\> entries — bound by handle and never by name, archived means absent and reported, values read at the scale the field declared through the custom-fields engine's own effectiveNumberScale, one statement covering every handle. Directory role links and protected values are the remaining widening.
 
 - id: document-automation.location-identity
   name: Location-resolved office identity
   scope: Office name, address, letterhead, remit-to, and jurisdiction resolve from the matter's home Location so generated documents carry the correct office identity.
   status: partial
-  evidence: location.\* keys resolve from THE MATTER'S home location, not the acting member's, through one batched read. The letterhead logo asset is slice 2-6-2; document dates still render in a platform-normalized zone because Locations carries no time-zone column yet (timeZoneForLocation is the single seam for it).
+  evidence: location.\* keys resolve from THE MATTER'S home location, not the acting member's, through one batched read. The letterhead logo asset is built — the office holds the mark (PNG or JPEG, decided by magic bytes) plus the width it prints at, and location.letterheadLogo is emitted as a real OOXML picture with its part, content type, relationship, and drawing; the height follows from the image's own proportions so nothing can print a stretched mark. Document dates still render in a platform-normalized zone because Locations carries no time-zone column yet (timeZoneForLocation is the single seam for it), and the office-settings interface for the logo is a named seam.
 
 - id: document-automation.generation-engine
   name: Generation engine

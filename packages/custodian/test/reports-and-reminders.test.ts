@@ -12,7 +12,14 @@ import {
   readCustodyLocationOccupancyReport,
   readCustodyPacketsUnderHold,
 } from "../src/reports.ts";
-import { ACTOR, commit, migratedDatabase, options, seedMember } from "./support.ts";
+import {
+  ACTOR,
+  AUTHORIZED_RELEASE,
+  commit,
+  migratedDatabase,
+  options,
+  seedMember,
+} from "./support.ts";
 
 const SMITH = "directoryPerson_smith0000000000000";
 const JONES = "directoryOrganization_jones000000";
@@ -82,7 +89,7 @@ describe("holdings per owner", () => {
       options,
     );
     // Released is gone: the report answers "what do we hold", not "what did we ever hold".
-    await recordCustodyMovement(database, third.packetId, { kind: "released" }, options);
+    await recordCustodyMovement(database, third.packetId, AUTHORIZED_RELEASE, options);
 
     const report = await readCustodyHoldingsByOwner(database);
     const smith = report.find((row) => row.entityId === SMITH);

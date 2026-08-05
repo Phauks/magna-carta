@@ -4,8 +4,10 @@ import type { LocationId, UserId } from "@magna-carta/identifiers/types";
 import { describe, expect, it } from "vitest";
 import {
   assignMemberLocations,
+  clearLetterheadLogo,
   closeLocation,
   createLocation,
+  setLetterheadLogo,
   setLocationAddresses,
   updateLocation,
 } from "../src/location-service.ts";
@@ -291,6 +293,105 @@ describe("assignMemberLocations", () => {
       .bind("user_z")
       .all<{ n: number }>();
     expect(results[0]?.n).toBe(0);
+  });
+});
+
+describe("the letterhead logo", () => {
+  const logo = {
+    objectKey: "letterhead/location_x/abc123.png",
+    contentType: "image/png",
+    sizeBytes: 4096,
+    sha256: "abc123",
+    widthPixels: 400,
+    heightPixels: 100,
+    widthEmu: 1_828_800,
+  };
+
+  it("stores the object key, what the bytes are, and the width the mark prints at", async () => {
+    const database = freshDatabase();
+    const reno = await seedLocation(database, { name: "Reno" });
+    const written = await setLetterheadLogo(database, reno, logo, options);
+    await commitEffectBatch(database, written.effect, { now });
+    // Nothing was pointing at an object before, so there is nothing for the caller to sweep.
+    expect(written.replacedObjectKey).toBeNull();
+
+    const { results } = await database
+      .prepare(
+        "SELECT letterhead_logo_object_key, letterhead_logo_content_type, letterhead_logo_width_pixels, letterhead_logo_height_pixels, letterhead_logo_width_emu FROM location WHERE id = ?1",
+      )
+      .bind(reno)
+      .all();
+    expect(results[0]).toEqual({
+      letterhead_logo_object_key: logo.objectKey,
+      letterhead_logo_content_type: "image/png",
+      letterhead_logo_width_pixels: 400,
+      letterhead_logo_height_pixels: 100,
+      letterhead_logo_width_emu: 1_828_800,
+    });
+    // NO STORED HEIGHT. The height follows from the image's own proportions at render time, which is
+    // what makes a stretched logo unexpressible rather than merely discouraged.
+    const columns = await database.prepare("SELECT * FROM location WHERE id = ?1").bind(reno).all();
+    expect(Object.keys(columns.results[0] ?? {})).not.toContain("letterhead_logo_height_emu");
+  });
+
+  it("hands the caller the object it has stopped pointing at, so nothing is orphaned silently", async () => {
+    const database = freshDatabase();
+    const reno = await seedLocation(database, { name: "Reno" });
+    const first = await setLetterheadLogo(database, reno, logo, options);
+    await commitEffectBatch(database, first.effect, { now });
+
+    const second = await setLetterheadLogo(
+      database,
+      reno,
+      { ...logo, objectKey: "letterhead/location_x/def456.png", sha256: "def456" },
+      options,
+    );
+    await commitEffectBatch(database, second.effect, { now });
+    expect(second.replacedObjectKey).toBe(logo.objectKey);
+
+    const cleared = await clearLetterheadLogo(database, reno, options);
+    await commitEffectBatch(database, cleared.effect, { now });
+    expect(cleared.replacedObjectKey).toBe("letterhead/location_x/def456.png");
+  });
+
+  it("clears every column, not only the key — stale metadata reads as current", async () => {
+    const database = freshDatabase();
+    const reno = await seedLocation(database, { name: "Reno" });
+    await commitEffectBatch(
+      database,
+      (await setLetterheadLogo(database, reno, logo, options)).effect,
+      {
+        now,
+      },
+    );
+    await commitEffectBatch(database, (await clearLetterheadLogo(database, reno, options)).effect, {
+      now,
+    });
+    const { results } = await database
+      .prepare(
+        "SELECT letterhead_logo_object_key, letterhead_logo_content_type, letterhead_logo_size_bytes, letterhead_logo_sha256, letterhead_logo_width_pixels, letterhead_logo_height_pixels, letterhead_logo_width_emu, letterhead_logo_updated_at FROM location WHERE id = ?1",
+      )
+      .bind(reno)
+      .all<Record<string, unknown>>();
+    expect(Object.values(results[0] ?? {}).every((value) => value === null)).toBe(true);
+  });
+
+  it("refuses a format the assembly engine will not draw, and a width it cannot draw at", async () => {
+    const database = freshDatabase();
+    const reno = await seedLocation(database, { name: "Reno" });
+    await expect(
+      setLetterheadLogo(database, reno, { ...logo, contentType: "image/svg+xml" }, options),
+    ).rejects.toMatchObject({ code: "unsupported-logo-format" });
+    await expect(
+      setLetterheadLogo(database, reno, { ...logo, widthEmu: 0 }, options),
+    ).rejects.toMatchObject({ code: "invalid-logo-width" });
+  });
+
+  it("refuses to set a logo on an office that does not exist", async () => {
+    const database = freshDatabase();
+    await expect(
+      setLetterheadLogo(database, "location_missing" as LocationId, logo, options),
+    ).rejects.toMatchObject({ code: "unknown-location" });
   });
 });
 

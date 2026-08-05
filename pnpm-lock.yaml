@@ -1199,6 +1199,9 @@ importers:
 
   packages/document-assembly:
     dependencies:
+      '@magna-carta/custom-fields':
+        specifier: workspace:*
+        version: link:../custom-fields
       '@magna-carta/data-access':
         specifier: workspace:*
         version: link:../data-access
@@ -1377,6 +1380,9 @@ importers:
       '@magna-carta/directory':
         specifier: workspace:*
         version: link:../directory
+      '@magna-carta/document-assembly':
+        specifier: workspace:*
+        version: link:../document-assembly
       '@magna-carta/encryption':
         specifier: workspace:*
         version: link:../encryption

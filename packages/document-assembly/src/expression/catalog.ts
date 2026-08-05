@@ -18,6 +18,11 @@ export type ExpressionType = "text" | "number" | "money" | "rate" | "date" | "bo
 //    evaluation because a count can arrive from a merge field as well as from a literal
 //  - `mergeKey` accepts only a NAME written out in the expression, never a computed value — `has` asks
 //    whether a specific field resolved, which is a question about a name rather than about a value
+//  - `listField` likewise accepts only a NAME, of the form `<collection>.<field>`, where the collection
+//    is a list-valued key and the field is one an item of it carries. An aggregate reads a LITERAL field
+//    of an ALREADY-RESOLVED collection and nothing else: its cost is bounded by the data, the same bound
+//    a repeating block runs under, and admitting an expression there would make it iteration over
+//    computed values, which is the line this language does not cross
 //  - `sameAsFirst` / `sameAsSecond` tie a parameter to an earlier one, which is how `default` and
 //    `choose` stay total without becoming generic
 export type ParameterSpecification =
@@ -25,10 +30,17 @@ export type ParameterSpecification =
   | "scalar"
   | "integer"
   | "mergeKey"
+  | "listField"
   | "sameAsFirst"
   | "sameAsSecond";
 
-export type ResultSpecification = ExpressionType | "sameAsFirst" | "sameAsSecond";
+export type ResultSpecification =
+  | ExpressionType
+  | "sameAsFirst"
+  | "sameAsSecond"
+  // The type of the FIELD the first argument's path names — the element type of the aggregate, so a
+  // total of money is money and a smallest date is a date.
+  | "fieldOfFirst";
 
 export interface HelperSignature {
   readonly name: string;
@@ -37,6 +49,10 @@ export interface HelperSignature {
   // bounded by the call-node and text-result caps rather than by the signature.
   readonly variadic?: ParameterSpecification;
   readonly result: ResultSpecification;
+  // Present on a `listField` helper: the element types it admits. A total of text is not a total, and a
+  // smallest yes-or-no is not a question anyone asks — so the admissible set is declared per helper and
+  // checked at REGISTRATION, where an author is still looking at the template.
+  readonly elementTypes?: readonly ExpressionType[];
   // What the field inspector shows an author. Consumer-facing text: it states what the helper does, in
   // the words someone writing a template would use.
   readonly summary: string;
@@ -176,6 +192,51 @@ const HELPER_LIST: readonly HelperSignature[] = [
     parameters: ["list"],
     result: "boolean",
     summary: "Whether the list has no items at all.",
+  },
+
+  // ------------------------------------------------------------------------------------------
+  // Aggregates — one bounded pass over an ALREADY-RESOLVED collection
+  //
+  // These are the one place a helper's cost grows with the firm's data, and they are bounded by exactly
+  // what a repeating block is bounded by: the collection came from one batched read, the item cap
+  // applies unchanged, and every element costs a step against the same shared budget. There is still no
+  // iteration an author can WRITE — no map, no filter, no comprehension, no expression under the fold.
+  // The argument is a literal field path, so the set of values walked is fixed before evaluation starts.
+  //
+  // `count` is deliberately NOT repeated here. `count(matter.parties)` already answers how many items a
+  // collection has; a second spelling over a field path could only differ by skipping items whose field
+  // has no value, which is a filter, and a filter is the thing this language refuses.
+  //
+  // AN AGGREGATE OVER AN EMPTY COLLECTION IS AN ABSENCE, not a zero. A smallest of nothing has no answer
+  // in any type; a total of no amounts would have to name a currency, and a currency is a fact the
+  // firm's data carries rather than one a template may invent — which is why there is no money literal
+  // either. One rule for the whole family, because a rule that changed with the element type is one an
+  // author could not predict. The total forms are one word away: isEmpty asks first, default supplies a
+  // fallback.
+  // ------------------------------------------------------------------------------------------
+  {
+    name: "sum",
+    parameters: ["listField"],
+    elementTypes: ["number", "money"],
+    result: "fieldOfFirst",
+    summary:
+      "The total of that field across every item in the list. Amounts must all be in one currency. An empty list, or an item with nothing on file for that field, leaves the total unknown.",
+  },
+  {
+    name: "minimum",
+    parameters: ["listField"],
+    elementTypes: ["number", "money", "date"],
+    result: "fieldOfFirst",
+    summary:
+      "The smallest value that field takes across the list — the earliest, for dates. An empty list, or an item with nothing on file for that field, leaves it unknown.",
+  },
+  {
+    name: "maximum",
+    parameters: ["listField"],
+    elementTypes: ["number", "money", "date"],
+    result: "fieldOfFirst",
+    summary:
+      "The largest value that field takes across the list — the latest, for dates. An empty list, or an item with nothing on file for that field, leaves it unknown.",
   },
 ];
 

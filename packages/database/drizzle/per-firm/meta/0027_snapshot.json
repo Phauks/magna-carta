@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "f602371a-3699-4a09-92fe-2a4d11d241ca",
+  "id": "f1613fff-f6c4-49f4-9ee4-8af7408efbee",
   "prevId": "c99aa037-f5b4-48e5-89d5-1cf807152c4f",
   "tables": {
     "account_balance": {
@@ -1517,6 +1517,34 @@
         },
         "note": {
           "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "release_authority_basis": {
+          "name": "release_authority_basis",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "release_identity_evidence": {
+          "name": "release_identity_evidence",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "release_identity_verified_by_user_id": {
+          "name": "release_identity_verified_by_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "release_witnessed_by_user_id": {
+          "name": "release_witnessed_by_user_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -6731,6 +6759,62 @@
         },
         "remit_to": {
           "name": "remit_to",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "letterhead_logo_object_key": {
+          "name": "letterhead_logo_object_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "letterhead_logo_content_type": {
+          "name": "letterhead_logo_content_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "letterhead_logo_size_bytes": {
+          "name": "letterhead_logo_size_bytes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "letterhead_logo_sha256": {
+          "name": "letterhead_logo_sha256",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "letterhead_logo_width_pixels": {
+          "name": "letterhead_logo_width_pixels",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "letterhead_logo_height_pixels": {
+          "name": "letterhead_logo_height_pixels",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "letterhead_logo_width_emu": {
+          "name": "letterhead_logo_width_emu",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "letterhead_logo_updated_at": {
+          "name": "letterhead_logo_updated_at",
           "type": "text",
           "primaryKey": false,
           "notNull": false,

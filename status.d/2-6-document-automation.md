@@ -7,11 +7,11 @@ spec: done by="Opus 4.8"
 plan: done by="Opus 4.8"
 built: in-progress by="Opus 4.8"
 ui: todo
-load-profile: todo
+load-profile: done by="Opus 4.8"
 tested: in-progress by="Opus 4.8"
-branch: claude/automation-conditionals-slice
-active-work: docs/active-work/claude-automation-conditionals-slice.md
-next: The widened dictionary — Directory role sources, `custom.<handle>` bindings, the letterhead logo, and protected-value binding through the decrypt-permission-plus-audit path. Then PDF output and the signature hand-off (2·6·3), and a location time-zone column behind timeZoneForLocation.
+branch: claude/automation-letterhead-custom-fields
+active-work: docs/active-work/claude-automation-letterhead-custom-fields.md
+next: Directory role sources (`opposing.*`, `counsel.*`) through the matter's party links, and protected-value binding through the decrypt-permission-plus-audit path. Then PDF output and the signature hand-off (2·6·3), a location time-zone column behind timeZoneForLocation, a firm currency setting behind ResolutionInput.currencyCode, and the office-settings UI for the letterhead logo.
 link-spec: docs/specs/2026-08-04-template-expression-language-design.md
 link-plan: docs/specs/2026-08-04-document-automation-implementation-plan.md
 adrs: ADR-0210, ADR-0211, ADR-0217, ADR-0218, ADR-template-expression-realization
@@ -59,14 +59,75 @@ arithmetic is integer-exact through `@magna-carta/money`, with every intermediat
 operation so the package's own guard is unreachable; division is not an operator, and `divideExact`,
 `divideRounded`, `applyRate`, `percentOf`, and `allocate` each state their rounding. Owner-flagged
 defaults applied as recommended: an unresolved condition FAILS the assembly naming the field (G1),
-banker's rounding only (G2), no business-day math (G3), no aggregates (G4), no pronoun helper (G5).
-`matter.parties` is the first list-valued source, one batched read for the whole collection.
+banker's rounding only (G2), no business-day math (G3), no pronoun helper (G5). G4 was answered the
+following day the other way: `sum`, `minimum`, and `maximum` fold a LITERAL FIELD PATH of a list-valued
+key, bounded by exactly what a repeat is bounded by — one batched read, the items-per-repeat cap, a
+step per element — with an empty collection left unresolved rather than answered zero, because a
+smallest of nothing has no answer and a total of no amounts has no currency. `matter.parties` is the
+first list-valued source, one batched read for the whole collection.
 
 The security claim carries its fuzz obligation in the slice: a seeded structure-aware generator over
 the grammar, a seeded byte-level generator, a committed denied-construct corpus that must fail at parse
 or check and never at evaluation, a pretty-print-and-reparse property (which found a real precedence
 bug), an independent BigInt arithmetic oracle, and one bound-hitting test per declared limit.
 
-Remaining for the subsystem: the widened dictionary sources and protected-value binding, PDF output and
-the signature hand-off (2·6·3), authoring surfaces (2·6·4), the interface seams, and the load-profile
-volume profile.
+The **custom-field merge bindings and the letterhead logo** shipped next. A firm's own matter-axis
+fields enter the dictionary at read time as `custom.<customField_ handle>` entries derived from
+`custom_field` — bound by handle and never by name, so a rename breaks nothing — with the catalogue
+read once (`readCustomFieldCatalog`) and shared by registration, the field-list surface, and assembly,
+which is what makes drift detectable rather than silent: an archived field contributes no entry, so a
+template bound to it fails naming the key, and a stored value behind an archived field is skipped and
+reported as an absence. Values resolve through one statement covering every handle, joining the
+picklist option's label and the referenced record's display name rather than fetching either per value.
+`effectiveNumberScale` is REUSED from `@magna-carta/custom-fields` rather than restated, so the same
+stored `500` is five hundred on a number field and five dollars on a currency field, and a currency
+field with a non-currency scale renders as the exact decimal it is instead of as wrong-looking money.
+The hard-delete guard gained its template-binding arm: a field a template manifest names is
+`field-in-use` and routes to Archive, with `document_template_version` referenced by string so the
+sibling packages stay independent. `custom.customField_…` also lexes as ONE atom in the expression
+language — a handle's alphabet includes the hyphen, which is also subtraction, so the atom is matched by
+its exact fixed length and no author's spacing can decide which it is.
+
+The **letterhead logo** is the engine's first image work, and answers the design's open question 3:
+**the asset declares the box**. `location` gained the logo columns (object key, sniffed content type,
+size, hash, intrinsic pixels, printed width in EMU); only a width is stored, so the height follows from
+the intrinsic aspect ratio and no document can print a stretched mark. `PUT`/`DELETE
+/api/v1/locations/{id}/letterhead-logo` take the image inline (a firm's mark is tens of kilobytes, and
+one request is the only shape where reading what the bytes are, measuring them, and writing the row
+that points at them happen together). `src/ooxml/image.ts` emits all four halves of a picture — the
+part, the `[Content_Types].xml` Default, the relationship on the drawing part (ids allocated per part,
+by scanning the ids present), and the inline `w:drawing` with every namespace bound on the element that
+uses it — and `packageIntegrityViolations` now proves each one over the emitted bytes, because a
+document whose words are right and whose picture wiring is not is a document no reader opens and no
+text assertion catches. **Image-format policy: PNG and JPEG only, decided by magic bytes rather than by
+a declared content type**, enforced at the write and re-checked at assembly; SVG, EMF/WMF, GIF, BMP and
+TIFF are refused with the reasoning recorded. An office with no logo, or one whose object has gone,
+assembles with a visible marker.
+
+The **load-profile volume profile** deferred by all three build slices is now in the harness. A
+`documentAutomation` volume lays down the firm's template catalogue with its immutable version history,
+an archived tail, the confirmed Word-name-to-merge-key mapping library, and the assembly provenance
+rows — every write through the real composed effects, never a raw insert — plus, on one probe matter
+deliberately chosen NOT to be the custom-field measurements' own probe, the merge-context hot case: the
+firm's own matter-axis fields with current values, and a full party list. At the committed baseline
+that is 181 templates over 479 versions with 27 archived, 1,605 assemblies, 120 mapping rows, and a
+probe matter carrying 40 custom-field values and 13 party links.
+
+The four measured operations the design names are on the clock: the catalogue list taken at a real
+keyset boundary rather than at the head of the table, the one-read current-version resolve every job
+starts with, the whole batched merge context for the widest template the firm's dictionary can offer,
+and the custom-field manifest read the dictionary is derived from. **Every hot-path plan is an index
+walk — the scan allowlist for this set is empty.** The read the design flagged as the likely table-wide
+exception, the firm's field catalogue, walks `custom_field_scope_index` instead. What the merge-context
+measurement is really for is the batching rule: its cost tracks the number of SOURCES, not the number
+of fields, so a per-field resolver reintroduced later shows up as a curve rather than as a code review.
+
+The declared-field count per template version is bounded by the dictionary rather than by the profile:
+a manifest field is keyed by its merge key, so the probe template declares every key the firm has for
+that matter — 17 platform keys plus its 40 custom bindings, at 113 placeholder occurrences. The number
+the batching rule is about is the 40-handle bound-parameter list of the one value statement, and that
+is the parameter the profile carries.
+
+Remaining for the subsystem: Directory role sources and protected-value binding, PDF output and the
+signature hand-off (2·6·3), authoring surfaces (2·6·4), the office-settings UI for the logo, and the
+interface seams.
