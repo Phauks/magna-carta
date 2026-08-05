@@ -118,3 +118,5 @@ export type TrustLedgerNodeId = Identifier<"trustLedgerNode">;
 export type TrustHoldId = Identifier<"trustHold">;
 export type TrustTransferId = Identifier<"trustTransfer">;
 export type TrustMovementId = Identifier<"trustMovement">;
+export type TrustDisbursementRequestId = Identifier<"trustDisbursementRequest">;
+export type TrustDisbursementDecisionId = Identifier<"trustDisbursementDecision">;

@@ -87,6 +87,8 @@ import type {
   TimeEntryId,
   TrackingEventId,
   TrustAccountId,
+  TrustDisbursementDecisionId,
+  TrustDisbursementRequestId,
   TrustHoldId,
   TrustLedgerNodeId,
   TrustMovementId,
@@ -3375,6 +3377,124 @@ export const trustMovement = sqliteTable(
       sql`(${table.kind} = 'deposit' AND ${table.counterpartyNodeId} IS NULL AND ${table.method} <> 'internal' AND ${table.counterpartyName} IS NOT NULL)
         OR (${table.kind} = 'disbursement' AND ${table.counterpartyNodeId} IS NULL AND ${table.method} <> 'internal' AND ${table.counterpartyName} IS NOT NULL AND ${table.authorizedBy} IS NOT NULL)
         OR (${table.kind} = 'matter_transfer' AND ${table.counterpartyNodeId} IS NOT NULL AND ${table.counterpartyNodeId} <> ${table.nodeId} AND ${table.method} = 'internal' AND ${table.counterpartyName} IS NULL AND ${table.authorizedBy} IS NOT NULL)`,
+    ),
+  ],
+);
+
+// A proposed payment out of a client ledger, before any money has moved. THIS IS NOT A MOVEMENT: no
+// ledger entry, no balance, no trust_movement row exists while a request is pending, so a request
+// that is never approved leaves the client ledger exactly as it found it. The row carries the full
+// particulars the movement will be composed from — the leaf, the amount, the payee, the method, the
+// reference, the purpose, the description, and the effective date — because the person approving is
+// approving THOSE facts, and a request that stored only an amount would be an approval of something
+// nobody wrote down.
+//
+// APPEND-ONLY, enforced by triggers in the migration. Its outcome is a row in
+// trust_disbursement_decision, never an edit here and never a status column: pending is the DERIVED
+// state of a request no decision names, exactly as an active hold is a hold no release names.
+export const trustDisbursementRequest = sqliteTable(
+  "trust_disbursement_request",
+  {
+    id: text("id").primaryKey().$type<TrustDisbursementRequestId>(), // trustDisbursementRequest_ handle
+    trustAccountId: text("trust_account_id")
+      .notNull()
+      .$type<TrustAccountId>()
+      .references(() => trustAccount.id),
+    // The matter leaf the money would leave. Resolved at submission rather than at approval so the
+    // approver and the submitter are looking at the same client ledger.
+    nodeId: text("node_id")
+      .notNull()
+      .$type<TrustLedgerNodeId>()
+      .references(() => trustLedgerNode.id),
+    amountMinor: integer("amount_minor").notNull(),
+    currency: text("currency").notNull(),
+    // The same vocabulary trust_movement carries, minus `internal`: a disbursement leaves the bank,
+    // and `internal` names a reallocation that never touches one.
+    method: text("method", {
+      enum: ["check", "cash", "wire", "electronic_transfer", "card"],
+    }).notNull(),
+    reference: text("reference"),
+    payee: text("payee").notNull(),
+    purpose: text("purpose").notNull(),
+    description: text("description").notNull(), // becomes the ledger entry's description on approval
+    effectiveDate: text("effective_date").notNull(), // YYYY-MM-DD civil date
+    requestedBy: text("requested_by").notNull().$type<UserId>(),
+    requestedAt: text("requested_at").notNull(), // UTC instant
+  },
+  (table) => [
+    // The approval queue: what is outstanding on one trust account, oldest first.
+    index("trust_disbursement_request_account_requested_at_index").on(
+      table.trustAccountId,
+      table.requestedAt,
+    ),
+    index("trust_disbursement_request_node_index").on(table.nodeId),
+    check("trust_disbursement_request_amount_positive_check", sql`${table.amountMinor} > 0`),
+    check("trust_disbursement_request_currency_check", sql`length(${table.currency}) = 3`),
+    check(
+      "trust_disbursement_request_method_check",
+      sql`${table.method} IN ('check', 'cash', 'wire', 'electronic_transfer', 'card')`,
+    ),
+    check("trust_disbursement_request_payee_nonempty_check", sql`length(${table.payee}) > 0`),
+    check("trust_disbursement_request_purpose_nonempty_check", sql`length(${table.purpose}) > 0`),
+    check(
+      "trust_disbursement_request_description_nonempty_check",
+      sql`length(${table.description}) > 0`,
+    ),
+  ],
+);
+
+// The one row that settles a disbursement request: approved, and the movement it posted; rejected,
+// and why; or withdrawn by the member who asked for it. UNIQUE on `request_id` is what makes a
+// second decision structurally impossible — two members approving the same request at the same
+// instant both compose a movement, and the loser's ENTIRE batch aborts at commit, ledger entry and
+// all, because the decision and the posting are one batch.
+//
+// APPEND-ONLY, enforced by triggers in the migration, and the approver-differs rule is a trigger
+// too rather than route discipline: a second person's approval that the application layer alone
+// enforced would be one forgotten code path away from not existing. `sole_trust_manager` is the
+// named, visible exception for a firm that has only one member holding the trust capability — the
+// database refuses it the moment a second such member exists, so it cannot be used to opt out.
+export const trustDisbursementDecision = sqliteTable(
+  "trust_disbursement_decision",
+  {
+    id: text("id").primaryKey().$type<TrustDisbursementDecisionId>(), // trustDisbursementDecision_ handle
+    requestId: text("request_id")
+      .notNull()
+      .$type<TrustDisbursementRequestId>()
+      .references(() => trustDisbursementRequest.id),
+    decision: text("decision", { enum: ["approved", "rejected", "withdrawn"] }).notNull(),
+    decidedBy: text("decided_by").notNull().$type<UserId>(),
+    decidedAt: text("decided_at").notNull(), // UTC instant
+    // Why the request was refused, in the decider's words. Required on a rejection — a refusal
+    // nobody explained is a refusal the submitter cannot answer — and absent on an approval, whose
+    // reasoning is the request's own purpose.
+    reason: text("reason"),
+    // On what footing the approval was given. `second_person` is the rule; `sole_trust_manager`
+    // records, on the face of the record, that the firm had nobody else who could approve and the
+    // submitter authorized their own disbursement.
+    authorizationBasis: text("authorization_basis", {
+      enum: ["second_person", "sole_trust_manager"],
+    }),
+    // The movement the approval posted, in the same batch as this row. Null on every other decision,
+    // which is the whole point: nothing reached the ledger.
+    movementId: text("movement_id")
+      .$type<TrustMovementId>()
+      .references(() => trustMovement.id),
+  },
+  (table) => [
+    uniqueIndex("trust_disbursement_decision_request_unique_index").on(table.requestId),
+    uniqueIndex("trust_disbursement_decision_movement_unique_index").on(table.movementId),
+    check(
+      "trust_disbursement_decision_decision_check",
+      sql`${table.decision} IN ('approved', 'rejected', 'withdrawn')`,
+    ),
+    // Each outcome's shape stated once, so a decision cannot misdescribe itself: an approval with no
+    // movement and no basis, a rejection that claims to have posted one, or an unexplained refusal.
+    check(
+      "trust_disbursement_decision_shape_check",
+      sql`(${table.decision} = 'approved' AND ${table.authorizationBasis} IS NOT NULL AND ${table.movementId} IS NOT NULL AND ${table.reason} IS NULL)
+        OR (${table.decision} = 'rejected' AND ${table.authorizationBasis} IS NULL AND ${table.movementId} IS NULL AND length(${table.reason}) > 0)
+        OR (${table.decision} = 'withdrawn' AND ${table.authorizationBasis} IS NULL AND ${table.movementId} IS NULL AND (${table.reason} IS NULL OR length(${table.reason}) > 0))`,
     ),
   ],
 );

@@ -12,6 +12,7 @@
     "./composition-guard": "./src/composition-guard.ts",
     "./holds": "./src/holds.ts",
     "./movements": "./src/movements.ts",
+    "./disbursement-authorization": "./src/disbursement-authorization.ts",
     "./transfer": "./src/transfer.ts",
     "./jurisdiction": "./src/jurisdiction.ts",
     "./close-precondition": "./src/close-precondition.ts",
@@ -28,6 +29,7 @@
     "@magna-carta/money": "workspace:*"
   },
   "devDependencies": {
+    "@magna-carta/access-control": "workspace:*",
     "@magna-carta/database": "workspace:*",
     "@magna-carta/tsconfig": "workspace:*",
     "@types/node": "catalog:",

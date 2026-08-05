@@ -8606,7 +8606,25 @@
           "purpose"
         ]
       },
-      "TrustDisbursementRequest": {
+      "TrustDisbursementRequestAck": {
+        "type": "object",
+        "properties": {
+          "trustDisbursementRequestId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending"
+            ]
+          }
+        },
+        "required": [
+          "trustDisbursementRequestId",
+          "status"
+        ]
+      },
+      "TrustDisbursementRequestSubmission": {
         "type": "object",
         "properties": {
           "trustAccountId": {
@@ -8671,6 +8689,159 @@
           "method",
           "payee",
           "purpose"
+        ]
+      },
+      "TrustDisbursementApprovalAck": {
+        "type": "object",
+        "properties": {
+          "trustDisbursementRequestId": {
+            "type": "string"
+          },
+          "authorizationBasis": {
+            "type": "string",
+            "enum": [
+              "second_person",
+              "sole_trust_manager"
+            ]
+          },
+          "trustMovementId": {
+            "type": "string"
+          },
+          "ledgerEntryId": {
+            "type": "string"
+          },
+          "trustLedgerNodeId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "trustDisbursementRequestId",
+          "authorizationBasis",
+          "trustMovementId",
+          "ledgerEntryId",
+          "trustLedgerNodeId"
+        ]
+      },
+      "TrustDisbursementDecisionAck": {
+        "type": "object",
+        "properties": {
+          "trustDisbursementRequestId": {
+            "type": "string"
+          },
+          "decision": {
+            "type": "string",
+            "enum": [
+              "rejected",
+              "withdrawn"
+            ]
+          }
+        },
+        "required": [
+          "trustDisbursementRequestId",
+          "decision"
+        ]
+      },
+      "TrustDisbursementRejection": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "reason"
+        ]
+      },
+      "TrustDisbursementWithdrawal": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          }
+        }
+      },
+      "TrustPendingDisbursementRequestsResponse": {
+        "type": "object",
+        "properties": {
+          "requests": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrustPendingDisbursementRequest"
+            }
+          }
+        },
+        "required": [
+          "requests"
+        ]
+      },
+      "TrustPendingDisbursementRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "trustLedgerNodeId": {
+            "type": "string"
+          },
+          "amountMinor": {
+            "type": "integer"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "check",
+              "cash",
+              "wire",
+              "electronic_transfer",
+              "card"
+            ]
+          },
+          "reference": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "payee": {
+            "type": "string"
+          },
+          "purpose": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "effectiveDate": {
+            "type": "string"
+          },
+          "requestedBy": {
+            "type": "string"
+          },
+          "requestedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "trustLedgerNodeId",
+          "amountMinor",
+          "currency",
+          "method",
+          "reference",
+          "payee",
+          "purpose",
+          "description",
+          "effectiveDate",
+          "requestedBy",
+          "requestedAt"
         ]
       },
       "TrustMatterTransferRequest": {
@@ -8824,6 +8995,23 @@
               "null"
             ]
           },
+          "disbursementRequestId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "authorizationBasis": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "second_person",
+              "sole_trust_manager",
+              null
+            ]
+          },
           "effectiveDate": {
             "type": "string"
           },
@@ -8845,6 +9033,8 @@
           "purpose",
           "recordedBy",
           "authorizedBy",
+          "disbursementRequestId",
+          "authorizationBasis",
           "effectiveDate",
           "recordedAt"
         ]
@@ -32781,7 +32971,7 @@
             }
           },
           "409": {
-            "description": "A request with this Idempotency-Key is in progress, or the movement exceeds the client ledger's available balance",
+            "description": "A request with this Idempotency-Key is in progress, the movement exceeds the client ledger's available balance, or the disbursement request has already been decided",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -32791,7 +32981,7 @@
             }
           },
           "422": {
-            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, the trust rules refuse the movement, or the account's jurisdiction cannot be resolved",
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, the trust rules refuse the movement, the account's jurisdiction cannot be resolved, or this member may not make this decision about this disbursement request",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -32813,14 +33003,14 @@
         }
       }
     },
-    "/api/v1/trust/disbursements": {
+    "/api/v1/trust/disbursement-requests": {
       "post": {
-        "description": "Pays client money out of a matter's trust ledger. The amount is measured against the ledger's AVAILABLE balance — the stored balance less any disputed-funds holds — and the authorizing member is recorded on the movement.",
-        "operationId": "trust.disburse",
+        "description": "Proposes a payment of client money out of a matter's trust ledger. NO MONEY MOVES: no ledger entry, no balance change, and no movement record exists until a second member approves the request. The proposal is checked against the ledger's AVAILABLE balance — the stored balance less any disputed-funds holds — so an impossible payment is refused now rather than at approval, and it is checked again when it is approved.",
+        "operationId": "trust.requestDisbursement",
         "tags": [
           "trust"
         ],
-        "x-mc-operationId": "trust.disburse",
+        "x-mc-operationId": "trust.requestDisbursement",
         "x-mc-surface": "app",
         "x-mc-authenticated": true,
         "x-mc-permission": "trust:manage",
@@ -32848,18 +33038,18 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/TrustDisbursementRequest"
+                "$ref": "#/components/schemas/TrustDisbursementRequestSubmission"
               }
             }
           }
         },
         "responses": {
           "201": {
-            "description": "The disbursement was recorded",
+            "description": "The disbursement request is recorded and awaiting approval",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TrustMovementAck"
+                  "$ref": "#/components/schemas/TrustDisbursementRequestAck"
                 }
               }
             }
@@ -32905,7 +33095,7 @@
             }
           },
           "409": {
-            "description": "A request with this Idempotency-Key is in progress, or the movement exceeds the client ledger's available balance",
+            "description": "A request with this Idempotency-Key is in progress, the movement exceeds the client ledger's available balance, or the disbursement request has already been decided",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -32915,7 +33105,488 @@
             }
           },
           "422": {
-            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, the trust rules refuse the movement, or the account's jurisdiction cannot be resolved",
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, the trust rules refuse the movement, the account's jurisdiction cannot be resolved, or this member may not make this decision about this disbursement request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "description": "Lists the disbursement requests on one trust account that nobody has decided yet, oldest first — the queue an approving member works from. A request leaves this list the moment it is approved, rejected, or withdrawn.",
+        "operationId": "trust.listDisbursementRequests",
+        "tags": [
+          "trust"
+        ],
+        "x-mc-operationId": "trust.listDisbursementRequests",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "trust:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "trust"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^trustAccount_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "trustAccountId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The pending disbursement requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustPendingDisbursementRequestsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the trust account or matter ledger is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, the trust rules refuse the movement, the account's jurisdiction cannot be resolved, or this member may not make this decision about this disbursement request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trust/disbursement-requests/{requestId}/approval": {
+      "post": {
+        "description": "Approves a pending disbursement request and posts the trust movement, in one atomic write. The approving member must be somebody other than the member who submitted the request, and is recorded on the movement as the authorizing member; the submitter stays recorded as the member who entered the record. The available balance is measured again HERE, against the ledger as it stands now, so a request that has been overtaken by other activity is refused rather than posted.",
+        "operationId": "trust.approveDisbursement",
+        "tags": [
+          "trust"
+        ],
+        "x-mc-operationId": "trust.approveDisbursement",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "trust:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "trust"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^trustDisbursementRequest_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "requestId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "The disbursement was approved and the movement posted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustDisbursementApprovalAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the trust account or matter ledger is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is in progress, the movement exceeds the client ledger's available balance, or the disbursement request has already been decided",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, the trust rules refuse the movement, the account's jurisdiction cannot be resolved, or this member may not make this decision about this disbursement request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trust/disbursement-requests/{requestId}/rejection": {
+      "post": {
+        "description": "Refuses a pending disbursement request, recording who refused it and why. Nothing reaches the ledger. The refusing member must be somebody other than the one who submitted it — taking back your own request is a withdrawal.",
+        "operationId": "trust.rejectDisbursement",
+        "tags": [
+          "trust"
+        ],
+        "x-mc-operationId": "trust.rejectDisbursement",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "trust:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "trust"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^trustDisbursementRequest_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "requestId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrustDisbursementRejection"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The rejection was recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustDisbursementDecisionAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the trust account or matter ledger is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is in progress, the movement exceeds the client ledger's available balance, or the disbursement request has already been decided",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, the trust rules refuse the movement, the account's jurisdiction cannot be resolved, or this member may not make this decision about this disbursement request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trust/disbursement-requests/{requestId}/withdrawal": {
+      "post": {
+        "description": "Takes back a pending disbursement request the calling member submitted. Recorded rather than deleted — that a payment was proposed and then withdrawn is itself part of the record. Only the submitting member may withdraw; anyone else records a rejection with a reason.",
+        "operationId": "trust.withdrawDisbursement",
+        "tags": [
+          "trust"
+        ],
+        "x-mc-operationId": "trust.withdrawDisbursement",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "trust:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "trust"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^trustDisbursementRequest_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "requestId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrustDisbursementWithdrawal"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The withdrawal was recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustDisbursementDecisionAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the trust account or matter ledger is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is in progress, the movement exceeds the client ledger's available balance, or the disbursement request has already been decided",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, the trust rules refuse the movement, the account's jurisdiction cannot be resolved, or this member may not make this decision about this disbursement request",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -33029,7 +33700,7 @@
             }
           },
           "409": {
-            "description": "A request with this Idempotency-Key is in progress, or the movement exceeds the client ledger's available balance",
+            "description": "A request with this Idempotency-Key is in progress, the movement exceeds the client ledger's available balance, or the disbursement request has already been decided",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -33039,7 +33710,7 @@
             }
           },
           "422": {
-            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, the trust rules refuse the movement, or the account's jurisdiction cannot be resolved",
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, the trust rules refuse the movement, the account's jurisdiction cannot be resolved, or this member may not make this decision about this disbursement request",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -33142,7 +33813,7 @@
             }
           },
           "422": {
-            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, the trust rules refuse the movement, or the account's jurisdiction cannot be resolved",
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, the trust rules refuse the movement, the account's jurisdiction cannot be resolved, or this member may not make this decision about this disbursement request",
             "content": {
               "application/problem+json": {
                 "schema": {

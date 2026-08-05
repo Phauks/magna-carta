@@ -163,6 +163,17 @@ export const PROBLEM_TYPES = {
   // and reviewing that jurisdiction. Neither ever resolves to a baseline — a wrong silence about a
   // trust rule states a wrong fact to a lawyer who will act on it.
   "trust-jurisdiction-unavailable": "trust-jurisdiction-unavailable",
+  // A disbursement request that has already been approved, rejected, or withdrawn (HTTP 409). A
+  // settled request is never re-decided: the decision is one append-only row and the database
+  // refuses a second. DISTINCT from `conflict` in that nothing is retryable — the caller reads the
+  // decision that was already recorded, or submits a new request.
+  "trust-disbursement-not-pending": "trust-disbursement-not-pending",
+  // The member is not one who may make this decision about this disbursement request (HTTP 422):
+  // approving or rejecting a request they submitted themselves in a firm that has other members who
+  // can authorize a trust disbursement, or withdrawing somebody else's request. The two-person rule
+  // is the point of the control, so this is not a permission failure — the member holds the
+  // capability; they are the wrong person for this particular act.
+  "trust-disbursement-authorization-refused": "trust-disbursement-authorization-refused",
   // A matter close refused by one of the rules the close hook runs (HTTP 409). Today the only such
   // rule is trust's: a matter whose client trust ledger still holds money, or carries an active
   // disputed-funds hold, does not close — a closed matter with somebody else's money in it is how

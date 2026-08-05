@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "7aa224d0-9e3d-42f5-bcc6-e734bd4f3aa2",
+  "id": "01411a8f-1895-42a3-a487-3fe588d250b0",
   "prevId": "6d75c061-db6c-4a71-abcc-c54288fc2ada",
   "tables": {
     "account_balance": {
@@ -754,43 +754,8 @@
           "notNull": false,
           "autoincrement": false
         },
-        "refused_by": {
-          "name": "refused_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "refused_at": {
-          "name": "refused_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "refusal_reason": {
-          "name": "refusal_reason",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "executed_at": {
           "name": "executed_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "executed_by": {
-          "name": "executed_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "executed_movement_id": {
-          "name": "executed_movement_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -822,11 +787,6 @@
         "custody_destruction_request_packet_index": {
           "name": "custody_destruction_request_packet_index",
           "columns": ["packet_id"],
-          "isUnique": false
-        },
-        "custody_destruction_request_outcome_index": {
-          "name": "custody_destruction_request_outcome_index",
-          "columns": ["outcome", "requested_at"],
           "isUnique": false
         }
       },
@@ -9036,6 +8996,267 @@
         "trust_account_closed_at_check": {
           "name": "trust_account_closed_at_check",
           "value": "(\"trust_account\".\"status\" = 'closed') = (\"trust_account\".\"closed_at\" IS NOT NULL)"
+        }
+      }
+    },
+    "trust_disbursement_decision": {
+      "name": "trust_disbursement_decision",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "request_id": {
+          "name": "request_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "decision": {
+          "name": "decision",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "decided_by": {
+          "name": "decided_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "decided_at": {
+          "name": "decided_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "reason": {
+          "name": "reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "authorization_basis": {
+          "name": "authorization_basis",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "movement_id": {
+          "name": "movement_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "trust_disbursement_decision_request_unique_index": {
+          "name": "trust_disbursement_decision_request_unique_index",
+          "columns": ["request_id"],
+          "isUnique": true
+        },
+        "trust_disbursement_decision_movement_unique_index": {
+          "name": "trust_disbursement_decision_movement_unique_index",
+          "columns": ["movement_id"],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "trust_disbursement_decision_request_id_trust_disbursement_request_id_fk": {
+          "name": "trust_disbursement_decision_request_id_trust_disbursement_request_id_fk",
+          "tableFrom": "trust_disbursement_decision",
+          "tableTo": "trust_disbursement_request",
+          "columnsFrom": ["request_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "trust_disbursement_decision_movement_id_trust_movement_id_fk": {
+          "name": "trust_disbursement_decision_movement_id_trust_movement_id_fk",
+          "tableFrom": "trust_disbursement_decision",
+          "tableTo": "trust_movement",
+          "columnsFrom": ["movement_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "trust_disbursement_decision_decision_check": {
+          "name": "trust_disbursement_decision_decision_check",
+          "value": "\"trust_disbursement_decision\".\"decision\" IN ('approved', 'rejected', 'withdrawn')"
+        },
+        "trust_disbursement_decision_shape_check": {
+          "name": "trust_disbursement_decision_shape_check",
+          "value": "(\"trust_disbursement_decision\".\"decision\" = 'approved' AND \"trust_disbursement_decision\".\"authorization_basis\" IS NOT NULL AND \"trust_disbursement_decision\".\"movement_id\" IS NOT NULL AND \"trust_disbursement_decision\".\"reason\" IS NULL)\n        OR (\"trust_disbursement_decision\".\"decision\" = 'rejected' AND \"trust_disbursement_decision\".\"authorization_basis\" IS NULL AND \"trust_disbursement_decision\".\"movement_id\" IS NULL AND length(\"trust_disbursement_decision\".\"reason\") > 0)\n        OR (\"trust_disbursement_decision\".\"decision\" = 'withdrawn' AND \"trust_disbursement_decision\".\"authorization_basis\" IS NULL AND \"trust_disbursement_decision\".\"movement_id\" IS NULL AND (\"trust_disbursement_decision\".\"reason\" IS NULL OR length(\"trust_disbursement_decision\".\"reason\") > 0))"
+        }
+      }
+    },
+    "trust_disbursement_request": {
+      "name": "trust_disbursement_request",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "trust_account_id": {
+          "name": "trust_account_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "node_id": {
+          "name": "node_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "amount_minor": {
+          "name": "amount_minor",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "currency": {
+          "name": "currency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "method": {
+          "name": "method",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "reference": {
+          "name": "reference",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "payee": {
+          "name": "payee",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "purpose": {
+          "name": "purpose",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "effective_date": {
+          "name": "effective_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "requested_by": {
+          "name": "requested_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "requested_at": {
+          "name": "requested_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "trust_disbursement_request_account_requested_at_index": {
+          "name": "trust_disbursement_request_account_requested_at_index",
+          "columns": ["trust_account_id", "requested_at"],
+          "isUnique": false
+        },
+        "trust_disbursement_request_node_index": {
+          "name": "trust_disbursement_request_node_index",
+          "columns": ["node_id"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "trust_disbursement_request_trust_account_id_trust_account_id_fk": {
+          "name": "trust_disbursement_request_trust_account_id_trust_account_id_fk",
+          "tableFrom": "trust_disbursement_request",
+          "tableTo": "trust_account",
+          "columnsFrom": ["trust_account_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "trust_disbursement_request_node_id_trust_ledger_node_id_fk": {
+          "name": "trust_disbursement_request_node_id_trust_ledger_node_id_fk",
+          "tableFrom": "trust_disbursement_request",
+          "tableTo": "trust_ledger_node",
+          "columnsFrom": ["node_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "trust_disbursement_request_amount_positive_check": {
+          "name": "trust_disbursement_request_amount_positive_check",
+          "value": "\"trust_disbursement_request\".\"amount_minor\" > 0"
+        },
+        "trust_disbursement_request_currency_check": {
+          "name": "trust_disbursement_request_currency_check",
+          "value": "length(\"trust_disbursement_request\".\"currency\") = 3"
+        },
+        "trust_disbursement_request_method_check": {
+          "name": "trust_disbursement_request_method_check",
+          "value": "\"trust_disbursement_request\".\"method\" IN ('check', 'cash', 'wire', 'electronic_transfer', 'card')"
+        },
+        "trust_disbursement_request_payee_nonempty_check": {
+          "name": "trust_disbursement_request_payee_nonempty_check",
+          "value": "length(\"trust_disbursement_request\".\"payee\") > 0"
+        },
+        "trust_disbursement_request_purpose_nonempty_check": {
+          "name": "trust_disbursement_request_purpose_nonempty_check",
+          "value": "length(\"trust_disbursement_request\".\"purpose\") > 0"
+        },
+        "trust_disbursement_request_description_nonempty_check": {
+          "name": "trust_disbursement_request_description_nonempty_check",
+          "value": "length(\"trust_disbursement_request\".\"description\") > 0"
         }
       }
     },

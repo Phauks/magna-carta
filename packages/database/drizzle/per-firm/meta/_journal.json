@@ -222,6 +222,13 @@
     {
       "idx": 31,
       "version": "6",
+      "when": 1785949200000,
+      "tag": "20260805T170000_trust-disbursement-authorization",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "6",
       "when": 1785952800000,
       "tag": "20260805T180000_custodian-destruction",
       "breakpoints": true

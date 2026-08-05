@@ -164,12 +164,17 @@ export const ENTITY_PREFIXES = {
   // sub-ledger tree); a `trustHold` restricts part of a node's balance without moving money; a
   // `trustTransfer` is the shared link between the two entries a trust-to-operating movement posts;
   // a `trustMovement` is the client-ledger record beside one trust entry — who the money came from
-  // or went to, why, by what method, and who authorized it.
+  // or went to, why, by what method, and who authorized it. A `trustDisbursementRequest` is a
+  // proposed payment out of a client ledger that has not moved any money yet, and a
+  // `trustDisbursementDecision` is the single append-only row that settles one — the approval that
+  // posts the movement, or the rejection or withdrawal that does not.
   trustAccount: "trustAccount",
   trustLedgerNode: "trustLedgerNode",
   trustHold: "trustHold",
   trustTransfer: "trustTransfer",
   trustMovement: "trustMovement",
+  trustDisbursementRequest: "trustDisbursementRequest",
+  trustDisbursementDecision: "trustDisbursementDecision",
 } as const;
 
 export type EntityType = keyof typeof ENTITY_PREFIXES;
