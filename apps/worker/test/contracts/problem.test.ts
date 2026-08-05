@@ -60,6 +60,7 @@ describe("problem-type URI registry", () => {
         "template-expression-invalid",
         "assembly-expression-refused",
         "merge-field-unresolvable",
+        "websocket-upgrade-required",
       ].sort(),
     );
   });

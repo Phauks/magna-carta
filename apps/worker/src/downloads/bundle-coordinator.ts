@@ -1,6 +1,12 @@
 import { DurableObject } from "cloudflare:workers";
 import type { Bindings } from "../app.ts";
+import {
+  isWebSocketUpgrade,
+  JobProgressSockets,
+  type JobProgressAttachment,
+} from "../progress/job-progress-sockets.ts";
 import type { BuildResultVolume } from "./bundle-container-adapter.ts";
+import { isBundleProgressTerminal, resolveBundleProgress } from "./bundle-progress.ts";
 import type { BundleBuildMessage, BundleCoordinator, BundleJobState } from "./bundle-types.ts";
 
 // The single-flight coordinator for one bulk-download artifact, keyed firmId:manifestHash. The first
@@ -9,10 +15,49 @@ import type { BundleBuildMessage, BundleCoordinator, BundleJobState } from "./bu
 // reports completion through markReady/markFailed; the alarm fails a build that never reported back.
 // This is the codebase's first Durable Object — the DO is the serialization point that makes the
 // check-then-enqueue atomic across concurrent requests (per-firm: the name carries the firm id).
+//
+// It is also the push side of bundle progress. A client may subscribe over a hibernation WebSocket
+// (fetch with an Upgrade header, from the status route, after the chokepoint) and receive each
+// transition as it happens instead of polling for it. Every state write below therefore ends in a
+// broadcast, and the broadcast resolves the SAME answer the poll endpoint would have given
+// (bundle-progress.ts). Subscribers cost nothing while they wait: the object hibernates with its
+// sockets open, and keepalives are answered by the runtime without waking it.
 
 const STUCK_DEADLINE_MS = 10 * 60 * 1000;
 
 export class BundleBuildCoordinator extends DurableObject<Bindings> implements BundleCoordinator {
+  // Constructed per call: class properties do not survive hibernation, and this holds no state of its
+  // own — it reads the job state back from storage and the subscriber's context off the socket.
+  private progress(): JobProgressSockets<Awaited<ReturnType<typeof resolveBundleProgress>>> {
+    return new JobProgressSockets(this.ctx, {
+      stateFor: async (attachment: JobProgressAttachment) =>
+        resolveBundleProgress(this.env, attachment.bucketName, await this.status()),
+      isTerminal: isBundleProgressTerminal,
+    });
+  }
+
+  // The subscribe entry point. Only reachable through the status route, which has already run the
+  // chokepoint and addressed this object by `${sessionFirmId}:${manifestHash}` — the same addressing
+  // the poll uses, so a firm can no more subscribe to another firm's job than it can poll one.
+  override async fetch(request: Request): Promise<Response> {
+    if (!isWebSocketUpgrade(request)) {
+      return new Response("this endpoint serves WebSocket subscriptions only", { status: 426 });
+    }
+    return this.progress().accept(request);
+  }
+
+  override async webSocketMessage(socket: WebSocket, message: string | ArrayBuffer): Promise<void> {
+    await this.progress().onMessage(socket, message);
+  }
+
+  override webSocketClose(socket: WebSocket): void {
+    // Close this end too, so a half-closed socket is not left for the runtime to reap. A fixed normal
+    // code rather than the peer's: 1005/1006 are reported to a close handler but are not valid to
+    // send, so echoing the incoming code is a throw waiting to happen. There is no per-subscriber
+    // bookkeeping to unwind — a subscription is the socket and nothing else.
+    socket.close(1000, "peer closed");
+  }
+
   async requestBundle(message: BundleBuildMessage): Promise<BundleJobState> {
     const existing = (await this.ctx.storage.get<BundleJobState>("state")) ?? null;
     // A build still in flight is always shared — that is the single-flight dedup this DO exists for.
@@ -38,6 +83,10 @@ export class BundleBuildCoordinator extends DurableObject<Bindings> implements B
     await this.ctx.storage.put("state", state);
     await this.ctx.storage.setAlarm(Date.now() + STUCK_DEADLINE_MS);
     await this.env.BUNDLE_BUILD.send(message);
+    // A rebuild of a job someone is already watching (a `failed` retried, or a `ready` whose artifact
+    // was reaped) moves them back to `building` — the early returns above are the shared-build paths,
+    // where nothing transitioned and there is nothing to push.
+    await this.progress().broadcast();
     return state;
   }
 
@@ -63,6 +112,7 @@ export class BundleBuildCoordinator extends DurableObject<Bindings> implements B
     // ready (a retried build that succeeds), and a ready state must not carry a stale error string.
     await this.ctx.storage.put("state", { ...state, status: "ready", r2Key, error: null });
     await this.ctx.storage.deleteAlarm();
+    await this.progress().broadcast();
   }
 
   async markReadyVolumes(volumes: readonly BuildResultVolume[]): Promise<void> {
@@ -73,6 +123,7 @@ export class BundleBuildCoordinator extends DurableObject<Bindings> implements B
     // error from a prior failed attempt and disarm the stuck alarm. r2Key stays null on this path.
     await this.ctx.storage.put("state", { ...state, status: "ready", volumes, error: null });
     await this.ctx.storage.deleteAlarm();
+    await this.progress().broadcast();
   }
 
   async markFailed(error: string): Promise<void> {
@@ -83,6 +134,7 @@ export class BundleBuildCoordinator extends DurableObject<Bindings> implements B
     if (state === undefined || state.status !== "building") return;
     await this.ctx.storage.put("state", { ...state, status: "failed", error });
     await this.ctx.storage.deleteAlarm();
+    await this.progress().broadcast();
   }
 
   async status(): Promise<BundleJobState> {
@@ -100,6 +152,7 @@ export class BundleBuildCoordinator extends DurableObject<Bindings> implements B
     const state = await this.ctx.storage.get<BundleJobState>("state");
     if (state?.status === "building") {
       await this.ctx.storage.put("state", { ...state, status: "failed", error: "build timed out" });
+      await this.progress().broadcast();
     }
   }
 }

@@ -103,6 +103,10 @@ export const PROBLEM_TYPES = {
   // An assembly whose merge fields cannot be resolved (HTTP 422): the matter supplies no value for a
   // field declared to fail rather than render a blank. Names WHICH keys failed, never what they held.
   "merge-field-unresolvable": "merge-field-unresolvable",
+  // A plain request reached an endpoint that only serves WebSocket subscriptions (HTTP 426). The
+  // job-progress endpoints push transitions over a socket; the polling endpoint beside each one is
+  // the answer for a client that cannot or does not want to upgrade, and the detail names it.
+  "websocket-upgrade-required": "websocket-upgrade-required",
   // A required downstream service is absent or unreachable (HTTP 503): the worker cannot fulfil
   // the request because a backing worker service binding is not configured. Callers should retry
   // after a short delay; the condition resolves when the binding is activated at deploy time.

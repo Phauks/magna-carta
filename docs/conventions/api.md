@@ -54,4 +54,35 @@ The snapshot is built through a programmatic Vite SSR pipeline (`apps/worker/scr
 - **Problem-type registry.** `apps/worker/src/contracts/problem-types.ts` — `problemType(key)` → `https://api.magnacarta.esq/problems/<key>`; an unknown key is a compile error. The committed slugs are the public contract URIs (the snapshot locks them): `validation`, `unauthenticated`, `permission-denied`, `not-found`, `idempotency-key-missing`/`-conflict`/`-fingerprint-mismatch`, `rate-limited`, `conflict`, `email-in-use`.
 - **`defaultHook` reflection posture.** `defaultHook` reflects a Zod `issue.message` into `errors[].detail` on a 422, so **no secret-bearing field may be validated through the body/query/header validators** — a future secret-bearing schema field could leak its value back to the caller on a validation failure. Validate secrets out of band.
 
+## Push progress over WebSocket
+
+A long-running job may expose a **subscribe** endpoint beside its poll endpoint. The subscribe
+endpoint is a normal `defineOpenAPIRoute` registration — same chokepoint, same `RouteMeta`, same
+capability as the poll it sits beside — that declares `101` and upgrades to a WebSocket the job's
+Durable Object pushes state down. The rules:
+
+- **The poll endpoint always stays**, and both transports resolve the job through **one shared
+  function**, returning the same object. A fallback that is a second implementation is not a fallback.
+- **The pushed payload is the poll body verbatim.** A `state` frame is
+  `{ "type": "state", "protocolVersion": N, "state": <the poll body> }`, so a client can treat a
+  pushed frame and a polled body interchangeably.
+- **Client frames:** `{"type":"ping"}` (keepalive) and `{"type":"resync"}` (re-send current state,
+  the frame to use after a reconnect). The ping/pong pair is registered with the runtime's WebSocket
+  auto-response and is matched **byte-for-byte**, so those exact strings answer without waking a
+  hibernating object; a differently-formatted ping is still answered, just not for free. An
+  unrecognised frame is answered `{ "type": "refused", "reason": <label> }` and the socket stays open.
+- **A terminal state is pushed once and the socket closes** (normal close, code 1000).
+- **A plain request to a subscribe endpoint is `426`** with the `websocket-upgrade-required` problem
+  type, whose `detail` names the poll endpoint.
+- WebSocket framing is outside OpenAPI's model, so the frame contract is documented in the route's
+  `description` and in `apps/worker/src/progress/job-progress-protocol.ts` — that module is the one
+  home for it. Bump `JOB_PROGRESS_PROTOCOL_VERSION` on any incompatible frame change.
+
+Implementations: `downloads.bundleEvents` and `conversions.events`.
+
+Spectral's `operation-success-response` only recognises 2xx/3xx as success and its per-operation
+`overrides` do not take effect for that rule (6.16), so it is **off in `.spectral.yaml` and
+re-implemented as a conformance fitness function** — which also proves the stronger property that an
+operation declaring `101` does not also claim a 2xx.
+
 **Build-forced tooling deviations** (ADR-0066 amendment, 2026-06-13): the generated client is excluded from the formatter (its bytes are the generator's) and from lint (its barrel/codegen idioms trip our rules) — so its "compiles" gate is a dedicated `tsc -p` (`@magna-carta/api-client` `typecheck`, wired into the root `check`), which type-checks every generated file. Spectral 6.16/nimma crashes traversing this 3.1 document (it dereferences the contract's `null`-valued `x-mc-permission` extensions), so `.spectral.yaml` disables `duplicated-entry-in-enum` (our enums are trivial single-value literals — near-zero loss).

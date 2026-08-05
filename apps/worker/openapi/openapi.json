@@ -20543,6 +20543,93 @@
         }
       }
     },
+    "/api/v1/downloads/bundles/{manifestHash}/events": {
+      "get": {
+        "description": "Subscribes to an async bulk-download build over a WebSocket. The server sends the job's current state on connect and again on every transition; each frame is { \"type\": \"state\", \"protocolVersion\": 1, \"state\": { … } } where state is the same object the poll endpoint returns, so a ready job carries a freshly minted, short-lived signed URL. The client may send { \"type\": \"resync\" } to be re-sent the current state and { \"type\": \"ping\" } for a keepalive. A settled job is pushed once and the socket then closes. Requires an Upgrade: websocket request; the poll endpoint is the equivalent answer for a client that cannot upgrade.",
+        "operationId": "downloads.bundleEvents",
+        "tags": [
+          "downloads"
+        ],
+        "x-mc-operationId": "downloads.bundleEvents",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "files:organize",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "downloads"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "manifestHash",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "101": {
+            "description": "The subscription is open; job state follows as WebSocket frames"
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks files:organize",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "426": {
+            "description": "The request did not ask to upgrade to a WebSocket",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/directory/persons": {
       "post": {
         "description": "Creates a directory person from its structured name parts, seeding the current-name history row and its phonetic blocking codes.",
@@ -32659,6 +32746,93 @@
           },
           "404": {
             "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/conversions/{jobId}/events": {
+      "get": {
+        "description": "Subscribes to a conversion job over a WebSocket. The server sends the job's current state on connect and again on every transition (queued, running, done, failed, expired); each frame is { \"type\": \"state\", \"protocolVersion\": 1, \"state\": { … } } where state is the same object the poll endpoint returns, so a done job carries a freshly minted, short-lived signed URL and the converted file media type. The client may send { \"type\": \"resync\" } to be re-sent the current state and { \"type\": \"ping\" } for a keepalive. A settled job is pushed once and the socket then closes. Requires an Upgrade: websocket request; the poll endpoint is the equivalent answer for a client that cannot upgrade.",
+        "operationId": "conversions.events",
+        "tags": [
+          "conversions"
+        ],
+        "x-mc-operationId": "conversions.events",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tools:fileConverter",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "conversions"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "jobId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "101": {
+            "description": "The subscription is open; job state follows as WebSocket frames"
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks tools:fileConverter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "426": {
+            "description": "The request did not ask to upgrade to a WebSocket",
             "content": {
               "application/problem+json": {
                 "schema": {

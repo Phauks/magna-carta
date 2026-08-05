@@ -422,6 +422,34 @@ function errorIdCoverageViolations(document: ReturnType<typeof buildOpenAPIDocum
   return violations;
 }
 
+// Rule: every operation declares a success response, and a WebSocket subscribe endpoint's 101 counts
+// as one. This is Spectral's `operation-success-response` moved here (see .spectral.yaml): a subscribe
+// endpoint's only success IS the 101, Spectral's base rule only recognises 2xx/3xx, and its
+// per-operation overrides do not take effect for that rule. Expressed here it also says the stronger
+// thing Spectral could not: an operation that declares 101 must not ALSO claim a 2xx, because a route
+// that upgrades has no body-bearing success to describe.
+function successResponseViolations(document: ReturnType<typeof buildOpenAPIDocument>): string[] {
+  const violations: string[] = [];
+  for (const { path, method, operation } of operations(document)) {
+    const label = `${method.toUpperCase()} ${path}`;
+    const statuses = Object.keys(
+      (operation as { responses?: Record<string, unknown> }).responses ?? {},
+    );
+    const upgrades = statuses.includes("101");
+    const successes = statuses.filter((status) => Number(status) >= 200 && Number(status) < 400);
+    if (!upgrades && successes.length === 0) {
+      violations.push(`${label}: declares no success response (2xx/3xx, or 101 for an upgrade)`);
+    }
+    if (upgrades && successes.length > 0) {
+      violations.push(
+        `${label}: declares 101 (an upgrade) alongside ${successes.join(", ")} — an upgrade has no ` +
+          `body-bearing success to describe`,
+      );
+    }
+  }
+  return violations;
+}
+
 // Normalize a Hono route path to the OpenAPI path syntax: Hono templates a parameter as `:name`, the
 // emitted document as `{name}`. Trailing slashes are dropped so `/api/v1/x/` and `/api/v1/x` compare
 // equal. This is the join key between app.routes (what Hono will actually dispatch) and the document
@@ -558,6 +586,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "conflicts.getCheck",
       "conflicts.recordDisposition",
       "conflicts.runCheck",
+      "conversions.events",
       "conversions.status",
       "conversions.submit",
       "conversions.upload",
@@ -646,6 +675,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "documents.forceRelease",
       "documents.reconcile",
       "documents.viewSession",
+      "downloads.bundleEvents",
       "downloads.bundleStatus",
       "downloads.zip",
       "emailInspector.inspect",
@@ -966,6 +996,47 @@ describe("conformance — the committed contract holds, and each rule catches a 
         },
       ]);
       expect(errorIdCoverageViolations(bad).length).toBeGreaterThan(0);
+    });
+  });
+
+  describe("every operation declares a success response (101 counts, and excludes 2xx)", () => {
+    it("the committed contract satisfies it", () => {
+      expect(successResponseViolations(document)).toEqual([]);
+    });
+
+    it("flags an operation with no success response at all", () => {
+      const bad = documentWithOperations([
+        {
+          method: "get",
+          path: "/api/v1/widgets",
+          operation: rawOperation({ responses: { 404: { description: "Not found" } } }),
+        },
+      ]);
+      expect(successResponseViolations(bad).length).toBeGreaterThan(0);
+    });
+
+    it("accepts an upgrade endpoint whose only success is 101", () => {
+      const upgrade = documentWithOperations([
+        {
+          method: "get",
+          path: "/api/v1/widgets/events",
+          operation: rawOperation({ responses: { 101: { description: "Subscribed" } } }),
+        },
+      ]);
+      expect(successResponseViolations(upgrade)).toEqual([]);
+    });
+
+    it("flags an upgrade endpoint that also claims a 2xx", () => {
+      const confused = documentWithOperations([
+        {
+          method: "get",
+          path: "/api/v1/widgets/events",
+          operation: rawOperation({
+            responses: { 101: { description: "Subscribed" }, 200: { description: "OK" } },
+          }),
+        },
+      ]);
+      expect(successResponseViolations(confused).length).toBeGreaterThan(0);
     });
   });
 

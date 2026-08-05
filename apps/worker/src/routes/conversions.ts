@@ -12,13 +12,21 @@ import type { AppVariables } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { Problem, problemJson } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
+import { resolveConversionProgress } from "../conversions/conversion-progress.ts";
 import { resolveFirmBucket } from "../files/firm-bucket.ts";
 import { presignerForEnv } from "../files/presigner-wiring.ts";
+import { isWebSocketUpgrade, subscribeRequest } from "../progress/job-progress-sockets.ts";
 
-// The three-route conversion surface: presign an upload slot, submit a job, and poll its state.
-// All three are firm-scoped and traverse the same chokepoint under the tools:fileConverter permission.
-// The source and result objects live in the firm R2 bucket under conversions/<firmId>/<jobId>/{source,result};
-// the ConversionJob DO (keyed firmId:jobId) is the serialization point for each job's lifecycle.
+// The four-route conversion surface: presign an upload slot, submit a job, poll its state, and
+// subscribe to its state over a WebSocket. All four are firm-scoped and traverse the same chokepoint
+// under the tools:fileConverter permission. The source and result objects live in the firm R2 bucket
+// under conversions/<firmId>/<jobId>/{source,result}; the ConversionJob DO (keyed firmId:jobId) is the
+// serialization point for each job's lifecycle.
+//
+// The poll and the subscription resolve the job through the same function
+// (conversions/conversion-progress.ts) and return the same object, so polling stays a complete
+// fallback for a client that cannot hold a socket open rather than a second implementation that can
+// drift from the pushed one.
 
 const PRESIGN_TTL_SECONDS = 300;
 
@@ -183,6 +191,55 @@ const conversionStatusRoute = defineOpenAPIRoute(conversionStatusMeta, {
   },
 });
 
+const conversionEventsMeta: RouteMeta = {
+  operationId: "conversions.events",
+  surface: "app",
+  authenticated: true,
+  permission: "tools:fileConverter",
+  resource: "firm",
+  audited: false,
+  idempotency: "optional",
+  rateLimit: "default",
+};
+
+const conversionEventsRoute = defineOpenAPIRoute(conversionEventsMeta, {
+  method: "get",
+  path: "/api/v1/conversions/{jobId}/events",
+  description:
+    "Subscribes to a conversion job over a WebSocket. The server sends the job's current state on " +
+    "connect and again on every transition (queued, running, done, failed, expired); each frame is " +
+    '{ "type": "state", "protocolVersion": 1, "state": { … } } where state is the same object the ' +
+    "poll endpoint returns, so a done job carries a freshly minted, short-lived signed URL and the " +
+    'converted file media type. The client may send { "type": "resync" } to be re-sent the current ' +
+    'state and { "type": "ping" } for a keepalive. A settled job is pushed once and the socket then ' +
+    "closes. Requires an Upgrade: websocket request; the poll endpoint is the equivalent answer for " +
+    "a client that cannot upgrade.",
+  request: { params: z.object({ jobId: z.string().min(1) }) },
+  responses: {
+    101: { description: "The subscription is open; job state follows as WebSocket frames" },
+    401: {
+      description: "No valid session",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    403: {
+      description: "The session member lacks tools:fileConverter",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    404: {
+      description: "The firm is unreachable or the member is deactivated",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    426: {
+      description: "The request did not ask to upgrade to a WebSocket",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    429: {
+      description: "Rate limit exceeded",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+  },
+});
+
 type ConversionsApp = OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>;
 
 export function registerConversionRoutes(app: ConversionsApp, chokepoint: Chokepoint): void {
@@ -255,30 +312,51 @@ export function registerConversionRoutes(app: ConversionsApp, chokepoint: Chokep
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const firmId = requireChokepointFirmId(c);
-      const { bucket, bucketName } = resolveFirmBucket(c.env, firm.bucketName);
+      const { bucketName } = resolveFirmBucket(c.env, firm.bucketName);
       const { jobId } = c.req.valid("param");
 
       const coordinator = c.env.CONVERSION_JOB.get(
         c.env.CONVERSION_JOB.idFromName(`${firmId}:${jobId}`),
       );
-      const state = await coordinator.status();
+      const progress = await resolveConversionProgress(
+        c.env,
+        bucketName,
+        await coordinator.status(),
+      );
+      return c.json(progress, 200);
+    },
+  );
 
-      if (state.status === "done" && state.resultKey !== null) {
-        // Guard against a reaped result: the DO keeps reporting `done` with a stale resultKey after
-        // the R2 lifecycle rule expires the object. HEAD it first; if gone, report `expired` so the
-        // client knows the result is no longer available.
-        const artifact = await bucket.head(state.resultKey);
-        if (artifact !== null) {
-          const url = await presignerForEnv(c.env).presignGet(
-            bucketName,
-            state.resultKey,
-            PRESIGN_TTL_SECONDS,
-          );
-          return c.json({ status: "done", url, mediaType: state.mediaType ?? undefined }, 200);
-        }
-        return c.json({ status: "expired" }, 200);
+  // Route D — subscribe to the job over a WebSocket. The upgrade traverses the chokepoint like any
+  // other route (session resolved, capability checked, coordinator addressed by the SESSION firm id)
+  // and only then is the request handed to the object, which owns the 101. The request forwarded
+  // inward is built here from server-derived values, so nothing the caller sent can influence which
+  // bucket a pushed signed URL is minted against.
+  app.openapi(
+    {
+      ...conversionEventsRoute,
+      middleware: chokepointMiddleware(chokepoint, conversionEventsRoute),
+    },
+    async (c) => {
+      if (!isWebSocketUpgrade(c.req.raw)) {
+        return problemJson(c, {
+          type: "websocket-upgrade-required",
+          status: 426,
+          title: "WebSocket upgrade required",
+          detail:
+            "This endpoint serves WebSocket subscriptions. Send Upgrade: websocket, or poll " +
+            "/api/v1/conversions/{jobId} instead.",
+        });
       }
-      return c.json({ status: state.status, reason: state.reason ?? undefined }, 200);
+      const firm = requireChokepointFirmContext(c);
+      const firmId = requireChokepointFirmId(c);
+      const { bucketName } = resolveFirmBucket(c.env, firm.bucketName);
+      const { jobId } = c.req.valid("param");
+
+      const coordinator = c.env.CONVERSION_JOB.get(
+        c.env.CONVERSION_JOB.idFromName(`${firmId}:${jobId}`),
+      );
+      return coordinator.fetch(subscribeRequest(bucketName));
     },
   );
 }
