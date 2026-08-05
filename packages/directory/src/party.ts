@@ -77,6 +77,66 @@ export async function readMatterParties(
   }));
 }
 
+// One correspondent's address matched to a matter it plays a role on.
+export interface MatterPartyAddressMatch {
+  readonly matterId: string;
+  readonly entityId: string;
+  readonly role: string;
+  // The normalized form of the address that matched, so a caller can say WHICH correspondent tied the
+  // message to the matter rather than just that one did.
+  readonly normalizedAddress: string;
+}
+
+// The reverse of readMatterParties over a set of email addresses: given the correspondents on a piece
+// of mail, which matters are any of them a party on? This is the bridge that lets email capture
+// propose a matter from who is talking, and it is one statement rather than a lookup per address —
+// directory_email_normalized_address_index selects the entities, matter_party_entity_id_index selects
+// their matters.
+//
+// A merged-away entity needs no special handling here: a merge repoints matter_party.entity_id onto
+// the surviving master, so a subordinate's contact row resolves to the master's matters through the
+// join itself.
+export async function readMatterPartiesForEmailAddresses(
+  database: BatchDatabase,
+  normalizedAddresses: readonly string[],
+): Promise<MatterPartyAddressMatch[]> {
+  if (normalizedAddresses.length === 0) return [];
+  const placeholders = normalizedAddresses.map(() => "?").join(", ");
+  const { results } = await database
+    .prepare(
+      `SELECT matter_party.matter_id AS matter_id,
+              matter_party.entity_id AS entity_id,
+              matter_party.role AS role,
+              directory_email.normalized_address AS normalized_address
+       FROM directory_email
+       JOIN matter_party ON matter_party.entity_id = directory_email.entity_id
+       WHERE directory_email.normalized_address IN (${placeholders})
+         AND directory_email.deleted_at IS NULL
+         AND matter_party.deleted_at IS NULL
+       ORDER BY matter_party.matter_id ASC, matter_party.role ASC, matter_party.id ASC`,
+    )
+    .bind(...normalizedAddresses)
+    .all<{
+      matter_id: string;
+      entity_id: string;
+      role: string;
+      normalized_address: string | null;
+    }>();
+
+  return results.flatMap((row) =>
+    row.normalized_address === null
+      ? []
+      : [
+          {
+            matterId: row.matter_id,
+            entityId: row.entity_id,
+            role: row.role,
+            normalizedAddress: row.normalized_address,
+          },
+        ],
+  );
+}
+
 // The caller-supplied fields for a new party role (the catalog a UI lists matter roles from).
 export interface CreatePartyRoleInput {
   readonly name: string;

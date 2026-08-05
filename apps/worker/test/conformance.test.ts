@@ -73,6 +73,8 @@ const NON_MUTATING_POST_ALLOW_LIST: Record<string, string> = {
     "Read-shaped POST: counts how each current value would land under a kind change (the target kind rides the body) — no write, no audit.",
   "timeEntries.previewQuickAdd":
     "Read-shaped POST: parses a one-line quick-add string and returns matter candidates — no write, nothing committed.",
+  "emails.suggestMatters":
+    "Read-shaped POST: ranks the matters an open message might belong to (the message facts ride the body rather than a URL) — no write, nothing filed.",
   "conversions.upload":
     "Pure credential mint: mints a jobId and a short-TTL presigned PUT URL — no D1 write, no firm state change, just a signed URL the client uploads to directly.",
   "templates.upload":
@@ -773,7 +775,9 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "emailInspector.inspect",
       "emails.accept",
       "emails.alreadyFiled",
+      "emails.captureStatus",
       "emails.file",
+      "emails.filingContext",
       "emails.get",
       "emails.list",
       "emails.listCaptureAddresses",
@@ -782,6 +786,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "emails.revokeCaptureAddress",
       "emails.revokeFirmCaptureAddress",
       "emails.rotateCaptureAddress",
+      "emails.suggestMatters",
       "emails.unlink",
       "esign.seal",
       "fileIntegrity.hash",

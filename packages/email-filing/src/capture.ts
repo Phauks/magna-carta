@@ -83,6 +83,11 @@ export interface CaptureWritePlan {
   readonly participants: readonly EmailParticipantRow[];
   readonly touchMessageId: EmailMessageId | null;
   readonly link: CaptureLinkPlan | null;
+  // Where this capture landed, stated outright rather than left to be reassembled from the rows
+  // above: on a dedup hit `message` and `thread` are both null, so a consumer that wants to report
+  // the outcome of the job it just ran has nothing to read the identity off otherwise.
+  readonly emailMessageId: EmailMessageId;
+  readonly threadId: EmailThreadId;
 }
 
 export interface CaptureResult {
@@ -184,6 +189,8 @@ export async function captureEmail(
     participants,
     touchMessageId: dedupState === "existing" ? emailMessageId : null,
     link,
+    emailMessageId,
+    threadId,
   });
 
   return {

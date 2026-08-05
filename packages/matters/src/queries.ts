@@ -132,6 +132,45 @@ export async function listMatters(
   return assemblePage(results, pageSize, toMatterListItem);
 }
 
+// Hydrate a known set of matter handles in one primary-key walk. The caller has already decided WHICH
+// matters it is reporting (from a suggestion ranking, a recent-filing list, an access filter) and only
+// needs their display fields — so this deliberately takes ids and applies no filter of its own beyond
+// the system-matter exclusion every caseload read shares. One statement, never one per id.
+export async function readMattersByIds(
+  database: SqlDatabase,
+  matterIds: readonly MatterId[],
+): Promise<MatterListItem[]> {
+  if (matterIds.length === 0) return [];
+  const placeholders = matterIds.map(() => "?").join(", ");
+  const { results } = await database
+    .prepare(
+      `SELECT ${MATTER_LIST_COLUMNS} FROM ${MATTER_TABLE} WHERE id IN (${placeholders}) AND system_key IS NULL`,
+    )
+    .bind(...matterIds)
+    .all<MatterRowRaw>();
+  return results.map(toMatterListItem);
+}
+
+// Matters whose number is EXACTLY one of these strings. The caller extracts number-shaped candidates
+// from free text (an email subject line, a document header) and this decides which are real: an exact
+// match on the unique matter_number index, so a candidate that is not a number simply matches nothing.
+// Deliberately not the LIKE search listMatters offers — a substring match on a number would propose a
+// matter because the subject contained a year.
+export async function findMattersByNumbers(
+  database: SqlDatabase,
+  matterNumbers: readonly string[],
+): Promise<MatterListItem[]> {
+  if (matterNumbers.length === 0) return [];
+  const placeholders = matterNumbers.map(() => "?").join(", ");
+  const { results } = await database
+    .prepare(
+      `SELECT ${MATTER_LIST_COLUMNS} FROM ${MATTER_TABLE} WHERE matter_number IN (${placeholders}) AND system_key IS NULL`,
+    )
+    .bind(...matterNumbers)
+    .all<MatterRowRaw>();
+  return results.map(toMatterListItem);
+}
+
 export function listConsultationsStatement(
   database: SqlDatabase,
   responsibleMemberId: UserId,
