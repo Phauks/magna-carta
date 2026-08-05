@@ -1125,3 +1125,61 @@ pub fn embed_signature_edge(
     };
     Ok(crate::embed_signature(&prepared, &cms)?)
 }
+
+/// The most pages one extraction call will interpret. Page count is declared in the file and
+/// wholly attacker-controlled, and every page costs a full interpret; a document longer than
+/// this belongs on a path that can afford to walk it, not on one call. Matches the ceiling the
+/// recognition container applies to the same documents.
+const MAX_EXTRACTION_PAGES: usize = 100;
+
+/// Read a PDF's own text layer, page by page, and report which pages still need recognizing.
+///
+/// Returns `{ pages: [{ pageIndex, lines: [{ text }], needsRecognition, textCoverage,
+/// rasterCoverage }] }`, zero-based `pageIndex`, in page order. A page whose words exist only
+/// as pixels comes back with no lines and `needsRecognition: true`: this edge reads what is
+/// there and never guesses at what is not.
+#[wasm_bindgen(js_name = extractPdfText)]
+pub fn extract_pdf_text_edge(bytes: Vec<u8>) -> Result<JsValue, JsError> {
+    let document = Document::load(bytes)?;
+    let facts = document.document_text_facts(MAX_EXTRACTION_PAGES)?;
+    let set = |o: &js_sys::Object, k: &str, v: &JsValue| {
+        let _ = js_sys::Reflect::set(o, &k.into(), v);
+    };
+
+    let pages = js_sys::Array::new();
+    for page in &facts {
+        let lines = js_sys::Array::new();
+        for line in &page.lines {
+            let line_object = js_sys::Object::new();
+            set(&line_object, "text", &line.text.as_str().into());
+            lines.push(&line_object);
+        }
+        let page_object = js_sys::Object::new();
+        set(
+            &page_object,
+            "pageIndex",
+            &JsValue::from(page.page_index as u32),
+        );
+        set(&page_object, "lines", &lines.into());
+        set(
+            &page_object,
+            "needsRecognition",
+            &JsValue::from(page.needs_recognition),
+        );
+        set(
+            &page_object,
+            "textCoverage",
+            &JsValue::from(page.text_coverage),
+        );
+        set(
+            &page_object,
+            "rasterCoverage",
+            &JsValue::from(page.raster_coverage),
+        );
+        pages.push(&page_object);
+    }
+
+    let result = js_sys::Object::new();
+    set(&result, "pages", &pages.into());
+    Ok(result.into())
+}

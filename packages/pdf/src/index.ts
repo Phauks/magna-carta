@@ -807,3 +807,54 @@ export function createSealEngine(wasmInput?: BufferSource | WebAssembly.Module):
       embedSignature(prepared.document, prepared.contentsSpan, cmsDer, wasmInput),
   };
 }
+
+import { extractPdfText as wasmExtractPdfText } from "./pkg/pdf_core.js";
+
+/** One reconstructed line of a page's own text layer, in reading order. */
+export interface ExtractedPdfLine {
+  text: string;
+}
+
+/** What one page of a PDF holds, and whether recognition still has work to do on it. */
+export interface ExtractedPdfPage {
+  /** Zero-based, as the recognition engine reports it. */
+  pageIndex: number;
+  /** The page's own text. Empty for a page whose words exist only as pixels. */
+  lines: ExtractedPdfLine[];
+  /**
+   * True when the page's words are pixels a recognizer has to read. A page that is mostly
+   * raster with at most a sliver of text — a scan, stamped or not — is true; a page drawn as
+   * text is false however sparse its text, because its own text layer already beats anything
+   * recognition could read off a picture of it.
+   */
+  needsRecognition: boolean;
+  /** The share of the page (0 to 1) covered by text a reader can see. Invisible text is excluded. */
+  textCoverage: number;
+  /** The share of the page (0 to 1) covered by raster images — what tells a scan from a drawing. */
+  rasterCoverage: number;
+}
+
+export interface ExtractedPdfText {
+  pages: ExtractedPdfPage[];
+}
+
+/**
+ * Read a PDF's own text layer, page by page. This is the native half of composite text
+ * extraction: it returns the characters the author wrote, exactly, for every page that has
+ * them, and reports the pages that have none so a caller can send just those to recognition.
+ *
+ * Throws `DecompressionBombError` for a document the guard refuses, and a plain `Error` for one
+ * with more pages than a single call will interpret — page count is declared in the file, so a
+ * document claiming thousands of pages is refused rather than walked.
+ */
+export async function extractPdfText(
+  bytes: Uint8Array,
+  wasmInput?: BufferSource | WebAssembly.Module,
+): Promise<ExtractedPdfText> {
+  await ensureReady(wasmInput);
+  try {
+    return wasmExtractPdfText(bytes) as ExtractedPdfText;
+  } catch (error) {
+    mapGuardError(error);
+  }
+}
