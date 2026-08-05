@@ -1,8 +1,9 @@
 ---
+number: 220
 slug: document-automation-consent-refinements
 status: Accepted
-area: Document Automation
 date: 2026-08-04
+area: Document Automation
 summary: "Owner decisions amending the two registration behaviours ADR-0211 recorded and ADR-0217 realized. (1) A template carrying UNCONVERTED Word MERGEFIELD constructs is REGISTERED, not refused: each construct is recorded on the field manifest as an unconverted-merge-field entry — the Word name, the part it sits in, its occurrence count, the merge key it would map to, and the FROZEN CACHED TEXT it will render — which makes it visible to the absence model rather than invisible to it. Registration reports the list, the field inspector shows it, and every assembly against such a template reports it again in the response and on the provenance row (names only, never the frozen text) and completes `succeeded_with_absences`, so the choice is informed at both registration and assembly. Conversion stays opt-in exactly as merged. (2) MACRO STRIPPING BECOMES OPT-IN, restoring consent parity with the merge-field conversion: detection always reports, the strip runs only on an explicit stripMacros request flag, and a macro-bearing upload WITHOUT the opt-in is refused with guidance naming both remedies — opt in to the removal, or upload a macro-free file. A template is never registered carrying live macros and never stripped silently. The adversarial strip machinery and its independent re-verification over the bytes that will be stored are unchanged; only the trigger moves. (3) The per-firm FIELD-MAPPING LIBRARY behind MergeFieldNameResolver is built rather than deferred: a firm-scoped `document_template_field_mapping` table of confirmed Word-name-to-merge-key mappings, written when a conversion confirms them and read once per registration to resolve later detections, listed and deletable under templates:manage."
 ---
 

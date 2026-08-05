@@ -764,19 +764,20 @@
           "by": "Opus 4.8"
         }
       },
-      "branch": "claude/document-automation-slice-1",
-      "activeWork": "docs/active-work/claude/document-automation-slice-1.md",
-      "next": "Slice 2·6·2 — conditional and repeating blocks, the Directory/custom-field/letterhead-logo dictionary sources, and protected-value binding. Then the per-firm merge-field mapping library behind the MergeFieldNameResolver seam, and a location time-zone column behind timeZoneForLocation.",
+      "branch": "claude/automation-consent-refinements",
+      "activeWork": "docs/active-work/claude/automation-consent-refinements.md",
+      "next": "Slice 2·6·2 — conditional and repeating blocks, the Directory/custom-field/letterhead-logo dictionary sources, and protected-value binding. Then a location time-zone column behind timeZoneForLocation.",
       "links": {
         "spec": "docs/specs/2026-08-04-document-automation-design.md",
         "plan": "docs/specs/2026-08-04-document-automation-implementation-plan.md",
         "adrs": [
           "ADR-0210",
-          "ADR-0211"
+          "ADR-0211",
+          "ADR-0217"
         ]
       },
       "blockedBy": [],
-      "notes": "Build slice 2·6·1 shipped: the walking slice, template registration through to a filed document.\n`@magna-carta/document-assembly` is a pure package over `fflate` + `fast-xml-parser` (the\n`@magna-carta/metadata` substrate) holding the guarded OOXML reader/writer, the macro stripper and its\nindependent re-verification gate, the normalization pass, the declarative merge-field dictionary and\nits formatters, the batched resolution pipeline, and the substitution engine. Three per-firm tables\n(`document_template`, immutable `document_template_version`, `document_assembly`), seven catalogue\nroutes plus submit/poll, a `DocumentAssemblyJob` Durable Object over a dedicated queue, and the\nassembled document filed through `initiateUpload` / `completeUploadSession` — the one ingest\nchokepoint, no bypass. Owner decisions taken: `{{key}}` is the single stored placeholder form; the\nmerge is in-house rather than an adopted library; macro-bearing templates are accepted, stripped, and\nre-verified rather than refused; and **converting Word merge fields is opt-in** — detection always\nruns and is reported, the rewrite happens only when the caller asks, and a template using them is\nrefused with the list until the choice is made. Remaining for the subsystem: conditionals and repeats\n(2·6·2), PDF output and the signature hand-off (2·6·3), authoring surfaces (2·6·4), the interface\nseams, and the load-profile volume profile."
+      "notes": "Build slice 2·6·1 shipped: the walking slice, template registration through to a filed document.\n`@magna-carta/document-assembly` is a pure package over `fflate` + `fast-xml-parser` (the\n`@magna-carta/metadata` substrate) holding the guarded OOXML reader/writer, the macro stripper and its\nindependent re-verification gate, the normalization pass, the declarative merge-field dictionary and\nits formatters, the batched resolution pipeline, and the substitution engine. Four per-firm tables\n(`document_template`, immutable `document_template_version`, `document_template_field_mapping`,\n`document_assembly`), nine catalogue routes plus submit/poll, a `DocumentAssemblyJob` Durable Object\nover a dedicated queue, and the assembled document filed through `initiateUpload` /\n`completeUploadSession` — the one ingest chokepoint, no bypass. Owner decisions taken: `{{key}}` is\nthe single stored placeholder form, and the merge is in-house rather than an adopted library.\n\nBoth registration transforms of the firm's own document are **opt-in and always reported**, revised\non 2026-08-04 evening. Converting Word merge fields runs only on request, and a template registered\nwithout it keeps them — each recorded on the field manifest with the part it sits in and the frozen\ncached text it will print, reported again by every assembly in the response and on the provenance row,\nand landing the assembly on `succeeded_with_absences`, so a blank that does not look like a blank\nmeets the same absence model an ordinary missing value does. Removing macros likewise runs only on\nrequest; a macro-bearing upload without the opt-in is refused with both remedies named, never stored\ncarrying live macros and never stripped silently. The per-firm **field-mapping library** behind\n`MergeFieldNameResolver` is built: confirmed Word-name-to-key mappings written when a conversion\nconfirms them, read once per registration, listed and deletable under `templates:manage`.\n\nRemaining for the subsystem: conditionals and repeats (2·6·2), PDF output and the signature hand-off\n(2·6·3), authoring surfaces (2·6·4), the interface seams, and the load-profile volume profile."
     },
     {
       "slice": "Load-profile harness",
@@ -2180,16 +2181,16 @@
           "state": "todo"
         }
       },
-      "branch": "claude/custodian-build-slice-1",
-      "activeWork": "docs/active-work/claude/custodian-build-slice-1.md",
-      "next": "Load-profile volume profile + the six measured operations; then 4·2·2 (review dates, destruction workflow, labels, reports)",
+      "branch": "claude/custodian-build-slice-2",
+      "activeWork": "docs/active-work/claude/custodian-build-slice-2.md",
+      "next": "Load-profile volume profile + the six measured operations; then the destruction workflow (owner-gated) and 4·2·3 (gated release, receipts, portal visibility)",
       "links": {
         "spec": "docs/specs/2026-08-04-custodian-design.md",
         "plan": "docs/specs/2026-08-04-custodian-implementation-plan.md",
         "adrs": []
       },
       "blockedBy": [],
-      "notes": "Slice 4·2·1 (the register) built: eleven per-firm tables, trigger-enforced append-only movement ledger, mandatory Directory ownership, allocation-ledger custody numbers, holds, scan binding via a system holding matter, and nineteen routes. Later custodian slices not started."
+      "notes": "Slice 4·2·1 (the register) built: eleven per-firm tables, trigger-enforced append-only movement ledger, mandatory Directory ownership, allocation-ledger custody numbers, holds, and scan binding via a system holding matter. Slice 4·2·2 built the review-and-reporting half: review dates with an anniversary-anchored roll forward and a `reviewed` ledger entry, one query-shaped reminder emission point covering both reviews and overdue check-outs, three register reports (holdings per owner, occupancy per location, holds in force), and printable Code 128 label sheets — twenty-five routes in total. The destruction workflow and any retention policy remain deliberately unbuilt and owner-gated; `custody_destruction_request` is still a table with no service and no route."
     }
   ]
 }

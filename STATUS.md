@@ -57,17 +57,26 @@ This file is a **build output**: `vp run status-build` assembles it (and [`STATU
 `@magna-carta/document-assembly` is a pure package over `fflate` + `fast-xml-parser` (the
 `@magna-carta/metadata` substrate) holding the guarded OOXML reader/writer, the macro stripper and its
 independent re-verification gate, the normalization pass, the declarative merge-field dictionary and
-its formatters, the batched resolution pipeline, and the substitution engine. Three per-firm tables
-(`document_template`, immutable `document_template_version`, `document_assembly`), seven catalogue
-routes plus submit/poll, a `DocumentAssemblyJob` Durable Object over a dedicated queue, and the
-assembled document filed through `initiateUpload` / `completeUploadSession` — the one ingest
-chokepoint, no bypass. Owner decisions taken: `{{key}}` is the single stored placeholder form; the
-merge is in-house rather than an adopted library; macro-bearing templates are accepted, stripped, and
-re-verified rather than refused; and **converting Word merge fields is opt-in** — detection always
-runs and is reported, the rewrite happens only when the caller asks, and a template using them is
-refused with the list until the choice is made. Remaining for the subsystem: conditionals and repeats
-(2·6·2), PDF output and the signature hand-off (2·6·3), authoring surfaces (2·6·4), the interface
-seams, and the load-profile volume profile. |
+its formatters, the batched resolution pipeline, and the substitution engine. Four per-firm tables
+(`document_template`, immutable `document_template_version`, `document_template_field_mapping`,
+`document_assembly`), nine catalogue routes plus submit/poll, a `DocumentAssemblyJob` Durable Object
+over a dedicated queue, and the assembled document filed through `initiateUpload` /
+`completeUploadSession` — the one ingest chokepoint, no bypass. Owner decisions taken: `{{key}}` is
+the single stored placeholder form, and the merge is in-house rather than an adopted library.
+
+Both registration transforms of the firm's own document are **opt-in and always reported**, revised
+on 2026-08-04 evening. Converting Word merge fields runs only on request, and a template registered
+without it keeps them — each recorded on the field manifest with the part it sits in and the frozen
+cached text it will print, reported again by every assembly in the response and on the provenance row,
+and landing the assembly on `succeeded_with_absences`, so a blank that does not look like a blank
+meets the same absence model an ordinary missing value does. Removing macros likewise runs only on
+request; a macro-bearing upload without the opt-in is refused with both remedies named, never stored
+carrying live macros and never stripped silently. The per-firm **field-mapping library** behind
+`MergeFieldNameResolver` is built: confirmed Word-name-to-key mappings written when a conversion
+confirms them, read once per registration, listed and deletable under `templates:manage`.
+
+Remaining for the subsystem: conditionals and repeats (2·6·2), PDF output and the signature hand-off
+(2·6·3), authoring surfaces (2·6·4), the interface seams, and the load-profile volume profile. |
 
 ## Cross-cutting — phase-independent slices
 
@@ -118,7 +127,7 @@ Slice set firmed up in the [phase-3 slice map](docs/specs/2026-06-21-phase-3-fin
 | Slice | Research | Spec | Plan | Built | UI | Load profile | Tested | Notes |
 | --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | --- |
 | 4·1 — Conflicts matching engine | [x] | [x] Opus 4.8 | [x] Opus 4.8 | [x] Opus 4.8 | [ ] | [x] Opus 4.8 | [x] Opus 4.8 | No-scorer evidence-tier engine; typed source registry + firm floor; three append-only log tables. Firm personnel resolved as a source, not a Directory node type. |
-| 4·2 — Custodian (safe-custody register) | [-] | [x] Opus 4.8 | [x] Opus 4.8 | [~] Opus 4.8 | [ ] | [ ] | [ ] | Slice 4·2·1 (the register) built: eleven per-firm tables, trigger-enforced append-only movement ledger, mandatory Directory ownership, allocation-ledger custody numbers, holds, scan binding via a system holding matter, and nineteen routes. Later custodian slices not started. |
+| 4·2 — Custodian (safe-custody register) | [-] | [x] Opus 4.8 | [x] Opus 4.8 | [~] Opus 4.8 | [ ] | [ ] | [ ] | Slice 4·2·1 (the register) built: eleven per-firm tables, trigger-enforced append-only movement ledger, mandatory Directory ownership, allocation-ledger custody numbers, holds, and scan binding via a system holding matter. Slice 4·2·2 built the review-and-reporting half: review dates with an anniversary-anchored roll forward and a `reviewed` ledger entry, one query-shaped reminder emission point covering both reviews and overdue check-outs, three register reports (holdings per owner, occupancy per location, holds in force), and printable Code 128 label sheets — twenty-five routes in total. The destruction workflow and any retention policy remain deliberately unbuilt and owner-gated; `custody_destruction_request` is still a table with no service and no route. |
 
 ## Phases 5–7 — sliced provisionally (no rows yet)
 
