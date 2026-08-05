@@ -5,12 +5,10 @@ order: 6
 research: done by="Opus 4.8"
 spec: done by="Opus 4.8"
 plan: done by="Opus 4.8"
-built: in-progress by="Opus 4.8"
+built: done by="Opus 4.8"
 ui: todo
 load-profile: done by="Opus 4.8"
-tested: in-progress by="Opus 4.8"
-branch: claude/automation-letterhead-custom-fields
-active-work: docs/active-work/claude-automation-letterhead-custom-fields.md
+tested: done by="Opus 4.8"
 next: Directory role sources (`opposing.*`, `counsel.*`) through the matter's party links, and protected-value binding through the decrypt-permission-plus-audit path. Then PDF output and the signature hand-off (2·6·3), a location time-zone column behind timeZoneForLocation, a firm currency setting behind ResolutionInput.currencyCode, and the office-settings UI for the letterhead logo.
 link-spec: docs/specs/2026-08-04-template-expression-language-design.md
 link-plan: docs/specs/2026-08-04-document-automation-implementation-plan.md
