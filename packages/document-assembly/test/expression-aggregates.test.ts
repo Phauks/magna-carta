@@ -11,6 +11,7 @@ import {
   type ExpressionValue,
   type ListItem,
 } from "../src/expression/evaluate.ts";
+import { lex } from "../src/expression/lex.ts";
 import { EXPRESSION_LIMITS } from "../src/expression/limits.ts";
 
 // The aggregates, which are the ONE place a helper's cost grows with the firm's data — so the whole
@@ -129,6 +130,72 @@ function valueOf(source: string): ExpressionValue {
   }
   return outcome.value;
 }
+
+// ---------------------------------------------------------------------------------------------
+// The two atom kinds, side by side
+// ---------------------------------------------------------------------------------------------
+
+// A firm's own field is an atom whose alphabet includes the hyphen, matched stickily by exact length
+// ahead of the general word scan; an aggregate's field path is an atom of three dotted segments matched
+// by the general scan. Both are names, and the collection field path is the one that arrives with a dot
+// the custom key would have to give up. The pair is tested together because the ordering between them is
+// the kind of thing that works until someone reorders two branches.
+const HYPHENATED_CUSTOM_KEY = "custom.customField_a-b_cDeFgHiJkLmNoPqRs";
+
+describe("a field path and a firm's own field are different atoms and neither eats the other", () => {
+  it("lexes both as ONE name each in the same expression", () => {
+    const tokens = lex(`sum(matter.parties.role) > ${HYPHENATED_CUSTOM_KEY}`);
+    expect(tokens.ok).toBe(true);
+    if (!tokens.ok) return;
+    expect(tokens.value.map((token) => token.text)).toEqual([
+      "sum",
+      "(",
+      "matter.parties.role",
+      ")",
+      ">",
+      HYPHENATED_CUSTOM_KEY,
+      "",
+    ]);
+    expect(tokens.value[2]?.kind).toBe("name");
+    expect(tokens.value[5]?.kind).toBe("name");
+  });
+
+  it("still reads a subtraction beside a field path, hyphen alphabet and all", () => {
+    const tokens = lex(`${HYPHENATED_CUSTOM_KEY} - sum(matter.parties.role)`);
+    expect(tokens.ok).toBe(true);
+    if (!tokens.ok) return;
+    expect(tokens.value.map((token) => token.text)).toEqual([
+      HYPHENATED_CUSTOM_KEY,
+      "-",
+      "sum",
+      "(",
+      "matter.parties.role",
+      ")",
+      "",
+    ]);
+  });
+
+  it("does not read a firm's own field as a collection, because it never is one", () => {
+    // A firm's field holds one value per matter. The atom carries one dot, so the prefix a field path
+    // would need has none, and the refusal says what the author has to change rather than pretending the
+    // key might have been a collection.
+    const checked = check(`sum(${HYPHENATED_CUSTOM_KEY})`);
+    expect(checked.ok).toBe(false);
+    if (checked.ok) return;
+    expect(checked.failure.code).toBe("expression-unknown-key");
+    expect(checked.failure.detail).toContain("matter.parties.role");
+  });
+
+  it("stops a firm's own field at its declared length rather than swallowing a dotted suffix", () => {
+    // The custom-key atom is matched by EXACT length, so a dotted suffix after it is a lone dot — a
+    // located syntax error, not a longer name nobody wrote and not a silent mis-parse.
+    const tokens = lex(`sum(${HYPHENATED_CUSTOM_KEY}.amount)`);
+    expect(tokens.ok).toBe(false);
+    if (tokens.ok) return;
+    expect(tokens.failure.code).toBe("expression-syntax-error");
+    expect(tokens.failure.offset).toBe(`sum(${HYPHENATED_CUSTOM_KEY}`.length);
+  });
+});
 
 // ---------------------------------------------------------------------------------------------
 // Registration

@@ -1199,6 +1199,9 @@ importers:
 
   packages/document-assembly:
     dependencies:
+      '@magna-carta/custom-fields':
+        specifier: workspace:*
+        version: link:../custom-fields
       '@magna-carta/data-access':
         specifier: workspace:*
         version: link:../data-access

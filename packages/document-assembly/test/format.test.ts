@@ -129,8 +129,19 @@ describe("money formatters — integer-exact in both directions", () => {
 });
 
 describe("number and boolean formatters", () => {
-  it("renders a number", () => {
-    expect(formatMergeValue({ kind: "number", value: 42 }, "plain", inUtc)).toBe("42");
+  it("renders a number at its own scale, by moving the point rather than dividing", () => {
+    expect(formatMergeValue({ kind: "number", value: 42, scale: 0 }, "plain", inUtc)).toBe("42");
+    // The same stored integer means different numbers at different scales: what a firm's own numeric
+    // field holds is meaningless without the exponent its definition declared.
+    expect(formatMergeValue({ kind: "number", value: 1250, scale: 2 }, "plain", inUtc)).toBe(
+      "12.50",
+    );
+    expect(formatMergeValue({ kind: "number", value: 1250, scale: 0 }, "plain", inUtc)).toBe(
+      "1250",
+    );
+    expect(formatMergeValue({ kind: "number", value: -5, scale: 3 }, "plain", inUtc)).toBe(
+      "-0.005",
+    );
   });
 
   it("renders a boolean both ways", () => {

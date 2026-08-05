@@ -9,9 +9,9 @@ built: in-progress by="Opus 4.8"
 ui: todo
 load-profile: todo
 tested: in-progress by="Opus 4.8"
-branch: claude/automation-conditionals-slice
-active-work: docs/active-work/claude-automation-conditionals-slice.md
-next: The widened dictionary — Directory role sources, `custom.<handle>` bindings, the letterhead logo, and protected-value binding through the decrypt-permission-plus-audit path. Then PDF output and the signature hand-off (2·6·3), and a location time-zone column behind timeZoneForLocation.
+branch: claude/automation-letterhead-custom-fields
+active-work: docs/active-work/claude-automation-letterhead-custom-fields.md
+next: Directory role sources (`opposing.*`, `counsel.*`) through the matter's party links, and protected-value binding through the decrypt-permission-plus-audit path. Then PDF output and the signature hand-off (2·6·3), a location time-zone column behind timeZoneForLocation, a firm currency setting behind ResolutionInput.currencyCode, and the office-settings UI for the letterhead logo.
 link-spec: docs/specs/2026-08-04-template-expression-language-design.md
 link-plan: docs/specs/2026-08-04-document-automation-implementation-plan.md
 adrs: ADR-0210, ADR-0211, ADR-0217, ADR-0218, ADR-template-expression-realization
@@ -71,6 +71,39 @@ the grammar, a seeded byte-level generator, a committed denied-construct corpus 
 or check and never at evaluation, a pretty-print-and-reparse property (which found a real precedence
 bug), an independent BigInt arithmetic oracle, and one bound-hitting test per declared limit.
 
-Remaining for the subsystem: the widened dictionary sources and protected-value binding, PDF output and
-the signature hand-off (2·6·3), authoring surfaces (2·6·4), the interface seams, and the load-profile
-volume profile.
+The **custom-field merge bindings and the letterhead logo** shipped next. A firm's own matter-axis
+fields enter the dictionary at read time as `custom.<customField_ handle>` entries derived from
+`custom_field` — bound by handle and never by name, so a rename breaks nothing — with the catalogue
+read once (`readCustomFieldCatalog`) and shared by registration, the field-list surface, and assembly,
+which is what makes drift detectable rather than silent: an archived field contributes no entry, so a
+template bound to it fails naming the key, and a stored value behind an archived field is skipped and
+reported as an absence. Values resolve through one statement covering every handle, joining the
+picklist option's label and the referenced record's display name rather than fetching either per value.
+`effectiveNumberScale` is REUSED from `@magna-carta/custom-fields` rather than restated, so the same
+stored `500` is five hundred on a number field and five dollars on a currency field, and a currency
+field with a non-currency scale renders as the exact decimal it is instead of as wrong-looking money.
+The hard-delete guard gained its template-binding arm: a field a template manifest names is
+`field-in-use` and routes to Archive, with `document_template_version` referenced by string so the
+sibling packages stay independent. `custom.customField_…` also lexes as ONE atom in the expression
+language — a handle's alphabet includes the hyphen, which is also subtraction, so the atom is matched by
+its exact fixed length and no author's spacing can decide which it is.
+
+The **letterhead logo** is the engine's first image work, and answers the design's open question 3:
+**the asset declares the box**. `location` gained the logo columns (object key, sniffed content type,
+size, hash, intrinsic pixels, printed width in EMU); only a width is stored, so the height follows from
+the intrinsic aspect ratio and no document can print a stretched mark. `PUT`/`DELETE
+/api/v1/locations/{id}/letterhead-logo` take the image inline (a firm's mark is tens of kilobytes, and
+one request is the only shape where reading what the bytes are, measuring them, and writing the row
+that points at them happen together). `src/ooxml/image.ts` emits all four halves of a picture — the
+part, the `[Content_Types].xml` Default, the relationship on the drawing part (ids allocated per part,
+by scanning the ids present), and the inline `w:drawing` with every namespace bound on the element that
+uses it — and `packageIntegrityViolations` now proves each one over the emitted bytes, because a
+document whose words are right and whose picture wiring is not is a document no reader opens and no
+text assertion catches. **Image-format policy: PNG and JPEG only, decided by magic bytes rather than by
+a declared content type**, enforced at the write and re-checked at assembly; SVG, EMF/WMF, GIF, BMP and
+TIFF are refused with the reasoning recorded. An office with no logo, or one whose object has gone,
+assembles with a visible marker.
+
+Remaining for the subsystem: Directory role sources and protected-value binding, PDF output and the
+signature hand-off (2·6·3), authoring surfaces (2·6·4), the office-settings UI for the logo, the
+interface seams, and the load-profile volume profile.

@@ -10,7 +10,7 @@
   adrs: ADR-0014
   spec: docs/specs/2026-08-04-custodian-design.md
   evidence: packages/custodian + twenty-five routes in apps/worker/src/routes/custody.ts, over eleven per-firm tables. Matter detail skeleton reserves a Custodian section (apps/web/src/lib/matters/sections.ts) with nothing behind it yet.
-  notes: Backend only — no UI. Gated release, receipts, portal visibility, stocktake, the destruction workflow, and the will-on-death engine are not built.
+  notes: Backend only — no UI. Receipts, portal visibility, stocktake, the destruction workflow, and the will-on-death engine are not built.
 
 - id: custodian.register
   name: Item register
@@ -37,7 +37,7 @@
   slices: 4-2-custodian
   spec: docs/specs/2026-08-04-custodian-design.md
   evidence: custody_movement with BEFORE UPDATE / BEFORE DELETE / replace-guard triggers; packages/custodian/src/movement-service.ts is the one write path for every state change. Backend only.
-  notes: Recording, not gating — a check-out captures the borrower and a due-back date but blocks nothing. Gated release is a later slice.
+  notes: Recording, not gating, with one deliberate exception — a check-out captures the borrower and a due-back date but blocks nothing, while a release is gated (see custodian.checkout-workflow) because it is the only movement that cannot be undone.
 
 - id: custodian.labels
   name: Labels and barcodes
@@ -90,11 +90,13 @@
   evidence: The design explicitly defers the will-on-death engine and per-state statute catalog out of the MVP.
 
 - id: custodian.checkout-workflow
-  name: Gated check-out/return workflow
-  scope: Named-borrower check-out/return with signed receipts and gated release.
-  status: designed
-  spec: docs/specs/2026-06-16-safe-custody-design.md
-  evidence: Specified as a post-MVP slice with schema seams left in the MVP; no code.
+  name: Gated release and signed receipts
+  scope: Named-borrower check-out/return, gated release with identity and authority captured before an original leaves, and signed deposit/release receipts.
+  status: partial
+  slices: 4-2-custodian
+  spec: docs/specs/2026-08-04-custodian-design.md
+  evidence: packages/custodian/src/release-gate.ts + src/settings.ts, four release columns and three BEFORE INSERT triggers on custody_movement (migration 20260805T130000_custody-gated-release). The gate rides the existing movement write path — there is still no release route.
+  notes: Partial because receipts are not built. The authority is free text a firm writes and no platform vocabulary — what document suffices to release an original is jurisdiction-specific and remains an owner decision. Two-signatory release is a per-firm policy, off by default. Receipt GENERATION waits on an assembly path that is matter-routed and matter-permissioned; receipt BINDING already ships, since a signed receipt links to its packet as a custody_scan of kind receipt.
 
 - id: custodian.stocktake
   name: Scan-to-locate and stocktake

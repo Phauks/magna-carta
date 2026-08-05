@@ -182,6 +182,11 @@ export const custodyReviewsCompleted = defineMetric("custody.reviewsCompleted", 
 // Label sheets printed, by what went on them. Nothing identifying is a dimension: a label carries a
 // custody number and an identifier handle, and neither is ever counted by value.
 export const custodyLabelsRendered = defineMetric("custody.labelsRendered", ["target"] as const);
+// Releases the gate let through and turned away, by why. The same argument custody.holdBlocked
+// carries: a gate nobody ever trips is either working or unused, and the counter is what tells the
+// two apart. `outcome` is a closed set of refusal reasons; the authority a firm asserted is free text
+// it wrote and is never a dimension.
+export const custodyReleaseGated = defineMetric("custody.releaseGated", ["outcome"] as const);
 
 // The catalog itself, derived from the declarations above so it cannot drift from them.
 const CATALOG: readonly MetricDefinition[] = [
@@ -214,6 +219,7 @@ const CATALOG: readonly MetricDefinition[] = [
   custodyRemindersDue,
   custodyReviewsCompleted,
   custodyLabelsRendered,
+  custodyReleaseGated,
 ];
 
 const BY_NAME = new Map(CATALOG.map((definition) => [definition.metricName, definition]));

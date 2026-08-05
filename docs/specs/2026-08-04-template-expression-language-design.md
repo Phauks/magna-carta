@@ -94,7 +94,7 @@ unary           := [ "-" ] primary
 primary         := literal | mergeKey | loopReference | helperCall | "(" expression ")"
 helperCall      := helperName "(" [ expression { "," expression } ] ")"
 literal         := textLiteral | integerLiteral | decimalLiteral | dateLiteral | "true" | "false"
-mergeKey        := ATOMIC dictionary token, e.g. matter.number, client.displayName, custom.retainerCap
+mergeKey        := ATOMIC dictionary token, e.g. matter.number, client.displayName, custom.customField_<handle>
 loopReference   := collectionKey "." fieldName | "loop" "." ( "index" | "count" | "first" | "last" )
 ```
 

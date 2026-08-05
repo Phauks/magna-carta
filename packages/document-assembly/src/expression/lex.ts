@@ -54,15 +54,37 @@ export const KEYWORDS: ReadonlySet<string> = new Set([
 const COMPARISON_OPERATORS: readonly string[] = ["==", "!=", "<=", ">=", "<", ">"];
 
 // A name is matched as one atom and then resolved by EXACT MATCH against the dictionary and the
-// enclosing loop scope. One to two dots: `matter.number`, `custom.retainerCap`, `exhibits.letter`.
+// enclosing loop scope. One to two dots: `matter.number`, `loop.index`, `exhibits.letter`. A firm's own
+// field is also one atom but does not fit here — its handle can carry a hyphen — so it has its own
+// pattern below.
 const NAME_PATTERN = /^[a-z][A-Za-z0-9]*(?:\.[A-Za-z0-9_]+){1,2}$/;
+
+// A FIRM'S OWN FIELD IS ONE ATOM TOO, and it needs its own pattern because a field handle's alphabet
+// includes the hyphen — which is also the subtraction operator. The ambiguity is removed by exactness
+// rather than by a rule about spacing: a handle is a fixed prefix plus exactly twenty-one characters, so
+// the atom's end is known before the character after it is read. `custom.customField_a-b…c - 5` is
+// therefore a subtraction of a merge field, and `custom.customField_a-b…c` is one name, with no case
+// where an author's spacing decides which.
+//
+// Matched STICKILY and ahead of the general word scan, because the greedy word scan would stop at the
+// first hyphen and report a name nobody wrote. The shape is restated here rather than imported: this
+// folder stays free of platform imports so its checker can run in a browser, and the restatement is
+// pinned to the minted handle shape by test (test/custom-field-bindings.test.ts).
+const CUSTOM_FIELD_KEY_PATTERN = /custom\.customField_[A-Za-z0-9_-]{21}/y;
 const HELPER_NAME_PATTERN = /^[a-z][A-Za-z0-9]*$/;
+// Deliberately looser than either: a word is consumed greedily so a hostile atom is reported ONCE, at
+// its start, rather than lexed into a plausible prefix plus a pile of confusing garbage.
+const WORD_PATTERN = /[A-Za-z_$][A-Za-z0-9_$]*(?:\.[A-Za-z0-9_$]*)*/y;
 
 // An aggregate's argument is one atom that names a field of a collection — `matter.parties.role`. The
 // split is LEXICAL and happens here, beside the rule that made the dots part of the name, so neither the
 // checker nor the evaluator grows a notion of member access: this returns two strings, each of which is
 // then looked up by exact match. The last dot separates them, because a collection key carries a dot of
 // its own and an item field does not.
+//
+// A firm's own field never reaches here as a collection: its key is exactly `custom.` plus a handle, so
+// the prefix it would need to be a collection has no dot after the split and this returns undefined —
+// which is the honest answer, since a firm's field holds one value per matter and never a collection.
 export function splitListFieldPath(
   name: string,
 ): { readonly collectionKey: string; readonly fieldName: string } | undefined {
@@ -72,9 +94,6 @@ export function splitListFieldPath(
   if (!collectionKey.includes(".")) return undefined;
   return { collectionKey, fieldName: name.slice(lastDot + 1) };
 }
-// Deliberately looser than either: a word is consumed greedily so a hostile atom is reported ONCE, at
-// its start, rather than lexed into a plausible prefix plus a pile of confusing garbage.
-const WORD_PATTERN = /[A-Za-z_$][A-Za-z0-9_$]*(?:\.[A-Za-z0-9_$]*)*/y;
 
 const DIGITS_PATTERN = /[0-9]+(?:\.[0-9]+)?/y;
 
@@ -239,6 +258,13 @@ export function lex(source: string): ExpressionOutcome<readonly Token[]> {
     }
 
     if (/[A-Za-z_$]/.test(character)) {
+      CUSTOM_FIELD_KEY_PATTERN.lastIndex = index;
+      const customKey = CUSTOM_FIELD_KEY_PATTERN.exec(source)?.[0];
+      if (customKey !== undefined) {
+        if (!push({ kind: "name", text: customKey, offset: index })) break;
+        index += customKey.length;
+        continue;
+      }
       WORD_PATTERN.lastIndex = index;
       const match = WORD_PATTERN.exec(source);
       const word = match?.[0] ?? character;

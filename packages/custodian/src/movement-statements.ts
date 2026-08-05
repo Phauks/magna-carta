@@ -38,10 +38,17 @@ export interface CustodyMovementRow {
   readonly corrects_movement_id: CustodyMovementId | null;
   readonly shipment_id: ShipmentId | null;
   readonly note: string | null;
+  // Populated only on a `released` row, and refused by trigger on any other kind: the authority the
+  // property left on, how the person collecting it was identified, who made that check, and the
+  // second signatory when the firm requires one.
+  readonly release_authority_basis: string | null;
+  readonly release_identity_evidence: string | null;
+  readonly release_identity_verified_by_user_id: UserId | null;
+  readonly release_witnessed_by_user_id: UserId | null;
 }
 
 const MOVEMENT_COLUMNS =
-  "id, packet_id, item_id, kind, occurred_at, recorded_at, recorded_by_user_id, from_location_id, to_location_id, borrower_kind, borrower_user_id, borrower_entity_id, borrower_name, due_back_on, reason, corrects_movement_id, shipment_id, note";
+  "id, packet_id, item_id, kind, occurred_at, recorded_at, recorded_by_user_id, from_location_id, to_location_id, borrower_kind, borrower_user_id, borrower_entity_id, borrower_name, due_back_on, reason, corrects_movement_id, shipment_id, note, release_authority_basis, release_identity_evidence, release_identity_verified_by_user_id, release_witnessed_by_user_id";
 
 export interface InsertCustodyMovementRow {
   readonly id: CustodyMovementId;
@@ -66,6 +73,15 @@ export interface InsertCustodyMovementRow {
   readonly correctsMovementId: CustodyMovementId | null;
   readonly shipmentId: ShipmentId | null;
   readonly note: string | null;
+  // The release capture, resolved by the gate in release-gate.ts. Optional rather than a required
+  // null because only ONE caller ever sets them — the movement write path, on a `released` kind,
+  // after the gate has run. Every other append in this package (a hold, a review, the opening entry
+  // on a new packet) omits them, which is both less noise and one fewer place a capture could be
+  // attached to a movement nothing gated. The database refuses that too.
+  readonly releaseAuthorityBasis?: string | null;
+  readonly releaseIdentityEvidence?: string | null;
+  readonly releaseIdentityVerifiedByUserId?: UserId | null;
+  readonly releaseWitnessedByUserId?: UserId | null;
 }
 
 export function insertCustodyMovementStatement(
@@ -74,7 +90,7 @@ export function insertCustodyMovementStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO ${CUSTODY_MOVEMENT_TABLE} (${MOVEMENT_COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)`,
+      `INSERT INTO ${CUSTODY_MOVEMENT_TABLE} (${MOVEMENT_COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22)`,
     )
     .bind(
       row.id,
@@ -95,6 +111,10 @@ export function insertCustodyMovementStatement(
       row.correctsMovementId,
       row.shipmentId,
       row.note,
+      row.releaseAuthorityBasis ?? null,
+      row.releaseIdentityEvidence ?? null,
+      row.releaseIdentityVerifiedByUserId ?? null,
+      row.releaseWitnessedByUserId ?? null,
     );
 }
 

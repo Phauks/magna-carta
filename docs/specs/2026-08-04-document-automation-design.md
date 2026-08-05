@@ -713,10 +713,13 @@ These are opinion-heavy or invariant-heavy and are not settled by this design.
    conversion record was asked to carry the office suite's version.** Both are provenance questions
    with the same shape, and they should be answered the same way; the conversion one is still open
    in that area.
-3. **The letterhead logo asset.** Locations reserved it for this slice, but an image merge field
+3. ~~**The letterhead logo asset.** Locations reserved it for this slice, but an image merge field
    raises a sizing and placement question a text field does not — does the template declare the box,
-   or does the asset declare its dimensions? Slice 2·6·2's to answer, flagged now because it is the
-   one place where a Locations schema change might be needed.
+   or does the asset declare its dimensions?~~ **Answered when it was built: the ASSET declares the
+   box.** The office stores a printed width and the height follows from the image's own proportions,
+   so no template restates a measurement and no document can print a stretched mark; `location` gained
+   the logo columns, and the image-format policy that came with the answer (PNG and JPEG, decided by
+   magic bytes) is recorded in the same decision.
 4. **The batch-assembly shape for matter plans.** Tasks and workflows will want "assemble these six
    documents when a matter of this type opens". The job model supports it, but whether that is six
    jobs or one job with six outputs affects the Durable Object's key, and there is no consumer yet

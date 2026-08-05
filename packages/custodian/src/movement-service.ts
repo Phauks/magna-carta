@@ -31,6 +31,11 @@ import {
   type CustodyIdempotencyContext,
 } from "./packet-service.ts";
 import {
+  resolveCustodyReleaseCapture,
+  type CustodyReleaseAuthorizationInput,
+} from "./release-gate.ts";
+import { DEFAULT_CUSTODY_RELEASE_POLICY, readCustodyReleasePolicy } from "./settings.ts";
+import {
   HOLD_BLOCKED_MOVEMENT_KINDS,
   ITEM_STATUS_BY_MOVEMENT_KIND,
   PACKET_STATUS_BY_MOVEMENT_KIND,
@@ -77,6 +82,8 @@ export interface RecordCustodyMovementInput {
   readonly correctsMovementId?: CustodyMovementId | null;
   readonly shipmentId?: ShipmentId | null;
   readonly note?: string | null;
+  // Required on a `released` movement and refused on every other kind — the gate in release-gate.ts.
+  readonly releaseAuthorization?: CustodyReleaseAuthorizationInput | null;
 }
 
 export interface RecordedCustodyMovement {
@@ -119,6 +126,18 @@ export async function recordCustodyMovement(
   assertMovementShape(input);
   assertPacketAcceptsMovement(packet, input.kind);
   await assertNoBlockingHold(database, packetId, input.kind);
+  // The release gate. The policy read costs one query and is issued only on a release, which is the
+  // rarest movement a register records — a check-out, the movement a firm makes daily, reads nothing
+  // extra. The gate runs BEFORE the identifier is minted and before the batch is composed, so a
+  // refused release writes nothing at all, not even an idempotency record.
+  const releaseCapture = resolveCustodyReleaseCapture(
+    input.kind,
+    input.releaseAuthorization,
+    input.kind === "released"
+      ? await readCustodyReleasePolicy(database)
+      : DEFAULT_CUSTODY_RELEASE_POLICY,
+    { named: input.borrower != null },
+  );
   if (input.correctsMovementId != null) {
     const corrected = await readCustodyMovement(database, input.correctsMovementId);
     if (corrected === undefined || corrected.packet_id !== packetId) {
@@ -174,6 +193,10 @@ export async function recordCustodyMovement(
           correctsMovementId: input.correctsMovementId ?? null,
           shipmentId: input.shipmentId ?? null,
           note: input.note ?? null,
+          releaseAuthorityBasis: releaseCapture?.authorityBasis ?? null,
+          releaseIdentityEvidence: releaseCapture?.identityEvidence ?? null,
+          releaseIdentityVerifiedByUserId: releaseCapture?.identityVerifiedByUserId ?? null,
+          releaseWitnessedByUserId: releaseCapture?.witnessedByUserId ?? null,
         }),
       ];
       if (packetStatusChanges && nextPacketStatus !== undefined) {

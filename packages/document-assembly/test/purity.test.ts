@@ -19,6 +19,11 @@ const ALLOWED_EXTERNALS: ReadonlySet<string> = new Set([
   "@magna-carta/data-access/audit-statements",
   "@magna-carta/data-access/effect-batch",
   "@magna-carta/data-access/idempotency-statements",
+  // The firm's own fields enter the dictionary through the custom-fields engine's OWN value model —
+  // what a stored integer means is its kind plus its scale, and restating that rule here rather than
+  // reusing it is how a value renders a power of ten wrong and looks entirely plausible.
+  "@magna-carta/custom-fields/number-scale",
+  "@magna-carta/custom-fields/types",
   "@magna-carta/identifiers/generate",
   "@magna-carta/identifiers/random",
   "@magna-carta/identifiers/types",

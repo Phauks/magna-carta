@@ -178,6 +178,11 @@ export type MergeValueType =
   | "number"
   | "boolean"
   | "reference"
+  // A picture a placeholder is replaced BY, rather than a string a placeholder renders as. Not a
+  // first-class value anywhere else: an image has no rendering, no format, and no expression type, so
+  // it cannot be compared, concatenated, computed with, or walked — the only thing that can happen to
+  // one is that it becomes a drawing in the document at the placeholder's position.
+  | "image"
   // A collection a repeating block walks. Not a first-class value: it can be neither constructed,
   // indexed, assigned, nor passed anywhere but `count`, `isEmpty`, and `{{#each}}`.
   | "list";
@@ -197,8 +202,26 @@ export type MergeValue =
   | { readonly kind: "instant"; readonly isoInstant: string } // an instant, UTC-normalized
   | { readonly kind: "money"; readonly amountMinor: number; readonly currencyCode: string }
   | { readonly kind: "rate"; readonly rateE4: number; readonly currencyCode: string }
-  | { readonly kind: "number"; readonly value: number }
+  // An exact decimal held as a stored integer plus the minor-unit exponent it is expressed at: 1250 at
+  // scale 2 is 12.50, and 1250 at scale 0 is 1250. The scale travels WITH the value because what a
+  // stored integer means is its kind plus its scale — a firm's own numeric field declares that
+  // exponent, so a value that arrived without it would be rendered a power of ten wrong and look
+  // entirely plausible.
+  | { readonly kind: "number"; readonly value: number; readonly scale: number }
   | { readonly kind: "boolean"; readonly value: boolean }
+  // A picture, resolved as bytes plus the box it renders in. The box is the ASSET'S, not the
+  // template's: the firm sets how large its logo prints once, where it can see the result, rather than
+  // every template author restating it in a unit no word processor exposes. The height is derived from
+  // the intrinsic aspect ratio at resolution time, so a logo can never be stretched by a document.
+  | {
+      readonly kind: "image";
+      readonly bytes: Uint8Array;
+      readonly contentType: string;
+      readonly widthEmu: number;
+      readonly heightEmu: number;
+      // The alternative text a screen reader announces and Word shows in the picture's properties.
+      readonly description: string;
+    }
   // A collection, resolved by ONE batched read for the whole thing rather than one read per item. Each
   // item is a record of the collection's declared item fields.
   | { readonly kind: "list"; readonly items: readonly MergeListItem[] };
