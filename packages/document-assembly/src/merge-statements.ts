@@ -115,6 +115,12 @@ export interface MatterPartyMergeRow {
   readonly displayName: string | null;
   readonly role: string;
   readonly kind: "person" | "organisation" | "unknown";
+  // The Directory entity the link points at. Read because a protected merge field has to name WHOSE
+  // sealed identifier it wants, and the client's link is the fact that says so — one column on a read
+  // that already happens, rather than a second query to find out who the client is. It is never a merge
+  // VALUE: a handle is not a fact a document can state, which is the same reason a reference custom
+  // field prints its record's label instead.
+  readonly entityId: string;
 }
 
 export function selectMatterPartiesForMergeStatement(
@@ -124,6 +130,7 @@ export function selectMatterPartiesForMergeStatement(
   return database
     .prepare(
       `SELECT matter_party.role AS role,
+              matter_party.entity_id AS entity_id,
               COALESCE(directory_person.display_name, directory_organization.display_name, directory_organization.legal_name) AS display_name,
               CASE
                 WHEN directory_person.id IS NOT NULL THEN 'person'
@@ -144,6 +151,7 @@ export function selectMatterPartiesForMergeStatement(
 
 export interface MatterPartyMergeColumns {
   role: string;
+  entity_id: string;
   display_name: string | null;
   kind: string;
 }
@@ -152,6 +160,7 @@ export function toMatterPartyMergeRow(row: MatterPartyMergeColumns): MatterParty
   return {
     displayName: row.display_name,
     role: row.role,
+    entityId: row.entity_id,
     kind:
       row.kind === "person" ? "person" : row.kind === "organisation" ? "organisation" : "unknown",
   };

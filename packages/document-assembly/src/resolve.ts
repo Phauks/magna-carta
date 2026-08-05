@@ -19,6 +19,11 @@ import { lookupDictionaryEntry, type DictionaryEntry } from "./dictionary.ts";
 import { directoryRoleSourcesIn, directoryRoleValues } from "./directory-role-bindings.ts";
 import { heightForWidth, readImageFacts } from "./ooxml/image.ts";
 import {
+  protectedIdentifierSourcesIn,
+  protectedIdentifierValues,
+  type ProtectedIdentifierReader,
+} from "./protected-bindings.ts";
+import {
   selectLocationForMergeStatement,
   selectMatterForMergeStatement,
   selectMatterPartiesForMergeStatement,
@@ -90,6 +95,11 @@ export interface ResolutionInput {
   // Absent when the caller has no object store to read from, which makes every image key an absence
   // rather than an error: an engine that cannot fetch a logo still produces the document.
   readonly readImageAsset?: ImageAssetReader;
+  // How a sealed value is read back — the caller's binding to the protected-field chokepoint's
+  // permission-gated, audited decrypt. Injected for the same reason the image reader is: the plaintext
+  // needs a firm key, an acting member, and that member's permissions, none of which this package holds.
+  // Absent makes every protected key a declared absence, exactly as an absent image reader does.
+  readonly readProtectedIdentifier?: ProtectedIdentifierReader;
 }
 
 export type ResolutionFailureReason = "matter-not-found";
@@ -256,7 +266,11 @@ export async function resolveMergeContext(
   // matter's party list is the collection a repeat already walks whole, and one narrowed read per role
   // is more reads, not fewer.
   const roleSources = directoryRoleSourcesIn(wantedKeys);
-  if (wantedKeys.has("matter.parties") || roleSources.length > 0) {
+  // The protected sources ride the SAME party read: a sealed identifier belongs to a Directory entity,
+  // and the party links are what say which entity is this matter's client. Reading the client's link is
+  // therefore free here and would be a second query anywhere else.
+  const protectedSources = protectedIdentifierSourcesIn(wantedKeys);
+  if (wantedKeys.has("matter.parties") || roleSources.length > 0 || protectedSources.length > 0) {
     reads.push("party");
     const { results } = await selectMatterPartiesForMergeStatement(
       database,
@@ -278,6 +292,22 @@ export async function resolveMergeContext(
     const roles = directoryRoleValues(parties, roleSources, wantedKeys);
     for (const [key, value] of roles.values) values.set(key, value);
     for (const [key, reason] of roles.reasons) absenceReasons.set(key, reason);
+
+    // The client's sealed identifiers, decrypted through the caller's chokepoint reader — the permission
+    // gate, the audit row, and the AAD decrypt, in that order and inseparable, all of them the
+    // chokepoint's own. A member who may not decrypt lands here with an absence carrying the field and
+    // the permission, so the assembly completes and the gap is legible; nothing is thrown, and no
+    // plaintext exists on this path for anyone who was refused.
+    if (protectedSources.length > 0) {
+      reads.push("protectedIdentifier");
+      const sealed = await protectedIdentifierValues(
+        protectedSources,
+        parties,
+        input.readProtectedIdentifier,
+      );
+      for (const [key, value] of sealed.values) values.set(key, value);
+      for (const [key, reason] of sealed.reasons) absenceReasons.set(key, reason);
+    }
   }
 
   let location: LocationMergeRow | undefined;

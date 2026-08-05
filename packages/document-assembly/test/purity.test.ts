@@ -19,6 +19,15 @@ const ALLOWED_EXTERNALS: ReadonlySet<string> = new Set([
   "@magna-carta/data-access/audit-statements",
   "@magna-carta/data-access/effect-batch",
   "@magna-carta/data-access/idempotency-statements",
+  // A protected merge field resolves through the protected-field chokepoint's own permission gate and
+  // its own decrypt-audit row, so the refusal this package turns into an absence is that module's
+  // ProtectedReadForbiddenError, caught by identity. Restating the gate here instead would be a second
+  // copy of the rule that decides who may read a client's sealed details, free to drift from the one
+  // that actually guards the column.
+  "@magna-carta/data-access/protected-fields",
+  // The catalogue of sealed identifier types, so the protected merge keys are a total mapping over it:
+  // a type the Directory gains cannot quietly end up with no merge binding and no decision behind it.
+  "@magna-carta/directory/types",
   // The firm's own fields enter the dictionary through the custom-fields engine's OWN value model —
   // what a stored integer means is its kind plus its scale, and restating that rule here rather than
   // reusing it is how a value renders a power of ten wrong and looks entirely plausible.

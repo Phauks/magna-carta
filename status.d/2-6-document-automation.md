@@ -9,10 +9,10 @@ built: done by="Opus 4.8"
 ui: todo
 load-profile: done by="Opus 4.8"
 tested: done by="Opus 4.8"
-next: Protected-value binding through the decrypt-permission-plus-audit path. Then PDF output and the signature hand-off (2·6·3), a location time-zone column behind timeZoneForLocation, a firm currency setting behind ResolutionInput.currencyCode, and the office-settings UI for the letterhead logo.
+next: PDF output and the signature hand-off (2·6·3), a location time-zone column behind timeZoneForLocation, a firm currency setting behind ResolutionInput.currencyCode, and the office-settings UI for the letterhead logo.
 link-spec: docs/specs/2026-08-04-template-expression-language-design.md
 link-plan: docs/specs/2026-08-04-document-automation-implementation-plan.md
-adrs: ADR-0210, ADR-0211, ADR-0217, ADR-0218, ADR-template-expression-realization, ADR-document-automation-directory-role-sources
+adrs: ADR-0210, ADR-0211, ADR-0217, ADR-0218, ADR-template-expression-realization, ADR-document-automation-directory-role-sources, ADR-document-automation-protected-value-binding
 blocked-by:
 ---
 
@@ -145,5 +145,35 @@ of a matter's parties is the matter's data. No new read — every role is derive
 the merge context already fetched, so a template naming four roles costs what one naming none did, and
 the four measured plans are untouched index walks.
 
-Remaining for the subsystem: protected-value binding, PDF output and the signature hand-off (2·6·3),
-authoring surfaces (2·6·4), the office-settings UI for the logo, and the interface seams.
+**Protected-value binding** closed the second named seam, and closed it by extending the existing decrypt
+path rather than by building beside it. The client's sealed Directory identifiers — Social Security
+number, Employer Identification Number, date of birth, driver's license number, account number, and
+SSN-last-four — are dictionary entries carrying `sensitivity: protected`, which is the ROUTING decision
+and not a label: they resolve through an injected reader wired to the directory's `readIdentifier`, which
+is `readProtected` — permission gate, decrypt-audit row committed before any plaintext, AAD-bound
+decrypt, inseparable. `@magna-carta/document-assembly` names no ciphertext column, derives no key, and
+decrypts nothing; the refusal it turns into an absence is the chokepoint's own
+`ProtectedReadForbiddenError`, caught by identity so the gate is never restated. **No assembly-specific
+audit shape:** the same `protected.decrypt` event, the same subject (the identifier row the AAD binds
+to), the same table a direct read writes — recorded as an ADR, since the alternative was a second reason
+code and a firm's "who saw this value" answer split across two shapes.
+
+**A member without the permission gets the document.** The field lands on the absence model with a reason
+naming the field and the permission, the draft shows the usual visible marker, and the assembly completes
+`succeeded_with_absences`; nothing is thrown, and the plaintext exists nowhere on that path. Permissions
+are RE-DERIVED when the job runs rather than carried on the queue message, so a revoked grant bites — the
+message carries an identity, never a decided answer — and the read is deferred to the first protected key,
+so an ordinary template pays nothing. The decrypt count is bounded by the manifest rather than batched
+(each ciphertext is bound to its own row and commits its own audit record, so a bulk form would have to
+bypass the chokepoint to exist): one decrypt per protected key the manifest names, deduplicated, and a
+refusal costs exactly one attempt. The subject rides the party read that already happens; a matter linking
+no single client decrypts nothing and says how many it links. Both field-list surfaces now carry an
+entry's sensitivity, so an author sees what a template has bound before anything is assembled —
+registration itself is unrestricted, because binding names a key, not a value.
+
+A firm declaring one of its OWN fields protected is a separate decision and not this one: it needs a
+column on `custom_field` and a ciphertext column on `custom_field_value` that do not exist, and the
+derivation in `custom-field-bindings.ts` is the one line that reads the declaration once they do.
+
+Remaining for the subsystem: PDF output and the signature hand-off (2·6·3), authoring surfaces (2·6·4),
+the office-settings UI for the logo, and the interface seams.

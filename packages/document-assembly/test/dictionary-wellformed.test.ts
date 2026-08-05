@@ -73,10 +73,24 @@ describe("dictionary well-formedness (fitness)", () => {
     }
   });
 
-  it("no slice-1 entry binds a protected value, so no assembly can reach a decrypt path yet", () => {
-    // Protected binding is designed for and gated on the decrypt-permission-plus-audit path; until that
-    // arm is built, a `protected` entry here would be an unguarded route to an encrypted column.
-    expect(DICTIONARY.filter((entry) => entry.sensitivity === "protected")).toEqual([]);
+  it("every protected entry routes to the decrypt-permission-plus-audit source, and nothing else does", () => {
+    // `sensitivity: protected` is not a label — it is the routing decision, and the ONE source that
+    // honours it resolves through the protected-field chokepoint's permission gate and audited decrypt
+    // (protected-bindings.ts). An entry marked protected under any other source would be an unguarded
+    // route to an encrypted column, and an unmarked entry under this one would be a decrypt nobody
+    // declared. The two sets are asserted equal so neither mistake can be made alone.
+    expect(
+      DICTIONARY.filter((entry) => entry.sensitivity === "protected")
+        .map((entry) => entry.key)
+        .sort(),
+    ).toEqual(
+      DICTIONARY.filter((entry) => entry.source === "protectedIdentifier")
+        .map((entry) => entry.key)
+        .sort(),
+    );
+    expect(
+      DICTIONARY.filter((entry) => entry.source === "protectedIdentifier").length,
+    ).toBeGreaterThan(0);
   });
 
   it("looks a key up by name and misses a key it does not have", () => {
