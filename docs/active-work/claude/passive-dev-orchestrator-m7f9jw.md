@@ -45,6 +45,36 @@ at full capacity. Keep it current at every milestone — it is the durable memor
   MC docs-sync (Mon 13:03), Cloudflare blog monitor (daily 14:00, reports not
   persisted), dependency updates (Mon 14:30).
 
+## Position update (2026-08-05 ~22:00 UTC) — ONE HUNDRED MERGED
+
+Merge 99 = #138 custodian destruction + Nevada catalog (task 83): two-person
+by trigger incl. NULL-requester case; execution needs a COMMITTED approval;
+intrinsic-value refusal closed at THREE layers (the agent found the ordinary
+movement path accepted a destroyed movement — a reachable override, fixed);
+NV-1..5 verbatim incl. the verified NEGATIVE (no lifetime deposit); C4 proven
+at 8/9; C6 advisory via a new CloseAdvisory hook that structurally cannot
+block (own MatterCloseAck component); migration idx 32 = 20260805T180000.
+Merge 100 = #140 composite extraction (task 86): born-digital PDFs now extract
+natively per page with native/ocr provenance on the RESULT (no schema);
+recognition gate moved into pdf-core so extractor and recognizer cannot
+disagree; re-extraction rides the existing daily cron; three typography bugs
+caught by genuine fixtures (inferred spaces, baseline grouping, per-line gap
+scaling). NO migration, NO contract move. IN FINAL REVIEW: #139 trust
+reconciliation (task 79 — four append-only tables, entry-keyed matching
+because earned-fee transfers write NO movement row [the load-bearing
+deviation], honest reds naming the leg, frozen closes, superseded-recon
+matches ignored by the outstanding read, T9/T10/T11 recommended defaults,
+profile v10; second-to-merge instruction SENT: retag idx 33 + regen contract
++ re-run affected). MERGE-QUEUE DISCIPLINE proven twice today: tag order
+decides merge order (custodian 180000 before recon 200000); contention flakes
+on shared 4 cores are adjudicated by disjoint-sets + isolation-pass evidence
+(accepted #138, #140 on that standard — import time 3.5x wall documents the
+contention; the box also rebooted once mid-run). After #139: dispatch task 73
+exports fix + first flag-free build slices (check merged plans: catalog slice
+1 H1-free?, auto-file slice 1 on F1 staged default, billing slice 1). Owner
+ledger: task 85, 50 flags (H1, D3-deadline, B1, L3, F1 first). Austerity
+reverts Sept 1 (trigger armed).
+
 ## Position update (2026-08-05 ~17:40 UTC) — OWNER SESSION: decisions, three new subsystem designs, lint lever landed
 
 Ninety-three merged. OWNER DECISIONS (genuine turns, ~15:30-16:10Z, recorded in
