@@ -115,6 +115,13 @@ export const PERMISSIONS = [
   // tenancy root.
   "custody:read", // read the register — locations, packets, items, owners, movements, holds, scans
   "custody:manage", // create/edit packets, items, locations and the type catalog; record movements; place and release holds
+  // Trust accounting — client money the firm holds and owes back. Two keys, because reading a
+  // client's trust balance and moving client money are genuinely different capabilities: a
+  // timekeeper answering "how much of this client's money do we hold" needs the read and must not
+  // have the write. Both bind resource: "firm" — a trust account belongs to an office, not a
+  // matter, and its sub-ledger spans every matter a client has.
+  "trust:read", // read trust accounts, the client/matter sub-ledger, balances, available balances, and holds
+  "trust:manage", // open trust accounts, build the sub-ledger, place and release holds, compose trust movements
 ] as const;
 
 // KnownPermission is for hardcoded compile-checked keys (route metadata, role seeds);

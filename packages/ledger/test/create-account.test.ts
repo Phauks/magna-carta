@@ -131,4 +131,68 @@ describe("createAccount", () => {
       ),
     ).rejects.toMatchObject({ code: "parent-has-postings" });
   });
+
+  it("accepts a parent this same batch is creating, when it is declared", async () => {
+    const database = freshDatabase();
+    // Building two tiers of a sub-ledger in one batch: the parent row does not exist for the child's
+    // read, so the composer declares it. Splitting the tiers across batches would instead leave a
+    // window in which a half-built tree exists.
+    const parent = await createAccount(
+      database,
+      { name: "Client Trust Liability", type: "liability", currency: "USD" },
+      { clock },
+    );
+    const pendingParents = new Map([
+      [parent.accountId as string, { type: "liability" as const, currency: "USD" }],
+    ]);
+    const child = await createAccount(
+      database,
+      {
+        name: "Dana Smith",
+        type: "liability",
+        currency: "USD",
+        parentAccountId: parent.accountId,
+      },
+      { clock, pendingParents },
+    );
+    await commitEffectBatch(
+      database,
+      {
+        statements: [...parent.effect.statements, ...child.effect.statements],
+        outboxMessages: [],
+      },
+      { now },
+    );
+    const { results } = await database
+      .prepare("SELECT parent_account_id FROM ledger_account WHERE id = ?1")
+      .bind(child.accountId)
+      .all<{ parent_account_id: string | null }>();
+    expect(results[0]?.parent_account_id).toBe(parent.accountId);
+  });
+
+  it("still refuses a declared pending parent whose type or currency disagrees", async () => {
+    const database = freshDatabase();
+    const parent = await createAccount(
+      database,
+      { name: "Client Trust Liability", type: "liability", currency: "USD" },
+      { clock },
+    );
+    await expect(
+      createAccount(
+        database,
+        {
+          name: "Dana Smith",
+          type: "asset",
+          currency: "USD",
+          parentAccountId: parent.accountId,
+        },
+        {
+          clock,
+          pendingParents: new Map([
+            [parent.accountId as string, { type: "liability" as const, currency: "USD" }],
+          ]),
+        },
+      ),
+    ).rejects.toMatchObject({ code: "parent-mismatch" });
+  });
 });

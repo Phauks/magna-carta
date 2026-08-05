@@ -311,6 +311,11 @@ describe("end-to-end", () => {
         "tools:safeBrowse",
         "tools:speedTest",
         "tools:whois",
+        // trust:read reaches Owner/Admin, Attorney, Paralegal, and Billing; trust:manage moves
+        // client money and reaches Owner/Admin, Attorney, and Billing
+        // (20260805T120001_seed-trust-permissions). Read-only carries neither.
+        "trust:manage",
+        "trust:read",
       ],
     });
   });

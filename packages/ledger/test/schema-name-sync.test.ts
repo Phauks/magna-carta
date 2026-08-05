@@ -9,6 +9,7 @@ import {
 import { describe, expect, it } from "vitest";
 import {
   inconsistentBalancesStatement,
+  parentAccountsWithNonZeroBalanceStatement,
   parentAccountsWithPostingsStatement,
   unbalancedEntriesStatement,
 } from "../src/fitness.ts";
@@ -186,6 +187,7 @@ describe("schema name sync (ledger SQL pinned to @magna-carta/database)", () => 
       sqlOf(unbalancedEntriesStatement(stub)),
       sqlOf(inconsistentBalancesStatement(stub)),
       sqlOf(parentAccountsWithPostingsStatement(stub)),
+      sqlOf(parentAccountsWithNonZeroBalanceStatement(stub)),
     ].join("\n");
     // net / total / computed are computed output names; b / l / a / c / computed are table aliases.
     expectOnlyKnownIdentifiers(
