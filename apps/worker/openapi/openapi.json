@@ -683,6 +683,281 @@
           "computedAt"
         ]
       },
+      "MatterSuggestionList": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "matterId": {
+                  "type": "string"
+                },
+                "matterNumber": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "title": {
+                  "type": "string"
+                },
+                "clientDisplayName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "status": {
+                  "type": "string"
+                },
+                "score": {
+                  "type": "number"
+                },
+                "confidence": {
+                  "type": "string",
+                  "enum": [
+                    "high",
+                    "medium",
+                    "low"
+                  ]
+                },
+                "signals": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "threadContinuation",
+                      "subjectMatterNumber",
+                      "participantParty",
+                      "searchTerm"
+                    ]
+                  }
+                },
+                "reasons": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "matterId",
+                "matterNumber",
+                "title",
+                "clientDisplayName",
+                "status",
+                "score",
+                "confidence",
+                "signals",
+                "reasons"
+              ]
+            }
+          },
+          "ambiguous": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "data",
+          "ambiguous"
+        ]
+      },
+      "MatterSuggestionRequest": {
+        "type": "object",
+        "properties": {
+          "messageId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 998
+          },
+          "inReplyTo": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 998
+          },
+          "references": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 998
+            },
+            "maxItems": 25
+          },
+          "subject": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2000
+          },
+          "participants": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 320
+            },
+            "maxItems": 50
+          },
+          "query": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "limit": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 25
+          }
+        }
+      },
+      "EmailFilingContext": {
+        "type": "object",
+        "properties": {
+          "recentMatters": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "matterId": {
+                  "type": "string"
+                },
+                "matterNumber": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "title": {
+                  "type": "string"
+                },
+                "clientDisplayName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "status": {
+                  "type": "string"
+                },
+                "lastFiledAt": {
+                  "type": "string"
+                },
+                "filedCount": {
+                  "type": "number"
+                },
+                "captureAddressAvailable": {
+                  "type": "boolean"
+                },
+                "captureAddressPreview": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "matterId",
+                "matterNumber",
+                "title",
+                "clientDisplayName",
+                "status",
+                "lastFiledAt",
+                "filedCount",
+                "captureAddressAvailable",
+                "captureAddressPreview"
+              ]
+            }
+          },
+          "firmCaptureAddress": {
+            "type": "object",
+            "properties": {
+              "available": {
+                "type": "boolean"
+              },
+              "tokenPreview": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "createdAt": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "available",
+              "tokenPreview",
+              "createdAt"
+            ]
+          },
+          "captureRootDomain": {
+            "type": "string"
+          },
+          "maxMessageBytes": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "recentMatters",
+          "firmCaptureAddress",
+          "captureRootDomain",
+          "maxMessageBytes"
+        ]
+      },
+      "EmailCaptureStatus": {
+        "type": "object",
+        "properties": {
+          "captureJobId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "completed"
+            ]
+          },
+          "emailMessageId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "matterId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "linkState": {
+            "type": "string",
+            "enum": [
+              "filed",
+              "staged",
+              "none"
+            ]
+          },
+          "deduplicated": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "captureJobId",
+          "status",
+          "emailMessageId",
+          "matterId",
+          "linkState",
+          "deduplicated"
+        ]
+      },
       "EmailCaptureAck": {
         "type": "object",
         "properties": {
@@ -12109,6 +12384,239 @@
           },
           "422": {
             "description": "The bytes could not be read as an email, or are not a format this tool supports",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/emails/matter-suggestions": {
+      "post": {
+        "description": "Rank the matters an open message probably belongs to, so a mail client can pre-select one instead of asking the member to search. Four signals combine, strongest first: the conversation is already filed to a matter, the subject line carries a matter number, a correspondent is a party on a matter, and whatever the member typed. Every candidate is filtered to the matters this member can access — a matter they cannot see contributes no suggestion and no count. Each suggestion carries its confidence and the reasons behind it; `ambiguous` warns that the top candidates tie, so nothing should be pre-selected. A POST rather than a GET because the message facts it takes — subject line, correspondent addresses — are the firm's mail and do not belong in a URL.",
+        "operationId": "emails.suggestMatters",
+        "tags": [
+          "emails"
+        ],
+        "x-mc-operationId": "emails.suggestMatters",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "emails:read",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "emails"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MatterSuggestionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The ranked matter candidates (possibly empty — no signal fired)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterSuggestionList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing emails:read",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/emails/filing-context": {
+      "get": {
+        "description": "What a mail client shows the signed-in member before they choose anything: the matters they have most recently filed email to (their own filings, never the firm's), whether each has a live forward/CC capture address, whether the firm has a catch-all, the zone those addresses live under, and the size ceiling a message must fit under. Capture tokens are never returned — the token is the credential and is shown once, at mint; this reports that an address exists, not what it is.",
+        "operationId": "emails.filingContext",
+        "tags": [
+          "emails"
+        ],
+        "x-mc-operationId": "emails.filingContext",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "emails:read",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "emails"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 20
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The member's filing context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailFilingContext"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing emails:read",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/emails/captures/{captureJobId}": {
+      "get": {
+        "description": "Read what became of a filing. Filing a message returns a job identifier and completes off the request path, so this is how a client learns whether the message landed, which record it became, and whether it was filed outright or staged for a person to accept. A job whose result names a matter this member cannot access is reported as absent, never as someone else's matter. A job that has not finished — or finished long enough ago to have been swept — reads as pending; a client that already holds an emailMessageId should read the message rather than keep polling.",
+        "operationId": "emails.captureStatus",
+        "tags": [
+          "emails"
+        ],
+        "x-mc-operationId": "emails.captureStatus",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "emails:read",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "emails"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "required": true,
+            "name": "captureJobId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The capture job's current state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailCaptureStatus"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing emails:read",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such capture job, or its result is on a matter the caller cannot access",
             "content": {
               "application/problem+json": {
                 "schema": {

@@ -12,6 +12,7 @@
     "./capture": "./src/capture.ts",
     "./dkim": "./src/dkim.ts",
     "./message-format": "./src/message-format.ts",
+    "./matter-suggestion": "./src/matter-suggestion.ts",
     "./capture-token": "./src/capture-token.ts",
     "./capture-address": "./src/capture-address.ts",
     "./already-filed": "./src/already-filed.ts",
