@@ -226,6 +226,17 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "report-manual",
     note: "who a proposed trust payment would have gone to, held as free text with no structured subject, on an append-only row that survives a refusal",
   },
+  // A bank statement line names the other party as the BANK printed it — frequently not what the
+  // firm called them, and frequently not a Directory contact at all. It is the same free-text
+  // residue class the movement's counterparty sits in, and it takes the same treatment for the same
+  // reason, with one difference worth stating: this text is the institution's record rather than the
+  // firm's, so the firm cannot correct it without the statement ceasing to be what the bank sent.
+  {
+    table: "trust_bank_statement_line",
+    subjectKey: "counterparty_name",
+    action: "report-manual",
+    note: "the other party as the bank named it on a statement line, held as free text with no structured subject, on an append-only row the firm did not author",
+  },
 ];
 
 // Per-firm tables that hold NO personal data — the explicit non-PII half of the coverage fitness.
@@ -393,4 +404,15 @@ export const NO_PII_TABLES: readonly string[] = [
   // provenance about a firm control, the line custody_destruction_request sits on. The payee the
   // request named is registered above; nothing about a data subject is repeated here.
   "trust_disbursement_decision",
+  // A bank statement is the institution's report about the FIRM's own bank account — a period, two
+  // balances, and the firm's reference for it. It is the same line `trust_account` sits on; the one
+  // column about anybody else is the line's counterparty, registered above.
+  "trust_bank_statement",
+  // A reconciliation is a control row about MONEY and its proof: the account, the statement, the
+  // frozen totals, and firm-member provenance (opened_by / closed_by) — the custody_stocktake line.
+  // A match is one member's assertion tying a statement line to a ledger entry, carrying two handles
+  // and the member who asserted it. Neither carries a column about a data subject; whose money the
+  // ledger holds resolves through trust_ledger_node, registered above.
+  "trust_reconciliation",
+  "trust_reconciliation_match",
 ];

@@ -27,6 +27,14 @@ ADR-0072.) **Invariants:** [`docs/conventions/invariants.md`](../../docs/convent
 - `src/jurisdiction.ts` — the resolver contract and the refusing default
 - `src/close-precondition.ts` — `matterTrustClosePrecondition` + `readMatterTrustPositions`: the
   matter-close gate the app registers against the matter shell's close hook
+- `src/bank-statements.ts` — the bank's own figures: `composeTrustBankStatement` plus the reads
+- `src/statement-import.ts` — the guided CSV import: `previewTrustStatementImport` (reports, stores
+  nothing) then `confirmTrustStatementImport` (stores, only against the previewed fingerprint)
+- `src/reconciliation.ts` — `openTrustReconciliation` / `closeTrustReconciliation` (the freeze) /
+  `readTrustThreeWayProof`
+- `src/three-way-proof.ts` — `computeTrustThreeWayProof` and the outstanding-item read
+- `src/matching.ts` — `suggestTrustStatementMatches` (pure, suggests only) and the two composers a
+  person's confirmation goes through
 - `src/fitness.ts` — re-proves the invariants over stored data
 - `src/statements.ts` / `src/types.ts` / `src/trust-validation.ts`
 
@@ -49,7 +57,9 @@ ADR-0072.) **Invariants:** [`docs/conventions/invariants.md`](../../docs/convent
 - **One client per entry.** Client-to-client movement is unrepresentable; two matters of the same
   client are fine.
 - **Append-only around the ledger too.** `trust_hold`, `trust_transfer`, `trust_movement`,
-  `trust_disbursement_request`, and `trust_disbursement_decision` carry RAISE(ABORT) triggers. A
+  `trust_disbursement_request`, `trust_disbursement_decision`, `trust_bank_statement`,
+  `trust_bank_statement_line`, `trust_reconciliation`, and `trust_reconciliation_match` carry
+  RAISE(ABORT) triggers (a reconciliation takes exactly one update — its close). A
   release is a new row linked by `releases_hold_id` (UNIQUE, so a double release loses at commit); a
   partial release is a release plus a new, smaller hold. A movement correction is a reversing entry
   with its own movement row. Never add a status column.
@@ -86,7 +96,41 @@ ADR-0072.) **Invariants:** [`docs/conventions/invariants.md`](../../docs/convent
 - **Jurisdiction facts refuse rather than fall back.** A null `trust_account.jurisdiction` and an
   unencoded jurisdiction are different refusals (`jurisdiction-not-recorded` vs
   `jurisdiction-not-encoded`) and must stay different. Never introduce a default.
+- **Nothing matches a bank statement line on its own.** `suggestTrustStatementMatches` ranks bounded
+  candidates and returns the reasons; a `trust_reconciliation_match` row exists only because a caller
+  named both ends. There is deliberately no composer that takes a suggestion — one would let a caller
+  loop over the top candidate and the human confirmation would be gone with nothing in this package
+  having changed. A wrong automatic match is worse than no match: the totals tie out while the ledger
+  and the bank disagree about which events happened, and the reconciliation then certifies the
+  discrepancy it exists to find.
+- **The book side of a match is a LEDGER ENTRY, never a movement.** An earned-fee transfer out of
+  trust records a `trust_transfer` and no `trust_movement` row at all, so a match keyed on movements
+  could never clear one and every such transfer would sit outstanding forever. Anything that moves the
+  bank balance is an entry touching the trust bank account, whatever composed it.
+- **Every leg of the proof is computed from dated ledger rows, never from `account_balance`.** The
+  stored balance is a live figure with no as-of, and a reconciliation is an assertion about a moment.
+  Book and client agree by construction while the composition guard holds, so a `book-to-client`
+  disagreement means something reached the ledger without going through it.
+- **An unbalanced proof is recorded, never forced.** No plug figure, no rounding to agreement, no
+  "unreconciled difference" line that absorbs the gap. The proof names WHICH leg is out and by how
+  much, and `closeTrustReconciliation` freezes that answer whether or not it balanced — a close that
+  refused an unbalanced period would leave firms with a year of periods open, which is the same as no
+  record, and would make the platform the judge of when a firm may have a problem.
+- **A close is a one-way freeze, and it writes exactly one row.** No ledger entry, no movement, no
+  correction to anything the proof disagreed with — the same boundary the custody stocktake holds.
+  The migration's triggers refuse every further write to a closed reconciliation, so a backdated
+  reversal moves the LIVE proof and can never move the attestation. A period redone later is a new
+  reconciliation naming the one it supersedes.
+- **A conversion of a firm's file is previewed, confirmed, and reported — in that order.**
+  `previewTrustStatementImport` touches no database and is safe to run on a file nobody has decided
+  about; `confirmTrustStatementImport` re-parses the same text and refuses unless the fingerprint the
+  preview returned still matches. A date format is STATED by the caller and never detected, because
+  03/04/2026 is two different days on two sides of an ocean and a reconciliation built on the wrong
+  one is wrong in a way nobody notices.
 - **Money discipline.** `Money` in, `toMinor` integers at the SQL boundary; no floats, no rounding.
+  The one exception to "amounts are positive": a bank statement's opening and closing balances are
+  signed, because a trust bank account really can be overdrawn and refusing to record that would
+  refuse to record the condition reconciliation exists to catch.
 - **Clock injection.** No wall-clock reads — `ClockPort` only.
 
 ## Dependencies & contracts
@@ -120,3 +164,14 @@ ADR-0072.) **Invariants:** [`docs/conventions/invariants.md`](../../docs/convent
   arise from an item the firm never recorded (a bank fee, a returned deposit, a forged check).
   Reconciliation is what catches those. Never state, in the product or in user documentation, that
   the platform prevents trust overdrafts.
+- **One statement line clears one entry.** A single bank line covering several recorded items — one
+  deposit slip for three checks — is a real shape this does not yet express: it reads as one match
+  plus items left outstanding, and the proof reports the resulting difference rather than hiding it.
+  The one-to-one rule itself cannot be a UNIQUE index (a match's active state is derived from the
+  absence of a withdrawal row), so it is checked in `composeTrustReconciliationMatch` and re-proved
+  over stored rows by the fitness suite — the same arrangement the hold model uses.
+- **A closed reconciliation's matches can never be withdrawn**, which is why the outstanding read
+  ignores matches belonging to a SUPERSEDED reconciliation. Without that, a match somebody got wrong
+  in a period they then closed would suppress its item from every future outstanding list forever;
+  with it, superseding the reconciliation is a real remedy — the replacement re-asserts the matches
+  that were right and omits the one that was not.

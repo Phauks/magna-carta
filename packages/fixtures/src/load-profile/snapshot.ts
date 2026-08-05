@@ -32,6 +32,7 @@ import {
   generateDocumentAutomationVolume,
   type DocumentAutomationProbes,
 } from "./document-automation-generate.ts";
+import { generateTrustVolume, type TrustProbes } from "./trust-generate.ts";
 import { GENERATOR_VERSION, type LedgerVolumeProfile } from "./profile.ts";
 
 // Snapshot identity: the resolved profile parameters, the generation seed, the per-firm schema
@@ -99,6 +100,20 @@ export interface SnapshotManifest {
   readonly documentAssemblyCount: number;
   readonly documentFieldMappingCount: number;
   readonly documentAutomationProbes: DocumentAutomationProbes;
+  // The trust volume laid over the practice book: the sub-ledger tree, its movements and holds, the
+  // bank statements, and the reconciliations — plus the probe identifiers the trust measurement
+  // layer binds its three-way proof / matching / client-ledger / fitness operations to.
+  readonly trustLedgerNodeCount: number;
+  readonly trustMovementCount: number;
+  readonly trustHoldCount: number;
+  readonly trustBankStatementCount: number;
+  readonly trustBankStatementLineCount: number;
+  readonly trustReconciliationCount: number;
+  readonly trustReconciliationMatchCount: number;
+  readonly trustProbes: TrustProbes;
+  // The period end the open reconciliation's statement covers. Recorded here rather than re-derived
+  // in the measurement layer, so the EXPLAIN probes bind to exactly the date the proof used.
+  readonly trustAsOfDate: string;
 }
 
 export interface LoadedSnapshot extends MigratedNodeDatabase {
@@ -242,6 +257,10 @@ export async function loadProfileSnapshot(
         customFields.probes.busiestRecordId,
         options,
       );
+      // The trust volume rides after practice generation: it binds a trust account to an office the
+      // practice generator opened and a client ledger to its matters, and it composes every row
+      // through the trust write paths, so the composition guard and the zero floor bind at any scale.
+      const trust = await generateTrustVolume(generated.database, context, profile.trust, options);
       const manifest: SnapshotManifest = {
         profile,
         seed,
@@ -282,6 +301,15 @@ export async function loadProfileSnapshot(
         documentAssemblyCount: documentAutomation.assemblyCount,
         documentFieldMappingCount: documentAutomation.fieldMappingCount,
         documentAutomationProbes: documentAutomation.probes,
+        trustLedgerNodeCount: trust.trustLedgerNodeCount,
+        trustMovementCount: trust.trustMovementCount,
+        trustHoldCount: trust.trustHoldCount,
+        trustBankStatementCount: trust.trustBankStatementCount,
+        trustBankStatementLineCount: trust.trustBankStatementLineCount,
+        trustReconciliationCount: trust.trustReconciliationCount,
+        trustReconciliationMatchCount: trust.trustReconciliationMatchCount,
+        trustProbes: trust.probes,
+        trustAsOfDate: trust.asOfDate,
       };
       // Artifact before manifest: the replay gate above requires BOTH files, so a crash between
       // the two writes leaves a regenerable miss, never a manifest pointing at a missing artifact.

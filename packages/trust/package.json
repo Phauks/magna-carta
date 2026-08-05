@@ -16,6 +16,11 @@
     "./transfer": "./src/transfer.ts",
     "./jurisdiction": "./src/jurisdiction.ts",
     "./close-precondition": "./src/close-precondition.ts",
+    "./bank-statements": "./src/bank-statements.ts",
+    "./statement-import": "./src/statement-import.ts",
+    "./reconciliation": "./src/reconciliation.ts",
+    "./three-way-proof": "./src/three-way-proof.ts",
+    "./matching": "./src/matching.ts",
     "./fitness": "./src/fitness.ts"
   },
   "scripts": {

@@ -20,6 +20,7 @@ import { registerAssembliesRoutes } from "./routes/assemblies.ts";
 import { registerConversionRoutes } from "./routes/conversions.ts";
 import { registerCustomFieldsRoutes } from "./routes/custom-fields.ts";
 import { registerCostsRoutes } from "./routes/costs.ts";
+import { registerTrustReconciliationRoutes } from "./routes/trust-reconciliation.ts";
 import { registerTrustRoutes } from "./routes/trust.ts";
 import { registerTimeEntriesRoutes } from "./routes/time-entries.ts";
 import { registerTemplatesRoutes } from "./routes/templates.ts";
@@ -560,6 +561,7 @@ export function createApp(options: CreateAppOptions = {}) {
   // Trust accounting movements: client money into a matter's trust ledger, out of it, and
   // reallocated between two matters of one client, plus the client ledger those movements build.
   registerTrustRoutes(app, chokepoint);
+  registerTrustReconciliationRoutes(app, chokepoint);
   // Time tracking — the work-in-progress entry surface, composed through the same chokepoint.
   registerTimeEntriesRoutes(app, chokepoint);
   // Timer routes: the per-timekeeper live timer (DO proxy) and the idempotent stop-commit.

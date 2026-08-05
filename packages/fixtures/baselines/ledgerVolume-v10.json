@@ -1,0 +1,371 @@
+{
+  "profileName": "ledgerVolume",
+  "profileVersion": 10,
+  "cacheKey": "e7e9625474ff9b8b",
+  "results": [
+    {
+      "name": "assembly.merge-context",
+      "iterations": 30,
+      "minMs": 0.801,
+      "medianMs": 0.922,
+      "p95Ms": 2.807
+    },
+    {
+      "name": "balance-read.busy-subledger",
+      "iterations": 30,
+      "minMs": 0.017,
+      "medianMs": 0.017,
+      "p95Ms": 0.039
+    },
+    {
+      "name": "capture.commit",
+      "iterations": 30,
+      "minMs": 1.976,
+      "medianMs": 10.782,
+      "p95Ms": 40.398
+    },
+    {
+      "name": "checkout.active-exclusive-lock",
+      "iterations": 30,
+      "minMs": 0.031,
+      "medianMs": 0.034,
+      "p95Ms": 0.053
+    },
+    {
+      "name": "conflicts.co-party-check",
+      "iterations": 30,
+      "minMs": 26.795,
+      "medianMs": 41.189,
+      "p95Ms": 96.236
+    },
+    {
+      "name": "conflicts.imputation",
+      "iterations": 30,
+      "minMs": 0.161,
+      "medianMs": 0.214,
+      "p95Ms": 8.46
+    },
+    {
+      "name": "conflicts.run-check",
+      "iterations": 30,
+      "minMs": 118.496,
+      "medianMs": 211.208,
+      "p95Ms": 377.966
+    },
+    {
+      "name": "create-account.trust-subledger",
+      "iterations": 30,
+      "minMs": 2.861,
+      "medianMs": 6.225,
+      "p95Ms": 18.402
+    },
+    {
+      "name": "custom-field.merge-repoint",
+      "iterations": 30,
+      "minMs": 2.577,
+      "medianMs": 14.264,
+      "p95Ms": 23.995
+    },
+    {
+      "name": "custom-field.preview-convert-scan",
+      "iterations": 30,
+      "minMs": 0.165,
+      "medianMs": 0.232,
+      "p95Ms": 0.543
+    },
+    {
+      "name": "custom-field.read-current-values",
+      "iterations": 30,
+      "minMs": 0.047,
+      "medianMs": 0.071,
+      "p95Ms": 0.341
+    },
+    {
+      "name": "custom-field.reference-lookup",
+      "iterations": 30,
+      "minMs": 0.028,
+      "medianMs": 0.035,
+      "p95Ms": 0.082
+    },
+    {
+      "name": "directory.candidate-generation",
+      "iterations": 30,
+      "minMs": 1.278,
+      "medianMs": 1.568,
+      "p95Ms": 6.772
+    },
+    {
+      "name": "directory.find-by-identifier",
+      "iterations": 30,
+      "minMs": 0.225,
+      "medianMs": 0.273,
+      "p95Ms": 0.612
+    },
+    {
+      "name": "directory.graph-expansion",
+      "iterations": 30,
+      "minMs": 0.05,
+      "medianMs": 0.063,
+      "p95Ms": 0.104
+    },
+    {
+      "name": "directory.read-protected-list",
+      "iterations": 30,
+      "minMs": 267.778,
+      "medianMs": 694.548,
+      "p95Ms": 1608.178
+    },
+    {
+      "name": "get-current-clean-version",
+      "iterations": 30,
+      "minMs": 0.035,
+      "medianMs": 0.038,
+      "p95Ms": 0.075
+    },
+    {
+      "name": "idle-checkout-sweep.find-idle",
+      "iterations": 30,
+      "minMs": 0.08,
+      "medianMs": 0.087,
+      "p95Ms": 0.243
+    },
+    {
+      "name": "ledger-fitness.table-wide",
+      "iterations": 30,
+      "minMs": 136.709,
+      "medianMs": 206.962,
+      "p95Ms": 321.958
+    },
+    {
+      "name": "list-clean-versions.by-file",
+      "iterations": 30,
+      "minMs": 0.039,
+      "medianMs": 0.044,
+      "p95Ms": 0.095
+    },
+    {
+      "name": "list-consultations.by-member",
+      "iterations": 30,
+      "minMs": 0.144,
+      "medianMs": 0.158,
+      "p95Ms": 0.245
+    },
+    {
+      "name": "list-files.by-folder",
+      "iterations": 30,
+      "minMs": 0.079,
+      "medianMs": 0.086,
+      "p95Ms": 0.162
+    },
+    {
+      "name": "list-files.by-matter",
+      "iterations": 30,
+      "minMs": 0.152,
+      "medianMs": 0.179,
+      "p95Ms": 0.262
+    },
+    {
+      "name": "list-matters.filtered",
+      "iterations": 30,
+      "minMs": 0.128,
+      "medianMs": 0.145,
+      "p95Ms": 0.225
+    },
+    {
+      "name": "list-matters.first-page",
+      "iterations": 30,
+      "minMs": 0.206,
+      "medianMs": 0.25,
+      "p95Ms": 0.435
+    },
+    {
+      "name": "list-shipments.by-matter",
+      "iterations": 30,
+      "minMs": 0.03,
+      "medianMs": 0.033,
+      "p95Ms": 0.081
+    },
+    {
+      "name": "list-tracking-events.by-shipment",
+      "iterations": 30,
+      "minMs": 0.029,
+      "medianMs": 0.031,
+      "p95Ms": 0.076
+    },
+    {
+      "name": "matter-number.counter-draw",
+      "iterations": 30,
+      "minMs": 3.169,
+      "medianMs": 12.239,
+      "p95Ms": 23.984
+    },
+    {
+      "name": "my-day.daily-totals",
+      "iterations": 30,
+      "minMs": 0.034,
+      "medianMs": 0.037,
+      "p95Ms": 0.107
+    },
+    {
+      "name": "post-entry.two-line",
+      "iterations": 30,
+      "minMs": 10.519,
+      "medianMs": 20.043,
+      "p95Ms": 32.208
+    },
+    {
+      "name": "protected.blind-index-compute",
+      "iterations": 30,
+      "minMs": 0.117,
+      "medianMs": 0.133,
+      "p95Ms": 0.196
+    },
+    {
+      "name": "protected.firm-secret-read",
+      "iterations": 30,
+      "minMs": 3.025,
+      "medianMs": 12.159,
+      "p95Ms": 22.29
+    },
+    {
+      "name": "protected.incident-decrypt-page",
+      "iterations": 30,
+      "minMs": 451.149,
+      "medianMs": 695.278,
+      "p95Ms": 1402.907
+    },
+    {
+      "name": "rate-resolution.timekeeper-tier",
+      "iterations": 30,
+      "minMs": 0.053,
+      "medianMs": 0.058,
+      "p95Ms": 0.101
+    },
+    {
+      "name": "reconcile.find-conflict",
+      "iterations": 30,
+      "minMs": 0.028,
+      "medianMs": 0.032,
+      "p95Ms": 0.069
+    },
+    {
+      "name": "rescan-sweep.find-unscanned",
+      "iterations": 30,
+      "minMs": 0.163,
+      "medianMs": 0.205,
+      "p95Ms": 2.9
+    },
+    {
+      "name": "reverse-entry.two-line",
+      "iterations": 30,
+      "minMs": 13.323,
+      "medianMs": 19.526,
+      "p95Ms": 52.507
+    },
+    {
+      "name": "storage-meter.summary",
+      "iterations": 30,
+      "minMs": 0.016,
+      "medianMs": 0.017,
+      "p95Ms": 0.03
+    },
+    {
+      "name": "templates.custom-field-catalog",
+      "iterations": 30,
+      "minMs": 0.236,
+      "medianMs": 0.272,
+      "p95Ms": 2.562
+    },
+    {
+      "name": "templates.list-catalogue",
+      "iterations": 30,
+      "minMs": 0.254,
+      "medianMs": 0.317,
+      "p95Ms": 4.025
+    },
+    {
+      "name": "templates.version-for-assembly",
+      "iterations": 30,
+      "minMs": 0.045,
+      "medianMs": 0.053,
+      "p95Ms": 0.091
+    },
+    {
+      "name": "tiering-sweep.find-candidates",
+      "iterations": 30,
+      "minMs": 1.331,
+      "medianMs": 1.586,
+      "p95Ms": 29.483
+    },
+    {
+      "name": "trust-available-balance.by-node",
+      "iterations": 30,
+      "minMs": 0.041,
+      "medianMs": 0.047,
+      "p95Ms": 0.113
+    },
+    {
+      "name": "trust-client-ledger.movements-by-node",
+      "iterations": 30,
+      "minMs": 0.087,
+      "medianMs": 0.136,
+      "p95Ms": 0.308
+    },
+    {
+      "name": "trust-fitness.table-wide",
+      "iterations": 30,
+      "minMs": 150.056,
+      "medianMs": 209.309,
+      "p95Ms": 333.851
+    },
+    {
+      "name": "trust-match.suggestions",
+      "iterations": 30,
+      "minMs": 7.476,
+      "medianMs": 9.633,
+      "p95Ms": 41.155
+    },
+    {
+      "name": "trust-proof.three-way",
+      "iterations": 30,
+      "minMs": 8.791,
+      "medianMs": 11.79,
+      "p95Ms": 18.54
+    },
+    {
+      "name": "unbilled-wip.by-matter",
+      "iterations": 30,
+      "minMs": 0.172,
+      "medianMs": 0.211,
+      "p95Ms": 0.386
+    },
+    {
+      "name": "version-cut.commit",
+      "iterations": 30,
+      "minMs": 5.367,
+      "medianMs": 13.11,
+      "p95Ms": 29.582
+    },
+    {
+      "name": "weekly-grid.by-timekeeper",
+      "iterations": 30,
+      "minMs": 0.08,
+      "medianMs": 0.097,
+      "p95Ms": 0.166
+    },
+    {
+      "name": "zip-resolution.clean-current-versions",
+      "iterations": 30,
+      "minMs": 0.066,
+      "medianMs": 0.079,
+      "p95Ms": 0.15
+    },
+    {
+      "name": "zip-resolution.folders-by-matter",
+      "iterations": 30,
+      "minMs": 0.028,
+      "medianMs": 0.032,
+      "p95Ms": 0.077
+    }
+  ]
+}

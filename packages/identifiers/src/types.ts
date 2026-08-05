@@ -120,3 +120,7 @@ export type TrustTransferId = Identifier<"trustTransfer">;
 export type TrustMovementId = Identifier<"trustMovement">;
 export type TrustDisbursementRequestId = Identifier<"trustDisbursementRequest">;
 export type TrustDisbursementDecisionId = Identifier<"trustDisbursementDecision">;
+export type TrustBankStatementId = Identifier<"trustBankStatement">;
+export type TrustBankStatementLineId = Identifier<"trustBankStatementLine">;
+export type TrustReconciliationId = Identifier<"trustReconciliation">;
+export type TrustReconciliationMatchId = Identifier<"trustReconciliationMatch">;

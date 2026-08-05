@@ -28,7 +28,9 @@
     "./load-profile/custom-field-generate": "./src/load-profile/custom-field-generate.ts",
     "./load-profile/custom-field-measurements": "./src/load-profile/custom-field-measurements.ts",
     "./load-profile/document-automation-generate": "./src/load-profile/document-automation-generate.ts",
-    "./load-profile/document-automation-measurements": "./src/load-profile/document-automation-measurements.ts"
+    "./load-profile/document-automation-measurements": "./src/load-profile/document-automation-measurements.ts",
+    "./load-profile/trust-generate": "./src/load-profile/trust-generate.ts",
+    "./load-profile/trust-measurements": "./src/load-profile/trust-measurements.ts"
   },
   "scripts": {
     "measure": "node --experimental-transform-types src/load-profile/measure-cli.ts",
@@ -50,7 +52,8 @@
     "@magna-carta/locations": "workspace:*",
     "@magna-carta/matters": "workspace:*",
     "@magna-carta/money": "workspace:*",
-    "@magna-carta/timekeeping": "workspace:*"
+    "@magna-carta/timekeeping": "workspace:*",
+    "@magna-carta/trust": "workspace:*"
   },
   "devDependencies": {
     "@magna-carta/tsconfig": "workspace:*",

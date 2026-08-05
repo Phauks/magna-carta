@@ -68,6 +68,10 @@ describe("problem-type URI registry", () => {
         "trust-jurisdiction-unavailable",
         "trust-disbursement-not-pending",
         "trust-disbursement-authorization-refused",
+        "trust-reconciliation-closed",
+        "trust-reconciliation-already-accounted-for",
+        "trust-statement-import-refused",
+        "trust-reconciliation-refused",
         "matter-close-refused",
       ].sort(),
     );

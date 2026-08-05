@@ -40,7 +40,31 @@ export type TrustValidationCode =
   | "earned-fee-precondition-unavailable"
   // Jurisdiction
   | "jurisdiction-not-recorded"
-  | "jurisdiction-not-encoded";
+  | "jurisdiction-not-encoded"
+  // Bank statements — the one external input
+  | "unknown-trust-bank-statement"
+  | "unknown-trust-bank-statement-line"
+  | "statement-currency-mismatch"
+  | "statement-period-invalid"
+  | "statement-line-outside-period"
+  | "statement-has-no-lines"
+  | "statement-too-many-lines"
+  | "statement-already-superseded"
+  | "statement-supersedes-other-account"
+  // The guided CSV import: what the file said, and whether it is the file that was confirmed
+  | "statement-import-columns-unrecognized"
+  | "statement-import-preview-mismatch"
+  | "statement-import-nothing-to-record"
+  // Reconciliation and matching
+  | "unknown-trust-reconciliation"
+  | "reconciliation-closed"
+  | "reconciliation-statement-mismatch"
+  | "unknown-trust-reconciliation-match"
+  | "match-is-a-withdrawal"
+  | "match-already-withdrawn"
+  | "statement-line-already-matched"
+  | "ledger-entry-already-matched"
+  | "entry-is-not-a-bank-item";
 
 export class TrustValidationError extends Error {
   constructor(

@@ -168,6 +168,12 @@ export const ENTITY_PREFIXES = {
   // proposed payment out of a client ledger that has not moved any money yet, and a
   // `trustDisbursementDecision` is the single append-only row that settles one — the approval that
   // posts the movement, or the rejection or withdrawal that does not.
+  //
+  // Reconciliation adds the bank's side of the same money: a `trustBankStatement` is one period as
+  // the institution reported it, a `trustBankStatementLine` is one item on that statement, a
+  // `trustReconciliation` is a firm's attempt to tie a statement to its own records, and a
+  // `trustReconciliationMatch` is a person's assertion that one statement line and one recorded
+  // movement are the same event.
   trustAccount: "trustAccount",
   trustLedgerNode: "trustLedgerNode",
   trustHold: "trustHold",
@@ -175,6 +181,10 @@ export const ENTITY_PREFIXES = {
   trustMovement: "trustMovement",
   trustDisbursementRequest: "trustDisbursementRequest",
   trustDisbursementDecision: "trustDisbursementDecision",
+  trustBankStatement: "trustBankStatement",
+  trustBankStatementLine: "trustBankStatementLine",
+  trustReconciliation: "trustReconciliation",
+  trustReconciliationMatch: "trustReconciliationMatch",
 } as const;
 
 export type EntityType = keyof typeof ENTITY_PREFIXES;

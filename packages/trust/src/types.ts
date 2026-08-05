@@ -3,11 +3,16 @@ import type {
   LedgerEntryId,
   MatterId,
   TrustAccountId,
+  TrustBankStatementId,
+  TrustBankStatementLineId,
   TrustDisbursementDecisionId,
   TrustDisbursementRequestId,
   TrustHoldId,
   TrustLedgerNodeId,
   TrustMovementId,
+  TrustReconciliationId,
+  TrustReconciliationMatchId,
+  TrustTransferId,
   UserId,
 } from "@magna-carta/identifiers/types";
 
@@ -184,4 +189,209 @@ export interface TrustMovementSnapshot {
   readonly authorizedBy: UserId | null;
   readonly effectiveDate: string;
   readonly recordedAt: string;
+}
+
+// How a bank statement's figures reached the platform. `imported` means a file the firm supplied was
+// parsed, shown back, and confirmed by a person; it never means anything decided on its own to store
+// them.
+export const TRUST_BANK_STATEMENT_SOURCES = ["entered", "imported"] as const;
+export type TrustBankStatementSource = (typeof TRUST_BANK_STATEMENT_SOURCES)[number];
+
+// Which way a statement line moved the balance, stated from the account holder's side so a line can
+// be compared with a recorded entry without anyone reasoning about the bank's debit/credit
+// convention: a `deposit` increased the trust bank balance, a `withdrawal` reduced it.
+export const TRUST_BANK_STATEMENT_LINE_DIRECTIONS = ["deposit", "withdrawal"] as const;
+export type TrustBankStatementLineDirection = (typeof TRUST_BANK_STATEMENT_LINE_DIRECTIONS)[number];
+
+// A reconciliation is open until it closes, and closing is the freeze. Unlike a hold's active state
+// or a disbursement request's pending state, this is a stored value rather than a derivation,
+// because there is no second row whose presence could imply it — the freeze IS the write.
+export const TRUST_RECONCILIATION_STATUSES = ["open", "closed"] as const;
+export type TrustReconciliationStatus = (typeof TRUST_RECONCILIATION_STATUSES)[number];
+
+export interface TrustBankStatementSnapshot {
+  readonly id: TrustBankStatementId;
+  readonly trustAccountId: TrustAccountId;
+  readonly periodStart: string;
+  readonly periodEnd: string;
+  readonly openingBalanceMinor: number;
+  readonly closingBalanceMinor: number;
+  readonly currency: string;
+  readonly statementReference: string | null;
+  readonly source: TrustBankStatementSource;
+  readonly supersedesStatementId: TrustBankStatementId | null;
+  readonly recordedBy: UserId;
+  readonly recordedAt: string;
+}
+
+export interface TrustBankStatementLineSnapshot {
+  readonly id: TrustBankStatementLineId;
+  readonly statementId: TrustBankStatementId;
+  readonly postedOn: string;
+  readonly direction: TrustBankStatementLineDirection;
+  readonly amountMinor: number;
+  readonly description: string;
+  readonly reference: string | null;
+  readonly counterpartyName: string | null;
+  readonly sourceRowNumber: number | null;
+}
+
+// One thing the firm recorded that moved the trust bank balance, keyed by the LEDGER ENTRY rather
+// than by a movement: an earned-fee transfer out of trust posts a bank-affecting entry and no
+// movement row at all, so an outstanding list built from movements would never show one.
+// `bankDeltaMinor` is signed from the account holder's side — positive put money in.
+export interface TrustBankItem {
+  readonly entryId: LedgerEntryId;
+  readonly effectiveDate: string;
+  readonly description: string;
+  readonly bankDeltaMinor: number;
+  readonly movementId: TrustMovementId | null;
+  readonly movementKind: TrustMovementKind | null;
+  readonly transferId: TrustTransferId | null;
+  readonly reference: string | null;
+  readonly counterpartyName: string | null;
+}
+
+// Which pair of legs disagreed, and by how much. `bank-to-book` compares the adjusted bank balance
+// with the trust bank account's own book balance; `book-to-client` compares that book balance with
+// the sum of the client ledgers under it. Naming the leg is the point: the two failures have
+// completely different causes, and a single "out by $412" tells a firm nothing about where to look.
+export const TRUST_RECONCILIATION_LEGS = ["bank-to-book", "book-to-client"] as const;
+export type TrustReconciliationLeg = (typeof TRUST_RECONCILIATION_LEGS)[number];
+
+export interface TrustReconciliationDisagreement {
+  readonly leg: TrustReconciliationLeg;
+  // Signed: the first named side minus the second, so the sign says which way it is out.
+  readonly differenceMinor: number;
+}
+
+// The proof. Three totals as of the statement's period end, the items that explain the gap between
+// the bank's figure and the firm's, and — when they do not agree — exactly which leg is out and by
+// how much. `balanced` is never forced: a proof that does not tie out reports so.
+export interface TrustThreeWayProof {
+  readonly trustAccountId: TrustAccountId;
+  readonly statementId: TrustBankStatementId;
+  readonly asOfDate: string;
+  readonly currency: string;
+  readonly statementClosingMinor: number;
+  // Recorded on or before the period end, moving money INTO the bank, that no statement line clears.
+  readonly outstandingDeposits: readonly TrustBankItem[];
+  readonly outstandingDepositsMinor: number;
+  // The same, moving money OUT — the outstanding checks of the classic bank reconciliation.
+  readonly outstandingDisbursements: readonly TrustBankItem[];
+  readonly outstandingDisbursementsMinor: number;
+  readonly adjustedBankMinor: number;
+  readonly bookBalanceMinor: number;
+  readonly clientLedgerTotalMinor: number;
+  // Lines on the statement nobody has tied to a recorded entry. A first-class outcome, not an
+  // error state: an unmatched line is frequently the bank fee or returned deposit the firm never
+  // recorded, which is the single most valuable thing a reconciliation finds.
+  readonly unmatchedStatementLines: readonly TrustBankStatementLineSnapshot[];
+  readonly balanced: boolean;
+  readonly disagreements: readonly TrustReconciliationDisagreement[];
+}
+
+export interface TrustFrozenProof {
+  readonly statementClosingMinor: number;
+  readonly outstandingDepositsMinor: number;
+  readonly outstandingDisbursementsMinor: number;
+  readonly adjustedBankMinor: number;
+  readonly bookBalanceMinor: number;
+  readonly clientLedgerTotalMinor: number;
+  readonly unmatchedLineCount: number;
+  readonly unmatchedItemCount: number;
+  readonly balanced: boolean;
+}
+
+export interface TrustReconciliationSnapshot {
+  readonly id: TrustReconciliationId;
+  readonly trustAccountId: TrustAccountId;
+  readonly statementId: TrustBankStatementId;
+  readonly status: TrustReconciliationStatus;
+  readonly openedBy: UserId;
+  readonly openedAt: string;
+  readonly closedBy: UserId | null;
+  readonly closedAt: string | null;
+  // Absent while the reconciliation is open. Once present it never changes: it is what the proof
+  // said at the moment somebody attested to it, and a posting made afterwards must not rewrite it.
+  readonly frozenProof: TrustFrozenProof | null;
+  readonly supersedesReconciliationId: TrustReconciliationId | null;
+  readonly note: string | null;
+}
+
+export interface TrustReconciliationMatchSnapshot {
+  readonly id: TrustReconciliationMatchId;
+  readonly reconciliationId: TrustReconciliationId;
+  readonly statementLineId: TrustBankStatementLineId;
+  readonly entryId: LedgerEntryId;
+  readonly unmatchesMatchId: TrustReconciliationMatchId | null;
+  readonly unmatchedByMatchId: TrustReconciliationMatchId | null; // derived from the link
+  readonly matchedBy: UserId;
+  readonly matchedAt: string;
+}
+
+// Why the matcher thinks a line and an item might be the same event. Every reason is a fact a person
+// can check against the two rows in front of them; there is no opaque score, because a suggestion
+// nobody can audit is a suggestion that gets confirmed without being read.
+export const TRUST_MATCH_SIGNALS = [
+  "amount-equal",
+  "same-day",
+  "within-window",
+  "reference-equal",
+  "counterparty-similar",
+] as const;
+export type TrustMatchSignal = (typeof TRUST_MATCH_SIGNALS)[number];
+
+export interface TrustMatchSuggestion {
+  readonly statementLineId: TrustBankStatementLineId;
+  readonly entryId: LedgerEntryId;
+  readonly signals: readonly TrustMatchSignal[];
+  // Days between the bank's posting date and the entry's effective date, signed: the bank posted
+  // this many days after the firm recorded it.
+  readonly dayGap: number;
+}
+
+// A line the import parsed, and one it could not. A rejected row carries its number and the reason,
+// because the person fixing it is looking at a file on their own machine and needs to be told which
+// row to open.
+export interface TrustStatementImportRow {
+  readonly rowNumber: number;
+  readonly postedOn: string;
+  readonly direction: TrustBankStatementLineDirection;
+  readonly amountMinor: number;
+  readonly description: string;
+  readonly reference: string | null;
+  readonly counterpartyName: string | null;
+}
+
+export interface TrustStatementImportRejection {
+  readonly rowNumber: number;
+  readonly reason: string;
+}
+
+// What a file contains, reported BEFORE anything is stored and independently of whether anything
+// ever is. The preview is the decision surface: it says what was found, what each row would become,
+// what cannot be carried across, and what the totals imply — and storing any of it takes a separate,
+// explicit confirmation carrying this preview's fingerprint.
+export interface TrustStatementImportPreview {
+  readonly columnMapping: Readonly<Record<string, string>>;
+  readonly rows: readonly TrustStatementImportRow[];
+  readonly rejections: readonly TrustStatementImportRejection[];
+  readonly depositTotalMinor: number;
+  readonly withdrawalTotalMinor: number;
+  readonly earliestPostedOn: string | null;
+  readonly latestPostedOn: string | null;
+  // Identifies exactly these parsed rows. A confirmation quoting a different fingerprint is refused,
+  // so a person can never confirm one preview and have a different file stored.
+  readonly fingerprint: string;
+}
+
+// What actually happened, reported after the run — the other half of the same posture the preview
+// serves. A firm sees what was found before it decides and what was stored after it did.
+export interface TrustStatementImportReport {
+  readonly statementId: TrustBankStatementId;
+  readonly linesRecorded: number;
+  readonly rowsRejected: number;
+  readonly depositTotalMinor: number;
+  readonly withdrawalTotalMinor: number;
 }
