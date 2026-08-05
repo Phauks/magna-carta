@@ -173,25 +173,53 @@ export function assertTrustComposition(
     );
   }
 
-  // Every trust entry touches the book side and the client side, which is what makes the two agree
-  // BY CONSTRUCTION instead of by a nightly job: the trust-bank leaf's balance and the sum of the
-  // matter leaves under the same root move together on every single entry, or the entry is refused.
-  if (!lineRoles.some((role) => role.kind === "bank")) {
-    throw new TrustValidationError(
-      "missing-trust-bank-line",
-      "a trust entry must touch the trust bank account — the book side of the reconciliation",
-    );
-  }
+  // Every trust entry touches the client side. Without a matter leaf there is no client ledger for
+  // the movement to appear on, and the entry is a bank-only movement the trust door cannot explain.
   if (matterRoles.length === 0) {
     throw new TrustValidationError(
       "missing-client-line",
       "a trust entry must touch a matter leaf — the client side of the reconciliation",
     );
   }
+
+  // Two shapes are legitimate, and every other kind of line has already been refused above, so the
+  // remaining lines are matter leaves and the trust bank leaf, nothing else.
+  //
+  // MONEY MOVED AT THE BANK: the entry touches the trust bank leaf and at least one matter leaf.
+  // That pairing is what makes the book side and the client side agree BY CONSTRUCTION instead of by
+  // a nightly job — the bank leaf's balance and the sum of the matter leaves under the same root
+  // move together on every such entry.
+  //
+  // MONEY DID NOT MOVE AT THE BANK: a reallocation between matter leaves, which is the movement a
+  // firm makes when funds were received against the wrong matter of the same client, or when one
+  // matter of a client funds another. The bank balance is unchanged because no bank movement
+  // happened, and the client-side total is unchanged because the debit and the credit are both
+  // inside it — so the two sides still agree, and posting a matching pair of offsetting bank lines
+  // instead would invent two items that would sit uncleared on a reconciliation forever.
+  if (!lineRoles.some((role) => role.kind === "bank")) {
+    const nodeIds = new Set(matterRoles.map((role) => role.nodeId));
+    if (nodeIds.size < 2) {
+      throw new TrustValidationError(
+        "single-node-reallocation",
+        "an entry that never touches the trust bank must move funds BETWEEN matter leaves; debiting and crediting one leaf moves nothing",
+      );
+    }
+  }
 }
 
 export interface ComposeTrustEntryResult extends PostedEntry {
   readonly trustAccountId: TrustAccountId;
+}
+
+export interface ComposeTrustEntryOptions extends PostEntryOptions {
+  // Trust nodes THIS SAME effect creates, which the role read cannot see yet — the trust-side twin
+  // of the ledger's pendingAccounts. A matter leaf built lazily at its first deposit would otherwise
+  // resolve to "outside" and the deposit would be refused as commingled, which is the guard doing
+  // its job on incomplete information rather than a real violation. It is a declaration a composer
+  // makes about a row it is itself writing in this batch, so it is only ever as true as that
+  // composer; commingledTrustEntriesStatement (fitness.ts) re-proves the rule over stored lines
+  // afterwards, which is what makes a wrong declaration detectable rather than permanent.
+  readonly pendingRoles?: ReadonlyMap<string, TrustAccountRole>;
 }
 
 // Read the roles, assert the trust rules, then hand off to the ledger — which independently
@@ -201,10 +229,15 @@ export interface ComposeTrustEntryResult extends PostedEntry {
 export async function composeTrustEntry(
   database: SqlDatabase,
   input: PostEntryInput,
-  options: PostEntryOptions,
+  options: ComposeTrustEntryOptions,
 ): Promise<ComposeTrustEntryResult> {
   const accountIds = [...new Set(input.lines.map((line) => line.accountId))];
   const roles = await loadTrustAccountRoles(database, accountIds);
+  // A stored role always wins over a declared one: an account the read found is registered, and a
+  // caller claiming otherwise must not be able to talk the guard out of what the database says.
+  for (const [accountId, role] of options.pendingRoles ?? []) {
+    if (roles.get(accountId)?.kind === "outside") roles.set(accountId, role);
+  }
   assertTrustComposition(input, roles);
   const owningRole = accountIds
     .map((accountId) => roles.get(accountId))

@@ -202,6 +202,19 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "retain-under-matter",
     note: "whose money the firm holds is the record that makes it returnable, and the record a bar examiner asks for",
   },
+  // The movement record's counterparty is who the money came from or went to, written as free text
+  // rather than as a Directory link — the payee on a trust check is frequently not a contact the
+  // firm holds, and a required link would push firms into inventing entities. So there is no
+  // structured subject to resolve, which puts it in the residue class alongside custody_item's
+  // description and the time-entry narrative: surfaced in the report rather than auto-erased. Its
+  // retention basis is stronger than most of that class — the payee is one of the columns the trust
+  // record-keeping rules name for the client ledger, on a row that is append-only by trigger.
+  {
+    table: "trust_movement",
+    subjectKey: "counterparty_name",
+    action: "report-manual",
+    note: "the source or payee on a client-ledger record the rules require the firm to keep, held as free text with no structured subject",
+  },
 ];
 
 // Per-firm tables that hold NO personal data — the explicit non-PII half of the coverage fitness.

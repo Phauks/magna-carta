@@ -349,3 +349,26 @@ export async function loadTrustNode(
   }
   return toNodeSnapshot(row);
 }
+
+// A matter's existing leaf, refusing rather than creating one. Money can only leave a ledger that
+// already holds some, so a payout path that lazily created its own source leaf would be composing a
+// refusal out of an empty account it had just invented.
+export async function loadMatterTrustLeaf(
+  database: SqlDatabase,
+  trustAccountId: TrustAccountId,
+  matterId: MatterId,
+): Promise<TrustLedgerNodeSnapshot> {
+  const { results } = await selectTrustMatterNodeStatement(
+    database,
+    trustAccountId,
+    matterId,
+  ).all<TrustNodeRow>();
+  const row = results[0];
+  if (!row) {
+    throw new TrustValidationError(
+      "unknown-trust-node",
+      `matter ${matterId} holds no trust ledger under trust account ${trustAccountId}`,
+    );
+  }
+  return toNodeSnapshot(row);
+}

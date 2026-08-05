@@ -1,6 +1,11 @@
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import { ACCOUNT_BALANCE_TABLE, LEDGER_LINE_TABLE } from "@magna-carta/ledger/statements";
-import { TRUST_ACCOUNT_TABLE, TRUST_HOLD_TABLE, TRUST_LEDGER_NODE_TABLE } from "./statements.ts";
+import {
+  TRUST_ACCOUNT_TABLE,
+  TRUST_HOLD_TABLE,
+  TRUST_LEDGER_NODE_TABLE,
+  TRUST_MOVEMENT_TABLE,
+} from "./statements.ts";
 
 // Fitness queries: re-prove the trust invariants over the WHOLE table. Zero rows = healthy.
 //
@@ -70,12 +75,43 @@ export function trustHoldsExceedingBalanceStatement(database: SqlDatabase): SqlS
     .bind();
 }
 
+// A MOVEMENT RECORD DESCRIBES THE ENTRY IT SITS BESIDE. The client-ledger record and the money are
+// two rows written by one composer, and nothing in the schema ties their amounts together: a foreign
+// key proves the entry exists, not that it moved what the record says it moved. A row here means the
+// per-client ledger a firm hands an examiner disagrees with the ledger that actually holds the
+// money, which is worse than either being wrong alone.
+export function trustMovementsDisagreeingWithLedgerStatement(database: SqlDatabase): SqlStatement {
+  return database
+    .prepare(
+      `SELECT v.id AS movement_id, v.amount_minor AS amount_minor FROM ${TRUST_MOVEMENT_TABLE} v JOIN ${TRUST_LEDGER_NODE_TABLE} n ON n.id = v.node_id WHERE NOT EXISTS (SELECT 1 FROM ${LEDGER_LINE_TABLE} l WHERE l.entry_id = v.entry_id AND l.account_id = n.ledger_account_id AND l.amount_minor = v.amount_minor)`,
+    )
+    .bind();
+}
+
+// A MATTER TRANSFER REACHES BOTH LEAVES IT NAMES. The destination leaf is what makes the movement a
+// reallocation rather than a disappearance, and a transfer whose entry never credited it would show
+// funds leaving one client ledger and arriving on none.
+export function trustTransfersMissingCounterpartyLineStatement(
+  database: SqlDatabase,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT v.id AS movement_id FROM ${TRUST_MOVEMENT_TABLE} v JOIN ${TRUST_LEDGER_NODE_TABLE} n ON n.id = v.counterparty_node_id WHERE v.counterparty_node_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM ${LEDGER_LINE_TABLE} l WHERE l.entry_id = v.entry_id AND l.account_id = n.ledger_account_id AND l.amount_minor = v.amount_minor)`,
+    )
+    .bind();
+}
+
 const FITNESS_STATEMENTS = [
   ["commingled trust entries", commingledTrustEntriesStatement],
   ["entries touching more than one client", multiClientTrustEntriesStatement],
   ["trust leaves without a zero floor", trustLeavesWithoutZeroFloorStatement],
   ["roll-up nodes carrying postings", trustRollupNodesWithPostingsStatement],
   ["holds exceeding the balance they restrict", trustHoldsExceedingBalanceStatement],
+  ["movement records disagreeing with the ledger", trustMovementsDisagreeingWithLedgerStatement],
+  [
+    "matter transfers missing their destination line",
+    trustTransfersMissingCounterpartyLineStatement,
+  ],
 ] as const;
 
 // The one proof call sites use. Every query runs, so a query added above is automatically part of

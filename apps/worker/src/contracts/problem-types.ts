@@ -114,6 +114,24 @@ export const PROBLEM_TYPES = {
   // job-progress endpoints push transitions over a socket; the polling endpoint beside each one is
   // the answer for a client that cannot or does not want to upgrade, and the detail names it.
   "websocket-upgrade-required": "websocket-upgrade-required",
+  // A trust movement larger than the client ledger's AVAILABLE balance (HTTP 409). Available is the
+  // stored balance minus the active disputed-funds holds, so this fires on a ledger that still shows
+  // a positive balance — a disputed portion under hold is not money the firm may pay out. DISTINCT
+  // from `validation`: the request is well-formed and the amount is a real number; the money is not
+  // there to move.
+  "trust-insufficient-available": "trust-insufficient-available",
+  // A trust movement the trust rules refuse on their own terms (HTTP 422): an entry that would mix
+  // two clients' funds, a movement onto a roll-up rather than a matter leaf, a transfer whose two
+  // ends are the same matter, a currency the account does not hold, or a payment method the account's
+  // jurisdiction forbids. DISTINCT from `validation` (request-shape) — the request is well-formed;
+  // the trust rules refuse what it asks for.
+  "trust-movement-refused": "trust-movement-refused",
+  // A trust account whose office recorded no jurisdiction, or whose jurisdiction has no reviewed
+  // rules encoded (HTTP 422). Deliberately one problem type carrying two distinct details, because
+  // they are fixed differently: the first by recording the office's state, the second by researching
+  // and reviewing that jurisdiction. Neither ever resolves to a baseline — a wrong silence about a
+  // trust rule states a wrong fact to a lawyer who will act on it.
+  "trust-jurisdiction-unavailable": "trust-jurisdiction-unavailable",
   // A required downstream service is absent or unreachable (HTTP 503): the worker cannot fulfil
   // the request because a backing worker service binding is not configured. Callers should retry
   // after a short delay; the condition resolves when the binding is activated at deploy time.

@@ -30,7 +30,14 @@ export const mergeEffects = (...effects: readonly EffectWrite[]): EffectWrite =>
   outboxMessages: effects.flatMap((effect) => [...effect.outboxMessages]),
 });
 
-export async function trustFixture() {
+// The office's jurisdiction defaults to unrecorded, which is what the structural-guard suites want:
+// they prove the composition rules and must not depend on a jurisdiction being present. The movement
+// suites pass one, because a movement on an account with no recorded jurisdiction refuses by design.
+export interface TrustFixtureOptions {
+  readonly jurisdiction?: string | null;
+}
+
+export async function trustFixture(fixtureOptions: TrustFixtureOptions = {}) {
   const database: BatchDatabase = createMigratedNodeDatabase("per-firm").database;
   // node:sqlite enforces foreign keys, so the office and the member a matter hangs off have to be
   // real rows — which is the right substrate: the trust tables' references are load-bearing.
@@ -53,7 +60,7 @@ export async function trustFixture() {
     {
       name: "IOLTA — Reno",
       locationId,
-      jurisdiction: null,
+      jurisdiction: fixtureOptions.jurisdiction ?? null,
       currency: "USD",
       openedOn: "2026-08-01",
     },
@@ -94,6 +101,22 @@ export async function trustFixture() {
     accountsReceivableAccountId: accountsReceivable.accountId,
     processorFeeAccountId: processorFeeExpense.accountId,
   };
+}
+
+// A matter row only — no trust leaf. The movement suites need this because a deposit CREATES the
+// leaf, and node:sqlite enforces the trust node's foreign key to the matter.
+export async function seedMatter(
+  fixture: Awaited<ReturnType<typeof trustFixture>>,
+  label: string,
+): Promise<MatterId> {
+  const matterId = newIdentifier("matter") as MatterId;
+  await fixture.database
+    .prepare(
+      "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, ?2, 'open', ?3, ?4, ?4)",
+    )
+    .bind(matterId, `${label} matter`, fixture.memberUserId, clock.now())
+    .run();
+  return matterId;
 }
 
 export interface SeededMatterLeaf {

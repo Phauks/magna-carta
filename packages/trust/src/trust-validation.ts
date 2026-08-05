@@ -14,9 +14,15 @@ export type TrustValidationCode =
   | "posting-to-liability-root"
   | "posting-to-client-node"
   | "firm-funds-node-not-enabled"
-  | "missing-trust-bank-line"
   | "missing-client-line"
   | "multiple-clients-on-entry"
+  | "single-node-reallocation"
+  // Movements
+  | "movement-currency-mismatch"
+  | "movement-exceeds-available"
+  | "movement-node-is-not-a-matter-leaf"
+  | "movement-transfer-to-same-node"
+  | "movement-method-not-permitted"
   // Holds and available balance
   | "hold-exceeds-available"
   | "unknown-hold"
