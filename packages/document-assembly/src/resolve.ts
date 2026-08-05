@@ -16,6 +16,7 @@ import {
   type CustomFieldValueColumns,
 } from "./custom-field-statements.ts";
 import { lookupDictionaryEntry, type DictionaryEntry } from "./dictionary.ts";
+import { directoryRoleSourcesIn, directoryRoleValues } from "./directory-role-bindings.ts";
 import { heightForWidth, readImageFacts } from "./ooxml/image.ts";
 import {
   selectLocationForMergeStatement,
@@ -138,10 +139,11 @@ function customFieldHandlesFor(manifest: FieldManifest): string[] {
   return [...handles].sort();
 }
 
-// Whether the manifest asks for a particular key anywhere. A collection is read only when something
-// walks it — a repeat is a read, and a template with no repeat pays for none.
-function manifestWants(manifest: FieldManifest, key: string): boolean {
-  return manifestKeys(manifest).includes(key);
+// The keys a manifest names, as a set built ONCE per resolution. Every "does this template ask for X"
+// question below is a membership test against it — asking the manifest each time would walk every
+// placeholder per question, which is the same per-field shape the batching rule forbids of reads.
+function manifestKeySet(manifest: FieldManifest): ReadonlySet<string> {
+  return new Set(manifestKeys(manifest));
 }
 
 function textValue(text: string | null): MergeValue | undefined {
@@ -152,10 +154,10 @@ function instantValue(isoInstant: string | null): MergeValue | undefined {
   return isoInstant === null || isoInstant === "" ? undefined : { kind: "instant", isoInstant };
 }
 
-// The matter row supplies both the `matter` source and the slice-1 `party` source: a matter records its
-// client's display name and code directly, so the client party costs no second read. Directory role links
-// (`opposing.*`, `counsel.*`, and the rest) arrive in slice 2·6·2 as one further batched read over the
-// matter's party links — one read for every role the manifest mentions, never one per role.
+// The matter row supplies both the `matter` source and the client half of the `party` source: a matter
+// records its client's display name and code directly, so the client party costs no second read. Every
+// OTHER role (`opposingParty.*`, `opposingCounsel.*`, and the rest) comes out of the one party-collection
+// read below — one read for every role a manifest mentions, never one per role.
 function valuesFromMatter(matter: MatterMergeRow, into: Map<string, MergeValue>): void {
   const set = (key: string, value: MergeValue | undefined): void => {
     if (value !== undefined) into.set(key, value);
@@ -221,7 +223,9 @@ export async function resolveMergeContext(
   input: ResolutionInput,
 ): Promise<ResolutionResult> {
   const sources = sourcesFor(input.manifest, input.dictionary);
+  const wantedKeys = manifestKeySet(input.manifest);
   const values = new Map<string, MergeValue>();
+  const absenceReasons = new Map<string, string>();
   const reads: MergeSource[] = [];
 
   // The location is the matter's, so a manifest that names a location field needs the matter row too —
@@ -243,25 +247,37 @@ export async function resolveMergeContext(
     valuesFromMatter(matter, values);
   }
 
-  // The matter's parties: ONE read for the whole collection, never one per item. Repeats are the first
-  // list-valued source, so this is where the batching rule meets its first real test.
-  if (manifestWants(input.manifest, "matter.parties")) {
+  // The matter's parties: ONE read for the whole collection, never one per item, and never one per role.
+  //
+  // Every Directory role source is answered from THIS read. `opposingParty.displayName` is a pass over
+  // an array already in memory, not a query of its own, which is what keeps the cost of role sources
+  // tracking the number of SOURCES rather than the number of roles a template happens to name — a
+  // per-role query would be the same N+1 in a new place. Filtering by role in SQL would buy nothing: a
+  // matter's party list is the collection a repeat already walks whole, and one narrowed read per role
+  // is more reads, not fewer.
+  const roleSources = directoryRoleSourcesIn(wantedKeys);
+  if (wantedKeys.has("matter.parties") || roleSources.length > 0) {
     reads.push("party");
     const { results } = await selectMatterPartiesForMergeStatement(
       database,
       input.matterId,
     ).all<MatterPartyMergeColumns>();
-    const items: MergeListItem[] = results.map((row) => {
-      const party = toMatterPartyMergeRow(row);
-      const fields = new Map<string, MergeValue>([
-        ["role", { kind: "text", text: party.role }],
-        ["kind", { kind: "text", text: party.kind }],
-      ]);
-      const displayName = textValue(party.displayName);
-      if (displayName !== undefined) fields.set("displayName", displayName);
-      return { fields };
-    });
-    values.set("matter.parties", { kind: "list", items });
+    const parties = results.map(toMatterPartyMergeRow);
+    if (wantedKeys.has("matter.parties")) {
+      const items: MergeListItem[] = parties.map((party) => {
+        const fields = new Map<string, MergeValue>([
+          ["role", { kind: "text", text: party.role }],
+          ["kind", { kind: "text", text: party.kind }],
+        ]);
+        const displayName = textValue(party.displayName);
+        if (displayName !== undefined) fields.set("displayName", displayName);
+        return { fields };
+      });
+      values.set("matter.parties", { kind: "list", items });
+    }
+    const roles = directoryRoleValues(parties, roleSources, wantedKeys);
+    for (const [key, value] of roles.values) values.set(key, value);
+    for (const [key, reason] of roles.reasons) absenceReasons.set(key, reason);
   }
 
   let location: LocationMergeRow | undefined;
@@ -314,7 +330,7 @@ export async function resolveMergeContext(
   // The letterhead logo's bytes. Fetched only when the template actually draws one, and only after the
   // location row said there is one to fetch — an object-store round trip is the most expensive thing
   // resolution can do, and a template with no logo placeholder pays for none of it.
-  if (manifestWants(input.manifest, "location.letterheadLogo")) {
+  if (wantedKeys.has("location.letterheadLogo")) {
     const image = await resolveLetterheadLogo(location, input.readImageAsset);
     if (image !== undefined) values.set("location.letterheadLogo", image);
   }
@@ -322,6 +338,11 @@ export async function resolveMergeContext(
   // Absence is computed against what the MANIFEST asked for, not against the dictionary as a whole: a
   // key a template never uses is not missing from that template's assembly.
   const absentKeys = manifestKeys(input.manifest).filter((key) => !values.has(key));
+  // A reason for a key that resolved after all is not a reason for anything — drop it rather than carry
+  // an explanation of an absence that did not happen.
+  for (const key of absenceReasons.keys()) {
+    if (values.has(key)) absenceReasons.delete(key);
+  }
 
-  return { ok: true, context: { values, absentKeys, timeZone }, reads };
+  return { ok: true, context: { values, absentKeys, absenceReasons, timeZone }, reads };
 }

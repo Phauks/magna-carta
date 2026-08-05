@@ -159,21 +159,23 @@ const PARTY_FIELDS: readonly MergeFieldEntry[] = [
     exampleRendering: "Halverson Mills LLC",
     availability: "conditional",
     availabilityNote:
-      "Filled when the matter links an opposing party; absent on a matter with none.",
+      "Filled when the matter links exactly one opposing party; absent on a matter with none, and " +
+      "absent with the count reported when it links more than one.",
     sensitivity: "ordinary",
     formats: ["plain", "upper", "titleCase"],
   },
   {
-    key: "opposingCounsel.firmName",
-    label: "Opposing counsel firm",
+    key: "opposingCounsel.displayName",
+    label: "Opposing counsel name",
     group: "parties",
     valueType: "text",
-    description: "The firm representing the opposing party.",
+    description: "The name of the firm or lawyer representing the opposing party.",
     exampleRendering: "Prentiss and Dowd LLP",
     availability: "conditional",
-    availabilityNote: "Filled when opposing counsel is linked to the matter.",
+    availabilityNote:
+      "Filled when the matter links exactly one opposing counsel; absent on a matter with none.",
     sensitivity: "ordinary",
-    formats: ["plain", "upper"],
+    formats: ["plain", "upper", "titleCase"],
   },
   {
     key: "client.taxIdentifier",
@@ -455,7 +457,7 @@ const FIXTURE_MANIFESTS: readonly TemplateFieldManifest[] = [
       { key: "client.displayName", occurrences: 2 },
       { key: "matter.number", occurrences: 1 },
       { key: "opposingParty.displayName", occurrences: 2 },
-      { key: "opposingCounsel.firmName", occurrences: 1 },
+      { key: "opposingCounsel.displayName", occurrences: 1 },
       { key: "matter.retainerAmount", occurrences: 1, format: "currencyWords" },
       { key: "client.taxIdentifier", occurrences: 1, format: "masked" },
       { key: "system.today", occurrences: 1, format: "long" },

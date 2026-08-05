@@ -115,9 +115,16 @@ export const documentAssemblyJobs = defineMetric("documentAssembly.jobs", [
   "stage",
 ] as const);
 // How often each dictionary source fails to resolve — the signal that a firm's templates and a firm's
-// data have drifted apart, which is the condition the field inspector exists to repair.
+// data have drifted apart, which is the condition the field inspector exists to repair. `cause`
+// separates the two ways that happens, because they call for opposite repairs: `no-value` is data the
+// firm has not recorded, while `unresolvable` is a question the firm's data cannot answer as asked —
+// a matter with two parties in one Directory role has no single one to name, and the template wants a
+// repeating block rather than a data entry. Enum-like, and never the key: a firm's own custom-field
+// entries are keyed by firm-defined handles, and a rule that admits one key and not the other is a rule
+// that gets applied wrongly.
 export const documentAssemblyAbsentField = defineMetric("documentAssembly.absentField", [
   "source",
+  "cause",
 ] as const);
 // How often an assembly produces a document containing a Word merge field nobody converted, which
 // therefore prints Word's frozen cached text instead of a merged value. The counterpart to the absent

@@ -9,10 +9,10 @@ built: done by="Opus 4.8"
 ui: todo
 load-profile: done by="Opus 4.8"
 tested: done by="Opus 4.8"
-next: Directory role sources (`opposing.*`, `counsel.*`) through the matter's party links, and protected-value binding through the decrypt-permission-plus-audit path. Then PDF output and the signature hand-off (2·6·3), a location time-zone column behind timeZoneForLocation, a firm currency setting behind ResolutionInput.currencyCode, and the office-settings UI for the letterhead logo.
+next: Protected-value binding through the decrypt-permission-plus-audit path. Then PDF output and the signature hand-off (2·6·3), a location time-zone column behind timeZoneForLocation, a firm currency setting behind ResolutionInput.currencyCode, and the office-settings UI for the letterhead logo.
 link-spec: docs/specs/2026-08-04-template-expression-language-design.md
 link-plan: docs/specs/2026-08-04-document-automation-implementation-plan.md
-adrs: ADR-0210, ADR-0211, ADR-0217, ADR-0218, ADR-template-expression-realization
+adrs: ADR-0210, ADR-0211, ADR-0217, ADR-0218, ADR-template-expression-realization, ADR-document-automation-directory-role-sources
 blocked-by:
 ---
 
@@ -122,10 +122,28 @@ of fields, so a per-field resolver reintroduced later shows up as a curve rather
 
 The declared-field count per template version is bounded by the dictionary rather than by the profile:
 a manifest field is keyed by its merge key, so the probe template declares every key the firm has for
-that matter — 17 platform keys plus its 40 custom bindings, at 113 placeholder occurrences. The number
-the batching rule is about is the 40-handle bound-parameter list of the one value statement, and that
-is the parameter the profile carries.
+that matter — every platform key the dictionary carries (17 at the time it was laid down, 29 once the
+Directory role sources landed) plus its 40 custom bindings. The number the batching rule is about is the
+40-handle bound-parameter list of the one value statement, and that is the parameter the profile carries;
+the platform half widens whenever the dictionary does, without moving the read count.
 
-Remaining for the subsystem: Directory role sources and protected-value binding, PDF output and the
-signature hand-off (2·6·3), authoring surfaces (2·6·4), the office-settings UI for the logo, and the
-interface seams.
+The **Directory role sources** shipped next, closing the first of the two named seams. Four
+platform-declared roles — `opposingParty`, `opposingCounsel`, `guardian`, `witness` — each contribute a
+name, a person-or-organisation kind, and a `<role>.all` collection, so a caption names the opposing party
+the way it already names the client and a repeat lists them all. The set is PLATFORM-DECLARED rather than
+derived from the firm's `directory_party_role` catalogue: a custom field binds by a minted handle
+precisely because its name is firm-typed text, and a role has no handle — only the words a firm typed,
+which neither lex as one atom nor get typed from memory. Matching is by normalization instead, both sides
+lowercased with every non-alphanumeric character removed, so `opposing_party`, `Opposing Party`, and
+`opposing-party` are one role and no two shipped sources may normalize alike (a fitness test, not care).
+**Ambiguity is an answer:** a matter linking three opposing parties resolves the singular keys to nothing
+and says there were three, rather than taking the first by created-at — a document naming the wrong
+defendant is the mistake nobody catches by reading it. The reason rides a new `absenceReasons` channel on
+the merge context through to `AssemblyAbsence.reason` and into the failure text of a condition that could
+not be worked out, and is deliberately NOT persisted: the provenance row records absent KEYS, and a count
+of a matter's parties is the matter's data. No new read — every role is derived from the party collection
+the merge context already fetched, so a template naming four roles costs what one naming none did, and
+the four measured plans are untouched index walks.
+
+Remaining for the subsystem: protected-value binding, PDF output and the signature hand-off (2·6·3),
+authoring surfaces (2·6·4), the office-settings UI for the logo, and the interface seams.
