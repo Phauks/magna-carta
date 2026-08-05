@@ -6,18 +6,20 @@ import type {
   TrustAccountId,
   TrustHoldId,
   TrustLedgerNodeId,
+  TrustMovementId,
   TrustTransferId,
   UserId,
 } from "@magna-carta/identifiers/types";
 import { ACCOUNT_BALANCE_TABLE, MAX_BOUND_PARAMETERS } from "@magna-carta/ledger/statements";
 import { assertSafeInteger } from "@magna-carta/money/money";
-import type { TrustNodeKind } from "./types.ts";
+import type { TrustMovementKind, TrustMovementMethod, TrustNodeKind } from "./types.ts";
 
 // Table names tracked against @magna-carta/database's schema by the schema-name-sync test.
 export const TRUST_ACCOUNT_TABLE = "trust_account";
 export const TRUST_LEDGER_NODE_TABLE = "trust_ledger_node";
 export const TRUST_HOLD_TABLE = "trust_hold";
 export const TRUST_TRANSFER_TABLE = "trust_transfer";
+export const TRUST_MOVEMENT_TABLE = "trust_movement";
 
 // SQLite stores a float or NaN in an INTEGER column without complaint, silently corrupting an
 // amount. Every minor-unit number is asserted at the last boundary before SQL through the money
@@ -262,4 +264,80 @@ export function insertTrustTransferStatement(
       row.effectiveDate,
       row.recordedAt,
     );
+}
+
+export interface InsertTrustMovementRow {
+  readonly id: TrustMovementId;
+  readonly trustAccountId: TrustAccountId;
+  readonly kind: TrustMovementKind;
+  readonly nodeId: TrustLedgerNodeId;
+  readonly counterpartyNodeId: TrustLedgerNodeId | null;
+  readonly amountMinor: number;
+  readonly currency: string;
+  readonly entryId: LedgerEntryId;
+  readonly method: TrustMovementMethod;
+  readonly reference: string | null;
+  readonly counterpartyName: string | null;
+  readonly purpose: string;
+  readonly recordedBy: UserId;
+  readonly authorizedBy: UserId | null;
+  readonly effectiveDate: string;
+  readonly recordedAt: string;
+}
+
+// The client-ledger record beside a trust entry. The shape CHECK on the table decides which columns
+// each kind may carry, so nothing here has to remember the combinations — a movement row that lies
+// about itself aborts the batch that carries the entry it describes.
+export function insertTrustMovementStatement(
+  database: SqlDatabase,
+  row: InsertTrustMovementRow,
+): SqlStatement {
+  return database
+    .prepare(
+      `INSERT INTO ${TRUST_MOVEMENT_TABLE} (id, trust_account_id, kind, node_id, counterparty_node_id, amount_minor, currency, entry_id, method, reference, counterparty_name, purpose, recorded_by, authorized_by, effective_date, recorded_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)`,
+    )
+    .bind(
+      row.id,
+      row.trustAccountId,
+      row.kind,
+      row.nodeId,
+      row.counterpartyNodeId,
+      assertMinorUnits(row.amountMinor, "movement amount_minor"),
+      row.currency,
+      row.entryId,
+      row.method,
+      row.reference,
+      row.counterpartyName,
+      row.purpose,
+      row.recordedBy,
+      row.authorizedBy,
+      row.effectiveDate,
+      row.recordedAt,
+    );
+}
+
+const MOVEMENT_COLUMNS = `id, trust_account_id, kind, node_id, counterparty_node_id, amount_minor, currency, entry_id, method, reference, counterparty_name, purpose, recorded_by, authorized_by, effective_date, recorded_at`;
+
+export function selectTrustMovementStatement(
+  database: SqlDatabase,
+  movementId: TrustMovementId,
+): SqlStatement {
+  return database
+    .prepare(`SELECT ${MOVEMENT_COLUMNS} FROM ${TRUST_MOVEMENT_TABLE} WHERE id = ?1`)
+    .bind(movementId);
+}
+
+// One matter leaf's client ledger, chronological — the report the record-keeping rules name. A
+// matter transfer appears on BOTH leaves it touches, which is why the node filter reaches the
+// counterparty too: the receiving leaf's ledger must show the funds arriving as plainly as the
+// source leaf shows them leaving.
+export function selectTrustMovementsForNodeStatement(
+  database: SqlDatabase,
+  nodeId: TrustLedgerNodeId,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT ${MOVEMENT_COLUMNS} FROM ${TRUST_MOVEMENT_TABLE} WHERE node_id = ?1 OR counterparty_node_id = ?1 ORDER BY effective_date, recorded_at, id`,
+    )
+    .bind(nodeId);
 }

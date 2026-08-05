@@ -6,6 +6,7 @@ import {
   trustAccount,
   trustHold,
   trustLedgerNode,
+  trustMovement,
   trustTransfer,
 } from "@magna-carta/database/per-firm-schema";
 import { describe, expect, it } from "vitest";
@@ -15,16 +16,20 @@ import {
   multiClientTrustEntriesStatement,
   trustHoldsExceedingBalanceStatement,
   trustLeavesWithoutZeroFloorStatement,
+  trustMovementsDisagreeingWithLedgerStatement,
   trustRollupNodesWithPostingsStatement,
+  trustTransfersMissingCounterpartyLineStatement,
 } from "../src/fitness.ts";
 import {
   TRUST_ACCOUNT_TABLE,
   TRUST_HOLD_TABLE,
   TRUST_LEDGER_NODE_TABLE,
+  TRUST_MOVEMENT_TABLE,
   TRUST_TRANSFER_TABLE,
   insertTrustAccountStatement,
   insertTrustHoldStatement,
   insertTrustLedgerNodeStatement,
+  insertTrustMovementStatement,
   insertTrustTransferStatement,
   selectTrustAccountRolesStatement,
   selectTrustAccountStatement,
@@ -32,9 +37,11 @@ import {
   selectTrustClientNodeStatement,
   selectTrustHoldStatement,
   selectTrustMatterNodeStatement,
+  selectTrustMovementStatement,
+  selectTrustMovementsForNodeStatement,
   selectTrustNodeStatement,
 } from "../src/statements.ts";
-import { TRUST_NODE_KINDS } from "../src/types.ts";
+import { TRUST_MOVEMENT_KINDS, TRUST_MOVEMENT_METHODS, TRUST_NODE_KINDS } from "../src/types.ts";
 
 // Fitness function: the raw SQL in this package must track @magna-carta/database's schema — the
 // single source of truth. Renaming a table or column there fails here, not in production.
@@ -70,6 +77,7 @@ const TRUST_ACCOUNT_ID = "trustAccount_x" as never;
 const NODE_ID = "trustLedgerNode_x" as never;
 const HOLD_ID = "trustHold_x" as never;
 const TRANSFER_ID = "trustTransfer_x" as never;
+const MOVEMENT_ID = "trustMovement_x" as never;
 const LEDGER_ACCOUNT_ID = "ledgerAccount_x" as never;
 const ENTRY_ID = "ledgerEntry_x" as never;
 
@@ -79,11 +87,22 @@ describe("schema name sync (trust SQL pinned to @magna-carta/database)", () => {
     expect(getTableConfig(trustLedgerNode).name).toBe(TRUST_LEDGER_NODE_TABLE);
     expect(getTableConfig(trustHold).name).toBe(TRUST_HOLD_TABLE);
     expect(getTableConfig(trustTransfer).name).toBe(TRUST_TRANSFER_TABLE);
+    expect(getTableConfig(trustMovement).name).toBe(TRUST_MOVEMENT_TABLE);
   });
 
   it("TRUST_NODE_KINDS matches the drizzle kind enum — one vocabulary, pinned across packages", () => {
     const kind = getTableConfig(trustLedgerNode).columns.find((column) => column.name === "kind");
     expect(kind?.enumValues).toEqual([...TRUST_NODE_KINDS]);
+  });
+
+  it("the movement kind and method vocabularies match the drizzle enums", () => {
+    const columns = getTableConfig(trustMovement).columns;
+    expect(columns.find((column) => column.name === "kind")?.enumValues).toEqual([
+      ...TRUST_MOVEMENT_KINDS,
+    ]);
+    expect(columns.find((column) => column.name === "method")?.enumValues).toEqual([
+      ...TRUST_MOVEMENT_METHODS,
+    ]);
   });
 
   it("every column the write statements name exists in the schema", () => {
@@ -138,6 +157,30 @@ describe("schema name sync (trust SQL pinned to @magna-carta/database)", () => {
         }),
       ),
     ].join("\n");
+    const movementSql = [
+      sqlOf(
+        insertTrustMovementStatement(stub, {
+          id: MOVEMENT_ID,
+          trustAccountId: TRUST_ACCOUNT_ID,
+          kind: "deposit",
+          nodeId: NODE_ID,
+          counterpartyNodeId: null,
+          amountMinor: 1,
+          currency: "USD",
+          entryId: ENTRY_ID,
+          method: "check",
+          reference: null,
+          counterpartyName: "source",
+          purpose: "p",
+          recordedBy: "user_x" as never,
+          authorizedBy: null,
+          effectiveDate: "2026-08-05",
+          recordedAt: "t",
+        }),
+      ),
+      sqlOf(selectTrustMovementStatement(stub, MOVEMENT_ID)),
+      sqlOf(selectTrustMovementsForNodeStatement(stub, NODE_ID)),
+    ].join("\n");
     const transferSql = sqlOf(
       insertTrustTransferStatement(stub, {
         id: TRANSFER_ID,
@@ -172,6 +215,11 @@ describe("schema name sync (trust SQL pinned to @magna-carta/database)", () => {
       transferSql,
       new Set([TRUST_TRANSFER_TABLE, ...columnsOf(trustTransfer)]),
       "trust transfer",
+    );
+    expectOnlyKnownIdentifiers(
+      movementSql,
+      new Set([TRUST_MOVEMENT_TABLE, ...columnsOf(trustMovement)]),
+      "trust movement",
     );
   });
 
@@ -218,6 +266,8 @@ describe("schema name sync (trust SQL pinned to @magna-carta/database)", () => {
       sqlOf(trustLeavesWithoutZeroFloorStatement(stub)),
       sqlOf(trustRollupNodesWithPostingsStatement(stub)),
       sqlOf(trustHoldsExceedingBalanceStatement(stub)),
+      sqlOf(trustMovementsDisagreeingWithLedgerStatement(stub)),
+      sqlOf(trustTransfersMissingCounterpartyLineStatement(stub)),
     ].join("\n");
     expectOnlyKnownIdentifiers(
       fitnessSql,
@@ -225,6 +275,7 @@ describe("schema name sync (trust SQL pinned to @magna-carta/database)", () => {
         TRUST_ACCOUNT_TABLE,
         TRUST_LEDGER_NODE_TABLE,
         TRUST_HOLD_TABLE,
+        TRUST_MOVEMENT_TABLE,
         "ledger_line",
         "account_balance",
         "a",
@@ -237,15 +288,18 @@ describe("schema name sync (trust SQL pinned to @magna-carta/database)", () => {
         "o",
         "p",
         "r",
+        "v",
         "account_id",
         "trust_account_id",
         "entry_id",
         "clients",
         "node_id",
+        "movement_id",
         "held_minor",
         ...columnsOf(trustAccount),
         ...columnsOf(trustLedgerNode),
         ...columnsOf(trustHold),
+        ...columnsOf(trustMovement),
         ...columnsOf(ledgerLine),
         ...columnsOf(accountBalance),
       ]),

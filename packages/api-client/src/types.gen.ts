@@ -1726,6 +1726,78 @@ export type AttachReceiptRequest = {
     fileId: string;
 };
 
+export type TrustMovementAck = {
+    trustMovementId: string;
+    ledgerEntryId: string;
+    trustLedgerNodeId: string;
+    counterpartyTrustLedgerNodeId: string | null;
+};
+
+export type TrustDepositRequest = {
+    trustAccountId: string;
+    matterId: string;
+    clientEntityId: string;
+    amountMinor: number;
+    currency: 'USD';
+    effectiveDate: string;
+    description: string;
+    method: 'check' | 'cash' | 'wire' | 'electronic_transfer' | 'card';
+    reference?: string | null;
+    source: string;
+    purpose: string;
+};
+
+export type TrustDisbursementRequest = {
+    trustAccountId: string;
+    matterId: string;
+    amountMinor: number;
+    currency: 'USD';
+    effectiveDate: string;
+    description: string;
+    method: 'check' | 'cash' | 'wire' | 'electronic_transfer' | 'card';
+    reference?: string | null;
+    payee: string;
+    purpose: string;
+};
+
+export type TrustMatterTransferRequest = {
+    trustAccountId: string;
+    fromMatterId: string;
+    toMatterId: string;
+    toClientEntityId: string;
+    amountMinor: number;
+    currency: 'USD';
+    effectiveDate: string;
+    description: string;
+    purpose: string;
+};
+
+export type TrustClientLedgerResponse = {
+    trustLedgerNodeId: string;
+    balanceMinor: number;
+    heldMinor: number;
+    availableMinor: number;
+    movements: Array<TrustMovementRecord>;
+};
+
+export type TrustMovementRecord = {
+    id: string;
+    kind: 'deposit' | 'disbursement' | 'matter_transfer';
+    trustLedgerNodeId: string;
+    counterpartyTrustLedgerNodeId: string | null;
+    amountMinor: number;
+    currency: string;
+    ledgerEntryId: string;
+    method: 'check' | 'cash' | 'wire' | 'electronic_transfer' | 'card' | 'internal';
+    reference: string | null;
+    counterpartyName: string | null;
+    purpose: string;
+    recordedBy: string;
+    authorizedBy: string | null;
+    effectiveDate: string;
+    recordedAt: string;
+};
+
 export type TimeEntryAck = {
     timeEntryId: string;
 };
@@ -10690,6 +10762,207 @@ export type CostsAttachReceiptResponses = {
 };
 
 export type CostsAttachReceiptResponse = CostsAttachReceiptResponses[keyof CostsAttachReceiptResponses];
+
+export type TrustDepositData = {
+    body: TrustDepositRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/trust/deposits';
+};
+
+export type TrustDepositErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account or matter ledger is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, or the movement exceeds the client ledger's available balance
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the trust rules refuse the movement, or the account's jurisdiction cannot be resolved
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustDepositError = TrustDepositErrors[keyof TrustDepositErrors];
+
+export type TrustDepositResponses = {
+    /**
+     * The deposit was recorded
+     */
+    201: TrustMovementAck;
+};
+
+export type TrustDepositResponse = TrustDepositResponses[keyof TrustDepositResponses];
+
+export type TrustDisburseData = {
+    body: TrustDisbursementRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/trust/disbursements';
+};
+
+export type TrustDisburseErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account or matter ledger is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, or the movement exceeds the client ledger's available balance
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the trust rules refuse the movement, or the account's jurisdiction cannot be resolved
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustDisburseError = TrustDisburseErrors[keyof TrustDisburseErrors];
+
+export type TrustDisburseResponses = {
+    /**
+     * The disbursement was recorded
+     */
+    201: TrustMovementAck;
+};
+
+export type TrustDisburseResponse = TrustDisburseResponses[keyof TrustDisburseResponses];
+
+export type TrustTransferBetweenMattersData = {
+    body: TrustMatterTransferRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/trust/matter-transfers';
+};
+
+export type TrustTransferBetweenMattersErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account or matter ledger is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, or the movement exceeds the client ledger's available balance
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the trust rules refuse the movement, or the account's jurisdiction cannot be resolved
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustTransferBetweenMattersError = TrustTransferBetweenMattersErrors[keyof TrustTransferBetweenMattersErrors];
+
+export type TrustTransferBetweenMattersResponses = {
+    /**
+     * The transfer was recorded
+     */
+    201: TrustMovementAck;
+};
+
+export type TrustTransferBetweenMattersResponse = TrustTransferBetweenMattersResponses[keyof TrustTransferBetweenMattersResponses];
+
+export type TrustMatterLedgerData = {
+    body?: never;
+    path: {
+        matterId: string;
+    };
+    query: {
+        trustAccountId: string;
+    };
+    url: '/api/v1/trust/matters/{matterId}/ledger';
+};
+
+export type TrustMatterLedgerErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account or matter ledger is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the trust rules refuse the movement, or the account's jurisdiction cannot be resolved
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustMatterLedgerError = TrustMatterLedgerErrors[keyof TrustMatterLedgerErrors];
+
+export type TrustMatterLedgerResponses = {
+    /**
+     * The matter's trust ledger
+     */
+    200: TrustClientLedgerResponse;
+};
+
+export type TrustMatterLedgerResponse = TrustMatterLedgerResponses[keyof TrustMatterLedgerResponses];
 
 export type TimeEntriesListData = {
     body?: never;

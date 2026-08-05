@@ -17,6 +17,8 @@ ADR-0072.) **Invariants:** [`docs/conventions/invariants.md`](../../docs/convent
   `loadTrustNode`, and `TRUST_LEAF_MINIMUM_BALANCE_MINOR` (the floor)
 - `src/composition-guard.ts` — `composeTrustEntry` + `assertTrustComposition`; **the** door
 - `src/holds.ts` — `placeTrustHold` / `releaseTrustHold` / `readTrustAvailableBalance`
+- `src/movements.ts` — `composeTrustDeposit` / `composeTrustDisbursement` /
+  `composeMatterToMatterTransfer` + the `TrustDisbursementMethodPolicy` port
 - `src/transfer.ts` — `composeTrustToOperatingTransfer` + the `EarnedFeePrecondition` port
 - `src/jurisdiction.ts` — the resolver contract and the refusing default
 - `src/fitness.ts` — re-proves the invariants over stored data
@@ -40,10 +42,19 @@ ADR-0072.) **Invariants:** [`docs/conventions/invariants.md`](../../docs/convent
   by calling `composeTrustEntry`, never by rebuilding the rule.
 - **One client per entry.** Client-to-client movement is unrepresentable; two matters of the same
   client are fine.
-- **Append-only around the ledger too.** `trust_hold` and `trust_transfer` carry RAISE(ABORT)
-  triggers. A release is a new row linked by `releases_hold_id` (UNIQUE, so a double release loses at
-  commit); a partial release is a release plus a new, smaller hold. Never add a status column.
+- **Append-only around the ledger too.** `trust_hold`, `trust_transfer`, and `trust_movement` carry
+  RAISE(ABORT) triggers. A release is a new row linked by `releases_hold_id` (UNIQUE, so a double
+  release loses at commit); a partial release is a release plus a new, smaller hold. A movement
+  correction is a reversing entry with its own movement row. Never add a status column.
 - **Available, not balance, is the disbursement ceiling.** `available = balance - active holds`.
+- **A movement records who authorized it.** Money leaving a client ledger — a disbursement or a
+  matter-to-matter reallocation — carries `authorized_by`, enforced by the `trust_movement` shape
+  CHECK rather than by the composer remembering. A movement also carries its method as a VALUE
+  (never buried in a description), because a jurisdiction rule cannot forbid a payment method the
+  engine cannot see.
+- **Every movement resolves a jurisdiction or refuses.** A trust account whose office recorded none
+  cannot be told which rules govern it, so movements refuse with `jurisdiction-not-recorded` — a
+  different refusal from `jurisdiction-not-encoded`, and never a fallback.
 - **Jurisdiction facts refuse rather than fall back.** A null `trust_account.jurisdiction` and an
   unencoded jurisdiction are different refusals (`jurisdiction-not-recorded` vs
   `jurisdiction-not-encoded`) and must stay different. Never introduce a default.

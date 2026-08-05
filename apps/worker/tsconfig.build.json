@@ -96,6 +96,9 @@
       "path": "../../packages/metadata/tsconfig.build.json"
     },
     {
+      "path": "../../packages/money/tsconfig.build.json"
+    },
+    {
       "path": "../../packages/property-links/tsconfig.build.json"
     },
     {
@@ -118,6 +121,9 @@
     },
     {
       "path": "../../packages/timekeeping/tsconfig.build.json"
+    },
+    {
+      "path": "../../packages/trust/tsconfig.build.json"
     },
     {
       "path": "../../packages/whois/tsconfig.build.json"

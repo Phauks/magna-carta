@@ -87,6 +87,7 @@ import type {
   TrustAccountId,
   TrustHoldId,
   TrustLedgerNodeId,
+  TrustMovementId,
   TrustTransferId,
   UploadSessionId,
   UserId,
@@ -3136,6 +3137,97 @@ export const trustTransfer = sqliteTable(
     check(
       "trust_transfer_distinct_entries_check",
       sql`${table.trustEntryId} <> ${table.operatingEntryId}`,
+    ),
+  ],
+);
+
+// The client-ledger record beside one trust ledger entry. The ledger holds the money — amounts,
+// direction, balances — and holds nothing about WHY the money moved. The trust record-keeping rules
+// ask for more than that: a per-client ledger showing the source, the amount, the purpose, the
+// payee, and a running balance, plus, for a disbursement by electronic transfer, a written
+// memorandum authorizing the transaction and identifying the responsible attorney. Those facts are
+// this row, and they are recorded from the first movement rather than backfilled, because the gap an
+// examiner asks about is exactly the period before the column existed.
+//
+// APPEND-ONLY, enforced by triggers in the migration. A correction is a reversing ledger entry and
+// its own movement row; a payee typed wrong is not edited away, because the record of what was
+// stated at the time is the record the rules are about.
+export const trustMovement = sqliteTable(
+  "trust_movement",
+  {
+    id: text("id").primaryKey().$type<TrustMovementId>(), // trustMovement_ handle
+    trustAccountId: text("trust_account_id")
+      .notNull()
+      .$type<TrustAccountId>()
+      .references(() => trustAccount.id),
+    // `matter_transfer` moves funds between two matter leaves of the SAME client and touches no
+    // bank: the money stays in the trust account and only whose matter it is against changes. A
+    // movement between two DIFFERENT clients is not in this vocabulary and never will be — at the
+    // entry level it is indistinguishable from misappropriation, and the composition guard refuses
+    // it outright.
+    kind: text("kind", { enum: ["deposit", "disbursement", "matter_transfer"] }).notNull(),
+    // The matter leaf this movement is about: credited by a deposit, debited by a disbursement, the
+    // source of a matter transfer.
+    nodeId: text("node_id")
+      .notNull()
+      .$type<TrustLedgerNodeId>()
+      .references(() => trustLedgerNode.id),
+    // The receiving matter leaf of a matter transfer, and null on every other kind.
+    counterpartyNodeId: text("counterparty_node_id")
+      .$type<TrustLedgerNodeId>()
+      .references(() => trustLedgerNode.id),
+    amountMinor: integer("amount_minor").notNull(),
+    currency: text("currency").notNull(),
+    entryId: text("entry_id")
+      .notNull()
+      .$type<LedgerEntryId>()
+      .references(() => ledgerEntry.id),
+    // How the money physically moved. Modelled as a value rather than left inside a description
+    // because several jurisdictions prohibit specific methods outright — cash withdrawal, ATM or
+    // debit access, a check payable to Cash — and a rule engine cannot refuse a method it cannot
+    // see. `internal` is the matter transfer's method: no bank movement happened at all.
+    method: text("method", {
+      enum: ["check", "cash", "wire", "electronic_transfer", "card", "internal"],
+    }).notNull(),
+    reference: text("reference"), // check number, wire confirmation, deposit slip — null when there is none
+    // Who the money came from (deposit) or went to (disbursement); null on a matter transfer, which
+    // has no external counterparty. Free text: the payee on a trust check is frequently not a
+    // Directory contact, and a required link would push firms into inventing contacts.
+    counterpartyName: text("counterparty_name"),
+    purpose: text("purpose").notNull(), // the rules' "purpose" column on the client ledger
+    // Who entered the record, always; and who authorized money to move, which the rules require for
+    // a disbursement and which a reallocation between matters needs for the same reason.
+    recordedBy: text("recorded_by").notNull().$type<UserId>(),
+    authorizedBy: text("authorized_by").$type<UserId>(),
+    effectiveDate: text("effective_date").notNull(), // YYYY-MM-DD civil date
+    recordedAt: text("recorded_at").notNull(), // UTC instant
+  },
+  (table) => [
+    // One movement row per entry: a second row would double the entry in the trust journal and in
+    // every client-ledger report that reads through this table.
+    uniqueIndex("trust_movement_entry_unique_index").on(table.entryId),
+    // The client ledger — one matter leaf, chronological — is the report the rules name, and it
+    // reads by node and effective date. The counterparty index serves the receiving leaf's ledger,
+    // which must show a transfer in as plainly as the source leaf shows it out.
+    index("trust_movement_node_effective_date_index").on(table.nodeId, table.effectiveDate),
+    index("trust_movement_counterparty_node_index").on(table.counterpartyNodeId),
+    // The trust journal: receipts and disbursements for one account by effective date.
+    index("trust_movement_account_effective_date_index").on(
+      table.trustAccountId,
+      table.effectiveDate,
+    ),
+    check("trust_movement_amount_positive_check", sql`${table.amountMinor} > 0`),
+    check("trust_movement_currency_check", sql`length(${table.currency}) = 3`),
+    check("trust_movement_purpose_nonempty_check", sql`length(${table.purpose}) > 0`),
+    // Each kind's shape stated once, so the database refuses the combinations that would make a
+    // movement lie about itself: a reallocation claiming a bank method or an external payee, a bank
+    // movement hiding as internal, money leaving a client ledger with nobody named as having
+    // authorized it, or a transfer whose two ends are the same leaf.
+    check(
+      "trust_movement_shape_check",
+      sql`(${table.kind} = 'deposit' AND ${table.counterpartyNodeId} IS NULL AND ${table.method} <> 'internal' AND ${table.counterpartyName} IS NOT NULL)
+        OR (${table.kind} = 'disbursement' AND ${table.counterpartyNodeId} IS NULL AND ${table.method} <> 'internal' AND ${table.counterpartyName} IS NOT NULL AND ${table.authorizedBy} IS NOT NULL)
+        OR (${table.kind} = 'matter_transfer' AND ${table.counterpartyNodeId} IS NOT NULL AND ${table.counterpartyNodeId} <> ${table.nodeId} AND ${table.method} = 'internal' AND ${table.counterpartyName} IS NULL AND ${table.authorizedBy} IS NOT NULL)`,
     ),
   ],
 );

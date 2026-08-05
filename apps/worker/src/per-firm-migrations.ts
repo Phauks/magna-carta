@@ -28,6 +28,7 @@ import seedTrustPermissionsSql from "@magna-carta/database/drizzle/per-firm/2026
 import emailMessageDkimVerdictSql from "@magna-carta/database/drizzle/per-firm/20260805T120002_email-message-dkim-verdict.sql";
 import custodyGatedReleaseSql from "@magna-carta/database/drizzle/per-firm/20260805T130000_custody-gated-release.sql";
 import locationLetterheadLogoSql from "@magna-carta/database/drizzle/per-firm/20260805T130001_location-letterhead-logo.sql";
+import trustMovementsSql from "@magna-carta/database/drizzle/per-firm/20260805T140000_trust-movements.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the FirmDatabase
 // Durable Object runs this lineage against its own SQLite storage on wake (firm-database-object.ts),
@@ -66,6 +67,7 @@ export function perFirmMigrations(): Migration[] {
     "20260805T120002_email-message-dkim-verdict": emailMessageDkimVerdictSql,
     "20260805T130000_custody-gated-release": custodyGatedReleaseSql,
     "20260805T130001_location-letterhead-logo": locationLetterheadLogoSql,
+    "20260805T140000_trust-movements": trustMovementsSql,
   });
 }
 
