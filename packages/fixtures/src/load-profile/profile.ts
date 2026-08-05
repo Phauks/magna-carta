@@ -259,6 +259,39 @@ export interface DocumentAutomationVolume {
   readonly templateSizeBytes: { readonly min: number; readonly max: number };
 }
 
+// The trust volume laid over the practice book: one real trust account with its sub-ledger tree, a
+// client ledger per matter that holds client money, the movements that put it there and take it out,
+// disputed-funds holds on a slice of them, and the bank statements and reconciliations that prove
+// the three sides agree. This is the queryable shadow of the trust surface — the client-ledger read,
+// the available-balance read, the as-of book and client totals the three-way proof computes, the
+// outstanding-item read the matcher works from, and the table-wide fitness sweep. Every count is a
+// PARAMETER here, never a generator constant — changing one bumps the profile `version`. Sized like
+// an established firm's trust book over a couple of years, not a stress run.
+export interface TrustVolume {
+  // Matters given a client trust ledger. Well below the practice volume's matter count: most matters
+  // never hold client money, which is the whole reason the leaf is created lazily.
+  readonly matterLedgerCount: number;
+  // Movements appended to each ledger beyond its opening deposit — the depth the client-ledger read
+  // fans over.
+  readonly extraMovementsPerBusyLedger: number;
+  // The opening deposit drawn per ledger, and the disbursements taken back out of it.
+  readonly depositMinor: { readonly min: number; readonly max: number };
+  readonly disbursementMinor: { readonly min: number; readonly max: number };
+  // Fraction of ledgers carrying an active disputed-funds hold — what makes available balance differ
+  // from stored balance often enough for the difference to be measured rather than assumed.
+  readonly heldLedgerFraction: number;
+  // Bank statements recorded, each covering an equal slice of the span. All but the most recent are
+  // reconciled and CLOSED (their proofs frozen); the last stays open, so the live three-way
+  // computation has a period whose proof is recomputed on every read.
+  readonly statementCount: number;
+  // A service charge the firm never records, added to every statement. It is what leaves one line
+  // unmatched in every period — the item the no-negative floor cannot see, and the reason the proof
+  // has to be able to report an honest red at volume rather than only in a unit test.
+  readonly serviceChargeMinor: number;
+  // Days the movement and statement window covers.
+  readonly spanDays: number;
+}
+
 export interface LedgerVolumeProfile {
   readonly name: "ledgerVolume";
   // Profile identity: bump on ANY parameter change — baselines measured against different data
@@ -291,6 +324,9 @@ export interface LedgerVolumeProfile {
   // The document-automation volume laid over the practice + custom-field books (template catalogue,
   // version history, mapping library, assembly provenance, and the merge-context probe matter).
   readonly documentAutomation: DocumentAutomationVolume;
+  // The trust volume laid over the practice book (the sub-ledger tree, movements, holds, bank
+  // statements, and reconciliations with their frozen proofs).
+  readonly trust: TrustVolume;
 }
 
 // A plausible established small firm: a few years of posting activity over a 200-client trust book,
@@ -298,7 +334,7 @@ export interface LedgerVolumeProfile {
 // files with multi-version histories.
 export const ledgerVolume: LedgerVolumeProfile = {
   name: "ledgerVolume",
-  version: 9,
+  version: 10,
   trustSubledgerCount: 200,
   entryCount: 25_000,
   postingSpanDays: 1_095,
@@ -409,6 +445,20 @@ export const ledgerVolume: LedgerVolumeProfile = {
     fieldMappingCount: 120,
     templateSizeBytes: { min: 20_000, max: 400_000 },
   },
+  trust: {
+    // An established firm's trust book: a third of the open caseload holding client money, a few
+    // movements on each, a fifth of the ledgers carrying a disputed-funds hold, and two years of
+    // monthly statements — every one of them with a service charge nobody recorded, so the
+    // reconciliation surface is measured against periods that genuinely do not tie out.
+    matterLedgerCount: 80,
+    extraMovementsPerBusyLedger: 3,
+    depositMinor: { min: 100_000, max: 2_000_000 },
+    disbursementMinor: { min: 5_000, max: 90_000 },
+    heldLedgerFraction: 0.2,
+    statementCount: 24,
+    serviceChargeMinor: 2_500,
+    spanDays: 730,
+  },
 };
 
 // One profile, every scale: CI smoke (~0.01), local working scale (1), deliberate stress runs
@@ -518,6 +568,17 @@ export function scaleProfile(
           Math.round(profile.documentAutomation.assembliesPerMatter.max * multiplier),
         ),
       },
+    },
+    trust: {
+      ...profile.trust,
+      // Floors keep a handful of client ledgers (enough for a busiest one and a held slice), at
+      // least one extra movement per ledger, two statements (so one closes frozen and one stays
+      // open), and a span long enough for the periods not to collapse onto one day at the smoke
+      // multiplier. The fractions and the amount ranges are not scaled.
+      matterLedgerCount: scaleCount(profile.trust.matterLedgerCount, 6),
+      extraMovementsPerBusyLedger: scaleCount(profile.trust.extraMovementsPerBusyLedger, 1),
+      statementCount: scaleCount(profile.trust.statementCount, 2),
+      spanDays: scaleCount(profile.trust.spanDays, 20),
     },
   };
 }

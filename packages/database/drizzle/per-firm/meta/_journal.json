@@ -232,6 +232,13 @@
       "when": 1785952800000,
       "tag": "20260805T180000_custodian-destruction",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "6",
+      "when": 1785960000000,
+      "tag": "20260805T200000_trust-reconciliation",
+      "breakpoints": true
     }
   ]
 }

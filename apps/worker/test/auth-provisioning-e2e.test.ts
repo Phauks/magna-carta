@@ -488,6 +488,9 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
       // Read-shaped POST: ranks the matters an open message might belong to. The message facts ride
       // the body rather than a URL because they are the firm's mail; nothing is written or filed.
       "emails.suggestMatters",
+      // Read-shaped POST: parses a bank-statement file the firm supplied and reports what is in it.
+      // Nothing is stored; the separate, audited import route is what records anything.
+      "trust.previewStatementImport",
     ]);
 
     for (const { operation, label } of mutatingV1) {

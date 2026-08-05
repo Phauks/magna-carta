@@ -87,11 +87,15 @@ import type {
   TimeEntryId,
   TrackingEventId,
   TrustAccountId,
+  TrustBankStatementId,
+  TrustBankStatementLineId,
   TrustDisbursementDecisionId,
   TrustDisbursementRequestId,
   TrustHoldId,
   TrustLedgerNodeId,
   TrustMovementId,
+  TrustReconciliationId,
+  TrustReconciliationMatchId,
   TrustTransferId,
   UploadSessionId,
   UserId,
@@ -3496,5 +3500,244 @@ export const trustDisbursementDecision = sqliteTable(
         OR (${table.decision} = 'rejected' AND ${table.authorizationBasis} IS NULL AND ${table.movementId} IS NULL AND length(${table.reason}) > 0)
         OR (${table.decision} = 'withdrawn' AND ${table.authorizationBasis} IS NULL AND ${table.movementId} IS NULL AND (${table.reason} IS NULL OR length(${table.reason}) > 0))`,
     ),
+  ],
+);
+
+// One period of a trust bank account exactly as the institution reported it. This is the ONLY
+// external input to the whole trust subsystem: every other row here is the firm's own assertion
+// about its own records, and the no-negative floor guards those records rather than the bank. An
+// item the firm never recorded — a bank fee, a returned deposit, a forged check — exists nowhere in
+// the platform until it arrives on one of these.
+//
+// Entered by a member or imported from a file the bank produced; the source is recorded because
+// where a figure came from is part of what the reconciliation attests to. Balances are SIGNED and
+// deliberately carry no positive check: a bank account really can be overdrawn, and a schema that
+// refused to record it would refuse to record the exact condition reconciliation exists to catch.
+//
+// APPEND-ONLY, enforced by triggers in the migration. A bank that reissues a corrected statement is
+// a NEW row naming the one it supersedes, because a reconciliation already closed against the
+// original attested to the figures as they then read.
+export const trustBankStatement = sqliteTable(
+  "trust_bank_statement",
+  {
+    id: text("id").primaryKey().$type<TrustBankStatementId>(), // trustBankStatement_ handle
+    trustAccountId: text("trust_account_id")
+      .notNull()
+      .$type<TrustAccountId>()
+      .references(() => trustAccount.id),
+    periodStart: text("period_start").notNull(), // YYYY-MM-DD civil date
+    periodEnd: text("period_end").notNull(), // YYYY-MM-DD civil date
+    openingBalanceMinor: integer("opening_balance_minor").notNull(),
+    closingBalanceMinor: integer("closing_balance_minor").notNull(),
+    currency: text("currency").notNull(),
+    statementReference: text("statement_reference"), // the number the bank printed, when it printed one
+    // How the figures got here. `imported` says a file the firm supplied was parsed, previewed, and
+    // confirmed by a person; it never means a machine decided to store them on its own.
+    source: text("source", { enum: ["entered", "imported"] }).notNull(),
+    // The statement this one replaces, when a bank reissues a period. Never an edit of the original.
+    supersedesStatementId: text("supersedes_statement_id")
+      .$type<TrustBankStatementId>()
+      .references((): AnySQLiteColumn => trustBankStatement.id),
+    recordedBy: text("recorded_by").notNull().$type<UserId>(),
+    recordedAt: text("recorded_at").notNull(), // UTC instant
+  },
+  (table) => [
+    // A statement is superseded at most once; a second correction supersedes the correction.
+    uniqueIndex("trust_bank_statement_supersedes_unique_index").on(table.supersedesStatementId),
+    // The statement list for one account, most recent period last — the read every reconciliation
+    // starts from.
+    index("trust_bank_statement_account_period_index").on(table.trustAccountId, table.periodEnd),
+    check("trust_bank_statement_currency_check", sql`length(${table.currency}) = 3`),
+    check(
+      "trust_bank_statement_period_order_check",
+      sql`${table.periodEnd} >= ${table.periodStart}`,
+    ),
+    check("trust_bank_statement_source_check", sql`${table.source} IN ('entered', 'imported')`),
+  ],
+);
+
+// One item on a bank statement: a date, a direction, an amount, and whatever text the bank printed
+// beside it. `direction` is stated from the account holder's side — a `deposit` increased the trust
+// bank balance and a `withdrawal` reduced it — so a line can be compared with a recorded movement
+// without anyone having to reason about the bank's own debit/credit convention.
+//
+// `counterparty_name` is the other party as the BANK named it, which is frequently not what the firm
+// called them and frequently not a Directory contact. It exists because it is what a person matches
+// on; it is classified as personal data for the same reason the movement's payee is.
+//
+// APPEND-ONLY, enforced by triggers in the migration. A line typed wrong is not edited: the
+// statement it belongs to is superseded by a corrected one.
+export const trustBankStatementLine = sqliteTable(
+  "trust_bank_statement_line",
+  {
+    id: text("id").primaryKey().$type<TrustBankStatementLineId>(), // trustBankStatementLine_ handle
+    statementId: text("statement_id")
+      .notNull()
+      .$type<TrustBankStatementId>()
+      .references(() => trustBankStatement.id),
+    postedOn: text("posted_on").notNull(), // YYYY-MM-DD civil date, as the bank posted it
+    direction: text("direction", { enum: ["deposit", "withdrawal"] }).notNull(),
+    amountMinor: integer("amount_minor").notNull(),
+    description: text("description").notNull(), // the bank's own narrative for the item
+    reference: text("reference"), // check number, wire reference — null when the bank printed none
+    counterpartyName: text("counterparty_name"),
+    // Which row of the imported file this line came from, and null on a line a member typed. It is
+    // what lets an import report point at the row a person has to look at in their own file.
+    sourceRowNumber: integer("source_row_number"),
+    recordedAt: text("recorded_at").notNull(), // UTC instant
+  },
+  (table) => [
+    // The statement in bank order, and the read the matcher's candidate window narrows from.
+    index("trust_bank_statement_line_statement_posted_index").on(table.statementId, table.postedOn),
+    // Matching draws candidates by amount before anything else, so the amount leads this index.
+    index("trust_bank_statement_line_amount_index").on(table.amountMinor, table.statementId),
+    check("trust_bank_statement_line_amount_positive_check", sql`${table.amountMinor} > 0`),
+    check(
+      "trust_bank_statement_line_description_nonempty_check",
+      sql`length(${table.description}) > 0`,
+    ),
+    check(
+      "trust_bank_statement_line_direction_check",
+      sql`${table.direction} IN ('deposit', 'withdrawal')`,
+    ),
+    check(
+      "trust_bank_statement_line_source_row_check",
+      sql`${table.sourceRowNumber} IS NULL OR ${table.sourceRowNumber} > 0`,
+    ),
+  ],
+);
+
+// A firm's attempt to tie one bank statement to its own records, and — once closed — the frozen
+// proof it produced. Three totals must agree as of the period end: the statement's closing balance
+// adjusted for items the firm recorded that have not reached the bank yet, the book balance of the
+// trust bank account, and the sum of every client ledger under it.
+//
+// The frozen columns are the whole point of the row. While the reconciliation is open, the proof is
+// recomputed on every read and moves as postings land; the close writes what the proof said at that
+// instant, and from then on it never changes — a reversal posted next week with a backdated
+// effective date must not alter an attestation somebody already signed. A reconciliation that did
+// NOT balance closes anyway, recording exactly that: the record of a problem is the value, and a
+// close that refused an unbalanced proof would teach firms to leave the disagreement unrecorded.
+//
+// `status` here is a real lifecycle rather than the derived-state pattern the holds and disbursement
+// tables use, because closing IS the freeze rather than a second event another row could imply. The
+// migration's triggers make it one-way: a closed reconciliation refuses every further write, and an
+// open one refuses any change to what it is about. A correction is a new reconciliation naming the
+// one it supersedes.
+export const trustReconciliation = sqliteTable(
+  "trust_reconciliation",
+  {
+    id: text("id").primaryKey().$type<TrustReconciliationId>(), // trustReconciliation_ handle
+    trustAccountId: text("trust_account_id")
+      .notNull()
+      .$type<TrustAccountId>()
+      .references(() => trustAccount.id),
+    statementId: text("statement_id")
+      .notNull()
+      .$type<TrustBankStatementId>()
+      .references(() => trustBankStatement.id),
+    status: text("status", { enum: ["open", "closed"] }).notNull(),
+    openedBy: text("opened_by").notNull().$type<UserId>(),
+    openedAt: text("opened_at").notNull(), // UTC instant
+    closedBy: text("closed_by").$type<UserId>(),
+    closedAt: text("closed_at"), // UTC instant
+    // The frozen proof. Every one of these is null while the reconciliation is open and non-null
+    // once it has closed, which the shape check states rather than leaving to a caller.
+    frozenStatementClosingMinor: integer("frozen_statement_closing_minor"),
+    frozenOutstandingDepositsMinor: integer("frozen_outstanding_deposits_minor"),
+    frozenOutstandingDisbursementsMinor: integer("frozen_outstanding_disbursements_minor"),
+    frozenAdjustedBankMinor: integer("frozen_adjusted_bank_minor"),
+    frozenBookBalanceMinor: integer("frozen_book_balance_minor"),
+    frozenClientTotalMinor: integer("frozen_client_total_minor"),
+    frozenUnmatchedLineCount: integer("frozen_unmatched_line_count"),
+    frozenUnmatchedMovementCount: integer("frozen_unmatched_movement_count"),
+    // 1 when the three legs agreed at the moment of the close, 0 when they did not. Stored rather
+    // than left to be re-derived from the totals so that "this period did not tie out" is a fact a
+    // report filters on directly.
+    frozenBalanced: integer("frozen_balanced"),
+    // The reconciliation this one replaces — a period redone against a corrected statement, or after
+    // the missing movements were recorded. Never an edit of the original.
+    supersedesReconciliationId: text("supersedes_reconciliation_id")
+      .$type<TrustReconciliationId>()
+      .references((): AnySQLiteColumn => trustReconciliation.id),
+    note: text("note"),
+  },
+  (table) => [
+    uniqueIndex("trust_reconciliation_supersedes_unique_index").on(
+      table.supersedesReconciliationId,
+    ),
+    index("trust_reconciliation_account_opened_index").on(table.trustAccountId, table.openedAt),
+    index("trust_reconciliation_statement_index").on(table.statementId),
+    check("trust_reconciliation_status_check", sql`${table.status} IN ('open', 'closed')`),
+    // Open carries no proof and no closer; closed carries all of both. A half-frozen row would
+    // attest to part of a proof, which is not something anyone can rely on.
+    check(
+      "trust_reconciliation_shape_check",
+      sql`(${table.status} = 'open' AND ${table.closedBy} IS NULL AND ${table.closedAt} IS NULL AND ${table.frozenStatementClosingMinor} IS NULL AND ${table.frozenOutstandingDepositsMinor} IS NULL AND ${table.frozenOutstandingDisbursementsMinor} IS NULL AND ${table.frozenAdjustedBankMinor} IS NULL AND ${table.frozenBookBalanceMinor} IS NULL AND ${table.frozenClientTotalMinor} IS NULL AND ${table.frozenUnmatchedLineCount} IS NULL AND ${table.frozenUnmatchedMovementCount} IS NULL AND ${table.frozenBalanced} IS NULL)
+        OR (${table.status} = 'closed' AND ${table.closedBy} IS NOT NULL AND ${table.closedAt} IS NOT NULL AND ${table.frozenStatementClosingMinor} IS NOT NULL AND ${table.frozenOutstandingDepositsMinor} IS NOT NULL AND ${table.frozenOutstandingDisbursementsMinor} IS NOT NULL AND ${table.frozenAdjustedBankMinor} IS NOT NULL AND ${table.frozenBookBalanceMinor} IS NOT NULL AND ${table.frozenClientTotalMinor} IS NOT NULL AND ${table.frozenUnmatchedLineCount} IS NOT NULL AND ${table.frozenUnmatchedMovementCount} IS NOT NULL AND ${table.frozenBalanced} IN (0, 1))`,
+    ),
+    check(
+      "trust_reconciliation_outstanding_sign_check",
+      sql`(${table.frozenOutstandingDepositsMinor} IS NULL OR ${table.frozenOutstandingDepositsMinor} >= 0)
+        AND (${table.frozenOutstandingDisbursementsMinor} IS NULL OR ${table.frozenOutstandingDisbursementsMinor} >= 0)
+        AND (${table.frozenUnmatchedLineCount} IS NULL OR ${table.frozenUnmatchedLineCount} >= 0)
+        AND (${table.frozenUnmatchedMovementCount} IS NULL OR ${table.frozenUnmatchedMovementCount} >= 0)`,
+    ),
+  ],
+);
+
+// One person's assertion that one statement line and one recorded ledger entry are the same event.
+// NOTHING in this platform writes one of these on its own: the matcher offers bounded suggestions
+// and a member confirms each, because a wrong automatic match hides exactly the discrepancy the
+// reconciliation exists to find — the totals would tie out on a report while the ledger and the bank
+// disagreed about which items actually happened.
+//
+// The book side is a LEDGER ENTRY rather than a `trust_movement`, and that is load-bearing: an
+// earned-fee transfer out of trust records a `trust_transfer` and no movement row at all, so a match
+// keyed on movements could never clear one, and every such transfer would sit outstanding forever.
+// Anything that moves the bank balance is an entry touching the trust bank account, whatever composed
+// it; the movement or transfer record beside it is joined for display.
+//
+// One line to one entry. A single bank line covering several recorded items — one deposit slip for
+// three checks — is a real shape this does not yet express; it reads as one match plus items left
+// outstanding, and the proof reports the resulting difference rather than hiding it.
+//
+// APPEND-ONLY, enforced by triggers in the migration. A match a person got wrong is withdrawn by a
+// NEW row naming it in `unmatches_match_id`, on the same derivation the hold model uses: a match is
+// active when no row unmatches it, so no status column exists anywhere that could disagree with the
+// rows. A withdrawal repeats the line and the entry it releases, exactly as a hold release repeats
+// the node it frees.
+export const trustReconciliationMatch = sqliteTable(
+  "trust_reconciliation_match",
+  {
+    id: text("id").primaryKey().$type<TrustReconciliationMatchId>(), // trustReconciliationMatch_ handle
+    reconciliationId: text("reconciliation_id")
+      .notNull()
+      .$type<TrustReconciliationId>()
+      .references(() => trustReconciliation.id),
+    statementLineId: text("statement_line_id")
+      .notNull()
+      .$type<TrustBankStatementLineId>()
+      .references(() => trustBankStatementLine.id),
+    entryId: text("entry_id")
+      .notNull()
+      .$type<LedgerEntryId>()
+      .references(() => ledgerEntry.id),
+    // The match this row withdraws, and null on a match itself.
+    unmatchesMatchId: text("unmatches_match_id")
+      .$type<TrustReconciliationMatchId>()
+      .references((): AnySQLiteColumn => trustReconciliationMatch.id),
+    matchedBy: text("matched_by").notNull().$type<UserId>(),
+    matchedAt: text("matched_at").notNull(), // UTC instant
+  },
+  (table) => [
+    // A match is withdrawn at most once: two concurrent withdrawals leave one row, and the loser's
+    // whole batch aborts.
+    uniqueIndex("trust_reconciliation_match_unmatches_unique_index").on(table.unmatchesMatchId),
+    index("trust_reconciliation_match_reconciliation_index").on(table.reconciliationId),
+    // "Has this line been matched, and has this entry cleared" — the two reads the proof and the
+    // unmatched lists are built from.
+    index("trust_reconciliation_match_line_index").on(table.statementLineId),
+    index("trust_reconciliation_match_entry_index").on(table.entryId),
   ],
 );

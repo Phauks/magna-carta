@@ -2094,6 +2094,240 @@ export type TrustMovementRecord = {
     recordedAt: string;
 };
 
+export type TrustBankStatementAck = {
+    trustBankStatementId: string;
+    linesRecorded: number;
+};
+
+export type TrustRecordBankStatementRequest = {
+    trustAccountId: string;
+    periodStart: string;
+    periodEnd: string;
+    openingBalanceMinor: number;
+    closingBalanceMinor: number;
+    currency: 'USD';
+    statementReference?: string | null;
+    supersedesStatementId?: string | null;
+    lines: Array<TrustBankStatementLineInput>;
+};
+
+export type TrustBankStatementLineInput = {
+    postedOn: string;
+    direction: 'deposit' | 'withdrawal';
+    amountMinor: number;
+    description: string;
+    reference?: string | null;
+    counterpartyName?: string | null;
+};
+
+export type TrustBankStatementsResponse = {
+    statements: Array<TrustBankStatementRecord>;
+};
+
+export type TrustBankStatementRecord = {
+    id: string;
+    trustAccountId: string;
+    periodStart: string;
+    periodEnd: string;
+    openingBalanceMinor: number;
+    closingBalanceMinor: number;
+    currency: string;
+    statementReference: string | null;
+    source: 'entered' | 'imported';
+    supersedesStatementId: string | null;
+    recordedBy: string;
+    recordedAt: string;
+};
+
+export type TrustBankStatementLinesResponse = {
+    lines: Array<TrustBankStatementLineRecord>;
+};
+
+export type TrustBankStatementLineRecord = {
+    id: string;
+    postedOn: string;
+    direction: 'deposit' | 'withdrawal';
+    amountMinor: number;
+    description: string;
+    reference: string | null;
+    counterpartyName: string | null;
+    sourceRowNumber: number | null;
+};
+
+export type TrustStatementImportPreviewResponse = {
+    columnMapping: {
+        [key: string]: string;
+    };
+    rows: Array<TrustStatementImportPreviewRow>;
+    rejections: Array<TrustStatementImportRejection>;
+    depositTotalMinor: number;
+    withdrawalTotalMinor: number;
+    earliestPostedOn: string | null;
+    latestPostedOn: string | null;
+    fingerprint: string;
+};
+
+export type TrustStatementImportPreviewRow = {
+    rowNumber: number;
+    postedOn: string;
+    direction: 'deposit' | 'withdrawal';
+    amountMinor: number;
+    description: string;
+    reference: string | null;
+    counterpartyName: string | null;
+};
+
+export type TrustStatementImportRejection = {
+    rowNumber: number;
+    reason: string;
+};
+
+export type TrustStatementImportPreviewRequest = {
+    fileText: string;
+    dateFormat?: 'iso' | 'month-day-year' | 'day-month-year';
+    currency: 'USD';
+};
+
+export type TrustStatementImportReport = {
+    trustBankStatementId: string;
+    linesRecorded: number;
+    rowsRejected: number;
+    depositTotalMinor: number;
+    withdrawalTotalMinor: number;
+};
+
+export type TrustStatementImportRequest = {
+    trustAccountId: string;
+    periodStart: string;
+    periodEnd: string;
+    openingBalanceMinor: number;
+    closingBalanceMinor: number;
+    currency: 'USD';
+    statementReference?: string | null;
+    supersedesStatementId?: string | null;
+    fileText: string;
+    dateFormat?: 'iso' | 'month-day-year' | 'day-month-year';
+    confirmedFingerprint: string;
+};
+
+export type TrustReconciliationAck = {
+    trustReconciliationId: string;
+};
+
+export type TrustOpenReconciliationRequest = {
+    statementId: string;
+    supersedesReconciliationId?: string | null;
+    note?: string | null;
+};
+
+export type TrustReconciliationsResponse = {
+    reconciliations: Array<TrustReconciliationRecord>;
+};
+
+export type TrustReconciliationRecord = {
+    id: string;
+    trustAccountId: string;
+    statementId: string;
+    status: 'open' | 'closed';
+    openedBy: string;
+    openedAt: string;
+    closedBy: string | null;
+    closedAt: string | null;
+    frozenProof: {
+        statementClosingMinor: number;
+        outstandingDepositsMinor: number;
+        outstandingDisbursementsMinor: number;
+        adjustedBankMinor: number;
+        bookBalanceMinor: number;
+        clientLedgerTotalMinor: number;
+        unmatchedLineCount: number;
+        unmatchedItemCount: number;
+        balanced: boolean;
+    } | null;
+    supersedesReconciliationId: string | null;
+    note: string | null;
+};
+
+export type TrustReconciliationDetail = {
+    reconciliation: TrustReconciliationRecord;
+    proof: TrustThreeWayProof;
+};
+
+export type TrustThreeWayProof = {
+    trustAccountId: string;
+    statementId: string;
+    asOfDate: string;
+    currency: string;
+    statementClosingMinor: number;
+    outstandingDeposits: Array<TrustBankItem>;
+    outstandingDepositsMinor: number;
+    outstandingDisbursements: Array<TrustBankItem>;
+    outstandingDisbursementsMinor: number;
+    adjustedBankMinor: number;
+    bookBalanceMinor: number;
+    clientLedgerTotalMinor: number;
+    unmatchedStatementLines: Array<TrustBankStatementLineRecord>;
+    balanced: boolean;
+    disagreements: Array<TrustReconciliationDisagreement>;
+};
+
+export type TrustBankItem = {
+    ledgerEntryId: string;
+    effectiveDate: string;
+    description: string;
+    bankDeltaMinor: number;
+    trustMovementId: string | null;
+    movementKind: 'deposit' | 'disbursement' | 'matter_transfer' | null;
+    trustTransferId: string | null;
+    reference: string | null;
+    counterpartyName: string | null;
+};
+
+export type TrustReconciliationDisagreement = {
+    leg: 'bank-to-book' | 'book-to-client';
+    differenceMinor: number;
+};
+
+export type TrustMatchSuggestionsResponse = {
+    unmatchedLines: Array<TrustBankStatementLineRecord>;
+    outstandingItems: Array<TrustBankItem>;
+    suggestions: Array<TrustMatchSuggestion>;
+};
+
+export type TrustMatchSuggestion = {
+    statementLineId: string;
+    ledgerEntryId: string;
+    signals: Array<'amount-equal' | 'same-day' | 'within-window' | 'reference-equal' | 'counterparty-similar'>;
+    dayGap: number;
+};
+
+export type TrustReconciliationMatchAck = {
+    trustReconciliationMatchId: string;
+};
+
+export type TrustRecordMatchRequest = {
+    statementLineId: string;
+    ledgerEntryId: string;
+};
+
+export type TrustReconciliationCloseAck = {
+    trustReconciliationId: string;
+    frozenProof: TrustFrozenProof;
+    proof: TrustThreeWayProof;
+};
+
+export type TrustFrozenProof = {
+    statementClosingMinor: number;
+    outstandingDepositsMinor: number;
+    outstandingDisbursementsMinor: number;
+    adjustedBankMinor: number;
+    bookBalanceMinor: number;
+    clientLedgerTotalMinor: number;
+    unmatchedLineCount: number;
+    unmatchedItemCount: number;
+    balanced: boolean;
+};
+
 export type TimeEntryAck = {
     timeEntryId: string;
 };
@@ -12194,6 +12428,588 @@ export type TrustMatterLedgerResponses = {
 };
 
 export type TrustMatterLedgerResponse = TrustMatterLedgerResponses[keyof TrustMatterLedgerResponses];
+
+export type TrustListBankStatementsData = {
+    body?: never;
+    path?: never;
+    query: {
+        trustAccountId: string;
+    };
+    url: '/api/v1/trust/bank-statements';
+};
+
+export type TrustListBankStatementsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account, statement, reconciliation, or match is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the statement or match the trust rules describe is refused, or the imported file no longer matches the one that was reviewed
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustListBankStatementsError = TrustListBankStatementsErrors[keyof TrustListBankStatementsErrors];
+
+export type TrustListBankStatementsResponses = {
+    /**
+     * The recorded statements
+     */
+    200: TrustBankStatementsResponse;
+};
+
+export type TrustListBankStatementsResponse = TrustListBankStatementsResponses[keyof TrustListBankStatementsResponses];
+
+export type TrustRecordBankStatementData = {
+    body: TrustRecordBankStatementRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/trust/bank-statements';
+};
+
+export type TrustRecordBankStatementErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account, statement, reconciliation, or match is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the reconciliation is already closed, or the statement line or ledger entry is already matched
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the statement or match the trust rules describe is refused, or the imported file no longer matches the one that was reviewed
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustRecordBankStatementError = TrustRecordBankStatementErrors[keyof TrustRecordBankStatementErrors];
+
+export type TrustRecordBankStatementResponses = {
+    /**
+     * The statement and its lines were recorded
+     */
+    201: TrustBankStatementAck;
+};
+
+export type TrustRecordBankStatementResponse = TrustRecordBankStatementResponses[keyof TrustRecordBankStatementResponses];
+
+export type TrustBankStatementLinesData = {
+    body?: never;
+    path: {
+        statementId: string;
+    };
+    query?: never;
+    url: '/api/v1/trust/bank-statements/{statementId}/lines';
+};
+
+export type TrustBankStatementLinesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account, statement, reconciliation, or match is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the statement or match the trust rules describe is refused, or the imported file no longer matches the one that was reviewed
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustBankStatementLinesError = TrustBankStatementLinesErrors[keyof TrustBankStatementLinesErrors];
+
+export type TrustBankStatementLinesResponses = {
+    /**
+     * The statement's lines
+     */
+    200: TrustBankStatementLinesResponse;
+};
+
+export type TrustBankStatementLinesResponse2 = TrustBankStatementLinesResponses[keyof TrustBankStatementLinesResponses];
+
+export type TrustPreviewStatementImportData = {
+    body: TrustStatementImportPreviewRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/trust/bank-statements/import/preview';
+};
+
+export type TrustPreviewStatementImportErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account, statement, reconciliation, or match is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the statement or match the trust rules describe is refused, or the imported file no longer matches the one that was reviewed
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustPreviewStatementImportError = TrustPreviewStatementImportErrors[keyof TrustPreviewStatementImportErrors];
+
+export type TrustPreviewStatementImportResponses = {
+    /**
+     * What the file contains
+     */
+    200: TrustStatementImportPreviewResponse;
+};
+
+export type TrustPreviewStatementImportResponse = TrustPreviewStatementImportResponses[keyof TrustPreviewStatementImportResponses];
+
+export type TrustImportBankStatementData = {
+    body: TrustStatementImportRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/trust/bank-statements/import';
+};
+
+export type TrustImportBankStatementErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account, statement, reconciliation, or match is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the reconciliation is already closed, or the statement line or ledger entry is already matched
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the statement or match the trust rules describe is refused, or the imported file no longer matches the one that was reviewed
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustImportBankStatementError = TrustImportBankStatementErrors[keyof TrustImportBankStatementErrors];
+
+export type TrustImportBankStatementResponses = {
+    /**
+     * The statement was recorded from the confirmed file
+     */
+    201: TrustStatementImportReport;
+};
+
+export type TrustImportBankStatementResponse = TrustImportBankStatementResponses[keyof TrustImportBankStatementResponses];
+
+export type TrustListReconciliationsData = {
+    body?: never;
+    path?: never;
+    query: {
+        trustAccountId: string;
+    };
+    url: '/api/v1/trust/reconciliations';
+};
+
+export type TrustListReconciliationsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account, statement, reconciliation, or match is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the statement or match the trust rules describe is refused, or the imported file no longer matches the one that was reviewed
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustListReconciliationsError = TrustListReconciliationsErrors[keyof TrustListReconciliationsErrors];
+
+export type TrustListReconciliationsResponses = {
+    /**
+     * The reconciliations
+     */
+    200: TrustReconciliationsResponse;
+};
+
+export type TrustListReconciliationsResponse = TrustListReconciliationsResponses[keyof TrustListReconciliationsResponses];
+
+export type TrustOpenReconciliationData = {
+    body: TrustOpenReconciliationRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/trust/reconciliations';
+};
+
+export type TrustOpenReconciliationErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account, statement, reconciliation, or match is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the reconciliation is already closed, or the statement line or ledger entry is already matched
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the statement or match the trust rules describe is refused, or the imported file no longer matches the one that was reviewed
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustOpenReconciliationError = TrustOpenReconciliationErrors[keyof TrustOpenReconciliationErrors];
+
+export type TrustOpenReconciliationResponses = {
+    /**
+     * The reconciliation is open
+     */
+    201: TrustReconciliationAck;
+};
+
+export type TrustOpenReconciliationResponse = TrustOpenReconciliationResponses[keyof TrustOpenReconciliationResponses];
+
+export type TrustGetReconciliationData = {
+    body?: never;
+    path: {
+        reconciliationId: string;
+    };
+    query?: never;
+    url: '/api/v1/trust/reconciliations/{reconciliationId}';
+};
+
+export type TrustGetReconciliationErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account, statement, reconciliation, or match is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the statement or match the trust rules describe is refused, or the imported file no longer matches the one that was reviewed
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustGetReconciliationError = TrustGetReconciliationErrors[keyof TrustGetReconciliationErrors];
+
+export type TrustGetReconciliationResponses = {
+    /**
+     * The reconciliation and its live proof
+     */
+    200: TrustReconciliationDetail;
+};
+
+export type TrustGetReconciliationResponse = TrustGetReconciliationResponses[keyof TrustGetReconciliationResponses];
+
+export type TrustReconciliationSuggestionsData = {
+    body?: never;
+    path: {
+        reconciliationId: string;
+    };
+    query?: never;
+    url: '/api/v1/trust/reconciliations/{reconciliationId}/suggestions';
+};
+
+export type TrustReconciliationSuggestionsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account, statement, reconciliation, or match is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the statement or match the trust rules describe is refused, or the imported file no longer matches the one that was reviewed
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustReconciliationSuggestionsError = TrustReconciliationSuggestionsErrors[keyof TrustReconciliationSuggestionsErrors];
+
+export type TrustReconciliationSuggestionsResponses = {
+    /**
+     * What is unaccounted for, and what might pair with what
+     */
+    200: TrustMatchSuggestionsResponse;
+};
+
+export type TrustReconciliationSuggestionsResponse = TrustReconciliationSuggestionsResponses[keyof TrustReconciliationSuggestionsResponses];
+
+export type TrustRecordReconciliationMatchData = {
+    body: TrustRecordMatchRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        reconciliationId: string;
+    };
+    query?: never;
+    url: '/api/v1/trust/reconciliations/{reconciliationId}/matches';
+};
+
+export type TrustRecordReconciliationMatchErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account, statement, reconciliation, or match is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the reconciliation is already closed, or the statement line or ledger entry is already matched
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the statement or match the trust rules describe is refused, or the imported file no longer matches the one that was reviewed
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustRecordReconciliationMatchError = TrustRecordReconciliationMatchErrors[keyof TrustRecordReconciliationMatchErrors];
+
+export type TrustRecordReconciliationMatchResponses = {
+    /**
+     * The match was recorded
+     */
+    201: TrustReconciliationMatchAck;
+};
+
+export type TrustRecordReconciliationMatchResponse = TrustRecordReconciliationMatchResponses[keyof TrustRecordReconciliationMatchResponses];
+
+export type TrustWithdrawReconciliationMatchData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        reconciliationId: string;
+        matchId: string;
+    };
+    query?: never;
+    url: '/api/v1/trust/reconciliations/{reconciliationId}/matches/{matchId}/withdrawal';
+};
+
+export type TrustWithdrawReconciliationMatchErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account, statement, reconciliation, or match is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the reconciliation is already closed, or the statement line or ledger entry is already matched
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the statement or match the trust rules describe is refused, or the imported file no longer matches the one that was reviewed
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustWithdrawReconciliationMatchError = TrustWithdrawReconciliationMatchErrors[keyof TrustWithdrawReconciliationMatchErrors];
+
+export type TrustWithdrawReconciliationMatchResponses = {
+    /**
+     * The withdrawal was recorded
+     */
+    201: TrustReconciliationMatchAck;
+};
+
+export type TrustWithdrawReconciliationMatchResponse = TrustWithdrawReconciliationMatchResponses[keyof TrustWithdrawReconciliationMatchResponses];
+
+export type TrustCloseReconciliationData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        reconciliationId: string;
+    };
+    query?: never;
+    url: '/api/v1/trust/reconciliations/{reconciliationId}/close';
+};
+
+export type TrustCloseReconciliationErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account, statement, reconciliation, or match is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the reconciliation is already closed, or the statement line or ledger entry is already matched
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the statement or match the trust rules describe is refused, or the imported file no longer matches the one that was reviewed
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustCloseReconciliationError = TrustCloseReconciliationErrors[keyof TrustCloseReconciliationErrors];
+
+export type TrustCloseReconciliationResponses = {
+    /**
+     * The reconciliation is closed and its proof frozen
+     */
+    201: TrustReconciliationCloseAck;
+};
+
+export type TrustCloseReconciliationResponse = TrustCloseReconciliationResponses[keyof TrustCloseReconciliationResponses];
 
 export type TimeEntriesListData = {
     body?: never;

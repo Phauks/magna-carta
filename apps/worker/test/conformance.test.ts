@@ -105,6 +105,8 @@ const NON_MUTATING_POST_ALLOW_LIST: Record<string, string> = {
     "Pure computation over the uploaded message bytes — parses and returns the structural inspection; nothing is stored, no firm data is written.",
   "aiDetection.detect":
     "Analysis POST: sends pasted text to the platform-managed detector and returns a likelihood band. The only write is one incidental ai_detection_usage meter row (telemetry — the accountability record for the egress), not an auditable firm-domain mutation; auditing every detection would flood audit_log.",
+  "trust.previewStatementImport":
+    "Read-shaped POST: parses a bank-statement file the firm supplied and reports what is in it — the column mapping, every readable row and what it would become, every unreadable row and why. Nothing is stored; storing takes the separate, audited import route quoting this report's fingerprint back.",
 };
 
 // Subsystems whose every MUTATING route must be idempotency: required (money/trust/payment/
@@ -917,13 +919,25 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "toolsConnection.get",
       "toolsTurnCredentials.get",
       "trust.approveDisbursement",
+      "trust.bankStatementLines",
+      "trust.closeReconciliation",
       "trust.deposit",
+      "trust.getReconciliation",
+      "trust.importBankStatement",
+      "trust.listBankStatements",
       "trust.listDisbursementRequests",
+      "trust.listReconciliations",
       "trust.matterLedger",
+      "trust.openReconciliation",
+      "trust.previewStatementImport",
+      "trust.reconciliationSuggestions",
+      "trust.recordBankStatement",
+      "trust.recordReconciliationMatch",
       "trust.rejectDisbursement",
       "trust.requestDisbursement",
       "trust.transferBetweenMatters",
       "trust.withdrawDisbursement",
+      "trust.withdrawReconciliationMatch",
       "uploads.abort",
       "uploads.complete",
       "uploads.get",

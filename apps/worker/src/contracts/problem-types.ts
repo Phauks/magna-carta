@@ -174,6 +174,31 @@ export const PROBLEM_TYPES = {
   // is the point of the control, so this is not a permission failure — the member holds the
   // capability; they are the wrong person for this particular act.
   "trust-disbursement-authorization-refused": "trust-disbursement-authorization-refused",
+  // A write against a reconciliation that has already closed (HTTP 409): a second close, a match, or
+  // a withdrawal. Closing a reconciliation freezes the proof it attested to, and the frozen figures
+  // never change afterwards — so a period redone later is a NEW reconciliation superseding the old
+  // one, never an edit. DISTINCT from `conflict` in that nothing is retryable: the caller opens a
+  // new reconciliation, or reads the one that was frozen.
+  "trust-reconciliation-closed": "trust-reconciliation-closed",
+  // Something the reconciliation has already accounted for (HTTP 409): a statement line or a ledger
+  // entry that is already matched in this reconciliation, a match that was already withdrawn, or a
+  // bank statement that has already been superseded by a correction. One line clears one entry, so
+  // a second assertion about either end is refused rather than silently ignored — two active matches
+  // would let a firm account for one real event twice and still appear to tie out.
+  "trust-reconciliation-already-accounted-for": "trust-reconciliation-already-accounted-for",
+  // A statement file that cannot be imported as it stands (HTTP 422): columns nothing recognized, a
+  // file that changed between being previewed and being confirmed, or a file in which no row could
+  // be read at all. DISTINCT from `validation` (request-shape) — the request is well-formed; the
+  // FILE is what cannot be carried across, and the detail names the headers found, the fingerprint
+  // that no longer matches, or how many rows were rejected. Nothing is ever stored from a file the
+  // firm has not confirmed, and no date is ever reinterpreted under a convention nobody stated.
+  "trust-statement-import-refused": "trust-statement-import-refused",
+  // Something the trust rules refuse about a bank statement, a match, or a reconciliation on their
+  // own terms (HTTP 422): a statement line dated outside the period it is filed under, a currency
+  // the account does not hold, a statement with no lines, or a ledger entry that is not an
+  // outstanding item on this account as of the period. DISTINCT from `validation` — the request is
+  // well-formed; the record it describes is not one the rules permit.
+  "trust-reconciliation-refused": "trust-reconciliation-refused",
   // A matter close refused by one of the rules the close hook runs (HTTP 409). Today the only such
   // rule is trust's: a matter whose client trust ledger still holds money, or carries an active
   // disputed-funds hold, does not close — a closed matter with somebody else's money in it is how

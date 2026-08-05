@@ -4,16 +4,21 @@ import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempot
 import {
   accountBalance,
   directGrant,
+  ledgerEntry,
   ledgerLine,
   member,
   memberRole,
   rolePermission,
   trustAccount,
+  trustBankStatement,
+  trustBankStatementLine,
   trustDisbursementDecision,
   trustDisbursementRequest,
   trustHold,
   trustLedgerNode,
   trustMovement,
+  trustReconciliation,
+  trustReconciliationMatch,
   trustTransfer,
 } from "@magna-carta/database/per-firm-schema";
 import { describe, expect, it } from "vitest";
@@ -24,32 +29,52 @@ import {
   trustHoldsExceedingBalanceStatement,
   trustLeavesWithoutZeroFloorStatement,
   trustMovementsDisagreeingWithLedgerStatement,
+  trustReconciliationDoubleMatchesStatement,
+  trustReconciliationMatchesOffStatementStatement,
+  trustReconciliationsCrossingAccountsStatement,
+  trustReconciliationsWithIncoherentProofStatement,
   trustRollupNodesWithPostingsStatement,
   trustTransfersMissingCounterpartyLineStatement,
 } from "../src/fitness.ts";
 import {
   TRUST_ACCOUNT_TABLE,
+  TRUST_BANK_STATEMENT_LINE_TABLE,
+  TRUST_BANK_STATEMENT_TABLE,
   TRUST_DISBURSEMENT_DECISION_TABLE,
   TRUST_DISBURSEMENT_REQUEST_TABLE,
   TRUST_HOLD_TABLE,
   TRUST_LEDGER_NODE_TABLE,
   TRUST_MANAGE_PERMISSION,
   TRUST_MOVEMENT_TABLE,
+  TRUST_RECONCILIATION_MATCH_TABLE,
+  TRUST_RECONCILIATION_TABLE,
   TRUST_TRANSFER_TABLE,
+  closeTrustReconciliationStatement,
   insertTrustAccountStatement,
+  insertTrustBankStatementLineStatement,
+  insertTrustBankStatementStatement,
   insertTrustDisbursementDecisionStatement,
   insertTrustDisbursementRequestStatement,
   insertTrustHoldStatement,
   insertTrustLedgerNodeStatement,
   insertTrustMovementStatement,
+  insertTrustReconciliationMatchStatement,
+  insertTrustReconciliationStatement,
   insertTrustTransferStatement,
   refuseMatterCloseWithTrustBalanceStatement,
   selectActiveTrustManagerCountStatement,
+  selectActiveTrustReconciliationMatchesStatement,
   selectMatterTrustPositionsStatement,
+  selectOutstandingTrustBankItemsStatement,
   selectPendingTrustDisbursementRequestsStatement,
   selectTrustAccountRolesStatement,
   selectTrustAccountStatement,
   selectTrustAvailableBalanceStatement,
+  selectTrustBankStatementLinesStatement,
+  selectTrustBankStatementStatement,
+  selectTrustBankStatementsForAccountStatement,
+  selectTrustBookBalanceAsOfStatement,
+  selectTrustClientLedgerTotalAsOfStatement,
   selectTrustClientNodeStatement,
   selectTrustDisbursementRequestStatement,
   selectTrustHoldStatement,
@@ -57,14 +82,20 @@ import {
   selectTrustMovementStatement,
   selectTrustMovementsForNodeStatement,
   selectTrustNodeStatement,
+  selectTrustReconciliationStatement,
+  selectTrustReconciliationsForAccountStatement,
+  selectUnmatchedTrustBankStatementLinesStatement,
 } from "../src/statements.ts";
 import {
+  TRUST_BANK_STATEMENT_LINE_DIRECTIONS,
+  TRUST_BANK_STATEMENT_SOURCES,
   TRUST_DISBURSEMENT_AUTHORIZATION_BASES,
   TRUST_DISBURSEMENT_DECISIONS,
   TRUST_DISBURSEMENT_METHODS,
   TRUST_MOVEMENT_KINDS,
   TRUST_MOVEMENT_METHODS,
   TRUST_NODE_KINDS,
+  TRUST_RECONCILIATION_STATUSES,
 } from "../src/types.ts";
 
 // Fitness function: the raw SQL in this package must track @magna-carta/database's schema — the
@@ -106,6 +137,10 @@ const REQUEST_ID = "trustDisbursementRequest_x" as never;
 const DECISION_ID = "trustDisbursementDecision_x" as never;
 const LEDGER_ACCOUNT_ID = "ledgerAccount_x" as never;
 const ENTRY_ID = "ledgerEntry_x" as never;
+const STATEMENT_ID = "trustBankStatement_x" as never;
+const STATEMENT_LINE_ID = "trustBankStatementLine_x" as never;
+const RECONCILIATION_ID = "trustReconciliation_x" as never;
+const MATCH_ID = "trustReconciliationMatch_x" as never;
 
 describe("schema name sync (trust SQL pinned to @magna-carta/database)", () => {
   it("table names match the drizzle schema", () => {
@@ -116,6 +151,25 @@ describe("schema name sync (trust SQL pinned to @magna-carta/database)", () => {
     expect(getTableConfig(trustMovement).name).toBe(TRUST_MOVEMENT_TABLE);
     expect(getTableConfig(trustDisbursementRequest).name).toBe(TRUST_DISBURSEMENT_REQUEST_TABLE);
     expect(getTableConfig(trustDisbursementDecision).name).toBe(TRUST_DISBURSEMENT_DECISION_TABLE);
+    expect(getTableConfig(trustBankStatement).name).toBe(TRUST_BANK_STATEMENT_TABLE);
+    expect(getTableConfig(trustBankStatementLine).name).toBe(TRUST_BANK_STATEMENT_LINE_TABLE);
+    expect(getTableConfig(trustReconciliation).name).toBe(TRUST_RECONCILIATION_TABLE);
+    expect(getTableConfig(trustReconciliationMatch).name).toBe(TRUST_RECONCILIATION_MATCH_TABLE);
+  });
+
+  it("the reconciliation vocabularies match the drizzle enums", () => {
+    expect(
+      getTableConfig(trustBankStatement).columns.find((column) => column.name === "source")
+        ?.enumValues,
+    ).toEqual([...TRUST_BANK_STATEMENT_SOURCES]);
+    expect(
+      getTableConfig(trustBankStatementLine).columns.find((column) => column.name === "direction")
+        ?.enumValues,
+    ).toEqual([...TRUST_BANK_STATEMENT_LINE_DIRECTIONS]);
+    expect(
+      getTableConfig(trustReconciliation).columns.find((column) => column.name === "status")
+        ?.enumValues,
+    ).toEqual([...TRUST_RECONCILIATION_STATUSES]);
   });
 
   // The sole-authorizer trigger in the per-firm migration counts members by this literal, and a
@@ -309,6 +363,155 @@ describe("schema name sync (trust SQL pinned to @magna-carta/database)", () => {
       ]),
       "trust disbursement authorization",
     );
+
+    const reconciliationSql = [
+      sqlOf(
+        insertTrustBankStatementStatement(stub, {
+          id: STATEMENT_ID,
+          trustAccountId: TRUST_ACCOUNT_ID,
+          periodStart: "2026-08-01",
+          periodEnd: "2026-08-31",
+          openingBalanceMinor: 0,
+          closingBalanceMinor: -1,
+          currency: "USD",
+          statementReference: null,
+          source: "entered",
+          supersedesStatementId: null,
+          recordedBy: "user_x" as never,
+          recordedAt: "t",
+        }),
+      ),
+      sqlOf(
+        insertTrustBankStatementLineStatement(stub, {
+          id: STATEMENT_LINE_ID,
+          statementId: STATEMENT_ID,
+          postedOn: "2026-08-05",
+          direction: "deposit",
+          amountMinor: 1,
+          description: "d",
+          reference: null,
+          counterpartyName: null,
+          sourceRowNumber: null,
+          recordedAt: "t",
+        }),
+      ),
+      sqlOf(
+        insertTrustReconciliationStatement(stub, {
+          id: RECONCILIATION_ID,
+          trustAccountId: TRUST_ACCOUNT_ID,
+          statementId: STATEMENT_ID,
+          openedBy: "user_x" as never,
+          openedAt: "t",
+          supersedesReconciliationId: null,
+          note: null,
+        }),
+      ),
+      sqlOf(
+        closeTrustReconciliationStatement(
+          stub,
+          RECONCILIATION_ID,
+          {
+            statementClosingMinor: 1,
+            outstandingDepositsMinor: 0,
+            outstandingDisbursementsMinor: 0,
+            adjustedBankMinor: 1,
+            bookBalanceMinor: 1,
+            clientLedgerTotalMinor: 1,
+            unmatchedLineCount: 0,
+            unmatchedItemCount: 0,
+            balanced: true,
+          },
+          "user_x" as never,
+          "t",
+        ),
+      ),
+      sqlOf(
+        insertTrustReconciliationMatchStatement(stub, {
+          id: MATCH_ID,
+          reconciliationId: RECONCILIATION_ID,
+          statementLineId: STATEMENT_LINE_ID,
+          entryId: ENTRY_ID,
+          unmatchesMatchId: null,
+          matchedBy: "user_x" as never,
+          matchedAt: "t",
+        }),
+      ),
+      sqlOf(selectTrustBankStatementStatement(stub, STATEMENT_ID)),
+      sqlOf(selectTrustBankStatementsForAccountStatement(stub, TRUST_ACCOUNT_ID)),
+      sqlOf(selectTrustBankStatementLinesStatement(stub, STATEMENT_ID)),
+      sqlOf(selectTrustReconciliationStatement(stub, RECONCILIATION_ID)),
+      sqlOf(selectTrustReconciliationsForAccountStatement(stub, TRUST_ACCOUNT_ID)),
+    ].join("\n");
+
+    expectOnlyKnownIdentifiers(
+      reconciliationSql,
+      new Set([
+        TRUST_BANK_STATEMENT_TABLE,
+        TRUST_BANK_STATEMENT_LINE_TABLE,
+        TRUST_RECONCILIATION_TABLE,
+        TRUST_RECONCILIATION_MATCH_TABLE,
+        "l",
+        ...columnsOf(trustBankStatement),
+        ...columnsOf(trustBankStatementLine),
+        ...columnsOf(trustReconciliation),
+        ...columnsOf(trustReconciliationMatch),
+      ]),
+      "trust reconciliation",
+    );
+  });
+
+  // The proof's three reads reach into the LEDGER — the only place this package computes an as-of
+  // total from lines rather than from a stored balance — so they are pinned against the ledger
+  // schema as well as the trust one.
+  it("the proof reads name only schema identifiers and their own aliases", () => {
+    const stub = stubDatabase();
+    const proofSql = [
+      sqlOf(selectTrustBookBalanceAsOfStatement(stub, LEDGER_ACCOUNT_ID, "2026-08-31")),
+      sqlOf(selectTrustClientLedgerTotalAsOfStatement(stub, TRUST_ACCOUNT_ID, "2026-08-31")),
+      sqlOf(selectOutstandingTrustBankItemsStatement(stub, LEDGER_ACCOUNT_ID, "2026-08-31")),
+      sqlOf(selectUnmatchedTrustBankStatementLinesStatement(stub, RECONCILIATION_ID, STATEMENT_ID)),
+      sqlOf(selectActiveTrustReconciliationMatchesStatement(stub, RECONCILIATION_ID)),
+    ].join("\n");
+    expectOnlyKnownIdentifiers(
+      proofSql,
+      new Set([
+        TRUST_ACCOUNT_TABLE,
+        TRUST_LEDGER_NODE_TABLE,
+        TRUST_MOVEMENT_TABLE,
+        TRUST_TRANSFER_TABLE,
+        TRUST_BANK_STATEMENT_LINE_TABLE,
+        TRUST_RECONCILIATION_TABLE,
+        TRUST_RECONCILIATION_MATCH_TABLE,
+        "ledger_entry",
+        "ledger_line",
+        // Aliases and computed output names.
+        "e",
+        "l",
+        "m",
+        "n",
+        "s",
+        "t",
+        "w",
+        "x",
+        "balance_minor",
+        "total_minor",
+        "bank_delta_minor",
+        "entry_id",
+        "movement_id",
+        "movement_kind",
+        "transfer_id",
+        "unmatched_by_match_id",
+        ...columnsOf(trustLedgerNode),
+        ...columnsOf(trustMovement),
+        ...columnsOf(trustTransfer),
+        ...columnsOf(trustBankStatementLine),
+        ...columnsOf(trustReconciliation),
+        ...columnsOf(trustReconciliationMatch),
+        ...columnsOf(ledgerEntry),
+        ...columnsOf(ledgerLine),
+      ]),
+      "trust proof reads",
+    );
   });
 
   it("the cross-table reads name only schema identifiers and their own aliases", () => {
@@ -397,6 +600,10 @@ describe("schema name sync (trust SQL pinned to @magna-carta/database)", () => {
       sqlOf(trustHoldsExceedingBalanceStatement(stub)),
       sqlOf(trustMovementsDisagreeingWithLedgerStatement(stub)),
       sqlOf(trustTransfersMissingCounterpartyLineStatement(stub)),
+      sqlOf(trustReconciliationDoubleMatchesStatement(stub)),
+      sqlOf(trustReconciliationMatchesOffStatementStatement(stub)),
+      sqlOf(trustReconciliationsWithIncoherentProofStatement(stub)),
+      sqlOf(trustReconciliationsCrossingAccountsStatement(stub)),
     ].join("\n");
     expectOnlyKnownIdentifiers(
       fitnessSql,
@@ -405,6 +612,10 @@ describe("schema name sync (trust SQL pinned to @magna-carta/database)", () => {
         TRUST_LEDGER_NODE_TABLE,
         TRUST_HOLD_TABLE,
         TRUST_MOVEMENT_TABLE,
+        TRUST_BANK_STATEMENT_TABLE,
+        TRUST_BANK_STATEMENT_LINE_TABLE,
+        TRUST_RECONCILIATION_TABLE,
+        TRUST_RECONCILIATION_MATCH_TABLE,
         "ledger_line",
         "account_balance",
         "a",
@@ -417,18 +628,30 @@ describe("schema name sync (trust SQL pinned to @magna-carta/database)", () => {
         "o",
         "p",
         "r",
+        "s",
         "v",
+        "w",
+        "x",
         "account_id",
         "trust_account_id",
         "entry_id",
         "clients",
         "node_id",
         "movement_id",
+        "match_id",
+        "matched_key",
+        "matches",
+        "reconciliation_id",
+        "side",
         "held_minor",
         ...columnsOf(trustAccount),
         ...columnsOf(trustLedgerNode),
         ...columnsOf(trustHold),
         ...columnsOf(trustMovement),
+        ...columnsOf(trustBankStatement),
+        ...columnsOf(trustBankStatementLine),
+        ...columnsOf(trustReconciliation),
+        ...columnsOf(trustReconciliationMatch),
         ...columnsOf(ledgerLine),
         ...columnsOf(accountBalance),
       ]),

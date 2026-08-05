@@ -33,6 +33,7 @@ import custodianStocktakeSql from "@magna-carta/database/drizzle/per-firm/202608
 import emailMatterLinkLinkedByIndexSql from "@magna-carta/database/drizzle/per-firm/20260805T160000_email-matter-link-linked-by-index.sql";
 import trustDisbursementAuthorizationSql from "@magna-carta/database/drizzle/per-firm/20260805T170000_trust-disbursement-authorization.sql";
 import custodianDestructionSql from "@magna-carta/database/drizzle/per-firm/20260805T180000_custodian-destruction.sql";
+import trustReconciliationSql from "@magna-carta/database/drizzle/per-firm/20260805T200000_trust-reconciliation.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the FirmDatabase
 // Durable Object runs this lineage against its own SQLite storage on wake (firm-database-object.ts),
@@ -76,6 +77,7 @@ export function perFirmMigrations(): Migration[] {
     "20260805T160000_email-matter-link-linked-by-index": emailMatterLinkLinkedByIndexSql,
     "20260805T170000_trust-disbursement-authorization": trustDisbursementAuthorizationSql,
     "20260805T180000_custodian-destruction": custodianDestructionSql,
+    "20260805T200000_trust-reconciliation": trustReconciliationSql,
   });
 }
 
