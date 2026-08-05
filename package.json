@@ -17,7 +17,7 @@
     "lint:decisions": "node tooling/lint-decisions.mjs",
     "lint:test-registration": "node tooling/lint-test-registration.mjs",
     "postinstall": "node tooling/setup-hooks/index.mjs",
-    "test": "vp test"
+    "test": "node tooling/test-single-flight/index.mjs"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "catalog:",

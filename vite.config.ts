@@ -121,6 +121,7 @@ export default defineConfig({
       "tooling/worktrees/vitest.config.ts",
       "tooling/clean/vitest.config.ts",
       "tooling/affected-lint/vitest.config.ts",
+      "tooling/test-single-flight/vitest.config.ts",
     ],
   },
   // vp reads test/lint/format defaults from here; run.tasks declares the monorepo graph.
