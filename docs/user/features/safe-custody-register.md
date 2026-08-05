@@ -1,8 +1,9 @@
 # Safe custody register
 
-_The register and its API are built. The screens — the register list, packet detail, the location
-tree, and check-out/check-in — are authored when those surfaces ship. Review reminders, printable
-labels, destruction approval, and client-portal visibility are not built yet._
+_The register, its reports, review dates, and printable labels are built, along with the API behind
+them. The screens — the register list, packet detail, the location tree, and check-out/check-in — are
+authored when those surfaces ship. Emailed reminders, destruction approval, and client-portal
+visibility are not built yet._
 
 ## What it does
 
@@ -103,6 +104,57 @@ inside it. Upload the document the way you upload any other document, then link 
 scan of a will does not make the will itself any more disposable — that is exactly the reasoning that
 loses originals, and the register refuses to encode it.
 
+## Looking at things again
+
+Some things need another look every so often — a passport that expires, an envelope you have held for
+nine years and should confirm is still where the file says it is. Give a packet, or one item inside
+it, a **review date**, and optionally a **cycle** in months.
+
+A review date is not a deadline. Nothing expires when it passes and nothing happens to the property;
+the packet simply appears on the list of things waiting. When you have looked at it, record the review
+and the date moves forward by your cycle — **on its anniversary, not from today**. A five-year review
+done eight months late is still due five years after the original date, so a cycle cannot quietly
+drift into a different month every time somebody is busy. If you set no cycle, the review is a one-off
+and completing it clears the date.
+
+Recording a review goes into the packet's history like everything else, so "when did we last check
+this" always has an answer.
+
+## What the register is waiting on
+
+One list answers it: **reviews that have come round, and things checked out that have not come back**,
+oldest first. Nothing emails you yet — that arrives when notifications ship, and it will read from
+exactly this list, so what you are told will match what you can see today.
+
+## Reports
+
+Four views over what your firm holds:
+
+- **Holdings by owner** — for each person or organization, how many packets are in the safe, how many
+  are out, how many items are described inside them, and how many are under hold.
+- **Holdings by location** — the whole storage tree with counts, both for a single shelf and for
+  everything beneath a node. A packet that is checked out counts at no location, so a safe whose
+  contents are all out reads as empty, which is what you would see if you opened it.
+- **Holds in force** — every hold across the register, oldest first, so a hold placed two years ago
+  and forgotten is visible rather than only surfacing when it refuses something.
+- **Overdue check-outs** — the list described above.
+
+## Labels
+
+Print a sheet of labels for packets and locations, at true size on standard A4 24-label stock. Each
+label carries the custody number (or the location's name) in large type, the packet name, and a
+**barcode**.
+
+Two things worth knowing. You can start part-way down a partly-used sheet, so a sheet with four labels
+peeled off is not wasted. And a request prints **one sheet** — if you select more than fits, the
+register asks you to print the rest separately rather than quietly sending the overflow to a second
+page, because a label that printed somewhere you were not looking is a label that ends up on the wrong
+box.
+
+The barcode encodes the item's internal reference rather than the custody number you can read. That is
+deliberate: labels stay stuck to boxes in a safe for decades, and a barcode that depended on your
+numbering scheme would stop working the day the scheme changed.
+
 ## Who can see and do what
 
 - **Reading the register** is available to everyone at the firm. "Do we hold the deed for this client"
@@ -117,13 +169,15 @@ register the way you would treat the safe itself.
 
 ## What is not here yet
 
-- **Review reminders.** You can note that a packet should be looked at again, but nothing emails you
-  yet.
+- **Emailed reminders.** Reviews and overdue check-outs appear on a list you can look at; nothing is
+  sent to you yet.
 - **Retention and destruction.** There is no destruction workflow you can run, and the platform ships
   **no default retention periods** at all — deliberately. How long a firm must keep a client's property
   varies by jurisdiction, and the guidance that matters most says originals of intrinsic value sit
   outside any routine clock. Your firm sets its own; the platform will never quietly decide for you.
-- **Printable labels and barcodes.**
+  A review date is not a retention clock and never becomes one.
+- **QR codes on labels.** Labels carry a scannable barcode; QR arrives with stocktake, which is the
+  first thing that would use it.
 - **Signed deposit and release receipts**, and identity checks before an original leaves.
 - **"Items we hold for you" in the client portal.**
 - **Stocktake** — scanning a shelf and reconciling it against what the register expects.

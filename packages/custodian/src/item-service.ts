@@ -18,7 +18,7 @@ import {
   updateCustodyItemFieldsStatement,
   type CustodyItemRow,
 } from "./packet-statements.ts";
-import { CustodyValidationError } from "./validation.ts";
+import { assertReviewIntervalMonths, CustodyValidationError } from "./validation.ts";
 
 // Items are the unit of description. Adding one is a real custody event — the firm now asserts what
 // is inside the envelope — so it appends an `itemized` movement alongside the row. A packet may hold
@@ -143,6 +143,10 @@ export interface UpdateCustodyItemInput {
   readonly instrumentDate?: string | null;
   readonly intrinsicValue?: boolean;
   readonly declaredValue?: CustodyDeclaredValue | null;
+  // An item's own review schedule — the passport that expires, the certificate whose registrar
+  // changed. Set by the firm; nothing here derives one, and nothing expires when it passes.
+  readonly reviewOn?: string | null;
+  readonly reviewIntervalMonths?: number | null;
 }
 
 // Descriptive fields only — status is derived by the movement write path, and an item never changes
@@ -175,6 +179,11 @@ export async function updateCustodyItem(
           amountMinor: patch.declaredValue?.amountMinor ?? null,
           currency: patch.declaredValue?.currency ?? null,
         };
+  const reviewIntervalMonths =
+    patch.reviewIntervalMonths === undefined
+      ? existing.review_interval_months
+      : patch.reviewIntervalMonths;
+  assertReviewIntervalMonths(reviewIntervalMonths);
   const now = options.clock.now();
   return {
     effect: {
@@ -193,6 +202,8 @@ export async function updateCustodyItem(
                 : patch.intrinsicValue,
             declaredValueAmountMinor: declaredValue.amountMinor,
             declaredValueCurrency: declaredValue.currency,
+            reviewOn: patch.reviewOn === undefined ? existing.review_on : patch.reviewOn,
+            reviewIntervalMonths,
           },
           now,
         ),
