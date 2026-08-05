@@ -45,6 +45,43 @@ at full capacity. Keep it current at every milestone — it is the durable memor
   MC docs-sync (Mon 13:03), Cloudflare blog monitor (daily 14:00, reports not
   persisted), dependency updates (Mon 14:30).
 
+## Position update (2026-08-05 ~17:40 UTC) — OWNER SESSION: decisions, three new subsystem designs, lint lever landed
+
+Ninety-three merged. OWNER DECISIONS (genuine turns, ~15:30-16:10Z, recorded in
+docs/decisions/pending/ via #126): (1) Actions minutes reset START OF NEXT
+MONTH — one-shot trigger trig_01CyD83cWkUfdtGdPxz5vmob armed 2026-09-01 12:00Z
+fires the austerity revert into this session (task 61 updated). (2) T12
+RATIFIED: hard close block kept, no override. (3) TWO-PERSON DISBURSEMENT
+AUTHORIZATION: BUILD NOW (task 75, in flight — pending-request state, approver
+differs enforced in DB, ceiling re-checked at approval, single-manager firms
+recorded-as-such; migration idx 31 = 20260805T170000 expected). (4) Next work
+ALL FOUR ratified (recon/billing/auto-file/discovery, tasks 79-82) PLUS three
+new asks: merge-field catalog SYSTEM design (dedicated agent — DELIVERED,
+#127), matter ASSETS (properties/APN/accounts/vehicles/firearms, "estates and
+asset logging super easy" — DELIVERED, #130), case CALENDAR (litigation +
+case events — DELIVERED, #131). (5) Custodian C4-C11 ALL RATIFIED as
+recommended (#126; destruction workflow build unblocked = task 83); C8 =
+design-first, NEVADA first jurisdiction — research DELIVERED+MERGED (#128:
+NRS 136.050(1) 30-day delivery duty verbatim; no lifetime deposit procedure
+(affirmatively established — uniform-act web results are a TRAP, documented);
+lodging is county rule; NRS 133.300-133.340 e-will qualified-custodian role =
+owner decision, flagged). ALSO MERGED: #129 protected-value merge binding
+(Directory identifiers via the ONE decrypt path, audit reused, paralegal
+refusal = declared absence, plaintext proven absent from every row+log; scope
+honestly pivoted from "custom fields" — custom_field has NO protected model,
+future owner decision); #132 lint fan-out sink deferral (worker = 75.6%
+type-program weight; PR-tier defers sinks-as-dependents only, union-coverage
+fitness lint:affected-scope in governance, -68% lint minutes per merged
+change; app.ts hub named as the real refactor target). OWNER-ASK LEDGER now
+headlined by task 85: design flags H1-H6 (catalog; H1 gates 3/7 slices),
+A1-A5 (assets), L1-L7 (calendar; L3 = never compute deadlines from court
+rules without verified catalog). IN FLIGHT: two-person auth build (75),
+billing design (80), auto-file rules design (81). QUEUE: trust recon build
+(79), discovery design (82), custodian destruction+Nevada encoding (83),
+stale email-filing export (73), task 65 folds into Sept-1 revert. NEW GOTCHA:
+PII registry is a literal inventory — migration-bearing briefs MUST run
+data-access suite (#118 missed it, #125 repaired).
+
 ## Position update (2026-08-05 ~14:45 UTC) — gate integrity restored; custodian counts + role fields
 
 Eighty-two merged. HEADLINE (#119, task 68 CLOSED): the gate of record was
