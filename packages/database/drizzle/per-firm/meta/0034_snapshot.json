@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "e11f9048-c98e-476a-bcfd-31bfe9a6df90",
-  "prevId": "f0f24bda-af5b-49eb-a8ee-cbed32540231",
+  "id": "a4ca9ee6-2b73-42a1-9706-d0c24277e851",
+  "prevId": "bf902174-fe5f-4c3d-b74d-dcf109cef99b",
   "tables": {
     "account_balance": {
       "name": "account_balance",
@@ -4731,6 +4731,275 @@
         }
       }
     },
+    "email_auto_file_decision": {
+      "name": "email_auto_file_decision",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "email_message_id": {
+          "name": "email_message_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "auto_file_rule_id": {
+          "name": "auto_file_rule_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "matter_id": {
+          "name": "matter_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "outcome": {
+          "name": "outcome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "suppression_reason": {
+          "name": "suppression_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "evidence": {
+          "name": "evidence",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "email_auto_file_decision_rule_created_index": {
+          "name": "email_auto_file_decision_rule_created_index",
+          "columns": ["auto_file_rule_id", "created_at"],
+          "isUnique": false
+        },
+        "email_auto_file_decision_email_message_id_index": {
+          "name": "email_auto_file_decision_email_message_id_index",
+          "columns": ["email_message_id"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "email_auto_file_decision_email_message_id_email_message_id_fk": {
+          "name": "email_auto_file_decision_email_message_id_email_message_id_fk",
+          "tableFrom": "email_auto_file_decision",
+          "tableTo": "email_message",
+          "columnsFrom": ["email_message_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "email_auto_file_decision_auto_file_rule_id_email_auto_file_rule_id_fk": {
+          "name": "email_auto_file_decision_auto_file_rule_id_email_auto_file_rule_id_fk",
+          "tableFrom": "email_auto_file_decision",
+          "tableTo": "email_auto_file_rule",
+          "columnsFrom": ["auto_file_rule_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "email_auto_file_decision_matter_id_matter_id_fk": {
+          "name": "email_auto_file_decision_matter_id_matter_id_fk",
+          "tableFrom": "email_auto_file_decision",
+          "tableTo": "matter",
+          "columnsFrom": ["matter_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "email_auto_file_decision_outcome_check": {
+          "name": "email_auto_file_decision_outcome_check",
+          "value": "\"email_auto_file_decision\".\"outcome\" IN ('filed', 'staged', 'suppressed')"
+        },
+        "email_auto_file_decision_suppression_reason_check": {
+          "name": "email_auto_file_decision_suppression_reason_check",
+          "value": "\"email_auto_file_decision\".\"suppression_reason\" IS NULL OR \"email_auto_file_decision\".\"suppression_reason\" IN ('ambiguousEvidence', 'creatorAccessWithdrawn', 'senderNotAuthenticated', 'signatureFailed', 'humanFilingDecision', 'matterNotOpen', 'ruleNotActive', 'incompleteEvidence')"
+        },
+        "email_auto_file_decision_suppression_reason_outcome_check": {
+          "name": "email_auto_file_decision_suppression_reason_outcome_check",
+          "value": "(\"email_auto_file_decision\".\"outcome\" = 'suppressed') = (\"email_auto_file_decision\".\"suppression_reason\" IS NOT NULL)"
+        }
+      }
+    },
+    "email_auto_file_rule": {
+      "name": "email_auto_file_rule",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "matter_id": {
+          "name": "matter_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "match_value": {
+          "name": "match_value",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "promotion": {
+          "name": "promotion",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'stage'"
+        },
+        "state": {
+          "name": "state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'active'"
+        },
+        "suspended_reason": {
+          "name": "suspended_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_from_email_message_id": {
+          "name": "created_from_email_message_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "email_auto_file_rule_kind_match_matter_unique_index": {
+          "name": "email_auto_file_rule_kind_match_matter_unique_index",
+          "columns": ["kind", "match_value", "matter_id"],
+          "isUnique": true
+        },
+        "email_auto_file_rule_kind_match_index": {
+          "name": "email_auto_file_rule_kind_match_index",
+          "columns": ["kind", "match_value"],
+          "isUnique": false
+        },
+        "email_auto_file_rule_matter_id_index": {
+          "name": "email_auto_file_rule_matter_id_index",
+          "columns": ["matter_id"],
+          "isUnique": false
+        },
+        "email_auto_file_rule_state_index": {
+          "name": "email_auto_file_rule_state_index",
+          "columns": ["state"],
+          "isUnique": false,
+          "where": "\"email_auto_file_rule\".\"state\" != 'active'"
+        }
+      },
+      "foreignKeys": {
+        "email_auto_file_rule_matter_id_matter_id_fk": {
+          "name": "email_auto_file_rule_matter_id_matter_id_fk",
+          "tableFrom": "email_auto_file_rule",
+          "tableTo": "matter",
+          "columnsFrom": ["matter_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "email_auto_file_rule_created_from_email_message_id_email_message_id_fk": {
+          "name": "email_auto_file_rule_created_from_email_message_id_email_message_id_fk",
+          "tableFrom": "email_auto_file_rule",
+          "tableTo": "email_message",
+          "columnsFrom": ["created_from_email_message_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "email_auto_file_rule_kind_check": {
+          "name": "email_auto_file_rule_kind_check",
+          "value": "\"email_auto_file_rule\".\"kind\" IN ('threadContinuation', 'correspondentMatter')"
+        },
+        "email_auto_file_rule_promotion_check": {
+          "name": "email_auto_file_rule_promotion_check",
+          "value": "\"email_auto_file_rule\".\"promotion\" IN ('stage', 'file')"
+        },
+        "email_auto_file_rule_state_check": {
+          "name": "email_auto_file_rule_state_check",
+          "value": "\"email_auto_file_rule\".\"state\" IN ('active', 'suspended', 'revoked')"
+        },
+        "email_auto_file_rule_suspended_reason_check": {
+          "name": "email_auto_file_rule_suspended_reason_check",
+          "value": "\"email_auto_file_rule\".\"suspended_reason\" IS NULL OR \"email_auto_file_rule\".\"suspended_reason\" IN ('creatorAccessWithdrawn', 'matterClosed', 'blastBound', 'undoRate', 'member')"
+        },
+        "email_auto_file_rule_suspended_reason_state_check": {
+          "name": "email_auto_file_rule_suspended_reason_state_check",
+          "value": "(\"email_auto_file_rule\".\"state\" = 'suspended') = (\"email_auto_file_rule\".\"suspended_reason\" IS NOT NULL)"
+        }
+      }
+    },
     "email_capture_address": {
       "name": "email_capture_address",
       "columns": {
@@ -4891,6 +5160,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "auto_file_rule_id": {
+          "name": "auto_file_rule_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "text",
@@ -4943,6 +5219,15 @@
           "tableFrom": "email_matter_link",
           "tableTo": "matter",
           "columnsFrom": ["matter_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "email_matter_link_auto_file_rule_id_email_auto_file_rule_id_fk": {
+          "name": "email_matter_link_auto_file_rule_id_email_auto_file_rule_id_fk",
+          "tableFrom": "email_matter_link",
+          "tableTo": "email_auto_file_rule",
+          "columnsFrom": ["auto_file_rule_id"],
           "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
@@ -5863,59 +6148,6 @@
         }
       }
     },
-    "firm_account_role": {
-      "name": "firm_account_role",
-      "columns": {
-        "role": {
-          "name": "role",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "ledger_account_id": {
-          "name": "ledger_account_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "firm_account_role_ledger_account_id_ledger_account_id_fk": {
-          "name": "firm_account_role_ledger_account_id_ledger_account_id_fk",
-          "tableFrom": "firm_account_role",
-          "tableTo": "ledger_account",
-          "columnsFrom": ["ledger_account_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "firm_account_role_role_check": {
-          "name": "firm_account_role_role_check",
-          "value": "\"firm_account_role\".\"role\" IN ('accounts_receivable', 'fee_income', 'client_costs_advanced', 'cost_recovery_income', 'tax_payable', 'fee_adjustments', 'fee_write_off', 'operating_bank', 'client_credit_liability')"
-        }
-      }
-    },
     "firm_secret": {
       "name": "firm_secret",
       "columns": {
@@ -6388,719 +6620,6 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
-    },
-    "invoice": {
-      "name": "invoice",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "client_entity_id": {
-          "name": "client_entity_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "currency": {
-          "name": "currency",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'draft'"
-        },
-        "invoice_number": {
-          "name": "invoice_number",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "number_scope_key": {
-          "name": "number_scope_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "number_drawn_value": {
-          "name": "number_drawn_value",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "billing_period_start": {
-          "name": "billing_period_start",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "billing_period_end": {
-          "name": "billing_period_end",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "issue_date": {
-          "name": "issue_date",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "due_date": {
-          "name": "due_date",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "notes": {
-          "name": "notes",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "location_id": {
-          "name": "location_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "letterhead_address_block": {
-          "name": "letterhead_address_block",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "letterhead_footer": {
-          "name": "letterhead_footer",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "remit_to": {
-          "name": "remit_to",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "client_billing_name": {
-          "name": "client_billing_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "finalized_at": {
-          "name": "finalized_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "finalized_by": {
-          "name": "finalized_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "voided_at": {
-          "name": "voided_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "voided_by": {
-          "name": "voided_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "void_reason": {
-          "name": "void_reason",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_by": {
-          "name": "created_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "invoice_client_status_index": {
-          "name": "invoice_client_status_index",
-          "columns": ["client_entity_id", "status"],
-          "isUnique": false
-        },
-        "invoice_status_due_date_index": {
-          "name": "invoice_status_due_date_index",
-          "columns": ["status", "due_date"],
-          "isUnique": false
-        },
-        "invoice_created_at_id_index": {
-          "name": "invoice_created_at_id_index",
-          "columns": ["created_at", "id"],
-          "isUnique": false
-        },
-        "invoice_number_unique_index": {
-          "name": "invoice_number_unique_index",
-          "columns": ["invoice_number"],
-          "isUnique": true,
-          "where": "\"invoice\".\"invoice_number\" IS NOT NULL"
-        }
-      },
-      "foreignKeys": {
-        "invoice_location_id_location_id_fk": {
-          "name": "invoice_location_id_location_id_fk",
-          "tableFrom": "invoice",
-          "tableTo": "location",
-          "columnsFrom": ["location_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "invoice_status_check": {
-          "name": "invoice_status_check",
-          "value": "\"invoice\".\"status\" IN ('draft', 'final', 'void')"
-        },
-        "invoice_currency_check": {
-          "name": "invoice_currency_check",
-          "value": "length(\"invoice\".\"currency\") = 3"
-        },
-        "invoice_number_paired_check": {
-          "name": "invoice_number_paired_check",
-          "value": "(\"invoice\".\"status\" = 'final') = (\"invoice\".\"invoice_number\" IS NOT NULL)"
-        },
-        "invoice_number_draw_paired_check": {
-          "name": "invoice_number_draw_paired_check",
-          "value": "(\"invoice\".\"invoice_number\" IS NULL) = (\"invoice\".\"number_drawn_value\" IS NULL) AND (\"invoice\".\"invoice_number\" IS NULL) = (\"invoice\".\"number_scope_key\" IS NULL)"
-        },
-        "invoice_finalized_paired_check": {
-          "name": "invoice_finalized_paired_check",
-          "value": "(\"invoice\".\"status\" = 'final') = (\"invoice\".\"finalized_at\" IS NOT NULL)"
-        },
-        "invoice_voided_paired_check": {
-          "name": "invoice_voided_paired_check",
-          "value": "(\"invoice\".\"status\" = 'void') = (\"invoice\".\"voided_at\" IS NOT NULL)"
-        },
-        "invoice_dates_final_check": {
-          "name": "invoice_dates_final_check",
-          "value": "\"invoice\".\"status\" <> 'final' OR (\"invoice\".\"issue_date\" IS NOT NULL AND \"invoice\".\"due_date\" IS NOT NULL)"
-        }
-      }
-    },
-    "invoice_line": {
-      "name": "invoice_line",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "invoice_id": {
-          "name": "invoice_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "line_index": {
-          "name": "line_index",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "matter_id": {
-          "name": "matter_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "kind": {
-          "name": "kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "description": {
-          "name": "description",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "quantity_e4": {
-          "name": "quantity_e4",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "rate_e4": {
-          "name": "rate_e4",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "amount_minor": {
-          "name": "amount_minor",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "currency": {
-          "name": "currency",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "utbms_task_code": {
-          "name": "utbms_task_code",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "utbms_activity_code": {
-          "name": "utbms_activity_code",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "utbms_expense_code": {
-          "name": "utbms_expense_code",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "tax_treatment": {
-          "name": "tax_treatment",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'exempt'"
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "invoice_line_position_unique_index": {
-          "name": "invoice_line_position_unique_index",
-          "columns": ["invoice_id", "line_index"],
-          "isUnique": true
-        },
-        "invoice_line_matter_index": {
-          "name": "invoice_line_matter_index",
-          "columns": ["matter_id", "invoice_id"],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "invoice_line_invoice_id_invoice_id_fk": {
-          "name": "invoice_line_invoice_id_invoice_id_fk",
-          "tableFrom": "invoice_line",
-          "tableTo": "invoice",
-          "columnsFrom": ["invoice_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "invoice_line_matter_id_matter_id_fk": {
-          "name": "invoice_line_matter_id_matter_id_fk",
-          "tableFrom": "invoice_line",
-          "tableTo": "matter",
-          "columnsFrom": ["matter_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "invoice_line_kind_check": {
-          "name": "invoice_line_kind_check",
-          "value": "\"invoice_line\".\"kind\" IN ('fee', 'cost', 'flat_fee', 'discount', 'adjustment', 'interest', 'tax')"
-        },
-        "invoice_line_currency_check": {
-          "name": "invoice_line_currency_check",
-          "value": "length(\"invoice_line\".\"currency\") = 3"
-        },
-        "invoice_line_description_nonempty_check": {
-          "name": "invoice_line_description_nonempty_check",
-          "value": "length(\"invoice_line\".\"description\") > 0"
-        },
-        "invoice_line_tax_treatment_check": {
-          "name": "invoice_line_tax_treatment_check",
-          "value": "\"invoice_line\".\"tax_treatment\" IN ('taxable', 'exempt')"
-        },
-        "invoice_line_index_check": {
-          "name": "invoice_line_index_check",
-          "value": "\"invoice_line\".\"line_index\" >= 0"
-        }
-      }
-    },
-    "invoice_matter_balance": {
-      "name": "invoice_matter_balance",
-      "columns": {
-        "invoice_id": {
-          "name": "invoice_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "matter_id": {
-          "name": "matter_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "total_minor": {
-          "name": "total_minor",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "applied_minor": {
-          "name": "applied_minor",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 0
-        },
-        "currency": {
-          "name": "currency",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "invoice_matter_balance_matter_index": {
-          "name": "invoice_matter_balance_matter_index",
-          "columns": ["matter_id"],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "invoice_matter_balance_invoice_id_invoice_id_fk": {
-          "name": "invoice_matter_balance_invoice_id_invoice_id_fk",
-          "tableFrom": "invoice_matter_balance",
-          "tableTo": "invoice",
-          "columnsFrom": ["invoice_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "invoice_matter_balance_matter_id_matter_id_fk": {
-          "name": "invoice_matter_balance_matter_id_matter_id_fk",
-          "tableFrom": "invoice_matter_balance",
-          "tableTo": "matter",
-          "columnsFrom": ["matter_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "invoice_matter_balance_invoice_id_matter_id_pk": {
-          "columns": ["invoice_id", "matter_id"],
-          "name": "invoice_matter_balance_invoice_id_matter_id_pk"
-        }
-      },
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "invoice_matter_balance_currency_check": {
-          "name": "invoice_matter_balance_currency_check",
-          "value": "length(\"invoice_matter_balance\".\"currency\") = 3"
-        },
-        "invoice_matter_balance_bounds_check": {
-          "name": "invoice_matter_balance_bounds_check",
-          "value": "\"invoice_matter_balance\".\"applied_minor\" >= 0 AND \"invoice_matter_balance\".\"applied_minor\" <= \"invoice_matter_balance\".\"total_minor\""
-        }
-      }
-    },
-    "invoice_number_allocation": {
-      "name": "invoice_number_allocation",
-      "columns": {
-        "scope_key": {
-          "name": "scope_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "drawn_value": {
-          "name": "drawn_value",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "invoice_id": {
-          "name": "invoice_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "allocated_at": {
-          "name": "allocated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "invoice_number_allocation_invoice_unique_index": {
-          "name": "invoice_number_allocation_invoice_unique_index",
-          "columns": ["invoice_id"],
-          "isUnique": true
-        }
-      },
-      "foreignKeys": {
-        "invoice_number_allocation_invoice_id_invoice_id_fk": {
-          "name": "invoice_number_allocation_invoice_id_invoice_id_fk",
-          "tableFrom": "invoice_number_allocation",
-          "tableTo": "invoice",
-          "columnsFrom": ["invoice_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "invoice_number_allocation_scope_key_drawn_value_pk": {
-          "columns": ["scope_key", "drawn_value"],
-          "name": "invoice_number_allocation_scope_key_drawn_value_pk"
-        }
-      },
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "invoice_number_allocation_drawn_value_check": {
-          "name": "invoice_number_allocation_drawn_value_check",
-          "value": "\"invoice_number_allocation\".\"drawn_value\" > 0"
-        }
-      }
-    },
-    "invoice_number_counter": {
-      "name": "invoice_number_counter",
-      "columns": {
-        "scope_key": {
-          "name": "scope_key",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "next_value": {
-          "name": "next_value",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "invoice_number_counter_next_value_check": {
-          "name": "invoice_number_counter_next_value_check",
-          "value": "\"invoice_number_counter\".\"next_value\" > 0"
-        }
-      }
-    },
-    "invoice_wip_claim": {
-      "name": "invoice_wip_claim",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "invoice_id": {
-          "name": "invoice_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "source_kind": {
-          "name": "source_kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "source_id": {
-          "name": "source_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "invoice_line_id": {
-          "name": "invoice_line_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "claimed_amount_minor": {
-          "name": "claimed_amount_minor",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "claimed_at": {
-          "name": "claimed_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "released_at": {
-          "name": "released_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "invoice_wip_claim_active_source_unique_index": {
-          "name": "invoice_wip_claim_active_source_unique_index",
-          "columns": ["source_kind", "source_id"],
-          "isUnique": true,
-          "where": "\"invoice_wip_claim\".\"released_at\" IS NULL"
-        },
-        "invoice_wip_claim_invoice_index": {
-          "name": "invoice_wip_claim_invoice_index",
-          "columns": ["invoice_id"],
-          "isUnique": false
-        },
-        "invoice_wip_claim_line_index": {
-          "name": "invoice_wip_claim_line_index",
-          "columns": ["invoice_line_id"],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "invoice_wip_claim_invoice_id_invoice_id_fk": {
-          "name": "invoice_wip_claim_invoice_id_invoice_id_fk",
-          "tableFrom": "invoice_wip_claim",
-          "tableTo": "invoice",
-          "columnsFrom": ["invoice_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "invoice_wip_claim_invoice_line_id_invoice_line_id_fk": {
-          "name": "invoice_wip_claim_invoice_line_id_invoice_line_id_fk",
-          "tableFrom": "invoice_wip_claim",
-          "tableTo": "invoice_line",
-          "columnsFrom": ["invoice_line_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "invoice_wip_claim_source_kind_check": {
-          "name": "invoice_wip_claim_source_kind_check",
-          "value": "\"invoice_wip_claim\".\"source_kind\" IN ('time_entry', 'cost_entry')"
-        }
-      }
     },
     "ledger_account": {
       "name": "ledger_account",

@@ -99,6 +99,11 @@ export const PERMISSIONS = [
   "emails:file", // capture/file an email to a matter (the API entrance)
   "emails:read", // read a matter's filed emails and threads, and the wall-safe "already filed" signal
   "emails:manageLinks", // accept a staged link, link to additional matters, unlink
+  // Separate from emails:manageLinks on purpose: filing mail and configuring the machine to file
+  // mail are different grants. A rule is durable, acts unattended, and acts on behalf of people who
+  // did not create it, so a firm must be able to say "you may file mail" without also saying "you
+  // may set up automatic filing".
+  "emails:manageAutoFileRules", // create/update/suspend/resume/revoke a matter's auto-file rules
   "emails:manageCaptureAddresses", // mint/rotate a matter's forward token, manage the firm catch-all (admin)
   // Document automation — the firm's assembly-template catalogue and the act of assembling a document
   // onto a matter. The catalogue is firm-level and carries no matter data, so templates:* binds

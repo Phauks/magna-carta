@@ -47,6 +47,8 @@ import type {
   DocumentTypeId,
   DocumentCheckoutId,
   EmailAttachmentId,
+  EmailAutoFileDecisionId,
+  EmailAutoFileRuleId,
   EmailCaptureAddressId,
   EmailMatterLinkId,
   EmailMessageId,
@@ -2048,6 +2050,11 @@ export const emailMatterLink = sqliteTable(
     linkedAt: text("linked_at"),
     capturedVia: text("captured_via", { enum: ["forward", "api", "addin", "sync"] }).notNull(),
     tags: text("tags"), // JSON array of per-matter tag strings; null when none
+    // Null means a person made this link; non-null means an auto-file rule did, and names which one.
+    // The one fact every read of a link needs; everything richer is a join to the decision ledger.
+    autoFileRuleId: text("auto_file_rule_id")
+      .$type<EmailAutoFileRuleId>()
+      .references(() => emailAutoFileRule.id),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
@@ -2171,6 +2178,162 @@ export const emailCaptureAddress = sqliteTable(
     uniqueIndex("email_capture_address_token_unique_index").on(table.token),
     index("email_capture_address_matter_id_index").on(table.matterId),
     check("email_capture_address_kind_check", sql`${table.kind} IN ('matter', 'catchAll')`),
+  ],
+);
+
+// One typed, matter-bound, revocable delegation: a member who could have filed a class of messages by
+// hand telling the platform to do it for future ones. The kind set is CLOSED — adding a fourth is a
+// schema change on purpose, because the guardrails have to know what a rule MEANS in order to reason
+// about competing evidence, which a pattern or an expression could not tell them. A matter's capture
+// address is not mirrored here: the credential is already the rule, and a second home for that fact
+// would drift on the first token rotation.
+//
+// A rule carries two independent answers — WHICH matter (kind + match_value) and WHETHER the
+// resulting link may be `filed` rather than `staged` (promotion). Promotion is a request, never a
+// guarantee: the firm-level ceiling and every guardrail can still demote it to staging.
+export const emailAutoFileRule = sqliteTable(
+  "email_auto_file_rule",
+  {
+    id: text("id").primaryKey().$type<EmailAutoFileRuleId>(), // emailAutoFileRule_ handle
+    kind: text("kind", { enum: ["threadContinuation", "correspondentMatter"] }).notNull(),
+    // A rule always names exactly one matter. A multi-matter rule would fire several filings from one
+    // condition, multiplying a wrong rule's blast radius by the number of matters it named.
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    // One column whose meaning is fixed by `kind`: the normalized From address for
+    // correspondentMatter, the email_thread identifier for threadContinuation.
+    matchValue: text("match_value").notNull(),
+    promotion: text("promotion", { enum: ["stage", "file"] })
+      .notNull()
+      .default("stage"),
+    state: text("state", { enum: ["active", "suspended", "revoked"] })
+      .notNull()
+      .default("active"),
+    // Why a suspended rule is out of service. Suspension is never deletion: a suspended rule with its
+    // history explains what had been filing, and a deleted one leaves the firm unable to say.
+    suspendedReason: text("suspended_reason", {
+      enum: ["creatorAccessWithdrawn", "matterClosed", "blastBound", "undoRate", "member"],
+    }),
+    // The delegating principal. Not decorative: this member's access to the matter is re-checked at
+    // every fire, because access is withdrawn as well as granted and a durable rule must not outlive
+    // the access that authorized it.
+    createdBy: text("created_by").$type<UserId>(),
+    // The manual filing that occasioned the offer, where there was one — the rule's authorizing act,
+    // so an audit of "why did this file itself" terminates in a person's decision rather than in a
+    // configuration screen.
+    createdFromEmailMessageId: text("created_from_email_message_id")
+      .$type<EmailMessageId>()
+      .references(() => emailMessage.id),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    // The same rule cannot be created twice.
+    uniqueIndex("email_auto_file_rule_kind_match_matter_unique_index").on(
+      table.kind,
+      table.matchValue,
+      table.matterId,
+    ),
+    // The fire-time lookup, and the reason evaluation cost does not scale with the firm's rule count:
+    // a capture resolves its candidates by match VALUE, never by scanning the rule table.
+    index("email_auto_file_rule_kind_match_index").on(table.kind, table.matchValue),
+    index("email_auto_file_rule_matter_id_index").on(table.matterId),
+    // The suspension review — "which rules stopped, and why". PARTIAL, over the rules that are not
+    // in service, which is both the only set the review wants and the small one. A full index on a
+    // three-value column would additionally be a trap: the query planner would prefer it for the
+    // fire-time lookup's `state = 'active'` term over the (kind, match_value) walk, turning the one
+    // read on the capture path into a walk of every active rule in the firm.
+    index("email_auto_file_rule_state_index")
+      .on(table.state)
+      .where(sql`${table.state} != 'active'`),
+    check(
+      "email_auto_file_rule_kind_check",
+      sql`${table.kind} IN ('threadContinuation', 'correspondentMatter')`,
+    ),
+    check("email_auto_file_rule_promotion_check", sql`${table.promotion} IN ('stage', 'file')`),
+    check(
+      "email_auto_file_rule_state_check",
+      sql`${table.state} IN ('active', 'suspended', 'revoked')`,
+    ),
+    check(
+      "email_auto_file_rule_suspended_reason_check",
+      sql`${table.suspendedReason} IS NULL OR ${table.suspendedReason} IN ('creatorAccessWithdrawn', 'matterClosed', 'blastBound', 'undoRate', 'member')`,
+    ),
+    // A suspended rule always says why, and a rule that is not suspended never carries a stale reason.
+    check(
+      "email_auto_file_rule_suspended_reason_state_check",
+      sql`(${table.state} = 'suspended') = (${table.suspendedReason} IS NOT NULL)`,
+    ),
+  ],
+);
+
+// The evaluation ledger: what a rule did, or what stopped it. Written only where something happened —
+// at least one rule matched, or a match was suppressed — so the table stays proportional to rule
+// activity rather than to the firm's mail volume.
+//
+// NO MESSAGE CONTENT OF ANY KIND lands here: not a subject, not an address, not a display name. The
+// reason enums and the identifiers are the whole record, the same rule the capture's idempotency body
+// follows; the plain-language sentences a person reads are rendered from these at read time.
+export const emailAutoFileDecision = sqliteTable(
+  "email_auto_file_decision",
+  {
+    id: text("id").primaryKey().$type<EmailAutoFileDecisionId>(), // emailAutoFileDecision_ handle
+    emailMessageId: text("email_message_id")
+      .notNull()
+      .$type<EmailMessageId>()
+      .references(() => emailMessage.id),
+    // Null where the outcome is attributable to the evidence rather than to any one rule — two rules
+    // disagreeing, or a rule contradicted by the subject line.
+    autoFileRuleId: text("auto_file_rule_id")
+      .$type<EmailAutoFileRuleId>()
+      .references(() => emailAutoFileRule.id),
+    // The matter the decision was about; null where the guardrails refused before a single matter was
+    // resolved.
+    matterId: text("matter_id")
+      .$type<MatterId>()
+      .references(() => matter.id),
+    outcome: text("outcome", { enum: ["filed", "staged", "suppressed"] }).notNull(),
+    // Why nothing fired, from a closed set matching the guardrails. A decision that DID fire but
+    // landed staged instead of filed records that demotion inside `evidence`, because the outcome
+    // column already carries the fact that it staged.
+    suppressionReason: text("suppression_reason", {
+      enum: [
+        "ambiguousEvidence",
+        "creatorAccessWithdrawn",
+        "senderNotAuthenticated",
+        "signatureFailed",
+        "humanFilingDecision",
+        "matterNotOpen",
+        "ruleNotActive",
+        "incompleteEvidence",
+      ],
+    }),
+    // The deciding evidence as a small identifier-and-enum JSON structure: which matters the deciding
+    // signals named, which rule fired, and the demotion reason where one applies.
+    evidence: text("evidence").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    // The per-rule fire/undo derivation, bounded to a rolling window — the input to the circuit
+    // breaker and to the undo-rate feedback, and the reason no counter is maintained on the rule row.
+    index("email_auto_file_decision_rule_created_index").on(table.autoFileRuleId, table.createdAt),
+    // "Why did this message file itself" — one message's decision history.
+    index("email_auto_file_decision_email_message_id_index").on(table.emailMessageId),
+    check(
+      "email_auto_file_decision_outcome_check",
+      sql`${table.outcome} IN ('filed', 'staged', 'suppressed')`,
+    ),
+    check(
+      "email_auto_file_decision_suppression_reason_check",
+      sql`${table.suppressionReason} IS NULL OR ${table.suppressionReason} IN ('ambiguousEvidence', 'creatorAccessWithdrawn', 'senderNotAuthenticated', 'signatureFailed', 'humanFilingDecision', 'matterNotOpen', 'ruleNotActive', 'incompleteEvidence')`,
+    ),
+    // A suppressed decision always says why, and a decision that acted never carries a stale reason.
+    check(
+      "email_auto_file_decision_suppression_reason_outcome_check",
+      sql`(${table.outcome} = 'suppressed') = (${table.suppressionReason} IS NOT NULL)`,
+    ),
   ],
 );
 

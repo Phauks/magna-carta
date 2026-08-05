@@ -273,6 +273,10 @@ describe("end-to-end", () => {
         "directory:viewSensitiveIdentifiers",
         "documents:assemble",
         "emails:file",
+        // Deliberately separate from emails:manageLinks: filing mail and configuring the machine to
+        // file mail are different grants. Owner/Admin and Attorney carry it by seed; Paralegal gets
+        // it only by an explicit firm grant.
+        "emails:manageAutoFileRules",
         "emails:manageCaptureAddresses",
         "emails:manageLinks",
         "emails:read",

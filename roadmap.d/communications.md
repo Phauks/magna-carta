@@ -43,6 +43,15 @@
   evidence: apps/worker/src/routes/capture-addresses.ts (six routes behind emails:manageCaptureAddresses) + packages/email-filing capture-address/capture-token + apps/worker/test/emails-capture-addresses.test.ts on main.
   notes: Backend and user guide only — no screens yet; a minted address becomes routable on the next per-firm outbox sweep, and the capture-subdomain DNS onboarding is still a deploy step.
 
+- id: communications.email.filing.auto-file-rules
+  name: Auto-file rules
+  scope: Typed, matter-bound, revocable rules that route captured mail to a matter unattended, behind a fixed set of fail-closed guardrails and a staged-by-default consent posture.
+  status: partial
+  slices: email-filing
+  spec: docs/specs/2026-08-05-auto-file-rules-design.md
+  evidence: packages/database per-firm email_auto_file_rule + email_auto_file_decision and email_matter_link.auto_file_rule_id, packages/email-filing/src/auto-file-rules.ts (resolveAutoFileDecision), packages/data-access/src/email-auto-file-statements.ts, and the emails:manageAutoFileRules capability with its role seed.
+  notes: Build slice 1 only — the rule model, the capability, and the pure guardrail decision. Nothing evaluates during a capture yet: the port on the capture core and the evidence gatherer in the consumer are the next slice, the management routes, review read, and load-profile numbers the one after. No screens.
+
 - id: communications.email.parse-engine
   name: Email parse core
   scope: Pure-Rust .eml/.msg/mbox parse engine on the engine-host seam with WASM edge, wrapper package, and Email Inspector tool route.

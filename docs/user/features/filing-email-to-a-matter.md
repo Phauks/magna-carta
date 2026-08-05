@@ -12,7 +12,7 @@ Capture your firm's email correspondence into the right matter, so a matter's fi
 - **Upload a saved message.** Save an email from your mail program as an `.eml` or `.msg` file and upload it to a matter.
 - **(Coming) Save & File from your inbox.** A one-click button in Outlook and Gmail that files the open message to a suggested matter — this is the same filing, done from your inbox. Everything it needs is built: the suggestions below, the filing itself, and the confirmation that it landed.
 
-Every capture lands **staged** for someone to confirm onto the matter — nothing is silently auto-filed to the wrong place.
+Every capture lands **staged** for someone to confirm onto the matter — nothing is silently auto-filed to the wrong place. If your firm has set up auto-file rules and an administrator has turned on filing without confirmation, a rule can take that last step for you; see [Auto-file rules](#auto-file-rules) below for exactly what a rule will and will not do.
 
 ## Suggested matters
 
@@ -33,6 +33,73 @@ asked — a suggestion is an offer, never a decision. Nothing is filed until you
 
 **You are only ever suggested matters you can already open.** A matter you have no access to is never
 proposed, never named in a reason, and never hinted at by a count.
+
+## Auto-file rules
+
+_The rules themselves and the screens for managing them are being built; this describes what a rule is and how it behaves, so you know what you are turning on._
+
+A suggestion waits for somebody to open a message and choose. An **auto-file rule** does not wait: it
+puts a message on the right matter as it arrives, with its reasons attached. That is the difference
+that matters on the firm-wide catch-all address, where mail lands today with no matter at all and
+somebody has to go and find one.
+
+A rule is something you set up **after** filing a message by hand — "keep filing replies to this
+conversation here", "always file mail from this sender here". There are only two kinds, and there is
+deliberately no way to write a rule out of keywords or patterns:
+
+- **Replies to a conversation you have already filed.** The strongest signal there is: your firm
+  already decided where that conversation belongs.
+- **Mail from one sender to one matter.** The sender's address exactly, not their company's domain —
+  a bank or a large opposing firm writes to you about many matters at once, so a rule on the domain
+  would be wrong more often than right.
+
+### What a staged auto-file looks like
+
+By default a rule **stages** the message: it appears on the matter, marked as waiting for someone to
+confirm, with a line saying which rule put it there and why. It is one click from filed, and until
+somebody clicks, it is not part of the matter's filed correspondence.
+
+Filing outright — with no confirming click — is a separate choice that takes **two** decisions by two
+different people: your firm's owner or an administrator has to allow it for the whole firm, and
+somebody has to choose it for that one rule. Until an administrator turns it on, every rule in the
+firm stages, whatever any individual rule says. One person cannot opt the firm into it.
+
+Whichever way it lands, a filed or staged message always says which rule was responsible, so "why is
+this here" has an answer weeks later without anybody reconstructing it.
+
+### What a rule will refuse to do
+
+Rules are cautious on purpose, and when they are unsure they do nothing rather than guess:
+
+- **It never files when the evidence points at more than one matter.** Two rules disagreeing, a rule
+  pointing one way while the subject line carries a different matter's number, a conversation that
+  has been filed to two matters — in every case the message waits for a person.
+- **It never overrules you.** A message you already filed somewhere is left alone, and a message you
+  **removed** from a matter is never put back there.
+- **It never files into a matter that is closed**, or into one the person who set the rule up can no
+  longer open. Losing access does not silently keep the rule running: the rule stops, and says why.
+- **A sender rule needs proof of who sent the message.** Because forwarding breaks a message's
+  signature, a sender rule does not fire on mail forwarded to a capture address — there the platform
+  can tell who forwarded it, not who sent it. Rules based on the conversation still work on that
+  path, which is what makes the catch-all case work.
+- **A rule that suddenly goes haywire stops itself.** A mailing list, a bounce loop, or an
+  autoresponder shows up as a rule firing far more often than a person would. Past that point the
+  rule goes back to staging and asks to be looked at, rather than quietly filing a hundred more.
+- **Nothing already in your archive is touched.** Creating a rule never reaches back: it applies to
+  mail that arrives afterwards. If you want the last six months filed, select those messages and file
+  them.
+
+A rule that stops itself is **suspended, not deleted** — it stays in the list with the reason it
+stopped, so you can see what had been happening and decide whether to put it back in service.
+
+### Undoing an automatic filing
+
+Undo is the ordinary **unlink** you would use for anything else: open the message on the matter and
+remove it. Nothing special, no separate screen. As always, unlinking leaves the message on any other
+matter it is on, and never deletes it.
+
+Undoing is also how you tell the platform a rule is wrong. Undo a rule's filings a few times and the
+rule suspends itself and asks — you do not have to go and find it.
 
 ## Knowing it filed
 
