@@ -46,6 +46,7 @@ import {
   updateCustodyPacketFieldsStatement,
   type CustodyPacketRow,
 } from "./packet-statements.ts";
+import { assertCustodyOwnershipRole, readCustodyOwnershipRoleCatalog } from "./settings.ts";
 import { assertReviewIntervalMonths, CustodyValidationError } from "./validation.ts";
 
 // Logging a packet is the subsystem's central write, and it does four things at once that all have
@@ -124,6 +125,10 @@ export async function createCustodyPacket(
       "a custody packet needs at least one Directory owner — an unattributable original can never be released and never be destroyed",
     );
   }
+  // The firm's own list of ownership labels, if it has written one down. One read for the whole
+  // packet rather than one per owner link: the catalog is a single setting row and a packet arrives
+  // with its owners together.
+  const ownershipRoleCatalog = await readCustodyOwnershipRoleCatalog(database);
   for (const owner of input.owners) {
     if (owner.entityId.trim().length === 0) {
       throw new CustodyValidationError(
@@ -131,6 +136,7 @@ export async function createCustodyPacket(
         "a custody owner link needs a Directory entity",
       );
     }
+    assertCustodyOwnershipRole(owner.ownershipRole, ownershipRoleCatalog);
   }
 
   const scheme = options.numberScheme ?? DEFAULT_CUSTODY_NUMBER_SCHEME;
@@ -416,6 +422,7 @@ export async function addCustodyOwner(
       "a custody owner link needs a Directory entity",
     );
   }
+  assertCustodyOwnershipRole(input.ownershipRole, await readCustodyOwnershipRoleCatalog(database));
   const ownerId = newIdentifier("custodyOwner", options.randomSource);
   const now = options.clock.now();
   return {

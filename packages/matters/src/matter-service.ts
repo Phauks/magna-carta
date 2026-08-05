@@ -24,6 +24,11 @@ import {
   type ClosePrecondition,
 } from "./close-preconditions.ts";
 import {
+  collectCloseAdvisories,
+  type CloseAdvisory,
+  type CloseAdvisoryNotice,
+} from "./close-advisories.ts";
+import {
   closeMatterStatement,
   insertMatterStatement,
   isMatterNumberConflict,
@@ -99,6 +104,11 @@ export interface MatterServiceOptions {
   // shell's own registry, which is empty: this package never imports the subsystems whose money or
   // property a close has to answer for.
   readonly closePreconditions?: readonly ClosePrecondition[];
+  // The informational notices other subsystems want a person to see when they close a matter,
+  // supplied by the composition root. Absent = the matter shell's own registry, which is empty. An
+  // advisory never blocks a close and has no path by which it could: `collectCloseAdvisories` returns
+  // notices, and nothing here turns a notice into a refusal.
+  readonly closeAdvisories?: readonly CloseAdvisory[];
 }
 
 // The strings the route assembles from the matter's Location, type, and client for the number draw
@@ -478,7 +488,7 @@ export async function closeMatter(
   database: BatchDatabase,
   matterId: MatterId,
   options: MatterServiceOptions,
-): Promise<{ matterId: MatterId } & ReplayFlag> {
+): Promise<{ matterId: MatterId; notices: readonly CloseAdvisoryNotice[] } & ReplayFlag> {
   const matter = await loadMatter(database, matterId);
   if (matter === undefined) {
     throw new MatterValidationError("matter-not-found", `no such matter: ${matterId}`);
@@ -507,8 +517,16 @@ export async function closeMatter(
   // aborts the whole batch, so the close, its audit row, its outbox message, and its idempotency
   // record roll back together and nothing records a close that did not happen.
   const guards = closePreconditionGuardStatements(context, preconditions);
+  // Read alongside the preconditions and carried on the response. Advisories are INFORMATION, so
+  // there is no guard, no in-batch re-assertion, and no arm on which a notice becomes a refusal — a
+  // notice that went stale between this read and the commit was still true of the matter the person
+  // was looking at, and the subsystem it came from is where the state actually lives.
+  const notices = await collectCloseAdvisories(context, options.closeAdvisories);
   try {
-    return await runMatterEffect<{ matterId: MatterId }>(database, options, 200, () => {
+    return await runMatterEffect<{
+      matterId: MatterId;
+      notices: readonly CloseAdvisoryNotice[];
+    }>(database, options, 200, () => {
       const now = options.clock.now();
       return {
         statements: [
@@ -517,7 +535,7 @@ export async function closeMatter(
           auditStatement(database, options, "matter.closed", matterId),
         ],
         outboxMessages: [{ topic: "matter.closed", payload: { matterId } }],
-        value: { matterId },
+        value: { matterId, notices },
       };
     });
   } catch (caught) {

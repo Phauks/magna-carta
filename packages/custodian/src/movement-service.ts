@@ -13,6 +13,7 @@ import type {
   UserId,
 } from "@magna-carta/identifiers/types";
 import { custodyAuditStatement, type CustodyAuditContext } from "./audit.ts";
+import { readCustodyIntrinsicValueItemCount } from "./destruction-statements.ts";
 import { readActiveCustodyHolds } from "./hold-statements.ts";
 import { insertCustodyMovementStatement, readCustodyMovement } from "./movement-statements.ts";
 import {
@@ -126,6 +127,7 @@ export async function recordCustodyMovement(
   assertMovementShape(input);
   assertPacketAcceptsMovement(packet, input.kind);
   await assertNoBlockingHold(database, packetId, input.kind);
+  await assertNotDestroyingAnIrreplaceableOriginal(database, packetId, input);
   // The release gate. The policy read costs one query and is issued only on a release, which is the
   // rarest movement a register records — a check-out, the movement a firm makes daily, reads nothing
   // extra. The gate runs BEFORE the identifier is minted and before the batch is composed, so a
@@ -352,6 +354,34 @@ async function assertNoBlockingHold(
   throw new CustodyValidationError(
     "custody-hold-blocks-action",
     `a ${holds[0]?.kind ?? "custody"} hold is in force on this packet and forbids a ${kind} movement`,
+  );
+}
+
+// An item recorded as an irreplaceable original is never destroyed through this register, and this is
+// the refusal on the movement path rather than only on the destruction workflow — the workflow is not
+// the only way to append a `destroyed` movement, and a rule enforced in one caller is a rule with the
+// other callers standing open beside it. There is no override parameter here on purpose: the only way
+// past is for a person to clear the flag on that specific object, which is a deliberate, audited
+// change to a fact rather than a way around a rule. A packet-level destruction is refused when ANY
+// item in it carries the flag, because destroying the envelope destroys the will inside it. The
+// database carries the same refusal as a trigger, so it holds for a write path nobody has built yet.
+async function assertNotDestroyingAnIrreplaceableOriginal(
+  database: SqlDatabase,
+  packetId: CustodyPacketId,
+  input: RecordCustodyMovementInput,
+): Promise<void> {
+  if (input.kind !== "destroyed") return;
+  const flagged = await readCustodyIntrinsicValueItemCount(
+    database,
+    packetId,
+    input.itemId ?? null,
+  );
+  if (flagged === 0) return;
+  throw new CustodyValidationError(
+    "custody-intrinsic-value-not-destructible",
+    input.itemId == null
+      ? "this packet holds an item recorded as an irreplaceable original — an original of intrinsic value is returned to its owner or kept, never destroyed through the register"
+      : "this item is recorded as an irreplaceable original — an original of intrinsic value is returned to its owner or kept, never destroyed through the register",
   );
 }
 

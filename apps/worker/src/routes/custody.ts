@@ -1,5 +1,12 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
+import {
+  approveCustodyDestruction,
+  executeCustodyDestruction,
+  refuseCustodyDestruction,
+  requestCustodyDestruction,
+} from "@magna-carta/custodian/destruction-service";
+import { listCustodyDestructionRequests } from "@magna-carta/custodian/destruction-statements";
 import { placeCustodyHold, releaseCustodyHold } from "@magna-carta/custodian/hold-service";
 import { readActiveCustodyHolds } from "@magna-carta/custodian/hold-statements";
 import { addCustodyItem, updateCustodyItem } from "@magna-carta/custodian/item-service";
@@ -53,7 +60,13 @@ import {
   readCustodyStocktakeSightings,
 } from "@magna-carta/custodian/stocktake-statements";
 import {
+  ENCODED_CUSTODY_WILL_JURISDICTION_KEYS,
+  CUSTODY_WILL_DEADLINE_BASES,
+  resolveCustodyWillDuties,
+} from "@magna-carta/custodian/will-deposit-catalog";
+import {
   CUSTODY_BORROWER_KINDS,
+  CUSTODY_DESTRUCTION_OUTCOMES,
   CUSTODY_HOLD_KINDS,
   CUSTODY_ITEM_STATUSES,
   CUSTODY_LOCATION_KINDS,
@@ -67,7 +80,11 @@ import {
 } from "@magna-carta/custodian/types";
 import { CustodyValidationError } from "@magna-carta/custodian/validation";
 import { cryptoRandomSource } from "@magna-carta/identifiers/random";
-import type { CustodyLocationId, CustodyPacketId } from "@magna-carta/identifiers/types";
+import type {
+  CustodyItemId,
+  CustodyLocationId,
+  CustodyPacketId,
+} from "@magna-carta/identifiers/types";
 import type { Context } from "hono";
 import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
@@ -169,10 +186,49 @@ function custodyErrorResponse(
     case "custody-unknown-item-type":
     case "custody-unknown-hold":
     case "custody-unknown-stocktake":
+    case "custody-unknown-destruction-request":
       return problemJson(c, {
         type: "not-found",
         title: "Not found",
         status: 404,
+        detail: caught.message,
+      });
+    // Two people, and the database says so too. Its own type rather than the generic validation
+    // problem because a client acts on it by finding a different person, not by fixing the request.
+    case "custody-approver-must-differ":
+      return problemJson(c, {
+        type: "custody-approver-must-differ",
+        title: "A destruction needs a second person",
+        status: 422,
+        detail: caught.message,
+      });
+    // The one refusal in this subsystem with no override anywhere behind it. Its own type so a
+    // client can say plainly what happened and offer the only real next step — look again at whether
+    // the property really is an irreplaceable original — rather than presenting it as a form error.
+    case "custody-intrinsic-value-not-destructible":
+      return problemJson(c, {
+        type: "custody-intrinsic-value-not-destructible",
+        title: "An irreplaceable original is not destructible",
+        status: 422,
+        detail: caught.message,
+      });
+    case "custody-destruction-request-decided":
+    case "custody-destruction-not-approved":
+      return problemJson(c, {
+        type: "custody-destruction-not-actionable",
+        title: "This destruction request cannot take that action",
+        status: 409,
+        detail: caught.message,
+      });
+    // One problem type carrying two distinct details, mirroring the trust catalog: "nobody told us
+    // which law" and "nobody has verified that law" are fixed differently, and the detail says which
+    // one happened. Neither ever resolves to a default.
+    case "custody-jurisdiction-not-recorded":
+    case "custody-jurisdiction-not-encoded":
+      return problemJson(c, {
+        type: "custody-jurisdiction-unavailable",
+        title: "The will-deposit duties cannot be resolved",
+        status: 422,
         detail: caught.message,
       });
     // Its own type rather than the generic validation problem, because it is a LIFECYCLE state and
@@ -249,6 +305,7 @@ function custodyErrorResponse(
     case "custody-invalid-review-interval":
     case "custody-label-selection-invalid":
     case "custody-release-signatories-must-differ":
+    case "custody-ownership-role-not-in-catalog":
     case "custody-invalid-sighting":
       return problemJson(c, {
         type: "validation",
@@ -878,6 +935,124 @@ function identifierList(prefix: string) {
       `every id must be a ${prefix} handle`,
     );
 }
+
+// ---- destruction ----
+//
+// Destroying a client's original is the only thing in this subsystem that takes two people, and it
+// is deliberately FOUR calls rather than one with a flag: raise, approve, execute, and the refusal
+// path beside them. A single endpoint that took a requester and an approver in one body would be one
+// person typing two names.
+//
+// There is no override parameter anywhere on this surface. An item recorded as an irreplaceable
+// original is refused, a hold is refused, and neither refusal has a query string that turns it off.
+
+const destructionRequestIdParam = z.object({
+  destructionRequestId: identifierPathParam("custodyDestructionRequest", "destructionRequestId"),
+});
+
+const CustodyDestructionRequest = z
+  .object({
+    id: z.string(),
+    packetId: z.string(),
+    itemId: z.string().nullable(),
+    requestedBy: z.string().nullable(),
+    requestedAt: z.string(),
+    basis: z.string(),
+    approvedBy: z.string().nullable(),
+    approvedAt: z.string().nullable(),
+    refusedBy: z.string().nullable(),
+    refusedAt: z.string().nullable(),
+    refusalReason: z.string().nullable(),
+    executedAt: z.string().nullable(),
+    executedBy: z.string().nullable(),
+    executedMovementId: z.string().nullable(),
+    // Absent means the request is still waiting for a second person.
+    outcome: z.enum(CUSTODY_DESTRUCTION_OUTCOMES).nullable(),
+  })
+  .openapi("CustodyDestructionRequest");
+
+const CustodyDestructionRequestPage = paginated(CustodyDestructionRequest).openapi(
+  "CustodyDestructionRequestPage",
+);
+
+const RaiseCustodyDestructionRequest = z
+  .object({
+    packetId: identifierField("custodyPacket"),
+    // Scoping to one item destroys that item; omitting it destroys the packet and everything in it.
+    itemId: identifierField("custodyItem").optional(),
+    // Required, and never defaulted. Nothing in this subsystem derives a reason to destroy a
+    // client's property; a person writes down why and what authorizes it, in their own words.
+    basis: z.string().min(1).max(4000),
+  })
+  .openapi("RaiseCustodyDestructionRequest");
+
+const RefuseCustodyDestructionRequestBody = z
+  .object({ reason: z.string().max(4000).nullable().optional() })
+  .openapi("RefuseCustodyDestructionRequest");
+
+const ExecuteCustodyDestructionRequestBody = z
+  .object({
+    // What was actually done to the property — shredded, incinerated, witnessed. Recorded on the
+    // ledger row, because "destroyed" alone does not answer the question anyone will later ask.
+    method: z.string().max(1000).nullable().optional(),
+    occurredAt: z.string().max(40).optional(),
+  })
+  .openapi("ExecuteCustodyDestructionRequest");
+
+const ExecutedCustodyDestructionResponse = z
+  .object({
+    id: z.string(),
+    packetId: z.string(),
+    // The append-only ledger row the destruction wrote. It is the record of what happened; the
+    // request row is the record of who agreed to it.
+    movementId: z.string(),
+    executedAt: z.string(),
+  })
+  .openapi("ExecutedCustodyDestruction");
+
+// ---- will-deposit duties ----
+
+const CustodyWillDuty = z
+  .object({
+    key: z.string(),
+    summary: z.string(),
+    trigger: z.string(),
+    dutyHolder: z.string(),
+    deadlineBasis: z.enum(CUSTODY_WILL_DEADLINE_BASES),
+    deadlineDays: z.number().int().nullable(),
+    deliveryTargets: z.array(z.string()),
+    consequenceOfNeglect: z.string().nullable(),
+    sideEffects: z.array(z.string()),
+    citation: z.string(),
+    // The operative text of the law, quoted exactly. A firm can check a quotation against the
+    // published statute; it cannot check a paraphrase against anything.
+    statutoryText: z.string(),
+    sourceUrl: z.string(),
+    verifiedOn: z.string(),
+  })
+  .openapi("CustodyWillDuty");
+
+const CustodyWillCapability = z
+  .object({
+    key: z.string(),
+    summary: z.string(),
+    available: z.boolean(),
+    basis: z.string(),
+    verifiedOn: z.string(),
+  })
+  .openapi("CustodyWillCapability");
+
+const CustodyWillDuties = z
+  .object({
+    jurisdictionKey: z.string(),
+    name: z.string(),
+    duties: z.array(CustodyWillDuty),
+    capabilities: z.array(CustodyWillCapability),
+    encodedSubJurisdictionKeys: z.array(z.string()),
+    compiledThrough: z.string(),
+    encodedJurisdictionKeys: z.array(z.string()),
+  })
+  .openapi("CustodyWillDuties");
 
 // ---- route metas ----
 //
@@ -1677,6 +1852,179 @@ const renderLabelsRoute = defineOpenAPIRoute(readMeta("renderLabels"), {
   },
 });
 
+const listDestructionRequestsRoute = defineOpenAPIRoute(readMeta("listDestructionRequests"), {
+  method: "get",
+  path: "/api/v1/custody/destruction-requests",
+  description:
+    "Lists destruction requests, newest first, optionally narrowed to one packet or to a single " +
+    "state. `outcome=pending` is the queue of requests waiting for a second person to approve or " +
+    "refuse them. Cursor-paginated.",
+  request: {
+    query: cursorQuery.extend({
+      packetId: identifierField("custodyPacket").optional(),
+      outcome: z.enum(["pending", ...CUSTODY_DESTRUCTION_OUTCOMES]).optional(),
+    }),
+  },
+  responses: {
+    200: {
+      description: "A page of destruction requests",
+      content: { "application/json": { schema: CustodyDestructionRequestPage } },
+    },
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    429: authErrors[429],
+  },
+});
+
+const raiseDestructionRequestRoute = defineOpenAPIRoute(
+  writeMeta("raiseDestructionRequest", "required"),
+  {
+    method: "post",
+    path: "/api/v1/custody/destruction-requests",
+    description:
+      "Raises a request to destroy a packet, or one item inside it, recording the reason and the " +
+      "authority the requester asserts. Raising a request destroys nothing: a different person has " +
+      "to approve it, and a third call carries it out. The request is refused outright while any " +
+      "hold is in force, and refused outright where the property is recorded as an irreplaceable " +
+      "original — that refusal has no override on this surface, and the only way past it is for " +
+      "somebody to change that record about the object itself.",
+    request: {
+      headers: idempotencyKeyHeader,
+      body: {
+        content: { "application/json": { schema: RaiseCustodyDestructionRequest } },
+        required: true,
+      },
+    },
+    responses: {
+      201: {
+        description: "The raised request",
+        content: { "application/json": { schema: IdAck } },
+      },
+      400: authErrors[400],
+      401: authErrors[401],
+      403: authErrors[403],
+      404: authErrors[404],
+      409: authErrors[409],
+      422: authErrors[422],
+      429: authErrors[429],
+    },
+  },
+);
+
+const approveDestructionRequestRoute = defineOpenAPIRoute(
+  writeMeta("approveDestructionRequest", "required"),
+  {
+    method: "post",
+    path: "/api/v1/custody/destruction-requests/{destructionRequestId}/approve",
+    description:
+      "Approves a destruction request. The approver must be a different person from the requester, " +
+      "which is enforced at the database as well as here. Approval authorizes the destruction; it " +
+      "does not carry it out.",
+    request: { headers: idempotencyKeyHeader, params: destructionRequestIdParam },
+    responses: {
+      200: { description: "Approved", content: { "application/json": { schema: Ack } } },
+      400: authErrors[400],
+      401: authErrors[401],
+      403: authErrors[403],
+      404: authErrors[404],
+      409: authErrors[409],
+      422: authErrors[422],
+      429: authErrors[429],
+    },
+  },
+);
+
+const refuseDestructionRequestRoute = defineOpenAPIRoute(
+  writeMeta("refuseDestructionRequest", "required"),
+  {
+    method: "post",
+    path: "/api/v1/custody/destruction-requests/{destructionRequestId}/refuse",
+    description:
+      "Refuses a destruction request, optionally recording why. Anyone who can manage the register " +
+      "may refuse one, including the person who raised it: ending a client's property takes two " +
+      "people, and deciding not to takes nobody's agreement.",
+    request: {
+      headers: idempotencyKeyHeader,
+      params: destructionRequestIdParam,
+      body: {
+        content: { "application/json": { schema: RefuseCustodyDestructionRequestBody } },
+        required: false,
+      },
+    },
+    responses: {
+      200: { description: "Refused", content: { "application/json": { schema: Ack } } },
+      400: authErrors[400],
+      401: authErrors[401],
+      403: authErrors[403],
+      404: authErrors[404],
+      409: authErrors[409],
+      422: authErrors[422],
+      429: authErrors[429],
+    },
+  },
+);
+
+const executeDestructionRequestRoute = defineOpenAPIRoute(
+  writeMeta("executeDestructionRequest", "required"),
+  {
+    method: "post",
+    path: "/api/v1/custody/destruction-requests/{destructionRequestId}/execute",
+    description:
+      "Records that an approved destruction was carried out. This appends a `destroyed` movement " +
+      "through the register's one movement write path, so the destruction carries a person's name " +
+      "on the same append-only ledger every other event does. Both refusals are asked again here: " +
+      "a hold placed since the approval, and an irreplaceable original recorded since it.",
+    request: {
+      headers: idempotencyKeyHeader,
+      params: destructionRequestIdParam,
+      body: {
+        content: { "application/json": { schema: ExecuteCustodyDestructionRequestBody } },
+        required: false,
+      },
+    },
+    responses: {
+      200: {
+        description: "The recorded destruction",
+        content: { "application/json": { schema: ExecutedCustodyDestructionResponse } },
+      },
+      400: authErrors[400],
+      401: authErrors[401],
+      403: authErrors[403],
+      404: authErrors[404],
+      409: authErrors[409],
+      422: authErrors[422],
+      429: authErrors[429],
+    },
+  },
+);
+
+const willDutiesRoute = defineOpenAPIRoute(readMeta("willDepositDuties"), {
+  method: "get",
+  path: "/api/v1/custody/will-deposit-duties",
+  description:
+    "Returns what the law of one jurisdiction says a holder of a will must do, quoted from the " +
+    "statute or court rule with its citation. A jurisdiction with no verified entry is REFUSED " +
+    "rather than answered: there is no baseline and no fallback, because a confidently wrong answer " +
+    "about a statutory duty is one a firm will act on. A jurisdiction below an encoded one (a " +
+    "county or judicial district) is refused on its own terms even when its state is encoded, " +
+    "because a local rule nobody verified is not the same as a local rule that does not exist. " +
+    "This returns the text of the law and nothing else — it is not advice, and it decides nothing " +
+    "the sources leave open.",
+  request: { query: z.object({ jurisdiction: z.string().min(1).max(20) }) },
+  responses: {
+    200: {
+      description: "The encoded duties for that jurisdiction",
+      content: { "application/json": { schema: CustodyWillDuties } },
+    },
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
 // ---- registration ----
 
 function serviceOptions(c: Context<{ Bindings: Bindings; Variables: AppVariables }>) {
@@ -2442,6 +2790,201 @@ export function registerCustodyRoutes(app: CustodyApp, chokepoint: Chokepoint): 
       }
     },
   );
+
+  app.openapi(
+    {
+      ...listDestructionRequestsRoute,
+      middleware: chokepointMiddleware(chokepoint, listDestructionRequestsRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const query = c.req.valid("query");
+      const page = await listCustodyDestructionRequests(firm.firmDatabase, {
+        packetId: query.packetId as CustodyPacketId | undefined,
+        outcome: query.outcome,
+        cursor: query.cursor,
+      });
+      return c.json(
+        { data: page.data.map(destructionRequestView), nextCursor: page.nextCursor } as never,
+        200,
+      );
+    },
+  );
+
+  app.openapi(
+    {
+      ...raiseDestructionRequestRoute,
+      middleware: chokepointMiddleware(chokepoint, raiseDestructionRequestRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const request = c.req.valid("json");
+      try {
+        const { destructionRequestId, effect } = await requestCustodyDestruction(
+          firm.firmDatabase,
+          request.packetId as CustodyPacketId,
+          { basis: request.basis, itemId: request.itemId as CustodyItemId | undefined },
+          serviceOptions(c),
+        );
+        await commitEffectBatch(firm.firmDatabase, effect, { now: () => new Date().toISOString() });
+        return c.json({ id: destructionRequestId } as never, 201);
+      } catch (caught) {
+        return custodyErrorResponse(c, caught);
+      }
+    },
+  );
+
+  app.openapi(
+    {
+      ...approveDestructionRequestRoute,
+      middleware: chokepointMiddleware(chokepoint, approveDestructionRequestRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { destructionRequestId } = c.req.valid("param");
+      try {
+        const { effect } = await approveCustodyDestruction(
+          firm.firmDatabase,
+          destructionRequestId,
+          serviceOptions(c),
+        );
+        await commitEffectBatch(firm.firmDatabase, effect, { now: () => new Date().toISOString() });
+        return c.json({ ok: true } as never, 200);
+      } catch (caught) {
+        return custodyErrorResponse(c, caught);
+      }
+    },
+  );
+
+  app.openapi(
+    {
+      ...refuseDestructionRequestRoute,
+      middleware: chokepointMiddleware(chokepoint, refuseDestructionRequestRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { destructionRequestId } = c.req.valid("param");
+      const request = c.req.valid("json");
+      try {
+        const { effect } = await refuseCustodyDestruction(
+          firm.firmDatabase,
+          destructionRequestId,
+          { reason: request?.reason ?? null },
+          serviceOptions(c),
+        );
+        await commitEffectBatch(firm.firmDatabase, effect, { now: () => new Date().toISOString() });
+        return c.json({ ok: true } as never, 200);
+      } catch (caught) {
+        return custodyErrorResponse(c, caught);
+      }
+    },
+  );
+
+  app.openapi(
+    {
+      ...executeDestructionRequestRoute,
+      middleware: chokepointMiddleware(chokepoint, executeDestructionRequestRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { destructionRequestId } = c.req.valid("param");
+      const request = c.req.valid("json");
+      try {
+        const executed = await executeCustodyDestruction(firm.firmDatabase, destructionRequestId, {
+          ...serviceOptions(c),
+          // The ledger row this writes is the one row in the subsystem a retry must never duplicate,
+          // so the key rides down to the movement write path that owns the replay.
+          idempotency: requireChokepointIdempotency(c),
+          method: request?.method ?? null,
+          occurredAt: request?.occurredAt,
+        });
+        return c.json(
+          {
+            id: executed.destructionRequestId,
+            packetId: executed.packetId,
+            movementId: executed.movementId,
+            executedAt: executed.executedAt,
+          } as never,
+          200,
+        );
+      } catch (caught) {
+        return custodyErrorResponse(c, caught);
+      }
+    },
+  );
+
+  app.openapi(
+    { ...willDutiesRoute, middleware: chokepointMiddleware(chokepoint, willDutiesRoute) },
+    async (c) => {
+      const { jurisdiction } = c.req.valid("query");
+      try {
+        const resolved = resolveCustodyWillDuties(jurisdiction);
+        return c.json(
+          {
+            ...resolved,
+            // Returned on every answer so a surface can say which jurisdictions ARE encoded without
+            // a second call, and so an unencoded one reads as a gap in a known list rather than as
+            // the platform having no opinion.
+            encodedJurisdictionKeys: ENCODED_CUSTODY_WILL_JURISDICTION_KEYS,
+          } as never,
+          200,
+        );
+      } catch (caught) {
+        // This route is a pure read over compiled reference data, so the only refusal it can produce
+        // is the jurisdiction one. Mapped inline rather than through the shared mapper because the
+        // shared mapper's conflict arm describes states a lookup cannot be in.
+        if (
+          caught instanceof CustodyValidationError &&
+          (caught.code === "custody-jurisdiction-not-recorded" ||
+            caught.code === "custody-jurisdiction-not-encoded")
+        ) {
+          return problemJson(c, {
+            type: "custody-jurisdiction-unavailable",
+            title: "The will-deposit duties cannot be resolved",
+            status: 422,
+            detail: caught.message,
+          });
+        }
+        throw caught;
+      }
+    },
+  );
+}
+
+function destructionRequestView(row: {
+  id: string;
+  packet_id: string;
+  item_id: string | null;
+  requested_by: string | null;
+  requested_at: string;
+  basis: string;
+  approved_by: string | null;
+  approved_at: string | null;
+  refused_by: string | null;
+  refused_at: string | null;
+  refusal_reason: string | null;
+  executed_at: string | null;
+  executed_by: string | null;
+  executed_movement_id: string | null;
+  outcome: string | null;
+}) {
+  return {
+    id: row.id,
+    packetId: row.packet_id,
+    itemId: row.item_id,
+    requestedBy: row.requested_by,
+    requestedAt: row.requested_at,
+    basis: row.basis,
+    approvedBy: row.approved_by,
+    approvedAt: row.approved_at,
+    refusedBy: row.refused_by,
+    refusedAt: row.refused_at,
+    refusalReason: row.refusal_reason,
+    executedAt: row.executed_at,
+    executedBy: row.executed_by,
+    executedMovementId: row.executed_movement_id,
+    outcome: row.outcome,
+  };
 }
 
 // The five findings are returned as one nested object rather than five sibling columns: they are one

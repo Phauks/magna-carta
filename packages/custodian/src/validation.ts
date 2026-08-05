@@ -20,6 +20,21 @@ export type CustodyValidationCode =
   | "custody-number-taken"
   // Destruction is a two-person action by construction.
   | "custody-approver-must-differ"
+  // The destruction request named is unknown, already decided, or not yet approved. Three distinct
+  // states a caller acts on differently: find the right request, raise a new one, get a second
+  // person to approve.
+  | "custody-unknown-destruction-request"
+  | "custody-destruction-request-decided"
+  | "custody-destruction-not-approved"
+  // The owner link named an ownership role the firm's own catalog does not contain. A firm that has
+  // configured no catalog constrains nothing — the label stays free text, as it always was.
+  | "custody-ownership-role-not-in-catalog"
+  // A jurisdiction was needed and none was supplied, versus one was supplied and no verified rules
+  // are encoded for it. These stay distinct because they are fixed differently: the first by
+  // recording the jurisdiction, the second by researching and verifying it against primary text.
+  // Conflating them is how a firm comes to read silence as "nothing applies to us".
+  | "custody-jurisdiction-not-recorded"
+  | "custody-jurisdiction-not-encoded"
   // An original may not leave the firm's custody until the authority it leaves on and the identity
   // check made on the person collecting it have both been recorded. The one movement where recording
   // after the fact is worth nothing, because the property is already gone.
