@@ -32,7 +32,16 @@ import {
   writePartText,
   type PartMap,
 } from "./ooxml/package.ts";
-import { contentPartNames, REQUIRED_PARTS } from "./ooxml/parts.ts";
+import {
+  addImagePart,
+  addImageRelationship,
+  declaredRelationships,
+  embeddedRelationshipIds,
+  inlineDrawingNode,
+  readImageFacts,
+  relationshipTargetFor,
+} from "./ooxml/image.ts";
+import { contentPartNames, CONTENT_TYPES_PART, REQUIRED_PARTS } from "./ooxml/parts.ts";
 import { attributesOf, buildXml, nodeTag, parseXml, textOf, type XmlNode } from "./ooxml/xml.ts";
 import type { MergeContext, MergeValue, MergeValueType } from "./types.ts";
 
@@ -164,10 +173,19 @@ export function expressionValueOf(
       };
     case "rate":
       return { kind: "rate", rateE4: value.rateE4, currencyCode: value.currencyCode };
+    // The scale travels with the value: a firm's own numeric field declares its minor-unit exponent, and
+    // an expression that received the stored integer at scale 0 would compute with a number a hundred
+    // times too large and look entirely plausible doing it.
     case "number":
-      return { kind: "number", significand: value.value, scale: 0 };
+      return { kind: "number", significand: value.value, scale: value.scale };
     case "boolean":
       return { kind: "boolean", value: value.value };
+    // AN IMAGE HAS NO EXPRESSION VALUE, deliberately and exhaustively: the language has no image type, so
+    // there is nothing an expression could do with a picture. The key is absent from the scope for the
+    // same reason, which is what makes `{{#if location.letterheadLogo}}` an unknown merge field at
+    // registration rather than a type error nobody can act on.
+    case "image":
+      return undefined;
     case "list":
       return {
         kind: "list",
@@ -198,12 +216,22 @@ function expressionValuesOf(context: MergeContext): ReadonlyMap<string, Expressi
 
 interface AssemblyState {
   readonly context: MergeContext;
+  // The catalogue every key in the document is resolved against — the firm's, including its own
+  // `custom.<handle>` bindings, not the platform's shipped list.
+  readonly dictionary: readonly DictionaryEntry[] | undefined;
   readonly baseScope: ExpressionScope;
   readonly baseValues: ReadonlyMap<string, ExpressionValue>;
   readonly budget: EvaluationBudget;
   readonly absences: Map<string, AssemblyAbsence>;
   readonly missingRequired: Set<string>;
   readonly tallies: Map<string, number>;
+  // The package being rewritten, and which part the walk is inside. A picture is a part plus a
+  // relationship on the part that draws it, so a drawing cannot be emitted without both to hand.
+  readonly parts: PartMap;
+  currentPart: string;
+  // Unique per drawing across the whole output. Word tolerates duplicate drawing ids; strict consumers
+  // and accessibility checkers do not.
+  drawings: number;
   substitutions: number;
   failure:
     | { readonly reason: AssemblyFailureReason; readonly detail: string; readonly keys: string[] }
@@ -297,8 +325,12 @@ function transformUnit(node: XmlNode, frame: Frame, depth: number, state: Assemb
   const tag = nodeTag(node);
   if (tag === undefined) return node;
   if (tag === "w:p") {
-    substituteParagraph(node, frame, state);
-    return node;
+    // Pictures first, and at the RUN level, because a picture REPLACES a run rather than rewriting the
+    // text inside one. Doing it before the text pass means the placeholder is already gone by the time
+    // the text pass looks, so it cannot also be rendered as an absence marker beside its own drawing.
+    const drawn = substituteImagesInParagraph(node, state);
+    substituteParagraph(drawn, frame, state);
+    return drawn;
   }
   const children = node[tag];
   if (!Array.isArray(children)) return node;
@@ -494,7 +526,7 @@ function renderPlaceholder(body: string, frame: Frame, state: AssemblyState): st
   const separator = body.indexOf(":");
   const key = (separator === -1 ? body : body.slice(0, separator)).trim();
   const explicitFormat = separator === -1 ? null : body.slice(separator + 1).trim();
-  const entry = lookupDictionaryEntry(key);
+  const entry = lookupDictionaryEntry(key, state.dictionary);
   // A loop-scoped name is not a dictionary key: it comes from the collection the enclosing block is
   // walking, which was read once as a whole.
   const scoped = frame.values.get(key);
@@ -635,6 +667,150 @@ function mergeValueOf(value: ExpressionValue): MergeValue | undefined {
   }
 }
 
+// ---------------------------------------------------------------------------------------------
+// Pictures
+// ---------------------------------------------------------------------------------------------
+
+// The image value a placeholder body names, or undefined when it names anything else. Only a plain
+// merge key can be one: a calculation has no image type to produce and a block marker is not a value, so
+// neither is consulted here.
+function imageValueFor(
+  body: string,
+  state: AssemblyState,
+): Extract<MergeValue, { kind: "image" }> | undefined {
+  if (body.trimStart().startsWith("=")) return undefined;
+  const separator = body.indexOf(":");
+  const key = (separator === -1 ? body : body.slice(0, separator)).trim();
+  const value = state.context.values.get(key);
+  return value?.kind === "image" ? value : undefined;
+}
+
+// A run rebuilt to carry `text` — the original's properties and any non-text children kept, its text
+// leaves collapsed into one. Used for the fragments either side of a picture, so a logo dropped into the
+// middle of a line leaves the words around it in the font they were written in.
+function runWithText(run: XmlNode, text: string, keepOtherChildren: boolean): XmlNode | undefined {
+  const children = childrenOfRun(run);
+  const kept = children.filter((child) => {
+    const tag = nodeTag(child);
+    if (tag === "w:t") return false;
+    return keepOtherChildren || tag === "w:rPr";
+  });
+  if (text === "" && kept.every((child) => nodeTag(child) === "w:rPr")) return undefined;
+  const textNode: XmlNode = {
+    "w:t": [{ "#text": text }],
+    ":@": { "@_xml:space": "preserve" },
+  };
+  return { ...run, "w:r": text === "" ? kept : [...kept, textNode] };
+}
+
+function childrenOfRun(run: XmlNode): XmlNode[] {
+  const children = run["w:r"];
+  return Array.isArray(children) ? (children as XmlNode[]) : [];
+}
+
+function runWithDrawing(run: XmlNode, drawing: XmlNode): XmlNode {
+  const properties = childrenOfRun(run).filter((child) => nodeTag(child) === "w:rPr");
+  return { ...run, "w:r": [...properties, drawing] };
+}
+
+// Put the image into the package and return the drawing that references it, or undefined when the bytes
+// are not an image this engine will embed. A refusal here is an ABSENCE rather than a failed assembly:
+// the format policy is enforced when the asset is set, so bytes that fail it at this point are an asset
+// that changed underneath the office, and a marker where the logo goes says so on the page.
+function drawingForImage(
+  image: Extract<MergeValue, { kind: "image" }>,
+  state: AssemblyState,
+): XmlNode | undefined {
+  const facts = readImageFacts(image.bytes);
+  if (!facts.ok) return undefined;
+  const partName = addImagePart(state.parts, "letterhead", facts.value, image.bytes);
+  const relationshipId = addImageRelationship(
+    state.parts,
+    state.currentPart,
+    relationshipTargetFor(state.currentPart, partName),
+  );
+  if (relationshipId === "") return undefined;
+  state.drawings += 1;
+  return inlineDrawingNode({
+    relationshipId,
+    widthEmu: image.widthEmu,
+    heightEmu: image.heightEmu,
+    description: image.description,
+    drawingId: state.drawings,
+    name: image.description,
+  });
+}
+
+// Replace every run that carries an image placeholder with the picture it names.
+//
+// This works on WHOLE RUNS because that is the unit a picture occupies: `w:drawing` is a run-level
+// element, and there is no way to put one inside a `w:t`. Normalization already collapsed each
+// placeholder into one contiguous run, so the split is exact — the text before the placeholder, the
+// drawing, the text after — and a logo placed mid-sentence keeps the words around it intact.
+function substituteImagesInParagraph(paragraph: XmlNode, state: AssemblyState): XmlNode {
+  const tag = nodeTag(paragraph);
+  if (tag === undefined) return paragraph;
+  const children = paragraph[tag];
+  if (!Array.isArray(children)) return paragraph;
+
+  let rewritten = false;
+  const out: XmlNode[] = [];
+  for (const child of children as XmlNode[]) {
+    const childTag = nodeTag(child);
+    if (childTag !== "w:r") {
+      // A run can sit inside a hyperlink or a smart-tag wrapper; the walk follows those down rather than
+      // ignoring a picture placeholder because of what encloses it.
+      if (childTag !== undefined && Array.isArray(child[childTag])) {
+        const descended = substituteImagesInParagraph(child, state);
+        if (descended !== child) rewritten = true;
+        out.push(descended);
+        continue;
+      }
+      out.push(child);
+      continue;
+    }
+    const replacements = splitRunOnImages(child, state);
+    if (replacements === undefined) {
+      out.push(child);
+      continue;
+    }
+    rewritten = true;
+    out.push(...replacements);
+  }
+  return rewritten ? { ...paragraph, [tag]: out } : paragraph;
+}
+
+function splitRunOnImages(run: XmlNode, state: AssemblyState): XmlNode[] | undefined {
+  const leaves: TextLeaf[] = [];
+  collectTextLeaves(run, leaves);
+  if (leaves.length === 0) return undefined;
+  const joined = leaves.map((leaf) => leaf.text).join("");
+  if (!joined.includes("{{")) return undefined;
+
+  const out: XmlNode[] = [];
+  let cursor = 0;
+  let found = false;
+  PLACEHOLDER_PATTERN.lastIndex = 0;
+  for (const match of joined.matchAll(PLACEHOLDER_PATTERN)) {
+    const image = imageValueFor(match[1] ?? "", state);
+    if (image === undefined) continue;
+    const drawing = drawingForImage(image, state);
+    if (drawing === undefined) continue;
+    // The first fragment keeps whatever else the run held (a tab, a break); later ones carry the run's
+    // formatting and nothing more, because that content occurred once and must not be duplicated.
+    const before = runWithText(run, joined.slice(cursor, match.index), !found);
+    if (before !== undefined) out.push(before);
+    out.push(runWithDrawing(run, drawing));
+    cursor = match.index + match[0].length;
+    found = true;
+    state.substitutions += 1;
+  }
+  if (!found) return undefined;
+  const after = runWithText(run, joined.slice(cursor), false);
+  if (after !== undefined) out.push(after);
+  return out;
+}
+
 function substituteParagraph(paragraph: XmlNode, frame: Frame, state: AssemblyState): void {
   const leaves: TextLeaf[] = [];
   collectTextLeaves(paragraph, leaves);
@@ -691,6 +867,53 @@ export function packageIntegrityViolations(parts: PartMap): string[] {
   for (const override of contentTypeOverrides(parts)) {
     if (!parts.has(override)) violations.push(`content type declared for absent part ${override}`);
   }
+  violations.push(...pictureIntegrityViolations(parts));
+  return violations;
+}
+
+// The three ways an emitted picture makes a package Word calls damaged, checked over the bytes that are
+// about to be handed back:
+//
+//   1. the part is referenced but not there;
+//   2. the part is there but its extension has no declared content type;
+//   3. the drawing embeds a relationship id the drawing part does not declare.
+//
+// Each is invisible to every assertion about the document's TEXT — the words are all correct in a file
+// no reader will open — which is the whole reason this reads the package structure instead.
+//
+// Scoped to image relationships on purpose. A real template carries relationships to fonts, themes,
+// styles, and external hyperlinks, and a general "every target must exist" rule would refuse documents
+// that are perfectly valid; what this pass EMITS is pictures, so pictures are what it vouches for.
+function pictureIntegrityViolations(parts: PartMap): string[] {
+  const violations: string[] = [];
+  const declaredExtensions = new Set(
+    [
+      ...(readPartText(parts, CONTENT_TYPES_PART) ?? "").matchAll(/Extension\s*=\s*"([^"]+)"/g),
+    ].flatMap((match) => (match[1] === undefined ? [] : [match[1].toLowerCase()])),
+  );
+
+  for (const partName of contentPartNames(parts.keys())) {
+    const xml = readPartText(parts, partName);
+    if (xml === undefined) continue;
+    const relationships = declaredRelationships(parts, partName);
+    for (const embedded of embeddedRelationshipIds(xml)) {
+      const relationship = relationships.get(embedded);
+      if (relationship === undefined) {
+        violations.push(`${partName} embeds ${embedded}, which it does not declare`);
+        continue;
+      }
+      if (!relationship.external && !parts.has(relationship.target)) {
+        violations.push(
+          `${partName} embeds ${embedded}, whose part ${relationship.target} is absent`,
+        );
+        continue;
+      }
+      const extension = relationship.target.slice(relationship.target.lastIndexOf(".") + 1);
+      if (!relationship.external && !declaredExtensions.has(extension.toLowerCase())) {
+        violations.push(`no content type is declared for .${extension} parts`);
+      }
+    }
+  }
   return violations;
 }
 
@@ -728,20 +951,27 @@ export function assemble(
   const parts: PartMap = new Map(read.value);
   const state: AssemblyState = {
     context,
+    dictionary: options.dictionary,
     baseScope: expressionScopeFor(options.dictionary),
     baseValues: expressionValuesOf(context),
     budget: createEvaluationBudget(),
     absences: new Map(),
     missingRequired: new Set(),
     tallies: new Map(),
+    parts,
+    currentPart: "",
+    drawings: 0,
     substitutions: 0,
     failure: undefined,
   };
   const rootFrame: Frame = { scope: state.baseScope, values: state.baseValues };
 
-  for (const partName of contentPartNames(parts.keys())) {
+  // The part list is snapshotted before the walk: emitting a picture ADDS parts to the package, and a
+  // live iteration over the map's keys would then walk the media it just wrote.
+  for (const partName of contentPartNames([...parts.keys()])) {
     const xml = readPartText(parts, partName);
     if (xml === undefined) continue;
+    state.currentPart = partName;
     let nodes: XmlNode[];
     try {
       nodes = parseXml(xml);

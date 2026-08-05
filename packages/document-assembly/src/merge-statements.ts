@@ -73,6 +73,13 @@ export interface LocationMergeRow {
   readonly addressBlock: string | null;
   readonly footer: string | null;
   readonly remitTo: string | null;
+  // The letterhead logo, as a REFERENCE rather than as bytes: the object key plus the box the office set
+  // for it. The bytes live in the firm's own bucket and are fetched through the reader the caller
+  // supplies, so this module keeps its one job — reading the firm's database — and no merge read ever
+  // pulls a megabyte of image out of D1. The stored content type is deliberately NOT read: resolution
+  // decides what the bytes are by reading them, so carrying the claim here would only invite trusting it.
+  readonly letterheadLogoObjectKey: string | null;
+  readonly letterheadLogoWidthEmu: number | null;
 }
 
 export function selectLocationForMergeStatement(
@@ -81,7 +88,7 @@ export function selectLocationForMergeStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `SELECT id, name, jurisdiction, address_block, footer, remit_to FROM ${LOCATION_TABLE} WHERE id = ?1`,
+      `SELECT id, name, jurisdiction, address_block, footer, remit_to, letterhead_logo_object_key, letterhead_logo_width_emu FROM ${LOCATION_TABLE} WHERE id = ?1`,
     )
     .bind(locationId);
 }
@@ -93,6 +100,8 @@ export interface LocationMergeColumns {
   address_block: string | null;
   footer: string | null;
   remit_to: string | null;
+  letterhead_logo_object_key: string | null;
+  letterhead_logo_width_emu: number | null;
 }
 
 // The matter's linked parties, as ONE read for the whole collection. A repeating block over a
@@ -156,5 +165,7 @@ export function toLocationMergeRow(row: LocationMergeColumns): LocationMergeRow 
     addressBlock: row.address_block,
     footer: row.footer,
     remitTo: row.remit_to,
+    letterheadLogoObjectKey: row.letterhead_logo_object_key,
+    letterheadLogoWidthEmu: row.letterhead_logo_width_emu,
   };
 }

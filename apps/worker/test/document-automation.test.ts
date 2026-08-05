@@ -31,6 +31,12 @@ let assemblyUserId: string;
 let matterId: string;
 let assemblyBucketName: string;
 
+let widenedFirmId: FirmId;
+let widenedCookie: string;
+let widenedUserId: string;
+let widenedMatterId: string;
+let widenedBucketName: string;
+
 let frozenFirmId: FirmId;
 let frozenCookie: string;
 let frozenUserId: string;
@@ -130,6 +136,19 @@ async function post(path: string, body: unknown, cookie = ownerCookie): Promise<
   });
 }
 
+async function patch(path: string, body: unknown, cookie = ownerCookie): Promise<Response> {
+  return SELF.fetch(`https://example.com${path}`, {
+    method: "PATCH",
+    headers: {
+      "content-type": "application/json",
+      origin: "https://example.com",
+      cookie,
+      "Idempotency-Key": crypto.randomUUID(),
+    },
+    body: JSON.stringify(body),
+  });
+}
+
 async function put(path: string, body: unknown, cookie = ownerCookie): Promise<Response> {
   return SELF.fetch(`https://example.com${path}`, {
     method: "PUT",
@@ -140,6 +159,17 @@ async function put(path: string, body: unknown, cookie = ownerCookie): Promise<R
       "Idempotency-Key": crypto.randomUUID(),
     },
     body: JSON.stringify(body),
+  });
+}
+
+async function deleteCustomField(fieldId: string): Promise<Response> {
+  return SELF.fetch(`https://example.com/api/v1/custom-fields/fields/${fieldId}`, {
+    method: "DELETE",
+    headers: {
+      origin: "https://example.com",
+      cookie: widenedCookie,
+      "Idempotency-Key": crypto.randomUUID(),
+    },
   });
 }
 
@@ -298,6 +328,19 @@ beforeAll(async () => {
   assemblyUserId = assemblyFirm.userId;
   assemblyBucketName = assemblyFirm.bucketName;
   matterId = await seedMatter(assemblyFirm, "Riverside Contract Dispute", "Acme Holdings LLC");
+
+  // The widened dictionary gets its own firm: it defines a custom field and uploads a letterhead, and
+  // both are firm-wide facts that would otherwise change what every block above it sees.
+  const widenedFirm = await seedOwnedFirm(
+    "Widened Dictionary Firm",
+    "widened-owner@example.com",
+    "document-automation-widened-bucket",
+  );
+  widenedFirmId = widenedFirm.firmId;
+  widenedCookie = widenedFirm.cookie;
+  widenedUserId = widenedFirm.userId;
+  widenedBucketName = widenedFirm.bucketName;
+  widenedMatterId = await seedMatter(widenedFirm, "Engagement", "Northgate Industries");
 
   const frozenFirm = await seedOwnedFirm(
     "Frozen Field Firm",
@@ -892,9 +935,253 @@ describe("assembly, end to end through the ingest chokepoint", () => {
   });
 });
 
+describe("a firm's own fields, and its letterhead, end to end", () => {
+  it("binds a custom field by handle, renders it at its declared scale, and survives a rename", async () => {
+    const defined = await post(
+      "/api/v1/custom-fields/fields",
+      { name: "Retainer cap", kind: "currency", target: "matter", attachmentId: null },
+      widenedCookie,
+    );
+    expect(defined.status, await defined.clone().text()).toBe(201);
+    const { id: customFieldId } = (await defined.json()) as { id: string };
+
+    const valued = await put(
+      "/api/v1/custom-fields/values",
+      {
+        fieldId: customFieldId,
+        targetRowId: widenedMatterId,
+        value: { kind: "number", number: 2500 },
+      },
+      widenedCookie,
+    );
+    expect(valued.status, await valued.clone().text()).toBe(200);
+
+    // The field list the firm sees now carries its own field, keyed by the HANDLE a template binds.
+    const catalogue = (await (await get("/api/v1/merge-fields", widenedCookie)).json()) as {
+      fields: { key: string; source: string; description: string }[];
+    };
+    const entry = catalogue.fields.find((field) => field.key === `custom.${customFieldId}`);
+    expect(entry).toMatchObject({ source: "customField", description: "Retainer cap" });
+
+    const registered = (await (
+      await registerTemplate(
+        templateDocx({ body: paragraph(`Cap: {{custom.${customFieldId}}}`) }),
+        "Retainer Letter",
+        {},
+        widenedCookie,
+      )
+    ).json()) as RegisteredTemplateBody;
+    expect(registered.status).toBe("clean");
+
+    // The rename happens BETWEEN registration and assembly: binding is by handle, so it changes
+    // nothing about what the document produces.
+    const renamed = await patch(
+      `/api/v1/custom-fields/fields/${customFieldId}/name`,
+      { name: "Engagement cap" },
+      widenedCookie,
+    );
+    expect(renamed.status, await renamed.clone().text()).toBe(200);
+
+    const produced = await assembleAndRead(registered.versionId);
+    // A currency field's stored minor units render as money, not as the integer they are stored as.
+    expect(produced.documentText).toContain("$2,500.00");
+    expect(produced.absentFieldKeys).toEqual([]);
+
+    // And the field cannot be destroyed out from under the template. A field with a stored value was
+    // already undeletable, so the arm that matters here is the OTHER one: a field a template binds and
+    // nothing has ever held a value for.
+    const unusedField = await post(
+      "/api/v1/custom-fields/fields",
+      { name: "Filing venue", kind: "single-line", target: "matter", attachmentId: null },
+      widenedCookie,
+    );
+    const { id: boundOnlyFieldId } = (await unusedField.json()) as { id: string };
+    const deletableBefore = await deleteCustomField(boundOnlyFieldId);
+    expect(deletableBefore.status, await deletableBefore.clone().text()).toBe(200);
+
+    const rebound = await post(
+      "/api/v1/custom-fields/fields",
+      { name: "Filing venue", kind: "single-line", target: "matter", attachmentId: null },
+      widenedCookie,
+    );
+    const { id: boundFieldId } = (await rebound.json()) as { id: string };
+    await registerTemplate(
+      templateDocx({ body: paragraph(`Venue: {{custom.${boundFieldId}}}`) }),
+      "Venue Letter",
+      {},
+      widenedCookie,
+    );
+    const refused = await deleteCustomField(boundFieldId);
+    expect(refused.status, await refused.clone().text()).toBe(409);
+    expect(await refused.text()).toContain("document template");
+  });
+
+  it("draws the matter's office letterhead as a real picture, with its part, content type, and relationship", async () => {
+    const location = await post(
+      "/api/v1/locations",
+      { name: "Riverside Office", numberCode: "RIV" },
+      widenedCookie,
+    );
+    expect(location.status, await location.clone().text()).toBe(201);
+    const { id: locationId } = (await location.json()) as { id: string };
+
+    const set = await put(
+      `/api/v1/locations/${locationId}/letterhead-logo`,
+      { imageBase64: base64(pngFixture(400, 100)), printedWidthPoints: 144 },
+      widenedCookie,
+    );
+    expect(set.status, await set.clone().text()).toBe(200);
+
+    // The office's own settings report the mark WITHOUT its bytes.
+    const detail = (await (await get(`/api/v1/locations/${locationId}`, widenedCookie)).json()) as {
+      letterheadLogo: { contentType: string; widthPixels: number; printedWidthPoints: number };
+    };
+    expect(detail.letterheadLogo).toMatchObject({
+      contentType: "image/png",
+      widthPixels: 400,
+      printedWidthPoints: 144,
+    });
+
+    const letterheadMatter = await seedMatterAtLocation(locationId);
+    const registered = (await (
+      await registerTemplate(
+        templateDocx({ body: paragraph("{{location.letterheadLogo}}") }),
+        "Letterhead Letter",
+        {},
+        widenedCookie,
+      )
+    ).json()) as RegisteredTemplateBody;
+
+    const produced = await assembleAndRead(registered.versionId, letterheadMatter);
+    // The four halves of a picture, over the bytes that were filed. A text assertion cannot see any of
+    // them, which is exactly why they are asserted here.
+    const parts = unzipSync(produced.bytes);
+    const media = Object.keys(parts).filter((name) => name.startsWith("word/media/"));
+    expect(media).toHaveLength(1);
+    expect(new TextDecoder().decode(parts["[Content_Types].xml"])).toContain(
+      'Extension="png" ContentType="image/png"',
+    );
+    const relationships = new TextDecoder().decode(parts["word/_rels/document.xml.rels"]);
+    expect(relationships).toContain("relationships/image");
+    expect(produced.documentText).toContain("<w:drawing>");
+    // 144 points is two inches: 2 x 914400 EMU wide, and a quarter of that tall at 4:1.
+    expect(produced.documentText).toContain('cx="1828800"');
+    expect(produced.documentText).toContain('cy="457200"');
+    expect(produced.documentText).not.toContain("{{");
+  });
+
+  it("shows a marker rather than losing the letterhead when the office has no logo", async () => {
+    const registered = (await (
+      await registerTemplate(
+        templateDocx({ body: paragraph("{{location.letterheadLogo}}") }),
+        "No Logo Letter",
+        {},
+        widenedCookie,
+      )
+    ).json()) as RegisteredTemplateBody;
+    const produced = await assembleAndRead(registered.versionId);
+    expect(produced.absentFieldKeys).toEqual(["location.letterheadLogo"]);
+    expect(produced.documentText).toContain("[LOCATION LETTERHEAD LOGO]");
+  });
+
+  it("refuses a letterhead image that is not a PNG or a JPEG, whatever it is called", async () => {
+    const location = await post(
+      "/api/v1/locations",
+      { name: "Refusal Office", numberCode: "REF" },
+      widenedCookie,
+    );
+    const { id: locationId } = (await location.json()) as { id: string };
+    const svg = new TextEncoder().encode('<svg xmlns="http://www.w3.org/2000/svg"></svg>');
+    const refused = await put(
+      `/api/v1/locations/${locationId}/letterhead-logo`,
+      { imageBase64: base64(svg), printedWidthPoints: 144 },
+      widenedCookie,
+    );
+    expect(refused.status).toBe(422);
+    expect(await refused.text()).toContain("PNG or a JPEG");
+  });
+});
+
 // ---------------------------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------------------------
+
+// Submit an assembly, run the queue, and hand back the filed bytes plus what the run reported.
+async function assembleAndRead(
+  templateVersionId: string,
+  onMatterId: string = widenedMatterId,
+): Promise<{ bytes: Uint8Array; documentText: string; absentFieldKeys: string[] }> {
+  const submitted = await post(
+    `/api/v1/matters/${onMatterId}/assemblies`,
+    { templateVersionId },
+    widenedCookie,
+  );
+  expect(submitted.status, await submitted.clone().text()).toBe(202);
+  const { assemblyId } = (await submitted.json()) as { assemblyId: string };
+  await documentAssemblyQueue(
+    makeBatch({
+      firmId: widenedFirmId,
+      bucketName: widenedBucketName,
+      assemblyId,
+      matterId: onMatterId,
+      templateVersionId,
+      folderId: null,
+      requestedBy: widenedUserId,
+    }).batch,
+    env,
+  );
+  const state = (await (
+    await get(`/api/v1/matters/${onMatterId}/assemblies/${assemblyId}`, widenedCookie)
+  ).json()) as { status: string; fileVersionId: string | null; absentFieldKeys: string[] };
+  expect(state.status).toBe("done");
+  const version = await queryFirstRow<{ r2_key: string }>(
+    "SELECT r2_key FROM file_version WHERE id = ?1",
+    [state.fileVersionId],
+    widenedFirmId,
+  );
+  const object = await env.R2.get(version?.r2_key ?? "");
+  const bytes = new Uint8Array(await (object as R2ObjectBody).arrayBuffer());
+  return {
+    bytes,
+    documentText: new TextDecoder().decode(readZipEntry(bytes, "word/document.xml")),
+    absentFieldKeys: state.absentFieldKeys,
+  };
+}
+
+// A matter whose HOME OFFICE is the given location — the whole point of `location.*` resolving from the
+// matter rather than from whoever pressed the button.
+async function seedMatterAtLocation(locationId: string): Promise<string> {
+  const created = await post(
+    "/api/v1/matters",
+    {
+      title: "Letterhead matter",
+      status: "open",
+      responsibleMemberId: widenedUserId,
+      clientDisplayName: "Riverside Partners",
+      locationId,
+    },
+    widenedCookie,
+  );
+  expect(created.status, await created.clone().text()).toBe(201);
+  return ((await created.json()) as { matterId: string }).matterId;
+}
+
+// The smallest PNG whose IHDR declares a size — all the engine reads out of one.
+function pngFixture(width: number, height: number): Uint8Array {
+  const bytes = new Uint8Array(24);
+  bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  bytes.set([0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52], 8);
+  const view = new DataView(bytes.buffer);
+  view.setUint32(16, width);
+  view.setUint32(20, height);
+  return bytes;
+}
+
+function base64(bytes: Uint8Array): string {
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
+}
 
 async function queryFirstRow<T>(
   sql: string,

@@ -36,6 +36,19 @@ external services.
 
 ## Gotchas
 
-- The letterhead logo asset is a Phase 2 seam — the text fields (`address_block`, `footer`, `remit_to`)
-  exist now; the logo lands with document generation.
+- **The letterhead logo's bytes are never in D1 and never in this package.** The row carries the object
+  key, what the bytes are, their intrinsic pixel size, and the width the mark prints at; the object
+  lives in the firm's own bucket and the route writes it. `setLetterheadLogo` returns the key it is
+  about to stop pointing at, so a caller can sweep the old object — reported rather than deleted here,
+  because this package performs no I/O and an orphaned object is a cost, not a correctness problem.
+- **Only a width is stored.** The height follows from the image's own proportions at render time, so no
+  document can print a stretched logo and swapping a wide mark for a tall one re-lays every letterhead
+  out correctly without touching a template.
+- **PNG and JPEG, and the format is the CALLER'S finding, not its claim.** The route sniffs the bytes
+  (`@magna-carta/document-assembly`'s image module) and hands the result here; the check in
+  `SUPPORTED_LETTERHEAD_LOGO_CONTENT_TYPES` is what stops a mark being stored that the assembly engine
+  will refuse to draw. The list is restated rather than imported because this package depends on no
+  other domain package.
+- Those two rules are **not** column CHECKs: SQLite can only add a table CHECK by rebuilding the table,
+  which this lineage never does, and the enforceable version of the rule is here, where the bytes are.
 - D1 has no interactive transactions — read what you need before composing, or assert it inside the batch.

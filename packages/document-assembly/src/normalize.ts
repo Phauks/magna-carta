@@ -532,6 +532,10 @@ interface PartWalkState {
   readonly blocks: ManifestBlock[];
   readonly failures: NormalizationFailure[];
   readonly convertedKeys: ReadonlySet<string>;
+  // The catalogue placeholders are checked against — the firm's, including its own custom-field
+  // bindings, so a template naming one of the firm's fields registers and a template naming a field the
+  // firm does not have is refused with the key.
+  readonly dictionary: readonly DictionaryEntry[] | undefined;
   expressionCount: number;
 }
 
@@ -592,7 +596,7 @@ function normalizeParagraph(
       });
       continue;
     }
-    const entry = lookupDictionaryEntry(parsed.key);
+    const entry = lookupDictionaryEntry(parsed.key, state.dictionary);
     // A placeholder inside a repeating block may name the current item's field or the loop's position
     // — `matter.parties.displayName`, `loop.index`. Those resolve against the SCOPE the block
     // established rather than against the dictionary, and they cost no read of their own, so they
@@ -1014,7 +1018,7 @@ export function normalizeTemplate(
 
     for (const detection of tally.detections.values()) {
       const mapping = resolveName(detection.fieldName);
-      const mapsToKnownField = lookupDictionaryEntry(mapping.key) !== undefined;
+      const mapsToKnownField = lookupDictionaryEntry(mapping.key, options.dictionary) !== undefined;
       detections.push({
         fieldName: detection.fieldName,
         mappedKey: mapping.key,
@@ -1067,6 +1071,7 @@ export function normalizeTemplate(
       blocks,
       failures,
       convertedKeys: tally.keys,
+      dictionary: options.dictionary,
       expressionCount,
     };
     walkBlockChildren(converted, scope, 0, state);

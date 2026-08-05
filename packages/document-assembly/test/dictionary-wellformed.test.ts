@@ -23,10 +23,12 @@ describe("dictionary well-formedness (fitness)", () => {
     }
   });
 
-  // A `list` is never written into a document — a repeating block walks it, and `count` and `isEmpty`
-  // ask about it — so it is the one value type with no rendering at all. Carved out explicitly rather
-  // than by loosening the rule, so a scalar entry that lost its default format still fails here.
-  const RENDERED = DICTIONARY.filter((entry) => entry.valueType !== "list");
+  // Two value types are never rendered as text and therefore have no format at all: a `list`, which a
+  // repeating block walks rather than writes, and an `image`, which REPLACES its placeholder with a
+  // drawing. Both are carved out explicitly rather than by loosening the rule, so a scalar entry that
+  // lost its default format still fails here.
+  const UNRENDERED: readonly string[] = new Set(["list", "image"]);
+  const RENDERED = DICTIONARY.filter((entry) => !UNRENDERED.has(entry.valueType));
 
   it("every entry that a document renders declares a default format its own value type supports", () => {
     for (const entry of RENDERED) {
@@ -37,11 +39,14 @@ describe("dictionary well-formedness (fitness)", () => {
     }
   });
 
-  it("every rendered value type has at least one legal format, and a list has none", () => {
+  it("every rendered value type has at least one legal format; a list and an image have none", () => {
     for (const entry of RENDERED) {
       expect(legalFormatsFor(entry.valueType).length, entry.valueType).toBeGreaterThan(0);
     }
     expect(legalFormatsFor("list")).toEqual([]);
+    // An empty row is what makes `{{location.letterheadLogo:upper}}` a registration failure rather than
+    // a format name that is quietly ignored.
+    expect(legalFormatsFor("image")).toEqual([]);
   });
 
   it("every list entry declares the fields one of its items carries", () => {

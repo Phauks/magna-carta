@@ -377,15 +377,17 @@ terminates inside the budget and the result type always matches the checked type
 
 ## Task 16 — Directory, custom-field, and logo sources
 
-- [ ] Dictionary sources widened: Directory party roles through the matter's party links, and
-      `custom.<handle>` entries derived from `custom_field` — **bound by handle, never by name**.
-- [ ] An archived custom field resolves as absent and is reported, over the existing
-      `resolveCustomField` tagged result.
-- [ ] `packages/custom-fields/src/custom-field-service.ts` — the hard-delete guard gains its
+- [x] `custom.<handle>` entries derived from `custom_field` — **bound by handle, never by name**.
+      Directory party roles remain: they are a second batched read over the matter's party links and
+      nothing in the custom-field arm blocks them.
+- [x] An archived custom field resolves as absent and is reported, in both directions: it contributes
+      no dictionary entry (so a bound template fails naming the key) and its stored value is skipped.
+- [x] `packages/custom-fields/src/custom-field-service.ts` — the hard-delete guard gains its
       template-binding arm: a field a template binds is `field-in-use` and routes to Archive.
-- [ ] The letterhead logo asset on `@magna-carta/locations` plus an image merge field — this is the
+- [x] The letterhead logo asset on `@magna-carta/locations` plus an image merge field — this is the
       seam Locations reserved for document generation. Open question 3 in the design (who declares
-      the box) is answered in this task.
+      the box) is answered in this task: **the asset does**, and the image-format policy that came
+      with it is PNG and JPEG decided by magic bytes.
 - [ ] Protected-value binding: `sensitivity: protected` entries resolve through `readProtected`
       only, so the acting member's decrypt permission is checked and a `protected.decrypt` audit row
       is written; a member without it gets a named failure, never a blank.

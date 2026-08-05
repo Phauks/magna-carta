@@ -106,6 +106,7 @@ const input = {
   matterId: "matter_TESTMATTER000000000" as MatterId,
   firmName: "Riverside Law LLP",
   assembledAt: "2026-03-14T12:00:00.000Z",
+  currencyCode: "USD",
 };
 
 describe("resolution issues one read per source, never one per field", () => {
