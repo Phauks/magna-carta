@@ -77,14 +77,13 @@ what it skipped and why — a gate that quietly checks nothing is worse than a s
 **Fix the same scope you check: `pnpm fix:scoped`** (`tooling/check-scoped/fix.mjs`) is the default way
 to apply the formatter and the lint autofixes, and a bare repo-wide `vp check --fix` is not. Given no
 paths, `vp check --fix` rewrites the whole repository — it has landed dozens of files nobody in the
-change had touched, and not every autofix is safe everywhere (the `sort()` → `toSorted()` rewrite breaks
-a package whose compile target predates it). `fix:scoped` runs it over exactly the change set
-`check:scoped` verifies — the two share one implementation (`changed-files.mjs`), so the set fixed and
-the set checked cannot drift — and includes markdown and the other prose/data formats. Each pass gets
-only the paths it can parse: `.svelte` is linted with `--no-fmt` (no Svelte formatter), markdown / JSON /
-CSS / HTML / YAML / TOML are formatted with `--no-lint` (no lint rules for them), scripts take both.
-`pnpm fix:scoped --no-lint` skips the autofixes entirely when only the formatting is wanted, and
-`--base <ref>` scopes it like the gate. Rust is not in scope — that is `cargo fmt`.
+change had touched. `fix:scoped` runs over exactly the change set `check:scoped` verifies — the two
+share one implementation (`changed-files.mjs`), so the set fixed and the set checked cannot drift — and
+includes markdown and the other prose/data formats. Each pass gets only the paths it can parse:
+`.svelte` is lint-only (no Svelte formatter), markdown / JSON / CSS / HTML / YAML / TOML are
+format-only (no lint rules for them), scripts take both. `pnpm fix:scoped --no-lint` skips the
+autofixes entirely when only the formatting is wanted, and `--base <ref>` scopes it like the gate.
+Rust is not in scope — that is `cargo fmt`.
 
 Which trunk ref that merge-base is taken against is not a detail: a worktree whose local `main` is frozen
 at clone time (every agent worktree) would otherwise be diffed against an ancient commit, and the
@@ -96,6 +95,58 @@ The distinction matters because the full gate's cost is nearly all fixed: seven 
 run identically whether the diff is three files or three hundred, and in practice the overwhelming
 majority of those runs re-confirm what was already true. Scope the local loop; keep the whole-repo sweep
 in CI, where it gates the merge into `main`.
+
+### The fix pass applies only autofixes that are safe unattended
+
+A lint rule has two independent jobs — telling you something, and rewriting your code — and for a few
+rules those disagree: the finding is worth seeing, but the rewrite is invalid in part of this repo, or
+it silently changes what a reviewer reads. `pnpm fix:scoped` runs unattended over every file in a
+change, so a rewrite that is wrong even occasionally is wrong there. The excluded rules live in
+`tooling/check-scoped/unsafe-autofix-rules.mjs`, each with the reason its rewrite goes wrong; today
+they are:
+
+- **`unicorn/no-array-sort`** — rewrites `.sort()` to `.toSorted()`, which is ES2023. Packages compiled
+  against `lib: ES2022` (among them `@magna-carta/fixtures`) then fail with `TS2550`, and the callback
+  parameters lose their inferred types with `TS7006`. Whether the rewrite compiles depends on the lib
+  target of the package the file happens to sit in, which the fixer does not consult.
+- **`typescript/no-unnecessary-boolean-literal-compare`** — rewrites an explicit `x === false` to `!x`.
+  In the worker's access-control route metadata the explicit comparison is the deliberate spelling, and
+  collapsing it to a negation changes what a reviewer of a security guard reads.
+
+The exclusion is **fix-pass only**. Nothing about the ruleset in `vite.config.ts` changes, so
+`check:scoped`, `pnpm check` and the editor still report every one of these — they just stop rewriting.
+Seeing the finding and deciding is the point; having it applied while you look away is not. `fix:scoped`
+prints the excluded rules at the end of every run, so what it declined to do is never invisible.
+
+Mechanically, that is why the fixer drives the two halves of `vp check --fix` separately: the formatter
+through `vp check --fix --no-lint`, and the lint autofix through `vp lint --fix -A <rule>`. `vp check`
+rejects the linter's `--allow` flag outright, so one combined invocation cannot express the exclusion.
+Adding a rule to the list is a deliberate act — state the rewrite that goes wrong and where, not just
+the rule name.
+
+### One test run per worktree — `pnpm test`, not a bare `vp test`
+
+**`pnpm test` is the entry point to the test runner** (`tooling/test-single-flight/`). It is `vp test`
+with every argument passed through untouched, plus a per-worktree single-flight lock.
+
+Two test runs started in the same worktree contend for the same on-disk state — the Vite transform
+cache, the `.wrangler` state each Miniflare worker suite stands up, and the runner's own worker pool.
+The observed failure is not a crash but a **wedge**: both processes sit at 0% CPU and neither finishes,
+so the run reads as slow rather than broken, and the natural response is to wait and then start a
+third. The lock turns that into a refusal in milliseconds, naming the run already in flight and the
+command it is running. It is reclaimed automatically when the holding process is gone or the lock is
+older than 90 minutes, so a run killed with `SIGKILL` can never leave a worktree unable to test.
+`MAGNA_CARTA_ALLOW_CONCURRENT_TESTS=1` skips it for the deliberate case.
+
+A bare `vp test` is unguarded — it is the invocation that produces the wedge — so reach for `pnpm test`.
+CI is unaffected: its shards run in separate containers, each with its own filesystem, and each shard
+invokes the runner directly.
+
+While filtering a run: **pass file or directory paths, not a name filter.** `vp test run --project=X`
+followed by `-- <name>` does not narrow the run — the trailing filter is dropped and the whole project
+executes (verified on `@magna-carta/fixtures`: 14 files ran with the filter in place), and on some
+machines the same invocation hangs outright. `pnpm test run packages/ledger/test/posting.test.ts` is
+the reliable spelling.
 
 ### Bootstrap the generated artefacts (a fresh worktree is not a runnable worktree)
 
@@ -219,7 +270,7 @@ request.
 
 **The merge bar during the window.** Because the post-merge tiers no longer run, verification moves
 forward to the branch: an agent runs **full local verification** on its branch before the merge (the
-whole-repo `pnpm check` and `vp test`, not just `pnpm check:scoped`) and states the result in the pull
+whole-repo `pnpm check` and `pnpm test`, not just `pnpm check:scoped`) and states the result in the pull
 request, and the **orchestrator reviews** the change. A pull request whose local verification cannot be
 run in full says so plainly rather than implying a gate that did not happen.
 
