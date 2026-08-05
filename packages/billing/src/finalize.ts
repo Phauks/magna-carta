@@ -9,6 +9,7 @@ import type {
   UserId,
 } from "@magna-carta/identifiers/types";
 import { postEntry } from "@magna-carta/ledger/post-entry";
+import { MAX_BOUND_PARAMETERS } from "@magna-carta/ledger/statements";
 import type { EntryLineInput } from "@magna-carta/ledger/types";
 import { currencyFromCode, money } from "@magna-carta/money/money";
 import {
@@ -92,25 +93,44 @@ interface ClaimedEntryLock {
   readonly fromStatus: BillableStatus;
 }
 
+// One read per CHUNK, never one per row: a wide invoice claims hundreds of entries, and a per-entry
+// lookup would put hundreds of round-trips on the finalize path. Chunked at D1's bound-parameter
+// cap, which an over-long IN-list commits fine against locally and throws on in production.
+async function readByIdInChunks<Row extends { id: string }, Value>(
+  database: SqlDatabase,
+  select: (placeholders: string) => string,
+  ids: readonly string[],
+  valueOf: (row: Row) => Value,
+): Promise<Map<string, Value>> {
+  const byId = new Map<string, Value>();
+  for (let start = 0; start < ids.length; start += MAX_BOUND_PARAMETERS) {
+    const chunk = ids.slice(start, start + MAX_BOUND_PARAMETERS);
+    if (chunk.length === 0) continue;
+    const placeholders = chunk.map((_, index) => `?${index + 1}`).join(", ");
+    const { results } = await database
+      .prepare(select(placeholders))
+      .bind(...chunk)
+      .all<Row>();
+    for (const row of results) byId.set(row.id, valueOf(row));
+  }
+  return byId;
+}
+
 interface CostDisbursementRow {
   id: string;
   disbursement_class: "hard" | "soft";
 }
 
-async function readCostDisbursementClasses(
+function readCostDisbursementClasses(
   database: SqlDatabase,
   costEntryIds: readonly string[],
 ): Promise<Map<string, "hard" | "soft">> {
-  const classes = new Map<string, "hard" | "soft">();
-  for (const costEntryId of costEntryIds) {
-    const { results } = await database
-      .prepare(`SELECT id, disbursement_class FROM cost_entry WHERE id = ?1`)
-      .bind(costEntryId)
-      .all<CostDisbursementRow>();
-    const row = results[0];
-    if (row) classes.set(row.id, row.disbursement_class);
-  }
-  return classes;
+  return readByIdInChunks<CostDisbursementRow, "hard" | "soft">(
+    database,
+    (placeholders) => `SELECT id, disbursement_class FROM cost_entry WHERE id IN (${placeholders})`,
+    costEntryIds,
+    (row) => row.disbursement_class,
+  );
 }
 
 interface EntryStatusRow {
@@ -118,21 +138,17 @@ interface EntryStatusRow {
   status: BillableStatus;
 }
 
-async function readWorkInProgressStatuses(
+function readWorkInProgressStatuses(
   database: SqlDatabase,
   table: string,
   ids: readonly string[],
 ): Promise<Map<string, BillableStatus>> {
-  const statuses = new Map<string, BillableStatus>();
-  for (const id of ids) {
-    const { results } = await database
-      .prepare(`SELECT id, status FROM ${table} WHERE id = ?1`)
-      .bind(id)
-      .all<EntryStatusRow>();
-    const row = results[0];
-    if (row) statuses.set(row.id, row.status);
-  }
-  return statuses;
+  return readByIdInChunks<EntryStatusRow, BillableStatus>(
+    database,
+    (placeholders) => `SELECT id, status FROM ${table} WHERE id IN (${placeholders})`,
+    ids,
+    (row) => row.status,
+  );
 }
 
 // Which posting role a line's value credits. A discount or adjustment nets against fee income

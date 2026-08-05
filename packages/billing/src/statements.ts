@@ -588,15 +588,30 @@ export async function readInvoiceMatterBalances(
 // The client link is `matter_party` where role = 'client'. `matter.client_display_name` is
 // display-only and is deliberately NOT the link: an invoice attributed by a display string is an
 // invoice that cannot be applied from the right client's trust ledger.
-export async function readMatterClientEntityId(
+//
+// Batched over every matter a claim request touches, in one read per chunk: a bill spanning several
+// of a client's matters would otherwise resolve the same link once per claimed entry. The earliest
+// client party wins per matter, which is what a single-row read would have returned.
+export async function readMatterClientEntityIds(
   database: SqlDatabase,
-  matterId: MatterId,
-): Promise<string | undefined> {
-  const { results } = await database
-    .prepare(
-      `SELECT entity_id FROM matter_party WHERE matter_id = ?1 AND role = 'client' AND deleted_at IS NULL ORDER BY created_at, id LIMIT 1`,
-    )
-    .bind(matterId)
-    .all<{ entity_id: string }>();
-  return results[0]?.entity_id;
+  matterIds: readonly MatterId[],
+): Promise<Map<string, string>> {
+  const clientByMatter = new Map<string, string>();
+  for (let start = 0; start < matterIds.length; start += MAX_BOUND_PARAMETERS) {
+    const chunk = matterIds.slice(start, start + MAX_BOUND_PARAMETERS);
+    if (chunk.length === 0) continue;
+    const placeholders = chunk.map((_, index) => `?${index + 1}`).join(", ");
+    const { results } = await database
+      .prepare(
+        `SELECT matter_id, entity_id FROM matter_party
+          WHERE matter_id IN (${placeholders}) AND role = 'client' AND deleted_at IS NULL
+          ORDER BY created_at, id`,
+      )
+      .bind(...chunk)
+      .all<{ matter_id: string; entity_id: string }>();
+    for (const row of results) {
+      if (!clientByMatter.has(row.matter_id)) clientByMatter.set(row.matter_id, row.entity_id);
+    }
+  }
+  return clientByMatter;
 }

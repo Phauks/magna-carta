@@ -9,6 +9,7 @@ import type {
   MatterId,
   UserId,
 } from "@magna-carta/identifiers/types";
+import { MAX_BOUND_PARAMETERS } from "@magna-carta/ledger/statements";
 import { BillingValidationError } from "./billing-validation.ts";
 import { invoiceLineAmountMinor, RATE_SCALE_DIVISOR } from "./line-amounts.ts";
 import {
@@ -23,7 +24,7 @@ import {
   readInvoiceClaim,
   readInvoiceLine,
   readInvoiceLines,
-  readMatterClientEntityId,
+  readMatterClientEntityIds,
   releaseAllInvoiceClaimsStatement,
   releaseInvoiceClaimStatement,
   setWorkInProgressInvoiceMirrorStatement,
@@ -150,69 +151,39 @@ interface ClaimableEntry {
   readonly utbmsExpenseCode: string | null;
 }
 
-async function loadClaimableEntry(
-  database: SqlDatabase,
-  request: ClaimRequest,
-): Promise<ClaimableEntry> {
-  if (request.sourceKind === "time_entry") {
-    const { results } = await database
-      .prepare(
-        `SELECT id, matter_id, narrative, duration_minutes, currency, rate_e4, amount_minor, status, invoice_id, utbms_task_code_id, utbms_activity_code_id
-           FROM time_entry WHERE id = ?1`,
-      )
-      .bind(request.sourceId)
-      .all<TimeEntryRow>();
-    const row = results[0];
-    if (!row) {
-      throw new BillingValidationError(
-        "work-in-progress-not-billable",
-        `no such time entry: ${request.sourceId}`,
-      );
-    }
-    if (row.status === "billed" || row.status === "void") {
-      throw new BillingValidationError(
-        "work-in-progress-not-billable",
-        `time entry ${row.id} is ${row.status} and cannot be billed again`,
-      );
-    }
-    // Billing consumes the rate the entry snapshot on its work date and NEVER re-resolves one —
-    // that is the whole point of the effective-dated rate engine, and re-resolving at invoice time
-    // would silently re-rate historical work.
-    if (row.rate_e4 === null || row.amount_minor === null) {
-      throw new BillingValidationError(
-        "work-in-progress-not-billable",
-        `time entry ${row.id} carries no rate: non-billable time is tracked for realization and is never charged`,
-      );
-    }
-    return {
-      sourceKind: "time_entry",
-      sourceId: row.id,
-      matterId: row.matter_id as MatterId,
-      description: row.narrative,
-      quantityE4: Math.round((row.duration_minutes / MINUTES_PER_HOUR) * RATE_SCALE_DIVISOR),
-      rateE4: row.rate_e4,
-      amountMinor: row.amount_minor,
-      currency: row.currency,
-      lineKind: "fee",
-      utbmsTaskCode: row.utbms_task_code_id,
-      utbmsActivityCode: row.utbms_activity_code_id,
-      utbmsExpenseCode: null,
-    };
-  }
-  const { results } = await database
-    .prepare(
-      `SELECT id, matter_id, description, currency, amount_minor, status, invoice_id, utbms_expense_code_id
-         FROM cost_entry WHERE id = ?1`,
-    )
-    .bind(request.sourceId)
-    .all<CostEntryRow>();
-  const row = results[0];
-  if (!row) {
+function timeEntryToClaimable(row: TimeEntryRow): ClaimableEntry {
+  if (row.status === "billed" || row.status === "void") {
     throw new BillingValidationError(
       "work-in-progress-not-billable",
-      `no such cost entry: ${request.sourceId}`,
+      `time entry ${row.id} is ${row.status} and cannot be billed again`,
     );
   }
+  // Billing consumes the rate the entry snapshot on its work date and NEVER re-resolves one — that
+  // is the whole point of the effective-dated rate engine, and re-resolving at invoice time would
+  // silently re-rate historical work.
+  if (row.rate_e4 === null || row.amount_minor === null) {
+    throw new BillingValidationError(
+      "work-in-progress-not-billable",
+      `time entry ${row.id} carries no rate: non-billable time is tracked for realization and is never charged`,
+    );
+  }
+  return {
+    sourceKind: "time_entry",
+    sourceId: row.id,
+    matterId: row.matter_id as MatterId,
+    description: row.narrative,
+    quantityE4: Math.round((row.duration_minutes / MINUTES_PER_HOUR) * RATE_SCALE_DIVISOR),
+    rateE4: row.rate_e4,
+    amountMinor: row.amount_minor,
+    currency: row.currency,
+    lineKind: "fee",
+    utbmsTaskCode: row.utbms_task_code_id,
+    utbmsActivityCode: row.utbms_activity_code_id,
+    utbmsExpenseCode: null,
+  };
+}
+
+function costEntryToClaimable(row: CostEntryRow): ClaimableEntry {
   if (row.status === "billed" || row.status === "void") {
     throw new BillingValidationError(
       "work-in-progress-not-billable",
@@ -233,6 +204,58 @@ async function loadClaimableEntry(
     utbmsActivityCode: null,
     utbmsExpenseCode: row.utbms_expense_code_id,
   };
+}
+
+// Every entry a claim batch names, in ONE read per store per chunk. A per-entry lookup would put two
+// round-trips on every claimed hour, and a bill covering a month of a busy matter claims hundreds —
+// which is the draft-assembly path the load profile measures. Chunked at D1's bound-parameter cap.
+async function loadClaimableEntries(
+  database: SqlDatabase,
+  requests: readonly ClaimRequest[],
+): Promise<Map<string, ClaimableEntry>> {
+  const byRequestKey = new Map<string, ClaimableEntry>();
+  const timeEntryIds = requests
+    .filter((request) => request.sourceKind === "time_entry")
+    .map((request) => request.sourceId);
+  const costEntryIds = requests
+    .filter((request) => request.sourceKind === "cost_entry")
+    .map((request) => request.sourceId);
+
+  for (let start = 0; start < timeEntryIds.length; start += MAX_BOUND_PARAMETERS) {
+    const chunk = timeEntryIds.slice(start, start + MAX_BOUND_PARAMETERS);
+    const placeholders = chunk.map((_, index) => `?${index + 1}`).join(", ");
+    const { results } = await database
+      .prepare(
+        `SELECT id, matter_id, narrative, duration_minutes, currency, rate_e4, amount_minor, status, invoice_id, utbms_task_code_id, utbms_activity_code_id
+           FROM time_entry WHERE id IN (${placeholders})`,
+      )
+      .bind(...chunk)
+      .all<TimeEntryRow>();
+    for (const row of results) {
+      byRequestKey.set(claimKey("time_entry", row.id), timeEntryToClaimable(row));
+    }
+  }
+
+  for (let start = 0; start < costEntryIds.length; start += MAX_BOUND_PARAMETERS) {
+    const chunk = costEntryIds.slice(start, start + MAX_BOUND_PARAMETERS);
+    const placeholders = chunk.map((_, index) => `?${index + 1}`).join(", ");
+    const { results } = await database
+      .prepare(
+        `SELECT id, matter_id, description, currency, amount_minor, status, invoice_id, utbms_expense_code_id
+           FROM cost_entry WHERE id IN (${placeholders})`,
+      )
+      .bind(...chunk)
+      .all<CostEntryRow>();
+    for (const row of results) {
+      byRequestKey.set(claimKey("cost_entry", row.id), costEntryToClaimable(row));
+    }
+  }
+  return byRequestKey;
+}
+
+// The two stores are separate id spaces, so a claim is keyed by the pair rather than the id alone.
+function claimKey(sourceKind: WorkInProgressKind, sourceId: string): string {
+  return `${sourceKind}:${sourceId}`;
 }
 
 export interface AddClaimsResult {
@@ -279,9 +302,20 @@ export async function addClaimsToDraft(
   const claimIds: InvoiceWipClaimId[] = [];
   const lineIds: InvoiceLineId[] = [];
 
+  const claimableEntries = await loadClaimableEntries(database, requests);
+  const clientByMatter = await readMatterClientEntityIds(database, [
+    ...new Set([...claimableEntries.values()].map((entry) => entry.matterId)),
+  ]);
+
   for (const request of requests) {
-    const entry = await loadClaimableEntry(database, request);
-    const clientEntityId = await readMatterClientEntityId(database, entry.matterId);
+    const entry = claimableEntries.get(claimKey(request.sourceKind, request.sourceId));
+    if (!entry) {
+      throw new BillingValidationError(
+        "work-in-progress-not-billable",
+        `no such ${request.sourceKind === "time_entry" ? "time" : "cost"} entry: ${request.sourceId}`,
+      );
+    }
+    const clientEntityId = clientByMatter.get(entry.matterId);
     if (!clientEntityId) {
       throw new BillingValidationError(
         "matter-has-no-client",
