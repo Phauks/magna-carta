@@ -33,6 +33,19 @@
 #     builds the exact post-merge tree, which closes the interleaving window at its source rather than
 #     catching it after the fact. Wired now so enabling the setting needs no workflow change.
 #
+# RUNNERS. Two sizes, chosen per job. `ubuntu-slim` is GitHub's 1-vCPU / 5 GB Linux runner and bills at
+# $0.002 a minute against the 2-core `ubuntu-latest`'s $0.006 — a third of the rate for the same work —
+# so every job whose honest wall-clock is a couple of minutes and whose work is not meaningfully
+# parallel runs there. Three of its properties decide which jobs can, and all three are hard:
+#   • a 15-minute job cap enforced by the platform, BELOW any timeout-minutes set here;
+#   • 5 GB of memory, against 8 GB on ubuntu-latest;
+#   • an unprivileged container carrying the Docker CLI but no daemon — Docker-in-Docker, service
+#     containers and privileged kernel features are all unavailable.
+# So the WASM build, the container gate, the type-aware lint, the type-check, the Miniflare worker
+# shards, the Playwright story suite and the Rust gate stay on `ubuntu-latest`. Every job below records
+# the measurement behind its own choice; re-measure and move a job back if its honest time grows toward
+# the cap, the same way the timeout caps above are maintained.
+#
 # TEMPORARY CI AUSTERITY 2026-08-05 — revert when Actions minutes reset. Two of the three tiers above
 # are suspended while the Actions budget is exhausted: the push-to-main run and the nightly schedule.
 # What remains is the pull-request tier (the full battery at one-hop lint scope) and `workflow_dispatch`
@@ -80,7 +93,9 @@ jobs:
   # Path-filter the diff so downstream jobs run only when they can be affected. Hand-rolled `git diff`
   # (no third-party action) against the PR base or the push's previous tip.
   changes:
-    runs-on: ubuntu-latest
+    # 8 s measured: a `git diff` plus a dependency-free node classifier, no install and no build. The
+    # slim runner's preinstalled git and node are the whole toolchain this needs.
+    runs-on: ubuntu-slim
     timeout-minutes: 10
     outputs:
       code: ${{ steps.filter.outputs.code }}
@@ -205,6 +220,9 @@ jobs:
   wasm:
     needs: changes
     if: needs.changes.outputs.code == 'true'
+    # Stays on the 2-core runner even though a cache hit is 14 s: on a MISS this shells out to
+    # `docker build`, and the 1-vCPU runner is an unprivileged container with the Docker client but no
+    # daemon. The cold build is ~7 min besides, which is most of that runner's 15-minute ceiling.
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -241,7 +259,10 @@ jobs:
 
   # Formatting covers markdown too, so it runs on every change (including docs-only) and needs no WASM.
   format:
-    runs-on: ubuntu-latest
+    # 76 s measured, and the formatter is the only part that uses more than one core: pinned to a
+    # single core the whole pass took 62 s against 34 s on four, so the slim runner costs under half a
+    # minute and saves two thirds of the job's rate. Far from its 15-minute ceiling either way.
+    runs-on: ubuntu-slim
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
@@ -255,6 +276,8 @@ jobs:
   lint:
     needs: [changes, wasm]
     if: needs.changes.outputs.code == 'true'
+    # Disqualified from the 1-vCPU runner twice over: 26 min measured at the affected-packages tier
+    # against its 15-minute cap, and the GOMEMLIMIT below is 10 GiB against its 5 GB of memory.
     runs-on: ubuntu-latest
     # tsgolint building the app worker's whole-program type graph is the tall pole. The whole-repo pass
     # measured ~45 min on a 4-core/16 GB box (1851 files) — it was ~24 min when this cap was first set,
@@ -335,6 +358,9 @@ jobs:
   typecheck:
     needs: [changes, wasm]
     if: needs.changes.outputs.code == 'true'
+    # Stays: 126 s measured is the WARM number the incremental cache below buys. A cold whole-program
+    # `tsc -b` plus two svelte-check passes is a multi-gigabyte, several-minute job that uses every
+    # core it is given — the wrong shape for 1 vCPU / 5 GB under a 15-minute cap.
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -383,6 +409,8 @@ jobs:
   rust:
     needs: changes
     if: needs.changes.outputs.rust == 'true'
+    # Stays: cargo scales with cores, and a cold clippy build of the crates workspace runs well past
+    # the 1-vCPU runner's 15-minute cap.
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -422,7 +450,10 @@ jobs:
     # `test_battery` is false only on a push to `main`, where the pull request that produced this exact
     # tree already ran these suites — see the tier note at the top of this file.
     if: needs.changes.outputs.code == 'true' && needs.changes.outputs.test_battery == 'true'
-    runs-on: ubuntu-latest
+    # 52 s and 47 s measured per shard. These are plain node units — milliseconds per file, no runtime
+    # to boot — so the shard split is what buys the parallelism, not the core count: shard 1 of 2 ran
+    # in 19 s pinned to a single core. Two shards at a third of the rate cost less than one at full.
+    runs-on: ubuntu-slim
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -449,6 +480,9 @@ jobs:
   test-worker:
     needs: [changes, wasm]
     if: needs.changes.outputs.code == 'true' && needs.changes.outputs.test_battery == 'true'
+    # Stays: 246-267 s per shard measured, and every file stands up its own Workers runtime, so the
+    # cost scales with cores rather than with the shard split. On 1 vCPU that lands close enough to the
+    # 15-minute cap to make a slow run a failure instead of a slow run.
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -478,6 +512,8 @@ jobs:
   test-stories:
     needs: [changes, wasm]
     if: needs.changes.outputs.code == 'true' && needs.changes.outputs.test_battery == 'true'
+    # Stays: 136 s measured, and it boots Chromium with `--with-deps` — a browser plus its system
+    # libraries is the wrong load for 5 GB in an unprivileged container.
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -513,7 +549,9 @@ jobs:
   # Cheap whole-repo guards with no WASM dependency — run on every change so a governance regression can't
   # slip through a docs-only push.
   governance:
-    runs-on: ubuntu-latest
+    # 40 s measured, and none of it is CPU-bound: the five node lints plus the migration-integrity test
+    # ran in 10 s pinned to a single core, and the osv-scanner pass is a download and a network scan.
+    runs-on: ubuntu-slim
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
@@ -632,7 +670,10 @@ jobs:
   contracts:
     needs: [changes, wasm]
     if: needs.changes.outputs.code == 'true'
-    runs-on: ubuntu-latest
+    # 54 s measured. It CONSUMES the WASM artefact the wasm job built — downloads and untars it — and
+    # never builds one, so it needs no Docker daemon. All four checks ran in 21 s pinned to a single
+    # core, each peaking around 200 MB of resident memory against the slim runner's 5 GB.
+    runs-on: ubuntu-slim
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
@@ -669,6 +710,8 @@ jobs:
   containers:
     needs: changes
     if: needs.changes.outputs.containers == 'true'
+    # Stays, and could not move: multi-gigabyte `docker build`s need a daemon the 1-vCPU runner does
+    # not have, and the 90-minute cap below is six times its ceiling.
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -817,7 +860,9 @@ jobs:
         containers,
       ]
     if: always()
-    runs-on: ubuntu-latest
+    # 3 s measured: a case statement over the needs results, no checkout and no install. The required
+    # status is the one job that must always report, and it is also the cheapest to run.
+    runs-on: ubuntu-slim
     timeout-minutes: 5
     steps:
       - name: Verify every required check passed or was not needed
