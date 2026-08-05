@@ -840,6 +840,18 @@
           "dkimVerdict": {
             "type": "string"
           },
+          "dkimVerdictReason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "dkimVerifiedDomain": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "participants": {
             "type": "array",
             "items": {
@@ -894,6 +906,8 @@
           "sentAt",
           "receivedAt",
           "dkimVerdict",
+          "dkimVerdictReason",
+          "dkimVerifiedDomain",
           "participants",
           "alsoFiledMatterIds",
           "hiddenMatterCount"
@@ -11136,7 +11150,7 @@
     },
     "/api/v1/matters/{matterId}/emails": {
       "post": {
-        "description": "File a raw email message (.eml or .msg bytes) to this matter. The bytes are staged and the parse, dedup, thread-linking, and attachment extraction run off the request path; the response returns a job identifier. A message the firm already holds is deduped to one record and linked, never duplicated. This is the endpoint the native add-in's Save & File posts to.",
+        "description": "File a raw email message (.eml or .msg bytes) to this matter. The bytes are staged and the parse, dedup, thread-linking, and attachment extraction run off the request path; the response returns a job identifier. A message the firm already holds is deduped to one record and linked, never duplicated. This is the endpoint the native add-in's Save & File posts to: send an Idempotency-Key and a retried submission converges on the capture it already started rather than starting another.",
         "operationId": "emails.file",
         "tags": [
           "emails"
@@ -11162,6 +11176,27 @@
             "required": true,
             "name": "matterId",
             "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "api",
+                "addin"
+              ]
+            },
+            "required": false,
+            "name": "source",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "idempotency-key",
+            "in": "header"
           }
         ],
         "requestBody": {
@@ -11214,7 +11249,17 @@
             }
           },
           "404": {
-            "description": "Unknown matter",
+            "description": "Unknown matter, or one the caller cannot access",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -11224,7 +11269,17 @@
             }
           },
           "413": {
-            "description": "Message exceeds the inspectable-size cap",
+            "description": "Message exceeds the capture size limit",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The bytes are not an email message, the firm's upload policy refuses the format, or the Idempotency-Key was reused with a different payload",
             "content": {
               "application/problem+json": {
                 "schema": {

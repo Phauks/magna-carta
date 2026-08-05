@@ -8,6 +8,7 @@ import type {
   UserId,
 } from "@magna-carta/identifiers/types";
 import { deriveDedupKey } from "./dedup.ts";
+import type { DkimVerification } from "./dkim.ts";
 import {
   normalizeAddress,
   toRecordRows,
@@ -36,6 +37,10 @@ export interface CapturePorts {
   // Optional Directory enrichment: given the message's addresses, return normalized address → entity id
   // for the ones that resolve. Absent port or unresolved address → the participant is written null.
   resolveDirectoryEntities?(addresses: readonly string[]): Promise<Map<string, string>>;
+  // Optional signature adjudication over the raw bytes. Absent (or throwing) leaves the record
+  // unverified rather than failing the capture: a message the firm needs is never lost because a DNS
+  // lookup was unavailable, and the verdict is informational either way.
+  verifyDkim?(bytes: Uint8Array): Promise<DkimVerification>;
   newEmailMessageId(): EmailMessageId;
   newEmailThreadId(): EmailThreadId;
   newEmailParticipantId(): EmailParticipantId;
@@ -126,6 +131,7 @@ export async function captureEmail(
     const threadLink = linkThread(parsed, lookup, ports.newEmailThreadId());
     threadId = threadLink.threadId;
     const directoryEntityIdByAddress = await resolveDirectory(parsed, ports);
+    const dkim = await adjudicateDkim(request.bytes, parsed, ports);
     const rows = toRecordRows(parsed, {
       emailMessageId,
       threadId,
@@ -137,6 +143,7 @@ export async function captureEmail(
       receivedAt: now,
       mintParticipantId: () => ports.newEmailParticipantId(),
       directoryEntityIdByAddress,
+      dkim,
     });
     thread = rows.thread;
     message = rows.message;
@@ -205,6 +212,32 @@ async function resolveDirectory(
   }
   if (addresses.size === 0) return undefined;
   return ports.resolveDirectoryEntities([...addresses]);
+}
+
+// Adjudicate the message's DKIM signatures, if a verifier is wired. Two degradations are deliberate:
+// a `.msg` export carries no RFC 5322 octets to canonicalize, so it can only ever be `noRawMessage`;
+// and a verifier that throws (a resolver outage, a runtime without a primitive) records that the
+// question could not be put rather than propagating and losing the capture. Recording an honest
+// "unverified" beats failing to file a message the firm needs.
+async function adjudicateDkim(
+  bytes: Uint8Array,
+  parsed: ParsedMessage,
+  ports: CapturePorts,
+): Promise<DkimVerification | undefined> {
+  if (ports.verifyDkim === undefined) return undefined;
+  if (parsed.sourceFormat === "msg") {
+    return { verdict: "unverified", reason: "noRawMessage", signingDomain: null, selector: null };
+  }
+  try {
+    return await ports.verifyDkim(bytes);
+  } catch {
+    return {
+      verdict: "unverified",
+      reason: "dnsTemporaryFailure",
+      signingDomain: null,
+      selector: null,
+    };
+  }
 }
 
 // The distinct participant addresses on the message, for the filing-time conflict hook.

@@ -1953,10 +1953,15 @@ export const emailMessage = sqliteTable(
     referencesRemoteContent: integer("references_remote_content", { mode: "boolean" })
       .notNull()
       .default(false),
-    integrity: text("integrity").notNull(), // JSON: verbatim DKIM signatures, Authentication-Results, Received chain — recorded, no verdict
+    integrity: text("integrity").notNull(), // JSON: verbatim DKIM signatures, Authentication-Results, Received chain — the evidence, recorded exactly as parsed
+    // The adjudication OVER that evidence, kept separate from it. The verdict is informational: nothing
+    // is dropped, refused, or auto-filed on the strength of it. Every inconclusive outcome stays
+    // `unverified` and is told apart by the reason, so the coarse verdict means one thing to a reader.
     dkimVerdict: text("dkim_verdict", { enum: ["unverified", "pass", "fail"] })
       .notNull()
-      .default("unverified"), // the verifier that fills this is a named future consumer; stays unverified now
+      .default("unverified"),
+    dkimVerdictReason: text("dkim_verdict_reason"), // null until a verifier has looked at the message
+    dkimVerifiedDomain: text("dkim_verified_domain"), // the signing domain, set only on a pass
     sourceFormat: text("source_format", { enum: ["eml", "msg", "mboxMember"] }).notNull(),
     capturedVia: text("captured_via", { enum: ["forward", "api", "addin", "sync"] }).notNull(),
     createdAt: text("created_at").notNull(),
@@ -1969,6 +1974,8 @@ export const emailMessage = sqliteTable(
     index("email_message_message_id_value_index").on(table.messageIdValue),
     // The content-hash "already filed" probe and the discovery-readiness content hash resolve by this.
     index("email_message_content_sha256_index").on(table.contentSha256),
+    // No index on the dkim columns: they are read as part of a message already resolved by id, and
+    // there is no "which mail did this domain sign" read to serve. One gets added with its reader.
     check(
       "email_message_provenance_check",
       sql`${table.messageIdProvenance} IN ('header', 'mapi', 'absent')`,

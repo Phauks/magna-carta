@@ -49,7 +49,14 @@ async function seedMatter(): Promise<MatterId> {
 }
 
 // Seed a captured message with a filed link on `matterId`, returning its ids.
-async function seedFiledMessage(messageIdValue: string): Promise<EmailMessageId> {
+async function seedFiledMessage(
+  messageIdValue: string,
+  verdict: {
+    dkimVerdict: "unverified" | "pass" | "fail";
+    dkimVerdictReason: string | null;
+    dkimVerifiedDomain: string | null;
+  } = { dkimVerdict: "unverified", dkimVerdictReason: null, dkimVerifiedDomain: null },
+): Promise<EmailMessageId> {
   const threadId = newIdentifier("emailThread");
   const emailMessageId = newIdentifier("emailMessage");
   await firmDatabase.batch([
@@ -76,7 +83,7 @@ async function seedFiledMessage(messageIdValue: string): Promise<EmailMessageId>
         originalR2Key: `emails/${messageIdValue}/original`,
         referencesRemoteContent: false,
         integrity: "{}",
-        dkimVerdict: "unverified",
+        ...verdict,
         sourceFormat: "eml",
         capturedVia: "api",
       },
@@ -127,26 +134,107 @@ beforeAll(async () => {
   matterId = await seedMatter();
 });
 
+// Post bytes to the capture endpoint. The Idempotency-Key is optional here (the route honours it
+// itself rather than through the chokepoint gate, which would consume the binary body), so it is only
+// sent when a test is about the key.
+function postCapture(
+  body: BodyInit,
+  options: { cookie: string; key?: string; source?: string } = { cookie: "" },
+): Promise<Response> {
+  const query = options.source === undefined ? "" : `?source=${options.source}`;
+  return SELF.fetch(`https://x/api/v1/matters/${matterId}/emails${query}`, {
+    method: "POST",
+    headers: {
+      cookie: options.cookie,
+      "content-type": "application/octet-stream",
+      ...(options.key === undefined ? {} : { "idempotency-key": options.key }),
+    },
+    body,
+  });
+}
+
 describe("emails routes", () => {
   it("refuses capture to a caller without emails:file (403)", async () => {
-    const res = await SELF.fetch(`https://x/api/v1/matters/${matterId}/emails`, {
-      method: "POST",
-      headers: { cookie: noPermCookie, "content-type": "application/octet-stream" },
-      body: SIMPLE_EML,
-    });
+    const res = await postCapture(SIMPLE_EML, { cookie: noPermCookie });
     expect(res.status).toBe(403);
   });
 
-  it("accepts a capture and returns 202 with a job id", async () => {
-    const res = await SELF.fetch(`https://x/api/v1/matters/${matterId}/emails`, {
-      method: "POST",
-      headers: { cookie: ownerCookie, "content-type": "application/octet-stream" },
-      body: SIMPLE_EML,
-    });
+  // Also covers the declared capture source: the add-in names itself so a capture that preserved the
+  // original message is distinguishable from a manual upload. (Folded into one request rather than
+  // asserted separately — this route's rate-limit bucket is deliberately small, and a test file that
+  // spends it starts failing on the limit instead of on the behaviour.)
+  it("accepts a capture, declaring its source, and returns 202 with a job id", async () => {
+    const res = await postCapture(SIMPLE_EML, { cookie: ownerCookie, source: "addin" });
     expect(res.status).toBe(202);
     const body = (await res.json()) as { jobId: string; status: string };
     expect(body.status).toBe("accepted");
     expect(typeof body.jobId).toBe("string");
+  });
+
+  // The add-in files over whatever network the user's mail client is on and is expected to retry. A
+  // retry must converge on the capture it already started, not start a second one.
+  it("replays a retried capture onto the same job rather than staging a second one", async () => {
+    const key = crypto.randomUUID();
+    const first = await postCapture(SIMPLE_EML, { cookie: ownerCookie, key });
+    const second = await postCapture(SIMPLE_EML, { cookie: ownerCookie, key });
+    expect(first.status).toBe(202);
+    expect(second.status).toBe(202);
+    const firstBody = (await first.json()) as { jobId: string };
+    const secondBody = (await second.json()) as { jobId: string };
+    expect(secondBody.jobId).toBe(firstBody.jobId);
+    expect(second.headers.get("Idempotency-Replayed")).toBe("true");
+  });
+
+  // The key is fingerprinted against the bytes actually received, so reusing one for a different
+  // message is caught rather than silently answered with the first capture.
+  it("refuses an Idempotency-Key reused with different bytes (422)", async () => {
+    const key = crypto.randomUUID();
+    const first = await postCapture(SIMPLE_EML, { cookie: ownerCookie, key });
+    expect(first.status).toBe(202);
+    const second = await postCapture(
+      new TextEncoder().encode(
+        "Message-ID: <other@example.test>\r\nFrom: a@example.test\r\n\r\nX.",
+      ),
+      { cookie: ownerCookie, key },
+    );
+    expect(second.status).toBe(422);
+  });
+
+  // A payload that is not mail is refused at the door. Accepting it would stage bytes and leave the
+  // capture consumer to fail on them, where the only outcomes are a retry loop and a dead letter.
+  it("refuses a payload that is not an email message (422)", async () => {
+    const res = await postCapture(new TextEncoder().encode("%PDF-1.7\nnot mail at all\n"), {
+      cookie: ownerCookie,
+    });
+    expect(res.status).toBe(422);
+  });
+
+  it("refuses an empty body (400)", async () => {
+    const res = await postCapture(new Uint8Array(), { cookie: ownerCookie });
+    expect(res.status).toBe(400);
+  });
+
+  // Existence and access answer identically, so the endpoint cannot be used to probe for a matter the
+  // caller is walled from.
+  it("answers a matter it cannot resolve as absence (404)", async () => {
+    const unknown = newIdentifier("matter");
+    const res = await SELF.fetch(`https://x/api/v1/matters/${unknown}/emails`, {
+      method: "POST",
+      headers: {
+        cookie: ownerCookie,
+        "content-type": "application/octet-stream",
+        "idempotency-key": crypto.randomUUID(),
+      },
+      body: SIMPLE_EML,
+    });
+    expect(res.status).toBe(404);
+  });
+
+  // `forward` belongs to the Email Worker and `sync` to the credentialed adapter; neither could be
+  // claimed honestly by an API caller, so the enum admits only the two entrances that post here.
+  it("refuses a capture source that is not an API entrance (422)", async () => {
+    const res = await postCapture(SIMPLE_EML, { cookie: ownerCookie, source: "forward" });
+    expect(res.status).toBe(422);
   });
 
   it("lists a matter's filed emails", async () => {
@@ -181,6 +269,28 @@ describe("emails routes", () => {
     );
     const missBody = (await miss.json()) as { captured: boolean };
     expect(missBody.captured).toBe(false);
+  });
+
+  // The verdict rides the message read so a reader can weigh it. It is informational — the message is
+  // filed and readable whatever it says.
+  it("returns the signature verdict, its reason, and the domain a pass names", async () => {
+    const emailMessageId = await seedFiledMessage("<signed@example.test>", {
+      dkimVerdict: "pass",
+      dkimVerdictReason: "passed",
+      dkimVerifiedDomain: "example.test",
+    });
+    const res = await SELF.fetch(`https://x/api/v1/emails/${emailMessageId}`, {
+      headers: { cookie: ownerCookie },
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      dkimVerdict: string;
+      dkimVerdictReason: string | null;
+      dkimVerifiedDomain: string | null;
+    };
+    expect(body.dkimVerdict).toBe("pass");
+    expect(body.dkimVerdictReason).toBe("passed");
+    expect(body.dkimVerifiedDomain).toBe("example.test");
   });
 
   it("unlinks an email from a matter without deleting the message", async () => {

@@ -83,7 +83,19 @@ simply has nowhere to go, so mint the replacement promptly.
 - **Its real attachments** — saved as matter documents you can preview, version, and search. Like every uploaded file, an attachment is checked for malware before it is available.
 - **Not decorative images** — a logo or signature image embedded in the message is not saved as a document (you can promote one to a document later if it matters).
 
-Very large forwarded messages may be over the size limit for the forward path; file those with the add-in (coming) or by uploading the saved message.
+Very large messages are over the size limit for filing and are refused with a message saying so, rather than accepted and lost. A file that isn't actually an email is refused the same way, at the moment you upload it.
+
+## Was this email really from who it says?
+
+Many organizations sign their outgoing mail, and the signature travels with the message. When a message you file carries one, we check it and record the answer beside the message:
+
+- **Signature verified**, naming the domain that signed it — good evidence the message really came from there and has not been altered since.
+- **Not verified**, with the reason: the message was never signed (very common, and not a red flag on its own), the signature could not be checked, or the sender's signing key is no longer published.
+- **Signature did not verify** — the message does not match what was signed.
+
+**This is information, not a gate.** Nothing is blocked, hidden, or thrown away because of it; every message you file is filed and readable whatever the check says. Treat it as one more fact about a message, the way you would a postmark.
+
+One thing worth knowing: **forwarding usually breaks a signature.** When you forward a message to a capture address, your mail program rewrites parts of it, and the original signature no longer matches — so a forwarded message very often shows as not verifying even though nothing is wrong with it. A message saved from your inbox and uploaded, or filed by the add-in when it ships, keeps the original intact and gives a meaningful answer.
 
 ## Already filed
 

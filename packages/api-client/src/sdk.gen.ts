@@ -155,7 +155,7 @@ export const emailInspectorInspect = <ThrowOnError extends boolean = false>(opti
 export const emailsList = <ThrowOnError extends boolean = false>(options: Options<EmailsListData, ThrowOnError>): RequestResult<EmailsListResponses, EmailsListErrors, ThrowOnError> => (options.client ?? client).get<EmailsListResponses, EmailsListErrors, ThrowOnError>({ url: '/api/v1/matters/{matterId}/emails', ...options });
 
 /**
- * File a raw email message (.eml or .msg bytes) to this matter. The bytes are staged and the parse, dedup, thread-linking, and attachment extraction run off the request path; the response returns a job identifier. A message the firm already holds is deduped to one record and linked, never duplicated. This is the endpoint the native add-in's Save & File posts to.
+ * File a raw email message (.eml or .msg bytes) to this matter. The bytes are staged and the parse, dedup, thread-linking, and attachment extraction run off the request path; the response returns a job identifier. A message the firm already holds is deduped to one record and linked, never duplicated. This is the endpoint the native add-in's Save & File posts to: send an Idempotency-Key and a retried submission converges on the capture it already started rather than starting another.
  */
 export const emailsFile = <ThrowOnError extends boolean = false>(options: Options<EmailsFileData, ThrowOnError>): RequestResult<EmailsFileResponses, EmailsFileErrors, ThrowOnError> => (options.client ?? client).post<EmailsFileResponses, EmailsFileErrors, ThrowOnError>({
     bodySerializer: null,

@@ -4,19 +4,21 @@ import type {
   EmailParticipantId,
   EmailThreadId,
 } from "@magna-carta/identifiers/types";
+import type { DkimVerdict, DkimVerdictReason, DkimVerification } from "./dkim.ts";
 import { normalizeSubject } from "./thread.ts";
 
-// Which entrance recorded a capture. `addin` and `sync` are placed now for the later slices that fill
-// them; the forward path and the API entrance are what this slice writes.
+// Which entrance recorded a capture. `sync` is placed now for the later slice that fills it; the
+// forward path, the authenticated API, and the add-in posting to that API are what is written today.
 export type CapturedVia = "forward" | "api" | "addin" | "sync";
 
 export type MessageIdProvenance = "header" | "mapi" | "absent";
-export type DkimVerdict = "unverified" | "pass" | "fail";
+export type { DkimVerdict, DkimVerdictReason };
 export type ParticipantKind = "from" | "to" | "cc" | "bcc";
 
 // The email_message row shape (a subset of columns; created_at/updated_at are set by the writer). The
-// verbatim DKIM/Authentication-Results/Received facts ride `integrity` as serialized JSON, recorded
-// with no verdict — `dkimVerdict` stays `unverified` until a verifier fills it.
+// verbatim DKIM/Authentication-Results/Received facts ride `integrity` as serialized JSON, exactly as
+// the parse engine surfaced them; the adjudication of those facts is the separate `dkim*` columns, so
+// the evidence and the verdict over it never get confused for one another.
 export interface EmailMessageRow {
   readonly id: EmailMessageId;
   readonly messageIdValue: string | null;
@@ -34,6 +36,10 @@ export interface EmailMessageRow {
   readonly referencesRemoteContent: boolean;
   readonly integrity: string;
   readonly dkimVerdict: DkimVerdict;
+  // Why the verdict is what it is, and — on a pass — whose signature carried it. Null when nothing has
+  // adjudicated the message yet, which is a different state from "adjudicated and inconclusive".
+  readonly dkimVerdictReason: DkimVerdictReason | null;
+  readonly dkimVerifiedDomain: string | null;
   readonly sourceFormat: SourceFormat;
   readonly capturedVia: CapturedVia;
 }
@@ -78,6 +84,9 @@ export interface RecordContext {
   readonly receivedAt: string;
   readonly mintParticipantId: () => EmailParticipantId;
   readonly directoryEntityIdByAddress?: ReadonlyMap<string, string>;
+  // The signature adjudication, when a verifier ran. Absent leaves the row unverified with no reason —
+  // the state a message is in when nothing has looked at it.
+  readonly dkim?: DkimVerification;
 }
 
 export function toRecordRows(message: ParsedMessage, context: RecordContext): RecordRows {
@@ -98,7 +107,11 @@ export function toRecordRows(message: ParsedMessage, context: RecordContext): Re
     originalR2Key: context.originalR2Key,
     referencesRemoteContent: message.referencesRemoteContent,
     integrity: JSON.stringify(message.integrity),
-    dkimVerdict: "unverified",
+    dkimVerdict: context.dkim?.verdict ?? "unverified",
+    dkimVerdictReason: context.dkim?.reason ?? null,
+    // Only a passing signature names a domain: recording the claimed `d=` of a signature that failed
+    // would read as an attribution the cryptography did not support.
+    dkimVerifiedDomain: context.dkim?.verdict === "pass" ? context.dkim.signingDomain : null,
     sourceFormat: message.sourceFormat,
     capturedVia: context.capturedVia,
   };
