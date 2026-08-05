@@ -45,7 +45,33 @@ at full capacity. Keep it current at every milestone — it is the durable memor
   MC docs-sync (Mon 13:03), Cloudflare blog monitor (daily 14:00, reports not
   persisted), dependency updates (Mon 14:30).
 
-## Position update (2026-08-05 ~11:10 UTC) — owner's wave fully shipped, audit closed
+## Position update (2026-08-05 ~12:15 UTC) — trust movements + safe tooling landed
+
+Seventy-six merged. #114 tooling pair (task 54 CLOSED): fix:scoped now drives
+formatter and lint autofix separately with unsafe rules allowed off in the FIX
+PASS ONLY (tooling/check-scoped/unsafe-autofix-rules.mjs — the two known-bad
+rewrites still warn everywhere, never auto-apply); `pnpm test` is now a
+per-worktree single-flight guard (atomic wx lock, dead-holder + 90-min stale
+reclaim, MAGNA_CARTA_ALLOW_CONCURRENT_TESTS=1 override) — the wedge did NOT
+reproduce on this container, guard makes it moot. #115 trust 3·2·2 (task 67
+CLOSED): deposits (gross, lazy leaf + floor + first posting ONE batch),
+disbursements (ceiling = available, authorizer required), matter-to-matter
+transfers (bank-free same-client shape — NO phantom bank lines; guard admits
+exactly one bank-free shape, >=2 distinct matter leaves); append-only
+trust_movement client-ledger record with shape CHECKs; ledger pendingAccounts
+with stored-row-wins; migration idx 28 = 20260805T140000, snapshot 0028, no
+collision. MONEY_NAMESPACES gains trust; rule rebound to MUTATING methods
+(a GET has no write to deduplicate). Recommended-defaults shipped for owner:
+permit-all disbursement-method policy (T7 territory; method recorded from
+movement one) and authorizer = authenticated submitter (columns pre-split for
+two-person workflow). NEW gate-integrity finding (task 68): positional path
+filters REPLACE vitest collection rather than narrowing it (41/327 vs 666/6313)
+— gate.yml test-node may under-collect; audit + floor assertion, verify
+post-reset. tsconfig-refs main breakage repaired by #115's regeneration; 0027
+snapshot format drift joins 0022 in task 65. Swept ~29 stale active-work notes
+(this commit). Dispatched next: task 66 contract fix + custodian 4·2·4
+stocktake. Then: directory role sources, add-in client API, 3·2·3+ per
+analysis.
 
 Seventy-three merged. The owner's entire selected wave is on main: trust 3·2·1
 foundation (#105), DKIM + add-in hardening (#106), 1-core ubuntu-slim runners
