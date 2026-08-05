@@ -14,9 +14,14 @@ const LEGAL_FORMATS: Readonly<Record<MergeValueType, readonly string[]>> = {
   text: ["plain", "upper", "titleCase"],
   date: ["short", "long", "legal", "iso"],
   money: ["currency", "currencyWords", "plain"],
+  rate: ["plain", "currencyWords"],
   number: ["plain"],
   boolean: ["yesNo", "plain"],
   reference: ["plain"],
+  // A list is never written into a document. A repeating block walks it, and `count` and `isEmpty` ask
+  // about it; there is no rendering of the collection itself, which is why this row is empty rather
+  // than absent — an empty row makes every format name illegal by the same check that governs the rest.
+  list: [],
 };
 
 export function legalFormatsFor(valueType: MergeValueType): readonly string[] {
@@ -29,7 +34,10 @@ export function legalFormatsFor(valueType: MergeValueType): readonly string[] {
 
 // Title case over words, leaving anything that is already mixed case alone — an "O'Brien" or a "McCall"
 // entered correctly by a paralegal must not be rewritten to "O'brien". Nothing here attempts grammar.
-function titleCase(text: string): string {
+// Exported because the expression language's `titleCase` helper is the SAME rendering an author gets
+// from `{{key:titleCase}}`; two implementations of one rule would drift, and a document would then
+// capitalize a name differently depending on which form the author reached for.
+export function titleCase(text: string): string {
   return text.replace(/[A-Za-z][A-Za-z'’-]*/g, (word) =>
     word === word.toLowerCase() || word === word.toUpperCase()
       ? word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()

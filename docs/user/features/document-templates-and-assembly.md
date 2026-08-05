@@ -1,6 +1,6 @@
 # Document templates and assembly
 
-_The template catalogue and the assembly engine are built. The template library, the field inspector, and the assemble dialog are authored when those screens ship; today templates are registered and documents assembled through the API._
+_The template catalogue, the assembly engine, and template conditions, repeats, and calculations are built. The template library, the field inspector, and the assemble dialog are authored when those screens ship; today templates are registered and documents assembled through the API._
 
 ## What it does
 
@@ -119,12 +119,145 @@ as needing review before you file it — a blank that does not look like a blank
 Assembling needs the **assemble documents** permission, which attorneys, paralegals, and administrators
 have.
 
+## Clauses that appear only sometimes
+
+Wrap the paragraphs in a condition. The opening and closing marks each go **in a paragraph of their
+own**, and the whole block — marks included — either stays or goes:
+
+```
+{{#if matter.eBilling}}
+Invoices for this matter are delivered electronically.
+{{/if}}
+```
+
+`{{#unless …}}` is the same thing the other way round, and reads better when the clause belongs in the
+document only when something is _not_ so. Either mark closes it: `{{/if}}` or `{{/unless}}`.
+
+**In a table, put the mark in the first cell of a row and the whole row is what appears or goes.** That
+keeps a table's shading and its column widths correct, which removing part of a row would not.
+
+A condition can be as simple as a field's name:
+
+- `{{#if client.code}}` — the clause appears when the matter **has** a client code.
+- `{{#if matter.eBilling}}` — for a yes-or-no field, the clause appears when the answer is **yes**.
+
+Or it can work something out:
+
+```
+{{#if daysBetween(matter.openedOn, system.today) > 30}}
+{{#if matter.status in ("open", "closed")}}
+{{#if has(client.code) and not matter.eBilling}}
+```
+
+Join conditions with the words **and**, **or**, and **not** — not with symbols. Compare with `==`,
+`!=`, `<`, `<=`, `>`, `>=`.
+
+**If a condition cannot be worked out, the assembly stops and tells you which field it needed.** That
+is deliberate, and it is the one place the system is deliberately impatient: a clause that is missing
+from a filed contract is invisible — nobody reads a document and notices the paragraph that is not
+there. When you mean "leave the clause out if we have no value on file", say so with `has(…)`:
+
+```
+{{#if has(party.spouse)}}
+```
+
+which always answers yes or no and never stops anything.
+
+## Sections that repeat
+
+Wrap the paragraphs — or the table row — in a repeat, naming the collection to walk:
+
+```
+{{#each matter.parties}}
+{{loop.index}}. {{matter.parties.displayName}} ({{matter.parties.role}})
+{{/each}}
+```
+
+Inside the block you can use the current item's fields, and four facts about where you are:
+`loop.index` (1, 2, 3 …), `loop.count`, `loop.first`, and `loop.last`. A repeat over a row keeps the
+table's shading; a repeat over a numbered paragraph keeps the numbering.
+
+A repeat walks a collection your firm's data supplies, or the parts of a split (below). It cannot walk
+a filtered or sorted list — if you need one, the list itself is what has to change.
+
+## Working something out
+
+`{{= …}}` writes a calculation into the document. It is a different mark from a plain field on purpose:
+`{{matter.number}}` is a lookup, `{{= …}}` is a calculation, and you can tell them apart at a glance.
+
+```
+Response is due {{= addDays(system.today, 30):long}}.
+Re: {{= concat(matter.number, " — ", client.displayName):upper}}
+```
+
+Add `:` and a rendering after the calculation to say how it should look, exactly as you would on a
+plain field. A yes-or-no calculation always needs one, because a document should not print the word
+"true" — write `:yesNo`, or say it in words with `choose`.
+
+**Dates**
+
+| Write                                                            | You get                                                         |
+| ---------------------------------------------------------------- | --------------------------------------------------------------- |
+| `addDays(date, 30)` · `addMonths(date, 3)` · `addYears(date, 1)` | The date that much later; a negative number goes back           |
+| `daysBetween(earlier, later)`                                    | How many days apart, negative when they are the other way round |
+| `year(date)` · `month(date)` · `day(date)` · `monthName(date)`   | The date's parts                                                |
+
+The 31st of January plus one month is the last day of February — the month is clamped, never rolled
+over into March. There is no business-day or court-deadline arithmetic: that needs a holiday calendar
+kept correct for every court forever, and a wrong answer is a missed filing.
+
+**Amounts**
+
+There is no `/` — dividing money is where a system either states its rounding or hides it, so each way
+of dividing has its own name and says what it does:
+
+| Write                      | What it does                                                                 |
+| -------------------------- | ---------------------------------------------------------------------------- |
+| `divideExact(amount, 4)`   | The even share, and **refuses** if it does not come out even to the cent     |
+| `divideRounded(amount, 3)` | The share rounded to the nearest cent; what is left over is gone             |
+| `allocate(amount, 3)`      | Parts that **add back up to the whole exactly** — walk them with `{{#each}}` |
+| `applyRate(amount, rate)`  | The amount at a stored rate                                                  |
+| `percentOf(amount, 0.075)` | The amount times a decimal — `0.075` is seven and a half percent             |
+
+Amounts add and subtract with `+` and `-` and multiply by a whole number with `*`. **Two amounts in
+different currencies will not combine**, and the assembly says so rather than inventing an exchange
+rate: a rate has a date and a source, and a document should not carry one nobody chose.
+
+**Text and choices**
+
+| Write                                             | What it does                                              |
+| ------------------------------------------------- | --------------------------------------------------------- |
+| `concat(a, b, c)`                                 | Pieces of text joined together                            |
+| `upper(text)` · `lower(text)` · `titleCase(text)` | The text recased                                          |
+| `has(field)`                                      | Whether the matter supplies that field — always yes or no |
+| `default(field, "fallback")`                      | The value, or the fallback when there is none             |
+| `choose(condition, "one", "the other")`           | One or the other, spelled out                             |
+| `count(collection)` · `isEmpty(collection)`       | How many items, and whether there are none                |
+
+Write text in **double quotes**. A date is written `date "2026-08-04"`.
+
+**If a calculation cannot be worked out, the document shows a marker** where the value would have
+been — the same visible blank an ordinary missing field leaves — and the result lists it.
+
+## When a condition or calculation is wrong
+
+You find out **when you register the template**, not when someone assembles a document from it. The
+registration is refused and names the part of the document, the words around it, and the position
+inside the calculation. A misspelled field name, two things that cannot be compared, a rendering the
+result does not support, and a block that opens and never closes are all caught then.
+
+That is the trade the system makes on purpose: the fiddly part happens once, while you are looking at
+it, rather than at ten to five on a filing deadline.
+
+There is a limit to how much one calculation may do — roughly, it fits on a line, reads at most a
+few dozen fields, and a repeat walks at most a thousand items. A calculation that needs more than that
+is a report, not a template.
+
 ## What is not here yet
 
-- **Clauses that appear only sometimes,** and sections that repeat once per item (a schedule of
-  parties, an exhibit index).
 - **Your firm's own fields** — the custom fields you defined — and fields drawn from a matter's other
-  parties.
+  parties beyond their names and roles.
+- **Totals across a repeat** — "the sum of all disbursements" cannot be written yet.
 - **Your letterhead logo** as a field.
 - **Producing a PDF** directly, and sending an assembled document straight for signature.
 - **Writing templates in the browser** — today they are written in Word and uploaded.

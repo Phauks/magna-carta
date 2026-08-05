@@ -23,8 +23,13 @@ describe("dictionary well-formedness (fitness)", () => {
     }
   });
 
-  it("every entry declares a default format its own value type supports", () => {
-    for (const entry of DICTIONARY) {
+  // A `list` is never written into a document — a repeating block walks it, and `count` and `isEmpty`
+  // ask about it — so it is the one value type with no rendering at all. Carved out explicitly rather
+  // than by loosening the rule, so a scalar entry that lost its default format still fails here.
+  const RENDERED = DICTIONARY.filter((entry) => entry.valueType !== "list");
+
+  it("every entry that a document renders declares a default format its own value type supports", () => {
+    for (const entry of RENDERED) {
       expect(
         isLegalFormat(entry, entry.defaultFormat),
         `${entry.key} defaults to "${entry.defaultFormat}", which ${entry.valueType} does not support`,
@@ -32,9 +37,20 @@ describe("dictionary well-formedness (fitness)", () => {
     }
   });
 
-  it("every value type has at least one legal format", () => {
-    for (const entry of DICTIONARY) {
+  it("every rendered value type has at least one legal format, and a list has none", () => {
+    for (const entry of RENDERED) {
       expect(legalFormatsFor(entry.valueType).length, entry.valueType).toBeGreaterThan(0);
+    }
+    expect(legalFormatsFor("list")).toEqual([]);
+  });
+
+  it("every list entry declares the fields one of its items carries", () => {
+    for (const entry of DICTIONARY.filter((candidate) => candidate.valueType === "list")) {
+      expect(entry.itemFields?.length, entry.key).toBeGreaterThan(0);
+      for (const field of entry.itemFields ?? []) {
+        expect(field.valueType, `${entry.key}.${field.name}`).not.toBe("list");
+        expect(field.description.length, `${entry.key}.${field.name}`).toBeGreaterThan(10);
+      }
     }
   });
 
