@@ -264,12 +264,12 @@ times: on its pull request, on the push that merges it, and again on the nightly
 identical full battery each time buys nothing — the second and third runs re-derive a result the first
 already produced. So each trigger runs the pass that **only it** can run:
 
-| Trigger        | Type-aware lint                     | Test battery | What it is for                                                                                                           |
-| -------------- | ----------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------ |
-| `pull_request` | affected packages, **one hop** deep | full         | The tier a human waits on — optimized for latency.                                                                       |
-| `push` to main | affected packages, **full closure** | skipped      | The whole-repo type-check plus the unbounded lint closure: exactly what the pull request deliberately did not do.        |
-| `schedule`     | **whole repo**, unscoped, cold      | full         | Nightly backstop for anything the per-change tiers could miss, landing long before a deliberate `git push main:release`. |
-| `merge_group`  | full closure                        | full         | Full proof of a queued merge's real post-merge tree, if a merge queue is enabled.                                        |
+| Trigger        | Type-aware lint                          | Test battery | What it is for                                                                                                           |
+| -------------- | ---------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| `pull_request` | full closure **minus the fan-out sinks** | full         | The tier a human waits on — optimized for latency.                                                                       |
+| `push` to main | full closure **including the sinks**     | skipped      | The whole-repo type-check plus the sink lint: exactly what the pull request deliberately did not do.                     |
+| `schedule`     | **whole repo**, unscoped, cold           | full         | Nightly backstop for anything the per-change tiers could miss, landing long before a deliberate `git push main:release`. |
+| `merge_group`  | full closure including the sinks         | full         | Full proof of a queued merge's real post-merge tree, if a merge queue is enabled.                                        |
 
 ### TEMPORARY CI AUSTERITY 2026-08-05 — revert when Actions minutes reset
 
@@ -290,16 +290,17 @@ finding all of them is one `grep -r "TEMPORARY CI AUSTERITY"`.
 
 **Still running:** the `pull_request` tier in full — the whole battery (format, type-check, rust, the
 full test suite, governance, contracts, containers) with the type-aware lint scoped to the changed
-packages plus one hop, exactly as before; `merge_group`, if a merge queue is ever enabled;
-`workflow_dispatch`; and [`assemble-docs.yml`](../../.github/workflows/assemble-docs.yml) on every push
-to `main` (a few runner-minutes, and it is what keeps the rendered trackers current).
+packages and their full dependent closure minus the fan-out sinks; `merge_group`, if a merge queue is
+ever enabled; `workflow_dispatch`; and [`assemble-docs.yml`](../../.github/workflows/assemble-docs.yml)
+on every push to `main` (a few runner-minutes, and it is what keeps the rendered trackers current).
 
-**What the window gives up**, precisely: the unbounded dependent-walk lint, the whole-repo lint that a
-global input (the lint ruleset, the lockfile, the shared compiler options) or a lintable file outside
-every package would otherwise force, and the nightly backstop for two branches that merge in quick
-succession and interact semantically without touching the same files. Type-checking, tests, and the
-contract checks are unaffected — they were never scoped, and they still run whole-repo on every pull
-request.
+**What the window gives up**, precisely: the type-aware lint of a deferred fan-out sink that is in
+scope only as a dependent, the whole-repo lint that a global input (the lint ruleset, the lockfile, the
+shared compiler options) or a lintable file outside every package would otherwise force, and the
+nightly backstop for two branches that merge in quick succession and interact semantically without
+touching the same files. Type-checking, tests, and the contract checks are unaffected — they were never
+scoped, and they still run whole-repo on every pull request. The first of those is covered by the merge
+bar below: a full local `pnpm check` lints the whole repository, sinks included.
 
 **The merge bar during the window.** Because the post-merge tiers no longer run, verification moves
 forward to the branch: an agent runs **full local verification** on its branch before the merge (the
@@ -330,12 +331,26 @@ merge queue (the `merge_group` trigger is already wired for it) and caught after
 sweep. It is never a release risk: `main` is not the deploy branch, so nothing reaches production until
 somebody deliberately pushes `main:release`, and the nightly full run always intervenes first.
 
-**Why the one-hop lint tier is sound.** The dependent-walk depth is a latency dial, not a correctness
-one, because the _unbounded_ walk still runs before anything can ship — on the merge push, on the
-nightly sweep, and on a merge-queue build. A type flip that propagates more than one hop down the
-dependent chain is therefore caught at merge or overnight rather than on the pull request. Note the
-measured ceiling on this lever: because `apps/worker` depends directly on nearly every foundational
-package, a one-hop walk from a foundational package still covers most of the repo (see _To formalize_).
+**Why deferring the fan-out sinks is sound.** Which tier pays for a package's dependent re-lint is a
+cost dial, not a correctness one, because the _undeferred_ closure still runs before anything can ship
+— on the merge push, on the nightly sweep, and on a merge-queue build. A type flip that a change
+propagates into a sink is therefore caught at merge or overnight rather than on the pull request, and
+the blast radius of that delay is one type-aware lint rule: type-checking, tests and the contract
+checks are never scoped and run whole-repo on every pull request. Two properties keep it a move rather
+than a hole, and both are asserted mechanically by
+[`tooling/affected-lint/scope-fitness.mjs`](../../tooling/affected-lint/scope-fitness.mjs): a sink the
+change itself touched is never deferred, so an author's own code is always linted on their own pull
+request; and the union of the pull-request scope and the post-merge scope always covers the full
+transitive dependent closure.
+
+**Why depth-capping was the wrong dial, and weight is the right one.** The pull-request tier used to
+cap the dependent walk at one hop. Measured on this repository that saved almost nothing, because graph
+_distance_ is a poor proxy for lint _cost_: `apps/worker` depends **directly** on 39 of the 61
+workspace packages, so it sits one hop from nearly every change and a one-hop cap dragged it in anyway.
+Cost is set by the size of the type program the linter has to build, which is a package's own files
+plus everything they import — so that is what the classifier now measures, and the one package whose
+type program is effectively the whole repository is the one that gets deferred. See _Fan-out sinks_
+below.
 
 **Path classification.** The `changes` job treats documentation and the rendered trackers
 (`docs/**`, `changelog.d/**`, `status.d/**`, `roadmap.d/**`, every `*.md`, and `STATUS.json`) as
@@ -349,7 +364,10 @@ under one of those trees still counts as code.
 the shard count is a pure cost dial with no coverage consequence. Each shard pays a fixed few minutes of
 checkout, install and artefact download before it runs a test, so on a small diff (a modest changed-file
 count and a lint scope that is neither whole-repo nor a broad fan-out) `test-worker` drops from four
-shards to two, halving that fixed overhead while keeping the parallelism that matters.
+shards to two, halving that fixed overhead while keeping the parallelism that matters. The breadth
+signal is read from the **undeferred** closure, not from the lint scope: deferring a sink narrows what
+gets linted and says nothing about how broad the change is, and reading the narrowed width here would
+call a foundational change small and quietly halve the test parallelism.
 
 ## The CI gate — cache what it repeats
 
@@ -381,13 +399,84 @@ recomputes identically on every run is cached.
 - Build-time budgets and a signal that flags a regression in build wall-clock, once there is a baseline worth holding.
 - Persisting BuildKit **cache mounts** across Workers Builds runs (the registry/`target` mounts are build-local today) if cold Rust dependency compiles in the Container build become the bottleneck.
 - **`tsgo` cutover** — swap the type-check engine to the TypeScript 7 native compiler once references have landed and it reaches GA, keeping a pinned JavaScript `typescript` for the Compiler-API tooling.
-- **Break the app worker's direct dependence on nearly every foundational package.** The type-aware lint's cost is dominated by one package: building `apps/worker`'s whole-program type graph. Because the worker depends _directly_ on almost every foundational package, any change to one of them puts the worker in the affected set no matter how the dependent walk is bounded — a one-hop walk from `@magna-carta/identifiers` still covers 21 of the 24 packages the full closure covers. Scoping is therefore close to exhausted as a lever; the remaining structural fix is the dependency shape itself.
+- **Break the app worker's direct dependence on nearly every foundational package.** The type-aware lint's cost is dominated by one package: building `apps/worker`'s whole-program type graph. Because the worker depends _directly_ on 39 of the 61 workspace packages, any change to one of them puts the worker in the affected set no matter how the dependent walk is bounded — a one-hop walk from `@magna-carta/identifiers` still covers 21 of the 24 packages the full closure covers. **Scoping is exhausted as a lever, measured in both directions** (2026-08-05): at package granularity by the fan-out above, and at _file_ granularity too — a reverse-import closure over the repository's own module graph still reaches 70–80% of the worker's 394 files for 37 of its 38 package dependencies, because `apps/worker/src/app.ts` mounts every route and 157 files import it. So the remaining structural fix is the dependency shape itself: the sink deferral below moves the cost to a cheaper tier, it does not remove it.
 
 ### Scope the CI type-aware lint to the affected packages (now)
 
 The whole-repo type-aware lint (`vp check --no-fmt`, oxlint + tsgolint) is CI's tall pole — **~45 min** on a 4-core/16 GB runner (0 errors, ~820 advisory warnings over ~1850 files, measured 2026-08-04), single-threaded, no cross-run cache upstream. It was ~24 min when this section was first written; the figure tracks the package count, so re-measure it rather than trusting the number here, and raise the `lint` job's `timeout-minutes` in [`gate.yml`](../../.github/workflows/gate.yml) whenever the honest time approaches the cap. But tsgolint builds its type program **lazily from the passed files' import closure**, so `vp check --no-fmt <paths>` scopes the cost to those paths: one small package is ~2 s where the whole repo is ~45 min (measured). The earlier belief that this "depends on a vp mechanism to scope `typeAware`" was wrong — the `vp check [PATHS]` passthrough already is that mechanism, and cross-package types still resolve from the closure.
 
-So the gate's **`lint` job lints only the affected packages**, computed by `tooling/affected-lint`: the changed workspace packages **plus their dependents** — never just the changed files, because a type-aware finding in an unchanged file can flip when a dependency changes (that soundness gap is exactly why `check-scoped`, which lints only changed files, is fine for the local loop but not a merge gate). How far down the dependent chain the walk goes is set by `--max-hops`: **one hop on a pull request, unbounded everywhere else** (see _The CI gate — verify each change once at each level_ above for why depth is a latency dial rather than a correctness one). A change to a global input — the lint ruleset and the shared compiler options (`vite.config.ts` — which is both the lint ruleset home and where `typeAware` lives — plus `tsconfig.base.json`, `packages/tsconfig/`), the lockfile, or the affected-lint logic itself — falls back to a whole-repo lint, as does any lintable source file outside every package (which is what still re-lints the whole repo for a JS-based action under `.github/`). A workflow or action **YAML** change (e.g. `gate.yml`) is deliberately **not** a trigger — it cannot move a type-aware lint result, so it does not pay the whole-repo pass. Only the lint job is scoped this way; type-check, tests, and the contract checks still run whole-repo, so the blast radius of a scoping miss is one type-aware lint rule, not correctness at large. A typical few-package change drops the tall pole from ~45 min to seconds; a foundational package (e.g. `@magna-carta/identifiers`) correctly re-lints its whole dependent set. (**TEMPORARY CI AUSTERITY 2026-08-05 — revert when Actions minutes reset:** the whole-repo fallback described here is suspended; the scoped pass is untouched. See the austerity note under _The CI gate — verify each change once at each level_.)
+So the gate's **`lint` job lints only the affected packages**, computed by `tooling/affected-lint`: the changed workspace packages **plus their dependents** — never just the changed files, because a type-aware finding in an unchanged file can flip when a dependency changes (that soundness gap is exactly why `check-scoped`, which lints only changed files, is fine for the local loop but not a merge gate). The walk is **unbounded on every trigger** (`--max-hops all`); the pull-request tier's cost lever is the fan-out sink deferral below, not a depth cap. A change to a global input — the lint ruleset and the shared compiler options (`vite.config.ts` — which is both the lint ruleset home and where `typeAware` lives — plus `tsconfig.base.json`, `packages/tsconfig/`), the lockfile, or the affected-lint logic itself — falls back to a whole-repo lint, as does any lintable source file outside every package (which is what still re-lints the whole repo for a JS-based action under `.github/`). A workflow or action **YAML** change (e.g. `gate.yml`) is deliberately **not** a trigger — it cannot move a type-aware lint result, so it does not pay the whole-repo pass. Only the lint job is scoped this way; type-check, tests, and the contract checks still run whole-repo, so the blast radius of a scoping miss is one type-aware lint rule, not correctness at large. A typical few-package change drops the tall pole from ~45 min to seconds; a foundational package (e.g. `@magna-carta/identifiers`) correctly re-lints its whole dependent set. (**TEMPORARY CI AUSTERITY 2026-08-05 — revert when Actions minutes reset:** the whole-repo fallback described here is suspended; the scoped pass is untouched. See the austerity note under _The CI gate — verify each change once at each level_.)
+
+### Fan-out sinks — defer the one package whose lint is a whole-repo lint (now)
+
+Scoping alone did not finish the job. On a measured pull-request gate run (2026-08-05, 17 jobs) the
+`lint` job billed **26 minutes of ~60 for the whole run — 43% of the bill** — at the _cheap_ scoped
+tier, and [the CI evaluation](../research/2026-08-05-cloudflare-ci-evaluation.md) named the cause: the
+scope was correct, and it contained `apps/worker`.
+
+**The cost model.** The type-aware linter builds its type program lazily from the passed files' import
+closure, so a package's lint cost tracks the **size of that program** — the package's own lintable
+files plus every lintable file in its transitive _dependency_ closure. That is the opposite direction
+from the dependent walk the scope is computed with, and it is what makes one package's lint seconds and
+another's half an hour. Call it the package's **type-program weight**. Measured 2026-08-05 across 61
+workspace packages and 1,669 lintable files: `@magna-carta/worker` weighs **1,261 files — 75.6% of the
+repository**. The next package down is `@magna-carta/fixtures` at 550 (33%), and the median package
+weighs 34 (2%). Linting the worker is, to within rounding, a whole-repo lint.
+
+The consequence is stark, and it is why package **count** is the wrong unit for this scope. Measured on
+a 4-core/15 GB box, 2026-08-05, for a change to `@magna-carta/identifiers`:
+
+| `vp check --no-fmt <scope>`                              | Files linted |  Wall clock |
+| -------------------------------------------------------- | -----------: | ----------: |
+| `packages/identifiers` alone                             |           20 |   **2.3 s** |
+| the 28-package pull-request scope with the sink deferred |          883 |     **9 s** |
+| `apps/worker` alone                                      |          394 | **2,755 s** |
+
+Twenty-eight packages and 883 files finish in nine seconds. One package and 394 files take
+three-quarters of an hour, because the type program behind those 394 files is the repository.
+
+**The rule.** A package is a **fan-out sink** when its type-program weight is at least half the
+workspace's lintable files (`FANOUT_SINK_SHARE` in
+[`tooling/affected-lint/index.mjs`](../../tooling/affected-lint/index.mjs)). The share is deliberately a
+ratio rather than a file count, so it needs no re-tuning as the repository grows — the claim it encodes
+is "linting this package is effectively a whole-repo lint", which is proportional. On a pull request
+the classifier drops the sinks from the scope **when they are in scope only as a dependent**; every
+other trigger passes no such flag and lints them. A sink the change itself touched is never deferred.
+
+**Why that is a move and not a hole.** Type-aware findings in a sink can only flip through what the
+sink imports, so deferring them delays a class of finding, it does not discard it: the undeferred
+closure runs on the merge push, on the nightly sweep, and on a merge-queue build, all before a
+deliberate `git push main:release` can turn anything into a deploy. Two invariants make that argument
+mechanical rather than rhetorical, and
+[`scope-fitness.mjs`](../../tooling/affected-lint/scope-fitness.mjs) (`pnpm run lint:affected-scope`,
+wired into the gate's `governance` job) asserts both for a simulated change to **every** workspace
+package: the pull-request scope always contains the changed package itself, and the union of the
+pull-request scope and the post-merge scope always contains the package's full transitive dependent
+closure. It derives that closure by an **independent fixpoint** over the same package graph the
+classifier reads — a different algorithm on one source of truth, so a mistake shows up as a
+disagreement instead of as two copies of itself. It also fails if the sink rule ever stops selecting an
+outlier: no sink at all (the flag would be a silent no-op), more than two sinks, or a sink weighing
+less than 1.5x the heaviest non-sink.
+
+**Two refinements measured and rejected, so they are not re-proposed.** Both look obvious and neither
+pays here:
+
+- **File-granular scoping** — the changed files plus the transitive reverse-import closure over the
+  repository's own module graph, resolved with the TypeScript resolver rather than guessed. Sound in
+  principle, and measured worth roughly a quarter of the worst case: for **37 of the worker's 38
+  package dependencies the closure still reaches 70–80% of its 394 files**, because
+  `apps/worker/src/app.ts` mounts every route and 157 files import it. That buys a fraction off the tall
+  pole in exchange for a module-resolution graph whose failure mode — a specifier that quietly resolves
+  to nothing — is silent under-linting on a merge gate. Not worth it until the hub itself is broken up.
+- **Content-hash caching of a package's lint result**, keyed on the package plus its dependency
+  closure. It misses precisely when it is needed: the key must cover the closure for the result to be
+  reusable, and a foundational change is by definition a change inside that closure. It would hit on
+  re-runs of an unchanged tree and miss every expensive case.
+
+**Keeping the rule honest.** When the app worker's dependency shape is finally broken up (see _To
+formalize_), the sink rule will stop selecting anything and `lint:affected-scope` will fail — which is
+the intended signal to delete `--defer-fanout-sinks` and this section rather than to widen the
+threshold. Never widen a threshold to make a red run green.
 
 ### Shard the CI test suite across parallel runners (now)
 

@@ -17,6 +17,7 @@
     "lint:decisions": "node tooling/lint-decisions.mjs",
     "lint:test-registration": "node tooling/lint-test-registration.mjs",
     "lint:test-collection": "node tooling/lint-test-collection.mjs",
+    "lint:affected-scope": "node tooling/affected-lint/scope-fitness.mjs",
     "postinstall": "node tooling/setup-hooks/index.mjs",
     "test": "node tooling/test-single-flight/index.mjs"
   },
