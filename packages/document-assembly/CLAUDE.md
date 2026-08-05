@@ -59,7 +59,11 @@ block-marker vocabulary the normalizer validates and the assembly walk expands.
   that column plugs in — do not scatter a default through the formatters.
 - **Absence is a decision, not an accident.** Every dictionary entry declares `blank` / `placeholder` /
   `fail`; the default bias is a visible marker, because a blank where a party name should be, filed
-  without anyone noticing, is the worst outcome this subsystem can produce.
+  without anyone noticing, is the worst outcome this subsystem can produce. Where resolution KNOWS why a
+  key could not be answered, it says so: `MergeContext.absenceReasons` carries a sentence per key and
+  `AssemblyAbsence.reason` hands it to the caller. A reason is for a question the firm's data cannot
+  answer as asked, not for an ordinary blank — the marker already says "nothing here", and a reason on
+  every absence would bury the ones that need reading.
 - **Resolved values never leave memory.** Nothing here persists, logs, or enqueues one. The provenance
   row records absent KEYS; a failure names WHICH key failed, never what it held.
 - **`buildXml` writes the XML declaration; the parser drops the source one** (`ignoreDeclaration`).
@@ -72,6 +76,36 @@ One row in `src/dictionary.ts` (key, source, value type, default format, sensiti
 behaviour, description) plus, if its source already reads, one line in the matching
 `valuesFrom*` function in `src/resolve.ts`. The well-formedness fitness test
 (`test/dictionary-wellformed.test.ts`) checks the row is internally consistent.
+
+A whole new Directory ROLE is one row in `DIRECTORY_ROLE_SOURCES`
+(`src/directory-role-bindings.ts`) — its three keys, their entries, and their resolution all follow.
+
+## The matter's other parties (`opposingParty.*`, `opposingCounsel.*`, `guardian.*`, `witness.*`)
+
+- **The role IS the key, with the punctuation taken out.** `matter_party.role` is free text — the firm's
+  own role catalogue is what a screen lists from, not a constraint on the column — so `opposing_party`,
+  `Opposing Party`, and `opposing-party` are the same role. `normalizedRoleToken` in
+  `src/directory-role-bindings.ts` lowercases and drops every non-alphanumeric character, and a party
+  matches a source when its stored role and the source's key normalize alike. That makes the mapping
+  derivable rather than a second table to keep in step, and it is why no two shipped sources may
+  normalize to the same token (asserted in `test/directory-role-resolution.test.ts`).
+- **Ambiguity resolves to NOTHING, with a reason that names the count.** Two opposing parties means
+  there is no single one to name, so `opposingParty.displayName` is an absence carrying "this matter
+  links 2 parties in the opposing party role … walk them all with a repeating block over
+  `opposingParty.all`". Picking the first by created-at would produce a document that is wrong in a way
+  nobody can see. A reason names COUNTS and ROLES only — never a candidate's name, which is the value
+  resolution refused to choose between.
+- **The collection is the answer to the many case, and it is the repeat machinery that already exists.**
+  `<role>.all` is an ordinary list entry; `{{#each opposingParty.all}}` binds items as
+  `opposingParty.all.displayName`, which is the same `<collectionKey>.<field>` binding `matter.parties`
+  produces. Nothing new iterates.
+- **Every role rides the ONE party read.** `selectMatterPartiesForMergeStatement` is unchanged and there
+  is no role filter in SQL: a role is a pass over rows already in memory. Filtering per role would be one
+  narrowed read per role, which is more reads, not fewer — the batching rule in a new disguise.
+- **A role source is platform-declared, never firm-derived.** A firm's own role names are free text and
+  cannot be trusted to lex as a merge key (that is what makes custom fields bind by minted HANDLE
+  instead). A role a firm uses that no source covers is still reachable through `matter.parties`, whose
+  items carry the role they were linked in.
 
 ## The firm's own fields (`custom.<handle>`)
 
@@ -192,13 +226,12 @@ from that one sentence.
 
 ## Named seams (not built here)
 
-- **Directory role sources** (`opposing.*`, `counsel.*` and the rest, through the matter's party links)
-  and **protected-value binding** through the decrypt-permission-plus-audit path. Until they land,
-  `matter.parties` is the only list-valued source, and no shipped entry is `sensitivity: protected` — a
-  dictionary entry that claimed it without going through `readProtected` would be a silent downgrade of
-  that invariant rather than an implementation of it. `matter.parties`'s item fields are all text and a
-  firm's own fields are all scalars, so nothing a firm can bind today is aggregable: the aggregates are
-  exercised against synthetic collections, as the money helpers are against synthetic amounts.
+- **Protected-value binding** through the decrypt-permission-plus-audit path. Until it lands, no shipped
+  entry is `sensitivity: protected` — a dictionary entry that claimed it without going through
+  `readProtected` would be a silent downgrade of that invariant rather than an implementation of it.
+  Every list-valued item field (`matter.parties`, the role collections) is text and a firm's own fields
+  are all scalars, so nothing a firm can bind today is aggregable: the aggregates are exercised against
+  synthetic collections, as the money helpers are against synthetic amounts.
 - **A location time zone.** `timeZoneForLocation` in `src/resolve.ts` is the one place the column plugs
   in; every office resolves to the platform's normalized zone until it exists.
 - **A firm currency setting.** `ResolutionInput.currencyCode` is supplied by the caller precisely so

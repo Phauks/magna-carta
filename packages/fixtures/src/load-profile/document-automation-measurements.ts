@@ -192,6 +192,11 @@ export function documentAutomationHotPathPlans(
     },
     // The three reads the merge context actually issues, probed individually: the matter row, the whole
     // party collection in one read, and every bound custom-field handle in one statement.
+    //
+    // There is no fourth probe for the Directory role sources on purpose: `opposingParty.displayName`
+    // and the rest are derived from the party rows THIS statement already returned, so a role costs a
+    // pass over an array rather than a query. If a role ever grows a read of its own, this list is where
+    // it has to appear — and the merge-context measurement above is where the cost would show.
     {
       label: "assembly.merge-context.matter",
       statement: capturedStatement(selectMatterForMergeStatement(handle.database, matterId)),

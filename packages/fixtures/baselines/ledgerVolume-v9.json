@@ -1,336 +1,336 @@
 {
   "profileName": "ledgerVolume",
   "profileVersion": 9,
-  "cacheKey": "354266d4eb272fea",
+  "cacheKey": "243c7d52aad68701",
   "results": [
     {
       "name": "assembly.merge-context",
       "iterations": 30,
-      "minMs": 0.642,
-      "medianMs": 0.741,
-      "p95Ms": 3.787
+      "minMs": 0.804,
+      "medianMs": 0.908,
+      "p95Ms": 1.027
     },
     {
       "name": "balance-read.busy-subledger",
       "iterations": 30,
-      "minMs": 0.015,
-      "medianMs": 0.019,
-      "p95Ms": 0.06
+      "minMs": 0.016,
+      "medianMs": 0.027,
+      "p95Ms": 0.059
     },
     {
       "name": "capture.commit",
       "iterations": 30,
-      "minMs": 1.635,
-      "medianMs": 3.861,
-      "p95Ms": 6.505
+      "minMs": 1.69,
+      "medianMs": 2.073,
+      "p95Ms": 2.605
     },
     {
       "name": "checkout.active-exclusive-lock",
       "iterations": 30,
-      "minMs": 0.028,
-      "medianMs": 0.031,
-      "p95Ms": 0.077
+      "minMs": 0.032,
+      "medianMs": 0.036,
+      "p95Ms": 0.068
     },
     {
       "name": "conflicts.co-party-check",
       "iterations": 30,
-      "minMs": 20.266,
-      "medianMs": 23.982,
-      "p95Ms": 30.147
+      "minMs": 21.073,
+      "medianMs": 23.008,
+      "p95Ms": 26.523
     },
     {
       "name": "conflicts.imputation",
       "iterations": 30,
-      "minMs": 0.155,
-      "medianMs": 0.171,
-      "p95Ms": 0.268
+      "minMs": 0.159,
+      "medianMs": 0.181,
+      "p95Ms": 0.251
     },
     {
       "name": "conflicts.run-check",
       "iterations": 30,
-      "minMs": 68.086,
-      "medianMs": 89.104,
-      "p95Ms": 135.222
+      "minMs": 78.61,
+      "medianMs": 94.763,
+      "p95Ms": 136.151
     },
     {
       "name": "create-account.trust-subledger",
       "iterations": 30,
-      "minMs": 1.141,
-      "medianMs": 1.545,
-      "p95Ms": 5.801
+      "minMs": 1.257,
+      "medianMs": 1.576,
+      "p95Ms": 3.055
     },
     {
       "name": "custom-field.merge-repoint",
       "iterations": 30,
-      "minMs": 1.935,
-      "medianMs": 2.41,
-      "p95Ms": 6.902
+      "minMs": 2.037,
+      "medianMs": 2.573,
+      "p95Ms": 3.071
     },
     {
       "name": "custom-field.preview-convert-scan",
       "iterations": 30,
-      "minMs": 0.146,
-      "medianMs": 0.19,
-      "p95Ms": 0.337
+      "minMs": 0.151,
+      "medianMs": 0.177,
+      "p95Ms": 0.229
     },
     {
       "name": "custom-field.read-current-values",
       "iterations": 30,
-      "minMs": 0.041,
-      "medianMs": 0.047,
-      "p95Ms": 0.107
+      "minMs": 0.04,
+      "medianMs": 0.049,
+      "p95Ms": 0.147
     },
     {
       "name": "custom-field.reference-lookup",
       "iterations": 30,
-      "minMs": 0.025,
-      "medianMs": 0.027,
-      "p95Ms": 0.067
+      "minMs": 0.024,
+      "medianMs": 0.026,
+      "p95Ms": 0.037
     },
     {
       "name": "directory.candidate-generation",
       "iterations": 30,
-      "minMs": 1.071,
-      "medianMs": 1.316,
-      "p95Ms": 3.472
+      "minMs": 1.143,
+      "medianMs": 1.265,
+      "p95Ms": 1.684
     },
     {
       "name": "directory.find-by-identifier",
       "iterations": 30,
-      "minMs": 0.21,
-      "medianMs": 0.239,
-      "p95Ms": 0.335
+      "minMs": 0.311,
+      "medianMs": 0.356,
+      "p95Ms": 0.548
     },
     {
       "name": "directory.graph-expansion",
       "iterations": 30,
       "minMs": 0.044,
-      "medianMs": 0.052,
-      "p95Ms": 0.118
+      "medianMs": 0.047,
+      "p95Ms": 0.088
     },
     {
       "name": "directory.read-protected-list",
       "iterations": 30,
-      "minMs": 117.559,
-      "medianMs": 192.033,
-      "p95Ms": 296.716
+      "minMs": 76.863,
+      "medianMs": 88.607,
+      "p95Ms": 214.267
     },
     {
       "name": "get-current-clean-version",
       "iterations": 30,
-      "minMs": 0.035,
-      "medianMs": 0.043,
-      "p95Ms": 0.095
+      "minMs": 0.039,
+      "medianMs": 0.047,
+      "p95Ms": 0.135
     },
     {
       "name": "idle-checkout-sweep.find-idle",
       "iterations": 30,
-      "minMs": 0.072,
-      "medianMs": 0.089,
-      "p95Ms": 0.193
+      "minMs": 0.077,
+      "medianMs": 0.083,
+      "p95Ms": 0.123
     },
     {
       "name": "ledger-fitness.table-wide",
       "iterations": 30,
-      "minMs": 113.578,
-      "medianMs": 120.416,
-      "p95Ms": 129.774
+      "minMs": 115.443,
+      "medianMs": 122.648,
+      "p95Ms": 127.797
     },
     {
       "name": "list-clean-versions.by-file",
       "iterations": 30,
-      "minMs": 0.046,
-      "medianMs": 0.05,
-      "p95Ms": 0.1
+      "minMs": 0.039,
+      "medianMs": 0.047,
+      "p95Ms": 0.17
     },
     {
       "name": "list-consultations.by-member",
       "iterations": 30,
       "minMs": 0.155,
-      "medianMs": 0.192,
-      "p95Ms": 0.26
+      "medianMs": 0.199,
+      "p95Ms": 0.428
     },
     {
       "name": "list-files.by-folder",
       "iterations": 30,
-      "minMs": 0.083,
-      "medianMs": 0.089,
-      "p95Ms": 0.137
+      "minMs": 0.082,
+      "medianMs": 0.088,
+      "p95Ms": 0.136
     },
     {
       "name": "list-files.by-matter",
       "iterations": 30,
-      "minMs": 0.169,
-      "medianMs": 0.196,
-      "p95Ms": 0.291
+      "minMs": 0.158,
+      "medianMs": 0.206,
+      "p95Ms": 0.273
     },
     {
       "name": "list-matters.filtered",
       "iterations": 30,
-      "minMs": 0.144,
-      "medianMs": 0.22,
-      "p95Ms": 0.286
+      "minMs": 0.134,
+      "medianMs": 0.15,
+      "p95Ms": 0.287
     },
     {
       "name": "list-matters.first-page",
       "iterations": 30,
-      "minMs": 0.239,
-      "medianMs": 0.267,
-      "p95Ms": 0.321
+      "minMs": 0.207,
+      "medianMs": 0.249,
+      "p95Ms": 0.362
     },
     {
       "name": "list-shipments.by-matter",
       "iterations": 30,
-      "minMs": 0.029,
-      "medianMs": 0.031,
-      "p95Ms": 0.046
+      "minMs": 0.03,
+      "medianMs": 0.042,
+      "p95Ms": 0.076
     },
     {
       "name": "list-tracking-events.by-shipment",
       "iterations": 30,
       "minMs": 0.028,
-      "medianMs": 0.031,
-      "p95Ms": 0.078
+      "medianMs": 0.033,
+      "p95Ms": 0.151
     },
     {
       "name": "matter-number.counter-draw",
       "iterations": 30,
-      "minMs": 2.332,
-      "medianMs": 4.491,
-      "p95Ms": 10.277
+      "minMs": 2.056,
+      "medianMs": 12.167,
+      "p95Ms": 19.463
     },
     {
       "name": "my-day.daily-totals",
       "iterations": 30,
-      "minMs": 0.037,
-      "medianMs": 0.043,
-      "p95Ms": 0.098
+      "minMs": 0.034,
+      "medianMs": 0.039,
+      "p95Ms": 0.203
     },
     {
       "name": "post-entry.two-line",
       "iterations": 30,
-      "minMs": 8.298,
-      "medianMs": 12.906,
-      "p95Ms": 19.702
+      "minMs": 7.679,
+      "medianMs": 9.481,
+      "p95Ms": 14.335
     },
     {
       "name": "protected.blind-index-compute",
       "iterations": 30,
-      "minMs": 0.152,
-      "medianMs": 0.416,
-      "p95Ms": 4.342
+      "minMs": 0.204,
+      "medianMs": 0.228,
+      "p95Ms": 0.293
     },
     {
       "name": "protected.firm-secret-read",
       "iterations": 30,
-      "minMs": 1.229,
-      "medianMs": 1.749,
-      "p95Ms": 5.4
+      "minMs": 1.547,
+      "medianMs": 1.814,
+      "p95Ms": 2.157
     },
     {
       "name": "protected.incident-decrypt-page",
       "iterations": 30,
-      "minMs": 122.659,
-      "medianMs": 169.593,
-      "p95Ms": 225.957
+      "minMs": 81.27,
+      "medianMs": 98.903,
+      "p95Ms": 136.5
     },
     {
       "name": "rate-resolution.timekeeper-tier",
       "iterations": 30,
-      "minMs": 0.058,
-      "medianMs": 0.065,
-      "p95Ms": 0.129
+      "minMs": 0.052,
+      "medianMs": 0.061,
+      "p95Ms": 0.116
     },
     {
       "name": "reconcile.find-conflict",
       "iterations": 30,
-      "minMs": 0.026,
-      "medianMs": 0.028,
-      "p95Ms": 0.074
+      "minMs": 0.028,
+      "medianMs": 0.033,
+      "p95Ms": 0.072
     },
     {
       "name": "rescan-sweep.find-unscanned",
       "iterations": 30,
-      "minMs": 0.231,
-      "medianMs": 0.348,
-      "p95Ms": 1.503
+      "minMs": 0.149,
+      "medianMs": 0.179,
+      "p95Ms": 0.323
     },
     {
       "name": "reverse-entry.two-line",
       "iterations": 30,
-      "minMs": 8.562,
-      "medianMs": 12.812,
-      "p95Ms": 22.553
+      "minMs": 7.146,
+      "medianMs": 8.049,
+      "p95Ms": 9.996
     },
     {
       "name": "storage-meter.summary",
       "iterations": 30,
       "minMs": 0.017,
-      "medianMs": 0.018,
-      "p95Ms": 0.028
+      "medianMs": 0.027,
+      "p95Ms": 0.036
     },
     {
       "name": "templates.custom-field-catalog",
       "iterations": 30,
-      "minMs": 0.24,
-      "medianMs": 0.289,
-      "p95Ms": 0.525
+      "minMs": 0.244,
+      "medianMs": 0.302,
+      "p95Ms": 0.37
     },
     {
       "name": "templates.list-catalogue",
       "iterations": 30,
-      "minMs": 0.24,
-      "medianMs": 0.287,
-      "p95Ms": 0.44
+      "minMs": 0.246,
+      "medianMs": 0.311,
+      "p95Ms": 0.383
     },
     {
       "name": "templates.version-for-assembly",
       "iterations": 30,
-      "minMs": 0.04,
-      "medianMs": 0.045,
-      "p95Ms": 0.079
+      "minMs": 0.049,
+      "medianMs": 0.067,
+      "p95Ms": 0.154
     },
     {
       "name": "tiering-sweep.find-candidates",
       "iterations": 30,
-      "minMs": 1.306,
-      "medianMs": 1.518,
-      "p95Ms": 4.633
+      "minMs": 1.307,
+      "medianMs": 1.455,
+      "p95Ms": 6.266
     },
     {
       "name": "unbilled-wip.by-matter",
       "iterations": 30,
-      "minMs": 0.173,
-      "medianMs": 0.206,
-      "p95Ms": 0.655
+      "minMs": 0.17,
+      "medianMs": 0.219,
+      "p95Ms": 0.334
     },
     {
       "name": "version-cut.commit",
       "iterations": 30,
-      "minMs": 2.236,
-      "medianMs": 4.172,
-      "p95Ms": 9.707
+      "minMs": 2.102,
+      "medianMs": 11.998,
+      "p95Ms": 16.053
     },
     {
       "name": "weekly-grid.by-timekeeper",
       "iterations": 30,
-      "minMs": 0.08,
-      "medianMs": 0.099,
-      "p95Ms": 0.215
+      "minMs": 0.077,
+      "medianMs": 0.102,
+      "p95Ms": 0.167
     },
     {
       "name": "zip-resolution.clean-current-versions",
       "iterations": 30,
-      "minMs": 0.076,
-      "medianMs": 0.092,
-      "p95Ms": 0.259
+      "minMs": 0.067,
+      "medianMs": 0.076,
+      "p95Ms": 0.127
     },
     {
       "name": "zip-resolution.folders-by-matter",
       "iterations": 30,
-      "minMs": 0.043,
-      "medianMs": 0.048,
-      "p95Ms": 0.099
+      "minMs": 0.027,
+      "medianMs": 0.03,
+      "p95Ms": 0.04
     }
   ]
 }

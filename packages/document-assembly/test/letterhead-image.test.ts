@@ -100,7 +100,7 @@ function imageValue(bytes: Uint8Array, widthEmu = ONE_INCH): MergeValue {
 }
 
 function contextWith(values: readonly (readonly [string, MergeValue])[]): MergeContext {
-  return { values: new Map(values), absentKeys: [], timeZone: "UTC" };
+  return { values: new Map(values), absentKeys: [], absenceReasons: new Map(), timeZone: "UTC" };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -311,7 +311,9 @@ describe("assembling a letterhead", () => {
     const result = assemble(template, contextWith([]));
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.absences).toEqual([{ key: "location.letterheadLogo", rendered: "placeholder" }]);
+    expect(result.absences).toEqual([
+      { key: "location.letterheadLogo", rendered: "placeholder", reason: null },
+    ]);
     const read = readPackage(result.bytes);
     if (!read.ok) return;
     expect(readPartText(read.value, "word/document.xml")).toContain("[LOCATION LETTERHEAD LOGO]");

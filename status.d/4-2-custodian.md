@@ -9,8 +9,6 @@ built: in-progress by="Opus 4.8"
 ui: todo
 load-profile: todo
 tested: todo
-branch: claude/custodian-4-2-4-stocktake
-active-work: docs/active-work/claude/custodian-4-2-4-stocktake.md
 next: Load-profile volume profile + the six measured operations; then receipts (blocked on a matter-routed assembly path), portal visibility (blocked on the portal grant model), the will-on-death jurisdiction engine and the succession manifest (owner decision C8), and the destruction workflow (owner-gated)
 link-spec: docs/specs/2026-08-04-custodian-design.md
 link-plan: docs/specs/2026-08-04-custodian-implementation-plan.md

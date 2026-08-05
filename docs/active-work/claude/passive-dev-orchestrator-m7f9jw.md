@@ -45,6 +45,36 @@ at full capacity. Keep it current at every milestone — it is the durable memor
   MC docs-sync (Mon 13:03), Cloudflare blog monitor (daily 14:00, reports not
   persisted), dependency updates (Mon 14:30).
 
+## Position update (2026-08-05 ~14:45 UTC) — gate integrity restored; custodian counts + role fields
+
+Eighty-two merged. HEADLINE (#119, task 68 CLOSED): the gate of record was
+collecting 284 OF 719 test files — path filters match PER PROJECT against
+project-root-relative paths, so relative ancestor paths (`packages`,
+`tooling`) matched nothing and exited 0; apps/sign-worker was never listed
+anywhere. All 435 un-run files pass (un-run coverage, not hidden breakage).
+Fix: absolute "$PWD/..." paths + new lint:test-collection (floor 647, union
+= registry, jobs disjoint, invocations held verbatim vs gate.yml). TRAP also
+found: two negated --project patterns CANCEL (OR-ed regexes) — never use
+multiple negations. Verify live on first post-reset run (task 61). Also
+merged: #117 undeclared-body contract fix (task 66); #118 custodian stocktake
+(task 69 — observe-only at four depths, proposals never actions, migration
+idx 29 = 20260805T150000, C4-C11/C8 untouched); #120 status-fragment repair;
+#121 directory role sources (task 70 — opposingParty/opposingCounsel/guardian/
+witness via one already-issued party read, ambiguity = named reason on the new
+absenceReasons channel, never a silent pick; note: bare-key {{#if role.x}}
+rewrites to has() and answers no on ambiguity — documented, deliberate).
+NEW GOTCHAS: (a) `vp` NOT on PATH in fresh worktrees — bare `vp run bootstrap`
+exits 0 building nothing; always `pnpm exec vp run bootstrap` + verify pkg/
+dirs exist. (b) Killing a `pnpm test` wrapper ORPHANS the vite-plus-test cli.js
+process — orphans starve the box (~3x slower suites); kill the cli.js PID.
+(c) `pnpm --filter @magna-carta/web test` silently no-ops (no test script) —
+use `node_modules/.bin/vp test run --project=web`. (d) Worker firm-scoped rate
+bucket is 100/60s — big new route-test blocks need their own seeded firm.
+Building: email add-in client API (task 71). Queue: task 63 lint-fanout design,
+3·2·3 trust (T-flag check first), 2·6 protected-value binding, custodian
+receipts (blocked on matter-routed assembly) / portal visibility (blocked on
+portal grant model). Owner ledger unchanged; Actions reset date still top ask.
+
 ## Position update (2026-08-05 ~12:15 UTC) — trust movements + safe tooling landed
 
 Seventy-six merged. #114 tooling pair (task 54 CLOSED): fix:scoped now drives

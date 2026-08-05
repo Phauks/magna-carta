@@ -30,7 +30,12 @@ function contextOf(
   values: Record<string, MergeValue>,
   absentKeys: readonly string[] = [],
 ): MergeContext {
-  return { values: new Map(Object.entries(values)), absentKeys, timeZone: "UTC" };
+  return {
+    values: new Map(Object.entries(values)),
+    absentKeys,
+    absenceReasons: new Map(),
+    timeZone: "UTC",
+  };
 }
 
 const BASE_VALUES: Record<string, MergeValue> = {
