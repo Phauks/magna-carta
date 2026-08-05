@@ -213,6 +213,52 @@ export interface EditingVolume {
   readonly conflictCount: number;
 }
 
+// The document-automation volume laid over the practice + custom-field books: the firm's template
+// catalogue with its immutable version history, the confirmed Word-name-to-merge-key mapping library,
+// the assembly provenance rows the filed documents left behind, and — on one probe matter — the
+// merge-context hot case (its own matter-axis custom fields with current values, and a full set of
+// party links). This is the queryable shadow of the automation surface: the catalogue list at the top
+// of the range, the one-read current-version resolve every job starts with, the whole batched merge
+// context, and the per-firm custom-field manifest read the dictionary is derived from.
+//
+// The corpus that actually grows here is the OUTPUT, and it grows as ordinary matter documents that
+// the practice volume already models — so the counts below are sized like an established firm's
+// template set and a year or two of generated documents, not as a stress run. Every count is a
+// PARAMETER, never a generator constant — changing one bumps the profile `version`.
+export interface DocumentAutomationVolume {
+  // Templates in the firm's catalogue. A template set is small and slow-moving; a few hundred is the
+  // top of the plausible range, and the catalogue list is measured against it.
+  readonly templateCount: number;
+  // Fraction of those templates archived. The catalogue list filters on `status`, so the archived tail
+  // is what makes that filter selective rather than decorative.
+  readonly archivedTemplateFraction: number;
+  // Immutable versions registered per template. Only the last becomes current; the earlier ones stay
+  // readable because an assembly records the exact version it used.
+  readonly versionsPerTemplate: { readonly min: number; readonly max: number };
+  // Platform merge keys an ordinary template version's manifest declares. Bounded above by the shipped
+  // dictionary — a manifest field is keyed by its merge key, so a template cannot declare more distinct
+  // platform fields than the platform has.
+  readonly fieldsPerTemplate: { readonly min: number; readonly max: number };
+  // Placeholder occurrences per declared field (the manifest's `totalOccurrences` denominator) — the
+  // same key printed in the body, a header, and a signature block is one field and three occurrences.
+  readonly occurrencesPerField: { readonly min: number; readonly max: number };
+  // Matter-axis custom fields defined for the probe matter's matter type, each carrying a current value
+  // on that matter. These are the `custom.<handle>` bindings the probe template declares, and they are
+  // what the merge context resolves in ONE batched read however many there are — so this count is the
+  // width of that statement's bound-parameter list, which is the number the batching rule is about.
+  readonly customFieldBindings: number;
+  // Party links on the probe matter: the matter's whole party collection, read once for a repeat.
+  readonly partyLinksOnProbeMatter: number;
+  // Assemblies (filed-document provenance rows) recorded per matter over the span.
+  readonly assembliesPerMatter: { readonly min: number; readonly max: number };
+  // Confirmed Word-name-to-merge-key entries in the firm's mapping library — read WHOLE, once per
+  // registration, which is why its size is a parameter rather than an accident.
+  readonly fieldMappingCount: number;
+  // Stored template package size, drawn per version (the modeled R2 object size the version row
+  // records; node:sqlite has no R2, so the recorded size stands in for the bytes).
+  readonly templateSizeBytes: { readonly min: number; readonly max: number };
+}
+
 export interface LedgerVolumeProfile {
   readonly name: "ledgerVolume";
   // Profile identity: bump on ANY parameter change — baselines measured against different data
@@ -242,6 +288,9 @@ export interface LedgerVolumeProfile {
   readonly time: TimeVolume;
   // The costs volume laid over the practice book (disbursement entries across the lifecycle + recovery).
   readonly costs: CostVolume;
+  // The document-automation volume laid over the practice + custom-field books (template catalogue,
+  // version history, mapping library, assembly provenance, and the merge-context probe matter).
+  readonly documentAutomation: DocumentAutomationVolume;
 }
 
 // A plausible established small firm: a few years of posting activity over a 200-client trust book,
@@ -249,7 +298,7 @@ export interface LedgerVolumeProfile {
 // files with multi-version histories.
 export const ledgerVolume: LedgerVolumeProfile = {
   name: "ledgerVolume",
-  version: 8,
+  version: 9,
   trustSubledgerCount: 200,
   entryCount: 25_000,
   postingSpanDays: 1_095,
@@ -343,6 +392,23 @@ export const ledgerVolume: LedgerVolumeProfile = {
     recoveryFraction: 0.1,
     spanDays: 90,
   },
+  documentAutomation: {
+    // An established firm's template set and the documents it has produced: a couple of hundred
+    // templates with a slow-moving version history, a sixth of them retired, a mapping library built up
+    // from importing a previous system's documents, and a few filed assemblies per matter. The probe
+    // matter carries forty of the firm's own fields and a full party list, which is the merge context
+    // the batching rule is measured against.
+    templateCount: 180,
+    archivedTemplateFraction: 0.15,
+    versionsPerTemplate: { min: 1, max: 4 },
+    fieldsPerTemplate: { min: 6, max: 14 },
+    occurrencesPerField: { min: 1, max: 3 },
+    customFieldBindings: 40,
+    partyLinksOnProbeMatter: 12,
+    assembliesPerMatter: { min: 0, max: 8 },
+    fieldMappingCount: 120,
+    templateSizeBytes: { min: 20_000, max: 400_000 },
+  },
 };
 
 // One profile, every scale: CI smoke (~0.01), local working scale (1), deliberate stress runs
@@ -421,6 +487,37 @@ export function scaleProfile(
         max: Math.max(2, Math.round(profile.costs.entriesPerMatter.max * multiplier)),
       },
       spanDays: scaleCount(profile.costs.spanDays, 5),
+    },
+    documentAutomation: {
+      ...profile.documentAutomation,
+      // Floors keep a catalogue big enough for a list page with an archived tail to skip, a couple of
+      // versions (so one is superseded and one is current), a handful of the firm's own fields and
+      // party links on the probe matter (so the batched merge reads have a real fan), and a few mapping
+      // library rows at the smoke multiplier. The fractions and the size range are not scaled.
+      templateCount: scaleCount(profile.documentAutomation.templateCount, 6),
+      customFieldBindings: scaleCount(profile.documentAutomation.customFieldBindings, 4),
+      partyLinksOnProbeMatter: scaleCount(profile.documentAutomation.partyLinksOnProbeMatter, 3),
+      fieldMappingCount: scaleCount(profile.documentAutomation.fieldMappingCount, 4),
+      versionsPerTemplate: {
+        min: Math.max(
+          1,
+          Math.round(profile.documentAutomation.versionsPerTemplate.min * multiplier),
+        ),
+        max: Math.max(
+          2,
+          Math.round(profile.documentAutomation.versionsPerTemplate.max * multiplier),
+        ),
+      },
+      assembliesPerMatter: {
+        min: Math.max(
+          0,
+          Math.round(profile.documentAutomation.assembliesPerMatter.min * multiplier),
+        ),
+        max: Math.max(
+          2,
+          Math.round(profile.documentAutomation.assembliesPerMatter.max * multiplier),
+        ),
+      },
     },
   };
 }

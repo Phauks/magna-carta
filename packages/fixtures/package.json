@@ -26,7 +26,9 @@
     "./load-profile/directory-measurements": "./src/load-profile/directory-measurements.ts",
     "./load-profile/shipping-measurements": "./src/load-profile/shipping-measurements.ts",
     "./load-profile/custom-field-generate": "./src/load-profile/custom-field-generate.ts",
-    "./load-profile/custom-field-measurements": "./src/load-profile/custom-field-measurements.ts"
+    "./load-profile/custom-field-measurements": "./src/load-profile/custom-field-measurements.ts",
+    "./load-profile/document-automation-generate": "./src/load-profile/document-automation-generate.ts",
+    "./load-profile/document-automation-measurements": "./src/load-profile/document-automation-measurements.ts"
   },
   "scripts": {
     "measure": "node --experimental-transform-types src/load-profile/measure-cli.ts",
@@ -40,6 +42,7 @@
     "@magna-carta/data-access": "workspace:*",
     "@magna-carta/database": "workspace:*",
     "@magna-carta/directory": "workspace:*",
+    "@magna-carta/document-assembly": "workspace:*",
     "@magna-carta/encryption": "workspace:*",
     "@magna-carta/file-manager": "workspace:*",
     "@magna-carta/identifiers": "workspace:*",
