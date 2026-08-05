@@ -17503,7 +17503,7 @@
     },
     "/api/v1/matters/{id}/close": {
       "post": {
-        "description": "Closes a matter (archived-but-additive — it leaves active lists but still accepts documents). Runs the close-precondition registry; a failure returns the precondition codes. Refuses a matter that is already closed, so its recorded close date never moves.",
+        "description": "Closes a matter (archived-but-additive — it leaves active lists but still accepts documents). Runs the close preconditions first; a matter whose client trust ledger still holds money, or carries an active disputed-funds hold, is refused with the balance and the movements that clear it. Refuses a matter that is already closed, so its recorded close date never moves.",
         "operationId": "matters.close",
         "tags": [
           "matters"
@@ -17592,7 +17592,7 @@
             }
           },
           "409": {
-            "description": "A request with this Idempotency-Key is still in progress, or the matter is in the wrong state",
+            "description": "A close precondition refused the matter, a request with this Idempotency-Key is still in progress, or the matter is already closed",
             "content": {
               "application/problem+json": {
                 "schema": {

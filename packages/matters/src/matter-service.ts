@@ -17,7 +17,12 @@ import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { RandomSource } from "@magna-carta/identifiers/random";
 import type { LocationId, MatterId, MatterTypeId, UserId } from "@magna-carta/identifiers/types";
 import { matterAuditStatement } from "./audit.ts";
-import { runClosePreconditions, ClosePreconditionError } from "./close-preconditions.ts";
+import {
+  closePreconditionGuardStatements,
+  runClosePreconditions,
+  ClosePreconditionError,
+  type ClosePrecondition,
+} from "./close-preconditions.ts";
 import {
   closeMatterStatement,
   insertMatterStatement,
@@ -90,6 +95,10 @@ export interface MatterServiceOptions {
   readonly maxAttempts?: number;
   // Absent = an internal/fixture caller with no Idempotency-Key (execute once, no record).
   readonly idempotency?: MatterIdempotencyContext;
+  // The close rules other subsystems own, supplied by the composition root. Absent = the matter
+  // shell's own registry, which is empty: this package never imports the subsystems whose money or
+  // property a close has to answer for.
+  readonly closePreconditions?: readonly ClosePrecondition[];
 }
 
 // The strings the route assembles from the matter's Location, type, and client for the number draw
@@ -487,19 +496,39 @@ export async function closeMatter(
       `matter ${matterId} is already closed; its close date and events stand`,
     );
   }
-  const failures = await runClosePreconditions({ matterId, database });
+  const context = { matterId, database };
+  const preconditions = options.closePreconditions;
+  const failures = await runClosePreconditions(context, preconditions);
   if (failures.length > 0) throw new ClosePreconditionError(failures);
-  return runMatterEffect<{ matterId: MatterId }>(database, options, 200, () => {
-    const now = options.clock.now();
-    return {
-      statements: [
-        closeMatterStatement(database, matterId, now),
-        auditStatement(database, options, "matter.closed", matterId),
-      ],
-      outboxMessages: [{ topic: "matter.closed", payload: { matterId } }],
-      value: { matterId },
-    };
-  });
+  // The check above is a read, and D1 has no interactive transaction to hold it still: a writer that
+  // lands between it and the commit — a trust deposit onto this matter's client ledger — would
+  // otherwise close a matter the check had honestly cleared. Each precondition's guard re-asserts its
+  // condition INSIDE the close batch, where the answer is the committed one; a guard that fires
+  // aborts the whole batch, so the close, its audit row, its outbox message, and its idempotency
+  // record roll back together and nothing records a close that did not happen.
+  const guards = closePreconditionGuardStatements(context, preconditions);
+  try {
+    return await runMatterEffect<{ matterId: MatterId }>(database, options, 200, () => {
+      const now = options.clock.now();
+      return {
+        statements: [
+          ...guards,
+          closeMatterStatement(database, matterId, now),
+          auditStatement(database, options, "matter.closed", matterId),
+        ],
+        outboxMessages: [{ topic: "matter.closed", payload: { matterId } }],
+        value: { matterId },
+      };
+    });
+  } catch (caught) {
+    // A guard aborts as a constraint violation, which is the same shape as any other failed batch.
+    // Rather than matching on a database message, ask the preconditions again: if one now refuses,
+    // that is what happened, and the caller gets the same actionable refusal it would have got a
+    // moment earlier. Anything else is a real fault and travels on untouched.
+    const raced = await runClosePreconditions(context, preconditions);
+    if (raced.length > 0) throw new ClosePreconditionError(raced);
+    throw caught;
+  }
 }
 
 export async function reopenMatter(

@@ -590,7 +590,7 @@ export const mattersUpdate = <ThrowOnError extends boolean = false>(options: Opt
 export const mattersOpen = <ThrowOnError extends boolean = false>(options: Options<MattersOpenData, ThrowOnError>): RequestResult<MattersOpenResponses, MattersOpenErrors, ThrowOnError> => (options.client ?? client).post<MattersOpenResponses, MattersOpenErrors, ThrowOnError>({ url: '/api/v1/matters/{id}/open', ...options });
 
 /**
- * Closes a matter (archived-but-additive — it leaves active lists but still accepts documents). Runs the close-precondition registry; a failure returns the precondition codes. Refuses a matter that is already closed, so its recorded close date never moves.
+ * Closes a matter (archived-but-additive — it leaves active lists but still accepts documents). Runs the close preconditions first; a matter whose client trust ledger still holds money, or carries an active disputed-funds hold, is refused with the balance and the movements that clear it. Refuses a matter that is already closed, so its recorded close date never moves.
  */
 export const mattersClose = <ThrowOnError extends boolean = false>(options: Options<MattersCloseData, ThrowOnError>): RequestResult<MattersCloseResponses, MattersCloseErrors, ThrowOnError> => (options.client ?? client).post<MattersCloseResponses, MattersCloseErrors, ThrowOnError>({ url: '/api/v1/matters/{id}/close', ...options });
 
