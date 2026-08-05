@@ -145,7 +145,9 @@ export const ENTITY_PREFIXES = {
   // is the link to the Directory entity the property belongs to; `custodyMovement` is one row of the
   // append-only custody ledger; `custodyHold` blocks release and destruction; `custodyScan` links a
   // File Manager file to a packet or item; `custodyItemType` is the per-firm classification catalog;
-  // `custodyDestructionRequest` is the two-person destruction workflow record.
+  // `custodyDestructionRequest` is the two-person destruction workflow record; a `custodyStocktake`
+  // is one physical count of the register or a part of it, and a `custodyStocktakeSighting` is one
+  // person's evidentiary observation made during that count.
   custodyLocation: "custodyLocation",
   custodyPacket: "custodyPacket",
   custodyItem: "custodyItem",
@@ -155,6 +157,8 @@ export const ENTITY_PREFIXES = {
   custodyHold: "custodyHold",
   custodyScan: "custodyScan",
   custodyDestructionRequest: "custodyDestructionRequest",
+  custodyStocktake: "custodyStocktake",
+  custodyStocktakeSighting: "custodyStocktakeSighting",
   // Trust accounting. A `trustAccount` is one real bank account holding client money; a
   // `trustLedgerNode` names which ledger account under it belongs to which client or matter (the
   // sub-ledger tree); a `trustHold` restricts part of a node's balance without moving money; a

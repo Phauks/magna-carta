@@ -143,3 +143,55 @@ export const TERMINAL_PACKET_STATUSES: readonly CustodyPacketStatus[] = [
   "destroyed",
   "lost",
 ];
+
+// ---- stocktake ----
+
+// A count is open while people are walking the shelves, and closed when the reconciliation is drawn.
+// `abandoned` is a real outcome rather than a tidy-up: a count begun and not finished must not close
+// as though it had counted everything, because the reconciliation of a half-done count reads as a
+// safe full of missing originals — the single most alarming and most wrong thing this subsystem
+// could tell a firm.
+export const CUSTODY_STOCKTAKE_STATUSES = ["open", "closed", "abandoned"] as const;
+export type CustodyStocktakeStatus = (typeof CUSTODY_STOCKTAKE_STATUSES)[number];
+
+// What one person recorded while counting. `not_found` is deliberately distinct from simply never
+// being counted: "I went to the shelf the register named and it was not there" is a much stronger
+// statement than "nobody reached that shelf", and collapsing the two would make an unfinished count
+// indistinguishable from a loss. `unregistered` carries no packet handle at all — it is the
+// unlabelled envelope on the shelf the register has no row for, which is the discrepancy a register
+// cannot otherwise express.
+export const CUSTODY_SIGHTING_KINDS = ["sighted", "not_found", "unregistered"] as const;
+export type CustodySightingKind = (typeof CUSTODY_SIGHTING_KINDS)[number];
+
+// The four ways a count can disagree with the register, plus the one way it can agree.
+//
+// `missing` — the register expected it in scope and nobody saw it.
+// `misplaced` — somebody saw it, somewhere other than where the register said it was.
+// `unexpected` — somebody saw it where the register did not expect it to be at all: the register has
+//   it checked out, released, destroyed, or lost, so the shelf should have been empty.
+// `unregistered` — somebody saw a physical object the register has no row for.
+export const CUSTODY_RECONCILIATION_OUTCOMES = [
+  "matched",
+  "missing",
+  "misplaced",
+  "unexpected",
+  "unregistered",
+] as const;
+export type CustodyReconciliationOutcome = (typeof CUSTODY_RECONCILIATION_OUTCOMES)[number];
+
+// The movement a person would record to bring the register back into agreement with the shelf — a
+// PROPOSAL, printed on the report and never written. A stocktake observes; it does not dispose,
+// relocate, or correct. Writing the proposal automatically would put a movement in an append-only
+// ledger that no person asserted, and would quietly erase the very difference the count exists to
+// surface. Every proposal here is a movement kind that already exists, recorded by a person through
+// the one movement write path in movement-service.ts or not at all.
+//
+// `missing` proposes nothing. The honest answer to "the will is not where we said it was" is an
+// investigation, and a register that suggested recording a loss the moment a shelf came up empty
+// would be teaching firms to close the record on the exact failure that most needs one open.
+export const CUSTODY_PROPOSED_MOVEMENT_BY_OUTCOME: Partial<
+  Record<CustodyReconciliationOutcome, CustodyMovementKind>
+> = {
+  misplaced: "moved",
+  unexpected: "found",
+};

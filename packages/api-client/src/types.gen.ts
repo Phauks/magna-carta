@@ -1535,6 +1535,113 @@ export type CustodyPacketUnderHold = {
     packetStatus: 'held' | 'out' | 'released' | 'destroyed' | 'lost';
 };
 
+export type OpenCustodyStocktakeRequest = {
+    name: string;
+    scopeLocationId?: string;
+    openedAt?: string;
+    note?: string | null;
+};
+
+export type CustodyStocktake = {
+    id: string;
+    name: string;
+    scopeLocationId: string | null;
+    status: 'open' | 'closed' | 'abandoned';
+    openedAt: string;
+    openedByUserId: string | null;
+    closedAt: string | null;
+    closedByUserId: string | null;
+    counts: CustodyStocktakeCounts;
+    note: string | null;
+};
+
+export type CustodyStocktakeCounts = {
+    matched: number;
+    missing: number;
+    misplaced: number;
+    unexpected: number;
+    unregistered: number;
+} | null;
+
+export type RecordedCustodySightingsResponse = {
+    ids: Array<string>;
+};
+
+export type RecordCustodySightingsRequest = {
+    sightings: Array<CustodySightingInput>;
+};
+
+export type CustodySightingInput = {
+    kind: 'sighted' | 'not_found' | 'unregistered';
+    packetId?: string;
+    itemId?: string;
+    locationId?: string;
+    /**
+     * What was physically found, in the observer's words. Required on an unregistered observation: it is the only record of that object anywhere.
+     */
+    description?: string;
+    observedAt?: string;
+    note?: string;
+};
+
+export type CustodySighting = {
+    id: string;
+    kind: 'sighted' | 'not_found' | 'unregistered';
+    packetId: string | null;
+    itemId: string | null;
+    locationId: string | null;
+    expectedLocationId: string | null;
+    description: string | null;
+    observedAt: string;
+    recordedAt: string;
+    observedByUserId: string | null;
+    note: string | null;
+};
+
+export type CustodyReconciliation = {
+    stocktakeId: string;
+    name: string;
+    status: 'open' | 'closed' | 'abandoned';
+    scopeLocationId: string | null;
+    openedAt: string;
+    closedAt: string | null;
+    matchedCount: number;
+    missing: Array<CustodyReconciliationLine>;
+    misplaced: Array<CustodyReconciliationLine>;
+    unexpected: Array<CustodyReconciliationLine>;
+    unregistered: Array<CustodyReconciliationLine>;
+    frozenCounts: CustodyStocktakeCounts;
+};
+
+export type CustodyReconciliationLine = {
+    outcome: 'matched' | 'missing' | 'misplaced' | 'unexpected' | 'unregistered';
+    packetId: string | null;
+    custodyNumber: string | null;
+    packetName: string | null;
+    packetStatus: 'held' | 'out' | 'released' | 'destroyed' | 'lost' | null;
+    expectedLocationId: string | null;
+    sightedLocationId: string | null;
+    description: string | null;
+    observedAt: string | null;
+    observedByUserId: string | null;
+    proposedMovementKind: 'logged' | 'itemized' | 'moved' | 'checked_out' | 'returned' | 'withdrawn' | 'released' | 'superseded' | 'destroyed' | 'lost' | 'found' | 'reviewed' | 'hold_placed' | 'hold_released' | 'correction' | null;
+    proposedToLocationId: string | null;
+};
+
+export type ClosedCustodyStocktakeResponse = {
+    id: string;
+    status: 'closed' | 'abandoned';
+    counts: CustodyStocktakeCounts;
+};
+
+export type CloseCustodyStocktakeRequest = {
+    /**
+     * Ends a count that was never finished. An abandoned count freezes no findings: the reconciliation of a half-done walk reads as a safe full of missing originals, which would be alarming and wrong.
+     */
+    abandoned?: boolean;
+    note?: string | null;
+};
+
 export type CustomFieldAck = {
     id: string;
 };
@@ -9145,6 +9252,329 @@ export type CustodyReportHoldsResponses = {
 };
 
 export type CustodyReportHoldsResponse = CustodyReportHoldsResponses[keyof CustodyReportHoldsResponses];
+
+export type CustodyListStocktakesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        status?: 'open' | 'closed' | 'abandoned';
+        limit?: number;
+    };
+    url: '/api/v1/custody/stocktakes';
+};
+
+export type CustodyListStocktakesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustodyListStocktakesError = CustodyListStocktakesErrors[keyof CustodyListStocktakesErrors];
+
+export type CustodyListStocktakesResponses = {
+    /**
+     * Stocktakes
+     */
+    200: {
+        data: Array<CustodyStocktake>;
+    };
+};
+
+export type CustodyListStocktakesResponse = CustodyListStocktakesResponses[keyof CustodyListStocktakesResponses];
+
+export type CustodyOpenStocktakeData = {
+    body: OpenCustodyStocktakeRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/custody/stocktakes';
+};
+
+export type CustodyOpenStocktakeErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, a hold forbids the action, a location is still occupied, or a custody number could not be allocated
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustodyOpenStocktakeError = CustodyOpenStocktakeErrors[keyof CustodyOpenStocktakeErrors];
+
+export type CustodyOpenStocktakeResponses = {
+    /**
+     * The opened count
+     */
+    201: CustodyIdAck;
+};
+
+export type CustodyOpenStocktakeResponse = CustodyOpenStocktakeResponses[keyof CustodyOpenStocktakeResponses];
+
+export type CustodyGetStocktakeData = {
+    body?: never;
+    path: {
+        stocktakeId: string;
+    };
+    query?: never;
+    url: '/api/v1/custody/stocktakes/{stocktakeId}';
+};
+
+export type CustodyGetStocktakeErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustodyGetStocktakeError = CustodyGetStocktakeErrors[keyof CustodyGetStocktakeErrors];
+
+export type CustodyGetStocktakeResponses = {
+    /**
+     * The stocktake
+     */
+    200: CustodyStocktake;
+};
+
+export type CustodyGetStocktakeResponse = CustodyGetStocktakeResponses[keyof CustodyGetStocktakeResponses];
+
+export type CustodyListSightingsData = {
+    body?: never;
+    path: {
+        stocktakeId: string;
+    };
+    query?: {
+        limit?: number;
+    };
+    url: '/api/v1/custody/stocktakes/{stocktakeId}/sightings';
+};
+
+export type CustodyListSightingsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustodyListSightingsError = CustodyListSightingsErrors[keyof CustodyListSightingsErrors];
+
+export type CustodyListSightingsResponses = {
+    /**
+     * Observations
+     */
+    200: {
+        data: Array<CustodySighting>;
+    };
+};
+
+export type CustodyListSightingsResponse = CustodyListSightingsResponses[keyof CustodyListSightingsResponses];
+
+export type CustodyRecordSightingsData = {
+    body: RecordCustodySightingsRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        stocktakeId: string;
+    };
+    query?: never;
+    url: '/api/v1/custody/stocktakes/{stocktakeId}/sightings';
+};
+
+export type CustodyRecordSightingsErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, a hold forbids the action, a location is still occupied, or a custody number could not be allocated
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustodyRecordSightingsError = CustodyRecordSightingsErrors[keyof CustodyRecordSightingsErrors];
+
+export type CustodyRecordSightingsResponses = {
+    /**
+     * The recorded observations
+     */
+    201: RecordedCustodySightingsResponse;
+};
+
+export type CustodyRecordSightingsResponse = CustodyRecordSightingsResponses[keyof CustodyRecordSightingsResponses];
+
+export type CustodyStocktakeReconciliationData = {
+    body?: never;
+    path: {
+        stocktakeId: string;
+    };
+    query?: never;
+    url: '/api/v1/custody/stocktakes/{stocktakeId}/reconciliation';
+};
+
+export type CustodyStocktakeReconciliationErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustodyStocktakeReconciliationError = CustodyStocktakeReconciliationErrors[keyof CustodyStocktakeReconciliationErrors];
+
+export type CustodyStocktakeReconciliationResponses = {
+    /**
+     * The reconciliation
+     */
+    200: CustodyReconciliation;
+};
+
+export type CustodyStocktakeReconciliationResponse = CustodyStocktakeReconciliationResponses[keyof CustodyStocktakeReconciliationResponses];
+
+export type CustodyCloseStocktakeData = {
+    body: CloseCustodyStocktakeRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        stocktakeId: string;
+    };
+    query?: never;
+    url: '/api/v1/custody/stocktakes/{stocktakeId}/close';
+};
+
+export type CustodyCloseStocktakeErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, a hold forbids the action, a location is still occupied, or a custody number could not be allocated
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustodyCloseStocktakeError = CustodyCloseStocktakeErrors[keyof CustodyCloseStocktakeErrors];
+
+export type CustodyCloseStocktakeResponses = {
+    /**
+     * The closed count and its findings
+     */
+    200: ClosedCustodyStocktakeResponse;
+};
+
+export type CustodyCloseStocktakeResponse = CustodyCloseStocktakeResponses[keyof CustodyCloseStocktakeResponses];
 
 export type CustodyRenderLabelsData = {
     body?: never;

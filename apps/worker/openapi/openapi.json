@@ -6533,6 +6533,517 @@
           "packetStatus"
         ]
       },
+      "OpenCustodyStocktakeRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "scopeLocationId": {
+            "type": "string",
+            "pattern": "^custodyLocation_[A-Za-z0-9_-]{21}$"
+          },
+          "openedAt": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "CustodyStocktake": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "scopeLocationId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed",
+              "abandoned"
+            ]
+          },
+          "openedAt": {
+            "type": "string"
+          },
+          "openedByUserId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "closedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "closedByUserId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "counts": {
+            "$ref": "#/components/schemas/CustodyStocktakeCounts"
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "scopeLocationId",
+          "status",
+          "openedAt",
+          "openedByUserId",
+          "closedAt",
+          "closedByUserId",
+          "counts",
+          "note"
+        ]
+      },
+      "CustodyStocktakeCounts": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "matched": {
+            "type": "integer"
+          },
+          "missing": {
+            "type": "integer"
+          },
+          "misplaced": {
+            "type": "integer"
+          },
+          "unexpected": {
+            "type": "integer"
+          },
+          "unregistered": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "matched",
+          "missing",
+          "misplaced",
+          "unexpected",
+          "unregistered"
+        ]
+      },
+      "RecordedCustodySightingsResponse": {
+        "type": "object",
+        "properties": {
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "ids"
+        ]
+      },
+      "RecordCustodySightingsRequest": {
+        "type": "object",
+        "properties": {
+          "sightings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CustodySightingInput"
+            },
+            "minItems": 1,
+            "maxItems": 200
+          }
+        },
+        "required": [
+          "sightings"
+        ]
+      },
+      "CustodySightingInput": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "sighted",
+              "not_found",
+              "unregistered"
+            ]
+          },
+          "packetId": {
+            "type": "string",
+            "pattern": "^custodyPacket_[A-Za-z0-9_-]{21}$"
+          },
+          "itemId": {
+            "type": "string",
+            "pattern": "^custodyItem_[A-Za-z0-9_-]{21}$"
+          },
+          "locationId": {
+            "type": "string",
+            "pattern": "^custodyLocation_[A-Za-z0-9_-]{21}$"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 2000,
+            "description": "What was physically found, in the observer's words. Required on an unregistered observation: it is the only record of that object anywhere."
+          },
+          "observedAt": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "CustodySighting": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "sighted",
+              "not_found",
+              "unregistered"
+            ]
+          },
+          "packetId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "itemId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "locationId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "expectedLocationId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "observedAt": {
+            "type": "string"
+          },
+          "recordedAt": {
+            "type": "string"
+          },
+          "observedByUserId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "packetId",
+          "itemId",
+          "locationId",
+          "expectedLocationId",
+          "description",
+          "observedAt",
+          "recordedAt",
+          "observedByUserId",
+          "note"
+        ]
+      },
+      "CustodyReconciliation": {
+        "type": "object",
+        "properties": {
+          "stocktakeId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed",
+              "abandoned"
+            ]
+          },
+          "scopeLocationId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "openedAt": {
+            "type": "string"
+          },
+          "closedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "matchedCount": {
+            "type": "integer"
+          },
+          "missing": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CustodyReconciliationLine"
+            }
+          },
+          "misplaced": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CustodyReconciliationLine"
+            }
+          },
+          "unexpected": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CustodyReconciliationLine"
+            }
+          },
+          "unregistered": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CustodyReconciliationLine"
+            }
+          },
+          "frozenCounts": {
+            "$ref": "#/components/schemas/CustodyStocktakeCounts"
+          }
+        },
+        "required": [
+          "stocktakeId",
+          "name",
+          "status",
+          "scopeLocationId",
+          "openedAt",
+          "closedAt",
+          "matchedCount",
+          "missing",
+          "misplaced",
+          "unexpected",
+          "unregistered",
+          "frozenCounts"
+        ]
+      },
+      "CustodyReconciliationLine": {
+        "type": "object",
+        "properties": {
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "matched",
+              "missing",
+              "misplaced",
+              "unexpected",
+              "unregistered"
+            ]
+          },
+          "packetId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "custodyNumber": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "packetName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "packetStatus": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "held",
+              "out",
+              "released",
+              "destroyed",
+              "lost",
+              null
+            ]
+          },
+          "expectedLocationId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sightedLocationId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "observedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "observedByUserId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "proposedMovementKind": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "logged",
+              "itemized",
+              "moved",
+              "checked_out",
+              "returned",
+              "withdrawn",
+              "released",
+              "superseded",
+              "destroyed",
+              "lost",
+              "found",
+              "reviewed",
+              "hold_placed",
+              "hold_released",
+              "correction",
+              null
+            ]
+          },
+          "proposedToLocationId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "outcome",
+          "packetId",
+          "custodyNumber",
+          "packetName",
+          "packetStatus",
+          "expectedLocationId",
+          "sightedLocationId",
+          "description",
+          "observedAt",
+          "observedByUserId",
+          "proposedMovementKind",
+          "proposedToLocationId"
+        ]
+      },
+      "ClosedCustodyStocktakeResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "closed",
+              "abandoned"
+            ]
+          },
+          "counts": {
+            "$ref": "#/components/schemas/CustodyStocktakeCounts"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "counts"
+        ]
+      },
+      "CloseCustodyStocktakeRequest": {
+        "type": "object",
+        "properties": {
+          "abandoned": {
+            "type": "boolean",
+            "description": "Ends a count that was never finished. An abandoned count freezes no findings: the reconciliation of a half-done walk reads as a safe full of missing originals, which would be alarming and wrong."
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2000
+          }
+        }
+      },
       "CustomFieldAck": {
         "type": "object",
         "properties": {
@@ -25935,6 +26446,774 @@
           },
           "404": {
             "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/custody/stocktakes": {
+      "post": {
+        "description": "Opens a physical count of the register, or of one branch of the container tree and everything beneath it. A stocktake only observes: nothing it records disposes of property, relocates it, or changes the register. Counting a safe leaves every packet, item, and ledger entry exactly as it was.",
+        "operationId": "custody.openStocktake",
+        "tags": [
+          "custody"
+        ],
+        "x-mc-operationId": "custody.openStocktake",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "custody:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "custody"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenCustodyStocktakeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The opened count",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustodyIdAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress, a hold forbids the action, a location is still occupied, or a custody number could not be allocated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "description": "Lists physical counts, most recently opened first, with the findings frozen on each closed one.",
+        "operationId": "custody.listStocktakes",
+        "tags": [
+          "custody"
+        ],
+        "x-mc-operationId": "custody.listStocktakes",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "custody:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "custody"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "open",
+                "closed",
+                "abandoned"
+              ]
+            },
+            "required": false,
+            "name": "status",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Stocktakes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/CustodyStocktake"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/custody/stocktakes/{stocktakeId}": {
+      "get": {
+        "description": "Returns one physical count and, once it has closed, what it found.",
+        "operationId": "custody.getStocktake",
+        "tags": [
+          "custody"
+        ],
+        "x-mc-operationId": "custody.getStocktake",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "custody:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "custody"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^custodyStocktake_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "stocktakeId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The stocktake",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustodyStocktake"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/custody/stocktakes/{stocktakeId}/sightings": {
+      "post": {
+        "description": "Records what the counters saw, as a batch: a packet seen at a location, a packet looked for and not found, or an object on the shelf the register has no row for. Each observation is append-only — it is a named person's assertion about a physical object on a day, and the database refuses to update or delete one. A mistake is corrected by recording the later, truer observation; both stay on the record. Recording an observation changes nothing about the packet it names.",
+        "operationId": "custody.recordSightings",
+        "tags": [
+          "custody"
+        ],
+        "x-mc-operationId": "custody.recordSightings",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "custody:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "custody"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^custodyStocktake_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "stocktakeId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordCustodySightingsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The recorded observations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordedCustodySightingsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress, a hold forbids the action, a location is still occupied, or a custody number could not be allocated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "description": "Every observation recorded during a count, oldest first, each with where the register expected the packet at the moment it was observed.",
+        "operationId": "custody.listSightings",
+        "tags": [
+          "custody"
+        ],
+        "x-mc-operationId": "custody.listSightings",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "custody:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "custody"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^custodyStocktake_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "stocktakeId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Observations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/CustodySighting"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/custody/stocktakes/{stocktakeId}/reconciliation": {
+      "get": {
+        "description": "What the count found, against what the register expected: packets expected and not seen (missing), packets seen somewhere other than where the register said (misplaced), packets seen where the register did not expect them at all (unexpected), and objects on the shelf with no register row (unregistered). Readable while the count is still running, so a long walk shows its progress. Each line names the movement a person would record to put the register right — a proposal on a report, never a write. Acting on one means recording that movement yourself, which is the only way this register ever changes.",
+        "operationId": "custody.stocktakeReconciliation",
+        "tags": [
+          "custody"
+        ],
+        "x-mc-operationId": "custody.stocktakeReconciliation",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "custody:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "custody"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^custodyStocktake_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "stocktakeId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The reconciliation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustodyReconciliation"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/custody/stocktakes/{stocktakeId}/close": {
+      "post": {
+        "description": "Closes a count and freezes what it found. It writes the stocktake row and nothing else: no movement is recorded, no packet is moved, and no status anywhere in the register changes because a count finished. A count that was never finished closes as abandoned instead, freezing no findings.",
+        "operationId": "custody.closeStocktake",
+        "tags": [
+          "custody"
+        ],
+        "x-mc-operationId": "custody.closeStocktake",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "custody:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "custody"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^custodyStocktake_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "stocktakeId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloseCustodyStocktakeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The closed count and its findings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClosedCustodyStocktakeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress, a hold forbids the action, a location is still occupied, or a custody number could not be allocated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload",
             "content": {
               "application/problem+json": {
                 "schema": {
