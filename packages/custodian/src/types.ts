@@ -144,6 +144,28 @@ export const TERMINAL_PACKET_STATUSES: readonly CustodyPacketStatus[] = [
   "lost",
 ];
 
+// ---- destruction ----
+
+// What became of a destruction request. A null outcome is the only non-terminal state: the request is
+// raised and waiting for a second person. `approved` is the one outcome that is still open — approval
+// authorizes the destruction, and carrying it out is a separate act by a person who can see the
+// property. The other three are final, and a request that reached one is re-raised rather than
+// re-decided: rewriting a decision somebody already acted on is the falsification the append-only
+// ledger forbids one row at a time.
+export const CUSTODY_DESTRUCTION_OUTCOMES = [
+  "approved",
+  "refused",
+  "executed",
+  "withdrawn",
+] as const;
+export type CustodyDestructionOutcome = (typeof CUSTODY_DESTRUCTION_OUTCOMES)[number];
+
+export const TERMINAL_CUSTODY_DESTRUCTION_OUTCOMES: readonly CustodyDestructionOutcome[] = [
+  "refused",
+  "executed",
+  "withdrawn",
+];
+
 // ---- stocktake ----
 
 // A count is open while people are walking the shelves, and closed when the reconciliation is drawn.

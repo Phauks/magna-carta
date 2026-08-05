@@ -11,8 +11,9 @@ import { z } from "zod";
 // R2 as a side effect of the platform being ready.
 //
 // The gate is read at ENQUEUE time, on the ingest path, so a firm with indexing off never produces a
-// message. Turning it on later indexes documents committed from that point; re-indexing the existing
-// corpus is a separate replay over the same queue, which the derived split ids make safe to run twice.
+// message. Turning it on later indexes documents committed from that point, and the daily
+// re-extraction sweep (apps/worker/src/search/reextraction-sweep.ts) then draws in the corpus that was
+// already there — it re-enqueues through this same gate, so a firm that never opted in stays untouched.
 export const searchIndexingEnabledDefinition: FirmSettingDefinition<boolean> = {
   key: "search.indexing_enabled",
   schema: z.boolean(),

@@ -6,15 +6,23 @@ import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-eff
 import type { MatterId, TrustAccountId, UserId } from "@magna-carta/identifiers/types";
 import { currencyFromCode, money } from "@magna-carta/money/money";
 import { loadMatterTrustLeaf } from "@magna-carta/trust/account-tree";
+import {
+  composeTrustDisbursementApproval,
+  composeTrustDisbursementRejection,
+  composeTrustDisbursementRequest,
+  composeTrustDisbursementWithdrawal,
+  readPendingTrustDisbursementRequests,
+} from "@magna-carta/trust/disbursement-authorization";
 import { readTrustAvailableBalance } from "@magna-carta/trust/holds";
 import {
   composeMatterToMatterTransfer,
   composeTrustDeposit,
-  composeTrustDisbursement,
   type ComposedTrustMovement,
+  type TrustMovementOptions,
 } from "@magna-carta/trust/movements";
 import { selectTrustMovementsForNodeStatement } from "@magna-carta/trust/statements";
 import { TrustValidationError } from "@magna-carta/trust/trust-validation";
+import type { TrustDisbursementRequestSnapshot } from "@magna-carta/trust/types";
 import type { Context } from "hono";
 import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
@@ -33,6 +41,11 @@ import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-p
 // Trust movements: client money into a matter's trust ledger, out of it, and reallocated between two
 // matters of one client. Every one of them is idempotency-REQUIRED, because a retried request that
 // posted a second entry would be a second real movement of somebody else's money.
+//
+// Money going OUT is two calls rather than one: a member submits a disbursement request, and a
+// SECOND member approves it. There is no endpoint that pays a client's money out in a single call,
+// which is the point — the request endpoint writes no ledger entry at all, and the approval endpoint
+// is where the movement is composed and committed.
 //
 // This module composes and commits; it decides nothing. The rules live one layer down in
 // @magna-carta/trust, whose composition guard is the only supported way to build an entry touching
@@ -71,7 +84,7 @@ const DepositRequest = z
   })
   .openapi("TrustDepositRequest");
 
-const DisbursementRequest = z
+const DisbursementRequestSubmission = z
   .object({
     trustAccountId: identifierField("trustAccount"),
     matterId: identifierField("matter"),
@@ -84,7 +97,19 @@ const DisbursementRequest = z
     payee: z.string().min(1),
     purpose: z.string().min(1),
   })
-  .openapi("TrustDisbursementRequest");
+  .openapi("TrustDisbursementRequestSubmission");
+
+const DisbursementRejection = z
+  .object({
+    // Required, and not defaulted: a refusal the submitter cannot answer is a refusal that costs
+    // them a second round of guessing.
+    reason: z.string().min(1),
+  })
+  .openapi("TrustDisbursementRejection");
+
+const DisbursementWithdrawal = z
+  .object({ reason: z.string().min(1).nullable().optional() })
+  .openapi("TrustDisbursementWithdrawal");
 
 const MatterTransferRequest = z
   .object({
@@ -112,6 +137,8 @@ const MovementAck = z
   })
   .openapi("TrustMovementAck");
 
+const AuthorizationBasis = z.enum(["second_person", "sole_trust_manager"]);
+
 const MovementRecord = z
   .object({
     id: z.string(),
@@ -127,10 +154,58 @@ const MovementRecord = z
     purpose: z.string(),
     recordedBy: z.string(),
     authorizedBy: z.string().nullable(),
+    // The disbursement request this movement was approved from, and on what footing. Present only on
+    // a disbursement. `sole_trust_manager` says plainly that the firm had nobody else who could
+    // approve and the submitter authorized their own payment — a fact a reader must not have to
+    // infer from noticing that two user handles match.
+    disbursementRequestId: z.string().nullable(),
+    authorizationBasis: AuthorizationBasis.nullable(),
     effectiveDate: z.string(),
     recordedAt: z.string(),
   })
   .openapi("TrustMovementRecord");
+
+const PendingDisbursementRequest = z
+  .object({
+    id: z.string(),
+    trustLedgerNodeId: z.string(),
+    amountMinor: z.number().int(),
+    currency: z.string(),
+    method: BankMovementMethod,
+    reference: z.string().nullable(),
+    payee: z.string(),
+    purpose: z.string(),
+    description: z.string(),
+    effectiveDate: z.string(),
+    requestedBy: z.string(),
+    requestedAt: z.string(),
+  })
+  .openapi("TrustPendingDisbursementRequest");
+
+const PendingDisbursementRequestsResponse = z
+  .object({ requests: z.array(PendingDisbursementRequest) })
+  .openapi("TrustPendingDisbursementRequestsResponse");
+
+const DisbursementRequestAck = z
+  .object({ trustDisbursementRequestId: z.string(), status: z.literal("pending") })
+  .openapi("TrustDisbursementRequestAck");
+
+const DisbursementApprovalAck = z
+  .object({
+    trustDisbursementRequestId: z.string(),
+    authorizationBasis: AuthorizationBasis,
+    trustMovementId: z.string(),
+    ledgerEntryId: z.string(),
+    trustLedgerNodeId: z.string(),
+  })
+  .openapi("TrustDisbursementApprovalAck");
+
+const DisbursementDecisionAck = z
+  .object({
+    trustDisbursementRequestId: z.string(),
+    decision: z.enum(["rejected", "withdrawn"]),
+  })
+  .openapi("TrustDisbursementDecisionAck");
 
 const ClientLedgerResponse = z
   .object({
@@ -144,6 +219,10 @@ const ClientLedgerResponse = z
 
 const matterLedgerParam = z.object({ matterId: identifierPathParam("matter", "matterId") });
 const matterLedgerQuery = z.object({ trustAccountId: identifierField("trustAccount") });
+const disbursementRequestParam = z.object({
+  requestId: identifierPathParam("trustDisbursementRequest", "requestId"),
+});
+const trustAccountQuery = z.object({ trustAccountId: identifierField("trustAccount") });
 
 const errorResponses = {
   400: {
@@ -165,12 +244,12 @@ const errorResponses = {
   },
   409: {
     description:
-      "A request with this Idempotency-Key is in progress, or the movement exceeds the client ledger's available balance",
+      "A request with this Idempotency-Key is in progress, the movement exceeds the client ledger's available balance, or the disbursement request has already been decided",
     content: { "application/problem+json": { schema: Problem } },
   },
   422: {
     description:
-      "The request is invalid, the Idempotency-Key was reused with a different payload, the trust rules refuse the movement, or the account's jurisdiction cannot be resolved",
+      "The request is invalid, the Idempotency-Key was reused with a different payload, the trust rules refuse the movement, the account's jurisdiction cannot be resolved, or this member may not make this decision about this disbursement request",
     content: { "application/problem+json": { schema: Problem } },
   },
   429: {
@@ -229,19 +308,22 @@ const depositRoute = defineOpenAPIRoute(movementMeta("trust.deposit"), {
   },
 });
 
-const disbursementRoute = defineOpenAPIRoute(movementMeta("trust.disburse"), {
+const requestDisbursementRoute = defineOpenAPIRoute(movementMeta("trust.requestDisbursement"), {
   method: "post",
-  path: "/api/v1/trust/disbursements",
+  path: "/api/v1/trust/disbursement-requests",
   description:
-    "Pays client money out of a matter's trust ledger. The amount is measured against the ledger's AVAILABLE balance — the stored balance less any disputed-funds holds — and the authorizing member is recorded on the movement.",
+    "Proposes a payment of client money out of a matter's trust ledger. NO MONEY MOVES: no ledger entry, no balance change, and no movement record exists until a second member approves the request. The proposal is checked against the ledger's AVAILABLE balance — the stored balance less any disputed-funds holds — so an impossible payment is refused now rather than at approval, and it is checked again when it is approved.",
   request: {
     headers: idempotencyKeyHeader,
-    body: { content: { "application/json": { schema: DisbursementRequest } }, required: true },
+    body: {
+      content: { "application/json": { schema: DisbursementRequestSubmission } },
+      required: true,
+    },
   },
   responses: {
     201: {
-      description: "The disbursement was recorded",
-      content: { "application/json": { schema: MovementAck } },
+      description: "The disbursement request is recorded and awaiting approval",
+      content: { "application/json": { schema: DisbursementRequestAck } },
     },
     400: errorResponses[400],
     401: errorResponses[401],
@@ -252,6 +334,111 @@ const disbursementRoute = defineOpenAPIRoute(movementMeta("trust.disburse"), {
     429: errorResponses[429],
   },
 });
+
+const approveDisbursementRoute = defineOpenAPIRoute(movementMeta("trust.approveDisbursement"), {
+  method: "post",
+  path: "/api/v1/trust/disbursement-requests/{requestId}/approval",
+  description:
+    "Approves a pending disbursement request and posts the trust movement, in one atomic write. The approving member must be somebody other than the member who submitted the request, and is recorded on the movement as the authorizing member; the submitter stays recorded as the member who entered the record. The available balance is measured again HERE, against the ledger as it stands now, so a request that has been overtaken by other activity is refused rather than posted.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: disbursementRequestParam,
+  },
+  responses: {
+    201: {
+      description: "The disbursement was approved and the movement posted",
+      content: { "application/json": { schema: DisbursementApprovalAck } },
+    },
+    400: errorResponses[400],
+    401: errorResponses[401],
+    403: errorResponses[403],
+    404: errorResponses[404],
+    409: errorResponses[409],
+    422: errorResponses[422],
+    429: errorResponses[429],
+  },
+});
+
+const rejectDisbursementRoute = defineOpenAPIRoute(movementMeta("trust.rejectDisbursement"), {
+  method: "post",
+  path: "/api/v1/trust/disbursement-requests/{requestId}/rejection",
+  description:
+    "Refuses a pending disbursement request, recording who refused it and why. Nothing reaches the ledger. The refusing member must be somebody other than the one who submitted it — taking back your own request is a withdrawal.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: disbursementRequestParam,
+    body: { content: { "application/json": { schema: DisbursementRejection } }, required: true },
+  },
+  responses: {
+    201: {
+      description: "The rejection was recorded",
+      content: { "application/json": { schema: DisbursementDecisionAck } },
+    },
+    400: errorResponses[400],
+    401: errorResponses[401],
+    403: errorResponses[403],
+    404: errorResponses[404],
+    409: errorResponses[409],
+    422: errorResponses[422],
+    429: errorResponses[429],
+  },
+});
+
+const withdrawDisbursementRoute = defineOpenAPIRoute(movementMeta("trust.withdrawDisbursement"), {
+  method: "post",
+  path: "/api/v1/trust/disbursement-requests/{requestId}/withdrawal",
+  description:
+    "Takes back a pending disbursement request the calling member submitted. Recorded rather than deleted — that a payment was proposed and then withdrawn is itself part of the record. Only the submitting member may withdraw; anyone else records a rejection with a reason.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: disbursementRequestParam,
+    body: { content: { "application/json": { schema: DisbursementWithdrawal } }, required: true },
+  },
+  responses: {
+    201: {
+      description: "The withdrawal was recorded",
+      content: { "application/json": { schema: DisbursementDecisionAck } },
+    },
+    400: errorResponses[400],
+    401: errorResponses[401],
+    403: errorResponses[403],
+    404: errorResponses[404],
+    409: errorResponses[409],
+    422: errorResponses[422],
+    429: errorResponses[429],
+  },
+});
+
+const pendingDisbursementRequestsRoute = defineOpenAPIRoute(
+  {
+    operationId: "trust.listDisbursementRequests",
+    surface: "app",
+    authenticated: true,
+    permission: READ,
+    resource: "firm",
+    audited: false,
+    idempotency: "optional",
+    rateLimit: "default",
+  },
+  {
+    method: "get",
+    path: "/api/v1/trust/disbursement-requests",
+    description:
+      "Lists the disbursement requests on one trust account that nobody has decided yet, oldest first — the queue an approving member works from. A request leaves this list the moment it is approved, rejected, or withdrawn.",
+    request: { query: trustAccountQuery },
+    responses: {
+      200: {
+        description: "The pending disbursement requests",
+        content: { "application/json": { schema: PendingDisbursementRequestsResponse } },
+      },
+      401: readErrorResponses[401],
+      403: readErrorResponses[403],
+      404: readErrorResponses[404],
+      422: readErrorResponses[422],
+      429: readErrorResponses[429],
+    },
+  },
+);
 
 const matterTransferRoute = defineOpenAPIRoute(movementMeta("trust.transferBetweenMatters"), {
   method: "post",
@@ -314,7 +501,11 @@ function trustErrorResponse(
   c: Context,
   error: TrustValidationError,
 ): ProblemResponse<404> | ProblemResponse<409> | ProblemResponse<422> {
-  if (error.code === "unknown-trust-account" || error.code === "unknown-trust-node") {
+  if (
+    error.code === "unknown-trust-account" ||
+    error.code === "unknown-trust-node" ||
+    error.code === "unknown-trust-disbursement-request"
+  ) {
     return problemJson(c, {
       type: "not-found",
       title: "Not found",
@@ -327,6 +518,27 @@ function trustErrorResponse(
       type: "trust-insufficient-available",
       title: "The client ledger does not have that much available",
       status: 409,
+      detail: error.message,
+    });
+  }
+  if (error.code === "trust-disbursement-request-already-decided") {
+    return problemJson(c, {
+      type: "trust-disbursement-not-pending",
+      title: "This disbursement request has already been decided",
+      status: 409,
+      detail: error.message,
+    });
+  }
+  // Not a permission failure: the member holds the trust capability, and the two-person rule is the
+  // whole point of the control — they are the wrong PERSON for this particular decision.
+  if (
+    error.code === "trust-disbursement-decider-is-requester" ||
+    error.code === "trust-disbursement-withdrawal-not-by-requester"
+  ) {
+    return problemJson(c, {
+      type: "trust-disbursement-authorization-refused",
+      title: "Another member has to make this decision",
+      status: 422,
       detail: error.message,
     });
   }
@@ -399,6 +611,8 @@ interface MovementRow {
   purpose: string;
   recorded_by: string;
   authorized_by: string | null;
+  disbursement_request_id: string | null;
+  authorization_basis: "second_person" | "sole_trust_manager" | null;
   effective_date: string;
   recorded_at: string;
 }
@@ -418,8 +632,29 @@ function rowToMovement(row: MovementRow): z.infer<typeof MovementRecord> {
     purpose: row.purpose,
     recordedBy: row.recorded_by,
     authorizedBy: row.authorized_by,
+    disbursementRequestId: row.disbursement_request_id,
+    authorizationBasis: row.authorization_basis,
     effectiveDate: row.effective_date,
     recordedAt: row.recorded_at,
+  };
+}
+
+function toPendingRequest(
+  request: TrustDisbursementRequestSnapshot,
+): z.infer<typeof PendingDisbursementRequest> {
+  return {
+    id: request.id,
+    trustLedgerNodeId: request.nodeId,
+    amountMinor: request.amountMinor,
+    currency: request.currency,
+    method: request.method,
+    reference: request.reference,
+    payee: request.payee,
+    purpose: request.purpose,
+    description: request.description,
+    effectiveDate: request.effectiveDate,
+    requestedBy: request.requestedBy,
+    requestedAt: request.requestedAt,
   };
 }
 
@@ -428,9 +663,9 @@ export function registerTrustRoutes(app: TrustApp, chokepoint: Chokepoint): void
   // the balance updates, the movement record, the idempotency record, and the outbox message. The
   // account_balance floor aborts all of it together on an overdraw, which is exactly the atomicity
   // the no-negative guarantee depends on.
-  async function commitMovement(
+  async function commitTrustWrite<Body>(
     c: Context,
-    compose: (recordedBy: UserId) => Promise<ComposedTrustMovement>,
+    compose: (actor: UserId) => Promise<{ write: EffectWrite; body: Body }>,
   ) {
     const firm = requireChokepointFirmContext(c);
     const userId = requireChokepointUserId(c);
@@ -444,16 +679,11 @@ export function registerTrustRoutes(app: TrustApp, chokepoint: Chokepoint): void
         fingerprint: idempotency.fingerprint,
         now,
         effect: async () => {
-          const movement = await compose(userId);
+          const composed = await compose(userId);
           return {
-            write: movement.effect satisfies EffectWrite,
+            write: composed.write,
             responseCode: 201,
-            responseBody: canonicalJsonStringify({
-              trustMovementId: movement.movementId,
-              ledgerEntryId: movement.entryId,
-              trustLedgerNodeId: movement.nodeId,
-              counterpartyTrustLedgerNodeId: movement.counterpartyNodeId,
-            }),
+            responseBody: canonicalJsonStringify(composed.body),
           };
         },
       });
@@ -464,8 +694,25 @@ export function registerTrustRoutes(app: TrustApp, chokepoint: Chokepoint): void
     if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch")
       return problemResponseForIdempotencyConflict(c, result);
     if (result.kind === "replayed") c.header("Idempotency-Replayed", "true");
-    return c.json(JSON.parse(result.responseBody ?? "{}") as z.infer<typeof MovementAck>, 201);
+    return c.json(JSON.parse(result.responseBody ?? "{}") as Body, 201);
   }
+
+  const commitMovement = (
+    c: Context,
+    compose: (recordedBy: UserId) => Promise<ComposedTrustMovement>,
+  ) =>
+    commitTrustWrite<z.infer<typeof MovementAck>>(c, async (recordedBy) => {
+      const movement = await compose(recordedBy);
+      return {
+        write: movement.effect satisfies EffectWrite,
+        body: {
+          trustMovementId: movement.movementId,
+          ledgerEntryId: movement.entryId,
+          trustLedgerNodeId: movement.nodeId,
+          counterpartyTrustLedgerNodeId: movement.counterpartyNodeId,
+        },
+      };
+    });
 
   // POST /api/v1/trust/deposits — client money in
   app.openapi(
@@ -497,25 +744,28 @@ export function registerTrustRoutes(app: TrustApp, chokepoint: Chokepoint): void
             purpose: request.purpose,
             recordedBy,
           },
-          { clock: { now: () => new Date().toISOString(), today: todayInUtc } },
+          trustOptions(),
         );
       });
     },
   );
 
-  // POST /api/v1/trust/disbursements — client money out
+  // POST /api/v1/trust/disbursement-requests — propose a payment; NOTHING moves yet
   app.openapi(
-    { ...disbursementRoute, middleware: chokepointMiddleware(chokepoint, disbursementRoute) },
+    {
+      ...requestDisbursementRoute,
+      middleware: chokepointMiddleware(chokepoint, requestDisbursementRoute),
+    },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const request = c.req.valid("json");
-      return commitMovement(c, async (recordedBy) => {
+      return commitTrustWrite<z.infer<typeof DisbursementRequestAck>>(c, async (requestedBy) => {
         const node = await loadMatterTrustLeaf(
           firm.firmDatabase,
           request.trustAccountId,
           request.matterId,
         );
-        return composeTrustDisbursement(
+        const composed = await composeTrustDisbursementRequest(
           firm.firmDatabase,
           {
             fromNodeId: node.id,
@@ -526,16 +776,116 @@ export function registerTrustRoutes(app: TrustApp, chokepoint: Chokepoint): void
             reference: request.reference ?? null,
             payee: request.payee,
             purpose: request.purpose,
-            recordedBy,
-            // The member on the session authorized this movement by making it. The record keeps the
-            // two roles in separate columns because they diverge as soon as a real authorization
-            // workflow exists; naming a DIFFERENT member here from a request body would be an
-            // unverified attribution of authority, which is worse than no distinction at all.
-            authorizedBy: recordedBy,
+            requestedBy,
           },
-          { clock: { now: () => new Date().toISOString(), today: todayInUtc } },
+          trustOptions(),
         );
+        return {
+          write: composed.effect,
+          body: { trustDisbursementRequestId: composed.requestId, status: "pending" as const },
+        };
       });
+    },
+  );
+
+  // POST /api/v1/trust/disbursement-requests/{requestId}/approval — the second person, and the
+  // only path on which client money actually leaves
+  app.openapi(
+    {
+      ...approveDisbursementRoute,
+      middleware: chokepointMiddleware(chokepoint, approveDisbursementRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { requestId } = c.req.valid("param");
+      return commitTrustWrite<z.infer<typeof DisbursementApprovalAck>>(c, async (approvedBy) => {
+        const approved = await composeTrustDisbursementApproval(
+          firm.firmDatabase,
+          { requestId, approvedBy },
+          trustOptions(),
+        );
+        return {
+          write: approved.effect,
+          body: {
+            trustDisbursementRequestId: approved.requestId,
+            authorizationBasis: approved.authorizationBasis,
+            trustMovementId: approved.movement.movementId,
+            ledgerEntryId: approved.movement.entryId,
+            trustLedgerNodeId: approved.movement.nodeId,
+          },
+        };
+      });
+    },
+  );
+
+  // POST /api/v1/trust/disbursement-requests/{requestId}/rejection — refused, and why
+  app.openapi(
+    {
+      ...rejectDisbursementRoute,
+      middleware: chokepointMiddleware(chokepoint, rejectDisbursementRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { requestId } = c.req.valid("param");
+      const { reason } = c.req.valid("json");
+      return commitTrustWrite<z.infer<typeof DisbursementDecisionAck>>(c, async (rejectedBy) => {
+        const settled = await composeTrustDisbursementRejection(
+          firm.firmDatabase,
+          { requestId, rejectedBy, reason },
+          trustOptions(),
+        );
+        return {
+          write: settled.effect,
+          body: {
+            trustDisbursementRequestId: settled.requestId,
+            decision: "rejected" as const,
+          },
+        };
+      });
+    },
+  );
+
+  // POST /api/v1/trust/disbursement-requests/{requestId}/withdrawal — the submitter's own retraction
+  app.openapi(
+    {
+      ...withdrawDisbursementRoute,
+      middleware: chokepointMiddleware(chokepoint, withdrawDisbursementRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { requestId } = c.req.valid("param");
+      const { reason } = c.req.valid("json");
+      return commitTrustWrite<z.infer<typeof DisbursementDecisionAck>>(c, async (withdrawnBy) => {
+        const settled = await composeTrustDisbursementWithdrawal(
+          firm.firmDatabase,
+          { requestId, withdrawnBy, reason: reason ?? null },
+          trustOptions(),
+        );
+        return {
+          write: settled.effect,
+          body: {
+            trustDisbursementRequestId: settled.requestId,
+            decision: "withdrawn" as const,
+          },
+        };
+      });
+    },
+  );
+
+  // GET /api/v1/trust/disbursement-requests — the approval queue
+  app.openapi(
+    {
+      ...pendingDisbursementRequestsRoute,
+      middleware: chokepointMiddleware(chokepoint, pendingDisbursementRequestsRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { trustAccountId } = c.req.valid("query");
+      const pending = await readPendingTrustDisbursementRequests(
+        firm.firmDatabase,
+        trustAccountId as TrustAccountId,
+      );
+      return c.json({ requests: pending.map(toPendingRequest) }, 200);
     },
   );
 
@@ -572,7 +922,7 @@ export function registerTrustRoutes(app: TrustApp, chokepoint: Chokepoint): void
             recordedBy,
             authorizedBy: recordedBy,
           },
-          { clock: { now: () => new Date().toISOString(), today: todayInUtc } },
+          trustOptions(),
         );
       });
     },
@@ -629,3 +979,9 @@ export function registerTrustRoutes(app: TrustApp, chokepoint: Chokepoint): void
 // on a request, so UTC is the resolution — and it is the same resolution the rest of the platform
 // uses for a server-side "today".
 const todayInUtc = (): string => new Date().toISOString().slice(0, 10);
+
+// The trust package reads no wall clock of its own, so every composer takes one. Built per request
+// rather than once at module scope so a long-lived isolate cannot freeze "now".
+const trustOptions = (): TrustMovementOptions => ({
+  clock: { now: () => new Date().toISOString(), today: todayInUtc },
+});

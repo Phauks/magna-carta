@@ -182,7 +182,9 @@ function declarePendingLeaf(
   };
 }
 
-const mergeEffects = (...effects: readonly EffectWrite[]): EffectWrite => ({
+// Concatenation in composition order — the ONE batch discipline this package is built around, so
+// every composer that stitches an effect together uses this rather than its own spread.
+export const mergeEffects = (...effects: readonly EffectWrite[]): EffectWrite => ({
   statements: effects.flatMap((effect) => [...effect.statements]),
   outboxMessages: effects.flatMap((effect) => [...effect.outboxMessages]),
 });
@@ -287,14 +289,29 @@ export interface TrustDisbursementInput {
   readonly authorizedBy: UserId;
 }
 
-// Client money out: Dr the client's matter leaf, Cr the trust bank. The leaf must already exist —
-// money cannot leave a ledger that holds none — and the amount is measured against AVAILABLE, not
-// balance.
-export async function composeTrustDisbursement(
+export interface TrustDisbursementContext {
+  readonly node: TrustLedgerNodeSnapshot;
+  readonly account: TrustAccountSnapshot;
+  readonly amountMinor: number;
+}
+
+// Every refusal a disbursement can earn before anything is composed, in ONE place: the leaf exists
+// and is a leaf, the account is open, its office recorded a jurisdiction, the currency matches, the
+// method is one that jurisdiction permits, and the money is actually available. It is shared rather
+// than inlined because a disbursement is now reviewed twice — once when a member proposes it and
+// again when a second member approves it — and two copies of these checks would be two answers to
+// the same question. The AVAILABLE read in particular has to run at approval time: the ledger can
+// change between the two, and the balance that mattered when the request was written is not the
+// balance the money would leave.
+export async function resolveTrustDisbursement(
   database: SqlDatabase,
-  input: TrustDisbursementInput,
+  input: {
+    readonly fromNodeId: TrustLedgerNodeId;
+    readonly amount: Money;
+    readonly method: TrustMovementMethod;
+  },
   options: TrustMovementOptions,
-): Promise<ComposedTrustMovement> {
+): Promise<TrustDisbursementContext> {
   const node = await loadTrustNode(database, input.fromNodeId);
   assertMatterLeaf(node);
   const { account, jurisdiction } = await resolveOpenTrustAccount(database, node.trustAccountId);
@@ -308,6 +325,18 @@ export async function composeTrustDisbursement(
   });
 
   await assertWithinAvailable(database, node.id, amountMinor);
+  return { node, account, amountMinor };
+}
+
+// Client money out: Dr the client's matter leaf, Cr the trust bank. The leaf must already exist —
+// money cannot leave a ledger that holds none — and the amount is measured against AVAILABLE, not
+// balance.
+export async function composeTrustDisbursement(
+  database: SqlDatabase,
+  input: TrustDisbursementInput,
+  options: TrustMovementOptions,
+): Promise<ComposedTrustMovement> {
+  const { node, account, amountMinor } = await resolveTrustDisbursement(database, input, options);
 
   const posted = await composeTrustEntry(
     database,

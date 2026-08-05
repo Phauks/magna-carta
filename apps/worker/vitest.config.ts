@@ -16,6 +16,35 @@ function sqlAsText(): Plugin {
   };
 }
 
+// The composite text-extraction tests need real PDFs — a born-digital one, a scan, and one of each —
+// and workerd has no filesystem to read them from. The fixtures live with the engine that reads them
+// (crates/pdf-core/tests/fixtures), which is outside the Vite root, so this plugin inlines them as
+// base64 at build time. One copy of each fixture, asserted on by both the Rust tests and these: a
+// second committed copy under apps/worker could drift from the bytes the engine is tested against, and
+// nothing would notice.
+function pdfCoreFixtures(): Plugin {
+  const virtualModuleId = "virtual:pdf-core-fixtures";
+  const resolvedVirtualModuleId = "\0" + virtualModuleId;
+  const fixtureDir = path.resolve(import.meta.dirname, "../../crates/pdf-core/tests/fixtures");
+
+  return {
+    name: "magna-carta:pdf-core-fixtures",
+    resolveId(id) {
+      if (id === virtualModuleId) return resolvedVirtualModuleId;
+      return undefined;
+    },
+    load(id) {
+      if (id !== resolvedVirtualModuleId) return undefined;
+      const fixtures: Record<string, string> = {};
+      for (const entry of fs.readdirSync(fixtureDir)) {
+        if (!entry.endsWith(".pdf")) continue;
+        fixtures[entry] = fs.readFileSync(path.join(fixtureDir, entry)).toString("base64");
+      }
+      return `export default ${JSON.stringify(fixtures)};`;
+    },
+  };
+}
+
 // The fitness scan tests (billing-wip-ledger-fitness, billing-freeze-fitness) need to scan the
 // package sources where the SQL statement strings actually live — packages/timekeeping/src,
 // packages/costs/src, and packages/billing-core/src — but import.meta.glob cannot resolve outside
@@ -266,6 +295,7 @@ export default defineConfig({
   plugins: [
     sqlAsText(),
     billingPackageSources(),
+    pdfCoreFixtures(),
     cloudflareTest({
       wrangler: { configPath: `${import.meta.dirname}/wrangler.jsonc` },
       remoteBindings: false,

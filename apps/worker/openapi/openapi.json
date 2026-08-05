@@ -2748,6 +2748,36 @@
           "matterNumber"
         ]
       },
+      "MatterCloseAck": {
+        "type": "object",
+        "properties": {
+          "matterId": {
+            "type": "string"
+          },
+          "notices": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ]
+            }
+          }
+        },
+        "required": [
+          "matterId",
+          "notices"
+        ]
+      },
       "RenumberMatterRequest": {
         "type": "object",
         "properties": {
@@ -7319,6 +7349,358 @@
           }
         }
       },
+      "CustodyDestructionRequestPage": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CustodyDestructionRequest"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "data",
+          "nextCursor"
+        ]
+      },
+      "CustodyDestructionRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "packetId": {
+            "type": "string"
+          },
+          "itemId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "requestedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "requestedAt": {
+            "type": "string"
+          },
+          "basis": {
+            "type": "string"
+          },
+          "approvedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "approvedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "refusedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "refusedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "refusalReason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "executedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "executedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "executedMovementId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "outcome": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "approved",
+              "refused",
+              "executed",
+              "withdrawn",
+              null
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "packetId",
+          "itemId",
+          "requestedBy",
+          "requestedAt",
+          "basis",
+          "approvedBy",
+          "approvedAt",
+          "refusedBy",
+          "refusedAt",
+          "refusalReason",
+          "executedAt",
+          "executedBy",
+          "executedMovementId",
+          "outcome"
+        ]
+      },
+      "RaiseCustodyDestructionRequest": {
+        "type": "object",
+        "properties": {
+          "packetId": {
+            "type": "string",
+            "pattern": "^custodyPacket_[A-Za-z0-9_-]{21}$"
+          },
+          "itemId": {
+            "type": "string",
+            "pattern": "^custodyItem_[A-Za-z0-9_-]{21}$"
+          },
+          "basis": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          }
+        },
+        "required": [
+          "packetId",
+          "basis"
+        ]
+      },
+      "RefuseCustodyDestructionRequest": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 4000
+          }
+        }
+      },
+      "ExecutedCustodyDestruction": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "packetId": {
+            "type": "string"
+          },
+          "movementId": {
+            "type": "string"
+          },
+          "executedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "packetId",
+          "movementId",
+          "executedAt"
+        ]
+      },
+      "ExecuteCustodyDestructionRequest": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 1000
+          },
+          "occurredAt": {
+            "type": "string",
+            "maxLength": 40
+          }
+        }
+      },
+      "CustodyWillDuties": {
+        "type": "object",
+        "properties": {
+          "jurisdictionKey": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "duties": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CustodyWillDuty"
+            }
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CustodyWillCapability"
+            }
+          },
+          "encodedSubJurisdictionKeys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "compiledThrough": {
+            "type": "string"
+          },
+          "encodedJurisdictionKeys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "jurisdictionKey",
+          "name",
+          "duties",
+          "capabilities",
+          "encodedSubJurisdictionKeys",
+          "compiledThrough",
+          "encodedJurisdictionKeys"
+        ]
+      },
+      "CustodyWillDuty": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "trigger": {
+            "type": "string"
+          },
+          "dutyHolder": {
+            "type": "string"
+          },
+          "deadlineBasis": {
+            "type": "string",
+            "enum": [
+              "daysAfterTrigger",
+              "setByCourtOrder",
+              "concurrentWithFiling",
+              "noStatutoryDeadline"
+            ]
+          },
+          "deadlineDays": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "deliveryTargets": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "consequenceOfNeglect": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sideEffects": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "citation": {
+            "type": "string"
+          },
+          "statutoryText": {
+            "type": "string"
+          },
+          "sourceUrl": {
+            "type": "string"
+          },
+          "verifiedOn": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "summary",
+          "trigger",
+          "dutyHolder",
+          "deadlineBasis",
+          "deadlineDays",
+          "deliveryTargets",
+          "consequenceOfNeglect",
+          "sideEffects",
+          "citation",
+          "statutoryText",
+          "sourceUrl",
+          "verifiedOn"
+        ]
+      },
+      "CustodyWillCapability": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "available": {
+            "type": "boolean"
+          },
+          "basis": {
+            "type": "string"
+          },
+          "verifiedOn": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "summary",
+          "available",
+          "basis",
+          "verifiedOn"
+        ]
+      },
       "CustomFieldAck": {
         "type": "object",
         "properties": {
@@ -8224,7 +8606,25 @@
           "purpose"
         ]
       },
-      "TrustDisbursementRequest": {
+      "TrustDisbursementRequestAck": {
+        "type": "object",
+        "properties": {
+          "trustDisbursementRequestId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending"
+            ]
+          }
+        },
+        "required": [
+          "trustDisbursementRequestId",
+          "status"
+        ]
+      },
+      "TrustDisbursementRequestSubmission": {
         "type": "object",
         "properties": {
           "trustAccountId": {
@@ -8289,6 +8689,159 @@
           "method",
           "payee",
           "purpose"
+        ]
+      },
+      "TrustDisbursementApprovalAck": {
+        "type": "object",
+        "properties": {
+          "trustDisbursementRequestId": {
+            "type": "string"
+          },
+          "authorizationBasis": {
+            "type": "string",
+            "enum": [
+              "second_person",
+              "sole_trust_manager"
+            ]
+          },
+          "trustMovementId": {
+            "type": "string"
+          },
+          "ledgerEntryId": {
+            "type": "string"
+          },
+          "trustLedgerNodeId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "trustDisbursementRequestId",
+          "authorizationBasis",
+          "trustMovementId",
+          "ledgerEntryId",
+          "trustLedgerNodeId"
+        ]
+      },
+      "TrustDisbursementDecisionAck": {
+        "type": "object",
+        "properties": {
+          "trustDisbursementRequestId": {
+            "type": "string"
+          },
+          "decision": {
+            "type": "string",
+            "enum": [
+              "rejected",
+              "withdrawn"
+            ]
+          }
+        },
+        "required": [
+          "trustDisbursementRequestId",
+          "decision"
+        ]
+      },
+      "TrustDisbursementRejection": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "reason"
+        ]
+      },
+      "TrustDisbursementWithdrawal": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          }
+        }
+      },
+      "TrustPendingDisbursementRequestsResponse": {
+        "type": "object",
+        "properties": {
+          "requests": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrustPendingDisbursementRequest"
+            }
+          }
+        },
+        "required": [
+          "requests"
+        ]
+      },
+      "TrustPendingDisbursementRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "trustLedgerNodeId": {
+            "type": "string"
+          },
+          "amountMinor": {
+            "type": "integer"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "check",
+              "cash",
+              "wire",
+              "electronic_transfer",
+              "card"
+            ]
+          },
+          "reference": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "payee": {
+            "type": "string"
+          },
+          "purpose": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "effectiveDate": {
+            "type": "string"
+          },
+          "requestedBy": {
+            "type": "string"
+          },
+          "requestedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "trustLedgerNodeId",
+          "amountMinor",
+          "currency",
+          "method",
+          "reference",
+          "payee",
+          "purpose",
+          "description",
+          "effectiveDate",
+          "requestedBy",
+          "requestedAt"
         ]
       },
       "TrustMatterTransferRequest": {
@@ -8442,6 +8995,23 @@
               "null"
             ]
           },
+          "disbursementRequestId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "authorizationBasis": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "second_person",
+              "sole_trust_manager",
+              null
+            ]
+          },
           "effectiveDate": {
             "type": "string"
           },
@@ -8463,6 +9033,8 @@
           "purpose",
           "recordedBy",
           "authorizedBy",
+          "disbursementRequestId",
+          "authorizationBasis",
           "effectiveDate",
           "recordedAt"
         ]
@@ -17514,7 +18086,7 @@
     },
     "/api/v1/matters/{id}/close": {
       "post": {
-        "description": "Closes a matter (archived-but-additive — it leaves active lists but still accepts documents). Runs the close preconditions first; a matter whose client trust ledger still holds money, or carries an active disputed-funds hold, is refused with the balance and the movements that clear it. Refuses a matter that is already closed, so its recorded close date never moves.",
+        "description": "Closes a matter (archived-but-additive — it leaves active lists but still accepts documents). Runs the close preconditions first; a matter whose client trust ledger still holds money, or carries an active disputed-funds hold, is refused with the balance and the movements that clear it. Refuses a matter that is already closed, so its recorded close date never moves. The response also carries advisory notices — things worth knowing about the matter being closed, such as physical originals the firm still holds against it. A notice never blocks a close and never becomes a refusal; the matter in the response is closed.",
         "operationId": "matters.close",
         "tags": [
           "matters"
@@ -17553,11 +18125,11 @@
         ],
         "responses": {
           "200": {
-            "description": "The matter was closed",
+            "description": "The matter was closed, with any advisory notices",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MatterActionAck"
+                  "$ref": "#/components/schemas/MatterCloseAck"
                 }
               }
             }
@@ -27886,6 +28458,719 @@
         }
       }
     },
+    "/api/v1/custody/destruction-requests": {
+      "get": {
+        "description": "Lists destruction requests, newest first, optionally narrowed to one packet or to a single state. `outcome=pending` is the queue of requests waiting for a second person to approve or refuse them. Cursor-paginated.",
+        "operationId": "custody.listDestructionRequests",
+        "tags": [
+          "custody"
+        ],
+        "x-mc-operationId": "custody.listDestructionRequests",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "custody:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "custody"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^custodyPacket_[A-Za-z0-9_-]{21}$"
+            },
+            "required": false,
+            "name": "packetId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "approved",
+                "refused",
+                "executed",
+                "withdrawn"
+              ]
+            },
+            "required": false,
+            "name": "outcome",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of destruction requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustodyDestructionRequestPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "description": "Raises a request to destroy a packet, or one item inside it, recording the reason and the authority the requester asserts. Raising a request destroys nothing: a different person has to approve it, and a third call carries it out. The request is refused outright while any hold is in force, and refused outright where the property is recorded as an irreplaceable original — that refusal has no override on this surface, and the only way past it is for somebody to change that record about the object itself.",
+        "operationId": "custody.raiseDestructionRequest",
+        "tags": [
+          "custody"
+        ],
+        "x-mc-operationId": "custody.raiseDestructionRequest",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "custody:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "custody"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RaiseCustodyDestructionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The raised request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustodyIdAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress, a hold forbids the action, a location is still occupied, or a custody number could not be allocated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/custody/destruction-requests/{destructionRequestId}/approve": {
+      "post": {
+        "description": "Approves a destruction request. The approver must be a different person from the requester, which is enforced at the database as well as here. Approval authorizes the destruction; it does not carry it out.",
+        "operationId": "custody.approveDestructionRequest",
+        "tags": [
+          "custody"
+        ],
+        "x-mc-operationId": "custody.approveDestructionRequest",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "custody:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "custody"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^custodyDestructionRequest_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "destructionRequestId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Approved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustodyAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress, a hold forbids the action, a location is still occupied, or a custody number could not be allocated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/custody/destruction-requests/{destructionRequestId}/refuse": {
+      "post": {
+        "description": "Refuses a destruction request, optionally recording why. Anyone who can manage the register may refuse one, including the person who raised it: ending a client's property takes two people, and deciding not to takes nobody's agreement.",
+        "operationId": "custody.refuseDestructionRequest",
+        "tags": [
+          "custody"
+        ],
+        "x-mc-operationId": "custody.refuseDestructionRequest",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "custody:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "custody"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^custodyDestructionRequest_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "destructionRequestId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefuseCustodyDestructionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Refused",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustodyAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress, a hold forbids the action, a location is still occupied, or a custody number could not be allocated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/custody/destruction-requests/{destructionRequestId}/execute": {
+      "post": {
+        "description": "Records that an approved destruction was carried out. This appends a `destroyed` movement through the register's one movement write path, so the destruction carries a person's name on the same append-only ledger every other event does. Both refusals are asked again here: a hold placed since the approval, and an irreplaceable original recorded since it.",
+        "operationId": "custody.executeDestructionRequest",
+        "tags": [
+          "custody"
+        ],
+        "x-mc-operationId": "custody.executeDestructionRequest",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "custody:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "custody"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^custodyDestructionRequest_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "destructionRequestId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExecuteCustodyDestructionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The recorded destruction",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExecutedCustodyDestruction"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress, a hold forbids the action, a location is still occupied, or a custody number could not be allocated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/custody/will-deposit-duties": {
+      "get": {
+        "description": "Returns what the law of one jurisdiction says a holder of a will must do, quoted from the statute or court rule with its citation. A jurisdiction with no verified entry is REFUSED rather than answered: there is no baseline and no fallback, because a confidently wrong answer about a statutory duty is one a firm will act on. A jurisdiction below an encoded one (a county or judicial district) is refused on its own terms even when its state is encoded, because a local rule nobody verified is not the same as a local rule that does not exist. This returns the text of the law and nothing else — it is not advice, and it decides nothing the sources leave open.",
+        "operationId": "custody.willDepositDuties",
+        "tags": [
+          "custody"
+        ],
+        "x-mc-operationId": "custody.willDepositDuties",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "custody:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "custody"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 20
+            },
+            "required": true,
+            "name": "jurisdiction",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The encoded duties for that jurisdiction",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustodyWillDuties"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/custom-fields/fields": {
       "post": {
         "description": "Defines a custom field on a matter type or entity category.",
@@ -31686,7 +32971,7 @@
             }
           },
           "409": {
-            "description": "A request with this Idempotency-Key is in progress, or the movement exceeds the client ledger's available balance",
+            "description": "A request with this Idempotency-Key is in progress, the movement exceeds the client ledger's available balance, or the disbursement request has already been decided",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -31696,7 +32981,7 @@
             }
           },
           "422": {
-            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, the trust rules refuse the movement, or the account's jurisdiction cannot be resolved",
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, the trust rules refuse the movement, the account's jurisdiction cannot be resolved, or this member may not make this decision about this disbursement request",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -31718,14 +33003,14 @@
         }
       }
     },
-    "/api/v1/trust/disbursements": {
+    "/api/v1/trust/disbursement-requests": {
       "post": {
-        "description": "Pays client money out of a matter's trust ledger. The amount is measured against the ledger's AVAILABLE balance — the stored balance less any disputed-funds holds — and the authorizing member is recorded on the movement.",
-        "operationId": "trust.disburse",
+        "description": "Proposes a payment of client money out of a matter's trust ledger. NO MONEY MOVES: no ledger entry, no balance change, and no movement record exists until a second member approves the request. The proposal is checked against the ledger's AVAILABLE balance — the stored balance less any disputed-funds holds — so an impossible payment is refused now rather than at approval, and it is checked again when it is approved.",
+        "operationId": "trust.requestDisbursement",
         "tags": [
           "trust"
         ],
-        "x-mc-operationId": "trust.disburse",
+        "x-mc-operationId": "trust.requestDisbursement",
         "x-mc-surface": "app",
         "x-mc-authenticated": true,
         "x-mc-permission": "trust:manage",
@@ -31753,18 +33038,18 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/TrustDisbursementRequest"
+                "$ref": "#/components/schemas/TrustDisbursementRequestSubmission"
               }
             }
           }
         },
         "responses": {
           "201": {
-            "description": "The disbursement was recorded",
+            "description": "The disbursement request is recorded and awaiting approval",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TrustMovementAck"
+                  "$ref": "#/components/schemas/TrustDisbursementRequestAck"
                 }
               }
             }
@@ -31810,7 +33095,7 @@
             }
           },
           "409": {
-            "description": "A request with this Idempotency-Key is in progress, or the movement exceeds the client ledger's available balance",
+            "description": "A request with this Idempotency-Key is in progress, the movement exceeds the client ledger's available balance, or the disbursement request has already been decided",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -31820,7 +33105,488 @@
             }
           },
           "422": {
-            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, the trust rules refuse the movement, or the account's jurisdiction cannot be resolved",
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, the trust rules refuse the movement, the account's jurisdiction cannot be resolved, or this member may not make this decision about this disbursement request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "description": "Lists the disbursement requests on one trust account that nobody has decided yet, oldest first — the queue an approving member works from. A request leaves this list the moment it is approved, rejected, or withdrawn.",
+        "operationId": "trust.listDisbursementRequests",
+        "tags": [
+          "trust"
+        ],
+        "x-mc-operationId": "trust.listDisbursementRequests",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "trust:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "trust"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^trustAccount_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "trustAccountId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The pending disbursement requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustPendingDisbursementRequestsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the trust account or matter ledger is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, the trust rules refuse the movement, the account's jurisdiction cannot be resolved, or this member may not make this decision about this disbursement request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trust/disbursement-requests/{requestId}/approval": {
+      "post": {
+        "description": "Approves a pending disbursement request and posts the trust movement, in one atomic write. The approving member must be somebody other than the member who submitted the request, and is recorded on the movement as the authorizing member; the submitter stays recorded as the member who entered the record. The available balance is measured again HERE, against the ledger as it stands now, so a request that has been overtaken by other activity is refused rather than posted.",
+        "operationId": "trust.approveDisbursement",
+        "tags": [
+          "trust"
+        ],
+        "x-mc-operationId": "trust.approveDisbursement",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "trust:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "trust"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^trustDisbursementRequest_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "requestId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "The disbursement was approved and the movement posted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustDisbursementApprovalAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the trust account or matter ledger is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is in progress, the movement exceeds the client ledger's available balance, or the disbursement request has already been decided",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, the trust rules refuse the movement, the account's jurisdiction cannot be resolved, or this member may not make this decision about this disbursement request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trust/disbursement-requests/{requestId}/rejection": {
+      "post": {
+        "description": "Refuses a pending disbursement request, recording who refused it and why. Nothing reaches the ledger. The refusing member must be somebody other than the one who submitted it — taking back your own request is a withdrawal.",
+        "operationId": "trust.rejectDisbursement",
+        "tags": [
+          "trust"
+        ],
+        "x-mc-operationId": "trust.rejectDisbursement",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "trust:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "trust"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^trustDisbursementRequest_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "requestId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrustDisbursementRejection"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The rejection was recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustDisbursementDecisionAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the trust account or matter ledger is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is in progress, the movement exceeds the client ledger's available balance, or the disbursement request has already been decided",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, the trust rules refuse the movement, the account's jurisdiction cannot be resolved, or this member may not make this decision about this disbursement request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trust/disbursement-requests/{requestId}/withdrawal": {
+      "post": {
+        "description": "Takes back a pending disbursement request the calling member submitted. Recorded rather than deleted — that a payment was proposed and then withdrawn is itself part of the record. Only the submitting member may withdraw; anyone else records a rejection with a reason.",
+        "operationId": "trust.withdrawDisbursement",
+        "tags": [
+          "trust"
+        ],
+        "x-mc-operationId": "trust.withdrawDisbursement",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "trust:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "trust"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^trustDisbursementRequest_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "requestId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrustDisbursementWithdrawal"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The withdrawal was recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustDisbursementDecisionAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the trust account or matter ledger is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is in progress, the movement exceeds the client ledger's available balance, or the disbursement request has already been decided",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, the trust rules refuse the movement, the account's jurisdiction cannot be resolved, or this member may not make this decision about this disbursement request",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -31934,7 +33700,7 @@
             }
           },
           "409": {
-            "description": "A request with this Idempotency-Key is in progress, or the movement exceeds the client ledger's available balance",
+            "description": "A request with this Idempotency-Key is in progress, the movement exceeds the client ledger's available balance, or the disbursement request has already been decided",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -31944,7 +33710,7 @@
             }
           },
           "422": {
-            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, the trust rules refuse the movement, or the account's jurisdiction cannot be resolved",
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, the trust rules refuse the movement, the account's jurisdiction cannot be resolved, or this member may not make this decision about this disbursement request",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -32047,7 +33813,7 @@
             }
           },
           "422": {
-            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, the trust rules refuse the movement, or the account's jurisdiction cannot be resolved",
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, the trust rules refuse the movement, the account's jurisdiction cannot be resolved, or this member may not make this decision about this disbursement request",
             "content": {
               "application/problem+json": {
                 "schema": {

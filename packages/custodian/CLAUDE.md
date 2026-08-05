@@ -22,8 +22,13 @@ surrounding context — [`docs/Magna-Carta-White-Paper.md`](../../docs/Magna-Car
 - `src/movement-service.ts` — **the one write path for every state change**
 - `src/release-gate.ts` — the release gate: what a `released` movement has to capture before an
   original leaves, and the only place that is decided
-- `src/settings.ts` — the firm's release policy (whether two signatories are required), read by hand
 - `src/hold-service.ts` / `src/hold-statements.ts` — holds, and the blocker read a destruction path calls
+- `src/destruction-service.ts` / `src/destruction-statements.ts` — the two-person destruction workflow:
+  request → approve or refuse → execute, with the hold and intrinsic-value refusals at both ends
+- `src/will-deposit-catalog.ts` — the jurisdiction-keyed will-deposit duty catalog (Nevada encoded);
+  refuses rather than guesses, and holds no interpretation of what it quotes
+- `src/close-advisory.ts` — the matter-close notice: informational, never a refusal
+- `src/settings.ts` — the firm's release policy and its ownership-role catalog, both read by hand
 - `src/scan-service.ts` — links an already-ingested `file` to a packet; resolves the filing matter
 - `src/numbering/` — the counter + allocation statements and the fixed number shape
 - `src/queries.ts` — the register list, the location-subtree filter, and the overdue check-out sweep
@@ -66,6 +71,34 @@ surrounding context — [`docs/Magna-Carta-White-Paper.md`](../../docs/Magna-Car
   `recordCustodyMovement` composes `assertCustodyPacketStatusStatement` (and its item twin) FIRST in
   the batch: it re-inserts the row's own primary key when the status is not what the caller observed,
   aborting the whole batch. A guarded `UPDATE` alone would silently match zero rows.
+- **Destroying property takes two people, and they are two people at the database.** The requester and
+  the approver differ, enforced by `custody_destruction_request_two_person_insert` / `_update` on top
+  of the column CHECK — the CHECK cannot see that a NULL requester makes any approver satisfy it, and
+  a trigger can. Execution additionally requires a committed `approved` outcome, so an approval cannot
+  arrive in the same statement that carries the destruction out, and a refused/executed/withdrawn
+  request is frozen. Execution appends its `destroyed` entry through `recordCustodyMovement`, never a
+  parallel write, and commits the ledger row BEFORE the request's completion: a destruction with no
+  ledger entry is a destruction nobody can prove, while a request stuck at `approved` after a recorded
+  destruction is visible and correctable.
+- **An item flagged `intrinsic_value` is never destructible, and the refusal has no override.** No
+  parameter, no flag, no privileged caller, no second endpoint. It is enforced in
+  `destruction-service.ts`, in `movement-service.ts` (the workflow is not the only way to append a
+  `destroyed` movement), and by triggers on both `custody_destruction_request` and `custody_movement`,
+  so it holds for a write path nobody has written. A packet-scoped destruction is refused when ANY
+  item in it carries the flag. The only way past is a person clearing the flag on that object — a
+  change to a fact, not a route round a rule.
+- **The jurisdiction catalog refuses rather than guesses, and two refusals stay distinct.**
+  `custody-jurisdiction-not-recorded` (nobody said which law) and `custody-jurisdiction-not-encoded`
+  (nobody has verified that law) are fixed differently and must never be conflated or defaulted. A
+  sub-jurisdiction key refuses on its own terms even where its parent is encoded — resolving an
+  unchecked county to its state's entries would answer "the county requires nothing". The catalog
+  carries verbatim statutory text with its citation and no interpretation of it; a question the
+  sources leave open stays open, and a due date is computed only from a date a person recorded.
+- **The matter-close notice is an advisory and can never become a refusal.** `close-advisory.ts`
+  implements `CloseAdvisory` (a `notice`), never `ClosePrecondition` (a `check` plus a `commitGuard`).
+  Custody must not block a matter close: a firm holds a client's will for decades after their last
+  matter closed, and a block would only teach firms to unlink packets before closing. The notice
+  carries a COUNT and nothing identifying — closing a matter needs no custody permission.
 - **No retention defaults, ever.** No column carries a default retention and no code path derives one;
   the purity test fails on any identifier that looks like it does. Retention for client property is
   the most jurisdiction-bound fact in this subsystem, and a platform default is a platform opinion

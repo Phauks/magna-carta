@@ -25,6 +25,12 @@ pub use scrub::*;
 
 mod textpos;
 
+mod textextract;
+pub use textextract::{
+    needs_recognition, PageTextFacts, TextLayerLine, SCANNED_PAGE_RASTER_COVERAGE,
+    TEXT_LAYER_COVERAGE,
+};
+
 mod detect;
 pub use detect::*;
 
@@ -297,19 +303,13 @@ impl Document {
     ///
     /// Glyph boxes may overlap, so the sum is clamped to 1.0 rather than pretending to
     /// be an exact union. Returns `PageOutOfRange` if the page cannot be observed.
+    ///
+    /// A caller that also wants the page's raster share or its text should ask
+    /// [`Document::page_text_facts`] instead — it answers all three from one observation,
+    /// and observing the page is the expensive part.
     pub fn page_visible_text_coverage(&self, index: usize) -> Result<f32, PdfError> {
         let obs = crate::textpos::observe_page(&self.pdf, index).ok_or(PdfError::PageOutOfRange)?;
-        let page_area = (obs.width_pt as f64) * (obs.height_pt as f64);
-        if page_area <= 0.0 {
-            return Ok(0.0);
-        }
-        let ink: f64 = obs
-            .glyphs
-            .iter()
-            .filter(|g| !g.invisible && !crate::redact::is_whitespace_glyph(&g.text))
-            .map(|g| g.bbox.width().abs() * g.bbox.height().abs())
-            .sum();
-        Ok(((ink / page_area) as f32).clamp(0.0, 1.0))
+        Ok(crate::textextract::coverages(&obs).text)
     }
 
     /// The share of page `index` -- from 0.0 to 1.0 -- covered by raster images. A
@@ -322,17 +322,7 @@ impl Document {
     /// page cannot be observed.
     pub fn page_raster_coverage(&self, index: usize) -> Result<f32, PdfError> {
         let obs = crate::textpos::observe_page(&self.pdf, index).ok_or(PdfError::PageOutOfRange)?;
-        let page_area = (obs.width_pt as f64) * (obs.height_pt as f64);
-        if page_area <= 0.0 {
-            return Ok(0.0);
-        }
-        let raster: f64 = obs
-            .covers
-            .iter()
-            .filter(|c| c.is_image)
-            .map(|c| c.bbox.width().abs() * c.bbox.height().abs())
-            .sum();
-        Ok(((raster / page_area) as f32).clamp(0.0, 1.0))
+        Ok(crate::textextract::coverages(&obs).raster)
     }
 
     /// Every non-whitespace text glyph on page `index`, carrying both its recognized

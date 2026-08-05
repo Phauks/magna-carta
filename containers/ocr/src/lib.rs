@@ -129,48 +129,6 @@ fn document_load_error(error: pdf_core::PdfError) -> OcrError {
 /// on a request someone is waiting on.
 const MAX_PAGES: usize = 100;
 
-/// The share of a page that must be covered by visible text before its text layer is
-/// judged complete enough that recognition would add nothing -- whatever else is on the
-/// page. Born-digital body text runs well above this even on a sparse page; a stamp, a
-/// page number, or a caption runs an order of magnitude below.
-const TEXT_LAYER_COVERAGE: f32 = 0.02;
-
-/// The share of a page that must be raster image before the page is treated as a scan --
-/// something whose content is pixels, and therefore has words only recognition can reach.
-const SCANNED_PAGE_RASTER_COVERAGE: f32 = 0.5;
-
-/// Does this page still need recognizing? Presence of a glyph is emphatically not the
-/// test, and getting this wrong is expensive in both directions.
-///
-/// Two glyphs answer "yes, there is text here" while leaving the page's actual content
-/// unread: an *invisible* text layer (excluded from the coverage measure upstream, in
-/// `page_visible_text_coverage`), and a **Bates stamp** -- a dozen real, visible glyphs in
-/// the corner of an otherwise scanned page. This product stamps productions itself, so a
-/// skip-on-presence rule would silently discard the content of every stamped scanned page
-/// it was ever asked to read. That is the failure this function exists to prevent.
-///
-/// So text is weighed against what it sits on. A page that is mostly raster and carries
-/// only a sprinkling of text is a scan someone wrote on -- recognize it. A page drawn as
-/// text and vectors is born-digital: whatever text it has is already better than anything
-/// OCR could produce from a picture of it, so leave it alone even where there is little of
-/// it. And a page dense with text needs nothing from us regardless of what is underneath.
-///
-/// Where the signals are ambiguous the tie goes to recognizing: OCRing a page that already
-/// had text costs some duplicate lines a caller can see and drop, while skipping a page
-/// that did not costs the page, silently.
-fn needs_recognition(text_coverage: f32, raster_coverage: f32) -> bool {
-    if text_coverage >= TEXT_LAYER_COVERAGE {
-        return false;
-    }
-    let is_scan = raster_coverage >= SCANNED_PAGE_RASTER_COVERAGE;
-    // Sparse text on a page that is not a scan: born-digital and simply sparse. Nothing to
-    // recognize -- there is no picture of words here, only words.
-    if !is_scan && text_coverage > 0.0 {
-        return false;
-    }
-    true
-}
-
 /// A render failure is not automatically ours. `Rejected` means the page's declared
 /// geometry exceeded the raster budget -- a property of the document, permanent across
 /// retries -- while a genuine renderer fault is transient and worth retrying.
@@ -193,13 +151,15 @@ fn recognize_pdf(state: &AppState, bytes: &[u8], force: bool) -> Result<Vec<Page
         // An unreadable page must never be assumed to have no text layer -- that would
         // silently re-OCR a page whose existing text we simply failed to observe, so a
         // lookup failure is a permanent document fault, not a green light to proceed.
-        let text_coverage = document
-            .page_visible_text_coverage(page_index)
+        //
+        // The gate itself lives in `pdf-core`, alongside the native text extraction that
+        // reads the pages this skips. The two have to agree about which pages carry a text
+        // layer -- a page neither of them claims is a page that falls out of the corpus --
+        // and the only way to guarantee that is for both to ask the same function.
+        let facts = document
+            .page_text_facts(page_index)
             .map_err(|_| OcrError::DocumentUnreadable)?;
-        let raster_coverage = document
-            .page_raster_coverage(page_index)
-            .map_err(|_| OcrError::DocumentUnreadable)?;
-        if !force && !needs_recognition(text_coverage, raster_coverage) {
+        if !force && !facts.needs_recognition {
             pages.push(PageFacts {
                 page_index,
                 lines: Vec::new(),
@@ -782,65 +742,35 @@ mod tests {
         assert_point_close(&word_quad[3], 2.4, 780.0);
     }
 
-    #[test]
-    fn a_bates_stamp_does_not_make_a_scanned_page_look_like_it_has_a_text_layer() {
-        // The trap this gate exists to avoid. A scanned page carrying a Bates stamp is
-        // ~100% raster and a fraction of a percent text -- if the presence of the stamp's
-        // glyphs counted as a text layer, every stamped page of a scanned production
-        // would be skipped and its content lost. This product stamps productions itself.
-        assert!(
-            needs_recognition(0.001, 1.0),
-            "a stamped scan must still be recognized"
-        );
-        // The same page before it was stamped.
-        assert!(needs_recognition(0.0, 1.0));
-        // A scan whose text layer is invisible reads as zero *visible* coverage upstream,
-        // so it arrives here indistinguishable from an unstamped scan -- and is recognized.
-        // That is what lets a result be replaced by a better one later.
-        assert!(needs_recognition(0.0, 0.98));
-    }
-
-    #[test]
-    fn a_born_digital_page_is_left_alone_however_sparse_its_text() {
-        // Dense body text: nothing to add.
-        assert!(!needs_recognition(0.25, 0.0));
-        // A title page with one line on it: still born-digital. Its own text layer beats
-        // anything recognition could read off a picture of it, so it is not re-recognized
-        // merely for being sparse.
-        assert!(!needs_recognition(0.002, 0.0));
-        // Text over a small illustration is still a text page.
-        assert!(!needs_recognition(0.05, 0.2));
-    }
-
-    #[test]
-    fn a_page_with_neither_text_nor_raster_is_recognized_rather_than_assumed_empty() {
-        // Nothing observed at all. It could be a scan the observer could not see into;
-        // the tie goes to looking, since skipping would lose the page silently.
-        assert!(needs_recognition(0.0, 0.0));
-    }
+    // The gate's own truth table is tested where the gate lives, in `pdf_core::textextract`,
+    // next to the native extraction that reads the pages it skips. What is tested here is
+    // that this container's fixtures really produce the signals the gate is being asked
+    // about, and that the route acts on its answer.
 
     #[test]
     fn the_synthetic_scan_fixture_really_measures_as_a_scan() {
         // The gate is only as good as the signals under it: if the observer did not see
-        // the page's image, every scan would read as "not a scan" and the tests above
+        // the page's image, every scan would read as "not a scan" and the route tests
         // would pass for the wrong reason.
         let document = pdf_core::Document::load(scanned_pdf(Some("SMITH000123"))).unwrap();
-        let text = document.page_visible_text_coverage(0).unwrap();
-        let raster = document.page_raster_coverage(0).unwrap();
+        let facts = document.page_text_facts(0).unwrap();
         // The full-page image must read as covering essentially the whole page, and the
-        // Bates stamp as a sliver -- the exact signal split `needs_recognition` relies on to
-        // recognize a stamped scan rather than mistake the stamp for a text layer.
+        // Bates stamp as a sliver -- the exact signal split the gate relies on to recognize
+        // a stamped scan rather than mistake the stamp for a text layer.
         assert!(
-            raster > 0.9,
-            "the full-page scan image must measure as a scan: raster={raster}"
+            facts.raster_coverage > 0.9,
+            "the full-page scan image must measure as a scan: raster={}",
+            facts.raster_coverage
         );
         assert!(
-            text < TEXT_LAYER_COVERAGE,
-            "the Bates stamp must measure well below the text-layer threshold: text={text}"
+            facts.text_coverage < pdf_core::TEXT_LAYER_COVERAGE,
+            "the Bates stamp must measure well below the text-layer threshold: text={}",
+            facts.text_coverage
         );
         assert!(
-            needs_recognition(text, raster),
-            "a stamped scan must be recognized, not skipped: text={text} raster={raster}"
+            facts.needs_recognition,
+            "a stamped scan must be recognized, not skipped: text={} raster={}",
+            facts.text_coverage, facts.raster_coverage
         );
     }
 

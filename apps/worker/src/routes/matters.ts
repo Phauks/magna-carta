@@ -15,6 +15,8 @@ import {
   ClosePreconditionError,
   type ClosePrecondition,
 } from "@magna-carta/matters/close-preconditions";
+import type { CloseAdvisory } from "@magna-carta/matters/close-advisories";
+import { matterCustodyCloseAdvisory } from "@magna-carta/custodian/close-advisory";
 import { NumberingRenderError } from "@magna-carta/matters/numbering/render";
 import { listConsultations, listMatters } from "@magna-carta/matters/queries";
 import { staleConsultationAgeDaysDefinition } from "@magna-carta/matters/settings";
@@ -137,6 +139,17 @@ const OpenMatterResponse = z
 // detail. matterId matches the service's stored value so a replay is byte-identical to the fresh ack.
 const StatusAck = z.object({ matterId: z.string() }).openapi("MatterActionAck");
 
+// The close acknowledgement carries the advisory notices alongside the id. They are INFORMATION, not
+// a refusal: a close that produced notices still closed, and there is no arm of this contract on
+// which a notice prevents one. Its own component rather than an extra field on the shared ack so a
+// notice cannot leak onto open, reopen, or renumber, none of which run advisories.
+const CloseAck = z
+  .object({
+    matterId: z.string(),
+    notices: z.array(z.object({ code: z.string(), message: z.string() })),
+  })
+  .openapi("MatterCloseAck");
+
 const RenumberRequest = z
   .object({ matterNumber: z.string().min(1) })
   .openapi("RenumberMatterRequest");
@@ -147,6 +160,13 @@ const matterParam = z.object({ id: identifierPathParam("matter", "id") });
 // runs whatever it is handed and never imports the subsystem that owns a rule. Trust is the first
 // and, today, the only one — a matter whose client trust ledger still holds money does not close.
 const CLOSE_PRECONDITIONS: readonly ClosePrecondition[] = [matterTrustClosePrecondition];
+
+// The close NOTICES, registered the same way and kept deliberately separate from the rules above.
+// Custody is the first: closing a matter surfaces the physical originals the firm still holds against
+// it and never blocks on them. A firm holds a client's will for decades after the last matter for
+// that client closed — that is the steady state of a safe-custody register, and a block here would
+// only teach people to unlink packets from matters before closing them.
+const CLOSE_ADVISORIES: readonly CloseAdvisory[] = [matterCustodyCloseAdvisory];
 
 // ---- shared helpers ----
 
@@ -529,12 +549,15 @@ const closeMatterRoute = defineOpenAPIRoute(closeMatterMeta, {
     "Closes a matter (archived-but-additive — it leaves active lists but still accepts documents). " +
     "Runs the close preconditions first; a matter whose client trust ledger still holds money, or " +
     "carries an active disputed-funds hold, is refused with the balance and the movements that " +
-    "clear it. Refuses a matter that is already closed, so its recorded close date never moves.",
+    "clear it. Refuses a matter that is already closed, so its recorded close date never moves. " +
+    "The response also carries advisory notices — things worth knowing about the matter being " +
+    "closed, such as physical originals the firm still holds against it. A notice never blocks a " +
+    "close and never becomes a refusal; the matter in the response is closed.",
   request: { headers: idempotencyKeyHeader, params: matterParam },
   responses: {
     200: {
-      description: "The matter was closed",
-      content: { "application/json": { schema: StatusAck } },
+      description: "The matter was closed, with any advisory notices",
+      content: { "application/json": { schema: CloseAck } },
     },
     400: idempotencyErrors[400],
     401: authErrors[401],
@@ -830,9 +853,13 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
           actorUserId: userId,
           idempotency,
           closePreconditions: CLOSE_PRECONDITIONS,
+          closeAdvisories: CLOSE_ADVISORIES,
         });
         if (result.idempotentReplay) c.header("Idempotency-Replayed", "true");
-        return c.json({ matterId: id } as z.infer<typeof StatusAck>, 200);
+        return c.json(
+          { matterId: id, notices: [...result.notices] } as z.infer<typeof CloseAck>,
+          200,
+        );
       } catch (caught) {
         if (caught instanceof ClosePreconditionError) {
           return problemJson(c, {

@@ -16,6 +16,7 @@ import { runTieringSweep } from "./editing/tiering-sweep.ts";
 import { recoveryQueue } from "./recovery/recovery-consumer.ts";
 import type { RecoveryShardMessage } from "./recovery/recovery-types.ts";
 import { runScheduledSweep, runStatusSnapshot, runStorageReconciliation } from "./scheduled.ts";
+import { runReextractionSweep } from "./search/reextraction-sweep.ts";
 import { searchIndexQueue } from "./search/index-consumer.ts";
 import type { SearchIndexMessage } from "./search/index-types.ts";
 import { LiveTimerDurableObject } from "./timer/live-timer-durable-object.ts";
@@ -111,6 +112,10 @@ export default {
               await runStorageReconciliation(env);
               await runTieringSweep(env);
               await runIdleCheckoutSweep(env);
+              // Last: it only enqueues, so its cost lands on the search-index queue rather than on
+              // this pass, and running it after the storage work means a firm whose bytes were just
+              // reconciled is swept against the corrected picture.
+              await runReextractionSweep(env);
             },
           }
         : controller.cron === STATUS_SNAPSHOT_CRON

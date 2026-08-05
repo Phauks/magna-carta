@@ -652,6 +652,14 @@ export type OpenMatterResponse = {
     matterNumber: string;
 };
 
+export type MatterCloseAck = {
+    matterId: string;
+    notices: Array<{
+        code: string;
+        message: string;
+    }>;
+};
+
 export type RenumberMatterRequest = {
     matterNumber: string;
 };
@@ -1697,6 +1705,85 @@ export type CloseCustodyStocktakeRequest = {
     note?: string | null;
 };
 
+export type CustodyDestructionRequestPage = {
+    data: Array<CustodyDestructionRequest>;
+    nextCursor: string | null;
+};
+
+export type CustodyDestructionRequest = {
+    id: string;
+    packetId: string;
+    itemId: string | null;
+    requestedBy: string | null;
+    requestedAt: string;
+    basis: string;
+    approvedBy: string | null;
+    approvedAt: string | null;
+    refusedBy: string | null;
+    refusedAt: string | null;
+    refusalReason: string | null;
+    executedAt: string | null;
+    executedBy: string | null;
+    executedMovementId: string | null;
+    outcome: 'approved' | 'refused' | 'executed' | 'withdrawn' | null;
+};
+
+export type RaiseCustodyDestructionRequest = {
+    packetId: string;
+    itemId?: string;
+    basis: string;
+};
+
+export type RefuseCustodyDestructionRequest = {
+    reason?: string | null;
+};
+
+export type ExecutedCustodyDestruction = {
+    id: string;
+    packetId: string;
+    movementId: string;
+    executedAt: string;
+};
+
+export type ExecuteCustodyDestructionRequest = {
+    method?: string | null;
+    occurredAt?: string;
+};
+
+export type CustodyWillDuties = {
+    jurisdictionKey: string;
+    name: string;
+    duties: Array<CustodyWillDuty>;
+    capabilities: Array<CustodyWillCapability>;
+    encodedSubJurisdictionKeys: Array<string>;
+    compiledThrough: string;
+    encodedJurisdictionKeys: Array<string>;
+};
+
+export type CustodyWillDuty = {
+    key: string;
+    summary: string;
+    trigger: string;
+    dutyHolder: string;
+    deadlineBasis: 'daysAfterTrigger' | 'setByCourtOrder' | 'concurrentWithFiling' | 'noStatutoryDeadline';
+    deadlineDays: number | null;
+    deliveryTargets: Array<string>;
+    consequenceOfNeglect: string | null;
+    sideEffects: Array<string>;
+    citation: string;
+    statutoryText: string;
+    sourceUrl: string;
+    verifiedOn: string;
+};
+
+export type CustodyWillCapability = {
+    key: string;
+    summary: string;
+    available: boolean;
+    basis: string;
+    verifiedOn: string;
+};
+
 export type CustomFieldAck = {
     id: string;
 };
@@ -1909,7 +1996,12 @@ export type TrustDepositRequest = {
     purpose: string;
 };
 
-export type TrustDisbursementRequest = {
+export type TrustDisbursementRequestAck = {
+    trustDisbursementRequestId: string;
+    status: 'pending';
+};
+
+export type TrustDisbursementRequestSubmission = {
     trustAccountId: string;
     matterId: string;
     amountMinor: number;
@@ -1920,6 +2012,46 @@ export type TrustDisbursementRequest = {
     reference?: string | null;
     payee: string;
     purpose: string;
+};
+
+export type TrustDisbursementApprovalAck = {
+    trustDisbursementRequestId: string;
+    authorizationBasis: 'second_person' | 'sole_trust_manager';
+    trustMovementId: string;
+    ledgerEntryId: string;
+    trustLedgerNodeId: string;
+};
+
+export type TrustDisbursementDecisionAck = {
+    trustDisbursementRequestId: string;
+    decision: 'rejected' | 'withdrawn';
+};
+
+export type TrustDisbursementRejection = {
+    reason: string;
+};
+
+export type TrustDisbursementWithdrawal = {
+    reason?: string | null;
+};
+
+export type TrustPendingDisbursementRequestsResponse = {
+    requests: Array<TrustPendingDisbursementRequest>;
+};
+
+export type TrustPendingDisbursementRequest = {
+    id: string;
+    trustLedgerNodeId: string;
+    amountMinor: number;
+    currency: string;
+    method: 'check' | 'cash' | 'wire' | 'electronic_transfer' | 'card';
+    reference: string | null;
+    payee: string;
+    purpose: string;
+    description: string;
+    effectiveDate: string;
+    requestedBy: string;
+    requestedAt: string;
 };
 
 export type TrustMatterTransferRequest = {
@@ -1956,6 +2088,8 @@ export type TrustMovementRecord = {
     purpose: string;
     recordedBy: string;
     authorizedBy: string | null;
+    disbursementRequestId: string | null;
+    authorizationBasis: 'second_person' | 'sole_trust_manager' | null;
     effectiveDate: string;
     recordedAt: string;
 };
@@ -5395,9 +5529,9 @@ export type MattersCloseError = MattersCloseErrors[keyof MattersCloseErrors];
 
 export type MattersCloseResponses = {
     /**
-     * The matter was closed
+     * The matter was closed, with any advisory notices
      */
-    200: MatterActionAck;
+    200: MatterCloseAck;
 };
 
 export type MattersCloseResponse = MattersCloseResponses[keyof MattersCloseResponses];
@@ -9785,6 +9919,304 @@ export type CustodyRenderLabelsResponses = {
 
 export type CustodyRenderLabelsResponse = CustodyRenderLabelsResponses[keyof CustodyRenderLabelsResponses];
 
+export type CustodyListDestructionRequestsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        cursor?: string;
+        packetId?: string;
+        outcome?: 'pending' | 'approved' | 'refused' | 'executed' | 'withdrawn';
+    };
+    url: '/api/v1/custody/destruction-requests';
+};
+
+export type CustodyListDestructionRequestsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustodyListDestructionRequestsError = CustodyListDestructionRequestsErrors[keyof CustodyListDestructionRequestsErrors];
+
+export type CustodyListDestructionRequestsResponses = {
+    /**
+     * A page of destruction requests
+     */
+    200: CustodyDestructionRequestPage;
+};
+
+export type CustodyListDestructionRequestsResponse = CustodyListDestructionRequestsResponses[keyof CustodyListDestructionRequestsResponses];
+
+export type CustodyRaiseDestructionRequestData = {
+    body: RaiseCustodyDestructionRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/custody/destruction-requests';
+};
+
+export type CustodyRaiseDestructionRequestErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, a hold forbids the action, a location is still occupied, or a custody number could not be allocated
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustodyRaiseDestructionRequestError = CustodyRaiseDestructionRequestErrors[keyof CustodyRaiseDestructionRequestErrors];
+
+export type CustodyRaiseDestructionRequestResponses = {
+    /**
+     * The raised request
+     */
+    201: CustodyIdAck;
+};
+
+export type CustodyRaiseDestructionRequestResponse = CustodyRaiseDestructionRequestResponses[keyof CustodyRaiseDestructionRequestResponses];
+
+export type CustodyApproveDestructionRequestData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        destructionRequestId: string;
+    };
+    query?: never;
+    url: '/api/v1/custody/destruction-requests/{destructionRequestId}/approve';
+};
+
+export type CustodyApproveDestructionRequestErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, a hold forbids the action, a location is still occupied, or a custody number could not be allocated
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustodyApproveDestructionRequestError = CustodyApproveDestructionRequestErrors[keyof CustodyApproveDestructionRequestErrors];
+
+export type CustodyApproveDestructionRequestResponses = {
+    /**
+     * Approved
+     */
+    200: CustodyAck;
+};
+
+export type CustodyApproveDestructionRequestResponse = CustodyApproveDestructionRequestResponses[keyof CustodyApproveDestructionRequestResponses];
+
+export type CustodyRefuseDestructionRequestData = {
+    body?: RefuseCustodyDestructionRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        destructionRequestId: string;
+    };
+    query?: never;
+    url: '/api/v1/custody/destruction-requests/{destructionRequestId}/refuse';
+};
+
+export type CustodyRefuseDestructionRequestErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, a hold forbids the action, a location is still occupied, or a custody number could not be allocated
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustodyRefuseDestructionRequestError = CustodyRefuseDestructionRequestErrors[keyof CustodyRefuseDestructionRequestErrors];
+
+export type CustodyRefuseDestructionRequestResponses = {
+    /**
+     * Refused
+     */
+    200: CustodyAck;
+};
+
+export type CustodyRefuseDestructionRequestResponse = CustodyRefuseDestructionRequestResponses[keyof CustodyRefuseDestructionRequestResponses];
+
+export type CustodyExecuteDestructionRequestData = {
+    body?: ExecuteCustodyDestructionRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        destructionRequestId: string;
+    };
+    query?: never;
+    url: '/api/v1/custody/destruction-requests/{destructionRequestId}/execute';
+};
+
+export type CustodyExecuteDestructionRequestErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, a hold forbids the action, a location is still occupied, or a custody number could not be allocated
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustodyExecuteDestructionRequestError = CustodyExecuteDestructionRequestErrors[keyof CustodyExecuteDestructionRequestErrors];
+
+export type CustodyExecuteDestructionRequestResponses = {
+    /**
+     * The recorded destruction
+     */
+    200: ExecutedCustodyDestruction;
+};
+
+export type CustodyExecuteDestructionRequestResponse = CustodyExecuteDestructionRequestResponses[keyof CustodyExecuteDestructionRequestResponses];
+
+export type CustodyWillDepositDutiesData = {
+    body?: never;
+    path?: never;
+    query: {
+        jurisdiction: string;
+    };
+    url: '/api/v1/custody/will-deposit-duties';
+};
+
+export type CustodyWillDepositDutiesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustodyWillDepositDutiesError = CustodyWillDepositDutiesErrors[keyof CustodyWillDepositDutiesErrors];
+
+export type CustodyWillDepositDutiesResponses = {
+    /**
+     * The encoded duties for that jurisdiction
+     */
+    200: CustodyWillDuties;
+};
+
+export type CustodyWillDepositDutiesResponse = CustodyWillDepositDutiesResponses[keyof CustodyWillDepositDutiesResponses];
+
 export type CustomFieldsDefineFieldData = {
     body: DefineCustomFieldRequest;
     headers: {
@@ -11385,11 +11817,11 @@ export type TrustDepositErrors = {
      */
     404: Problem;
     /**
-     * A request with this Idempotency-Key is in progress, or the movement exceeds the client ledger's available balance
+     * A request with this Idempotency-Key is in progress, the movement exceeds the client ledger's available balance, or the disbursement request has already been decided
      */
     409: Problem;
     /**
-     * The request is invalid, the Idempotency-Key was reused with a different payload, the trust rules refuse the movement, or the account's jurisdiction cannot be resolved
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the trust rules refuse the movement, the account's jurisdiction cannot be resolved, or this member may not make this decision about this disbursement request
      */
     422: Problem;
     /**
@@ -11409,17 +11841,60 @@ export type TrustDepositResponses = {
 
 export type TrustDepositResponse = TrustDepositResponses[keyof TrustDepositResponses];
 
-export type TrustDisburseData = {
-    body: TrustDisbursementRequest;
+export type TrustListDisbursementRequestsData = {
+    body?: never;
+    path?: never;
+    query: {
+        trustAccountId: string;
+    };
+    url: '/api/v1/trust/disbursement-requests';
+};
+
+export type TrustListDisbursementRequestsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account or matter ledger is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the trust rules refuse the movement, the account's jurisdiction cannot be resolved, or this member may not make this decision about this disbursement request
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustListDisbursementRequestsError = TrustListDisbursementRequestsErrors[keyof TrustListDisbursementRequestsErrors];
+
+export type TrustListDisbursementRequestsResponses = {
+    /**
+     * The pending disbursement requests
+     */
+    200: TrustPendingDisbursementRequestsResponse;
+};
+
+export type TrustListDisbursementRequestsResponse = TrustListDisbursementRequestsResponses[keyof TrustListDisbursementRequestsResponses];
+
+export type TrustRequestDisbursementData = {
+    body: TrustDisbursementRequestSubmission;
     headers: {
         'idempotency-key': string;
     };
     path?: never;
     query?: never;
-    url: '/api/v1/trust/disbursements';
+    url: '/api/v1/trust/disbursement-requests';
 };
 
-export type TrustDisburseErrors = {
+export type TrustRequestDisbursementErrors = {
     /**
      * Missing Idempotency-Key (this operation requires one)
      */
@@ -11437,11 +11912,11 @@ export type TrustDisburseErrors = {
      */
     404: Problem;
     /**
-     * A request with this Idempotency-Key is in progress, or the movement exceeds the client ledger's available balance
+     * A request with this Idempotency-Key is in progress, the movement exceeds the client ledger's available balance, or the disbursement request has already been decided
      */
     409: Problem;
     /**
-     * The request is invalid, the Idempotency-Key was reused with a different payload, the trust rules refuse the movement, or the account's jurisdiction cannot be resolved
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the trust rules refuse the movement, the account's jurisdiction cannot be resolved, or this member may not make this decision about this disbursement request
      */
     422: Problem;
     /**
@@ -11450,16 +11925,178 @@ export type TrustDisburseErrors = {
     429: Problem;
 };
 
-export type TrustDisburseError = TrustDisburseErrors[keyof TrustDisburseErrors];
+export type TrustRequestDisbursementError = TrustRequestDisbursementErrors[keyof TrustRequestDisbursementErrors];
 
-export type TrustDisburseResponses = {
+export type TrustRequestDisbursementResponses = {
     /**
-     * The disbursement was recorded
+     * The disbursement request is recorded and awaiting approval
      */
-    201: TrustMovementAck;
+    201: TrustDisbursementRequestAck;
 };
 
-export type TrustDisburseResponse = TrustDisburseResponses[keyof TrustDisburseResponses];
+export type TrustRequestDisbursementResponse = TrustRequestDisbursementResponses[keyof TrustRequestDisbursementResponses];
+
+export type TrustApproveDisbursementData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        requestId: string;
+    };
+    query?: never;
+    url: '/api/v1/trust/disbursement-requests/{requestId}/approval';
+};
+
+export type TrustApproveDisbursementErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account or matter ledger is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the movement exceeds the client ledger's available balance, or the disbursement request has already been decided
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the trust rules refuse the movement, the account's jurisdiction cannot be resolved, or this member may not make this decision about this disbursement request
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustApproveDisbursementError = TrustApproveDisbursementErrors[keyof TrustApproveDisbursementErrors];
+
+export type TrustApproveDisbursementResponses = {
+    /**
+     * The disbursement was approved and the movement posted
+     */
+    201: TrustDisbursementApprovalAck;
+};
+
+export type TrustApproveDisbursementResponse = TrustApproveDisbursementResponses[keyof TrustApproveDisbursementResponses];
+
+export type TrustRejectDisbursementData = {
+    body: TrustDisbursementRejection;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        requestId: string;
+    };
+    query?: never;
+    url: '/api/v1/trust/disbursement-requests/{requestId}/rejection';
+};
+
+export type TrustRejectDisbursementErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account or matter ledger is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the movement exceeds the client ledger's available balance, or the disbursement request has already been decided
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the trust rules refuse the movement, the account's jurisdiction cannot be resolved, or this member may not make this decision about this disbursement request
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustRejectDisbursementError = TrustRejectDisbursementErrors[keyof TrustRejectDisbursementErrors];
+
+export type TrustRejectDisbursementResponses = {
+    /**
+     * The rejection was recorded
+     */
+    201: TrustDisbursementDecisionAck;
+};
+
+export type TrustRejectDisbursementResponse = TrustRejectDisbursementResponses[keyof TrustRejectDisbursementResponses];
+
+export type TrustWithdrawDisbursementData = {
+    body: TrustDisbursementWithdrawal;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        requestId: string;
+    };
+    query?: never;
+    url: '/api/v1/trust/disbursement-requests/{requestId}/withdrawal';
+};
+
+export type TrustWithdrawDisbursementErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account or matter ledger is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the movement exceeds the client ledger's available balance, or the disbursement request has already been decided
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the trust rules refuse the movement, the account's jurisdiction cannot be resolved, or this member may not make this decision about this disbursement request
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustWithdrawDisbursementError = TrustWithdrawDisbursementErrors[keyof TrustWithdrawDisbursementErrors];
+
+export type TrustWithdrawDisbursementResponses = {
+    /**
+     * The withdrawal was recorded
+     */
+    201: TrustDisbursementDecisionAck;
+};
+
+export type TrustWithdrawDisbursementResponse = TrustWithdrawDisbursementResponses[keyof TrustWithdrawDisbursementResponses];
 
 export type TrustTransferBetweenMattersData = {
     body: TrustMatterTransferRequest;
@@ -11489,11 +12126,11 @@ export type TrustTransferBetweenMattersErrors = {
      */
     404: Problem;
     /**
-     * A request with this Idempotency-Key is in progress, or the movement exceeds the client ledger's available balance
+     * A request with this Idempotency-Key is in progress, the movement exceeds the client ledger's available balance, or the disbursement request has already been decided
      */
     409: Problem;
     /**
-     * The request is invalid, the Idempotency-Key was reused with a different payload, the trust rules refuse the movement, or the account's jurisdiction cannot be resolved
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the trust rules refuse the movement, the account's jurisdiction cannot be resolved, or this member may not make this decision about this disbursement request
      */
     422: Problem;
     /**
@@ -11538,7 +12175,7 @@ export type TrustMatterLedgerErrors = {
      */
     404: Problem;
     /**
-     * The request is invalid, the Idempotency-Key was reused with a different payload, the trust rules refuse the movement, or the account's jurisdiction cannot be resolved
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the trust rules refuse the movement, the account's jurisdiction cannot be resolved, or this member may not make this decision about this disbursement request
      */
     422: Problem;
     /**

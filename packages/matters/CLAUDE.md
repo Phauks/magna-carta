@@ -18,6 +18,9 @@ list/consultations queries. Validates in memory and composes statements into @ma
 - `src/numbering/scheme-service.ts` / `scheme-statements.ts` — the one-active-scheme write path
 - `src/matter-service.ts` — `createMatter`/`openMatter`/`closeMatter`/`reopenMatter`/`renumberMatter`/`updateMatter`
 - `src/close-preconditions.ts` — the close-precondition hook: a `check` plus an optional in-batch `commitGuard`
+- `src/close-advisories.ts` — the close-ADVISORY hook: a `notice` and nothing else. Deliberately a
+  separate mechanism, not a precondition with a softer flag — one boolean away from each other, a
+  subsystem that only meant to inform starts blocking closes
 - `src/matter-type-service.ts` — types CRUD (soft-deactivate)
 - `src/queries.ts` — `listMatters` (excludes prospective by default) + `listConsultations` (with the stale flag)
 
@@ -49,7 +52,10 @@ list/consultations queries. Validates in memory and composes statements into @ma
   close batch and abort it if the condition its `check` read has changed by commit time (the read and
   the write cannot be atomic here). A guard must be a statement that either matches nothing or
   violates a constraint — a guarded `UPDATE` matching zero rows would leave the audit row, the event,
-  and the idempotency record behind, recording a close that did not happen.
+  and the idempotency record behind, recording a close that did not happen. A close may also carry
+  ADVISORIES: notices that ride the successful response and have no arm on which they refuse. They
+  take no `commitGuard` because there is nothing to re-assert — an advisory that went stale by commit
+  time was still true of the matter the person was looking at.
 - **Every mutation audited.** The spec §10 outbox event + an `audit_log` row ride in the same batch.
 
 ## Dependencies & contracts
