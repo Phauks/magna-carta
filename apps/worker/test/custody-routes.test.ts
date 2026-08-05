@@ -26,13 +26,27 @@ let ownerUserId: UserId;
 let noPermissionCookie: string;
 let firmDatabase: ReturnType<typeof firmDatabaseFor>;
 
+// The stocktake surface gets its OWN firm, and that is a rate-limit fact rather than an isolation
+// one: the chokepoint's rate-limit key is `firm:<firmId>`, so every request this file makes shares
+// one bucket. A full count is request-heavy by nature — a tree, several packets, a batch of
+// observations, a reconciliation, a close, and the re-reads that prove nothing moved — and stacking
+// it onto the register suite's budget would spend the window on scaffolding and start returning 429
+// to whichever test happened to run last. A second firm is one more seed and buys the block its own
+// bucket, so neither suite has to be kept artificially small to fit beside the other.
+let stocktakeOwnerCookie: string;
+let stocktakeNoPermissionCookie: string;
+
 const clock = { now: () => new Date().toISOString() };
 
 // A member with no role and one unrelated direct grant — proves the chokepoint refuses custody:manage
 // to a caller who genuinely lacks it, rather than to one who has no session at all.
-async function mirrorMemberWithUnrelatedGrant(userId: UserId, displayName: string): Promise<void> {
-  await insertMemberStatement(firmDatabase, { userId, displayName, now: clock.now() }).run();
-  await firmDatabase
+async function mirrorMemberWithUnrelatedGrant(
+  database: ReturnType<typeof firmDatabaseFor>,
+  userId: UserId,
+  displayName: string,
+): Promise<void> {
+  await insertMemberStatement(database, { userId, displayName, now: clock.now() }).run();
+  await database
     .prepare(
       "INSERT INTO direct_grant (id, member_user_id, permission, granted_by, expires_at, created_at) VALUES (?1, ?2, ?3, ?2, NULL, ?4)",
     )
@@ -58,8 +72,30 @@ beforeAll(async () => {
     userName: "No Permission",
     firmId: poolFirmId,
   });
-  await mirrorMemberWithUnrelatedGrant(noPermission.userId, "No Permission");
+  await mirrorMemberWithUnrelatedGrant(firmDatabase, noPermission.userId, "No Permission");
   noPermissionCookie = await signInForSessionCookie("custody-nopermission@example.com");
+
+  const stocktakeFirmId = (await seedFirm({ name: "Custody Stocktake Test Firm" })).firmId;
+  const stocktakeDatabase = firmDatabaseFor(env.FIRM_DATABASE, stocktakeFirmId);
+  const stocktakeOwner = await seedCredentialedUser("custody-stocktake-owner@example.com", {
+    userName: "Stocktake Owner",
+    firmId: stocktakeFirmId,
+  });
+  await mirrorMemberWithOwnerRole(stocktakeOwner.userId, "Stocktake Owner", stocktakeFirmId);
+  stocktakeOwnerCookie = await signInForSessionCookie("custody-stocktake-owner@example.com");
+
+  const stocktakeNoPermission = await seedCredentialedUser(
+    "custody-stocktake-nopermission@example.com",
+    { userName: "Stocktake No Permission", firmId: stocktakeFirmId },
+  );
+  await mirrorMemberWithUnrelatedGrant(
+    stocktakeDatabase,
+    stocktakeNoPermission.userId,
+    "Stocktake No Permission",
+  );
+  stocktakeNoPermissionCookie = await signInForSessionCookie(
+    "custody-stocktake-nopermission@example.com",
+  );
 });
 
 function authHeaders(cookie: string, idempotencyKey?: string): HeadersInit {
@@ -591,20 +627,63 @@ describe("review dates, reminders, reports, and labels", () => {
   });
 });
 
-// The stocktake surface. What is asserted hardest here is the boundary: a full count runs end to end
-// — open, sight, reconcile, close — and afterwards every packet is in exactly the state and the place
-// it was before, with no ledger row the count wrote. There is no route that applies a reconciliation,
-// and there is not meant to be one.
+// The stocktake surface, driven through the chokepoint against its own firm (the rate-limit note on
+// stocktakeOwnerCookie explains why). What is asserted hardest here is the boundary: a full count
+// runs end to end — open, sight, reconcile, close — and afterwards every packet is in exactly the
+// state and the place it was before, with no ledger row the count wrote. There is no route that
+// applies a reconciliation, and there is not meant to be one.
 describe("stocktake — counting the shelves without changing the register", () => {
-  it("counts a scoped branch, reports every disagreement, and moves nothing", async () => {
-    const office = await createLocation("Stocktake office", "office");
-    const safe = await createLocation("Stocktake safe", "safe", office);
-    const shelf = await createLocation("Stocktake shelf", "shelf", safe);
-    const elsewhere = await createLocation("Stocktake vault", "bank");
-    const ownerEntityId = await createPerson("Stocktake", "Owner");
+  // The tree, the owner, and the packets are built once and shared. Every test below reads the same
+  // register; none of them writes to it, which is the property under test.
+  const scaffold: {
+    safe: string;
+    shelf: string;
+    matched: string;
+    misplaced: string;
+    missing: string;
+    checkedOut: string;
+  } = { safe: "", shelf: "", matched: "", misplaced: "", missing: "", checkedOut: "" };
+
+  async function stocktakePost(path: string, body: unknown, key = crypto.randomUUID()) {
+    return post(path, body, stocktakeOwnerCookie, key);
+  }
+
+  async function stocktakeGet(path: string, cookie = stocktakeOwnerCookie) {
+    return get(path, cookie);
+  }
+
+  async function openCount(name: string, scopeLocationId?: string): Promise<string> {
+    const response = await stocktakePost("/api/v1/custody/stocktakes", {
+      name,
+      ...(scopeLocationId === undefined ? {} : { scopeLocationId }),
+    });
+    expect(response.status).toBe(201);
+    return (await response.json()).id;
+  }
+
+  beforeAll(async () => {
+    async function makeLocation(name: string, kind: string, parentLocationId?: string) {
+      const response = await stocktakePost("/api/v1/custody/locations", {
+        name,
+        kind,
+        ...(parentLocationId === undefined ? {} : { parentLocationId }),
+      });
+      expect(response.status).toBe(201);
+      return (await response.json()).id;
+    }
+    const office = await makeLocation("Stocktake office", "office");
+    scaffold.safe = await makeLocation("Stocktake safe", "safe", office);
+    scaffold.shelf = await makeLocation("Stocktake shelf", "shelf", scaffold.safe);
+
+    const person = await stocktakePost("/api/v1/directory/persons", {
+      given: "Stocktake",
+      family: "Owner",
+    });
+    expect(person.status).toBe(201);
+    const ownerEntityId = (await person.json()).id;
 
     async function logPacket(name: string, currentLocationId: string): Promise<string> {
-      const response = await post("/api/v1/custody/packets", {
+      const response = await stocktakePost("/api/v1/custody/packets", {
         name,
         owners: [{ entityId: ownerEntityId }],
         currentLocationId,
@@ -612,39 +691,44 @@ describe("stocktake — counting the shelves without changing the register", () 
       expect(response.status).toBe(201);
       return (await response.json()).id;
     }
+    scaffold.matched = await logPacket("Stocktake matched", scaffold.safe);
+    scaffold.misplaced = await logPacket("Stocktake misplaced", scaffold.shelf);
+    scaffold.missing = await logPacket("Stocktake missing", scaffold.safe);
+    scaffold.checkedOut = await logPacket("Stocktake checked out", scaffold.safe);
+    expect(
+      (
+        await stocktakePost(`/api/v1/custody/packets/${scaffold.checkedOut}/movements`, {
+          kind: "checked_out",
+          borrower: { kind: "external", name: "M. Alvarez (courier)" },
+        })
+      ).status,
+    ).toBe(201);
+  });
 
-    const matched = await logPacket("Stocktake matched", safe);
-    const misplaced = await logPacket("Stocktake misplaced", shelf);
-    const missing = await logPacket("Stocktake missing", safe);
-    const checkedOut = await logPacket("Stocktake checked out", safe);
-    await post(`/api/v1/custody/packets/${checkedOut}/movements`, {
-      kind: "checked_out",
-      borrower: { kind: "external", name: "M. Alvarez (courier)" },
-    });
-    await logPacket("Stocktake out of scope", elsewhere);
-
-    const opened = await post("/api/v1/custody/stocktakes", {
-      name: "Annual count of the Stocktake safe",
-      scopeLocationId: safe,
-    });
-    expect(opened.status).toBe(201);
-    const { id: stocktakeId } = (await opened.json()) as { id: string };
+  it("counts a branch, reports every disagreement, proposes corrections, and moves nothing", async () => {
+    const stocktakeId = await openCount("Annual count of the Stocktake safe", scaffold.safe);
 
     // One batch, the way a person with a scanner produces them.
-    const sighted = await post(`/api/v1/custody/stocktakes/${stocktakeId}/sightings`, {
+    const sighted = await stocktakePost(`/api/v1/custody/stocktakes/${stocktakeId}/sightings`, {
       sightings: [
-        { kind: "sighted", packetId: matched, locationId: safe },
-        { kind: "sighted", packetId: misplaced, locationId: safe },
-        { kind: "not_found", packetId: missing, locationId: safe },
+        { kind: "sighted", packetId: scaffold.matched, locationId: scaffold.safe },
+        { kind: "sighted", packetId: scaffold.misplaced, locationId: scaffold.safe },
+        { kind: "not_found", packetId: scaffold.missing, locationId: scaffold.safe },
         // The register says this one is out with a courier, and here it is on the shelf.
-        { kind: "sighted", packetId: checkedOut, locationId: safe },
-        { kind: "unregistered", locationId: shelf, description: "Sealed envelope, no label" },
+        { kind: "sighted", packetId: scaffold.checkedOut, locationId: scaffold.safe },
+        {
+          kind: "unregistered",
+          locationId: scaffold.shelf,
+          description: "Sealed envelope, no label",
+        },
       ],
     });
     expect(sighted.status).toBe(201);
     expect((await sighted.json()).ids).toHaveLength(5);
 
-    const reconciliation = await get(`/api/v1/custody/stocktakes/${stocktakeId}/reconciliation`);
+    const reconciliation = await stocktakeGet(
+      `/api/v1/custody/stocktakes/${stocktakeId}/reconciliation`,
+    );
     expect(reconciliation.status).toBe(200);
     const report = (await reconciliation.json()) as {
       matchedCount: number;
@@ -659,24 +743,24 @@ describe("stocktake — counting the shelves without changing the register", () 
       frozenCounts: unknown;
     };
     expect(report.matchedCount).toBe(1);
-    expect(report.missing.map((line) => line.packetId)).toEqual([missing]);
+    expect(report.missing.map((line) => line.packetId)).toEqual([scaffold.missing]);
     // A missing original proposes nothing: the honest answer to an empty shelf is an investigation.
     expect(report.missing[0]?.proposedMovementKind).toBeNull();
     expect(report.misplaced[0]).toMatchObject({
-      packetId: misplaced,
+      packetId: scaffold.misplaced,
       proposedMovementKind: "moved",
-      proposedToLocationId: safe,
+      proposedToLocationId: scaffold.safe,
     });
     // `returned`, not `found`: the register says a courier has it and here it is on the shelf.
     expect(report.unexpected[0]).toMatchObject({
-      packetId: checkedOut,
+      packetId: scaffold.checkedOut,
       proposedMovementKind: "returned",
     });
     expect(report.unregistered[0]?.description).toBe("Sealed envelope, no label");
     // Nothing is frozen while the count is still running.
     expect(report.frozenCounts).toBeNull();
 
-    const closed = await post(`/api/v1/custody/stocktakes/${stocktakeId}/close`, {});
+    const closed = await stocktakePost(`/api/v1/custody/stocktakes/${stocktakeId}/close`, {});
     expect(closed.status).toBe(200);
     expect(await closed.json()).toMatchObject({
       status: "closed",
@@ -687,130 +771,95 @@ describe("stocktake — counting the shelves without changing the register", () 
     // packet is still on the shelf the register named, the checked-out one is still out, and neither
     // has a movement the stocktake appended. Putting the register right is a person recording a
     // movement, which is the only way this register ever changes.
-    const misplacedDetail = (await (await get(`/api/v1/custody/packets/${misplaced}`)).json()) as {
-      status: string;
-      locationPath: Array<{ id: string }>;
-    };
+    const misplacedDetail = (await (
+      await stocktakeGet(`/api/v1/custody/packets/${scaffold.misplaced}`)
+    ).json()) as { status: string; locationPath: Array<{ id: string }> };
     expect(misplacedDetail.status).toBe("held");
-    expect(misplacedDetail.locationPath.at(-1)?.id).toBe(shelf);
+    expect(misplacedDetail.locationPath.at(-1)?.id).toBe(scaffold.shelf);
 
     const history = (await (
-      await get(`/api/v1/custody/packets/${misplaced}/movements`)
+      await stocktakeGet(`/api/v1/custody/packets/${scaffold.misplaced}/movements`)
     ).json()) as { data: Array<{ kind: string }> };
     expect(history.data.map((movement) => movement.kind)).toEqual(["logged"]);
 
     const checkedOutDetail = (await (
-      await get(`/api/v1/custody/packets/${checkedOut}`)
+      await stocktakeGet(`/api/v1/custody/packets/${scaffold.checkedOut}`)
     ).json()) as { status: string };
     expect(checkedOutDetail.status).toBe("out");
   });
 
-  it("refuses an observation against a closed count, and a second close (409)", async () => {
-    const safe = await createLocation("Closed count safe", "safe");
-    const ownerEntityId = await createPerson("ClosedCount", "Owner");
-    const logged = await post("/api/v1/custody/packets", {
-      name: "Closed count packet",
-      owners: [{ entityId: ownerEntityId }],
-      currentLocationId: safe,
-    });
-    const { id: packetId } = (await logged.json()) as { id: string };
-    const opened = await post("/api/v1/custody/stocktakes", { name: "Short count" });
-    const { id: stocktakeId } = (await opened.json()) as { id: string };
-    expect((await post(`/api/v1/custody/stocktakes/${stocktakeId}/close`, {})).status).toBe(200);
-
-    const late = await post(`/api/v1/custody/stocktakes/${stocktakeId}/sightings`, {
-      sightings: [{ kind: "sighted", packetId, locationId: safe }],
-    });
-    expect(late.status).toBe(409);
-    expect(await late.json()).toMatchObject({
-      type: "custody-stocktake-closed",
-    });
-    expect((await post(`/api/v1/custody/stocktakes/${stocktakeId}/close`, {})).status).toBe(409);
-  });
-
-  it("records a retried sighting batch exactly once", async () => {
-    const safe = await createLocation("Retry count safe", "safe");
-    const ownerEntityId = await createPerson("RetryCount", "Owner");
-    const logged = await post("/api/v1/custody/packets", {
-      name: "Retry count packet",
-      owners: [{ entityId: ownerEntityId }],
-      currentLocationId: safe,
-    });
-    const { id: packetId } = (await logged.json()) as { id: string };
-    const opened = await post("/api/v1/custody/stocktakes", { name: "Retry count" });
-    const { id: stocktakeId } = (await opened.json()) as { id: string };
+  it("records a retried batch once, then refuses observations and a second close (409)", async () => {
+    const stocktakeId = await openCount("Retry and closure count");
 
     const key = crypto.randomUUID();
-    const body = { sightings: [{ kind: "sighted", packetId, locationId: safe }] };
-    const first = await post(
+    const body = {
+      sightings: [{ kind: "sighted", packetId: scaffold.matched, locationId: scaffold.safe }],
+    };
+    const first = await stocktakePost(
       `/api/v1/custody/stocktakes/${stocktakeId}/sightings`,
       body,
-      ownerCookie,
       key,
     );
-    const replay = await post(
+    const replay = await stocktakePost(
       `/api/v1/custody/stocktakes/${stocktakeId}/sightings`,
       body,
-      ownerCookie,
       key,
     );
     expect(first.status).toBe(201);
     expect(await replay.json()).toEqual(await first.json());
 
     const sightings = (await (
-      await get(`/api/v1/custody/stocktakes/${stocktakeId}/sightings`)
+      await stocktakeGet(`/api/v1/custody/stocktakes/${stocktakeId}/sightings`)
     ).json()) as { data: unknown[] };
     expect(sightings.data).toHaveLength(1);
+
+    expect(
+      (await stocktakePost(`/api/v1/custody/stocktakes/${stocktakeId}/close`, {})).status,
+    ).toBe(200);
+
+    // A finished count has produced a reconciliation somebody may have acted on.
+    const late = await stocktakePost(`/api/v1/custody/stocktakes/${stocktakeId}/sightings`, body);
+    expect(late.status).toBe(409);
+    // The wire `type` is the registry's absolute problem URI, so the slug is matched as its suffix.
+    expect(await late.json()).toMatchObject({
+      type: expect.stringContaining("custody-stocktake-closed") as unknown as string,
+    });
+    expect(
+      (await stocktakePost(`/api/v1/custody/stocktakes/${stocktakeId}/close`, {})).status,
+    ).toBe(409);
   });
 
-  it("abandons a count without freezing findings", async () => {
-    const safe = await createLocation("Abandoned count safe", "safe");
-    const ownerEntityId = await createPerson("Abandoned", "Owner");
-    await post("/api/v1/custody/packets", {
-      name: "Abandoned count packet",
-      owners: [{ entityId: ownerEntityId }],
-      currentLocationId: safe,
-    });
-    const opened = await post("/api/v1/custody/stocktakes", { name: "Interrupted count" });
-    const { id: stocktakeId } = (await opened.json()) as { id: string };
+  it("abandons an unfinished count without freezing findings, and refuses a bare observation (422)", async () => {
+    const stocktakeId = await openCount("Interrupted count");
 
-    const closed = await post(`/api/v1/custody/stocktakes/${stocktakeId}/close`, {
+    // An unregistered object with no description of what was found: that description is the only
+    // record of the object anywhere, so the register refuses the observation without it.
+    const bare = await stocktakePost(`/api/v1/custody/stocktakes/${stocktakeId}/sightings`, {
+      sightings: [{ kind: "unregistered", locationId: scaffold.shelf }],
+    });
+    expect(bare.status).toBe(422);
+
+    const closed = await stocktakePost(`/api/v1/custody/stocktakes/${stocktakeId}/close`, {
       abandoned: true,
     });
     expect(closed.status).toBe(200);
     // A half-finished walk must not report the safe as full of missing originals.
     expect(await closed.json()).toMatchObject({ status: "abandoned", counts: null });
-    const detail = await get(`/api/v1/custody/stocktakes/${stocktakeId}`);
-    expect(await detail.json()).toMatchObject({ status: "abandoned", counts: null });
+    expect(
+      await (await stocktakeGet(`/api/v1/custody/stocktakes/${stocktakeId}`)).json(),
+    ).toMatchObject({ status: "abandoned", counts: null });
   });
 
-  it("refuses an unregistered observation that describes nothing (422)", async () => {
-    const safe = await createLocation("Bare observation safe", "safe");
-    const opened = await post("/api/v1/custody/stocktakes", { name: "Bare observation count" });
-    const { id: stocktakeId } = (await opened.json()) as { id: string };
-    const bare = await post(`/api/v1/custody/stocktakes/${stocktakeId}/sightings`, {
-      sightings: [{ kind: "unregistered", locationId: safe }],
-    });
-    expect(bare.status).toBe(422);
-  });
+  it("requires an Idempotency-Key on every write, custody:read on every read, and 404s an unknown count", async () => {
+    const stocktakeId = await openCount("Contract count");
 
-  it("requires an Idempotency-Key on every stocktake write, and custody:read on every stocktake read", async () => {
-    const opened = await post("/api/v1/custody/stocktakes", { name: "Contract count" });
-    const { id: stocktakeId } = (await opened.json()) as { id: string };
-
-    expect((await postWithoutKey("/api/v1/custody/stocktakes", { name: "No key" })).status).toBe(
-      400,
-    );
-    expect(
-      (
-        await postWithoutKey(`/api/v1/custody/stocktakes/${stocktakeId}/sightings`, {
-          sightings: [],
-        })
-      ).status,
-    ).toBe(400);
-    expect(
-      (await postWithoutKey(`/api/v1/custody/stocktakes/${stocktakeId}/close`, {})).status,
-    ).toBe(400);
+    for (const [path, body] of [
+      ["/api/v1/custody/stocktakes", { name: "No key" }],
+      [`/api/v1/custody/stocktakes/${stocktakeId}/sightings`, { sightings: [] }],
+      [`/api/v1/custody/stocktakes/${stocktakeId}/close`, {}],
+    ] as const) {
+      expect((await postWithoutKey(path, body, stocktakeOwnerCookie)).status, path).toBe(400);
+    }
 
     for (const path of [
       "/api/v1/custody/stocktakes",
@@ -818,20 +867,19 @@ describe("stocktake — counting the shelves without changing the register", () 
       `/api/v1/custody/stocktakes/${stocktakeId}/sightings`,
       `/api/v1/custody/stocktakes/${stocktakeId}/reconciliation`,
     ]) {
-      expect((await get(path, noPermissionCookie)).status, path).toBe(403);
+      expect((await stocktakeGet(path, stocktakeNoPermissionCookie)).status, path).toBe(403);
     }
     expect(
-      (await post("/api/v1/custody/stocktakes", { name: "Denied" }, noPermissionCookie)).status,
+      (await post("/api/v1/custody/stocktakes", { name: "Denied" }, stocktakeNoPermissionCookie))
+        .status,
     ).toBe(403);
-  });
 
-  it("returns 404 for a count this firm does not have", async () => {
-    expect((await get("/api/v1/custody/stocktakes/custodyStocktake_absent00000000")).status).toBe(
+    // A well-formed handle for a count that does not exist — the shape has to pass the path-param
+    // check so what is asserted is the 404 and not a 422 for a malformed identifier.
+    const absent = `custodyStocktake_${"a".repeat(21)}`;
+    expect((await stocktakeGet(`/api/v1/custody/stocktakes/${absent}`)).status).toBe(404);
+    expect((await stocktakeGet(`/api/v1/custody/stocktakes/${absent}/reconciliation`)).status).toBe(
       404,
     );
-    expect(
-      (await get("/api/v1/custody/stocktakes/custodyStocktake_absent00000000/reconciliation"))
-        .status,
-    ).toBe(404);
   });
 });
