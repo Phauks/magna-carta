@@ -2833,11 +2833,12 @@ export const custodyScan = sqliteTable(
   ],
 );
 
-// The destruction request record. The workflow over it — request, approve, execute, each appending a
-// movement — is built in slice 4·2·2; the table lands with the rest of the register so its shape is
-// not retrofitted around live data. Two refusals are structural rather than configurable: destruction
-// is a two-person action (the approver must differ from the requester, checked here), and no request
-// may execute against an item flagged intrinsic_value. Deliberately absent: any retention period,
+// The destruction request record, and the workflow over it: request, approve or refuse, execute. Two
+// refusals are structural rather than configurable, and neither is expressible as a column check
+// alone, so both are also enforced by BEFORE triggers in the migration that added these columns —
+// destruction is a two-person action (the approver differs from the requester, and a row naming no
+// requester at all satisfies the CHECK below but not the trigger), and no request may be raised or
+// executed against an item flagged intrinsic_value. Deliberately absent: any retention period,
 // default, or derived date — no jurisdiction's rules produce "destroy the client's original will
 // because a timer expired".
 export const custodyDestructionRequest = sqliteTable(
@@ -2856,13 +2857,26 @@ export const custodyDestructionRequest = sqliteTable(
     basis: text("basis").notNull(), // the reason and authority the requester asserts, in their words
     approvedBy: text("approved_by").$type<UserId>(),
     approvedAt: text("approved_at"),
+    refusedBy: text("refused_by").$type<UserId>(),
+    refusedAt: text("refused_at"),
+    // Why the request was refused, in the refuser's words. Free text for the same reason the basis
+    // is: the reasons are jurisdictional, professional, and factual by turns, and a closed list would
+    // be this schema deciding which of them a firm is allowed to have.
+    refusalReason: text("refusal_reason"),
     executedAt: text("executed_at"),
+    executedBy: text("executed_by").$type<UserId>(),
+    // The ledger row the execution appended. No foreign key, exactly as
+    // custody_movement.corrects_movement_id has none: the movement ledger carries no referential
+    // dependency, and keeping it that way is what lets the table be rebuilt when its kinds widen.
+    executedMovementId: text("executed_movement_id").$type<CustodyMovementId>(),
     outcome: text("outcome", { enum: ["approved", "refused", "executed", "withdrawn"] }),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
   (table) => [
     index("custody_destruction_request_packet_index").on(table.packetId),
+    // The pending queue: everything awaiting a second person, oldest first.
+    index("custody_destruction_request_outcome_index").on(table.outcome, table.requestedAt),
     check("custody_destruction_request_basis_check", sql`length(${table.basis}) > 0`),
     check(
       "custody_destruction_request_approver_check",

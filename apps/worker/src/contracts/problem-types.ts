@@ -71,6 +71,31 @@ export const PROBLEM_TYPES = {
   // the request is well formed and the state allows it — what is missing is the record that has to
   // exist first, and a client offers the caller a way to supply it rather than reporting an error.
   "custody-release-not-authorized": "custody-release-not-authorized",
+  // A destruction request approved by the person who raised it, or by nobody identifiable (HTTP 422).
+  // Destroying a client's original is a two-person action by construction: one person proposes it and
+  // a DIFFERENT person agrees, and a workflow whose two halves can be the same person is one person
+  // with an extra click. Enforced at the database as well as here, so it holds for a write path
+  // nobody has built yet.
+  "custody-approver-must-differ": "custody-approver-must-differ",
+  // A destruction aimed at an item recorded as an irreplaceable original (HTTP 422). The one hard
+  // policy in the register, and it carries NO override: no force flag, no privileged caller, no
+  // second endpoint. It is encoded because it is not jurisdictional — no jurisdiction's rules produce
+  // "destroy the client's original will because a timer expired". The only way past is for a person
+  // to clear the flag on that specific object, which is a deliberate, audited change to a fact rather
+  // than a way around a rule.
+  "custody-intrinsic-value-not-destructible": "custody-intrinsic-value-not-destructible",
+  // A destruction request that cannot take the action asked of it (HTTP 409): it has already been
+  // refused, executed, or withdrawn, or execution was attempted before a second person approved it. A
+  // decided request is re-raised rather than re-decided — rewriting a decision somebody already acted
+  // on is the same falsification the append-only ledger forbids one row at a time.
+  "custody-destruction-not-actionable": "custody-destruction-not-actionable",
+  // A will-deposit duty that cannot be looked up (HTTP 422): no jurisdiction was recorded, or the
+  // jurisdiction supplied has no verified rules encoded. Deliberately one problem type carrying two
+  // distinct details, mirroring the trust catalog, because they are fixed differently: the first by
+  // recording a fact about the firm, the second by researching a jurisdiction against its primary
+  // text. Neither ever falls back to a baseline — statutory duties on a will are exactly where a
+  // confidently wrong answer is one a firm will act on.
+  "custody-jurisdiction-unavailable": "custody-jurisdiction-unavailable",
   // An observation recorded against, or a second close of, a physical count that has already
   // finished (HTTP 409). A finished count has produced a reconciliation somebody may have acted on,
   // and changing it afterwards is the same falsification the append-only sighting rows forbid one

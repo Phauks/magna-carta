@@ -2748,6 +2748,36 @@
           "matterNumber"
         ]
       },
+      "MatterCloseAck": {
+        "type": "object",
+        "properties": {
+          "matterId": {
+            "type": "string"
+          },
+          "notices": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ]
+            }
+          }
+        },
+        "required": [
+          "matterId",
+          "notices"
+        ]
+      },
       "RenumberMatterRequest": {
         "type": "object",
         "properties": {
@@ -7318,6 +7348,358 @@
             "maxLength": 2000
           }
         }
+      },
+      "CustodyDestructionRequestPage": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CustodyDestructionRequest"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "data",
+          "nextCursor"
+        ]
+      },
+      "CustodyDestructionRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "packetId": {
+            "type": "string"
+          },
+          "itemId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "requestedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "requestedAt": {
+            "type": "string"
+          },
+          "basis": {
+            "type": "string"
+          },
+          "approvedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "approvedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "refusedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "refusedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "refusalReason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "executedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "executedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "executedMovementId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "outcome": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "approved",
+              "refused",
+              "executed",
+              "withdrawn",
+              null
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "packetId",
+          "itemId",
+          "requestedBy",
+          "requestedAt",
+          "basis",
+          "approvedBy",
+          "approvedAt",
+          "refusedBy",
+          "refusedAt",
+          "refusalReason",
+          "executedAt",
+          "executedBy",
+          "executedMovementId",
+          "outcome"
+        ]
+      },
+      "RaiseCustodyDestructionRequest": {
+        "type": "object",
+        "properties": {
+          "packetId": {
+            "type": "string",
+            "pattern": "^custodyPacket_[A-Za-z0-9_-]{21}$"
+          },
+          "itemId": {
+            "type": "string",
+            "pattern": "^custodyItem_[A-Za-z0-9_-]{21}$"
+          },
+          "basis": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          }
+        },
+        "required": [
+          "packetId",
+          "basis"
+        ]
+      },
+      "RefuseCustodyDestructionRequest": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 4000
+          }
+        }
+      },
+      "ExecutedCustodyDestruction": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "packetId": {
+            "type": "string"
+          },
+          "movementId": {
+            "type": "string"
+          },
+          "executedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "packetId",
+          "movementId",
+          "executedAt"
+        ]
+      },
+      "ExecuteCustodyDestructionRequest": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 1000
+          },
+          "occurredAt": {
+            "type": "string",
+            "maxLength": 40
+          }
+        }
+      },
+      "CustodyWillDuties": {
+        "type": "object",
+        "properties": {
+          "jurisdictionKey": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "duties": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CustodyWillDuty"
+            }
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CustodyWillCapability"
+            }
+          },
+          "encodedSubJurisdictionKeys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "compiledThrough": {
+            "type": "string"
+          },
+          "encodedJurisdictionKeys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "jurisdictionKey",
+          "name",
+          "duties",
+          "capabilities",
+          "encodedSubJurisdictionKeys",
+          "compiledThrough",
+          "encodedJurisdictionKeys"
+        ]
+      },
+      "CustodyWillDuty": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "trigger": {
+            "type": "string"
+          },
+          "dutyHolder": {
+            "type": "string"
+          },
+          "deadlineBasis": {
+            "type": "string",
+            "enum": [
+              "daysAfterTrigger",
+              "setByCourtOrder",
+              "concurrentWithFiling",
+              "noStatutoryDeadline"
+            ]
+          },
+          "deadlineDays": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "deliveryTargets": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "consequenceOfNeglect": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sideEffects": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "citation": {
+            "type": "string"
+          },
+          "statutoryText": {
+            "type": "string"
+          },
+          "sourceUrl": {
+            "type": "string"
+          },
+          "verifiedOn": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "summary",
+          "trigger",
+          "dutyHolder",
+          "deadlineBasis",
+          "deadlineDays",
+          "deliveryTargets",
+          "consequenceOfNeglect",
+          "sideEffects",
+          "citation",
+          "statutoryText",
+          "sourceUrl",
+          "verifiedOn"
+        ]
+      },
+      "CustodyWillCapability": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "available": {
+            "type": "boolean"
+          },
+          "basis": {
+            "type": "string"
+          },
+          "verifiedOn": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "summary",
+          "available",
+          "basis",
+          "verifiedOn"
+        ]
       },
       "CustomFieldAck": {
         "type": "object",
@@ -17704,7 +18086,7 @@
     },
     "/api/v1/matters/{id}/close": {
       "post": {
-        "description": "Closes a matter (archived-but-additive — it leaves active lists but still accepts documents). Runs the close preconditions first; a matter whose client trust ledger still holds money, or carries an active disputed-funds hold, is refused with the balance and the movements that clear it. Refuses a matter that is already closed, so its recorded close date never moves.",
+        "description": "Closes a matter (archived-but-additive — it leaves active lists but still accepts documents). Runs the close preconditions first; a matter whose client trust ledger still holds money, or carries an active disputed-funds hold, is refused with the balance and the movements that clear it. Refuses a matter that is already closed, so its recorded close date never moves. The response also carries advisory notices — things worth knowing about the matter being closed, such as physical originals the firm still holds against it. A notice never blocks a close and never becomes a refusal; the matter in the response is closed.",
         "operationId": "matters.close",
         "tags": [
           "matters"
@@ -17743,11 +18125,11 @@
         ],
         "responses": {
           "200": {
-            "description": "The matter was closed",
+            "description": "The matter was closed, with any advisory notices",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MatterActionAck"
+                  "$ref": "#/components/schemas/MatterCloseAck"
                 }
               }
             }
@@ -28019,6 +28401,719 @@
               "image/svg+xml": {
                 "schema": {
                   "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/custody/destruction-requests": {
+      "get": {
+        "description": "Lists destruction requests, newest first, optionally narrowed to one packet or to a single state. `outcome=pending` is the queue of requests waiting for a second person to approve or refuse them. Cursor-paginated.",
+        "operationId": "custody.listDestructionRequests",
+        "tags": [
+          "custody"
+        ],
+        "x-mc-operationId": "custody.listDestructionRequests",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "custody:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "custody"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^custodyPacket_[A-Za-z0-9_-]{21}$"
+            },
+            "required": false,
+            "name": "packetId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "approved",
+                "refused",
+                "executed",
+                "withdrawn"
+              ]
+            },
+            "required": false,
+            "name": "outcome",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of destruction requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustodyDestructionRequestPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "description": "Raises a request to destroy a packet, or one item inside it, recording the reason and the authority the requester asserts. Raising a request destroys nothing: a different person has to approve it, and a third call carries it out. The request is refused outright while any hold is in force, and refused outright where the property is recorded as an irreplaceable original — that refusal has no override on this surface, and the only way past it is for somebody to change that record about the object itself.",
+        "operationId": "custody.raiseDestructionRequest",
+        "tags": [
+          "custody"
+        ],
+        "x-mc-operationId": "custody.raiseDestructionRequest",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "custody:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "custody"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RaiseCustodyDestructionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The raised request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustodyIdAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress, a hold forbids the action, a location is still occupied, or a custody number could not be allocated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/custody/destruction-requests/{destructionRequestId}/approve": {
+      "post": {
+        "description": "Approves a destruction request. The approver must be a different person from the requester, which is enforced at the database as well as here. Approval authorizes the destruction; it does not carry it out.",
+        "operationId": "custody.approveDestructionRequest",
+        "tags": [
+          "custody"
+        ],
+        "x-mc-operationId": "custody.approveDestructionRequest",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "custody:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "custody"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^custodyDestructionRequest_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "destructionRequestId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Approved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustodyAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress, a hold forbids the action, a location is still occupied, or a custody number could not be allocated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/custody/destruction-requests/{destructionRequestId}/refuse": {
+      "post": {
+        "description": "Refuses a destruction request, optionally recording why. Anyone who can manage the register may refuse one, including the person who raised it: ending a client's property takes two people, and deciding not to takes nobody's agreement.",
+        "operationId": "custody.refuseDestructionRequest",
+        "tags": [
+          "custody"
+        ],
+        "x-mc-operationId": "custody.refuseDestructionRequest",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "custody:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "custody"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^custodyDestructionRequest_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "destructionRequestId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefuseCustodyDestructionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Refused",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustodyAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress, a hold forbids the action, a location is still occupied, or a custody number could not be allocated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/custody/destruction-requests/{destructionRequestId}/execute": {
+      "post": {
+        "description": "Records that an approved destruction was carried out. This appends a `destroyed` movement through the register's one movement write path, so the destruction carries a person's name on the same append-only ledger every other event does. Both refusals are asked again here: a hold placed since the approval, and an irreplaceable original recorded since it.",
+        "operationId": "custody.executeDestructionRequest",
+        "tags": [
+          "custody"
+        ],
+        "x-mc-operationId": "custody.executeDestructionRequest",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "custody:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "custody"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^custodyDestructionRequest_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "destructionRequestId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExecuteCustodyDestructionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The recorded destruction",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExecutedCustodyDestruction"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress, a hold forbids the action, a location is still occupied, or a custody number could not be allocated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the packet has no owner, the movement is not allowed from this state, a release has not captured the authority and identity check it needs, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/custody/will-deposit-duties": {
+      "get": {
+        "description": "Returns what the law of one jurisdiction says a holder of a will must do, quoted from the statute or court rule with its citation. A jurisdiction with no verified entry is REFUSED rather than answered: there is no baseline and no fallback, because a confidently wrong answer about a statutory duty is one a firm will act on. A jurisdiction below an encoded one (a county or judicial district) is refused on its own terms even when its state is encoded, because a local rule nobody verified is not the same as a local rule that does not exist. This returns the text of the law and nothing else — it is not advice, and it decides nothing the sources leave open.",
+        "operationId": "custody.willDepositDuties",
+        "tags": [
+          "custody"
+        ],
+        "x-mc-operationId": "custody.willDepositDuties",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "custody:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "custody"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 20
+            },
+            "required": true,
+            "name": "jurisdiction",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The encoded duties for that jurisdiction",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustodyWillDuties"
                 }
               }
             }

@@ -82,6 +82,46 @@ describe("the custody location tree", () => {
     ).rejects.toMatchObject({ code: "custody-location-too-deep" });
   });
 
+  // The cap is eight, and the boundary is asserted at both sides of it rather than "somewhere past
+  // seven": eight levels is office > room > safe > cabinet > shelf > box > position plus one more,
+  // which is deeper than any real storage arrangement, and the ninth is where a tree stops being an
+  // arrangement and starts being a mistake.
+  it("permits a tree exactly eight levels deep and refuses the ninth, on creation and on re-parenting", async () => {
+    const { database } = migratedDatabase();
+    const nodes: CustodyLocationId[] = [await makeNode(database, "Level 1", "office")];
+    for (let level = 2; level <= 8; level++) {
+      nodes.push(await makeNode(database, `Level ${level}`, "box", nodes[level - 2]));
+    }
+    expect(nodes).toHaveLength(8);
+    expect(await readCustodyLocationPath(database, nodes[7] as CustodyLocationId)).toHaveLength(8);
+
+    await expect(
+      createCustodyLocation(
+        database,
+        { name: "Level 9", kind: "position", parentLocationId: nodes[7] },
+        options,
+      ),
+    ).rejects.toMatchObject({ code: "custody-location-too-deep" });
+
+    // The same cap on the other write path. A node moved under the deepest one would land at nine
+    // just as surely as one created there, and a cap enforced on creation alone is a cap with a
+    // second door in it.
+    const sibling = await makeNode(database, "Elsewhere", "safe");
+    await expect(
+      updateCustodyLocation(database, sibling, { parentLocationId: nodes[7] }, options),
+    ).rejects.toMatchObject({ code: "custody-location-too-deep" });
+    // Seven levels above it is still legal — the refusal is about the ninth, not about depth in
+    // general.
+    const reparented = await updateCustodyLocation(
+      database,
+      sibling,
+      { parentLocationId: nodes[6] },
+      options,
+    );
+    await commit(database, reparented.effect);
+    expect(await readCustodyLocationPath(database, sibling)).toHaveLength(8);
+  });
+
   // A closed node with originals still in it is exactly the silent orphaning the register prevents.
   it("refuses to close a node whose subtree still holds a packet", async () => {
     const { database, raw } = migratedDatabase();

@@ -1,4 +1,5 @@
 import {
+  custodyDestructionRequest,
   custodyHold,
   custodyItem,
   custodyItemType,
@@ -15,6 +16,17 @@ import {
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import { getTableConfig } from "drizzle-orm/sqlite-core";
 import { describe, expect, it } from "vitest";
+import {
+  CUSTODY_DESTRUCTION_REQUEST_TABLE,
+  approveCustodyDestructionRequestStatement,
+  executeCustodyDestructionRequestStatement,
+  insertCustodyDestructionRequestStatement,
+  listCustodyDestructionRequestsStatement,
+  refuseCustodyDestructionRequestStatement,
+  selectCustodyDestructionRequestStatement,
+  selectCustodyIntrinsicValueItemCountStatement,
+  withdrawCustodyDestructionRequestStatement,
+} from "../src/destruction-statements.ts";
 import {
   CUSTODY_HOLD_TABLE,
   insertCustodyHoldStatement,
@@ -188,6 +200,8 @@ const SCAN_ID = "custodyScan_x" as never;
 const FILE_ID = "file_x" as never;
 const STOCKTAKE_ID = "custodyStocktake_x" as never;
 const SIGHTING_ID = "custodyStocktakeSighting_x" as never;
+const DESTRUCTION_REQUEST_ID = "custodyDestructionRequest_x" as never;
+const USER_ID = "user_x" as never;
 
 describe("schema name sync (custodian SQL pinned to @magna-carta/database)", () => {
   it("table name constants match the drizzle schema", () => {
@@ -203,6 +217,7 @@ describe("schema name sync (custodian SQL pinned to @magna-carta/database)", () 
     expect(getTableConfig(custodyNumberAllocation).name).toBe(CUSTODY_NUMBER_ALLOCATION_TABLE);
     expect(getTableConfig(custodyStocktake).name).toBe(CUSTODY_STOCKTAKE_TABLE);
     expect(getTableConfig(custodyStocktakeSighting).name).toBe(CUSTODY_STOCKTAKE_SIGHTING_TABLE);
+    expect(getTableConfig(custodyDestructionRequest).name).toBe(CUSTODY_DESTRUCTION_REQUEST_TABLE);
   });
 
   it("every column the location SQL names exists in the schema", () => {
@@ -535,6 +550,62 @@ describe("schema name sync (custodian SQL pinned to @magna-carta/database)", () 
       allocationSql,
       new Set([CUSTODY_NUMBER_ALLOCATION_TABLE, ...columnsOf(custodyNumberAllocation)]),
       "allocation",
+    );
+  });
+
+  it("every column the destruction SQL names exists in the schema", () => {
+    const sql = [
+      sqlOf(
+        insertCustodyDestructionRequestStatement(stub, {
+          id: DESTRUCTION_REQUEST_ID,
+          packetId: PACKET_ID,
+          itemId: null,
+          requestedBy: null,
+          requestedAt: "t",
+          basis: "b",
+          createdAt: "t",
+        }),
+      ),
+      sqlOf(approveCustodyDestructionRequestStatement(stub, DESTRUCTION_REQUEST_ID, USER_ID, "t")),
+      sqlOf(
+        refuseCustodyDestructionRequestStatement(stub, DESTRUCTION_REQUEST_ID, USER_ID, "t", null),
+      ),
+      sqlOf(
+        executeCustodyDestructionRequestStatement(
+          stub,
+          DESTRUCTION_REQUEST_ID,
+          USER_ID,
+          "t",
+          MOVEMENT_ID,
+        ),
+      ),
+      sqlOf(withdrawCustodyDestructionRequestStatement(stub, DESTRUCTION_REQUEST_ID, "t")),
+      sqlOf(selectCustodyDestructionRequestStatement(stub, DESTRUCTION_REQUEST_ID)),
+      sqlOf(
+        listCustodyDestructionRequestsStatement(
+          stub,
+          { packetId: PACKET_ID, outcome: "approved" },
+          { createdAt: "t", id: DESTRUCTION_REQUEST_ID },
+          10,
+        ),
+      ),
+    ].join("\n");
+    expectOnlyKnownIdentifiers(
+      sql,
+      new Set([CUSTODY_DESTRUCTION_REQUEST_TABLE, ...columnsOf(custodyDestructionRequest)]),
+      "destruction",
+    );
+
+    // The intrinsic-value read crosses to the item table, which is the point of it: the refusal is a
+    // fact about the ITEM, and reading it off the request row would make the gate depend on a copy.
+    const intrinsicSql = [
+      sqlOf(selectCustodyIntrinsicValueItemCountStatement(stub, PACKET_ID, null)),
+      sqlOf(selectCustodyIntrinsicValueItemCountStatement(stub, PACKET_ID, ITEM_ID)),
+    ].join("\n");
+    expectOnlyKnownIdentifiers(
+      intrinsicSql,
+      new Set([CUSTODY_ITEM_TABLE, ...columnsOf(custodyItem), "intrinsic_count"]),
+      "intrinsic value",
     );
   });
 });
