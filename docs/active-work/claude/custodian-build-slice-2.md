@@ -48,3 +48,9 @@ Overlaps to coordinate: `packages/database/src/per-firm-schema.ts` and
 timestamp tag than the register slice's head so the journal reconciles by ordering rather than by
 edit. `custody_movement` is rebuilt in place to widen its kind vocabulary — that is the one
 non-additive statement in the migration, and it is why it is hand-written.
+
+Reconciled on merge with `claude/automation-consent-refinements`, which landed a per-firm migration
+under the identical `20260804T170000` timestamp prefix. That branch merged first, so it keeps
+`20260804T170000_document-automation-field-mappings` (journal idx 21) and this one was retagged to
+`20260804T170001_custody-review-schedule` (idx 22) — tag ordering has to stay total, because the
+lineage head and the runner's ordering both read it.

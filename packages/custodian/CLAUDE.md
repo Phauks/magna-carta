@@ -85,7 +85,7 @@ surrounding context — [`docs/Magna-Carta-White-Paper.md`](../../docs/Magna-Car
   resulting handle, and refuses a file filed anywhere else.
 - **Widening the movement vocabulary means rebuilding `custody_movement`.** The kind list is a CHECK
   constraint, and SQLite can only replace one by rebuilding the table — which is why
-  `20260804T170000_custody-review-schedule.sql` drops the three append-only triggers, copies into a
+  `20260804T170001_custody-review-schedule.sql` drops the three append-only triggers, copies into a
   new table, and recreates them. It is safe only because the ledger carries **no referential
   dependency**: `corrects_movement_id` is a self-reference deliberately declared without a foreign
   key. Keep it that way, and re-prove the append-only triggers against the table that came out of any

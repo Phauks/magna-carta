@@ -73,6 +73,10 @@ const AssemblyStatusResponse = z
     // The merge fields the matter could not supply. KEYS ONLY — a caller that surfaces these is showing
     // an author which blanks to fill in, never anything a client's record held.
     absentFieldKeys: z.array(z.string()),
+    // The Word merge fields the template carries unconverted, which this document therefore renders as
+    // the text Word last cached in them rather than as a merged value. NAMES ONLY, on the same terms as
+    // the absent keys. A non-empty list means the document reads as finished and is not.
+    frozenMergeFieldNames: z.array(z.string()),
     reason: z.string().nullable(),
   })
   .openapi("AssemblyStatus");
@@ -152,8 +156,11 @@ const statusRoute = defineOpenAPIRoute(statusMeta, {
   path: "/api/v1/matters/{matterId}/assemblies/{assemblyId}",
   description:
     "Returns an assembly's current state. A finished assembly carries the document and version it " +
-    "produced, plus the merge fields the matter could not supply — which a caller must surface, " +
-    "because a document that completed with blanks in it is the failure this reports.",
+    "produced, plus the merge fields the matter could not supply and any Word merge fields the " +
+    "template still carries — which a caller must surface, because a document that completed with " +
+    "blanks in it, or with fields printing text left over from the template, is the failure this " +
+    "reports. A Word merge field is not filled in by this system: it prints whatever text Word last " +
+    "cached in it, which is why an assembly that meets one completes as succeeded_with_absences.",
   request: { params: assemblyParam },
   responses: {
     200: {
@@ -331,6 +338,7 @@ export function registerAssembliesRoutes(app: AssembliesApp, chokepoint: Chokepo
               fileId: null,
               fileVersionId: null,
               absentFieldKeys: [],
+              frozenMergeFieldNames: [],
               reason: state.reason,
             },
             200,
@@ -346,6 +354,7 @@ export function registerAssembliesRoutes(app: AssembliesApp, chokepoint: Chokepo
           fileId: assembly.fileId,
           fileVersionId: assembly.fileVersionId,
           absentFieldKeys: [...assembly.absentFieldKeys],
+          frozenMergeFieldNames: [...assembly.frozenFieldNames],
           reason: assembly.failureReason,
         },
         200,

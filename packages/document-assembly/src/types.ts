@@ -49,6 +49,32 @@ export interface FieldManifest {
   readonly fields: readonly ManifestField[];
   // Every placeholder occurrence across every part — the denominator the per-field counts sum to.
   readonly totalOccurrences: number;
+  // The Word merge fields this version carries UNCONVERTED. Empty for a template authored in brace
+  // form, and empty for one whose merge fields were converted. A non-empty list is the manifest saying
+  // "this template has blanks the merge engine will not fill", which is what makes them visible to the
+  // absence model instead of invisible to it.
+  readonly unconvertedMergeFields: readonly UnconvertedMergeField[];
+}
+
+// One Word merge field a REGISTERED template version still carries in its stored bytes, because the
+// caller did not ask for conversion. Recorded on the manifest rather than refused, so it is a declared
+// property of the template that every later reader — the field inspector, the assembly response, the
+// provenance row — can see and report.
+//
+// A merge field is not a placeholder: nothing substitutes it, so at assembly it renders `frozenText`,
+// the result Word cached the last time the document was merged. That is why the frozen text is recorded
+// here — an author deciding whether to convert has to see the words the document will actually print,
+// and "this field will silently print stale text" is not a statement a name alone can make.
+export interface UnconvertedMergeField {
+  readonly fieldName: string;
+  readonly mappedKey: string;
+  readonly part: string;
+  readonly occurrences: number;
+  readonly form: "simple" | "complex";
+  readonly mapsToKnownField: boolean;
+  // What the document renders where the field sits — Word's cached result, frozen at whatever it was
+  // when the template was last merged. Empty when the construct carries no cached result at all.
+  readonly frozenText: string;
 }
 
 // A normalization finding that does NOT stop registration — the template is registrable, but the author
@@ -59,6 +85,7 @@ export interface FieldManifest {
 export interface NormalizationWarning {
   readonly code:
     | "merge-field-converted" // a Word MERGEFIELD construct was rewritten into the canonical brace form
+    | "merge-field-unconverted" // Word MERGEFIELD constructs were left as authored and will render frozen text
     | "no-placeholders"; // the package registered cleanly but carries no merge fields at all
   readonly part: string;
   readonly detail: string;
@@ -71,8 +98,8 @@ export interface NormalizationWarning {
 export interface MergeFieldDetection {
   // The field name exactly as Word recorded it, before any mapping.
   readonly fieldName: string;
-  // The merge-field key that name maps to — the identity mapping today; see the mapping-resolver seam
-  // in normalize.ts.
+  // The merge-field key that name maps to — the identity mapping unless the firm's field-mapping
+  // library has a confirmed mapping for this name; see the resolver seam in normalize.ts.
   readonly mappedKey: string;
   readonly part: string;
   readonly occurrences: number;
@@ -80,6 +107,13 @@ export interface MergeFieldDetection {
   // Whether the mapped key is a merge field the dictionary actually has. A false here is what tells an
   // author that opting in to conversion would still leave the field unbound.
   readonly mapsToKnownField: boolean;
+  // Whether the mapping came from the firm's own confirmed mapping library rather than from the name
+  // matching a dictionary key outright. The difference is what an administrator is being asked to
+  // confirm, so it is reported rather than blended into one "mapped" flag.
+  readonly mappedFromLibrary: boolean;
+  // What the field renders today — Word's cached result. Carried on the detection as well as on the
+  // manifest entry, because a caller deciding whether to convert sees this list first.
+  readonly frozenText: string;
 }
 
 // ---------------------------------------------------------------------------------------------

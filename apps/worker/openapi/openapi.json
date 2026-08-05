@@ -8149,6 +8149,9 @@
           "fieldCount": {
             "type": "number"
           },
+          "macrosStripped": {
+            "type": "boolean"
+          },
           "macroPartsRemoved": {
             "type": "number"
           },
@@ -8159,6 +8162,30 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/TemplateMergeFieldDetection"
+            }
+          },
+          "unconvertedMergeFields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TemplateUnconvertedMergeField"
+            }
+          },
+          "confirmedFieldMappings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "fieldName": {
+                  "type": "string"
+                },
+                "mergeKey": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "fieldName",
+                "mergeKey"
+              ]
             }
           },
           "warnings": {
@@ -8174,9 +8201,12 @@
           "versionNumber",
           "status",
           "fieldCount",
+          "macrosStripped",
           "macroPartsRemoved",
           "mergeFieldsConverted",
           "mergeFieldsDetected",
+          "unconvertedMergeFields",
+          "confirmedFieldMappings",
           "warnings"
         ]
       },
@@ -8200,6 +8230,12 @@
           },
           "mapsToKnownField": {
             "type": "boolean"
+          },
+          "mappedFromLibrary": {
+            "type": "boolean"
+          },
+          "frozenText": {
+            "type": "string"
           }
         },
         "required": [
@@ -8208,7 +8244,44 @@
           "part",
           "occurrences",
           "form",
-          "mapsToKnownField"
+          "mapsToKnownField",
+          "mappedFromLibrary",
+          "frozenText"
+        ]
+      },
+      "TemplateUnconvertedMergeField": {
+        "type": "object",
+        "properties": {
+          "fieldName": {
+            "type": "string"
+          },
+          "mappedKey": {
+            "type": "string"
+          },
+          "part": {
+            "type": "string"
+          },
+          "occurrences": {
+            "type": "number"
+          },
+          "form": {
+            "type": "string"
+          },
+          "mapsToKnownField": {
+            "type": "boolean"
+          },
+          "frozenText": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "fieldName",
+          "mappedKey",
+          "part",
+          "occurrences",
+          "form",
+          "mapsToKnownField",
+          "frozenText"
         ]
       },
       "TemplateNormalizationWarning": {
@@ -8263,7 +8336,11 @@
           },
           "convertMergeFields": {
             "type": "boolean",
-            "description": "Whether to convert Word merge fields in the uploaded document into this system's {{field}} form. Leave this off to see what the document contains first: the response lists every Word merge field found, and the document is left exactly as you authored it. Turning it on rewrites each one in place — the document you registered is not the document you uploaded — and is required before a document that uses Word merge fields can be registered, because Word merge fields are not filled in by this system as they stand."
+            "description": "Whether to convert Word merge fields in the uploaded document into this system's {{field}} form. Leave this off and the document registers exactly as you authored it, with every Word merge field listed in the response and recorded against the template — but those fields are not filled in by this system, so every document assembled from the template prints the text Word last cached in them, and each assembly reports that too. Turning it on rewrites each one in place: the document registered is then not the document uploaded."
+          },
+          "stripMacros": {
+            "type": "boolean",
+            "description": "Whether to remove macro content from the uploaded document. A template is run against privileged client data, so one carrying macros cannot be stored: without this, an upload that contains any is refused, and the response lists what was found. Turning it on removes the macro project along with the content-type and relationship declarations that reference it, re-checks the result from scratch, and refuses the registration outright if anything survived — the document registered is then not the document uploaded. Uploading a macro-free copy of the file is the other way through."
           }
         },
         "required": [
@@ -8280,7 +8357,11 @@
           },
           "convertMergeFields": {
             "type": "boolean",
-            "description": "Whether to convert Word merge fields in the uploaded document into this system's {{field}} form. Leave this off to see what the document contains first: the response lists every Word merge field found, and the document is left exactly as you authored it. Turning it on rewrites each one in place — the document you registered is not the document you uploaded — and is required before a document that uses Word merge fields can be registered, because Word merge fields are not filled in by this system as they stand."
+            "description": "Whether to convert Word merge fields in the uploaded document into this system's {{field}} form. Leave this off and the document registers exactly as you authored it, with every Word merge field listed in the response and recorded against the template — but those fields are not filled in by this system, so every document assembled from the template prints the text Word last cached in them, and each assembly reports that too. Turning it on rewrites each one in place: the document registered is then not the document uploaded."
+          },
+          "stripMacros": {
+            "type": "boolean",
+            "description": "Whether to remove macro content from the uploaded document. A template is run against privileged client data, so one carrying macros cannot be stored: without this, an upload that contains any is refused, and the response lists what was found. Turning it on removes the macro project along with the content-type and relationship declarations that reference it, re-checks the result from scratch, and refuses the registration outright if anything survived — the document registered is then not the document uploaded. Uploading a macro-free copy of the file is the other way through."
           }
         },
         "required": [
@@ -8384,6 +8465,12 @@
               "$ref": "#/components/schemas/TemplateFieldEntry"
             }
           },
+          "unconvertedMergeFields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TemplateUnconvertedMergeField"
+            }
+          },
           "warnings": {
             "type": "array",
             "items": {
@@ -8397,6 +8484,7 @@
           "versionNumber",
           "normalizerVersion",
           "fields",
+          "unconvertedMergeFields",
           "warnings"
         ]
       },
@@ -8480,6 +8568,76 @@
         "required": [
           "templateId",
           "status"
+        ]
+      },
+      "MergeFieldMappingPage": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MergeFieldMappingEntry"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "data",
+          "nextCursor"
+        ]
+      },
+      "MergeFieldMappingEntry": {
+        "type": "object",
+        "properties": {
+          "mappingId": {
+            "type": "string"
+          },
+          "fieldName": {
+            "type": "string"
+          },
+          "mergeKey": {
+            "type": "string"
+          },
+          "timesApplied": {
+            "type": "number"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "mappingId",
+          "fieldName",
+          "mergeKey",
+          "timesApplied",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "DeletedMergeFieldMapping": {
+        "type": "object",
+        "properties": {
+          "mappingId": {
+            "type": "string"
+          },
+          "deleted": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          }
+        },
+        "required": [
+          "mappingId",
+          "deleted"
         ]
       },
       "MergeFields": {
@@ -8610,6 +8768,12 @@
               "type": "string"
             }
           },
+          "frozenMergeFieldNames": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "reason": {
             "type": [
               "string",
@@ -8624,6 +8788,7 @@
           "fileId",
           "fileVersionId",
           "absentFieldKeys",
+          "frozenMergeFieldNames",
           "reason"
         ]
       },
@@ -32600,7 +32765,7 @@
     },
     "/api/v1/templates": {
       "post": {
-        "description": "Registers an uploaded .docx as a new template and its first version. The upload is prepared before it is stored: any macro content is removed and the result re-verified as macro-free, placeholders are rewritten into one contiguous run each, the document's drafting history is scrubbed, and the resulting bytes are scanned. The response reports everything that was found and changed — including any macro project that was removed and every Word merge field detected. Word merge fields are converted only when convertMergeFields is set; without it, a document that uses them is refused with the list of fields so the choice can be made deliberately. Returns 422 when a placeholder names no merge field, or when the document cannot be made safe to store.",
+        "description": "Registers an uploaded .docx as a new template and its first version. The upload is prepared before it is stored: placeholders are rewritten into one contiguous run each, the document's drafting history is scrubbed, and the resulting bytes are scanned. The response reports everything that was found and everything that changed. Neither transform of your own document runs unasked: macro content is removed only when stripMacros is set, and an upload carrying any without it is refused with what was found; Word merge fields are converted only when convertMergeFields is set, and without it the document registers exactly as authored with every such field recorded against the template — those fields are not filled in by this system, so every assembly of it prints the text Word cached in them and says so. Returns 422 when a placeholder names no merge field, when macro content is present without the removal opt-in, or when the document cannot be made safe to store.",
         "operationId": "templates.register",
         "tags": [
           "templates"
@@ -32825,7 +32990,7 @@
     },
     "/api/v1/templates/{templateId}/versions": {
       "post": {
-        "description": "Registers a new version of an existing template from an uploaded .docx. A template is never edited in place: the new version is prepared and stored exactly as a first version is — same macro removal, same placeholder normalization, same opt-in for converting Word merge fields — and the catalogue's current version moves to it once its bytes clear the scan. Superseded versions stay readable, because every assembled document records the exact version it came from.",
+        "description": "Registers a new version of an existing template from an uploaded .docx. A template is never edited in place: the new version is prepared and stored exactly as a first version is — same placeholder normalization, same opt-ins for removing macro content and converting Word merge fields — and the catalogue's current version moves to it once its bytes clear the scan. Superseded versions stay readable, because every assembled document records the exact version it came from.",
         "operationId": "templates.addVersion",
         "tags": [
           "templates"
@@ -33143,6 +33308,193 @@
         }
       }
     },
+    "/api/v1/merge-field-mappings": {
+      "get": {
+        "description": "Lists what this firm has confirmed its Word merge-field names mean. Each entry was recorded when a template registration converted that field, and every later registration consults the list, so importing a second document from the same source does not ask the same question again. Nothing is ever added by guessing: a name this firm has not confirmed is reported as unmapped rather than matched to something that looked close.",
+        "operationId": "templates.fieldMappings",
+        "tags": [
+          "templates"
+        ],
+        "x-mc-operationId": "templates.fieldMappings",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "templates:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "templates"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A cursor-paginated page of confirmed merge-field mappings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MergeFieldMappingPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or no such template",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is already in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/merge-field-mappings/{mappingId}": {
+      "delete": {
+        "description": "Withdraws a confirmed merge-field mapping. A mapping is a statement this firm made about its own documents, so it is removed outright rather than archived. Nothing already registered changes: a template version's stored bytes and its field list are immutable, and the mapping only ever acted at the moment a registration converted a field. The next registration that meets this Word field name will report it as unmapped again.",
+        "operationId": "templates.deleteFieldMapping",
+        "tags": [
+          "templates"
+        ],
+        "x-mc-operationId": "templates.deleteFieldMapping",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "templates:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "templates"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^documentTemplateFieldMapping_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "mappingId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The mapping is withdrawn",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeletedMergeFieldMapping"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or no such mapping",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is already in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/merge-fields": {
       "get": {
         "description": "Returns the merge fields a template author may use, with the renderings each one supports and what a document shows when the matter has no value for it. This is the list a template is authored against; a placeholder naming anything outside it is refused at registration.",
@@ -33351,7 +33703,7 @@
     },
     "/api/v1/matters/{matterId}/assemblies/{assemblyId}": {
       "get": {
-        "description": "Returns an assembly's current state. A finished assembly carries the document and version it produced, plus the merge fields the matter could not supply — which a caller must surface, because a document that completed with blanks in it is the failure this reports.",
+        "description": "Returns an assembly's current state. A finished assembly carries the document and version it produced, plus the merge fields the matter could not supply and any Word merge fields the template still carries — which a caller must surface, because a document that completed with blanks in it, or with fields printing text left over from the template, is the failure this reports. A Word merge field is not filled in by this system: it prints whatever text Word last cached in it, which is why an assembly that meets one completes as succeeded_with_absences.",
         "operationId": "assemblies.status",
         "tags": [
           "assemblies"

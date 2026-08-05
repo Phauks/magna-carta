@@ -8,6 +8,7 @@ import type {
   MergeFieldDetection,
   NormalizationWarning,
   PlaceholderForm,
+  UnconvertedMergeField,
 } from "./types.ts";
 
 // Normalization is the load-bearing move of the whole subsystem: the fiddly, failure-prone half of DOCX
@@ -23,10 +24,16 @@ import type {
 // A Word MERGEFIELD construct is an equivalent authoring form that CAN be converted into brace form
 // here — but conversion is OPT-IN, never automatic. Rewriting a firm's uploaded template is a change to
 // the firm's own document, so this pass always DETECTS what it found and reports it, and only rewrites
-// when the caller explicitly asked. A template carrying merge fields the caller did not opt in to
-// convert is refused rather than registered: an unconverted MERGEFIELD is invisible to the merge engine
-// and renders Word's frozen cached result, which would produce a filed document that looks complete and
-// is wrong — the exact failure the absence model exists to prevent.
+// when the caller explicitly asked.
+//
+// A template whose merge fields were NOT converted still registers. Nothing substitutes such a field, so
+// it renders whatever result Word last cached in it — the silently-wrong-document failure the absence
+// model exists to catch. Refusing the template would keep that failure out of the product at the price
+// of also keeping the template out; recording each construct on the FIELD MANIFEST instead — its name,
+// the part it sits in, and the frozen text it will print — puts it in front of the same absence model,
+// so registration reports it, the field inspector shows it, and every assembly reports it again. The
+// failure the refusal was guarding against is one the manifest can see; an unregisterable template is
+// one nobody can inspect.
 
 // The transform's version, recorded on every template version row. A normalizer change does not
 // retroactively apply to already-registered versions — correct, since versions are immutable — but it
@@ -41,7 +48,6 @@ export type NormalizationFailureCode =
   | "unknown-key"
   | "unknown-format"
   | "block-syntax-unsupported"
-  | "merge-field-conversion-required"
   | "unreadable-part";
 
 // A failure the author has to fix, with enough location for the field inspector to point at it.
@@ -63,15 +69,26 @@ export interface NormalizationResult {
   // feedback half of the opt-in: it is what a caller shows an administrator so the decision to convert
   // is an informed one.
   readonly mergeFieldDetections: readonly MergeFieldDetection[];
+  // The name-to-key mappings a conversion just CONFIRMED — emitted only when the caller opted in, and
+  // only for names that mapped onto a merge field the dictionary has. This is what the firm's mapping
+  // library records, so the next import of a document from the same source reuses the answer instead of
+  // asking again.
+  readonly confirmedMappings: readonly ConfirmedMergeFieldMapping[];
   readonly normalizerVersion: number;
 }
 
+export interface ConfirmedMergeFieldMapping {
+  readonly fieldName: string;
+  readonly mergeKey: string;
+}
+
 export interface NormalizeOptions {
-  // OPT-IN. Absent or false: merge fields are detected and reported, and the document is left exactly as
-  // authored. True: each one is rewritten into the canonical brace form.
+  // OPT-IN. Absent or false: merge fields are detected and reported, recorded on the manifest as
+  // unconverted, and the document is left exactly as authored. True: each one is rewritten into the
+  // canonical brace form.
   readonly convertMergeFields?: boolean;
-  // How a Word merge-field name maps onto a merge-field key. Identity by default; the per-firm
-  // field-mapping library replaces it (see MergeFieldNameResolver).
+  // How a Word merge-field name maps onto a merge-field key. Identity by default; the firm's own
+  // field-mapping library supplies it in the worker (see MergeFieldNameResolver).
   readonly resolveMergeFieldName?: MergeFieldNameResolver;
 }
 
@@ -146,19 +163,53 @@ function instructionTextOf(node: XmlNode): string {
   return text;
 }
 
-// Maps a Word merge-field name onto a merge-field key. The identity mapping today: a template authored
-// against this platform names its fields the way the dictionary does, so `matter.number` maps to
-// `matter.number` and an unrecognized name stays unrecognized rather than being guessed at.
+// Maps a Word merge-field name onto a merge-field key. The identity mapping is the floor: a template
+// authored against this platform names its fields the way the dictionary does, so `matter.number` maps
+// to `matter.number` and an unrecognized name stays unrecognized rather than being guessed at — a
+// `ClientName` that becomes `client.displayName` because it looked close is a silent binding decision
+// on privileged content.
 //
-// It is a seam because the mapping is the part that has to become a firm's own knowledge. A firm
-// migrating from an older system has fields called `ClientName` and `FileNo`, and the durable answer is
-// a PER-FIRM FIELD-MAPPING LIBRARY: a firm-scoped store of confirmed name-to-key mappings that grows as
-// an administrator confirms them, so the second template import reuses what the first one established
-// instead of asking again. That store replaces this resolver; nothing else in the pass changes, because
-// everything downstream already works in dictionary keys.
-export type MergeFieldNameResolver = (fieldName: string) => string;
+// It is injected because the mapping is the part that is a FIRM'S OWN KNOWLEDGE, not the engine's. The
+// worker supplies a resolver backed by the firm's field-mapping library — the confirmed name-to-key
+// mappings an administrator has already accepted (see field-mapping-statements.ts) — so a second import
+// of documents from the same source reuses what the first one established. `fromLibrary` distinguishes
+// the two, because a mapping the firm confirmed and a name that happened to match a dictionary key are
+// different facts to put in front of the person deciding.
+export interface MergeFieldMapping {
+  readonly key: string;
+  readonly fromLibrary: boolean;
+}
 
-const identityMergeFieldNameResolver: MergeFieldNameResolver = (fieldName) => fieldName;
+export type MergeFieldNameResolver = (fieldName: string) => MergeFieldMapping;
+
+const identityMergeFieldNameResolver: MergeFieldNameResolver = (fieldName) => ({
+  key: fieldName,
+  fromLibrary: false,
+});
+
+// Build a resolver over a firm's confirmed mappings, falling back to the identity mapping for a name
+// the firm has never confirmed. Exported so the worker composes it from a single read of the library
+// rather than issuing a lookup per field — the same batching rule the merge context follows.
+export function mergeFieldNameResolverFor(
+  confirmed: ReadonlyMap<string, string>,
+): MergeFieldNameResolver {
+  return (fieldName) => {
+    const mapped = confirmed.get(fieldName);
+    return mapped === undefined
+      ? { key: fieldName, fromLibrary: false }
+      : { key: mapped, fromLibrary: true };
+  };
+}
+
+interface DetectionTally {
+  fieldName: string;
+  occurrences: number;
+  form: "simple" | "complex";
+  // Word's cached result for the first occurrence — the text the document prints today where this field
+  // sits. The first is enough: an author needs to see that the field prints stale words, not a
+  // concordance of every stale value in the file.
+  frozenText: string;
+}
 
 interface ConversionTally {
   count: number;
@@ -166,10 +217,7 @@ interface ConversionTally {
   // merge field rather than as typed braces — without pass two having to know anything about fields.
   readonly keys: Set<string>;
   // Every construct found, converted or not. Detection is unconditional; conversion is not.
-  readonly detections: Map<
-    string,
-    { fieldName: string; occurrences: number; form: "simple" | "complex" }
-  >;
+  readonly detections: Map<string, DetectionTally>;
   // Whether this pass is allowed to REWRITE what it finds. False means detect and report only, leaving
   // the firm's document exactly as it was authored.
   readonly convert: boolean;
@@ -180,13 +228,32 @@ function recordDetection(
   tally: ConversionTally,
   fieldName: string,
   form: "simple" | "complex",
+  frozenText: string,
 ): void {
   const existing = tally.detections.get(fieldName);
   if (existing === undefined) {
-    tally.detections.set(fieldName, { fieldName, occurrences: 1, form });
+    tally.detections.set(fieldName, { fieldName, occurrences: 1, form, frozenText });
     return;
   }
   existing.occurrences += 1;
+  if (existing.frozenText === "") existing.frozenText = frozenText;
+}
+
+// The visible text a run subtree carries — the `w:t` leaves only, so a field's own machinery
+// (`w:instrText`) and deleted text never count as something the document prints.
+function visibleTextOf(node: XmlNode): string {
+  const tag = nodeTag(node);
+  if (tag === undefined) return "";
+  const children = node[tag];
+  if (!Array.isArray(children)) return "";
+  if (tag === "w:t") {
+    let text = "";
+    for (const leaf of children as XmlNode[]) text += textOf(leaf);
+    return text;
+  }
+  let text = "";
+  for (const child of children as XmlNode[]) text += visibleTextOf(child);
+  return text;
 }
 
 // Walk the complex field constructs (`begin` / `instrText` / `separate` / result / `end`) and simple
@@ -209,13 +276,14 @@ function convertMergeFieldsInList(nodes: XmlNode[], tally: ConversionTally): Xml
       const name = typeof instruction === "string" ? mergeFieldNameOf(instruction) : undefined;
       const children = Array.isArray(node["w:fldSimple"]) ? (node["w:fldSimple"] as XmlNode[]) : [];
       if (name !== undefined) {
-        recordDetection(tally, name, "simple");
+        // A simple field's cached result is the visible text of its own children.
+        recordDetection(tally, name, "simple", children.map(visibleTextOf).join(""));
         if (!tally.convert) {
           out.push(node);
           index += 1;
           continue;
         }
-        const key = tally.resolveName(name);
+        const { key } = tally.resolveName(name);
         const resultRun = children.find((child) => nodeTag(child) === "w:r");
         out.push(
           runElement(
@@ -237,6 +305,7 @@ function convertMergeFieldsInList(nodes: XmlNode[], tally: ConversionTally): Xml
       let depth = 0;
       let instruction = "";
       let firstResultRun: XmlNode | undefined;
+      let resultText = "";
       let separated = false;
       let end = -1;
       for (let scan = index; scan < nodes.length; scan += 1) {
@@ -264,6 +333,9 @@ function convertMergeFieldsInList(nodes: XmlNode[], tally: ConversionTally): Xml
           if (firstResultRun === undefined && nodeTag(candidate) === "w:r") {
             firstResultRun = candidate;
           }
+          // Everything between `separate` and `end` is Word's cached result — the words this field
+          // prints today, and will keep printing unless it is converted.
+          resultText += visibleTextOf(candidate);
           continue;
         }
         instruction += instructionTextOf(candidate);
@@ -271,10 +343,10 @@ function convertMergeFieldsInList(nodes: XmlNode[], tally: ConversionTally): Xml
 
       const name = end === -1 ? undefined : mergeFieldNameOf(instruction);
       if (name !== undefined) {
-        recordDetection(tally, name, "complex");
+        recordDetection(tally, name, "complex", resultText);
         if (!tally.convert) {
           // Detected, reported, and left exactly as authored: the whole construct is emitted back
-          // untouched so the firm's document is unchanged.
+          // untouched so the firm's document is unchanged. What it will render is on the manifest.
           for (let scan = start; scan <= end; scan += 1) {
             const original = nodes[scan];
             if (original !== undefined) out.push(original);
@@ -282,7 +354,7 @@ function convertMergeFieldsInList(nodes: XmlNode[], tally: ConversionTally): Xml
           index = end + 1;
           continue;
         }
-        const key = tally.resolveName(name);
+        const { key } = tally.resolveName(name);
         out.push(
           runElement(
             `{{${key}}}`,
@@ -539,6 +611,8 @@ export function normalizeTemplate(
   const warnings: NormalizationWarning[] = [];
   const failures: NormalizationFailure[] = [];
   const detections: MergeFieldDetection[] = [];
+  const unconverted: UnconvertedMergeField[] = [];
+  const confirmed = new Map<string, string>();
   const convert = options.convertMergeFields === true;
   const resolveName = options.resolveMergeFieldName ?? identityMergeFieldNameResolver;
 
@@ -577,15 +651,35 @@ export function normalizeTemplate(
     const converted = convertMergeFieldsInList(nodes, tally);
 
     for (const detection of tally.detections.values()) {
-      const mappedKey = resolveName(detection.fieldName);
+      const mapping = resolveName(detection.fieldName);
+      const mapsToKnownField = lookupDictionaryEntry(mapping.key) !== undefined;
       detections.push({
         fieldName: detection.fieldName,
-        mappedKey,
+        mappedKey: mapping.key,
         part: partName,
         occurrences: detection.occurrences,
         form: detection.form,
-        mapsToKnownField: lookupDictionaryEntry(mappedKey) !== undefined,
+        mapsToKnownField,
+        mappedFromLibrary: mapping.fromLibrary,
+        frozenText: detection.frozenText,
       });
+      // A conversion that landed on a real merge field is a mapping the firm has now confirmed. An
+      // unrecognized name is not confirmed by having been converted — it produced a placeholder naming
+      // a field nobody has, which is a thing to fix rather than a thing to remember.
+      if (convert && mapsToKnownField) confirmed.set(detection.fieldName, mapping.key);
+      // Left as authored: recorded on the manifest so the template is registrable AND the field is
+      // visible. Nothing substitutes it, so `frozenText` is what the assembled document will print.
+      if (!convert) {
+        unconverted.push({
+          fieldName: detection.fieldName,
+          mappedKey: mapping.key,
+          part: partName,
+          occurrences: detection.occurrences,
+          form: detection.form,
+          mapsToKnownField,
+          frozenText: detection.frozenText,
+        });
+      }
     }
 
     if (tally.count > 0) {
@@ -595,16 +689,12 @@ export function normalizeTemplate(
         detail: `${tally.count} Word merge field${tally.count === 1 ? "" : "s"} rewritten into the {{field}} form this template now stores.`,
       });
     }
-    // Detected but not converted: refuse rather than register. Left as authored, a merge field is
-    // invisible to the assembly engine — the document would render Word's frozen cached result and
-    // look finished. The caller either opts in to conversion or removes the fields in Word.
     if (!convert && tally.detections.size > 0) {
       const names = [...tally.detections.keys()].sort().join(", ");
-      failures.push({
-        code: "merge-field-conversion-required",
+      warnings.push({
+        code: "merge-field-unconverted",
         part: partName,
-        excerpt: names,
-        detail: `This document uses ${tally.detections.size} Word merge field${tally.detections.size === 1 ? "" : "s"} (${names}). Word merge fields are not filled in by this system as they stand. Register again asking for them to be converted to this system's {{field}} form, or replace them in Word first.`,
+        detail: `${tally.detections.size} Word merge field${tally.detections.size === 1 ? "" : "s"} (${names}) ${tally.detections.size === 1 ? "was" : "were"} left exactly as authored. Word merge fields are not filled in by this system, so every document assembled from this template prints the text Word last cached in ${tally.detections.size === 1 ? "it" : "them"}. Register again asking for them to be converted to this system's {{field}} form, or replace them in Word.`,
       });
     }
 
@@ -631,7 +721,7 @@ export function normalizeTemplate(
     );
 
   const totalOccurrences = fields.reduce((sum, field) => sum + field.occurrences, 0);
-  if (failures.length === 0 && fields.length === 0) {
+  if (failures.length === 0 && fields.length === 0 && unconverted.length === 0) {
     warnings.push({
       code: "no-placeholders",
       part: "",
@@ -640,16 +730,27 @@ export function normalizeTemplate(
     });
   }
 
+  const byPartThenName = <T extends { part: string; fieldName: string }>(
+    left: T,
+    right: T,
+  ): number =>
+    left.part === right.part
+      ? left.fieldName.localeCompare(right.fieldName)
+      : left.part.localeCompare(right.part);
+
   return {
     parts: normalized,
-    manifest: { fields, totalOccurrences },
+    manifest: {
+      fields,
+      totalOccurrences,
+      unconvertedMergeFields: unconverted.sort(byPartThenName),
+    },
     warnings,
     failures,
-    mergeFieldDetections: detections.sort((left, right) =>
-      left.part === right.part
-        ? left.fieldName.localeCompare(right.fieldName)
-        : left.part.localeCompare(right.part),
-    ),
+    mergeFieldDetections: detections.sort(byPartThenName),
+    confirmedMappings: [...confirmed.entries()]
+      .map(([fieldName, mergeKey]) => ({ fieldName, mergeKey }))
+      .sort((left, right) => left.fieldName.localeCompare(right.fieldName)),
     normalizerVersion: NORMALIZER_VERSION,
   };
 }
