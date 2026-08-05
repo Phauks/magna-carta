@@ -65,9 +65,22 @@ import type { DocumentAutomationVolume } from "./profile.ts";
 // merge key, so this list is the ceiling on distinct platform fields a template can declare.
 const PLATFORM_MERGE_KEYS: readonly string[] = DICTIONARY.map((entry) => entry.key);
 
-// The roles the probe matter's party links are spread across — the same closed vocabulary the directory
-// generator uses, so the two produce one coherent party corpus.
-const PARTY_ROLES = ["client", "opposing_party", "guardian", "witness"] as const;
+// The roles the probe matter's party links are spread across.
+//
+// The first three are laid down EXACTLY ONCE. A matter has one client, one opposing party, and one
+// opposing counsel, and the Directory role merge sources resolve a single party per role — a probe
+// matter carrying three of each would measure only the ambiguous path, where the resolution stops at a
+// count. The remaining links alternate between the two roles a matter genuinely carries several of,
+// which is what a role collection walks and what keeps the party read's row count realistic.
+const SINGULAR_PARTY_ROLES = ["client", "opposing_party", "opposing_counsel"] as const;
+const REPEATED_PARTY_ROLES = ["guardian", "witness"] as const;
+
+function partyRoleAt(index: number): string {
+  return (
+    SINGULAR_PARTY_ROLES[index] ??
+    REPEATED_PARTY_ROLES[(index - SINGULAR_PARTY_ROLES.length) % REPEATED_PARTY_ROLES.length]!
+  );
+}
 
 // The firm-field shapes the probe matter's bindings cycle through, each with the value it stores. All
 // four storage columns are covered on purpose: the merge read joins and the scale rules that decide
@@ -257,7 +270,7 @@ export async function generateDocumentAutomationVolume(
       {
         matterId: probeMatterId,
         entityId: person.id,
-        role: PARTY_ROLES[index % PARTY_ROLES.length]!,
+        role: partyRoleAt(index),
       },
       { clock, actorUserId: null, randomSource },
     );

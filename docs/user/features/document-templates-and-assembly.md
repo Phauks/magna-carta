@@ -119,6 +119,54 @@ as needing review before you file it — a blank that does not look like a blank
 Assembling needs the **assemble documents** permission, which attorneys, paralegals, and administrators
 have.
 
+## The other people on the matter
+
+The client is not the only party a document names. The people and organisations linked to the matter —
+the opposing party, opposing counsel, a guardian, a witness — are merge fields too, written the same way
+the client is:
+
+```
+Re: {{client.displayName}} v. {{opposingParty.displayName}}
+Served on {{opposingCounsel.displayName}}.
+```
+
+The four roles you can name are `opposingParty`, `opposingCounsel`, `guardian`, and `witness`. Each
+offers the party's **name** (`{{opposingParty.displayName}}`) and whether it is a **person or an
+organisation** (`{{opposingParty.kind}}`), which is what you write a condition on when a sentence has to
+read differently for a company:
+
+```
+{{#if opposingParty.kind == "organisation"}}
+Defendant is a corporation organised under the laws of the state.
+{{/if}}
+```
+
+**How you recorded the role does not matter.** A party linked as "Opposing Party", `opposing_party`, or
+`opposing-party` is the same role — spacing, capitals, hyphens, and underscores are ignored.
+
+### When the matter has more than one
+
+A field like `{{opposingParty.displayName}}` names **the** opposing party, so it fills in only when the
+matter links exactly one. If it links three, there is no single one to name — so nothing is filled in,
+the document shows the usual marker, and **the result tells you there were three**, rather than quietly
+choosing one for you. A document naming the wrong defendant is the one mistake nobody catches by reading
+it.
+
+When your template means "list them all", walk the whole set with a repeat. Each role has a collection
+named after it:
+
+```
+{{#each opposingParty.all}}
+{{loop.index}}. {{opposingParty.all.displayName}}
+{{/each}}
+```
+
+That works whether the matter has none, one, or a dozen — a matter with none simply produces nothing
+where the block was.
+
+**A role you use that is not one of the four** is still reachable: `{{#each matter.parties}}` walks
+everyone linked to the matter, and each item carries `role` alongside `displayName` and `kind`.
+
 ## Your firm's own fields
 
 Every custom field you have defined on matters is a merge field too. Its name in a template is
@@ -329,7 +377,8 @@ is a report, not a template.
 
 ## What is not here yet
 
-- **Fields drawn from a matter's other parties** beyond their names and roles.
+- **A party's own details** beyond their name and whether they are a person or an organisation — an
+  address, a telephone number, an email.
 - **Fields holding protected information**, such as an identifier held encrypted.
 - **Producing a PDF** directly, and sending an assembled document straight for signature.
 - **Writing templates in the browser** — today they are written in Word and uploaded.

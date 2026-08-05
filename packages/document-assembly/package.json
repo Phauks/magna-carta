@@ -19,6 +19,7 @@
     "./expression-evaluate": "./src/expression/evaluate.ts",
     "./dictionary": "./src/dictionary.ts",
     "./custom-field-bindings": "./src/custom-field-bindings.ts",
+    "./directory-role-bindings": "./src/directory-role-bindings.ts",
     "./custom-field-statements": "./src/custom-field-statements.ts",
     "./ooxml-image": "./src/ooxml/image.ts",
     "./format": "./src/format.ts",

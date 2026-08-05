@@ -235,5 +235,12 @@ export interface MergeListItem {
 export interface MergeContext {
   readonly values: ReadonlyMap<string, MergeValue>;
   readonly absentKeys: readonly string[];
+  // Why a key could not be resolved, for the cases where resolution KNOWS why and a marker on the page
+  // does not say it. A matter with two opposing parties has no single one to name, and "[OPPOSING PARTY
+  // DISPLAY NAME]" leaves the person filling it in to guess whether the data is missing or the question
+  // is unanswerable; the sentence here says which, and names how many candidates there were. Absent for
+  // an ordinary missing value, where the marker already says everything there is to say. A reason names
+  // counts and roles only — never a value, which is the thing resolution refused to choose between.
+  readonly absenceReasons: ReadonlyMap<string, string>;
   readonly timeZone: string;
 }

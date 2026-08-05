@@ -30,7 +30,12 @@ function normalizedTemplateBytes(overrides: DocxParts): Uint8Array {
 }
 
 function contextOf(entries: Record<string, MergeValue>, timeZone = "UTC"): MergeContext {
-  return { values: new Map(Object.entries(entries)), absentKeys: [], timeZone };
+  return {
+    values: new Map(Object.entries(entries)),
+    absentKeys: [],
+    absenceReasons: new Map(),
+    timeZone,
+  };
 }
 
 function partsOfResultBytes(bytes: Uint8Array): PartMap {
@@ -110,6 +115,7 @@ describe("substitution", () => {
         ["system.today", { kind: "instant", isoInstant: "2026-03-15T05:30:00.000Z" }],
       ]),
       absentKeys: [],
+      absenceReasons: new Map(),
       timeZone: "America/Los_Angeles",
     };
     const result = assemble(bytes, context);
@@ -172,7 +178,9 @@ describe("absence handling", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(visibleTextOf(partsOfResultBytes(result.bytes))).toBe("Office: [LOCATION NAME]");
-    expect(result.absences).toEqual([{ key: "location.name", rendered: "placeholder" }]);
+    expect(result.absences).toEqual([
+      { key: "location.name", rendered: "placeholder", reason: null },
+    ]);
   });
 
   it("renders nothing for a `blank` field and still reports the key", () => {
@@ -183,7 +191,9 @@ describe("absence handling", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(visibleTextOf(partsOfResultBytes(result.bytes))).toBe("[]");
-    expect(result.absences).toEqual([{ key: "matter.description", rendered: "blank" }]);
+    expect(result.absences).toEqual([
+      { key: "matter.description", rendered: "blank", reason: null },
+    ]);
   });
 
   it("FAILS the assembly for a field declared `fail`, naming the key and nothing else", () => {
