@@ -77,6 +77,10 @@ describe("problem-type URI registry", () => {
         "trust-statement-import-refused",
         "trust-reconciliation-refused",
         "matter-close-refused",
+        "calendar-window-too-wide",
+        "calendar-deadline-catalog-unavailable",
+        "calendar-deadline-settled",
+        "calendar-platform-type-immutable",
       ].sort(),
     );
   });

@@ -24,6 +24,9 @@
       "path": "../../packages/billing-core/tsconfig.build.json"
     },
     {
+      "path": "../../packages/calendar/tsconfig.build.json"
+    },
+    {
       "path": "../../packages/conflicts/tsconfig.build.json"
     },
     {

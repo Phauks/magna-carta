@@ -191,6 +191,16 @@ export const ENTITY_PREFIXES = {
   trustBankStatementLine: "trustBankStatementLine",
   trustReconciliation: "trustReconciliation",
   trustReconciliationMatch: "trustReconciliationMatch",
+  // The case calendar. A `matterEvent` is one thing that happened or will happen in the case that no
+  // other subsystem records — a hearing, a filing, service, an order, a deposition; a
+  // `matterEventType` is the per-firm classification catalog behind it; a `matterEventParticipant`
+  // is one person who was or will be there, whether a firm member, a Directory entity, or somebody
+  // external to both. A `matterDeadline` is a date the firm must do something by, which is a
+  // different record from an event because it can be satisfied and it comes from somewhere.
+  matterEvent: "matterEvent",
+  matterEventType: "matterEventType",
+  matterEventParticipant: "matterEventParticipant",
+  matterDeadline: "matterDeadline",
 } as const;
 
 export type EntityType = keyof typeof ENTITY_PREFIXES;

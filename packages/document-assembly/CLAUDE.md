@@ -54,9 +54,11 @@ block-marker vocabulary the normalizer validates and the assembly walk expands.
   plus its scale — `500` is five hundred on a number field and five dollars on a currency field. Money
   is `amount_minor`, rates are `rate_e4`, and `src/format.ts` renders both by moving the point on the
   digits.
-- **Dates render in the MATTER'S OFFICE'S time zone**, never the server's or the member's. Locations
-  carries no time-zone column yet, so `timeZoneForLocation` in `src/resolve.ts` is the single place
-  that column plugs in — do not scatter a default through the formatters.
+- **Dates render in the MATTER'S OFFICE'S time zone**, never the server's or the member's.
+  `timeZoneForLocation` in `src/resolve.ts` is the single place `location.time_zone` is read — do not
+  scatter a default through the formatters. An office that carries no zone still resolves to the
+  platform's normalized zone, so a document that rendered correctly before the column existed renders
+  identically now.
 - **Absence is a decision, not an accident.** Every dictionary entry declares `blank` / `placeholder` /
   `fail`; the default bias is a visible marker, because a blank where a party name should be, filed
   without anyone noticing, is the worst outcome this subsystem can produce. Where resolution KNOWS why a
@@ -258,8 +260,6 @@ from that one sentence.
 
 ## Named seams (not built here)
 
-- **A location time zone.** `timeZoneForLocation` in `src/resolve.ts` is the one place the column plugs
-  in; every office resolves to the platform's normalized zone until it exists.
 - **A firm currency setting.** `ResolutionInput.currencyCode` is supplied by the caller precisely so
   this stays one line at the composition root when a firm may hold amounts in more than one currency.
 - **Content controls (`w:sdt`)** — structurally the best placeholder binding and immune to run

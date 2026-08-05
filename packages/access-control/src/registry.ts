@@ -127,6 +127,14 @@ export const PERMISSIONS = [
   // matter, and its sub-ledger spans every matter a client has.
   "trust:read", // read trust accounts, the client/matter sub-ledger, balances, available balances, and holds
   "trust:manage", // open trust accounts, build the sub-ledger, place and release holds, compose trust movements
+  // Case calendar — litigation events, deadlines, and the matter timeline that federates them with
+  // everything else the firm already recorded. Two keys, because reading a case's history and
+  // asserting when a hearing is are genuinely different capabilities: everyone working a matter needs
+  // to see what is coming, and a wrong hearing date entered by somebody who was not there is a
+  // missed appearance. Both bind resource: "matter" for the matter-scoped routes and "firm" for the
+  // firm-wide calendar, which is a matter-scoped read repeated under the same visibility predicate.
+  "calendar:read", // read matter timelines, events, deadlines, and the firm-wide calendar
+  "calendar:manage", // record, edit, and cancel events; record, satisfy, vacate, and supersede deadlines; manage the event-type catalog
 ] as const;
 
 // KnownPermission is for hardcoded compile-checked keys (route metadata, role seeds);

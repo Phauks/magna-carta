@@ -126,3 +126,7 @@ export type TrustBankStatementId = Identifier<"trustBankStatement">;
 export type TrustBankStatementLineId = Identifier<"trustBankStatementLine">;
 export type TrustReconciliationId = Identifier<"trustReconciliation">;
 export type TrustReconciliationMatchId = Identifier<"trustReconciliationMatch">;
+export type MatterEventId = Identifier<"matterEvent">;
+export type MatterEventTypeId = Identifier<"matterEventType">;
+export type MatterEventParticipantId = Identifier<"matterEventParticipant">;
+export type MatterDeadlineId = Identifier<"matterDeadline">;

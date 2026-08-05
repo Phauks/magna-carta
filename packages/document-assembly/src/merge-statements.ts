@@ -70,6 +70,9 @@ export interface LocationMergeRow {
   readonly id: LocationId;
   readonly name: string;
   readonly jurisdiction: string | null;
+  // The office's IANA time zone, or null for an office recorded before the column existed. Read here
+  // because it is the fact timeZoneForLocation resolves — one column on a read that already happens.
+  readonly timeZone: string | null;
   readonly addressBlock: string | null;
   readonly footer: string | null;
   readonly remitTo: string | null;
@@ -88,7 +91,7 @@ export function selectLocationForMergeStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `SELECT id, name, jurisdiction, address_block, footer, remit_to, letterhead_logo_object_key, letterhead_logo_width_emu FROM ${LOCATION_TABLE} WHERE id = ?1`,
+      `SELECT id, name, jurisdiction, time_zone, address_block, footer, remit_to, letterhead_logo_object_key, letterhead_logo_width_emu FROM ${LOCATION_TABLE} WHERE id = ?1`,
     )
     .bind(locationId);
 }
@@ -97,6 +100,7 @@ export interface LocationMergeColumns {
   id: string;
   name: string;
   jurisdiction: string | null;
+  time_zone: string | null;
   address_block: string | null;
   footer: string | null;
   remit_to: string | null;
@@ -171,6 +175,7 @@ export function toLocationMergeRow(row: LocationMergeColumns): LocationMergeRow 
     id: row.id as LocationId,
     name: row.name,
     jurisdiction: row.jurisdiction,
+    timeZone: row.time_zone,
     addressBlock: row.address_block,
     footer: row.footer,
     remitTo: row.remit_to,

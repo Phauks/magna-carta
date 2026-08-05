@@ -245,6 +245,11 @@ describe("end-to-end", () => {
       // tools:decryption (0035_seed-tools-decryption.sql, seeded onto every default role).
       // Sorted.
       permissions: [
+        // calendar:read reaches every default role — "when is the hearing" is a question every seat
+        // in a firm asks; calendar:manage asserts when a hearing IS and reaches Owner/Admin,
+        // Attorney, and Paralegal only (20260806T000000_case-calendar).
+        "calendar:manage",
+        "calendar:read",
         // conflicts:read / conflicts:run are seeded onto every default role (any member may screen a
         // prospective matter); conflicts:dispose is narrower and reaches Owner/Admin + Attorney only.
         "conflicts:dispose",

@@ -16,6 +16,11 @@ export const MEMBER_LOCATION_TABLE = "member_location";
 export interface LocationFields {
   readonly name: string;
   readonly jurisdiction: string | null;
+  // The office's IANA time zone, and never a fixed offset — an offset is wrong for half the year in
+  // every zone that observes daylight saving. Nullable: an office recorded before the column existed
+  // has none, and the one function that reads it resolves that to the platform's normalized zone
+  // rather than guessing where the office is.
+  readonly timeZone: string | null;
   readonly numberCode: string | null;
   readonly addressBlock: string | null;
   readonly footer: string | null;
@@ -35,12 +40,13 @@ export function insertLocationStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO ${LOCATION_TABLE} (id, name, status, jurisdiction, number_code, address_block, footer, remit_to, created_at, updated_at) VALUES (?1, ?2, 'active', ?3, ?4, ?5, ?6, ?7, ?8, ?8)`,
+      `INSERT INTO ${LOCATION_TABLE} (id, name, status, jurisdiction, time_zone, number_code, address_block, footer, remit_to, created_at, updated_at) VALUES (?1, ?2, 'active', ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?9)`,
     )
     .bind(
       row.id,
       row.name,
       row.jurisdiction,
+      row.timeZone,
       row.numberCode,
       row.addressBlock,
       row.footer,
@@ -57,12 +63,13 @@ export function updateLocationFieldsStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `UPDATE ${LOCATION_TABLE} SET name = ?2, jurisdiction = ?3, number_code = ?4, address_block = ?5, footer = ?6, remit_to = ?7, updated_at = ?8 WHERE id = ?1`,
+      `UPDATE ${LOCATION_TABLE} SET name = ?2, jurisdiction = ?3, time_zone = ?4, number_code = ?5, address_block = ?6, footer = ?7, remit_to = ?8, updated_at = ?9 WHERE id = ?1`,
     )
     .bind(
       id,
       fields.name,
       fields.jurisdiction,
+      fields.timeZone,
       fields.numberCode,
       fields.addressBlock,
       fields.footer,
@@ -151,7 +158,7 @@ export function closeLocationStatement(
 export function selectLocationStatement(database: SqlDatabase, id: LocationId): SqlStatement {
   return database
     .prepare(
-      `SELECT id, name, status, jurisdiction, number_code, address_block, footer, remit_to, letterhead_logo_object_key FROM ${LOCATION_TABLE} WHERE id = ?1`,
+      `SELECT id, name, status, jurisdiction, time_zone, number_code, address_block, footer, remit_to, letterhead_logo_object_key FROM ${LOCATION_TABLE} WHERE id = ?1`,
     )
     .bind(id);
 }

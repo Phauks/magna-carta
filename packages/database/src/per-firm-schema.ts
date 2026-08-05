@@ -69,6 +69,10 @@ import type {
   LedgerLineId,
   LocationAddressId,
   LocationId,
+  MatterDeadlineId,
+  MatterEventId,
+  MatterEventParticipantId,
+  MatterEventTypeId,
   MatterId,
   MatterPartyId,
   MatterTypeId,
@@ -350,6 +354,12 @@ export const location = sqliteTable(
       .notNull()
       .default("active"),
     jurisdiction: text("jurisdiction"), // jurisdiction key the trust-rules catalog will key off
+    // The office's IANA time zone (America/Los_Angeles), never a fixed offset — an offset breaks
+    // across daylight saving, which is the whole reason a zone is stored instead. Nullable while
+    // offices that predate the column are filled in; timeZoneForLocation in
+    // packages/document-assembly/src/resolve.ts is the one place it enters the platform, so a null
+    // resolves to the platform-normalized zone in exactly one spot rather than in every formatter.
+    timeZone: text("time_zone"),
     numberCode: text("number_code"), // short code the matter-numbering location segment renders
     addressBlock: text("address_block"), // free-text letterhead address
     footer: text("footer"), // free-text letterhead footer
@@ -974,6 +984,14 @@ export const auditLog = sqliteTable(
   (table) => [
     index("audit_log_created_at_index").on(table.createdAt),
     index("audit_log_event_index").on(table.event),
+    // A matter's own lifecycle — opened, closed, reopened — lives on two nullable `matter` columns
+    // and in this log, and nowhere else, so the matter timeline reads those three events from here
+    // over a STRICT allowlist of event keys (packages/calendar/src/sources/matter-lifecycle.ts).
+    // Leading with subject_id confines that walk to one matter; created_at then id carry the
+    // newest-first order, so the read is an index walk rather than a scan of the firm's every
+    // audited action. It is deliberately not a general timeline substrate: this table records when a
+    // row was WRITTEN, not when the thing happened.
+    index("audit_log_subject_created_id_index").on(table.subjectId, table.createdAt, table.id),
   ],
 );
 
@@ -1819,6 +1837,14 @@ export const conflictsCheck = sqliteTable(
     createdAt: text("created_at").notNull(),
   },
   (table) => [
+    // A matter's own conflicts history, newest first: leading with the matter confines the walk, and
+    // created_at then id carry the order. Without it the matter timeline's conflicts source would
+    // scan every check the firm has ever run to find the handful belonging to one matter.
+    index("conflicts_check_subject_matter_created_id_index").on(
+      table.subjectMatterId,
+      table.createdAt,
+      table.id,
+    ),
     check("conflicts_check_trigger_check", sql`length(${table.trigger}) > 0`),
     check(
       "conflicts_check_strictness_check",
@@ -3902,5 +3928,335 @@ export const trustReconciliationMatch = sqliteTable(
     // unmatched lists are built from.
     index("trust_reconciliation_match_line_index").on(table.statementLineId),
     index("trust_reconciliation_match_entry_index").on(table.entryId),
+  ],
+);
+
+// ---- Case calendar: litigation events and deadlines ----
+//
+// Two structural positions govern this group. First, only facts BORN here get a row: a hearing, a
+// filing, an order, a deposition, a deadline — the things the platform records nowhere else. What
+// another subsystem already recorded (a document filed, mail captured, an assembly run, an original
+// moved, money through trust, time and costs booked) is read in place through the source registry in
+// @magna-carta/calendar, so the timeline cannot disagree with the register it is built from. Nothing
+// is projected into these tables and nothing is backfilled into them.
+//
+// Second, a date here is a CIVIL date and a time is a separate optional wall-clock time, resolved in
+// an explicit zone. There is no UTC timestamp on an event or a deadline anywhere in this group:
+// storing midnight-local-as-UTC is the daylight-saving off-by-one that moves a hearing by a day when
+// the clocks change, and a docketing system cannot have that failure. The instants in the group
+// (recorded_at, satisfied_at, created_at) are instants about the RECORD, never about the appearance.
+
+// The per-firm event-type catalog — hearing, trial, filing, service, deposition, and whatever else a
+// firm's practice has. A catalog table rather than a platform enum for the reason matter_type,
+// document_type, and custody_item_type are: a firm whose practice has a proceeding nobody thought of
+// must not be blocked, and a growing list of similar things is a declaration, not code. Soft-
+// deactivate only, so an event already classified under a retired type keeps its meaning.
+//
+// `origin` separates the seeded platform vocabulary from a firm's own additions: a platform row's
+// name and code are immutable (a firm may deactivate it, never redefine it under everyone else),
+// where a firm row is entirely the firm's. `category` drives grouping and iconography ONLY — nothing
+// in the engine branches on it, the same discipline custody_location.kind carries.
+export const matterEventType = sqliteTable(
+  "matter_event_type",
+  {
+    id: text("id").primaryKey().$type<MatterEventTypeId>(), // matterEventType_ handle
+    name: text("name").notNull(),
+    code: text("code"),
+    category: text("category", { enum: ["litigation", "transaction", "firm", "other"] })
+      .notNull()
+      .default("litigation"),
+    origin: text("origin", { enum: ["platform", "firm"] })
+      .notNull()
+      .default("firm"),
+    active: integer("active", { mode: "boolean" }).notNull().default(true),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("matter_event_type_name_unique_index").on(table.name),
+    uniqueIndex("matter_event_type_code_unique_index").on(table.code),
+    check("matter_event_type_name_check", sql`length(${table.name}) > 0`),
+    check(
+      "matter_event_type_category_check",
+      sql`${table.category} IN ('litigation', 'transaction', 'firm', 'other')`,
+    ),
+    check("matter_event_type_origin_check", sql`${table.origin} IN ('platform', 'firm')`),
+  ],
+);
+
+// One thing that happened or will happen in the case: a hearing, a filing, service, an order, a
+// deposition, a mediation, a trial, a client meeting. Member-entered — there is no court integration
+// and no docket feed, so every row here is a person's assertion about a proceeding.
+//
+// matter_id is REQUIRED. Every read over this table is "what happened on this case", and the
+// visibility predicate keys off the matter; a personal appointment that belongs to nobody's case has
+// a different audience and a different privacy posture and is its own thing when it is built, not a
+// null here.
+//
+// An event is MUTABLE, deliberately, and that is the one place this group departs from the custody
+// ledger. The ledger is append-only because its value in a dispute is that nobody could make it say
+// otherwise afterwards; a calendar is a plan and a record of a plan, hearings move, and a firm made
+// to record a compensating row to fix a typo stops recording. A continued hearing is the same
+// hearing on a new date: the row is edited and the audit_log row written in the same batch carries
+// the change, rather than leaving two hearings on the calendar for every consumer to hide one of.
+//
+// location_text is free text (a courtroom, a department number, an address) rather than a `location`
+// foreign key: a courthouse is not one of the firm's offices, exactly as a bank vault is not, and
+// that table drives letterhead, remit-to, matter numbering, and staffing for every subsystem that
+// reads it. court_reference is likewise the court's own case number as a string, not an invented
+// court-identity schema built to hold one field.
+export const matterEvent = sqliteTable(
+  "matter_event",
+  {
+    id: text("id").primaryKey().$type<MatterEventId>(), // matterEvent_ handle
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    eventTypeId: text("event_type_id")
+      .$type<MatterEventTypeId>()
+      .references(() => matterEventType.id),
+    title: text("title").notNull(),
+    description: text("description"),
+    // What the firm asserts about the event. There is deliberately no fourth "missed" value: a
+    // status says what a person recorded, and nothing in this platform derives one.
+    status: text("status", { enum: ["scheduled", "occurred", "cancelled"] })
+      .notNull()
+      .default("scheduled"),
+    startsOn: text("starts_on").notNull(), // civil date, YYYY-MM-DD
+    startsAtTime: text("starts_at_time"), // HH:MM wall clock; null means all day, which is what a filing is
+    endsOn: text("ends_on"), // null on a point event; set on a range, which is what a three-day trial is
+    endsAtTime: text("ends_at_time"),
+    // The IANA zone the wall-clock time is read in, REQUIRED. It lives on the row rather than on the
+    // office because no property of the firm, the matter, or the office says which zone a hearing is
+    // in: a Nevada firm appearing in a California court has a hearing in America/Los_Angeles. The
+    // user interface defaults it from the matter's office and a person overrides it per row.
+    timeZone: text("time_zone").notNull(),
+    locationText: text("location_text"),
+    courtReference: text("court_reference"),
+    // When a person asserted this, as against when it happens. The custody-movement precedent: the
+    // two diverge routinely, and collapsing them would make a hearing typed on Monday for a Friday
+    // indistinguishable from one nobody recorded at all.
+    recordedAt: text("recorded_at").notNull(),
+    recordedBy: text("recorded_by").$type<UserId>(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    // The matter timeline's filter, its sort, and its keyset predicate out of one composite.
+    index("matter_event_matter_starts_on_id_index").on(table.matterId, table.startsOn, table.id),
+    // The firm-wide date-ranged calendar read.
+    index("matter_event_starts_on_id_index").on(table.startsOn, table.id),
+    // "What is still scheduled" — filtered before it is sorted, so the filter column leads.
+    index("matter_event_status_starts_on_index").on(table.status, table.startsOn),
+    index("matter_event_type_index").on(table.eventTypeId),
+    check("matter_event_title_check", sql`length(${table.title}) > 0`),
+    check(
+      "matter_event_status_check",
+      sql`${table.status} IN ('scheduled', 'occurred', 'cancelled')`,
+    ),
+    check("matter_event_time_zone_check", sql`length(${table.timeZone}) > 0`),
+    // A civil date is stored as a civil date. The shape check is what keeps an instant, a locale
+    // rendering, or a naive local datetime out of a column the whole timeline sorts on as text.
+    check(
+      "matter_event_starts_on_shape_check",
+      sql`${table.startsOn} GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'`,
+    ),
+    check(
+      "matter_event_ends_on_shape_check",
+      sql`${table.endsOn} IS NULL OR ${table.endsOn} GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'`,
+    ),
+    check(
+      "matter_event_starts_at_time_shape_check",
+      sql`${table.startsAtTime} IS NULL OR ${table.startsAtTime} GLOB '[0-2][0-9]:[0-5][0-9]'`,
+    ),
+    check(
+      "matter_event_ends_at_time_shape_check",
+      sql`${table.endsAtTime} IS NULL OR ${table.endsAtTime} GLOB '[0-2][0-9]:[0-5][0-9]'`,
+    ),
+    check(
+      "matter_event_range_check",
+      sql`${table.endsOn} IS NULL OR ${table.endsOn} >= ${table.startsOn}`,
+    ),
+    // An end time on an event with no start time says nothing anybody can render: "all day, until
+    // half past four" is not a shape the calendar can draw or a person can act on.
+    check(
+      "matter_event_end_time_check",
+      sql`${table.endsAtTime} IS NULL OR ${table.startsAtTime} IS NOT NULL`,
+    ),
+  ],
+);
+
+// Who was there, or will be. The three shapes that really occur are the three the custody ledger's
+// borrower model already found, and the resolution is the same: a firm member, a Directory entity,
+// or somebody external to both. A judge is an ordinary participant with the role "judge" — forcing
+// one into the Directory as a prerequisite would pollute the conflicts corpus with people who are
+// party to nothing, which is the argument the custody ledger makes about an external borrower.
+//
+// `role` is a short firm-supplied label (appearing counsel, judge, court reporter, witness,
+// interpreter) and NOT a platform enum, for the reason the ownership role and the release-authority
+// basis are free text: the vocabulary is jurisdiction-specific, no engine consumes it, and a closed
+// set here would be this schema inventing procedure.
+export const matterEventParticipant = sqliteTable(
+  "matter_event_participant",
+  {
+    id: text("id").primaryKey().$type<MatterEventParticipantId>(), // matterEventParticipant_ handle
+    eventId: text("event_id")
+      .notNull()
+      .$type<MatterEventId>()
+      .references(() => matterEvent.id),
+    participantKind: text("participant_kind", { enum: ["member", "entity", "external"] }).notNull(),
+    memberUserId: text("member_user_id")
+      .$type<UserId>()
+      .references(() => member.userId),
+    // A directoryPerson_/directoryOrganization_ handle, by value with no cross-domain foreign key
+    // (the matter_party and custody_owner precedent).
+    entityId: text("entity_id"),
+    participantName: text("participant_name"),
+    role: text("role"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    index("matter_event_participant_event_index").on(table.eventId),
+    // "What is on this member's calendar" — the firm calendar's member filter, resolved as a
+    // predicate rather than by reading every event and discarding most of them.
+    index("matter_event_participant_member_index").on(table.memberUserId),
+    index("matter_event_participant_entity_index").on(table.entityId),
+    check(
+      "matter_event_participant_kind_check",
+      sql`${table.participantKind} IN ('member', 'entity', 'external')`,
+    ),
+    // A kind names which column carries the participant; a kind with no matching value is a record
+    // that cannot answer the question it exists to answer (mirrors custody_movement's borrower shape).
+    check(
+      "matter_event_participant_shape_check",
+      sql`(${table.participantKind} = 'member' AND ${table.memberUserId} IS NOT NULL)
+        OR (${table.participantKind} = 'entity' AND ${table.entityId} IS NOT NULL)
+        OR (${table.participantKind} = 'external' AND ${table.participantName} IS NOT NULL)`,
+    ),
+  ],
+);
+
+// A date the firm must do something by. It is NOT an event and collapsing the two would lose the two
+// things that make a deadline a deadline: that it can be SATISFIED, and that it CAME FROM SOMEWHERE.
+//
+// Nothing in this platform computes a due date. No business-day arithmetic, no court-holiday
+// calendar, no service-method offsets, no cascade when a trigger date moves, and no default deadline
+// created when a matter opens. Missed deadlines are the largest single source of malpractice claims,
+// and that cuts toward VISIBILITY and against ARITHMETIC: a computed deadline that is wrong is worse
+// than none, because it will be trusted precisely because it was computed, and the firm that would
+// have looked the rule up will not. `source`, `catalog_entry_key`, and `catalog_version` are the
+// columns a verified jurisdiction-keyed catalog will one day write through a propose-and-confirm
+// path — a member accepts a proposed date and that acceptance creates the row; the catalog never
+// writes one by itself, and an existing row is never recomputed when the catalog changes. The
+// columns land now because the alternative is rebuilding this table later.
+//
+// Overdue is DERIVED, never stored. A deadline past its due instant and still open is overdue,
+// computed at read time (packages/calendar/src/overdue.ts). There is no sweep, no scheduled job, no
+// state transition, and no column that says the firm failed — the platform reports what it can see
+// and does not adjudicate, because the deadline may have been extended by a stipulation nobody has
+// typed in, satisfied under another matter, or vacated by an order that arrived this morning.
+export const matterDeadline = sqliteTable(
+  "matter_deadline",
+  {
+    id: text("id").primaryKey().$type<MatterDeadlineId>(), // matterDeadline_ handle
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    title: text("title").notNull(),
+    dueOn: text("due_on").notNull(), // civil date, YYYY-MM-DD
+    // Real and load-bearing: many filing deadlines are five in the afternoon, and one whose time
+    // nobody recorded must not be silently rendered as midnight.
+    dueAtTime: text("due_at_time"),
+    // The COURT'S zone, not the office's. Required for the same reason it is required on an event.
+    timeZone: text("time_zone").notNull(),
+    source: text("source", { enum: ["member", "court_order", "statutory_catalog"] })
+      .notNull()
+      .default("member"),
+    catalogEntryKey: text("catalog_entry_key"),
+    catalogVersion: text("catalog_version"),
+    // The rule, statute, or order the firm says this comes from. Not parsed, not validated, not
+    // resolved against anything — it is the firm's own note of authority, and it is what a person
+    // reads when deciding whether the date is right.
+    authorityText: text("authority_text"),
+    // The event that started the clock (the date of death, of service, of an order's entry). A LINK
+    // and never a computation: nothing derives due_on from it, and moving the trigger event does not
+    // move the deadline.
+    triggerEventId: text("trigger_event_id")
+      .$type<MatterEventId>()
+      .references(() => matterEvent.id),
+    state: text("state", { enum: ["open", "satisfied", "vacated", "superseded"] })
+      .notNull()
+      .default("open"),
+    satisfiedAt: text("satisfied_at"), // UTC instant
+    satisfiedBy: text("satisfied_by").$type<UserId>(),
+    // The filing that discharged it, where the firm recorded one.
+    satisfyingEventId: text("satisfying_event_id")
+      .$type<MatterEventId>()
+      .references(() => matterEvent.id),
+    satisfactionNote: text("satisfaction_note"),
+    // Required on vacated and superseded, because "why is this deadline no longer in force" is the
+    // question a person asks six months later and the only bad answer is silence.
+    stateReason: text("state_reason"),
+    supersededByDeadlineId: text("superseded_by_deadline_id").$type<MatterDeadlineId>(),
+    // A small firm-set ordinal, and never a platform judgement about severity.
+    priority: integer("priority"),
+    recordedAt: text("recorded_at").notNull(),
+    recordedBy: text("recorded_by").$type<UserId>(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    // The upcoming-deadlines read: filtered by state before it is sorted by due date, so the filter
+    // column leads and one composite serves the filter, the ascending sort, and the keyset predicate.
+    index("matter_deadline_state_due_on_id_index").on(table.state, table.dueOn, table.id),
+    // The matter's own deadline list and the timeline merge.
+    index("matter_deadline_matter_due_on_id_index").on(table.matterId, table.dueOn, table.id),
+    index("matter_deadline_trigger_event_index").on(table.triggerEventId),
+    check("matter_deadline_title_check", sql`length(${table.title}) > 0`),
+    check("matter_deadline_time_zone_check", sql`length(${table.timeZone}) > 0`),
+    check(
+      "matter_deadline_due_on_shape_check",
+      sql`${table.dueOn} GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'`,
+    ),
+    check(
+      "matter_deadline_due_at_time_shape_check",
+      sql`${table.dueAtTime} IS NULL OR ${table.dueAtTime} GLOB '[0-2][0-9]:[0-5][0-9]'`,
+    ),
+    check(
+      "matter_deadline_source_check",
+      sql`${table.source} IN ('member', 'court_order', 'statutory_catalog')`,
+    ),
+    // A catalog key and version belong to a catalog-sourced deadline and to nothing else: a member's
+    // own date carrying a catalog entry key would claim an authority nobody verified.
+    check(
+      "matter_deadline_catalog_shape_check",
+      sql`(${table.source} = 'statutory_catalog' AND ${table.catalogEntryKey} IS NOT NULL AND ${table.catalogVersion} IS NOT NULL)
+        OR (${table.source} <> 'statutory_catalog' AND ${table.catalogEntryKey} IS NULL AND ${table.catalogVersion} IS NULL)`,
+    ),
+    check(
+      "matter_deadline_state_check",
+      sql`${table.state} IN ('open', 'satisfied', 'vacated', 'superseded')`,
+    ),
+    check(
+      "matter_deadline_state_reason_check",
+      sql`${table.state} NOT IN ('vacated', 'superseded') OR (${table.stateReason} IS NOT NULL AND length(${table.stateReason}) > 0)`,
+    ),
+    // A satisfied deadline names who discharged it and when; an unsatisfied one claims neither.
+    check(
+      "matter_deadline_satisfaction_shape_check",
+      sql`(${table.state} = 'satisfied' AND ${table.satisfiedAt} IS NOT NULL AND ${table.satisfiedBy} IS NOT NULL)
+        OR (${table.state} <> 'satisfied' AND ${table.satisfiedAt} IS NULL AND ${table.satisfiedBy} IS NULL)`,
+    ),
+    check(
+      "matter_deadline_superseded_shape_check",
+      sql`(${table.supersededByDeadlineId} IS NULL) OR (${table.state} = 'superseded')`,
+    ),
+    check(
+      "matter_deadline_priority_check",
+      sql`${table.priority} IS NULL OR ${table.priority} > 0`,
+    ),
   ],
 );

@@ -58,6 +58,9 @@
     },
     {
       "path": "../timekeeping/tsconfig.build.json"
+    },
+    {
+      "path": "../trust/tsconfig.build.json"
     }
   ],
   "include": [
