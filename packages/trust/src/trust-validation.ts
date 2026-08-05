@@ -23,6 +23,11 @@ export type TrustValidationCode =
   | "movement-node-is-not-a-matter-leaf"
   | "movement-transfer-to-same-node"
   | "movement-method-not-permitted"
+  // Disbursement authorization — the pending request and the decision that settles it
+  | "unknown-trust-disbursement-request"
+  | "trust-disbursement-request-already-decided"
+  | "trust-disbursement-decider-is-requester"
+  | "trust-disbursement-withdrawal-not-by-requester"
   // Holds and available balance
   | "hold-exceeds-available"
   | "unknown-hold"

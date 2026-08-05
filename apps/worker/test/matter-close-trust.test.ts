@@ -169,7 +169,7 @@ describe("closing a matter against its trust ledger", () => {
       source: "Emptied Holdings",
       purpose: "Advance on fees and costs",
     });
-    const disbursed = await post("/api/v1/trust/disbursements", {
+    const requested = await post("/api/v1/trust/disbursement-requests", {
       trustAccountId,
       matterId,
       amountMinor: 150000,
@@ -181,6 +181,16 @@ describe("closing a matter against its trust ledger", () => {
       payee: "Emptied Holdings",
       purpose: "Refund of unused retainer",
     });
+    expect(requested.status).toBe(201);
+    const { trustDisbursementRequestId } = (await requested.json()) as {
+      trustDisbursementRequestId: string;
+    };
+    // This firm has one member holding trust:manage, so the submitter approves and the decision
+    // records that basis; the money only leaves the client ledger on this call.
+    const disbursed = await post(
+      `/api/v1/trust/disbursement-requests/${trustDisbursementRequestId}/approval`,
+      undefined,
+    );
     expect(disbursed.status).toBe(201);
 
     const closed = await post(`/api/v1/matters/${matterId}/close`);

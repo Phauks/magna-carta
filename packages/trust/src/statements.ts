@@ -4,6 +4,8 @@ import type {
   LedgerEntryId,
   MatterId,
   TrustAccountId,
+  TrustDisbursementDecisionId,
+  TrustDisbursementRequestId,
   TrustHoldId,
   TrustLedgerNodeId,
   TrustMovementId,
@@ -12,7 +14,14 @@ import type {
 } from "@magna-carta/identifiers/types";
 import { ACCOUNT_BALANCE_TABLE, MAX_BOUND_PARAMETERS } from "@magna-carta/ledger/statements";
 import { assertSafeInteger } from "@magna-carta/money/money";
-import type { TrustMovementKind, TrustMovementMethod, TrustNodeKind } from "./types.ts";
+import type {
+  TrustDisbursementAuthorizationBasis,
+  TrustDisbursementDecisionKind,
+  TrustDisbursementMethod,
+  TrustMovementKind,
+  TrustMovementMethod,
+  TrustNodeKind,
+} from "./types.ts";
 
 // Table names tracked against @magna-carta/database's schema by the schema-name-sync test.
 export const TRUST_ACCOUNT_TABLE = "trust_account";
@@ -20,6 +29,15 @@ export const TRUST_LEDGER_NODE_TABLE = "trust_ledger_node";
 export const TRUST_HOLD_TABLE = "trust_hold";
 export const TRUST_TRANSFER_TABLE = "trust_transfer";
 export const TRUST_MOVEMENT_TABLE = "trust_movement";
+export const TRUST_DISBURSEMENT_REQUEST_TABLE = "trust_disbursement_request";
+export const TRUST_DISBURSEMENT_DECISION_TABLE = "trust_disbursement_decision";
+
+// The capability a member must hold to submit or approve a trust disbursement. Spelled here as a
+// literal because the value it has to agree with is the one baked into the sole-authorizer trigger
+// in the per-firm migration, which cannot import anything; both are pinned against the permission
+// registry by packages/database/test/trust-disbursement-authorization.test.ts and by this package's
+// test/schema-name-sync.test.ts.
+export const TRUST_MANAGE_PERMISSION = "trust:manage";
 
 // SQLite stores a float or NaN in an INTEGER column without complaint, silently corrupting an
 // amount. Every minor-unit number is asserted at the last boundary before SQL through the money
@@ -372,17 +390,142 @@ export function selectTrustMovementStatement(
     .bind(movementId);
 }
 
+const QUALIFIED_MOVEMENT_COLUMNS = `m.id, m.trust_account_id, m.kind, m.node_id, m.counterparty_node_id, m.amount_minor, m.currency, m.entry_id, m.method, m.reference, m.counterparty_name, m.purpose, m.recorded_by, m.authorized_by, m.effective_date, m.recorded_at`;
+
 // One matter leaf's client ledger, chronological — the report the record-keeping rules name. A
 // matter transfer appears on BOTH leaves it touches, which is why the node filter reaches the
 // counterparty too: the receiving leaf's ledger must show the funds arriving as plainly as the
 // source leaf shows them leaving.
+//
+// The approval facts ride along on the same read. A disbursement authorized by the member who
+// submitted it — which only a firm with a single trust manager can produce — must be visible AS SUCH
+// wherever the ledger is read, not inferable by noticing that two user handles happen to match.
 export function selectTrustMovementsForNodeStatement(
   database: SqlDatabase,
   nodeId: TrustLedgerNodeId,
 ): SqlStatement {
   return database
     .prepare(
-      `SELECT ${MOVEMENT_COLUMNS} FROM ${TRUST_MOVEMENT_TABLE} WHERE node_id = ?1 OR counterparty_node_id = ?1 ORDER BY effective_date, recorded_at, id`,
+      `SELECT ${QUALIFIED_MOVEMENT_COLUMNS}, d.request_id AS disbursement_request_id, d.authorization_basis AS authorization_basis FROM ${TRUST_MOVEMENT_TABLE} m LEFT JOIN ${TRUST_DISBURSEMENT_DECISION_TABLE} d ON d.movement_id = m.id WHERE m.node_id = ?1 OR m.counterparty_node_id = ?1 ORDER BY m.effective_date, m.recorded_at, m.id`,
     )
     .bind(nodeId);
+}
+
+export interface InsertTrustDisbursementRequestRow {
+  readonly id: TrustDisbursementRequestId;
+  readonly trustAccountId: TrustAccountId;
+  readonly nodeId: TrustLedgerNodeId;
+  readonly amountMinor: number;
+  readonly currency: string;
+  readonly method: TrustDisbursementMethod;
+  readonly reference: string | null;
+  readonly payee: string;
+  readonly purpose: string;
+  readonly description: string;
+  readonly effectiveDate: string;
+  readonly requestedBy: UserId;
+  readonly requestedAt: string;
+}
+
+// The pending request. Nothing else in this batch touches the ledger, the balances, or
+// trust_movement — a request that is never approved leaves the client ledger exactly as it was.
+export function insertTrustDisbursementRequestStatement(
+  database: SqlDatabase,
+  row: InsertTrustDisbursementRequestRow,
+): SqlStatement {
+  return database
+    .prepare(
+      `INSERT INTO ${TRUST_DISBURSEMENT_REQUEST_TABLE} (id, trust_account_id, node_id, amount_minor, currency, method, reference, payee, purpose, description, effective_date, requested_by, requested_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)`,
+    )
+    .bind(
+      row.id,
+      row.trustAccountId,
+      row.nodeId,
+      assertMinorUnits(row.amountMinor, "disbursement request amount_minor"),
+      row.currency,
+      row.method,
+      row.reference,
+      row.payee,
+      row.purpose,
+      row.description,
+      row.effectiveDate,
+      row.requestedBy,
+      row.requestedAt,
+    );
+}
+
+const DISBURSEMENT_REQUEST_COLUMNS = `r.id, r.trust_account_id, r.node_id, r.amount_minor, r.currency, r.method, r.reference, r.payee, r.purpose, r.description, r.effective_date, r.requested_by, r.requested_at`;
+const DISBURSEMENT_DECISION_COLUMNS = `d.id AS decision_id, d.decision, d.decided_by, d.decided_at, d.reason, d.authorization_basis, d.movement_id`;
+
+// One request and whatever settled it. The decision arrives as a LEFT JOIN rather than a column on
+// the request, so "pending" is the absence of a decision row and never a stored state that could
+// disagree with one.
+export function selectTrustDisbursementRequestStatement(
+  database: SqlDatabase,
+  requestId: TrustDisbursementRequestId,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT ${DISBURSEMENT_REQUEST_COLUMNS}, ${DISBURSEMENT_DECISION_COLUMNS} FROM ${TRUST_DISBURSEMENT_REQUEST_TABLE} r LEFT JOIN ${TRUST_DISBURSEMENT_DECISION_TABLE} d ON d.request_id = r.id WHERE r.id = ?1`,
+    )
+    .bind(requestId);
+}
+
+// The approval queue for one trust account: every request no decision names, oldest first. The
+// anti-join is the same derivation the hold model uses for "still active", so there is one way to
+// ask what is outstanding rather than a status column and a query that can disagree.
+export function selectPendingTrustDisbursementRequestsStatement(
+  database: SqlDatabase,
+  trustAccountId: TrustAccountId,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT ${DISBURSEMENT_REQUEST_COLUMNS} FROM ${TRUST_DISBURSEMENT_REQUEST_TABLE} r WHERE r.trust_account_id = ?1 AND NOT EXISTS (SELECT 1 FROM ${TRUST_DISBURSEMENT_DECISION_TABLE} d WHERE d.request_id = r.id) ORDER BY r.requested_at, r.id`,
+    )
+    .bind(trustAccountId);
+}
+
+export interface InsertTrustDisbursementDecisionRow {
+  readonly id: TrustDisbursementDecisionId;
+  readonly requestId: TrustDisbursementRequestId;
+  readonly decision: TrustDisbursementDecisionKind;
+  readonly decidedBy: UserId;
+  readonly decidedAt: string;
+  readonly reason: string | null;
+  readonly authorizationBasis: TrustDisbursementAuthorizationBasis | null;
+  readonly movementId: TrustMovementId | null;
+}
+
+// The decision, and — on an approval — the row that ties it to the movement it posted. The shape
+// CHECK on the table decides which columns each outcome may carry and the triggers decide who may
+// write it, so nothing here has to remember either: a decision that lies about itself, or one a
+// second person never gave, aborts the batch carrying the posting it claims to authorize.
+export function insertTrustDisbursementDecisionStatement(
+  database: SqlDatabase,
+  row: InsertTrustDisbursementDecisionRow,
+): SqlStatement {
+  return database
+    .prepare(
+      `INSERT INTO ${TRUST_DISBURSEMENT_DECISION_TABLE} (id, request_id, decision, decided_by, decided_at, reason, authorization_basis, movement_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)`,
+    )
+    .bind(
+      row.id,
+      row.requestId,
+      row.decision,
+      row.decidedBy,
+      row.decidedAt,
+      row.reason,
+      row.authorizationBasis,
+      row.movementId,
+    );
+}
+
+// How many ACTIVE members hold the trust capability, counted the way the sole-authorizer trigger in
+// the per-firm migration counts them: role-held and directly granted, unioned by member. It exists
+// only to turn that trigger's abort into a refusal naming what the submitter has to do instead —
+// the trigger is the guarantee, and this read cannot be atomic with the write it precedes.
+export function selectActiveTrustManagerCountStatement(database: SqlDatabase): SqlStatement {
+  return database.prepare(
+    `SELECT COUNT(*) AS manager_count FROM (SELECT mr.member_user_id AS user_id FROM member_role mr JOIN role_permission rp ON rp.role_id = mr.role_id JOIN member m ON m.user_id = mr.member_user_id WHERE rp.permission = '${TRUST_MANAGE_PERMISSION}' AND m.status = 'active' UNION SELECT dg.member_user_id FROM direct_grant dg JOIN member m ON m.user_id = dg.member_user_id WHERE dg.permission = '${TRUST_MANAGE_PERMISSION}' AND m.status = 'active')`,
+  );
 }
