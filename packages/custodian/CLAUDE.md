@@ -32,6 +32,8 @@ surrounding context — [`docs/Magna-Carta-White-Paper.md`](../../docs/Magna-Car
 - `src/reminders.ts` — **the reminder emission point**: the one place a due review and an overdue
   check-out are decided, in one shape
 - `src/reports.ts` — the register reports: holdings per owner, occupancy per location, holds in force
+- `src/stocktake-service.ts` / `src/stocktake-statements.ts` / `src/stocktake-reconciliation.ts` —
+  the physical count: open, record observations, close. **Observe-only** — see the invariant below
 - `src/label-service.ts` + `src/labels/` — printable label sheets, and the Code 128 encoder under them
 
 ## Invariants that apply here
@@ -69,6 +71,20 @@ surrounding context — [`docs/Magna-Carta-White-Paper.md`](../../docs/Magna-Car
   the most jurisdiction-bound fact in this subsystem, and a platform default is a platform opinion
   about when to destroy a client's irreplaceable property. A **review date is not a retention clock**
   — nothing expires when one passes, and the only consequence is that the object appears on a list.
+- **A stocktake observes and reports; it never writes the register.** The `stocktake-*` modules write
+  `custody_stocktake` and `custody_stocktake_sighting` and nothing else — no movement, no packet, no
+  item, no status, no review roll. A count's entire value is the difference between what the register
+  claims and what is on the shelf, so a count that wrote the register into agreement with itself would
+  erase that difference at the moment of finding it, and would append a ledger row no person asserted.
+  The reconciliation names the corrective movement as a PROPOSAL; a person records it through
+  `recordCustodyMovement` or does not. A missing packet proposes nothing at all — an empty shelf is an
+  investigation, not a reason to close the record on it. `test/purity.test.ts` scans the stocktake
+  sources (comments stripped) for a register mutation, a status/location setter, a ledger insert, and
+  any destruction path, so the boundary holds against a call site nobody has written yet.
+- **A sighting is append-only, exactly as a movement is.** `custody_stocktake_sighting` carries the
+  same three triggers plus a fourth refusing an observation against a stocktake that is no longer
+  open. It is a named person's assertion about a physical object on a day; a correction is the later,
+  truer observation and both stay on the record. `test/append-only.test.ts` proves all four.
 - **No money as a float.** A declared value is `declared_value_amount_minor` plus a currency, and the
   schema refuses one without the other.
 - **Nothing identifying is a telemetry dimension or an audit-metadata field.** No custody number, no

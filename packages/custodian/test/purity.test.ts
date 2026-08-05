@@ -61,4 +61,49 @@ describe("the custodian package stays pure", () => {
     );
     expect(offenders, `a retention default reached ${offenders.join(", ")}`).toEqual([]);
   });
+
+  // A stocktake OBSERVES. It writes its own two tables and nothing else in the register: a count that
+  // corrected the register on the strength of its own findings would erase the difference it exists
+  // to surface, and would put a movement in an append-only ledger that no person asserted. The
+  // reconciliation names corrective movements as proposals; a person records each one through
+  // movement-service.ts, or does not.
+  //
+  // Scanned over the source rather than asserted per-behaviour, because the boundary has to hold
+  // against a call site nobody has written yet. Comments are stripped first: these modules describe
+  // the tables they deliberately do not touch, and a scan that read prose would fail on the very
+  // sentences explaining the rule.
+  const stocktakeSources = files.filter((file) => /[\\/]stocktake-[^\\/]+\.ts$/.test(file));
+
+  const codeOf = (file: string) =>
+    readFileSync(file, "utf8")
+      .replace(/\/\*[\s\S]*?\*\//g, " ")
+      .replace(/(^|[^:])\/\/.*$/gm, "$1");
+
+  it("has stocktake sources to check (the observe-only scan is not vacuous)", () => {
+    expect(stocktakeSources.length).toBeGreaterThanOrEqual(3);
+    // And the scan really is looking at code: every one of them prepares SQL.
+    expect(stocktakeSources.some((file) => /SELECT/.test(codeOf(file)))).toBe(true);
+  });
+
+  const observeOnly: ReadonlyArray<readonly [string, RegExp]> = [
+    [
+      "register mutation",
+      /(INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+(\$\{CUSTODY_(MOVEMENT|PACKET|ITEM|OWNER|HOLD|SCAN)_TABLE\}|custody_(movement|packet|item|owner|hold|scan)\b)/i,
+    ],
+    [
+      "status, location, or ledger writer",
+      /setCustodyPacketStatus|setCustodyPacketLocation|setCustodyItemStatus|insertCustodyMovementStatement|recordCustodyMovement|rollCustody\w*Review/,
+    ],
+    // Destruction and retention are owner-gated and are not this module's business at any distance:
+    // a shelf coming up empty is an investigation, not a reason to end the firm's custody of a
+    // client's irreplaceable original.
+    ["destruction path", /custody_destruction_request|DESTRUCTION|destructionRequest/],
+  ];
+
+  for (const [label, pattern] of observeOnly) {
+    it(`the stocktake path contains no ${label}`, () => {
+      const offenders = stocktakeSources.filter((file) => pattern.test(codeOf(file)));
+      expect(offenders, `a ${label} reached ${offenders.join(", ")}`).toEqual([]);
+    });
+  }
 });
