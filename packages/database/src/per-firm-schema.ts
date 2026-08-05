@@ -343,6 +343,19 @@ export const location = sqliteTable(
     addressBlock: text("address_block"), // free-text letterhead address
     footer: text("footer"), // free-text letterhead footer
     remitTo: text("remit_to"), // free-text billing remit-to
+    // The office's letterhead logo. The BYTES live in the firm's own bucket (bulk content never goes in
+    // D1); the row carries the object key, what the bytes are, and how large the mark prints.
+    // letterhead_logo_width_emu is the only dimension stored on purpose: the height follows from the
+    // image's own proportions at render time, so no document can print a stretched logo and replacing a
+    // wide mark with a tall one re-lays every letterhead out correctly without touching a template.
+    letterheadLogoObjectKey: text("letterhead_logo_object_key"),
+    letterheadLogoContentType: text("letterhead_logo_content_type"),
+    letterheadLogoSizeBytes: integer("letterhead_logo_size_bytes"),
+    letterheadLogoSha256: text("letterhead_logo_sha256"),
+    letterheadLogoWidthPixels: integer("letterhead_logo_width_pixels"),
+    letterheadLogoHeightPixels: integer("letterhead_logo_height_pixels"),
+    letterheadLogoWidthEmu: integer("letterhead_logo_width_emu"),
+    letterheadLogoUpdatedAt: text("letterhead_logo_updated_at"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
@@ -350,6 +363,12 @@ export const location = sqliteTable(
     uniqueIndex("location_number_code_unique_index").on(table.numberCode),
     check("location_status_check", sql`${table.status} IN ('active', 'closed')`),
     check("location_name_nonempty_check", sql`length(${table.name}) > 0`),
+    // The two letterhead-logo rules — PNG or JPEG only, and "an object key and a width or neither" —
+    // are NOT CHECK constraints, deliberately. SQLite can only add a table CHECK by rebuilding the
+    // table, and this lineage rebuilds no table (the migration suite asserts it); more to the point,
+    // the content type here is the result of a magic-byte sniff over the uploaded bytes rather than a
+    // value a caller supplies, so the enforceable version of the rule is in @magna-carta/locations,
+    // where the bytes are, not in a column constraint that could only re-check a decision already made.
   ],
 );
 

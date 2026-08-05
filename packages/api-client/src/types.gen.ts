@@ -685,7 +685,17 @@ export type LocationDetail = {
     addressBlock: string | null;
     footer: string | null;
     remitTo: string | null;
+    letterheadLogo: LetterheadLogo;
 };
+
+export type LetterheadLogo = {
+    contentType: string;
+    sizeBytes: number;
+    widthPixels: number;
+    heightPixels: number;
+    printedWidthPoints: number;
+    updatedAt: string | null;
+} | null;
 
 export type PatchLocationRequest = {
     name?: string;
@@ -694,6 +704,11 @@ export type PatchLocationRequest = {
     addressBlock?: string | null;
     footer?: string | null;
     remitTo?: string | null;
+};
+
+export type LetterheadLogoRequest = {
+    imageBase64: string;
+    printedWidthPoints: number;
 };
 
 export type LocationAddressesRequest = {
@@ -5765,6 +5780,114 @@ export type LocationsCloseResponses = {
 };
 
 export type LocationsCloseResponse = LocationsCloseResponses[keyof LocationsCloseResponses];
+
+export type LocationsClearLetterheadLogoData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/locations/{id}/letterhead-logo';
+};
+
+export type LocationsClearLetterheadLogoErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks locations:manage
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the location is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, or the firm-default cannot be closed
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type LocationsClearLetterheadLogoError = LocationsClearLetterheadLogoErrors[keyof LocationsClearLetterheadLogoErrors];
+
+export type LocationsClearLetterheadLogoResponses = {
+    /**
+     * The letterhead logo was removed
+     */
+    200: LocationAck;
+};
+
+export type LocationsClearLetterheadLogoResponse = LocationsClearLetterheadLogoResponses[keyof LocationsClearLetterheadLogoResponses];
+
+export type LocationsSetLetterheadLogoData = {
+    body: LetterheadLogoRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/locations/{id}/letterhead-logo';
+};
+
+export type LocationsSetLetterheadLogoErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks locations:manage
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the location is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, or the firm-default cannot be closed
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the file is not a PNG or a JPEG, it is too large, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type LocationsSetLetterheadLogoError = LocationsSetLetterheadLogoErrors[keyof LocationsSetLetterheadLogoErrors];
+
+export type LocationsSetLetterheadLogoResponses = {
+    /**
+     * The letterhead logo was set
+     */
+    200: LocationAck;
+};
+
+export type LocationsSetLetterheadLogoResponse = LocationsSetLetterheadLogoResponses[keyof LocationsSetLetterheadLogoResponses];
 
 export type LocationsSetAddressesData = {
     body: LocationAddressesRequest;

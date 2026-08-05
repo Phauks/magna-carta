@@ -1,6 +1,22 @@
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import type { MatterId } from "@magna-carta/identifiers/types";
-import { lookupDictionaryEntry } from "./dictionary.ts";
+import {
+  customFieldHandleOf,
+  customMergeKeyFor,
+  mergeValueForCustomField,
+  type CustomFieldDefinitionRow,
+} from "./custom-field-bindings.ts";
+import {
+  isArchivedCustomFieldRow,
+  selectCustomFieldCatalogStatement,
+  selectCustomFieldValuesStatement,
+  toCustomFieldDefinitionRow,
+  toCustomFieldValueRow,
+  type CustomFieldDefinitionColumns,
+  type CustomFieldValueColumns,
+} from "./custom-field-statements.ts";
+import { lookupDictionaryEntry, type DictionaryEntry } from "./dictionary.ts";
+import { heightForWidth, readImageFacts } from "./ooxml/image.ts";
 import {
   selectLocationForMergeStatement,
   selectMatterForMergeStatement,
@@ -47,6 +63,12 @@ export function timeZoneForLocation(_location: LocationMergeRow | undefined): st
   return "UTC";
 }
 
+// How the caller fetches an asset's bytes. Injected rather than imported: the bytes live in the firm's
+// object store and this package holds no binding, exactly as the scrub is injected into registration.
+// Returns undefined when the object is gone, which resolves as an absence — a letterhead whose logo
+// object vanished produces a visible marker, never a document that silently lost its letterhead.
+export type ImageAssetReader = (objectKey: string) => Promise<Uint8Array | undefined>;
+
 export interface ResolutionInput {
   readonly matterId: MatterId;
   readonly manifest: FieldManifest;
@@ -56,6 +78,17 @@ export interface ResolutionInput {
   // The instant the assembly ran, supplied rather than read from the clock so an assembly is
   // reproducible and a test does not have to freeze time globally.
   readonly assembledAt: string;
+  // The currency a firm's own currency-typed custom fields are amounts in. Supplied by the caller
+  // because it is a firm fact rather than a per-matter one; the firm-currency setting plugs in at the
+  // caller when the platform registers more than one currency.
+  readonly currencyCode: string;
+  // The dictionary this assembly resolves against — the firm's, including its `custom.<handle>`
+  // bindings. Defaults to the platform's shipped catalogue so a caller with no custom fields needs to
+  // say nothing.
+  readonly dictionary?: readonly DictionaryEntry[];
+  // Absent when the caller has no object store to read from, which makes every image key an absence
+  // rather than an error: an engine that cannot fetch a logo still produces the document.
+  readonly readImageAsset?: ImageAssetReader;
 }
 
 export type ResolutionFailureReason = "matter-not-found";
@@ -64,18 +97,45 @@ export type ResolutionResult =
   | { readonly ok: true; readonly context: MergeContext; readonly reads: readonly MergeSource[] }
   | { readonly ok: false; readonly reason: ResolutionFailureReason; readonly detail: string };
 
+// The firm's own field catalogue, read once and handed to whoever needs the dictionary the firm actually
+// has: the registration pass that checks a template's placeholders, the field-list surface an author
+// picks from, and the assembly that re-checks a stored template's expressions. ONE READ, never one per
+// field — and it touches no matter's data, so it is the same read whichever of the three is asking.
+export async function readCustomFieldCatalog(
+  database: SqlDatabase,
+): Promise<readonly CustomFieldDefinitionRow[]> {
+  const { results } =
+    await selectCustomFieldCatalogStatement(database).all<CustomFieldDefinitionColumns>();
+  return results.map(toCustomFieldDefinitionRow);
+}
+
 // The sources a manifest actually needs. A template that names no location field never reads a location.
 //
 // The keys come from EVERY site the manifest records — plain placeholders, block conditions, and
 // computed fields alike. That is what keeps the batching rule true once a condition can read anything
 // the dictionary has: an expression must never be the reason a read happens late.
-function sourcesFor(manifest: FieldManifest): Set<MergeSource> {
+function sourcesFor(
+  manifest: FieldManifest,
+  dictionary: readonly DictionaryEntry[] | undefined,
+): Set<MergeSource> {
   const sources = new Set<MergeSource>();
   for (const key of manifestKeys(manifest)) {
-    const entry = lookupDictionaryEntry(key);
+    const entry = lookupDictionaryEntry(key, dictionary);
     if (entry !== undefined) sources.add(entry.source);
   }
   return sources;
+}
+
+// Every firm-field handle the manifest binds, deduplicated — the ONE list the whole custom-field read is
+// planned from. A handle whose key is shaped wrong never reaches the read: it is not a field this firm
+// has, and it would otherwise become a bound parameter for a row that cannot exist.
+function customFieldHandlesFor(manifest: FieldManifest): string[] {
+  const handles = new Set<string>();
+  for (const key of manifestKeys(manifest)) {
+    const handle = customFieldHandleOf(key);
+    if (handle !== undefined) handles.add(handle);
+  }
+  return [...handles].sort();
 }
 
 // Whether the manifest asks for a particular key anywhere. A collection is read only when something
@@ -121,11 +181,46 @@ function valuesFromLocation(location: LocationMergeRow, into: Map<string, MergeV
   set("location.remitTo", textValue(location.remitTo));
 }
 
+// The office's logo, as bytes plus the box it draws in.
+//
+// THE ASSET DECLARES THE BOX, NOT THE TEMPLATE. A firm sets how large its mark prints once, on the
+// office it belongs to, where it can see the result — rather than every template author restating it in
+// English Metric Units, a unit no word processor exposes and nobody can check by eye. Only the width is
+// stored: the height follows from the image's own proportions, so a document has no way to print a
+// stretched logo, and replacing a wide mark with a tall one re-lays the letterhead out correctly without
+// touching a single template.
+//
+// The bytes are re-sniffed here rather than trusted from the stored content type. What was uploaded and
+// what the object store holds today are different claims, and the format policy is worth exactly as much
+// as the last place it is enforced.
+async function resolveLetterheadLogo(
+  location: LocationMergeRow | undefined,
+  readImageAsset: ImageAssetReader | undefined,
+): Promise<MergeValue | undefined> {
+  const objectKey = location?.letterheadLogoObjectKey;
+  if (objectKey === null || objectKey === undefined || readImageAsset === undefined)
+    return undefined;
+  const bytes = await readImageAsset(objectKey);
+  if (bytes === undefined) return undefined;
+  const facts = readImageFacts(bytes);
+  if (!facts.ok) return undefined;
+  const widthEmu = location?.letterheadLogoWidthEmu ?? 0;
+  if (!Number.isSafeInteger(widthEmu) || widthEmu <= 0) return undefined;
+  return {
+    kind: "image",
+    bytes,
+    contentType: facts.value.contentType,
+    widthEmu,
+    heightEmu: heightForWidth(facts.value, widthEmu),
+    description: `${location?.name ?? "Office"} letterhead`,
+  };
+}
+
 export async function resolveMergeContext(
   database: SqlDatabase,
   input: ResolutionInput,
 ): Promise<ResolutionResult> {
-  const sources = sourcesFor(input.manifest);
+  const sources = sourcesFor(input.manifest, input.dictionary);
   const values = new Map<string, MergeValue>();
   const reads: MergeSource[] = [];
 
@@ -183,6 +278,28 @@ export async function resolveMergeContext(
     }
   }
 
+  // The firm's own fields: ONE read covering every handle the manifest mentions, however many that is,
+  // and none at all for a template that binds none.
+  if (sources.has("customField")) {
+    const handles = customFieldHandlesFor(input.manifest);
+    if (handles.length > 0) {
+      reads.push("customField");
+      const { results } = await selectCustomFieldValuesStatement(
+        database,
+        input.matterId,
+        handles,
+      ).all<CustomFieldValueColumns>();
+      for (const row of results) {
+        // AN ARCHIVED FIELD IS AN ABSENCE, reported as one. The firm withdrew the field; a document that
+        // went on printing the value it last held would be asserting something the firm stopped standing
+        // behind, and doing it invisibly.
+        if (isArchivedCustomFieldRow(row)) continue;
+        const value = mergeValueForCustomField(toCustomFieldValueRow(row), input.currencyCode);
+        if (value !== undefined) values.set(customMergeKeyFor(row.handle), value);
+      }
+    }
+  }
+
   if (sources.has("firm")) {
     const firmName = textValue(input.firmName);
     if (firmName !== undefined) values.set("firm.name", firmName);
@@ -192,6 +309,14 @@ export async function resolveMergeContext(
 
   if (sources.has("system")) {
     values.set("system.today", { kind: "instant", isoInstant: input.assembledAt });
+  }
+
+  // The letterhead logo's bytes. Fetched only when the template actually draws one, and only after the
+  // location row said there is one to fetch — an object-store round trip is the most expensive thing
+  // resolution can do, and a template with no logo placeholder pays for none of it.
+  if (manifestWants(input.manifest, "location.letterheadLogo")) {
+    const image = await resolveLetterheadLogo(location, input.readImageAsset);
+    if (image !== undefined) values.set("location.letterheadLogo", image);
   }
 
   // Absence is computed against what the MANIFEST asked for, not against the dictionary as a whole: a

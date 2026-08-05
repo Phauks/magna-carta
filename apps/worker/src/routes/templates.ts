@@ -5,6 +5,8 @@ import {
   lookupDictionaryEntry,
   dictionaryForFirm,
 } from "@magna-carta/document-assembly/dictionary";
+import { customFieldDictionaryEntries } from "@magna-carta/document-assembly/custom-field-bindings";
+import { readCustomFieldCatalog } from "@magna-carta/document-assembly/resolve";
 import {
   deleteFieldMappingEffect,
   fieldMappingResolverFor,
@@ -862,6 +864,13 @@ async function prepareStagedUpload(
   // Word fields must not cost a hundred lookups, the same batching rule the merge context follows.
   const resolveMergeFieldName = await fieldMappingResolverFor(firm.firmDatabase);
 
+  // The firm's own field catalogue, read ONCE and folded into the dictionary the placeholders are
+  // checked against, so a placeholder naming one of this firm's fields registers and one naming a
+  // field the firm does not have is refused by name.
+  const dictionary = dictionaryForFirm(
+    customFieldDictionaryEntries(await readCustomFieldCatalog(firm.firmDatabase)),
+  );
+
   const preparation = await prepareTemplateVersion(
     uploadedBytes,
     async (bytes) => {
@@ -872,6 +881,7 @@ async function prepareStagedUpload(
       convertMergeFields: consent.convertMergeFields,
       stripMacros: consent.stripMacros,
       resolveMergeFieldName,
+      dictionary,
     },
   );
 
@@ -1263,6 +1273,12 @@ export function registerTemplatesRoutes(app: TemplatesApp, chokepoint: Chokepoin
       }
       const manifest = parseManifestJson(version.fieldManifestJson);
       const warnings = parseWarningsJson(version.normalizationWarningsJson);
+      // The firm's catalogue, not the platform's: a template binding one of the firm's own fields must
+      // describe it here, and a template binding a field the firm has since ARCHIVED must show the
+      // binding with nothing behind it — which is exactly the repair signal this surface exists to give.
+      const dictionary = dictionaryForFirm(
+        customFieldDictionaryEntries(await readCustomFieldCatalog(firm.firmDatabase)),
+      );
       return c.json(
         {
           templateId,
@@ -1270,7 +1286,7 @@ export function registerTemplatesRoutes(app: TemplatesApp, chokepoint: Chokepoin
           versionNumber: version.versionNumber,
           normalizerVersion: version.normalizerVersion,
           fields: manifest.fields.map((field) => {
-            const entry = lookupDictionaryEntry(field.key);
+            const entry = lookupDictionaryEntry(field.key, dictionary);
             return {
               key: field.key,
               format: field.format,
@@ -1382,10 +1398,14 @@ export function registerTemplatesRoutes(app: TemplatesApp, chokepoint: Chokepoin
   // GET /api/v1/merge-fields — the dictionary a template is authored against.
   app.openapi(
     { ...mergeFieldsRoute, middleware: chokepointMiddleware(chokepoint, mergeFieldsRoute) },
-    (c) =>
-      c.json(
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const dictionary = dictionaryForFirm(
+        customFieldDictionaryEntries(await readCustomFieldCatalog(firm.firmDatabase)),
+      );
+      return c.json(
         {
-          fields: dictionaryForFirm().map((entry) => ({
+          fields: dictionary.map((entry) => ({
             key: entry.key,
             source: entry.source,
             valueType: entry.valueType,
@@ -1396,7 +1416,8 @@ export function registerTemplatesRoutes(app: TemplatesApp, chokepoint: Chokepoin
           })),
         },
         200,
-      ),
+      );
+    },
   );
 }
 

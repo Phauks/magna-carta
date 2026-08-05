@@ -18,6 +18,11 @@ const LEGAL_FORMATS: Readonly<Record<MergeValueType, readonly string[]>> = {
   number: ["plain"],
   boolean: ["yesNo", "plain"],
   reference: ["plain"],
+  // An image has no rendering to choose between: the placeholder is REPLACED BY a drawing rather than
+  // by a string, and the box it draws in comes from the asset. An empty row makes every format name
+  // illegal by the same check that governs the rest, so `{{location.letterheadLogo:upper}}` is refused
+  // at registration rather than quietly ignored.
+  image: [],
   // A list is never written into a document. A repeating block walks it, and `count` and `isEmpty` ask
   // about it; there is no rendering of the collection itself, which is why this row is empty rather
   // than absent — an empty row makes every format name illegal by the same check that governs the rest.
@@ -264,9 +269,17 @@ export function formatMergeValue(
       }
       return plainDecimal(value.rateE4, RATE_SCALE);
     }
+    // The scale is the field's own minor-unit exponent, so rendering is the same decimal-point move
+    // money gets: 1250 at scale 2 prints "12.50", and the alternative — dividing by ten squared —
+    // would hand a binary float to a document that is supposed to state an exact figure.
     case "number":
-      return String(value.value);
+      return plainDecimal(value.value, value.scale);
     case "boolean":
       return format === "plain" ? String(value.value) : value.value ? "Yes" : "No";
+    // An image is not rendered as text at all. Returning undefined rather than a placeholder string is
+    // what routes it to the drawing path in assemble.ts, and what makes a caller that forgot that path
+    // produce a visible absence rather than the word "[object Object]" in a filed document.
+    case "image":
+      return undefined;
   }
 }

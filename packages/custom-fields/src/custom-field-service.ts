@@ -168,6 +168,31 @@ export async function reorderCustomField(
   }));
 }
 
+// Whether any registered document template binds this field as a merge field.
+//
+// A template version stores the field manifest it was normalized against, and a binding to a firm's own
+// field is the key `custom.<handle>` inside it — so the search is for that literal string in the stored
+// manifests. It is a scan rather than an index lookup, and deliberately so: this runs on a rare
+// administrative action where a human is deciding whether to destroy a definition, never on a read or
+// write path, and the alternative (a bindings table maintained alongside every registration) is a second
+// copy of a fact the manifest already states, with its own way of going stale.
+//
+// The table is named by string. `@magna-carta/custom-fields` does not import
+// `@magna-carta/document-assembly` and must not — the two are siblings, and the table lives in the
+// shared schema package, exactly as `@magna-carta/directory` reaches `custom_field_value`.
+async function isBoundByATemplate(
+  database: BatchDatabase,
+  fieldId: CustomFieldId,
+): Promise<boolean> {
+  const { results } = await database
+    .prepare(
+      `SELECT 1 FROM document_template_version WHERE instr(field_manifest_json, ?1) > 0 LIMIT 1`,
+    )
+    .bind(`custom.${fieldId}`)
+    .all<{ 1: number }>();
+  return results.length > 0;
+}
+
 export async function hardDeleteCustomField(
   database: BatchDatabase,
   input: { fieldId: CustomFieldId },
@@ -181,6 +206,16 @@ export async function hardDeleteCustomField(
     throw new CustomFieldError(
       "field-in-use",
       "field-in-use: Cannot hard-delete a field that has values; archive it instead.",
+    );
+  }
+  // A field a document template binds is in use even with no values behind it. Destroying the
+  // definition would leave every template that names it unable to assemble, with a handle nobody can
+  // look up — so the same refusal that guards stored values guards a template binding, and routes the
+  // administrator to Archive, where a bound field resolves as a reported absence instead.
+  if (await isBoundByATemplate(database, input.fieldId)) {
+    throw new CustomFieldError(
+      "field-in-use",
+      "field-in-use: Cannot hard-delete a field a document template uses as a merge field; archive it instead.",
     );
   }
   return runCustomFieldEffect<{ ok: true }>(database, options, 200, () => ({

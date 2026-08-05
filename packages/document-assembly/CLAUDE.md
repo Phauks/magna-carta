@@ -73,6 +73,58 @@ behaviour, description) plus, if its source already reads, one line in the match
 `valuesFrom*` function in `src/resolve.ts`. The well-formedness fitness test
 (`test/dictionary-wellformed.test.ts`) checks the row is internally consistent.
 
+## The firm's own fields (`custom.<handle>`)
+
+- **Bound by HANDLE, never by name.** `src/custom-field-bindings.ts` derives one dictionary entry per
+  active `custom_field` row at read time — the key is `custom.` plus the field's `customField_` handle,
+  so a rename changes the label and nothing a registered template stores. A name-bound merge field would
+  put every firm one rename away from a template that silently stops filling in a number.
+- **The catalogue is per firm and derived, not declared.** `dictionaryForFirm(customEntries)` widens the
+  shipped list; `readCustomFieldCatalog` (`src/resolve.ts`) is the one read behind it, shared by
+  registration, the field-list surface, and assembly. Every caller must pass the firm's catalogue —
+  `lookupDictionaryEntry(key)` with no entries answers "does the PLATFORM have this key", which is a
+  different question from "does this firm".
+- **Archived means ABSENT, in both directions.** An archived field contributes no dictionary entry (so a
+  template bound to it fails at assembly naming the key — the drift detection the stored-source rule
+  exists for) and its stored value is skipped at resolution (so a template resolved before the archive
+  reports it as an absence rather than printing what the firm withdrew).
+- **The scale rule is reused, not restated.** `effectiveNumberScale` from `@magna-carta/custom-fields`
+  decides what a `value_number` integer means; the same `500` is five hundred on a number field and five
+  dollars on a currency field. A currency field whose declared scale is not the currency's minor unit
+  renders as the exact decimal it is rather than as money that would look right and be wrong.
+- **One read per template, not per field.** `src/custom-field-statements.ts` joins the picklist option's
+  label and the referenced record's display name into the SAME statement, because fetching either per
+  value is precisely the N+1 the batching rule forbids. Handles ride as bound parameters; the statement's
+  shape depends only on how many there are.
+- **Deleting a bound field is refused elsewhere.** The hard-delete guard's template-binding arm lives in
+  `packages/custom-fields/src/custom-field-service.ts` and names `document_template_version` by string —
+  that package imports nothing from this one, and must not start.
+
+## Pictures
+
+- **A picture is FOUR things, and `src/ooxml/image.ts` owns all four**: the part, its declared content
+  type, the relationship on the part that draws it, and the drawing. Emit three of them and a reader
+  calls the document damaged — and every assertion about the document's TEXT still passes, which is why
+  `packageIntegrityViolations` reads the package structure and `test/letterhead-image.test.ts` asserts
+  over the emitted parts rather than over words.
+- **PNG and JPEG, decided by the first bytes.** Not by a declared content type, not by a file name. SVG
+  is a document (markup and script surface inside a package we assert carries neither), EMF and WMF are
+  replayed record streams, and the rest widen the content-type set for worse reader compatibility than a
+  printed mark needs. The policy is enforced at the write (`@magna-carta/locations`) AND re-checked here,
+  because it is worth what the last place enforcing it is worth.
+- **Relationship ids are LOCAL TO A PART.** `rId4` in the main document and `rId4` in a header are
+  different relationships, so the next free id is computed per relationship part, by scanning the ids
+  present rather than counting them — a package with a deleted relationship has gaps.
+- **Every namespace is declared on the element that uses it.** A template's `w:hdr` may declare `w:` and
+  nothing else; a prefix used but not bound is not well-formed XML.
+- **The ASSET declares the box, not the template.** Only a width is stored, on the location; the height
+  is derived from the intrinsic aspect ratio at resolution time, so no document can print a stretched
+  logo and replacing a wide mark with a tall one re-lays every letterhead out correctly.
+- **An image is not a value anywhere else.** It has no format (`legalFormatsFor("image")` is empty, so a
+  `:format` suffix is a registration failure) and no expression type (`expressionTypeOf` returns
+  undefined, so its key is simply not in the expression scope and `{{#if location.letterheadLogo}}` is
+  refused as an unknown merge field).
+
 ## The expression language
 
 `src/expression/` is a **closed, total language, not a sandbox**, and every local rule below follows
@@ -127,10 +179,15 @@ from that one sentence.
 
 ## Named seams (not built here)
 
-- **The widened dictionary** — Directory role sources, `custom.<handle>` bindings, the letterhead logo,
-  and protected-value binding through the decrypt-permission-plus-audit path. Until they land,
-  `matter.parties` is the only list-valued source and there is no money-typed or rate-typed merge field,
-  so the money helpers are exercised against synthetic merge contexts rather than against a real one.
+- **Directory role sources** (`opposing.*`, `counsel.*` and the rest, through the matter's party links)
+  and **protected-value binding** through the decrypt-permission-plus-audit path. Until they land,
+  `matter.parties` is the only list-valued source, and no shipped entry is `sensitivity: protected` — a
+  dictionary entry that claimed it without going through `readProtected` would be a silent downgrade of
+  that invariant rather than an implementation of it.
+- **A location time zone.** `timeZoneForLocation` in `src/resolve.ts` is the one place the column plugs
+  in; every office resolves to the platform's normalized zone until it exists.
+- **A firm currency setting.** `ResolutionInput.currencyCode` is supplied by the caller precisely so
+  this stays one line at the composition root when a firm may hold amounts in more than one currency.
 - **Aggregates over a repeat collection** (`sum(disbursements.amount)`) — safe, wanted, and on the wrong
   side of the "expressions do not iterate" line. A named seam, not a feature.
 - **Content controls (`w:sdt`)** — structurally the best placeholder binding and immune to run
