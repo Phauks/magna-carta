@@ -45,6 +45,38 @@ at full capacity. Keep it current at every milestone — it is the durable memor
   MC docs-sync (Mon 13:03), Cloudflare blog monitor (daily 14:00, reports not
   persisted), dependency updates (Mon 14:30).
 
+## Position update (2026-08-05 ~03:20 UTC) — evening wave complete
+
+Fifty-nine merged through 08-05 01:45Z; the evening wave (#91-#98) all landed:
+the owner's consent overrules (#94 — merge-field absence-visibility, opt-in
+macro strip, per-firm mapping library), office-crypto replaced in-house (#95 —
+sixteen crates gone, ZERO accepted Rust advisories remain), the template
+expression language designed to the owner's expanded ceiling (#92 — flags
+G1-G8 pending, G1 unresolved-condition default and G4 aggregates the notable
+ones), the Cloudflare Agents assessment corrected against all 123 doc pages
+(#91 — verdict: keep our Durable Objects, harvest DO-native push-progress, an
+assistant surface gates on ADR-0109 + the transcript-as-client-record
+question), fix:scoped + the stack-demand guard (#93), the trust accounting
+analysis (#97 — owner checklist T1-T17; discoveries: the approved
+jurisdiction-profile design was never built and its 56-jurisdiction corpus
+never vendored; trust creates the first real chart-of-accounts rows, a pin
+the phase-3 map lacked), and custodian slice 2 (#98). Now building:
+push-progress WebSockets (claude/push-progress-websockets, task 55) and the
+2·6·2 conditionals slice (claude/automation-conditionals-slice, task 56, with
+recommended defaults applied and flagged). Queued: drizzle snapshot repair
+(task 53), fix:scoped/vp-test tooling pair (task 54), pre-beta baseline
+(task 45, owner-timed).
+
+NEW GOTCHAS from the wave: parallel migrations sharing a timestamp prefix —
+retag the second-to-merge +1 second to keep tag ordering total (the #94/#98
+case); widening a CHECK constraint means rebuilding the table in SQLite —
+re-prove append-only triggers against the rebuilt table and carry the
+expand-contract annotation; fix:scoped's lint autofix rewrites .sort() to
+.toSorted() even outside ES2022 lib targets and makes drive-by edits — review
+its diff before committing (task 54); two concurrent vp test invocations
+deadlock at 0% CPU — serialize them; `vp test run --project X -- filter`
+hangs — pass paths, not positional filters.
+
 ## Day-end position (2026-08-04 ~19:15 UTC)
 
 Forty-seven pull requests merged. The whole-program-review fix campaign is
