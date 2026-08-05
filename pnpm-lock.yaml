@@ -642,6 +642,9 @@ importers:
       '@magna-carta/money':
         specifier: workspace:*
         version: link:../../packages/money
+      '@magna-carta/pdf':
+        specifier: workspace:*
+        version: link:../../packages/pdf
       '@magna-carta/property-links':
         specifier: workspace:*
         version: link:../../packages/property-links

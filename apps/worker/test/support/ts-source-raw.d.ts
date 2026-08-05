@@ -13,3 +13,11 @@ declare module "virtual:billing-package-sources" {
   const sources: Record<string, string>;
   export default sources;
 }
+
+// Virtual module provided by the pdfCoreFixtures() Vite plugin in vitest.config.ts. Exposes the PDF
+// fixtures under crates/pdf-core/tests/fixtures as a map from file name → base64, so the extraction
+// tests read the same bytes the engine's own tests assert on without a second committed copy.
+declare module "virtual:pdf-core-fixtures" {
+  const fixtures: Record<string, string>;
+  export default fixtures;
+}

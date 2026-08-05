@@ -6,6 +6,7 @@ import {
   type SortCursor,
 } from "@magna-carta/data-access/cursor-pagination";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
+import { INDEX_SPLIT_TABLE } from "@magna-carta/data-access/index-split-statements";
 import type {
   DocumentCheckoutId,
   DocumentTypeId,
@@ -943,4 +944,49 @@ export async function loadIndexableVersion(
     // claimed. Prefer the sniff and fall back, so the extract stage is told the truth when we know it.
     contentType: row.sniffed_content_type ?? row.declared_content_type,
   };
+}
+
+// The re-extraction sweep's candidates: files whose CURRENT version is committed and clean but which
+// the search catalog holds no live split for. That set is exactly the documents missing from the
+// searchable corpus, whatever put them there — a job that failed, a job whose extraction engine could
+// not read the document at the time, an enqueue that never fired because the best-effort call after
+// ingest commit lost its race, or a firm that turned indexing on after its documents were already
+// loaded. None of those are distinguishable from the catalog and none of them need to be: the repair
+// is the same in every case, and it is idempotent, because the split id is derived from the document
+// and version so a re-run converges on the same split rather than a duplicate.
+//
+// The file's current version only. A superseded version is not in the corpus by design — the write
+// pipeline keeps one live split per document — so sweeping every version would re-enqueue history
+// forever and never converge.
+//
+// Bounded by `limit` so one pass never enqueues an unbounded backlog; the next pass takes the next
+// batch. fitness:allow-no-status
+export function listVersionsMissingFromSearchIndexStatement(
+  database: SqlDatabase,
+  limit: number,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT v.id ` +
+        `FROM ${FILE_VERSION_TABLE} v JOIN ${FILE_TABLE} f ON f.id = v.file_id ` +
+        `WHERE v.status = 'clean' AND v.committed_at IS NOT NULL ` +
+        `AND f.deleted_at IS NULL AND f.current_version_id = v.id ` +
+        `AND NOT EXISTS (` +
+        `SELECT 1 FROM ${INDEX_SPLIT_TABLE} s ` +
+        `WHERE s.document_id = v.file_id AND s.version = v.version_number AND s.superseded_at IS NULL` +
+        `) ` +
+        `ORDER BY v.committed_at ` +
+        `LIMIT ?1`,
+    )
+    .bind(limit);
+}
+
+export async function listVersionsMissingFromSearchIndex(
+  database: SqlDatabase,
+  limit: number,
+): Promise<FileVersionId[]> {
+  const { results } = await listVersionsMissingFromSearchIndexStatement(database, limit).all<{
+    id: FileVersionId;
+  }>();
+  return results.map((row) => row.id);
 }
