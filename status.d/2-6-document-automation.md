@@ -59,8 +59,12 @@ arithmetic is integer-exact through `@magna-carta/money`, with every intermediat
 operation so the package's own guard is unreachable; division is not an operator, and `divideExact`,
 `divideRounded`, `applyRate`, `percentOf`, and `allocate` each state their rounding. Owner-flagged
 defaults applied as recommended: an unresolved condition FAILS the assembly naming the field (G1),
-banker's rounding only (G2), no business-day math (G3), no aggregates (G4), no pronoun helper (G5).
-`matter.parties` is the first list-valued source, one batched read for the whole collection.
+banker's rounding only (G2), no business-day math (G3), no pronoun helper (G5). G4 was answered the
+following day the other way: `sum`, `minimum`, and `maximum` fold a LITERAL FIELD PATH of a list-valued
+key, bounded by exactly what a repeat is bounded by — one batched read, the items-per-repeat cap, a
+step per element — with an empty collection left unresolved rather than answered zero, because a
+smallest of nothing has no answer and a total of no amounts has no currency. `matter.parties` is the
+first list-valued source, one batched read for the whole collection.
 
 The security claim carries its fuzz obligation in the slice: a seeded structure-aware generator over
 the grammar, a seeded byte-level generator, a committed denied-construct corpus that must fail at parse

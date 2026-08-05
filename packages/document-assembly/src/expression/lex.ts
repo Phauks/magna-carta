@@ -76,6 +76,25 @@ const HELPER_NAME_PATTERN = /^[a-z][A-Za-z0-9]*$/;
 // its start, rather than lexed into a plausible prefix plus a pile of confusing garbage.
 const WORD_PATTERN = /[A-Za-z_$][A-Za-z0-9_$]*(?:\.[A-Za-z0-9_$]*)*/y;
 
+// An aggregate's argument is one atom that names a field of a collection — `matter.parties.role`. The
+// split is LEXICAL and happens here, beside the rule that made the dots part of the name, so neither the
+// checker nor the evaluator grows a notion of member access: this returns two strings, each of which is
+// then looked up by exact match. The last dot separates them, because a collection key carries a dot of
+// its own and an item field does not.
+//
+// A firm's own field never reaches here as a collection: its key is exactly `custom.` plus a handle, so
+// the prefix it would need to be a collection has no dot after the split and this returns undefined —
+// which is the honest answer, since a firm's field holds one value per matter and never a collection.
+export function splitListFieldPath(
+  name: string,
+): { readonly collectionKey: string; readonly fieldName: string } | undefined {
+  const lastDot = name.lastIndexOf(".");
+  if (lastDot <= 0 || lastDot === name.length - 1) return undefined;
+  const collectionKey = name.slice(0, lastDot);
+  if (!collectionKey.includes(".")) return undefined;
+  return { collectionKey, fieldName: name.slice(lastDot + 1) };
+}
+
 const DIGITS_PATTERN = /[0-9]+(?:\.[0-9]+)?/y;
 
 function isWhitespace(character: string): boolean {

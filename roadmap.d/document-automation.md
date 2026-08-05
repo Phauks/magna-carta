@@ -18,7 +18,7 @@
   slices: 2-6-document-automation
   adrs: ADR-0011, ADR-0218
   evidence: Substitution, {{#if}}/{{#unless}} conditional blocks, {{#each}} repeats, and {{= }} computed fields are built and tested over a closed expression language (packages/document-assembly/src/expression/, src/blocks.ts) checked at registration with a character offset. Removal and repetition operate on whole paragraphs and whole table rows, so list numbering and table banding survive. An unresolved condition fails the assembly naming the field; an unresolved calculation renders a visible placeholder.
-  notes: There is no aggregate over a repeat collection (sum of a column) — a named seam, not a feature.
+  notes: Aggregates over a repeat collection are built — sum, minimum, and maximum over a literal field path of a list-valued key, bounded exactly as a repeat is. An aggregate over an empty collection is an absence rather than a zero.
 
 - id: document-automation.docx-templates
   name: DOCX template authoring

@@ -29,12 +29,37 @@ const SYNTHETIC: readonly (readonly [string, ExpressionType])[] = [
   ["custom.flag", "boolean"],
 ];
 
-const SCOPE = layerScope(
-  expressionScopeFor(),
-  new Map<string, NameBinding>(
-    SYNTHETIC.map(([name, type]) => [name, { type, origin: "dictionary" as const }]),
-  ),
+// A collection whose items carry one field of every aggregable kind plus one that is not, so a generated
+// aggregate lands on a legal element type about as often as on an illegal one.
+const COLLECTION_FIELDS: ReadonlyMap<string, ExpressionType> = new Map<string, ExpressionType>([
+  ["amount", "money"],
+  ["hours", "number"],
+  ["incurredOn", "date"],
+  ["describedAs", "text"],
+]);
+
+const FIELD_PATHS: readonly string[] = [
+  "custom.entries.amount",
+  "custom.entries.hours",
+  "custom.entries.incurredOn",
+  // Paths that do NOT resolve, so the aggregate's own resolution is exercised as hard as everything else.
+  "custom.entries.describedAs",
+  "custom.entries.missing",
+  "custom.nothing.amount",
+  "matter.number.amount",
+  "matter.parties.role",
+];
+
+const SYNTHETIC_FRAME = new Map<string, NameBinding>(
+  SYNTHETIC.map(([name, type]) => [name, { type, origin: "dictionary" as const }]),
 );
+SYNTHETIC_FRAME.set("custom.entries", {
+  type: "list",
+  origin: "dictionary",
+  itemFields: COLLECTION_FIELDS,
+});
+
+const SCOPE = layerScope(expressionScopeFor(), SYNTHETIC_FRAME);
 
 // Half the names resolve and half do not, so the generated corpus exercises the unresolved path as
 // heavily as the resolved one.
@@ -47,6 +72,28 @@ const VALUES: ReadonlyMap<string, ExpressionValue> = new Map<string, ExpressionV
   ["matter.number", { kind: "text", text: "2026-0042" }],
   ["matter.eBilling", { kind: "boolean", value: false }],
   ["matter.parties", { kind: "list", items: [{ fields: new Map() }] }],
+  [
+    "custom.entries",
+    {
+      kind: "list",
+      items: [
+        {
+          fields: new Map<string, ExpressionValue>([
+            ["amount", { kind: "money", amountMinor: 4_200, currencyCode: "USD" }],
+            ["hours", { kind: "number", significand: 15, scale: 1 }],
+            ["incurredOn", { kind: "date", isoDate: "2026-02-14" }],
+          ]),
+        },
+        {
+          fields: new Map<string, ExpressionValue>([
+            ["amount", { kind: "money", amountMinor: -175, currencyCode: "USD" }],
+            ["hours", { kind: "number", significand: 3, scale: 0 }],
+            ["incurredOn", { kind: "date", isoDate: "2026-11-30" }],
+          ]),
+        },
+      ],
+    },
+  ],
 ]);
 
 // ---------------------------------------------------------------------------------------------
@@ -96,9 +143,14 @@ class Generator {
   private call(depth: number): string {
     const helper = this.pick(HELPER_CATALOG);
     const count = helper.variadic === undefined ? helper.parameters.length : 1 + this.next(3);
-    const args = Array.from({ length: count }, (_unused, index) =>
-      helper.parameters[index] === "mergeKey" ? this.name() : this.expression(depth),
-    );
+    const args = Array.from({ length: count }, (_unused, index) => {
+      const specification = helper.parameters[index];
+      if (specification === "mergeKey") return this.name();
+      // An aggregate's argument is a NAME naming a field of a collection, never an expression — so the
+      // generator writes one, and half of what it writes does not resolve.
+      if (specification === "listField") return this.pick(FIELD_PATHS);
+      return this.expression(depth);
+    });
     return `${helper.name}(${args.join(", ")})`;
   }
 
@@ -118,6 +170,9 @@ class Generator {
       "matter.nothing",
       "custom.missing",
       "loop.index",
+      // A collection's field path means nothing on its own outside a repeating block, which is a name
+      // resolution the generator should keep hitting.
+      "custom.entries.amount",
     ]);
   }
 

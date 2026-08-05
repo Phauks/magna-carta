@@ -149,6 +149,19 @@ from that one sentence.
 - **A call node carries a catalog signature resolved at PARSE time** (`catalog.ts`), so by evaluation
   the only callable things in existence are functions in this repository. Adding a helper is a row in
   that frozen table plus an arm in `evaluate.ts`'s switch — never a dynamic dispatch on a name.
+- **An aggregate's argument is a NAME, never an expression.** `sum`, `minimum`, and `maximum` take a
+  literal `<collection>.<field>` path — one lexical atom, split in `lex.ts` and resolved by exact match
+  against a list binding's `itemFields` — so the set of values folded is fixed before evaluation starts
+  and there is still no iteration an author can write. They are the only helpers whose cost grows with
+  the firm's data, and they run under the SAME bound a repeating block does: one batched read for the
+  collection, the items-per-repeat cap, a step charged per element. Money folds through the same
+  `addOrSubtract` the `+` operator uses, so there is no second implementation of adding money.
+- **An aggregate over an EMPTY collection is unresolved, not zero** — uniformly, for all three. A
+  smallest of nothing has no answer in any type, and a total of no amounts would have to name a
+  currency, which is a fact the firm's data carries and not one a template may invent (the same reason
+  there is no money literal). An item carrying nothing for the field is likewise unresolved rather than
+  skipped: skipping understates a total silently, which is the one failure this package exists to
+  prevent. `isEmpty` and `default` are the total forms an author writes instead.
 - **Every bound is in `limits.ts`, and each has a test that hits it exactly** and asserts the named
   refusal rather than a timeout. The declared tree-depth bound counts NODES; the parser's own recursion
   is guarded separately, because most precedence levels produce no node and conflating the two would
@@ -183,13 +196,13 @@ from that one sentence.
   and **protected-value binding** through the decrypt-permission-plus-audit path. Until they land,
   `matter.parties` is the only list-valued source, and no shipped entry is `sensitivity: protected` — a
   dictionary entry that claimed it without going through `readProtected` would be a silent downgrade of
-  that invariant rather than an implementation of it.
+  that invariant rather than an implementation of it. `matter.parties`'s item fields are all text and a
+  firm's own fields are all scalars, so nothing a firm can bind today is aggregable: the aggregates are
+  exercised against synthetic collections, as the money helpers are against synthetic amounts.
 - **A location time zone.** `timeZoneForLocation` in `src/resolve.ts` is the one place the column plugs
   in; every office resolves to the platform's normalized zone until it exists.
 - **A firm currency setting.** `ResolutionInput.currencyCode` is supplied by the caller precisely so
   this stays one line at the composition root when a firm may hold amounts in more than one currency.
-- **Aggregates over a repeat collection** (`sum(disbursements.amount)`) — safe, wanted, and on the wrong
-  side of the "expressions do not iterate" line. A named seam, not a feature.
 - **Content controls (`w:sdt`)** — structurally the best placeholder binding and immune to run
   splitting, deferred until a browser authoring surface can emit them.
 

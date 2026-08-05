@@ -148,7 +148,8 @@ definition, lambda, member access, indexing (`a[b]`), `this` / `self` / `parent`
 concatenation with `+` (there is `concat`), the ternary `?:` (there is `choose`), division as an
 operator (section 5.3), modulo, exponentiation, bitwise operators, regular expressions, comments,
 semicolons or statement sequencing, `include` / `partial` / template composition, and any form of
-loop, comprehension, or aggregate written by the author (section 6.2).
+loop or comprehension written by the author — including an aggregate over anything but a literal field
+path of a collection the firm's data supplies (section 6.2).
 
 ## 4. The type system
 
@@ -172,7 +173,9 @@ is no `== null` to write and no null to propagate into a comparison that then qu
 
 **`list` is not a first-class value.** It is the source of a `{{#each}}` block and the argument of
 `count` and `isEmpty`, and it can be neither constructed, indexed, assigned, nor passed to any other
-helper. A list-typed key used anywhere else is a registration type error.
+helper. A list-typed key used anywhere else is a registration type error. The aggregates do not change
+that: they take a **field path**, not a list value — `sum(matter.parties.amount)` names the collection
+and the field in one atom, and `sum(matter.parties)` is a registration error.
 
 ### 4.2 Checking happens at registration
 
@@ -314,7 +317,10 @@ implementation risk in this build slice and is not a language question.
 
 ### 6.2 Repeats — the iteration boundary, stated precisely
 
-**`{{#each}}` iterates data; expressions do not iterate.**
+**`{{#each}}` iterates data; an author never writes iteration.** The boundary is not "expressions make
+exactly one pass" — the aggregates below make one bounded pass too — it is that _what gets walked_ is
+always a collection the firm's data supplies, named literally, and never something an expression
+computed.
 
 `{{#each exhibits}}` takes a **list-valued dictionary key or the `allocate` helper**, and nothing
 else — not an arbitrary expression, not a filtered list, not a sorted one. Inside the block, a scope
@@ -323,12 +329,45 @@ frame is pushed containing the current item's fields (`exhibits.letter`, `exhibi
 evaluator's only awareness that a loop exists is that its name-resolution scope has one more layer;
 it has no iteration construct of its own, no `map`, no `filter`, no `reduce`, and no comprehension.
 
-The consequence worth naming: **there is no aggregate.** A settlement statement wanting "the total of
-all disbursements" cannot express it, and that will be the first thing a firm asks for. The honest
-position is that a bounded aggregate over resolved data (`sum(disbursements.amount)`, with a literal
-field path, never over a computed expression) would be _safe_ — its cost is bounded by the data, not
-by the expression, exactly as `{{#each}}` is — but it is iteration inside an expression, which is the
-line the owner drew. It is a named seam, not a feature, and it is owner flag G4.
+**Aggregates are in, on the terms the original exclusion named.** The design first excluded them: a
+settlement statement wanting "the total of all disbursements" could not express it, and that was
+correctly predicted to be the first thing a firm asks for. The honest position recorded at the time was
+that a bounded aggregate over resolved data would be _safe_ — its cost bounded by the data, not by the
+expression, exactly as `{{#each}}` is — and that the only objection left was that it is iteration
+inside an expression. **The owner answered G4 on 2026-08-05: admit them**, under exactly the conditions
+that argument rested on, restated here as the rule the build holds to:
+
+- The argument is a **literal field path**, `<collection>.<field>` — one lexical atom, resolved by
+  exact match against a list-valued key and the fields its items carry, never a computed value and
+  never an expression. There is still no iteration an author can _write_: no map, no filter, no sort,
+  no comprehension, and nothing under the fold.
+- The cost is **exactly a repeat's cost**: the collection arrives from the one batched read it already
+  cost, the items-per-repeat cap applies unchanged, and every element is charged a step against the
+  budget the whole document shares.
+- **The catalog is `sum`, `minimum`, and `maximum`.** `count` is not repeated among them —
+  `count(matter.parties)` already answers it, and a second spelling over a field path could differ only
+  by skipping items whose field has no value, which is a filter.
+- Types are checked at **registration**: `sum` folds `number` and `money`, `minimum` and `maximum` fold
+  `number`, `money`, and `date`. A total of text, or of a yes-or-no, is a registration error naming the
+  field. The result carries the element's type — a total of money is money, an earliest date is a date
+  — and money folds through the same addition `+` uses, so the same-currency rule and the
+  before-the-operation safe-integer check apply without a second implementation.
+
+**Empty-collection semantics, decided conservatively: an aggregate over an empty collection is an
+absence, not a zero** — `unresolved`, naming the collection, for all three helpers. A smallest of
+nothing has no answer in any type; a total of no amounts would have to name a currency, and a currency
+is a fact the firm's data carries rather than one a template may invent, which is the same reason there
+is no money literal. Applying the identity element to `number` alone was considered and rejected: it
+would give the family a rule that changes with the element type, and an author would have to know which
+of four types a field is to predict whether an empty collection prints a zero or a hole. Absence then
+flows where absence already flows (section 7) — a visible placeholder in a computed field, a failed
+assembly in a condition — and the total forms are one word away: `isEmpty(collection)` asks first,
+`default(…)` supplies a fallback. **An item that carries nothing for the field also leaves the answer
+unresolved**, naming the path: skipping it would silently understate a total, which is the failure this
+subsystem exists to prevent.
+
+What did not move: the argument may not be an expression, there is no filtered or sorted source, and
+`allocate`'s parts stay walkable only by a repeating block.
 
 A repeat's collection is **one batched read**, like every other source: one read for all of
 `exhibits`, never one per item. Repeats are the first list-valued source in the dictionary, so this
@@ -394,7 +433,7 @@ than discovering there were four. Each bound has a test that hits it exactly.
 | Text result per helper                | 4,096 chars  | With the depth cap, kills nested-`concat` doubling.                                                                         |
 | Expression-produced text per assembly | 256 KB       | The aggregate backstop for the same class.                                                                                  |
 | Evaluation steps per assembly         | 100,000      | Charged per node visited and per list element; a shared budget across every expression in the document, not per expression. |
-| Items per `{{#each}}`                 | 1,000        | A repeat over an unexpectedly large collection fails loudly.                                                                |
+| Items per `{{#each}}` or aggregate    | 1,000        | A repeat, or an aggregate, over an unexpectedly large collection fails loudly. One bound for both.                          |
 | Block nesting depth                   | 5            | Bounds expansion multiplicatively with the item cap.                                                                        |
 | Expanded blocks per assembly          | 10,000       | The aggregate backstop for nested repeats.                                                                                  |
 
@@ -470,8 +509,9 @@ Seven properties, each independently checkable, and each with a test named in se
    objects. Nothing the evaluator holds has a prototype chain worth reaching.
 5. **Termination is structural.** The grammar has no loop, no recursion, no function definition, and
    no self-reference; the syntax tree is finite with a bounded depth; evaluation is a single
-   post-order walk visiting each node once; and the only variadic-cost construct, `{{#each}}`,
-   iterates a **finite list resolved from the firm's own data**, capped. Evaluation therefore
+   post-order walk visiting each node once; and the two variadic-cost constructs — `{{#each}}` and an
+   aggregate — each walk a **finite list resolved from the firm's own data**, named literally and
+   capped by the same bound. Evaluation therefore
    terminates in time bounded by (nodes × iterations), both of which are bounded before evaluation
    starts. There is no template-include and no partial, so the billion-laughs expansion shape has no
    entry point either.
@@ -516,8 +556,9 @@ tree — the standard detector for parser ambiguity and precedence bugs.
 
 **An arithmetic oracle.** Money and decimal operations checked against an independent exact
 reference, with the half-to-even rule proven on the exact tie cases in both signs, `allocate`'s parts
-proven to sum to the input for every generated split, and `divideExact` proven to refuse exactly when
-the quotient is inexact.
+proven to sum to the input for every generated split, `divideExact` proven to refuse exactly when
+the quotient is inexact, and the aggregates proven against a BigInt fold over generated collections —
+empty ones included, since the empty case is a property rather than an edge note.
 
 **Bound-hitting tests**, one per row of the section 8 table, asserting the named refusal rather than
 a timeout.
@@ -579,16 +620,16 @@ The implementation plan carries this as tasks 11 through 15 of build slice 2·6�
 
 The expansion answers F6 and raises seven questions that the narrow ceiling never had to face.
 
-| Flag   | Decision                                                                                                                                                                                                                                                                                        |
-| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **G1** | **What an unresolved condition does by default.** Recommended: `fail`. The alternative (treat as false) never interrupts anyone and produces documents silently missing clauses. This is the single most product-visible choice in the design.                                                  |
-| **G2** | **One rounding mode or three.** Recommended: banker's rounding only, through the money package's `roundLedger`. Exposing `roundTax` and `roundInvoiceLine` to template authors invites a template to reimplement billing.                                                                       |
-| **G3** | **Business-day and court-deadline date math.** Recommended: never, without a maintained per-jurisdiction holiday calendar treated as a content obligation with an owner. A wrong answer here is a missed filing.                                                                                |
-| **G4** | **Aggregates over a repeat collection** — `sum(disbursements.amount)` with a literal field path. Safe (bounded by data, like `{{#each}}` itself), genuinely wanted by a settlement statement, and on the wrong side of the "expressions do not iterate" line as drawn. Excluded now; flagged.   |
-| **G5** | **Pronoun and verb agreement.** The original design deferred it as "a conditional the author writes". With helpers now allowed, a `pronoun(party, "subject")` becomes expressible — but it requires recording a gender attribute on a party. Recommended: still no; `choose` covers it visibly. |
-| **G6** | **Firm-level named expressions.** Reusable named computations are the next natural ask and remain non-executable — and they are precisely what turned HotDocs authoring into a specialist job. Recommended: not in this ceiling; decide deliberately if asked.                                  |
-| **G7** | **Does the checker ship to the browser** for the slice 2·6·4 authoring surface? Cheap now (keep the module OOXML-free, which this design does); awkward to retrofit. Needs no answer to build, only to not foreclose.                                                                           |
-| **G8** | **How a computed field appears in the merge-field input contract.** An expression is not a fillable field, and the field-input stream's catalog contract has no shape for one. Coordination, not a blocker.                                                                                     |
+| Flag   | Decision                                                                                                                                                                                                                                                                                                                                                           |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **G1** | **What an unresolved condition does by default.** Recommended: `fail`. The alternative (treat as false) never interrupts anyone and produces documents silently missing clauses. This is the single most product-visible choice in the design.                                                                                                                     |
+| **G2** | **One rounding mode or three.** Recommended: banker's rounding only, through the money package's `roundLedger`. Exposing `roundTax` and `roundInvoiceLine` to template authors invites a template to reimplement billing.                                                                                                                                          |
+| **G3** | **Business-day and court-deadline date math.** Recommended: never, without a maintained per-jurisdiction holiday calendar treated as a content obligation with an owner. A wrong answer here is a missed filing.                                                                                                                                                   |
+| **G4** | **Aggregates over a repeat collection** — `sum(disbursements.amount)` with a literal field path. **Answered 2026-08-05: admitted.** `sum`, `minimum`, `maximum` over a literal field path of a list-valued key, bounded exactly as `{{#each}}` is. An empty collection is an absence rather than a zero — see _Repeats_ above for the semantics and the reasoning. |
+| **G5** | **Pronoun and verb agreement.** The original design deferred it as "a conditional the author writes". With helpers now allowed, a `pronoun(party, "subject")` becomes expressible — but it requires recording a gender attribute on a party. Recommended: still no; `choose` covers it visibly.                                                                    |
+| **G6** | **Firm-level named expressions.** Reusable named computations are the next natural ask and remain non-executable — and they are precisely what turned HotDocs authoring into a specialist job. Recommended: not in this ceiling; decide deliberately if asked.                                                                                                     |
+| **G7** | **Does the checker ship to the browser** for the slice 2·6·4 authoring surface? Cheap now (keep the module OOXML-free, which this design does); awkward to retrofit. Needs no answer to build, only to not foreclose.                                                                                                                                              |
+| **G8** | **How a computed field appears in the merge-field input contract.** An expression is not a fillable field, and the field-input stream's catalog contract has no shape for one. Coordination, not a blocker.                                                                                                                                                        |
 
 ## 15. Open questions
 
