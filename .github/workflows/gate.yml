@@ -17,11 +17,13 @@
 # TIERS. The same change is verified up to three times — on its pull request, on the push that merges it,
 # and again by the scheduled sweep — and running an identical full battery each time buys nothing. So
 # each trigger runs the pass that only IT can run:
-#   • pull_request — the full battery, with the type-aware lint scoped to the changed packages plus one
-#     hop of direct dependents. This is the tier a human waits on, so it optimizes for latency.
-#   • push to main — the merged tree gets the whole-repo type-check and the FULL transitive lint closure
-#     (the two things the pull request deliberately did not do), and skips the test battery the pull
-#     request already ran on the same content. Sound only in combination with up-to-date-before-merge:
+#   • pull_request — the full battery, with the type-aware lint scoped to the changed packages and
+#     their full transitive dependent closure MINUS the fan-out sinks (the packages whose type program
+#     is effectively the whole repo, and which any foundational change would otherwise drag in). This
+#     is the tier a human waits on, so it optimizes for latency.
+#   • push to main — the merged tree gets the whole-repo type-check and the lint closure INCLUDING the
+#     fan-out sinks (the two things the pull request deliberately did not do), and skips the test
+#     battery the pull request already ran on the same content. Sound only with up-to-date-before-merge:
 #     a branch that must be current with `main` to merge has already been tested against exactly this
 #     tree, so re-running seven test runners re-proves a proof. What it does NOT cover is two branches
 #     that merge in quick succession and interact semantically without touching the same files — which
@@ -48,8 +50,10 @@
 #
 # TEMPORARY CI AUSTERITY 2026-08-05 — revert when Actions minutes reset. Two of the three tiers above
 # are suspended while the Actions budget is exhausted: the push-to-main run and the nightly schedule.
-# What remains is the pull-request tier (the full battery at one-hop lint scope) and `workflow_dispatch`
-# (both still run on every change and on the docs-assembly PR). The merge bar during the window and the
+# What remains is the pull-request tier (the full battery at sink-deferred lint scope) and
+# `workflow_dispatch` (both still run on every change and on the docs-assembly PR). While the
+# post-merge tier is suspended the deferred sinks are covered by the window's merge bar instead — an
+# agent's full local `pnpm check`, which lints the whole repository. The merge bar during the window and the
 # revert checklist live in docs/conventions/build-performance.md. Every suspension in this file carries
 # the marker above, so reverting is one grep.
 name: gate
@@ -179,19 +183,29 @@ jobs:
           # pure node, no deps, runs on the runner's system node. See tooling/affected-lint. A classifier
           # crash fails this job: its contract has no empty value, and downstream must never guess.
           #
-          # DEPTH. A pull request walks ONE hop of direct dependents; every other trigger walks the full
-          # transitive closure. Depth is a latency dial rather than a correctness one because the
-          # unbounded walk still runs before the change can ship: on the push that merges it, again on
-          # the nightly sweep, and on the merge-queue build if one is enabled. What one hop buys is the
-          # foundational-package case — a change to a package half the repo depends on currently
-          # re-lints that entire dependent set at pull-request time, which is the single most expensive
-          # thing this gate does and the one a human is actually waiting on.
-          if [ "$EVENT_NAME" = "pull_request" ]; then hops=1; else hops=all; fi
-          echo "affected-lint: dependent-walk depth = $hops"
-          scope="$(node tooling/affected-lint/index.mjs --base "$base" --max-hops "$hops")" || {
-            echo "affected-lint: classifier failed — no sound lint scope" >&2
-            exit 1
-          }
+          # SCOPE. Every trigger walks the FULL transitive dependent closure; the pull-request tier
+          # additionally defers the fan-out sinks — packages whose type program is so large that linting
+          # them is effectively a whole-repo lint — when they are in scope only as a dependent. A sink
+          # the pull request itself changed is still linted, so an author's own code is never deferred.
+          # This replaces the earlier one-hop cap on the pull-request tier: hop distance turned out to
+          # be a poor proxy for cost, because the one expensive package sits one hop from nearly every
+          # change (it depends directly on 39 of 61 workspace packages), so capping depth saved almost
+          # nothing while narrowing coverage everywhere it was cheap. Deferring by measured weight is
+          # a MOVE, not a hole — the unscoped pass below runs before the change can ship, and
+          # tooling/affected-lint/scope-fitness.mjs asserts the two tiers' union covers the whole closure.
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            echo "affected-lint: full dependent closure, fan-out sinks deferred to the post-merge pass"
+            scope="$(node tooling/affected-lint/index.mjs --base "$base" --max-hops all --defer-fanout-sinks)" || {
+              echo "affected-lint: classifier failed — no sound lint scope" >&2
+              exit 1
+            }
+          else
+            echo "affected-lint: full dependent closure, nothing deferred"
+            scope="$(node tooling/affected-lint/index.mjs --base "$base" --max-hops all)" || {
+              echo "affected-lint: classifier failed — no sound lint scope" >&2
+              exit 1
+            }
+          fi
           emit lint_scope "$scope"
 
           # test-worker's shard count. Sharding changes only how the SAME set of test files is divided
@@ -202,10 +216,20 @@ jobs:
           # parallelism that matters and halve the overhead. "Small" is mechanical: a modest file count
           # AND a lint scope that is neither whole-repo nor a broad dependent fan-out — the same signal
           # affected-lint already computes for whether a foundational package moved.
+          #
+          # Measured from the UNDEFERRED closure, not from the lint scope emitted above. Deferring a
+          # fan-out sink narrows what gets linted; it says nothing about how broad the change is, and
+          # reading the narrowed width here would call a foundational change "small" and quietly halve
+          # the test parallelism. The classifier is pure node over the package manifests, so asking it
+          # twice costs milliseconds and keeps the two signals honest about different things.
+          breadth="$(node tooling/affected-lint/index.mjs --base "$base" --max-hops all)" || {
+            echo "affected-lint: classifier failed — no sound change-breadth signal" >&2
+            exit 1
+          }
           file_count="$(printf '%s\n' "$code_files" | grep -c . || true)"
-          scope_width="$(printf '%s\n' "$scope" | wc -w | tr -d ' ')"
-          echo "changed code files: $file_count; lint scope width: $scope_width"
-          if [ "$scope" != "ALL" ] && [ "$file_count" -le 20 ] && [ "$scope_width" -le 6 ]; then
+          scope_width="$(printf '%s\n' "$breadth" | wc -w | tr -d ' ')"
+          echo "changed code files: $file_count; undeferred closure width: $scope_width"
+          if [ "$breadth" != "ALL" ] && [ "$file_count" -le 20 ] && [ "$scope_width" -le 6 ]; then
             emit worker_shards 2; emit worker_shard_list '[1,2]'
           else
             emit worker_shards 4; emit worker_shard_list '[1,2,3,4]'
@@ -276,8 +300,9 @@ jobs:
   lint:
     needs: [changes, wasm]
     if: needs.changes.outputs.code == 'true'
-    # Disqualified from the 1-vCPU runner twice over: 26 min measured at the affected-packages tier
-    # against its 15-minute cap, and the GOMEMLIMIT below is 10 GiB against its 5 GB of memory.
+    # Disqualified from the 1-vCPU runner twice over: 26 min measured on a broad pull request before the
+    # fan-out sink was deferred, against its 15-minute cap, and the GOMEMLIMIT below is 10 GiB against
+    # its 5 GB of memory. The post-merge pass, which still lints the sink, is the binding case.
     runs-on: ubuntu-latest
     # tsgolint building the app worker's whole-program type graph is the tall pole. The whole-repo pass
     # measured ~45 min on a 4-core/16 GB box (1851 files) — it was ~24 min when this cap was first set,
@@ -285,7 +310,7 @@ jobs:
     # well above the honest time so a genuine tsgolint deadlock or runaway fails fast and visibly instead
     # of burning the runner to GitHub's 6-hour default; re-measure and raise this when the repo grows.
     # Only the merge and scheduled tiers pay the whole-repo pass — a pull request lints the affected
-    # packages plus one hop, which is seconds to minutes and nowhere near this cap.
+    # packages with the fan-out sinks deferred, which is seconds to minutes and nowhere near this cap.
     timeout-minutes: 75
     steps:
       - uses: actions/checkout@v7
@@ -295,13 +320,15 @@ jobs:
           name: wasm-pkg
       - run: tar -xzf wasm-pkg.tgz
       - name: Lint (type-aware, affected packages only)
-        # The `changes` job computed the affected set — the changed packages plus their dependents (a
-        # type-aware finding in an unchanged file can flip when a dependency changes), or ALL when a
-        # global input moved. Scoping the paths scopes tsgolint's cost; the whole repo is the ~45-min
-        # tall pole, one package is seconds. The dependent walk is one hop deep on a pull request and
-        # unbounded on every other trigger, so the full closure is always proved before a change can
-        # ship. Only lint is scoped — type-check/tests/contracts still run whole-repo. Mechanism +
-        # soundness: tooling/affected-lint, docs/conventions/build-performance.md.
+        # The `changes` job computed the affected set — the changed packages plus their full transitive
+        # dependent closure (a type-aware finding in an unchanged file can flip when a dependency
+        # changes), or ALL when a global input moved. Scoping the paths scopes tsgolint's cost; the
+        # whole repo is the ~45-min tall pole, one package is seconds. A pull request additionally
+        # defers the fan-out sinks — the packages whose type program is effectively the whole repo —
+        # when they are in scope only as dependents; every other trigger lints them, so the full
+        # closure is always proved before a change can ship. Only lint is scoped — type-check, tests
+        # and contracts still run whole-repo. Mechanism + soundness: tooling/affected-lint,
+        # tooling/affected-lint/scope-fitness.mjs, docs/conventions/build-performance.md.
         env:
           SCOPE: ${{ needs.changes.outputs.lint_scope }}
           # tsgolint is a Go program: on the whole-repo pass its live type graph is only a few GB, but the
@@ -699,13 +726,14 @@ jobs:
           echo "osv-scanner: HIGH/CRITICAL advisories remain after ignores — failing the gate:" >&2
           printf '%s' "$offenders" | jq -r '.[] | "  [\(.ecosystem)] \(.package): \(.ids | join(", ")) (max_severity=\(.max_severity), \(.classified_by))"' >&2
           exit 1
-      - name: Governance (process-refs + licenses + status fragments + decision files + test registration)
+      - name: Governance (process-refs + licenses + status fragments + decision files + test registration + lint scope)
         run: |
           pnpm run lint:process-refs
           pnpm run lint:licenses
           pnpm run lint:status
           pnpm run lint:decisions
           pnpm run lint:test-registration
+          pnpm run lint:affected-scope
       - name: Migration integrity (journal/chain/rebuild guards)
         run: pnpm --filter @magna-carta/database exec vp test run test/migration-integrity.test.ts
 
