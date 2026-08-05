@@ -195,7 +195,7 @@ describe("the trust composition guard", () => {
     ).rejects.toMatchObject({ code: "not-a-trust-entry" });
   });
 
-  it("refuses a trust entry with no client line and one with no bank line", async () => {
+  it("refuses a trust entry with no client line, and one that moves nothing", async () => {
     const fixture = await trustFixture();
     const leaf = await seedMatterLeaf(fixture, "entity_a", "Webb");
     await expect(
@@ -217,7 +217,7 @@ describe("the trust composition guard", () => {
       composeTrustEntry(
         fixture.database,
         {
-          description: "Client lines only",
+          description: "One leaf, both directions",
           effectiveDate: "2026-08-05",
           lines: [
             { accountId: leaf.ledgerAccountId, direction: "debit", amount: usd(1000) },
@@ -226,7 +226,43 @@ describe("the trust composition guard", () => {
         },
         options,
       ),
-    ).rejects.toMatchObject({ code: "missing-trust-bank-line" });
+    ).rejects.toMatchObject({ code: "single-node-reallocation" });
+  });
+
+  it("permits a bank-free reallocation between two matter leaves of ONE client", async () => {
+    const fixture = await trustFixture();
+    const source = await seedMatterLeaf(fixture, "entity_a", "Webb");
+    const destination = await seedMatterLeaf(fixture, "entity_a", "Webb appeal");
+    const funded = await composeTrustEntry(
+      fixture.database,
+      {
+        description: "Retainer received",
+        effectiveDate: "2026-08-05",
+        lines: [
+          { accountId: fixture.bankLedgerAccountId, direction: "debit", amount: usd(5000) },
+          { accountId: source.ledgerAccountId, direction: "credit", amount: usd(5000) },
+        ],
+      },
+      options,
+    );
+    await commit(fixture.database, funded.effect);
+
+    // No bank line at all: the money never left the account, so a matching pair of offsetting bank
+    // lines would only invent two items that could never clear a statement.
+    const moved = await composeTrustEntry(
+      fixture.database,
+      {
+        description: "Funds reallocated between the client's matters",
+        effectiveDate: "2026-08-05",
+        lines: [
+          { accountId: source.ledgerAccountId, direction: "debit", amount: usd(2000) },
+          { accountId: destination.ledgerAccountId, direction: "credit", amount: usd(2000) },
+        ],
+      },
+      options,
+    );
+    await commit(fixture.database, moved.effect);
+    await expect(assertTrustFitness(fixture.database)).resolves.toBeUndefined();
   });
 
   it("inherits the ledger's own rules: no future dating, one currency, balanced", async () => {

@@ -158,11 +158,14 @@ export const ENTITY_PREFIXES = {
   // Trust accounting. A `trustAccount` is one real bank account holding client money; a
   // `trustLedgerNode` names which ledger account under it belongs to which client or matter (the
   // sub-ledger tree); a `trustHold` restricts part of a node's balance without moving money; a
-  // `trustTransfer` is the shared link between the two entries a trust-to-operating movement posts.
+  // `trustTransfer` is the shared link between the two entries a trust-to-operating movement posts;
+  // a `trustMovement` is the client-ledger record beside one trust entry — who the money came from
+  // or went to, why, by what method, and who authorized it.
   trustAccount: "trustAccount",
   trustLedgerNode: "trustLedgerNode",
   trustHold: "trustHold",
   trustTransfer: "trustTransfer",
+  trustMovement: "trustMovement",
 } as const;
 
 export type EntityType = keyof typeof ENTITY_PREFIXES;

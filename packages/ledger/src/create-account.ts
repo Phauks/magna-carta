@@ -10,7 +10,7 @@ import {
   insertBalanceRowStatement,
   selectAccountHasLinesStatement,
 } from "./statements.ts";
-import { ACCOUNT_TYPES, type AccountType, type ClockPort } from "./types.ts";
+import { ACCOUNT_TYPES, type AccountType, type ClockPort, type PendingAccount } from "./types.ts";
 import { LedgerValidationError } from "./validate.ts";
 
 export interface CreateAccountInput {
@@ -20,17 +20,11 @@ export interface CreateAccountInput {
   readonly parentAccountId?: LedgerAccountId;
 }
 
-// A parent this same effect is creating, which no read can see yet. Building more than one tier of a
-// sub-ledger in one batch is otherwise impossible: the child's parent check reads the database, and
-// the parent row does not exist until the batch commits. Splitting the tiers across batches would
-// mean a window in which a partially built tree exists, which is worse than declaring the parent.
-// Everything the parent check proves is already known for such an account and is re-stated here
-// rather than assumed: an account created in this batch is active, carries no postings (nothing can
-// have posted to a row that does not exist), and has the type and currency the composer gave it.
-export interface PendingParentAccount {
-  readonly type: AccountType;
-  readonly currency: string;
-}
+// A parent this same effect is creating, which no read can see yet — the creation-side use of the
+// same declaration the posting side takes (PendingAccount in types.ts). Building more than one tier
+// of a sub-ledger in one batch is otherwise impossible: the child's parent check reads the database,
+// and the parent row does not exist until the batch commits.
+export type PendingParentAccount = PendingAccount;
 
 export interface CreateAccountOptions {
   readonly clock: ClockPort;

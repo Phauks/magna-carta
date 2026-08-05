@@ -11,6 +11,7 @@
     "./account-tree": "./src/account-tree.ts",
     "./composition-guard": "./src/composition-guard.ts",
     "./holds": "./src/holds.ts",
+    "./movements": "./src/movements.ts",
     "./transfer": "./src/transfer.ts",
     "./jurisdiction": "./src/jurisdiction.ts",
     "./fitness": "./src/fitness.ts"

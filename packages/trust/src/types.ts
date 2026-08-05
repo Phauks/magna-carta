@@ -1,9 +1,12 @@
 import type {
   LedgerAccountId,
+  LedgerEntryId,
   MatterId,
   TrustAccountId,
   TrustHoldId,
   TrustLedgerNodeId,
+  TrustMovementId,
+  UserId,
 } from "@magna-carta/identifiers/types";
 
 // The three tiers of the sub-ledger tree, plus the permitted bank-charge carve-out. Postings land on
@@ -79,4 +82,45 @@ export interface TrustHoldSnapshot {
   readonly currency: string;
   readonly releasesHoldId: TrustHoldId | null;
   readonly releasedByHoldId: TrustHoldId | null; // derived from the link, never a stored flag
+}
+
+// The three movements a firm makes inside a trust account. A deposit puts client money in, a
+// disbursement pays it out, and a matter transfer reallocates it between two matters of the SAME
+// client without any bank movement at all. There is deliberately no client-to-client movement: at
+// the entry level it is indistinguishable from misappropriation, so it is not in the vocabulary.
+export const TRUST_MOVEMENT_KINDS = ["deposit", "disbursement", "matter_transfer"] as const;
+export type TrustMovementKind = (typeof TRUST_MOVEMENT_KINDS)[number];
+
+// How the money physically moved, recorded as a value rather than buried in a description: several
+// jurisdictions prohibit specific methods outright, and a rule engine cannot refuse a method it
+// cannot see. `internal` names the matter transfer, where no bank movement happened at all — which
+// is why the schema refuses `internal` on a deposit or a disbursement and refuses anything else on a
+// matter transfer.
+export const TRUST_MOVEMENT_METHODS = [
+  "check",
+  "cash",
+  "wire",
+  "electronic_transfer",
+  "card",
+  "internal",
+] as const;
+export type TrustMovementMethod = (typeof TRUST_MOVEMENT_METHODS)[number];
+
+export interface TrustMovementSnapshot {
+  readonly id: TrustMovementId;
+  readonly trustAccountId: TrustAccountId;
+  readonly kind: TrustMovementKind;
+  readonly nodeId: TrustLedgerNodeId;
+  readonly counterpartyNodeId: TrustLedgerNodeId | null;
+  readonly amountMinor: number;
+  readonly currency: string;
+  readonly entryId: LedgerEntryId;
+  readonly method: TrustMovementMethod;
+  readonly reference: string | null;
+  readonly counterpartyName: string | null;
+  readonly purpose: string;
+  readonly recordedBy: UserId;
+  readonly authorizedBy: UserId | null;
+  readonly effectiveDate: string;
+  readonly recordedAt: string;
 }

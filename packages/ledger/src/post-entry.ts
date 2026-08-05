@@ -18,6 +18,7 @@ import type {
   AccountType,
   ClockPort,
   EntryLineInput,
+  PendingAccount,
   PostEntryInput,
 } from "./types.ts";
 import { validateEntry } from "./validate.ts";
@@ -33,6 +34,11 @@ export const LEDGER_AGGREGATE_KEY = "ledger";
 export interface PostEntryOptions {
   readonly clock: ClockPort;
   readonly randomSource?: RandomSource; // fixtures pass the seeded source
+  // Accounts this same effect creates ahead of the posting, declared because no read can see them
+  // yet (PendingAccount in types.ts). A lazily created sub-ledger leaf and its first posting belong
+  // in ONE batch — a leaf that exists for a batch without the bounds its creator writes is a leaf
+  // that can be overdrawn in that batch.
+  readonly pendingAccounts?: ReadonlyMap<string, PendingAccount>;
 }
 
 export interface PostedEntry {
@@ -89,6 +95,19 @@ export async function postEntry(
     accountIds.length === 0
       ? new Map<string, AccountSnapshot>()
       : await loadAccountSnapshots(database, accountIds);
+  // A pending account never overwrites a stored one: a row that exists is the truth, and a caller
+  // that declared a stale claim about it must not win over the read.
+  for (const [accountId, pending] of options.pendingAccounts ?? []) {
+    if (accounts.has(accountId)) continue;
+    accounts.set(accountId, {
+      id: accountId as LedgerAccountId,
+      type: pending.type,
+      currency: pending.currency,
+      active: true,
+      hasChildren: false,
+      hasBalanceRow: true,
+    });
+  }
   validateEntry(input, accounts, options.clock.today());
   return composePostedEntry(database, input, accounts, options, null);
 }

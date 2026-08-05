@@ -33,6 +33,9 @@
       "path": "../directory/tsconfig.build.json"
     },
     {
+      "path": "../document-assembly/tsconfig.build.json"
+    },
+    {
       "path": "../encryption/tsconfig.build.json"
     },
     {

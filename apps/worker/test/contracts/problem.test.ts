@@ -62,6 +62,9 @@ describe("problem-type URI registry", () => {
         "assembly-expression-refused",
         "merge-field-unresolvable",
         "websocket-upgrade-required",
+        "trust-insufficient-available",
+        "trust-movement-refused",
+        "trust-jurisdiction-unavailable",
       ].sort(),
     );
   });

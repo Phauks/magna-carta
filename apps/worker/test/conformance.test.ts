@@ -105,10 +105,10 @@ const NON_MUTATING_POST_ALLOW_LIST: Record<string, string> = {
     "Analysis POST: sends pasted text to the platform-managed detector and returns a likelihood band. The only write is one incidental ai_detection_usage meter row (telemetry — the accountability record for the egress), not an auditable firm-domain mutation; auditing every detection would flood audit_log.",
 };
 
-// Subsystems whose every route must be idempotency: required (money/trust/payment/outbound-comms).
-// Empty until the trust/billing/payments/comms slices land — the assertion machinery is what ships now;
-// each of those slices adds its operationId namespace here as it builds.
-const MONEY_NAMESPACES = new Set<string>();
+// Subsystems whose every MUTATING route must be idempotency: required (money/trust/payment/
+// outbound-comms). Each such slice adds its operationId namespace here as it builds; the billing,
+// payments, and comms rows land with their slices.
+const MONEY_NAMESPACES = new Set<string>(["trust"]);
 
 // x-mc-operationId is a string in every emitted operation; read it defensively (the value is typed
 // unknown off the document record) so the fitness functions never stringify a non-string.
@@ -214,6 +214,12 @@ const RESOURCE_BY_PERMISSION_NAMESPACE: Record<string, string | readonly string[
   // why the catalogue lives in its own tables rather than as matter-rooted file rows. The act of
   // ASSEMBLING is matter-rooted and rides documents:assemble instead.
   templates: "firm",
+  // trust:* governs the trust account and the client/matter sub-ledger under it. It binds the FIRM
+  // rather than the matter, on the custody reasoning rather than the costs one: a trust account is
+  // one real bank account belonging to an office, its ledger spans every client and matter the firm
+  // holds money for, and the reconciliation that proves it is per ACCOUNT. Every movement names a
+  // matter, but the matter is where the money lands, not the resource the capability governs.
+  trust: "firm",
 };
 
 // Rule: every named permission exists in the registry, and its namespace binds to the route's
@@ -254,7 +260,11 @@ function permissionRegistryViolations(document: ReturnType<typeof buildOpenAPIDo
   return violations;
 }
 
-// Rule: every route in a money/trust/payment/comms subsystem declares idempotency: required.
+// Rule: every MUTATING route in a money/trust/payment/comms subsystem declares idempotency: required.
+// A retried mutation that posted twice would be a second real movement of somebody's money, which is
+// what the gate exists to stop. A read in the same subsystem moves nothing, and an Idempotency-Key on
+// a GET is a key with no write to deduplicate — so the rule binds to the methods that can move money,
+// not to the namespace wholesale.
 function moneyIdempotencyViolations(
   document: ReturnType<typeof buildOpenAPIDocument>,
   moneyNamespaces: ReadonlySet<string>,
@@ -262,6 +272,7 @@ function moneyIdempotencyViolations(
   const violations: string[] = [];
   for (const { path, method, operation, namespace } of operations(document)) {
     if (!moneyNamespaces.has(namespace)) continue;
+    if (!isMutatingMethod(method)) continue;
     if (operation["x-mc-idempotency"] !== "required") {
       violations.push(
         `${method.toUpperCase()} ${path}: ${namespace} is a money subsystem — x-mc-idempotency must be "required"`,
@@ -885,6 +896,10 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "timer.stopCommit",
       "toolsConnection.get",
       "toolsTurnCredentials.get",
+      "trust.deposit",
+      "trust.disburse",
+      "trust.matterLedger",
+      "trust.transferBetweenMatters",
       "uploads.abort",
       "uploads.complete",
       "uploads.get",
@@ -943,23 +958,35 @@ describe("conformance — the committed contract holds, and each rule catches a 
     });
   });
 
-  describe("money-subsystem routes require idempotency (machinery; namespace set empty today)", () => {
+  describe("money-subsystem routes require idempotency", () => {
+    it("the committed contract satisfies it", () => {
+      expect(moneyIdempotencyViolations(document, MONEY_NAMESPACES)).toEqual([]);
+    });
     it("no committed money-looking route escaped MONEY_NAMESPACES (the registration safety net)", () => {
       expect(
         moneyRegistrationGapViolations(document, MONEY_SUBSYSTEM_KEYWORDS, MONEY_NAMESPACES),
       ).toEqual([]);
     });
     it("flags a money-looking route that was not registered in MONEY_NAMESPACES", () => {
+      // `payments` is a money keyword whose slice has not landed, so it is deliberately not yet in
+      // MONEY_NAMESPACES — exactly the state a forgotten registration would leave a namespace in.
       const bad = documentWithOperations([
         {
           method: "post",
-          path: "/api/v1/trust",
-          operation: rawOperation({ "x-mc-operationId": "trust.disburse" }),
+          path: "/api/v1/payments",
+          operation: rawOperation({ "x-mc-operationId": "payments.charge" }),
         },
       ]);
       expect(
         moneyRegistrationGapViolations(bad, MONEY_SUBSYSTEM_KEYWORDS, MONEY_NAMESPACES).length,
       ).toBeGreaterThan(0);
+    });
+    it("does not demand an idempotency key on a money-subsystem READ", () => {
+      const fine = documentForRoute(
+        baseMeta({ operationId: "payments.list", idempotency: "optional" }),
+        { method: "get", path: "/api/v1/payments" },
+      );
+      expect(moneyIdempotencyViolations(fine, new Set(["payments"]))).toEqual([]);
     });
     it("flags a money-subsystem route declaring idempotency optional", () => {
       const bad = documentForRoute(

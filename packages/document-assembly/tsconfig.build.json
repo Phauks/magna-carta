@@ -15,6 +15,9 @@
   },
   "references": [
     {
+      "path": "../custom-fields/tsconfig.build.json"
+    },
+    {
       "path": "../data-access/tsconfig.build.json"
     },
     {

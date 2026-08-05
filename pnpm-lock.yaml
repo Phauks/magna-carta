@@ -639,6 +639,9 @@ importers:
       '@magna-carta/metadata':
         specifier: workspace:*
         version: link:../../packages/metadata
+      '@magna-carta/money':
+        specifier: workspace:*
+        version: link:../../packages/money
       '@magna-carta/property-links':
         specifier: workspace:*
         version: link:../../packages/property-links
@@ -660,6 +663,9 @@ importers:
       '@magna-carta/timekeeping':
         specifier: workspace:*
         version: link:../../packages/timekeeping
+      '@magna-carta/trust':
+        specifier: workspace:*
+        version: link:../../packages/trust
       '@magna-carta/whois':
         specifier: workspace:*
         version: link:../../packages/whois
