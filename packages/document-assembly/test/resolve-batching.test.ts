@@ -27,6 +27,7 @@ const MATTER_ROW = {
   client_code: "ACME-001",
   matter_number: "2026-0042",
   opened_at: "2026-02-01T09:00:00.000Z",
+  e_billing: 0,
 };
 
 const LOCATION_ROW = {
@@ -38,6 +39,13 @@ const LOCATION_ROW = {
   remit_to: "Remit to Riverside",
 };
 
+// Two linked parties, so the collection read has something to return. The whole collection arrives in
+// ONE read; the assertion below is that adding parties to a manifest never adds a read per party.
+const PARTY_ROWS = [
+  { role: "client", display_name: "Acme Holdings LLC", kind: "organisation" },
+  { role: "opposing_party", display_name: "Riverside Partners", kind: "organisation" },
+];
+
 function recordingDatabase(): { database: SqlDatabase; reads: RecordedRead[] } {
   const reads: RecordedRead[] = [];
   const database = {
@@ -48,7 +56,11 @@ function recordingDatabase(): { database: SqlDatabase; reads: RecordedRead[] } {
           return statement;
         },
         all() {
-          const rows = sql.includes(" location ") ? [LOCATION_ROW] : [MATTER_ROW];
+          const rows = sql.includes("matter_party")
+            ? PARTY_ROWS
+            : sql.includes(" location ")
+              ? [LOCATION_ROW]
+              : [MATTER_ROW];
           return Promise.resolve({ results: rows });
         },
       };
@@ -75,7 +87,19 @@ function manifestOfSize(fieldCount: number): FieldManifest {
       forms: ["brace"],
     });
   }
-  return { fields, totalOccurrences: fields.length };
+  return manifestOf(fields);
+}
+
+// A manifest carrying nothing but the given placeholders — no blocks, no computed fields, no
+// unconverted Word merge fields.
+function manifestOf(fields: readonly ManifestField[]): FieldManifest {
+  return {
+    fields,
+    totalOccurrences: fields.reduce((sum, field) => sum + field.occurrences, 0),
+    unconvertedMergeFields: [],
+    blocks: [],
+    computedFields: [],
+  };
 }
 
 const input = {
@@ -93,8 +117,8 @@ describe("resolution issues one read per source, never one per field", () => {
     });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.reads).toEqual(["matter", "location"]);
-    expect(reads).toHaveLength(2);
+    expect(result.reads).toEqual(["matter", "party", "location"]);
+    expect(reads).toHaveLength(3);
   });
 
   it("costs a 150-field template exactly the reads its SOURCES need, not the reads its fields would", async () => {
@@ -114,21 +138,19 @@ describe("resolution issues one read per source, never one per field", () => {
     expect(large.reads.map((read) => read.sql)).toEqual(
       oneFieldPerSource.reads.map((read) => read.sql),
     );
-    // And the absolute bound: two reads for a template with a hundred and fifty merge fields.
-    expect(large.reads).toHaveLength(2);
+    // And the absolute bound: three reads for a template with a hundred and fifty merge fields — the
+    // matter, its party collection, and its office.
+    expect(large.reads).toHaveLength(3);
   });
 
   it("reads nothing at all for a manifest that names only firm and system fields", async () => {
     const { database, reads } = recordingDatabase();
     const result = await resolveMergeContext(database, {
       ...input,
-      manifest: {
-        fields: [
-          { key: "firm.name", format: null, occurrences: 40, parts: [], forms: ["brace"] },
-          { key: "system.today", format: null, occurrences: 40, parts: [], forms: ["brace"] },
-        ],
-        totalOccurrences: 80,
-      },
+      manifest: manifestOf([
+        { key: "firm.name", format: null, occurrences: 40, parts: [], forms: ["brace"] },
+        { key: "system.today", format: null, occurrences: 40, parts: [], forms: ["brace"] },
+      ]),
     });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -144,12 +166,9 @@ describe("resolution issues one read per source, never one per field", () => {
     const { database, reads } = recordingDatabase();
     const result = await resolveMergeContext(database, {
       ...input,
-      manifest: {
-        fields: [
-          { key: "matter.number", format: null, occurrences: 1, parts: [], forms: ["brace"] },
-        ],
-        totalOccurrences: 1,
-      },
+      manifest: manifestOf([
+        { key: "matter.number", format: null, occurrences: 1, parts: [], forms: ["brace"] },
+      ]),
     });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -161,13 +180,10 @@ describe("resolution issues one read per source, never one per field", () => {
     const { database, reads } = recordingDatabase();
     const result = await resolveMergeContext(database, {
       ...input,
-      manifest: {
-        fields: [
-          { key: "client.displayName", format: null, occurrences: 1, parts: [], forms: ["brace"] },
-          { key: "client.code", format: null, occurrences: 1, parts: [], forms: ["brace"] },
-        ],
-        totalOccurrences: 2,
-      },
+      manifest: manifestOf([
+        { key: "client.displayName", format: null, occurrences: 1, parts: [], forms: ["brace"] },
+        { key: "client.code", format: null, occurrences: 1, parts: [], forms: ["brace"] },
+      ]),
     });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -184,14 +200,11 @@ describe("resolution outcomes", () => {
     const { database } = recordingDatabase();
     const result = await resolveMergeContext(database, {
       ...input,
-      manifest: {
-        fields: [
-          { key: "matter.number", format: null, occurrences: 1, parts: [], forms: ["brace"] },
-          { key: "matter.description", format: null, occurrences: 1, parts: [], forms: ["brace"] },
-          { key: "location.footer", format: null, occurrences: 1, parts: [], forms: ["brace"] },
-        ],
-        totalOccurrences: 3,
-      },
+      manifest: manifestOf([
+        { key: "matter.number", format: null, occurrences: 1, parts: [], forms: ["brace"] },
+        { key: "matter.description", format: null, occurrences: 1, parts: [], forms: ["brace"] },
+        { key: "location.footer", format: null, occurrences: 1, parts: [], forms: ["brace"] },
+      ]),
     });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -218,12 +231,9 @@ describe("resolution outcomes", () => {
 
     const result = await resolveMergeContext(database, {
       ...input,
-      manifest: {
-        fields: [
-          { key: "matter.number", format: null, occurrences: 1, parts: [], forms: ["brace"] },
-        ],
-        totalOccurrences: 1,
-      },
+      manifest: manifestOf([
+        { key: "matter.number", format: null, occurrences: 1, parts: [], forms: ["brace"] },
+      ]),
     });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -243,12 +253,9 @@ describe("resolution outcomes", () => {
 
     const result = await resolveMergeContext(database, {
       ...input,
-      manifest: {
-        fields: [
-          { key: "matter.number", format: null, occurrences: 1, parts: [], forms: ["brace"] },
-        ],
-        totalOccurrences: 1,
-      },
+      manifest: manifestOf([
+        { key: "matter.number", format: null, occurrences: 1, parts: [], forms: ["brace"] },
+      ]),
     });
     expect(result).toMatchObject({ ok: false, reason: "matter-not-found" });
   });

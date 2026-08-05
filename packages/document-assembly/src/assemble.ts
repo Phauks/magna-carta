@@ -1,5 +1,29 @@
-import { lookupDictionaryEntry } from "./dictionary.ts";
-import { formatMergeValue } from "./format.ts";
+import {
+  deepCloneNode,
+  markerOfUnit,
+  matchBlockRegions,
+  parseBlockMarker,
+  type BlockKind,
+} from "./blocks.ts";
+import { expressionScopeFor, lookupDictionaryEntry, type DictionaryEntry } from "./dictionary.ts";
+import {
+  checkExpression,
+  layerScope,
+  loopFrame,
+  type CheckedExpression,
+  type ExpressionScope,
+} from "./expression/check.ts";
+import type { ExpressionType } from "./expression/catalog.ts";
+import {
+  createEvaluationBudget,
+  evaluate,
+  type EvaluationBudget,
+  type ExpressionValue,
+  type ListItem,
+} from "./expression/evaluate.ts";
+import { EXPRESSION_LIMITS } from "./expression/limits.ts";
+import { formatMergeValue, legalFormatsFor } from "./format.ts";
+import { rewriteBareKeyCondition, splitComputedField } from "./normalize.ts";
 import {
   contentTypeOverrides,
   readPackage,
@@ -10,7 +34,7 @@ import {
 } from "./ooxml/package.ts";
 import { contentPartNames, REQUIRED_PARTS } from "./ooxml/parts.ts";
 import { attributesOf, buildXml, nodeTag, parseXml, textOf, type XmlNode } from "./ooxml/xml.ts";
-import type { MergeContext } from "./types.ts";
+import type { MergeContext, MergeValue, MergeValueType } from "./types.ts";
 
 // Substitution is deliberately the small half of this package. Because normalization already rewrote
 // every placeholder into a single contiguous run and recorded the manifest, an assembly is a walk over
@@ -18,19 +42,39 @@ import type { MergeContext } from "./types.ts";
 // makes the per-assembly path cheap enough to stay in a Worker and makes output reproducible: the same
 // template version plus the same merge context always yields the same bytes.
 //
-// The pass is purely subtractive and substitutive. It never adds a part, a relationship, a script, or an
-// external reference — whatever active content a template could have carried was stripped and re-verified
-// at registration, and this pass has no mechanism to reintroduce any.
+// The walk carries a SCOPE. A conditional either keeps its body or drops it whole; a repeat clones its
+// body once per item with one more layer on the scope. Expressions are re-parsed and re-checked FROM
+// THE SOURCE IN THE DOCUMENT rather than from a stored tree — which is the only thing that catches
+// dictionary drift, where a template bound in March to a custom field archived in June must fail in
+// September naming the key rather than evaluate against a tree that still believes it exists.
+//
+// The pass is purely subtractive, substitutive, and replicative. It never adds a part, a relationship, a
+// script, or an external reference — whatever active content a template could have carried was stripped
+// and re-verified at registration, and this pass has no mechanism to reintroduce any.
 
 export type AssemblyFailureReason =
   | "unreadable-template"
   | "missing-required-field"
-  | "package-integrity";
+  | "package-integrity"
+  // An expression the document carries no longer checks against the dictionary the firm has today, or
+  // could not produce a value from data that all resolved. Both fail the assembly: a wrong branch is
+  // invisible, because nobody reads a contract and notices the paragraph that is not there.
+  | "expression-invalid"
+  | "expression-refused"
+  | "expression-unresolved";
 
 export interface AssemblyAbsence {
   readonly key: string;
   // What the document shows where the value would have been. Never the value — there is none.
   readonly rendered: "blank" | "placeholder";
+}
+
+// How many of each site the assembly worked out, and how each came out. No expression text, no
+// merge-field key, and no value is ever carried here — the counts are what telemetry records.
+export interface ExpressionTally {
+  readonly site: "condition" | "repeat" | "computedField";
+  readonly outcome: "resolved" | "unresolved" | "refused";
+  readonly count: number;
 }
 
 export type AssemblyResult =
@@ -42,6 +86,7 @@ export type AssemblyResult =
       // with a list the caller has to show.
       readonly absences: readonly AssemblyAbsence[];
       readonly substitutions: number;
+      readonly expressions: readonly ExpressionTally[];
     }
   | {
       readonly ok: false;
@@ -50,6 +95,7 @@ export type AssemblyResult =
       // For missing-required-field: which keys. A merge failure reports WHICH KEY failed, never what it
       // held.
       readonly keys: readonly string[];
+      readonly expressions: readonly ExpressionTally[];
     };
 
 // `client.displayName` -> `[CLIENT DISPLAY NAME]`. A visible marker is the deliberate bias of the absence
@@ -89,36 +135,375 @@ function setLeafText(holder: XmlNode, text: string): void {
   holder[":@"] = { ...attributesOf(holder), "@_xml:space": "preserve" };
 }
 
-function forEachParagraph(nodes: XmlNode[], visit: (paragraph: XmlNode) => void): void {
-  for (const node of nodes) {
-    const tag = nodeTag(node);
-    if (tag === undefined) continue;
-    if (tag === "w:p") {
-      visit(node);
-      continue;
+// ---------------------------------------------------------------------------------------------
+// The merge context, as the expression language sees it
+// ---------------------------------------------------------------------------------------------
+
+// THE RESOLUTION BOUNDARY. An instant is projected to a calendar date in the matter's office's time
+// zone exactly here, once, before the evaluator ever sees it — which is why there is no instant type in
+// the language and no time-of-day arithmetic to write. An expression that could subtract hours would
+// silently make a filing date depend on the hour the job happened to run.
+export function expressionValueOf(
+  value: MergeValue,
+  timeZone: string,
+): ExpressionValue | undefined {
+  switch (value.kind) {
+    case "text":
+      return { kind: "text", text: value.text };
+    case "date":
+      return { kind: "date", isoDate: value.isoDate };
+    case "instant": {
+      const isoDate = formatMergeValue(value, "iso", { timeZone });
+      return isoDate === undefined ? undefined : { kind: "date", isoDate };
     }
-    const children = node[tag];
-    if (Array.isArray(children)) forEachParagraph(children as XmlNode[], visit);
+    case "money":
+      return {
+        kind: "money",
+        amountMinor: value.amountMinor,
+        currencyCode: value.currencyCode,
+      };
+    case "rate":
+      return { kind: "rate", rateE4: value.rateE4, currencyCode: value.currencyCode };
+    case "number":
+      return { kind: "number", significand: value.value, scale: 0 };
+    case "boolean":
+      return { kind: "boolean", value: value.value };
+    case "list":
+      return {
+        kind: "list",
+        items: value.items.map((item) => ({
+          fields: new Map(
+            [...item.fields].flatMap(([name, field]) => {
+              const projected = expressionValueOf(field, timeZone);
+              return projected === undefined ? [] : [[name, projected] as const];
+            }),
+          ),
+        })),
+      };
   }
 }
 
-interface SubstitutionState {
+function expressionValuesOf(context: MergeContext): ReadonlyMap<string, ExpressionValue> {
+  const values = new Map<string, ExpressionValue>();
+  for (const [key, value] of context.values) {
+    const projected = expressionValueOf(value, context.timeZone);
+    if (projected !== undefined) values.set(key, projected);
+  }
+  return values;
+}
+
+// ---------------------------------------------------------------------------------------------
+// The assembly walk
+// ---------------------------------------------------------------------------------------------
+
+interface AssemblyState {
   readonly context: MergeContext;
+  readonly baseScope: ExpressionScope;
+  readonly baseValues: ReadonlyMap<string, ExpressionValue>;
+  readonly budget: EvaluationBudget;
   readonly absences: Map<string, AssemblyAbsence>;
   readonly missingRequired: Set<string>;
+  readonly tallies: Map<string, number>;
   substitutions: number;
+  failure:
+    | { readonly reason: AssemblyFailureReason; readonly detail: string; readonly keys: string[] }
+    | undefined;
 }
+
+function tally(
+  state: AssemblyState,
+  site: ExpressionTally["site"],
+  outcome: ExpressionTally["outcome"],
+): void {
+  const key = `${site} ${outcome}`;
+  state.tallies.set(key, (state.tallies.get(key) ?? 0) + 1);
+}
+
+function talliesOf(state: AssemblyState): readonly ExpressionTally[] {
+  return [...state.tallies.entries()]
+    .map(([key, count]) => {
+      const [site, outcome] = key.split(" ");
+      return {
+        site: site as ExpressionTally["site"],
+        outcome: outcome as ExpressionTally["outcome"],
+        count,
+      };
+    })
+    .sort((left, right) =>
+      left.site === right.site
+        ? left.outcome.localeCompare(right.outcome)
+        : left.site.localeCompare(right.site),
+    );
+}
+
+function fail(
+  state: AssemblyState,
+  reason: AssemblyFailureReason,
+  detail: string,
+  keys: string[] = [],
+): void {
+  state.failure ??= { reason, detail, keys };
+}
+
+// One scope frame: the names in it and the values behind them, kept together so a clone's rebinding is
+// one object rather than two that could drift.
+interface Frame {
+  readonly scope: ExpressionScope;
+  readonly values: ReadonlyMap<string, ExpressionValue>;
+}
+
+function transformChildren(
+  children: readonly XmlNode[],
+  frame: Frame,
+  depth: number,
+  state: AssemblyState,
+): XmlNode[] {
+  const structure = matchBlockRegions(children);
+  if (structure.failures.length > 0) {
+    // Registration refused a template whose blocks do not balance, so reaching one here means the
+    // stored bytes were produced by a normalizer that read them differently. Failing loudly is the only
+    // honest treatment: the alternative is a document missing a clause nobody will notice.
+    fail(
+      state,
+      "expression-invalid",
+      structure.failures[0]?.detail ?? "a block in this template does not balance",
+    );
+    return [...children];
+  }
+
+  const out: XmlNode[] = [];
+  const regionByOpen = new Map(structure.regions.map((region) => [region.openIndex, region]));
+
+  for (let index = 0; index < children.length; index += 1) {
+    const region = regionByOpen.get(index);
+    if (region !== undefined) {
+      const marker = region.open.marker;
+      if (marker.form === "open") {
+        const body = children.slice(region.openIndex + 1, region.closeIndex);
+        out.push(...expandBlock(marker.kind, marker.source, body, frame, depth, state));
+      }
+      index = region.closeIndex;
+      continue;
+    }
+    const child = children[index];
+    if (child === undefined) continue;
+    out.push(transformUnit(child, frame, depth, state));
+  }
+
+  return out;
+}
+
+function transformUnit(node: XmlNode, frame: Frame, depth: number, state: AssemblyState): XmlNode {
+  const tag = nodeTag(node);
+  if (tag === undefined) return node;
+  if (tag === "w:p") {
+    substituteParagraph(node, frame, state);
+    return node;
+  }
+  const children = node[tag];
+  if (!Array.isArray(children)) return node;
+  return { ...node, [tag]: transformChildren(children as XmlNode[], frame, depth, state) };
+}
+
+function expandBlock(
+  kind: BlockKind,
+  source: string,
+  body: readonly XmlNode[],
+  frame: Frame,
+  depth: number,
+  state: AssemblyState,
+): XmlNode[] {
+  if (depth + 1 > EXPRESSION_LIMITS.blockNestingDepth) {
+    fail(
+      state,
+      "expression-invalid",
+      `blocks nest deeper than ${EXPRESSION_LIMITS.blockNestingDepth}`,
+    );
+    return [];
+  }
+
+  if (kind === "each") {
+    return expandRepeat(source, body, frame, depth, state);
+  }
+
+  const effective = rewriteBareKeyCondition(source, frame.scope, kind === "unless");
+  const checked = checkExpression(effective, { scope: frame.scope, required: "boolean" });
+  if (!checked.ok) {
+    tally(state, "condition", "refused");
+    fail(
+      state,
+      "expression-invalid",
+      `the condition "${source}" no longer works out against this firm's merge fields: ${checked.failure.detail}`,
+    );
+    return [];
+  }
+
+  const evaluation = evaluate(checked.value, { values: frame.values, budget: state.budget });
+  if (evaluation.kind === "refusal") {
+    tally(state, "condition", "refused");
+    fail(state, "expression-refused", `the condition "${source}" ${evaluation.refusal.detail}`);
+    return [];
+  }
+  // AN UNRESOLVED CONDITION FAILS THE ASSEMBLY, naming the key. Choosing a branch anyway is an
+  // invisible error: nobody reads a contract and notices the paragraph that is not there. An author who
+  // genuinely means "omit the clause when we have no spouse on file" writes has(...), which is total
+  // and never unresolved — the safe reading is available in one word, and the dangerous one cannot be
+  // reached by accident.
+  if (evaluation.kind === "unresolved") {
+    tally(state, "condition", "unresolved");
+    fail(
+      state,
+      "expression-unresolved",
+      `the condition "${source}" cannot be worked out because this matter supplies no value for "${evaluation.name}". Write it as has(${evaluation.name}) if the clause should simply be left out when the value is missing.`,
+      [evaluation.name],
+    );
+    return [];
+  }
+
+  tally(state, "condition", "resolved");
+  const keep = evaluation.value.kind === "boolean" && evaluation.value.value;
+  return keep ? transformChildren(body, frame, depth + 1, state) : [];
+}
+
+function expandRepeat(
+  source: string,
+  body: readonly XmlNode[],
+  frame: Frame,
+  depth: number,
+  state: AssemblyState,
+): XmlNode[] {
+  const checked = checkExpression(source, { scope: frame.scope, required: "list" });
+  if (!checked.ok) {
+    tally(state, "repeat", "refused");
+    fail(
+      state,
+      "expression-invalid",
+      `the repeating block over "${source}" no longer works out against this firm's merge fields: ${checked.failure.detail}`,
+    );
+    return [];
+  }
+
+  const evaluation = evaluate(checked.value, { values: frame.values, budget: state.budget });
+  if (evaluation.kind === "refusal") {
+    tally(state, "repeat", "refused");
+    fail(
+      state,
+      "expression-refused",
+      `the repeating block over "${source}" ${evaluation.refusal.detail}`,
+    );
+    return [];
+  }
+  if (evaluation.kind === "unresolved") {
+    tally(state, "repeat", "unresolved");
+    fail(
+      state,
+      "expression-unresolved",
+      `the repeating block over "${source}" cannot be worked out because this matter supplies no value for "${evaluation.name}".`,
+      [evaluation.name],
+    );
+    return [];
+  }
+  if (evaluation.value.kind !== "list") {
+    tally(state, "repeat", "refused");
+    fail(state, "expression-refused", `"${source}" is not a list`);
+    return [];
+  }
+
+  const items = evaluation.value.items;
+  if (items.length > EXPRESSION_LIMITS.itemsPerRepeat) {
+    tally(state, "repeat", "refused");
+    fail(
+      state,
+      "expression-refused",
+      `"${source}" has ${items.length} items and a repeating block walks at most ${EXPRESSION_LIMITS.itemsPerRepeat}.`,
+    );
+    return [];
+  }
+
+  tally(state, "repeat", "resolved");
+  const collectionKey = checked.value.node.kind === "name" ? checked.value.node.name : "";
+  const out: XmlNode[] = [];
+  for (let index = 0; index < items.length; index += 1) {
+    const item = items[index] as ListItem;
+    state.budget.expandedBlocks += body.length;
+    if (state.budget.expandedBlocks > EXPRESSION_LIMITS.expandedBlocksPerAssembly) {
+      fail(
+        state,
+        "expression-refused",
+        `this document's repeating blocks expanded past the ${EXPRESSION_LIMITS.expandedBlocksPerAssembly} paragraphs and rows one assembly may produce.`,
+      );
+      return out;
+    }
+    // A structural copy per iteration, so the second row cannot share a node with the first. Each clone
+    // carries its OWN paragraph and row properties, which is what keeps a repeated list item numbered
+    // and a repeated table row banded.
+    const clone = body.map(deepCloneNode);
+    const itemFrame = frameForItem(frame, collectionKey, item, index, items.length);
+    out.push(...transformChildren(clone, itemFrame, depth + 1, state));
+    if (state.failure !== undefined) return out;
+  }
+  return out;
+}
+
+function frameForItem(
+  frame: Frame,
+  collectionKey: string,
+  item: ListItem,
+  index: number,
+  count: number,
+): Frame {
+  const itemFields = new Map<string, ExpressionType>();
+  const values = new Map<string, ExpressionValue>(frame.values);
+  for (const [name, value] of item.fields) {
+    itemFields.set(name, expressionTypeOfValue(value));
+    values.set(`${collectionKey}.${name}`, value);
+  }
+  values.set("loop.index", { kind: "number", significand: index + 1, scale: 0 });
+  values.set("loop.count", { kind: "number", significand: count, scale: 0 });
+  values.set("loop.first", { kind: "boolean", value: index === 0 });
+  values.set("loop.last", { kind: "boolean", value: index === count - 1 });
+  if (item.scalar !== undefined) values.set("loop.value", item.scalar);
+  return {
+    scope: layerScope(
+      frame.scope,
+      loopFrame(
+        collectionKey,
+        itemFields,
+        item.scalar === undefined ? undefined : expressionTypeOfValue(item.scalar),
+      ),
+    ),
+    values,
+  };
+}
+
+function expressionTypeOfValue(value: ExpressionValue): ExpressionType {
+  return value.kind;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Substitution
+// ---------------------------------------------------------------------------------------------
 
 // What one placeholder renders to, and how that outcome is recorded. Returning the marker (or the empty
 // string) rather than leaving the placeholder in place is deliberate: an unsubstituted `{{key}}` in a
 // filed document reads as a software defect to the recipient, while a marker reads as a blank the firm
 // still has to fill in — which is what it is.
-function renderPlaceholder(body: string, state: SubstitutionState): string {
+function renderPlaceholder(body: string, frame: Frame, state: AssemblyState): string {
+  if (body.trimStart().startsWith("=")) return renderComputedField(body, frame, state);
+
   const separator = body.indexOf(":");
   const key = (separator === -1 ? body : body.slice(0, separator)).trim();
   const explicitFormat = separator === -1 ? null : body.slice(separator + 1).trim();
   const entry = lookupDictionaryEntry(key);
+  // A loop-scoped name is not a dictionary key: it comes from the collection the enclosing block is
+  // walking, which was read once as a whole.
+  const scoped = frame.values.get(key);
   const value = state.context.values.get(key);
+
+  if (entry === undefined && scoped !== undefined) {
+    state.substitutions += 1;
+    return renderExpressionValue(scoped, explicitFormat ?? defaultFormatFor(scoped), state);
+  }
 
   if (entry === undefined) {
     // A key that is not in the dictionary at all cannot have been resolved, so it is an absence rather
@@ -152,7 +537,105 @@ function renderPlaceholder(body: string, state: SubstitutionState): string {
   return rendered;
 }
 
-function substituteParagraph(paragraph: XmlNode, state: SubstitutionState): void {
+// AN UNRESOLVED COMPUTED FIELD RENDERS A VISIBLE PLACEHOLDER, the same bias the absence model takes for
+// merge fields: a hole in the output is on the page, where a human reading the draft cannot miss it.
+// The asymmetry with a condition is the point — a missing clause is invisible, a missing value is not.
+function renderComputedField(body: string, frame: Frame, state: AssemblyState): string {
+  const { source, format } = splitComputedField(body);
+  const checked = checkExpression(source, {
+    scope: frame.scope,
+    required: "formattableScalar",
+    format,
+    legalFormats: (type) => legalFormatsFor(type as MergeValueType),
+  });
+  if (!checked.ok) {
+    tally(state, "computedField", "refused");
+    fail(
+      state,
+      "expression-invalid",
+      `the calculation "${source}" no longer works out against this firm's merge fields: ${checked.failure.detail}`,
+    );
+    return "";
+  }
+
+  const evaluation = evaluate(checked.value, { values: frame.values, budget: state.budget });
+  if (evaluation.kind === "refusal") {
+    tally(state, "computedField", "refused");
+    fail(state, "expression-refused", `the calculation "${source}" ${evaluation.refusal.detail}`);
+    return "";
+  }
+  if (evaluation.kind === "unresolved") {
+    tally(state, "computedField", "unresolved");
+    state.absences.set(evaluation.name, { key: evaluation.name, rendered: "placeholder" });
+    return absenceMarkerFor(evaluation.name);
+  }
+
+  tally(state, "computedField", "resolved");
+  state.substitutions += 1;
+  return renderExpressionValue(
+    evaluation.value,
+    format ?? defaultFormatFor(evaluation.value),
+    state,
+  );
+}
+
+// The default rendering is the result TYPE's default — plain for text and number, currency for money,
+// long for a date — and the `:format` suffix overrides it, checked statically at registration.
+function defaultFormatFor(value: ExpressionValue): string {
+  switch (value.kind) {
+    case "money":
+      return "currency";
+    case "date":
+      return "long";
+    case "boolean":
+      return "yesNo";
+    default:
+      return "plain";
+  }
+}
+
+function renderExpressionValue(
+  value: ExpressionValue,
+  format: string,
+  state: AssemblyState,
+): string {
+  const merge = mergeValueOf(value);
+  if (merge === undefined) return "";
+  return formatMergeValue(merge, format, { timeZone: state.context.timeZone }) ?? "";
+}
+
+// An exact decimal renders by MOVING THE DECIMAL POINT on its digits, never by dividing — the same rule
+// every formatter in this package obeys, because a division here would silently change the number
+// rather than render it.
+function mergeValueOf(value: ExpressionValue): MergeValue | undefined {
+  switch (value.kind) {
+    case "text":
+      return { kind: "text", text: value.text };
+    case "date":
+      return { kind: "date", isoDate: value.isoDate };
+    case "money":
+      return {
+        kind: "money",
+        amountMinor: value.amountMinor,
+        currencyCode: value.currencyCode,
+      };
+    case "rate":
+      return { kind: "rate", rateE4: value.rateE4, currencyCode: value.currencyCode };
+    case "boolean":
+      return { kind: "boolean", value: value.value };
+    case "number": {
+      const negative = value.significand < 0;
+      const digits = String(Math.abs(value.significand)).padStart(value.scale + 1, "0");
+      const whole = digits.slice(0, digits.length - value.scale);
+      const fraction = value.scale === 0 ? "" : `.${digits.slice(digits.length - value.scale)}`;
+      return { kind: "text", text: `${negative ? "-" : ""}${whole}${fraction}` };
+    }
+    case "list":
+      return undefined;
+  }
+}
+
+function substituteParagraph(paragraph: XmlNode, frame: Frame, state: AssemblyState): void {
   const leaves: TextLeaf[] = [];
   collectTextLeaves(paragraph, leaves);
   if (leaves.length === 0) return;
@@ -165,7 +648,12 @@ function substituteParagraph(paragraph: XmlNode, state: SubstitutionState): void
   PLACEHOLDER_PATTERN.lastIndex = 0;
   for (const match of joined.matchAll(PLACEHOLDER_PATTERN)) {
     const start = match.index;
-    replacementAt.set(start, renderPlaceholder(match[1] ?? "", state));
+    const body = match[1] ?? "";
+    // A block marker that survived to here belongs to a block the walk already handled; leaving it in
+    // the text would print `{{#if …}}` into a filed document.
+    const replacement =
+      parseBlockMarker(body) === undefined ? renderPlaceholder(body, frame, state) : "";
+    replacementAt.set(start, replacement);
     consumed.fill(1, start, start + match[0].length);
   }
   if (replacementAt.size === 0) return;
@@ -206,23 +694,50 @@ export function packageIntegrityViolations(parts: PartMap): string[] {
   return violations;
 }
 
-export interface DocumentAssemblyPort {
-  assemble(templateBytes: Uint8Array, context: MergeContext): AssemblyResult;
+export interface AssembleOptions {
+  // The dictionary the document's expressions are re-checked against — the one the firm has TODAY, not
+  // the one it had when the template registered. That difference is the point: a template bound to a
+  // custom field archived three months later must fail naming the key.
+  readonly dictionary?: readonly DictionaryEntry[];
 }
 
-export function assemble(templateBytes: Uint8Array, context: MergeContext): AssemblyResult {
+export interface DocumentAssemblyPort {
+  assemble(
+    templateBytes: Uint8Array,
+    context: MergeContext,
+    options?: AssembleOptions,
+  ): AssemblyResult;
+}
+
+export function assemble(
+  templateBytes: Uint8Array,
+  context: MergeContext,
+  options: AssembleOptions = {},
+): AssemblyResult {
   const read = readPackage(templateBytes);
   if (!read.ok) {
-    return { ok: false, reason: "unreadable-template", detail: read.detail, keys: [] };
+    return {
+      ok: false,
+      reason: "unreadable-template",
+      detail: read.detail,
+      keys: [],
+      expressions: [],
+    };
   }
 
   const parts: PartMap = new Map(read.value);
-  const state: SubstitutionState = {
+  const state: AssemblyState = {
     context,
+    baseScope: expressionScopeFor(options.dictionary),
+    baseValues: expressionValuesOf(context),
+    budget: createEvaluationBudget(),
     absences: new Map(),
     missingRequired: new Set(),
+    tallies: new Map(),
     substitutions: 0,
+    failure: undefined,
   };
+  const rootFrame: Frame = { scope: state.baseScope, values: state.baseValues };
 
   for (const partName of contentPartNames(parts.keys())) {
     const xml = readPartText(parts, partName);
@@ -236,10 +751,20 @@ export function assemble(templateBytes: Uint8Array, context: MergeContext): Asse
         reason: "unreadable-template",
         detail: `${partName} is not well-formed XML`,
         keys: [],
+        expressions: talliesOf(state),
       };
     }
-    forEachParagraph(nodes, (paragraph) => substituteParagraph(paragraph, state));
-    writePartText(parts, partName, buildXml(nodes));
+    const transformed = transformChildren(nodes, rootFrame, 0, state);
+    if (state.failure !== undefined) {
+      return {
+        ok: false,
+        reason: state.failure.reason,
+        detail: `${state.failure.detail} (in ${partName})`,
+        keys: state.failure.keys,
+        expressions: talliesOf(state),
+      };
+    }
+    writePartText(parts, partName, buildXml(transformed));
   }
 
   if (state.missingRequired.size > 0) {
@@ -249,6 +774,7 @@ export function assemble(templateBytes: Uint8Array, context: MergeContext): Asse
       reason: "missing-required-field",
       detail: `the matter supplies no value for ${keys.length} required merge field${keys.length === 1 ? "" : "s"}`,
       keys,
+      expressions: talliesOf(state),
     };
   }
 
@@ -259,6 +785,7 @@ export function assemble(templateBytes: Uint8Array, context: MergeContext): Asse
       reason: "package-integrity",
       detail: violations.join("; "),
       keys: [],
+      expressions: talliesOf(state),
     };
   }
 
@@ -267,9 +794,15 @@ export function assemble(templateBytes: Uint8Array, context: MergeContext): Asse
     bytes: writePackage(parts),
     absences: [...state.absences.values()].sort((left, right) => left.key.localeCompare(right.key)),
     substitutions: state.substitutions,
+    expressions: talliesOf(state),
   };
 }
 
 export function createDocumentAssemblyPort(): DocumentAssemblyPort {
   return { assemble };
 }
+
+// Re-exported so a caller that only imports the assembly path can still describe what a checked
+// expression reads without reaching into the language's own folder.
+export type { CheckedExpression, ExpressionValue, ListItem, MergeValueType };
+export { markerOfUnit };

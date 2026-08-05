@@ -87,6 +87,19 @@ export const PROBLEM_TYPES = {
   // firm's own document, so it is never done unasked. The problem carries what was found and names
   // both ways through — opt in to the removal, or upload a macro-free copy.
   "template-macro-consent-required": "template-macro-consent-required",
+  // A template whose conditional, repeating, or computed-field expression does not check (HTTP 422):
+  // a name no merge field matches, an operand type the operation does not take, a rendering the result
+  // type does not support, an unbalanced block, or one past a declared bound. DISTINCT from
+  // `template-normalization-failed`, which is about a placeholder's delimiters rather than about what
+  // an expression means. Carries the part, the excerpt, and the character offset inside the expression.
+  "template-expression-invalid": "template-expression-invalid",
+  // An assembly whose expression could not produce a value from data that all resolved (HTTP 422): two
+  // amounts in different currencies, a division that is not exact, a bound reached, or a condition
+  // nobody can answer because the matter supplies no value for a field it reads. A refusal ALWAYS fails
+  // the assembly — it never becomes false, never becomes blank, and never becomes a rounded guess,
+  // because a missing clause is invisible to whoever reads the document. Reports WHICH expression and
+  // WHY, never what any value held.
+  "assembly-expression-refused": "assembly-expression-refused",
   // An assembly whose merge fields cannot be resolved (HTTP 422): the matter supplies no value for a
   // field declared to fail rather than render a blank. Names WHICH keys failed, never what they held.
   "merge-field-unresolvable": "merge-field-unresolvable",

@@ -9,12 +9,12 @@ built: in-progress by="Opus 4.8"
 ui: todo
 load-profile: todo
 tested: in-progress by="Opus 4.8"
-branch: claude/automation-consent-refinements
-active-work: docs/active-work/claude/automation-consent-refinements.md
-next: Slice 2·6·2 — conditional and repeating blocks, the Directory/custom-field/letterhead-logo dictionary sources, and protected-value binding. Then a location time-zone column behind timeZoneForLocation.
-link-spec: docs/specs/2026-08-04-document-automation-design.md
+branch: claude/automation-conditionals-slice
+active-work: docs/active-work/claude-automation-conditionals-slice.md
+next: The widened dictionary — Directory role sources, `custom.<handle>` bindings, the letterhead logo, and protected-value binding through the decrypt-permission-plus-audit path. Then PDF output and the signature hand-off (2·6·3), and a location time-zone column behind timeZoneForLocation.
+link-spec: docs/specs/2026-08-04-template-expression-language-design.md
 link-plan: docs/specs/2026-08-04-document-automation-implementation-plan.md
-adrs: ADR-0210, ADR-0211, ADR-0217
+adrs: ADR-0210, ADR-0211, ADR-0217, ADR-0218, ADR-template-expression-realization
 blocked-by:
 ---
 
@@ -40,5 +40,33 @@ carrying live macros and never stripped silently. The per-firm **field-mapping l
 `MergeFieldNameResolver` is built: confirmed Word-name-to-key mappings written when a conversion
 confirms them, read once per registration, listed and deletable under `templates:manage`.
 
-Remaining for the subsystem: conditionals and repeats (2·6·2), PDF output and the signature hand-off
-(2·6·3), authoring surfaces (2·6·4), the interface seams, and the load-profile volume profile.
+Build slice 2·6·2 shipped the **template expression language** and the three constructs written in it.
+`src/expression/` is an OOXML-free folder — `limits.ts`, `errors.ts`, `lex.ts`, `parse.ts`,
+`catalog.ts`, `check.ts`, `evaluate.ts` — holding one lexer, one recursive-descent parser over a closed
+grammar, one static checker, and one total evaluator, so the language was proven as a language before it
+met a package. A merge key is ONE lexical atom resolved by exact match through a `Map`, there is no
+production for property traversal, indexing, assignment, a lambda, a regular expression, or a call to
+anything but a frozen helper allowlist, and nothing in the folder throws. Lex, parse, name-resolve,
+type-check, format-check, and limit-check all run at REGISTRATION, so a type error is a registration
+failure with a part, an excerpt, and a character offset inside the expression — never an assembly
+surprise. The manifest stores each block's and computed field's SOURCE rather than a tree, and assembly
+re-checks from it, which is what catches dictionary drift.
+
+`{{#if}}` / `{{#unless}}` / `{{#each}}` / `{{= }}` operate on whole paragraphs and whole table rows —
+a marker in a row's first cell makes the row the unit — so list numbering and table banding survive a
+removed or a repeated unit, and every repeat clone carries its own paragraph and row properties. Money
+arithmetic is integer-exact through `@magna-carta/money`, with every intermediate checked before the
+operation so the package's own guard is unreachable; division is not an operator, and `divideExact`,
+`divideRounded`, `applyRate`, `percentOf`, and `allocate` each state their rounding. Owner-flagged
+defaults applied as recommended: an unresolved condition FAILS the assembly naming the field (G1),
+banker's rounding only (G2), no business-day math (G3), no aggregates (G4), no pronoun helper (G5).
+`matter.parties` is the first list-valued source, one batched read for the whole collection.
+
+The security claim carries its fuzz obligation in the slice: a seeded structure-aware generator over
+the grammar, a seeded byte-level generator, a committed denied-construct corpus that must fail at parse
+or check and never at evaluation, a pretty-print-and-reparse property (which found a real precedence
+bug), an independent BigInt arithmetic oracle, and one bound-hitting test per declared limit.
+
+Remaining for the subsystem: the widened dictionary sources and protected-value binding, PDF output and
+the signature hand-off (2·6·3), authoring surfaces (2·6·4), the interface seams, and the load-profile
+volume profile.

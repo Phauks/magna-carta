@@ -1,11 +1,31 @@
-import { isLegalFormat, lookupDictionaryEntry } from "./dictionary.ts";
+import {
+  expressionScopeFor,
+  isLegalFormat,
+  lookupDictionaryEntry,
+  type DictionaryEntry,
+} from "./dictionary.ts";
+import { matchBlockRegions, parseBlockMarker } from "./blocks.ts";
+import { legalFormatsFor } from "./format.ts";
+import {
+  checkExpression,
+  layerScope,
+  loopFrame,
+  type CheckedExpression,
+  type ExpressionScope,
+} from "./expression/check.ts";
+import { EXPRESSION_LIMITS } from "./expression/limits.ts";
+import type { ExpressionFailure } from "./expression/errors.ts";
+import type { ExpressionType } from "./expression/catalog.ts";
 import { readPartText, writePartText, type PartMap } from "./ooxml/package.ts";
 import { contentPartNames } from "./ooxml/parts.ts";
 import { attributesOf, buildXml, nodeTag, parseXml, textOf, type XmlNode } from "./ooxml/xml.ts";
 import type {
   FieldManifest,
+  ManifestBlock,
+  ManifestComputedField,
   ManifestField,
   MergeFieldDetection,
+  MergeValueType,
   NormalizationWarning,
   PlaceholderForm,
   UnconvertedMergeField,
@@ -39,7 +59,7 @@ import type {
 // retroactively apply to already-registered versions — correct, since versions are immutable — but it
 // does mean two versions registered under different normalizers can behave differently, so the version
 // that produced a package's bytes is stored alongside them and the difference stays explicable.
-export const NORMALIZER_VERSION = 1;
+export const NORMALIZER_VERSION = 2;
 
 export type NormalizationFailureCode =
   | "unclosed-delimiter"
@@ -47,7 +67,16 @@ export type NormalizationFailureCode =
   | "empty-key"
   | "unknown-key"
   | "unknown-format"
-  | "block-syntax-unsupported"
+  // The expression language's own findings, each with a character offset into the expression source.
+  // `block-syntax-unsupported` retired with this pass: blocks are supported now, and a code meaning "we
+  // refuse to read this" must not survive as a vaguer version of the codes that replace it.
+  | "expression-syntax-error"
+  | "expression-unknown-key"
+  | "expression-type-error"
+  | "expression-too-complex"
+  | "expression-format-illegal"
+  | "block-unbalanced"
+  | "block-nesting-too-deep"
   | "unreadable-part";
 
 // A failure the author has to fix, with enough location for the field inspector to point at it.
@@ -90,6 +119,10 @@ export interface NormalizeOptions {
   // How a Word merge-field name maps onto a merge-field key. Identity by default; the firm's own
   // field-mapping library supplies it in the worker (see MergeFieldNameResolver).
   readonly resolveMergeFieldName?: MergeFieldNameResolver;
+  // The dictionary expressions are checked against. Defaults to the platform's own; the seam is here
+  // because the firm's `custom.<handle>` entries widen it per firm, and a template's expressions must
+  // be checked against the dictionary THAT FIRM has rather than against the shipped catalogue.
+  readonly dictionary?: readonly DictionaryEntry[];
 }
 
 const EXCERPT_LIMIT = 120;
@@ -435,7 +468,43 @@ function parsePlaceholderBody(body: string): ParsedPlaceholder {
   return { key, format, canonical: `{{${key}:${format}}}` };
 }
 
-const BLOCK_MARKER_PATTERN = /^[#/]/;
+// `{{= expression}}` and `{{= expression:format}}`. The marker is deliberately distinct so a plain
+// `{{matter.number}}` keeps exactly the meaning it always had — no registered template changes
+// behaviour — and so an author reading a template can tell a lookup from a calculation at a glance.
+//
+// The format suffix is split at the LAST colon that is not inside quoted text: an expression may
+// legitimately contain a colon inside a text literal, and splitting at the first one would cut a
+// calculation in half.
+export function splitComputedField(body: string): {
+  readonly source: string;
+  readonly format: string | null;
+} {
+  const inner = body.slice(body.indexOf("=") + 1);
+  let insideText = false;
+  let escaped = false;
+  let separator = -1;
+  for (let index = 0; index < inner.length; index += 1) {
+    const character = inner[index];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (character === "\\") {
+      escaped = true;
+      continue;
+    }
+    if (character === '"') {
+      insideText = !insideText;
+      continue;
+    }
+    if (character === ":" && !insideText) separator = index;
+  }
+  if (separator === -1) return { source: inner.trim(), format: null };
+  return {
+    source: inner.slice(0, separator).trim(),
+    format: inner.slice(separator + 1).trim(),
+  };
+}
 
 interface FieldAccumulator {
   key: string;
@@ -445,23 +514,46 @@ interface FieldAccumulator {
   forms: Set<PlaceholderForm>;
 }
 
-interface ParagraphOutcome {
+interface ComputedFieldAccumulator {
+  source: string;
+  format: string | null;
+  resultType: string;
+  part: string;
+  keys: readonly string[];
+  occurrences: number;
+}
+
+// Everything one part's walk accumulates. Carried as one object rather than six parameters, because the
+// walk is recursive and a scope has to travel with it.
+interface PartWalkState {
+  readonly partName: string;
+  readonly accumulators: Map<string, FieldAccumulator>;
+  readonly computedFields: Map<string, ComputedFieldAccumulator>;
+  readonly blocks: ManifestBlock[];
   readonly failures: NormalizationFailure[];
+  readonly convertedKeys: ReadonlySet<string>;
+  expressionCount: number;
+}
+
+function expressionFailureCodeOf(failure: ExpressionFailure): NormalizationFailureCode {
+  return failure.code;
 }
 
 function normalizeParagraph(
   paragraph: XmlNode,
-  partName: string,
-  accumulators: Map<string, FieldAccumulator>,
-  convertedKeys: ReadonlySet<string>,
-): ParagraphOutcome {
-  const failures: NormalizationFailure[] = [];
+  scope: ExpressionScope,
+  state: PartWalkState,
+): void {
+  const partName = state.partName;
+  const accumulators = state.accumulators;
+  const convertedKeys = state.convertedKeys;
+  const failures = state.failures;
   const leaves: TextLeaf[] = [];
   collectTextLeaves(paragraph, leaves);
-  if (leaves.length === 0) return { failures };
+  if (leaves.length === 0) return;
 
   const joined = leaves.map((leaf) => leaf.text).join("");
-  if (!joined.includes("{{") && !joined.includes("}}")) return { failures };
+  if (!joined.includes("{{") && !joined.includes("}}")) return;
   const excerpt = excerptOf(joined);
 
   // The replacement plan, in joined-paragraph coordinates: what to emit where a placeholder starts, and
@@ -475,17 +567,22 @@ function normalizeParagraph(
     const start = match.index;
     const whole = match[0];
     const body = match[1] ?? "";
-    const parsed = parsePlaceholderBody(body);
 
-    if (BLOCK_MARKER_PATTERN.test(parsed.key)) {
-      failures.push({
-        code: "block-syntax-unsupported",
-        part: partName,
-        excerpt,
-        detail: `"${whole}" is a conditional or repeating block marker; those are built in slice 2·6·2. Remove it, or register this template once they ship.`,
-      });
+    // A block marker reaching here shares its paragraph with something else — the block walk consumes
+    // the ones that sit alone, and reports the ones that do not. Skipped rather than reported twice.
+    if (parseBlockMarker(body) !== undefined) continue;
+
+    if (body.trimStart().startsWith("=")) {
+      const canonical = normalizeComputedField(body, whole, scope, excerpt, state);
+      if (canonical === undefined) continue;
+      matched += 1;
+      replacementAt.set(start, canonical);
+      consumed.fill(1, start, start + whole.length);
       continue;
     }
+
+    const parsed = parsePlaceholderBody(body);
+
     if (parsed.key === "") {
       failures.push({
         code: "empty-key",
@@ -496,16 +593,28 @@ function normalizeParagraph(
       continue;
     }
     const entry = lookupDictionaryEntry(parsed.key);
-    if (entry === undefined) {
+    // A placeholder inside a repeating block may name the current item's field or the loop's position
+    // — `matter.parties.displayName`, `loop.index`. Those resolve against the SCOPE the block
+    // established rather than against the dictionary, and they cost no read of their own, so they
+    // never join the manifest's field list.
+    const binding = entry === undefined ? scope.get(parsed.key) : undefined;
+    if (entry === undefined && binding === undefined) {
       failures.push({
         code: "unknown-key",
         part: partName,
         excerpt,
-        detail: `"${parsed.key}" is not a merge field this firm has. Check the field list for the spelling.`,
+        detail: parsed.key.startsWith("loop.")
+          ? `"${parsed.key}" only means something inside a repeating block.`
+          : `"${parsed.key}" is not a merge field this firm has. Check the field list for the spelling.`,
       });
       continue;
     }
-    if (parsed.format !== null && !isLegalFormat(entry, parsed.format)) {
+
+    const legalRenderings =
+      entry === undefined
+        ? legalFormatsForExpressionType(binding?.type ?? "text")
+        : legalFormatsFor(entry.valueType);
+    if (parsed.format !== null && !legalRenderings.includes(parsed.format)) {
       failures.push({
         code: "unknown-format",
         part: partName,
@@ -514,10 +623,24 @@ function normalizeParagraph(
       });
       continue;
     }
+    // A collection is never written into a document: a repeating block walks it, and count and isEmpty
+    // ask about it.
+    if ((entry?.valueType ?? binding?.type) === "list") {
+      failures.push({
+        code: "expression-type-error",
+        part: partName,
+        excerpt,
+        detail: `"${parsed.key}" is a collection, which cannot be written into a document. Walk it with a repeating block, or ask count or isEmpty about it.`,
+      });
+      continue;
+    }
 
     matched += 1;
     replacementAt.set(start, parsed.canonical);
     consumed.fill(1, start, start + whole.length);
+
+    // A loop-scoped name is not a merge field: the collection it comes from was read once, as a whole.
+    if (entry === undefined) continue;
 
     const accumulatorKey = `${parsed.key} ${parsed.format ?? ""}`;
     let accumulator = accumulators.get(accumulatorKey);
@@ -556,7 +679,7 @@ function normalizeParagraph(
     });
   }
 
-  if (matched === 0) return { failures };
+  if (matched === 0) return;
 
   // Rewrite the leaves. Every character a placeholder consumed is dropped, and the whole canonical
   // placeholder is emitted at its start offset — which lands it in exactly one w:t, in the run that held
@@ -581,21 +704,254 @@ function normalizeParagraph(
     if (touched) setLeafText(leaf.holder, rewritten);
     offset += leaf.text.length;
   }
-
-  return { failures };
 }
 
-function forEachParagraph(nodes: XmlNode[], visit: (paragraph: XmlNode) => void): void {
-  for (const node of nodes) {
-    const tag = nodeTag(node);
-    if (tag === undefined) continue;
-    if (tag === "w:p") {
-      visit(node);
+// One `{{= …}}` placeholder: parse, check against the scope it sits in, record it on the manifest, and
+// return the canonical form to write back. Returns undefined when the expression failed, so the
+// placeholder is left exactly as the author typed it — a registration that fails must not also rewrite
+// the document it refused.
+function normalizeComputedField(
+  body: string,
+  whole: string,
+  scope: ExpressionScope,
+  excerpt: string,
+  state: PartWalkState,
+): string | undefined {
+  const { source, format } = splitComputedField(body);
+  if (source === "") {
+    state.failures.push({
+      code: "expression-syntax-error",
+      part: state.partName,
+      excerpt,
+      detail: `"${whole}" works nothing out.`,
+    });
+    return undefined;
+  }
+
+  const overBudget = countExpression(state, excerpt);
+  if (overBudget) return undefined;
+
+  const checked = checkExpression(source, {
+    scope,
+    required: "formattableScalar",
+    format,
+    legalFormats: legalFormatsForExpressionType,
+  });
+  if (!checked.ok) {
+    state.failures.push(expressionFailure(checked.failure, source, state.partName, excerpt));
+    return undefined;
+  }
+
+  const accumulatorKey = `${source} ${format ?? ""}`;
+  const existing = state.computedFields.get(accumulatorKey);
+  if (existing === undefined) {
+    state.computedFields.set(accumulatorKey, {
+      source,
+      format,
+      resultType: checked.value.resultType,
+      part: state.partName,
+      keys: checked.value.keys,
+      occurrences: 1,
+    });
+  } else {
+    existing.occurrences += 1;
+  }
+
+  return format === null ? `{{= ${source}}}` : `{{= ${source}:${format}}}`;
+}
+
+function expressionFailure(
+  failure: ExpressionFailure,
+  source: string,
+  partName: string,
+  excerpt: string,
+): NormalizationFailure {
+  return {
+    code: expressionFailureCodeOf(failure),
+    part: partName,
+    excerpt,
+    // The character offset is what lets the field inspector point INSIDE the expression rather than at
+    // the paragraph it sits in.
+    detail: `${failure.detail} (in "${source}", at character ${failure.offset + 1})`,
+  };
+}
+
+// The format table, seen through the language's own type vocabulary.
+function legalFormatsForExpressionType(type: ExpressionType): readonly string[] {
+  return legalFormatsFor(type as MergeValueType);
+}
+
+function countExpression(state: PartWalkState, excerpt: string): boolean {
+  state.expressionCount += 1;
+  if (state.expressionCount > EXPRESSION_LIMITS.expressionsPerTemplateVersion) {
+    state.failures.push({
+      code: "expression-too-complex",
+      part: state.partName,
+      excerpt,
+      detail: `a template may carry at most ${EXPRESSION_LIMITS.expressionsPerTemplateVersion} calculations and conditions.`,
+    });
+    return true;
+  }
+  return false;
+}
+
+// ---------------------------------------------------------------------------------------------
+// The block walk
+// ---------------------------------------------------------------------------------------------
+
+// One sibling list at a time, carrying the scope the enclosing repeating blocks established. Blocks
+// match among SIBLINGS — a block that opens in a table cell and closes after the table is not a block
+// whose removal has a meaning — and a repeat pushes exactly one more layer onto the name scope. The
+// walk is the evaluator's only awareness that a loop exists.
+function walkBlockChildren(
+  children: readonly XmlNode[],
+  scope: ExpressionScope,
+  depth: number,
+  state: PartWalkState,
+): void {
+  const structure = matchBlockRegions(children);
+  for (const failure of structure.failures) {
+    state.failures.push({
+      code: "block-unbalanced",
+      part: state.partName,
+      excerpt: excerptOf(failure.text),
+      detail: failure.detail,
+    });
+  }
+
+  for (const region of structure.regions) {
+    const marker = region.open.marker;
+    if (marker.form !== "open") continue;
+    const excerpt = excerptOf(region.open.text);
+
+    if (depth + 1 > EXPRESSION_LIMITS.blockNestingDepth) {
+      state.failures.push({
+        code: "block-nesting-too-deep",
+        part: state.partName,
+        excerpt,
+        detail: `blocks may nest at most ${EXPRESSION_LIMITS.blockNestingDepth} deep.`,
+      });
       continue;
     }
-    const children = node[tag];
-    if (Array.isArray(children)) forEachParagraph(children as XmlNode[], visit);
+    if (countExpression(state, excerpt)) continue;
+
+    const checked = checkBlockExpression(marker.kind, marker.source, scope, state, excerpt);
+    if (checked === undefined) continue;
+
+    state.blocks.push({
+      kind: marker.kind,
+      source: marker.source,
+      resultType: checked.resultType,
+      part: state.partName,
+      keys: checked.keys,
+      depth,
+    });
+
+    const bodyScope = marker.kind === "each" ? loopScopeFor(checked, scope, state, excerpt) : scope;
+    if (bodyScope === undefined) continue;
+    walkBlockChildren(
+      children.slice(region.openIndex + 1, region.closeIndex),
+      bodyScope,
+      depth + 1,
+      state,
+    );
   }
+
+  for (let index = 0; index < children.length; index += 1) {
+    if (structure.covered.has(index)) continue;
+    const child = children[index];
+    if (child === undefined) continue;
+    visitUnit(child, scope, depth, state);
+  }
+}
+
+function visitUnit(
+  node: XmlNode,
+  scope: ExpressionScope,
+  depth: number,
+  state: PartWalkState,
+): void {
+  const tag = nodeTag(node);
+  if (tag === undefined) return;
+  if (tag === "w:p") {
+    normalizeParagraph(node, scope, state);
+    return;
+  }
+  const children = node[tag];
+  if (Array.isArray(children)) walkBlockChildren(children as XmlNode[], scope, depth, state);
+}
+
+function checkBlockExpression(
+  kind: "if" | "unless" | "each",
+  source: string,
+  scope: ExpressionScope,
+  state: PartWalkState,
+  excerpt: string,
+): CheckedExpression | undefined {
+  // A BARE MERGE KEY as the whole condition keeps the meaning a plain placeholder always had, with one
+  // disambiguation stated so it is never guessed: when the key's declared type is boolean, the
+  // condition is its VALUE; for any other type, the condition is its PRESENCE — exactly has(key). A key
+  // used inside a larger expression is always a value, never a presence test.
+  const effectiveSource =
+    kind === "each" ? source : rewriteBareKeyCondition(source, scope, kind === "unless");
+  const checked = checkExpression(effectiveSource, {
+    scope,
+    required: kind === "each" ? "list" : "boolean",
+  });
+  if (!checked.ok) {
+    state.failures.push(
+      expressionFailure(checked.failure, effectiveSource, state.partName, excerpt),
+    );
+    return undefined;
+  }
+  return checked.value;
+}
+
+// `{{#if client.code}}` becomes `has(client.code)`; `{{#unless matter.eBilling}}` becomes
+// `not matter.eBilling`. Rewriting the SOURCE rather than special-casing the tree means the manifest,
+// the field inspector, and the assembly-time re-check all see the same expression the checker did.
+export function rewriteBareKeyCondition(
+  source: string,
+  scope: ExpressionScope,
+  negated: boolean,
+): string {
+  const trimmed = source.trim();
+  const binding = scope.get(trimmed);
+  const bare =
+    binding !== undefined && /^[a-z][A-Za-z0-9]*(?:\.[A-Za-z0-9_]+){1,2}$/.test(trimmed)
+      ? binding.type === "boolean"
+        ? trimmed
+        : `has(${trimmed})`
+      : trimmed;
+  return negated ? `not (${bare})` : bare;
+}
+
+// The names a repeating block pushes into scope. `{{#each}}` takes a LIST-VALUED DICTIONARY KEY or the
+// `allocate` helper, and nothing else — not an arbitrary expression, not a filtered list, not a sorted
+// one. Expressions do not iterate; `{{#each}}` iterates data.
+function loopScopeFor(
+  checked: CheckedExpression,
+  scope: ExpressionScope,
+  state: PartWalkState,
+  excerpt: string,
+): ExpressionScope | undefined {
+  const node = checked.node;
+  if (node.kind === "name") {
+    const binding = scope.get(node.name);
+    return layerScope(scope, loopFrame(node.name, binding?.itemFields, undefined));
+  }
+  if (node.kind === "call" && node.helper.name === "allocate") {
+    // A split's parts have no field names of their own, so the item is bound as `loop.value`.
+    return layerScope(scope, loopFrame("", undefined, "money"));
+  }
+  state.failures.push({
+    code: "expression-type-error",
+    part: state.partName,
+    excerpt,
+    detail:
+      "a repeating block walks a list the firm's own data supplies, or the parts of an allocate — not a calculation. Name the collection, or write allocate(amount, parts).",
+  });
+  return undefined;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -615,6 +971,12 @@ export function normalizeTemplate(
   const confirmed = new Map<string, string>();
   const convert = options.convertMergeFields === true;
   const resolveName = options.resolveMergeFieldName ?? identityMergeFieldNameResolver;
+  const computedFields = new Map<string, ComputedFieldAccumulator>();
+  const blocks: ManifestBlock[] = [];
+  const scope = expressionScopeFor(options.dictionary);
+  // The expression budget is per TEMPLATE VERSION, not per part: a pathological upload cannot spread
+  // its cost across a hundred headers.
+  let expressionCount = 0;
 
   for (const partName of contentPartNames(normalized.keys())) {
     const xml = readPartText(normalized, partName);
@@ -698,10 +1060,17 @@ export function normalizeTemplate(
       });
     }
 
-    forEachParagraph(converted, (paragraph) => {
-      const outcome = normalizeParagraph(paragraph, partName, accumulators, tally.keys);
-      failures.push(...outcome.failures);
-    });
+    const state: PartWalkState = {
+      partName,
+      accumulators,
+      computedFields,
+      blocks,
+      failures,
+      convertedKeys: tally.keys,
+      expressionCount,
+    };
+    walkBlockChildren(converted, scope, 0, state);
+    expressionCount = state.expressionCount;
 
     writePartText(normalized, partName, buildXml(converted));
   }
@@ -720,8 +1089,25 @@ export function normalizeTemplate(
         : left.key.localeCompare(right.key),
     );
 
+  const manifestComputedFields: ManifestComputedField[] = [...computedFields.values()]
+    .map((accumulator) => ({
+      source: accumulator.source,
+      format: accumulator.format,
+      resultType: accumulator.resultType,
+      part: accumulator.part,
+      keys: accumulator.keys,
+      occurrences: accumulator.occurrences,
+    }))
+    .sort((left, right) => left.source.localeCompare(right.source));
+
   const totalOccurrences = fields.reduce((sum, field) => sum + field.occurrences, 0);
-  if (failures.length === 0 && fields.length === 0 && unconverted.length === 0) {
+  if (
+    failures.length === 0 &&
+    fields.length === 0 &&
+    unconverted.length === 0 &&
+    blocks.length === 0 &&
+    manifestComputedFields.length === 0
+  ) {
     warnings.push({
       code: "no-placeholders",
       part: "",
@@ -744,6 +1130,8 @@ export function normalizeTemplate(
       fields,
       totalOccurrences,
       unconvertedMergeFields: unconverted.sort(byPartThenName),
+      blocks,
+      computedFields: manifestComputedFields,
     },
     warnings,
     failures,

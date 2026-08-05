@@ -1,5 +1,7 @@
 import type { AbsenceBehaviour, MergeSource, MergeValueType, Sensitivity } from "./types.ts";
 import { legalFormatsFor } from "./format.ts";
+import type { ExpressionType } from "./expression/catalog.ts";
+import type { ExpressionScope, NameBinding } from "./expression/check.ts";
 
 // The merge-field data dictionary: a declarative catalogue, one entry per key, rather than a resolver
 // per field. A growing list of similar things is a declaration — adding a merge field is a row here plus
@@ -23,6 +25,16 @@ export interface DictionaryEntry {
   readonly sensitivity: Sensitivity;
   readonly absence: AbsenceBehaviour;
   // What the field inspector shows an author. Consumer-facing text: it names the fact, not the schema.
+  readonly description: string;
+  // Present only on a `list` entry: the fields ONE ITEM of the collection carries, which is what a
+  // repeating block pushes into scope as `<collectionKey>.<field>`. A collection is read once, as a
+  // whole; the item fields cost no read of their own.
+  readonly itemFields?: readonly DictionaryItemField[];
+}
+
+export interface DictionaryItemField {
+  readonly name: string;
+  readonly valueType: MergeValueType;
   readonly description: string;
 }
 
@@ -79,6 +91,43 @@ export const DICTIONARY: readonly DictionaryEntry[] = [
     sensitivity: "ordinary",
     absence: "placeholder",
     description: "The date the matter was opened, in the matter's office's time zone.",
+  },
+  {
+    key: "matter.eBilling",
+    source: "matter",
+    valueType: "boolean",
+    defaultFormat: "yesNo",
+    sensitivity: "ordinary",
+    // A boolean the matter always carries: it is on or it is off, never missing. Declared `fail` so a
+    // matter row that somehow supplied nothing is a loud defect rather than a silently absent clause.
+    absence: "fail",
+    description: "Whether the matter bills through an electronic billing channel.",
+  },
+  {
+    key: "matter.parties",
+    source: "party",
+    valueType: "list",
+    // A list is never rendered — a repeating block walks it — so its default format is the empty
+    // rendering the format table declares for the type.
+    defaultFormat: "",
+    sensitivity: "ordinary",
+    // A matter with no linked parties is an empty list, not an absence: a repeating block over it
+    // simply produces nothing, which is the correct document.
+    absence: "blank",
+    description: "Everyone linked to the matter, for a repeating block to walk.",
+    itemFields: [
+      {
+        name: "displayName",
+        valueType: "text",
+        description: "The party's name as it should appear in a document.",
+      },
+      { name: "role", valueType: "text", description: "The role the party plays on the matter." },
+      {
+        name: "kind",
+        valueType: "text",
+        description: "Whether the party is a person or an organisation.",
+      },
+    ],
   },
   {
     key: "client.displayName",
@@ -185,4 +234,56 @@ export function isLegalFormat(entry: DictionaryEntry, format: string): boolean {
 // seam is a function rather than the constant it would otherwise be.
 export function dictionaryForFirm(): readonly DictionaryEntry[] {
   return DICTIONARY;
+}
+
+// ---------------------------------------------------------------------------------------------
+// The dictionary as the expression language sees it
+// ---------------------------------------------------------------------------------------------
+
+// A stored value's encoding and an expression's type are deliberately different vocabularies. The one
+// that matters here: THERE IS NO INSTANT TYPE IN THE LANGUAGE. A key whose stored value is an instant
+// is projected to a calendar date in the matter's office time zone once, at the resolution boundary,
+// before the evaluator ever sees it — so time-of-day arithmetic is not expressible, which is correct.
+// Legal deadlines are date arithmetic, and an expression that could subtract hours would silently make
+// a filing date depend on the hour a job happened to run.
+export function expressionTypeOf(valueType: MergeValueType): ExpressionType {
+  switch (valueType) {
+    case "date":
+      return "date";
+    case "money":
+      return "money";
+    case "rate":
+      return "rate";
+    case "number":
+      return "number";
+    case "boolean":
+      return "boolean";
+    case "list":
+      return "list";
+    case "reference":
+    case "text":
+      return "text";
+  }
+}
+
+// The base name scope every expression in a template is checked against: one entry per dictionary key,
+// looked up by EXACT MATCH through a Map. A name that resolves to nothing here is a registration error
+// naming it — which is why `__proto__.constructor` is uninteresting rather than dangerous.
+export function expressionScopeFor(
+  entries: readonly DictionaryEntry[] = DICTIONARY,
+): ExpressionScope {
+  const scope = new Map<string, NameBinding>();
+  for (const entry of entries) {
+    scope.set(entry.key, {
+      type: expressionTypeOf(entry.valueType),
+      origin: "dictionary",
+      itemFields:
+        entry.itemFields === undefined
+          ? undefined
+          : new Map(
+              entry.itemFields.map((field) => [field.name, expressionTypeOf(field.valueType)]),
+            ),
+    });
+  }
+  return scope;
 }

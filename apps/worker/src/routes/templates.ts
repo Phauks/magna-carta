@@ -45,7 +45,10 @@ import type {
   LocationId,
   MatterTypeId,
 } from "@magna-carta/identifiers/types";
-import { documentTemplateNormalization } from "@magna-carta/telemetry/metrics";
+import {
+  documentTemplateExpressionCheck,
+  documentTemplateNormalization,
+} from "@magna-carta/telemetry/metrics";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import type { Context } from "hono";
 import type { Bindings } from "../app.ts";
@@ -768,6 +771,19 @@ function registrationFeedback(prepared: PreparedUpload) {
   };
 }
 
+// The normalization findings that are about a CALCULATION rather than about a placeholder's
+// delimiters. They route to their own problem type, because what an author has to fix is different:
+// one is a name, a type, or a rendering, the other is a brace.
+const EXPRESSION_FAILURE_CODES: ReadonlySet<string> = new Set([
+  "expression-syntax-error",
+  "expression-unknown-key",
+  "expression-type-error",
+  "expression-too-complex",
+  "expression-format-illegal",
+  "block-unbalanced",
+  "block-nesting-too-deep",
+]);
+
 interface PreparedUpload {
   readonly bytes: Uint8Array;
   readonly manifest: FieldManifest;
@@ -864,21 +880,40 @@ async function prepareStagedUpload(
       outcome: "refused",
       placeholderForm: "brace",
     });
-    const normalizationFailure = preparation.reason === "normalization-failed";
+    // An expression finding and a delimiter finding are different things to fix, so they are different
+    // problem types: one is about what a calculation MEANS, the other about how a placeholder is
+    // written. The failure kind is counted, never the expression text — it names merge fields, and a
+    // firm's own custom-field handles are in it.
+    const expressionFindings = preparation.normalizationFailures.filter((finding) =>
+      EXPRESSION_FAILURE_CODES.has(finding.code),
+    );
+    for (const finding of expressionFindings) {
+      logger.count(documentTemplateExpressionCheck.metricName, {
+        outcome: "refused",
+        failureKind: finding.code,
+      });
+    }
+    const expressionFailure = expressionFindings.length > 0;
+    const normalizationFailure =
+      preparation.reason === "normalization-failed" && !expressionFailure;
     const macroConsent = preparation.reason === "macro-consent-required";
     return {
       ok: false,
       response: problemJson(c, {
-        type: normalizationFailure
-          ? "template-normalization-failed"
-          : macroConsent
-            ? "template-macro-consent-required"
-            : "template-not-activatable",
-        title: normalizationFailure
-          ? "The template's merge fields need fixing"
-          : macroConsent
-            ? "This document contains macros"
-            : "The document cannot be registered as a template",
+        type: expressionFailure
+          ? "template-expression-invalid"
+          : normalizationFailure
+            ? "template-normalization-failed"
+            : macroConsent
+              ? "template-macro-consent-required"
+              : "template-not-activatable",
+        title: expressionFailure
+          ? "A calculation or condition in the template needs fixing"
+          : normalizationFailure
+            ? "The template's merge fields need fixing"
+            : macroConsent
+              ? "This document contains macros"
+              : "The document cannot be registered as a template",
         status: 422,
         detail: preparation.detail,
         // The findings ride the standard field-error list so the authoring surface can point at each
@@ -912,6 +947,17 @@ async function prepareStagedUpload(
     };
   }
 
+  // One count per expression the version carries, so the accepted and refused arms share a denominator
+  // — a refusal rate is only meaningful against how many expressions were checked at all.
+  const acceptedExpressions =
+    preparation.preparation.manifest.blocks.length +
+    preparation.preparation.manifest.computedFields.length;
+  for (let counted = 0; counted < acceptedExpressions; counted += 1) {
+    logger.count(documentTemplateExpressionCheck.metricName, {
+      outcome: "accepted",
+      failureKind: "none",
+    });
+  }
   logger.count(documentTemplateNormalization.metricName, {
     outcome: "accepted",
     placeholderForm: preparation.preparation.warnings.some(
@@ -1365,9 +1411,19 @@ function parseManifestJson(json: string): FieldManifest {
       unconvertedMergeFields: Array.isArray(parsed.unconvertedMergeFields)
         ? parsed.unconvertedMergeFields
         : [],
+      // Likewise absent on a manifest stored before conditions, repeats, and calculations existed —
+      // which is a template that carried none, since registration refused a block marker outright then.
+      blocks: Array.isArray(parsed.blocks) ? parsed.blocks : [],
+      computedFields: Array.isArray(parsed.computedFields) ? parsed.computedFields : [],
     };
   } catch {
-    return { fields: [], totalOccurrences: 0, unconvertedMergeFields: [] };
+    return {
+      fields: [],
+      totalOccurrences: 0,
+      unconvertedMergeFields: [],
+      blocks: [],
+      computedFields: [],
+    };
   }
 }
 
