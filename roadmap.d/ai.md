@@ -6,9 +6,9 @@
   name: AI / inference
   scope: Single credential-less model chokepoint owning confidentiality, tenant isolation, and fairness; AI-text detection; consent gate before any feature sends privileged content to a model.
   status: partial
-  slices: ai-inference-foundation, ai-text-detection
+  slices: ai-inference-foundation, ai-text-detection, magnus
   adrs: ADR-0111
-  evidence: packages/inference and packages/ai-detection on main; consent decision open; no concrete AI feature built.
+  evidence: packages/inference, packages/ai-detection, and packages/magnus on main; the consent decision is still open, so the assistant ships off by default with an adapter that reaches no provider.
 
 - id: ai.inference
   name: Inference chokepoint (@magna-carta/inference)
@@ -108,9 +108,69 @@
 - id: ai.first-feature
   name: First concrete AI feature
   scope: Drafting / retrieval-augmented assistance / discovery AI review — the named consumer owning its spec, consent UI, and per-matter enforcement.
-  status: not-started
+  status: partial
+  slices: magnus
   adrs: ADR-0109
-  evidence: No feature spec or code; gated on the consent decision and ZDR procurement artifacts.
+  spec: docs/specs/2026-08-06-magnus-design.md
+  evidence: Magnus is that consumer and its backend is built (packages/magnus + apps/worker/src/magnus). It is off by default and has no interface; production enablement is gated on the consent decision and the ZDR procurement artifacts.
+
+- id: ai.magnus
+  name: Magnus — the conversational assistant
+  scope: The assistant a firm member talks to — the conversation and turn record, two fail-closed consent gates, the queue-dispatched path to an answer through the one inference chokepoint, and the poll-and-push transport.
+  status: partial
+  slices: magnus
+  adrs: ADR-0109, ADR-0111, ADR-0112, ADR-0113
+  spec: docs/specs/2026-08-06-magnus-design.md
+  evidence: packages/magnus + apps/worker/src/magnus + apps/worker/src/routes/magnus.ts; three per-firm tables in the 20260806T050000 migration. Backend only; the interface and token streaming are later slices.
+
+- id: ai.magnus.record
+  name: Transcript as firm work product
+  scope: Conversations and turns in per-firm D1 through the firm-scoped data-access layer — protected, deletable, archivable. Author-and-administrator visible, never client-visible, member-deletable with the deletion audited and registered in the erasure registry. Discoverable like email, so any search or collection surface reaching transcripts must carry an explicit include-or-exclude control.
+  status: shipped
+  evidence: magnus_conversation / magnus_turn / magnus_member_acknowledgement; PII-registry entries naming conversation-level deletion as the instrument for in-turn free text. The include-or-exclude control belongs to the discovery surface and is not built here; nothing exposes transcripts to a cross-record search today.
+
+- id: ai.magnus.consent
+  name: Two fail-closed consent gates
+  scope: The firm's general AI-processing setting plus a feature-specific one, both default closed, read in one resolver, re-read by the consumer before the model call so a gate closing stops queued work.
+  status: shipped
+  evidence: apps/worker/src/magnus/consent.ts; magnus.enabled and inference.aiProcessingEligibility both default false; every route refuses by a named problem type.
+
+- id: ai.magnus.port-reuse
+  name: One model port, one additive operation
+  scope: No second model port — the assistant consumes the shipped InferencePort and adds generateConversation, with a platform-vocabulary role set and a structurally separate system prompt.
+  status: shipped
+  adrs: ADR-0111
+  evidence: packages/inference/src/port.ts + gateway.ts; the no-second-port source scan in packages/magnus/test/one-model-port.test.ts.
+
+- id: ai.magnus.stub-adapter
+  name: Deterministic stub InferencePort
+  scope: A complete, network-free implementation of the port that every AI feature inherits; the composition root resolves to it whenever the binding or the enabling configuration is absent.
+  status: shipped
+  evidence: packages/inference/src/stub.ts; apps/worker/src/magnus/inference-port-binding.ts (absence resolves to the stub, the resolveScanPort shape).
+
+- id: ai.magnus.streaming
+  name: Token streaming
+  scope: Delta frames on the push-progress protocol, a protocol version bump, and partial-content semantics for a stream that dies mid-answer.
+  status: not-started
+  evidence: Deliberately deferred; the record, gates, metering, audit, ceiling, and socket lifecycle are already shaped so adding it changes the consumer and the frame set only.
+
+- id: ai.magnus.interface
+  name: Assistant interface
+  scope: The in-app chat surface, the firm-administrator enablement screen, and the member disclosure.
+  status: not-started
+  evidence: No surface in apps/web; gated on the design-system chat surface. The backend is off by default and UI-less.
+
+- id: ai.magnus.context
+  name: Explicit per-conversation context grants
+  scope: What the assistant can see beyond what the member typed. The shape is settled — the member attaches a named document or matter and can see exactly what was attached; implicit firm-wide retrieval is not on this path and would need a consent decision of its own.
+  status: not-started
+  evidence: The seam is named and deliberately empty in slice 1 — nothing reads a document, matter, calendar, or directory entry today. The grant shape is the ratified answer for the next slice, not a proposal.
+
+- id: ai.magnus.actions
+  name: Tools and actions
+  scope: Propose-and-approve only, where a tool proposes, a member approves, and the approval is the audited act.
+  status: deferred
+  evidence: A position rather than a deferral for now — the assistant answers and its answer is text no other subsystem reads. Requires an explicit owner decision.
 
 - id: ai.consumer-seams
   name: Downstream consumer seams

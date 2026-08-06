@@ -11,9 +11,11 @@ import type { Logger } from "@magna-carta/telemetry/logger";
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import type { Bindings } from "../app.ts";
+import { MAGNUS_TURN_SUBMITTED_TOPIC } from "@magna-carta/magnus/turn";
 import { CAPTURE_ROUTE_TOPIC } from "../emails/capture-address-service.ts";
 import { consumeCaptureRouteRegistration } from "../emails/capture-route-consumer.ts";
 import { firmDatabaseFor, type ProxyBatchDatabase } from "../firm-database/firm-database-proxy.ts";
+import { forwardMagnusTurnSubmitted } from "../magnus/turn-relay.ts";
 import {
   buildShipmentRecoverableCharge,
   parseShipmentPurchasedPayload,
@@ -79,7 +81,22 @@ type PerFirmTopicHandler = (
 const PER_FIRM_CONSUMERS: Readonly<Record<string, PerFirmTopicHandler>> = {
   "shipment.purchased": handleShipmentPurchased,
   [CAPTURE_ROUTE_TOPIC]: handleCaptureRouteRegistration,
+  [MAGNUS_TURN_SUBMITTED_TOPIC]: handleMagnusTurnSubmitted,
 };
+
+// Hands a submitted assistant turn from the per-firm outbox onto the assistant's own queue, which is
+// what gives that work its own dead-letter queue and concurrency rather than sharing this bus's. The
+// outbox row was written in the same atomic batch as the turn rows it names, so the message is proof
+// those rows committed. The payload carries identifiers only — what the member typed stays in the
+// turn row the consumer reads back through the firm-scoped data-access layer.
+function handleMagnusTurnSubmitted(
+  env: Bindings,
+  _firmDatabase: ProxyBatchDatabase,
+  message: PerFirmQueueMessage,
+  _logger: Logger,
+): Promise<void> {
+  return forwardMagnusTurnSubmitted(env, message.firmId, message.id, message.payload);
+}
 
 // Completes an email capture-address mint by writing its control-plane routing row — the step that
 // turns a minted address into one that actually receives mail. The per-firm batch that created the

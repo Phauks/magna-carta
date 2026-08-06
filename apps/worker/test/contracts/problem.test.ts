@@ -94,6 +94,11 @@ describe("problem-type URI registry", () => {
         "matter-asset-credential-storage-refused",
         "matter-asset-batch-too-large",
         "matter-asset-document-matter-mismatch",
+        "magnus-firm-not-eligible",
+        "magnus-not-enabled",
+        "magnus-acknowledgement-required",
+        "magnus-turn-too-large",
+        "magnus-daily-ceiling-reached",
       ].sort(),
     );
   });

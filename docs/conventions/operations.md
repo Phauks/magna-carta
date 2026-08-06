@@ -457,3 +457,25 @@ The seal is **tamper-evidence, not identity attestation**. ESIGN/UETA validate a
 **What a public CA would buy, and when to revisit.** Adobe's AATL/CDS programs are what make a viewer show a green check without a manually installed anchor. Revisit if clients or courts begin rejecting documents on the viewer's trust banner alone, or when the timestamp/LTV levels (PAdES B-T and above, which need a TSA) land — those two decisions are naturally taken together.
 
 **Rotation.** Generate a new identity and overwrite both secrets; documents sealed under the old certificate stay verifiable against the old certificate, which is why the PEM and fingerprint of every identity are retained rather than discarded on rotation. Without a timestamp authority, a signature cannot be proven to predate the certificate's expiry, so keep the validity window long and rotate deliberately.
+
+## 17. AI Gateway configuration — what must stay off, and why the dashboard shows nothing
+
+One gateway per environment (`magna-carta-inference`), reached only through the account's authenticated `AI` binding. Everything the code controls is pinned per request in one function (`packages/inference/src/gateway.ts`): caching off, log collection off, firm metadata derived server-side. Three dashboard settings are **not** reachable from code and are therefore this runbook's responsibility.
+
+**Guardrails must remain DISABLED on this gateway, permanently.** They intercept and evaluate both prompts and responses and produce logs of user prompts and model responses. On a gateway carrying privileged client content that is a retention surface created by a settings toggle, entirely outside the code that makes the confidentiality posture fail closed — and it buys nothing here: guardrails moderate for harmful content, while a legal assistant's failure mode is being confidently wrong, which no hazard-category classifier detects. No fitness function can prevent a dashboard toggle, so this is the control.
+
+**Log collection stays off.** The binding's logging toggle is all-or-nothing — there is no payload-only option on the binding path — so it is pinned off in code on every request, and the gateway-level setting must not contradict it. The metadata-only middle ground (`cf-aig-collect-log-payload: false`) is a `cf-aig-*` request header the binding does not read; adopting it would mean moving off the binding onto the REST surface and re-deriving the whole authenticated-gateway posture for one convenience.
+
+**Caching stays off**, and no cache key is ever set. Under shared account credentials the default cache key carries no firm dimension, so a byte-identical prompt from two firms could collide.
+
+**The consequence, stated plainly so it is not discovered later: the AI Gateway dashboard will show nothing for this traffic.** No logs, therefore no per-request analytics, no cost graph, and no request inspector. That is by design, and everything the firm or the platform needs about model spend comes from the in-repo record instead — the per-run token meter and, for the assistant, the per-turn provenance columns. The account-level spend rule and credit alarm still operate; they are not log-derived.
+
+**Queues.** The conversational assistant declares `…-magnus` and `…-magnus-deadletter`; create both before deploying (the §3 note applies — a missing queue aborts the deploy).
+
+**Turning the assistant on is three deliberate acts, in this order.** Nothing here happens by deploying the code: the shipped default reaches no provider at all.
+
+1. Set the Worker variable `MAGNUS_INFERENCE_ADAPTER=gateway`. Absent — or any other value — resolves to the deterministic stub, which reaches no provider and returns obviously-fake answers.
+2. Open the firm's general AI-processing setting (`inference.aiProcessingEligibility`). Default closed.
+3. Open the firm's assistant setting (`magnus.enabled`). Default closed.
+
+Step 1 is a platform decision and steps 2 and 3 are each firm's own. All three must be true before a single byte of a member's message leaves the platform, and the queue consumer re-reads steps 2 and 3 before every model call, so closing either one stops work already in flight.

@@ -99,6 +99,9 @@
       "path": "../../packages/locations/tsconfig.build.json"
     },
     {
+      "path": "../../packages/magnus/tsconfig.build.json"
+    },
+    {
       "path": "../../packages/matter-assets/tsconfig.build.json"
     },
     {

@@ -72,6 +72,8 @@ import type {
   LedgerLineId,
   LocationAddressId,
   LocationId,
+  MagnusConversationId,
+  MagnusTurnId,
   MatterAssetDocumentId,
   MatterAssetId,
   MatterAssetIdentifierId,
@@ -5083,3 +5085,115 @@ export const matterAssetIdentifier = sqliteTable(
     ),
   ],
 );
+
+// Magnus — the conversational assistant. Three tables, and the shape of them IS the retention
+// posture: a transcript is the firm's own WORK PRODUCT — protected, deletable, archivable — kept in
+// the firm's own database under the firm-scoped data-access layer, not ephemeral state in some
+// object's storage. There is exactly one copy of a transcript and the push transport is a view of it.
+// It is discoverable in the way email is, which is why any surface that searches across the firm's
+// records has to let a firm say whether transcripts are in scope rather than sweeping them in
+// silently; that control belongs to the discovery surface, not to these tables.
+
+// One conversation. The title is member-supplied ONLY — a model-generated title would be a model call
+// over privileged content producing a second copy of it in a column that surfaces in every list, so a
+// conversation with no title displays by its start instant instead.
+export const magnusConversation = sqliteTable(
+  "magnus_conversation",
+  {
+    id: text("id").primaryKey().$type<MagnusConversationId>(), // magnusConversation_ handle
+    title: text("title"),
+    // The member. Never null — there is no system-originated conversation. Not a foreign key, for the
+    // same reason audit_log's actor is not: the record outlives the member row.
+    createdBy: text("created_by").notNull().$type<UserId>(),
+    // Scopes the RECORD, not the prompt. A matter link puts none of that matter's content into any
+    // request; it answers which matter's file this transcript belongs to, which is a retention and
+    // access question. Nullable and present from day one because backfilling the association from
+    // memory later is impossible.
+    matterId: text("matter_id").$type<MatterId>(),
+    state: text("state", { enum: ["active", "archived", "deleted"] })
+      .notNull()
+      .default("active"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    deletedAt: text("deleted_at"),
+  },
+  (table) => [
+    // The member's own list — the read every session makes — walks this index rather than the firm's
+    // every conversation.
+    index("magnus_conversation_created_by_index").on(table.createdBy, table.createdAt),
+    index("magnus_conversation_matter_index").on(table.matterId),
+    check(
+      "magnus_conversation_state_check",
+      sql`${table.state} IN ('active', 'archived', 'deleted')`,
+    ),
+  ],
+);
+
+// One message, from either speaker. ONE table rather than two, because the ordering between the two
+// speakers IS the record and two tables would need a merge to reconstruct it.
+//
+// `content` is TEXT and nullable: a Magnus turn is pending before it has anything to say. It is
+// inline in D1 rather than in R2 because the per-turn caps in @magna-carta/magnus's limits module are
+// what keep a turn from being bulk; the R2 escalation is a named seam, not a built one.
+export const magnusTurn = sqliteTable(
+  "magnus_turn",
+  {
+    id: text("id").primaryKey().$type<MagnusTurnId>(), // magnusTurn_ handle
+    conversationId: text("conversation_id")
+      .notNull()
+      .$type<MagnusConversationId>()
+      .references(() => magnusConversation.id),
+    // Monotonic within the conversation. Ordering is explicit and never inferred from a timestamp two
+    // rows can share; the UNIQUE below is what arbitrates a race between two submissions.
+    sequence: integer("sequence").notNull(),
+    speaker: text("speaker", { enum: ["member", "magnus"] }).notNull(),
+    content: text("content"),
+    status: text("status", { enum: ["pending", "complete", "failed", "refused"] }).notNull(),
+    // A closed label, NEVER an upstream body. Null unless the turn failed or was refused.
+    failureLabel: text("failure_label", {
+      enum: ["model-unavailable", "not-eligible", "ceiling-reached", "too-large", "cancelled"],
+    }),
+    // Null on a member turn; recorded on every settled Magnus turn — the provenance answer to "what
+    // produced this", which is what makes a specific answer traceable to a specific model version a
+    // year later.
+    modelId: text("model_id"),
+    snapshotId: text("snapshot_id"),
+    // Null on a member turn; set on completion from the inference RESPONSE, never from gateway logs.
+    inputTokens: integer("input_tokens"),
+    outputTokens: integer("output_tokens"),
+    // Whether earlier turns did not fit the bounded request window, so this answer was built on part
+    // of the conversation. Recorded and surfaced rather than hidden: silent truncation is what
+    // produces a confidently wrong answer built on a premise the member believes was in scope.
+    contextTruncated: integer("context_truncated", { mode: "boolean" }).notNull().default(false),
+    createdAt: text("created_at").notNull(),
+    completedAt: text("completed_at"),
+  },
+  (table) => [
+    uniqueIndex("magnus_turn_conversation_sequence_unique").on(
+      table.conversationId,
+      table.sequence,
+    ),
+    // The firm's daily turn ceiling counts member turns over a date range; without this it is a scan
+    // of every turn the firm has ever taken, on the hot path of every submission.
+    index("magnus_turn_created_at_index").on(table.createdAt),
+    check("magnus_turn_speaker_check", sql`${table.speaker} IN ('member', 'magnus')`),
+    check(
+      "magnus_turn_status_check",
+      sql`${table.status} IN ('pending', 'complete', 'failed', 'refused')`,
+    ),
+    check(
+      "magnus_turn_failure_label_check",
+      sql`${table.failureLabel} IS NULL OR ${table.failureLabel} IN ('model-unavailable', 'not-eligible', 'ceiling-reached', 'too-large', 'cancelled')`,
+    ),
+  ],
+);
+
+// One row per member who has accepted the disclosure. The version column is the whole point of the
+// table: when the disclosure changes because Magnus gains a capability, every member's stored version
+// stops matching the current constant and every member is re-prompted automatically. An
+// acknowledgement without a version is an acknowledgement of an unknown thing.
+export const magnusMemberAcknowledgement = sqliteTable("magnus_member_acknowledgement", {
+  userId: text("user_id").primaryKey().$type<UserId>(),
+  disclosureVersion: integer("disclosure_version").notNull(),
+  acknowledgedAt: text("acknowledged_at").notNull(),
+});
