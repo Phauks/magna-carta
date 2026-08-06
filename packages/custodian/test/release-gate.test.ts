@@ -9,6 +9,8 @@ import { readCustodyReleasePolicy } from "../src/settings.ts";
 import {
   ACTOR,
   AUTHORIZED_RELEASE,
+  DEPARTED_MEMBER,
+  WITNESS,
   commit,
   migratedDatabase,
   options,
@@ -32,7 +34,7 @@ async function releaseRow(
 // goes through recordCustodyMovement, which is where a second write path would have to be caught.
 
 const SMITH = "directoryPerson_smith0000000000000";
-const WITNESS = "user_secondSignatory00000000" as UserId;
+const STRANGER = "user_notAMemberHere0000000" as UserId;
 
 async function scaffold() {
   const { database, raw } = migratedDatabase();
@@ -248,6 +250,96 @@ describe("two-signatory release is the firm's choice, and means two people", () 
         options,
       ),
     ).rejects.toMatchObject({ code: "custody-release-signatories-must-differ" });
+  });
+
+  // THE COMPOSITION THIS GATE EXISTS TO REFUSE. A two-signatory release used to take both signatory
+  // identifiers out of the request body, bound to nothing: one member could record the release and
+  // type any well-formed `user_…` handle into the witness field, and the append-only ledger would
+  // permanently assert that two people signed off on a handover only one person witnessed. The
+  // verifier is now the session, and the witness has to be somebody the firm actually employs.
+  it("refuses a witness the firm does not employ", async () => {
+    const { database, raw, packetId } = await scaffold();
+    requireTwoSignatories(raw);
+    await expect(
+      recordCustodyMovement(
+        database,
+        packetId,
+        {
+          ...AUTHORIZED_RELEASE,
+          releaseAuthorization: {
+            ...AUTHORIZED_RELEASE.releaseAuthorization,
+            witnessedByUserId: STRANGER,
+          },
+        },
+        options,
+      ),
+    ).rejects.toMatchObject({ code: "custody-release-not-authorized" });
+  });
+
+  it("refuses a witness who has left the firm", async () => {
+    const { database, raw, packetId } = await scaffold();
+    requireTwoSignatories(raw);
+    await expect(
+      recordCustodyMovement(
+        database,
+        packetId,
+        {
+          ...AUTHORIZED_RELEASE,
+          releaseAuthorization: {
+            ...AUTHORIZED_RELEASE.releaseAuthorization,
+            witnessedByUserId: DEPARTED_MEMBER,
+          },
+        },
+        options,
+      ),
+    ).rejects.toMatchObject({ code: "custody-release-not-authorized" });
+  });
+
+  // And a refused composition writes nothing: the roster check runs inside the gate, before the
+  // identifier is minted and before the batch is composed.
+  it("writes nothing when the witness is refused", async () => {
+    const { database, raw, packetId } = await scaffold();
+    requireTwoSignatories(raw);
+    const before = await readCustodyMovements(database, packetId, 50);
+    await expect(
+      recordCustodyMovement(
+        database,
+        packetId,
+        {
+          ...AUTHORIZED_RELEASE,
+          releaseAuthorization: {
+            ...AUTHORIZED_RELEASE.releaseAuthorization,
+            witnessedByUserId: STRANGER,
+          },
+        },
+        options,
+      ),
+    ).rejects.toMatchObject({ code: "custody-release-not-authorized" });
+    expect((await readCustodyMovements(database, packetId, 50)).length).toBe(before.length);
+  });
+
+  // The verifier is derived, so a caller cannot name one at all — and the row records the member who
+  // actually recorded it, which is the whole of the binding.
+  it("records the authenticated member as the one who checked identity", async () => {
+    const { database, raw, packetId } = await scaffold();
+    requireTwoSignatories(raw);
+    await recordCustodyMovement(
+      database,
+      packetId,
+      {
+        ...AUTHORIZED_RELEASE,
+        releaseAuthorization: {
+          ...AUTHORIZED_RELEASE.releaseAuthorization,
+          witnessedByUserId: WITNESS,
+        },
+      },
+      options,
+    );
+    expect(await releaseRow(database, packetId)).toMatchObject({
+      recorded_by_user_id: ACTOR,
+      release_identity_verified_by_user_id: ACTOR,
+      release_witnessed_by_user_id: WITNESS,
+    });
   });
 
   // The gate binds the release, not the check-out: friction on the movement a firm records daily is

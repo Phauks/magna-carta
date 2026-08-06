@@ -494,6 +494,22 @@ const custodyMovementSource: TimelineSource = {
   project: projectRow("custodyMovement", matterSectionLink("custody")),
 };
 
+// The status predicates the custody register's own reads carry, restated here as named constants so
+// the two sides are visibly the same rule rather than two rules that happen to agree today.
+//
+// A federated timeline that DISAGREES with the register it is built from is the one failure this
+// package's whole design is meant to make unwritable, and the way it gets written is a source that
+// filters on a date column and forgets the status column beside it. The custodian's own reads —
+// `selectCustodyReviewsDueStatement` and `selectOverdueCustodyCheckoutsStatement` in
+// packages/custodian/src — carry each of these with the reasoning attached; `test/source-fitness.ts`
+// pairs every custody-derived source with the read it mirrors so a status added to either side
+// cannot quietly land on only one.
+//
+// A released, destroyed, or lost packet is excluded: the firm no longer holds the property, and a
+// review reminder for a will that left the safe is noise a calendar would train people to ignore.
+const CUSTODY_PACKET_STILL_HELD = "custody_packet.status IN ('held', 'out')";
+const CUSTODY_ITEM_STILL_HELD = "custody_item.status IN ('held', 'out')";
+
 // Forward-looking custody: the dates a firm set to look at something again, over the hand-written
 // partial indexes the reviews-due report already built. Two statements from one source, because a
 // review date sits on a packet AND on an item and both are real.
@@ -509,14 +525,25 @@ const custodyReviewDueSource: TimelineSource = {
       request.scope.fromDate,
       request.scope.toDate,
     );
-    const packetConditions = [...packetWindow.conditions, "custody_packet.review_on IS NOT NULL"];
+    const packetConditions = [
+      ...packetWindow.conditions,
+      "custody_packet.review_on IS NOT NULL",
+      CUSTODY_PACKET_STILL_HELD,
+    ];
     const packetBindings = [...packetWindow.bindings];
     const itemWindow = civilDateWindowConditions(
       "custody_item.review_on",
       request.scope.fromDate,
       request.scope.toDate,
     );
-    const itemConditions = [...itemWindow.conditions, "custody_item.review_on IS NOT NULL"];
+    // Both statuses, as the register's reviews-due read applies them: an item withdrawn from a packet
+    // the firm still holds is as gone as a packet the firm released.
+    const itemConditions = [
+      ...itemWindow.conditions,
+      "custody_item.review_on IS NOT NULL",
+      CUSTODY_ITEM_STILL_HELD,
+      CUSTODY_PACKET_STILL_HELD,
+    ];
     const itemBindings = [...itemWindow.bindings];
     if (request.scope.matterId !== undefined) {
       packetConditions.push("custody_packet.matter_id = ?");
@@ -569,7 +596,24 @@ const custodyDueBackSource: TimelineSource = {
       request.scope.fromDate,
       request.scope.toDate,
     );
-    const conditions = [...window.conditions, "custody_movement.due_back_on IS NOT NULL"];
+    // Every predicate `selectOverdueCustodyCheckoutsStatement` carries, and for its reasons. "Still
+    // out" is read off the PACKET, because the derived status and the movement that set it commit in
+    // one batch — a packet that came back is not due back however overdue its old check-out row once
+    // was. The due-back date then comes from that packet's MOST RECENT check-out, so a back-dated
+    // correction to an old one cannot resurrect its deadline over a newer one.
+    const conditions = [
+      ...window.conditions,
+      "custody_movement.due_back_on IS NOT NULL",
+      "custody_movement.kind = 'checked_out'",
+      "custody_movement.item_id IS NULL",
+      "custody_packet.status = 'out'",
+      `custody_movement.id = (
+         SELECT latest.id FROM custody_movement AS latest
+          WHERE latest.packet_id = custody_movement.packet_id
+            AND latest.kind = 'checked_out'
+            AND latest.item_id IS NULL
+          ORDER BY latest.occurred_at DESC, latest.id DESC LIMIT 1)`,
+    ];
     const bindings = [...window.bindings];
     if (request.scope.matterId !== undefined) {
       conditions.push("custody_packet.matter_id = ?");

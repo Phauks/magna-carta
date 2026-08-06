@@ -7,6 +7,7 @@ import type {
   UserId,
 } from "@magna-carta/identifiers/types";
 import type { MatterEventParticipantKind, MatterEventStatus } from "./types.ts";
+import type { VisibleMatterPredicate } from "./visibility.ts";
 
 // Table names tracked against @magna-carta/database's per-firm schema by the schema-name-sync
 // fitness test.
@@ -150,39 +151,64 @@ export function cancelMatterEventStatement(
     .bind(id, updatedAt);
 }
 
-export function selectMatterEventStatement(database: SqlDatabase, id: MatterEventId): SqlStatement {
+// The single-event read. It resolves by identifier, which is exactly why it takes the predicate: an
+// event's title, description, court reference, and participant list are the most sensitive things
+// this package holds, and "resolve by id" is the shape that quietly reads across a barrier.
+export function selectMatterEventStatement(
+  database: SqlDatabase,
+  id: MatterEventId,
+  visibility: VisibleMatterPredicate,
+): SqlStatement {
   return database
-    .prepare(`SELECT ${EVENT_COLUMNS} FROM ${MATTER_EVENT_TABLE} WHERE id = ?1`)
-    .bind(id);
+    .prepare(
+      `SELECT ${EVENT_COLUMNS} FROM ${MATTER_EVENT_TABLE} WHERE id = ? AND ` +
+        visibility.fragmentFor(`${MATTER_EVENT_TABLE}.matter_id`),
+    )
+    .bind(id, ...visibility.bindings);
 }
 
 export async function readMatterEvent(
   database: SqlDatabase,
   id: MatterEventId,
+  visibility: VisibleMatterPredicate,
 ): Promise<MatterEventRow | undefined> {
-  const { results } = await selectMatterEventStatement(database, id).all<MatterEventRow>();
+  const { results } = await selectMatterEventStatement(
+    database,
+    id,
+    visibility,
+  ).all<MatterEventRow>();
   return results[0];
 }
 
 // The matter's own event list — the read an edit surface makes, without the federation. Keyset over
 // (starts_on, id) so it shares the timeline's cursor shape.
+//
+// The visible-matter predicate is REQUIRED here, exactly as it is on every timeline source, and for
+// the same reason: an id-addressed read that skipped it is the read an information-barrier overlay
+// would be built past. A source cannot decline the predicate, so neither can the direct reads beside
+// them. `test/visibility-fitness.test.ts` proves every SELECT over this table carries it.
 export function selectMatterEventsStatement(
   database: SqlDatabase,
   matterId: MatterId,
-  options: { readonly cursor?: { sortKey: string; id: string }; readonly limit: number },
+  options: {
+    readonly cursor?: { sortKey: string; id: string };
+    readonly limit: number;
+    readonly visibility: VisibleMatterPredicate;
+  },
 ): SqlStatement {
-  const conditions = ["matter_id = ?1"];
+  const conditions = ["matter_id = ?"];
   const bindings: unknown[] = [matterId];
   if (options.cursor !== undefined) {
-    conditions.push("(starts_on < ?2 OR (starts_on = ?2 AND id < ?3))");
-    bindings.push(options.cursor.sortKey, options.cursor.id);
+    conditions.push("(starts_on < ? OR (starts_on = ? AND id < ?))");
+    bindings.push(options.cursor.sortKey, options.cursor.sortKey, options.cursor.id);
   }
-  const limitPlaceholder = `?${bindings.length + 1}`;
+  conditions.push(options.visibility.fragmentFor(`${MATTER_EVENT_TABLE}.matter_id`));
+  bindings.push(...options.visibility.bindings);
   bindings.push(options.limit);
   return database
     .prepare(
       `SELECT ${EVENT_COLUMNS} FROM ${MATTER_EVENT_TABLE} WHERE ${conditions.join(" AND ")} ` +
-        `ORDER BY starts_on DESC, id DESC LIMIT ${limitPlaceholder}`,
+        `ORDER BY starts_on DESC, id DESC LIMIT ?`,
     )
     .bind(...bindings);
 }

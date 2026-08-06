@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { CustodyValidationError } from "../src/validation.ts";
 import {
   custodyWillDeliveryDueDate,
   ENCODED_CUSTODY_WILL_JURISDICTION_KEYS,
@@ -108,6 +109,12 @@ describe("Nevada, encoded from the statute itself", () => {
     );
     expect(deposit?.available).toBe(false);
     expect(deposit?.basis).toContain("No Nevada statute or court rule provides for it");
+    // And the NEGATION is in the prose, not only in the boolean. A surface rendering one field of
+    // this entry must not be able to show Nevada offering lifetime court deposit, which is exactly
+    // the never-enacted uniform-act reading the entry exists to refute.
+    expect(deposit?.question).toMatch(/\?$/);
+    expect(deposit?.answer).toMatch(/^No\./);
+    expect(deposit?.answer).toContain("no procedure");
   });
 
   // The lodging duty is a local court rule, so it is keyed BELOW the state. Encoding it statewide
@@ -167,8 +174,53 @@ describe("a due date comes only from a date a person recorded", () => {
     expect(custodyWillDeliveryDueDate(lodging!, "2026-03-01")).toBeNull();
   });
 
-  it("computes nothing from a date it cannot read, rather than guessing one", () => {
+  // Null means "this duty has no computable interval" and nothing else. A trigger date the function
+  // cannot read is a REFUSAL, because the two are fixed differently — one by asking the court, one by
+  // correcting what somebody typed — and reading "no deadline applies" out of a typo is the worst
+  // version of the conflation this module's own doctrine forbids.
+  it("refuses a date it cannot read, rather than reading it as no deadline", () => {
     const delivery = resolveCustodyWillDuties("US-NV").duties[0];
-    expect(custodyWillDeliveryDueDate(delivery!, "sometime last spring")).toBeNull();
+    expect(() => custodyWillDeliveryDueDate(delivery!, "sometime last spring")).toThrow(
+      CustodyValidationError,
+    );
+  });
+
+  // The pattern alone accepts 2026-02-31, and Date.UTC rolls it over to 2 March — so an impossible
+  // date would otherwise produce a confident statutory deadline computed from a day that never was.
+  it("refuses a date that is not on the calendar", () => {
+    const delivery = resolveCustodyWillDuties("US-NV").duties[0];
+    expect(() => custodyWillDeliveryDueDate(delivery!, "2026-02-31")).toThrow(
+      /must be a date on the calendar/,
+    );
+  });
+
+  // A longer string names the 5th only in UTC; its own offset makes it a different day. Taking the
+  // leading date would answer about a day the caller did not name.
+  it("refuses an instant rather than reading its leading date", () => {
+    const delivery = resolveCustodyWillDuties("US-NV").duties[0];
+    expect(() => custodyWillDeliveryDueDate(delivery!, "2026-08-05T23:00:00-07:00")).toThrow(
+      /civil date of the form YYYY-MM-DD/,
+    );
+  });
+});
+
+// A typo in a jurisdiction key is a typo, not a finding about the law. Answering `us-nv` with "no
+// verified duties are encoded" would tell a firm that nobody has researched Nevada — false, and
+// exactly the confusion the catalog's two distinct refusals exist to keep apart.
+describe("a jurisdiction key is matched on identity, not on shape", () => {
+  it("resolves a key whatever its case and separator", () => {
+    expect(resolveCustodyWillDuties("us-nv").jurisdictionKey).toBe("US-NV");
+    expect(resolveCustodyWillDuties("  US_NV  ").jurisdictionKey).toBe("US-NV");
+    expect(resolveCustodyWillDuties("us-nv-08").jurisdictionKey).toBe("US-NV-08");
+  });
+
+  // The ancestor probe walks all the way up: a key two levels below the encoded state still gets
+  // told which wider jurisdiction has a verified answer.
+  it("names the nearest encoded ancestor however far below it the key sits", () => {
+    expect(() => resolveCustodyWillDuties("US-NV-08-CLARK")).toThrow(/US-NV-08 is encoded/);
+    expect(() => resolveCustodyWillDuties("US-NV-08-CLARK-NORTH")).toThrow(/US-NV-08 is encoded/);
+    expect(() => resolveCustodyWillDuties("US-CA-01-SOMEWHERE")).toThrow(
+      /there is no baseline to fall back to/,
+    );
   });
 });

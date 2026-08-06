@@ -9,6 +9,7 @@ import {
   openCustodyStocktake,
   recordCustodyStocktakeSightings,
 } from "../src/stocktake-service.ts";
+import { reconcileCustodyStocktake } from "../src/stocktake-reconciliation.ts";
 import {
   readCustodyStocktake,
   readCustodyStocktakes,
@@ -308,5 +309,103 @@ describe("closing a stocktake", () => {
     await expect(
       closeCustodyStocktake(database, "custodyStocktake_absent0000000000" as never, {}, options),
     ).rejects.toThrow(/no such custody stocktake/);
+  });
+});
+
+// The reconciliation is bounded, so a register larger than the bound produces a PARTIAL answer. The
+// only thing that makes a partial answer safe is that it says so: unmarked, it under-reports missing
+// originals (a packet past the cut is never expected, so it is never reported missing) and a firm
+// files the number believing it whole.
+describe("a truncated reconciliation says so, and cannot be frozen as a finding", () => {
+  it("reports truncation and the cap that produced it", async () => {
+    const { database, safe } = await scaffold();
+    await logPacket(database, safe, "Smith family deeds");
+    await logPacket(database, safe, "Smith will envelope");
+    const stocktakeId = await openCount(database);
+
+    const whole = await reconcileCustodyStocktake(database, stocktakeId);
+    expect(whole.truncated).toBe(false);
+    expect(whole.missing).toHaveLength(2);
+
+    const partial = await reconcileCustodyStocktake(database, stocktakeId, { rowLimit: 1 });
+    expect(partial.truncated).toBe(true);
+    expect(partial.rowLimit).toBe(1);
+    // And the partial answer really is short — the second packet is past the cut and so is invisible
+    // to the count rather than reported missing by it.
+    expect(partial.missing).toHaveLength(1);
+  });
+
+  it("refuses to freeze counts drawn from a truncated reconciliation", async () => {
+    const { database, safe } = await scaffold();
+    await logPacket(database, safe, "Smith family deeds");
+    await logPacket(database, safe, "Smith will envelope");
+    const stocktakeId = await openCount(database);
+
+    await expect(
+      closeCustodyStocktake(database, stocktakeId, { rowLimit: 1 }, options),
+    ).rejects.toMatchObject({ code: "custody-stocktake-truncated" });
+    // Refused before anything is written: the count is still open and still closable properly.
+    expect(await readCustodyStocktake(database, stocktakeId)).toMatchObject({ status: "open" });
+  });
+
+  // Abandoning remains the honest way out, and the close RECORDS the truncation rather than closing
+  // silently — that fact is what explains why a count ended with no reportable number.
+  it("records the truncation on an abandoned close", async () => {
+    const { database, safe } = await scaffold();
+    await logPacket(database, safe, "Smith family deeds");
+    await logPacket(database, safe, "Smith will envelope");
+    const stocktakeId = await openCount(database);
+
+    const closed = await closeCustodyStocktake(
+      database,
+      stocktakeId,
+      { abandoned: true, rowLimit: 1 },
+      options,
+    );
+    await commit(database, closed.effect);
+    expect(closed).toMatchObject({ status: "abandoned", counts: null, truncated: true });
+    const audit = await database
+      .prepare(`SELECT metadata FROM audit_log WHERE event = 'custodyStocktake.closed'`)
+      .all<{ metadata: string }>();
+    expect(JSON.parse(audit.results[0]?.metadata ?? "{}")).toMatchObject({
+      abandoned: true,
+      truncated: true,
+    });
+  });
+
+  // The cap now truncates in the direction the last-observation rule needs: the read is newest-first
+  // and the reconciliation keeps the first row it sees for each packet, so a correction recorded as
+  // the later, truer sighting is the row that SURVIVES rather than the row that gets dropped.
+  it("keeps the latest observation of a packet when the sighting read truncates", async () => {
+    const { database, safe, shelf } = await scaffold();
+    const packet = await logPacket(database, safe);
+    const stocktakeId = await openCount(database);
+    // First the mistake, then the correction — the later, truer look.
+    await recordCustodyStocktakeSightings(
+      database,
+      stocktakeId,
+      [{ kind: "not_found", packetId: packet.packetId, observedAt: "2026-08-04T09:00:00.000Z" }],
+      options,
+    );
+    await recordCustodyStocktakeSightings(
+      database,
+      stocktakeId,
+      [
+        {
+          kind: "sighted",
+          packetId: packet.packetId,
+          locationId: shelf,
+          observedAt: "2026-08-04T11:00:00.000Z",
+        },
+      ],
+      options,
+    );
+
+    const partial = await reconcileCustodyStocktake(database, stocktakeId, { rowLimit: 1 });
+    expect(partial.truncated).toBe(true);
+    // The correction won: the packet reads as misplaced (seen on the shelf, expected in the safe),
+    // not as missing.
+    expect(partial.missing).toHaveLength(0);
+    expect(partial.misplaced).toHaveLength(1);
   });
 });

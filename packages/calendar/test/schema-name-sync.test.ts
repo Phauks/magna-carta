@@ -37,6 +37,7 @@ import {
   selectMatterEventTypesStatement,
   updateMatterEventTypeStatement,
 } from "../src/event-type-statements.ts";
+import { visibleMatterPredicate } from "../src/visibility.ts";
 
 // Fitness function (the ledger pattern): the raw SQL in this package must track
 // @magna-carta/database's schema. Renaming a table or a column there fails here, not in production.
@@ -105,6 +106,10 @@ const EVENT_TYPE_ID = "matterEventType_x" as never;
 const PARTICIPANT_ID = "matterEventParticipant_x" as never;
 const DEADLINE_ID = "matterDeadline_x" as never;
 const MATTER_ID = "matter_x" as never;
+const visibility = visibleMatterPredicate();
+// The visible-matter predicate is composed into every SELECT over these two tables, so its own
+// table and column are part of the vocabulary those statements legitimately name.
+const VISIBILITY_IDENTIFIERS = ["matter", "system_key"] as const;
 const USER_ID = "user_x" as never;
 
 describe("schema name sync (calendar SQL pinned to @magna-carta/database)", () => {
@@ -158,18 +163,19 @@ describe("schema name sync (calendar SQL pinned to @magna-carta/database)", () =
         ),
       ),
       sqlOf(cancelMatterEventStatement(stub, EVENT_ID, "t")),
-      sqlOf(selectMatterEventStatement(stub, EVENT_ID)),
-      sqlOf(selectMatterEventsStatement(stub, MATTER_ID, { limit: 10 })),
+      sqlOf(selectMatterEventStatement(stub, EVENT_ID, visibility)),
+      sqlOf(selectMatterEventsStatement(stub, MATTER_ID, { limit: 10, visibility })),
       sqlOf(
         selectMatterEventsStatement(stub, MATTER_ID, {
           limit: 10,
           cursor: { sortKey: "2026-09-14", id: "matterEvent_y" },
+          visibility,
         }),
       ),
     ].join("\n");
     expectOnlyKnownIdentifiers(
       sql,
-      new Set([MATTER_EVENT_TABLE, ...columnsOf(matterEvent)]),
+      new Set([MATTER_EVENT_TABLE, ...columnsOf(matterEvent), ...VISIBILITY_IDENTIFIERS]),
       "event",
     );
   });
@@ -286,11 +292,11 @@ describe("schema name sync (calendar SQL pinned to @magna-carta/database)", () =
           "t",
         ),
       ),
-      sqlOf(selectMatterDeadlineStatement(stub, DEADLINE_ID)),
+      sqlOf(selectMatterDeadlineStatement(stub, DEADLINE_ID, visibility)),
     ].join("\n");
     expectOnlyKnownIdentifiers(
       sql,
-      new Set([MATTER_DEADLINE_TABLE, ...columnsOf(matterDeadline)]),
+      new Set([MATTER_DEADLINE_TABLE, ...columnsOf(matterDeadline), ...VISIBILITY_IDENTIFIERS]),
       "deadline",
     );
   });

@@ -273,6 +273,9 @@ export async function recordCustodyStocktakeSightings(
 }
 
 export interface CloseCustodyStocktakeInput {
+  // The per-read cap the reconciliation behind this close applies. Defaults to the platform bound;
+  // named here because whether the walk exceeded it decides whether counts may be frozen at all.
+  readonly rowLimit?: number;
   // An abandoned count freezes no findings. A walk begun and not finished must not close as though
   // it had counted everything: the reconciliation of a half-done count reads as a safe full of
   // missing originals, which is the most alarming and most wrong thing this subsystem could report.
@@ -284,6 +287,9 @@ export interface ClosedCustodyStocktake {
   readonly stocktakeId: CustodyStocktakeId;
   readonly status: "closed" | "abandoned";
   readonly counts: CustodyReconciliationCounts | null;
+  // Whether the walk was larger than the reconciliation reads in one pass. Only ever true on an
+  // abandoned close, because a close that freezes counts refuses a truncated reconciliation outright.
+  readonly truncated: boolean;
   readonly effect: EffectWrite;
 }
 
@@ -301,12 +307,32 @@ export async function closeCustodyStocktake(
 ): Promise<ClosedCustodyStocktake> {
   const stocktake = await loadOpenStocktakeOrRefuse(database, stocktakeId);
   const abandoned = input.abandoned === true;
-  const counts = abandoned ? null : countsOf(await reconcileAgainstRegister(database, stocktake));
+  // Reconciled on BOTH paths, and used differently on each. An abandoned close still freezes no
+  // counts — the reconciliation of a half-finished walk reads as a safe full of missing originals —
+  // but whether the walk was larger than the reconciliation could read is a fact worth recording on
+  // the close either way, and it is the fact that explains why the count was abandoned at all.
+  const reconciliation = await reconcileAgainstRegister(database, stocktake, {
+    rowLimit: input.rowLimit,
+  });
+  // A truncated reconciliation is not a finding, so it is not frozen as one. The counts a close
+  // writes are the numbers a firm reports, and the design's whole claim about them is that nothing
+  // drifts under them afterwards; drawn from a partial read they would understate missing originals
+  // by however many packets fell past the cap, permanently and invisibly. The refusal is named so a
+  // caller can act on it, and abandoning the count — which freezes nothing — remains available as the
+  // honest way to close a walk that produced no reportable number.
+  if (!abandoned && reconciliation.truncated) {
+    throw new CustodyValidationError(
+      "custody-stocktake-truncated",
+      `this count spans more than ${reconciliation.rowLimit} rows, so its reconciliation is a partial answer and its counts are a floor rather than a finding; narrow the count's scope, or close it as abandoned`,
+    );
+  }
+  const counts = abandoned ? null : countsOf(reconciliation);
   const now = options.clock.now();
   return {
     stocktakeId,
     status: abandoned ? "abandoned" : "closed",
     counts,
+    truncated: reconciliation.truncated,
     effect: {
       statements: [
         // The status guard rides the write: D1 has no interactive transaction, so a second close
@@ -322,6 +348,10 @@ export async function closeCustodyStocktake(
         ),
         custodyAuditStatement(database, options, "custodyStocktake.closed", stocktakeId, {
           abandoned,
+          // Recorded on every close, including an abandoned one: "this walk was larger than the
+          // reconciliation could read" is the fact that explains why a count with no frozen numbers
+          // has none. A boolean and counts only — nothing identifying, as everywhere here.
+          truncated: reconciliation.truncated,
           ...(counts === null ? {} : counts),
         }),
       ],

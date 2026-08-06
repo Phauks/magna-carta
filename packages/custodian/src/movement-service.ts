@@ -1,6 +1,7 @@
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
+import { selectMemberStatusStatement } from "@magna-carta/data-access/member-statements";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { RandomSource } from "@magna-carta/identifiers/random";
@@ -128,10 +129,11 @@ export async function recordCustodyMovement(
   assertPacketAcceptsMovement(packet, input.kind);
   await assertNoBlockingHold(database, packetId, input.kind);
   await assertNotDestroyingAnIrreplaceableOriginal(database, packetId, input);
-  // The release gate. The policy read costs one query and is issued only on a release, which is the
-  // rarest movement a register records — a check-out, the movement a firm makes daily, reads nothing
-  // extra. The gate runs BEFORE the identifier is minted and before the batch is composed, so a
-  // refused release writes nothing at all, not even an idempotency record.
+  // The release gate. The policy read and the witness's roster lookup cost one query each and are
+  // issued only on a release, which is the rarest movement a register records — a check-out, the
+  // movement a firm makes daily, reads nothing extra. The gate runs BEFORE the identifier is minted
+  // and before the batch is composed, so a refused release writes nothing at all, not even an
+  // idempotency record.
   const releaseCapture = resolveCustodyReleaseCapture(
     input.kind,
     input.releaseAuthorization,
@@ -139,6 +141,10 @@ export async function recordCustodyMovement(
       ? await readCustodyReleasePolicy(database)
       : DEFAULT_CUSTODY_RELEASE_POLICY,
     { named: input.borrower != null },
+    {
+      actorUserId: options.actorUserId,
+      witnessMemberStatus: await readReleaseWitnessMemberStatus(database, input),
+    },
   );
   if (input.correctsMovementId != null) {
     const corrected = await readCustodyMovement(database, input.correctsMovementId);
@@ -263,6 +269,23 @@ export async function recordCustodyMovement(
     case "fingerprint-mismatch":
       throw new CustodyIdempotencyConflictError("fingerprint-mismatch");
   }
+}
+
+// The witness's row in the firm's own member roster, or null when the roster holds no such member.
+// Issued only for a release that names a witness: the roster is what makes the second signatory a
+// second PERSON rather than a well-formed string, and there is nothing to check when nobody was
+// named. The same fact is re-asserted by a trigger on the insert, so a write path nobody has built
+// inherits the check.
+async function readReleaseWitnessMemberStatus(
+  database: SqlDatabase,
+  input: RecordCustodyMovementInput,
+): Promise<string | null> {
+  const witnessedByUserId = input.releaseAuthorization?.witnessedByUserId ?? null;
+  if (input.kind !== "released" || witnessedByUserId === null) return null;
+  const { results } = await selectMemberStatusStatement(database, witnessedByUserId).all<{
+    status: string;
+  }>();
+  return results[0]?.status ?? null;
 }
 
 // Where the packet ends up. A check-out, release, destruction, or loss takes it out of the tree

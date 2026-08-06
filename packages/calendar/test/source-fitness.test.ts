@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { TIMELINE_SOURCES } from "../src/sources/all.ts";
 import type { SourceReadRequest } from "../src/sources/registry.ts";
@@ -127,6 +129,84 @@ describe("every registered source composes the visible-matter predicate before i
     for (const source of TIMELINE_SOURCES.filter((entry) => entry.resolveJoinKeys !== undefined)) {
       expect(statementsFor(source, { joinKeys: [] })).toHaveLength(0);
     }
+  });
+});
+
+// A federated timeline cannot DISAGREE with the register it is built from, because it IS that
+// register — and the way that claim gets broken is a source filtering on a date column and forgetting
+// the status column beside it. A deed returned on Tuesday stays on the calendar as "due back Friday"
+// forever; a will released to the executor keeps showing "review due", named by its custody number,
+// for property the firm no longer holds.
+//
+// So each custody-derived source is PAIRED with the custodian read it mirrors, and the predicates
+// asserted on the source are the ones lifted out of that read. The pairing is the point: this is a
+// divergence that recurs every time either side gains a status, and a test that only restated the
+// predicates would drift with the source rather than against it.
+describe("every custody-derived source carries the predicates its register read carries", () => {
+  const pairings = [
+    {
+      sourceKey: "custodyReviewDue",
+      mirrors: "selectCustodyReviewsDueStatement in packages/custodian/src/review-statements.ts",
+      // The packet statement and the item statement, in the order the source builds them.
+      required: [
+        ["custody_packet.review_on IS NOT NULL", "custody_packet.status IN ('held', 'out')"],
+        [
+          "custody_item.review_on IS NOT NULL",
+          "custody_item.status IN ('held', 'out')",
+          "custody_packet.status IN ('held', 'out')",
+        ],
+      ],
+    },
+    {
+      sourceKey: "custodyDueBack",
+      mirrors: "selectOverdueCustodyCheckoutsStatement in packages/custodian/src/queries.ts",
+      required: [
+        [
+          "custody_movement.due_back_on IS NOT NULL",
+          "custody_movement.kind = 'checked_out'",
+          "custody_movement.item_id IS NULL",
+          "custody_packet.status = 'out'",
+          // The most recent check-out only: a back-dated correction to an old one must not resurrect
+          // its deadline over a newer one.
+          "ORDER BY latest.occurred_at DESC",
+        ],
+      ],
+    },
+  ] as const;
+
+  for (const pairing of pairings) {
+    it(`${pairing.sourceKey} carries every predicate of ${pairing.mirrors}`, () => {
+      const source = TIMELINE_SOURCES.find((entry) => entry.key === pairing.sourceKey);
+      expect(source, `${pairing.sourceKey} is not registered`).toBeDefined();
+      const statements = statementsFor(source!);
+      expect(statements).toHaveLength(pairing.required.length);
+      pairing.required.forEach((predicates, index) => {
+        const sql = statements[index]?.sql ?? "";
+        for (const predicate of predicates) {
+          expect(sql, `${pairing.sourceKey} statement ${index} drops "${predicate}"`).toContain(
+            predicate,
+          );
+        }
+      });
+    });
+  }
+
+  // The other half of each pairing: the register read itself. Scanned as SOURCE TEXT rather than
+  // imported, because this package deliberately depends on no other domain package — every source
+  // reads its rows by table name. Without this half, deleting a predicate from the custodian would
+  // leave the pairing above passing while the two sides had silently stopped agreeing.
+  it("the register reads still carry the predicates the sources mirror", () => {
+    const custodian = (file: string): string =>
+      readFileSync(join(import.meta.dirname, "..", "..", "custodian", "src", file), "utf8");
+
+    const reviews = custodian("review-statements.ts");
+    expect(reviews).toContain("packet.status IN ('held', 'out')");
+    expect(reviews).toContain("item.status IN ('held', 'out')");
+
+    const overdue = custodian("queries.ts");
+    expect(overdue).toContain("packet.status = 'out'");
+    expect(overdue).toContain("movement.item_id IS NULL");
+    expect(overdue).toContain("ORDER BY latest.occurred_at DESC");
   });
 });
 

@@ -2,6 +2,7 @@ import { commitEffectBatch, type BatchDatabase } from "@magna-carta/data-access/
 import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
 import { createMigratedNodeDatabase } from "@magna-carta/database/node-sqlite";
 import type { MatterId, UserId } from "@magna-carta/identifiers/types";
+import { visibleMatterPredicate } from "../src/visibility.ts";
 
 // Shared scaffolding for the calendar package tests: a migrated in-memory per-firm database, a fixed
 // clock, and the one-line commit every service test needs (the services return effects; the caller
@@ -13,7 +14,8 @@ export const WALLED_MATTER = "matter_calendarWalled0000000000000" as MatterId;
 export const HOLDING_MATTER = "matter_calendarHolding000000000000" as MatterId;
 
 export const clock = { now: () => "2026-08-06T12:00:00.000Z" };
-export const options = { clock, actorUserId: ACTOR };
+export const visibility = visibleMatterPredicate();
+export const options = { clock, actorUserId: ACTOR, visibility };
 
 export function migratedDatabase() {
   return createMigratedNodeDatabase("per-firm");

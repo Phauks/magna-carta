@@ -102,6 +102,13 @@ export const PROBLEM_TYPES = {
   // row at a time. DISTINCT from `validation` (request-shape): the request is well formed and the
   // caller is entitled to make it — the count it names is over, so a client offers to open a new one.
   "custody-stocktake-closed": "custody-stocktake-closed",
+  // A close that would freeze counts drawn from a reconciliation that hit its read cap (HTTP 409).
+  // The frozen counts are the numbers a firm reports and nothing may drift under them afterwards, so
+  // a partial answer is refused rather than recorded as a finding: packets past the cut were never
+  // expected and so were never reported missing, which would understate missing originals silently
+  // and permanently. Fixed by narrowing the count's scope or by abandoning it, which freezes nothing.
+  // DISTINCT from `validation` — the request is well formed and the caller is entitled to make it.
+  "custody-stocktake-truncated": "custody-stocktake-truncated",
   // A calendar window or deadline horizon wider than one read is allowed to be (HTTP 422). A
   // REFUSAL and deliberately not a silent clamp: a caller that asked for three years and quietly
   // received one cannot tell that from a firm with nothing recorded in years two and three, so the
