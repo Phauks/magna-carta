@@ -21,6 +21,10 @@ export interface SearchIndexJobState {
 
 export interface SearchIndexMessage {
   readonly firmId: string;
+  // The matter the committed version belongs to — a fact about the document, not a choice of index. The
+  // consumer turns it into the corpus it indexes into (index-consumer.ts). Kept as a matter here rather
+  // than pre-resolved into a corpus so a message enqueued before a deploy is still readable after one;
+  // an entry point that feeds a different corpus carries its own scope on its own message.
   readonly matterId: string;
   readonly documentId: string;
   readonly version: number;
