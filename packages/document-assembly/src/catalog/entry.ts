@@ -82,6 +82,7 @@ const SOURCE_NOTES: Readonly<Record<MergeSource, string>> = {
   protectedIdentifier:
     "Held encrypted. It is filled in only for a member permitted to decrypt it, and every such reading is recorded.",
   system: "Filled at the moment the document is assembled.",
+  asset: "Filled from the matter's register of what the client or the estate owns.",
 };
 
 export function availabilityFor(entry: DictionaryEntry): MergeFieldAvailability {

@@ -1,10 +1,11 @@
 # Asset register — what an estate or a client owns
 
-_The register, the value history, interests, document links, and the account-number handling are
-built, along with the API behind them. The screens — the matter's asset list, quick add, asset
-detail, and the estate schedule — are authored when those surfaces ship. The grouped schedule with
-equity, the remaining asset kinds (vehicles, firearms, business interests, policies, money owed to
-the estate, digital assets), and assets as merge fields in an assembled document are not built yet._
+_Every kind of thing, the value history, what is secured against an asset, the estate schedule,
+interests, document links, the link to the safe custody register, the account-number handling, and
+assets as merge fields are built, along with the API behind them. The screens — the matter's asset
+list, quick add, asset detail, and the schedule — are authored when those surfaces ship. Copying an
+asset forward from an earlier matter, and the automatic parcel and valuation lookups, are not built
+yet._
 
 ## What it does
 
@@ -37,17 +38,27 @@ and "what is it worth today" without either answer overwriting the other.
 ## Logging what an estate owns
 
 1. Open the matter's assets and choose to add one.
-2. Pick the **kind of thing** — a property, a financial account, ordinary personal property, or
-   "other" for anything else. This is a fixed list, because the kind decides what structured fields
-   the record has.
+2. Pick the **kind of thing** — a property, a financial account, a vehicle, a firearm, a business
+   interest, an insurance policy, money owed to the estate, a digital asset, ordinary personal
+   property, or "other" for anything else. This is a fixed list, because the kind decides what
+   structured fields the record has.
 3. Under that, pick a **type** from your firm's own list if one fits: single-family residence,
    condominium, timeshare, mineral interest; checking, savings, brokerage, certificate of deposit,
-   retirement account. The type is optional — you do not have to decide between "single-family
-   residence" and "residence" before the row exists — and your firm can add its own.
+   retirement account; passenger vehicle, boat; handgun, rifle, shotgun; corporate shares,
+   partnership interest; term life, annuity; promissory note; cryptocurrency, domain name. The type
+   is optional — you do not have to decide between "single-family residence" and "residence" before
+   the row exists — and your firm can add its own.
 4. Write a **description** you would recognize: "the house on Elm Street", "brokerage at Northgate".
 5. Fill in whatever else you know. For a property that is the street address, the county, the parcel
-   number, the legal description, and the recording reference; for an account it is the institution.
-   None of it is required.
+   number, the legal description, and the recording reference; for an account it is the institution;
+   for a vehicle the make, model, year, identification number and plate; for a firearm the make,
+   model, calibre or gauge and serial; for a policy the carrier and the face amount; for money owed
+   the debtor, the principal, and when it falls due. None of it is required.
+
+   **A policy's face amount is not what the policy is worth.** It is a term of the contract and sits
+   with the policy's other details. What it is worth — its cash surrender value — is a dated figure
+   like any other. Keeping them apart is what stops every term-life policy looking like cash.
+
 6. If you already know roughly what it is worth, type the figure and the date it speaks to right
    here — it is recorded in the same breath as the thing.
 
@@ -160,10 +171,102 @@ irreversibly and with no trace. The right home for a secret like that is a seale
 [safe custody register](safe-custody-register.md), where a physical object has a location, a hold,
 and a permanent record of every hand it has passed through.
 
+## What is secured against something
+
+A mortgage, a deed of trust, a lien, a judgment, a security interest, a tax lien, a pledge. You
+record what it is, who holds it, and the reference it was recorded under. There is deliberately no
+"balance" box on that form, and the reason is the same one behind everything else here: **a balance
+is a dated figure.** You record it the way you record a value — a number and the date it speaks to —
+except that you record it against the charge rather than against the thing. So a mortgage that was
+one number at the date of death and a smaller one at the date of sale has both, dated, and the
+schedule can show either.
+
+**Equity is worked out, never stored.** Ask what something is worth as of a date and the register
+subtracts every charge in force on that date and shows you what is left. Two things it will not do:
+
+- **It will not guess at a balance you have not recorded.** A charge whose size nobody has written
+  down makes the equity unavailable rather than treating the charge as nil — which would overstate
+  exactly the assets you most need to be careful about. You are told the equity is unavailable and
+  why.
+- **It will not convert currencies.** A house valued in dollars charged by a mortgage recorded in
+  pounds nets to nothing the register will state. It shows you both figures and says the equity is
+  unavailable, because the exchange rate on a past date is not a fact your records carry.
+
+Negative equity is shown as negative. A house worth less than the mortgage on it is an ordinary
+situation and hiding it would defeat the point.
+
+**Releasing a charge writes a date; it never deletes the row.** A schedule read as of a date before
+the release still shows the charge, which is the only way "was this property clear at the date of
+death" has an answer years after the lien was cleared.
+
+## The estate schedule
+
+Ask for the schedule and pick a date. You get everything on the matter's register, grouped by kind of
+thing, each row with:
+
+- what it is, and your firm's own type for it;
+- what it was worth as of the date you asked for, **the date that figure actually speaks to**, and
+  what it rests on;
+- every charge in force on that date, with its balance;
+- the equity left over;
+- how the estate treats it, as somebody recorded it.
+
+Under each group are subtotals — **per currency, never added across currencies** — and the number of
+assets in it that nobody has valued yet. That count is shown rather than hidden, because "eleven of
+these forty have no number yet" is the thing you can act on, and a total quietly worked out over the
+other twenty-nine is not.
+
+**You must pick a date.** There is no default and there will not be one. The whole point of the
+register is that the date of death and today give different answers over the same rows, and a
+schedule with a date nobody chose is the mistake worth the most effort to prevent.
+
+Three things the schedule is not. It is **not a court form** — it is the shape of a probate
+inventory without any court's layout, and turning it into a filing is a separate job. It is **not a
+saved document** — it is worked out fresh each time, so it and the register cannot drift apart. And
+it **does not decide what is in the estate** — it groups by what a person recorded and shows what is
+undetermined as its own group rather than guessing.
+
+## When your firm holds the original
+
+If the ring on the estate inventory is the ring in your firm's safe, link the asset to the item in
+the [safe custody register](safe-custody-register.md). The asset detail then shows where the object
+is, what its status is, and whether a hold is on it — read from the custody register at the moment
+you look, never copied.
+
+**Neither side copies the other, and one pair of numbers explains why.** The custody register records
+a declared value: what the object would cost to replace, which is your firm's insurance question. The
+asset register records what the property is worth to the estate as of a date on a stated basis. A
+signed first edition has both and they are not the same number, so nothing syncs them and neither is
+worked out from the other.
+
+The same held object can be linked from two matters — the estate and the related trust both schedule
+it — and that is allowed on purpose.
+
+## Assets in an assembled document
+
+Asset records can fill a document. What a template gets is a **list**, not a single asset: one for
+everything on the register, and one for each kind of thing. A repeating block walks the list and
+prints a row per asset, so a schedule of real property is a template naming the real-property list.
+
+That is deliberate and it is the one place the merge fields work differently from everything else.
+There is no "the property's parcel number" field, because an estate with two houses is the ordinary
+case — such a field would have nothing to fill in on most matters. Walk the list instead.
+
+**A value always prints with the date it speaks to.** The two are provided together and a template
+that prints one without the other is a template bug, not a formatting choice. An undated figure in a
+filed document is the worst thing this part of the platform can produce.
+
+**Totals are worked out in the template**, not supplied as fields, and a total over amounts in two
+currencies refuses visibly rather than adding them up.
+
+**A full account or policy number is never available to a template.** The last four characters are;
+the whole number has no field at all. A merge field that decrypted one would write the secret into a
+document whose confidentiality then becomes that document's problem.
+
 ## Firearms, and what the register will not tell you
 
-Firearms will be recorded the same way a car is: make, model, calibre or gauge, serial number, a
-value history, documents, an interest. Where a firearm appears, the register shows a standing notice:
+Firearms are recorded the same way a car is: make, model, calibre or gauge, serial number, a value
+history, documents, an interest. Where a firearm appears, the register shows a standing notice:
 
 > Transfers of firearms are regulated by federal and state law. This register records what is held;
 > it does not determine who may receive it.
@@ -185,7 +288,7 @@ email. Nothing in the platform acts on it.
 - **It does not do estate accounting.** Receipts, disbursements, and claims against the estate are a
   ledger, not a list of property. The register's contribution is the opening inventory.
 - **It does not track general debts.** A mortgage or lien secured against a specific asset belongs
-  here and is coming; a credit card balance is a claim against the estate.
+  here; a credit card balance is a claim against the estate and does not.
 - **It is not your firm's own property register.** Equipment, depreciation, and insurance schedules
   are a different job with a different audience.
 
@@ -193,5 +296,5 @@ email. Nothing in the platform acts on it.
 
 - [Safe custody register](safe-custody-register.md) — the physical originals your firm holds, and
   the right home for a sealed secret.
-- [Document templates and assembly](document-templates-and-assembly.md) — where an asset schedule
-  will be assembled from these records.
+- [Document templates and assembly](document-templates-and-assembly.md) — how an asset schedule is
+  assembled from these records.

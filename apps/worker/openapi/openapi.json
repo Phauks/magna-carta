@@ -8766,11 +8766,38 @@
           "financialAccount": {
             "$ref": "#/components/schemas/MatterAssetFinancialAccountDetail"
           },
+          "vehicle": {
+            "$ref": "#/components/schemas/MatterAssetVehicleDetail"
+          },
+          "firearm": {
+            "$ref": "#/components/schemas/MatterAssetFirearmDetail"
+          },
+          "businessInterest": {
+            "$ref": "#/components/schemas/MatterAssetBusinessInterestDetail"
+          },
+          "insurancePolicy": {
+            "$ref": "#/components/schemas/MatterAssetInsurancePolicyDetail"
+          },
+          "receivable": {
+            "$ref": "#/components/schemas/MatterAssetReceivableDetail"
+          },
+          "digitalAsset": {
+            "$ref": "#/components/schemas/MatterAssetDigitalAssetDetail"
+          },
           "interests": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/MatterAssetInterestDetail"
             }
+          },
+          "encumbrances": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MatterAssetEncumbranceDetail"
+            }
+          },
+          "equity": {
+            "$ref": "#/components/schemas/MatterAssetEquityDetail"
           },
           "documents": {
             "type": "array",
@@ -8783,6 +8810,9 @@
             "items": {
               "$ref": "#/components/schemas/MatterAssetIdentifierSummary"
             }
+          },
+          "custody": {
+            "$ref": "#/components/schemas/MatterAssetCustodyPlacement"
           },
           "valueAsOf": {
             "$ref": "#/components/schemas/MatterAssetResolvedValue"
@@ -8798,9 +8828,18 @@
           "asset",
           "realProperty",
           "financialAccount",
+          "vehicle",
+          "firearm",
+          "businessInterest",
+          "insurancePolicy",
+          "receivable",
+          "digitalAsset",
           "interests",
+          "encumbrances",
+          "equity",
           "documents",
           "identifiers",
+          "custody",
           "valueAsOf",
           "classHandlingNote"
         ]
@@ -8892,6 +8931,265 @@
           }
         }
       },
+      "MatterAssetVehicleDetail": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "make": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 120
+          },
+          "model": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 120
+          },
+          "modelYear": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1885,
+            "maximum": 2200
+          },
+          "vehicleIdentificationNumber": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 40
+          },
+          "plateNumber": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 20
+          },
+          "plateRegion": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 120
+          }
+        }
+      },
+      "MatterAssetFirearmDetail": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "make": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 120
+          },
+          "model": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 120
+          },
+          "caliberOrGauge": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 60
+          },
+          "serialNumber": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 60
+          },
+          "regulatedCategory": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          }
+        }
+      },
+      "MatterAssetBusinessInterestDetail": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "entityName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "entityOrganizationId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "jurisdictionOfOrganization": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 120
+          },
+          "entityForm": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 120
+          }
+        }
+      },
+      "MatterAssetInsurancePolicyDetail": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "carrierName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "carrierOrganizationId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "faceAmountMinor": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "faceCurrency": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 3,
+            "maxLength": 3
+          },
+          "insuredEntityId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 128
+          }
+        }
+      },
+      "MatterAssetReceivableDetail": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "debtorEntityId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "principalAmountMinor": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "principalCurrency": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 3,
+            "maxLength": 3
+          },
+          "rateE4": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "maturityOn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "secured": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          }
+        }
+      },
+      "MatterAssetDigitalAssetDetail": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "platformName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "accountHandle": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "custodyModel": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "custodial",
+              "selfCustodied",
+              "unknown",
+              null
+            ]
+          }
+        }
+      },
       "MatterAssetInterestDetail": {
         "type": "object",
         "properties": {
@@ -8937,6 +9235,157 @@
           "shareDenominator",
           "effectiveFrom",
           "effectiveTo"
+        ]
+      },
+      "MatterAssetEncumbranceDetail": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "mortgage",
+              "deedOfTrust",
+              "lien",
+              "judgment",
+              "securityInterest",
+              "taxLien",
+              "pledge",
+              "other"
+            ]
+          },
+          "holderEntityId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "holderName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "recordedReference": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "releasedOn": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "holderEntityId",
+          "holderName",
+          "recordedReference",
+          "releasedOn",
+          "notes"
+        ]
+      },
+      "MatterAssetEquityDetail": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "amountMinor": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "currency": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "unavailableReason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "balances": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MatterAssetEncumbranceBalance"
+            }
+          }
+        },
+        "required": [
+          "amountMinor",
+          "currency",
+          "unavailableReason",
+          "balances"
+        ]
+      },
+      "MatterAssetEncumbranceBalance": {
+        "type": "object",
+        "properties": {
+          "encumbranceId": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "mortgage",
+              "deedOfTrust",
+              "lien",
+              "judgment",
+              "securityInterest",
+              "taxLien",
+              "pledge",
+              "other"
+            ]
+          },
+          "holderName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "amountMinor": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "currency": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "asOfDate": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "encumbranceId",
+          "kind",
+          "holderName",
+          "amountMinor",
+          "currency",
+          "asOfDate"
         ]
       },
       "MatterAssetDocumentLinkDetail": {
@@ -9014,6 +9463,47 @@
           "createdAt"
         ]
       },
+      "MatterAssetCustodyPlacement": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "custodyItemId": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "custodyNumber": {
+            "type": "string"
+          },
+          "packetStatus": {
+            "type": "string"
+          },
+          "locationName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "held": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "custodyItemId",
+          "description",
+          "status",
+          "custodyNumber",
+          "packetStatus",
+          "locationName",
+          "held"
+        ]
+      },
       "MatterAssetResolvedValue": {
         "type": [
           "object",
@@ -9079,6 +9569,219 @@
           "sourceNote",
           "supportingFileId",
           "recordedAt"
+        ]
+      },
+      "MatterAssetSchedule": {
+        "type": "object",
+        "properties": {
+          "matterId": {
+            "type": "string"
+          },
+          "asOfDate": {
+            "type": "string"
+          },
+          "groups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MatterAssetScheduleGroup"
+            }
+          },
+          "totalAssets": {
+            "type": "integer"
+          },
+          "unvaluedCount": {
+            "type": "integer"
+          },
+          "estateTreatmentCounts": {
+            "type": "object",
+            "properties": {
+              "probateEstate": {
+                "type": "integer"
+              },
+              "nonProbateTransfer": {
+                "type": "integer"
+              },
+              "undetermined": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "probateEstate",
+              "nonProbateTransfer",
+              "undetermined"
+            ]
+          }
+        },
+        "required": [
+          "matterId",
+          "asOfDate",
+          "groups",
+          "totalAssets",
+          "unvaluedCount",
+          "estateTreatmentCounts"
+        ]
+      },
+      "MatterAssetScheduleGroup": {
+        "type": "object",
+        "properties": {
+          "assetClass": {
+            "type": "string",
+            "enum": [
+              "realProperty",
+              "financialAccount",
+              "vehicle",
+              "firearm",
+              "businessInterest",
+              "insurancePolicy",
+              "receivable",
+              "digitalAsset",
+              "personalProperty",
+              "other"
+            ]
+          },
+          "label": {
+            "type": "string"
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MatterAssetScheduleRow"
+            }
+          },
+          "subtotals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MatterAssetScheduleSubtotal"
+            }
+          },
+          "unvaluedCount": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "assetClass",
+          "label",
+          "rows",
+          "subtotals",
+          "unvaluedCount"
+        ]
+      },
+      "MatterAssetScheduleRow": {
+        "type": "object",
+        "properties": {
+          "assetId": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "assetTypeName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "estateTreatment": {
+            "type": "string",
+            "enum": [
+              "probateEstate",
+              "nonProbateTransfer",
+              "undetermined"
+            ]
+          },
+          "disposition": {
+            "type": "string"
+          },
+          "acquiredOn": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "custodyItemId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "value": {
+            "$ref": "#/components/schemas/MatterAssetResolvedValue"
+          },
+          "equity": {
+            "$ref": "#/components/schemas/MatterAssetScheduleRowEquity"
+          }
+        },
+        "required": [
+          "assetId",
+          "description",
+          "assetTypeName",
+          "estateTreatment",
+          "disposition",
+          "acquiredOn",
+          "custodyItemId",
+          "value",
+          "equity"
+        ]
+      },
+      "MatterAssetScheduleRowEquity": {
+        "type": "object",
+        "properties": {
+          "amountMinor": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "currency": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "unavailableReason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "balances": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MatterAssetEncumbranceBalance"
+            }
+          }
+        },
+        "required": [
+          "amountMinor",
+          "currency",
+          "unavailableReason",
+          "balances"
+        ]
+      },
+      "MatterAssetScheduleSubtotal": {
+        "type": "object",
+        "properties": {
+          "currency": {
+            "type": "string"
+          },
+          "valueAmountMinor": {
+            "type": "integer"
+          },
+          "equityAmountMinor": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "countedAssets": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "currency",
+          "valueAmountMinor",
+          "equityAmountMinor",
+          "countedAssets"
         ]
       },
       "MatterAssetValuationList": {
@@ -9390,6 +10093,24 @@
           "financialAccount": {
             "$ref": "#/components/schemas/MatterAssetFinancialAccountAttributes"
           },
+          "vehicle": {
+            "$ref": "#/components/schemas/MatterAssetVehicleAttributes"
+          },
+          "firearm": {
+            "$ref": "#/components/schemas/MatterAssetFirearmAttributes"
+          },
+          "businessInterest": {
+            "$ref": "#/components/schemas/MatterAssetBusinessInterestAttributes"
+          },
+          "insurancePolicy": {
+            "$ref": "#/components/schemas/MatterAssetInsurancePolicyAttributes"
+          },
+          "receivable": {
+            "$ref": "#/components/schemas/MatterAssetReceivableAttributes"
+          },
+          "digitalAsset": {
+            "$ref": "#/components/schemas/MatterAssetDigitalAssetAttributes"
+          },
           "valuation": {
             "$ref": "#/components/schemas/MatterAssetInlineValuation"
           }
@@ -9477,6 +10198,247 @@
             ],
             "minLength": 1,
             "maxLength": 128
+          }
+        }
+      },
+      "MatterAssetVehicleAttributes": {
+        "type": "object",
+        "properties": {
+          "make": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 120
+          },
+          "model": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 120
+          },
+          "modelYear": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1885,
+            "maximum": 2200
+          },
+          "vehicleIdentificationNumber": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 40
+          },
+          "plateNumber": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 20
+          },
+          "plateRegion": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 120
+          }
+        }
+      },
+      "MatterAssetFirearmAttributes": {
+        "type": "object",
+        "properties": {
+          "make": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 120
+          },
+          "model": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 120
+          },
+          "caliberOrGauge": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 60
+          },
+          "serialNumber": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 60
+          },
+          "regulatedCategory": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          }
+        }
+      },
+      "MatterAssetBusinessInterestAttributes": {
+        "type": "object",
+        "properties": {
+          "entityName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "entityOrganizationId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "jurisdictionOfOrganization": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 120
+          },
+          "entityForm": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 120
+          }
+        }
+      },
+      "MatterAssetInsurancePolicyAttributes": {
+        "type": "object",
+        "properties": {
+          "carrierName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "carrierOrganizationId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "faceAmountMinor": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "faceCurrency": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 3,
+            "maxLength": 3
+          },
+          "insuredEntityId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 128
+          }
+        }
+      },
+      "MatterAssetReceivableAttributes": {
+        "type": "object",
+        "properties": {
+          "debtorEntityId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "principalAmountMinor": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "principalCurrency": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 3,
+            "maxLength": 3
+          },
+          "rateE4": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "maturityOn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "secured": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          }
+        }
+      },
+      "MatterAssetDigitalAssetAttributes": {
+        "type": "object",
+        "properties": {
+          "platformName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "accountHandle": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "custodyModel": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "custodial",
+              "selfCustodied",
+              "unknown",
+              null
+            ]
           }
         }
       },
@@ -9650,6 +10612,24 @@
           "financialAccount": {
             "$ref": "#/components/schemas/MatterAssetFinancialAccountAttributes"
           },
+          "vehicle": {
+            "$ref": "#/components/schemas/MatterAssetVehicleAttributes"
+          },
+          "firearm": {
+            "$ref": "#/components/schemas/MatterAssetFirearmAttributes"
+          },
+          "businessInterest": {
+            "$ref": "#/components/schemas/MatterAssetBusinessInterestAttributes"
+          },
+          "insurancePolicy": {
+            "$ref": "#/components/schemas/MatterAssetInsurancePolicyAttributes"
+          },
+          "receivable": {
+            "$ref": "#/components/schemas/MatterAssetReceivableAttributes"
+          },
+          "digitalAsset": {
+            "$ref": "#/components/schemas/MatterAssetDigitalAssetAttributes"
+          },
           "custodyItemId": {
             "type": [
               "string",
@@ -9673,6 +10653,13 @@
                   "null"
                 ],
                 "pattern": "^file_[A-Za-z0-9_-]{21}$"
+              },
+              "encumbranceId": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^matterAssetEncumbrance_[A-Za-z0-9_-]{21}$"
               },
               "correctsValuationId": {
                 "type": [
@@ -9734,6 +10721,68 @@
         },
         "required": [
           "effectiveTo"
+        ]
+      },
+      "RecordMatterAssetEncumbranceRequest": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "mortgage",
+              "deedOfTrust",
+              "lien",
+              "judgment",
+              "securityInterest",
+              "taxLien",
+              "pledge",
+              "other"
+            ]
+          },
+          "holderEntityId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "holderName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "recordedReference": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "ReleaseMatterAssetEncumbranceRequest": {
+        "type": "object",
+        "properties": {
+          "releasedOn": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          }
+        },
+        "required": [
+          "releasedOn"
         ]
       },
       "LinkMatterAssetDocumentRequest": {
@@ -36142,6 +37191,109 @@
         }
       }
     },
+    "/api/v1/matters/{matterId}/asset-schedule": {
+      "get": {
+        "description": "The estate schedule as of a date: everything on the register grouped by kind of thing, each row with what it was worth as of that date, what that figure rests on, the date it actually speaks to, what is secured against it, and the equity left over — with subtotals per kind and per currency, and the number of assets nobody has valued yet stated rather than hidden. `asOf` is REQUIRED and has no default: the date of death and today give different answers over the same rows, and a schedule with a date nobody chose is the mistake this most wants to avoid. This is not a court form and not a stored document — it is a read, so it and the register cannot drift apart, and it decides nothing about what is in the estate: it groups by what a person recorded and reports what is undetermined as its own group.",
+        "operationId": "matterAssets.readAssetSchedule",
+        "tags": [
+          "matterAssets"
+        ],
+        "x-mc-operationId": "matterAssets.readAssetSchedule",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "matterAssets:read",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "matterAssets"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "required": true,
+            "name": "asOf",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The schedule as of the date",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterAssetSchedule"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/matter-assets/{assetId}/valuations": {
       "get": {
         "description": "The asset's whole value history, newest date first. Corrections are shown AS corrections, naming the entry they replace — a figure somebody corrected stays visible, because the record's worth in a dispute is that nothing could be quietly rewritten after the fact.",
@@ -37093,6 +38245,262 @@
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress, or the record is settled",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matter-assets/{assetId}/encumbrances": {
+      "post": {
+        "description": "Records what is secured against the asset — a mortgage, a deed of trust, a lien, a judgment, a security interest, a tax lien, a pledge. There is deliberately no balance field on this call: a balance is a dated figure, so it is recorded through the value path naming this charge, which means a mortgage that was one number at the date of death and another at the date of sale has both, dated, with the same discipline that governs a property's own value.",
+        "operationId": "matterAssets.recordEncumbrance",
+        "tags": [
+          "matterAssets"
+        ],
+        "x-mc-operationId": "matterAssets.recordEncumbrance",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "matterAssets:manage",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "matterAssets"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matterAsset_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "assetId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordMatterAssetEncumbranceRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The charge",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterAssetCreatedResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress, or the record is settled",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matter-assets/{assetId}/encumbrances/{encumbranceId}/release": {
+      "post": {
+        "description": "Records that a charge was discharged, by writing the date it was discharged on. The charge and its balances stay on the record: a schedule read as of a date before the release still shows it, which is the only way 'was this property clear at the date of death' can be answered years after the lien was cleared.",
+        "operationId": "matterAssets.releaseEncumbrance",
+        "tags": [
+          "matterAssets"
+        ],
+        "x-mc-operationId": "matterAssets.releaseEncumbrance",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "matterAssets:manage",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "matterAssets"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matterAsset_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "assetId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matterAssetEncumbrance_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "encumbranceId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReleaseMatterAssetEncumbranceRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The charge is recorded as discharged",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterAssetAckResponse"
                 }
               }
             }

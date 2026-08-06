@@ -179,7 +179,11 @@ export type MergeSource =
   | "firm"
   | "customField"
   | "protectedIdentifier"
-  | "system";
+  | "system"
+  // The matter's asset register. ONE read fills all eleven asset subjects — every class plus the
+  // aggregate — because a subject is a pass over rows already in memory. Adding a class adds a left
+  // join and no read.
+  | "asset";
 
 export type MergeValueType =
   | "text"

@@ -426,6 +426,7 @@ describe("load-profile smoke", () => {
         "templates.version-for-assembly",
         "assembly.merge-context.matter",
         "assembly.merge-context.parties",
+        "assembly.merge-context.assets",
         "assembly.merge-context.custom-field-values",
         "templates.custom-field-catalog",
         "templates.field-binding-lookup",

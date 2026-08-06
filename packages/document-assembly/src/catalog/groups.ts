@@ -23,6 +23,7 @@ export const MERGE_FIELD_GROUPS: readonly MergeFieldGroupDefinition[] = [
   { key: "firm", label: "The firm" },
   { key: "office", label: "This office" },
   { key: "document", label: "Dates and the document" },
+  { key: "assets", label: "What the client or estate owns" },
   { key: "custom", label: "The firm's own fields" },
 ];
 

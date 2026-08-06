@@ -1,5 +1,21 @@
 [
   {
+    "key": "assets.all",
+    "valueType": "list",
+    "source": "asset",
+    "defaultFormat": "",
+    "absence": "blank",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "businessInterest.all",
+    "valueType": "list",
+    "source": "asset",
+    "defaultFormat": "",
+    "absence": "blank",
+    "sensitivity": "ordinary"
+  },
+  {
     "key": "client.accountNumber",
     "valueType": "text",
     "source": "protectedIdentifier",
@@ -80,6 +96,30 @@
     "sensitivity": "protected"
   },
   {
+    "key": "digitalAsset.all",
+    "valueType": "list",
+    "source": "asset",
+    "defaultFormat": "",
+    "absence": "blank",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "financialAccount.all",
+    "valueType": "list",
+    "source": "asset",
+    "defaultFormat": "",
+    "absence": "blank",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "firearm.all",
+    "valueType": "list",
+    "source": "asset",
+    "defaultFormat": "",
+    "absence": "blank",
+    "sensitivity": "ordinary"
+  },
+  {
     "key": "firm.name",
     "valueType": "text",
     "source": "firm",
@@ -109,6 +149,14 @@
     "source": "party",
     "defaultFormat": "plain",
     "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "insurancePolicy.all",
+    "valueType": "list",
+    "source": "asset",
+    "defaultFormat": "",
+    "absence": "blank",
     "sensitivity": "ordinary"
   },
   {
@@ -264,11 +312,51 @@
     "sensitivity": "ordinary"
   },
   {
+    "key": "otherAssets.all",
+    "valueType": "list",
+    "source": "asset",
+    "defaultFormat": "",
+    "absence": "blank",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "personalProperty.all",
+    "valueType": "list",
+    "source": "asset",
+    "defaultFormat": "",
+    "absence": "blank",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "realProperty.all",
+    "valueType": "list",
+    "source": "asset",
+    "defaultFormat": "",
+    "absence": "blank",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "receivable.all",
+    "valueType": "list",
+    "source": "asset",
+    "defaultFormat": "",
+    "absence": "blank",
+    "sensitivity": "ordinary"
+  },
+  {
     "key": "system.today",
     "valueType": "date",
     "source": "system",
     "defaultFormat": "long",
     "absence": "fail",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "vehicle.all",
+    "valueType": "list",
+    "source": "asset",
+    "defaultFormat": "",
+    "absence": "blank",
     "sensitivity": "ordinary"
   },
   {

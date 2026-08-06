@@ -70,6 +70,12 @@ describe("schema conformance (fitness functions)", () => {
       // handle would add a unique lookup on every read that already arrives holding the asset.
       matter_asset_real_property: "asset_id",
       matter_asset_financial_account: "asset_id",
+      matter_asset_vehicle: "asset_id",
+      matter_asset_firearm: "asset_id",
+      matter_asset_business_interest: "asset_id",
+      matter_asset_insurance_policy: "asset_id",
+      matter_asset_receivable: "asset_id",
+      matter_asset_digital_asset: "asset_id",
       // One acknowledgement per member, and the member IS the row: a second handle would let two
       // acceptances exist for one person, which is precisely the state the version comparison must
       // never have to disambiguate.
