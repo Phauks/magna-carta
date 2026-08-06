@@ -50,6 +50,9 @@
       "path": "packages/billing/tsconfig.build.json"
     },
     {
+      "path": "packages/calendar/tsconfig.build.json"
+    },
+    {
       "path": "packages/conflicts/tsconfig.build.json"
     },
     {

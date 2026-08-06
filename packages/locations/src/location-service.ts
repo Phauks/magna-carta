@@ -39,6 +39,9 @@ export interface LocationServiceOptions {
 export interface CreateLocationInput {
   readonly name: string;
   readonly jurisdiction?: string | null;
+  // An IANA identifier (America/Los_Angeles). Validated as one a runtime can resolve, because a zone
+  // nothing can render is a date nothing can print.
+  readonly timeZone?: string | null;
   readonly numberCode?: string | null;
   readonly addressBlock?: string | null;
   readonly footer?: string | null;
@@ -88,6 +91,28 @@ function requireNonEmptyName(name: string): void {
   }
 }
 
+// Checked by construction against the runtime rather than against a shipped list: the IANA list
+// changes under us (zones are added, renamed, and merged), and the only question that matters is
+// whether this runtime can render a date in it. A fixed offset is refused outright — an offset is
+// wrong for half the year wherever daylight saving is observed.
+function requireResolvableTimeZone(timeZone: string | null): void {
+  if (timeZone === null) return;
+  if (/^[+-]\d{2}:?\d{2}$/.test(timeZone)) {
+    throw new LocationValidationError(
+      "unknown-time-zone",
+      "a location's time zone is an IANA identifier such as America/Los_Angeles, never a fixed offset",
+    );
+  }
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone });
+  } catch {
+    throw new LocationValidationError(
+      "unknown-time-zone",
+      `${timeZone} is not a time zone this platform can resolve`,
+    );
+  }
+}
+
 async function loadLocation(
   database: SqlDatabase,
   id: LocationId,
@@ -97,6 +122,7 @@ async function loadLocation(
     name: string;
     status: "active" | "closed";
     jurisdiction: string | null;
+    time_zone: string | null;
     number_code: string | null;
     address_block: string | null;
     footer: string | null;
@@ -110,6 +136,7 @@ async function loadLocation(
     name: row.name,
     status: row.status,
     jurisdiction: row.jurisdiction,
+    timeZone: row.time_zone,
     numberCode: row.number_code,
     addressBlock: row.address_block,
     footer: row.footer,
@@ -129,6 +156,7 @@ export async function createLocation(
   options: LocationServiceOptions,
 ): Promise<CreatedLocation> {
   requireNonEmptyName(input.name);
+  requireResolvableTimeZone(input.timeZone ?? null);
   const locationId = newIdentifier("location", options.randomSource);
   const createdAt = options.clock.now();
   const message: OutboxMessage = {
@@ -143,6 +171,7 @@ export async function createLocation(
           id: locationId,
           name: input.name,
           jurisdiction: input.jurisdiction ?? null,
+          timeZone: input.timeZone ?? null,
           numberCode: input.numberCode ?? null,
           addressBlock: input.addressBlock ?? null,
           footer: input.footer ?? null,
@@ -173,12 +202,14 @@ export async function updateLocation(
   const merged: LocationFields = {
     name: patch.name ?? existing.name,
     jurisdiction: patch.jurisdiction !== undefined ? patch.jurisdiction : existing.jurisdiction,
+    timeZone: patch.timeZone !== undefined ? patch.timeZone : existing.timeZone,
     numberCode: patch.numberCode !== undefined ? patch.numberCode : existing.numberCode,
     addressBlock: patch.addressBlock !== undefined ? patch.addressBlock : existing.addressBlock,
     footer: patch.footer !== undefined ? patch.footer : existing.footer,
     remitTo: patch.remitTo !== undefined ? patch.remitTo : existing.remitTo,
   };
   requireNonEmptyName(merged.name);
+  requireResolvableTimeZone(merged.timeZone);
   return {
     effect: {
       statements: [

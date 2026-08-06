@@ -102,6 +102,26 @@ export const PROBLEM_TYPES = {
   // row at a time. DISTINCT from `validation` (request-shape): the request is well formed and the
   // caller is entitled to make it — the count it names is over, so a client offers to open a new one.
   "custody-stocktake-closed": "custody-stocktake-closed",
+  // A calendar window or deadline horizon wider than one read is allowed to be (HTTP 422). A
+  // REFUSAL and deliberately not a silent clamp: a caller that asked for three years and quietly
+  // received one cannot tell that from a firm with nothing recorded in years two and three, so the
+  // page would be a wrong answer that looks like a right one. DISTINCT from `validation` — the
+  // request is well-formed and the dates are real; the span is one the platform will not serve.
+  "calendar-window-too-wide": "calendar-window-too-wide",
+  // A deadline sourced from a statutory catalog when none is encoded (HTTP 422). The columns exist
+  // and the shape is reserved, but no jurisdiction has verified rules encoded, and a deadline
+  // claiming a catalog authority nobody consulted is exactly the false confidence that makes a
+  // computed date worse than no date. Fixed by researching and verifying a jurisdiction, never by
+  // the caller rewriting the request — which is why it is not `validation`.
+  "calendar-deadline-catalog-unavailable": "calendar-deadline-catalog-unavailable",
+  // A write against a deadline that is no longer open (HTTP 409): satisfying, editing, vacating, or
+  // superseding one already satisfied, vacated, or superseded. A settled deadline is superseded by a
+  // new one rather than re-decided, so both stay on the record.
+  "calendar-deadline-settled": "calendar-deadline-settled",
+  // An attempt to rename or recode an event type that ships with the platform (HTTP 422). A platform
+  // type's name IS the shared vocabulary — a firm that wants different words adds its own type and
+  // deactivates the shipped one, which changes nothing for anybody else.
+  "calendar-platform-type-immutable": "calendar-platform-type-immutable",
   // An unexpected, unhandled server error (HTTP 500). The telemetry middleware's final catch maps
   // any escaped exception to this — the one error type the client cannot have caused, carrying only
   // the Error ID to quote.

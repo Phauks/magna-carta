@@ -1,0 +1,1550 @@
+import { z, type OpenAPIHono } from "@hono/zod-openapi";
+import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
+import type { BatchDatabase, EffectWrite } from "@magna-carta/data-access/effect-batch";
+import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
+import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
+import {
+  closeMatterDeadline,
+  createMatterDeadline,
+  satisfyMatterDeadline,
+  updateMatterDeadline,
+} from "@magna-carta/calendar/deadline-service";
+import {
+  selectMatterDeadlinesStatement,
+  type MatterDeadlineRow,
+} from "@magna-carta/calendar/deadline-statements";
+import {
+  cancelMatterEvent,
+  createMatterEvent,
+  updateMatterEvent,
+} from "@magna-carta/calendar/event-service";
+import {
+  readMatterEvent,
+  readMatterEventParticipants,
+  selectMatterEventsStatement,
+  type MatterEventRow,
+} from "@magna-carta/calendar/event-statements";
+import {
+  createMatterEventType,
+  deactivateMatterEventType,
+  updateMatterEventType,
+} from "@magna-carta/calendar/event-type-service";
+import { readMatterEventTypes } from "@magna-carta/calendar/event-type-statements";
+import { decodeTimelineCursor } from "@magna-carta/calendar/merge";
+import { isOverdue } from "@magna-carta/calendar/overdue";
+import { timelineSourceRegistry } from "@magna-carta/calendar/sources/all";
+import { readTimelinePage } from "@magna-carta/calendar/timeline";
+import {
+  MATTER_DEADLINE_STATES,
+  MATTER_EVENT_CATEGORIES,
+  MATTER_EVENT_PARTICIPANT_KINDS,
+  MATTER_EVENT_STATUSES,
+  MAX_CALENDAR_WINDOW_DAYS,
+  MAX_DEADLINE_HORIZON_DAYS,
+  TIMELINE_DIRECTIONS,
+} from "@magna-carta/calendar/types";
+import {
+  CalendarValidationError,
+  assertCalendarWindow,
+  assertDeadlineHorizon,
+} from "@magna-carta/calendar/validation";
+import { visibleMatterPredicate } from "@magna-carta/calendar/visibility";
+import { cryptoRandomSource } from "@magna-carta/identifiers/random";
+import type { MatterDeadlineId, MatterEventId, MatterId } from "@magna-carta/identifiers/types";
+import type { Context } from "hono";
+import type { Bindings } from "../app.ts";
+import type { Chokepoint } from "../chokepoint/chokepoint.ts";
+import {
+  requireChokepointFirmContext,
+  requireChokepointIdempotency,
+  requireChokepointUserId,
+} from "../chokepoint/context-accessors.ts";
+import type { AppVariables } from "../chokepoint/ports.ts";
+import { chokepointMiddleware } from "../chokepoint/register.ts";
+import { idempotencyKeyHeader, identifierField, identifierPathParam } from "../contracts/common.ts";
+import { cursorQuery, paginated } from "../contracts/pagination.ts";
+import { Problem, problemJson, type ProblemResponse } from "../contracts/problem.ts";
+import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
+import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-problems.ts";
+
+// The case calendar's HTTP surface over @magna-carta/calendar: recording what happens in a case,
+// recording the dates the firm must act by, and reading the matter timeline that federates both with
+// everything else the firm already recorded.
+//
+// Two things this surface never does, and they are the subsystem's whole position. It never computes
+// a deadline date from a court rule — every date here is one a person supplied. And it never writes
+// "missed": whether a deadline is overdue is a comparison against now, made when a page is read.
+
+const READ = "calendar:read" as const;
+const MANAGE = "calendar:manage" as const;
+
+const CIVIL_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const WALL_CLOCK_TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+// ---- request/response contracts ----
+
+const ParticipantRequest = z
+  .object({
+    participantKind: z.enum(MATTER_EVENT_PARTICIPANT_KINDS),
+    memberUserId: identifierField("user").nullable().optional(),
+    // A directoryPerson_/directoryOrganization_ handle, carried by value.
+    entityId: z.string().min(1).max(128).nullable().optional(),
+    participantName: z.string().min(1).max(200).nullable().optional(),
+    // A short label the firm supplies (appearing counsel, judge, court reporter). Free text and not
+    // a platform vocabulary: what a participant is called varies by jurisdiction and nothing here
+    // consumes it.
+    role: z.string().max(120).nullable().optional(),
+  })
+  .openapi("MatterEventParticipantInput");
+
+const CreateEventRequest = z
+  .object({
+    eventTypeId: identifierField("matterEventType").nullable().optional(),
+    title: z.string().min(1).max(300),
+    description: z.string().max(4000).nullable().optional(),
+    status: z.enum(MATTER_EVENT_STATUSES).optional(),
+    startsOn: z.string().regex(CIVIL_DATE),
+    // Null or omitted means all day, which is what a filing is.
+    startsAtTime: z.string().regex(WALL_CLOCK_TIME).nullable().optional(),
+    endsOn: z.string().regex(CIVIL_DATE).nullable().optional(),
+    endsAtTime: z.string().regex(WALL_CLOCK_TIME).nullable().optional(),
+    // An IANA identifier — the zone the COURT sits in, which is frequently not the firm's own.
+    timeZone: z.string().min(1).max(120),
+    locationText: z.string().max(300).nullable().optional(),
+    courtReference: z.string().max(120).nullable().optional(),
+    participants: z.array(ParticipantRequest).max(50).optional(),
+  })
+  .openapi("CreateMatterEventRequest");
+
+const UpdateEventRequest = CreateEventRequest.partial().openapi("UpdateMatterEventRequest");
+
+const EventDetail = z
+  .object({
+    id: z.string(),
+    matterId: z.string(),
+    eventTypeId: z.string().nullable(),
+    title: z.string(),
+    description: z.string().nullable(),
+    status: z.enum(MATTER_EVENT_STATUSES),
+    startsOn: z.string(),
+    startsAtTime: z.string().nullable(),
+    endsOn: z.string().nullable(),
+    endsAtTime: z.string().nullable(),
+    timeZone: z.string(),
+    locationText: z.string().nullable(),
+    courtReference: z.string().nullable(),
+    recordedAt: z.string(),
+    recordedBy: z.string().nullable(),
+  })
+  .openapi("MatterEventDetail");
+
+const ParticipantDetail = z
+  .object({
+    id: z.string(),
+    participantKind: z.enum(MATTER_EVENT_PARTICIPANT_KINDS),
+    memberUserId: z.string().nullable(),
+    entityId: z.string().nullable(),
+    participantName: z.string().nullable(),
+    role: z.string().nullable(),
+  })
+  .openapi("MatterEventParticipantDetail");
+
+const CreateDeadlineRequest = z
+  .object({
+    title: z.string().min(1).max(300),
+    dueOn: z.string().regex(CIVIL_DATE),
+    // Real and load-bearing: many filing deadlines are five in the afternoon, and one whose hour
+    // nobody recorded must not be rendered as midnight.
+    dueAtTime: z.string().regex(WALL_CLOCK_TIME).nullable().optional(),
+    timeZone: z.string().min(1).max(120),
+    // `statutory_catalog` is refused: no verified jurisdiction-keyed catalog is encoded, and a
+    // deadline claiming a catalog authority when none was consulted is the false confidence this
+    // subsystem exists to avoid.
+    source: z.enum(["member", "court_order"]).optional(),
+    // The rule, statute, or order the firm says this comes from. Recorded, never parsed and never
+    // resolved against anything.
+    authorityText: z.string().max(2000).nullable().optional(),
+    // The event that started the clock. A LINK and never an input to a calculation: moving it does
+    // not move the deadline.
+    triggerEventId: identifierField("matterEvent").nullable().optional(),
+    priority: z.number().int().positive().max(9).nullable().optional(),
+  })
+  .openapi("CreateMatterDeadlineRequest");
+
+const UpdateDeadlineRequest = CreateDeadlineRequest.omit({ source: true })
+  .partial()
+  .openapi("UpdateMatterDeadlineRequest");
+
+const SatisfyDeadlineRequest = z
+  .object({
+    satisfyingEventId: identifierField("matterEvent").nullable().optional(),
+    satisfactionNote: z.string().max(2000).nullable().optional(),
+  })
+  .openapi("SatisfyMatterDeadlineRequest");
+
+const CloseDeadlineRequest = z
+  .object({
+    // Required: "why is this deadline no longer in force" is the question a person asks six months
+    // later, and the only bad answer is silence.
+    stateReason: z.string().min(1).max(2000),
+    supersededByDeadlineId: identifierField("matterDeadline").nullable().optional(),
+  })
+  .openapi("CloseMatterDeadlineRequest");
+
+const DeadlineDetail = z
+  .object({
+    id: z.string(),
+    matterId: z.string(),
+    title: z.string(),
+    dueOn: z.string(),
+    dueAtTime: z.string().nullable(),
+    timeZone: z.string(),
+    source: z.string(),
+    authorityText: z.string().nullable(),
+    triggerEventId: z.string().nullable(),
+    state: z.enum(MATTER_DEADLINE_STATES),
+    satisfiedAt: z.string().nullable(),
+    satisfiedBy: z.string().nullable(),
+    satisfyingEventId: z.string().nullable(),
+    stateReason: z.string().nullable(),
+    priority: z.number().int().nullable(),
+    // DERIVED at read time by resolving the due date and time in the deadline's own zone and
+    // comparing against now. There is no such column: nothing in this platform writes that a firm
+    // missed something.
+    overdue: z.boolean(),
+  })
+  .openapi("MatterDeadlineDetail");
+
+const TimelineEntryResponse = z
+  .object({
+    sourceKey: z.string(),
+    kind: z.string(),
+    sortKey: z.string(),
+    rowId: z.string(),
+    matterId: z.string().nullable(),
+    actorUserId: z.string().nullable(),
+    // The source's DECLARED non-privileged summary, or null where the source declares it has none.
+    // Never a title, a subject line, a narrative, or a person's name — detail comes from following
+    // the link into the owning subsystem's own access-gated read.
+    label: z.string().nullable(),
+    link: z.string(),
+  })
+  .openapi("TimelineEntry");
+
+const EventTypeDetail = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    code: z.string().nullable(),
+    category: z.enum(MATTER_EVENT_CATEGORIES),
+    origin: z.enum(["platform", "firm"]),
+    active: z.boolean(),
+  })
+  .openapi("MatterEventTypeDetail");
+
+const CreateEventTypeRequest = z
+  .object({
+    name: z.string().min(1).max(120),
+    code: z.string().min(1).max(40).nullable().optional(),
+    category: z.enum(MATTER_EVENT_CATEGORIES).optional(),
+  })
+  .openapi("CreateMatterEventTypeRequest");
+
+const UpdateEventTypeRequest = CreateEventTypeRequest.partial().openapi(
+  "UpdateMatterEventTypeRequest",
+);
+
+const CreatedResponse = z.object({ id: z.string() }).openapi("CalendarCreatedResponse");
+const AcknowledgedResponse = z.object({ ok: z.literal(true) }).openapi("CalendarAckResponse");
+
+const matterIdParam = z.object({ matterId: identifierPathParam("matter", "matterId") });
+const eventIdParam = z.object({ eventId: identifierPathParam("matterEvent", "eventId") });
+const deadlineIdParam = z.object({
+  deadlineId: identifierPathParam("matterDeadline", "deadlineId"),
+});
+const eventTypeIdParam = z.object({
+  eventTypeId: identifierPathParam("matterEventType", "eventTypeId"),
+});
+
+const timelineQuery = cursorQuery.extend({
+  // Repeatable. Narrows the REGISTRY before any statement is built, so a single-kind request issues
+  // one statement rather than one per source.
+  kind: z.union([z.string(), z.array(z.string())]).optional(),
+  from: z.string().regex(CIVIL_DATE).optional(),
+  to: z.string().regex(CIVIL_DATE).optional(),
+  // Which half of the case to read. Resolved into the same civil-date bounds `from`/`to` carry, so
+  // it narrows in SQL like every other filter and never trims a page after the fact. `all` is the
+  // default, because "what has happened" and "what is coming" are one list read in one order.
+  direction: z.enum(TIMELINE_DIRECTIONS).optional(),
+});
+
+const firmCalendarQuery = cursorQuery.extend({
+  // Required and capped. A window wider than the cap is REFUSED, never silently clamped: a caller
+  // that asked for three years and quietly received one cannot tell that from a firm with nothing
+  // recorded in years two and three.
+  from: z.string().regex(CIVIL_DATE),
+  to: z.string().regex(CIVIL_DATE),
+  matterId: identifierField("matter").optional(),
+  memberId: identifierField("user").optional(),
+  kind: z.union([z.string(), z.array(z.string())]).optional(),
+});
+
+const deadlineQuery = cursorQuery.extend({
+  matterId: identifierField("matter").optional(),
+  state: z.enum(MATTER_DEADLINE_STATES).optional(),
+  from: z.string().regex(CIVIL_DATE).optional(),
+  through: z.string().regex(CIVIL_DATE).optional(),
+  // Narrows to open deadlines due today or earlier — composed into the SQL before the LIMIT, like
+  // every other filter here. The exact per-row answer, which depends on each deadline's own zone,
+  // rides on the row as `overdue`.
+  overdue: z.enum(["true", "false"]).optional(),
+});
+
+// ---- shared error responses ----
+
+const authErrors = {
+  400: {
+    description: "Missing Idempotency-Key (this operation requires one)",
+    content: { "application/problem+json": { schema: Problem } },
+  },
+  401: {
+    description: "No valid session",
+    content: { "application/problem+json": { schema: Problem } },
+  },
+  403: {
+    description: "The session member lacks the required permission",
+    content: { "application/problem+json": { schema: Problem } },
+  },
+  404: {
+    description: "The firm is unreachable, the member is deactivated, or the resource is unknown",
+    content: { "application/problem+json": { schema: Problem } },
+  },
+  409: {
+    description:
+      "A request with this Idempotency-Key is still in progress, or the record is settled",
+    content: { "application/problem+json": { schema: Problem } },
+  },
+  422: {
+    description:
+      "The request is invalid, or the Idempotency-Key was reused with a different payload",
+    content: { "application/problem+json": { schema: Problem } },
+  },
+  429: {
+    description: "Rate limit exceeded",
+    content: { "application/problem+json": { schema: Problem } },
+  },
+} as const;
+
+// Maps a calendar refusal to its problem. Codes — never messages — drive it.
+function calendarErrorResponse(
+  c: Context,
+  caught: CalendarValidationError,
+): ProblemResponse<404> | ProblemResponse<409> | ProblemResponse<422> {
+  switch (caught.code) {
+    case "calendar-unknown-event":
+    case "calendar-unknown-event-type":
+    case "calendar-unknown-deadline":
+      return problemJson(c, {
+        type: "not-found",
+        title: "Not found",
+        status: 404,
+        detail: caught.message,
+      });
+    case "calendar-deadline-not-open":
+      return problemJson(c, {
+        type: "calendar-deadline-settled",
+        title: "Deadline already settled",
+        status: 409,
+        detail: caught.message,
+      });
+    case "calendar-window-too-wide":
+      return problemJson(c, {
+        type: "calendar-window-too-wide",
+        title: "Window too wide",
+        status: 422,
+        detail: caught.message,
+      });
+    case "calendar-deadline-catalog-unavailable":
+      return problemJson(c, {
+        type: "calendar-deadline-catalog-unavailable",
+        title: "No deadline catalog is encoded",
+        status: 422,
+        detail: caught.message,
+      });
+    case "calendar-platform-type-immutable":
+      return problemJson(c, {
+        type: "calendar-platform-type-immutable",
+        title: "Platform event type",
+        status: 422,
+        detail: caught.message,
+      });
+    default:
+      return problemJson(c, {
+        type: "validation",
+        title: "Calendar request invalid",
+        status: 422,
+        detail: caught.message,
+      });
+  }
+}
+
+// A READ can only refuse two ways — the resource is unknown, or the request asks for more than one
+// read may return. It is typed narrowly so a read route never has to declare a conflict response it
+// cannot produce.
+function calendarReadErrorResponse(
+  c: Context,
+  caught: CalendarValidationError,
+): ProblemResponse<404> | ProblemResponse<422> {
+  const response = calendarErrorResponse(c, caught);
+  if (response.status === 409) {
+    return problemJson(c, {
+      type: "validation",
+      title: "Calendar request invalid",
+      status: 422,
+      detail: caught.message,
+    });
+  }
+  return response as ProblemResponse<404> | ProblemResponse<422>;
+}
+
+// ---- route metas ----
+
+function readMeta(action: string, resource: RouteMeta["resource"]): RouteMeta {
+  return {
+    operationId: `calendar.${action}`,
+    surface: "app",
+    authenticated: true,
+    permission: READ,
+    resource,
+    audited: false,
+    idempotency: "optional",
+    rateLimit: "default",
+  };
+}
+
+function mutationMeta(action: string, resource: RouteMeta["resource"]): RouteMeta {
+  return {
+    operationId: `calendar.${action}`,
+    surface: "app",
+    authenticated: true,
+    permission: MANAGE,
+    resource,
+    audited: true,
+    // Required: a retried request must not put a second hearing on the calendar.
+    idempotency: "required",
+    idempotencyStore: "firm",
+    rateLimit: "default",
+  };
+}
+
+const timelineRoute = defineOpenAPIRoute(readMeta("matterTimeline", "matter"), {
+  method: "get",
+  path: "/api/v1/matters/{matterId}/timeline",
+  description:
+    "The matter's timeline, newest first: the events and deadlines recorded here merged with what " +
+    "every other part of the platform already recorded about this case — documents filed, mail " +
+    "captured, documents assembled, originals moved, client money moved, time and costs booked, " +
+    "conflicts checks run, and the matter's own opening and closing. Nothing is copied into a " +
+    "timeline table: each entry is read in place from the record its own subsystem keeps, so the " +
+    "timeline cannot disagree with the register behind it. An entry carries identifiers, a kind, and " +
+    "a non-privileged summary where its source has one — follow the link for the detail. `kind` is " +
+    "repeatable and narrows which sources are read at all.",
+  request: { params: matterIdParam, query: timelineQuery },
+  responses: {
+    200: {
+      description: "One page of the timeline",
+      content: {
+        "application/json": {
+          schema: paginated(TimelineEntryResponse).openapi("TimelineEntryPage"),
+        },
+      },
+    },
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const listEventsRoute = defineOpenAPIRoute(readMeta("listEvents", "matter"), {
+  method: "get",
+  path: "/api/v1/matters/{matterId}/events",
+  description:
+    "The matter's recorded events on their own, newest first and without the federation — what an " +
+    "editing surface reads. Each event carries its full detail, including its title, its wall-clock " +
+    "time, and the time zone that time is read in.",
+  request: { params: matterIdParam, query: cursorQuery },
+  responses: {
+    200: {
+      description: "One page of recorded events",
+      content: {
+        "application/json": { schema: paginated(EventDetail).openapi("MatterEventPage") },
+      },
+    },
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    429: authErrors[429],
+  },
+});
+
+const getEventRoute = defineOpenAPIRoute(readMeta("getEvent", "matter"), {
+  method: "get",
+  path: "/api/v1/events/{eventId}",
+  description:
+    "One recorded event with everybody who was, or will be, at it — a firm member, a contact from the " +
+    "directory, or somebody external to both, each with the role the firm gave them. This is the read " +
+    "an editing surface makes; the timeline deliberately carries none of it.",
+  request: { params: eventIdParam },
+  responses: {
+    200: {
+      description: "The event and its participants",
+      content: {
+        "application/json": {
+          schema: z
+            .object({ event: EventDetail, participants: z.array(ParticipantDetail) })
+            .openapi("MatterEventWithParticipants"),
+        },
+      },
+    },
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    429: authErrors[429],
+  },
+});
+
+const firmCalendarRoute = defineOpenAPIRoute(readMeta("firmCalendar", "firm"), {
+  method: "get",
+  path: "/api/v1/calendar/events",
+  description:
+    `The firm's calendar across every matter a member can see, over a date window that is required ` +
+    `and capped at ${MAX_CALENDAR_WINDOW_DAYS} days. A wider window is refused rather than quietly ` +
+    `narrowed, so a caller always knows what it was given. Filter by matter, by member (a ` +
+    `participant, or the matter's responsible member), and by kind.`,
+  request: { query: firmCalendarQuery },
+  responses: {
+    200: {
+      description: "One page of the firm calendar",
+      content: {
+        "application/json": {
+          schema: paginated(TimelineEntryResponse).openapi("FirmCalendarPage"),
+        },
+      },
+    },
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const deadlinesRoute = defineOpenAPIRoute(readMeta("listDeadlines", "firm"), {
+  method: "get",
+  path: "/api/v1/calendar/deadlines",
+  description:
+    `Deadlines across every matter a member can see, soonest first, over a horizon capped at ` +
+    `${MAX_DEADLINE_HORIZON_DAYS} days. Each deadline reports whether it is overdue, worked out when ` +
+    `the page is read by resolving its date and time in its own time zone and comparing against now — ` +
+    `there is no stored flag anywhere that says a firm missed something, and no job that would write ` +
+    `one. Nothing here calculates a due date: every date is one a person recorded.`,
+  request: { query: deadlineQuery },
+  responses: {
+    200: {
+      description: "One page of deadlines",
+      content: {
+        "application/json": { schema: paginated(DeadlineDetail).openapi("MatterDeadlinePage") },
+      },
+    },
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const listEventTypesRoute = defineOpenAPIRoute(readMeta("listEventTypes", "firm"), {
+  method: "get",
+  path: "/api/v1/calendar/event-types",
+  description:
+    "The firm's event-type catalog: the platform vocabulary (hearing, trial, filing, service, " +
+    "deposition and the rest) plus whatever the firm has added. A platform type's name and code are " +
+    "the shared vocabulary and cannot be redefined; any type can be deactivated.",
+  request: { query: z.object({ includeInactive: z.enum(["true", "false"]).optional() }) },
+  responses: {
+    200: {
+      description: "The catalog",
+      content: {
+        "application/json": {
+          schema: z.object({ data: z.array(EventTypeDetail) }).openapi("MatterEventTypeList"),
+        },
+      },
+    },
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    429: authErrors[429],
+  },
+});
+
+const createEventRoute = defineOpenAPIRoute(mutationMeta("createEvent", "matter"), {
+  method: "post",
+  path: "/api/v1/matters/{matterId}/events",
+  description:
+    "Records something that happened or will happen in the case: a hearing, a filing, service, an " +
+    "order, a deposition, a client meeting. A date is a plain calendar date and a time is separate " +
+    "and optional, because an all-day event is a real and common answer; the time zone is required " +
+    "and is the one the event happens in, which for a hearing is the court's and not the firm's.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: matterIdParam,
+    body: { content: { "application/json": { schema: CreateEventRequest } }, required: true },
+  },
+  responses: {
+    201: {
+      description: "The recorded event",
+      content: { "application/json": { schema: CreatedResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const updateEventRoute = defineOpenAPIRoute(mutationMeta("updateEvent", "matter"), {
+  method: "patch",
+  path: "/api/v1/events/{eventId}",
+  description:
+    "Edits a recorded event in place. A hearing continued to a new date is the same hearing on a " +
+    "new date: the record moves and the audit trail carries the move, rather than leaving two " +
+    "hearings on the calendar for every reader to work out which one counts. Supplying participants " +
+    "replaces the whole list; omitting them leaves it alone.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: eventIdParam,
+    body: { content: { "application/json": { schema: UpdateEventRequest } }, required: true },
+  },
+  responses: {
+    200: {
+      description: "The event was updated",
+      content: { "application/json": { schema: AcknowledgedResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const cancelEventRoute = defineOpenAPIRoute(mutationMeta("cancelEvent", "matter"), {
+  method: "post",
+  path: "/api/v1/events/{eventId}/cancel",
+  description:
+    "Marks an event cancelled. The record stays: a hearing that was taken off is a fact about the " +
+    "case, and a firm that has to show it was vacated cannot do that from a row that is gone.",
+  request: { headers: idempotencyKeyHeader, params: eventIdParam },
+  responses: {
+    200: {
+      description: "The event was cancelled",
+      content: { "application/json": { schema: AcknowledgedResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const createDeadlineRoute = defineOpenAPIRoute(mutationMeta("createDeadline", "matter"), {
+  method: "post",
+  path: "/api/v1/matters/{matterId}/deadlines",
+  description:
+    "Records a date the firm must act by, with the authority the firm says it comes from. The " +
+    "platform does not calculate deadlines: it does no business-day counting, keeps no court-holiday " +
+    "calendar, adds no days for the method of service, and never moves one date because another " +
+    "moved. A deadline that was computed wrongly is worse than one that was never computed, because " +
+    "it gets trusted. Link the event that started the clock if there is one — the link is a record, " +
+    "not a calculation.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: matterIdParam,
+    body: { content: { "application/json": { schema: CreateDeadlineRequest } }, required: true },
+  },
+  responses: {
+    201: {
+      description: "The recorded deadline",
+      content: { "application/json": { schema: CreatedResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const updateDeadlineRoute = defineOpenAPIRoute(mutationMeta("updateDeadline", "matter"), {
+  method: "patch",
+  path: "/api/v1/deadlines/{deadlineId}",
+  description:
+    "Edits an open deadline. A deadline that has been satisfied, vacated, or superseded is not " +
+    "edited: record a new one that supersedes it, so both stay on the record.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: deadlineIdParam,
+    body: { content: { "application/json": { schema: UpdateDeadlineRequest } }, required: true },
+  },
+  responses: {
+    200: {
+      description: "The deadline was updated",
+      content: { "application/json": { schema: AcknowledgedResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const satisfyDeadlineRoute = defineOpenAPIRoute(mutationMeta("satisfyDeadline", "matter"), {
+  method: "post",
+  path: "/api/v1/deadlines/{deadlineId}/satisfy",
+  description:
+    "Records that a deadline was met: who met it, when, and — where the firm recorded one — the " +
+    "filing that discharged it, which is what turns 'we did it' into 'here is the thing we did'.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: deadlineIdParam,
+    body: { content: { "application/json": { schema: SatisfyDeadlineRequest } }, required: true },
+  },
+  responses: {
+    200: {
+      description: "The deadline was satisfied",
+      content: { "application/json": { schema: AcknowledgedResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const vacateDeadlineRoute = defineOpenAPIRoute(mutationMeta("vacateDeadline", "matter"), {
+  method: "post",
+  path: "/api/v1/deadlines/{deadlineId}/vacate",
+  description:
+    "Records that a deadline is no longer in force, and why. The reason is required and the record " +
+    "is kept: 'why is this deadline gone' is the question somebody asks six months later, and the " +
+    "only bad answer is silence.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: deadlineIdParam,
+    body: { content: { "application/json": { schema: CloseDeadlineRequest } }, required: true },
+  },
+  responses: {
+    200: {
+      description: "The deadline was vacated",
+      content: { "application/json": { schema: AcknowledgedResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const supersedeDeadlineRoute = defineOpenAPIRoute(mutationMeta("supersedeDeadline", "matter"), {
+  method: "post",
+  path: "/api/v1/deadlines/{deadlineId}/supersede",
+  description:
+    "Records that a deadline has been replaced by another one, and why. Both stay on the record, and " +
+    "the replaced deadline names the one that replaced it.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: deadlineIdParam,
+    body: { content: { "application/json": { schema: CloseDeadlineRequest } }, required: true },
+  },
+  responses: {
+    200: {
+      description: "The deadline was superseded",
+      content: { "application/json": { schema: AcknowledgedResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const createEventTypeRoute = defineOpenAPIRoute(mutationMeta("createEventType", "firm"), {
+  method: "post",
+  path: "/api/v1/calendar/event-types",
+  description:
+    "Adds an event type of the firm's own. A practice with a proceeding nobody thought of is never " +
+    "blocked by the shipped vocabulary.",
+  request: {
+    headers: idempotencyKeyHeader,
+    body: { content: { "application/json": { schema: CreateEventTypeRequest } }, required: true },
+  },
+  responses: {
+    201: {
+      description: "The event type",
+      content: { "application/json": { schema: CreatedResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const updateEventTypeRoute = defineOpenAPIRoute(mutationMeta("updateEventType", "firm"), {
+  method: "patch",
+  path: "/api/v1/calendar/event-types/{eventTypeId}",
+  description:
+    "Renames or recategorizes an event type. A type that ships with the platform can be " +
+    "recategorized but not renamed or recoded — its name is the shared vocabulary, and a firm that " +
+    "wants different words adds its own type and deactivates the shipped one.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: eventTypeIdParam,
+    body: { content: { "application/json": { schema: UpdateEventTypeRequest } }, required: true },
+  },
+  responses: {
+    200: {
+      description: "The event type was updated",
+      content: { "application/json": { schema: AcknowledgedResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const deactivateEventTypeRoute = defineOpenAPIRoute(mutationMeta("deactivateEventType", "firm"), {
+  method: "post",
+  path: "/api/v1/calendar/event-types/{eventTypeId}/deactivate",
+  description:
+    "Retires an event type. Events already classified under it keep their meaning; it simply stops " +
+    "being offered for new ones.",
+  request: { headers: idempotencyKeyHeader, params: eventTypeIdParam },
+  responses: {
+    200: {
+      description: "The event type was deactivated",
+      content: { "application/json": { schema: AcknowledgedResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+// ---- handler helpers ----
+
+type CalendarApp = OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>;
+
+function serviceOptions(userId: string) {
+  return {
+    clock: { now: () => new Date().toISOString() },
+    actorUserId: userId as never,
+    randomSource: cryptoRandomSource,
+  };
+}
+
+function repeatable(value: string | string[] | undefined): string[] | undefined {
+  if (value === undefined) return undefined;
+  return Array.isArray(value) ? value : [value];
+}
+
+// `direction` is a civil-date bound like any other, resolved against today so it composes into the
+// same WHERE clause the explicit window does. An explicit bound always wins — a caller that named
+// both said what it meant.
+function directionBounds(
+  direction: (typeof TIMELINE_DIRECTIONS)[number] | undefined,
+  from: string | undefined,
+  to: string | undefined,
+  today: string,
+): { fromDate: string | undefined; toDate: string | undefined } {
+  if (direction === "past") return { fromDate: from, toDate: to ?? today };
+  if (direction === "future") return { fromDate: from ?? today, toDate: to };
+  return { fromDate: from, toDate: to };
+}
+
+function eventDetail(row: MatterEventRow): z.infer<typeof EventDetail> {
+  return {
+    id: row.id,
+    matterId: row.matter_id,
+    eventTypeId: row.event_type_id,
+    title: row.title,
+    description: row.description,
+    status: row.status,
+    startsOn: row.starts_on,
+    startsAtTime: row.starts_at_time,
+    endsOn: row.ends_on,
+    endsAtTime: row.ends_at_time,
+    timeZone: row.time_zone,
+    locationText: row.location_text,
+    courtReference: row.court_reference,
+    recordedAt: row.recorded_at,
+    recordedBy: row.recorded_by,
+  };
+}
+
+function deadlineDetail(row: MatterDeadlineRow, now: string): z.infer<typeof DeadlineDetail> {
+  return {
+    id: row.id,
+    matterId: row.matter_id,
+    title: row.title,
+    dueOn: row.due_on,
+    dueAtTime: row.due_at_time,
+    timeZone: row.time_zone,
+    source: row.source,
+    authorityText: row.authority_text,
+    triggerEventId: row.trigger_event_id,
+    state: row.state,
+    satisfiedAt: row.satisfied_at,
+    satisfiedBy: row.satisfied_by,
+    satisfyingEventId: row.satisfying_event_id,
+    stateReason: row.state_reason,
+    priority: row.priority,
+    // Worked out here, from the row as it stands, every time the page is read.
+    overdue: isOverdue(
+      {
+        dueOn: row.due_on,
+        dueAtTime: row.due_at_time,
+        timeZone: row.time_zone,
+        state: row.state,
+      },
+      now,
+    ),
+  };
+}
+
+type CalendarEffectOutcome =
+  | { ok: true; id: string; replayed: boolean }
+  | {
+      ok: false;
+      problem: ProblemResponse<404> | ProblemResponse<409> | ProblemResponse<422>;
+    };
+
+// The shared idempotent commit for a calendar mutation, mapping refusals to HTTP.
+async function commitCalendarEffect(
+  c: Context,
+  database: BatchDatabase,
+  idempotency: { key: string | undefined; fingerprint: string },
+  responseCode: number,
+  call: () => Promise<{ id: string; effect: EffectWrite }>,
+): Promise<CalendarEffectOutcome> {
+  const now = () => new Date().toISOString();
+  let result;
+  try {
+    result = await runIdempotentEffect({
+      database,
+      key: idempotency.key,
+      fingerprint: idempotency.fingerprint,
+      now,
+      effect: async () => {
+        const { id, effect } = await call();
+        return {
+          write: effect,
+          responseCode,
+          // The stored body IS the wire body: the idempotency gate replays it verbatim, so a shape
+          // that differed from what the handler returns would hand a retrying client a different
+          // payload than the original request got.
+          responseBody: canonicalJsonStringify({ id }),
+        };
+      },
+    });
+  } catch (caught) {
+    if (caught instanceof CalendarValidationError) {
+      return { ok: false, problem: calendarErrorResponse(c, caught) };
+    }
+    throw caught;
+  }
+  if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch") {
+    return { ok: false, problem: problemResponseForIdempotencyConflict(c, result) };
+  }
+  const body = JSON.parse(result.responseBody ?? "{}") as { id: string };
+  return { ok: true, id: body.id, replayed: result.kind === "replayed" };
+}
+
+const DEFAULT_PAGE = 50;
+
+async function readEventsPage(
+  database: SqlDatabase,
+  matterId: MatterId,
+  cursor: string | undefined,
+): Promise<{ data: z.infer<typeof EventDetail>[]; nextCursor: string | null }> {
+  const decoded = decodeTimelineCursor(cursor);
+  const { results } = await selectMatterEventsStatement(database, matterId, {
+    cursor: decoded === undefined ? undefined : { sortKey: decoded.sortKey, id: decoded.id },
+    limit: DEFAULT_PAGE + 1,
+  }).all<MatterEventRow>();
+  const hasMore = results.length > DEFAULT_PAGE;
+  const rows = hasMore ? results.slice(0, DEFAULT_PAGE) : results;
+  const last = rows.at(-1);
+  return {
+    data: rows.map(eventDetail),
+    nextCursor:
+      hasMore && last !== undefined
+        ? btoa(JSON.stringify({ c: last.starts_on, i: last.id }))
+        : null,
+  };
+}
+
+// ---- registration ----
+
+export function registerCalendarRoutes(app: CalendarApp, chokepoint: Chokepoint): void {
+  // GET /api/v1/matters/{matterId}/timeline
+  app.openapi(
+    { ...timelineRoute, middleware: chokepointMiddleware(chokepoint, timelineRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { matterId } = c.req.valid("param");
+      const query = c.req.valid("query");
+      const bounds = directionBounds(
+        query.direction,
+        query.from,
+        query.to,
+        new Date().toISOString().slice(0, 10),
+      );
+      try {
+        const page = await readTimelinePage({
+          database: firm.firmDatabase,
+          registry: timelineSourceRegistry(),
+          visibility: visibleMatterPredicate(),
+          scope: { matterId, fromDate: bounds.fromDate, toDate: bounds.toDate },
+          sourceKeys: repeatable(query.kind),
+          cursor: decodeTimelineCursor(query.cursor),
+          pageSize: DEFAULT_PAGE,
+        });
+        return c.json({ data: [...page.entries], nextCursor: page.nextCursor }, 200);
+      } catch (caught) {
+        if (caught instanceof CalendarValidationError) return calendarReadErrorResponse(c, caught);
+        throw caught;
+      }
+    },
+  );
+
+  // GET /api/v1/matters/{matterId}/events
+  app.openapi(
+    { ...listEventsRoute, middleware: chokepointMiddleware(chokepoint, listEventsRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { matterId } = c.req.valid("param");
+      const { cursor } = c.req.valid("query");
+      const page = await readEventsPage(firm.firmDatabase, matterId, cursor);
+      return c.json(page, 200);
+    },
+  );
+
+  // GET /api/v1/events/{eventId}
+  app.openapi(
+    { ...getEventRoute, middleware: chokepointMiddleware(chokepoint, getEventRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { eventId } = c.req.valid("param");
+      const event = await readMatterEvent(firm.firmDatabase, eventId as MatterEventId);
+      if (event === undefined) {
+        return problemJson(c, {
+          type: "not-found",
+          title: "Not found",
+          status: 404,
+          detail: "No such event in this firm.",
+        });
+      }
+      const participants = await readMatterEventParticipants(
+        firm.firmDatabase,
+        eventId as MatterEventId,
+      );
+      return c.json(
+        {
+          event: eventDetail(event),
+          participants: participants.map((row) => ({
+            id: row.id,
+            participantKind: row.participant_kind,
+            memberUserId: row.member_user_id,
+            entityId: row.entity_id,
+            participantName: row.participant_name,
+            role: row.role,
+          })),
+        },
+        200,
+      );
+    },
+  );
+
+  // GET /api/v1/calendar/events
+  app.openapi(
+    { ...firmCalendarRoute, middleware: chokepointMiddleware(chokepoint, firmCalendarRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const query = c.req.valid("query");
+      try {
+        // Refused before a single statement is built. A window this wide is a request the platform
+        // will not serve, not one it quietly narrows.
+        assertCalendarWindow(query.from, query.to);
+        const page = await readTimelinePage({
+          database: firm.firmDatabase,
+          registry: timelineSourceRegistry(),
+          visibility: visibleMatterPredicate(),
+          scope: {
+            matterId: query.matterId,
+            fromDate: query.from,
+            toDate: query.to,
+            memberUserId: query.memberId,
+          },
+          sourceKeys: repeatable(query.kind),
+          cursor: decodeTimelineCursor(query.cursor),
+          pageSize: DEFAULT_PAGE,
+        });
+        return c.json({ data: [...page.entries], nextCursor: page.nextCursor }, 200);
+      } catch (caught) {
+        if (caught instanceof CalendarValidationError) return calendarReadErrorResponse(c, caught);
+        throw caught;
+      }
+    },
+  );
+
+  // GET /api/v1/calendar/deadlines
+  app.openapi(
+    { ...deadlinesRoute, middleware: chokepointMiddleware(chokepoint, deadlinesRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const query = c.req.valid("query");
+      const now = new Date().toISOString();
+      const today = now.slice(0, 10);
+      try {
+        if (query.from !== undefined && query.through !== undefined) {
+          assertDeadlineHorizon(query.from, query.through);
+        }
+        const visibility = visibleMatterPredicate();
+        const decoded = decodeTimelineCursor(query.cursor);
+        const overdueOnly = query.overdue === "true";
+        const { results } = await selectMatterDeadlinesStatement(firm.firmDatabase, {
+          matterId: query.matterId,
+          // The overdue narrowing composes both halves into SQL: only an OPEN deadline can be
+          // overdue, and only one due today or earlier can be. The exact answer for a given row
+          // depends on its own zone and rides on the row.
+          state: overdueOnly ? "open" : query.state,
+          fromDate: query.from,
+          throughDate: overdueOnly ? today : query.through,
+          cursor: decoded === undefined ? undefined : { sortKey: decoded.sortKey, id: decoded.id },
+          limit: DEFAULT_PAGE + 1,
+          visibilityFragment: visibility.fragmentFor("matter_deadline.matter_id"),
+          visibilityBindings: visibility.bindings,
+        }).all<MatterDeadlineRow>();
+        const hasMore = results.length > DEFAULT_PAGE;
+        const rows = hasMore ? results.slice(0, DEFAULT_PAGE) : results;
+        const last = rows.at(-1);
+        return c.json(
+          {
+            data: rows.map((row) => deadlineDetail(row, now)),
+            nextCursor:
+              hasMore && last !== undefined
+                ? btoa(JSON.stringify({ c: last.due_on, i: last.id }))
+                : null,
+          },
+          200,
+        );
+      } catch (caught) {
+        if (caught instanceof CalendarValidationError) return calendarReadErrorResponse(c, caught);
+        throw caught;
+      }
+    },
+  );
+
+  // GET /api/v1/calendar/event-types
+  app.openapi(
+    { ...listEventTypesRoute, middleware: chokepointMiddleware(chokepoint, listEventTypesRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { includeInactive } = c.req.valid("query");
+      const rows = await readMatterEventTypes(firm.firmDatabase, includeInactive === "true");
+      return c.json(
+        {
+          data: rows.map((row) => ({
+            id: row.id,
+            name: row.name,
+            code: row.code,
+            category: row.category,
+            origin: row.origin,
+            active: row.active === 1,
+          })),
+        },
+        200,
+      );
+    },
+  );
+
+  // POST /api/v1/matters/{matterId}/events
+  app.openapi(
+    { ...createEventRoute, middleware: chokepointMiddleware(chokepoint, createEventRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { matterId } = c.req.valid("param");
+      const request = c.req.valid("json");
+      const outcome = await commitCalendarEffect(c, firm.firmDatabase, idempotency, 201, () => {
+        const created = createMatterEvent(
+          firm.firmDatabase,
+          { ...request, matterId, participants: request.participants },
+          serviceOptions(userId),
+        );
+        return Promise.resolve({ id: created.eventId, effect: created.effect });
+      });
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ id: outcome.id }, 201);
+    },
+  );
+
+  // PATCH /api/v1/events/{eventId}
+  app.openapi(
+    { ...updateEventRoute, middleware: chokepointMiddleware(chokepoint, updateEventRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { eventId } = c.req.valid("param");
+      const request = c.req.valid("json");
+      const outcome = await commitCalendarEffect(
+        c,
+        firm.firmDatabase,
+        idempotency,
+        200,
+        async () => {
+          const { effect } = await updateMatterEvent(
+            firm.firmDatabase,
+            eventId as MatterEventId,
+            request,
+            serviceOptions(userId),
+          );
+          return { id: eventId, effect };
+        },
+      );
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ ok: true } as const, 200);
+    },
+  );
+
+  // POST /api/v1/events/{eventId}/cancel
+  app.openapi(
+    { ...cancelEventRoute, middleware: chokepointMiddleware(chokepoint, cancelEventRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { eventId } = c.req.valid("param");
+      const outcome = await commitCalendarEffect(
+        c,
+        firm.firmDatabase,
+        idempotency,
+        200,
+        async () => {
+          const { effect } = await cancelMatterEvent(
+            firm.firmDatabase,
+            eventId as MatterEventId,
+            serviceOptions(userId),
+          );
+          return { id: eventId, effect };
+        },
+      );
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ ok: true } as const, 200);
+    },
+  );
+
+  // POST /api/v1/matters/{matterId}/deadlines
+  app.openapi(
+    { ...createDeadlineRoute, middleware: chokepointMiddleware(chokepoint, createDeadlineRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { matterId } = c.req.valid("param");
+      const request = c.req.valid("json");
+      const outcome = await commitCalendarEffect(
+        c,
+        firm.firmDatabase,
+        idempotency,
+        201,
+        async () => {
+          const created = await createMatterDeadline(
+            firm.firmDatabase,
+            { ...request, matterId },
+            serviceOptions(userId),
+          );
+          return { id: created.deadlineId, effect: created.effect };
+        },
+      );
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ id: outcome.id }, 201);
+    },
+  );
+
+  // PATCH /api/v1/deadlines/{deadlineId}
+  app.openapi(
+    { ...updateDeadlineRoute, middleware: chokepointMiddleware(chokepoint, updateDeadlineRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { deadlineId } = c.req.valid("param");
+      const request = c.req.valid("json");
+      const outcome = await commitCalendarEffect(
+        c,
+        firm.firmDatabase,
+        idempotency,
+        200,
+        async () => {
+          const { effect } = await updateMatterDeadline(
+            firm.firmDatabase,
+            deadlineId as MatterDeadlineId,
+            request,
+            serviceOptions(userId),
+          );
+          return { id: deadlineId, effect };
+        },
+      );
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ ok: true } as const, 200);
+    },
+  );
+
+  // POST /api/v1/deadlines/{deadlineId}/satisfy
+  app.openapi(
+    { ...satisfyDeadlineRoute, middleware: chokepointMiddleware(chokepoint, satisfyDeadlineRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { deadlineId } = c.req.valid("param");
+      const request = c.req.valid("json");
+      const outcome = await commitCalendarEffect(
+        c,
+        firm.firmDatabase,
+        idempotency,
+        200,
+        async () => {
+          const { effect } = await satisfyMatterDeadline(
+            firm.firmDatabase,
+            deadlineId as MatterDeadlineId,
+            {
+              // The acting member, never a value the caller supplies: who met a deadline is a fact
+              // about the session, not a field in a request body.
+              satisfiedBy: userId as never,
+              satisfyingEventId: request.satisfyingEventId,
+              satisfactionNote: request.satisfactionNote,
+            },
+            serviceOptions(userId),
+          );
+          return { id: deadlineId, effect };
+        },
+      );
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ ok: true } as const, 200);
+    },
+  );
+
+  // POST /api/v1/deadlines/{deadlineId}/vacate
+  app.openapi(
+    { ...vacateDeadlineRoute, middleware: chokepointMiddleware(chokepoint, vacateDeadlineRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { deadlineId } = c.req.valid("param");
+      const request = c.req.valid("json");
+      const outcome = await commitCalendarEffect(
+        c,
+        firm.firmDatabase,
+        idempotency,
+        200,
+        async () => {
+          const { effect } = await closeMatterDeadline(
+            firm.firmDatabase,
+            deadlineId as MatterDeadlineId,
+            "vacated",
+            { stateReason: request.stateReason },
+            serviceOptions(userId),
+          );
+          return { id: deadlineId, effect };
+        },
+      );
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ ok: true } as const, 200);
+    },
+  );
+
+  // POST /api/v1/deadlines/{deadlineId}/supersede
+  app.openapi(
+    {
+      ...supersedeDeadlineRoute,
+      middleware: chokepointMiddleware(chokepoint, supersedeDeadlineRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { deadlineId } = c.req.valid("param");
+      const request = c.req.valid("json");
+      const outcome = await commitCalendarEffect(
+        c,
+        firm.firmDatabase,
+        idempotency,
+        200,
+        async () => {
+          const { effect } = await closeMatterDeadline(
+            firm.firmDatabase,
+            deadlineId as MatterDeadlineId,
+            "superseded",
+            {
+              stateReason: request.stateReason,
+              supersededByDeadlineId: request.supersededByDeadlineId,
+            },
+            serviceOptions(userId),
+          );
+          return { id: deadlineId, effect };
+        },
+      );
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ ok: true } as const, 200);
+    },
+  );
+
+  // POST /api/v1/calendar/event-types
+  app.openapi(
+    { ...createEventTypeRoute, middleware: chokepointMiddleware(chokepoint, createEventTypeRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const request = c.req.valid("json");
+      const outcome = await commitCalendarEffect(
+        c,
+        firm.firmDatabase,
+        idempotency,
+        201,
+        async () => {
+          const created = await createMatterEventType(
+            firm.firmDatabase,
+            request,
+            serviceOptions(userId),
+          );
+          return { id: created.eventTypeId, effect: created.effect };
+        },
+      );
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ id: outcome.id }, 201);
+    },
+  );
+
+  // PATCH /api/v1/calendar/event-types/{eventTypeId}
+  app.openapi(
+    { ...updateEventTypeRoute, middleware: chokepointMiddleware(chokepoint, updateEventTypeRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { eventTypeId } = c.req.valid("param");
+      const request = c.req.valid("json");
+      const outcome = await commitCalendarEffect(
+        c,
+        firm.firmDatabase,
+        idempotency,
+        200,
+        async () => {
+          const { effect } = await updateMatterEventType(
+            firm.firmDatabase,
+            eventTypeId,
+            request,
+            serviceOptions(userId),
+          );
+          return { id: eventTypeId, effect };
+        },
+      );
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ ok: true } as const, 200);
+    },
+  );
+
+  // POST /api/v1/calendar/event-types/{eventTypeId}/deactivate
+  app.openapi(
+    {
+      ...deactivateEventTypeRoute,
+      middleware: chokepointMiddleware(chokepoint, deactivateEventTypeRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { eventTypeId } = c.req.valid("param");
+      const outcome = await commitCalendarEffect(
+        c,
+        firm.firmDatabase,
+        idempotency,
+        200,
+        async () => {
+          const { effect } = await deactivateMatterEventType(
+            firm.firmDatabase,
+            eventTypeId,
+            serviceOptions(userId),
+          );
+          return { id: eventTypeId, effect };
+        },
+      );
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ ok: true } as const, 200);
+    },
+  );
+}

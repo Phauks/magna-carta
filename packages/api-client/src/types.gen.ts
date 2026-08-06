@@ -721,6 +721,7 @@ export type LocationAck = {
 export type LocationRequest = {
     name: string;
     jurisdiction?: string | null;
+    timeZone?: string | null;
     numberCode?: string | null;
     addressBlock?: string | null;
     footer?: string | null;
@@ -744,6 +745,7 @@ export type LocationDetail = {
     name: string;
     status: 'active' | 'closed';
     jurisdiction: string | null;
+    timeZone: string | null;
     numberCode: string | null;
     addressBlock: string | null;
     footer: string | null;
@@ -763,6 +765,7 @@ export type LetterheadLogo = {
 export type PatchLocationRequest = {
     name?: string;
     jurisdiction?: string | null;
+    timeZone?: string | null;
     numberCode?: string | null;
     addressBlock?: string | null;
     footer?: string | null;
@@ -1270,6 +1273,190 @@ export type CreatedConflictsDispositionResponse = {
 export type RecordConflictsDispositionRequest = {
     kind: 'cleared' | 'waiver_obtained' | 'wall_erected' | 'representation_declined';
     rationale: string;
+};
+
+export type TimelineEntryPage = {
+    data: Array<TimelineEntry>;
+    nextCursor: string | null;
+};
+
+export type TimelineEntry = {
+    sourceKey: string;
+    kind: string;
+    sortKey: string;
+    rowId: string;
+    matterId: string | null;
+    actorUserId: string | null;
+    label: string | null;
+    link: string;
+};
+
+export type MatterEventPage = {
+    data: Array<MatterEventDetail>;
+    nextCursor: string | null;
+};
+
+export type MatterEventDetail = {
+    id: string;
+    matterId: string;
+    eventTypeId: string | null;
+    title: string;
+    description: string | null;
+    status: 'scheduled' | 'occurred' | 'cancelled';
+    startsOn: string;
+    startsAtTime: string | null;
+    endsOn: string | null;
+    endsAtTime: string | null;
+    timeZone: string;
+    locationText: string | null;
+    courtReference: string | null;
+    recordedAt: string;
+    recordedBy: string | null;
+};
+
+export type MatterEventWithParticipants = {
+    event: MatterEventDetail;
+    participants: Array<MatterEventParticipantDetail>;
+};
+
+export type MatterEventParticipantDetail = {
+    id: string;
+    participantKind: 'member' | 'entity' | 'external';
+    memberUserId: string | null;
+    entityId: string | null;
+    participantName: string | null;
+    role: string | null;
+};
+
+export type FirmCalendarPage = {
+    data: Array<TimelineEntry>;
+    nextCursor: string | null;
+};
+
+export type MatterDeadlinePage = {
+    data: Array<MatterDeadlineDetail>;
+    nextCursor: string | null;
+};
+
+export type MatterDeadlineDetail = {
+    id: string;
+    matterId: string;
+    title: string;
+    dueOn: string;
+    dueAtTime: string | null;
+    timeZone: string;
+    source: string;
+    authorityText: string | null;
+    triggerEventId: string | null;
+    state: 'open' | 'satisfied' | 'vacated' | 'superseded';
+    satisfiedAt: string | null;
+    satisfiedBy: string | null;
+    satisfyingEventId: string | null;
+    stateReason: string | null;
+    priority: number | null;
+    overdue: boolean;
+};
+
+export type MatterEventTypeList = {
+    data: Array<MatterEventTypeDetail>;
+};
+
+export type MatterEventTypeDetail = {
+    id: string;
+    name: string;
+    code: string | null;
+    category: 'litigation' | 'transaction' | 'firm' | 'other';
+    origin: 'platform' | 'firm';
+    active: boolean;
+};
+
+export type CalendarCreatedResponse = {
+    id: string;
+};
+
+export type CreateMatterEventRequest = {
+    eventTypeId?: string | null;
+    title: string;
+    description?: string | null;
+    status?: 'scheduled' | 'occurred' | 'cancelled';
+    startsOn: string;
+    startsAtTime?: string | null;
+    endsOn?: string | null;
+    endsAtTime?: string | null;
+    timeZone: string;
+    locationText?: string | null;
+    courtReference?: string | null;
+    participants?: Array<MatterEventParticipantInput>;
+};
+
+export type MatterEventParticipantInput = {
+    participantKind: 'member' | 'entity' | 'external';
+    memberUserId?: string | null;
+    entityId?: string | null;
+    participantName?: string | null;
+    role?: string | null;
+};
+
+export type CalendarAckResponse = {
+    ok: true;
+};
+
+export type UpdateMatterEventRequest = {
+    eventTypeId?: string | null;
+    title?: string;
+    description?: string | null;
+    status?: 'scheduled' | 'occurred' | 'cancelled';
+    startsOn?: string;
+    startsAtTime?: string | null;
+    endsOn?: string | null;
+    endsAtTime?: string | null;
+    timeZone?: string;
+    locationText?: string | null;
+    courtReference?: string | null;
+    participants?: Array<MatterEventParticipantInput>;
+};
+
+export type CreateMatterDeadlineRequest = {
+    title: string;
+    dueOn: string;
+    dueAtTime?: string | null;
+    timeZone: string;
+    source?: 'member' | 'court_order';
+    authorityText?: string | null;
+    triggerEventId?: string | null;
+    priority?: number | null;
+};
+
+export type UpdateMatterDeadlineRequest = {
+    title?: string;
+    dueOn?: string;
+    dueAtTime?: string | null;
+    timeZone?: string;
+    authorityText?: string | null;
+    triggerEventId?: string | null;
+    priority?: number | null;
+};
+
+export type SatisfyMatterDeadlineRequest = {
+    satisfyingEventId?: string | null;
+    satisfactionNote?: string | null;
+};
+
+export type CloseMatterDeadlineRequest = {
+    stateReason: string;
+    supersededByDeadlineId?: string | null;
+};
+
+export type CreateMatterEventTypeRequest = {
+    name: string;
+    code?: string | null;
+    category?: 'litigation' | 'transaction' | 'firm' | 'other';
+};
+
+export type UpdateMatterEventTypeRequest = {
+    name?: string;
+    code?: string | null;
+    category?: 'litigation' | 'transaction' | 'firm' | 'other';
 };
 
 export type CustodyLocation = {
@@ -8790,6 +8977,862 @@ export type ConflictsRecordDispositionResponses = {
 };
 
 export type ConflictsRecordDispositionResponse = ConflictsRecordDispositionResponses[keyof ConflictsRecordDispositionResponses];
+
+export type CalendarMatterTimelineData = {
+    body?: never;
+    path: {
+        matterId: string;
+    };
+    query?: {
+        cursor?: string;
+        kind?: string | Array<string>;
+        from?: string;
+        to?: string;
+        direction?: 'past' | 'future' | 'all';
+    };
+    url: '/api/v1/matters/{matterId}/timeline';
+};
+
+export type CalendarMatterTimelineErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarMatterTimelineError = CalendarMatterTimelineErrors[keyof CalendarMatterTimelineErrors];
+
+export type CalendarMatterTimelineResponses = {
+    /**
+     * One page of the timeline
+     */
+    200: TimelineEntryPage;
+};
+
+export type CalendarMatterTimelineResponse = CalendarMatterTimelineResponses[keyof CalendarMatterTimelineResponses];
+
+export type CalendarListEventsData = {
+    body?: never;
+    path: {
+        matterId: string;
+    };
+    query?: {
+        cursor?: string;
+    };
+    url: '/api/v1/matters/{matterId}/events';
+};
+
+export type CalendarListEventsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarListEventsError = CalendarListEventsErrors[keyof CalendarListEventsErrors];
+
+export type CalendarListEventsResponses = {
+    /**
+     * One page of recorded events
+     */
+    200: MatterEventPage;
+};
+
+export type CalendarListEventsResponse = CalendarListEventsResponses[keyof CalendarListEventsResponses];
+
+export type CalendarCreateEventData = {
+    body: CreateMatterEventRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        matterId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/events';
+};
+
+export type CalendarCreateEventErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is settled
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarCreateEventError = CalendarCreateEventErrors[keyof CalendarCreateEventErrors];
+
+export type CalendarCreateEventResponses = {
+    /**
+     * The recorded event
+     */
+    201: CalendarCreatedResponse;
+};
+
+export type CalendarCreateEventResponse = CalendarCreateEventResponses[keyof CalendarCreateEventResponses];
+
+export type CalendarGetEventData = {
+    body?: never;
+    path: {
+        eventId: string;
+    };
+    query?: never;
+    url: '/api/v1/events/{eventId}';
+};
+
+export type CalendarGetEventErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarGetEventError = CalendarGetEventErrors[keyof CalendarGetEventErrors];
+
+export type CalendarGetEventResponses = {
+    /**
+     * The event and its participants
+     */
+    200: MatterEventWithParticipants;
+};
+
+export type CalendarGetEventResponse = CalendarGetEventResponses[keyof CalendarGetEventResponses];
+
+export type CalendarUpdateEventData = {
+    body: UpdateMatterEventRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        eventId: string;
+    };
+    query?: never;
+    url: '/api/v1/events/{eventId}';
+};
+
+export type CalendarUpdateEventErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is settled
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarUpdateEventError = CalendarUpdateEventErrors[keyof CalendarUpdateEventErrors];
+
+export type CalendarUpdateEventResponses = {
+    /**
+     * The event was updated
+     */
+    200: CalendarAckResponse;
+};
+
+export type CalendarUpdateEventResponse = CalendarUpdateEventResponses[keyof CalendarUpdateEventResponses];
+
+export type CalendarFirmCalendarData = {
+    body?: never;
+    path?: never;
+    query: {
+        cursor?: string;
+        from: string;
+        to: string;
+        matterId?: string;
+        memberId?: string;
+        kind?: string | Array<string>;
+    };
+    url: '/api/v1/calendar/events';
+};
+
+export type CalendarFirmCalendarErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarFirmCalendarError = CalendarFirmCalendarErrors[keyof CalendarFirmCalendarErrors];
+
+export type CalendarFirmCalendarResponses = {
+    /**
+     * One page of the firm calendar
+     */
+    200: FirmCalendarPage;
+};
+
+export type CalendarFirmCalendarResponse = CalendarFirmCalendarResponses[keyof CalendarFirmCalendarResponses];
+
+export type CalendarListDeadlinesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        cursor?: string;
+        matterId?: string;
+        state?: 'open' | 'satisfied' | 'vacated' | 'superseded';
+        from?: string;
+        through?: string;
+        overdue?: 'true' | 'false';
+    };
+    url: '/api/v1/calendar/deadlines';
+};
+
+export type CalendarListDeadlinesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarListDeadlinesError = CalendarListDeadlinesErrors[keyof CalendarListDeadlinesErrors];
+
+export type CalendarListDeadlinesResponses = {
+    /**
+     * One page of deadlines
+     */
+    200: MatterDeadlinePage;
+};
+
+export type CalendarListDeadlinesResponse = CalendarListDeadlinesResponses[keyof CalendarListDeadlinesResponses];
+
+export type CalendarListEventTypesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        includeInactive?: 'true' | 'false';
+    };
+    url: '/api/v1/calendar/event-types';
+};
+
+export type CalendarListEventTypesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarListEventTypesError = CalendarListEventTypesErrors[keyof CalendarListEventTypesErrors];
+
+export type CalendarListEventTypesResponses = {
+    /**
+     * The catalog
+     */
+    200: MatterEventTypeList;
+};
+
+export type CalendarListEventTypesResponse = CalendarListEventTypesResponses[keyof CalendarListEventTypesResponses];
+
+export type CalendarCreateEventTypeData = {
+    body: CreateMatterEventTypeRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/calendar/event-types';
+};
+
+export type CalendarCreateEventTypeErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is settled
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarCreateEventTypeError = CalendarCreateEventTypeErrors[keyof CalendarCreateEventTypeErrors];
+
+export type CalendarCreateEventTypeResponses = {
+    /**
+     * The event type
+     */
+    201: CalendarCreatedResponse;
+};
+
+export type CalendarCreateEventTypeResponse = CalendarCreateEventTypeResponses[keyof CalendarCreateEventTypeResponses];
+
+export type CalendarCancelEventData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        eventId: string;
+    };
+    query?: never;
+    url: '/api/v1/events/{eventId}/cancel';
+};
+
+export type CalendarCancelEventErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is settled
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarCancelEventError = CalendarCancelEventErrors[keyof CalendarCancelEventErrors];
+
+export type CalendarCancelEventResponses = {
+    /**
+     * The event was cancelled
+     */
+    200: CalendarAckResponse;
+};
+
+export type CalendarCancelEventResponse = CalendarCancelEventResponses[keyof CalendarCancelEventResponses];
+
+export type CalendarCreateDeadlineData = {
+    body: CreateMatterDeadlineRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        matterId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/deadlines';
+};
+
+export type CalendarCreateDeadlineErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is settled
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarCreateDeadlineError = CalendarCreateDeadlineErrors[keyof CalendarCreateDeadlineErrors];
+
+export type CalendarCreateDeadlineResponses = {
+    /**
+     * The recorded deadline
+     */
+    201: CalendarCreatedResponse;
+};
+
+export type CalendarCreateDeadlineResponse = CalendarCreateDeadlineResponses[keyof CalendarCreateDeadlineResponses];
+
+export type CalendarUpdateDeadlineData = {
+    body: UpdateMatterDeadlineRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        deadlineId: string;
+    };
+    query?: never;
+    url: '/api/v1/deadlines/{deadlineId}';
+};
+
+export type CalendarUpdateDeadlineErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is settled
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarUpdateDeadlineError = CalendarUpdateDeadlineErrors[keyof CalendarUpdateDeadlineErrors];
+
+export type CalendarUpdateDeadlineResponses = {
+    /**
+     * The deadline was updated
+     */
+    200: CalendarAckResponse;
+};
+
+export type CalendarUpdateDeadlineResponse = CalendarUpdateDeadlineResponses[keyof CalendarUpdateDeadlineResponses];
+
+export type CalendarSatisfyDeadlineData = {
+    body: SatisfyMatterDeadlineRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        deadlineId: string;
+    };
+    query?: never;
+    url: '/api/v1/deadlines/{deadlineId}/satisfy';
+};
+
+export type CalendarSatisfyDeadlineErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is settled
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarSatisfyDeadlineError = CalendarSatisfyDeadlineErrors[keyof CalendarSatisfyDeadlineErrors];
+
+export type CalendarSatisfyDeadlineResponses = {
+    /**
+     * The deadline was satisfied
+     */
+    200: CalendarAckResponse;
+};
+
+export type CalendarSatisfyDeadlineResponse = CalendarSatisfyDeadlineResponses[keyof CalendarSatisfyDeadlineResponses];
+
+export type CalendarVacateDeadlineData = {
+    body: CloseMatterDeadlineRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        deadlineId: string;
+    };
+    query?: never;
+    url: '/api/v1/deadlines/{deadlineId}/vacate';
+};
+
+export type CalendarVacateDeadlineErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is settled
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarVacateDeadlineError = CalendarVacateDeadlineErrors[keyof CalendarVacateDeadlineErrors];
+
+export type CalendarVacateDeadlineResponses = {
+    /**
+     * The deadline was vacated
+     */
+    200: CalendarAckResponse;
+};
+
+export type CalendarVacateDeadlineResponse = CalendarVacateDeadlineResponses[keyof CalendarVacateDeadlineResponses];
+
+export type CalendarSupersedeDeadlineData = {
+    body: CloseMatterDeadlineRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        deadlineId: string;
+    };
+    query?: never;
+    url: '/api/v1/deadlines/{deadlineId}/supersede';
+};
+
+export type CalendarSupersedeDeadlineErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is settled
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarSupersedeDeadlineError = CalendarSupersedeDeadlineErrors[keyof CalendarSupersedeDeadlineErrors];
+
+export type CalendarSupersedeDeadlineResponses = {
+    /**
+     * The deadline was superseded
+     */
+    200: CalendarAckResponse;
+};
+
+export type CalendarSupersedeDeadlineResponse = CalendarSupersedeDeadlineResponses[keyof CalendarSupersedeDeadlineResponses];
+
+export type CalendarUpdateEventTypeData = {
+    body: UpdateMatterEventTypeRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        eventTypeId: string;
+    };
+    query?: never;
+    url: '/api/v1/calendar/event-types/{eventTypeId}';
+};
+
+export type CalendarUpdateEventTypeErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is settled
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarUpdateEventTypeError = CalendarUpdateEventTypeErrors[keyof CalendarUpdateEventTypeErrors];
+
+export type CalendarUpdateEventTypeResponses = {
+    /**
+     * The event type was updated
+     */
+    200: CalendarAckResponse;
+};
+
+export type CalendarUpdateEventTypeResponse = CalendarUpdateEventTypeResponses[keyof CalendarUpdateEventTypeResponses];
+
+export type CalendarDeactivateEventTypeData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        eventTypeId: string;
+    };
+    query?: never;
+    url: '/api/v1/calendar/event-types/{eventTypeId}/deactivate';
+};
+
+export type CalendarDeactivateEventTypeErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is settled
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarDeactivateEventTypeError = CalendarDeactivateEventTypeErrors[keyof CalendarDeactivateEventTypeErrors];
+
+export type CalendarDeactivateEventTypeResponses = {
+    /**
+     * The event type was deactivated
+     */
+    200: CalendarAckResponse;
+};
+
+export type CalendarDeactivateEventTypeResponse = CalendarDeactivateEventTypeResponses[keyof CalendarDeactivateEventTypeResponses];
 
 export type CustodyListLocationsData = {
     body?: never;

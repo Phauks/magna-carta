@@ -94,6 +94,10 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         // practitioner set; turning one into evidence (billing:finalize) does not.
         "billing:draft",
         "billing:read",
+        // A paralegal docketing a hearing is the ordinary case, so this role carries both calendar
+        // keys; Billing and Read-only get calendar:read alone.
+        "calendar:manage",
+        "calendar:read",
         "conflicts:read",
         "conflicts:run",
         "costs:track",
@@ -141,6 +145,7 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "billing:apply",
         "billing:draft",
         "billing:read",
+        "calendar:read",
         "conflicts:read",
         "conflicts:run",
         "costs:approve",
@@ -166,6 +171,10 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
     );
     expect(grantsFor("Read-only").sort()).toEqual(
       [
+        // calendar:read reaches every default role, custody:read's line: "when is the hearing" is a
+        // question every seat in a firm asks, and a case timeline some seats cannot see is one that
+        // gets kept in a spreadsheet instead. Asserting when a hearing IS stays calendar:manage.
+        "calendar:read",
         "conflicts:read",
         "conflicts:run",
         "custody:read",

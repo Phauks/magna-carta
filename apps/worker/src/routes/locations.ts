@@ -41,6 +41,10 @@ const LocationRequest = z
   .object({
     name: z.string().min(1),
     jurisdiction: z.string().nullable().optional(),
+    // The office's IANA time zone (America/Los_Angeles) — never a fixed offset, which is wrong for
+    // half the year wherever daylight saving is observed. It is what a document's dates render in,
+    // and what a calendar defaults a new event to.
+    timeZone: z.string().min(1).max(120).nullable().optional(),
     numberCode: z.string().nullable().optional(),
     addressBlock: z.string().nullable().optional(),
     footer: z.string().nullable().optional(),
@@ -52,6 +56,10 @@ const PatchLocationRequest = z
   .object({
     name: z.string().min(1).optional(),
     jurisdiction: z.string().nullable().optional(),
+    // The office's IANA time zone (America/Los_Angeles) — never a fixed offset, which is wrong for
+    // half the year wherever daylight saving is observed. It is what a document's dates render in,
+    // and what a calendar defaults a new event to.
+    timeZone: z.string().min(1).max(120).nullable().optional(),
     numberCode: z.string().nullable().optional(),
     addressBlock: z.string().nullable().optional(),
     footer: z.string().nullable().optional(),
@@ -124,6 +132,7 @@ const LocationDetail = z
     name: z.string(),
     status: z.enum(["active", "closed"]),
     jurisdiction: z.string().nullable(),
+    timeZone: z.string().nullable(),
     numberCode: z.string().nullable(),
     addressBlock: z.string().nullable(),
     footer: z.string().nullable(),
@@ -591,6 +600,7 @@ export function registerLocationsRoutes(app: LocationsApp, chokepoint: Chokepoin
               {
                 name: request.name,
                 jurisdiction: request.jurisdiction ?? null,
+                timeZone: request.timeZone ?? null,
                 numberCode: request.numberCode ?? null,
                 addressBlock: request.addressBlock ?? null,
                 footer: request.footer ?? null,
@@ -660,7 +670,7 @@ export function registerLocationsRoutes(app: LocationsApp, chokepoint: Chokepoin
       const { id } = c.req.valid("param");
       const { results } = await firm.firmDatabase
         .prepare(
-          "SELECT id, name, status, jurisdiction, number_code, address_block, footer, remit_to, letterhead_logo_content_type, letterhead_logo_size_bytes, letterhead_logo_width_pixels, letterhead_logo_height_pixels, letterhead_logo_width_emu, letterhead_logo_updated_at FROM location WHERE id = ?1",
+          "SELECT id, name, status, jurisdiction, time_zone, number_code, address_block, footer, remit_to, letterhead_logo_content_type, letterhead_logo_size_bytes, letterhead_logo_width_pixels, letterhead_logo_height_pixels, letterhead_logo_width_emu, letterhead_logo_updated_at FROM location WHERE id = ?1",
         )
         .bind(id)
         .all<{
@@ -668,6 +678,7 @@ export function registerLocationsRoutes(app: LocationsApp, chokepoint: Chokepoin
           name: string;
           status: "active" | "closed";
           jurisdiction: string | null;
+          time_zone: string | null;
           number_code: string | null;
           address_block: string | null;
           footer: string | null;
@@ -694,6 +705,7 @@ export function registerLocationsRoutes(app: LocationsApp, chokepoint: Chokepoin
           name: row.name,
           status: row.status,
           jurisdiction: row.jurisdiction,
+          timeZone: row.time_zone,
           numberCode: row.number_code,
           addressBlock: row.address_block,
           footer: row.footer,

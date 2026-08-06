@@ -47,6 +47,38 @@ export function appendCursorPredicate(
   bindings.push(cursor.createdAt, cursor.createdAt, cursor.id);
 }
 
+// The ascending counterpart, for the reads whose natural order is soonest-first rather than
+// newest-first — an upcoming-deadline list is the case that forced it, because a page of the FIRST
+// fifty deadlines is the answer and the last fifty is not. It shares the cursor encoding above
+// deliberately: the wire contract must not fork, so a cursor is the same opaque (sort key, id) pair
+// whichever direction minted it, and only the comparison flips.
+export function appendAscendingCursorPredicate(
+  conditions: string[],
+  bindings: unknown[],
+  cursor: SortCursor | undefined,
+): void {
+  if (cursor === undefined) return;
+  conditions.push("(created_at > ? OR (created_at = ? AND id > ?))");
+  bindings.push(cursor.createdAt, cursor.createdAt, cursor.id);
+}
+
+// The same predicate over a caller-named sort column, for a table whose order key is not created_at
+// (a deadline sorts by due_on, an event by starts_on). The column name is a CODE-supplied literal —
+// never request input — because it is interpolated into the SQL text; callers pass a constant.
+export function appendCursorPredicateOnColumn(
+  conditions: string[],
+  bindings: unknown[],
+  cursor: SortCursor | undefined,
+  options: { readonly sortColumn: string; readonly idColumn: string; readonly ascending: boolean },
+): void {
+  if (cursor === undefined) return;
+  const comparison = options.ascending ? ">" : "<";
+  conditions.push(
+    `(${options.sortColumn} ${comparison} ? OR (${options.sortColumn} = ? AND ${options.idColumn} ${comparison} ?))`,
+  );
+  bindings.push(cursor.createdAt, cursor.createdAt, cursor.id);
+}
+
 // A row carrying the raw sort-key columns a query selects, so the assembly can mint the next cursor.
 interface SortKeyRow {
   readonly created_at: string;

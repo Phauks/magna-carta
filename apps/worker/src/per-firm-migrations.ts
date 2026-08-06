@@ -36,6 +36,7 @@ import custodianDestructionSql from "@magna-carta/database/drizzle/per-firm/2026
 import trustReconciliationSql from "@magna-carta/database/drizzle/per-firm/20260805T200000_trust-reconciliation.sql";
 import autoFileRulesSql from "@magna-carta/database/drizzle/per-firm/20260805T220000_auto-file-rules.sql";
 import billingInvoicesSql from "@magna-carta/database/drizzle/per-firm/20260805T230000_billing-invoices.sql";
+import caseCalendarSql from "@magna-carta/database/drizzle/per-firm/20260806T000000_case-calendar.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the FirmDatabase
 // Durable Object runs this lineage against its own SQLite storage on wake (firm-database-object.ts),
@@ -82,6 +83,7 @@ export function perFirmMigrations(): Migration[] {
     "20260805T200000_trust-reconciliation": trustReconciliationSql,
     "20260805T220000_auto-file-rules": autoFileRulesSql,
     "20260805T230000_billing-invoices": billingInvoicesSql,
+    "20260806T000000_case-calendar": caseCalendarSql,
   });
 }
 
