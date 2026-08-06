@@ -20,6 +20,7 @@ import { registerAssembliesRoutes } from "./routes/assemblies.ts";
 import { registerConversionRoutes } from "./routes/conversions.ts";
 import { registerCustomFieldsRoutes } from "./routes/custom-fields.ts";
 import { registerCostsRoutes } from "./routes/costs.ts";
+import { registerBillingRoutes } from "./routes/billing.ts";
 import { registerTrustReconciliationRoutes } from "./routes/trust-reconciliation.ts";
 import { registerTrustRoutes } from "./routes/trust.ts";
 import { registerTimeEntriesRoutes } from "./routes/time-entries.ts";
@@ -566,6 +567,9 @@ export function createApp(options: CreateAppOptions = {}) {
   // reallocated between two matters of one client, plus the client ledger those movements build.
   registerTrustRoutes(app, chokepoint);
   registerTrustReconciliationRoutes(app, chokepoint);
+  // Billing — the invoice spine: draft, claim work-in-progress, review the lines, finalize (the one
+  // batch that draws the number, locks the work, and posts the receivable), and the reads over it.
+  registerBillingRoutes(app, chokepoint);
   // Time tracking — the work-in-progress entry surface, composed through the same chokepoint.
   registerTimeEntriesRoutes(app, chokepoint);
   // Timer routes: the per-timekeeper live timer (DO proxy) and the idempotent stop-commit.

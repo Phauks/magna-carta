@@ -250,6 +250,13 @@
     {
       "idx": 35,
       "version": "6",
+      "when": 1785970800000,
+      "tag": "20260805T230000_billing-invoices",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "6",
       "when": 1785974400000,
       "tag": "20260806T000000_case-calendar",
       "breakpoints": true

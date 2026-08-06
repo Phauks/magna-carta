@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "7f93e25c-fe92-41ef-8349-9e2a88702711",
+  "id": "58c4010f-5134-40c4-8677-41fde85d1252",
   "prevId": "a4ca9ee6-2b73-42a1-9706-d0c24277e851",
   "tables": {
     "account_balance": {
@@ -207,11 +207,6 @@
           "name": "audit_log_event_index",
           "columns": ["event"],
           "isUnique": false
-        },
-        "audit_log_subject_created_id_index": {
-          "name": "audit_log_subject_created_id_index",
-          "columns": ["subject_id", "created_at", "id"],
-          "isUnique": false
         }
       },
       "foreignKeys": {},
@@ -301,13 +296,7 @@
           "autoincrement": false
         }
       },
-      "indexes": {
-        "conflicts_check_subject_matter_created_id_index": {
-          "name": "conflicts_check_subject_matter_created_id_index",
-          "columns": ["subject_matter_id", "created_at", "id"],
-          "isUnique": false
-        }
-      },
+      "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
@@ -6159,6 +6148,59 @@
         }
       }
     },
+    "firm_account_role": {
+      "name": "firm_account_role",
+      "columns": {
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "ledger_account_id": {
+          "name": "ledger_account_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "firm_account_role_ledger_account_id_ledger_account_id_fk": {
+          "name": "firm_account_role_ledger_account_id_ledger_account_id_fk",
+          "tableFrom": "firm_account_role",
+          "tableTo": "ledger_account",
+          "columnsFrom": ["ledger_account_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "firm_account_role_role_check": {
+          "name": "firm_account_role_role_check",
+          "value": "\"firm_account_role\".\"role\" IN ('accounts_receivable', 'fee_income', 'client_costs_advanced', 'cost_recovery_income', 'tax_payable', 'fee_adjustments', 'fee_write_off', 'operating_bank', 'client_credit_liability')"
+        }
+      }
+    },
     "firm_secret": {
       "name": "firm_secret",
       "columns": {
@@ -6632,6 +6674,719 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
+    "invoice": {
+      "name": "invoice",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "client_entity_id": {
+          "name": "client_entity_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "currency": {
+          "name": "currency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'draft'"
+        },
+        "invoice_number": {
+          "name": "invoice_number",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "number_scope_key": {
+          "name": "number_scope_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "number_drawn_value": {
+          "name": "number_drawn_value",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "billing_period_start": {
+          "name": "billing_period_start",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "billing_period_end": {
+          "name": "billing_period_end",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "issue_date": {
+          "name": "issue_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "due_date": {
+          "name": "due_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "location_id": {
+          "name": "location_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "letterhead_address_block": {
+          "name": "letterhead_address_block",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "letterhead_footer": {
+          "name": "letterhead_footer",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "remit_to": {
+          "name": "remit_to",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "client_billing_name": {
+          "name": "client_billing_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "finalized_at": {
+          "name": "finalized_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "finalized_by": {
+          "name": "finalized_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "voided_at": {
+          "name": "voided_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "voided_by": {
+          "name": "voided_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "void_reason": {
+          "name": "void_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "invoice_client_status_index": {
+          "name": "invoice_client_status_index",
+          "columns": ["client_entity_id", "status"],
+          "isUnique": false
+        },
+        "invoice_status_due_date_index": {
+          "name": "invoice_status_due_date_index",
+          "columns": ["status", "due_date"],
+          "isUnique": false
+        },
+        "invoice_created_at_id_index": {
+          "name": "invoice_created_at_id_index",
+          "columns": ["created_at", "id"],
+          "isUnique": false
+        },
+        "invoice_number_unique_index": {
+          "name": "invoice_number_unique_index",
+          "columns": ["invoice_number"],
+          "isUnique": true,
+          "where": "\"invoice\".\"invoice_number\" IS NOT NULL"
+        }
+      },
+      "foreignKeys": {
+        "invoice_location_id_location_id_fk": {
+          "name": "invoice_location_id_location_id_fk",
+          "tableFrom": "invoice",
+          "tableTo": "location",
+          "columnsFrom": ["location_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "invoice_status_check": {
+          "name": "invoice_status_check",
+          "value": "\"invoice\".\"status\" IN ('draft', 'final', 'void')"
+        },
+        "invoice_currency_check": {
+          "name": "invoice_currency_check",
+          "value": "length(\"invoice\".\"currency\") = 3"
+        },
+        "invoice_number_paired_check": {
+          "name": "invoice_number_paired_check",
+          "value": "(\"invoice\".\"status\" = 'final') = (\"invoice\".\"invoice_number\" IS NOT NULL)"
+        },
+        "invoice_number_draw_paired_check": {
+          "name": "invoice_number_draw_paired_check",
+          "value": "(\"invoice\".\"invoice_number\" IS NULL) = (\"invoice\".\"number_drawn_value\" IS NULL) AND (\"invoice\".\"invoice_number\" IS NULL) = (\"invoice\".\"number_scope_key\" IS NULL)"
+        },
+        "invoice_finalized_paired_check": {
+          "name": "invoice_finalized_paired_check",
+          "value": "(\"invoice\".\"status\" = 'final') = (\"invoice\".\"finalized_at\" IS NOT NULL)"
+        },
+        "invoice_voided_paired_check": {
+          "name": "invoice_voided_paired_check",
+          "value": "(\"invoice\".\"status\" = 'void') = (\"invoice\".\"voided_at\" IS NOT NULL)"
+        },
+        "invoice_dates_final_check": {
+          "name": "invoice_dates_final_check",
+          "value": "\"invoice\".\"status\" <> 'final' OR (\"invoice\".\"issue_date\" IS NOT NULL AND \"invoice\".\"due_date\" IS NOT NULL)"
+        }
+      }
+    },
+    "invoice_line": {
+      "name": "invoice_line",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "invoice_id": {
+          "name": "invoice_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "line_index": {
+          "name": "line_index",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "matter_id": {
+          "name": "matter_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "quantity_e4": {
+          "name": "quantity_e4",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "rate_e4": {
+          "name": "rate_e4",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "amount_minor": {
+          "name": "amount_minor",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "currency": {
+          "name": "currency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "utbms_task_code": {
+          "name": "utbms_task_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "utbms_activity_code": {
+          "name": "utbms_activity_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "utbms_expense_code": {
+          "name": "utbms_expense_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "tax_treatment": {
+          "name": "tax_treatment",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'exempt'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "invoice_line_position_unique_index": {
+          "name": "invoice_line_position_unique_index",
+          "columns": ["invoice_id", "line_index"],
+          "isUnique": true
+        },
+        "invoice_line_matter_index": {
+          "name": "invoice_line_matter_index",
+          "columns": ["matter_id", "invoice_id"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "invoice_line_invoice_id_invoice_id_fk": {
+          "name": "invoice_line_invoice_id_invoice_id_fk",
+          "tableFrom": "invoice_line",
+          "tableTo": "invoice",
+          "columnsFrom": ["invoice_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "invoice_line_matter_id_matter_id_fk": {
+          "name": "invoice_line_matter_id_matter_id_fk",
+          "tableFrom": "invoice_line",
+          "tableTo": "matter",
+          "columnsFrom": ["matter_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "invoice_line_kind_check": {
+          "name": "invoice_line_kind_check",
+          "value": "\"invoice_line\".\"kind\" IN ('fee', 'cost', 'flat_fee', 'discount', 'adjustment', 'interest', 'tax')"
+        },
+        "invoice_line_currency_check": {
+          "name": "invoice_line_currency_check",
+          "value": "length(\"invoice_line\".\"currency\") = 3"
+        },
+        "invoice_line_description_nonempty_check": {
+          "name": "invoice_line_description_nonempty_check",
+          "value": "length(\"invoice_line\".\"description\") > 0"
+        },
+        "invoice_line_tax_treatment_check": {
+          "name": "invoice_line_tax_treatment_check",
+          "value": "\"invoice_line\".\"tax_treatment\" IN ('taxable', 'exempt')"
+        },
+        "invoice_line_index_check": {
+          "name": "invoice_line_index_check",
+          "value": "\"invoice_line\".\"line_index\" >= 0"
+        }
+      }
+    },
+    "invoice_matter_balance": {
+      "name": "invoice_matter_balance",
+      "columns": {
+        "invoice_id": {
+          "name": "invoice_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "matter_id": {
+          "name": "matter_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "total_minor": {
+          "name": "total_minor",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "applied_minor": {
+          "name": "applied_minor",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "currency": {
+          "name": "currency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "invoice_matter_balance_matter_index": {
+          "name": "invoice_matter_balance_matter_index",
+          "columns": ["matter_id"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "invoice_matter_balance_invoice_id_invoice_id_fk": {
+          "name": "invoice_matter_balance_invoice_id_invoice_id_fk",
+          "tableFrom": "invoice_matter_balance",
+          "tableTo": "invoice",
+          "columnsFrom": ["invoice_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "invoice_matter_balance_matter_id_matter_id_fk": {
+          "name": "invoice_matter_balance_matter_id_matter_id_fk",
+          "tableFrom": "invoice_matter_balance",
+          "tableTo": "matter",
+          "columnsFrom": ["matter_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "invoice_matter_balance_invoice_id_matter_id_pk": {
+          "columns": ["invoice_id", "matter_id"],
+          "name": "invoice_matter_balance_invoice_id_matter_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "invoice_matter_balance_currency_check": {
+          "name": "invoice_matter_balance_currency_check",
+          "value": "length(\"invoice_matter_balance\".\"currency\") = 3"
+        },
+        "invoice_matter_balance_bounds_check": {
+          "name": "invoice_matter_balance_bounds_check",
+          "value": "\"invoice_matter_balance\".\"applied_minor\" >= 0 AND \"invoice_matter_balance\".\"applied_minor\" <= \"invoice_matter_balance\".\"total_minor\""
+        }
+      }
+    },
+    "invoice_number_allocation": {
+      "name": "invoice_number_allocation",
+      "columns": {
+        "scope_key": {
+          "name": "scope_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "drawn_value": {
+          "name": "drawn_value",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "invoice_id": {
+          "name": "invoice_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "allocated_at": {
+          "name": "allocated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "invoice_number_allocation_invoice_unique_index": {
+          "name": "invoice_number_allocation_invoice_unique_index",
+          "columns": ["invoice_id"],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "invoice_number_allocation_invoice_id_invoice_id_fk": {
+          "name": "invoice_number_allocation_invoice_id_invoice_id_fk",
+          "tableFrom": "invoice_number_allocation",
+          "tableTo": "invoice",
+          "columnsFrom": ["invoice_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "invoice_number_allocation_scope_key_drawn_value_pk": {
+          "columns": ["scope_key", "drawn_value"],
+          "name": "invoice_number_allocation_scope_key_drawn_value_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "invoice_number_allocation_drawn_value_check": {
+          "name": "invoice_number_allocation_drawn_value_check",
+          "value": "\"invoice_number_allocation\".\"drawn_value\" > 0"
+        }
+      }
+    },
+    "invoice_number_counter": {
+      "name": "invoice_number_counter",
+      "columns": {
+        "scope_key": {
+          "name": "scope_key",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "next_value": {
+          "name": "next_value",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "invoice_number_counter_next_value_check": {
+          "name": "invoice_number_counter_next_value_check",
+          "value": "\"invoice_number_counter\".\"next_value\" > 0"
+        }
+      }
+    },
+    "invoice_wip_claim": {
+      "name": "invoice_wip_claim",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "invoice_id": {
+          "name": "invoice_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "source_kind": {
+          "name": "source_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "source_id": {
+          "name": "source_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "invoice_line_id": {
+          "name": "invoice_line_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "claimed_amount_minor": {
+          "name": "claimed_amount_minor",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "claimed_at": {
+          "name": "claimed_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "released_at": {
+          "name": "released_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "invoice_wip_claim_active_source_unique_index": {
+          "name": "invoice_wip_claim_active_source_unique_index",
+          "columns": ["source_kind", "source_id"],
+          "isUnique": true,
+          "where": "\"invoice_wip_claim\".\"released_at\" IS NULL"
+        },
+        "invoice_wip_claim_invoice_index": {
+          "name": "invoice_wip_claim_invoice_index",
+          "columns": ["invoice_id"],
+          "isUnique": false
+        },
+        "invoice_wip_claim_line_index": {
+          "name": "invoice_wip_claim_line_index",
+          "columns": ["invoice_line_id"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "invoice_wip_claim_invoice_id_invoice_id_fk": {
+          "name": "invoice_wip_claim_invoice_id_invoice_id_fk",
+          "tableFrom": "invoice_wip_claim",
+          "tableTo": "invoice",
+          "columnsFrom": ["invoice_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "invoice_wip_claim_invoice_line_id_invoice_line_id_fk": {
+          "name": "invoice_wip_claim_invoice_line_id_invoice_line_id_fk",
+          "tableFrom": "invoice_wip_claim",
+          "tableTo": "invoice_line",
+          "columnsFrom": ["invoice_line_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "invoice_wip_claim_source_kind_check": {
+          "name": "invoice_wip_claim_source_kind_check",
+          "value": "\"invoice_wip_claim\".\"source_kind\" IN ('time_entry', 'cost_entry')"
+        }
+      }
+    },
     "ledger_account": {
       "name": "ledger_account",
       "columns": {
@@ -6906,13 +7661,6 @@
         },
         "jurisdiction": {
           "name": "jurisdiction",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "time_zone": {
-          "name": "time_zone",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -7335,685 +8083,6 @@
         "matter_e_billing_check": {
           "name": "matter_e_billing_check",
           "value": "\"matter\".\"e_billing\" IN (0, 1)"
-        }
-      }
-    },
-    "matter_deadline": {
-      "name": "matter_deadline",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "matter_id": {
-          "name": "matter_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "title": {
-          "name": "title",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "due_on": {
-          "name": "due_on",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "due_at_time": {
-          "name": "due_at_time",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "time_zone": {
-          "name": "time_zone",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "source": {
-          "name": "source",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'member'"
-        },
-        "catalog_entry_key": {
-          "name": "catalog_entry_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "catalog_version": {
-          "name": "catalog_version",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "authority_text": {
-          "name": "authority_text",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "trigger_event_id": {
-          "name": "trigger_event_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "state": {
-          "name": "state",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'open'"
-        },
-        "satisfied_at": {
-          "name": "satisfied_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "satisfied_by": {
-          "name": "satisfied_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "satisfying_event_id": {
-          "name": "satisfying_event_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "satisfaction_note": {
-          "name": "satisfaction_note",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "state_reason": {
-          "name": "state_reason",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "superseded_by_deadline_id": {
-          "name": "superseded_by_deadline_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "priority": {
-          "name": "priority",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "recorded_at": {
-          "name": "recorded_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "recorded_by": {
-          "name": "recorded_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "matter_deadline_state_due_on_id_index": {
-          "name": "matter_deadline_state_due_on_id_index",
-          "columns": ["state", "due_on", "id"],
-          "isUnique": false
-        },
-        "matter_deadline_matter_due_on_id_index": {
-          "name": "matter_deadline_matter_due_on_id_index",
-          "columns": ["matter_id", "due_on", "id"],
-          "isUnique": false
-        },
-        "matter_deadline_trigger_event_index": {
-          "name": "matter_deadline_trigger_event_index",
-          "columns": ["trigger_event_id"],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "matter_deadline_matter_id_matter_id_fk": {
-          "name": "matter_deadline_matter_id_matter_id_fk",
-          "tableFrom": "matter_deadline",
-          "tableTo": "matter",
-          "columnsFrom": ["matter_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "matter_deadline_trigger_event_id_matter_event_id_fk": {
-          "name": "matter_deadline_trigger_event_id_matter_event_id_fk",
-          "tableFrom": "matter_deadline",
-          "tableTo": "matter_event",
-          "columnsFrom": ["trigger_event_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "matter_deadline_satisfying_event_id_matter_event_id_fk": {
-          "name": "matter_deadline_satisfying_event_id_matter_event_id_fk",
-          "tableFrom": "matter_deadline",
-          "tableTo": "matter_event",
-          "columnsFrom": ["satisfying_event_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "matter_deadline_title_check": {
-          "name": "matter_deadline_title_check",
-          "value": "length(\"matter_deadline\".\"title\") > 0"
-        },
-        "matter_deadline_time_zone_check": {
-          "name": "matter_deadline_time_zone_check",
-          "value": "length(\"matter_deadline\".\"time_zone\") > 0"
-        },
-        "matter_deadline_due_on_shape_check": {
-          "name": "matter_deadline_due_on_shape_check",
-          "value": "\"matter_deadline\".\"due_on\" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'"
-        },
-        "matter_deadline_due_at_time_shape_check": {
-          "name": "matter_deadline_due_at_time_shape_check",
-          "value": "\"matter_deadline\".\"due_at_time\" IS NULL OR \"matter_deadline\".\"due_at_time\" GLOB '[0-2][0-9]:[0-5][0-9]'"
-        },
-        "matter_deadline_source_check": {
-          "name": "matter_deadline_source_check",
-          "value": "\"matter_deadline\".\"source\" IN ('member', 'court_order', 'statutory_catalog')"
-        },
-        "matter_deadline_catalog_shape_check": {
-          "name": "matter_deadline_catalog_shape_check",
-          "value": "(\"matter_deadline\".\"source\" = 'statutory_catalog' AND \"matter_deadline\".\"catalog_entry_key\" IS NOT NULL AND \"matter_deadline\".\"catalog_version\" IS NOT NULL)\n        OR (\"matter_deadline\".\"source\" <> 'statutory_catalog' AND \"matter_deadline\".\"catalog_entry_key\" IS NULL AND \"matter_deadline\".\"catalog_version\" IS NULL)"
-        },
-        "matter_deadline_state_check": {
-          "name": "matter_deadline_state_check",
-          "value": "\"matter_deadline\".\"state\" IN ('open', 'satisfied', 'vacated', 'superseded')"
-        },
-        "matter_deadline_state_reason_check": {
-          "name": "matter_deadline_state_reason_check",
-          "value": "\"matter_deadline\".\"state\" NOT IN ('vacated', 'superseded') OR (\"matter_deadline\".\"state_reason\" IS NOT NULL AND length(\"matter_deadline\".\"state_reason\") > 0)"
-        },
-        "matter_deadline_satisfaction_shape_check": {
-          "name": "matter_deadline_satisfaction_shape_check",
-          "value": "(\"matter_deadline\".\"state\" = 'satisfied' AND \"matter_deadline\".\"satisfied_at\" IS NOT NULL AND \"matter_deadline\".\"satisfied_by\" IS NOT NULL)\n        OR (\"matter_deadline\".\"state\" <> 'satisfied' AND \"matter_deadline\".\"satisfied_at\" IS NULL AND \"matter_deadline\".\"satisfied_by\" IS NULL)"
-        },
-        "matter_deadline_superseded_shape_check": {
-          "name": "matter_deadline_superseded_shape_check",
-          "value": "(\"matter_deadline\".\"superseded_by_deadline_id\" IS NULL) OR (\"matter_deadline\".\"state\" = 'superseded')"
-        },
-        "matter_deadline_priority_check": {
-          "name": "matter_deadline_priority_check",
-          "value": "\"matter_deadline\".\"priority\" IS NULL OR \"matter_deadline\".\"priority\" > 0"
-        }
-      }
-    },
-    "matter_event": {
-      "name": "matter_event",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "matter_id": {
-          "name": "matter_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "event_type_id": {
-          "name": "event_type_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "title": {
-          "name": "title",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "description": {
-          "name": "description",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'scheduled'"
-        },
-        "starts_on": {
-          "name": "starts_on",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "starts_at_time": {
-          "name": "starts_at_time",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "ends_on": {
-          "name": "ends_on",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "ends_at_time": {
-          "name": "ends_at_time",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "time_zone": {
-          "name": "time_zone",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "location_text": {
-          "name": "location_text",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "court_reference": {
-          "name": "court_reference",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "recorded_at": {
-          "name": "recorded_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "recorded_by": {
-          "name": "recorded_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "matter_event_matter_starts_on_id_index": {
-          "name": "matter_event_matter_starts_on_id_index",
-          "columns": ["matter_id", "starts_on", "id"],
-          "isUnique": false
-        },
-        "matter_event_starts_on_id_index": {
-          "name": "matter_event_starts_on_id_index",
-          "columns": ["starts_on", "id"],
-          "isUnique": false
-        },
-        "matter_event_status_starts_on_index": {
-          "name": "matter_event_status_starts_on_index",
-          "columns": ["status", "starts_on"],
-          "isUnique": false
-        },
-        "matter_event_type_index": {
-          "name": "matter_event_type_index",
-          "columns": ["event_type_id"],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "matter_event_matter_id_matter_id_fk": {
-          "name": "matter_event_matter_id_matter_id_fk",
-          "tableFrom": "matter_event",
-          "tableTo": "matter",
-          "columnsFrom": ["matter_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "matter_event_event_type_id_matter_event_type_id_fk": {
-          "name": "matter_event_event_type_id_matter_event_type_id_fk",
-          "tableFrom": "matter_event",
-          "tableTo": "matter_event_type",
-          "columnsFrom": ["event_type_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "matter_event_title_check": {
-          "name": "matter_event_title_check",
-          "value": "length(\"matter_event\".\"title\") > 0"
-        },
-        "matter_event_status_check": {
-          "name": "matter_event_status_check",
-          "value": "\"matter_event\".\"status\" IN ('scheduled', 'occurred', 'cancelled')"
-        },
-        "matter_event_time_zone_check": {
-          "name": "matter_event_time_zone_check",
-          "value": "length(\"matter_event\".\"time_zone\") > 0"
-        },
-        "matter_event_starts_on_shape_check": {
-          "name": "matter_event_starts_on_shape_check",
-          "value": "\"matter_event\".\"starts_on\" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'"
-        },
-        "matter_event_ends_on_shape_check": {
-          "name": "matter_event_ends_on_shape_check",
-          "value": "\"matter_event\".\"ends_on\" IS NULL OR \"matter_event\".\"ends_on\" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'"
-        },
-        "matter_event_starts_at_time_shape_check": {
-          "name": "matter_event_starts_at_time_shape_check",
-          "value": "\"matter_event\".\"starts_at_time\" IS NULL OR \"matter_event\".\"starts_at_time\" GLOB '[0-2][0-9]:[0-5][0-9]'"
-        },
-        "matter_event_ends_at_time_shape_check": {
-          "name": "matter_event_ends_at_time_shape_check",
-          "value": "\"matter_event\".\"ends_at_time\" IS NULL OR \"matter_event\".\"ends_at_time\" GLOB '[0-2][0-9]:[0-5][0-9]'"
-        },
-        "matter_event_range_check": {
-          "name": "matter_event_range_check",
-          "value": "\"matter_event\".\"ends_on\" IS NULL OR \"matter_event\".\"ends_on\" >= \"matter_event\".\"starts_on\""
-        },
-        "matter_event_end_time_check": {
-          "name": "matter_event_end_time_check",
-          "value": "\"matter_event\".\"ends_at_time\" IS NULL OR \"matter_event\".\"starts_at_time\" IS NOT NULL"
-        }
-      }
-    },
-    "matter_event_participant": {
-      "name": "matter_event_participant",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "event_id": {
-          "name": "event_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "participant_kind": {
-          "name": "participant_kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "member_user_id": {
-          "name": "member_user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "entity_id": {
-          "name": "entity_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "participant_name": {
-          "name": "participant_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "role": {
-          "name": "role",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "matter_event_participant_event_index": {
-          "name": "matter_event_participant_event_index",
-          "columns": ["event_id"],
-          "isUnique": false
-        },
-        "matter_event_participant_member_index": {
-          "name": "matter_event_participant_member_index",
-          "columns": ["member_user_id"],
-          "isUnique": false
-        },
-        "matter_event_participant_entity_index": {
-          "name": "matter_event_participant_entity_index",
-          "columns": ["entity_id"],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "matter_event_participant_event_id_matter_event_id_fk": {
-          "name": "matter_event_participant_event_id_matter_event_id_fk",
-          "tableFrom": "matter_event_participant",
-          "tableTo": "matter_event",
-          "columnsFrom": ["event_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "matter_event_participant_member_user_id_member_user_id_fk": {
-          "name": "matter_event_participant_member_user_id_member_user_id_fk",
-          "tableFrom": "matter_event_participant",
-          "tableTo": "member",
-          "columnsFrom": ["member_user_id"],
-          "columnsTo": ["user_id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "matter_event_participant_kind_check": {
-          "name": "matter_event_participant_kind_check",
-          "value": "\"matter_event_participant\".\"participant_kind\" IN ('member', 'entity', 'external')"
-        },
-        "matter_event_participant_shape_check": {
-          "name": "matter_event_participant_shape_check",
-          "value": "(\"matter_event_participant\".\"participant_kind\" = 'member' AND \"matter_event_participant\".\"member_user_id\" IS NOT NULL)\n        OR (\"matter_event_participant\".\"participant_kind\" = 'entity' AND \"matter_event_participant\".\"entity_id\" IS NOT NULL)\n        OR (\"matter_event_participant\".\"participant_kind\" = 'external' AND \"matter_event_participant\".\"participant_name\" IS NOT NULL)"
-        }
-      }
-    },
-    "matter_event_type": {
-      "name": "matter_event_type",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "code": {
-          "name": "code",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "category": {
-          "name": "category",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'litigation'"
-        },
-        "origin": {
-          "name": "origin",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'firm'"
-        },
-        "active": {
-          "name": "active",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "matter_event_type_name_unique_index": {
-          "name": "matter_event_type_name_unique_index",
-          "columns": ["name"],
-          "isUnique": true
-        },
-        "matter_event_type_code_unique_index": {
-          "name": "matter_event_type_code_unique_index",
-          "columns": ["code"],
-          "isUnique": true
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "matter_event_type_name_check": {
-          "name": "matter_event_type_name_check",
-          "value": "length(\"matter_event_type\".\"name\") > 0"
-        },
-        "matter_event_type_category_check": {
-          "name": "matter_event_type_category_check",
-          "value": "\"matter_event_type\".\"category\" IN ('litigation', 'transaction', 'firm', 'other')"
-        },
-        "matter_event_type_origin_check": {
-          "name": "matter_event_type_origin_check",
-          "value": "\"matter_event_type\".\"origin\" IN ('platform', 'firm')"
         }
       }
     },

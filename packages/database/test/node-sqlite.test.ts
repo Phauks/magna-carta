@@ -90,6 +90,10 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
     // Attorney, so it is absent here.
     expect(grantsFor("Paralegal").sort()).toEqual(
       [
+        // Assembling a working bill asserts nothing to anybody, so billing:draft reaches the
+        // practitioner set; turning one into evidence (billing:finalize) does not.
+        "billing:draft",
+        "billing:read",
         // A paralegal docketing a hearing is the ordinary case, so this role carries both calendar
         // keys; Billing and Read-only get calendar:read alone.
         "calendar:manage",
@@ -136,6 +140,11 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
     // and Read-only carries neither.
     expect(grantsFor("Billing").sort()).toEqual(
       [
+        // A billing clerk assembles the bill and records the money that comes back against it; the
+        // approval that turns a draft into evidence is a partner's, so billing:finalize is absent.
+        "billing:apply",
+        "billing:draft",
+        "billing:read",
         "calendar:read",
         "conflicts:read",
         "conflicts:run",

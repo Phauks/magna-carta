@@ -110,9 +110,9 @@ const NON_MUTATING_POST_ALLOW_LIST: Record<string, string> = {
 };
 
 // Subsystems whose every MUTATING route must be idempotency: required (money/trust/payment/
-// outbound-comms). Each such slice adds its operationId namespace here as it builds; the billing,
-// payments, and comms rows land with their slices.
-const MONEY_NAMESPACES = new Set<string>(["trust"]);
+// outbound-comms). Each such slice adds its operationId namespace here as it builds; the payments
+// and comms rows land with their slices.
+const MONEY_NAMESPACES = new Set<string>(["trust", "billing"]);
 
 // x-mc-operationId is a string in every emitted operation; read it defensively (the value is typed
 // unknown off the document record) so the fitness functions never stringify a non-string.
@@ -224,6 +224,12 @@ const RESOURCE_BY_PERMISSION_NAMESPACE: Record<string, string | readonly string[
   // holds money for, and the reconciliation that proves it is per ACCOUNT. Every movement names a
   // matter, but the matter is where the money lands, not the resource the capability governs.
   trust: "firm",
+  // billing:* governs the firm's own invoices and the money that comes back against them. It binds
+  // the FIRM on the trust reasoning: one invoice may bill several of a client's matters, the
+  // receivable it posts is the firm's asset, and the account-role map it resolves through is the
+  // firm's chart of accounts. Every line names a matter, but the matter is what is billed, not the
+  // resource the capability governs.
+  billing: "firm",
   // calendar:* governs litigation events, deadlines, and the matter timeline that federates them
   // with everything else the firm recorded. It binds BOTH resources, on the emails:* reasoning: an
   // event and a deadline always name a matter, so those routes carry the matter resource, while the
@@ -679,6 +685,18 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "aiDetection.detect",
       "assemblies.status",
       "assemblies.submit",
+      "billing.accountRoles",
+      "billing.addClaims",
+      "billing.createInvoice",
+      "billing.finalizeInvoice",
+      "billing.invoiceDetail",
+      "billing.listInvoices",
+      "billing.matterUnbilled",
+      "billing.receivablesAging",
+      "billing.releaseClaim",
+      "billing.setAccountRoles",
+      "billing.updateLine",
+      "billing.voidDraft",
       "calendar.cancelEvent",
       "calendar.createDeadline",
       "calendar.createEvent",

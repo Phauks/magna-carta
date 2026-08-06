@@ -292,6 +292,27 @@ export interface TrustVolume {
   readonly spanDays: number;
 }
 
+export interface InvoiceVolume {
+  // Matters that have been billed at least once. Below the practice matter count: a matter opened
+  // this month has nothing to bill yet, which is what makes the unbilled read worth measuring.
+  readonly billedMatterCount: number;
+  // Finalized invoices per billed matter — the depth the client and matter reads fan over.
+  readonly invoicesPerBilledMatter: number;
+  // Time entries claimed onto each invoice. This is the number the finalize batch's statement count
+  // scales with (two writes per claimed entry plus one per line), so it is what the batch-ceiling
+  // measurement varies.
+  readonly claimsPerInvoice: number;
+  // One draft left open per this many billed matters, so the drafts a firm is working on are in the
+  // list read alongside the finalized ones and the claim table has active rows.
+  readonly openDraftEveryNthMatter: number;
+  // Days the issue and due dates spread over. Long enough that the aging buckets are all populated.
+  //
+  // There is deliberately no settled/paid fraction: nothing can apply value to an invoice until the
+  // application path lands, so every finalized invoice here is outstanding. That is the honest shape
+  // of the data at this point, and it makes the aging read fan over everything rather than a slice.
+  readonly spanDays: number;
+}
+
 export interface LedgerVolumeProfile {
   readonly name: "ledgerVolume";
   // Profile identity: bump on ANY parameter change — baselines measured against different data
@@ -327,6 +348,9 @@ export interface LedgerVolumeProfile {
   // The trust volume laid over the practice book (the sub-ledger tree, movements, holds, bank
   // statements, and reconciliations with their frozen proofs).
   readonly trust: TrustVolume;
+  // The invoice volume laid over the practice and timekeeping books (drafts, claims, finalized
+  // invoices with their per-matter balances, and the receivables the aging read fans over).
+  readonly invoices: InvoiceVolume;
 }
 
 // A plausible established small firm: a few years of posting activity over a 200-client trust book,
@@ -334,7 +358,7 @@ export interface LedgerVolumeProfile {
 // files with multi-version histories.
 export const ledgerVolume: LedgerVolumeProfile = {
   name: "ledgerVolume",
-  version: 10,
+  version: 11,
   trustSubledgerCount: 200,
   entryCount: 25_000,
   postingSpanDays: 1_095,
@@ -459,6 +483,16 @@ export const ledgerVolume: LedgerVolumeProfile = {
     serviceChargeMinor: 2_500,
     spanDays: 730,
   },
+  invoices: {
+    // An established firm's billing book: most of the open caseload has been billed at least once,
+    // a handful of bills each over a couple of years, twenty entries claimed onto a typical monthly
+    // bill, and one draft in progress for every eight billed matters.
+    billedMatterCount: 160,
+    invoicesPerBilledMatter: 6,
+    claimsPerInvoice: 20,
+    openDraftEveryNthMatter: 8,
+    spanDays: 730,
+  },
 };
 
 // One profile, every scale: CI smoke (~0.01), local working scale (1), deliberate stress runs
@@ -579,6 +613,17 @@ export function scaleProfile(
       extraMovementsPerBusyLedger: scaleCount(profile.trust.extraMovementsPerBusyLedger, 1),
       statementCount: scaleCount(profile.trust.statementCount, 2),
       spanDays: scaleCount(profile.trust.spanDays, 20),
+    },
+    invoices: {
+      ...profile.invoices,
+      // Floors keep a handful of billed matters (so the client and aging reads have a fan), a couple
+      // of invoices on each (so one settles and one stays outstanding), enough claims per invoice for
+      // the finalize batch to be a batch rather than a single write, and a span long enough for the
+      // aging buckets not to collapse onto one day. The fractions are not scaled.
+      billedMatterCount: scaleCount(profile.invoices.billedMatterCount, 6),
+      invoicesPerBilledMatter: scaleCount(profile.invoices.invoicesPerBilledMatter, 2),
+      claimsPerInvoice: scaleCount(profile.invoices.claimsPerInvoice, 3),
+      spanDays: scaleCount(profile.invoices.spanDays, 20),
     },
   };
 }
