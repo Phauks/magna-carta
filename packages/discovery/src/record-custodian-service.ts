@@ -15,8 +15,8 @@ import { RECORD_CUSTODIAN_KINDS, type RecordCustodianKind } from "./types.ts";
 import { DiscoveryValidationError, assertRecordCustodianName } from "./validation.ts";
 
 // The record custodian: whose electronic records these were. Created WITHIN a review set rather than
-// firm-wide, because "John Smith, custodian" in one matter is not assertably the same person as in
-// another and asserting it wrongly is a defensibility problem, not a duplication problem.
+// firm-wide, because the same name in one matter is not assertably the same person as in another,
+// and asserting it wrongly is a defensibility problem rather than a duplication problem.
 //
 // The unattributed case is a KIND, not a null. A production that arrives with no custodial
 // attribution is a fact about the production; recording it as "we do not know whose these were" is a
@@ -86,7 +86,7 @@ export async function createRecordCustodian(
           randomSource: options.randomSource,
           event: "discovery.recordCustodianCreated",
           subjectId: recordCustodianId,
-          // Handles and the kind. NEVER the display name — a custodian's name is a person's name.
+          // Handles and the kind. NEVER the display name — it is a person's name.
           metadata: JSON.stringify({ reviewSetId: input.reviewSetId, kind }),
         }),
       ],
@@ -95,9 +95,9 @@ export async function createRecordCustodian(
   };
 }
 
-// Resolve a custodian by name within a review set, creating one if it is not there. This is what the
-// load lanes use: a load names its custodians in the loader's own words, and forcing a firm to
-// pre-register every name a production mentions is how a load stops being usable.
+// Resolve a record custodian by name within a review set, creating one if it is not there. This is
+// what the load lanes use: a load names its record custodians in the loader's own words, and forcing
+// a firm to pre-register every name a production mentions is how a load stops being usable.
 export async function resolveRecordCustodian(
   database: SqlDatabase,
   input: CreateRecordCustodianInput,
@@ -117,9 +117,9 @@ export interface UpdateRecordCustodianInput {
   readonly directoryEntityId?: string | null;
 }
 
-// Editing a custodian re-points every document already attributed to it, and that is the intent: a
-// production that named "J. Smith" and the person the firm later identified are ONE custodian, and a
-// second row would split the attribution of documents already loaded under the first.
+// Editing a record custodian re-points every document already attributed to it, and that is the
+// intent: a production that named "J. Smith" and the person the firm later identified are ONE
+// person, and a second row would split the attribution of documents already loaded under the first.
 export async function updateRecordCustodian(
   database: SqlDatabase,
   recordCustodianId: RecordCustodianId,
@@ -175,7 +175,7 @@ export async function updateRecordCustodian(
   };
 }
 
-// A custodian must belong to the review set the load is going into. Checked by hand because a
+// A record custodian must belong to the review set the load is going into. Checked by hand because a
 // foreign key cannot see the review set on the other side of it.
 export async function assertRecordCustodianBelongsToReviewSet(
   database: SqlDatabase,

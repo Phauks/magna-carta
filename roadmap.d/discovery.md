@@ -16,7 +16,7 @@
   status: partial
   slices: 5-1-discovery-ingest-and-processing
   spec: docs/specs/2026-08-05-discovery-5-1-design.md
-  evidence: The engine half is built — crates/discovery-core (identification, native extraction, normalization, chunking, five-algorithm digests, near-duplicate fingerprint, guarded archive expansion) hosted by containers/discovery + apps/discovery-worker. The queue lane, the review-set model, and the wiring into the shipped index pipeline are not built.
+  evidence: The engine half is built — crates/discovery-core (identification, native extraction, normalization, chunking, five-algorithm digests, near-duplicate fingerprint, guarded archive expansion) hosted by containers/discovery + apps/discovery-worker — and so is the corpus it produces facts for: the review-set model, the load lanes, and the fan-out coordinator. The queue lane that carries a document from the corpus to the engine, and the wiring into the shipped index pipeline, are not built.
   notes: The engine is dual-target (native + wasm32) with committed cross-target vectors, so desktop-local processing and the server produce byte-identical passages.
 
 - id: discovery.pipeline.engine
@@ -31,10 +31,20 @@
 - id: discovery.pipeline.review-set
   name: Review-set model
   scope: The corpus object — review sets, loads, review documents as pointers, record custodians, occurrences, exceptions, and the load manifest.
-  status: designed
+  status: partial
+  slices: 5-1-discovery-ingest-and-processing
   spec: docs/specs/2026-08-05-discovery-5-1-design.md
-  evidence: Designed and planned (docs/specs/2026-08-05-discovery-5-1-implementation-plan.md); no schema, service, or route exists yet.
-  notes: The custodian-vocabulary gate that binds it ships early (tooling/lint-custodian-vocabulary.mjs), scoped to the discovery trees until the permission keys move.
+  evidence: packages/discovery plus six per-firm tables (20260806T080000_discovery-5-1-2) with the three forward-only state machines as triggers and the reconciliation as a row CHECK; the discovery:* permission namespace, seventeen routes, and the DiscoveryLoadCoordinator. The occurrence and exception tables exist and are filled by the processing sub-slice; the manifest and exception report are written there too.
+  notes: The transcript include/exclude control is a required field with no default on every load declaration, and the scope is stored on the load so the manifest states what the corpus was drawn from. The per-review-set access list the design recommended is named for the review surface rather than built.
+
+- id: discovery.pipeline.load-lanes
+  name: Load source lanes
+  scope: Where material comes from — the firm's own matter files, its filed email, a production received from another party, and collection from a client's own system.
+  status: partial
+  slices: 5-1-discovery-ingest-and-processing
+  spec: docs/specs/2026-08-05-discovery-5-1-design.md
+  evidence: Both internal lanes resolve a selection into review documents with no byte moved and the version pinned, refusing a quarantined version and a cross-matter selection by name; email enters as a family over the shipped email_attachment links. The received-production lane has its destination and reconciliation; its upload path is the existing quarantine gate unchanged.
+  notes: direct-collection is declared and refused BY NAME so its absence is visible rather than mysterious — it needs a collection tool, not an ingest path. Assistant transcripts are likewise refused by name until their lane lands with the review surface.
 
 - id: discovery.ocr
   name: OCR engine

@@ -82,7 +82,7 @@ export function insertRecordCustodianStatement(
 }
 
 // The display name and the Directory link are editable — a production that named "J. Smith" and the
-// person the firm later identified are the same custodian, and forcing a new row would split the
+// person the firm later identified are one record custodian, and forcing a new row would split the
 // attribution of documents already loaded under the old one. The KIND is editable too, for the same
 // reason: "unattributed" resolving into a named person is the ordinary progression of a production.
 export function updateRecordCustodianStatement(
@@ -103,8 +103,8 @@ export function updateRecordCustodianStatement(
     .bind(id, patch.displayName, patch.directoryEntityId, patch.kind, patch.now);
 }
 
-// A review set's custodians, by name. review_set_id leads the unique index, so this is an index walk
-// rather than a scan of every custodian the firm has ever recorded.
+// A review set's record custodians, by name. review_set_id leads the unique index, so this is an
+// index walk rather than a scan of every row the firm has ever recorded.
 export function selectRecordCustodiansStatement(
   database: SqlDatabase,
   reviewSetId: ReviewSetId,

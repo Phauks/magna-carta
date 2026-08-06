@@ -50,8 +50,8 @@ export type DiscoveryValidationCode =
   | "discovery-unknown-load"
   | "discovery-unknown-review-document"
   // A record custodian named on a load that belongs to a different review set. Custodians are
-  // review-set-scoped on purpose — "John Smith, custodian" in one matter is not assertably the same
-  // person as in another, and asserting it wrongly is a defensibility problem.
+  // review-set-scoped on purpose — the same name in one matter is not assertably the same person as
+  // in another, and asserting it wrongly is a defensibility problem.
   | "discovery-record-custodian-review-set-mismatch";
 
 export class DiscoveryValidationError extends Error {

@@ -62,9 +62,9 @@ export interface LoadSourceDeclaration {
   // Where this came from, in the loader's own words — the production letter's reference, the drive's
   // label, the mailbox's owner. Free text, because provenance is not a vocabulary.
   readonly sourceDescription: string | null;
-  // The custodian everything in this load is attributed to, when one load carries one custodian's
-  // material. Null means attribution is per document, which is the ordinary case for a production
-  // that carries several custodians' records.
+  // The record custodian everything in this load is attributed to, when one load carries one
+  // person's material. Null means attribution is per document, which is the ordinary case for a
+  // production carrying several record custodians' records.
   readonly defaultRecordCustodianId: RecordCustodianId | null;
 }
 

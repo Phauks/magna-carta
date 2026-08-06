@@ -133,6 +133,26 @@ describe("permission registry", () => {
     ]);
   });
 
+  it("permissionsForNamespace('discovery') returns exactly the discovery keys, in registry order", () => {
+    expect(permissionsForNamespace("discovery")).toEqual([
+      "discovery:read",
+      "discovery:manageReviewSets",
+      "discovery:load",
+    ]);
+  });
+
+  // The access rule the discovery namespace exists to carry: reaching a review set follows from a
+  // discovery grant and from nothing else. A member holding every matters:* and files:* key on the
+  // matter holds no discovery key by that fact, because material produced by another party may be
+  // attorney's-eyes-only under a protective order.
+  it("no matters:* or files:* key is a discovery key", () => {
+    const discoveryKeys = new Set<string>(permissionsForNamespace("discovery"));
+    for (const key of [...permissionsForNamespace("matters"), ...permissionsForNamespace("files")]) {
+      expect(discoveryKeys.has(key)).toBe(false);
+    }
+    expect(discoveryKeys.size).toBe(3);
+  });
+
   it("permissionsForNamespace returns an empty list for an unknown namespace", () => {
     // 'matter' (singular) is NOT the matters namespace — the keys live under 'matters'.
     expect(permissionsForNamespace("matter")).toEqual([]);

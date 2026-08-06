@@ -55,6 +55,11 @@ export { SearchIndexJob } from "./search/index-coordinator.ts";
 // Exported so the runtime can instantiate the class named in wrangler.jsonc's binding.
 export { MagnusConversation } from "./magnus/magnus-conversation.ts";
 
+// One discovery load's fan-out coordinator, keyed firmId:loadId. It holds the load's cursor and chunk
+// state in durable storage and nothing on the instance, so an eviction mid-fan-out resumes where the
+// load actually got to. Exported so the runtime can instantiate the class named in wrangler.jsonc.
+export { DiscoveryLoadCoordinator } from "./discovery/discovery-load-coordinator.ts";
+
 // The bundle-build queue's name (wrangler.jsonc queues.consumers) — the queue() handler routes its
 // batches to the bundle consumer, every other queue to the files-ingest consumer.
 const BUNDLE_BUILD_QUEUE = "magna-carta-production-bundle-build";

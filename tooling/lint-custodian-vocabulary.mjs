@@ -20,10 +20,15 @@
 //   2. any `custody*` identifier inside the discovery trees — the physical register's family has no
 //      business there.
 //
-// The platform-wide half of rule 1 — a bare `custodian` anywhere OUTSIDE packages/custodian — lands
-// with the review-set model, which is what introduces the permission keys and route segments that
-// would have to move for the whole repo to satisfy it. Widening DISCOVERY_TREES (and dropping the
-// tree restriction on rule 1) is the whole change when that happens.
+// THE DISCOVERY-TREE SCOPE IS THE RIGHT SCOPE, and this is deliberate rather than provisional. A
+// platform-wide version of rule 1 was tried when the review-set model landed and does not work: the
+// shipped Custodian register legitimately owns the bare word as its subsystem name in prose ("the
+// Custodian register", capitalized), as its package specifier (`@magna-carta/custodian`), and as its
+// route and section slug (`/custodian`) — none of which is a defect and none of which a line-level
+// regex can tell apart from an identifier. Widening it would have meant renaming a shipped subsystem
+// for no defect, or carrying so many exemptions that the gate would stop biting. What the rule
+// actually has to prevent is a bare `custodian` meaning DISCOVERY'S attribution, and that lives in
+// the discovery trees, where the register's name is never written and the scan is absolute.
 //
 // Run: `pnpm run lint:custodian-vocabulary`. CI runs it as a governance gate beside
 // lint:process-refs, whose shape this follows.

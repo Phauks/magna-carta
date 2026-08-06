@@ -41,8 +41,6 @@ import { DiscoveryValidationError } from "@magna-carta/discovery/validation";
 import { cryptoRandomSource } from "@magna-carta/identifiers/random";
 import type {
   DiscoveryLoadId,
-  EmailMessageId,
-  FileId,
   MatterId,
   RecordCustodianId,
   ReviewSetId,
@@ -52,6 +50,7 @@ import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,
+  requireChokepointFirmId,
   requireChokepointIdempotency,
   requireChokepointUserId,
 } from "../chokepoint/context-accessors.ts";
@@ -1133,15 +1132,14 @@ export function registerDiscoveryRoutes(app: DiscoveryApp, chokepoint: Chokepoin
           await commitEffectBatch(firm.firmDatabase, effect, { now: options.clock.now });
         }
 
+        // Addressed by the SESSION firm id, never by a path value, so a firm can no more drive
+        // another firm's load than it can read one.
+        const sessionFirmId = requireChokepointFirmId(c);
         const coordinator = c.env.DISCOVERY_LOAD_JOB.get(
-          c.env.DISCOVERY_LOAD_JOB.idFromName(
-            // Addressed by the SESSION firm id, never by a path value, so a firm can no more drive
-            // another firm's load than it can read one.
-            discoveryLoadJobName(firm.firmId, loadId),
-          ),
+          c.env.DISCOVERY_LOAD_JOB.idFromName(discoveryLoadJobName(sessionFirmId, loadId)),
         );
         const message = {
-          firmId: firm.firmId,
+          firmId: sessionFirmId,
           reviewSetId: load.review_set_id,
           loadId,
           matterId: reviewSet.matter_id,

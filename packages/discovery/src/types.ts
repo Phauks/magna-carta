@@ -1,11 +1,11 @@
 // The closed vocabularies of the review-set model, in one home so the schema CHECK constraints, the
 // services, the routes, and the eventual manifest cannot drift on a spelling.
 //
-// The word "custodian" never appears here alone. The platform already ships a register of physical
-// client originals whose family is `custody*`; a record custodian is a completely different thing —
-// whose ELECTRONIC RECORDS these were — and the two appear in the same matter, sometimes on the same
-// screen. Two words, always, in code, in schema, and in anything a person reads.
-// tooling/lint-custodian-vocabulary.mjs enforces it mechanically.
+// The bare word is never written here. The platform already ships a register of physical client
+// originals whose family is `custody*`; a record custodian is a completely different thing — whose
+// ELECTRONIC RECORDS these were — and the two appear in the same matter, sometimes on the same
+// screen. Two words, always, in code, in schema, and in anything a person reads. The vocabulary gate
+// in tooling/ enforces it mechanically, in both directions.
 
 // A review set moves forward only. `locked` refuses new loads and still serves every read; `closed`
 // additionally releases the derived artifacts (extracted text, metadata sidecars, index splits) for
