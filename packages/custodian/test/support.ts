@@ -33,13 +33,24 @@ export const AUTHORIZED_RELEASE = {
   releaseAuthorization: {
     authorityBasis: "owner collecting their own original in person",
     identityEvidence: "photographic identification checked against the Directory record",
-    identityVerifiedByUserId: ACTOR,
   },
 } as const;
+
+// The colleague who witnesses a two-signatory release, and one who has left the firm. Both are real
+// rows in the roster the gate reads: the point of the second signatory is that it names a person, and
+// a fixture that used a bare string would prove the opposite of what the tests are for.
+export const WITNESS = "user_custodySecondSignatory" as UserId;
+export const DEPARTED_MEMBER = "user_custodyDeparted000000" as UserId;
 
 export function seedMember(raw: ReturnType<typeof migratedDatabase>["raw"]): UserId {
   raw.exec(
     `INSERT INTO member (user_id, display_name, status, created_at) VALUES ('${ACTOR}', 'Custody Tester', 'active', '2026-08-04T00:00:00.000Z')`,
+  );
+  raw.exec(
+    `INSERT INTO member (user_id, display_name, status, created_at) VALUES ('${WITNESS}', 'Second Signatory', 'active', '2026-08-04T00:00:00.000Z')`,
+  );
+  raw.exec(
+    `INSERT INTO member (user_id, display_name, status, created_at) VALUES ('${DEPARTED_MEMBER}', 'Departed Colleague', 'deactivated', '2026-08-04T00:00:00.000Z')`,
   );
   return ACTOR;
 }

@@ -43,13 +43,23 @@ function post(path: string, body?: unknown): Promise<Response> {
   });
 }
 
-async function openMatter(title: string): Promise<string> {
+// The matter's client party, recorded straight into the firm database because there is no HTTP
+// surface for it yet. A trust ledger's client attribution is derived from this link, so a matter
+// without one holds no client money at all.
+async function openMatter(title: string, clientEntityId: string): Promise<string> {
   const created = await post("/api/v1/matters", {
     title,
     status: "open",
     responsibleMemberId: ownerUserId,
   });
-  return (await created.json()).matterId;
+  const matterId = (await created.json()).matterId as string;
+  await firmDatabase
+    .prepare(
+      "INSERT INTO matter_party (id, matter_id, entity_id, role, created_at, updated_at) VALUES (?1, ?2, ?3, 'client', ?4, ?4)",
+    )
+    .bind(newIdentifier("matterParty"), matterId, clientEntityId, clock.now())
+    .run();
+  return matterId;
 }
 
 interface ProblemBody {
@@ -118,7 +128,7 @@ beforeAll(async () => {
 
 describe("closing a matter against its trust ledger", () => {
   it("closes a matter that never held client money", async () => {
-    const matterId = await openMatter("No Trust Ledger Matter");
+    const matterId = await openMatter("No Trust Ledger Matter", "entity_none");
 
     const closed = await post(`/api/v1/matters/${matterId}/close`);
 
@@ -126,11 +136,10 @@ describe("closing a matter against its trust ledger", () => {
   });
 
   it("refuses a matter whose client ledger still holds money, and says what clears it", async () => {
-    const matterId = await openMatter("Funds Held Matter");
+    const matterId = await openMatter("Funds Held Matter", "entity_held");
     const deposited = await post("/api/v1/trust/deposits", {
       trustAccountId,
       matterId,
-      clientEntityId: "entity_held",
       amountMinor: 320000,
       currency: "USD",
       effectiveDate: todayInUtc(),
@@ -155,11 +164,10 @@ describe("closing a matter against its trust ledger", () => {
   });
 
   it("closes once the balance has been paid back out", async () => {
-    const matterId = await openMatter("Emptied Matter");
+    const matterId = await openMatter("Emptied Matter", "entity_emptied");
     await post("/api/v1/trust/deposits", {
       trustAccountId,
       matterId,
-      clientEntityId: "entity_emptied",
       amountMinor: 150000,
       currency: "USD",
       effectiveDate: todayInUtc(),

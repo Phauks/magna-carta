@@ -1,5 +1,6 @@
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import { ACCOUNT_BALANCE_TABLE, LEDGER_LINE_TABLE } from "@magna-carta/ledger/statements";
+import { matterClientPartyExistsPredicate } from "@magna-carta/matters/matter-party";
 import {
   activeTrustHoldPredicate,
   activeTrustReconciliationMatchPredicate,
@@ -44,6 +45,23 @@ export function multiClientTrustEntriesStatement(database: SqlDatabase): SqlStat
   return database
     .prepare(
       `SELECT entry_id, clients FROM (SELECT l.entry_id AS entry_id, COUNT(DISTINCT n.client_entity_id) AS clients FROM ${LEDGER_LINE_TABLE} l JOIN ${TRUST_LEDGER_NODE_TABLE} n ON n.ledger_account_id = l.account_id WHERE n.client_entity_id IS NOT NULL GROUP BY l.entry_id) WHERE clients > 1`,
+    )
+    .bind();
+}
+
+// A CLIENT LEDGER IS FILED UNDER THE CLIENT WHOSE MATTER IT IS. `trust_ledger_node.client_entity_id`
+// decides whose money the leaf holds — which client node it hangs under, which client the
+// composition guard sees on every entry touching it, whose ledger it is readable and disbursable
+// from, and whose matter it blocks from closing. Nothing in the schema ties it to the matter it also
+// names, so a leaf attributed to one client on another client's matter is a structurally valid row.
+// The composer derives the attribution from `matter_party` rather than accepting it, which is what
+// stops one being written; this is what finds one written before that, or written around the
+// composer. It is deliberately NOT covered by the one-client-per-entry query, which counts distinct
+// clients over the very column being asserted and would see a single, consistent, wrong answer.
+export function trustMatterNodesMisattributedStatement(database: SqlDatabase): SqlStatement {
+  return database
+    .prepare(
+      `SELECT n.id AS node_id, n.matter_id AS matter_id, n.client_entity_id AS client_entity_id FROM ${TRUST_LEDGER_NODE_TABLE} n WHERE n.kind = 'matter' AND n.matter_id IS NOT NULL AND NOT ${matterClientPartyExistsPredicate("n.matter_id", "n.client_entity_id")}`,
     )
     .bind();
 }
@@ -162,6 +180,10 @@ export function trustReconciliationsCrossingAccountsStatement(database: SqlDatab
 const FITNESS_STATEMENTS = [
   ["commingled trust entries", commingledTrustEntriesStatement],
   ["entries touching more than one client", multiClientTrustEntriesStatement],
+  [
+    "matter ledgers filed under a client whose matter it is not",
+    trustMatterNodesMisattributedStatement,
+  ],
   ["trust leaves without a zero floor", trustLeavesWithoutZeroFloorStatement],
   ["roll-up nodes carrying postings", trustRollupNodesWithPostingsStatement],
   ["holds exceeding the balance they restrict", trustHoldsExceedingBalanceStatement],

@@ -10,12 +10,13 @@ import type {
   UserId,
 } from "@magna-carta/identifiers/types";
 import { postEntry } from "@magna-carta/ledger/post-entry";
-import { currencyCode, toMinor } from "@magna-carta/money/format";
+import { currencyCode } from "@magna-carta/money/format";
 import type { Money } from "@magna-carta/money/money";
 import { assertTrustAccountOpen, loadTrustAccount, loadTrustNode } from "./account-tree.ts";
 import type { TrustServiceOptions } from "./account-tree.ts";
 import { composeTrustEntry, loadTrustAccountRoles } from "./composition-guard.ts";
 import { readTrustAvailableBalance } from "./holds.ts";
+import { assertMovementCurrency } from "./movements.ts";
 import { insertTrustTransferStatement } from "./statements.ts";
 import { TrustValidationError } from "./trust-validation.ts";
 
@@ -95,7 +96,12 @@ export async function composeTrustToOperatingTransfer(
   assertTrustAccountOpen(account);
 
   const currency = currencyCode(input.amount);
-  const amountMinor = toMinor(input.amount);
+  // The same guard every sibling composer runs, for the same reason: without it the availability
+  // check below compares this amount's minor units against a balance denominated in the ACCOUNT's
+  // currency, which is a comparison of two different things that happens to typecheck. The ledger's
+  // per-line currency check would eventually refuse the posting, but by then the refusal names a
+  // line rather than the movement, and the availability answer was already wrong.
+  const amountMinor = assertMovementCurrency(account, input.amount);
 
   const precondition = options.earnedFeePrecondition ?? refusingEarnedFeePrecondition;
   await precondition.assertTransferPermitted({

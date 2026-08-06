@@ -13,6 +13,7 @@ import {
   multiClientTrustEntriesStatement,
   trustHoldsExceedingBalanceStatement,
   trustLeavesWithoutZeroFloorStatement,
+  trustMatterNodesMisattributedStatement,
   trustRollupNodesWithPostingsStatement,
 } from "../src/fitness.ts";
 import { placeTrustHold } from "../src/holds.ts";
@@ -48,6 +49,49 @@ describe("trust fitness", () => {
     const { fixture } = await fundedFixture();
     await assertTrustFitness(fixture.database);
     await assertLedgerFitness(fixture.database);
+  });
+
+  // The cross-check the H1 attack needed and did not have. A leaf attributed to one client on
+  // another client's matter is a structurally valid row: it satisfies the per-account matter
+  // uniqueness index, and the one-client-per-entry query counts DISTINCT client_entity_id over the
+  // very column being asserted — so it sees a single, consistent, wrong answer and reports healthy.
+  it("surfaces a matter ledger filed under a client whose matter it is not", async () => {
+    const { fixture, leaf } = await fundedFixture();
+    await assertTrustFitness(fixture.database);
+    // The exact stored shape a leaf created before the attribution was derived would carry: the
+    // node says one client, the matter's own client party says another.
+    await fixture.database
+      .prepare("UPDATE matter_party SET entity_id = 'entity_b' WHERE matter_id = ?1")
+      .bind(leaf.matterId)
+      .run();
+
+    const { results } = await trustMatterNodesMisattributedStatement(fixture.database).all<{
+      node_id: string;
+      matter_id: string;
+      client_entity_id: string;
+    }>();
+    expect(results).toHaveLength(1);
+    expect(results[0]).toMatchObject({
+      node_id: leaf.nodeId,
+      matter_id: leaf.matterId,
+      client_entity_id: "entity_a",
+    });
+    // The old query still says healthy, which is precisely why the new one has to exist.
+    expect((await multiClientTrustEntriesStatement(fixture.database).all()).results).toHaveLength(
+      0,
+    );
+    await expect(assertTrustFitness(fixture.database)).rejects.toThrow(/trust fitness/);
+  });
+
+  it("surfaces a matter ledger whose matter has no client party at all", async () => {
+    const { fixture, leaf } = await fundedFixture();
+    await fixture.database
+      .prepare("UPDATE matter_party SET deleted_at = ?2 WHERE matter_id = ?1")
+      .bind(leaf.matterId, "2026-08-06T00:00:00.000Z")
+      .run();
+    expect(
+      (await trustMatterNodesMisattributedStatement(fixture.database).all()).results,
+    ).toHaveLength(1);
   });
 
   it("surfaces a commingled entry", async () => {

@@ -7186,21 +7186,15 @@
             "maxLength": 1000,
             "description": "How the person collecting was identified. Record the check that was made, not the document's numbers — this lands on a ledger row that can never be edited or deleted."
           },
-          "identityVerifiedByUserId": {
-            "type": "string",
-            "pattern": "^user_[A-Za-z0-9_-]{21}$",
-            "description": "The firm member who made that check."
-          },
           "witnessedByUserId": {
             "type": "string",
             "pattern": "^user_[A-Za-z0-9_-]{21}$",
-            "description": "The second signatory, when the firm requires two. Must be a different person from the member who checked identity."
+            "description": "The second signatory, when the firm requires two. Must be an ACTIVE member of this firm other than the caller — the caller is recorded as the member who checked identity, so a release cannot be signed twice by one person."
           }
         },
         "required": [
           "authorityBasis",
-          "identityEvidence",
-          "identityVerifiedByUserId"
+          "identityEvidence"
         ]
       },
       "CustodyMovementPage": {
@@ -8094,6 +8088,14 @@
           },
           "frozenCounts": {
             "$ref": "#/components/schemas/CustodyStocktakeCounts"
+          },
+          "truncated": {
+            "type": "boolean",
+            "description": "TRUE when this register is larger than the reconciliation reads in one pass. A truncated report is a PARTIAL answer: packets past the cut were never expected, so they were never reported missing, and every count here is a floor rather than a finding. A count in this state cannot be closed with its numbers frozen; narrow its scope or abandon it."
+          },
+          "rowLimit": {
+            "type": "integer",
+            "description": "The per-read cap that produced `truncated`."
           }
         },
         "required": [
@@ -8108,7 +8110,9 @@
           "misplaced",
           "unexpected",
           "unregistered",
-          "frozenCounts"
+          "frozenCounts",
+          "truncated",
+          "rowLimit"
         ]
       },
       "CustodyReconciliationLine": {
@@ -8247,12 +8251,17 @@
           },
           "counts": {
             "$ref": "#/components/schemas/CustodyStocktakeCounts"
+          },
+          "truncated": {
+            "type": "boolean",
+            "description": "TRUE when the walk was larger than the reconciliation reads in one pass. Only ever true on an abandoned close: a close that freezes counts refuses a truncated reconciliation rather than freezing a partial answer."
           }
         },
         "required": [
           "id",
           "status",
-          "counts"
+          "counts",
+          "truncated"
         ]
       },
       "CloseCustodyStocktakeRequest": {
@@ -8602,8 +8611,13 @@
           "key": {
             "type": "string"
           },
-          "summary": {
-            "type": "string"
+          "question": {
+            "type": "string",
+            "description": "What was asked, phrased as a question."
+          },
+          "answer": {
+            "type": "string",
+            "description": "The verified answer, phrased to stand alone with no other field beside it."
           },
           "available": {
             "type": "boolean"
@@ -8617,7 +8631,8 @@
         },
         "required": [
           "key",
-          "summary",
+          "question",
+          "answer",
           "available",
           "basis",
           "verifiedOn"
@@ -9826,6 +9841,338 @@
           "assetClass"
         ]
       },
+      "MagnusAvailability": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "open",
+              "firm-ineligible",
+              "feature-disabled",
+              "acknowledgement-required"
+            ]
+          },
+          "disclosureVersion": {
+            "type": "number"
+          },
+          "remainingDailyTurns": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "state"
+        ]
+      },
+      "MagnusAcknowledgement": {
+        "type": "object",
+        "properties": {
+          "disclosureVersion": {
+            "type": "number"
+          },
+          "acknowledgedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "disclosureVersion",
+          "acknowledgedAt"
+        ]
+      },
+      "MagnusStartConversationRequest": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "matterId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+          }
+        }
+      },
+      "MagnusConversationPage": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MagnusConversation"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "data",
+          "nextCursor"
+        ]
+      },
+      "MagnusConversation": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdBy": {
+            "type": "string"
+          },
+          "matterId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "active",
+              "archived",
+              "deleted"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "createdBy",
+          "matterId",
+          "state",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "MagnusConversationDetail": {
+        "type": "object",
+        "properties": {
+          "conversation": {
+            "$ref": "#/components/schemas/MagnusConversation"
+          },
+          "turns": {
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/MagnusTurn"
+                }
+              },
+              "nextCursor": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "data",
+              "nextCursor"
+            ]
+          }
+        },
+        "required": [
+          "conversation",
+          "turns"
+        ]
+      },
+      "MagnusTurn": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "sequence": {
+            "type": "number"
+          },
+          "speaker": {
+            "type": "string",
+            "enum": [
+              "member",
+              "magnus"
+            ]
+          },
+          "content": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "complete",
+              "failed",
+              "refused"
+            ]
+          },
+          "failureLabel": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "model-unavailable",
+              "not-eligible",
+              "ceiling-reached",
+              "too-large",
+              "cancelled",
+              null
+            ]
+          },
+          "modelId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "snapshotId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "contextTruncated": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "completedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "sequence",
+          "speaker",
+          "content",
+          "status",
+          "failureLabel",
+          "modelId",
+          "snapshotId",
+          "contextTruncated",
+          "createdAt",
+          "completedAt"
+        ]
+      },
+      "MagnusRenameConversationRequest": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "title"
+        ]
+      },
+      "MagnusSubmitTurnResponse": {
+        "type": "object",
+        "properties": {
+          "conversationId": {
+            "type": "string"
+          },
+          "memberTurnId": {
+            "type": "string"
+          },
+          "magnusTurnId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending"
+            ]
+          }
+        },
+        "required": [
+          "conversationId",
+          "memberTurnId",
+          "magnusTurnId",
+          "status"
+        ]
+      },
+      "MagnusSubmitTurnRequest": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "content"
+        ]
+      },
+      "MagnusTurnProgress": {
+        "type": "object",
+        "properties": {
+          "turnId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "complete",
+              "failed",
+              "refused",
+              "unknown"
+            ]
+          },
+          "content": {
+            "type": "string"
+          },
+          "failureLabel": {
+            "type": "string",
+            "enum": [
+              "model-unavailable",
+              "not-eligible",
+              "ceiling-reached",
+              "too-large",
+              "cancelled"
+            ]
+          },
+          "truncatedContext": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "turnId",
+          "status"
+        ]
+      },
       "CustomFieldAck": {
         "type": "object",
         "properties": {
@@ -10670,10 +11017,6 @@
             "type": "string",
             "pattern": "^matter_[A-Za-z0-9_-]{21}$"
           },
-          "clientEntityId": {
-            "type": "string",
-            "minLength": 1
-          },
           "amountMinor": {
             "type": "integer",
             "exclusiveMinimum": 0
@@ -10721,7 +11064,6 @@
         "required": [
           "trustAccountId",
           "matterId",
-          "clientEntityId",
           "amountMinor",
           "currency",
           "effectiveDate",
@@ -10984,10 +11326,6 @@
             "type": "string",
             "pattern": "^matter_[A-Za-z0-9_-]{21}$"
           },
-          "toClientEntityId": {
-            "type": "string",
-            "minLength": 1
-          },
           "amountMinor": {
             "type": "integer",
             "exclusiveMinimum": 0
@@ -11015,7 +11353,6 @@
           "trustAccountId",
           "fromMatterId",
           "toMatterId",
-          "toClientEntityId",
           "amountMinor",
           "currency",
           "effectiveDate",
@@ -11546,7 +11883,8 @@
         "properties": {
           "fileText": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "maxLength": 2000000
           },
           "dateFormat": {
             "type": "string",
@@ -11638,7 +11976,8 @@
           },
           "fileText": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "maxLength": 2000000
           },
           "dateFormat": {
             "type": "string",
@@ -12361,7 +12700,11 @@
             "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
           },
           "numberScopeKey": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1
+          },
+          "createNumberScope": {
+            "type": "boolean"
           },
           "locationId": {
             "type": [
@@ -34081,7 +34424,7 @@
     },
     "/api/v1/custody/stocktakes/{stocktakeId}/close": {
       "post": {
-        "description": "Closes a count and freezes what it found. It writes the stocktake row and nothing else: no movement is recorded, no packet is moved, and no status anywhere in the register changes because a count finished. A count that was never finished closes as abandoned instead, freezing no findings.",
+        "description": "Closes a count and freezes what it found. It writes the stocktake row and nothing else: no movement is recorded, no packet is moved, and no status anywhere in the register changes because a count finished. A count that was never finished closes as abandoned instead, freezing no findings. A count whose reconciliation is truncated is REFUSED rather than frozen: a partial answer under-reports missing originals, so narrow the count's scope or abandon it.",
         "operationId": "custody.closeStocktake",
         "tags": [
           "custody"
@@ -34330,7 +34673,7 @@
     },
     "/api/v1/custody/destruction-requests": {
       "get": {
-        "description": "Lists destruction requests, newest first, optionally narrowed to one packet or to a single state. `outcome=pending` is the queue of requests waiting for a second person to approve or refuse them. Cursor-paginated.",
+        "description": "Lists destruction requests, newest first, optionally narrowed to one packet or to a single state. `outcome=pending` is the queue of requests waiting for a second person to approve or refuse them. `outcome=interrupted` is the reconciliation list: approved requests for which a destruction was already recorded in the ledger but whose own row never reached `executed`, which is what a failure between the two commits leaves behind. The ledger commits first on purpose — a destruction with no ledger entry is one nobody can prove — so this list is how the cost of that ordering gets found and put right. Cursor-paginated.",
         "operationId": "custody.listDestructionRequests",
         "tags": [
           "custody"
@@ -34370,6 +34713,7 @@
               "type": "string",
               "enum": [
                 "pending",
+                "interrupted",
                 "approved",
                 "refused",
                 "executed",
@@ -37094,6 +37438,1141 @@
           },
           "422": {
             "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/magnus/availability": {
+      "get": {
+        "description": "Whether the assistant can be used in this firm right now, and if not, which of the three conditions is unmet: the firm has not consented to third-party model processing, the firm has not enabled the assistant, or this member has not yet accepted the current disclosure. When open, carries the disclosure version in force and how many turns of the firm's daily allowance remain. This is what a client calls before showing an input box.",
+        "operationId": "magnus.availability",
+        "tags": [
+          "magnus"
+        ],
+        "x-mc-operationId": "magnus.availability",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "magnus:converse",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "magnus"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The resolved availability for this member in this firm",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MagnusAvailability"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the permission, or the firm has not opted in",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record does not exist",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The member has not accepted the current disclosure, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is well-formed but a rule refuses it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/magnus/acknowledgement": {
+      "post": {
+        "description": "Records that this member has been shown, and accepted, the current disclosure. Idempotent: accepting the same version again is a no-op that still answers 200. The stored version is what makes a later change to what the assistant can see or do re-prompt every member automatically.",
+        "operationId": "magnus.acknowledge",
+        "tags": [
+          "magnus"
+        ],
+        "x-mc-operationId": "magnus.acknowledge",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "magnus:converse",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "magnus"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The acknowledgement on record for this member",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MagnusAcknowledgement"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the permission, or the firm has not opted in",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record does not exist",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The member has not accepted the current disclosure, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is well-formed but a rule refuses it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/magnus/conversations": {
+      "post": {
+        "description": "Starts a conversation. The optional matter link scopes the RECORD, not the request: it says which matter's file this transcript belongs to, and puts none of that matter's content into anything the assistant is sent. The optional title is the member's own label; the assistant never writes one.",
+        "operationId": "magnus.startConversation",
+        "tags": [
+          "magnus"
+        ],
+        "x-mc-operationId": "magnus.startConversation",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "magnus:converse",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "magnus"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MagnusStartConversationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The conversation was started",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the permission, or the firm has not opted in",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record does not exist",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The member has not accepted the current disclosure, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is well-formed but a rule refuses it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "description": "The caller's own conversations, newest first. A member holding the read-all-conversations permission may pass `scope=firm` to list every member's instead; that read is audited.",
+        "operationId": "magnus.listConversations",
+        "tags": [
+          "magnus"
+        ],
+        "x-mc-operationId": "magnus.listConversations",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "magnus:converse",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "magnus"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "own",
+                "firm"
+              ]
+            },
+            "required": false,
+            "name": "scope",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of conversations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MagnusConversationPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the permission, or the firm has not opted in",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record does not exist",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The member has not accepted the current disclosure, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is well-formed but a rule refuses it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/magnus/conversations/{conversationId}": {
+      "get": {
+        "description": "One conversation with a page of its turns, newest first. A member reads their own; reading another member's requires the read-all-conversations permission and writes an audit row.",
+        "operationId": "magnus.getConversation",
+        "tags": [
+          "magnus"
+        ],
+        "x-mc-operationId": "magnus.getConversation",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "magnus:converse",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "magnus"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^magnusConversation_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "conversationId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The conversation and one page of its turns",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MagnusConversationDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the permission, or the firm has not opted in",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record does not exist",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The member has not accepted the current disclosure, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is well-formed but a rule refuses it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "description": "Renames a conversation. The title is member-supplied only — nothing generates one — and a null title returns the conversation to displaying by its start instant.",
+        "operationId": "magnus.renameConversation",
+        "tags": [
+          "magnus"
+        ],
+        "x-mc-operationId": "magnus.renameConversation",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "magnus:converse",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "magnus"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^magnusConversation_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "conversationId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MagnusRenameConversationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The conversation was renamed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the permission, or the firm has not opted in",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record does not exist",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The member has not accepted the current disclosure, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is well-formed but a rule refuses it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "description": "Deletes a conversation and every turn in it. The audited record is that a conversation existed and was deleted — never what was in it. This is the erasure instrument for everything typed into the assistant: the text goes wholesale rather than column by column.",
+        "operationId": "magnus.deleteConversation",
+        "tags": [
+          "magnus"
+        ],
+        "x-mc-operationId": "magnus.deleteConversation",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "magnus:converse",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "magnus"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^magnusConversation_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "conversationId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The conversation and its turns were deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the permission, or the firm has not opted in",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record does not exist",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The member has not accepted the current disclosure, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is well-formed but a rule refuses it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/magnus/conversations/{conversationId}/turns": {
+      "post": {
+        "description": "Submits a message and returns immediately with a pending answer to poll or subscribe to. The message is capped at 16384 bytes; a larger one is refused naming the limit rather than being silently truncated or sent on. The firm's daily turn allowance is checked before anything is enqueued.",
+        "operationId": "magnus.submitTurn",
+        "tags": [
+          "magnus"
+        ],
+        "x-mc-operationId": "magnus.submitTurn",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "magnus:converse",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "magnus"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^magnusConversation_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "conversationId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MagnusSubmitTurnRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "The message was recorded and an answer is pending",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MagnusSubmitTurnResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the permission, or the firm has not opted in",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record does not exist",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The member has not accepted the current disclosure, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The message exceeds the per-turn size limit",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded, or the firm's daily turn allowance is spent",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/magnus/conversations/{conversationId}/turns/{turnId}": {
+      "get": {
+        "description": "The current state of one turn: pending, complete with its content, or settled with a closed failure label. This is the polling fallback for the events subscription beside it, and returns byte-identical state to what that subscription pushes.",
+        "operationId": "magnus.getTurn",
+        "tags": [
+          "magnus"
+        ],
+        "x-mc-operationId": "magnus.getTurn",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "magnus:converse",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "magnus"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^magnusConversation_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "conversationId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^magnusTurn_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "turnId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The turn's current state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MagnusTurnProgress"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the permission, or the firm has not opted in",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record does not exist",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The member has not accepted the current disclosure, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is well-formed but a rule refuses it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/magnus/conversations/{conversationId}/events": {
+      "get": {
+        "description": "Subscribes to a conversation over a WebSocket. The server sends the newest turn's state on connect and again on every transition; each frame is { \"type\": \"state\", \"protocolVersion\": 1, \"state\": { … } } where state is the same object the turn poll endpoint returns. The client may send { \"type\": \"resync\" } to be re-sent the current state and { \"type\": \"ping\" } for a keepalive. A settled turn is pushed once and the socket then closes. Requires an Upgrade: websocket request; the poll endpoint is the equivalent answer for a client that cannot upgrade.",
+        "operationId": "magnus.events",
+        "tags": [
+          "magnus"
+        ],
+        "x-mc-operationId": "magnus.events",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "magnus:converse",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "magnus"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^magnusConversation_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "conversationId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "101": {
+            "description": "The subscription is open; turn state follows as WebSocket frames"
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the permission, or the firm has not opted in",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record does not exist",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The member has not accepted the current disclosure, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is well-formed but a rule refuses it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "426": {
+            "description": "The request did not ask to upgrade to a WebSocket",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -51032,6 +52511,9 @@
     },
     {
       "name": "locations"
+    },
+    {
+      "name": "magnus"
     },
     {
       "name": "matterAssets"

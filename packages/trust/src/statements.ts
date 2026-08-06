@@ -536,20 +536,40 @@ export function insertTrustDisbursementDecisionStatement(
     );
 }
 
-// How many ACTIVE members hold the trust capability, counted the way the sole-authorizer trigger in
+// WHICH ACTIVE MEMBERS hold the trust capability, selected the way the sole-authorizer trigger in
 // the per-firm migration counts them: role-held and directly granted, unioned by member. It exists
 // only to turn that trigger's abort into a refusal naming what the submitter has to do instead —
 // the trigger is the guarantee, and this read cannot be atomic with the write it precedes.
-export function selectActiveTrustManagerCountStatement(database: SqlDatabase): SqlStatement {
+//
+// The members are NAMED rather than counted, because the count on its own produces a refusal a firm
+// cannot act on. The trigger deliberately counts a direct grant whether or not it has expired —
+// over-counting authorizers refuses the sole-manager exception, which is the safe direction — but
+// the consequence is unbounded in time: a one-person firm that once granted `trust:manage` to a
+// contractor whose grant lapsed a year ago is told it "has more than one member who can authorize"
+// and has no way to see who that is. Listing them makes the stale grant findable.
+export function selectActiveTrustManagersStatement(database: SqlDatabase): SqlStatement {
   return database.prepare(
-    `SELECT COUNT(*) AS manager_count FROM (SELECT mr.member_user_id AS user_id FROM member_role mr JOIN role_permission rp ON rp.role_id = mr.role_id JOIN member m ON m.user_id = mr.member_user_id WHERE rp.permission = '${TRUST_MANAGE_PERMISSION}' AND m.status = 'active' UNION SELECT dg.member_user_id FROM direct_grant dg JOIN member m ON m.user_id = dg.member_user_id WHERE dg.permission = '${TRUST_MANAGE_PERMISSION}' AND m.status = 'active')`,
+    `SELECT user_id, display_name FROM (SELECT mr.member_user_id AS user_id, m.display_name AS display_name FROM member_role mr JOIN role_permission rp ON rp.role_id = mr.role_id JOIN member m ON m.user_id = mr.member_user_id WHERE rp.permission = '${TRUST_MANAGE_PERMISSION}' AND m.status = 'active' UNION SELECT dg.member_user_id, m.display_name FROM direct_grant dg JOIN member m ON m.user_id = dg.member_user_id WHERE dg.permission = '${TRUST_MANAGE_PERMISSION}' AND m.status = 'active') ORDER BY display_name, user_id`,
   );
 }
 
-// A ceiling on every reconciliation read. A month of activity on one trust account is hundreds of
-// items, not thousands; this exists so a runaway period truncates to an obviously-short answer
-// instead of pulling an unbounded result set into a request handler.
+// A ceiling on every reconciliation read, so a runaway period cannot pull an unbounded result set
+// into a request handler. A month of activity on one trust account is hundreds of items, not
+// thousands — but the outstanding-item read has no lower date bound (an uncleared check from two
+// years ago is still outstanding, which is exactly what reconciliation exists to surface), so a
+// long-lived account genuinely accumulates toward this number.
+//
+// THE CAP IS DETECTED, NEVER SILENT. A truncated outstanding list does not produce a short answer,
+// it produces a confidently wrong one: the proof's totals, its adjusted bank figure, and the numbers
+// a close FREEZES as the firm's attestation are all derived from whatever rows came back, and they
+// are internally consistent with each other whether or not they are consistent with reality. So the
+// read asks for one row more than the cap and the proof refuses by name when that row appears —
+// a reconciliation that cannot see all of its outstanding items must not attest to a total.
 export const MAX_TRUST_RECONCILIATION_ROWS = 5_000;
+
+// One past the ceiling: the extra row is never used as data, only as the signal that the ceiling
+// bound.
+export const TRUST_RECONCILIATION_TRUNCATION_PROBE_ROWS = MAX_TRUST_RECONCILIATION_ROWS + 1;
 
 export interface InsertTrustBankStatementRow {
   readonly id: TrustBankStatementId;
@@ -890,7 +910,10 @@ export function selectOutstandingTrustBankItemsStatement(
   database: SqlDatabase,
   bankLedgerAccountId: LedgerAccountId,
   asOfDate: string,
-  limit: number = MAX_TRUST_RECONCILIATION_ROWS,
+  // One past the cap by default, so the caller can tell a full list from a truncated one. Every
+  // caller in this package leaves it alone; see MAX_TRUST_RECONCILIATION_ROWS for why the difference
+  // matters more here than on any other read.
+  limit: number = TRUST_RECONCILIATION_TRUNCATION_PROBE_ROWS,
 ): SqlStatement {
   return database
     .prepare(

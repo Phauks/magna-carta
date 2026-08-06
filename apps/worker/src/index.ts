@@ -11,6 +11,8 @@ import type { BundleBuildMessage } from "./downloads/bundle-types.ts";
 import { emailsCaptureQueue, type EmailsCaptureMessage } from "./emails/capture-consumer.ts";
 import { ingestQueue, type R2EventMessage } from "./files/ingest-consumer.ts";
 import { inferenceQueue, type InferenceJob } from "./inference/inference-consumer.ts";
+import { magnusQueue } from "./magnus/magnus-consumer.ts";
+import type { MagnusTurnJob } from "./magnus/magnus-types.ts";
 import { runIdleCheckoutSweep } from "./editing/idle-checkout-sweep.ts";
 import { runTieringSweep } from "./editing/tiering-sweep.ts";
 import { recoveryQueue } from "./recovery/recovery-consumer.ts";
@@ -48,6 +50,11 @@ export { RecoveryJobCoordinator } from "./recovery/recovery-coordinator.ts";
 // wrangler.jsonc's durable_objects binding.
 export { SearchIndexJob } from "./search/index-coordinator.ts";
 
+// The conversational assistant's per-conversation push object, keyed firmId:conversationId. It holds
+// NO conversation content — it reads turn state back from the firm's own database and pushes it.
+// Exported so the runtime can instantiate the class named in wrangler.jsonc's binding.
+export { MagnusConversation } from "./magnus/magnus-conversation.ts";
+
 // The bundle-build queue's name (wrangler.jsonc queues.consumers) — the queue() handler routes its
 // batches to the bundle consumer, every other queue to the files-ingest consumer.
 const BUNDLE_BUILD_QUEUE = "magna-carta-production-bundle-build";
@@ -77,6 +84,11 @@ const SEARCH_INDEX_QUEUE = "magna-carta-production-search-index";
 // The document-assembly queue's name — the queue() handler routes its batches to the assembly consumer,
 // which merges one template version against one matter and files the result through the ingest gate.
 const DOCUMENT_ASSEMBLY_QUEUE = "magna-carta-production-document-assembly";
+
+// The conversational assistant's queue name — the queue() handler routes its batches to the assistant
+// consumer, which re-reads the firm's consent gates, builds the bounded conversation window, calls the
+// one inference chokepoint, and settles the pending turn.
+const MAGNUS_QUEUE = "magna-carta-production-magnus";
 
 // createApp defaults the plugin runtime to the production seam — the firm_secret credential store
 // throws until the marketplace wires the live credential read; carrier calls use a fetch-backed
@@ -132,7 +144,7 @@ export default {
     if (batch.queue === BUNDLE_BUILD_QUEUE) {
       return bundleBuildQueue(batch as MessageBatch<BundleBuildMessage>, env);
     }
-    // The inference queue carries inference jobs (env.AI.run off the request path).
+    // The inference queue carries inference jobs (the model call runs off the request path).
     if (batch.queue === "magna-carta-production-inference") {
       return inferenceQueue(batch as MessageBatch<InferenceJob>, env);
     }
@@ -158,6 +170,10 @@ export default {
     // The search-index queue routes to the index consumer (extract -> build split -> catalog).
     if (batch.queue === SEARCH_INDEX_QUEUE) {
       return searchIndexQueue(batch as MessageBatch<SearchIndexMessage>, env);
+    }
+    // The assistant's queue routes to its consumer (re-read the gates -> window -> model -> settle).
+    if (batch.queue === MAGNUS_QUEUE) {
+      return magnusQueue(batch as MessageBatch<MagnusTurnJob>, env);
     }
     // The document-assembly queue routes to the assembly consumer (resolve -> merge -> file).
     if (batch.queue === DOCUMENT_ASSEMBLY_QUEUE) {

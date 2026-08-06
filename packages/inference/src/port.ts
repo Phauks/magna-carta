@@ -56,9 +56,40 @@ export interface EmbeddingResult {
   readonly snapshotId: string;
 }
 
+// A conversation's speakers, in OUR vocabulary — never a vendor's role names. The adapter maps these
+// onto whatever the provider calls them, beside the response-shape reconciliation it already does.
+// There is deliberately no "system" member: the platform-authored instruction travels on its own
+// field (below), so nothing a member types can occupy that role.
+export type ConversationRole = "member" | "assistant";
+
+export interface ConversationMessage {
+  readonly role: ConversationRole;
+  readonly content: string;
+}
+
+// A multi-turn conversation request. The role boundary between what the member said and what the
+// model previously answered is load-bearing, not decoration: a model that cannot tell them apart can
+// be steered by its own prior output, and a transcript concatenated into one string is the shape that
+// lets pasted text act as instruction. Hence a message array rather than a flattened prompt, and one
+// added operation rather than a polymorphic prompt every implementation and every double would have
+// to handle twice over.
+export interface ConversationInput {
+  readonly modelId: InferenceModelId;
+  readonly firmId: FirmId;
+  // Platform-authored, never member-authored, never firm-authored. Structurally separate from the
+  // conversation because it is the one part of the request the firm did not write — a reviewer can
+  // see at a glance which bytes are platform text and which are firm content.
+  readonly systemPrompt: string;
+  readonly messages: readonly ConversationMessage[];
+}
+
 export interface InferencePort {
   // Buffered text generation (one value).
   generate(input: GenerateInput): Promise<Dispatch<GenerateResult>>;
+  // Buffered generation over a multi-turn conversation. The result shape is GenerateResult
+  // unchanged, so metering, provenance, and the Dispatch error taxonomy all apply without a second
+  // shape to keep in step.
+  generateConversation(input: ConversationInput): Promise<Dispatch<GenerateResult>>;
   // Streaming text generation (token deltas + deferred usage).
   generateStream(input: GenerateInput): Promise<Dispatch<StreamResult>>;
   // A long/agentic run invoked one operation per step from a durable Workflow — the run state lives in

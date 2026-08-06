@@ -1,5 +1,6 @@
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import type { TrustAccountId, TrustBankStatementId, UserId } from "@magna-carta/identifiers/types";
+import { isValidCalendarDate } from "@magna-carta/ledger/validate";
 import { fromMinor, toMinor } from "@magna-carta/money/format";
 import { fromDecimal, type Money, type NumberCurrency } from "@magna-carta/money/money";
 import type { TrustServiceOptions } from "./account-tree.ts";
@@ -154,20 +155,23 @@ function normalizeAmountText(text: string): string {
   return negated ? `-${bare.replace(/^-/, "")}` : bare;
 }
 
+// Every branch ends at `isValidCalendarDate`, the ledger's own check, rather than at a shape test.
+// A month-and-day range test accepts 2026-02-31 and 2026-04-31, which are not days: stored, such a
+// line is compared to the period bounds lexically (so it lands inside the period), and then
+// `dayGapBetween` in matching.ts parses it to NaN, scores every candidate at infinite distance, and
+// the line sits unmatched forever with nothing saying why.
 function parseCivilDate(text: string, format: TrustStatementDateFormat): string | null {
   const trimmed = text.trim();
   if (format === "iso") {
-    return /^\d{4}-\d{2}-\d{2}$/.test(trimmed) ? trimmed : null;
+    return isValidCalendarDate(trimmed) ? trimmed : null;
   }
   const match = /^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/.exec(trimmed);
   if (!match) return null;
   const [, first, second, year] = match as unknown as [string, string, string, string];
   const month = format === "month-day-year" ? first : second;
   const day = format === "month-day-year" ? second : first;
-  const monthNumber = Number(month);
-  const dayNumber = Number(day);
-  if (monthNumber < 1 || monthNumber > 12 || dayNumber < 1 || dayNumber > 31) return null;
-  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+  const isoDate = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+  return isValidCalendarDate(isoDate) ? isoDate : null;
 }
 
 // Identifies exactly these parsed rows so a confirmation cannot be attached to a different file. It
@@ -356,13 +360,18 @@ export function previewTrustStatementImport(
       reference,
       counterpartyName,
     });
-  }
 
-  if (parsed.length > MAX_TRUST_BANK_STATEMENT_LINES) {
-    throw new TrustValidationError(
-      "statement-too-many-lines",
-      `this file holds ${parsed.length} readable rows; a single statement records at most ${MAX_TRUST_BANK_STATEMENT_LINES}`,
-    );
+    // The ceiling is applied HERE, as rows are built, not after the whole file has been parsed and
+    // materialized. A file with a million rows is refused after the first 2,001 rather than being
+    // read end to end first — this runs on a request path, and a refusal that costs as much as an
+    // acceptance is not a refusal. The count is the readable rows, so a file that is mostly
+    // unparseable is still described honestly by the rejections it earns.
+    if (parsed.length > MAX_TRUST_BANK_STATEMENT_LINES) {
+      throw new TrustValidationError(
+        "statement-too-many-lines",
+        `this file holds more than ${MAX_TRUST_BANK_STATEMENT_LINES} readable rows; a single statement records at most that many`,
+      );
+    }
   }
 
   const dates = parsed.map((row) => row.postedOn).sort();

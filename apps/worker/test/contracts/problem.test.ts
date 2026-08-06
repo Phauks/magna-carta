@@ -51,6 +51,7 @@ describe("problem-type URI registry", () => {
         "custody-owner-required",
         "custody-release-not-authorized",
         "custody-stocktake-closed",
+        "custody-stocktake-truncated",
         "email-in-use",
         "upload-not-allowed",
         "malware-flagged",
@@ -69,6 +70,7 @@ describe("problem-type URI registry", () => {
         "websocket-upgrade-required",
         "trust-insufficient-available",
         "trust-movement-refused",
+        "ledger-entry-refused",
         "trust-jurisdiction-unavailable",
         "trust-disbursement-not-pending",
         "trust-disbursement-authorization-refused",
@@ -92,6 +94,11 @@ describe("problem-type URI registry", () => {
         "matter-asset-credential-storage-refused",
         "matter-asset-batch-too-large",
         "matter-asset-document-matter-mismatch",
+        "magnus-firm-not-eligible",
+        "magnus-not-enabled",
+        "magnus-acknowledgement-required",
+        "magnus-turn-too-large",
+        "magnus-daily-ceiling-reached",
       ].sort(),
     );
   });

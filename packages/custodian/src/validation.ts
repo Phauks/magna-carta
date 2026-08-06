@@ -35,6 +35,11 @@ export type CustodyValidationCode =
   // Conflating them is how a firm comes to read silence as "nothing applies to us".
   | "custody-jurisdiction-not-recorded"
   | "custody-jurisdiction-not-encoded"
+  // The date a statutory clock is computed from could not be read, or is not a date on the calendar.
+  // A THIRD distinct refusal, kept apart from the two above and from "this duty has no computable
+  // interval": that one is fixed by asking a court, this one by correcting what somebody typed, and a
+  // typo silently reading as "no deadline applies" is the worst version of conflating them.
+  | "custody-invalid-trigger-date"
   // An original may not leave the firm's custody until the authority it leaves on and the identity
   // check made on the person collecting it have both been recorded. The one movement where recording
   // after the fact is worth nothing, because the property is already gone.
@@ -64,6 +69,11 @@ export type CustodyValidationCode =
   // A stocktake that is no longer taking sightings: closed or abandoned. Recording against one, or
   // closing it a second time, would change a reconciliation somebody has already read and acted on.
   | "custody-stocktake-closed"
+  // A close that would freeze counts drawn from a reconciliation that hit its read cap. A partial
+  // answer under-reports missing originals, and the frozen counts are the one number the design
+  // promises has no drift under it — so it is refused rather than recorded. Fixed by narrowing the
+  // count's scope, or by abandoning it, which freezes nothing at all.
+  | "custody-stocktake-truncated"
   | "custody-unknown-stocktake"
   // A sighting whose shape does not match what its kind asserts — an `unregistered` observation with
   // no description of what was found, a `sighted` naming no location.

@@ -185,6 +185,32 @@ describe("pulling work-in-progress onto a draft", () => {
     ).rejects.toMatchObject({ code: "invoice-client-mismatch" });
   });
 
+  // The line is written with the ENTRY's currency, but finalize aggregates every line under the
+  // INVOICE's — so a line that disagreed was silently re-labelled at finalize and billed as if it
+  // had always been in the invoice's money. Unreachable through the work-in-progress stores today
+  // because their CHECK constraints pin them to USD, which means the guard was the schema rather
+  // than any code: the first second currency in the registry would have removed it in silence.
+  it("refuses claiming work recorded in a currency the invoice does not bill in", async () => {
+    const fixture = await billingFixture();
+    const matterId = await seedMatter(fixture, ACME, "Acme");
+    const timeEntryId = await seedTimeEntry(fixture, matterId);
+    const draft = createInvoiceDraft(
+      fixture.database,
+      { clientEntityId: ACME, currency: "EUR", createdBy: fixture.memberUserId },
+      options,
+    );
+    await commit(fixture.database, draft.effect);
+
+    await expect(
+      addClaimsToDraft(
+        fixture.database,
+        draft.invoiceId,
+        [{ sourceKind: "time_entry", sourceId: timeEntryId }],
+        options,
+      ),
+    ).rejects.toMatchObject({ code: "invoice-line-currency-mismatch" });
+  });
+
   it("refuses a matter with no client party rather than inventing one", async () => {
     const fixture = await billingFixture();
     const matterId = await seedMatter(fixture, ACME, "Acme");

@@ -7,6 +7,8 @@ export type TrustValidationCode =
   | "unknown-trust-node"
   | "trust-node-currency-mismatch"
   | "matter-leaf-already-exists"
+  | "matter-has-no-client"
+  | "trust-leaf-client-mismatch"
   // Entry composition — the structural guards
   | "not-a-trust-entry"
   | "crosses-trust-accounts"
@@ -60,6 +62,8 @@ export type TrustValidationCode =
   | "reconciliation-closed"
   | "reconciliation-statement-mismatch"
   | "unknown-trust-reconciliation-match"
+  | "match-belongs-to-another-reconciliation"
+  | "reconciliation-outstanding-items-truncated"
   | "match-is-a-withdrawal"
   | "match-already-withdrawn"
   | "statement-line-already-matched"
