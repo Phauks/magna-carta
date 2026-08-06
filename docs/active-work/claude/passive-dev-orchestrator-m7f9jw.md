@@ -45,6 +45,44 @@ at full capacity. Keep it current at every milestone — it is the durable memor
   MC docs-sync (Mon 13:03), Cloudflare blog monitor (daily 14:00, reports not
   persisted), dependency updates (Mon 14:30).
 
+## Position update (2026-08-06 ~23:50 UTC) — campaign 2 nearly closed; Magnus LIVE; owner scope answers banked
+
+One hundred eighteen merged. OWNER TURNS today (all genuine): (1) SUCK IT
+rounds — status protocol name. (2) Directives: finish-the-designs (tasks
+103-106 created + 93/95/96/97 stand), search/discovery STATS harness (107 —
+standardized owner-readable speed report), Magnus BUILD authorized (AI
+Gateway seam, opt-in), AI Search design-then-flags + opt-in. (3) Flags:
+H1/D3/L3/F1 ratified (#145); Magnus F2 (four working roles)/F3 (per-convo
+grants)/F4b ratified — F4b REFRAMED: transcripts are WORK PRODUCT (protected,
+deletable, archivable; discoverable like email BUT any search/discovery
+surface reaching them needs an EXPLICIT include-or-exclude control — binds
+discovery 5·1·2+, recorded #158). (4) Queue-when-time scopes: conflicts BOTH
+gaps (112), reporting ALL FOUR surfaces bar-audit-first (113), discovery 5·2
+tagging-first (114) — start when current queue drains. (5) Queue-level
+question answered: 2 heavy + 2 light is the box optimum; expansion = buy
+Actions minutes (recommended) / bigger env / wait Sept 1 — OWNER HAS NOT
+CHOSEN; austerity bar stands. MERGED since 108: #149 assets (idx 38), #150
+discovery Rust core, #151-153 campaign-2 reviews (43 findings: 7H/17M/19L),
+#154 R1 financial fixes (H1 trust attribution — client derived from
+matter_party, its one home now in packages/matters/src/matter-party.ts),
+#155 AI Search assessment (adopt-partially retrieval-first; instance-per-firm
+only shape that scales; filter-disjunction docs CONTRADICTION — test before
+walling; matter-dimension R2 metadata = build-now task 110), #156 Magnus
+design (NO new port — @magna-carta/inference IS the seam; ADR-0111/0112/0113),
+#157 R2 operational fixes (two-signatory bound to real members, idx 39),
+#158 flags, #159 MAGNUS SLICE 1 (idx 40; FIFTH permission inventory found:
+RESOURCE_BY_PERMISSION_NAMESPACE in conformance.test.ts; JobProgressSockets
+deliberately NOT reused — bucket attachment is a signed-URL guard). IN
+FLIGHT: R3 automation fixes (final worker run; addDays/sweep-convergence/
+DKIM-From; duplicate-From finding DISPROVEN by test; no migration) + billing
+3·4·2 trust application (tag 20260806T060000 idx 41 expected; no-double-
+credit dedicated test; two-person disposition flagged). Journal head idx 40.
+QUEUE: 103 discovery 5·1·2 (F4b include/exclude control), 104 auto-file
+wiring, 106 assets 4·3·2/3, 93 catalog 2-4, 95-97, 107 stats, 109/110 AI
+Search, 90; THEN owner-scoped 112/113/114. NO 6/7, NO UI. Sept 1 revert
+armed. Contention adjudication standard mature: disjoint-sets + isolation
+pass + honest disclosure; base-vs-changes stash-testing now standard.
+
 ## Position update (2026-08-06 ~04:20 UTC) — OWNER REDIRECT: deepen 0-5 only; UI parked
 
 One hundred eight merged. OWNER TURNS (2026-08-06, genuine): (1) Flag round —
