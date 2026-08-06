@@ -1,7 +1,8 @@
 import { ProtectedReadForbiddenError } from "@magna-carta/data-access/protected-fields";
 import type { IdentifierType } from "@magna-carta/directory/types";
-import type { DictionaryEntry } from "./dictionary.ts";
-import { normalizedRoleToken } from "./directory-role-bindings.ts";
+import type { DictionaryEntry } from "./catalog/entry.ts";
+import { exampleRenderingsFor } from "./catalog/examples.ts";
+import { mergeSubject, normalizedRoleToken } from "./catalog/subjects.ts";
 import type { MatterPartyMergeRow } from "./merge-statements.ts";
 import type { MergeValue } from "./types.ts";
 
@@ -33,6 +34,12 @@ export interface ProtectedIdentifierSource {
   readonly key: string;
   readonly identifierType: IdentifierType;
   readonly label: string;
+  // What a firm would type looking for it — "SSN", "tax ID". A sealed identifier is the field an author
+  // is least likely to find by its spelled-out name, so it carries the abbreviations outright.
+  readonly synonyms: readonly string[];
+  // Invented sample text of the SHAPE the identifier takes, never a real one and never a real person's.
+  // A picker row showing what the rendering looks like is what stops an author binding the wrong field.
+  readonly exampleRendering: string;
 }
 
 // The key's first segment. Protected identifiers are the CLIENT'S: the client is who an engagement
@@ -49,25 +56,62 @@ const CLIENT_ROLE_TOKEN = normalizedRoleToken("client");
 // identifier type that quietly has no merge binding and no considered decision behind it: adding a type
 // to the Directory's catalogue stops this file compiling until someone says what a document calls it.
 const IDENTIFIER_SOURCES: Readonly<
-  Record<IdentifierType, { readonly segment: string; readonly label: string }>
+  Record<
+    IdentifierType,
+    {
+      readonly segment: string;
+      readonly label: string;
+      readonly synonyms: readonly string[];
+      readonly exampleRendering: string;
+    }
+  >
 > = {
-  ssn: { segment: "socialSecurityNumber", label: "Social Security number" },
-  ein: { segment: "employerIdentificationNumber", label: "Employer Identification Number" },
-  dob: { segment: "dateOfBirth", label: "date of birth" },
-  account: { segment: "accountNumber", label: "account number" },
-  drivers_license: { segment: "driversLicenseNumber", label: "driver's license number" },
+  ssn: {
+    segment: "socialSecurityNumber",
+    label: "Social Security number",
+    synonyms: ["SSN", "social security", "tax identifier"],
+    exampleRendering: "000-00-0000",
+  },
+  ein: {
+    segment: "employerIdentificationNumber",
+    label: "Employer Identification Number",
+    synonyms: ["EIN", "federal tax identifier", "tax identifier"],
+    exampleRendering: "00-0000000",
+  },
+  dob: {
+    segment: "dateOfBirth",
+    label: "date of birth",
+    synonyms: ["DOB", "birthday", "born"],
+    exampleRendering: "January 1, 1970",
+  },
+  account: {
+    segment: "accountNumber",
+    label: "account number",
+    synonyms: ["bank account", "account"],
+    exampleRendering: "0000000000",
+  },
+  drivers_license: {
+    segment: "driversLicenseNumber",
+    label: "driver's license number",
+    synonyms: ["DL", "licence", "license number"],
+    exampleRendering: "X0000000",
+  },
   ssn_last_four: {
     segment: "socialSecurityNumberLastFour",
     label: "last four digits of the Social Security number",
+    synonyms: ["SSN last four", "last four"],
+    exampleRendering: "0000",
   },
 };
 
 export const PROTECTED_IDENTIFIER_SOURCES: readonly ProtectedIdentifierSource[] = Object.entries(
   IDENTIFIER_SOURCES,
-).map(([identifierType, { segment, label }]) => ({
+).map(([identifierType, { segment, label, synonyms, exampleRendering }]) => ({
   key: `${PROTECTED_KEY_PREFIX}${segment}`,
   identifierType: identifierType as IdentifierType,
   label,
+  synonyms,
+  exampleRendering,
 }));
 
 const SOURCE_BY_KEY: ReadonlyMap<string, ProtectedIdentifierSource> = new Map(
@@ -99,6 +143,11 @@ export function protectedIdentifierSourcesIn(
 // The absence behaviour is `placeholder` for the reason the whole absence model biases that way, and it
 // carries a second weight here: a member who may not decrypt gets this marker, and a marker is the one
 // outcome they cannot mistake for a value the firm does not hold.
+//
+// The subject a protected identifier hangs off is read from the registry rather than restated here, so
+// the group heading and the availability derivation are the client subject's own and cannot drift.
+const CLIENT_SUBJECT = mergeSubject("client");
+
 export const PROTECTED_DICTIONARY_ENTRIES: readonly DictionaryEntry[] =
   PROTECTED_IDENTIFIER_SOURCES.map((source) => ({
     key: source.key,
@@ -108,6 +157,20 @@ export const PROTECTED_DICTIONARY_ENTRIES: readonly DictionaryEntry[] =
     sensitivity: "protected" as const,
     absence: "placeholder" as const,
     description: `The client's ${source.label}, held encrypted. Filling it in decrypts it, which requires permission and is recorded.`,
+    label: `Client's ${source.label}`,
+    group: CLIENT_SUBJECT?.group ?? "client",
+    subject: "client",
+    // A sealed identifier sits behind the client subject's disclosure, so an author choosing "the
+    // client's name" never trips over "the client's tax identifier".
+    prominence: "secondary" as const,
+    synonyms: source.synonyms,
+    // Rendered through the real format table from an invented value of the right SHAPE, so a picker row
+    // shows what the field looks like without any firm's data existing anywhere near this list.
+    exampleRenderings: exampleRenderingsFor("text", {
+      kind: "text",
+      text: source.exampleRendering,
+    }),
+    status: "current" as const,
   }));
 
 // How the caller reads one sealed identifier. Injected rather than imported, exactly as the image-asset

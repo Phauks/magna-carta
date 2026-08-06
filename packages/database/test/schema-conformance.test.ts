@@ -88,6 +88,9 @@ describe("schema conformance (fitness functions)", () => {
     // invoice_number_allocation is the same reservation shape for invoice numbers.
     // invoice_matter_balance is keyed by (invoice_id, matter_id) — the derived balance IS that pair,
     // exactly as account_balance IS its account; every read and every delta arrives holding both.
+    // document_template_field_binding is keyed by (template_version_id, merge_key) — a binding IS that
+    // pair, there is nothing else to record about one, and both directions of the question ("what does
+    // this version bind", "who binds this field") arrive holding one of the two columns.
     const compositeKeyTables = new Set([
       "storage_meter",
       "token_usage_meter",
@@ -97,6 +100,7 @@ describe("schema conformance (fitness functions)", () => {
       "custody_number_allocation",
       "invoice_number_allocation",
       "invoice_matter_balance",
+      "document_template_field_binding",
       "scan_cache",
       "scoped_setting",
     ]);

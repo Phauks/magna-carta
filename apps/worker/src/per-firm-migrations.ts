@@ -37,6 +37,7 @@ import trustReconciliationSql from "@magna-carta/database/drizzle/per-firm/20260
 import autoFileRulesSql from "@magna-carta/database/drizzle/per-firm/20260805T220000_auto-file-rules.sql";
 import billingInvoicesSql from "@magna-carta/database/drizzle/per-firm/20260805T230000_billing-invoices.sql";
 import caseCalendarSql from "@magna-carta/database/drizzle/per-firm/20260806T000000_case-calendar.sql";
+import mergeFieldCatalogSql from "@magna-carta/database/drizzle/per-firm/20260806T010000_merge-field-catalog.sql";
 import matterAssetsSql from "@magna-carta/database/drizzle/per-firm/20260806T020000_matter-assets.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the FirmDatabase
@@ -85,6 +86,7 @@ export function perFirmMigrations(): Migration[] {
     "20260805T220000_auto-file-rules": autoFileRulesSql,
     "20260805T230000_billing-invoices": billingInvoicesSql,
     "20260806T000000_case-calendar": caseCalendarSql,
+    "20260806T010000_merge-field-catalog": mergeFieldCatalogSql,
     "20260806T020000_matter-assets": matterAssetsSql,
   });
 }

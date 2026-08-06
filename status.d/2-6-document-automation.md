@@ -175,5 +175,52 @@ A firm declaring one of its OWN fields protected is a separate decision and not 
 column on `custom_field` and a ciphertext column on `custom_field_value` that do not exist, and the
 derivation in `custom-field-bindings.ts` is the one line that reads the declaration once they do.
 
+Build slice 2·6·5 shipped **the generated catalogue and its contract** — the substrate the merge-field
+catalogue grows on. The dictionary is no longer a hand-written array: it is the cross product of a
+SUBJECT registry (the things a document can talk about) with a FACET registry (the facts a subject of
+that kind carries), plus the written-out facts of the one-of-a-kind subjects. `DIRECTORY_ROLE_SOURCES`
+folds into the subject registry rather than living beside it, so adding a party role is one row whose
+whole facet set follows and adding a facet is one row every subject of that kind gains with identical
+absence behaviour, formats, and description wording. A hand-written catalogue's wrong row is seen by
+nobody; a generated one's is wrong on every subject at once and is seen by every test together, which is
+the trade the shape makes and the reason the fitness functions below exist.
+
+**A committed golden key list makes permanence a property rather than a promise.**
+`test/fixtures/shipped-keys.json` records every shipped key with its value type, source, default
+rendering, absence behaviour, and sensitivity; the test fails when a key disappears, changes any of
+them, or makes its absence LESS visible (`blank` → `placeholder` → `fail` is the one permitted
+direction). Adding a key stays safe — a template cannot bind what did not exist — and stays deliberate:
+it lands as a diff to that file. Two keys were added this way, `client.kind` and `client.all`, which the
+client subject gains from the party facet set.
+
+**Presentation lives on the dictionary entry**, so the read contract is its projection rather than its
+twin. Every entry carries a label, a picker heading from a declared group registry, the subject it is
+about, a prominence, search synonyms, and one example rendering per legal format — produced by running
+an invented sample through the REAL format table, so an example can never describe a rendering the
+formatter does not produce. Availability and its note are DERIVED from the source and the subject's
+optionality rather than declared on every row. The absence marker reads the label, so a missing opposing
+counsel leaves `[OPPOSING COUNSEL'S NAME]` rather than `[OPPOSING COUNSEL DISPLAY NAME]`.
+
+**The structured `name` value type** rides along, because it is what makes the format system testable:
+`displayName` carries the parts the Directory records — projected on the party read that already happens,
+not a new one — and gains `full`, `formal`, `lastFirst`, `initials`, `family`, `given`, and `upper`. Its
+default rendering is byte-for-byte the string it always printed, proven against the plain-text rendering
+of the same recorded string, so no registered template's output moved. A RENDERING THE RECORD CANNOT
+SUPPORT IS A DECLARED ABSENCE WITH A REASON naming the missing part — never a fallback to a different
+rendering, which is the same failure the ambiguity rule refuses one level up.
+
+**The field-binding index** (`document_template_field_binding`) is the one new table: one row per
+distinct merge key a version's manifest names, written in the same batch as the version. A template
+version is immutable, so the rows can never disagree with the manifest they came from — no update path,
+no reconciliation, no staleness mode. It turns the custom-field hard-delete guard's `instr()` scan over
+every stored manifest into an index seek, and it is what "where is this field used" and the picker's
+usage ordering will read. `documentTemplate.fieldBinding` counts the write by outcome; no merge-field key
+is ever a dimension.
+
+Load profile: the `documentAutomation` set gains the catalogue projection and the binding-index lookup,
+both index walks, with the generator version bumped because registration now writes binding rows.
 Remaining for the subsystem: PDF output and the signature hand-off (2·6·3), authoring surfaces (2·6·4),
-the office-settings UI for the logo, and the interface seams.
+the office-settings UI for the logo, and the interface seams. Next in the catalogue plan: the rest of the
+format system (2·6·6), then the party subjects at scale (2·6·7). Owner flag H1 — whether matter
+staffing, the court-case record, and the estate become platform tables — gates 2·6·8 through 2·6·10 and
+is still open; nothing shipped here depends on it.

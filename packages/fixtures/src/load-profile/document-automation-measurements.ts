@@ -8,12 +8,19 @@ import {
   selectCustomFieldCatalogStatement,
   selectCustomFieldValuesStatement,
 } from "@magna-carta/document-assembly/custom-field-statements";
-import { dictionaryForFirm } from "@magna-carta/document-assembly/dictionary";
+import {
+  availabilityFor,
+  availabilityNoteFor,
+  dictionaryForFirm,
+} from "@magna-carta/document-assembly/dictionary";
+import { mergeSubject } from "@magna-carta/document-assembly/catalog-subjects";
+import { legalFormatsFor } from "@magna-carta/document-assembly/format";
 import {
   selectMatterForMergeStatement,
   selectMatterPartiesForMergeStatement,
 } from "@magna-carta/document-assembly/merge-statements";
 import {
+  mergeFieldCatalogRevision,
   readCustomFieldCatalog,
   resolveMergeContext,
 } from "@magna-carta/document-assembly/resolve";
@@ -22,6 +29,7 @@ import {
   listDocumentTemplatesStatement,
   readTemplateVersionForAssembly,
   readTemplateVersionForAssemblyStatement,
+  selectTemplateVersionsBindingKeyStatement,
 } from "@magna-carta/document-assembly/template-statements";
 import { manifestKeys, type FieldManifest } from "@magna-carta/document-assembly/types";
 import type { MatterId } from "@magna-carta/identifiers/types";
@@ -145,7 +153,81 @@ export const documentAutomationMeasurements: readonly Measurement<
       await readCustomFieldCatalog(handle.database);
     },
   },
+  {
+    name: "templates.merge-field-catalog",
+    operation: async (handle) => {
+      // The catalogue projection every authoring surface opens with — the ONE payload that grows with
+      // the catalogue rather than with a firm's data. It is one read plus a pass over the entries, so
+      // what this measures is the projection itself; `catalogueResponseBytes` below records its size,
+      // which is the number that actually moves as subjects and facets are added.
+      const catalog = await readCustomFieldCatalog(handle.database);
+      mergeFieldCatalogProjection(
+        dictionaryForFirm(customFieldDictionaryEntries(catalog)),
+        catalog,
+      );
+    },
+  },
+  {
+    name: "templates.field-binding-lookup",
+    operation: async (handle) => {
+      // "Where is this field used" — the read behind deprecation reporting, the picker's usage
+      // ordering, and the guard on destroying a firm's own field. An index seek on `merge_key`, which
+      // is what the plan probe below proves.
+      await selectTemplateVersionsBindingKeyStatement(
+        handle.database,
+        handle.probeCustomHandles[0] === undefined
+          ? "matter.number"
+          : `custom.${handle.probeCustomHandles[0]}`,
+      ).all();
+    },
+  },
 ];
+
+// The projection `GET /api/v1/merge-fields` returns, built here so the measurement runs the same pass
+// the route does rather than a stand-in for it.
+function mergeFieldCatalogProjection(
+  dictionary: ReturnType<typeof dictionaryForFirm>,
+  customFields: Awaited<ReturnType<typeof readCustomFieldCatalog>>,
+): { readonly revision: string; readonly fields: readonly unknown[] } {
+  return {
+    revision: mergeFieldCatalogRevision(customFields),
+    fields: dictionary.map((entry) => ({
+      key: entry.key,
+      source: entry.source,
+      valueType: entry.valueType,
+      defaultFormat: entry.defaultFormat,
+      formats: [...legalFormatsFor(entry.valueType)],
+      absence: entry.absence,
+      sensitivity: entry.sensitivity,
+      description: entry.description,
+      label: entry.label,
+      group: entry.group,
+      subject: entry.subject,
+      subjectLabel: mergeSubject(entry.subject)?.label ?? entry.subject,
+      prominence: entry.prominence,
+      synonyms: [...entry.synonyms],
+      exampleRenderings: { ...entry.exampleRenderings },
+      availability: availabilityFor(entry),
+      availabilityNote: availabilityNoteFor(entry),
+      status: entry.status,
+      supersededBy: entry.supersededBy ?? null,
+    })),
+  };
+}
+
+// The size of that payload, in bytes, for the committed baseline. It is the one number in this
+// subsystem that grows with the PLATFORM's key count rather than with any firm's data, and it is the
+// reason the response carries a revision a browser can revalidate against.
+export async function catalogueResponseBytes(
+  handle: DocumentAutomationMeasurementHandle,
+): Promise<number> {
+  const catalog = await readCustomFieldCatalog(handle.database);
+  const projection = mergeFieldCatalogProjection(
+    dictionaryForFirm(customFieldDictionaryEntries(catalog)),
+    catalog,
+  );
+  return new TextEncoder().encode(JSON.stringify(projection)).byteLength;
+}
 
 // Nothing here is table-wide by nature, so the allowlist is empty and kept as the explicit seam a
 // future table-wide rollup would have to register through. The firm's field catalogue looked like the
@@ -214,6 +296,15 @@ export function documentAutomationHotPathPlans(
     {
       label: "templates.custom-field-catalog",
       statement: capturedStatement(selectCustomFieldCatalogStatement(handle.database)),
+    },
+    // The binding index, read the way every consumer of it reads it: by merge key. It must be an index
+    // seek — the whole reason the table exists is that the question used to be answered by `instr()`
+    // over every stored field manifest, which is a scan that grows with the firm's template catalogue.
+    {
+      label: "templates.field-binding-lookup",
+      statement: capturedStatement(
+        selectTemplateVersionsBindingKeyStatement(handle.database, "matter.number"),
+      ),
     },
   ];
   return statements.map(({ label, statement }) => ({

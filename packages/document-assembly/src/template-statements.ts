@@ -88,6 +88,49 @@ export function insertDocumentTemplateVersionStatement(
     );
 }
 
+export const DOCUMENT_TEMPLATE_FIELD_BINDING_TABLE = "document_template_field_binding";
+
+// The binding index rows for one version: one per DISTINCT merge key its manifest names, written in the
+// SAME BATCH as the version itself.
+//
+// A template version is immutable, so a row derived from it and committed with it can never disagree
+// with it — there is no update path here and no staleness mode, which is precisely what makes an index
+// acceptable where the alternative was `instr()` over every stored manifest. A rolled-back registration
+// leaves no bindings behind, for the same reason it leaves no version behind.
+//
+// One statement per key rather than one multi-row insert: the batch chokepoint takes statements, the
+// count is bounded by the manifest the registration already refused to exceed, and a single statement
+// whose SQL shape depends on the key count would defeat the prepared-statement cache for every distinct
+// template size a firm registers.
+export function insertTemplateFieldBindingStatements(
+  database: SqlDatabase,
+  templateVersionId: DocumentTemplateVersionId,
+  mergeKeys: readonly string[],
+): SqlStatement[] {
+  const distinct = [...new Set(mergeKeys)].sort();
+  return distinct.map((mergeKey) =>
+    database
+      .prepare(
+        `INSERT INTO ${DOCUMENT_TEMPLATE_FIELD_BINDING_TABLE} (template_version_id, merge_key) VALUES (?1, ?2)`,
+      )
+      .bind(templateVersionId, mergeKey),
+  );
+}
+
+// Every registered version that binds one merge key. The read behind "where is this field used", and
+// behind the guard that refuses to destroy a firm's own field a template names — an index seek on
+// `merge_key`, never a scan over stored manifests.
+export function selectTemplateVersionsBindingKeyStatement(
+  database: SqlDatabase,
+  mergeKey: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT template_version_id FROM ${DOCUMENT_TEMPLATE_FIELD_BINDING_TABLE} WHERE merge_key = ?1 ORDER BY template_version_id`,
+    )
+    .bind(mergeKey);
+}
+
 // Move the catalogue row's pointer to a version that has cleared the gate. Guarded on the version being
 // clean IN THE STATEMENT rather than only in the caller: a version whose scan verdict changed between
 // the caller's read and this commit must not become the version every assembly of this template uses.

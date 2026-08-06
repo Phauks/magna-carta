@@ -5,10 +5,10 @@ import { createPicklistOption } from "../src/picklist-option-service.ts";
 import { migratedFirmDatabase, fixtureWriteOptions } from "./helpers.ts";
 import { MAX_FIELDS_PER_SCOPE, MAX_OPTIONS_PER_FIELD } from "../src/limits.ts";
 
-// A registered template version, reduced to the one column the guard reads: the field manifest its
-// normalization produced. Written directly rather than through the document-assembly package, because
-// this package depends on no other domain package and must not start now — the guard names the table by
-// string exactly as the directory's merge names `custom_field_value`.
+// A registered template version and the binding index rows registration derives from it — the rows the
+// guard reads. Written directly rather than through the document-assembly package, because this package
+// depends on no other domain package and must not start now: the guard names the table by string
+// exactly as the directory's merge names `custom_field_value`.
 async function registerTemplateBinding(
   database: Awaited<ReturnType<typeof migratedFirmDatabase>>,
   boundKey: string,
@@ -23,6 +23,12 @@ async function registerTemplateBinding(
       `INSERT INTO document_template_version (id, template_id, version_number, r2_key, field_manifest_json, created_at) VALUES ('documentTemplateVersion_first', 'documentTemplate_engagementLetter', 1, 'templates/first.docx', ?1, '2026-08-05T00:00:00.000Z')`,
     )
     .bind(JSON.stringify({ fields: [{ key: boundKey, format: null, occurrences: 1 }] }))
+    .run();
+  await database
+    .prepare(
+      `INSERT INTO document_template_field_binding (template_version_id, merge_key) VALUES ('documentTemplateVersion_first', ?1)`,
+    )
+    .bind(boundKey)
     .run();
 }
 

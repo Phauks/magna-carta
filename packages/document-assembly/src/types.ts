@@ -183,6 +183,11 @@ export type MergeSource =
 
 export type MergeValueType =
   | "text"
+  // A person's or an organisation's name, carried as the PARTS the Directory records rather than as one
+  // string. A format can only render what the value holds, so two renderings that need parts require the
+  // value to have parts: a surname-first rendering is not derivable out of a single display string, and
+  // guessing at it is how a document ends up looking finished and being wrong.
+  | "name"
   | "date"
   | "money"
   | "rate"
@@ -209,6 +214,26 @@ export type Sensitivity = "ordinary" | "protected";
 // can move a decimal point without ever having to guess a value's scale.
 export type MergeValue =
   | { readonly kind: "text"; readonly text: string }
+  // A name, as its recorded parts. `display` is the string the Directory shows and the one the default
+  // rendering prints unchanged; every other part is present only when the record separates it out, and a
+  // rendering that needs a part the record lacks is a DECLARED ABSENCE with a reason rather than a
+  // fallback to a different rendering — see format.ts.
+  | {
+      readonly kind: "name";
+      readonly display: string;
+      readonly prefix?: string;
+      readonly given?: string;
+      readonly middle?: string;
+      readonly family?: string;
+      readonly suffix?: string;
+      // An organisation has one name and no parts. Carried as a fact rather than inferred from the
+      // absent parts, because "a person whose family name was never split out" and "a company" want
+      // different sentences when a template asks for a surname. Absent when the read that produced the
+      // value does not record which it is — the matter's own row carries its client's display name and
+      // nothing about the Directory record behind it — and an absent flag is treated as "not recorded",
+      // never guessed either way.
+      readonly isOrganisation?: boolean;
+    }
   | { readonly kind: "date"; readonly isoDate: string } // a calendar date, YYYY-MM-DD
   | { readonly kind: "instant"; readonly isoInstant: string } // an instant, UTC-normalized
   | { readonly kind: "money"; readonly amountMinor: number; readonly currencyCode: string }

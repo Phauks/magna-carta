@@ -17,19 +17,33 @@
  * and safe to show before a matter is chosen.
  */
 
-/** Which batched source supplies a field's value — the axis the picker groups by. */
-export type MergeFieldGroup = "matter" | "parties" | "firm" | "location" | "system" | "custom";
+/**
+ * The picker's top-level heading. A DECLARED REGISTRY rather than a closed union: the catalog grows to
+ * hundreds of fields and the headings grow with the subjects behind them, so adding one is a row in
+ * `MERGE_FIELD_GROUPS` (and, upstream, in the engine's own group registry) rather than a type change
+ * that every consumer has to be recompiled against.
+ */
+export type MergeFieldGroup = string;
 
-/** Fixes which formatters are legal for a field, and which input control the assembly area renders. */
+/**
+ * Fixes which formatters are legal for a field, and which input control the assembly area renders.
+ *
+ * PINNED TO THE ENGINE'S `MergeValueType`, member for member. Two unions describing the same thing and
+ * disagreeing is a drift generator — this one used to carry `longText` and `address` where the engine
+ * had `image`, `list`, and `rate` — so there is one list, and `test/fixture-projection.test.ts` asserts
+ * the pairing rather than trusting two lists to stay in step by care.
+ */
 export type MergeFieldValueType =
   | "text"
-  | "longText"
+  | "name"
   | "date"
   | "money"
+  | "rate"
   | "number"
   | "boolean"
-  | "address"
-  | "reference";
+  | "reference"
+  | "image"
+  | "list";
 
 /**
  * Where a field's value comes from when a document is assembled. This is the distinction the input
@@ -50,6 +64,19 @@ export type MergeFieldAvailability =
  */
 export type MergeFieldSensitivity = "ordinary" | "protected";
 
+/**
+ * Ordering and default visibility in the picker — NEVER a filter on what exists. A `secondary` field is
+ * one interaction away and always findable by search: hiding the field someone needs, in a product
+ * whose alternative is retyping it into a filed document, is the worse failure.
+ */
+export type MergeFieldProminence = "primary" | "secondary";
+
+/**
+ * Whether this is still the way to name the fact. A withdrawn field is `deprecated`, never removed: it
+ * keeps filling in for the templates already bound to it, and it names what replaced it.
+ */
+export type MergeFieldStatus = "current" | "deprecated";
+
 /** One merge field a firm can put in a template. */
 export interface MergeFieldEntry {
   /** The stable token a template writes between braces — `matter.number`, `client.displayName`. */
@@ -57,47 +84,86 @@ export interface MergeFieldEntry {
   /** What a person calls it. This, not the key, is what a picker row reads out. */
   readonly label: string;
   readonly group: MergeFieldGroup;
+  /**
+   * The thing the field is ABOUT — the client, the opposing counsel, this office. The second level of
+   * the picker's sectioning: a "Parties" heading with a hundred and thirty rows under it is a list
+   * nobody scrolls, and the subject is what breaks it into a dozen readable ones.
+   */
+  readonly subject: string;
+  /** What a person calls the subject — "Opposing counsel". Search matches it too. */
+  readonly subjectLabel: string;
+  readonly prominence: MergeFieldProminence;
   readonly valueType: MergeFieldValueType;
   /** One sentence, product voice: what this field holds. */
   readonly description: string;
   /** Illustrative sample text showing how the field renders in a document. Never real firm data. */
   readonly exampleRendering: string;
+  /**
+   * One sample per legal format, so a format chooser shows what each rendering does rather than naming
+   * it. The same invented sample throughout — the only thing that changes between them is the
+   * rendering.
+   */
+  readonly exampleRenderings: Readonly<Record<string, string>>;
+  /**
+   * Search words a firm would type — "defendant" for the opposing party, "SSN" for the tax identifier.
+   * What makes a firm's own vocabulary find the platform's key.
+   */
+  readonly synonyms: readonly string[];
   readonly availability: MergeFieldAvailability;
   /** One sentence saying where the value comes from, or why it may be missing. */
   readonly availabilityNote: string;
   readonly sensitivity: MergeFieldSensitivity;
-  /** The named formats legal for this field, the default first (`{{key:long}}` selects one). */
+  /** The named formats legal for this field's type — `{{key:long}}` selects one at a placeholder. */
   readonly formats: readonly string[];
+  readonly status: MergeFieldStatus;
+  /** The key that replaced a deprecated one. `null` on a current field. */
+  readonly supersededBy: string | null;
 }
 
-/** Human-facing group headings, in the order a picker should present them. */
-export const MERGE_FIELD_GROUP_ORDER: readonly MergeFieldGroup[] = [
-  "matter",
-  "parties",
-  "firm",
-  "location",
-  "system",
-  "custom",
+/** One picker heading: its key, what it reads, and where it sits in the order. */
+export interface MergeFieldGroupDefinition {
+  readonly key: MergeFieldGroup;
+  readonly label: string;
+}
+
+/**
+ * Human-facing group headings, in the order a picker should present them. ADDING A GROUP IS A ROW —
+ * here and in the engine's own registry, which is where the entries get their group in the first place.
+ */
+export const MERGE_FIELD_GROUPS: readonly MergeFieldGroupDefinition[] = [
+  { key: "matter", label: "Matter" },
+  { key: "client", label: "The client" },
+  { key: "otherParties", label: "Other parties" },
+  { key: "firm", label: "The firm" },
+  { key: "office", label: "This office" },
+  { key: "document", label: "Dates and the document" },
+  { key: "custom", label: "The firm's own fields" },
 ];
 
-export const MERGE_FIELD_GROUP_LABELS: Readonly<Record<MergeFieldGroup, string>> = {
-  matter: "Matter",
-  parties: "Parties",
-  firm: "Firm",
-  location: "Location",
-  system: "System",
-  custom: "Custom fields",
-};
+/** The group keys in rendering order — the registry's own order, never a second copy of it. */
+export const MERGE_FIELD_GROUP_ORDER: readonly MergeFieldGroup[] = MERGE_FIELD_GROUPS.map(
+  (group) => group.key,
+);
+
+export const MERGE_FIELD_GROUP_LABELS: Readonly<Record<MergeFieldGroup, string>> =
+  Object.fromEntries(MERGE_FIELD_GROUPS.map((group) => [group.key, group.label]));
+
+/** A group's label, falling back to its key for a group a newer server sent that this build has not. */
+export function mergeFieldGroupLabel(group: MergeFieldGroup): string {
+  return MERGE_FIELD_GROUP_LABELS[group] ?? group;
+}
 
 export const MERGE_FIELD_VALUE_TYPE_LABELS: Readonly<Record<MergeFieldValueType, string>> = {
   text: "Text",
-  longText: "Long text",
+  name: "Name",
   date: "Date",
   money: "Money",
+  rate: "Rate",
   number: "Number",
   boolean: "Yes or no",
-  address: "Address",
   reference: "Reference",
+  image: "Picture",
+  list: "List",
 };
 
 /** The firm's catalog as one read. */

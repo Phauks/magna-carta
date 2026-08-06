@@ -33,7 +33,7 @@ function serviceBindingPort(search: Pick<Fetcher, "fetch">): SearchIndexPort {
       try {
         const response = await post("index", {
           firmId: input.firmId,
-          matterId: input.matterId,
+          corpus: input.corpus,
           documentId: input.documentId,
           version: input.version,
           objectKey: input.objectKey,
@@ -55,7 +55,7 @@ function serviceBindingPort(search: Pick<Fetcher, "fetch">): SearchIndexPort {
       try {
         const response = await post("remove", {
           firmId: input.firmId,
-          matterId: input.matterId,
+          corpus: input.corpus,
           documentId: input.documentId,
         });
         if (!response.ok) return searchAdapterError(`search service ${response.status}`);
@@ -68,7 +68,7 @@ function serviceBindingPort(search: Pick<Fetcher, "fetch">): SearchIndexPort {
       try {
         const response = await post("query", {
           firmId: input.firmId,
-          matterId: input.matterId,
+          corpus: input.corpus,
           text: input.text,
           mode: input.mode,
           limit: input.limit,

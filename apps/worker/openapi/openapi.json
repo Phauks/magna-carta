@@ -14137,6 +14137,15 @@
       "MergeFields": {
         "type": "object",
         "properties": {
+          "revision": {
+            "type": "string"
+          },
+          "groups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MergeFieldGroup"
+            }
+          },
           "fields": {
             "type": "array",
             "items": {
@@ -14145,7 +14154,28 @@
           }
         },
         "required": [
+          "revision",
+          "groups",
           "fields"
+        ]
+      },
+      "MergeFieldGroup": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "order": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "order"
         ]
       },
       "MergeFieldEntry": {
@@ -14177,6 +14207,48 @@
           },
           "description": {
             "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "group": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "subjectLabel": {
+            "type": "string"
+          },
+          "prominence": {
+            "type": "string"
+          },
+          "synonyms": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "exampleRenderings": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "availability": {
+            "type": "string"
+          },
+          "availabilityNote": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "supersededBy": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
@@ -14187,7 +14259,18 @@
           "formats",
           "absence",
           "sensitivity",
-          "description"
+          "description",
+          "label",
+          "group",
+          "subject",
+          "subjectLabel",
+          "prominence",
+          "synonyms",
+          "exampleRenderings",
+          "availability",
+          "availabilityNote",
+          "status",
+          "supersededBy"
         ]
       },
       "SubmittedAssembly": {

@@ -45,6 +45,33 @@ at full capacity. Keep it current at every milestone — it is the durable memor
   MC docs-sync (Mon 13:03), Cloudflare blog monitor (daily 14:00, reports not
   persisted), dependency updates (Mon 14:30).
 
+## Position update (2026-08-06 ~04:20 UTC) — OWNER REDIRECT: deepen 0-5 only; UI parked
+
+One hundred eight merged. OWNER TURNS (2026-08-06, genuine): (1) Flag round —
+H1/D3/L3/F1 ALL RATIFIED as recommended, B1 by acknowledged silence (recorded
+docs/decisions/pending/design-flags-h1-d3-l3-f1-ratified.md, #145). (2)
+DIRECTION: "I would be surprised if only 6/7 are next steps. if that is the
+case, do not start work on any of those. I feel like we need to further
+develop 0-5" — NO phase 6/7 work (portal/payments/exports designs NOT
+started); queue re-aimed at 0-5 depth: review campaign 2 over all post-F-173
+code (task 94), Notifications delivery design+build (95 — emission points
+wired to nothing), 2·6·3 PDF+e-sign tail (96), load-profile gaps custodian+
+calendar (97), catalog slices 2-4 (93, H1 unlocked), discovery builds,
+billing 3·4·2, auto-file 2, numbering consolidation (90). (3) UI: "not doing
+UI until after this trip, so no work on it yet" — FULLY PARKED, no design, no
+prep. MERGED since 100: #142 auto-file slice 1 (partial-index find; demotion
+reason flagged to slice 2), #143 billing spine (proven-union batch method
+born here), #144 calendar (idx 36; matter.created allowlist fix; interleave
+trap dodged by rebuild-from-main), #145 ratifications, #146 catalog slice 1
+(idx 37; H1-free proven; golden keys 35->37; latent type error outside diff
+found by tsc), #147 D3 widening (KEY-SHAPE RULING: id-only, kind segment
+redundant — discovery 5·1·1 reconciles the decision record's wording, task
+99 carries it). Journal head idx 37 = 20260806T010000. IN FLIGHT: assets
+slice 1 (tag 020000, idx 38 expected) + discovery 5·1·1 (tag 030000). Merge-
+queue discipline mature: pre-assign tags in dispatch order, second-to-merge
+retags, database typecheck FIRST after any merge, generated files re-derived
+never hand-merged, structural no-lost-operations diff. Sept 1 revert armed.
+
 ## Position update (2026-08-05 ~22:00 UTC) — ONE HUNDRED MERGED
 
 Merge 99 = #138 custodian destruction + Nevada catalog (task 83): two-person

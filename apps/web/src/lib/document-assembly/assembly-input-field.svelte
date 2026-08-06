@@ -17,7 +17,6 @@
   import { parseDate, type DateValue } from "@internationalized/date";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
-  import Textarea from "@magna-carta/design-system/textarea";
   import MergeFieldChip from "@magna-carta/design-system/merge-field-chip";
   import { DatePicker } from "@magna-carta/design-system/date-picker";
   import * as RadioGroup from "@magna-carta/design-system/radio-group";
@@ -95,14 +94,10 @@
           <span class="text-sm">No</span>
         </div>
       </RadioGroup.Root>
-    {:else if field.valueType === "longText" || field.valueType === "address"}
-      <Textarea
-        id={controlId}
-        bind:value
-        rows={field.valueType === "address" ? 3 : 4}
-        aria-describedby={describedBy}
-        aria-invalid={invalid ? "true" : undefined}
-      />
+      <!-- A multi-line control returns with the structured `address` value type, the one merge value
+           that genuinely renders as several lines. The two types that used to select a textarea here,
+           `longText` and `address`, were the contract's own inventions — no field the engine ships ever
+           carried either, so nothing ever reached this branch. -->
     {:else if field.valueType === "money"}
       <Input
         id={controlId}

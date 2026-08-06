@@ -34,6 +34,44 @@ way of being written — a date can appear as `3/14/2026`, `March 14, 2026`, or
 Dated this {{system.today:legal}}.
 ```
 
+### Finding a field
+
+The list is grouped by what a field is **about** — the matter, the client, the other parties on it,
+the firm, this office, the document itself, and your firm's own fields. Search matches more than the
+field's name: it matches the words your firm would type. Searching "defendant" finds the opposing
+party, "SSN" finds the client's Social Security number, and typing part of the field's key works too
+if you already know it.
+
+Some fields sit one step behind the ones you reach for most — whether a party is a person or a
+company, the client's sealed identifiers. **Nothing is ever hidden from search.** If a field exists,
+typing what you call it finds it.
+
+### Writing a name more than one way
+
+A party's name is not one string to us; it is the parts your Directory record holds. So the same
+field can be written the way a letter needs it, the way a caption needs it, or the way an index needs
+it:
+
+| What you type                      | What it prints            |
+| ---------------------------------- | ------------------------- |
+| `{{client.displayName}}`           | Rowan Ashcroft            |
+| `{{client.displayName:formal}}`    | Dr. Rowan T. Ashcroft Jr. |
+| `{{client.displayName:lastFirst}}` | Ashcroft, Rowan           |
+| `{{client.displayName:initials}}`  | R.T.A.                    |
+| `{{client.displayName:family}}`    | Ashcroft                  |
+| `{{client.displayName:given}}`     | Rowan                     |
+| `{{client.displayName:upper}}`     | ROWAN ASHCROFT            |
+
+Writing the field with no colon prints exactly what it has always printed — the name as your record
+shows it — so nothing you have already registered changes.
+
+**If the record cannot answer the question, you get a marked gap, not a guess.** A Directory record
+that stores only "Rowan Ashcroft", with no surname recorded separately, cannot be written surname
+first: rather than print the whole name and look finished, the document shows a marker and the
+assembly tells you which part is missing, so the repair is to open the record and split the name.
+Asking a company for a surname or a first name is the same: the assembly says so, in those words,
+rather than printing the company name where a person's surname belonged.
+
 ## Registering a template
 
 Upload the Word document and give it a name. Before it is stored, we prepare it and tell you what we
@@ -130,10 +168,10 @@ Re: {{client.displayName}} v. {{opposingParty.displayName}}
 Served on {{opposingCounsel.displayName}}.
 ```
 
-The four roles you can name are `opposingParty`, `opposingCounsel`, `guardian`, and `witness`. Each
-offers the party's **name** (`{{opposingParty.displayName}}`) and whether it is a **person or an
-organisation** (`{{opposingParty.kind}}`), which is what you write a condition on when a sentence has to
-read differently for a company:
+The roles you can name are `client`, `opposingParty`, `opposingCounsel`, `guardian`, and `witness`.
+Each offers the party's **name** (`{{opposingParty.displayName}}`, in any of the renderings above) and
+whether it is a **person or an organisation** (`{{opposingParty.kind}}`), which is what you write a
+condition on when a sentence has to read differently for a company:
 
 ```
 {{#if opposingParty.kind == "organisation"}}
@@ -415,6 +453,8 @@ is a report, not a template.
 
 - **A party's own details** beyond their name and whether they are a person or an organisation — an
   address, a telephone number, an email.
+- **The attorneys on your own side** — the responsible attorney, the supervising partner, the
+  paralegal on the file — and the court, the case number, and an estate's own names.
 - **Protected details for anyone but the client** — an opposing party's date of birth, say.
 - **Marking one of your own custom fields as protected.** The protected fields today are the client's
   identifiers held in the Directory.

@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { FirmId, MatterId } from "@magna-carta/identifiers/types";
+import { corpusOfMatter } from "@magna-carta/search/corpus";
 import type { SearchQueryInput } from "@magna-carta/search/port";
 import type { Bindings } from "../src/app.ts";
 import { resolveSearchIndexPort } from "../src/search/search-engine.ts";
 
 const QUERY: SearchQueryInput = {
   firmId: "firm_test0000000000000000000001" as FirmId,
-  matterId: "matter_test0000000000000000001" as MatterId,
+  corpus: corpusOfMatter("matter_test0000000000000000001" as MatterId),
   text: "indemnify",
   mode: "keyword",
   limit: 10,

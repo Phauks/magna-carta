@@ -120,13 +120,29 @@ describe("the Directory role sources as dictionary entries", () => {
 
   it("declares the singular keys as visible markers and each collection as a blank", () => {
     for (const source of DIRECTORY_ROLE_SOURCES) {
-      expect(lookupDictionaryEntry(`${source.key}.displayName`)?.absence).toBe("placeholder");
-      expect(lookupDictionaryEntry(`${source.key}.kind`)?.absence).toBe("placeholder");
+      for (const facet of source.scalarFacets) {
+        expect(lookupDictionaryEntry(`${source.key}.${facet}`)?.absence, source.key).toBe(
+          "placeholder",
+        );
+      }
       // An empty collection is the correct document, not a hole in one: a repeat over no opposing
       // parties produces nothing, exactly as `matter.parties` does on a matter with no links.
       expect(lookupDictionaryEntry(`${source.key}.all`)?.absence).toBe("blank");
       expect(lookupDictionaryEntry(`${source.key}.all`)?.valueType).toBe("list");
     }
+  });
+
+  // The one party subject whose name the party read does NOT answer: the matter's own row carries its
+  // client's display name, so the client party costs no second read — and a template naming only the
+  // client's name must therefore not drag one in. Its absence is the shipped `fail` where every sibling
+  // shows a marker, because a retainer agreement naming no client is not a document at all.
+  it("leaves the client's name to the matter read, with its stricter absence kept", () => {
+    const client = DIRECTORY_ROLE_SOURCES.find((source) => source.key === "client");
+    expect(client).toBeDefined();
+    expect(client?.scalarFacets).not.toContain("displayName");
+    expect(directoryRoleKeysFor(client!)).not.toContain("client.displayName");
+    expect(lookupDictionaryEntry("client.displayName")?.absence).toBe("fail");
+    expect(lookupDictionaryEntry("client.displayName")?.source).toBe("party");
   });
 
   it("keeps the shipped dictionary free of duplicate keys once the roles are folded in", () => {
@@ -149,8 +165,9 @@ describe("resolving a single party in a role", () => {
       ["opposingParty.displayName", "opposingParty.kind"],
     );
     expect(context.values.get("opposingParty.displayName")).toEqual({
-      kind: "text",
-      text: "Riverside Partners",
+      kind: "name",
+      display: "Riverside Partners",
+      isOrganisation: true,
     });
     expect(context.values.get("opposingParty.kind")).toEqual({
       kind: "text",
@@ -170,8 +187,9 @@ describe("resolving a single party in a role", () => {
         ["opposingParty.displayName"],
       );
       expect(context.values.get("opposingParty.displayName")).toEqual({
-        kind: "text",
-        text: "Riverside Partners",
+        kind: "name",
+        display: "Riverside Partners",
+        isOrganisation: true,
       });
     },
   );
@@ -182,8 +200,9 @@ describe("resolving a single party in a role", () => {
       ["opposingParty.displayName", "witness.displayName"],
     );
     expect(context.values.get("witness.displayName")).toEqual({
-      kind: "text",
-      text: "Dana Okafor",
+      kind: "name",
+      display: "Dana Okafor",
+      isOrganisation: false,
     });
     expect(context.values.has("opposingParty.displayName")).toBe(false);
   });
@@ -387,7 +406,9 @@ describe("a document assembled against the roles", () => {
     const result = assemble(template, context);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(documentTextOf(result.bytes)).toContain("Defendant: [OPPOSING PARTY DISPLAY NAME]");
+    // The apostrophe in the label is XML-escaped in the emitted part, which is what a reader turns
+    // back into an apostrophe — asserting over the escaped form is asserting over the bytes that ship.
+    expect(documentTextOf(result.bytes)).toContain("Defendant: [OPPOSING PARTY&apos;S NAME]");
     expect(result.absences).toHaveLength(1);
     expect(result.absences[0]?.rendered).toBe("placeholder");
     expect(result.absences[0]?.reason).toContain("2 parties");

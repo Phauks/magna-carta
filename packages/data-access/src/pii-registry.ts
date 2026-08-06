@@ -474,6 +474,11 @@ export const NO_PII_TABLES: readonly string[] = [
   // a firm configuration row (the same line email_capture_address sits on).
   "document_template",
   "document_template_version",
+  // The merge-field binding index. Two columns, both derived from the version row above: the version's
+  // identifier and the merge KEY its manifest names. A key is the platform's own token or a firm's own
+  // field handle — it names a fact, never holds one — so there is nothing here about a person even in
+  // the residual sense the manifest itself sits on. It is erased with the version it derives from.
+  "document_template_field_binding",
   // Custodian structure and catalogs. The three tables that reference a person are registered in
   // PII_TABLES above; these carry none of their own.
   // The container tree is the firm's own safes, shelves, and offsite sites — the firm's premises,

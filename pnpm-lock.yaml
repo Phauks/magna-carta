@@ -1725,6 +1725,9 @@ importers:
 
   packages/merge-field-catalog-contract:
     devDependencies:
+      '@magna-carta/document-assembly':
+        specifier: workspace:*
+        version: link:../document-assembly
       '@magna-carta/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
