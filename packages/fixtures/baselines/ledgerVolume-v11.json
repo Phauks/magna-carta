@@ -1,385 +1,385 @@
 {
   "profileName": "ledgerVolume",
   "profileVersion": 11,
-  "cacheKey": "4ce9faf28926b1f3",
+  "cacheKey": "c2b8e40efb7503d9",
   "results": [
     {
       "name": "assembly.merge-context",
       "iterations": 30,
-      "minMs": 0.588,
-      "medianMs": 0.68,
-      "p95Ms": 0.909
+      "minMs": 1.128,
+      "medianMs": 1.366,
+      "p95Ms": 1.917
     },
     {
       "name": "balance-read.busy-subledger",
       "iterations": 30,
       "minMs": 0.011,
-      "medianMs": 0.013,
-      "p95Ms": 0.023
+      "medianMs": 0.014,
+      "p95Ms": 0.146
     },
     {
       "name": "capture.commit",
       "iterations": 30,
-      "minMs": 1.157,
-      "medianMs": 2.005,
-      "p95Ms": 5.641
+      "minMs": 1.737,
+      "medianMs": 3.429,
+      "p95Ms": 8.888
     },
     {
       "name": "checkout.active-exclusive-lock",
       "iterations": 30,
-      "minMs": 0.023,
-      "medianMs": 0.025,
-      "p95Ms": 0.034
+      "minMs": 0.021,
+      "medianMs": 0.024,
+      "p95Ms": 0.08
     },
     {
       "name": "conflicts.co-party-check",
       "iterations": 30,
-      "minMs": 16.085,
-      "medianMs": 18.614,
-      "p95Ms": 46.531
+      "minMs": 15.785,
+      "medianMs": 23.969,
+      "p95Ms": 32.093
     },
     {
       "name": "conflicts.imputation",
       "iterations": 30,
-      "minMs": 0.105,
-      "medianMs": 0.117,
-      "p95Ms": 0.222
+      "minMs": 0.115,
+      "medianMs": 0.124,
+      "p95Ms": 0.189
     },
     {
       "name": "conflicts.run-check",
       "iterations": 30,
-      "minMs": 61.561,
-      "medianMs": 75.32,
-      "p95Ms": 107.951
+      "minMs": 55.644,
+      "medianMs": 77.848,
+      "p95Ms": 109.961
     },
     {
       "name": "create-account.trust-subledger",
       "iterations": 30,
-      "minMs": 1.153,
-      "medianMs": 1.344,
-      "p95Ms": 2.523
+      "minMs": 1.151,
+      "medianMs": 1.341,
+      "p95Ms": 1.621
     },
     {
       "name": "custom-field.merge-repoint",
       "iterations": 30,
-      "minMs": 1.622,
-      "medianMs": 2.036,
-      "p95Ms": 4.053
+      "minMs": 2.02,
+      "medianMs": 2.771,
+      "p95Ms": 13.205
     },
     {
       "name": "custom-field.preview-convert-scan",
       "iterations": 30,
-      "minMs": 0.124,
-      "medianMs": 0.152,
-      "p95Ms": 0.263
+      "minMs": 0.12,
+      "medianMs": 0.14,
+      "p95Ms": 0.281
     },
     {
       "name": "custom-field.read-current-values",
       "iterations": 30,
-      "minMs": 0.047,
-      "medianMs": 0.067,
-      "p95Ms": 0.154
+      "minMs": 0.033,
+      "medianMs": 0.039,
+      "p95Ms": 0.091
     },
     {
       "name": "custom-field.reference-lookup",
       "iterations": 30,
-      "minMs": 0.021,
-      "medianMs": 0.032,
-      "p95Ms": 0.057
+      "minMs": 0.019,
+      "medianMs": 0.022,
+      "p95Ms": 0.036
     },
     {
       "name": "directory.candidate-generation",
       "iterations": 30,
-      "minMs": 1.121,
-      "medianMs": 1.52,
-      "p95Ms": 4.196
+      "minMs": 0.889,
+      "medianMs": 1.082,
+      "p95Ms": 3.527
     },
     {
       "name": "directory.find-by-identifier",
       "iterations": 30,
-      "minMs": 0.303,
-      "medianMs": 0.42,
-      "p95Ms": 2.594
+      "minMs": 0.262,
+      "medianMs": 0.326,
+      "p95Ms": 0.423
     },
     {
       "name": "directory.graph-expansion",
       "iterations": 30,
-      "minMs": 0.037,
-      "medianMs": 0.042,
-      "p95Ms": 0.078
+      "minMs": 0.033,
+      "medianMs": 0.041,
+      "p95Ms": 0.071
     },
     {
       "name": "directory.read-protected-list",
       "iterations": 30,
-      "minMs": 84.681,
-      "medianMs": 104.756,
-      "p95Ms": 163.749
+      "minMs": 95.559,
+      "medianMs": 203.57,
+      "p95Ms": 323.141
     },
     {
       "name": "get-current-clean-version",
       "iterations": 30,
-      "minMs": 0.026,
-      "medianMs": 0.028,
-      "p95Ms": 0.04
+      "minMs": 0.027,
+      "medianMs": 0.04,
+      "p95Ms": 0.124
     },
     {
       "name": "idle-checkout-sweep.find-idle",
       "iterations": 30,
-      "minMs": 0.063,
-      "medianMs": 0.069,
-      "p95Ms": 0.101
+      "minMs": 0.059,
+      "medianMs": 0.087,
+      "p95Ms": 0.779
     },
     {
       "name": "ledger-fitness.table-wide",
       "iterations": 30,
-      "minMs": 86.239,
-      "medianMs": 91.204,
-      "p95Ms": 119.034
+      "minMs": 92.027,
+      "medianMs": 99.179,
+      "p95Ms": 115.682
     },
     {
       "name": "list-clean-versions.by-file",
       "iterations": 30,
-      "minMs": 0.029,
-      "medianMs": 0.034,
-      "p95Ms": 0.08
+      "minMs": 0.034,
+      "medianMs": 0.05,
+      "p95Ms": 0.072
     },
     {
       "name": "list-consultations.by-member",
       "iterations": 30,
-      "minMs": 0.107,
-      "medianMs": 0.12,
-      "p95Ms": 0.149
+      "minMs": 0.116,
+      "medianMs": 0.143,
+      "p95Ms": 0.215
     },
     {
       "name": "list-files.by-folder",
       "iterations": 30,
-      "minMs": 0.057,
-      "medianMs": 0.061,
-      "p95Ms": 0.108
+      "minMs": 0.059,
+      "medianMs": 0.075,
+      "p95Ms": 0.132
     },
     {
       "name": "list-files.by-matter",
       "iterations": 30,
-      "minMs": 0.114,
-      "medianMs": 0.125,
-      "p95Ms": 0.194
+      "minMs": 0.109,
+      "medianMs": 0.147,
+      "p95Ms": 0.271
     },
     {
       "name": "list-matters.filtered",
       "iterations": 30,
-      "minMs": 0.093,
-      "medianMs": 0.1,
-      "p95Ms": 0.18
+      "minMs": 0.092,
+      "medianMs": 0.122,
+      "p95Ms": 0.257
     },
     {
       "name": "list-matters.first-page",
       "iterations": 30,
-      "minMs": 0.149,
-      "medianMs": 0.168,
-      "p95Ms": 1.336
+      "minMs": 0.165,
+      "medianMs": 0.199,
+      "p95Ms": 0.309
     },
     {
       "name": "list-shipments.by-matter",
       "iterations": 30,
-      "minMs": 0.023,
-      "medianMs": 0.025,
-      "p95Ms": 0.068
+      "minMs": 0.024,
+      "medianMs": 0.027,
+      "p95Ms": 0.059
     },
     {
       "name": "list-tracking-events.by-shipment",
       "iterations": 30,
-      "minMs": 0.022,
-      "medianMs": 0.024,
-      "p95Ms": 0.034
+      "minMs": 0.021,
+      "medianMs": 0.029,
+      "p95Ms": 0.204
     },
     {
       "name": "matter-number.counter-draw",
       "iterations": 30,
-      "minMs": 1.663,
-      "medianMs": 2.285,
-      "p95Ms": 4.014
+      "minMs": 2.072,
+      "medianMs": 3.092,
+      "p95Ms": 8.051
     },
     {
       "name": "my-day.daily-totals",
       "iterations": 30,
-      "minMs": 0.026,
-      "medianMs": 0.03,
-      "p95Ms": 0.14
+      "minMs": 0.028,
+      "medianMs": 0.044,
+      "p95Ms": 0.239
     },
     {
       "name": "post-entry.two-line",
       "iterations": 30,
-      "minMs": 4.879,
-      "medianMs": 5.639,
-      "p95Ms": 7.47
+      "minMs": 6.003,
+      "medianMs": 7.695,
+      "p95Ms": 15.462
     },
     {
       "name": "protected.blind-index-compute",
       "iterations": 30,
-      "minMs": 0.104,
-      "medianMs": 0.217,
-      "p95Ms": 1.089
+      "minMs": 0.167,
+      "medianMs": 0.263,
+      "p95Ms": 0.661
     },
     {
       "name": "protected.firm-secret-read",
       "iterations": 30,
-      "minMs": 1.361,
-      "medianMs": 1.763,
-      "p95Ms": 3.652
+      "minMs": 1.631,
+      "medianMs": 2.029,
+      "p95Ms": 7.412
     },
     {
       "name": "protected.incident-decrypt-page",
       "iterations": 30,
-      "minMs": 74.758,
-      "medianMs": 108.291,
-      "p95Ms": 161.048
+      "minMs": 88.85,
+      "medianMs": 158.125,
+      "p95Ms": 257.905
     },
     {
       "name": "rate-resolution.timekeeper-tier",
       "iterations": 30,
-      "minMs": 0.038,
-      "medianMs": 0.042,
-      "p95Ms": 0.09
+      "minMs": 0.039,
+      "medianMs": 0.049,
+      "p95Ms": 0.189
     },
     {
       "name": "reconcile.find-conflict",
       "iterations": 30,
-      "minMs": 0.022,
-      "medianMs": 0.024,
-      "p95Ms": 0.062
+      "minMs": 0.021,
+      "medianMs": 0.022,
+      "p95Ms": 0.041
     },
     {
       "name": "rescan-sweep.find-unscanned",
       "iterations": 30,
-      "minMs": 0.115,
-      "medianMs": 0.138,
-      "p95Ms": 0.351
+      "minMs": 0.14,
+      "medianMs": 0.176,
+      "p95Ms": 0.27
     },
     {
       "name": "reverse-entry.two-line",
       "iterations": 30,
-      "minMs": 4.819,
-      "medianMs": 5.45,
-      "p95Ms": 8.511
+      "minMs": 5.676,
+      "medianMs": 6.511,
+      "p95Ms": 13.866
     },
     {
       "name": "storage-meter.summary",
       "iterations": 30,
-      "minMs": 0.016,
-      "medianMs": 0.017,
-      "p95Ms": 0.052
+      "minMs": 0.012,
+      "medianMs": 0.019,
+      "p95Ms": 0.049
     },
     {
       "name": "templates.custom-field-catalog",
       "iterations": 30,
-      "minMs": 0.18,
-      "medianMs": 0.222,
-      "p95Ms": 0.267
+      "minMs": 0.189,
+      "medianMs": 0.225,
+      "p95Ms": 0.297
     },
     {
       "name": "templates.field-binding-lookup",
       "iterations": 30,
-      "minMs": 0.017,
-      "medianMs": 0.02,
-      "p95Ms": 0.027
+      "minMs": 0.015,
+      "medianMs": 0.019,
+      "p95Ms": 0.044
     },
     {
       "name": "templates.list-catalogue",
       "iterations": 30,
-      "minMs": 0.193,
-      "medianMs": 0.219,
-      "p95Ms": 0.454
+      "minMs": 0.181,
+      "medianMs": 0.27,
+      "p95Ms": 2.01
     },
     {
       "name": "templates.merge-field-catalog",
       "iterations": 30,
-      "minMs": 0.557,
-      "medianMs": 0.827,
-      "p95Ms": 4.805
+      "minMs": 0.628,
+      "medianMs": 0.809,
+      "p95Ms": 4.59
     },
     {
       "name": "templates.version-for-assembly",
       "iterations": 30,
-      "minMs": 0.031,
-      "medianMs": 0.034,
-      "p95Ms": 0.094
+      "minMs": 0.044,
+      "medianMs": 0.079,
+      "p95Ms": 0.288
     },
     {
       "name": "tiering-sweep.find-candidates",
       "iterations": 30,
-      "minMs": 1.048,
-      "medianMs": 1.119,
-      "p95Ms": 1.586
+      "minMs": 1.079,
+      "medianMs": 1.71,
+      "p95Ms": 9.136
     },
     {
       "name": "trust-available-balance.by-node",
       "iterations": 30,
       "minMs": 0.035,
-      "medianMs": 0.037,
-      "p95Ms": 0.06
+      "medianMs": 0.052,
+      "p95Ms": 0.103
     },
     {
       "name": "trust-client-ledger.movements-by-node",
       "iterations": 30,
-      "minMs": 0.063,
-      "medianMs": 0.071,
-      "p95Ms": 0.113
+      "minMs": 0.064,
+      "medianMs": 0.07,
+      "p95Ms": 0.11
     },
     {
       "name": "trust-fitness.table-wide",
       "iterations": 30,
-      "minMs": 77.53,
-      "medianMs": 79.153,
-      "p95Ms": 83.88
+      "minMs": 82.931,
+      "medianMs": 89.712,
+      "p95Ms": 99.733
     },
     {
       "name": "trust-match.suggestions",
       "iterations": 30,
-      "minMs": 5.436,
-      "medianMs": 5.805,
-      "p95Ms": 7.817
+      "minMs": 5.694,
+      "medianMs": 6.185,
+      "p95Ms": 10.21
     },
     {
       "name": "trust-proof.three-way",
       "iterations": 30,
-      "minMs": 6.647,
-      "medianMs": 6.952,
-      "p95Ms": 8.03
+      "minMs": 6.48,
+      "medianMs": 6.773,
+      "p95Ms": 7.169
     },
     {
       "name": "unbilled-wip.by-matter",
       "iterations": 30,
-      "minMs": 0.127,
+      "minMs": 0.13,
       "medianMs": 0.155,
-      "p95Ms": 0.273
+      "p95Ms": 0.252
     },
     {
       "name": "version-cut.commit",
       "iterations": 30,
-      "minMs": 1.724,
-      "medianMs": 2.141,
-      "p95Ms": 3.582
+      "minMs": 2.214,
+      "medianMs": 3.571,
+      "p95Ms": 9.22
     },
     {
       "name": "weekly-grid.by-timekeeper",
       "iterations": 30,
-      "minMs": 0.054,
-      "medianMs": 0.06,
-      "p95Ms": 0.123
+      "minMs": 0.056,
+      "medianMs": 0.074,
+      "p95Ms": 0.307
     },
     {
       "name": "zip-resolution.clean-current-versions",
       "iterations": 30,
-      "minMs": 0.05,
-      "medianMs": 0.055,
-      "p95Ms": 0.085
+      "minMs": 0.058,
+      "medianMs": 0.073,
+      "p95Ms": 0.131
     },
     {
       "name": "zip-resolution.folders-by-matter",
       "iterations": 30,
-      "minMs": 0.02,
-      "medianMs": 0.022,
-      "p95Ms": 0.035
+      "minMs": 0.023,
+      "medianMs": 0.036,
+      "p95Ms": 0.065
     }
   ]
 }

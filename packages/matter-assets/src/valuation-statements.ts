@@ -1,6 +1,7 @@
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type {
   FileId,
+  MatterAssetEncumbranceId,
   MatterAssetId,
   MatterAssetValuationId,
   UserId,
@@ -19,7 +20,7 @@ export const MATTER_ASSET_VALUATION_TABLE = "matter_asset_valuation";
 export interface MatterAssetValuationRow {
   readonly id: MatterAssetValuationId;
   readonly asset_id: MatterAssetId;
-  readonly encumbrance_id: string | null;
+  readonly encumbrance_id: MatterAssetEncumbranceId | null;
   readonly as_of_date: string;
   readonly amount_minor: number | null;
   readonly currency: string | null;
@@ -38,6 +39,9 @@ const VALUATION_COLUMNS =
 export interface AppendMatterAssetValuationInput {
   readonly id: MatterAssetValuationId;
   readonly assetId: MatterAssetId;
+  // Null for the asset's own value; set for an ENCUMBRANCE's balance as of the date. One table, one
+  // trigger set, one as-of shape, and net equity as one read with a sign flip.
+  readonly encumbranceId: MatterAssetEncumbranceId | null;
   readonly asOfDate: string;
   readonly amountMinor: number | null;
   readonly currency: string | null;
@@ -59,11 +63,12 @@ export function appendMatterAssetValuationStatement(
   return database
     .prepare(
       `INSERT INTO ${MATTER_ASSET_VALUATION_TABLE} (${VALUATION_COLUMNS}) ` +
-        `VALUES (?1, ?2, NULL, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)`,
+        `VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)`,
     )
     .bind(
       input.id,
       input.assetId,
+      input.encumbranceId,
       input.asOfDate,
       input.amountMinor,
       input.currency,
@@ -134,6 +139,54 @@ export async function readMatterAssetValuations(
 // The NOT EXISTS arm is what makes a correction supersede: a row somebody has corrected can never
 // resolve again, and its correction resolves in its place because the correction carries its own
 // as_of_date. The index (asset_id, as_of_date, recorded_at) serves the walk in reverse.
+// THE SAME resolution, for many assets at once and in ONE read — the query the schedule is. The
+// per-asset form below is right for a detail view asking about one thing; issuing it forty times for
+// a forty-asset estate is the N+1 the schedule exists to avoid, and it is the read this subsystem's
+// load profile watches because its plan is the least obvious in the register.
+//
+// Row order does the selecting: within each asset the winning row sorts first, so the first row seen
+// per asset IS the resolution. No window function, no correlated sub-select per asset, and no sort in
+// memory.
+export function selectMatterAssetValuationsAsOfStatement(
+  database: SqlDatabase,
+  assetIds: readonly MatterAssetId[],
+  asOfDate: string,
+): SqlStatement {
+  const placeholders = assetIds.map((_, index) => `?${index + 1}`).join(", ");
+  const datePlaceholder = `?${assetIds.length + 1}`;
+  return database
+    .prepare(
+      `SELECT ${VALUATION_COLUMNS.split(", ")
+        .map((column) => `valuation.${column}`)
+        .join(", ")} FROM ${MATTER_ASSET_VALUATION_TABLE} AS valuation ` +
+        `WHERE valuation.asset_id IN (${placeholders}) AND valuation.encumbrance_id IS NULL ` +
+        `AND valuation.as_of_date <= ${datePlaceholder} ` +
+        `AND NOT EXISTS (SELECT 1 FROM ${MATTER_ASSET_VALUATION_TABLE} AS correction ` +
+        `WHERE correction.corrects_valuation_id = valuation.id) ` +
+        `ORDER BY valuation.asset_id ASC, valuation.as_of_date DESC, valuation.recorded_at DESC, valuation.id DESC`,
+    )
+    .bind(...assetIds, asOfDate);
+}
+
+export async function readMatterAssetValuationsAsOf(
+  database: SqlDatabase,
+  assetIds: readonly MatterAssetId[],
+  asOfDate: string,
+): Promise<Map<MatterAssetId, MatterAssetValuationRow>> {
+  const resolved = new Map<MatterAssetId, MatterAssetValuationRow>();
+  if (assetIds.length === 0) return resolved;
+  const { results } = await selectMatterAssetValuationsAsOfStatement(
+    database,
+    assetIds,
+    asOfDate,
+  ).all<MatterAssetValuationRow>();
+  for (const row of results) {
+    if (resolved.has(row.asset_id)) continue;
+    resolved.set(row.asset_id, row);
+  }
+  return resolved;
+}
+
 export function selectMatterAssetValuationAsOfStatement(
   database: SqlDatabase,
   assetId: MatterAssetId,

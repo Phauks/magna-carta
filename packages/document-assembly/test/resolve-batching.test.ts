@@ -58,9 +58,13 @@ function recordingDatabase(): { database: SqlDatabase; reads: RecordedRead[] } {
         all() {
           const rows = sql.includes("matter_party")
             ? PARTY_ROWS
-            : sql.includes(" location ")
-              ? [LOCATION_ROW]
-              : [MATTER_ROW];
+            : sql.includes("matter_asset")
+              ? // An empty register. The read still HAPPENED, which is what this test counts, and an
+                // empty list is the correct resolution for a matter that owns nothing recorded.
+                []
+              : sql.includes(" location ")
+                ? [LOCATION_ROW]
+                : [MATTER_ROW];
           return Promise.resolve({ results: rows });
         },
       };
@@ -120,9 +124,9 @@ describe("resolution issues one read per source, never one per field", () => {
     if (!result.ok) return;
     // `protectedIdentifier` is in the list because the manifest names protected keys, but it issues no
     // statement of its own: a sealed value is decrypted through the chokepoint reader, which this
-    // manifest was resolved without. The three PREPARED reads are still matter, party, and location.
-    expect(result.reads).toEqual(["matter", "party", "protectedIdentifier", "location"]);
-    expect(reads).toHaveLength(3);
+    // manifest was resolved without. The four PREPARED reads are matter, party, asset, and location.
+    expect(result.reads).toEqual(["matter", "party", "protectedIdentifier", "asset", "location"]);
+    expect(reads).toHaveLength(4);
   });
 
   it("costs a 150-field template exactly the reads its SOURCES need, not the reads its fields would", async () => {
@@ -142,9 +146,9 @@ describe("resolution issues one read per source, never one per field", () => {
     expect(large.reads.map((read) => read.sql)).toEqual(
       oneFieldPerSource.reads.map((read) => read.sql),
     );
-    // And the absolute bound: three reads for a template with a hundred and fifty merge fields — the
-    // matter, its party collection, and its office.
-    expect(large.reads).toHaveLength(3);
+    // And the absolute bound: four reads for a template with a hundred and fifty merge fields — the
+    // matter, its party collection, its asset register, and its office.
+    expect(large.reads).toHaveLength(4);
   });
 
   // THE READ BUDGET, stated against the catalogue rather than against a number somebody typed. Cost
@@ -204,6 +208,44 @@ describe("resolution issues one read per source, never one per field", () => {
     });
     expect(many.reads.map((read) => read.sql)).toEqual(one.reads.map((read) => read.sql));
     expect(many.reads).toHaveLength(2);
+  });
+
+  // THE ASSET READ BUDGET, and the property the catalogue's whole shape exists to preserve: a subject
+  // costs nothing. A manifest naming EVERY asset key — all eleven collections, ten classes plus the
+  // aggregate — issues exactly one asset read, the same one a manifest naming a single class issues.
+  // So adding the twelfth class adds a left join to that statement and no read at all.
+  it("costs one read for every asset subject, the same one it costs for one", async () => {
+    const assetKeys = DICTIONARY.filter((entry) => entry.source === "asset").map(
+      (entry) => entry.key,
+    );
+    // Eleven: ten platform classes plus the aggregate. Stated so a subject silently lost from the
+    // registry fails here rather than quietly costing nothing because it no longer exists.
+    expect(assetKeys).toHaveLength(11);
+
+    const many = recordingDatabase();
+    await resolveMergeContext(many.database, {
+      ...input,
+      manifest: manifestOf(
+        assetKeys.map((key) => ({
+          key,
+          format: null,
+          occurrences: 1,
+          parts: [],
+          forms: ["brace" as const],
+        })),
+      ),
+    });
+    const one = recordingDatabase();
+    await resolveMergeContext(one.database, {
+      ...input,
+      manifest: manifestOf([
+        { key: "realProperty.all", format: null, occurrences: 1, parts: [], forms: ["brace"] },
+      ]),
+    });
+    expect(many.reads.map((read) => read.sql)).toEqual(one.reads.map((read) => read.sql));
+    // One statement, and it is the asset read. The matter row is not fetched: no asset key needs it.
+    expect(many.reads).toHaveLength(1);
+    expect(many.reads[0]?.sql).toContain("matter_asset");
   });
 
   it("reads nothing at all for a manifest that names only firm and system fields", async () => {

@@ -126,6 +126,24 @@ export function selectMatterAssetTypesStatement(
     .bind(...bindings);
 }
 
+// The type NAMES for a set of handles, in one read. A schedule and a merge source both want "what is
+// this thing called" against every row at once, and looking each one up per asset is the per-row query
+// those reads exist to avoid.
+export async function readMatterAssetTypeNames(
+  database: SqlDatabase,
+  typeIds: readonly MatterAssetTypeId[],
+): Promise<Map<MatterAssetTypeId, string>> {
+  const names = new Map<MatterAssetTypeId, string>();
+  if (typeIds.length === 0) return names;
+  const placeholders = typeIds.map((_, index) => `?${index + 1}`).join(", ");
+  const { results } = await database
+    .prepare(`SELECT id, name FROM ${MATTER_ASSET_TYPE_TABLE} WHERE id IN (${placeholders})`)
+    .bind(...typeIds)
+    .all<{ id: MatterAssetTypeId; name: string }>();
+  for (const row of results) names.set(row.id, row.name);
+  return names;
+}
+
 export async function readMatterAssetTypes(
   database: SqlDatabase,
   options: { readonly assetClass?: MatterAssetClass; readonly includeInactive?: boolean } = {},

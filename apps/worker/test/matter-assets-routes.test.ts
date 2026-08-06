@@ -198,12 +198,17 @@ describe("logging what an estate owns", () => {
     expect(page.data).toHaveLength(1);
   });
 
-  it("refuses a class whose structured attributes have not shipped yet", async () => {
-    const response = await post(`/api/v1/matters/${matterId}/assets`, {
+  it("records a firearm, and returns the class's standing handling notice with it", async () => {
+    const assetId = await createAsset({
       assetClass: "firearm",
       description: "Shotgun in the safe",
     });
-    expect(response.status).toBe(422);
+    const detail = (await (await get(`/api/v1/matter-assets/${assetId}`)).json()) as {
+      classHandlingNote: string | null;
+    };
+    // Rendered to a person and branched on by nothing: the register records what is held and
+    // determines nothing about who may receive it.
+    expect(detail.classHandlingNote).toContain("does not determine who may receive it");
   });
 
   it("refuses a patch that names the class", async () => {
@@ -487,6 +492,335 @@ describe("interests", () => {
     expect(body.interests).toEqual([
       expect.objectContaining({ effectiveTo: "2026-08-01", shareDenominator: 3 }),
     ]);
+  });
+});
+
+describe("every class, end to end", () => {
+  it("records a vehicle, a firearm, a policy, a receivable and a digital asset with their own attributes", async () => {
+    const scheduleMatter = await createMatter("Estate of Okonkwo");
+    const created = await post(`/api/v1/matters/${scheduleMatter}/assets/batch`, {
+      assets: [
+        {
+          assetClass: "vehicle",
+          description: "2019 pickup",
+          vehicle: {
+            make: "Ford",
+            model: "F-150",
+            modelYear: 2019,
+            vehicleIdentificationNumber: "1FTEW1E50KFA12345",
+            plateNumber: "NV 442 KLM",
+          },
+        },
+        {
+          assetClass: "firearm",
+          description: "Shotgun in the study",
+          firearm: {
+            make: "Beretta",
+            model: "686",
+            caliberOrGauge: "12 gauge",
+            serialNumber: "A1234567",
+          },
+        },
+        {
+          assetClass: "insurancePolicy",
+          description: "Whole life policy",
+          insurancePolicy: {
+            carrierName: "Riverside Mutual",
+            faceAmountMinor: 250_000_00,
+            faceCurrency: "USD",
+          },
+        },
+        {
+          assetClass: "receivable",
+          description: "Loan to the nephew",
+          receivable: { principalAmountMinor: 15_000_00, principalCurrency: "USD", secured: false },
+        },
+        {
+          assetClass: "digitalAsset",
+          description: "Exchange account",
+          digitalAsset: { platformName: "Riverside Exchange", custodyModel: "custodial" },
+        },
+      ],
+    });
+    expect(created.status).toBe(201);
+    const { ids } = (await created.json()) as { ids: string[] };
+    expect(ids).toHaveLength(5);
+
+    const vehicle = (await (await get(`/api/v1/matter-assets/${ids[0]}`)).json()) as {
+      vehicle: { vehicleIdentificationNumber: string; modelYear: number } | null;
+      firearm: unknown;
+    };
+    // A public-record identifier, plaintext and readable — searching by it is the point.
+    expect(vehicle.vehicle?.vehicleIdentificationNumber).toBe("1FTEW1E50KFA12345");
+    expect(vehicle.vehicle?.modelYear).toBe(2019);
+    // A class carries ONE attribute row, and it is the row its class names.
+    expect(vehicle.firearm).toBeNull();
+
+    const policy = (await (await get(`/api/v1/matter-assets/${ids[2]}`)).json()) as {
+      insurancePolicy: { faceAmountMinor: number } | null;
+      valueAsOf: unknown;
+    };
+    // The FACE AMOUNT is a term of the policy and is not a valuation: with no valuation recorded the
+    // asset is unvalued, and a term-life policy does not read as a liquid asset worth its benefit.
+    expect(policy.insurancePolicy?.faceAmountMinor).toBe(250_000_00);
+    expect(policy.valueAsOf ?? null).toBeNull();
+  });
+
+  it("refuses one class's attributes on another class's asset rather than dropping them", async () => {
+    const response = await post(`/api/v1/matters/${matterId}/assets`, {
+      assetClass: "firearm",
+      description: "Shotgun",
+      vehicle: { vehicleIdentificationNumber: "1FTEW1E50KFA12345" },
+    });
+    expect(response.status).toBe(422);
+    expect((await response.json()).type).toContain("matter-asset-type-class-mismatch");
+  });
+});
+
+describe("the estate schedule", () => {
+  it("groups, subtotals, nets equity, and states the unvalued count as of the date asked for", async () => {
+    const estate = await createMatter("Estate of Marchetti");
+    const houseId = await createAsset(
+      {
+        assetClass: "realProperty",
+        description: "14 Cavendish Row",
+        estateTreatment: "probateEstate",
+        valuation: {
+          asOfDate: "2026-02-14",
+          amountMinor: 700_000_00,
+          currency: "USD",
+          basis: "appraisal",
+        },
+      },
+      estate,
+    );
+    await createAsset(
+      { assetClass: "personalProperty", description: "Contents of the garage, not yet itemized" },
+      estate,
+    );
+
+    const mortgage = await post(`/api/v1/matter-assets/${houseId}/encumbrances`, {
+      kind: "mortgage",
+      holderName: "First National",
+      recordedReference: "2019-004471",
+    });
+    expect(mortgage.status).toBe(201);
+    const { id: mortgageId } = (await mortgage.json()) as { id: string };
+    // A balance is a VALUATION naming the charge — the same append-only table, the same as-of read.
+    const balance = await post(`/api/v1/matter-assets/${houseId}/valuations`, {
+      encumbranceId: mortgageId,
+      asOfDate: "2026-02-14",
+      amountMinor: 400_000_00,
+      currency: "USD",
+      basis: "statement",
+    });
+    expect(balance.status).toBe(201);
+
+    const response = await get(`/api/v1/matters/${estate}/asset-schedule?asOf=2026-02-14`);
+    expect(response.status).toBe(200);
+    const schedule = (await response.json()) as {
+      totalAssets: number;
+      unvaluedCount: number;
+      estateTreatmentCounts: Record<string, number>;
+      groups: {
+        assetClass: string;
+        subtotals: {
+          currency: string;
+          valueAmountMinor: number;
+          equityAmountMinor: number | null;
+        }[];
+        rows: { equity: { amountMinor: number | null } }[];
+      }[];
+    };
+    expect(schedule.totalAssets).toBe(2);
+    // Stated, not hidden.
+    expect(schedule.unvaluedCount).toBe(1);
+    expect(schedule.estateTreatmentCounts).toEqual({
+      probateEstate: 1,
+      nonProbateTransfer: 0,
+      undetermined: 1,
+    });
+    const realProperty = schedule.groups.find((group) => group.assetClass === "realProperty");
+    expect(realProperty?.subtotals).toEqual([
+      {
+        currency: "USD",
+        valueAmountMinor: 700_000_00,
+        equityAmountMinor: 300_000_00,
+        countedAssets: 1,
+      },
+    ]);
+    expect(realProperty?.rows[0]?.equity.amountMinor).toBe(300_000_00);
+  });
+
+  it("resolves an asset with no figure at the date as unvalued, never as zero", async () => {
+    const estate = await createMatter("Estate of Vale");
+    await createAsset(
+      {
+        assetClass: "realProperty",
+        description: "The lakeside cabin",
+        valuation: {
+          asOfDate: "2026-07-01",
+          amountMinor: 200_000_00,
+          currency: "USD",
+          basis: "appraisal",
+        },
+      },
+      estate,
+    );
+    // The appraisal is dated July. As of the date of death in February there is no figure at or
+    // before the date, and nothing extrapolates backwards.
+    const response = await get(`/api/v1/matters/${estate}/asset-schedule?asOf=2026-02-14`);
+    const schedule = (await response.json()) as {
+      unvaluedCount: number;
+      groups: {
+        subtotals: unknown[];
+        rows: {
+          value: unknown;
+          equity: { amountMinor: number | null; unavailableReason: string | null };
+        }[];
+      }[];
+    };
+    expect(schedule.unvaluedCount).toBe(1);
+    expect(schedule.groups[0]?.subtotals).toEqual([]);
+    expect(schedule.groups[0]?.rows[0]?.value).toBeNull();
+    expect(schedule.groups[0]?.rows[0]?.equity.amountMinor).toBeNull();
+    expect(schedule.groups[0]?.rows[0]?.equity.unavailableReason).toBe("no-value-as-of-date");
+  });
+
+  it("requires the as-of date and never assumes one", async () => {
+    // Refused at the contract, not defaulted to today. A schedule with a date nobody chose is the
+    // failure this subsystem most wants to avoid.
+    const response = await get(`/api/v1/matters/${matterId}/asset-schedule`);
+    expect(response.status).toBe(422);
+  });
+
+  it("refuses a balance naming a charge on another asset", async () => {
+    const houseId = await createAsset({
+      assetClass: "realProperty",
+      description: "The house on Poplar Street",
+    });
+    const truckId = await createAsset({ assetClass: "vehicle", description: "The flatbed" });
+    const charge = await post(`/api/v1/matter-assets/${houseId}/encumbrances`, {
+      kind: "deedOfTrust",
+      holderName: "Riverside Credit Union",
+    });
+    const { id: chargeId } = (await charge.json()) as { id: string };
+    const misfiled = await post(`/api/v1/matter-assets/${truckId}/valuations`, {
+      encumbranceId: chargeId,
+      asOfDate: "2026-02-14",
+      amountMinor: 100_00,
+      currency: "USD",
+      basis: "statement",
+    });
+    expect(misfiled.status).toBe(422);
+    expect((await misfiled.json()).type).toContain("matter-asset-encumbrance-not-on-asset");
+  });
+
+  it("keeps a released charge on the record and out of the equity after the release date", async () => {
+    const assetId = await createAsset({
+      assetClass: "realProperty",
+      description: "The house on Sycamore Street",
+      valuation: {
+        asOfDate: "2026-01-01",
+        amountMinor: 500_000_00,
+        currency: "USD",
+        basis: "appraisal",
+      },
+    });
+    const lien = await post(`/api/v1/matter-assets/${assetId}/encumbrances`, {
+      kind: "lien",
+      holderName: "Contractor",
+    });
+    const { id: lienId } = (await lien.json()) as { id: string };
+    await post(`/api/v1/matter-assets/${assetId}/valuations`, {
+      encumbranceId: lienId,
+      asOfDate: "2026-01-01",
+      amountMinor: 20_000_00,
+      currency: "USD",
+      basis: "statement",
+    });
+    const released = await post(`/api/v1/matter-assets/${assetId}/encumbrances/${lienId}/release`, {
+      releasedOn: "2026-03-01",
+    });
+    expect(released.status).toBe(200);
+
+    const before = (await (
+      await get(`/api/v1/matter-assets/${assetId}?asOf=2026-02-01`)
+    ).json()) as { equity: { amountMinor: number } };
+    const after = (await (
+      await get(`/api/v1/matter-assets/${assetId}?asOf=2026-06-01`)
+    ).json()) as {
+      equity: { amountMinor: number };
+      encumbrances: { releasedOn: string | null }[];
+    };
+    expect(before.equity.amountMinor).toBe(480_000_00);
+    expect(after.equity.amountMinor).toBe(500_000_00);
+    // The row is still there and carries its date: "was this property clear at the date of death"
+    // has to have an answer years after the lien was discharged.
+    expect(after.encumbrances).toEqual([expect.objectContaining({ releasedOn: "2026-03-01" })]);
+  });
+});
+
+describe("the safekeeping link", () => {
+  it("links a scheduled asset to the item that holds it, and reads the placement rather than copying it", async () => {
+    const now = clock.now();
+    await firmDatabase
+      .prepare(
+        "INSERT INTO custody_location (id, name, kind, status, created_at, updated_at) VALUES (?1, ?2, 'safe', 'active', ?3, ?3)",
+      )
+      .bind("custodyLocation_routesTest0000000", "Main safe", now)
+      .run();
+    await firmDatabase
+      .prepare(
+        "INSERT INTO custody_packet (id, custody_number, number_source, name, current_location_id, status, created_at, updated_at) " +
+          "VALUES (?1, 'CUS-09001', 'manual', 'Alvarez deposit', ?2, 'held', ?3, ?3)",
+      )
+      .bind("custodyPacket_routesTest000000000", "custodyLocation_routesTest0000000", now)
+      .run();
+    await firmDatabase
+      .prepare(
+        "INSERT INTO custody_item (id, packet_id, ordinal, description, intrinsic_value, declared_value_amount_minor, declared_value_currency, status, created_at, updated_at) " +
+          "VALUES (?1, ?2, 1, 'Gold signet ring', 1, 250000, 'USD', 'held', ?3, ?3)",
+      )
+      .bind("custodyItem_routesTest00000000000", "custodyPacket_routesTest000000000", now)
+      .run();
+
+    const assetId = await createAsset({
+      assetClass: "personalProperty",
+      description: "Gold signet ring",
+    });
+    const linked = await patch(`/api/v1/matter-assets/${assetId}`, {
+      custodyItemId: "custodyItem_routesTest00000000000",
+    });
+    expect(linked.status).toBe(200);
+
+    const detail = (await (await get(`/api/v1/matter-assets/${assetId}`)).json()) as {
+      asset: { custodyItemId: string | null };
+      custody: {
+        locationName: string;
+        status: string;
+        custodyNumber: string;
+        held: boolean;
+      } | null;
+      valueAsOf: unknown;
+    };
+    expect(detail.asset.custodyItemId).toBe("custodyItem_routesTest00000000000");
+    // Read from the safekeeping register at this moment, not copied onto the asset.
+    expect(detail.custody?.locationName).toBe("Main safe");
+    expect(detail.custody?.custodyNumber).toBe("CUS-09001");
+    expect(detail.custody?.held).toBe(false);
+    // And the safekeeping register's declared value did NOT become a valuation: the two numbers
+    // answer different questions.
+    expect(detail.valueAsOf ?? null).toBeNull();
+  });
+
+  it("refuses a link to an item that is not in the safekeeping register", async () => {
+    const assetId = await createAsset({ assetClass: "other", description: "A thing" });
+    const response = await patch(`/api/v1/matter-assets/${assetId}`, {
+      custodyItemId: "custodyItem_nothingHere0000000000",
+    });
+    expect(response.status).toBe(422);
+    expect((await response.json()).type).toContain("matter-asset-unknown-custody-item");
   });
 });
 

@@ -22,6 +22,11 @@
     "./document-link-service": "./src/document-link-service.ts",
     "./identifier-statements": "./src/identifier-statements.ts",
     "./identifier-service": "./src/identifier-service.ts",
+    "./encumbrance-statements": "./src/encumbrance-statements.ts",
+    "./encumbrance-service": "./src/encumbrance-service.ts",
+    "./equity": "./src/equity.ts",
+    "./schedule": "./src/schedule.ts",
+    "./custody-link-statements": "./src/custody-link-statements.ts",
     "./queries": "./src/queries.ts"
   },
   "scripts": {

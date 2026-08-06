@@ -1,3 +1,8 @@
+import {
+  ASSET_AGGREGATE_SUBJECT,
+  ASSET_LIST_FIELD,
+  assetItemFieldsFor,
+} from "../asset-bindings.ts";
 import { PROTECTED_DICTIONARY_ENTRIES } from "../protected-bindings.ts";
 import type {
   AbsenceBehaviour,
@@ -374,6 +379,35 @@ const SYSTEM_FACETS: readonly NamedFacet[] = [
   },
 ];
 
+// The asset register's subjects. Each one declares EXACTLY ONE facet — its collection — and the
+// generator below is what makes that structural rather than a convention: an `assetClass` subject
+// gets this list and nothing else, and `test/asset-subjects.test.ts` asserts no scalar ever appears
+// under one. A scalar `realProperty.parcelNumber` would resolve to an absence naming the count on any
+// estate with two houses, which is a slot that should not exist rather than a slot that refuses.
+function assetCollectionFacet(subject: MergeSubject): NamedFacet {
+  return {
+    name: ASSET_LIST_FIELD,
+    source: "asset",
+    valueType: "list",
+    // A list is never rendered — a repeating block walks it — so its default format is the empty
+    // rendering the format table declares for the type.
+    defaultFormat: "",
+    // AN EMPTY LIST IS A CORRECT DOCUMENT. A matter with no vehicles produces nothing where the
+    // repeating block sits, which is the catalogue's declared rule for collections and the honest
+    // answer for a firm whose client owns no car.
+    absence: "blank",
+    sensitivity: ORDINARY,
+    prominence: "primary",
+    label: `${subject.label}, for a repeating block`,
+    description:
+      subject.key === ASSET_AGGREGATE_SUBJECT
+        ? "Everything on the matter's asset register, for a repeating block to walk. Every value prints with the date it speaks to."
+        : `Every ${subject.proseLabel} on the matter's asset register, for a repeating block to walk. Every value prints with the date it speaks to.`,
+    synonyms: [],
+    itemFields: assetItemFieldsFor(subject.key),
+  };
+}
+
 // The written-out facets, per subject key. A subject with no row here carries only its generated facet
 // set; a subject with no generated facets and no row here would carry nothing, which the fitness test
 // refuses.
@@ -383,6 +417,12 @@ const NAMED_FACETS: Readonly<Record<string, readonly NamedFacet[]>> = {
   location: LOCATION_FACETS,
   firm: FIRM_FACETS,
   system: SYSTEM_FACETS,
+  ...Object.fromEntries(
+    MERGE_SUBJECTS.filter((subject) => subject.kind === "assetClass").map((subject) => [
+      subject.key,
+      [assetCollectionFacet(subject)],
+    ]),
+  ),
 };
 
 // The client's sealed identifiers. Every one is `sensitivity: protected`, which is not a label on the

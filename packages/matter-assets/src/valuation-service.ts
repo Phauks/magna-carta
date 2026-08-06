@@ -5,11 +5,13 @@ import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { RandomSource } from "@magna-carta/identifiers/random";
 import type {
   FileId,
+  MatterAssetEncumbranceId,
   MatterAssetId,
   MatterAssetValuationId,
   UserId,
 } from "@magna-carta/identifiers/types";
 import { readMatterAsset } from "./asset-statements.ts";
+import { encumbranceBelongsToAsset } from "./encumbrance-statements.ts";
 import type { MatterAssetValuationBasis } from "./types.ts";
 import {
   appendMatterAssetValuationStatement,
@@ -39,6 +41,12 @@ export interface MatterAssetServiceOptions {
 
 export interface AppendValuationInput {
   readonly assetId: MatterAssetId;
+  // Set to record an ENCUMBRANCE's balance rather than the asset's own value. Same table, same
+  // triggers, same as-of shape, same correction discipline — so a mortgage's balance history costs
+  // none of the machinery a second table would have. Must name an encumbrance on THIS asset: a
+  // balance filed under a house the mortgage does not charge makes the equity of two assets wrong,
+  // and neither of them looks wrong on its own.
+  readonly encumbranceId?: MatterAssetEncumbranceId | null;
   // The date the figure SPEAKS TO — the date of death, the date of separation, the day of the
   // appraisal. Separate from when it was typed in, because those diverge routinely and collapsing
   // them makes back-dating either impossible or indistinguishable from falsification.
@@ -71,6 +79,16 @@ export async function appendMatterAssetValuation(
     );
   }
 
+  const encumbranceId = input.encumbranceId ?? null;
+  if (encumbranceId !== null) {
+    if (!(await encumbranceBelongsToAsset(database, encumbranceId, input.assetId))) {
+      throw new MatterAssetValidationError(
+        "matter-asset-encumbrance-not-on-asset",
+        "a balance is recorded against an encumbrance on the same asset: this one charges a different asset",
+      );
+    }
+  }
+
   const corrects = input.correctsValuationId ?? null;
   if (corrects !== null) {
     const corrected = await readMatterAssetValuation(database, corrects);
@@ -101,6 +119,7 @@ export async function appendMatterAssetValuation(
     appendMatterAssetValuationStatement(database, {
       id: valuationId,
       assetId: input.assetId,
+      encumbranceId,
       asOfDate: input.asOfDate,
       amountMinor: input.amountMinor ?? null,
       currency: input.currency ?? null,
@@ -124,6 +143,7 @@ export async function appendMatterAssetValuation(
         matterId: asset.matter_id,
         assetId: input.assetId,
         basis,
+        ...(encumbranceId === null ? {} : { encumbranceId }),
         ...(corrects === null ? {} : { correctsValuationId: corrects }),
       },
     }),

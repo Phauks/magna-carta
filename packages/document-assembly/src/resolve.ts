@@ -1,5 +1,6 @@
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import type { MatterId } from "@magna-carta/identifiers/types";
+import { assetSubjectValues, assetSubjectsIn } from "./asset-bindings.ts";
 import {
   customFieldHandleOf,
   customMergeKeyFor,
@@ -25,6 +26,7 @@ import {
 } from "./protected-bindings.ts";
 import {
   selectLocationForMergeStatement,
+  selectMatterAssetsForMergeStatement,
   selectMatterForMergeStatement,
   selectMatterPartiesForMergeStatement,
   toLocationMergeRow,
@@ -32,6 +34,7 @@ import {
   toMatterPartyMergeRow,
   type LocationMergeColumns,
   type LocationMergeRow,
+  type MatterAssetMergeRow,
   type MatterMergeColumns,
   type MatterMergeRow,
   type MatterPartyMergeColumns,
@@ -104,7 +107,17 @@ export interface ResolutionInput {
   // needs a firm key, an acting member, and that member's permissions, none of which this package holds.
   // Absent makes every protected key a declared absence, exactly as an absent image reader does.
   readonly readProtectedIdentifier?: ProtectedIdentifierReader;
+  // The date every asset figure is resolved as of. For an estate this is the date of death, which is
+  // the estate record's own fact — supplied here rather than read, because this package stores no
+  // second copy of a date and the register never invents one. Absent falls back to the assembly's own
+  // date, which is a schedule as of today: still explicit, and never a figure with no date at all.
+  readonly assetsAsOfDate?: string;
 }
+
+// The largest number of assets one assembly walks. A repeating block over a register is bounded like
+// every other repeat, and the bound is generous — an estate of forty is large — because the failure it
+// guards against is a runaway document rather than a firm with a big inventory.
+const MAX_ASSETS_PER_ASSEMBLY = 500;
 
 export type ResolutionFailureReason = "matter-not-found";
 
@@ -321,6 +334,33 @@ export async function resolveMergeContext(
       );
       for (const [key, value] of sealed.values) values.set(key, value);
       for (const [key, reason] of sealed.reasons) absenceReasons.set(key, reason);
+    }
+  }
+
+  // The matter's asset register: ONE read for every asset subject a manifest names, never one per
+  // class and never one per asset. Eleven subjects are eleven passes over the rows this returns, so a
+  // template walking every class costs exactly what a template walking one costs — and adding the
+  // twelfth class costs nothing at all, which is the property the catalogue's shape exists to
+  // preserve.
+  //
+  // THE DATE. Every figure this source returns is resolved as of one date and travels with the date
+  // it actually speaks to. Where that date comes from is not this subsystem's fact: for an estate it
+  // is the date of death, which belongs to the estate record alone, and the caller supplies it here
+  // (`assetsAsOfDate`) so the register is read and no second copy of a date is stored. Absent, the
+  // assembly's own date stands in — a schedule assembled today, as of today, which is the only
+  // defensible default and is still an explicit one.
+  const assetSubjects = assetSubjectsIn(wantedKeys);
+  if (assetSubjects.length > 0) {
+    reads.push("asset");
+    const asOfDate = input.assetsAsOfDate ?? input.assembledAt.slice(0, 10);
+    const { results } = await selectMatterAssetsForMergeStatement(
+      database,
+      input.matterId,
+      asOfDate,
+      MAX_ASSETS_PER_ASSEMBLY,
+    ).all<MatterAssetMergeRow>();
+    for (const [key, value] of assetSubjectValues(results, assetSubjects)) {
+      values.set(key, value);
     }
   }
 

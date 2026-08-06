@@ -163,6 +163,19 @@ export const PROBLEM_TYPES = {
   // does not carry (HTTP 422). A cross-matter link would put a deed in a case nobody could find it
   // from, and would show one matter's file in another matter's asset detail.
   "matter-asset-document-matter-mismatch": "matter-asset-document-matter-mismatch",
+  // A balance recorded against a charge that secures a DIFFERENT asset (HTTP 422). A mortgage balance
+  // filed under a house the mortgage does not charge makes the net equity of two assets wrong, and
+  // neither of them looks wrong on its own — which is why this is refused at the write rather than
+  // reported at the schedule.
+  "matter-asset-encumbrance-not-on-asset": "matter-asset-encumbrance-not-on-asset",
+  // A schedule asked for on a matter carrying more assets than one read returns (HTTP 422). A schedule
+  // is read WHOLE — it is a document's worth of rows — so the answer is a refusal naming the register
+  // list, which pages, rather than a truncation a firm could file without noticing.
+  "matter-asset-schedule-too-large": "matter-asset-schedule-too-large",
+  // A link to a safekeeping item that does not exist in this firm (HTTP 422). The link is what says
+  // the firm holds the physical original of a scheduled thing, so a link to nothing asserts something
+  // false rather than nothing at all.
+  "matter-asset-unknown-custody-item": "matter-asset-unknown-custody-item",
   // An unexpected, unhandled server error (HTTP 500). The telemetry middleware's final catch maps
   // any escaped exception to this — the one error type the client cannot have caused, carrying only
   // the Error ID to quote.
