@@ -1,0 +1,61 @@
+[package]
+name = "discovery-core"
+version = "0.0.0"
+edition.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+# EVERY BACKEND BELOW IS DECLARED EXPLICITLY AND EVERY ONE OF THEM IS PURE RUST. This engine reads
+# bytes an opposing party chose, so a memory-unsafe decoder here is a remote-code-execution surface
+# over privileged material, not a performance footnote. `manifest_declares_only_pure_rust_backends`
+# in src/lib.rs asserts this file's own text, so a C-backed feature cannot be selected without a
+# test failing.
+[dependencies]
+# The shared runtime seam: magic-byte detection, the fixed-code wasm edge, the container skeleton.
+# The `r2` feature stays off — this engine receives bytes and returns facts, it never egresses.
+engine_host = { path = "../engine-host", package = "magna-carta-engine-host" }
+# PDF text layers, page counts, and the per-page "does recognition still have work here" judgement.
+pdf-core = { path = "../pdf-core" }
+# RFC 5322 / .msg / mbox parsing, including the MAPI property streams and compressed RTF.
+email-core = { path = "../email-core" }
+# The PDF object model, for the Info dictionary's dates. The text itself comes from pdf-core's
+# glyph reader; this is the trailer, which that reader has no reason to expose. default-features
+# off drops the date/parallelism features (chrono/jiff/rayon/time) nothing here needs.
+lopdf = { version = "0.44", default-features = false }
+# Archive enumeration and guarded expansion. Lean pure-Rust features only — deflate via
+# flate2/miniz_oxide, and no bzip2/zstd/lzma, each of which would pull a C library.
+zip = { version = "8.6", default-features = false, features = ["deflate-flate2"] }
+# The DEFLATE backend `deflate-flate2` selects, declared directly to pin miniz_oxide (pure Rust)
+# rather than letting a zlib/zlib-ng (C) backend be selected by a feature unification elsewhere.
+flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
+# The OLE2 compound-file container layer, shared with the email engine, which audited it against
+# crafted input: every structural fault is an io::Error rather than a panic, persisted indices are
+# bounds-checked, FAT and directory cycles are detected, and the stream read buffer is capped rather
+# than sized from a declared length.
+cfb = "0.14"
+# Pull-parser over the XML parts inside an OOXML or OpenDocument package. Pure Rust, and it does
+# not expand general entities at all, so the classic entity-expansion bomb has no decoder to reach.
+quick-xml = { version = "0.38", default-features = false }
+# Label-to-decoder mapping for every legacy encoding real discovery material arrives in.
+encoding_rs = "0.8"
+# Statistical charset detection for bytes that declare nothing. Pairs with encoding_rs by design.
+chardetng = "0.1"
+# Canonical composition, the first step of the determinism boundary: two byte sequences that render
+# identically must hash and chunk identically.
+unicode-normalization = "0.1"
+# The five-algorithm digest set eDiscovery load files specify, computed in one pass. RustCrypto,
+# pure Rust with the assembly/C backends unselected.
+md-5 = "0.10"
+sha1 = "0.10"
+sha2 = "0.10"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2"
+js-sys = "0.3"
+
+# Drives the wasm-edge determinism tests under `wasm-pack test`; wasm-only and dev-only, so it is
+# never part of the shipped artifact.
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+wasm-bindgen-test = "0.3"
