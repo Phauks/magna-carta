@@ -106,6 +106,23 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     note: "deleted with its parent conversation; the free text inside a turn is the residue class the conversation-level delete is the instrument for",
   },
   { table: "magnus_member_acknowledgement", subjectKey: "user_id", action: "hard-delete" },
+  // A record custodian is whose ELECTRONIC RECORDS were loaded into a review set — a person or an
+  // organization named by the firm or by a production. It is the one discovery table with a
+  // structured subject column: the optional Directory link, which resolves the custodian to an
+  // entity when the firm has a record of them (a production may name somebody the firm has never
+  // met, and that row carries no id at all).
+  //
+  // Retained under the matter, on the matter_party line: whose records a corpus was drawn from is
+  // itself a matter record, and a review set whose attribution had been scrubbed could not answer
+  // "which custodians held this document" — which is asked under oath. The subject-side scrub
+  // happens at the Directory entity, as it does for matter_party; the display_name frozen here is
+  // the same as-at-collection record email_message.from_address is, for the same reason.
+  {
+    table: "record_custodian",
+    subjectKey: "directory_entity_id",
+    action: "retain-under-matter",
+    note: "whose records a corpus was drawn from is a matter record; the frozen display name is the as-at-collection attribution, which is content-level residue",
+  },
   // Email filing — a captured message is correspondence on the matter file, so the retention basis is
   // the matter corpus and the subject-side scrub happens at the Directory entity, as with matter_party.
   // These rows resolve to a subject by frozen address VALUE as well as by resolved entity id, the only
@@ -619,4 +636,35 @@ export const NO_PII_TABLES: readonly string[] = [
   // control row about which FILE evidences which asset. The linked document's own retention is
   // expressed by its `file` entry, exactly as for file_version, email_attachment, and custody_scan.
   "matter_asset_document",
+  // Discovery — the corpus under review. The one table that names a data subject
+  // (record_custodian) is registered in PII_TABLES above; these five carry no structured
+  // personal-data column of their own.
+  //
+  // A review set is a matter's named corpus: its name, its lifecycle, its ceiling, and firm-member
+  // provenance (created_by). Its name is free text and can name a person ("Smith mailbox
+  // collection"), which is the residue class matter.description and custody_item.description
+  // established — content with no structured subject column to resolve.
+  "review_set",
+  // A load is one recorded act: its lane, its counts, where the loader said it came from, and
+  // firm-member provenance (initiated_by). The source description is the same free-text residue
+  // class. Whose records the load carried IS keyed, on record_custodian above.
+  "discovery_load",
+  // A REVIEW DOCUMENT IS A POINTER, and this is the entry that says so. It holds no content and
+  // copies none: what it points at is a `file_version` or an `email_message`, and the retention of
+  // the thing pointed at is expressed by THAT row's entry (file, email_message), exactly as for
+  // custody_scan and matter_asset_document. The columns of its own are digests, an R2 key, a page
+  // count, a format name, and a date — facts about bytes, resolving to no data subject. Whose
+  // records the document was resolves through record_custodian, which is keyed.
+  //
+  // The consequence worth stating: erasing a data subject does not reach into a review set, and
+  // must not. The corpus under review is a matter record retained under the same basis as the
+  // matter file, and a discovery corpus that quietly lost documents when somebody exercised an
+  // erasure right would be a corpus a firm could not certify.
+  "review_document",
+  // A named reason a document did not process: a stage, a closed code, and a detail that is
+  // explicitly never file content. Nothing about any person.
+  "review_document_exception",
+  // One further copy of a deduplicated document — five handles and a timestamp. It exists precisely
+  // to PRESERVE attribution, and whose attribution resolves through record_custodian.
+  "review_document_occurrence",
 ];

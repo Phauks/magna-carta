@@ -339,6 +339,42 @@ export const PROBLEM_TYPES = {
   // request limit that says nothing about cost): this is the firm's own spend ceiling, and it is
   // named so the firm knows which limit it reached and that it resets.
   "magnus-daily-ceiling-reached": "magnus-daily-ceiling-reached",
+  // A load that would carry a review set past its document ceiling (HTTP 422). DISTINCT from
+  // `validation` (request-shape) — the request is well-formed and the refusal carries two numbers a
+  // caller acts on: how many documents the set holds and what its ceiling is. It is a REFUSAL rather
+  // than a degradation on purpose: the alternative is a firm discovering at four hundred thousand
+  // documents that its database is at its hard limit, which is an outage with no good exit.
+  "discovery-ceiling-exceeded": "discovery-ceiling-exceeded",
+  // A review set that no longer takes material (HTTP 409). A locked set still serves every read, and
+  // a closed one has released its derived index for collection; neither is a request-shape problem
+  // and neither is fixed by retrying.
+  "discovery-review-set-closed": "discovery-review-set-closed",
+  // A request to reopen a closed review set (HTTP 422). Its OWN type rather than a generic refusal,
+  // because it is the request a firm will actually make and the answer has to explain itself: the
+  // corpus under review is what was reviewed, and a set that could be reopened is a corpus whose
+  // contents depend on when you looked at it.
+  "discovery-review-set-reopen-refused": "discovery-review-set-reopen-refused",
+  // A source a load names that the platform knows about and has not built (HTTP 422). Covers the
+  // direct-collection lane and, until its lane lands, assistant transcripts. Named rather than
+  // absent, because "we know exactly what you mean and have not built it" is a different answer from
+  // "no such thing" and sends a firm somewhere different.
+  "discovery-load-source-not-built": "discovery-load-source-not-built",
+  // A load declared without saying whether assistant transcripts are in scope (HTTP 422). Its own
+  // type because there is NO DEFAULT and there is deliberately not going to be one: a transcript is
+  // the firm's own work product, and whether the firm's reasoning about a matter belongs in a corpus
+  // is a decision a person makes visibly. A silent exclusion would be as much a decision made for
+  // somebody as a silent inclusion.
+  "discovery-transcript-scope-unstated": "discovery-transcript-scope-unstated",
+  // Material a load selected that cannot enter a review set (HTTP 422): a version that is
+  // quarantined or still pending its scan, or a selection reaching outside the review set's matter.
+  // Refused BY NAME rather than skipped — a firm that selected fifty files and silently received
+  // forty-eight review documents has a corpus it cannot certify the contents of.
+  "discovery-selection-refused": "discovery-selection-refused",
+  // A load asked to complete while its counts do not add up (HTTP 409): loaded is not processed plus
+  // excepted. The reconciliation is the whole point of the exception report, so a load does not
+  // reach `complete` while a document is in neither column — that document has fallen out of the
+  // corpus with nobody able to tell.
+  "discovery-load-not-reconciled": "discovery-load-not-reconciled",
 } as const;
 
 export type ProblemTypeKey = keyof typeof PROBLEM_TYPES;
