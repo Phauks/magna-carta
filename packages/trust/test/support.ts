@@ -103,11 +103,14 @@ export async function trustFixture(fixtureOptions: TrustFixtureOptions = {}) {
   };
 }
 
-// A matter row only — no trust leaf. The movement suites need this because a deposit CREATES the
-// leaf, and node:sqlite enforces the trust node's foreign key to the matter.
+// A matter row and its client party — no trust leaf. The movement suites need this because a deposit
+// CREATES the leaf, and node:sqlite enforces the trust node's foreign key to the matter. The client
+// party is not decoration: a trust ledger's client attribution is DERIVED from it, so a matter
+// without one holds no client money at all.
 export async function seedMatter(
   fixture: Awaited<ReturnType<typeof trustFixture>>,
   label: string,
+  clientEntityId?: string,
 ): Promise<MatterId> {
   const matterId = newIdentifier("matter") as MatterId;
   await fixture.database
@@ -116,7 +119,24 @@ export async function seedMatter(
     )
     .bind(matterId, `${label} matter`, fixture.memberUserId, clock.now())
     .run();
+  if (clientEntityId !== undefined) await seedMatterClientParty(fixture, matterId, clientEntityId);
   return matterId;
+}
+
+// The `matter_party` row the whole client attribution hangs off. Separate from seedMatter so a suite
+// can prove the refusal a matter with no client earns, and so a suite can deliberately seed the
+// mismatch the fitness query exists to find.
+export async function seedMatterClientParty(
+  fixture: Awaited<ReturnType<typeof trustFixture>>,
+  matterId: MatterId,
+  clientEntityId: string,
+): Promise<void> {
+  await fixture.database
+    .prepare(
+      "INSERT INTO matter_party (id, matter_id, entity_id, role, created_at, updated_at) VALUES (?1, ?2, ?3, 'client', ?4, ?4)",
+    )
+    .bind(newIdentifier("matterParty"), matterId, clientEntityId, clock.now())
+    .run();
 }
 
 // A member who holds the trust capability, granted directly. The sole-authorizer trigger counts
@@ -154,18 +174,11 @@ export async function seedMatterLeaf(
   label: string,
 ): Promise<SeededMatterLeaf> {
   const { database, trustAccountId } = fixture;
-  const matterId = newIdentifier("matter") as MatterId;
-  await database
-    .prepare(
-      "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, ?2, 'open', ?3, ?4, ?4)",
-    )
-    .bind(matterId, `${label} matter`, fixture.memberUserId, clock.now())
-    .run();
+  const matterId = await seedMatter(fixture, label, clientEntityId);
   const leaf = await ensureMatterTrustLeaf(
     database,
     {
       trustAccountId,
-      clientEntityId,
       matterId,
       clientNodeName: `Trust — ${label}`,
       matterLeafName: `Trust — ${label} — ${matterId}`,

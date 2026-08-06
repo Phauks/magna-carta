@@ -328,6 +328,72 @@ describe("the billing HTTP surface", () => {
     expect(edited.status).toBe(409);
   });
 
+  // The ledger's own refusals are ordinary bad input on a money route. They are a different error
+  // class from this package's, so they used to escape to the app's error boundary as a 500 with an
+  // Error ID — a member got a platform-bug page for typing next month's issue date.
+  it("answers a future issue date with the ledger's 422 rather than a 500", async () => {
+    const matterId = await openMatterWithClient("Acme future dating");
+    const entryId = await seedBillableTime(matterId, 60);
+    const created = await post("/api/v1/billing/invoices", {
+      clientEntityId: ACME,
+      currency: "USD",
+    });
+    const { invoiceId } = (await created.json()) as { invoiceId: string };
+    await post(`/api/v1/billing/invoices/${invoiceId}/claims`, {
+      claims: [{ sourceKind: "time_entry", sourceId: entryId }],
+    });
+
+    const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+    const refused = await post(`/api/v1/billing/invoices/${invoiceId}/finalization`, {
+      issueDate: tomorrow,
+      dueDate: tomorrow,
+    });
+    expect(refused.status).toBe(422);
+    const body = (await refused.json()) as { type: string; detail: string };
+    expect(body.type).toBe("https://api.magnacarta.esq/problems/ledger-entry-refused");
+    expect(body.detail).toContain(tomorrow);
+
+    // A date that is not a day never reaches the ledger at all — the request shape refuses it.
+    const impossible = await post(`/api/v1/billing/invoices/${invoiceId}/finalization`, {
+      issueDate: "2026-02-30",
+      dueDate: todayInUtc(),
+    });
+    expect(impossible.status).toBe(422);
+    expect((await impossible.json()).type).toBe("https://api.magnacarta.esq/problems/validation");
+  });
+
+  // A scope key is free text that selects which counter the number is drawn from, so a near-miss
+  // silently starts a second sequence and the gap-detection query reports it as perfectly gapless.
+  it("refuses a numbering scope the firm has never used unless the caller opens it deliberately", async () => {
+    const matterId = await openMatterWithClient("Acme second letterhead");
+    const entryId = await seedBillableTime(matterId, 60);
+    const created = await post("/api/v1/billing/invoices", {
+      clientEntityId: ACME,
+      currency: "USD",
+    });
+    const { invoiceId } = (await created.json()) as { invoiceId: string };
+    await post(`/api/v1/billing/invoices/${invoiceId}/claims`, {
+      claims: [{ sourceKind: "time_entry", sourceId: entryId }],
+    });
+
+    const refused = await post(`/api/v1/billing/invoices/${invoiceId}/finalization`, {
+      issueDate: todayInUtc(),
+      dueDate: todayInUtc(),
+      numberScopeKey: "RENO",
+    });
+    expect(refused.status).toBe(422);
+    expect((await refused.json()).type).toBe("https://api.magnacarta.esq/problems/billing-refused");
+
+    const opened = await post(`/api/v1/billing/invoices/${invoiceId}/finalization`, {
+      issueDate: todayInUtc(),
+      dueDate: todayInUtc(),
+      numberScopeKey: "RENO",
+      createNumberScope: true,
+    });
+    expect(opened.status).toBe(201);
+    expect((await opened.json()).invoiceNumber).toBe("RENO-00001");
+  });
+
   it("replays a finalization under the same Idempotency-Key without drawing a second number", async () => {
     const matterId = await openMatterWithClient("Acme lease");
     const entryId = await seedBillableTime(matterId, 60);

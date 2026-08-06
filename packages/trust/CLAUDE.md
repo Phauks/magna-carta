@@ -49,6 +49,17 @@ ADR-0072.) **Invariants:** [`docs/conventions/invariants.md`](../../docs/convent
 - **Postings land on MATTER leaves.** Three tiers: the trust account's liability root, a client node,
   a matter leaf. The upper two are roll-ups; a roll-up's stored balance stays at zero forever, so a
   client-side total is a `SUM` over descendant leaves and is **never** read from a parent row.
+- **A client ledger's attribution is DERIVED, never accepted.** `ensureMatterTrustLeaf` resolves whose
+  money a matter leaf holds from the matter's own client party (`readMatterClientEntityId` in
+  `@magna-carta/matters/matter-party` — the same link billing resolves an invoice's client through),
+  and refuses `matter-has-no-client` when the matter has none. A caller-supplied client handle is not
+  an input here: it is the answer to the question the whole sub-ledger tree exists to ask, and a
+  caller naming another client's handle beside a matter was enough to file that client's money on
+  another client's matter file — the composition guard reasons about `client_entity_id`, so asserting
+  it told the guard the answer it was checking. The derived value is what the node row stores, what
+  `declarePendingLeaf` declares to the guard, and what an existing leaf is re-checked against on every
+  movement (`trust-leaf-client-mismatch`). Re-proved over stored rows by
+  `trustMatterNodesMisattributedStatement`.
 - **No commingling / fees never touch trust — one rule, one place.** An entry touching a trust
   account may touch nothing outside it. That single check refuses firm money in a client ledger,
   client money in an operating account, and a processor fee netted out of a trust deposit. This
@@ -111,6 +122,15 @@ ADR-0072.) **Invariants:** [`docs/conventions/invariants.md`](../../docs/convent
   stored balance is a live figure with no as-of, and a reconciliation is an assertion about a moment.
   Book and client agree by construction while the composition guard holds, so a `book-to-client`
   disagreement means something reached the ledger without going through it.
+- **A proof is never computed from a truncated outstanding list.** The outstanding-item read is capped
+  so a runaway period cannot pull an unbounded result set into a request handler, and the cap is
+  DETECTED rather than silent: the read asks for one row past `MAX_TRUST_RECONCILIATION_ROWS` and the
+  proof refuses `reconciliation-outstanding-items-truncated` when it comes back. A truncated list does
+  not produce a short answer, it produces a confidently wrong one — every figure the proof derives is
+  computed from that list, they stay internally consistent with each other, and a close freezes all of
+  them as the firm's attestation. The read deliberately has NO lower date bound: a check written two
+  years ago and never cleared is still outstanding, which is exactly what reconciliation exists to
+  surface.
 - **An unbalanced proof is recorded, never forced.** No plug figure, no rounding to agreement, no
   "unreconciled difference" line that absorbs the gap. The proof names WHICH leg is out and by how
   much, and `closeTrustReconciliation` freezes that answer whether or not it balanced — a close that
@@ -136,10 +156,11 @@ ADR-0072.) **Invariants:** [`docs/conventions/invariants.md`](../../docs/convent
 ## Dependencies & contracts
 
 - Depends on `@magna-carta/ledger` (posting, account creation, bounds), `@magna-carta/data-access`,
-  `@magna-carta/identifiers`, `@magna-carta/money`, and — for the close hook's contract, types only —
-  `@magna-carta/matters`. The dependency runs THIS way and never the other: the matter shell knows
-  nothing about money, and the app hands it the rule. Pure and synchronous: returns `EffectWrite` for
-  the caller to commit.
+  `@magna-carta/identifiers`, `@magna-carta/money`, and `@magna-carta/matters` — for the close hook's
+  contract (types only) and for `matter-party`, the one home for "whose matter is this", which the
+  client attribution is derived from and which billing reads the same way. The dependency runs THIS
+  way and never the other: the matter shell knows nothing about money, and the app hands it the rule.
+  Pure and synchronous: returns `EffectWrite` for the caller to commit.
 - **Creation and first posting belong in ONE batch.** `ensureMatterTrustLeaf` returns an effect
   rather than committing precisely so the caller concatenates it with the posting — a trust leaf that
   exists without its floor is a leaf that can be overdrawn.

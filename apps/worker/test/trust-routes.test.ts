@@ -48,7 +48,19 @@ async function mirrorMemberWithDirectGrant(
     .run();
 }
 
-async function openMatter(title: string): Promise<string> {
+// The matter's client party, recorded straight into the firm database because there is no HTTP
+// surface for it yet. It is not decoration on these routes: a trust ledger's client attribution is
+// DERIVED from this link, so a matter without one holds no client money at all.
+async function recordClientParty(matterId: string, clientEntityId: string): Promise<void> {
+  await firmDatabase
+    .prepare(
+      "INSERT INTO matter_party (id, matter_id, entity_id, role, created_at, updated_at) VALUES (?1, ?2, ?3, 'client', ?4, ?4)",
+    )
+    .bind(newIdentifier("matterParty"), matterId, clientEntityId, clock.now())
+    .run();
+}
+
+async function openMatter(title: string, clientEntityId = "entity_webb"): Promise<string> {
   const created = await SELF.fetch("https://example.com/api/v1/matters", {
     method: "POST",
     headers: {
@@ -63,7 +75,9 @@ async function openMatter(title: string): Promise<string> {
       responsibleMemberId: ownerUserId,
     }),
   });
-  return (await created.json()).matterId;
+  const matterId = (await created.json()).matterId as string;
+  await recordClientParty(matterId, clientEntityId);
+  return matterId;
 }
 
 beforeAll(async () => {
@@ -151,10 +165,9 @@ function get(path: string, cookie = ownerCookie): Promise<Response> {
   });
 }
 
-const depositBody = (matterId: string, amountMinor: number, clientEntityId = "entity_webb") => ({
+const depositBody = (matterId: string, amountMinor: number) => ({
   trustAccountId,
   matterId,
-  clientEntityId,
   amountMinor,
   currency: "USD" as const,
   effectiveDate: todayInUtc(),
@@ -347,19 +360,20 @@ describe("trust movement routes", () => {
   });
 
   it("moves funds between two matters of one client, and refuses a move to another client", async () => {
-    const sourceMatterId = await openMatter("Trust Transfer Source");
-    const destinationMatterId = await openMatter("Trust Transfer Destination");
-    const otherClientMatterId = await openMatter("Trust Transfer Other Client");
-    expect(
-      (await post("/api/v1/trust/deposits", depositBody(sourceMatterId, 400000, "entity_move")))
-        .status,
-    ).toBe(201);
+    const sourceMatterId = await openMatter("Trust Transfer Source", "entity_move");
+    const destinationMatterId = await openMatter("Trust Transfer Destination", "entity_move");
+    const otherClientMatterId = await openMatter(
+      "Trust Transfer Other Client",
+      "entity_someone_else",
+    );
+    expect((await post("/api/v1/trust/deposits", depositBody(sourceMatterId, 400000))).status).toBe(
+      201,
+    );
 
     const moved = await post("/api/v1/trust/matter-transfers", {
       trustAccountId,
       fromMatterId: sourceMatterId,
       toMatterId: destinationMatterId,
-      toClientEntityId: "entity_move",
       amountMinor: 150000,
       currency: "USD",
       effectiveDate: todayInUtc(),
@@ -377,7 +391,6 @@ describe("trust movement routes", () => {
       trustAccountId,
       fromMatterId: sourceMatterId,
       toMatterId: otherClientMatterId,
-      toClientEntityId: "entity_someone_else",
       amountMinor: 10000,
       currency: "USD",
       effectiveDate: todayInUtc(),
@@ -388,6 +401,87 @@ describe("trust movement routes", () => {
     expect((await refused.json()).type).toBe(
       "https://api.magnacarta.esq/problems/trust-movement-refused",
     );
+  });
+
+  // The traced attack, sent verbatim over HTTP. A member holding trust:manage aimed a transfer at
+  // another client's matter and named the SOURCE client beside it; the destination leaf did not
+  // exist, so it was created attributed to the source client, the composition guard was told the
+  // same thing, and $5,000 of one client's money landed on another client's matter file — readable,
+  // disbursable, and blocking that matter's close. The field is gone from the contract, so the
+  // assertion is now unsendable; the destination's client comes from its own matter.
+  it("refuses the cross-client transfer even when the old client assertion is still sent", async () => {
+    const sourceMatterId = await openMatter("Attack Source", "entity_attacker");
+    const victimMatterId = await openMatter("Attack Victim", "entity_victim");
+    expect((await post("/api/v1/trust/deposits", depositBody(sourceMatterId, 500000))).status).toBe(
+      201,
+    );
+
+    const refused = await post("/api/v1/trust/matter-transfers", {
+      trustAccountId,
+      fromMatterId: sourceMatterId,
+      toMatterId: victimMatterId,
+      // The assertion that used to carry the whole attack. It names the SOURCE's client beside the
+      // VICTIM's matter; the contract no longer has a field for it, so it is not read.
+      toClientEntityId: "entity_attacker",
+      amountMinor: 500000,
+      currency: "USD",
+      effectiveDate: todayInUtc(),
+      description: "Funds reallocated",
+      purpose: "Reallocation",
+    });
+    expect(refused.status).toBe(422);
+    expect((await refused.json()).type).toBe(
+      "https://api.magnacarta.esq/problems/trust-movement-refused",
+    );
+
+    // And the victim's matter holds no trust ledger at all — nothing was created on the way to the
+    // refusal, so there is nothing to read, nothing to disburse, and nothing blocking its close.
+    const victimLedger = await get(
+      `/api/v1/trust/matters/${victimMatterId}/ledger?trustAccountId=${trustAccountId}`,
+    );
+    expect(victimLedger.status).toBe(404);
+  });
+
+  it("refuses a deposit onto a matter with no client party to attribute it to", async () => {
+    const created = await post("/api/v1/matters", {
+      title: "Unattributed Matter",
+      status: "open",
+      responsibleMemberId: ownerUserId,
+    });
+    const matterId = (await created.json()).matterId as string;
+    const refused = await post("/api/v1/trust/deposits", depositBody(matterId, 100000));
+    expect(refused.status).toBe(422);
+    expect((await refused.json()).type).toBe(
+      "https://api.magnacarta.esq/problems/trust-movement-refused",
+    );
+  });
+
+  // The ledger's own refusals are ordinary bad input on a money route, and every one of them used to
+  // escape to the app's error boundary as a 500 with an Error ID: a member typing next week's date
+  // was told the platform had a bug. The route contract declares a 422 for a refused movement.
+  it("answers a future effective date with the ledger's 422 rather than a 500", async () => {
+    const matterId = await openMatter("Future Dated Matter", "entity_future");
+    const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+    const refused = await post("/api/v1/trust/deposits", {
+      ...depositBody(matterId, 100000),
+      effectiveDate: tomorrow,
+    });
+    expect(refused.status).toBe(422);
+    const body = await refused.json();
+    expect(body.type).toBe("https://api.magnacarta.esq/problems/ledger-entry-refused");
+    expect(body.detail).toContain(tomorrow);
+  });
+
+  it("refuses a date that is not a day at the request shape, before the ledger sees it", async () => {
+    const matterId = await openMatter("Impossible Date Matter", "entity_impossible");
+    const refused = await post("/api/v1/trust/deposits", {
+      ...depositBody(matterId, 100000),
+      effectiveDate: "2026-02-30",
+    });
+    // The app's request-shape hook, not the ledger: 2026-02-30 passes a bare YYYY-MM-DD regex and is
+    // not a day, so it never reaches a composer at all.
+    expect(refused.status).toBe(422);
+    expect((await refused.json()).type).toBe("https://api.magnacarta.esq/problems/validation");
   });
 
   it("answers a matter with no trust ledger with 404", async () => {

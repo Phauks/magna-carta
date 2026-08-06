@@ -6,6 +6,7 @@ import {
   directGrant,
   ledgerEntry,
   ledgerLine,
+  matterParty,
   member,
   memberRole,
   rolePermission,
@@ -28,6 +29,7 @@ import {
   multiClientTrustEntriesStatement,
   trustHoldsExceedingBalanceStatement,
   trustLeavesWithoutZeroFloorStatement,
+  trustMatterNodesMisattributedStatement,
   trustMovementsDisagreeingWithLedgerStatement,
   trustReconciliationDoubleMatchesStatement,
   trustReconciliationMatchesOffStatementStatement,
@@ -62,7 +64,7 @@ import {
   insertTrustReconciliationStatement,
   insertTrustTransferStatement,
   refuseMatterCloseWithTrustBalanceStatement,
-  selectActiveTrustManagerCountStatement,
+  selectActiveTrustManagersStatement,
   selectActiveTrustReconciliationMatchesStatement,
   selectMatterTrustPositionsStatement,
   selectOutstandingTrustBankItemsStatement,
@@ -565,12 +567,12 @@ describe("schema name sync (trust SQL pinned to @magna-carta/database)", () => {
     );
   });
 
-  // The sole-authorizer count reaches OUTSIDE the trust tables, into the per-firm RBAC rows, which
+  // The sole-authorizer read reaches OUTSIDE the trust tables, into the per-firm RBAC rows, which
   // is the one place this package does that. Pinned here for the same reason as everything else in
   // this suite: a rename over there must fail in this test rather than at a firm's approval.
-  it("the trust-manager count names only the RBAC schema identifiers and its own aliases", () => {
+  it("the trust-manager read names only the RBAC schema identifiers and its own aliases", () => {
     expectOnlyKnownIdentifiers(
-      sqlOf(selectActiveTrustManagerCountStatement(stubDatabase())),
+      sqlOf(selectActiveTrustManagersStatement(stubDatabase())),
       new Set([
         "member",
         "member_role",
@@ -580,13 +582,13 @@ describe("schema name sync (trust SQL pinned to @magna-carta/database)", () => {
         "m",
         "mr",
         "rp",
-        "manager_count",
+        "user_id",
         ...columnsOf(member),
         ...columnsOf(memberRole),
         ...columnsOf(rolePermission),
         ...columnsOf(directGrant),
       ]),
-      "trust manager count",
+      "trust manager read",
     );
   });
 
@@ -595,6 +597,7 @@ describe("schema name sync (trust SQL pinned to @magna-carta/database)", () => {
     const fitnessSql = [
       sqlOf(commingledTrustEntriesStatement(stub)),
       sqlOf(multiClientTrustEntriesStatement(stub)),
+      sqlOf(trustMatterNodesMisattributedStatement(stub)),
       sqlOf(trustLeavesWithoutZeroFloorStatement(stub)),
       sqlOf(trustRollupNodesWithPostingsStatement(stub)),
       sqlOf(trustHoldsExceedingBalanceStatement(stub)),
@@ -618,6 +621,7 @@ describe("schema name sync (trust SQL pinned to @magna-carta/database)", () => {
         TRUST_RECONCILIATION_MATCH_TABLE,
         "ledger_line",
         "account_balance",
+        "matter_party",
         "a",
         "b",
         "h",
@@ -654,6 +658,7 @@ describe("schema name sync (trust SQL pinned to @magna-carta/database)", () => {
         ...columnsOf(trustReconciliationMatch),
         ...columnsOf(ledgerLine),
         ...columnsOf(accountBalance),
+        ...columnsOf(matterParty),
       ]),
       "trust fitness",
     );

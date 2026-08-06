@@ -18,11 +18,27 @@ streams that own the files.
 
 **Counts.** 13 findings: **3 high**, **4 medium**, **6 low**. No critical.
 
+**Fix ledger.** Every finding below carries a status line naming where it was fixed. Fix batch R1
+(#154, `claude/fix-batch-r1-financial`) addressed all thirteen; three carry a partial or a deliberate
+substitution, argued in their own status lines. This report stays the record of what was found — the
+status lines say what happened to it, and nothing above them is edited after the fact.
+
 ---
 
 ## High
 
 ### H1 — A trust ledger's client attribution is caller-asserted and never checked against the matter's recorded client
+
+**Status: fixed in #154.** `ensureMatterTrustLeaf` derives the client from `matter_party` through
+`readMatterClientEntityId` (`packages/matters/src/matter-party.ts` — the one home for that derivation,
+now shared with billing) and refuses `matter-has-no-client`. The caller-supplied handle was DROPPED
+rather than kept as a cross-check: the field's stated justification ("a matter's Directory client link
+does not exist yet") was stale, and a field whose only possible values are "redundant" or "wrong" is
+not worth the contract surface. `clientEntityId` and `toClientEntityId` are gone from
+`TrustDepositRequest` and `TrustMatterTransferRequest`; `declarePendingLeaf` declares the derived
+value; an existing leaf is re-checked against its matter's client on every movement
+(`trust-leaf-client-mismatch`); and `trustMatterNodesMisattributedStatement` re-proves the attribution
+over stored rows, so a leaf created before the fix is detectable.
 
 **Where.** `apps/worker/src/routes/trust.ts:75` (`DepositRequest.clientEntityId`), `:122`
 (`MatterTransferRequest.toClientEntityId`), `:576-598` (`resolveLeafNames`) ·
@@ -72,6 +88,16 @@ client party of its `matter_id`, so a leaf created before the fix is detectable.
 
 ### H2 — The outstanding-item read silently truncates at 5,000 rows, and the truncated figures are what a close freezes
 
+**Status: fixed in #154 — the cap half. The period-bound half is deliberately not applied.** The read
+now asks for `MAX_TRUST_RECONCILIATION_ROWS + 1`, and both `computeTrustThreeWayProof` and
+`readOutstandingTrustBankItems` refuse `reconciliation-outstanding-items-truncated` when the extra row
+comes back — so the proof and the close cannot attest to a total drawn from a list they could not see
+all of, and `composeTrustReconciliationMatch` stops refusing a genuinely outstanding entry for three
+wrong reasons. The proposed lower date bound was NOT applied: an uncleared check written two years ago
+is still outstanding, and bounding the read by a period start would drop exactly the stale items a
+reconciliation exists to surface. The absence of a lower bound is the correct accounting, which is why
+the cap has to be detected rather than moved.
+
 **Where.** `packages/trust/src/statements.ts:552` (`MAX_TRUST_RECONCILIATION_ROWS`), `:889-900`
 (`selectOutstandingTrustBankItemsStatement`) · `packages/trust/src/three-way-proof.ts:126-160` ·
 `packages/trust/src/reconciliation.ts:208-219` (`closeTrustReconciliation`)
@@ -114,6 +140,13 @@ period's items rather than the account's whole history.
 
 ### H3 — `LedgerValidationError` is mapped nowhere: ordinary bad input on a money route returns 500
 
+**Status: fixed in #154.** All three commit helpers map it, through one shared
+`problemResponseForLedgerRefusal` (`apps/worker/src/ledger-refusal-problems.ts`) so the three cannot
+drift: `unknown-account` to 404, everything else to 422 under a new `ledger-entry-refused` problem
+type. And, as the finding suggests, the three civil-date route schemas now refine on
+`isValidCalendarDate`, so a date that is not a day is refused at the request shape and never reaches a
+composer.
+
 **Where.** `packages/ledger/src/validate.ts:8-38` (the error and its codes) ·
 `apps/worker/src/routes/trust.ts:690-693` · `apps/worker/src/routes/billing.ts:695-699` ·
 `apps/worker/src/routes/trust-reconciliation.ts:861-864`
@@ -148,6 +181,10 @@ would have caught this.
 
 ### M1 — `IllegalTransitionError` leaks out of `finalizeInvoice` as a 500 whenever the firm's review gate is on
 
+**Status: fixed in #154.** The claim loop catches it and rethrows
+`BillingValidationError("work-in-progress-not-billable")` naming the entry and the state it is in —
+the same vocabulary timekeeping and costs use at their own boundaries.
+
 **Where.** `packages/billing/src/finalize.ts:316` · `apps/worker/src/routes/billing.ts:695-699` ·
 `packages/billing-core/src/lifecycle.ts:13-17`
 
@@ -170,6 +207,12 @@ unapproved work.
 — the vocabulary timekeeping and costs already use at their own 409 boundaries.
 
 ### M2 — Finalization composes a ledger line from a negative role subtotal with the direction hard-coded to `credit`
+
+**Status: fixed in #154.** The direction is chosen from the sign and the line carries the magnitude —
+a negative role subtotal is a debit. The receivable leg needs no branch, because `totalMinor` is
+already proved strictly positive above it. The second manifestation is refused by name:
+`invoice-matter-total-negative` names the matter that nets negative, ahead of the balance CHECK that
+would otherwise abort the whole batch on a column name.
 
 **Where.** `packages/billing/src/finalize.ts:269-297` (the credit-line loop and the posting),
 `:353-364` (the per-matter balance rows) · `apps/worker/src/routes/billing.ts:99`
@@ -203,6 +246,10 @@ helper and the posting-role arms both say they are not.
 
 ### M3 — The accounts-receivable aging report is an unbounded whole-table read with a correlated subquery per row
 
+**Status: fixed in #154.** One `GROUP BY` over a `CASE` on `julianday(?asOfDate) - julianday(due_date)`,
+joined to a pre-aggregated `invoice_matter_balance` sum, with the `unpaid > 0` predicate applied
+inside the database. Five rows come back; a paid invoice is never carried out of D1 at all.
+
 **Where.** `packages/billing/src/queries.ts:268-303` · `apps/worker/src/routes/billing.ts:970-979`
 
 **What.** `readAccountsReceivableAging` selects **every** `status = 'final'` invoice in the firm with
@@ -224,6 +271,14 @@ gracefully — it just gets slower until the request times out, and the report i
 back instead of forty thousand. `invoice_status_due_date_index` already leads with the status.
 
 ### M4 — `numberScopeKey` is unvalidated free text, so a typo silently mints a second invoice sequence
+
+**Status: fixed in #154, by the report's "at minimum" shape rather than by binding to `location`.** A
+scope key with no counter row is refused (`unknown-number-scope`) unless the request passes
+`createNumberScope`. Binding to `location` handles was considered and rejected: `renderInvoiceNumber`
+prefixes the rendered number with the scope key, so a location identifier would put
+`location_01ABC-00001` on a remittance advice. The key is never normalized either — folding `nyc` into
+`NYC` would merge two sequences a firm may have meant to keep apart, which is the same silent decision
+in the other direction.
 
 **Where.** `apps/worker/src/routes/billing.ts:112` (`numberScopeKey: z.string().optional()`) ·
 `packages/billing/src/finalize.ts:321-335` · `packages/billing/src/numbering.ts:16-29`
@@ -251,6 +306,10 @@ request opts in explicitly.
 
 ### L1 — Non-existent calendar dates pass every date check on the reconciliation and aging paths
 
+**Status: fixed in #154.** `parseCivilDate` ends every branch at `isValidCalendarDate`, and the
+trust, reconciliation, and billing route schemas refine on it. `daysPastDue` is gone with the aging
+rewrite (M3), which computes the day difference in SQL from a route-validated as-of date.
+
 `packages/trust/src/statement-import.ts:157-171` (`parseCivilDate`) accepts month 1-12 and day 1-31
 with no rollover check, and the ISO branch is a bare regex; `apps/worker/src/routes/billing.ts:66`
 and `apps/worker/src/routes/trust.ts:66` use the same regex. `composeTrustBankStatement`
@@ -265,6 +324,9 @@ every civil-date boundary, including the two route schemas.
 
 ### L2 — Statement-import preview parses an unbounded file body on the request path
 
+**Status: fixed in #154.** Both `fileText` fields are capped at the schema, and the row ceiling is
+applied as rows are built rather than after the whole file has been materialized.
+
 `apps/worker/src/routes/trust-reconciliation.ts:146` and `:195` declare `fileText: z.string().min(1)`
 with no maximum. `previewTrustStatementImport`
 (`packages/trust/src/statement-import.ts:303-383`) parses the whole file character-by-character and
@@ -274,6 +336,11 @@ Fix: cap `fileText` at the schema (a 2,000-line statement is well under a megaby
 once the row ceiling is exceeded.
 
 ### L3 — An expired direct grant permanently disables the sole-manager exception
+
+**Status: fixed in #154 — the naming half. The revocation half needs schema.** The over-count is kept
+(the report is right that it is the safe direction), and the refusal now NAMES the members it counted,
+so a firm can find the lapsed grant speaking for somebody who left. Giving the grant table a
+revocation distinct from an expiry is a migration, and this batch adds none.
 
 `packages/trust/src/statements.ts:543-547` and the matching trigger at
 `packages/database/drizzle/per-firm/20260805T170000_trust-disbursement-authorization.sql:94-110`
@@ -289,6 +356,8 @@ to be revoked rather than only expired.
 
 ### L4 — `composeTrustToOperatingTransfer` never compares the amount's currency to the trust account's
 
+**Status: fixed in #154.** It calls `assertMovementCurrency`, now exported from `movements.ts`.
+
 `packages/trust/src/transfer.ts:97-117` reads `currencyCode(input.amount)`, stores it on the transfer
 row, and compares `amountMinor` to `available.availableMinor` — which is denominated in the account's
 currency — without ever asserting the two match. Every sibling composer routes through
@@ -301,6 +370,9 @@ in the package missing the guard. Fix: call `assertMovementCurrency`.
 
 ### L5 — The match-withdrawal route's `{reconciliationId}` path segment is not enforced
 
+**Status: fixed in #154.** `composeTrustReconciliationUnmatch` takes the reconciliation the caller
+named and refuses `match-belongs-to-another-reconciliation` when the match belongs to a different one.
+
 `apps/worker/src/routes/trust-reconciliation.ts:1148-1165` reads `matchId` from the path and ignores
 `reconciliationId`; `composeTrustReconciliationUnmatch`
 (`packages/trust/src/matching.ts:324-342`) resolves the reconciliation from the match row. So
@@ -311,6 +383,8 @@ withdrawal on the wrong period with a 201 in reply. Fix: refuse when the match's
 differs from the path's.
 
 ### L6 — Claiming work onto a draft never compares the entry's currency to the invoice's
+
+**Status: fixed in #154.** `addClaimsToDraft` refuses `invoice-line-currency-mismatch` by name.
 
 `packages/billing/src/draft.ts:310-373` writes `entry.currency` onto each invoice line without
 comparing it to `invoice.currency`, and `finalizeInvoice`
@@ -425,7 +499,7 @@ back clean.
   serialize amounts into its thrown message, but it is called only from the fixtures and load-profile
   harness, never from a Worker handler.
 - **Billing concurrency.** The partial unique index on `(source_kind, source_id) WHERE released_at IS
-  NULL` is the claim guard and the entry's `invoice_id` is correctly treated as a mirror;
+NULL` is the claim guard and the entry's `invoice_id` is correctly treated as a mirror;
   `refuseFinalizeOnFrozenWorkInProgressStatements` aims `'billing-refused-frozen-entry'` at a column
   whose `time_entry_status_check` / `cost_entry_status_check` genuinely forbid it (both verified in
   the baseline migration), so a concurrent void aborts the finalize batch rather than being relocked.

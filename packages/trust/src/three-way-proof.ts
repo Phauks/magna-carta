@@ -8,11 +8,13 @@ import type {
 import { loadTrustAccount } from "./account-tree.ts";
 import { readTrustBankStatement } from "./bank-statements.ts";
 import {
+  MAX_TRUST_RECONCILIATION_ROWS,
   selectOutstandingTrustBankItemsStatement,
   selectTrustBookBalanceAsOfStatement,
   selectTrustClientLedgerTotalAsOfStatement,
   selectUnmatchedTrustBankStatementLinesStatement,
 } from "./statements.ts";
+import { TrustValidationError } from "./trust-validation.ts";
 import type {
   TrustBankItem,
   TrustBankStatementLineDirection,
@@ -89,6 +91,21 @@ function toBankItem(row: OutstandingItemRow): TrustBankItem {
   };
 }
 
+// The outstanding-item read asks for one row past its ceiling; that row arriving means the list is
+// not the whole list. Refusing here rather than summing what came back is the difference between a
+// firm being told its reconciliation is too large to prove and a firm filing an attestation that is
+// short by the items it never saw. It is not a number that can be nearly right: every figure the
+// proof derives — the outstanding totals, the adjusted bank balance, whether it balanced — is
+// computed from this list, and a close freezes all of them.
+function assertOutstandingItemsComplete(rowCount: number, asOfDate: string): void {
+  if (rowCount > MAX_TRUST_RECONCILIATION_ROWS) {
+    throw new TrustValidationError(
+      "reconciliation-outstanding-items-truncated",
+      `this trust bank account has more than ${MAX_TRUST_RECONCILIATION_ROWS} items outstanding as of ${asOfDate}, which is more than one reconciliation can account for: reconcile the earlier periods first so the cleared items leave this list`,
+    );
+  }
+}
+
 function toLineSnapshot(row: StatementLineRow): TrustBankStatementLineSnapshot {
   return {
     id: row.id as TrustBankStatementLineId,
@@ -134,6 +151,8 @@ export async function computeTrustThreeWayProof(
       statement.id,
     ).all<StatementLineRow>(),
   ]);
+
+  assertOutstandingItemsComplete(itemRows.results.length, asOfDate);
 
   const bookBalanceMinor = bookRows.results[0]?.balance_minor ?? 0;
   const clientLedgerTotalMinor = clientRows.results[0]?.total_minor ?? 0;
@@ -207,5 +226,10 @@ export async function readOutstandingTrustBankItems(
     account.bankLedgerAccountId,
     statement.periodEnd,
   ).all<OutstandingItemRow>();
+  // The same refusal the proof raises, for the same reason: a member working this list, and the
+  // match composer that checks an entry against it, must not be shown a silently short version of
+  // it. Without this, `composeTrustReconciliationMatch` refuses a genuinely outstanding entry with
+  // `entry-is-not-a-bank-item` and three explanations, none of them the real one.
+  assertOutstandingItemsComplete(results.length, statement.periodEnd);
   return results.map(toBankItem);
 }

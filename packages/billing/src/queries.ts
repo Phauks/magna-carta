@@ -250,54 +250,61 @@ export interface AgingBucket {
   readonly unpaidMinor: number;
 }
 
-interface AgingRow {
-  id: string;
-  due_date: string;
+interface AgingBucketRow {
+  bucket_index: number;
+  invoice_count: number;
   unpaid_minor: number;
 }
 
-const MILLISECONDS_PER_DAY = 86_400_000;
+const AGING_BUCKET_LABELS = ["current", "1-30", "31-60", "61-90", "90+"] as const;
 
-function daysPastDue(dueDate: string, asOfDate: string): number {
-  return Math.floor(
-    (Date.parse(`${asOfDate}T00:00:00Z`) - Date.parse(`${dueDate}T00:00:00Z`)) /
-      MILLISECONDS_PER_DAY,
-  );
-}
-
+// THE BUCKETING HAPPENS IN SQL, and five rows come back. The report is five integers, and the
+// obvious shape — select every finalized invoice, evaluate an unpaid-balance subquery per row,
+// stream them all into the Worker, and add them up in JavaScript — reads the firm's entire billing
+// history to produce them. A firm three years in with forty thousand finalized invoices, most of
+// them long since paid, would read all forty thousand plus forty thousand correlated aggregates on
+// every dashboard load, discarding the paid ones only after fetching them. There is no size at which
+// that degrades gracefully; it just gets slower until the request times out.
+//
+// So: the balances are pre-aggregated once by invoice, joined to the invoice row, bucketed by a
+// CASE over the day difference, and summed by the database. `invoice_status_due_date_index` already
+// leads with the status. The unpaid > 0 test is applied against that pre-aggregated sum, inside the
+// database, rather than as a post-filter in memory — so a paid invoice is never carried out of D1.
 export async function readAccountsReceivableAging(
   database: SqlDatabase,
   asOfDate: string,
 ): Promise<readonly AgingBucket[]> {
   const { results } = await database
     .prepare(
-      `SELECT invoice.id, invoice.due_date,
-              (SELECT SUM(total_minor - applied_minor) FROM invoice_matter_balance WHERE invoice_id = invoice.id) AS unpaid_minor
-         FROM invoice
-        WHERE invoice.status = 'final' AND invoice.due_date IS NOT NULL
-        ORDER BY invoice.due_date`,
+      `SELECT bucket_index, COUNT(*) AS invoice_count, SUM(unpaid_minor) AS unpaid_minor
+         FROM (SELECT CASE
+                        WHEN julianday(?1) - julianday(i.due_date) <= 0 THEN 0
+                        WHEN julianday(?1) - julianday(i.due_date) <= ${AGING_BUCKET_DAYS[0]} THEN 1
+                        WHEN julianday(?1) - julianday(i.due_date) <= ${AGING_BUCKET_DAYS[1]} THEN 2
+                        WHEN julianday(?1) - julianday(i.due_date) <= ${AGING_BUCKET_DAYS[2]} THEN 3
+                        ELSE 4
+                      END AS bucket_index,
+                      b.unpaid_minor AS unpaid_minor
+                 FROM invoice i
+                 JOIN (SELECT invoice_id, SUM(total_minor - applied_minor) AS unpaid_minor
+                         FROM invoice_matter_balance GROUP BY invoice_id) b
+                   ON b.invoice_id = i.id
+                WHERE i.status = 'final' AND i.due_date IS NOT NULL AND b.unpaid_minor > 0)
+        GROUP BY bucket_index`,
     )
-    .all<AgingRow>();
+    .bind(asOfDate)
+    .all<AgingBucketRow>();
 
-  const labels = ["current", "1-30", "31-60", "61-90", "90+"];
-  const buckets = labels.map((label) => ({ label, invoiceCount: 0, unpaidMinor: 0 }));
+  const buckets = AGING_BUCKET_LABELS.map((label) => ({
+    label,
+    invoiceCount: 0,
+    unpaidMinor: 0,
+  }));
   for (const row of results) {
-    const unpaidMinor = row.unpaid_minor ?? 0;
-    if (unpaidMinor <= 0) continue;
-    const overdueDays = daysPastDue(row.due_date, asOfDate);
-    const index =
-      overdueDays <= 0
-        ? 0
-        : overdueDays <= AGING_BUCKET_DAYS[0]
-          ? 1
-          : overdueDays <= AGING_BUCKET_DAYS[1]
-            ? 2
-            : overdueDays <= AGING_BUCKET_DAYS[2]
-              ? 3
-              : 4;
-    const bucket = buckets[index]!;
-    bucket.invoiceCount += 1;
-    bucket.unpaidMinor += unpaidMinor;
+    const bucket = buckets[row.bucket_index];
+    if (!bucket) continue;
+    bucket.invoiceCount = row.invoice_count;
+    bucket.unpaidMinor = row.unpaid_minor;
   }
   return buckets;
 }

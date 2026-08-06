@@ -29,8 +29,9 @@ const AUTHORIZER = "user_authorizer" as UserId;
 // no-jurisdiction refusal build their own fixture without one.
 const fixtureWithJurisdiction = () => trustFixture({ jurisdiction: "US-NV" });
 
-const leafReference = (clientEntityId: string, matterId: string, label: string) => ({
-  clientEntityId,
+// The destination names only the matter — the client is derived from that matter's own client party,
+// which the fixture seeds when it seeds the matter.
+const leafReference = (matterId: string, label: string) => ({
   matterId: matterId as never,
   clientNodeName: `Trust — ${label}`,
   matterLeafName: `Trust — ${label} — ${matterId}`,
@@ -38,12 +39,12 @@ const leafReference = (clientEntityId: string, matterId: string, label: string) 
 
 async function depositedFixture(amountMinor: number) {
   const fixture = await fixtureWithJurisdiction();
-  const matterId = await seedMatter(fixture, "Webb");
+  const matterId = await seedMatter(fixture, "Webb", "entity_webb");
   const deposit = await composeTrustDeposit(
     fixture.database,
     {
       trustAccountId: fixture.trustAccountId,
-      to: leafReference("entity_webb", matterId, "Webb"),
+      to: leafReference(matterId, "Webb"),
       amount: usd(amountMinor),
       effectiveDate: "2026-08-05",
       description: "Retainer received",
@@ -89,7 +90,7 @@ describe("deposit", () => {
         "SELECT kind, method, reference, counterparty_name, purpose, recorded_by, authorized_by, amount_minor, effective_date FROM trust_movement WHERE id = ?1",
       )
       .bind(deposit.movementId)
-      .all<Record<string, unknown>>();
+      .all();
     expect(results[0]).toMatchObject({
       kind: "deposit",
       method: "check",
@@ -109,7 +110,7 @@ describe("deposit", () => {
       fixture.database,
       {
         trustAccountId: fixture.trustAccountId,
-        to: leafReference("entity_webb", matterId, "Webb"),
+        to: leafReference(matterId, "Webb"),
         amount: usd(250000),
         effectiveDate: "2026-08-05",
         description: "Further funds received",
@@ -140,13 +141,13 @@ describe("deposit", () => {
 
   it("refuses when the office recorded no jurisdiction, distinctly from an unencoded one", async () => {
     const fixture = await trustFixture();
-    const matterId = await seedMatter(fixture, "Webb");
+    const matterId = await seedMatter(fixture, "Webb", "entity_webb");
     await expect(
       composeTrustDeposit(
         fixture.database,
         {
           trustAccountId: fixture.trustAccountId,
-          to: leafReference("entity_webb", matterId, "Webb"),
+          to: leafReference(matterId, "Webb"),
           amount: usd(100000),
           effectiveDate: "2026-08-05",
           description: "Retainer received",
@@ -162,13 +163,13 @@ describe("deposit", () => {
 
   it("refuses a currency the trust account does not hold", async () => {
     const fixture = await fixtureWithJurisdiction();
-    const matterId = await seedMatter(fixture, "Webb");
+    const matterId = await seedMatter(fixture, "Webb", "entity_webb");
     await expect(
       composeTrustDeposit(
         fixture.database,
         {
           trustAccountId: fixture.trustAccountId,
-          to: leafReference("entity_webb", matterId, "Webb"),
+          to: leafReference(matterId, "Webb"),
           amount: money(100000, "EUR"),
           effectiveDate: "2026-08-05",
           description: "Retainer received",
@@ -210,7 +211,7 @@ describe("disbursement", () => {
     const { results } = await fixture.database
       .prepare("SELECT kind, counterparty_name, authorized_by FROM trust_movement WHERE id = ?1")
       .bind(paid.movementId)
-      .all<Record<string, unknown>>();
+      .all();
     expect(results[0]).toMatchObject({
       kind: "disbursement",
       counterparty_name: "Second Judicial District Court",
@@ -371,12 +372,12 @@ describe("disbursement", () => {
 describe("matter-to-matter transfer", () => {
   it("moves funds between two matters of one client and touches no bank line", async () => {
     const { fixture, node } = await depositedFixture(500000);
-    const secondMatterId = await seedMatter(fixture, "Webb appeal");
+    const secondMatterId = await seedMatter(fixture, "Webb appeal", "entity_webb");
     const moved = await composeMatterToMatterTransfer(
       fixture.database,
       {
         fromNodeId: node.id,
-        to: leafReference("entity_webb", secondMatterId, "Webb appeal"),
+        to: leafReference(secondMatterId, "Webb appeal"),
         amount: usd(150000),
         effectiveDate: "2026-08-05",
         description: "Funds reallocated to the appeal",
@@ -414,12 +415,12 @@ describe("matter-to-matter transfer", () => {
 
   it("appears on BOTH client ledgers it touches", async () => {
     const { fixture, node } = await depositedFixture(500000);
-    const secondMatterId = await seedMatter(fixture, "Webb appeal");
+    const secondMatterId = await seedMatter(fixture, "Webb appeal", "entity_webb");
     const moved = await composeMatterToMatterTransfer(
       fixture.database,
       {
         fromNodeId: node.id,
-        to: leafReference("entity_webb", secondMatterId, "Webb appeal"),
+        to: leafReference(secondMatterId, "Webb appeal"),
         amount: usd(150000),
         effectiveDate: "2026-08-05",
         description: "Funds reallocated to the appeal",
@@ -443,13 +444,13 @@ describe("matter-to-matter transfer", () => {
 
   it("refuses a movement onto another client's matter — the misappropriation pattern", async () => {
     const { fixture, node } = await depositedFixture(500000);
-    const otherClientMatterId = await seedMatter(fixture, "Ashford");
+    const otherClientMatterId = await seedMatter(fixture, "Ashford", "entity_ashford");
     await expect(
       composeMatterToMatterTransfer(
         fixture.database,
         {
           fromNodeId: node.id,
-          to: leafReference("entity_ashford", otherClientMatterId, "Ashford"),
+          to: leafReference(otherClientMatterId, "Ashford"),
           amount: usd(150000),
           effectiveDate: "2026-08-05",
           description: "Funds moved",
@@ -462,6 +463,122 @@ describe("matter-to-matter transfer", () => {
     ).rejects.toMatchObject({ code: "multiple-clients-on-entry" });
   });
 
+  // The traced attack, at the layer that used to permit it. A member holding trust:manage moved
+  // $5,000 out of client A's matter onto client B's matter by naming A as the destination's client:
+  // the leaf did not exist yet, so it was created attributed to A, hung under A's client node, and
+  // DECLARED to the composition guard as A's — so the one-client-per-entry rule saw one client and
+  // passed. The money was then readable, disbursable, and close-blocking on B's matter file. There
+  // is no longer any way to say it: the destination's client comes from that matter's own client
+  // party, and the guard sees the real answer.
+  it("refuses a transfer onto another client's matter even when no leaf exists there yet", async () => {
+    const { fixture, node } = await depositedFixture(500000);
+    const ashfordMatterId = await seedMatter(fixture, "Ashford", "entity_ashford");
+    await expect(
+      composeMatterToMatterTransfer(
+        fixture.database,
+        {
+          fromNodeId: node.id,
+          // Named exactly as the attack did: the destination matter belongs to Ashford, and the
+          // caller has no field left in which to claim it is Webb's.
+          to: leafReference(ashfordMatterId, "Webb appeal"),
+          amount: usd(500000),
+          effectiveDate: "2026-08-05",
+          description: "Funds moved",
+          purpose: "Reallocation",
+          recordedBy: RECORDER,
+          authorizedBy: AUTHORIZER,
+        },
+        options,
+      ),
+    ).rejects.toMatchObject({ code: "multiple-clients-on-entry" });
+
+    // And nothing was created on the way to the refusal: composition happens before any commit, so
+    // Ashford's matter still holds no trust ledger at all.
+    const { results } = await fixture.database
+      .prepare("SELECT id FROM trust_ledger_node WHERE matter_id = ?1")
+      .bind(ashfordMatterId)
+      .all<{ id: string }>();
+    expect(results).toEqual([]);
+  });
+
+  it("attributes a lazily created destination leaf to the matter's own client", async () => {
+    const { fixture, node } = await depositedFixture(500000);
+    const secondMatterId = await seedMatter(fixture, "Webb appeal", "entity_webb");
+    const moved = await composeMatterToMatterTransfer(
+      fixture.database,
+      {
+        fromNodeId: node.id,
+        to: leafReference(secondMatterId, "Webb appeal"),
+        amount: usd(150000),
+        effectiveDate: "2026-08-05",
+        description: "Funds moved",
+        purpose: "Reallocation",
+        recordedBy: RECORDER,
+        authorizedBy: AUTHORIZER,
+      },
+      options,
+    );
+    await commit(fixture.database, moved.effect);
+    const { results } = await fixture.database
+      .prepare("SELECT client_entity_id FROM trust_ledger_node WHERE matter_id = ?1")
+      .bind(secondMatterId)
+      .all<{ client_entity_id: string }>();
+    expect(results[0]?.client_entity_id).toBe("entity_webb");
+  });
+
+  it("refuses a deposit onto a matter that has no client party to attribute it to", async () => {
+    const fixture = await fixtureWithJurisdiction();
+    const matterId = await seedMatter(fixture, "Unassigned");
+    await expect(
+      composeTrustDeposit(
+        fixture.database,
+        {
+          trustAccountId: fixture.trustAccountId,
+          to: leafReference(matterId, "Unassigned"),
+          amount: usd(100000),
+          effectiveDate: "2026-08-05",
+          description: "Retainer received",
+          method: "check",
+          reference: "1041",
+          source: "Somebody",
+          purpose: "Advance on fees and costs",
+          recordedBy: RECORDER,
+        },
+        options,
+      ),
+    ).rejects.toMatchObject({ code: "matter-has-no-client" });
+  });
+
+  it("refuses a further movement onto a client ledger filed under the wrong client", async () => {
+    const { fixture, matterId, node } = await depositedFixture(500000);
+    // The matter is re-attributed under the ledger's feet: its client party now names Ashford while
+    // the leaf still says Webb. This is the stored shape a leaf created before the derivation would
+    // have, and money must not be added to it.
+    await fixture.database
+      .prepare("UPDATE matter_party SET entity_id = 'entity_ashford' WHERE matter_id = ?1")
+      .bind(matterId)
+      .run();
+    await expect(
+      composeTrustDeposit(
+        fixture.database,
+        {
+          trustAccountId: fixture.trustAccountId,
+          to: leafReference(matterId, "Webb"),
+          amount: usd(100000),
+          effectiveDate: "2026-08-05",
+          description: "Second retainer",
+          method: "check",
+          reference: "1042",
+          source: "Webb Holdings",
+          purpose: "Advance on fees and costs",
+          recordedBy: RECORDER,
+        },
+        options,
+      ),
+    ).rejects.toMatchObject({ code: "trust-leaf-client-mismatch" });
+    expect(node.id).toBeDefined();
+  });
+
   it("refuses a transfer to the matter it came from", async () => {
     const { fixture, matterId, node } = await depositedFixture(500000);
     await expect(
@@ -469,7 +586,7 @@ describe("matter-to-matter transfer", () => {
         fixture.database,
         {
           fromNodeId: node.id,
-          to: leafReference("entity_webb", matterId, "Webb"),
+          to: leafReference(matterId, "Webb"),
           amount: usd(150000),
           effectiveDate: "2026-08-05",
           description: "Funds moved",
@@ -484,7 +601,7 @@ describe("matter-to-matter transfer", () => {
 
   it("is bounded by available, not balance", async () => {
     const { fixture, node } = await depositedFixture(500000);
-    const secondMatterId = await seedMatter(fixture, "Webb appeal");
+    const secondMatterId = await seedMatter(fixture, "Webb appeal", "entity_webb");
     const hold = await placeTrustHold(
       fixture.database,
       { nodeId: node.id, amount: usd(400000), reason: "Disputed fee" },
@@ -496,7 +613,7 @@ describe("matter-to-matter transfer", () => {
         fixture.database,
         {
           fromNodeId: node.id,
-          to: leafReference("entity_webb", secondMatterId, "Webb appeal"),
+          to: leafReference(secondMatterId, "Webb appeal"),
           amount: usd(200000),
           effectiveDate: "2026-08-05",
           description: "Funds moved",
@@ -566,7 +683,7 @@ describe("the movement shape is enforced by the database, not by the composer", 
 
   it("refuses a matter transfer claiming a bank method or an external payee", async () => {
     const { fixture, deposit, node } = await depositedFixture(500000);
-    const secondMatterId = await seedMatter(fixture, "Webb appeal");
+    const secondMatterId = await seedMatter(fixture, "Webb appeal", "entity_webb");
     const second = await seedMatterLeaf(fixture, "entity_webb", "Webb appeal");
     expect(second.matterId).not.toBe(secondMatterId);
     await expect(

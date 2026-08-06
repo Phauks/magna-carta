@@ -1,6 +1,7 @@
 import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import { assertTransition, type BillableStatus } from "@magna-carta/billing-core/lifecycle";
+import { IllegalTransitionError } from "@magna-carta/billing-core/lifecycle-error";
 import type {
   InvoiceId,
   LedgerAccountId,
@@ -56,6 +57,15 @@ export interface FinalizeInvoiceInput {
   // Firm-wide unless the firm issues on more than one letterhead, in which case the caller passes
   // the office's scope and gets an independent sequence.
   readonly numberScopeKey?: string;
+  // Deliberate consent to START a sequence this firm has never used. Without it, a scope key with no
+  // counter row is refused: the key is free text taken from the request, it selects which counter
+  // the number is drawn from, and nothing else about it is checked — so `nyc` where the firm has
+  // always sent `NYC` silently mints a second sequence and the next bill out the door is numbered
+  // `nyc-00001` while `NYC-00042` was the real next number. Nothing objects: the rendered strings
+  // differ, so the unique index is satisfied, and the gap-detection fitness query reports the new
+  // scope as a perfectly gapless sequence of one. Gaplessness is the property an auditor asks
+  // about, and a typo must not be able to redefine it.
+  readonly createNumberScope?: boolean;
   // The presentation snapshot, resolved by the caller from the Location and the Directory: billing
   // does not own the firm's letterhead and reads none of it live after this moment.
   readonly locationId?: LocationId | null;
@@ -230,7 +240,20 @@ export async function finalizeInvoice(
     amountsByMatter.set(matterId, bucket);
   }
   for (const [matterId, amounts] of amountsByMatter) {
-    matterTotalsMinor.set(matterId, aggregateMinor(amounts, currency));
+    const matterTotalMinor = aggregateMinor(amounts, currency);
+    // Refused HERE, by name, rather than left to the balance CHECK. `invoice_matter_balance` carries
+    // `applied_minor >= 0 AND applied_minor <= total_minor`, so a negative per-matter subtotal is a
+    // balance nothing can ever be applied against — and the CHECK aborts the whole finalize batch as
+    // a raw constraint error that names a column instead of the matter. A bill whose net is positive
+    // can still owe a client money on one of its matters; that is a credit note on that matter, not
+    // a receivable the platform can carry.
+    if (matterTotalMinor < 0) {
+      throw new BillingValidationError(
+        "invoice-matter-total-negative",
+        `invoice ${input.invoiceId} nets ${matterTotalMinor} on matter ${matterId}: a matter a bill owes money back on is a credit note, not a line on a receivable`,
+      );
+    }
+    matterTotalsMinor.set(matterId, matterTotalMinor);
   }
   const totalMinor = aggregateMinor([...matterTotalsMinor.values()], currency);
   if (totalMinor <= 0) {
@@ -266,16 +289,25 @@ export async function finalizeInvoice(
   );
 
   const currencyValue = currencyFromCode(currency);
-  const creditLines: EntryLineInput[] = [];
+  const revenueLines: EntryLineInput[] = [];
   for (const [role, amounts] of amountsByRole) {
     const roleTotalMinor = aggregateMinor(amounts, currency);
     if (roleTotalMinor === 0) continue;
     const accountId = accounts.byRole.get(role);
     if (!accountId) throw new Error(`unreachable: resolved role missing ${role}`);
-    creditLines.push({
+    // DIRECTION IS CHOSEN FROM THE SIGN, and the line carries the magnitude. A negative invoice line
+    // is a first-class shape on a draft: `invoice_line.amount_minor` has no positivity CHECK,
+    // `updateDraftLine` accepts any integer, `roundInvoiceLine` is half-away-from-zero precisely so
+    // a negative line rounds symmetrically, and `postingRoleForLine` has explicit arms for
+    // `discount` and `adjustment`. A courtesy credit written into bill review therefore aggregates
+    // into a negative role subtotal on a bill whose net is still positive — and a ledger line is
+    // always a positive amount plus a direction, never a signed amount, so a negative subtotal is a
+    // DEBIT of its magnitude against that role rather than a credit of a negative number, which the
+    // ledger refuses outright as `non-positive-amount`.
+    revenueLines.push({
       accountId,
-      direction: "credit",
-      amount: money(roleTotalMinor, currencyValue),
+      direction: roleTotalMinor < 0 ? "debit" : "credit",
+      amount: money(Math.abs(roleTotalMinor), currencyValue),
     });
   }
 
@@ -286,11 +318,14 @@ export async function finalizeInvoice(
       effectiveDate: input.issueDate,
       lines: [
         {
+          // The receivable leg follows the same rule, and needs no branch: `totalMinor` is proved
+          // strictly positive above, so this is always a debit of a positive amount. A bill that
+          // netted to zero or less is refused as `invoice-total-not-positive` before reaching here.
           accountId: accounts.accountsReceivable,
           direction: "debit" as const,
           amount: money(totalMinor, currencyValue),
         },
-        ...creditLines,
+        ...revenueLines,
       ],
     },
     options,
@@ -313,15 +348,44 @@ export async function finalizeInvoice(
     }
     // The shared freeze contract decides the legal move, not this package: `billed` and `void` are
     // terminal there, and billing may drive an entry INTO `billed` but never back out.
-    assertTransition(fromStatus, "billed", options.approvalRequired ?? false);
+    //
+    // Its refusal is translated rather than propagated. `IllegalTransitionError` is the state
+    // machine's own vocabulary and belongs to no HTTP boundary — every consumer of that contract
+    // catches it and re-throws its own domain error, which is how timekeeping and costs produce a
+    // sentence instead of a 500. The ordinary way to land here is a firm running with the review
+    // gate ON billing work that has not been through review: claiming a `draft` entry onto a bill is
+    // legal and deliberate (bill review happens before approval), so the refusal belongs at
+    // finalize, naming the entry and the state it is actually in.
+    try {
+      assertTransition(fromStatus, "billed", options.approvalRequired ?? false);
+    } catch (caught) {
+      if (!(caught instanceof IllegalTransitionError)) throw caught;
+      throw new BillingValidationError(
+        "work-in-progress-not-billable",
+        `claimed ${claim.sourceKind} ${claim.sourceId} is ${fromStatus} and cannot be billed yet: this firm reviews work before it is billed, so it has to be submitted and approved first`,
+      );
+    }
     locks.push({ sourceKind: claim.sourceKind, sourceId: claim.sourceId, fromStatus });
   }
 
   // --- The number draw. ------------------------------------------------------------------------
   const scopeKey = input.numberScopeKey ?? FIRM_WIDE_NUMBER_SCOPE;
-  const observedValue =
-    (await readCounterValue(database, INVOICE_NUMBERING_TABLES, scopeKey)) ??
-    INVOICE_NUMBER_START_VALUE;
+  const counterValue = await readCounterValue(database, INVOICE_NUMBERING_TABLES, scopeKey);
+  // The firm-wide scope always exists by definition; any other one has to have been used before, or
+  // be opened on purpose. The key is never normalized to rescue a near-miss — folding `nyc` into
+  // `NYC` would merge two sequences a firm may have meant to keep apart, which is the same class of
+  // silent decision in the other direction.
+  if (
+    counterValue === undefined &&
+    scopeKey !== FIRM_WIDE_NUMBER_SCOPE &&
+    !input.createNumberScope
+  ) {
+    throw new BillingValidationError(
+      "unknown-number-scope",
+      `this firm has never issued an invoice under the numbering scope "${scopeKey}": check the spelling against the scopes already in use, or say explicitly that a new sequence should be started`,
+    );
+  }
+  const observedValue = counterValue ?? INVOICE_NUMBER_START_VALUE;
   const invoiceNumber = renderInvoiceNumber(scopeKey, observedValue);
   const now = options.clock.now();
 

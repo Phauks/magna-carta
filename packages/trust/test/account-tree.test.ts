@@ -3,7 +3,15 @@ import { describe, expect, it } from "vitest";
 import { ensureMatterTrustLeaf, TRUST_LEAF_MINIMUM_BALANCE_MINOR } from "../src/account-tree.ts";
 import { composeTrustEntry } from "../src/composition-guard.ts";
 import { assertTrustFitness } from "../src/fitness.ts";
-import { commit, mergeEffects, options, seedMatterLeaf, trustFixture } from "./support.ts";
+import {
+  commit,
+  mergeEffects,
+  options,
+  seedMatter,
+  seedMatterClientParty,
+  seedMatterLeaf,
+  trustFixture,
+} from "./support.ts";
 
 describe("the trust account tree", () => {
   it("opens a trust account as an asset leaf plus a liability root bound to an office", async () => {
@@ -53,7 +61,6 @@ describe("the trust account tree", () => {
       fixture.database,
       {
         trustAccountId: fixture.trustAccountId,
-        clientEntityId: "entity_a",
         matterId: seeded.matterId,
         clientNodeName: "Trust — Webb",
         matterLeafName: "Trust — Webb — again",
@@ -80,19 +87,21 @@ describe("the trust account tree", () => {
 
   it("creates the leaf and its first posting in one batch, so the floor never lags the account", async () => {
     const fixture = await trustFixture();
-    const matterId = (await seedMatterLeaf(fixture, "x", "X")).matterId;
-    // A fresh client, whose leaf does not exist yet: creation and posting compose together.
+    // A fresh client on a matter that has never held trust money, so BOTH tiers and the posting
+    // compose together — the case the pending-parent declaration exists for.
+    const matterId = await seedMatter(fixture, "Alvarez", "entity_b");
     const leaf = await ensureMatterTrustLeaf(
       fixture.database,
       {
         trustAccountId: fixture.trustAccountId,
-        clientEntityId: "entity_b",
         matterId,
         clientNodeName: "Trust — Alvarez",
         matterLeafName: "Trust — Alvarez — retainer",
       },
       options,
     );
+    expect(leaf.created).toBe(true);
+    expect(leaf.clientEntityId).toBe("entity_b");
     // The account rows do not exist until the batch commits, so the posting has to be composed
     // against ids the creation effect will produce — which is exactly what the caller does.
     await commit(fixture.database, leaf.effect);

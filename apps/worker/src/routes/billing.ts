@@ -26,6 +26,7 @@ import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import type { UserId } from "@magna-carta/identifiers/types";
+import { isValidCalendarDate, LedgerValidationError } from "@magna-carta/ledger/validate";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import { readFirmSetting } from "@magna-carta/data-access/setting-statements";
 import { isNumberAllocationConflict } from "@magna-carta/sequence-numbering/counter-statements";
@@ -44,6 +45,7 @@ import { idempotencyKeyHeader, identifierField, identifierPathParam } from "../c
 import { Problem, problemJson, type ProblemResponse } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-problems.ts";
+import { problemResponseForLedgerRefusal } from "../ledger-refusal-problems.ts";
 
 // Billing: the firm's own bill. A DRAFT is a working document and everything on these routes is
 // editable; FINALIZATION is the transition to evidence, and after it the invoice, its lines, and its
@@ -63,7 +65,13 @@ const DRAFT = "billing:draft" as const;
 const FINALIZE = "billing:finalize" as const;
 const CONFIGURE = "billing:configure" as const;
 
-const civilDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+// A real calendar date, not a shape. The bare regex accepts 2026-02-30 and next week alike; both
+// reach the ledger's own check at the finalize posting, and the aging read turns an unparseable
+// as-of date into NaN, which fails every bucket comparison and reports the whole receivable as 90+.
+const civilDate = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/)
+  .refine(isValidCalendarDate, { message: "not a calendar date" });
 
 const CreateInvoiceRequest = z
   .object({
@@ -109,7 +117,13 @@ const FinalizeRequest = z
     dueDate: civilDate,
     // Absent means the firm-wide sequence. A multi-office firm issuing on two letterheads passes its
     // office scope and gets an independent, gapless sequence per letterhead.
-    numberScopeKey: z.string().optional(),
+    numberScopeKey: z.string().min(1).optional(),
+    // Deliberate consent to START a sequence under a scope key this firm has never used. Without it
+    // an unrecognized key is refused, because the key is free text that selects which counter the
+    // number is drawn from: `nyc` where the firm has always sent `NYC` would otherwise mint a second
+    // sequence in silence, and the next bill out the door would be numbered `nyc-00001` while
+    // `NYC-00042` was the real next number.
+    createNumberScope: z.boolean().optional(),
     // The presentation snapshot. Copied onto the invoice at this moment and never read live again:
     // a later edit to an office address must not silently alter a document already given to a client.
     locationId: identifierField("location").nullable().optional(),
@@ -696,6 +710,12 @@ export function registerBillingRoutes(app: BillingApp, chokepoint: Chokepoint): 
       if (caught instanceof BillingValidationError) {
         return { kind: "refused", response: billingErrorResponse(c, caught) };
       }
+      // The ledger refuses on its own terms too — a future or malformed issue date on a finalize
+      // reaches validateEntry, not this package's rules. A different error class, so without this
+      // arm it reaches the app error boundary and a member gets a 500 for a typo.
+      if (caught instanceof LedgerValidationError) {
+        return { kind: "refused", response: problemResponseForLedgerRefusal(c, caught) };
+      }
       throw caught;
     }
     if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch") {
@@ -853,6 +873,7 @@ export function registerBillingRoutes(app: BillingApp, chokepoint: Chokepoint): 
                 dueDate: request.dueDate,
                 finalizedBy: actor,
                 numberScopeKey: request.numberScopeKey,
+                createNumberScope: request.createNumberScope ?? false,
                 locationId: request.locationId ?? null,
                 letterheadAddressBlock: request.letterheadAddressBlock ?? null,
                 letterheadFooter: request.letterheadFooter ?? null,

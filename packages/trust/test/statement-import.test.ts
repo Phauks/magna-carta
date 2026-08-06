@@ -1,7 +1,11 @@
 import type { UserId } from "@magna-carta/identifiers/types";
 import { money, USD } from "@magna-carta/money/money";
 import { describe, expect, it } from "vitest";
-import { readTrustBankStatement, readTrustBankStatementLines } from "../src/bank-statements.ts";
+import {
+  MAX_TRUST_BANK_STATEMENT_LINES,
+  readTrustBankStatement,
+  readTrustBankStatementLines,
+} from "../src/bank-statements.ts";
 import {
   confirmTrustStatementImport,
   parseDelimitedRows,
@@ -91,6 +95,39 @@ describe("the preview", () => {
       previewTrustStatementImport(file, { ...importOptions, dateFormat: "day-month-year" }).rows[0]
         ?.postedOn,
     ).toBe("2026-04-03");
+  });
+
+  // A date that passes every shape test and is not a day. Stored, it is compared to the period
+  // bounds lexically (so 2026-02-31 lands inside a January-to-March period), then parses to NaN in
+  // the match scorer, is offered no candidate, and sits unmatched forever with no explanation.
+  it("rejects a date that is well-shaped but is not a day on the calendar", () => {
+    const iso = previewTrustStatementImport(
+      ["Date,Description,Amount", "2026-02-31,DEPOSIT,100.00"].join("\n"),
+      importOptions,
+    );
+    expect(iso.rows).toHaveLength(0);
+    expect(iso.rejections[0]?.rowNumber).toBe(2);
+
+    const american = previewTrustStatementImport(
+      ["Date,Description,Amount", "02/31/2026,DEPOSIT,100.00", "04/31/2026,DEPOSIT,50.00"].join(
+        "\n",
+      ),
+      { ...importOptions, dateFormat: "month-day-year" },
+    );
+    expect(american.rows).toHaveLength(0);
+    expect(american.rejections).toHaveLength(2);
+  });
+
+  // The ceiling is applied as rows are BUILT, not after the whole file has been materialized: this
+  // runs on a request path, and a refusal that costs as much as an acceptance is not a refusal.
+  it("refuses an oversized file by row count rather than parsing all of it first", () => {
+    const rows = ["Date,Description,Amount"];
+    for (let index = 0; index <= MAX_TRUST_BANK_STATEMENT_LINES; index += 1) {
+      rows.push(`2026-08-02,DEPOSIT ${index},10.00`);
+    }
+    expect(() => previewTrustStatementImport(rows.join("\n"), importOptions)).toThrow(
+      /more than 2000 readable rows/,
+    );
   });
 
   it("reads separate deposit and withdrawal columns, and reports a row that fills both", () => {

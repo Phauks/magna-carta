@@ -1,5 +1,6 @@
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import { ACCOUNT_BALANCE_TABLE } from "@magna-carta/ledger/statements";
+import { matterClientPartyExistsPredicate } from "@magna-carta/matters/matter-party";
 
 // Fitness queries: re-prove the billing invariants over the WHOLE table. Zero rows = healthy.
 //
@@ -40,12 +41,7 @@ export function invoicesBillingAnotherClientsMatterStatement(database: SqlDataba
       `SELECT DISTINCT l.invoice_id AS invoice_id, l.matter_id AS matter_id, i.client_entity_id AS invoice_client_entity_id
          FROM invoice_line l
          JOIN invoice i ON i.id = l.invoice_id
-        WHERE NOT EXISTS (
-                SELECT 1 FROM matter_party p
-                 WHERE p.matter_id = l.matter_id
-                   AND p.role = 'client'
-                   AND p.deleted_at IS NULL
-                   AND p.entity_id = i.client_entity_id)`,
+        WHERE NOT ${matterClientPartyExistsPredicate("l.matter_id", "i.client_entity_id")}`,
     )
     .bind();
 }
