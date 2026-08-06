@@ -81,6 +81,14 @@ const ALLOW_LISTED_WRITE_SITES = new Set(
     // decrypt under the row-bound AAD), and EXPLAIN-probes the value_blind_index equality lookup. No
     // raw decrypt bypasses the gate.
     "packages/fixtures/src/load-profile/directory-measurements.ts",
+    // The matter-asset identifier write/read pair: the statements module binds a value the service
+    // already sealed through composeProtectedWrite into its own INSERT, and exposes exactly one
+    // SELECT of the sealed column — whose only caller hands the row straight to readProtected, so the
+    // permission gate and the audit row are inseparable from the decrypt. Every other read in that
+    // package projects display_suffix, which is why the ordinary row shape has no field a full value
+    // could ride on.
+    "packages/matter-assets/src/identifier-statements.ts",
+    "packages/matter-assets/src/identifier-service.ts",
   ].map(normalizeRelative),
 );
 

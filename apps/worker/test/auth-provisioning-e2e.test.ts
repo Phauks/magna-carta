@@ -298,6 +298,13 @@ describe("end-to-end", () => {
         "firm:scanFile",
         "incidents:viewDescription",
         "locations:manage",
+        // The asset register is narrower than custody and calendar by seed: it concentrates what an
+        // estate owns and what it is worth in one surface, so both keys reach Owner/Admin, Attorney,
+        // and Paralegal and neither reaches Billing or Read-only (20260806T020000_matter-assets).
+        // Opening a FULL account number is a third gate that already existed —
+        // directory:viewSensitiveIdentifiers, above — so matterAssets:read alone never reveals one.
+        "matterAssets:manage",
+        "matterAssets:read",
         "matters:close",
         "matters:create",
         "matters:edit",
