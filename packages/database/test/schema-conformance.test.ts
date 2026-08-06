@@ -65,6 +65,11 @@ describe("schema conformance (fitness functions)", () => {
       platform_operator: "user_id",
       email_capture_route: "token",
       firm_account_role: "role",
+      // A class's structured attributes are one-to-one WITH the asset and have no identity of their
+      // own: the asset id IS the row's identity, exactly as account_balance IS its account. A separate
+      // handle would add a unique lookup on every read that already arrives holding the asset.
+      matter_asset_real_property: "asset_id",
+      matter_asset_financial_account: "asset_id",
     };
     // storage_meter is keyed by WHAT it rolls up — a composite natural key, no handle. Still all TEXT.
     // token_usage_meter is the same shape — keyed by (day, slot, model_id), all TEXT, append-by-delta.

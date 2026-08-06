@@ -35,6 +35,7 @@ import { registerDirectoryRoutes } from "./routes/directory.ts";
 import { registerCalendarRoutes } from "./routes/calendar.ts";
 import { registerConflictsRoutes } from "./routes/conflicts.ts";
 import { registerCustodyRoutes } from "./routes/custody.ts";
+import { registerMatterAssetRoutes } from "./routes/matter-assets.ts";
 import { registerDocumentTypesRoutes } from "./routes/document-types.ts";
 import { registerDownloadsRoutes } from "./routes/downloads.ts";
 import { registerDocumentCheckoutRoutes } from "./editing/checkout-routes.ts";
@@ -558,6 +559,13 @@ export function createApp(options: CreateAppOptions = {}) {
   // container tree, packets and their items, Directory ownership, the append-only movement ledger,
   // holds, and scanned copies bound over ordinary File Manager files.
   registerCustodyRoutes(app, chokepoint);
+  // The matter asset register — what a client or an estate owns, kept on the matter: the asset row
+  // and its class attributes, the append-only value history and its as-of reads, interests held by
+  // directory entities, links to documents that stay ordinary matter files, and account numbers
+  // sealed to their last four characters. Beside Custodian on purpose: the two are the register
+  // pair, and the boundary between them (property in the client's ownership, against objects in the
+  // firm's possession) is the first thing a reader of either one needs.
+  registerMatterAssetRoutes(app, chokepoint);
   // Slice 1·4: firm-defined custom fields (definitions, picklist options, temporal values, the
   // non-destructive Convert, and the compliance purge seam) — composed through the same chokepoint.
   registerCustomFieldsRoutes(app, chokepoint);

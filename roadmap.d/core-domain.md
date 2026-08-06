@@ -469,3 +469,115 @@
   slices: 1-4-custom-fields-engine
   evidence: typed reads in packages/custom-fields/src/reads.ts
   notes: Read primitives exist; reporting (reports slice) and document automation (status.d/2-6 not started) consumers do not.
+
+- id: matter-assets
+  name: Matter asset register
+  scope: Per-matter register of what a client or an estate owns — the asset row, a closed platform class with a per-firm type catalog under it, structured attributes per class, dated valuations, interests, encumbrances, documents, and the estate schedule.
+  status: partial
+  slices: 4-3-matter-assets
+  spec: docs/specs/2026-08-05-matter-assets-design.md
+  evidence: packages/matter-assets + seventeen routes in apps/worker/src/routes/matter-assets.ts, over eight per-firm tables. Backend only.
+  notes: Slice 4·3·1 ships real property and financial accounts; the other six structured classes, encumbrances and equity, the grouped schedule, the custody link, the merge subjects, and carry-forward are not built.
+
+- id: matter-assets.register
+  name: The asset row and the class spine
+  scope: An asset rooted NOT NULL to one matter, a closed ten-value platform class, a per-firm type catalog under that class, a frozen class, an asserted estate treatment and disposition, and soft delete.
+  status: partial
+  slices: 4-3-matter-assets
+  spec: docs/specs/2026-08-05-matter-assets-design.md
+  evidence: matter_asset / matter_asset_type in packages/database/src/per-firm-schema.ts; packages/matter-assets/src/{asset,asset-type}-service.ts and src/classes.ts.
+  notes: Partial because six of the ten classes are declared in the registry and refused by name until their attribute tables ship. Two fields make a row (class and description) — the deliberate inversion of Custodian's mandatory owner link.
+
+- id: matter-assets.attributes
+  name: Per-class structured attributes
+  scope: One one-to-one attribute table per class that has structure, with indexes on the identifiers people search by; no table for a class that has none.
+  status: partial
+  slices: 4-3-matter-assets
+  spec: docs/specs/2026-08-05-matter-assets-design.md
+  evidence: matter_asset_real_property (column names matching PropertyReference in packages/property-links) and matter_asset_financial_account.
+  notes: Vehicle, firearm, business interest, insurance policy, receivable, and digital asset land in 4·3·2; personalProperty and other carry no table by design.
+
+- id: matter-assets.valuations
+  name: Append-only valuation history and the as-of read
+  scope: Dated valuations on a closed basis vocabulary, corrected by compensating rows, with the as-of resolution that returns amount, date, and basis together — and no current-value column anywhere.
+  status: shipped
+  slices: 4-3-matter-assets
+  spec: docs/specs/2026-08-05-matter-assets-design.md
+  evidence: matter_asset_valuation with BEFORE UPDATE / BEFORE DELETE / replace-guard triggers in packages/database/drizzle/per-firm/20260806T020000_matter-assets.sql; packages/matter-assets/src/{valuation-service,as-of}.ts.
+  notes: A date before an asset's first valuation resolves to nothing rather than to the earliest figure; no route edits or deletes a recorded value.
+
+- id: matter-assets.interests
+  name: Interests held by directory entities
+  scope: Who holds a stake, under a firm-configurable label, as a rational share, temporally end-dated rather than deleted.
+  status: shipped
+  slices: 4-3-matter-assets
+  spec: docs/specs/2026-08-05-matter-assets-design.md
+  evidence: matter_asset_interest + packages/matter-assets/src/interest-service.ts; the label catalog reuses the custody ownership-role setting shape.
+  notes: Optional by design — an estate where everything is the decedent's records none. Nothing derives estate treatment from an interest label or the reverse.
+
+- id: matter-assets.documents
+  name: Document links over ordinary matter files
+  scope: Many-to-many links from an asset to already-ingested matter files, with no upload path of its own.
+  status: shipped
+  slices: 4-3-matter-assets
+  spec: docs/specs/2026-08-05-matter-assets-design.md
+  evidence: matter_asset_document + packages/matter-assets/src/document-link-service.ts; bytes ride the File Manager's presigned-upload and quarantine chokepoint only.
+  notes: Deliberately not unique on file_id, diverging from custody_scan — one brokerage statement lists four accounts.
+
+- id: matter-assets.identifiers
+  name: Protected identifiers and the credential refusal
+  scope: Full account, policy, certificate, and tax numbers sealed with only the last four characters readable; public-record identifiers left plaintext and searchable; credentials refused outright.
+  status: shipped
+  slices: 4-3-matter-assets
+  spec: docs/specs/2026-08-05-matter-assets-design.md
+  evidence: matter_asset_identifier.value_ciphertext in packages/database/src/protected-columns.ts; packages/matter-assets/src/identifier-service.ts reads only through the data-access protected chokepoint.
+  notes: One audited read path, a named refusal rather than a blank without the decrypt permission, and no merge facet for a protected value.
+
+- id: matter-assets.encumbrances
+  name: Encumbrances and net equity
+  scope: Mortgages, liens, and security interests with their own dated balances, and equity computed per currency as of a date.
+  status: planned
+  slices: 4-3-matter-assets
+  spec: docs/specs/2026-08-05-matter-assets-design.md
+  notes: matter_asset_valuation.encumbrance_id lands in 4·3·1 because adding it later means rebuilding a table whose append-only triggers have to be dropped to do it; the encumbrance table itself is 4·3·2.
+
+- id: matter-assets.schedule
+  name: The estate schedule
+  scope: Grouped by class as of a date, with value, basis, actual as-of date, unreleased encumbrances, equity, per-class subtotals per currency, and a stated unvalued count.
+  status: planned
+  slices: 4-3-matter-assets
+  spec: docs/specs/2026-08-05-matter-assets-design.md
+  notes: Not a court form and not a stored document — a read. The as-of date is required with no default.
+
+- id: matter-assets.class-handling-notice
+  name: Class handling notices
+  scope: A standing, non-jurisdictional sentence on a class whose type carries known legal handling, rendered and acted on by nothing.
+  status: shipped
+  slices: 4-3-matter-assets
+  spec: docs/specs/2026-08-05-matter-assets-design.md
+  evidence: the firearm note in packages/matter-assets/src/classes.ts, guarded by a test asserting it names no jurisdiction, cites no statute, and carries no numeral.
+  notes: The register records what is held and encodes no transfer law; a verified jurisdiction catalog is a separate build behind primary-source research.
+
+- id: matter-assets.custody-link
+  name: The custody item link
+  scope: One nullable column joining a scheduled asset to the custody item that physically holds it, with neither side copying the other's facts.
+  status: planned
+  slices: 4-3-matter-assets
+  spec: docs/specs/2026-08-05-matter-assets-design.md
+  notes: matter_asset.custody_item_id lands in 4·3·1 and comes into use in 4·3·3. No unique index — the same held object can be scheduled in two matters.
+
+- id: matter-assets.merge-fields
+  name: Asset subjects in the merge catalogue
+  scope: Collection-only merge subjects per class plus an aggregate, filled by one new assembly source, with value and its date declared together and no protected value as a facet.
+  status: planned
+  slices: 4-3-matter-assets
+  spec: docs/specs/2026-08-05-matter-assets-design.md
+  notes: Slice 4·3·3, alongside custom_field.target widening to matterAsset.
+
+- id: matter-assets.carry-forward
+  name: Carry-forward from a prior matter
+  scope: Copying selected assets into another matter as new rows with recorded provenance, never a shared row.
+  status: planned
+  slices: 4-3-matter-assets
+  spec: docs/specs/2026-08-05-matter-assets-design.md
+  notes: Valuations do not copy by default — a value asserted in one matter as of one date is not an assertion in another.
