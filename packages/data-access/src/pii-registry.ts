@@ -313,6 +313,48 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "retain-under-matter",
     note: "which firm member appeared, and when, is that matter's record of the appearance",
   },
+  // The matter asset register. Its METADATA alone is a disclosure: "this person owns these eleven
+  // things" needs no document attached to be sensitive. Four of its tables carry a structured
+  // reference to a person or that person's home; the rest of the group is catalog, structure, and
+  // bookkeeping and is declared non-personal below.
+  //
+  // The interest link takes retain-under-matter on the same reasoning matter_party and the custody
+  // owner link do: whose property this is IS the matter's record, and the subject-side scrub happens
+  // at the Directory entity.
+  {
+    table: "matter_asset_interest",
+    subjectKey: "entity_id",
+    action: "retain-under-matter",
+    note: "whose stake in the property the firm recorded is itself that matter's record",
+  },
+  // A property row is frequently a person's HOME ADDRESS, which is personal data with no entity
+  // handle on the row at all — the subject resolves through the asset's matter and its interests. It
+  // is keyed on its own primary key so erasure can reach the address columns as matter residue rather
+  // than leaving them unattributed.
+  {
+    table: "matter_asset_real_property",
+    subjectKey: "asset_id",
+    action: "retain-under-matter",
+    note: "a scheduled property is frequently a person's home address; the schedule is a matter record",
+  },
+  {
+    table: "matter_asset_financial_account",
+    subjectKey: "institution_organization_id",
+    action: "retain-under-matter",
+    note: "the institution holding the account, where the firm linked a Directory organization",
+  },
+  // A sealed value plus a four-character suffix. Retained as matter record; crypto-shred reaches the
+  // sealed value through the firm key, which is what makes retaining the row safe.
+  {
+    table: "matter_asset_identifier",
+    subjectKey: "asset_id",
+    action: "retain-under-matter",
+    note: "a sealed account or tax number on a scheduled asset; crypto-shred reaches the sealed value",
+  },
+  // The valuation history is append-only by trigger, so its one subject reference — the firm member
+  // who asserted the figure — is pseudonymized in place and the row is never removed, the discipline
+  // audit_log, entity_merge, and the custody movement ledger already take.
+  { table: "matter_asset_valuation", subjectKey: "recorded_by", action: "pseudonymize-keep" },
 ];
 
 // Per-firm tables that hold NO personal data — the explicit non-PII half of the coverage fitness.
@@ -529,4 +571,21 @@ export const NO_PII_TABLES: readonly string[] = [
   // reason, and satisfaction note are the same free-text residue class the event's title sits in;
   // recorded_by / satisfied_by are firm-member provenance on a control row about a date.
   "matter_deadline",
+  // The matter asset register. The five tables that reference a person or a person's home are
+  // registered in PII_TABLES above; these two carry no structured personal-data column.
+  // The asset-type catalog is a classification vocabulary under a platform class (single-family
+  // residence, brokerage account), the line matter_type, document_type, custody_item_type, and
+  // matter_event_type sit on.
+  "matter_asset_type",
+  // An asset describes a THING OWNED: its class, its type, when it was acquired, how it was disposed
+  // of, and firm-member provenance (created_by). Its description and notes are free text and can name
+  // the person the thing belongs to ("Jane Smith's wedding ring"), but that is content with no
+  // structured subject column to resolve — the residue class matter.description and
+  // custody_item.description established, handled by the residue report rather than by a key here.
+  // Whose property it is IS keyed, on matter_asset_interest above.
+  "matter_asset",
+  // A document link is two handles, a kind, a note, and firm-member provenance (linked_by) — a
+  // control row about which FILE evidences which asset. The linked document's own retention is
+  // expressed by its `file` entry, exactly as for file_version, email_attachment, and custody_scan.
+  "matter_asset_document",
 ];

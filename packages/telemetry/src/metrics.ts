@@ -194,6 +194,29 @@ export const custodyLabelsRendered = defineMetric("custody.labelsRendered", ["ta
 // two apart. `outcome` is a closed set of refusal reasons; the authority a firm asserted is free text
 // it wrote and is never a dimension.
 export const custodyReleaseGated = defineMetric("custody.releaseGated", ["outcome"] as const);
+// The matter asset register. Every dimension is an enum-like label from a closed platform set, and
+// nothing that describes a THING is one: no description, address, parcel number, institution name,
+// entity name, account suffix, or amount, for the reason the custody dimensions exclude a custody
+// number — this register's metadata alone is a disclosure about a family's finances.
+// What firms actually log, and where writes fail.
+export const matterAssets = defineMetric("matterAssets.assets", ["class", "outcome"] as const);
+// Whether the closed basis vocabulary matches what firms really record. This is the evidence for
+// ever changing that vocabulary, which is otherwise a guess.
+export const matterAssetValuations = defineMetric("matterAssets.valuations", [
+  "basis",
+  "outcome",
+] as const);
+// The read the subsystem exists to produce.
+export const matterAssetScheduleReads = defineMetric("matterAssets.scheduleReads", [
+  "outcome",
+] as const);
+// How often the ONE full-value decrypt path is used — the check that it stayed exceptional. A path
+// nobody ever takes and a path taken forty times a day are different systems, and only the counter
+// tells them apart. The identifier, its kind, and its suffix are never dimensions.
+export const matterAssetProtectedIdentifierReads = defineMetric(
+  "matterAssets.protectedIdentifierReads",
+  ["outcome"] as const,
+);
 
 // The catalog itself, derived from the declarations above so it cannot drift from them.
 const CATALOG: readonly MetricDefinition[] = [
@@ -227,6 +250,10 @@ const CATALOG: readonly MetricDefinition[] = [
   custodyReviewsCompleted,
   custodyLabelsRendered,
   custodyReleaseGated,
+  matterAssets,
+  matterAssetValuations,
+  matterAssetScheduleReads,
+  matterAssetProtectedIdentifierReads,
 ];
 
 const BY_NAME = new Map(CATALOG.map((definition) => [definition.metricName, definition]));

@@ -45,9 +45,28 @@ export const directoryIdentifierValue = protectedField({
   permission: assertPermission("directory:viewSensitiveIdentifiers"),
 });
 
+// A matter asset's full account, policy, certificate, or tax number, sealed under the firm pii key.
+// It reuses directory:viewSensitiveIdentifiers rather than minting a second decrypt key, because it
+// is the same class of secret about the same people and a firm that has decided who may see a
+// client's account number has not decided that twice. The asset register's own read/manage pair
+// governs the register; this key alone opens a full number, so matterAssets:read never reveals one.
+//
+// NO BLIND INDEX, deliberately: an exact-match channel over an account number would let a caller who
+// already has a number confirm which matter holds it, without a permission check and without an
+// audit row, which is exactly the disclosure the sealed column exists to prevent. Nothing in this
+// subsystem looks an asset up by identifier value — the searchable identifiers (parcel number,
+// vehicle identification number, plate, serial) are plaintext columns because they are public record.
+export const matterAssetIdentifierValue = protectedField({
+  table: "matter_asset_identifier",
+  column: "value_ciphertext",
+  purpose: "pii",
+  permission: assertPermission("directory:viewSensitiveIdentifiers"),
+});
+
 // Every protected-field declaration the chokepoint enforces. Order is not significant.
 export const PROTECTED_FIELD_DECLARATIONS: readonly ProtectedFieldDeclaration[] = [
   incidentDescription,
   firmSecretValue,
   directoryIdentifierValue,
+  matterAssetIdentifierValue,
 ];
