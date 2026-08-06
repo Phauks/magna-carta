@@ -22,7 +22,7 @@ import {
   type ListItem,
 } from "./expression/evaluate.ts";
 import { EXPRESSION_LIMITS } from "./expression/limits.ts";
-import { formatMergeValue, legalFormatsFor } from "./format.ts";
+import { formatMergeValue, legalFormatsFor, renderingAbsenceReason } from "./format.ts";
 import { rewriteBareKeyCondition, splitComputedField } from "./normalize.ts";
 import {
   contentTypeOverrides,
@@ -112,11 +112,16 @@ export type AssemblyResult =
       readonly expressions: readonly ExpressionTally[];
     };
 
-// `client.displayName` -> `[CLIENT DISPLAY NAME]`. A visible marker is the deliberate bias of the absence
-// model: the most dangerous failure in document assembly is a blank where a party name should be, filed
-// without anyone noticing, and a marker is something a human reading the draft cannot miss.
-export function absenceMarkerFor(key: string): string {
-  const words = key
+// `opposingCounsel.displayName` -> `[OPPOSING COUNSEL'S NAME]`. A visible marker is the deliberate bias
+// of the absence model: the most dangerous failure in document assembly is a blank where a party name
+// should be, filed without anyone noticing, and a marker is something a human reading the draft cannot
+// miss.
+//
+// The marker spells out THE LABEL an author picked the field from, in the document they are
+// proofreading. The key-derived form stays the fallback, for a key with no entry at all — a template
+// registered against a catalogue that has since narrowed, where there is no label to read.
+export function absenceMarkerFor(key: string, label?: string): string {
+  const words = (label ?? key)
     .replace(/\./g, " ")
     .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
     .toUpperCase();
@@ -129,11 +134,15 @@ function recordAbsence(
   state: AssemblyState,
   key: string,
   rendered: AssemblyAbsence["rendered"],
+  // Why the RENDERING could not be produced, when resolution had a value but the format asked for a
+  // part the record does not hold. Resolution cannot know it — the format is on the placeholder, not on
+  // the key — so it arrives here instead, and it never displaces a reason resolution did supply.
+  renderingReason?: string,
 ): void {
   state.absences.set(key, {
     key,
     rendered,
-    reason: state.context.absenceReasons.get(key) ?? null,
+    reason: state.context.absenceReasons.get(key) ?? renderingReason ?? null,
   });
 }
 
@@ -186,6 +195,14 @@ export function expressionValueOf(
   switch (value.kind) {
     case "text":
       return { kind: "text", text: value.text };
+    // A NAME IS TEXT TO THE LANGUAGE, at its default rendering, projected here at the same boundary an
+    // instant is. A document prints text, and a computation over a name PART is not something this
+    // language does — `upper(client.displayName)` is the composition an author writes, and it operates
+    // on the rendered name exactly as it operates on any other string.
+    case "name": {
+      const rendered = formatMergeValue(value, "full", { timeZone });
+      return rendered === undefined ? undefined : { kind: "text", text: rendered };
+    }
     case "date":
       return { kind: "date", isoDate: value.isoDate };
     case "instant": {
@@ -572,24 +589,28 @@ function renderPlaceholder(body: string, frame: Frame, state: AssemblyState): st
     return absenceMarkerFor(key);
   }
 
+  const format = explicitFormat ?? entry.defaultFormat;
   const rendered =
     value === undefined
       ? undefined
-      : formatMergeValue(value, explicitFormat ?? entry.defaultFormat, {
-          timeZone: state.context.timeZone,
-        });
+      : formatMergeValue(value, format, { timeZone: state.context.timeZone });
 
   if (rendered === undefined) {
+    // A VALUE THAT WOULD NOT RENDER IS A DECLARED ABSENCE WITH A REASON, NEVER A FALLBACK TO A
+    // DIFFERENT RENDERING. A record that stores only "Rowan Ashcroft", asked for the surname-first
+    // form, gets a marker and a sentence naming the missing part — because a document that quietly
+    // printed the wrong rendering would look finished and be wrong in a way nobody catches by reading.
+    const renderingReason = value === undefined ? undefined : renderingAbsenceReason(value, format);
     if (entry.absence === "fail") {
       state.missingRequired.add(key);
-      return absenceMarkerFor(key);
+      return absenceMarkerFor(key, entry.label);
     }
     if (entry.absence === "blank") {
-      recordAbsence(state, key, "blank");
+      recordAbsence(state, key, "blank", renderingReason);
       return "";
     }
-    recordAbsence(state, key, "placeholder");
-    return absenceMarkerFor(key);
+    recordAbsence(state, key, "placeholder", renderingReason);
+    return absenceMarkerFor(key, entry.label);
   }
 
   state.substitutions += 1;

@@ -12,6 +12,10 @@ import type { MergeValue, MergeValueType } from "./types.ts";
 
 const LEGAL_FORMATS: Readonly<Record<MergeValueType, readonly string[]>> = {
   text: ["plain", "upper", "titleCase"],
+  // The default is FIRST, and `full` prints the recorded display name unchanged — which is what this
+  // rendering was before names carried parts, so no registered template's output moved when they
+  // arrived. The rest are opt-in at the placeholder.
+  name: ["full", "formal", "lastFirst", "initials", "family", "given", "upper"],
   date: ["short", "long", "legal", "iso"],
   money: ["currency", "currencyWords", "plain"],
   rate: ["plain", "currencyWords"],
@@ -48,6 +52,99 @@ export function titleCase(text: string): string {
       ? word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
       : word,
   );
+}
+
+// ---------------------------------------------------------------------------------------------
+// Names
+// ---------------------------------------------------------------------------------------------
+
+// A RENDERING THAT NEEDS A PART THE RECORD LACKS IS AN ABSENCE, NEVER A FALLBACK.
+//
+// `{{client.displayName:lastFirst}}` on a record that stores only "Rowan Ashcroft", with no family name
+// separated out, does NOT render "Rowan Ashcroft". It resolves to nothing, and the reason says which
+// part is missing so the repair — open the record, split the name — is in the message. Falling back
+// would produce a document that looks finished and is wrong in a way nobody catches by reading it,
+// which is the same failure the ambiguity rule refuses one level up.
+
+type NameValue = Extract<MergeValue, { kind: "name" }>;
+
+function presentPart(part: string | undefined): string | undefined {
+  return part === undefined || part === "" ? undefined : part;
+}
+
+// The parts a format needs, and the sentence that explains a record which cannot supply them. Written as
+// a total switch so a format added to the table above without a rendering stops this file compiling.
+function renderName(value: NameValue, format: string): string | { readonly reason: string } {
+  const prefix = presentPart(value.prefix);
+  const given = presentPart(value.given);
+  const middle = presentPart(value.middle);
+  const family = presentPart(value.family);
+  const suffix = presentPart(value.suffix);
+
+  const organisationRefusal = (rendering: string): { readonly reason: string } => ({
+    reason: `This party is an organisation, which has no personal name to write ${rendering}. Use the default rendering, which prints the organisation's name as recorded.`,
+  });
+  const missingPartRefusal = (part: string, rendering: string): { readonly reason: string } => ({
+    reason: `This Directory record has no ${part} recorded separately, so it cannot be written ${rendering}. Open the record and split the name into its parts to use this rendering.`,
+  });
+
+  switch (format) {
+    // The recorded display name, unchanged. This is what the key rendered before it carried parts, and
+    // it is the one rendering every record can always answer.
+    case "full":
+      return value.display;
+    case "upper":
+      return value.display.toUpperCase();
+    case "formal": {
+      // An organisation's formal name is the name it records; there is nothing to assemble.
+      if (value.isOrganisation === true) return value.display;
+      if (given === undefined || family === undefined) {
+        return missingPartRefusal("given name and family name", "in its formal long form");
+      }
+      const middleInitial = middle === undefined ? undefined : `${middle.charAt(0)}.`;
+      return [prefix, given, middleInitial, family, suffix]
+        .filter((part) => part !== undefined)
+        .join(" ");
+    }
+    case "lastFirst":
+      if (value.isOrganisation === true) return organisationRefusal("surname first");
+      if (family === undefined) return missingPartRefusal("family name", "surname first");
+      if (given === undefined) return missingPartRefusal("given name", "surname first");
+      return `${family}, ${given}`;
+    case "initials": {
+      if (value.isOrganisation === true) return organisationRefusal("as initials");
+      if (given === undefined || family === undefined) {
+        return missingPartRefusal("given name and family name", "as initials");
+      }
+      return [given, middle, family]
+        .filter((part) => part !== undefined)
+        .map((part) => `${part.charAt(0).toUpperCase()}.`)
+        .join("");
+    }
+    case "family":
+      if (value.isOrganisation === true) return organisationRefusal("as a family name");
+      if (family === undefined) return missingPartRefusal("family name", "as a family name alone");
+      return family;
+    case "given":
+      if (value.isOrganisation === true) return organisationRefusal("as a given name");
+      if (given === undefined) return missingPartRefusal("given name", "as a given name alone");
+      return given;
+    default:
+      // Not reachable through a registered template: `isLegalFormat` refuses a format the type's row
+      // does not carry, at registration, with a location. Reached only by a caller that formatted a
+      // value without checking, and the honest answer there is the default rendering.
+      return value.display;
+  }
+}
+
+// Why a value could not be rendered under the format asked for, when the reason is a fact about the
+// record rather than an ordinary missing value. Returns undefined when there is nothing to say beyond
+// what the marker already says — an ordinary absence carries no reason, so that the ones that need
+// reading are not buried.
+export function renderingAbsenceReason(value: MergeValue, format: string): string | undefined {
+  if (value.kind !== "name") return undefined;
+  const rendered = renderName(value, format);
+  return typeof rendered === "string" ? undefined : rendered.reason;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -245,6 +342,12 @@ export function formatMergeValue(
       if (format === "upper") return value.text.toUpperCase();
       if (format === "titleCase") return titleCase(value.text);
       return value.text;
+    }
+    case "name": {
+      const rendered = renderName(value, format);
+      // A refusal is undefined here and a REASON at the absence site: the caller records the absence,
+      // and `renderingAbsenceReason` is what turns the marker into a sentence naming the missing part.
+      return typeof rendered === "string" ? rendered : undefined;
     }
     case "date": {
       const date = parseCalendarDate(value.isoDate);

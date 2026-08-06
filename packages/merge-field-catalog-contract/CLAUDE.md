@@ -45,11 +45,35 @@ holds no data access, no network calls, and no assembly logic.
 - The live provider will call the merge-field dictionary and template-fields endpoints once those
   exist; this package does not gain a client for them — the caller supplies one.
 
+## The fixture is a checked projection, not an invention
+
+`FIXTURE_MERGE_FIELD_ENTRIES` used to be free to describe fields the engine does not have, and it had
+already grown a practice area, a court case number, and a responsible attorney that nothing could
+fill in. `test/fixture-projection.test.ts` takes that freedom away: **every platform key in the
+fixture must exist in the real merge-field dictionary**, with the same value type, sensitivity,
+label, group, subject, prominence, formats, and example renderings. At twenty-nine keys a free
+fixture was a harmless stand-in; at hundreds it is a second catalogue with its own way of being wrong.
+
+- **The one exception is a firm's own field.** `custom.<handle>` entries exist per firm and by
+  construction not in the platform's shipped list, so they are held to the minted handle SHAPE
+  instead — which is also what keeps the surfaces laid out against keys of the real length.
+- **The value-type union and the group registry are PINNED to the engine's**, member for member and
+  in the same order, asserted by the same test. Two unions describing the same thing and disagreeing
+  is a drift generator; this contract's used to carry `longText` and `address` where the engine had
+  `image`, `list`, and `rate`.
+- **A manifest placeholder may only name a fixture key** (plus the one deliberately broken case) and
+  may only ask for a format that key actually supports.
+
 ## Gotchas
 
 - **`FIXTURE_MERGE_FIELD_MANIFESTS` deliberately contains a broken case.** The probate petition
-  declares `matter.filingDeadline`, which the catalog does not carry, so the unrecognized-key path
-  is always exercised. A test asserts the fixture's `unrecognizedKeys` matches what the catalog
-  actually lacks — if you add that key to the catalog, the fixture manifest must change with it.
+  declares `matter.filingDeadline`, which neither the catalog nor the real dictionary carries, so the
+  unrecognized-key path is always exercised. A test asserts the fixture's `unrecognizedKeys` matches
+  what the catalog actually lacks — if you add that key, the fixture manifest must change with it.
+- **`MergeFieldGroup` is a `string`, not a closed union.** The catalog grows to hundreds of fields
+  and its headings grow with the subjects behind them, so adding one is a row in
+  `MERGE_FIELD_GROUPS`. A consumer that meets a heading it does not recognize must still RENDER the
+  fields under it — `mergeFieldGroupLabel` falls back to the key — because dropping a field a person
+  has to fill in is how its value ends up typed into the finished document by hand.
 - **The mock is asynchronous on purpose**, and takes a `latencyMilliseconds` option. A surface built
   against an instant answer grows loading states that never run.

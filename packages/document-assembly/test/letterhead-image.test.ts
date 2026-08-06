@@ -316,7 +316,7 @@ describe("assembling a letterhead", () => {
     ]);
     const read = readPackage(result.bytes);
     if (!read.ok) return;
-    expect(readPartText(read.value, "word/document.xml")).toContain("[LOCATION LETTERHEAD LOGO]");
+    expect(readPartText(read.value, "word/document.xml")).toContain("[LETTERHEAD LOGO]");
     expect([...read.value.keys()].filter((name) => name.startsWith("word/media/"))).toEqual([]);
   });
 
@@ -339,7 +339,7 @@ describe("assembling a letterhead", () => {
     const read = readPackage(result.bytes);
     if (!read.ok) return;
     expect([...read.value.keys()].filter((name) => name.startsWith("word/media/"))).toEqual([]);
-    expect(readPartText(read.value, "word/document.xml")).toContain("[LOCATION LETTERHEAD LOGO]");
+    expect(readPartText(read.value, "word/document.xml")).toContain("[LETTERHEAD LOGO]");
   });
 });
 

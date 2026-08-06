@@ -2,11 +2,18 @@ import { type OpenAPIHono, z } from "@hono/zod-openapi";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import {
+  availabilityFor,
+  availabilityNoteFor,
   lookupDictionaryEntry,
   dictionaryForFirm,
 } from "@magna-carta/document-assembly/dictionary";
+import { MERGE_FIELD_GROUPS } from "@magna-carta/document-assembly/catalog-groups";
+import { mergeSubject } from "@magna-carta/document-assembly/catalog-subjects";
 import { customFieldDictionaryEntries } from "@magna-carta/document-assembly/custom-field-bindings";
-import { readCustomFieldCatalog } from "@magna-carta/document-assembly/resolve";
+import {
+  mergeFieldCatalogRevision,
+  readCustomFieldCatalog,
+} from "@magna-carta/document-assembly/resolve";
 import {
   deleteFieldMappingEffect,
   fieldMappingResolverFor,
@@ -49,6 +56,7 @@ import type {
 } from "@magna-carta/identifiers/types";
 import {
   documentTemplateExpressionCheck,
+  documentTemplateFieldBinding,
   documentTemplateNormalization,
 } from "@magna-carta/telemetry/metrics";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
@@ -281,10 +289,46 @@ const MergeFieldEntry = z
     // author chooses it.
     sensitivity: z.string(),
     description: z.string(),
+    // What a person calls the field, and where a picker files it. A catalogue of hundreds is unusable
+    // without them, and they belong to the field rather than to any one surface's idea of it.
+    label: z.string(),
+    group: z.string(),
+    subject: z.string(),
+    subjectLabel: z.string(),
+    // Ordering and default visibility, never a filter: a field that exists stays findable by search.
+    prominence: z.string(),
+    // Search words a firm would type — "defendant" for the opposing party, "SSN" for the tax
+    // identifier — so someone's own vocabulary finds the platform's key.
+    synonyms: z.array(z.string()),
+    // One invented sample rendering per legal format. Never firm data, so this response is the same
+    // bytes for every member of a firm and safe to show before a matter is chosen.
+    exampleRenderings: z.record(z.string(), z.string()),
+    // Whether the value is filled from firm data, filled only when the matter carries the fact, or not
+    // fillable at all. Derived from the source and the subject rather than declared per field.
+    availability: z.string(),
+    availabilityNote: z.string(),
+    // A withdrawn field is deprecated, never removed: it still fills in, and it names what replaced it.
+    status: z.string(),
+    supersededBy: z.string().nullable(),
   })
   .openapi("MergeFieldEntry");
 
-const MergeFieldsResponse = z.object({ fields: z.array(MergeFieldEntry) }).openapi("MergeFields");
+const MergeFieldGroupEntry = z
+  .object({ key: z.string(), label: z.string(), order: z.number() })
+  .openapi("MergeFieldGroup");
+
+const MergeFieldsResponse = z
+  .object({
+    // Changes when the catalogue this firm sees changes — the platform's own version plus a digest of
+    // the firm's field catalogue. A surface holding a cached copy compares this and revalidates rather
+    // than refetching tens of kilobytes on every open.
+    revision: z.string(),
+    // The headings, in the order a picker presents them. Sent with the entries so a surface never has to
+    // keep its own copy of an ordering that lives in one place.
+    groups: z.array(MergeFieldGroupEntry),
+    fields: z.array(MergeFieldEntry),
+  })
+  .openapi("MergeFields");
 
 const ArchivedTemplateResponse = z
   .object({ templateId: z.string(), status: z.literal("archived") })
@@ -997,6 +1041,20 @@ async function prepareStagedUpload(
   };
 }
 
+// Whether a registration's binding-index rows landed.
+//
+// The index is what answers "which templates break if this key goes away", so a registration whose
+// bindings did not commit is a template that has become invisible to deprecation reporting and to the
+// guard on destroying a firm's own field. NO MERGE-FIELD KEY IS A DIMENSION — the outcome is the whole
+// signal, because a key names a firm's own custom field as often as a platform one and both are
+// high-cardinality.
+function countFieldBindingWrite(
+  c: TemplatesContext,
+  outcome: "written" | "replayed" | "refused",
+): void {
+  createWorkersLogger(c.env.TELEMETRY).count(documentTemplateFieldBinding.metricName, { outcome });
+}
+
 // Scan the bytes that will be stored, and produce the statements that move the version off `pending`.
 // A template is untrusted content that a firm will run against privileged data, so the scan is over the
 // FINAL bytes — the same engine, the same firm policy, and the same verdict computation an uploaded file
@@ -1140,8 +1198,10 @@ export function registerTemplatesRoutes(app: TemplatesApp, chokepoint: Chokepoin
       // The staged upload has served its purpose; leaving it would meter twice for the same template.
       await bucket.delete(request.uploadKey);
       if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch") {
+        countFieldBindingWrite(c, "refused");
         return problemResponseForIdempotencyConflict(c, result);
       }
+      countFieldBindingWrite(c, result.kind === "replayed" ? "replayed" : "written");
       if (result.kind === "replayed") c.header("Idempotency-Replayed", "true");
       return c.json(
         JSON.parse(result.responseBody ?? "{}") as z.infer<typeof RegisteredTemplateResponse>,
@@ -1235,8 +1295,10 @@ export function registerTemplatesRoutes(app: TemplatesApp, chokepoint: Chokepoin
 
       await bucket.delete(request.uploadKey);
       if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch") {
+        countFieldBindingWrite(c, "refused");
         return problemResponseForIdempotencyConflict(c, result);
       }
+      countFieldBindingWrite(c, result.kind === "replayed" ? "replayed" : "written");
       if (result.kind === "replayed") c.header("Idempotency-Replayed", "true");
       return c.json(
         JSON.parse(result.responseBody ?? "{}") as z.infer<typeof RegisteredTemplateResponse>,
@@ -1412,11 +1474,16 @@ export function registerTemplatesRoutes(app: TemplatesApp, chokepoint: Chokepoin
     { ...mergeFieldsRoute, middleware: chokepointMiddleware(chokepoint, mergeFieldsRoute) },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
-      const dictionary = dictionaryForFirm(
-        customFieldDictionaryEntries(await readCustomFieldCatalog(firm.firmDatabase)),
-      );
+      const catalog = await readCustomFieldCatalog(firm.firmDatabase);
+      const dictionary = dictionaryForFirm(customFieldDictionaryEntries(catalog));
       return c.json(
         {
+          revision: mergeFieldCatalogRevision(catalog),
+          groups: MERGE_FIELD_GROUPS.map((group, order) => ({
+            key: group.key,
+            label: group.label,
+            order,
+          })),
           fields: dictionary.map((entry) => ({
             key: entry.key,
             source: entry.source,
@@ -1426,6 +1493,17 @@ export function registerTemplatesRoutes(app: TemplatesApp, chokepoint: Chokepoin
             absence: entry.absence,
             sensitivity: entry.sensitivity,
             description: entry.description,
+            label: entry.label,
+            group: entry.group,
+            subject: entry.subject,
+            subjectLabel: mergeSubject(entry.subject)?.label ?? entry.subject,
+            prominence: entry.prominence,
+            synonyms: [...entry.synonyms],
+            exampleRenderings: { ...entry.exampleRenderings },
+            availability: availabilityFor(entry),
+            availabilityNote: availabilityNoteFor(entry),
+            status: entry.status,
+            supersededBy: entry.supersededBy ?? null,
           })),
         },
         200,

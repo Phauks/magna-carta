@@ -72,15 +72,80 @@ block-marker vocabulary the normalizer validates and the assembly walk expands.
   Turning that off puts two declarations in every rewritten part — not well-formed XML, a document no
   reader will open, and nothing in a text-content assertion catches it.
 
+## The catalogue is generated — `src/catalog/`
+
+**`DICTIONARY` is a cross product, not an array.** `src/catalog/subjects.ts` declares the things a
+document can talk about (the matter, the client, the opposing counsel, this office, the firm, the
+document itself); `src/catalog/facets.ts` declares the facts a subject of a given KIND carries;
+`src/catalog/generate.ts` crosses them and adds the written-out facts of the one-of-a-kind subjects.
+`src/catalog/groups.ts` is the picker's heading registry and `src/catalog/entry.ts` is the entry
+shape plus the availability derivation. Everything downstream takes `readonly DictionaryEntry[]` and
+is indifferent to how the array was built.
+
+- **Adding a party subject is ONE ROW** in `MERGE_SUBJECTS`, and its whole facet set follows — the
+  keys, their entries, their resolution, and their search vocabulary. `DIRECTORY_ROLE_SOURCES` is
+  derived from that registry rather than living beside it.
+- **Adding a facet is ONE ROW** in `MERGE_FACETS`, and every subject of that kind gains it with
+  identical absence behaviour, identical formats, and identical description wording. A facet that has
+  to behave differently on one subject is a visible line in `FACET_OVERRIDES` naming the key — there
+  is exactly one today, `client.displayName`, which fails the assembly where its siblings show a
+  marker.
+- **A one-of-a-kind subject's facts are written out**, in `NAMED_FACETS`. That is correct: there is
+  exactly one matter, one office, one firm, one document, and their facts are their own columns
+  rather than a vocabulary shared with siblings.
+- **Presentation lives on the entry.** Label, group, subject, prominence, synonyms, and one example
+  rendering per legal format. Availability and its note are DERIVED (`availabilityFor`,
+  `availabilityNoteFor`) from the source and the subject's optionality, never declared per row.
+- **Example renderings are produced by the real format table** (`src/catalog/examples.ts`), from an
+  invented value. A hand-written example is a second copy of what the formatter does, free to
+  disagree with it; this cannot.
+- **The client's name is answered by the matter read, not the party read.** `client` declares
+  `facetsAnsweredElsewhere: ["displayName"]`, which keeps `client.displayName` out of the party
+  subject's key set — so a template naming only the client's name still pays for no party read.
+
+**A KEY IS PERMANENT, and `test/key-permanence.test.ts` is what makes that a property.**
+`test/fixtures/shipped-keys.json` is a COMMITTED RECORD, not a generated artefact: a key that
+disappears, changes type, changes source, changes its default rendering, or makes its absence LESS
+visible is a failing test naming the key and the property. Adding a key is safe and is deliberate —
+it lands as a diff to that file that a reviewer sees. Absence may only move `blank` → `placeholder` →
+`fail`, never back.
+
 ## Adding a merge field
 
-One row in `src/dictionary.ts` (key, source, value type, default format, sensitivity, absence
-behaviour, description) plus, if its source already reads, one line in the matching
-`valuesFrom*` function in `src/resolve.ts`. The well-formedness fitness test
-(`test/dictionary-wellformed.test.ts`) checks the row is internally consistent.
+If it is a fact a whole subject KIND carries, it is a row in `src/catalog/facets.ts`. If it belongs
+to one subject only, it is a row in that subject's `NAMED_FACETS` list in `src/catalog/generate.ts`.
+Either way, add one line to the matching `valuesFrom*` function in `src/resolve.ts` (or an arm in
+`facetValue` in `src/directory-role-bindings.ts` for a party facet) and one row to the golden key
+list. `test/dictionary-wellformed.test.ts` checks the entry is internally consistent and
+`test/catalog-generation.test.ts` checks the generator produced it for every subject it applies to —
+a hole in the cross product is a defect, not a choice.
 
-A whole new Directory ROLE is one row in `DIRECTORY_ROLE_SOURCES`
-(`src/directory-role-bindings.ts`) — its three keys, their entries, and their resolution all follow.
+## Names (`<subject>.displayName`)
+
+- **A name is PARTS, not a string.** A format can only render what the value carries: a surname-first
+  rendering is not derivable from a display string. The parts ride the party read that already joins
+  the Directory name tables, so they cost nothing.
+- **`full` is byte-identical to what the key printed before it carried parts** — for a person, for an
+  organisation, and for a record that separates out nothing. That is what let the value type widen
+  under registered templates without moving a single document.
+- **A RENDERING THE RECORD CANNOT SUPPORT IS A DECLARED ABSENCE WITH A REASON**, never a fallback to
+  a different rendering (`renderingAbsenceReason` in `src/format.ts`). A document that printed the
+  whole name where a surname was asked for looks finished and is wrong in a way nobody catches by
+  reading it — the same failure the ambiguity rule refuses one level up.
+- **An organisation is a different absence from an unrecorded part.** "This party is an organisation"
+  and "this record has no family name recorded separately" want different repairs, so they are
+  different sentences; a value whose read does not record which it is says the second.
+
+## The field-binding index
+
+`document_template_field_binding (template_version_id, merge_key)` records which merge keys a
+registered version binds, written by `insertTemplateFieldBindingStatements` in the SAME BATCH as the
+version. **The reason an index is acceptable where the argument used to be that it duplicates the
+manifest: a template version is immutable.** Neither side ever changes after that batch, so there is
+no update path, no reconciliation, and no staleness mode. It turns the custom-field hard-delete
+guard's `instr()` scan over every stored manifest into an index seek, and it is the read behind
+"where is this field used". The keys come from `manifestKeys` — placeholders, block conditions, and
+computed fields alike — because "which templates break if this key goes away" has to mean all of them.
 
 ## The matter's other parties (`opposingParty.*`, `opposingCounsel.*`, `guardian.*`, `witness.*`)
 

@@ -14,7 +14,7 @@
  * objects appear at the boundary where an assembly is actually submitted.
  */
 import {
-  MERGE_FIELD_GROUP_LABELS,
+  mergeFieldGroupLabel,
   MERGE_FIELD_GROUP_ORDER,
   MERGE_FIELD_VALUE_TYPE_LABELS,
   type MergeFieldCatalog,
@@ -191,14 +191,19 @@ export function buildAssemblyInputPlan(
   }
 
   const groups: AssemblyInputGroup[] = [];
-  for (const group of MERGE_FIELD_GROUP_ORDER) {
+  // A heading this build's registry does not know still gets rendered, at the end. Dropping it would
+  // drop the fields under it — and a person who cannot see a field they have to fill in ends up typing
+  // its value into the finished document by hand, which is the failure the whole area exists to avoid.
+  const knownGroups = new Set(MERGE_FIELD_GROUP_ORDER);
+  const unknownGroups = [...fieldsByGroup.keys()].filter((group) => !knownGroups.has(group));
+  for (const group of [...MERGE_FIELD_GROUP_ORDER, ...unknownGroups]) {
     const fields = fieldsByGroup.get(group);
     if (!fields || fields.length === 0) continue;
     const needingEntry = fields.filter((field) => field.requiresEntry);
     const rest = fields.filter((field) => !field.requiresEntry);
     groups.push({
       group,
-      label: MERGE_FIELD_GROUP_LABELS[group],
+      label: mergeFieldGroupLabel(group),
       fields: [...needingEntry, ...rest],
     });
   }

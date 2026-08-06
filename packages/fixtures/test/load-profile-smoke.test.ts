@@ -243,6 +243,8 @@ describe("load-profile smoke", () => {
         "templates.version-for-assembly",
         "assembly.merge-context",
         "templates.custom-field-catalog",
+        "templates.merge-field-catalog",
+        "templates.field-binding-lookup",
       ].sort(),
     );
     for (const result of automationResults) {
@@ -426,6 +428,7 @@ describe("load-profile smoke", () => {
         "assembly.merge-context.parties",
         "assembly.merge-context.custom-field-values",
         "templates.custom-field-catalog",
+        "templates.field-binding-lookup",
       ].sort(),
     );
     expect(findFullScans(automationPlans, DOCUMENT_AUTOMATION_PLAN_SCAN_ALLOWLIST)).toEqual([]);

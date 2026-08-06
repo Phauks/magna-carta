@@ -1,0 +1,298 @@
+[
+  {
+    "key": "client.accountNumber",
+    "valueType": "text",
+    "source": "protectedIdentifier",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "protected"
+  },
+  {
+    "key": "client.all",
+    "valueType": "list",
+    "source": "party",
+    "defaultFormat": "",
+    "absence": "blank",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "client.code",
+    "valueType": "text",
+    "source": "party",
+    "defaultFormat": "plain",
+    "absence": "blank",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "client.dateOfBirth",
+    "valueType": "text",
+    "source": "protectedIdentifier",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "protected"
+  },
+  {
+    "key": "client.displayName",
+    "valueType": "name",
+    "source": "party",
+    "defaultFormat": "full",
+    "absence": "fail",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "client.driversLicenseNumber",
+    "valueType": "text",
+    "source": "protectedIdentifier",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "protected"
+  },
+  {
+    "key": "client.employerIdentificationNumber",
+    "valueType": "text",
+    "source": "protectedIdentifier",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "protected"
+  },
+  {
+    "key": "client.kind",
+    "valueType": "text",
+    "source": "party",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "client.socialSecurityNumber",
+    "valueType": "text",
+    "source": "protectedIdentifier",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "protected"
+  },
+  {
+    "key": "client.socialSecurityNumberLastFour",
+    "valueType": "text",
+    "source": "protectedIdentifier",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "protected"
+  },
+  {
+    "key": "firm.name",
+    "valueType": "text",
+    "source": "firm",
+    "defaultFormat": "plain",
+    "absence": "fail",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "guardian.all",
+    "valueType": "list",
+    "source": "party",
+    "defaultFormat": "",
+    "absence": "blank",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "guardian.displayName",
+    "valueType": "name",
+    "source": "party",
+    "defaultFormat": "full",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "guardian.kind",
+    "valueType": "text",
+    "source": "party",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "location.addressBlock",
+    "valueType": "text",
+    "source": "location",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "location.footer",
+    "valueType": "text",
+    "source": "location",
+    "defaultFormat": "plain",
+    "absence": "blank",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "location.jurisdiction",
+    "valueType": "text",
+    "source": "location",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "location.letterheadLogo",
+    "valueType": "image",
+    "source": "location",
+    "defaultFormat": "",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "location.name",
+    "valueType": "text",
+    "source": "location",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "location.remitTo",
+    "valueType": "text",
+    "source": "location",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "matter.description",
+    "valueType": "text",
+    "source": "matter",
+    "defaultFormat": "plain",
+    "absence": "blank",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "matter.eBilling",
+    "valueType": "boolean",
+    "source": "matter",
+    "defaultFormat": "yesNo",
+    "absence": "fail",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "matter.number",
+    "valueType": "text",
+    "source": "matter",
+    "defaultFormat": "plain",
+    "absence": "fail",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "matter.openedOn",
+    "valueType": "date",
+    "source": "matter",
+    "defaultFormat": "long",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "matter.parties",
+    "valueType": "list",
+    "source": "party",
+    "defaultFormat": "",
+    "absence": "blank",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "matter.status",
+    "valueType": "text",
+    "source": "matter",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "matter.title",
+    "valueType": "text",
+    "source": "matter",
+    "defaultFormat": "plain",
+    "absence": "fail",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "opposingCounsel.all",
+    "valueType": "list",
+    "source": "party",
+    "defaultFormat": "",
+    "absence": "blank",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "opposingCounsel.displayName",
+    "valueType": "name",
+    "source": "party",
+    "defaultFormat": "full",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "opposingCounsel.kind",
+    "valueType": "text",
+    "source": "party",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "opposingParty.all",
+    "valueType": "list",
+    "source": "party",
+    "defaultFormat": "",
+    "absence": "blank",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "opposingParty.displayName",
+    "valueType": "name",
+    "source": "party",
+    "defaultFormat": "full",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "opposingParty.kind",
+    "valueType": "text",
+    "source": "party",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "system.today",
+    "valueType": "date",
+    "source": "system",
+    "defaultFormat": "long",
+    "absence": "fail",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "witness.all",
+    "valueType": "list",
+    "source": "party",
+    "defaultFormat": "",
+    "absence": "blank",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "witness.displayName",
+    "valueType": "name",
+    "source": "party",
+    "defaultFormat": "full",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  },
+  {
+    "key": "witness.kind",
+    "valueType": "text",
+    "source": "party",
+    "defaultFormat": "plain",
+    "absence": "placeholder",
+    "sensitivity": "ordinary"
+  }
+]

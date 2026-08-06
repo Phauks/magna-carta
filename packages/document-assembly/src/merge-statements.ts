@@ -119,6 +119,16 @@ export interface MatterPartyMergeRow {
   readonly displayName: string | null;
   readonly role: string;
   readonly kind: "person" | "organisation" | "unknown";
+  // The recorded name PARTS, projected on the read that already joins the Directory name tables for the
+  // display name. A format can only render what the value carries — "Ashcroft, Rowan" is not derivable
+  // from "Rowan Ashcroft" — so the parts ride here rather than becoming a second read, and a part the
+  // record does not separate out stays null, which is a declared absence at rendering rather than a
+  // guess. An organisation has none of them.
+  readonly namePrefix: string | null;
+  readonly nameGiven: string | null;
+  readonly nameMiddle: string | null;
+  readonly nameFamily: string | null;
+  readonly nameSuffix: string | null;
   // The Directory entity the link points at. Read because a protected merge field has to name WHOSE
   // sealed identifier it wants, and the client's link is the fact that says so — one column on a read
   // that already happens, rather than a second query to find out who the client is. It is never a merge
@@ -136,6 +146,11 @@ export function selectMatterPartiesForMergeStatement(
       `SELECT matter_party.role AS role,
               matter_party.entity_id AS entity_id,
               COALESCE(directory_person.display_name, directory_organization.display_name, directory_organization.legal_name) AS display_name,
+              directory_person.name_prefix AS name_prefix,
+              directory_person.name_given AS name_given,
+              directory_person.name_middle AS name_middle,
+              directory_person.name_family AS name_family,
+              directory_person.name_suffix AS name_suffix,
               CASE
                 WHEN directory_person.id IS NOT NULL THEN 'person'
                 WHEN directory_organization.id IS NOT NULL THEN 'organisation'
@@ -157,6 +172,11 @@ export interface MatterPartyMergeColumns {
   role: string;
   entity_id: string;
   display_name: string | null;
+  name_prefix: string | null;
+  name_given: string | null;
+  name_middle: string | null;
+  name_family: string | null;
+  name_suffix: string | null;
   kind: string;
 }
 
@@ -165,6 +185,11 @@ export function toMatterPartyMergeRow(row: MatterPartyMergeColumns): MatterParty
     displayName: row.display_name,
     role: row.role,
     entityId: row.entity_id,
+    namePrefix: row.name_prefix ?? null,
+    nameGiven: row.name_given ?? null,
+    nameMiddle: row.name_middle ?? null,
+    nameFamily: row.name_family ?? null,
+    nameSuffix: row.name_suffix ?? null,
     kind:
       row.kind === "person" ? "person" : row.kind === "organisation" ? "organisation" : "unknown",
   };

@@ -255,7 +255,7 @@ describe("a member who does not hold the decrypt permission", () => {
     expect(merged.ok).toBe(true);
     if (!merged.ok) return;
     const text = documentTextOf(merged.bytes);
-    expect(text).toContain("[CLIENT SOCIAL SECURITY NUMBER]");
+    expect(text).toContain("[CLIENT&apos;S SOCIAL SECURITY NUMBER]");
     expect(text).not.toContain(SEALED_VALUE);
     expect(text).not.toContain("{{");
     const absence = merged.absences.find((one) => one.key === SOCIAL_SECURITY_NUMBER_KEY);

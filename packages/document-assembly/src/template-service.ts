@@ -15,9 +15,11 @@ import {
   archiveDocumentTemplateStatement,
   insertDocumentTemplateStatement,
   insertDocumentTemplateVersionStatement,
+  insertTemplateFieldBindingStatements,
   readNextTemplateVersionNumber,
 } from "./template-statements.ts";
 import type { TemplatePreparation } from "./register.ts";
+import { manifestKeys } from "./types.ts";
 
 // The catalogue's write paths, composed as effects rather than executed here: the caller commits them
 // through the one atomic-batch chokepoint, so the rows and their audit entry ride a single commit and a
@@ -79,6 +81,15 @@ function versionStatements(
       createdBy: options.actorUserId,
       createdAt: options.clock.now(),
     }),
+    // The binding index, written in the SAME BATCH as the version it derives from. The keys come from
+    // every site the manifest records — plain placeholders, block conditions, and computed fields
+    // alike — because "which templates break if this key goes away" has to mean all of them, not only
+    // the ones that print it.
+    ...insertTemplateFieldBindingStatements(
+      database,
+      versionId,
+      manifestKeys(input.preparation.manifest),
+    ),
     // The mappings this registration's conversion confirmed ride the same commit as the version they
     // came from: a library entry that survived a rolled-back registration would claim the firm confirmed
     // something it never successfully registered.

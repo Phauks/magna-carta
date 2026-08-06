@@ -57,8 +57,9 @@ import {
 // template version uses, so the reads are PLANNED before any value is touched.
 
 // The dictionary version the resolver was built against, recorded on the provenance row beside the
-// engine version so a document assembled today stays explicable after the dictionary grows.
-export const DICTIONARY_VERSION = 1;
+// engine version so a document assembled today stays explicable after the dictionary grows. Its home is
+// catalog/revision.ts, beside the catalogue whose version it names.
+export { DICTIONARY_VERSION, mergeFieldCatalogRevision } from "./catalog/revision.ts";
 
 // The time zone a document's dates render in: the MATTER'S OFFICE'S zone, never the server's and
 // never the acting member's, so a filing date is the date it was in the office that filed it.
@@ -181,7 +182,17 @@ function valuesFromMatter(matter: MatterMergeRow, into: Map<string, MergeValue>)
   set("matter.status", textValue(matter.status));
   set("matter.openedOn", instantValue(matter.openedAt));
   set("matter.eBilling", { kind: "boolean", value: matter.eBilling !== 0 });
-  set("client.displayName", textValue(matter.clientDisplayName));
+  // The client's name arrives as a NAME with only its display part: the matter's own row records the
+  // string, not the Directory record's separated parts and not whether the client is a person or an
+  // organisation. So the default rendering is exactly what it always was, and a rendering that needs a
+  // part — surname first, initials — is a declared absence naming the missing part rather than a guess
+  // made from a string that happens to contain a space.
+  set(
+    "client.displayName",
+    matter.clientDisplayName === null || matter.clientDisplayName === ""
+      ? undefined
+      : { kind: "name", display: matter.clientDisplayName },
+  );
   set("client.code", textValue(matter.clientCode));
 }
 
