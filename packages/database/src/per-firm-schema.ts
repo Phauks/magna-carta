@@ -77,6 +77,7 @@ import type {
   MagnusConversationId,
   MagnusTurnId,
   MatterAssetDocumentId,
+  MatterAssetEncumbranceId,
   MatterAssetId,
   MatterAssetIdentifierId,
   MatterAssetInterestId,
@@ -4902,6 +4903,258 @@ export const matterAssetFinancialAccount = sqliteTable(
   ],
 );
 
+// A vehicle's structured attributes, one-to-one on the asset. THE IDENTIFIERS HERE ARE PLAINTEXT AND
+// INDEXED, and the line is the same one matter_asset_real_property draws: a vehicle identification
+// number is stamped on the title, etched into the windscreen, and readable through the glass from the
+// kerb, and a plate number is displayed to the public by law. Neither is a secret, and searching by
+// them — "which of these forty estate assets is the truck on the driveway" — is the whole point of the
+// column. A full account number is the opposite kind of thing and lives sealed in
+// matter_asset_identifier.
+export const matterAssetVehicle = sqliteTable(
+  "matter_asset_vehicle",
+  {
+    assetId: text("asset_id")
+      .primaryKey()
+      .$type<MatterAssetId>()
+      .references(() => matterAsset.id),
+    make: text("make"),
+    model: text("model"),
+    modelYear: integer("model_year"),
+    vehicleIdentificationNumber: text("vehicle_identification_number"),
+    plateNumber: text("plate_number"),
+    plateRegion: text("plate_region"),
+  },
+  (table) => [
+    index("matter_asset_vehicle_identification_number_index").on(table.vehicleIdentificationNumber),
+    index("matter_asset_vehicle_plate_index").on(table.plateNumber),
+    // A year outside this window is a typo, not a vehicle. The floor is before any motor vehicle was
+    // registered anywhere and the ceiling is generous enough for a model year that runs ahead of the
+    // calendar, so the check catches a transposed digit without ever refusing a real car.
+    check(
+      "matter_asset_vehicle_model_year_check",
+      sql`${table.modelYear} IS NULL OR (${table.modelYear} >= 1885 AND ${table.modelYear} <= 2200)`,
+    ),
+  ],
+);
+
+// A firearm's structured attributes, one-to-one on the asset. THE SERIAL NUMBER IS PLAINTEXT AND
+// INDEXED for the same reason a vehicle identification number is: it appears on the bill of sale and
+// on every piece of transfer paperwork, it is the identifier a firm searches by, and treating it as a
+// secret would break the search while protecting nothing.
+//
+// `regulated_category` is FREE TEXT A PERSON ASSERTED and is read by nothing. No code classifies an
+// item under any regulatory schedule, determines who may receive one, decides whether a transfer needs
+// a licensed dealer, checks a prohibited-person status, or computes a deadline: federal and state law
+// vary on every one of those points, they vary by the recipient as well as by the item, and a rule
+// that is ninety percent right is worse than no rule because it will be trusted. The class registry's
+// standing handling note in packages/matter-assets/src/classes.ts says exactly that to a person, and
+// nothing branches on it.
+export const matterAssetFirearm = sqliteTable(
+  "matter_asset_firearm",
+  {
+    assetId: text("asset_id")
+      .primaryKey()
+      .$type<MatterAssetId>()
+      .references(() => matterAsset.id),
+    make: text("make"),
+    model: text("model"),
+    caliberOrGauge: text("caliber_or_gauge"),
+    serialNumber: text("serial_number"),
+    regulatedCategory: text("regulated_category"),
+  },
+  (table) => [index("matter_asset_firearm_serial_index").on(table.serialNumber)],
+);
+
+// A business interest's structured attributes, one-to-one on the asset. The company OPTIONALLY IS a
+// Directory organization: the firm probably already has it as an entity, and pointing at it brings its
+// address, its registered agent, and its relationships for free. Optional, because a client's
+// twelve-percent interest in a company the firm has never dealt with does not deserve a Directory row,
+// and requiring one would push a firm into creating throwaway entities that then pollute the conflicts
+// corpus.
+export const matterAssetBusinessInterest = sqliteTable(
+  "matter_asset_business_interest",
+  {
+    assetId: text("asset_id")
+      .primaryKey()
+      .$type<MatterAssetId>()
+      .references(() => matterAsset.id),
+    entityName: text("entity_name"),
+    // An optional directoryOrganization_ handle, by value with no cross-domain foreign key.
+    entityOrganizationId: text("entity_organization_id"),
+    jurisdictionOfOrganization: text("jurisdiction_of_organization"),
+    // Free text — "limited liability company", "S corporation", "general partnership". Not an enum:
+    // entity forms are jurisdiction-specific and unevenly named, and no engine here consumes them.
+    entityForm: text("entity_form"),
+  },
+  (table) => [
+    index("matter_asset_business_interest_organization_index").on(table.entityOrganizationId),
+  ],
+);
+
+// An insurance policy's structured attributes, one-to-one on the asset.
+//
+// THE FACE AMOUNT IS A TERM OF THE CONTRACT, NOT A VALUATION, which is why it sits here rather than in
+// the valuation history. What the policy is WORTH — its cash surrender value — is a valuation row like
+// any other, dated and on a stated basis. Collapsing the two would make every term-life policy look
+// like a liquid asset worth its death benefit, which is the single most consequential category error
+// available in an estate inventory. A schedule reports them in two different columns.
+//
+// The POLICY NUMBER is not here: a full policy number is a credential-adjacent secret and lives sealed
+// in matter_asset_identifier with its last four characters beside it.
+export const matterAssetInsurancePolicy = sqliteTable(
+  "matter_asset_insurance_policy",
+  {
+    assetId: text("asset_id")
+      .primaryKey()
+      .$type<MatterAssetId>()
+      .references(() => matterAsset.id),
+    carrierName: text("carrier_name"),
+    // An optional directoryOrganization_ handle, by value with no cross-domain foreign key.
+    carrierOrganizationId: text("carrier_organization_id"),
+    faceAmountMinor: integer("face_amount_minor"),
+    // The companion currency, named `face_currency` and not `face_amount_currency` because the
+    // storage-encoding rule reserves an `amount`-shaped name for the *_minor integer itself — the
+    // `declared_value_currency` / `principal_currency` shape, reused.
+    faceCurrency: text("face_currency"),
+    // Whose life or property the policy covers — a directoryPerson_/directoryOrganization_ handle, by
+    // value with no cross-domain foreign key (the matter_party and custody_owner precedent).
+    insuredEntityId: text("insured_entity_id"),
+  },
+  (table) => [
+    index("matter_asset_insurance_policy_carrier_index").on(table.carrierOrganizationId),
+    index("matter_asset_insurance_policy_insured_index").on(table.insuredEntityId),
+    // An amount with no currency cannot be interpreted, and a currency with no amount says nothing.
+    check(
+      "matter_asset_insurance_policy_face_amount_check",
+      sql`(${table.faceAmountMinor} IS NULL) = (${table.faceCurrency} IS NULL)`,
+    ),
+  ],
+);
+
+// Money owed to the estate, one-to-one on the asset. The PRINCIPAL is a term of the obligation and
+// sits here; what the receivable is worth today — after a partial repayment, or discounted because the
+// debtor cannot pay — is a valuation row, dated and on a stated basis. A rate is rate_e4 and never a
+// float, the same encoding the ledger uses.
+export const matterAssetReceivable = sqliteTable(
+  "matter_asset_receivable",
+  {
+    assetId: text("asset_id")
+      .primaryKey()
+      .$type<MatterAssetId>()
+      .references(() => matterAsset.id),
+    // Who owes it — a directoryPerson_/directoryOrganization_ handle, by value with no cross-domain
+    // foreign key.
+    debtorEntityId: text("debtor_entity_id"),
+    principalAmountMinor: integer("principal_amount_minor"),
+    principalCurrency: text("principal_currency"),
+    rateE4: integer("rate_e4"),
+    maturityOn: text("maturity_on"), // civil date
+    // Whether anything secures it, asserted by a person. Nothing derives it from an encumbrance row on
+    // some other asset, and nothing infers a priority or a remedy from it.
+    secured: integer("secured", { mode: "boolean" }),
+  },
+  (table) => [
+    index("matter_asset_receivable_debtor_index").on(table.debtorEntityId),
+    check(
+      "matter_asset_receivable_principal_check",
+      sql`(${table.principalAmountMinor} IS NULL) = (${table.principalCurrency} IS NULL)`,
+    ),
+  ],
+);
+
+// A digital asset's structured attributes, one-to-one on the asset.
+//
+// THERE IS NO CREDENTIAL COLUMN HERE AND THERE NEVER WILL BE. No seed phrase, no recovery phrase, no
+// private key, no password, no personal identification number — not in plaintext and not sealed. For a
+// self-custodied digital asset the seed phrase IS the asset: whoever reads it can take it,
+// irreversibly, with no record, and a sealed column is decryptable by any member holding the decrypt
+// permission. Storing one would convert a records system into a bearer instrument. The correct home
+// for a secret whose disclosure IS a transfer of the asset is a sealed envelope in the custody
+// register, where a physical object has a location, a hold, and an append-only record of every hand it
+// has passed through. The write path in packages/matter-assets/src/validation.ts refuses a request
+// that names one BY NAME, with its own explainable refusal, before anything is written.
+//
+// `custody_model` records WHO HOLDS IT, which is the fact an administrator actually needs: a custodial
+// account is reached by writing to the platform, and a self-custodied wallet is reached only through a
+// key the firm must never hold.
+export const matterAssetDigitalAsset = sqliteTable(
+  "matter_asset_digital_asset",
+  {
+    assetId: text("asset_id")
+      .primaryKey()
+      .$type<MatterAssetId>()
+      .references(() => matterAsset.id),
+    platformName: text("platform_name"),
+    // The public handle on the platform, not a login. A username is not a credential.
+    accountHandle: text("account_handle"),
+    custodyModel: text("custody_model", { enum: ["custodial", "selfCustodied", "unknown"] }),
+  },
+  (table) => [
+    check(
+      "matter_asset_digital_asset_custody_model_check",
+      sql`${table.custodyModel} IS NULL OR ${table.custodyModel} IN ('custodial', 'selfCustodied', 'unknown')`,
+    ),
+  ],
+);
+
+// What is secured against an asset. A mortgage, a deed of trust, a lien, a judgment, a security
+// interest, a tax lien, a pledge.
+//
+// AN ENCUMBRANCE'S BALANCE IS A VALUATION ROW — matter_asset_valuation.encumbrance_id, set, means the
+// row is that encumbrance's balance as of a date rather than the asset's value as of a date. One
+// append-only table, one trigger set, one as-of query shape, and net equity as of any date is one read
+// over one table with a sign flip. Two tables differing only in what the number means would have been
+// two of everything, and the second one would have drifted.
+//
+// `holder_name` is free text where no Directory record exists — the custody borrower precedent, and
+// for the same reason: writing every lender a firm ever sees into the Directory pollutes the conflicts
+// corpus with counterparties nobody is conflicted against.
+//
+// A released encumbrance keeps its row and gains a date. Nothing disappears, because "was this
+// property clear on the date of death" is a question a schedule has to answer years later.
+export const matterAssetEncumbrance = sqliteTable(
+  "matter_asset_encumbrance",
+  {
+    id: text("id").primaryKey().$type<MatterAssetEncumbranceId>(), // matterAssetEncumbrance_ handle
+    assetId: text("asset_id")
+      .notNull()
+      .$type<MatterAssetId>()
+      .references(() => matterAsset.id),
+    kind: text("kind", {
+      enum: [
+        "mortgage",
+        "deedOfTrust",
+        "lien",
+        "judgment",
+        "securityInterest",
+        "taxLien",
+        "pledge",
+        "other",
+      ],
+    }).notNull(),
+    // An optional directoryPerson_/directoryOrganization_ handle, by value with no cross-domain
+    // foreign key.
+    holderEntityId: text("holder_entity_id"),
+    holderName: text("holder_name"),
+    recordedReference: text("recorded_reference"),
+    releasedOn: text("released_on"), // civil date; null while the charge is in force
+    notes: text("notes"),
+    createdAt: text("created_at").notNull(),
+    createdBy: text("created_by").$type<UserId>(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    // The schedule's read: every unreleased charge on one asset. released_on rides the index so "what
+    // is still in force" is a seek rather than a filter over the asset's whole history.
+    index("matter_asset_encumbrance_asset_released_index").on(table.assetId, table.releasedOn),
+    index("matter_asset_encumbrance_holder_index").on(table.holderEntityId),
+    check(
+      "matter_asset_encumbrance_kind_check",
+      sql`${table.kind} IN ('mortgage', 'deedOfTrust', 'lien', 'judgment', 'securityInterest', 'taxLien', 'pledge', 'other')`,
+    ),
+  ],
+);
+
 // The append-only valuation history — the register's second structural invariant. A VALUATION IS
 // APPENDED, NEVER UPDATED AND NEVER DELETED, and there is no current-value column anywhere.
 //
@@ -4976,6 +5229,14 @@ export const matterAssetValuation = sqliteTable(
     // backwards at the same cost, so one composite serves both directions.
     index("matter_asset_valuation_asset_as_of_index").on(
       table.assetId,
+      table.asOfDate,
+      table.recordedAt,
+    ),
+    // The same characteristic read for an ENCUMBRANCE's balance — the one query net equity is. Without
+    // it the balance resolution scans the whole valuation history of the firm, which is the table this
+    // subsystem expects to grow without bound while the asset table does not.
+    index("matter_asset_valuation_encumbrance_as_of_index").on(
+      table.encumbranceId,
       table.asOfDate,
       table.recordedAt,
     ),

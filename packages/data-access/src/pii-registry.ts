@@ -388,6 +388,38 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "retain-under-matter",
     note: "a sealed account or tax number on a scheduled asset; crypto-shred reaches the sealed value",
   },
+  // A business interest optionally points at the Directory organization the company already is.
+  {
+    table: "matter_asset_business_interest",
+    subjectKey: "entity_organization_id",
+    action: "retain-under-matter",
+    note: "the company a scheduled interest is held in, where the firm linked a Directory organization",
+  },
+  // Whose life the policy covers — a named person, on the same reasoning the interest link takes:
+  // whose property this is IS the matter's record, and the subject-side scrub happens at the Directory
+  // entity. The carrier organization is keyed at the same grain rather than as a second row, because
+  // one table takes one subject key and the insured is the personal half of it.
+  {
+    table: "matter_asset_insurance_policy",
+    subjectKey: "insured_entity_id",
+    action: "retain-under-matter",
+    note: "whose life or property a scheduled policy covers is itself that matter's record",
+  },
+  {
+    table: "matter_asset_receivable",
+    subjectKey: "debtor_entity_id",
+    action: "retain-under-matter",
+    note: "who owes money to the estate is a fact of the schedule, not a fact about the firm",
+  },
+  // Who holds the charge. `holder_name` is free text where no Directory record exists — the custody
+  // borrower precedent — so the row is keyed on the handle and the free-text name travels with it as
+  // matter residue rather than being left unattributed.
+  {
+    table: "matter_asset_encumbrance",
+    subjectKey: "holder_entity_id",
+    action: "retain-under-matter",
+    note: "the lender or lienholder secured against a scheduled asset, named on the matter's record",
+  },
   // The valuation history is append-only by trigger, so its one subject reference — the firm member
   // who asserted the figure — is pseudonymized in place and the row is never removed, the discipline
   // audit_log, entity_merge, and the custody movement ledger already take.
@@ -636,6 +668,15 @@ export const NO_PII_TABLES: readonly string[] = [
   // control row about which FILE evidences which asset. The linked document's own retention is
   // expressed by its `file` entry, exactly as for file_version, email_attachment, and custody_scan.
   "matter_asset_document",
+  // The three structured attribute tables that describe an OBJECT and reference no person: a vehicle's
+  // make, model, identification number, and plate; a firearm's make, model, calibre, and serial; a
+  // digital asset's platform, its public handle, and who holds it. Every identifier on them is public
+  // record — a title, a registration, a bill of sale — and none of them names an owner, because who
+  // owns the thing is matter_asset_interest's fact and is keyed there. The digital-asset row carries no
+  // credential column at all, by design and by the schema.
+  "matter_asset_vehicle",
+  "matter_asset_firearm",
+  "matter_asset_digital_asset",
   // Discovery — the corpus under review. The one table that names a data subject
   // (record_custodian) is registered in PII_TABLES above; these five carry no structured
   // personal-data column of their own.

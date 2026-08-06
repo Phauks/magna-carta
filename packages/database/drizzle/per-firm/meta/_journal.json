@@ -299,6 +299,13 @@
     {
       "idx": 42,
       "version": "6",
+      "when": 1785999600000,
+      "tag": "20260806T070000_matter-asset-classes-and-encumbrances",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "6",
       "when": 1786003200000,
       "tag": "20260806T080000_discovery-5-1-2",
       "breakpoints": true

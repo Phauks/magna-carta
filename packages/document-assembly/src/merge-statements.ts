@@ -13,6 +13,130 @@ export const LOCATION_TABLE = "location";
 export const MATTER_PARTY_TABLE = "matter_party";
 export const DIRECTORY_PERSON_TABLE = "directory_person";
 export const DIRECTORY_ORGANIZATION_TABLE = "directory_organization";
+export const MATTER_ASSET_TABLE = "matter_asset";
+
+// The matter's asset register, in ONE statement — the whole of the `asset` source.
+//
+// ELEVEN SUBJECTS RIDE THIS READ. Every class subject and the aggregate are passes over the rows it
+// returns, so a template naming every asset key issues exactly this one query and a template naming
+// one issues exactly the same query. Adding the twelfth class adds a left join and no read, which is
+// the property the catalogue's shape exists to preserve.
+//
+// The left joins are per-class attribute tables, each one-to-one on `asset_id`, so the row count is
+// the asset count and no join multiplies it. The as-of valuation resolution rides a correlated
+// sub-select rather than a second read: it walks (asset_id, as_of_date, recorded_at) backwards and
+// stops at the first row, and a valuation a correction supersedes can never be that row.
+//
+// `account_suffix` is the LAST FOUR CHARACTERS and there is no projection here from which a full
+// account number could be produced. No sealed column is named anywhere in this statement, and none
+// may be: a merge field that decrypted one would write the secret into an assembled file whose
+// confidentiality is then the file's problem, and the audit row would say a decrypt happened without
+// saying where the value went. The registry of sealed columns and the scan that holds this line live
+// in @magna-carta/data-access; the one legitimate reader is the protected-field chokepoint, reached
+// through src/protected-bindings.ts and through nothing else.
+export interface MatterAssetMergeRow {
+  readonly id: string;
+  readonly class: string;
+  readonly description: string;
+  readonly type_name: string | null;
+  readonly estate_treatment: string;
+  readonly disposition: string;
+  readonly value_amount_minor: number | null;
+  readonly value_currency: string | null;
+  readonly value_as_of_date: string | null;
+  readonly value_basis: string | null;
+  // Real property.
+  readonly street: string | null;
+  readonly city: string | null;
+  readonly region: string | null;
+  readonly postal: string | null;
+  readonly county: string | null;
+  readonly parcel_number: string | null;
+  readonly legal_description: string | null;
+  // Financial account.
+  readonly institution_name: string | null;
+  readonly account_suffix: string | null;
+  // Vehicle and firearm share make/model.
+  readonly make: string | null;
+  readonly model: string | null;
+  readonly model_year: number | null;
+  readonly vehicle_identification_number: string | null;
+  readonly caliber_or_gauge: string | null;
+  readonly serial_number: string | null;
+  // Business interest.
+  readonly entity_name: string | null;
+  readonly jurisdiction_of_organization: string | null;
+  readonly entity_form: string | null;
+  // Insurance policy.
+  readonly carrier_name: string | null;
+  readonly face_amount_minor: number | null;
+  readonly face_currency: string | null;
+  // Receivable.
+  readonly principal_amount_minor: number | null;
+  readonly principal_currency: string | null;
+  readonly maturity_on: string | null;
+  // Digital asset.
+  readonly platform_name: string | null;
+  readonly account_handle: string | null;
+}
+
+export function selectMatterAssetsForMergeStatement(
+  database: SqlDatabase,
+  matterId: MatterId,
+  asOfDate: string,
+  limit: number,
+): SqlStatement {
+  // The one resolved valuation per asset, as of the date. Written once and reused four times so the
+  // four projected columns cannot drift out of step with each other and print an amount beside a
+  // different row's date.
+  const resolvedValuation = (column: string): string =>
+    `(SELECT valuation.${column} FROM matter_asset_valuation AS valuation ` +
+    `WHERE valuation.asset_id = asset.id AND valuation.encumbrance_id IS NULL ` +
+    `AND valuation.as_of_date <= ?2 ` +
+    `AND NOT EXISTS (SELECT 1 FROM matter_asset_valuation AS correction ` +
+    `WHERE correction.corrects_valuation_id = valuation.id) ` +
+    `ORDER BY valuation.as_of_date DESC, valuation.recorded_at DESC, valuation.id DESC LIMIT 1)`;
+  return database
+    .prepare(
+      `SELECT asset.id AS id, asset.class AS class, asset.description AS description, ` +
+        `asset_type.name AS type_name, asset.estate_treatment AS estate_treatment, ` +
+        `asset.disposition AS disposition, ` +
+        `${resolvedValuation("amount_minor")} AS value_amount_minor, ` +
+        `${resolvedValuation("currency")} AS value_currency, ` +
+        `${resolvedValuation("as_of_date")} AS value_as_of_date, ` +
+        `${resolvedValuation("basis")} AS value_basis, ` +
+        `real_property.street AS street, real_property.city AS city, real_property.region AS region, ` +
+        `real_property.postal AS postal, real_property.county AS county, ` +
+        `real_property.parcel_number AS parcel_number, real_property.legal_description AS legal_description, ` +
+        `financial_account.institution_name AS institution_name, ` +
+        `(SELECT identifier.display_suffix FROM matter_asset_identifier AS identifier ` +
+        `WHERE identifier.asset_id = asset.id ORDER BY identifier.created_at ASC, identifier.id ASC LIMIT 1) AS account_suffix, ` +
+        `COALESCE(vehicle.make, firearm.make) AS make, COALESCE(vehicle.model, firearm.model) AS model, ` +
+        `vehicle.model_year AS model_year, vehicle.vehicle_identification_number AS vehicle_identification_number, ` +
+        `firearm.caliber_or_gauge AS caliber_or_gauge, firearm.serial_number AS serial_number, ` +
+        `business_interest.entity_name AS entity_name, ` +
+        `business_interest.jurisdiction_of_organization AS jurisdiction_of_organization, ` +
+        `business_interest.entity_form AS entity_form, ` +
+        `insurance_policy.carrier_name AS carrier_name, insurance_policy.face_amount_minor AS face_amount_minor, ` +
+        `insurance_policy.face_currency AS face_currency, ` +
+        `receivable.principal_amount_minor AS principal_amount_minor, ` +
+        `receivable.principal_currency AS principal_currency, receivable.maturity_on AS maturity_on, ` +
+        `digital_asset.platform_name AS platform_name, digital_asset.account_handle AS account_handle ` +
+        `FROM ${MATTER_ASSET_TABLE} AS asset ` +
+        `LEFT JOIN matter_asset_type AS asset_type ON asset_type.id = asset.asset_type_id ` +
+        `LEFT JOIN matter_asset_real_property AS real_property ON real_property.asset_id = asset.id ` +
+        `LEFT JOIN matter_asset_financial_account AS financial_account ON financial_account.asset_id = asset.id ` +
+        `LEFT JOIN matter_asset_vehicle AS vehicle ON vehicle.asset_id = asset.id ` +
+        `LEFT JOIN matter_asset_firearm AS firearm ON firearm.asset_id = asset.id ` +
+        `LEFT JOIN matter_asset_business_interest AS business_interest ON business_interest.asset_id = asset.id ` +
+        `LEFT JOIN matter_asset_insurance_policy AS insurance_policy ON insurance_policy.asset_id = asset.id ` +
+        `LEFT JOIN matter_asset_receivable AS receivable ON receivable.asset_id = asset.id ` +
+        `LEFT JOIN matter_asset_digital_asset AS digital_asset ON digital_asset.asset_id = asset.id ` +
+        `WHERE asset.matter_id = ?1 AND asset.deleted_at IS NULL ` +
+        `ORDER BY asset.class ASC, asset.created_at ASC, asset.id ASC LIMIT ?3`,
+    )
+    .bind(matterId, asOfDate, limit);
+}
 
 export interface MatterMergeRow {
   readonly id: MatterId;

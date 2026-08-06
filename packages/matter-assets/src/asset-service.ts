@@ -9,18 +9,26 @@ import type {
   MatterId,
 } from "@magna-carta/identifiers/types";
 import {
+  insertMatterAssetBusinessInterestStatement,
+  insertMatterAssetDigitalAssetStatement,
   insertMatterAssetFinancialAccountStatement,
+  insertMatterAssetFirearmStatement,
+  insertMatterAssetInsurancePolicyStatement,
   insertMatterAssetRealPropertyStatement,
+  insertMatterAssetReceivableStatement,
   insertMatterAssetStatement,
+  insertMatterAssetVehicleStatement,
   readMatterAsset,
   softDeleteMatterAssetStatement,
   updateMatterAssetStatement,
 } from "./asset-statements.ts";
+import { custodyItemExists } from "./custody-link-statements.ts";
 import { readMatterAssetType } from "./asset-type-statements.ts";
 import { appendMatterAssetValuationStatement } from "./valuation-statements.ts";
 import type { MatterAssetServiceOptions } from "./valuation-service.ts";
 import type {
   MatterAssetClass,
+  MatterAssetDigitalCustodyModel,
   MatterAssetDisposition,
   MatterAssetEstateTreatment,
   MatterAssetValuationBasis,
@@ -67,6 +75,78 @@ export interface FinancialAccountAttributesInput {
   readonly institutionOrganizationId?: string | null;
 }
 
+export interface VehicleAttributesInput {
+  readonly make?: string | null;
+  readonly model?: string | null;
+  readonly modelYear?: number | null;
+  // On the title and etched in the windscreen, so plaintext and indexed — searching by it is the
+  // point. Spelled out in full: never `vin`.
+  readonly vehicleIdentificationNumber?: string | null;
+  readonly plateNumber?: string | null;
+  readonly plateRegion?: string | null;
+}
+
+export interface FirearmAttributesInput {
+  readonly make?: string | null;
+  readonly model?: string | null;
+  readonly caliberOrGauge?: string | null;
+  // On the bill of sale and on every piece of transfer paperwork, so plaintext and indexed.
+  readonly serialNumber?: string | null;
+  // Free text a person asserted. NOTHING reads it, nothing classifies an item under any regulatory
+  // schedule, and nothing infers who may receive one.
+  readonly regulatedCategory?: string | null;
+}
+
+export interface BusinessInterestAttributesInput {
+  readonly entityName?: string | null;
+  // An optional directoryOrganization_ handle, carried by value — the company the firm probably
+  // already has as an entity.
+  readonly entityOrganizationId?: string | null;
+  readonly jurisdictionOfOrganization?: string | null;
+  readonly entityForm?: string | null;
+}
+
+export interface InsurancePolicyAttributesInput {
+  readonly carrierName?: string | null;
+  readonly carrierOrganizationId?: string | null;
+  // A TERM OF THE CONTRACT, not a valuation: what the policy is worth is a dated valuation row like
+  // any other. Collapsing the two would make every term-life policy look like a liquid asset.
+  readonly faceAmountMinor?: number | null;
+  readonly faceCurrency?: string | null;
+  readonly insuredEntityId?: string | null;
+}
+
+export interface ReceivableAttributesInput {
+  readonly debtorEntityId?: string | null;
+  readonly principalAmountMinor?: number | null;
+  readonly principalCurrency?: string | null;
+  readonly rateE4?: number | null;
+  readonly maturityOn?: string | null;
+  readonly secured?: boolean | null;
+}
+
+export interface DigitalAssetAttributesInput {
+  readonly platformName?: string | null;
+  // The public handle on the platform. There is no field here a seed phrase, a recovery phrase, or a
+  // private key could ride on, and the identifier write path refuses one by name.
+  readonly accountHandle?: string | null;
+  readonly custodyModel?: MatterAssetDigitalCustodyModel | null;
+}
+
+// Every class's attribute bag, keyed by the class it belongs to. One shape rather than eight optional
+// properties spelled out on three interfaces, so adding a class touches the table below and nothing
+// else.
+export interface MatterAssetAttributesInput {
+  readonly realProperty?: RealPropertyAttributesInput;
+  readonly financialAccount?: FinancialAccountAttributesInput;
+  readonly vehicle?: VehicleAttributesInput;
+  readonly firearm?: FirearmAttributesInput;
+  readonly businessInterest?: BusinessInterestAttributesInput;
+  readonly insurancePolicy?: InsurancePolicyAttributesInput;
+  readonly receivable?: ReceivableAttributesInput;
+  readonly digitalAsset?: DigitalAssetAttributesInput;
+}
+
 // A valuation supplied in the same call that creates the asset, written in the same batch. The
 // common intake gesture is "a house on Elm Street, about four hundred thousand", and making that two
 // requests would be the register losing to a spreadsheet.
@@ -78,7 +158,7 @@ export interface InlineValuationInput {
   readonly sourceNote?: string | null;
 }
 
-export interface CreateMatterAssetInput {
+export interface CreateMatterAssetInput extends MatterAssetAttributesInput {
   readonly matterId: MatterId;
   readonly assetClass: string;
   readonly description: string;
@@ -88,8 +168,6 @@ export interface CreateMatterAssetInput {
   readonly disposition?: MatterAssetDisposition;
   readonly dispositionOn?: string | null;
   readonly notes?: string | null;
-  readonly realProperty?: RealPropertyAttributesInput;
-  readonly financialAccount?: FinancialAccountAttributesInput;
   readonly valuation?: InlineValuationInput;
 }
 
@@ -109,51 +187,117 @@ async function assertTypeBelongsToClass(
   assertTypeMatchesClass(assetClass, assetType.class);
 }
 
+// One builder per class that carries structure — the whole table of them, in one place, so that
+// adding a class is a row here and not a ninth `if` somebody has to remember to write in the same
+// shape as the eight before it. Each takes the bag its class declares and returns the upsert.
+const ATTRIBUTE_BUILDERS: {
+  readonly [Key in keyof MatterAssetAttributesInput]-?: (
+    database: SqlDatabase,
+    assetId: MatterAssetId,
+    attributes: NonNullable<MatterAssetAttributesInput[Key]>,
+  ) => SqlStatement;
+} = {
+  realProperty: (database, assetId, attributes) =>
+    insertMatterAssetRealPropertyStatement(database, {
+      assetId,
+      street: attributes.street ?? null,
+      city: attributes.city ?? null,
+      region: attributes.region ?? null,
+      postal: attributes.postal ?? null,
+      county: attributes.county ?? null,
+      parcelNumber: attributes.parcelNumber ?? null,
+      legalDescription: attributes.legalDescription ?? null,
+      recordingReference: attributes.recordingReference ?? null,
+    }),
+  financialAccount: (database, assetId, attributes) =>
+    insertMatterAssetFinancialAccountStatement(database, {
+      assetId,
+      institutionName: attributes.institutionName ?? null,
+      institutionOrganizationId: attributes.institutionOrganizationId ?? null,
+    }),
+  vehicle: (database, assetId, attributes) =>
+    insertMatterAssetVehicleStatement(database, {
+      assetId,
+      make: attributes.make ?? null,
+      model: attributes.model ?? null,
+      modelYear: attributes.modelYear ?? null,
+      vehicleIdentificationNumber: attributes.vehicleIdentificationNumber ?? null,
+      plateNumber: attributes.plateNumber ?? null,
+      plateRegion: attributes.plateRegion ?? null,
+    }),
+  firearm: (database, assetId, attributes) =>
+    insertMatterAssetFirearmStatement(database, {
+      assetId,
+      make: attributes.make ?? null,
+      model: attributes.model ?? null,
+      caliberOrGauge: attributes.caliberOrGauge ?? null,
+      serialNumber: attributes.serialNumber ?? null,
+      regulatedCategory: attributes.regulatedCategory ?? null,
+    }),
+  businessInterest: (database, assetId, attributes) =>
+    insertMatterAssetBusinessInterestStatement(database, {
+      assetId,
+      entityName: attributes.entityName ?? null,
+      entityOrganizationId: attributes.entityOrganizationId ?? null,
+      jurisdictionOfOrganization: attributes.jurisdictionOfOrganization ?? null,
+      entityForm: attributes.entityForm ?? null,
+    }),
+  insurancePolicy: (database, assetId, attributes) =>
+    insertMatterAssetInsurancePolicyStatement(database, {
+      assetId,
+      carrierName: attributes.carrierName ?? null,
+      carrierOrganizationId: attributes.carrierOrganizationId ?? null,
+      faceAmountMinor: attributes.faceAmountMinor ?? null,
+      faceCurrency: attributes.faceCurrency ?? null,
+      insuredEntityId: attributes.insuredEntityId ?? null,
+    }),
+  receivable: (database, assetId, attributes) =>
+    insertMatterAssetReceivableStatement(database, {
+      assetId,
+      debtorEntityId: attributes.debtorEntityId ?? null,
+      principalAmountMinor: attributes.principalAmountMinor ?? null,
+      principalCurrency: attributes.principalCurrency ?? null,
+      rateE4: attributes.rateE4 ?? null,
+      maturityOn: attributes.maturityOn ?? null,
+      secured: attributes.secured ?? null,
+    }),
+  digitalAsset: (database, assetId, attributes) =>
+    insertMatterAssetDigitalAssetStatement(database, {
+      assetId,
+      platformName: attributes.platformName ?? null,
+      accountHandle: attributes.accountHandle ?? null,
+      custodyModel: attributes.custodyModel ?? null,
+    }),
+};
+
+const ATTRIBUTE_CLASSES = Object.keys(ATTRIBUTE_BUILDERS) as (keyof MatterAssetAttributesInput)[];
+
 // The attribute row for the class, where the class has one. A class declaring no attribute table
-// takes no attributes at all, and naming another class's attributes is refused rather than ignored —
-// a vehicle field quietly dropped on a firearm is data a person believes they recorded.
+// takes no attributes at all, and NAMING ANOTHER CLASS'S ATTRIBUTES IS REFUSED rather than ignored —
+// a vehicle field quietly dropped on a firearm is data a person believes they recorded, and they will
+// not find out until the schedule is short a column on the one occasion it matters.
 function attributeStatements(
   database: SqlDatabase,
   assetId: MatterAssetId,
   assetClass: MatterAssetClass,
-  input: Pick<CreateMatterAssetInput, "realProperty" | "financialAccount">,
+  input: MatterAssetAttributesInput,
 ): SqlStatement[] {
   const statements: SqlStatement[] = [];
-  if (input.realProperty !== undefined) {
-    if (assetClass !== "realProperty") {
+  for (const key of ATTRIBUTE_CLASSES) {
+    const attributes = input[key];
+    if (attributes === undefined) continue;
+    if (key !== assetClass) {
       throw new MatterAssetValidationError(
         "matter-asset-type-class-mismatch",
-        `real-property attributes cannot be recorded on an asset of class ${assetClass}`,
+        `${key} attributes cannot be recorded on an asset of class ${assetClass}`,
       );
     }
-    statements.push(
-      insertMatterAssetRealPropertyStatement(database, {
-        assetId,
-        street: input.realProperty.street ?? null,
-        city: input.realProperty.city ?? null,
-        region: input.realProperty.region ?? null,
-        postal: input.realProperty.postal ?? null,
-        county: input.realProperty.county ?? null,
-        parcelNumber: input.realProperty.parcelNumber ?? null,
-        legalDescription: input.realProperty.legalDescription ?? null,
-        recordingReference: input.realProperty.recordingReference ?? null,
-      }),
-    );
-  }
-  if (input.financialAccount !== undefined) {
-    if (assetClass !== "financialAccount") {
-      throw new MatterAssetValidationError(
-        "matter-asset-type-class-mismatch",
-        `financial-account attributes cannot be recorded on an asset of class ${assetClass}`,
-      );
-    }
-    statements.push(
-      insertMatterAssetFinancialAccountStatement(database, {
-        assetId,
-        institutionName: input.financialAccount.institutionName ?? null,
-        institutionOrganizationId: input.financialAccount.institutionOrganizationId ?? null,
-      }),
-    );
+    const build = ATTRIBUTE_BUILDERS[key] as (
+      database: SqlDatabase,
+      assetId: MatterAssetId,
+      attributes: unknown,
+    ) => SqlStatement;
+    statements.push(build(database, assetId, attributes));
   }
   return statements;
 }
@@ -198,6 +342,9 @@ async function composeAssetStatements(
       appendMatterAssetValuationStatement(database, {
         id: newIdentifier("matterAssetValuation", options.randomSource),
         assetId,
+        // The asset's own value. An encumbrance cannot exist yet on an asset being created, so an
+        // inline figure is never a balance.
+        encumbranceId: null,
         asOfDate: input.valuation.asOfDate,
         amountMinor: input.valuation.amountMinor ?? null,
         currency: input.valuation.currency ?? null,
@@ -256,7 +403,7 @@ export async function createMatterAssetBatch(
   return { assetIds, effect: { statements, outboxMessages: [] } };
 }
 
-export interface UpdateMatterAssetInput {
+export interface UpdateMatterAssetInput extends MatterAssetAttributesInput {
   // Present ONLY so a caller naming it gets an explainable refusal rather than a silently ignored
   // field. The class is frozen at creation; there is no path that changes it.
   readonly assetClass?: string;
@@ -266,10 +413,11 @@ export interface UpdateMatterAssetInput {
   readonly estateTreatment?: MatterAssetEstateTreatment;
   readonly disposition?: MatterAssetDisposition;
   readonly dispositionOn?: string | null;
+  // The custody item that physically holds this thing, SET AND CLEARED HERE. The write path checks
+  // the item exists in this firm; nothing else about it is copied onto the asset row — not its
+  // location, not its status, not its declared value — and Custodian learns nothing about the estate.
   readonly custodyItemId?: CustodyItemId | null;
   readonly notes?: string | null;
-  readonly realProperty?: RealPropertyAttributesInput;
-  readonly financialAccount?: FinancialAccountAttributesInput;
 }
 
 export async function updateMatterAsset(
@@ -307,6 +455,17 @@ export async function updateMatterAsset(
   assertOptionalCivilDate(merged.acquiredOn, "acquiredOn");
   assertOptionalCivilDate(merged.dispositionOn, "dispositionOn");
   await assertTypeBelongsToClass(database, existing.class, merged.assetTypeId);
+  // The custody link comes into use here. Checked only when the patch NAMES it: re-saving an asset
+  // whose link was set long ago should not re-read Custodian, and clearing the link (an explicit
+  // null) checks nothing because there is nothing to check.
+  if (patch.custodyItemId !== undefined && patch.custodyItemId !== null) {
+    if (!(await custodyItemExists(database, patch.custodyItemId))) {
+      throw new MatterAssetValidationError(
+        "matter-asset-unknown-custody-item",
+        "no such custody item in this firm: the link says the firm holds the physical original, so a link to nothing would be worse than no link",
+      );
+    }
+  }
 
   const now = options.clock.now();
   const statements: SqlStatement[] = [
