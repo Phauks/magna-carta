@@ -63,6 +63,9 @@ const SKIP_DIRECTORIES = new Set([
   "dist",
   "build",
   "target",
+  // Emitted declarations from `tsc -b`. Linting generated output would report a violation at a line
+  // nobody wrote, in a file the fix does not live in.
+  ".tsbuild",
   ".svelte-kit",
   ".wrangler",
   ".vite",

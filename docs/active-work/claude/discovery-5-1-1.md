@@ -41,3 +41,10 @@ the governance step, so a conflict there resolves by keeping both edits. `claude
 declares `apps/worker/src/search/`, which is where the composite extraction port that will call this
 engine lands; this stream touches nothing under `apps/worker`. An assets stream is in flight taking
 the next migration tag — this stream takes no migration tag at all, so there is nothing to retag.
+
+**Merged `main` after the assets slice landed.** Matter assets (4·3·1) took migration idx 38
+(`20260806T020000_matter-assets`) and moved the OpenAPI contract; this stream leaves the journal alone
+and adds no route, so re-emitting the contract on the merged tree is a no-op. The three files both
+streams could have collided on merged cleanly with both additions intact — assets registers a
+`packages/*` project, which the existing `packages/*/vitest.config.ts` glob and the `"$PWD/packages"`
+path filter already cover, so it needed no registry or gate edit at all.
