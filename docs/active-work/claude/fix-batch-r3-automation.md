@@ -33,5 +33,14 @@ verifier and auto-file rules, composite text extraction, and their worker adapte
 ## Overlap to watch
 
 - `packages/search/` moved in the discovery-core merge; this branch is based on that tree.
-- No migration: the journal head is untouched (idx 38). The re-attempt bound lives in Durable Object
-  storage and the DKIM body-coverage fact rides the in-memory verification, so neither needs a column.
+- No migration of its own. `origin/main` is merged in and carries the per-firm journal to idx 41
+  (Magnus slice 1 at 40, billing trust-application at 41); this branch adds nothing to it. The
+  re-attempt bound lives in Durable Object storage and the DKIM body-coverage fact rides the in-memory
+  verification result, so neither needs a column.
+- **Contract unmoved by this branch.** `origin/main` moved it three times (Magnus slice 1's ten
+  routes, the R1 financial fixes, and billing trust-application); all are merged in, and re-emitting
+  the snapshot here produces no diff, so there is nothing for this branch to regenerate.
+- Disjoint from the merged work: R1 touched trust/billing/matters, R2 the operational area, Magnus
+  added its own package and routes, and 3·4·2 is billing plus trust. None touches the expression
+  language, the DKIM verifier, the extraction pipeline, or the search sweep. Both merges were clean
+  with no conflicts.
