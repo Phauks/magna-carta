@@ -2507,6 +2507,116 @@ export type MagnusTurnProgress = {
     truncatedContext?: boolean;
 };
 
+export type ReviewSetList = {
+    data: Array<ReviewSet>;
+};
+
+export type ReviewSet = {
+    id: string;
+    matterId: string;
+    name: string;
+    state: 'open' | 'locked' | 'closed';
+    documentCeiling: number;
+    documentCount: number;
+    semanticIndexEnabled: boolean;
+    createdBy: string;
+    lockedAt: string | null;
+    closedAt: string | null;
+    createdAt: string;
+    updatedAt: string;
+};
+
+export type CreateReviewSetRequest = {
+    name: string;
+    semanticIndexEnabled?: boolean;
+};
+
+export type UpdateReviewSetRequest = {
+    name?: string;
+    semanticIndexEnabled?: boolean;
+};
+
+export type TransitionReviewSetRequest = {
+    state: 'locked' | 'closed';
+};
+
+export type RecordCustodianList = {
+    data: Array<RecordCustodian>;
+};
+
+export type RecordCustodian = {
+    id: string;
+    reviewSetId: string;
+    displayName: string;
+    directoryEntityId: string | null;
+    kind: 'person' | 'organization' | 'unattributed';
+    createdAt: string;
+    updatedAt: string;
+};
+
+export type CreateRecordCustodianRequest = {
+    displayName: string;
+    kind: 'person' | 'organization' | 'unattributed';
+    directoryEntityId?: string | null;
+};
+
+export type UpdateRecordCustodianRequest = {
+    displayName?: string;
+    kind?: 'person' | 'organization' | 'unattributed';
+    directoryEntityId?: string | null;
+};
+
+export type DiscoveryLoadList = {
+    data: Array<DiscoveryLoad>;
+};
+
+export type DiscoveryLoad = {
+    id: string;
+    reviewSetId: string;
+    lane: 'internal-files' | 'internal-email' | 'received-production' | 'direct-collection';
+    state: 'declared' | 'loading' | 'processing' | 'complete' | 'failed' | 'reversed';
+    transcriptScope: 'exclude' | 'include';
+    declaredDocumentCount: number;
+    loadedDocumentCount: number;
+    processedCount: number;
+    exceptionCount: number;
+    defaultRecordCustodianId: string | null;
+    sourceDescription: string | null;
+    initiatedBy: string;
+    initiatedAt: string;
+    completedAt: string | null;
+    manifestR2Key: string | null;
+    exceptionReportR2Key: string | null;
+    reconciliation: {
+        declarationMatched: boolean;
+        accountedFor: boolean;
+    };
+};
+
+export type DeclareLoadRequest = {
+    lane: 'internal-files' | 'internal-email' | 'received-production' | 'direct-collection';
+    /**
+     * Whether the firm's assistant transcripts are in scope for this load. Required, with no default in either direction: a transcript is the firm's own work product, and a silent exclusion decides as much for somebody as a silent inclusion would. Recorded on the load, so the manifest states what the corpus was drawn from and not only what landed in it.
+     */
+    transcriptScope: 'exclude' | 'include';
+    declaredDocumentCount: number;
+    sourceDescription?: string | null;
+    defaultRecordCustodianId?: string | null;
+};
+
+export type RunInternalLoadResponse = {
+    loadId: string;
+    plannedCount: number;
+    allocatedCount: number;
+    complete: boolean;
+};
+
+export type RunInternalLoadRequest = {
+    recordCustodianId: string;
+    fileIds?: Array<string>;
+    emailMessageIds?: Array<string>;
+};
+
 export type CustomFieldAck = {
     id: string;
 };
@@ -13678,6 +13788,597 @@ export type MagnusEventsErrors = {
 };
 
 export type MagnusEventsError = MagnusEventsErrors[keyof MagnusEventsErrors];
+
+export type DiscoveryListReviewSetsData = {
+    body?: never;
+    path: {
+        matterId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/review-sets';
+};
+
+export type DiscoveryListReviewSetsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the discovery permission this route requires
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record does not exist
+     */
+    404: Problem;
+    /**
+     * The review set no longer takes material, the load has not reconciled, or a request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is well-formed but a rule refuses it
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DiscoveryListReviewSetsError = DiscoveryListReviewSetsErrors[keyof DiscoveryListReviewSetsErrors];
+
+export type DiscoveryListReviewSetsResponses = {
+    /**
+     * The matter's review sets
+     */
+    200: ReviewSetList;
+};
+
+export type DiscoveryListReviewSetsResponse = DiscoveryListReviewSetsResponses[keyof DiscoveryListReviewSetsResponses];
+
+export type DiscoveryCreateReviewSetData = {
+    body: CreateReviewSetRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        matterId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/review-sets';
+};
+
+export type DiscoveryCreateReviewSetErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the discovery permission this route requires
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record does not exist
+     */
+    404: Problem;
+    /**
+     * The review set no longer takes material, the load has not reconciled, or a request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is well-formed but a rule refuses it
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DiscoveryCreateReviewSetError = DiscoveryCreateReviewSetErrors[keyof DiscoveryCreateReviewSetErrors];
+
+export type DiscoveryCreateReviewSetResponses = {
+    /**
+     * The review set was created
+     */
+    201: {
+        id: string;
+    };
+};
+
+export type DiscoveryCreateReviewSetResponse = DiscoveryCreateReviewSetResponses[keyof DiscoveryCreateReviewSetResponses];
+
+export type DiscoveryGetReviewSetData = {
+    body?: never;
+    path: {
+        reviewSetId: string;
+    };
+    query?: never;
+    url: '/api/v1/review-sets/{reviewSetId}';
+};
+
+export type DiscoveryGetReviewSetErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the discovery permission this route requires
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record does not exist
+     */
+    404: Problem;
+    /**
+     * The review set no longer takes material, the load has not reconciled, or a request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is well-formed but a rule refuses it
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DiscoveryGetReviewSetError = DiscoveryGetReviewSetErrors[keyof DiscoveryGetReviewSetErrors];
+
+export type DiscoveryGetReviewSetResponses = {
+    /**
+     * The review set
+     */
+    200: ReviewSet;
+};
+
+export type DiscoveryGetReviewSetResponse = DiscoveryGetReviewSetResponses[keyof DiscoveryGetReviewSetResponses];
+
+export type DiscoveryUpdateReviewSetData = {
+    body: UpdateReviewSetRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        reviewSetId: string;
+    };
+    query?: never;
+    url: '/api/v1/review-sets/{reviewSetId}';
+};
+
+export type DiscoveryUpdateReviewSetErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the discovery permission this route requires
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record does not exist
+     */
+    404: Problem;
+    /**
+     * The review set no longer takes material, the load has not reconciled, or a request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is well-formed but a rule refuses it
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DiscoveryUpdateReviewSetError = DiscoveryUpdateReviewSetErrors[keyof DiscoveryUpdateReviewSetErrors];
+
+export type DiscoveryUpdateReviewSetResponses = {
+    /**
+     * The updated review set
+     */
+    200: ReviewSet;
+};
+
+export type DiscoveryUpdateReviewSetResponse = DiscoveryUpdateReviewSetResponses[keyof DiscoveryUpdateReviewSetResponses];
+
+export type DiscoveryTransitionReviewSetData = {
+    body: TransitionReviewSetRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        reviewSetId: string;
+    };
+    query?: never;
+    url: '/api/v1/review-sets/{reviewSetId}/state';
+};
+
+export type DiscoveryTransitionReviewSetErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the discovery permission this route requires
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record does not exist
+     */
+    404: Problem;
+    /**
+     * The review set no longer takes material, the load has not reconciled, or a request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is well-formed but a rule refuses it
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DiscoveryTransitionReviewSetError = DiscoveryTransitionReviewSetErrors[keyof DiscoveryTransitionReviewSetErrors];
+
+export type DiscoveryTransitionReviewSetResponses = {
+    /**
+     * The review set in its new state
+     */
+    200: ReviewSet;
+};
+
+export type DiscoveryTransitionReviewSetResponse = DiscoveryTransitionReviewSetResponses[keyof DiscoveryTransitionReviewSetResponses];
+
+export type DiscoveryListRecordCustodiansData = {
+    body?: never;
+    path: {
+        reviewSetId: string;
+    };
+    query?: never;
+    url: '/api/v1/review-sets/{reviewSetId}/record-custodians';
+};
+
+export type DiscoveryListRecordCustodiansErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the discovery permission this route requires
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record does not exist
+     */
+    404: Problem;
+    /**
+     * The review set no longer takes material, the load has not reconciled, or a request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is well-formed but a rule refuses it
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DiscoveryListRecordCustodiansError = DiscoveryListRecordCustodiansErrors[keyof DiscoveryListRecordCustodiansErrors];
+
+export type DiscoveryListRecordCustodiansResponses = {
+    /**
+     * The review set's record custodians
+     */
+    200: RecordCustodianList;
+};
+
+export type DiscoveryListRecordCustodiansResponse = DiscoveryListRecordCustodiansResponses[keyof DiscoveryListRecordCustodiansResponses];
+
+export type DiscoveryCreateRecordCustodianData = {
+    body: CreateRecordCustodianRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        reviewSetId: string;
+    };
+    query?: never;
+    url: '/api/v1/review-sets/{reviewSetId}/record-custodians';
+};
+
+export type DiscoveryCreateRecordCustodianErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the discovery permission this route requires
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record does not exist
+     */
+    404: Problem;
+    /**
+     * The review set no longer takes material, the load has not reconciled, or a request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is well-formed but a rule refuses it
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DiscoveryCreateRecordCustodianError = DiscoveryCreateRecordCustodianErrors[keyof DiscoveryCreateRecordCustodianErrors];
+
+export type DiscoveryCreateRecordCustodianResponses = {
+    /**
+     * The record custodian was created
+     */
+    201: {
+        id: string;
+    };
+};
+
+export type DiscoveryCreateRecordCustodianResponse = DiscoveryCreateRecordCustodianResponses[keyof DiscoveryCreateRecordCustodianResponses];
+
+export type DiscoveryUpdateRecordCustodianData = {
+    body: UpdateRecordCustodianRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        recordCustodianId: string;
+    };
+    query?: never;
+    url: '/api/v1/record-custodians/{recordCustodianId}';
+};
+
+export type DiscoveryUpdateRecordCustodianErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the discovery permission this route requires
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record does not exist
+     */
+    404: Problem;
+    /**
+     * The review set no longer takes material, the load has not reconciled, or a request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is well-formed but a rule refuses it
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DiscoveryUpdateRecordCustodianError = DiscoveryUpdateRecordCustodianErrors[keyof DiscoveryUpdateRecordCustodianErrors];
+
+export type DiscoveryUpdateRecordCustodianResponses = {
+    /**
+     * The updated record custodian
+     */
+    200: RecordCustodian;
+};
+
+export type DiscoveryUpdateRecordCustodianResponse = DiscoveryUpdateRecordCustodianResponses[keyof DiscoveryUpdateRecordCustodianResponses];
+
+export type DiscoveryListLoadsData = {
+    body?: never;
+    path: {
+        reviewSetId: string;
+    };
+    query?: never;
+    url: '/api/v1/review-sets/{reviewSetId}/loads';
+};
+
+export type DiscoveryListLoadsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the discovery permission this route requires
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record does not exist
+     */
+    404: Problem;
+    /**
+     * The review set no longer takes material, the load has not reconciled, or a request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is well-formed but a rule refuses it
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DiscoveryListLoadsError = DiscoveryListLoadsErrors[keyof DiscoveryListLoadsErrors];
+
+export type DiscoveryListLoadsResponses = {
+    /**
+     * The review set's loads
+     */
+    200: DiscoveryLoadList;
+};
+
+export type DiscoveryListLoadsResponse = DiscoveryListLoadsResponses[keyof DiscoveryListLoadsResponses];
+
+export type DiscoveryDeclareLoadData = {
+    body: DeclareLoadRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        reviewSetId: string;
+    };
+    query?: never;
+    url: '/api/v1/review-sets/{reviewSetId}/loads';
+};
+
+export type DiscoveryDeclareLoadErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the discovery permission this route requires
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record does not exist
+     */
+    404: Problem;
+    /**
+     * The review set no longer takes material, the load has not reconciled, or a request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is well-formed but a rule refuses it
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DiscoveryDeclareLoadError = DiscoveryDeclareLoadErrors[keyof DiscoveryDeclareLoadErrors];
+
+export type DiscoveryDeclareLoadResponses = {
+    /**
+     * The load was declared
+     */
+    201: {
+        id: string;
+    };
+};
+
+export type DiscoveryDeclareLoadResponse = DiscoveryDeclareLoadResponses[keyof DiscoveryDeclareLoadResponses];
+
+export type DiscoveryGetLoadData = {
+    body?: never;
+    path: {
+        loadId: string;
+    };
+    query?: never;
+    url: '/api/v1/loads/{loadId}';
+};
+
+export type DiscoveryGetLoadErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the discovery permission this route requires
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record does not exist
+     */
+    404: Problem;
+    /**
+     * The review set no longer takes material, the load has not reconciled, or a request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is well-formed but a rule refuses it
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DiscoveryGetLoadError = DiscoveryGetLoadErrors[keyof DiscoveryGetLoadErrors];
+
+export type DiscoveryGetLoadResponses = {
+    /**
+     * The load
+     */
+    200: DiscoveryLoad;
+};
+
+export type DiscoveryGetLoadResponse = DiscoveryGetLoadResponses[keyof DiscoveryGetLoadResponses];
+
+export type DiscoveryRunInternalLoadData = {
+    body: RunInternalLoadRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        loadId: string;
+    };
+    query?: never;
+    url: '/api/v1/loads/{loadId}/internal-selection';
+};
+
+export type DiscoveryRunInternalLoadErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the discovery permission this route requires
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record does not exist
+     */
+    404: Problem;
+    /**
+     * The review set no longer takes material, the load has not reconciled, or a request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is well-formed but a rule refuses it
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DiscoveryRunInternalLoadError = DiscoveryRunInternalLoadErrors[keyof DiscoveryRunInternalLoadErrors];
+
+export type DiscoveryRunInternalLoadResponses = {
+    /**
+     * The load's fan-out has run a turn; the response says how far it got
+     */
+    202: RunInternalLoadResponse;
+};
+
+export type DiscoveryRunInternalLoadResponse = DiscoveryRunInternalLoadResponses[keyof DiscoveryRunInternalLoadResponses];
 
 export type CustomFieldsDefineFieldData = {
     body: DefineCustomFieldRequest;

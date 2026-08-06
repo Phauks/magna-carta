@@ -122,12 +122,22 @@ CREATE INDEX `review_document_review_set_state_index` ON `review_document` (`rev
 CREATE INDEX `review_document_family_index` ON `review_document` (`review_set_id`,`family_id`,`family_sequence`);--> statement-breakpoint
 CREATE INDEX `review_document_review_set_dedup_index` ON `review_document` (`review_set_id`,`dedup_group_id`);--> statement-breakpoint
 CREATE INDEX `review_document_review_set_sha256_index` ON `review_document` (`review_set_id`,`content_sha256`);--> statement-breakpoint
--- A load PINS a version, so the same version can appear in a review set exactly once. That makes the
--- internal file lane structurally idempotent — a retried or redelivered load converges instead of
--- allocating a second row — rather than guarded by a read the next write path might forget. Partial,
--- because the email lanes carry a null here and NULLs are distinct in a SQLite unique index anyway;
--- the WHERE states the intent and keeps the index off every email row.
+-- STRUCTURAL IDEMPOTENCY, one index per source kind. A load pins a version and a message, so each
+-- can appear in a review set exactly once — which is what makes a redelivered or retried load
+-- CONVERGE on the rows it already wrote instead of allocating a second set, rather than being
+-- guarded by a read the next write path might forget to make.
+--
+-- Both are needed, and the second is not decoration: the fan-out re-derives its plan on every turn
+-- and mints fresh identifiers, so a turn that COMMITS a chunk and then dies before checkpointing its
+-- cursor will re-plan and re-insert that chunk. With the index the re-insert is a no-op; without it
+-- the corpus quietly gains a second copy of a family, and a duplicate nobody loaded is as bad a
+-- defect as a document nobody can find.
+--
+-- Partial, because a row carries exactly one of the two columns and NULLs are distinct in a SQLite
+-- unique index anyway; the WHERE states the intent and keeps each index off the rows it cannot
+-- constrain. drizzle cannot express a WHERE on a unique index, which is why both live here by hand.
 CREATE UNIQUE INDEX `review_document_review_set_file_version_unique_index` ON `review_document` (`review_set_id`,`file_version_id`) WHERE `file_version_id` IS NOT NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX `review_document_review_set_email_message_unique_index` ON `review_document` (`review_set_id`,`email_message_id`) WHERE `email_message_id` IS NOT NULL;--> statement-breakpoint
 CREATE TABLE `review_document_exception` (
 	`id` text PRIMARY KEY NOT NULL,
 	`review_set_id` text NOT NULL,

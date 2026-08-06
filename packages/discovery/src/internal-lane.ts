@@ -29,6 +29,14 @@ export interface ResolvedFileVersion {
 // The current version of each selected file, with everything the allocation needs. Resolved as ONE
 // indexed read over the selection rather than a read per file — the N+1 a selection of five thousand
 // files would otherwise be.
+//
+// THE ORDER BY IS LOAD-BEARING, not tidiness. The load coordinator's cursor is an INDEX into the
+// plan this read produces, and it survives an eviction while the plan does not: a resumed turn
+// re-derives the plan and skips past the cursor. If two runs of this query could return the same
+// rows in a different order, the cursor would point at a different document on the second turn — and
+// the document it skipped would be missing from the corpus with nobody able to tell, which is the
+// exact failure discovery cannot have. `file.id` is the primary key, so this total order is stable
+// for a given selection no matter what the query planner does.
 export function selectCurrentVersionsForFilesStatement(
   database: SqlDatabase,
   fileIds: readonly FileId[],
@@ -40,7 +48,8 @@ export function selectCurrentVersionsForFilesStatement(
         `file_version.id AS fileVersionId, file_version.size_bytes AS sizeBytes, ` +
         `file_version.content_sha256 AS contentSha256, file_version.status AS status ` +
         `FROM file JOIN file_version ON file_version.id = file.current_version_id ` +
-        `WHERE file.id IN (${placeholders}) AND file.deleted_at IS NULL`,
+        `WHERE file.id IN (${placeholders}) AND file.deleted_at IS NULL ` +
+        `ORDER BY file.id ASC`,
     )
     .bind(...fileIds);
 }
@@ -146,7 +155,12 @@ export function selectFiledMessagesStatement(
         `FROM email_message ` +
         `JOIN email_matter_link ON email_matter_link.email_message_id = email_message.id ` +
         `WHERE email_matter_link.matter_id = ?1 AND email_matter_link.state = 'filed' ` +
-        `AND email_message.id IN (${placeholders})`,
+        `AND email_message.id IN (${placeholders}) ` +
+        // Load-bearing, for the reason spelled out on the file selection above: the coordinator's
+        // cursor is an index into the plan derived from this read, and an unstable order would let a
+        // resumed turn skip a message. The email lane has no unique index to catch it either, so an
+        // unstable order here could duplicate a family as well as lose one.
+        `ORDER BY email_message.id ASC`,
     )
     .bind(matterId, ...emailMessageIds);
 }

@@ -5828,6 +5828,10 @@ export const reviewDocument = sqliteTable(
     // Exact-duplicate grouping, and the "which custodians held this" answer behind it.
     index("review_document_review_set_dedup_index").on(table.reviewSetId, table.dedupGroupId),
     index("review_document_review_set_sha256_index").on(table.reviewSetId, table.contentSha256),
+    // Two PARTIAL unique indexes — one per source column — live only in the migration, because
+    // drizzle cannot express a WHERE on a unique index. They are what makes a load structurally
+    // idempotent: a version and a message each appear in a review set exactly once, so a redelivered
+    // or retried fan-out converges on the rows it already wrote instead of allocating a second set.
     check(
       "review_document_source_kind_check",
       sql`${table.sourceKind} IN ('file_version', 'email_message', 'email_attachment')`,
