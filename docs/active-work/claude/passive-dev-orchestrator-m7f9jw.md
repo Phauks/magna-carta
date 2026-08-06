@@ -45,7 +45,38 @@ at full capacity. Keep it current at every milestone — it is the durable memor
   MC docs-sync (Mon 13:03), Cloudflare blog monitor (daily 14:00, reports not
   persisted), dependency updates (Mon 14:30).
 
-## Position update (2026-08-06 ~23:50 UTC) — campaign 2 nearly closed; Magnus LIVE; owner scope answers banked
+## Position update (2026-08-06 ~22:40 UTC) — trust arc COMPLETE; AI Search designed; 121 merged
+
+(Newest entry; the one below carries a misjudged ~23:50 stamp — it was actually
+written earlier than this one.) One hundred twenty-one merged. Since the entry
+below: **#161 billing 3·4·2 trust application** (idx 41 tag 060000;
+invoice_application; bounds CHECK in same batch; billing composes NO ledger
+entry — double-credit test; EarnedFeePrecondition satisfied → **T4 CLOSED,
+trust arc COMPLETE** foundation→movements→close-guard→two-person→
+reconciliation→earned-fee; two-person for applications structurally
+unavailable — flagged single-act with authorized_by). **#163 AI Search design
+MERGED** (docs-only; ADR fragment ai-search-retrieval-only-natural-language-
+search): retrieval-only, opt-in per firm, instance-per-firm; data source is a
+DERIVED FEED PREFIX `ai-search/{matterId}/{fileId}/{versionId}.md` of
+extracted text, never the firm bucket; read-time re-authorization through the
+data-access layer is the wall, NOT the metadata filter; dropped hits raise
+highest-severity events, counts never reach responses (existence oracle);
+F4b honored structurally (transcripts are D1 rows, can't reach an R2 feed;
+object_class stamped day one, work-product/transcript/received-material
+reserved-never-written); flags A1-A6 with implemented defaults (A4: does NOT
+require inference.aiProcessingEligibility — no frontier processing; A5 cache
+OFF; A6 no real firm until GA pricing). New tasks: **116** slice-0 wall
+experiment (E1 1,000 verbatim cross-matter queries at threshold 0 — one hit
+fails; E2 unknown-filter fail-open probe; refuse-rather-than-guess), **117**
+AI Search slice 1 build, blocked by 110+116. Task 109 closed. IN FLIGHT: R3
+automation fixes (final worker run on twice-merged tree; merging it CLOSES
+CAMPAIGN 2 → close tasks 102 + 94), assets 4·3·2/3 (expected tag 070000 idx
+42), **discovery 5·1·2 JUST DISPATCHED** (task 103 in_progress; branch
+claude/discovery-5-1-2; pre-assigned tag 20260806T080000 idx 43; F4b
+include/exclude control required in the brief). Journal head idx 41,
+snapshot 0041. Artifact needs its campaign-2-close refresh when R3 lands.
+
+## Position update (2026-08-06 ~23:50 UTC — MISJUDGED STAMP, actually earlier than the entry above) — campaign 2 nearly closed; Magnus LIVE; owner scope answers banked
 
 One hundred eighteen merged. OWNER TURNS today (all genuine): (1) SUCK IT
 rounds — status protocol name. (2) Directives: finish-the-designs (tasks
