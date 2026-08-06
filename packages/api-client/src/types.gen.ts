@@ -2899,6 +2899,30 @@ export type BillingFinalizeRequest = {
     clientBillingName?: string | null;
 };
 
+export type BillingApplyTrustFundsAck = {
+    transferId: string;
+    trustEntryId: string;
+    operatingEntryId: string;
+    applicationIds: Array<string>;
+    totalMinor: number;
+    currency: string;
+};
+
+export type BillingApplyTrustFundsRequest = {
+    trustAccountId: string;
+    matterId: string;
+    currency: 'USD';
+    effectiveDate: string;
+    applications: Array<BillingTrustApplicationTarget>;
+    trustDescription: string;
+    operatingDescription: string;
+};
+
+export type BillingTrustApplicationTarget = {
+    invoiceId: string;
+    amountMinor: number;
+};
+
 export type BillingAccountRoleMapResponse = {
     assignments: Array<BillingAccountRoleAssignment>;
 };
@@ -16225,6 +16249,58 @@ export type BillingFinalizeInvoiceResponses = {
 };
 
 export type BillingFinalizeInvoiceResponse = BillingFinalizeInvoiceResponses[keyof BillingFinalizeInvoiceResponses];
+
+export type BillingApplyTrustFundsData = {
+    body: BillingApplyTrustFundsRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/billing/trust-applications';
+};
+
+export type BillingApplyTrustFundsErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the invoice is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the invoice is no longer a draft, or another draft already holds this work
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type BillingApplyTrustFundsError = BillingApplyTrustFundsErrors[keyof BillingApplyTrustFundsErrors];
+
+export type BillingApplyTrustFundsResponses = {
+    /**
+     * The funds were transferred and applied
+     */
+    201: BillingApplyTrustFundsAck;
+};
+
+export type BillingApplyTrustFundsResponse = BillingApplyTrustFundsResponses[keyof BillingApplyTrustFundsResponses];
 
 export type BillingAccountRolesData = {
     body?: never;

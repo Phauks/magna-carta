@@ -41,6 +41,7 @@ import mergeFieldCatalogSql from "@magna-carta/database/drizzle/per-firm/2026080
 import matterAssetsSql from "@magna-carta/database/drizzle/per-firm/20260806T020000_matter-assets.sql";
 import operationalFixesSql from "@magna-carta/database/drizzle/per-firm/20260806T040000_operational-fixes.sql";
 import magnusConversationsSql from "@magna-carta/database/drizzle/per-firm/20260806T050000_magnus-conversations.sql";
+import billingTrustApplicationSql from "@magna-carta/database/drizzle/per-firm/20260806T060000_billing-trust-application.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the FirmDatabase
 // Durable Object runs this lineage against its own SQLite storage on wake (firm-database-object.ts),
@@ -92,6 +93,7 @@ export function perFirmMigrations(): Migration[] {
     "20260806T020000_matter-assets": matterAssetsSql,
     "20260806T040000_operational-fixes": operationalFixesSql,
     "20260806T050000_magnus-conversations": magnusConversationsSql,
+    "20260806T060000_billing-trust-application": billingTrustApplicationSql,
   });
 }
 

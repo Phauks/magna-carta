@@ -14,6 +14,20 @@ export type InvoiceLineKind =
 
 export type InvoiceTaxTreatment = "taxable" | "exempt";
 
+// Every way value reaches an invoice. The kind is the direction and the provenance in one column: a
+// reversal carries a positive amount and subtracts because it is a reversal, never because of a sign.
+//
+// Only `trust_transfer` is built today. The rest are the design's closed set and are carried in the
+// schema's CHECK from the start, because SQLite cannot widen a CHECK without a destructive table
+// rebuild — so the alternative to naming them now is that they could never be added additively.
+export type InvoiceApplicationKind =
+  | "trust_transfer"
+  | "payment"
+  | "credit_note"
+  | "client_credit"
+  | "write_off"
+  | "reversal";
+
 // The two work-in-progress stores an invoice draws from. Both were built with an invoice_id column
 // that nothing set until this package existed.
 export type WorkInProgressKind = "time_entry" | "cost_entry";
@@ -82,4 +96,16 @@ export interface InvoiceMatterBalanceSnapshot {
   readonly totalMinor: number;
   readonly appliedMinor: number;
   readonly currency: string;
+}
+
+export interface InvoiceApplicationSnapshot {
+  readonly id: string;
+  readonly invoiceId: string;
+  readonly matterId: string;
+  readonly kind: InvoiceApplicationKind;
+  readonly amountMinor: number;
+  readonly currency: string;
+  readonly trustTransferId: string | null;
+  readonly reversesApplicationId: string | null;
+  readonly effectiveDate: string;
 }
