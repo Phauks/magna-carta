@@ -19,7 +19,23 @@
 // the firm's own people share one facet vocabulary and one resolution shape, so the kinds that arrive
 // with their owning records — the firm's members, a court case, an estate, the financial surfaces — are
 // rows here rather than a second mechanism.
-export type SubjectKind = "matter" | "party" | "office" | "firm" | "system" | "firmDefined";
+// `assetClass` is the one kind whose subjects are COLLECTION-ONLY, and it is the one place the
+// catalogue's rules produce a different answer than they do for parties. A party subject has a
+// singular slot (`client.displayName`) because a matter has one client. An asset subject has no
+// singular slot at all: an estate with two houses is the NORMAL case, so a scalar
+// `realProperty.parcelNumber` would resolve to an absence naming the count on most real matters —
+// the ambiguity rule producing a technically correct answer that is useless every time. So the
+// register declares `realProperty.all`, `vehicle.all`, `assets.all` and no scalars, and the
+// ambiguity rule is honoured by not creating slots it would have to refuse. Asserted in
+// test/asset-subjects.test.ts.
+export type SubjectKind =
+  | "matter"
+  | "party"
+  | "office"
+  | "firm"
+  | "system"
+  | "firmDefined"
+  | "assetClass";
 
 // Whether a subject is a fact every matter carries, or one only some matters have. This is what the
 // entry's availability is DERIVED from rather than declared on three hundred rows: a matter that belongs
@@ -143,6 +159,114 @@ export const MERGE_SUBJECTS: readonly MergeSubject[] = [
     group: "custom",
     presence: "always",
     synonyms: ["custom field"],
+  },
+  // The asset register's eleven subjects: one per platform class, plus the aggregate. ELEVEN
+  // SUBJECTS RIDE ONE READ — a subject is a pass over rows already in memory, so adding the twelfth
+  // class adds no read at all. That is the property the catalogue's whole shape exists to preserve,
+  // and this is the first outside subsystem to test it.
+  //
+  // Every one is `conditional`: a matter with no asset register is the ordinary case for most of a
+  // firm's work, and a template naming an asset field on a contract dispute is showing a conditional
+  // absence rather than a broken binding. The collection resolves to an EMPTY list rather than an
+  // absence, which is why a repeating block over one simply produces nothing.
+  {
+    key: "assets",
+    kind: "assetClass",
+    label: "Everything on the register",
+    proseLabel: "asset",
+    group: "assets",
+    presence: "conditional",
+    synonyms: ["asset", "inventory", "schedule", "estate", "property"],
+  },
+  {
+    key: "realProperty",
+    kind: "assetClass",
+    label: "Real property",
+    proseLabel: "property",
+    group: "assets",
+    presence: "conditional",
+    synonyms: ["land", "house", "real estate", "parcel"],
+  },
+  {
+    key: "financialAccount",
+    kind: "assetClass",
+    label: "Financial accounts",
+    proseLabel: "account",
+    group: "assets",
+    presence: "conditional",
+    synonyms: ["bank account", "brokerage", "checking", "savings"],
+  },
+  {
+    key: "vehicle",
+    kind: "assetClass",
+    label: "Vehicles",
+    proseLabel: "vehicle",
+    group: "assets",
+    presence: "conditional",
+    synonyms: ["car", "truck", "boat", "motorcycle"],
+  },
+  {
+    key: "firearm",
+    kind: "assetClass",
+    label: "Firearms",
+    proseLabel: "firearm",
+    group: "assets",
+    presence: "conditional",
+    synonyms: ["gun", "rifle", "shotgun", "handgun"],
+  },
+  {
+    key: "businessInterest",
+    kind: "assetClass",
+    label: "Business interests",
+    proseLabel: "business interest",
+    group: "assets",
+    presence: "conditional",
+    synonyms: ["company", "shares", "partnership", "membership interest"],
+  },
+  {
+    key: "insurancePolicy",
+    kind: "assetClass",
+    label: "Insurance policies",
+    proseLabel: "policy",
+    group: "assets",
+    presence: "conditional",
+    synonyms: ["life insurance", "annuity", "carrier"],
+  },
+  {
+    key: "receivable",
+    kind: "assetClass",
+    label: "Money owed to the estate",
+    proseLabel: "receivable",
+    group: "assets",
+    presence: "conditional",
+    synonyms: ["note", "loan", "debt owed", "promissory note"],
+  },
+  {
+    key: "digitalAsset",
+    kind: "assetClass",
+    label: "Digital assets",
+    proseLabel: "digital asset",
+    group: "assets",
+    presence: "conditional",
+    synonyms: ["cryptocurrency", "online account", "domain"],
+  },
+  {
+    key: "personalProperty",
+    kind: "assetClass",
+    label: "Personal property",
+    proseLabel: "personal property item",
+    group: "assets",
+    presence: "conditional",
+    synonyms: ["contents", "furniture", "jewellery", "chattels"],
+  },
+  {
+    key: "otherAssets",
+    kind: "assetClass",
+    label: "Other assets",
+    proseLabel: "other asset",
+    group: "assets",
+    presence: "conditional",
+    synonyms: ["miscellaneous", "unclassified"],
   },
 ];
 

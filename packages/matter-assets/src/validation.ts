@@ -1,12 +1,15 @@
 import { isMatterAssetClass, matterAssetClassDeclaration } from "./classes.ts";
 import {
   CIVIL_DATE_PATTERN,
+  MATTER_ASSET_ENCUMBRANCE_KINDS,
   MATTER_ASSET_IDENTIFIER_KINDS,
   MATTER_ASSET_VALUATION_BASES,
   MAX_IDENTIFIER_DISPLAY_SUFFIX,
   MAX_MATTER_ASSET_BATCH,
+  MAX_MATTER_ASSET_SCHEDULE,
   REFUSED_CREDENTIAL_IDENTIFIER_NAMES,
   type MatterAssetClass,
+  type MatterAssetEncumbranceKind,
   type MatterAssetIdentifierKind,
   type MatterAssetValuationBasis,
 } from "./types.ts";
@@ -44,6 +47,18 @@ export type MatterAssetValidationCode =
   | "matter-asset-identifier-empty"
   // More rows in one bulk call than a single commit will take. REFUSED, never truncated.
   | "matter-asset-batch-too-large"
+  // More assets on a matter than one schedule read returns. A schedule is read whole, so the answer is
+  // a named refusal rather than a page: a firm that filed the first five hundred rows of an inventory
+  // and never saw the rest could not tell that from an inventory of five hundred.
+  | "matter-asset-schedule-too-large"
+  // A valuation naming an encumbrance that hangs off a different asset. Writing it would put a
+  // mortgage balance under a house it does not charge, and the equity of both would be wrong.
+  | "matter-asset-encumbrance-not-on-asset"
+  | "matter-asset-unknown-encumbrance"
+  | "matter-asset-unknown-encumbrance-kind"
+  // A custody item handle that names nothing in this firm. The link is what says "the firm holds the
+  // physical original of this scheduled thing", and a link to nothing says the opposite of nothing.
+  | "matter-asset-unknown-custody-item"
   // A share of the form n/0, or one part supplied without the other.
   | "matter-asset-invalid-share"
   // An interest label outside the list the firm has configured. Only ever raised once a firm HAS
@@ -105,8 +120,10 @@ export function assertOptionalCivilDate(value: string | null | undefined, field:
   assertCivilDate(value, field);
 }
 
-// Narrows an untrusted class string, and refuses a class whose attribute table this slice has not
-// shipped with its own code — so a caller learns "not yet" rather than "no such thing".
+// Narrows an untrusted class string, and refuses a class the registry declares but whose attribute
+// table has not shipped with its own code — so a caller learns "not yet" rather than "no such thing".
+// Every class the registry declares is available today; the arm stays because the registry is what
+// decides, and an eleventh class declared ahead of its table would need exactly this answer again.
 export function assertAvailableClass(value: string): MatterAssetClass {
   if (!isMatterAssetClass(value)) {
     refuse("matter-asset-unknown-class", `no such asset class: ${value}`);
@@ -115,7 +132,7 @@ export function assertAvailableClass(value: string): MatterAssetClass {
   if (declaration === undefined || !declaration.available) {
     refuse(
       "matter-asset-class-unavailable",
-      `the ${value} class arrives with its structured attributes in slice 4·3·2`,
+      `the ${value} class is declared but its structured attributes have not shipped yet`,
     );
   }
   return value;
@@ -182,6 +199,23 @@ export function assertBatchSize(count: number): void {
     "matter-asset-batch-too-large",
     `a bulk entry takes at most ${MAX_MATTER_ASSET_BATCH} rows in one call; this one carried ${count}`,
   );
+}
+
+export function assertScheduleSize(count: number): void {
+  if (count <= MAX_MATTER_ASSET_SCHEDULE) return;
+  refuse(
+    "matter-asset-schedule-too-large",
+    `a schedule is read whole and this matter carries more than ${MAX_MATTER_ASSET_SCHEDULE} assets; ` +
+      `read the register list, which pages, rather than a schedule that would have to be truncated`,
+  );
+}
+
+export function assertEncumbranceKind(value: string): MatterAssetEncumbranceKind {
+  const kinds: readonly string[] = MATTER_ASSET_ENCUMBRANCE_KINDS;
+  if (!kinds.includes(value)) {
+    refuse("matter-asset-unknown-encumbrance-kind", `no such encumbrance kind: ${value}`);
+  }
+  return value as MatterAssetEncumbranceKind;
 }
 
 function normalizeName(value: string): string {

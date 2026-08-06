@@ -16,6 +16,7 @@ import {
 import { mergeSubject } from "@magna-carta/document-assembly/catalog-subjects";
 import { legalFormatsFor } from "@magna-carta/document-assembly/format";
 import {
+  selectMatterAssetsForMergeStatement,
   selectMatterForMergeStatement,
   selectMatterPartiesForMergeStatement,
 } from "@magna-carta/document-assembly/merge-statements";
@@ -309,13 +310,15 @@ export function documentAutomationHotPathPlans(
         ),
       ),
     },
-    // The three reads the merge context actually issues, probed individually: the matter row, the whole
-    // party collection in one read, and every bound custom-field handle in one statement.
+    // The four reads the merge context actually issues, probed individually: the matter row, the whole
+    // party collection in one read, the matter's whole asset register in one read, and every bound
+    // custom-field handle in one statement.
     //
-    // There is no fourth probe for the Directory role sources on purpose: `opposingParty.displayName`
-    // and the rest are derived from the party rows THIS statement already returned, so a role costs a
-    // pass over an array rather than a query. If a role ever grows a read of its own, this list is where
-    // it has to appear — and the merge-context measurement above is where the cost would show.
+    // There is no probe for the Directory role sources or for the individual asset subjects, on
+    // purpose: `opposingParty.displayName` and `realProperty.all` alike are derived from rows the
+    // statements below already returned, so a role and a class each cost a pass over an array rather
+    // than a query. If either ever grows a read of its own, this list is where it has to appear — and
+    // the merge-context measurement above is where the cost would show.
     {
       label: "assembly.merge-context.matter",
       statement: capturedStatement(selectMatterForMergeStatement(handle.database, matterId)),
@@ -323,6 +326,17 @@ export function documentAutomationHotPathPlans(
     {
       label: "assembly.merge-context.parties",
       statement: capturedStatement(selectMatterPartiesForMergeStatement(handle.database, matterId)),
+    },
+    {
+      // The whole asset register for a matter, with every class's attributes left-joined and each
+      // asset's value resolved as of one date — ONE statement filling all eleven asset subjects. It is
+      // probed here because its plan is the least obvious in the register: the correlated as-of
+      // sub-select has to walk (asset_id, as_of_date, recorded_at) rather than scan a valuation table
+      // that grows without bound while the asset table does not.
+      label: "assembly.merge-context.assets",
+      statement: capturedStatement(
+        selectMatterAssetsForMergeStatement(handle.database, matterId, "2026-01-01", 500),
+      ),
     },
     {
       label: "assembly.merge-context.custom-field-values",

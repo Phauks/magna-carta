@@ -476,8 +476,8 @@
   status: partial
   slices: 4-3-matter-assets
   spec: docs/specs/2026-08-05-matter-assets-design.md
-  evidence: packages/matter-assets + seventeen routes in apps/worker/src/routes/matter-assets.ts, over eight per-firm tables. Backend only.
-  notes: Slice 4·3·1 ships real property and financial accounts; the other six structured classes, encumbrances and equity, the grouped schedule, the custody link, the merge subjects, and carry-forward are not built.
+  evidence: packages/matter-assets + twenty routes in apps/worker/src/routes/matter-assets.ts, over fifteen per-firm tables. Backend only.
+  notes: All ten classes, encumbrances and equity, the grouped schedule, the custody link, and the merge subjects are built. Still open — the firm's own fields on an asset, the load-profile asset corpus, carry-forward from a prior matter, the integration adapters, and portal visibility. No user interface.
 
 - id: matter-assets.register
   name: The asset row and the class spine
@@ -486,16 +486,16 @@
   slices: 4-3-matter-assets
   spec: docs/specs/2026-08-05-matter-assets-design.md
   evidence: matter_asset / matter_asset_type in packages/database/src/per-firm-schema.ts; packages/matter-assets/src/{asset,asset-type}-service.ts and src/classes.ts.
-  notes: Partial because six of the ten classes are declared in the registry and refused by name until their attribute tables ship. Two fields make a row (class and description) — the deliberate inversion of Custodian's mandatory owner link.
+  notes: All ten classes are available to the write path. Two fields make a row (class and description) — the deliberate inversion of Custodian's mandatory owner link.
 
 - id: matter-assets.attributes
   name: Per-class structured attributes
   scope: One one-to-one attribute table per class that has structure, with indexes on the identifiers people search by; no table for a class that has none.
-  status: partial
+  status: shipped
   slices: 4-3-matter-assets
   spec: docs/specs/2026-08-05-matter-assets-design.md
-  evidence: matter_asset_real_property (column names matching PropertyReference in packages/property-links) and matter_asset_financial_account.
-  notes: Vehicle, firearm, business interest, insurance policy, receivable, and digital asset land in 4·3·2; personalProperty and other carry no table by design.
+  evidence: eight one-to-one attribute tables in packages/database/src/per-firm-schema.ts, with searchable indexes on parcel_number, vehicle_identification_number, plate_number and serial_number; packages/matter-assets/src/asset-service.ts drives them from one table of builders.
+  notes: personalProperty and other carry no table by design. A public-record identifier is a plaintext searchable column; matter_asset_digital_asset has no column a credential could ride on, and the write path refuses one by name.
 
 - id: matter-assets.valuations
   name: Append-only valuation history and the as-of read
@@ -536,18 +536,20 @@
 - id: matter-assets.encumbrances
   name: Encumbrances and net equity
   scope: Mortgages, liens, and security interests with their own dated balances, and equity computed per currency as of a date.
-  status: planned
+  status: shipped
   slices: 4-3-matter-assets
   spec: docs/specs/2026-08-05-matter-assets-design.md
-  notes: matter_asset_valuation.encumbrance_id lands in 4·3·1 because adding it later means rebuilding a table whose append-only triggers have to be dropped to do it; the encumbrance table itself is 4·3·2.
+  evidence: matter_asset_encumbrance + packages/matter-assets/src/{encumbrance-service,equity}.ts; a balance is a matter_asset_valuation row naming the encumbrance, resolved by the same as-of shape.
+  notes: Equity is computed and never stored, and withheld rather than approximated — an unrecorded balance or a mixed-currency pair makes it unavailable with a named reason, and negative equity is reported as negative. Releasing writes a date; nothing disappears.
 
 - id: matter-assets.schedule
   name: The estate schedule
   scope: Grouped by class as of a date, with value, basis, actual as-of date, unreleased encumbrances, equity, per-class subtotals per currency, and a stated unvalued count.
-  status: planned
+  status: shipped
   slices: 4-3-matter-assets
   spec: docs/specs/2026-08-05-matter-assets-design.md
-  notes: Not a court form and not a stored document — a read. The as-of date is required with no default.
+  evidence: packages/matter-assets/src/schedule.ts behind GET /api/v1/matters/{matterId}/asset-schedule — five batched reads for a whole matter, never one per asset.
+  notes: Not a court form and not a stored document — a read. The as-of date is required with no default, `undetermined` is its own group, the unvalued count is stated rather than hidden, and a group's equity subtotal is withheld when one balance in it is unstated.
 
 - id: matter-assets.class-handling-notice
   name: Class handling notices
@@ -561,18 +563,20 @@
 - id: matter-assets.custody-link
   name: The custody item link
   scope: One nullable column joining a scheduled asset to the custody item that physically holds it, with neither side copying the other's facts.
-  status: planned
+  status: shipped
   slices: 4-3-matter-assets
   spec: docs/specs/2026-08-05-matter-assets-design.md
-  notes: matter_asset.custody_item_id lands in 4·3·1 and comes into use in 4·3·3. No unique index — the same held object can be scheduled in two matters.
+  evidence: matter_asset.custody_item_id set and cleared through the patch route; packages/matter-assets/src/custody-link-statements.ts composes location, status and hold state by reading Custodian, and test/custody-link.test.ts scans the source in both directions.
+  notes: No unique index — the same held object can be scheduled in two matters. custody_item.declared_value_amount_minor and a valuation answer different questions; nothing syncs them, and the package names no custody declared-value column at all.
 
 - id: matter-assets.merge-fields
   name: Asset subjects in the merge catalogue
   scope: Collection-only merge subjects per class plus an aggregate, filled by one new assembly source, with value and its date declared together and no protected value as a facet.
-  status: planned
+  status: shipped
   slices: 4-3-matter-assets
   spec: docs/specs/2026-08-05-matter-assets-design.md
-  notes: Slice 4·3·3, alongside custom_field.target widening to matterAsset.
+  evidence: the assetClass subject kind and eleven subjects in packages/document-assembly/src/catalog/subjects.ts, filled by the one `asset` source in src/resolve.ts; packages/document-assembly/test/asset-subjects.test.ts holds the collection-only rule and test/resolve-batching.test.ts the one-read budget.
+  notes: No assetClass subject declares a scalar — an estate with two houses would make every scalar an absence naming the count. `value` and `valueAsOf` are declared and set together; accountSuffix is the facet and the full number has no key. custom_field.target widening to matterAsset is still open and wants coordinating with the Custodian custodyPacket widening.
 
 - id: matter-assets.carry-forward
   name: Carry-forward from a prior matter

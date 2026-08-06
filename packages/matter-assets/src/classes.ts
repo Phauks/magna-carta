@@ -16,9 +16,10 @@ export interface MatterAssetClassDeclaration {
   // carries known type-specific legal handling. Empty for every class that does not. Nothing
   // branches on it — it is rendered and never read by any rule.
   readonly handlingNote: string | null;
-  // Whether this slice's write path can create an asset of this class. The remaining classes arrive
-  // with their attribute tables in slice 4·3·2; the registry declares all ten now so the spine, the
-  // labels, and the notice are settled once.
+  // Whether the write path can create an asset of this class. Every class is available now that each
+  // one's attribute table exists; the field stays because a class declared ahead of its table is a
+  // shape this registry has already had to express once and would have to express again for an
+  // eleventh class.
   readonly available: boolean;
 }
 
@@ -59,42 +60,42 @@ export const MATTER_ASSET_CLASS_REGISTRY: readonly MatterAssetClassDeclaration[]
     label: "Vehicle",
     attributeTable: "matter_asset_vehicle",
     handlingNote: null,
-    available: false,
+    available: true,
   },
   {
     key: "firearm",
     label: "Firearm",
     attributeTable: "matter_asset_firearm",
     handlingNote: FIREARM_HANDLING_NOTE,
-    available: false,
+    available: true,
   },
   {
     key: "businessInterest",
     label: "Business interest",
     attributeTable: "matter_asset_business_interest",
     handlingNote: null,
-    available: false,
+    available: true,
   },
   {
     key: "insurancePolicy",
     label: "Insurance policy",
     attributeTable: "matter_asset_insurance_policy",
     handlingNote: null,
-    available: false,
+    available: true,
   },
   {
     key: "receivable",
     label: "Money owed to the estate",
     attributeTable: "matter_asset_receivable",
     handlingNote: null,
-    available: false,
+    available: true,
   },
   {
     key: "digitalAsset",
     label: "Digital asset",
     attributeTable: "matter_asset_digital_asset",
     handlingNote: null,
-    available: false,
+    available: true,
   },
   {
     key: "personalProperty",

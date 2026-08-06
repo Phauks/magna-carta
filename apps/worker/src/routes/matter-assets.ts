@@ -12,6 +12,7 @@ import { cryptoRandomSource } from "@magna-carta/identifiers/random";
 import type {
   FileId,
   MatterAssetDocumentId,
+  MatterAssetEncumbranceId,
   MatterAssetId,
   MatterAssetIdentifierId,
   MatterAssetInterestId,
@@ -28,13 +29,23 @@ import {
 } from "@magna-carta/matter-assets/asset-service";
 import {
   readMatterAsset,
-  readMatterAssetFinancialAccount,
-  readMatterAssetRealProperty,
+  readMatterAssetAttributes,
   type MatterAssetRow,
 } from "@magna-carta/matter-assets/asset-statements";
 import { createMatterAssetType } from "@magna-carta/matter-assets/asset-type-service";
 import { readMatterAssetTypes } from "@magna-carta/matter-assets/asset-type-statements";
 import { MATTER_ASSET_CLASS_REGISTRY } from "@magna-carta/matter-assets/classes";
+import { readCustodyPlacementForAsset } from "@magna-carta/matter-assets/custody-link-statements";
+import {
+  recordMatterAssetEncumbrance,
+  releaseMatterAssetEncumbrance,
+} from "@magna-carta/matter-assets/encumbrance-service";
+import {
+  readEncumbranceBalancesAsOf,
+  readMatterAssetEncumbrances,
+} from "@magna-carta/matter-assets/encumbrance-statements";
+import { encumbrancesInForceAsOf, matterAssetEquity } from "@magna-carta/matter-assets/equity";
+import { readMatterAssetSchedule } from "@magna-carta/matter-assets/schedule";
 import {
   linkMatterAssetDocument,
   unlinkMatterAssetDocument,
@@ -53,8 +64,10 @@ import { readMatterAssetInterests } from "@magna-carta/matter-assets/interest-st
 import { readMatterAssetPage } from "@magna-carta/matter-assets/queries";
 import {
   MATTER_ASSET_CLASSES,
+  MATTER_ASSET_DIGITAL_CUSTODY_MODELS,
   MATTER_ASSET_DISPOSITIONS,
   MATTER_ASSET_DOCUMENT_KINDS,
+  MATTER_ASSET_ENCUMBRANCE_KINDS,
   MATTER_ASSET_ESTATE_TREATMENTS,
   MATTER_ASSET_VALUATION_BASES,
   MAX_MATTER_ASSET_BATCH,
@@ -137,6 +150,90 @@ const FinancialAccountDetail = z
   .object(financialAccountAttributeShape)
   .openapi("MatterAssetFinancialAccountDetail");
 
+const vehicleAttributeShape = {
+  make: z.string().max(120).nullable().optional(),
+  model: z.string().max(120).nullable().optional(),
+  modelYear: z.number().int().min(1885).max(2200).nullable().optional(),
+  // On the title and etched in the windscreen, so an ordinary searchable field. Spelled out in full.
+  vehicleIdentificationNumber: z.string().max(40).nullable().optional(),
+  plateNumber: z.string().max(20).nullable().optional(),
+  plateRegion: z.string().max(120).nullable().optional(),
+};
+const VehicleAttributes = z.object(vehicleAttributeShape).openapi("MatterAssetVehicleAttributes");
+const VehicleDetail = z.object(vehicleAttributeShape).openapi("MatterAssetVehicleDetail");
+
+const firearmAttributeShape = {
+  make: z.string().max(120).nullable().optional(),
+  model: z.string().max(120).nullable().optional(),
+  caliberOrGauge: z.string().max(60).nullable().optional(),
+  // On the bill of sale and on transfer paperwork, so an ordinary searchable field.
+  serialNumber: z.string().max(60).nullable().optional(),
+  // Free text somebody asserted. Nothing reads it and nothing is inferred from it: this register
+  // records what is held and encodes no transfer law.
+  regulatedCategory: z.string().max(200).nullable().optional(),
+};
+const FirearmAttributes = z.object(firearmAttributeShape).openapi("MatterAssetFirearmAttributes");
+const FirearmDetail = z.object(firearmAttributeShape).openapi("MatterAssetFirearmDetail");
+
+const businessInterestAttributeShape = {
+  entityName: z.string().max(200).nullable().optional(),
+  entityOrganizationId: z.string().min(1).max(128).nullable().optional(),
+  jurisdictionOfOrganization: z.string().max(120).nullable().optional(),
+  entityForm: z.string().max(120).nullable().optional(),
+};
+const BusinessInterestAttributes = z
+  .object(businessInterestAttributeShape)
+  .openapi("MatterAssetBusinessInterestAttributes");
+const BusinessInterestDetail = z
+  .object(businessInterestAttributeShape)
+  .openapi("MatterAssetBusinessInterestDetail");
+
+const insurancePolicyAttributeShape = {
+  carrierName: z.string().max(200).nullable().optional(),
+  carrierOrganizationId: z.string().min(1).max(128).nullable().optional(),
+  // A TERM OF THE POLICY, not what the policy is worth. What it is worth — its cash surrender value —
+  // is a dated valuation like any other, and collapsing the two would make every term-life policy
+  // look like a liquid asset worth its death benefit.
+  faceAmountMinor: z.number().int().nullable().optional(),
+  faceCurrency: z.string().length(3).nullable().optional(),
+  insuredEntityId: z.string().min(1).max(128).nullable().optional(),
+};
+const InsurancePolicyAttributes = z
+  .object(insurancePolicyAttributeShape)
+  .openapi("MatterAssetInsurancePolicyAttributes");
+const InsurancePolicyDetail = z
+  .object(insurancePolicyAttributeShape)
+  .openapi("MatterAssetInsurancePolicyDetail");
+
+const receivableAttributeShape = {
+  debtorEntityId: z.string().min(1).max(128).nullable().optional(),
+  principalAmountMinor: z.number().int().nullable().optional(),
+  principalCurrency: z.string().length(3).nullable().optional(),
+  // A rate as ten-thousandths, never a float.
+  rateE4: z.number().int().nullable().optional(),
+  maturityOn: z.string().regex(CIVIL_DATE).nullable().optional(),
+  // Asserted by a person. Nothing derives a priority, a remedy, or a redemption period from it.
+  secured: z.boolean().nullable().optional(),
+};
+const ReceivableAttributes = z
+  .object(receivableAttributeShape)
+  .openapi("MatterAssetReceivableAttributes");
+const ReceivableDetail = z.object(receivableAttributeShape).openapi("MatterAssetReceivableDetail");
+
+const digitalAssetAttributeShape = {
+  platformName: z.string().max(200).nullable().optional(),
+  // The PUBLIC handle on the platform, never a login. There is no field on this shape a seed phrase,
+  // a recovery phrase, or a private key could ride on, and a request naming one is refused by name.
+  accountHandle: z.string().max(200).nullable().optional(),
+  custodyModel: z.enum(MATTER_ASSET_DIGITAL_CUSTODY_MODELS).nullable().optional(),
+};
+const DigitalAssetAttributes = z
+  .object(digitalAssetAttributeShape)
+  .openapi("MatterAssetDigitalAssetAttributes");
+const DigitalAssetDetail = z
+  .object(digitalAssetAttributeShape)
+  .openapi("MatterAssetDigitalAssetDetail");
+
 const InlineValuation = z
   .object({
     // The date the figure speaks to — never assumed to be today, and never defaulted.
@@ -160,6 +257,12 @@ const CreateAssetBody = z
     notes: z.string().max(4000).nullable().optional(),
     realProperty: RealPropertyAttributes.optional(),
     financialAccount: FinancialAccountAttributes.optional(),
+    vehicle: VehicleAttributes.optional(),
+    firearm: FirearmAttributes.optional(),
+    businessInterest: BusinessInterestAttributes.optional(),
+    insurancePolicy: InsurancePolicyAttributes.optional(),
+    receivable: ReceivableAttributes.optional(),
+    digitalAsset: DigitalAssetAttributes.optional(),
     // A value typed in the same breath as the thing, written in the same commit. The common intake
     // gesture is "a house on Elm Street, about four hundred thousand".
     valuation: InlineValuation.optional(),
@@ -270,14 +373,89 @@ const IdentifierValueResponse = z
   .object({ value: z.string().nullable() })
   .openapi("MatterAssetIdentifierValueResponse");
 
+// A charge secured against the asset. Its BALANCE is not here: a balance is a dated valuation row
+// naming the encumbrance, so it arrives with the equity below, carrying the date it speaks to.
+const EncumbranceDetail = z
+  .object({
+    id: z.string(),
+    kind: z.enum(MATTER_ASSET_ENCUMBRANCE_KINDS),
+    holderEntityId: z.string().nullable(),
+    holderName: z.string().nullable(),
+    recordedReference: z.string().nullable(),
+    releasedOn: z.string().nullable(),
+    notes: z.string().nullable(),
+  })
+  .openapi("MatterAssetEncumbranceDetail");
+
+const EncumbranceBalance = z
+  .object({
+    encumbranceId: z.string(),
+    kind: z.enum(MATTER_ASSET_ENCUMBRANCE_KINDS),
+    holderName: z.string().nullable(),
+    // Null where no balance was recorded at or before the date. Unstated, never zero — a charge whose
+    // size nobody has written down would otherwise overstate the equity of exactly the assets a firm
+    // most needs to be careful about.
+    amountMinor: z.number().int().nullable(),
+    currency: z.string().nullable(),
+    // The date the balance actually speaks to, which may be earlier than the date asked for.
+    asOfDate: z.string().nullable(),
+  })
+  .openapi("MatterAssetEncumbranceBalance");
+
+// Value minus what is secured against it, as of the requested date, per currency. COMPUTED AND NEVER
+// STORED, and withheld rather than approximated: an amount is present only when the value and every
+// charge in force resolve in the same currency, and `unavailableReason` says which of the three ways
+// it could not.
+// Registered under TWO component names — the nullable variant the asset detail carries and the
+// always-present variant a schedule row carries — because a component name has to map to exactly one
+// schema shape in the emitted contract, and `.nullable()` is a different shape.
+const equityShape = {
+  amountMinor: z.number().int().nullable(),
+  currency: z.string().nullable(),
+  unavailableReason: z.string().nullable(),
+  balances: z.array(EncumbranceBalance),
+};
+const EquityDetail = z.object(equityShape).openapi("MatterAssetEquityDetail");
+const ScheduleRowEquity = z.object(equityShape).openapi("MatterAssetScheduleRowEquity");
+
+// What the safekeeping register says about the linked object RIGHT NOW. Composed by READING
+// Custodian at the moment of this request and stored on no asset column, so it can never be stale —
+// where the thing is, and whether it may be released, are Custodian's facts and stay Custodian's.
+const CustodyPlacementDetail = z
+  .object({
+    custodyItemId: z.string(),
+    description: z.string(),
+    status: z.string(),
+    custodyNumber: z.string(),
+    packetStatus: z.string(),
+    locationName: z.string().nullable(),
+    // Whether a hold is in force. A boolean and not the hold's kind or reason: whether the thing may
+    // leave the building is a decision the safekeeping register makes on its own surface.
+    held: z.boolean(),
+  })
+  .openapi("MatterAssetCustodyPlacement");
+
 const AssetDetail = z
   .object({
     asset: AssetSummary,
     realProperty: RealPropertyDetail.nullable(),
     financialAccount: FinancialAccountDetail.nullable(),
+    vehicle: VehicleDetail.nullable(),
+    firearm: FirearmDetail.nullable(),
+    businessInterest: BusinessInterestDetail.nullable(),
+    insurancePolicy: InsurancePolicyDetail.nullable(),
+    receivable: ReceivableDetail.nullable(),
+    digitalAsset: DigitalAssetDetail.nullable(),
     interests: z.array(InterestDetail),
+    encumbrances: z.array(EncumbranceDetail),
+    // Present only when the caller asked as of a date: equity is a function of two dated assertions
+    // and has no meaning without one.
+    equity: EquityDetail.nullable(),
     documents: z.array(DocumentLinkDetail),
     identifiers: z.array(IdentifierSummary),
+    // Null when the asset is not linked, or when the linked item has since gone from the safekeeping
+    // register. Nothing here is copied onto the asset row.
+    custody: CustodyPlacementDetail.nullable(),
     // Present only when the caller asked as of a date AND a figure resolves at or before it. Null is
     // a correct and common answer: an unvalued asset reports as unvalued rather than as zero.
     valueAsOf: ResolvedValue.nullable(),
@@ -318,6 +496,9 @@ const AssetClassDetail = z
 
 const AppendValuationRequest = InlineValuation.extend({
   supportingFileId: identifierField("file").nullable().optional(),
+  // Set to record an ENCUMBRANCE's balance rather than the asset's own value — the same append-only
+  // table, the same correction discipline, and the same as-of read. Must name a charge on this asset.
+  encumbranceId: identifierField("matterAssetEncumbrance").nullable().optional(),
   // A correction names the row it replaces. It never edits it: both stay on the record, and the
   // named row stops resolving in every as-of read.
   correctsValuationId: identifierField("matterAssetValuation").nullable().optional(),
@@ -339,6 +520,75 @@ const AddInterestRequest = z
 const EndInterestRequest = z
   .object({ effectiveTo: z.string().regex(CIVIL_DATE) })
   .openapi("EndMatterAssetInterestRequest");
+
+const RecordEncumbranceRequest = z
+  .object({
+    kind: z.enum(MATTER_ASSET_ENCUMBRANCE_KINDS),
+    // A directoryPerson_/directoryOrganization_ handle, carried by value.
+    holderEntityId: z.string().min(1).max(128).nullable().optional(),
+    // Free text where no Directory record exists — writing every lender a firm ever sees into the
+    // Directory would pollute the conflicts corpus with counterparties nobody is conflicted against.
+    holderName: z.string().max(200).nullable().optional(),
+    recordedReference: z.string().max(200).nullable().optional(),
+    notes: z.string().max(2000).nullable().optional(),
+  })
+  .openapi("RecordMatterAssetEncumbranceRequest");
+
+const ReleaseEncumbranceRequest = z
+  .object({ releasedOn: z.string().regex(CIVIL_DATE) })
+  .openapi("ReleaseMatterAssetEncumbranceRequest");
+
+const ScheduleRow = z
+  .object({
+    assetId: z.string(),
+    description: z.string(),
+    assetTypeName: z.string().nullable(),
+    estateTreatment: z.enum(MATTER_ASSET_ESTATE_TREATMENTS),
+    disposition: z.string(),
+    acquiredOn: z.string().nullable(),
+    custodyItemId: z.string().nullable(),
+    value: ResolvedValue.nullable(),
+    equity: ScheduleRowEquity,
+  })
+  .openapi("MatterAssetScheduleRow");
+
+const ScheduleSubtotal = z
+  .object({
+    currency: z.string(),
+    valueAmountMinor: z.number().int(),
+    // Absent where one charge in force carries no balance: a subtotal computed over the rows that
+    // happened to work looks complete and is not.
+    equityAmountMinor: z.number().int().nullable(),
+    countedAssets: z.number().int(),
+  })
+  .openapi("MatterAssetScheduleSubtotal");
+
+const ScheduleGroup = z
+  .object({
+    assetClass: z.enum(MATTER_ASSET_CLASSES),
+    label: z.string(),
+    rows: z.array(ScheduleRow),
+    subtotals: z.array(ScheduleSubtotal),
+    unvaluedCount: z.number().int(),
+  })
+  .openapi("MatterAssetScheduleGroup");
+
+const ScheduleResponse = z
+  .object({
+    matterId: z.string(),
+    asOfDate: z.string(),
+    groups: z.array(ScheduleGroup),
+    totalAssets: z.number().int(),
+    // Stated rather than hidden: "eleven of these forty have no number yet" is the actionable
+    // statement, and a subtotal quietly computed over twenty-nine is not.
+    unvaluedCount: z.number().int(),
+    estateTreatmentCounts: z.object({
+      probateEstate: z.number().int(),
+      nonProbateTransfer: z.number().int(),
+      undetermined: z.number().int(),
+    }),
+  })
+  .openapi("MatterAssetSchedule");
 
 const LinkDocumentRequest = z
   .object({
@@ -387,6 +637,16 @@ const assetListQuery = cursorQuery.extend({
   estateTreatment: z.enum(MATTER_ASSET_ESTATE_TREATMENTS).optional(),
   // "Which of these has nobody put a number on yet" — narrowed in SQL, never trimmed after the fact.
   valued: z.enum(["true", "false"]).optional(),
+});
+
+const encumbranceIdParam = assetIdParam.extend({
+  encumbranceId: identifierPathParam("matterAssetEncumbrance", "encumbranceId"),
+});
+
+const scheduleQuery = z.object({
+  // REQUIRED, and no default. A schedule with an implied date is the failure this subsystem most
+  // wants to avoid.
+  asOf: z.string().regex(CIVIL_DATE),
 });
 
 const assetDetailQuery = z.object({
@@ -501,6 +761,34 @@ function assetErrorResponse(
         status: 422,
         detail: caught.message,
       });
+    case "matter-asset-encumbrance-not-on-asset":
+      return problemJson(c, {
+        type: "matter-asset-encumbrance-not-on-asset",
+        title: "That charge secures a different asset",
+        status: 422,
+        detail: caught.message,
+      });
+    case "matter-asset-schedule-too-large":
+      return problemJson(c, {
+        type: "matter-asset-schedule-too-large",
+        title: "Too many assets for one schedule",
+        status: 422,
+        detail: caught.message,
+      });
+    case "matter-asset-unknown-custody-item":
+      return problemJson(c, {
+        type: "matter-asset-unknown-custody-item",
+        title: "No such item in the safekeeping register",
+        status: 422,
+        detail: caught.message,
+      });
+    case "matter-asset-unknown-encumbrance":
+      return problemJson(c, {
+        type: "not-found",
+        title: "Not found",
+        status: 404,
+        detail: caught.message,
+      });
     default:
       return problemJson(c, {
         type: "validation",
@@ -603,6 +891,33 @@ const getAssetRoute = defineOpenAPIRoute(readMeta("getAsset", "matter"), {
     200: {
       description: "The asset and its relations",
       content: { "application/json": { schema: AssetDetail } },
+    },
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const readScheduleRoute = defineOpenAPIRoute(readMeta("readAssetSchedule", "matter"), {
+  method: "get",
+  path: "/api/v1/matters/{matterId}/asset-schedule",
+  description:
+    "The estate schedule as of a date: everything on the register grouped by kind of thing, each row " +
+    "with what it was worth as of that date, what that figure rests on, the date it actually speaks " +
+    "to, what is secured against it, and the equity left over — with subtotals per kind and per " +
+    "currency, and the number of assets nobody has valued yet stated rather than hidden. " +
+    "`asOf` is REQUIRED and has no default: the date of death and today give different answers over " +
+    "the same rows, and a schedule with a date nobody chose is the mistake this most wants to avoid. " +
+    "This is not a court form and not a stored document — it is a read, so it and the register cannot " +
+    "drift apart, and it decides nothing about what is in the estate: it groups by what a person " +
+    "recorded and reports what is undetermined as its own group.",
+  request: { params: matterIdParam, query: scheduleQuery },
+  responses: {
+    200: {
+      description: "The schedule as of the date",
+      content: { "application/json": { schema: ScheduleResponse } },
     },
     401: authErrors[401],
     403: authErrors[403],
@@ -897,6 +1212,70 @@ const endInterestRoute = defineOpenAPIRoute(mutationMeta("endInterest", "matter"
   },
 });
 
+const recordEncumbranceRoute = defineOpenAPIRoute(mutationMeta("recordEncumbrance", "matter"), {
+  method: "post",
+  path: "/api/v1/matter-assets/{assetId}/encumbrances",
+  description:
+    "Records what is secured against the asset — a mortgage, a deed of trust, a lien, a judgment, a " +
+    "security interest, a tax lien, a pledge. There is deliberately no balance field on this call: a " +
+    "balance is a dated figure, so it is recorded through the value path naming this charge, which " +
+    "means a mortgage that was one number at the date of death and another at the date of sale has " +
+    "both, dated, with the same discipline that governs a property's own value.",
+  request: {
+    params: assetIdParam,
+    headers: idempotencyKeyHeader,
+    body: {
+      required: true,
+      content: { "application/json": { schema: RecordEncumbranceRequest } },
+    },
+  },
+  responses: {
+    201: {
+      description: "The charge",
+      content: { "application/json": { schema: CreatedResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const releaseEncumbranceRoute = defineOpenAPIRoute(
+  mutationMeta("releaseEncumbrance", "matter", "optional"),
+  {
+    method: "post",
+    path: "/api/v1/matter-assets/{assetId}/encumbrances/{encumbranceId}/release",
+    description:
+      "Records that a charge was discharged, by writing the date it was discharged on. The charge and " +
+      "its balances stay on the record: a schedule read as of a date before the release still shows " +
+      "it, which is the only way 'was this property clear at the date of death' can be answered years " +
+      "after the lien was cleared.",
+    request: {
+      params: encumbranceIdParam,
+      body: {
+        required: true,
+        content: { "application/json": { schema: ReleaseEncumbranceRequest } },
+      },
+    },
+    responses: {
+      200: {
+        description: "The charge is recorded as discharged",
+        content: { "application/json": { schema: AcknowledgedResponse } },
+      },
+      401: authErrors[401],
+      403: authErrors[403],
+      404: authErrors[404],
+      409: authErrors[409],
+      422: authErrors[422],
+      429: authErrors[429],
+    },
+  },
+);
+
 const linkDocumentRoute = defineOpenAPIRoute(mutationMeta("linkDocument", "matter"), {
   method: "post",
   path: "/api/v1/matter-assets/{assetId}/documents",
@@ -1093,46 +1472,164 @@ async function commitOptionalAssetEffect(
   }
 }
 
+// The attribute row, projected into the class's own detail shape. The class decides which shape, so
+// there is one lookup and one mapping rather than eight nullable reads: an asset has at most one
+// attribute row and it is the row its class names.
+type AttributeColumns = Record<string, unknown>;
+
+function text(columns: AttributeColumns | undefined, name: string): string | null {
+  const value = columns?.[name];
+  return typeof value === "string" ? value : null;
+}
+
+function integer(columns: AttributeColumns | undefined, name: string): number | null {
+  const value = columns?.[name];
+  return typeof value === "number" ? value : null;
+}
+
 async function assetDetailPayload(
   database: SqlDatabase,
   row: MatterAssetRow,
   asOf: string | undefined,
 ): Promise<z.infer<typeof AssetDetail>> {
   const declaration = MATTER_ASSET_CLASS_REGISTRY.find((entry) => entry.key === row.class);
-  const realProperty =
-    row.class === "realProperty" ? await readMatterAssetRealProperty(database, row.id) : undefined;
-  const financialAccount =
-    row.class === "financialAccount"
-      ? await readMatterAssetFinancialAccount(database, row.id)
-      : undefined;
+  const attributes = await readMatterAssetAttributes(database, row.class, row.id);
   const interests = await readMatterAssetInterests(database, row.id);
+  const encumbrances = await readMatterAssetEncumbrances(database, row.id);
   const documents = await readMatterAssetDocuments(database, row.id);
   // display_suffix and nothing else. The read shape carries no field a full number could ride on.
   const identifiers = await readMatterAssetIdentifiers(database, row.id);
   const valueAsOf =
     asOf === undefined ? undefined : await resolveMatterAssetValueAsOf(database, row.id, asOf);
+
+  // Equity only where a date was asked for: it is a function of two DATED assertions and means
+  // nothing without one.
+  let equity: z.infer<typeof EquityDetail> | null = null;
+  if (asOf !== undefined) {
+    const inForce = encumbrancesInForceAsOf(encumbrances, asOf);
+    const balances = await readEncumbranceBalancesAsOf(
+      database,
+      inForce.map((encumbrance) => encumbrance.id),
+      asOf,
+    );
+    const computed = matterAssetEquity(valueAsOf, inForce, balances);
+    equity = {
+      amountMinor: computed.equityAmountMinor ?? null,
+      currency: computed.equityCurrency ?? null,
+      unavailableReason: computed.equityUnavailableReason ?? null,
+      balances: computed.encumbrances.map((line) => ({
+        encumbranceId: line.encumbranceId,
+        kind: line.kind as (typeof MATTER_ASSET_ENCUMBRANCE_KINDS)[number],
+        holderName: line.holderName,
+        amountMinor: line.balance?.amountMinor ?? null,
+        currency: line.balance?.currency ?? null,
+        asOfDate: line.balance?.asOfDate ?? null,
+      })),
+    };
+  }
+
+  // The safekeeping link, composed by READING the safekeeping register at this moment. Nothing here
+  // is stored on the asset, which is what makes a stale answer impossible rather than unlikely.
+  const custody =
+    row.custody_item_id === null
+      ? undefined
+      : await readCustodyPlacementForAsset(database, row.custody_item_id);
+
   return {
     asset: assetSummary(row),
     realProperty:
-      realProperty === undefined
+      row.class !== "realProperty"
         ? null
         : {
-            street: realProperty.street,
-            city: realProperty.city,
-            region: realProperty.region,
-            postal: realProperty.postal,
-            county: realProperty.county,
-            parcelNumber: realProperty.parcel_number,
-            legalDescription: realProperty.legal_description,
-            recordingReference: realProperty.recording_reference,
+            street: text(attributes, "street"),
+            city: text(attributes, "city"),
+            region: text(attributes, "region"),
+            postal: text(attributes, "postal"),
+            county: text(attributes, "county"),
+            parcelNumber: text(attributes, "parcel_number"),
+            legalDescription: text(attributes, "legal_description"),
+            recordingReference: text(attributes, "recording_reference"),
           },
     financialAccount:
-      financialAccount === undefined
+      row.class !== "financialAccount"
         ? null
         : {
-            institutionName: financialAccount.institution_name,
-            institutionOrganizationId: financialAccount.institution_organization_id,
+            institutionName: text(attributes, "institution_name"),
+            institutionOrganizationId: text(attributes, "institution_organization_id"),
           },
+    vehicle:
+      row.class !== "vehicle"
+        ? null
+        : {
+            make: text(attributes, "make"),
+            model: text(attributes, "model"),
+            modelYear: integer(attributes, "model_year"),
+            vehicleIdentificationNumber: text(attributes, "vehicle_identification_number"),
+            plateNumber: text(attributes, "plate_number"),
+            plateRegion: text(attributes, "plate_region"),
+          },
+    firearm:
+      row.class !== "firearm"
+        ? null
+        : {
+            make: text(attributes, "make"),
+            model: text(attributes, "model"),
+            caliberOrGauge: text(attributes, "caliber_or_gauge"),
+            serialNumber: text(attributes, "serial_number"),
+            regulatedCategory: text(attributes, "regulated_category"),
+          },
+    businessInterest:
+      row.class !== "businessInterest"
+        ? null
+        : {
+            entityName: text(attributes, "entity_name"),
+            entityOrganizationId: text(attributes, "entity_organization_id"),
+            jurisdictionOfOrganization: text(attributes, "jurisdiction_of_organization"),
+            entityForm: text(attributes, "entity_form"),
+          },
+    insurancePolicy:
+      row.class !== "insurancePolicy"
+        ? null
+        : {
+            carrierName: text(attributes, "carrier_name"),
+            carrierOrganizationId: text(attributes, "carrier_organization_id"),
+            faceAmountMinor: integer(attributes, "face_amount_minor"),
+            faceCurrency: text(attributes, "face_currency"),
+            insuredEntityId: text(attributes, "insured_entity_id"),
+          },
+    receivable:
+      row.class !== "receivable"
+        ? null
+        : {
+            debtorEntityId: text(attributes, "debtor_entity_id"),
+            principalAmountMinor: integer(attributes, "principal_amount_minor"),
+            principalCurrency: text(attributes, "principal_currency"),
+            rateE4: integer(attributes, "rate_e4"),
+            maturityOn: text(attributes, "maturity_on"),
+            secured:
+              integer(attributes, "secured") === null ? null : integer(attributes, "secured") === 1,
+          },
+    digitalAsset:
+      row.class !== "digitalAsset"
+        ? null
+        : {
+            platformName: text(attributes, "platform_name"),
+            accountHandle: text(attributes, "account_handle"),
+            custodyModel: (text(attributes, "custody_model") ?? null) as
+              | (typeof MATTER_ASSET_DIGITAL_CUSTODY_MODELS)[number]
+              | null,
+          },
+    encumbrances: encumbrances.map((encumbrance) => ({
+      id: encumbrance.id,
+      kind: encumbrance.kind,
+      holderEntityId: encumbrance.holder_entity_id,
+      holderName: encumbrance.holder_name,
+      recordedReference: encumbrance.recorded_reference,
+      releasedOn: encumbrance.released_on,
+      notes: encumbrance.notes,
+    })),
+    equity,
+    custody: custody ?? null,
     interests: interests.map((interest) => ({
       id: interest.id,
       entityId: interest.entity_id,
@@ -1225,6 +1722,70 @@ export function registerMatterAssetRoutes(app: MatterAssetsApp, chokepoint: Chok
       }
       try {
         return c.json(await assetDetailPayload(firm.firmDatabase, row, asOf), 200);
+      } catch (caught) {
+        if (caught instanceof MatterAssetValidationError) return assetReadErrorResponse(c, caught);
+        throw caught;
+      }
+    },
+  );
+
+  // GET /api/v1/matters/{matterId}/asset-schedule
+  app.openapi(
+    { ...readScheduleRoute, middleware: chokepointMiddleware(chokepoint, readScheduleRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { matterId } = c.req.valid("param");
+      const { asOf } = c.req.valid("query");
+      try {
+        const schedule = await readMatterAssetSchedule(
+          firm.firmDatabase,
+          matterId as MatterId,
+          asOf,
+        );
+        return c.json(
+          {
+            matterId: schedule.matterId,
+            asOfDate: schedule.asOfDate,
+            groups: schedule.groups.map((group) => ({
+              assetClass: group.assetClass,
+              label: group.label,
+              rows: group.rows.map((row) => ({
+                assetId: row.assetId,
+                description: row.description,
+                assetTypeName: row.assetTypeName,
+                estateTreatment: row.estateTreatment,
+                disposition: row.disposition,
+                acquiredOn: row.acquiredOn,
+                custodyItemId: row.custodyItemId,
+                value: row.value ?? null,
+                equity: {
+                  amountMinor: row.equity.equityAmountMinor ?? null,
+                  currency: row.equity.equityCurrency ?? null,
+                  unavailableReason: row.equity.equityUnavailableReason ?? null,
+                  balances: row.equity.encumbrances.map((line) => ({
+                    encumbranceId: line.encumbranceId,
+                    kind: line.kind as (typeof MATTER_ASSET_ENCUMBRANCE_KINDS)[number],
+                    holderName: line.holderName,
+                    amountMinor: line.balance?.amountMinor ?? null,
+                    currency: line.balance?.currency ?? null,
+                    asOfDate: line.balance?.asOfDate ?? null,
+                  })),
+                },
+              })),
+              subtotals: group.subtotals.map((subtotal) => ({
+                currency: subtotal.currency,
+                valueAmountMinor: subtotal.valueAmountMinor,
+                equityAmountMinor: subtotal.equityAmountMinor ?? null,
+                countedAssets: subtotal.countedAssets,
+              })),
+              unvaluedCount: group.unvaluedCount,
+            })),
+            totalAssets: schedule.totalAssets,
+            unvaluedCount: schedule.unvaluedCount,
+            estateTreatmentCounts: schedule.estateTreatmentCounts,
+          },
+          200,
+        );
       } catch (caught) {
         if (caught instanceof MatterAssetValidationError) return assetReadErrorResponse(c, caught);
         throw caught;
@@ -1470,6 +2031,7 @@ export function registerMatterAssetRoutes(app: MatterAssetsApp, chokepoint: Chok
             ...body,
             assetId: assetId as MatterAssetId,
             supportingFileId: (body.supportingFileId ?? null) as FileId | null,
+            encumbranceId: (body.encumbranceId ?? null) as MatterAssetEncumbranceId | null,
             correctsValuationId: (body.correctsValuationId ??
               null) as MatterAssetValuationId | null,
           },
@@ -1515,6 +2077,53 @@ export function registerMatterAssetRoutes(app: MatterAssetsApp, chokepoint: Chok
           firm.firmDatabase,
           interestId as MatterAssetInterestId,
           body.effectiveTo,
+          serviceOptions(c),
+        ),
+      );
+      if (problem !== undefined) return problem;
+      return c.json({ ok: true } as const, 200);
+    },
+  );
+
+  // POST /api/v1/matter-assets/{assetId}/encumbrances
+  app.openapi(
+    {
+      ...recordEncumbranceRoute,
+      middleware: chokepointMiddleware(chokepoint, recordEncumbranceRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { assetId } = c.req.valid("param");
+      const body = c.req.valid("json");
+      const outcome = await commitAssetEffect(c, firm.firmDatabase, idempotency, 201, async () => {
+        const recorded = await recordMatterAssetEncumbrance(
+          firm.firmDatabase,
+          { ...body, assetId: assetId as MatterAssetId },
+          serviceOptions(c),
+        );
+        return { id: recorded.encumbranceId, effect: recorded.effect };
+      });
+      if (!outcome.ok) return outcome.problem;
+      return c.json({ id: outcome.id }, 201);
+    },
+  );
+
+  // POST /api/v1/matter-assets/{assetId}/encumbrances/{encumbranceId}/release
+  app.openapi(
+    {
+      ...releaseEncumbranceRoute,
+      middleware: chokepointMiddleware(chokepoint, releaseEncumbranceRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { encumbranceId } = c.req.valid("param");
+      const body = c.req.valid("json");
+      const problem = await commitOptionalAssetEffect(c, firm.firmDatabase, () =>
+        releaseMatterAssetEncumbrance(
+          firm.firmDatabase,
+          encumbranceId as MatterAssetEncumbranceId,
+          body.releasedOn,
           serviceOptions(c),
         ),
       );

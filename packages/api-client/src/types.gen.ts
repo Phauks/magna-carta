@@ -2010,9 +2010,18 @@ export type MatterAssetDetail = {
     asset: MatterAssetSummary;
     realProperty: MatterAssetRealPropertyDetail;
     financialAccount: MatterAssetFinancialAccountDetail;
+    vehicle: MatterAssetVehicleDetail;
+    firearm: MatterAssetFirearmDetail;
+    businessInterest: MatterAssetBusinessInterestDetail;
+    insurancePolicy: MatterAssetInsurancePolicyDetail;
+    receivable: MatterAssetReceivableDetail;
+    digitalAsset: MatterAssetDigitalAssetDetail;
     interests: Array<MatterAssetInterestDetail>;
+    encumbrances: Array<MatterAssetEncumbranceDetail>;
+    equity: MatterAssetEquityDetail;
     documents: Array<MatterAssetDocumentLinkDetail>;
     identifiers: Array<MatterAssetIdentifierSummary>;
+    custody: MatterAssetCustodyPlacement;
     valueAsOf: MatterAssetResolvedValue;
     classHandlingNote: string | null;
 };
@@ -2033,6 +2042,53 @@ export type MatterAssetFinancialAccountDetail = {
     institutionOrganizationId?: string | null;
 } | null;
 
+export type MatterAssetVehicleDetail = {
+    make?: string | null;
+    model?: string | null;
+    modelYear?: number | null;
+    vehicleIdentificationNumber?: string | null;
+    plateNumber?: string | null;
+    plateRegion?: string | null;
+} | null;
+
+export type MatterAssetFirearmDetail = {
+    make?: string | null;
+    model?: string | null;
+    caliberOrGauge?: string | null;
+    serialNumber?: string | null;
+    regulatedCategory?: string | null;
+} | null;
+
+export type MatterAssetBusinessInterestDetail = {
+    entityName?: string | null;
+    entityOrganizationId?: string | null;
+    jurisdictionOfOrganization?: string | null;
+    entityForm?: string | null;
+} | null;
+
+export type MatterAssetInsurancePolicyDetail = {
+    carrierName?: string | null;
+    carrierOrganizationId?: string | null;
+    faceAmountMinor?: number | null;
+    faceCurrency?: string | null;
+    insuredEntityId?: string | null;
+} | null;
+
+export type MatterAssetReceivableDetail = {
+    debtorEntityId?: string | null;
+    principalAmountMinor?: number | null;
+    principalCurrency?: string | null;
+    rateE4?: number | null;
+    maturityOn?: string | null;
+    secured?: boolean | null;
+} | null;
+
+export type MatterAssetDigitalAssetDetail = {
+    platformName?: string | null;
+    accountHandle?: string | null;
+    custodyModel?: 'custodial' | 'selfCustodied' | 'unknown' | null;
+} | null;
+
 export type MatterAssetInterestDetail = {
     id: string;
     entityId: string;
@@ -2041,6 +2097,32 @@ export type MatterAssetInterestDetail = {
     shareDenominator: number | null;
     effectiveFrom: string;
     effectiveTo: string | null;
+};
+
+export type MatterAssetEncumbranceDetail = {
+    id: string;
+    kind: 'mortgage' | 'deedOfTrust' | 'lien' | 'judgment' | 'securityInterest' | 'taxLien' | 'pledge' | 'other';
+    holderEntityId: string | null;
+    holderName: string | null;
+    recordedReference: string | null;
+    releasedOn: string | null;
+    notes: string | null;
+};
+
+export type MatterAssetEquityDetail = {
+    amountMinor: number | null;
+    currency: string | null;
+    unavailableReason: string | null;
+    balances: Array<MatterAssetEncumbranceBalance>;
+} | null;
+
+export type MatterAssetEncumbranceBalance = {
+    encumbranceId: string;
+    kind: 'mortgage' | 'deedOfTrust' | 'lien' | 'judgment' | 'securityInterest' | 'taxLien' | 'pledge' | 'other';
+    holderName: string | null;
+    amountMinor: number | null;
+    currency: string | null;
+    asOfDate: string | null;
 };
 
 export type MatterAssetDocumentLinkDetail = {
@@ -2059,6 +2141,16 @@ export type MatterAssetIdentifierSummary = {
     createdAt: string;
 };
 
+export type MatterAssetCustodyPlacement = {
+    custodyItemId: string;
+    description: string;
+    status: string;
+    custodyNumber: string;
+    packetStatus: string;
+    locationName: string | null;
+    held: boolean;
+} | null;
+
 export type MatterAssetResolvedValue = {
     valuationId: string;
     asOfDate: string;
@@ -2069,6 +2161,53 @@ export type MatterAssetResolvedValue = {
     supportingFileId: string | null;
     recordedAt: string;
 } | null;
+
+export type MatterAssetSchedule = {
+    matterId: string;
+    asOfDate: string;
+    groups: Array<MatterAssetScheduleGroup>;
+    totalAssets: number;
+    unvaluedCount: number;
+    estateTreatmentCounts: {
+        probateEstate: number;
+        nonProbateTransfer: number;
+        undetermined: number;
+    };
+};
+
+export type MatterAssetScheduleGroup = {
+    assetClass: 'realProperty' | 'financialAccount' | 'vehicle' | 'firearm' | 'businessInterest' | 'insurancePolicy' | 'receivable' | 'digitalAsset' | 'personalProperty' | 'other';
+    label: string;
+    rows: Array<MatterAssetScheduleRow>;
+    subtotals: Array<MatterAssetScheduleSubtotal>;
+    unvaluedCount: number;
+};
+
+export type MatterAssetScheduleRow = {
+    assetId: string;
+    description: string;
+    assetTypeName: string | null;
+    estateTreatment: 'probateEstate' | 'nonProbateTransfer' | 'undetermined';
+    disposition: string;
+    acquiredOn: string | null;
+    custodyItemId: string | null;
+    value: MatterAssetResolvedValue;
+    equity: MatterAssetScheduleRowEquity;
+};
+
+export type MatterAssetScheduleRowEquity = {
+    amountMinor: number | null;
+    currency: string | null;
+    unavailableReason: string | null;
+    balances: Array<MatterAssetEncumbranceBalance>;
+};
+
+export type MatterAssetScheduleSubtotal = {
+    currency: string;
+    valueAmountMinor: number;
+    equityAmountMinor: number | null;
+    countedAssets: number;
+};
 
 export type MatterAssetValuationList = {
     data: Array<MatterAssetValuationDetail>;
@@ -2131,6 +2270,12 @@ export type CreateMatterAssetRequest = {
     notes?: string | null;
     realProperty?: MatterAssetRealPropertyAttributes;
     financialAccount?: MatterAssetFinancialAccountAttributes;
+    vehicle?: MatterAssetVehicleAttributes;
+    firearm?: MatterAssetFirearmAttributes;
+    businessInterest?: MatterAssetBusinessInterestAttributes;
+    insurancePolicy?: MatterAssetInsurancePolicyAttributes;
+    receivable?: MatterAssetReceivableAttributes;
+    digitalAsset?: MatterAssetDigitalAssetAttributes;
     valuation?: MatterAssetInlineValuation;
 };
 
@@ -2148,6 +2293,53 @@ export type MatterAssetRealPropertyAttributes = {
 export type MatterAssetFinancialAccountAttributes = {
     institutionName?: string | null;
     institutionOrganizationId?: string | null;
+};
+
+export type MatterAssetVehicleAttributes = {
+    make?: string | null;
+    model?: string | null;
+    modelYear?: number | null;
+    vehicleIdentificationNumber?: string | null;
+    plateNumber?: string | null;
+    plateRegion?: string | null;
+};
+
+export type MatterAssetFirearmAttributes = {
+    make?: string | null;
+    model?: string | null;
+    caliberOrGauge?: string | null;
+    serialNumber?: string | null;
+    regulatedCategory?: string | null;
+};
+
+export type MatterAssetBusinessInterestAttributes = {
+    entityName?: string | null;
+    entityOrganizationId?: string | null;
+    jurisdictionOfOrganization?: string | null;
+    entityForm?: string | null;
+};
+
+export type MatterAssetInsurancePolicyAttributes = {
+    carrierName?: string | null;
+    carrierOrganizationId?: string | null;
+    faceAmountMinor?: number | null;
+    faceCurrency?: string | null;
+    insuredEntityId?: string | null;
+};
+
+export type MatterAssetReceivableAttributes = {
+    debtorEntityId?: string | null;
+    principalAmountMinor?: number | null;
+    principalCurrency?: string | null;
+    rateE4?: number | null;
+    maturityOn?: string | null;
+    secured?: boolean | null;
+};
+
+export type MatterAssetDigitalAssetAttributes = {
+    platformName?: string | null;
+    accountHandle?: string | null;
+    custodyModel?: 'custodial' | 'selfCustodied' | 'unknown' | null;
 };
 
 export type MatterAssetInlineValuation = {
@@ -2181,11 +2373,18 @@ export type UpdateMatterAssetRequest = {
     notes?: string | null;
     realProperty?: MatterAssetRealPropertyAttributes;
     financialAccount?: MatterAssetFinancialAccountAttributes;
+    vehicle?: MatterAssetVehicleAttributes;
+    firearm?: MatterAssetFirearmAttributes;
+    businessInterest?: MatterAssetBusinessInterestAttributes;
+    insurancePolicy?: MatterAssetInsurancePolicyAttributes;
+    receivable?: MatterAssetReceivableAttributes;
+    digitalAsset?: MatterAssetDigitalAssetAttributes;
     custodyItemId?: string | null;
 };
 
 export type AppendMatterAssetValuationRequest = MatterAssetInlineValuation & {
     supportingFileId?: string | null;
+    encumbranceId?: string | null;
     correctsValuationId?: string | null;
 };
 
@@ -2199,6 +2398,18 @@ export type AddMatterAssetInterestRequest = {
 
 export type EndMatterAssetInterestRequest = {
     effectiveTo: string;
+};
+
+export type RecordMatterAssetEncumbranceRequest = {
+    kind: 'mortgage' | 'deedOfTrust' | 'lien' | 'judgment' | 'securityInterest' | 'taxLien' | 'pledge' | 'other';
+    holderEntityId?: string | null;
+    holderName?: string | null;
+    recordedReference?: string | null;
+    notes?: string | null;
+};
+
+export type ReleaseMatterAssetEncumbranceRequest = {
+    releasedOn: string;
 };
 
 export type LinkMatterAssetDocumentRequest = {
@@ -12249,6 +12460,51 @@ export type MatterAssetsUpdateAssetResponses = {
 
 export type MatterAssetsUpdateAssetResponse = MatterAssetsUpdateAssetResponses[keyof MatterAssetsUpdateAssetResponses];
 
+export type MatterAssetsReadAssetScheduleData = {
+    body?: never;
+    path: {
+        matterId: string;
+    };
+    query: {
+        asOf: string;
+    };
+    url: '/api/v1/matters/{matterId}/asset-schedule';
+};
+
+export type MatterAssetsReadAssetScheduleErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MatterAssetsReadAssetScheduleError = MatterAssetsReadAssetScheduleErrors[keyof MatterAssetsReadAssetScheduleErrors];
+
+export type MatterAssetsReadAssetScheduleResponses = {
+    /**
+     * The schedule as of the date
+     */
+    200: MatterAssetSchedule;
+};
+
+export type MatterAssetsReadAssetScheduleResponse = MatterAssetsReadAssetScheduleResponses[keyof MatterAssetsReadAssetScheduleResponses];
+
 export type MatterAssetsListValuationsData = {
     body?: never;
     path: {
@@ -12673,6 +12929,108 @@ export type MatterAssetsEndInterestResponses = {
 };
 
 export type MatterAssetsEndInterestResponse = MatterAssetsEndInterestResponses[keyof MatterAssetsEndInterestResponses];
+
+export type MatterAssetsRecordEncumbranceData = {
+    body: RecordMatterAssetEncumbranceRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        assetId: string;
+    };
+    query?: never;
+    url: '/api/v1/matter-assets/{assetId}/encumbrances';
+};
+
+export type MatterAssetsRecordEncumbranceErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is settled
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MatterAssetsRecordEncumbranceError = MatterAssetsRecordEncumbranceErrors[keyof MatterAssetsRecordEncumbranceErrors];
+
+export type MatterAssetsRecordEncumbranceResponses = {
+    /**
+     * The charge
+     */
+    201: MatterAssetCreatedResponse;
+};
+
+export type MatterAssetsRecordEncumbranceResponse = MatterAssetsRecordEncumbranceResponses[keyof MatterAssetsRecordEncumbranceResponses];
+
+export type MatterAssetsReleaseEncumbranceData = {
+    body: ReleaseMatterAssetEncumbranceRequest;
+    path: {
+        assetId: string;
+        encumbranceId: string;
+    };
+    query?: never;
+    url: '/api/v1/matter-assets/{assetId}/encumbrances/{encumbranceId}/release';
+};
+
+export type MatterAssetsReleaseEncumbranceErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is settled
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MatterAssetsReleaseEncumbranceError = MatterAssetsReleaseEncumbranceErrors[keyof MatterAssetsReleaseEncumbranceErrors];
+
+export type MatterAssetsReleaseEncumbranceResponses = {
+    /**
+     * The charge is recorded as discharged
+     */
+    200: MatterAssetAckResponse;
+};
+
+export type MatterAssetsReleaseEncumbranceResponse = MatterAssetsReleaseEncumbranceResponses[keyof MatterAssetsReleaseEncumbranceResponses];
 
 export type MatterAssetsLinkDocumentData = {
     body: LinkMatterAssetDocumentRequest;
