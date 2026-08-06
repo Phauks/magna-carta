@@ -293,6 +293,28 @@ export const PROBLEM_TYPES = {
   // the request because a backing worker service binding is not configured. Callers should retry
   // after a short delay; the condition resolves when the binding is activated at deploy time.
   "service-unavailable": "service-unavailable",
+  // The firm has not consented to sending its content to a third-party model provider at all (HTTP
+  // 403). DISTINCT from `permission-denied`: the member's role is irrelevant — nobody in the firm can
+  // use the assistant until an administrator opens the general AI-processing gate, and telling them
+  // to ask for a role would send them looking in the wrong place.
+  "magnus-firm-not-eligible": "magnus-firm-not-eligible",
+  // The firm consents to model processing generally but has not turned the assistant on (HTTP 403).
+  // A SECOND type rather than a shared one, because it is a different setting in a different place:
+  // enabling inference for document drafting is not consenting to a free-form assistant, and a firm
+  // switching the assistant off must not thereby disable every other AI feature.
+  "magnus-not-enabled": "magnus-not-enabled",
+  // The member has not accepted the current disclosure (HTTP 409). Not a 403: the member can clear it
+  // themselves, and it also fires when the disclosure VERSION moved because what the assistant can
+  // see or do changed — which re-prompts everybody by design.
+  "magnus-acknowledgement-required": "magnus-acknowledgement-required",
+  // A message over the per-turn size cap (HTTP 422). DISTINCT from `validation` (request-shape) — the
+  // request is well-formed; the cap is what keeps a turn from being bulk content, and refusing names
+  // the limit rather than silently truncating or shipping a deposition to a model provider.
+  "magnus-turn-too-large": "magnus-turn-too-large",
+  // The firm's daily message allowance is spent (HTTP 429). DISTINCT from `rate-limited` (a per-route
+  // request limit that says nothing about cost): this is the firm's own spend ceiling, and it is
+  // named so the firm knows which limit it reached and that it resets.
+  "magnus-daily-ceiling-reached": "magnus-daily-ceiling-reached",
 } as const;
 
 export type ProblemTypeKey = keyof typeof PROBLEM_TYPES;

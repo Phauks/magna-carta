@@ -236,6 +236,13 @@ export const ENTITY_PREFIXES = {
   matterAssetEncumbrance: "matterAssetEncumbrance",
   matterAssetDocument: "matterAssetDocument",
   matterAssetIdentifier: "matterAssetIdentifier",
+  // Magnus — the conversational assistant a firm member talks to. A `magnusConversation` is one
+  // thread a member started, kept as a firm record; a `magnusTurn` is one message inside it, from
+  // either the member or Magnus, ordered by an explicit sequence rather than by its timestamp. The
+  // member acknowledgement of the disclosure is keyed by the member's own `user_id` and needs no
+  // handle of its own.
+  magnusConversation: "magnusConversation",
+  magnusTurn: "magnusTurn",
 } as const;
 
 export type EntityType = keyof typeof ENTITY_PREFIXES;

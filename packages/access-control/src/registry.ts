@@ -163,6 +163,15 @@ export const PERMISSIONS = [
   // secret), so matterAssets:read alone never reveals one and no second grant has to be kept in step.
   "matterAssets:read", // read the register — assets, class attributes, valuations, interests, linked documents, the type catalog
   "matterAssets:manage", // record and edit assets, append valuations, add and end interests, link and unlink documents, manage the type catalog
+  // Magnus — the conversational assistant. Two keys, because using the assistant and reading what
+  // everyone else asked it are different capabilities: the transcript is a firm record and a
+  // supervision surface, so "may hold a conversation" must be grantable without "may read every
+  // member's conversation". Both bind resource: "firm" — a conversation may carry an optional matter
+  // link but exists without one, so the firm is its tenancy root. There is deliberately no
+  // per-member enable switch beside these: a second authorization mechanism the chokepoint does not
+  // know about is how a feature ends up enforced by discipline in a route handler.
+  "magnus:converse", // start conversations, submit turns, read and delete one's OWN conversations
+  "magnus:readAllConversations", // read any member's conversation in the firm (the audited supervision read)
 ] as const;
 
 // KnownPermission is for hardcoded compile-checked keys (route metadata, role seeds);
