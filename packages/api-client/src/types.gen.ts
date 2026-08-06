@@ -2845,7 +2845,15 @@ export type DeletedMergeFieldMapping = {
 };
 
 export type MergeFields = {
+    revision: string;
+    groups: Array<MergeFieldGroup>;
     fields: Array<MergeFieldEntry>;
+};
+
+export type MergeFieldGroup = {
+    key: string;
+    label: string;
+    order: number;
 };
 
 export type MergeFieldEntry = {
@@ -2857,6 +2865,19 @@ export type MergeFieldEntry = {
     absence: string;
     sensitivity: string;
     description: string;
+    label: string;
+    group: string;
+    subject: string;
+    subjectLabel: string;
+    prominence: string;
+    synonyms: Array<string>;
+    exampleRenderings: {
+        [key: string]: string;
+    };
+    availability: string;
+    availabilityNote: string;
+    status: string;
+    supersededBy: string | null;
 };
 
 export type SubmittedAssembly = {

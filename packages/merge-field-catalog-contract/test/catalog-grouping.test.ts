@@ -16,13 +16,20 @@ const TEXT_ENTRY: MergeFieldEntry = {
   key: "matter.number",
   label: "Matter number",
   group: "matter",
+  subject: "matter",
+  subjectLabel: "Matter",
+  prominence: "primary",
   valueType: "text",
   description: "The firm's identifying number for the matter.",
   exampleRendering: "2026-0142",
+  exampleRenderings: { plain: "2026-0142" },
+  synonyms: ["file number"],
   availability: "automatic",
   availabilityNote: "Filled from the matter record.",
   sensitivity: "ordinary",
   formats: ["plain"],
+  status: "current",
+  supersededBy: null,
 };
 
 describe("grouping a catalog", () => {
@@ -69,10 +76,38 @@ describe("searching", () => {
     expect(matchesMergeFieldQuery(TEXT_ENTRY, "matter.number")).toBe(true);
   });
 
-  it("matches the group name, so 'parties' narrows to the party fields", () => {
-    const sections = searchCatalogSections(FIXTURE_MERGE_FIELD_ENTRIES, "parties");
+  it("matches the group name, so 'other parties' narrows to the other-party fields", () => {
+    const sections = searchCatalogSections(FIXTURE_MERGE_FIELD_ENTRIES, "other parties");
     expect(sections).toHaveLength(1);
-    expect(sections[0]?.group).toBe("parties");
+    expect(sections[0]?.group).toBe("otherParties");
+  });
+
+  // The vocabulary a firm actually types. Synonyms are declared per facet and per subject upstream, so
+  // the declared list stays as short as the registries while every key a subject has inherits them.
+  it("matches a firm's own word for a subject through the synonyms", () => {
+    const sections = searchCatalogSections(FIXTURE_MERGE_FIELD_ENTRIES, "defendant");
+    expect(sections.flatMap((section) => section.entries).map((entry) => entry.key)).toEqual([
+      "opposingParty.displayName",
+    ]);
+    const sealed = searchCatalogSections(FIXTURE_MERGE_FIELD_ENTRIES, "SSN");
+    expect(sealed.flatMap((section) => section.entries).map((entry) => entry.key)).toEqual([
+      "client.socialSecurityNumber",
+    ]);
+  });
+
+  // Two levels of sectioning: a heading, then what each field is ABOUT. A "Parties" heading with a
+  // hundred and thirty rows under it is a list nobody scrolls.
+  it("splits a group into subject subsections, in the order the entries arrive", () => {
+    const section = groupCatalogEntries(FIXTURE_MERGE_FIELD_ENTRIES).find(
+      (candidate) => candidate.group === "otherParties",
+    );
+    expect(section?.subjects.map((subject) => subject.subject)).toEqual([
+      "opposingParty",
+      "opposingCounsel",
+      "witness",
+    ]);
+    expect(section?.subjects[0]?.label).toBe("Opposing party");
+    expect(section?.subjects.flatMap((subject) => subject.entries)).toEqual(section?.entries);
   });
 
   it("requires EVERY term, so a second word narrows instead of widening", () => {

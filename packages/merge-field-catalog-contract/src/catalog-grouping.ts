@@ -7,8 +7,8 @@
  * asserted directly instead of through a rendered listbox.
  */
 import {
-  MERGE_FIELD_GROUP_LABELS,
   MERGE_FIELD_GROUP_ORDER,
+  mergeFieldGroupLabel,
   type MergeFieldCatalog,
   type MergeFieldEntry,
   type MergeFieldGroup,
@@ -18,22 +18,67 @@ export interface MergeFieldGroupSection {
   readonly group: MergeFieldGroup;
   readonly label: string;
   readonly entries: readonly MergeFieldEntry[];
+  /**
+   * The same entries, split by what they are ABOUT. A "Parties" heading with a hundred and thirty rows
+   * under it is a list nobody scrolls; the subject subheadings are what make it readable at that size.
+   */
+  readonly subjects: readonly MergeFieldSubjectSection[];
+}
+
+export interface MergeFieldSubjectSection {
+  readonly subject: string;
+  readonly label: string;
+  readonly entries: readonly MergeFieldEntry[];
 }
 
 /**
- * Group entries by source in the canonical order, dropping groups the firm has no entries for.
- * A firm with no custom fields must not be shown an empty "Custom fields" heading.
+ * Group entries by heading in the canonical order, then by subject within each heading in the order
+ * the entries arrived. Groups the firm has no entries for are dropped: a firm with no custom fields
+ * must not be shown an empty "The firm's own fields" heading, and neither must an empty subject.
  */
 export function groupCatalogEntries(
   entries: readonly MergeFieldEntry[],
 ): readonly MergeFieldGroupSection[] {
   const sections: MergeFieldGroupSection[] = [];
-  for (const group of MERGE_FIELD_GROUP_ORDER) {
+  // A group the server sent that this build's registry does not know still has to appear, at the end,
+  // rather than silently swallowing its fields. Hiding a field is never the answer to not recognizing
+  // its heading.
+  const knownGroups = new Set(MERGE_FIELD_GROUP_ORDER);
+  const unknownGroups = [
+    ...new Set(entries.map((entry) => entry.group).filter((group) => !knownGroups.has(group))),
+  ];
+  for (const group of [...MERGE_FIELD_GROUP_ORDER, ...unknownGroups]) {
     const groupEntries = entries.filter((entry) => entry.group === group);
     if (groupEntries.length === 0) continue;
-    sections.push({ group, label: MERGE_FIELD_GROUP_LABELS[group], entries: groupEntries });
+    sections.push({
+      group,
+      label: mergeFieldGroupLabel(group),
+      entries: groupEntries,
+      subjects: subjectSectionsOf(groupEntries),
+    });
   }
   return sections;
+}
+
+function subjectSectionsOf(
+  entries: readonly MergeFieldEntry[],
+): readonly MergeFieldSubjectSection[] {
+  const order: string[] = [];
+  const bySubject = new Map<string, MergeFieldEntry[]>();
+  for (const entry of entries) {
+    const bucket = bySubject.get(entry.subject);
+    if (bucket === undefined) {
+      order.push(entry.subject);
+      bySubject.set(entry.subject, [entry]);
+    } else {
+      bucket.push(entry);
+    }
+  }
+  return order.map((subject) => ({
+    subject,
+    label: bySubject.get(subject)?.[0]?.subjectLabel ?? subject,
+    entries: bySubject.get(subject) ?? [],
+  }));
 }
 
 /** The entry for a key, or `null` when the catalog has none — the unrecognized-placeholder case. */
@@ -44,9 +89,21 @@ export function findCatalogEntry(catalog: MergeFieldCatalog, key: string): Merge
 /**
  * The words a search should match an entry on. The KEY is included deliberately: someone who does
  * know the key path should find the field by typing it, even though nobody is asked to.
+ *
+ * The SYNONYMS and the SUBJECT LABEL are what make a firm's own vocabulary work — someone typing
+ * "defendant" finds the opposing party, "PR" finds the personal representative, "SSN" finds the tax
+ * identifier. They are declared per facet and per subject upstream, so the declared list stays about
+ * as long as the registries rather than as long as the catalog.
  */
 export function catalogSearchKeywords(entry: MergeFieldEntry): readonly string[] {
-  return [entry.label, entry.key, entry.description, MERGE_FIELD_GROUP_LABELS[entry.group]];
+  return [
+    entry.label,
+    entry.key,
+    entry.description,
+    entry.subjectLabel,
+    mergeFieldGroupLabel(entry.group),
+    ...entry.synonyms,
+  ];
 }
 
 /**

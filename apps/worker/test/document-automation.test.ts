@@ -1081,7 +1081,7 @@ describe("a firm's own fields, and its letterhead, end to end", () => {
     ).json()) as RegisteredTemplateBody;
     const produced = await assembleAndRead(registered.versionId);
     expect(produced.absentFieldKeys).toEqual(["location.letterheadLogo"]);
-    expect(produced.documentText).toContain("[LOCATION LETTERHEAD LOGO]");
+    expect(produced.documentText).toContain("[LETTERHEAD LOGO]");
   });
 
   it("refuses a letterhead image that is not a PNG or a JPEG, whatever it is called", async () => {
@@ -1163,7 +1163,7 @@ async function seedMatterAtLocation(locationId: string): Promise<string> {
     widenedCookie,
   );
   expect(created.status, await created.clone().text()).toBe(201);
-  return ((await created.json()) as { matterId: string }).matterId;
+  return (await created.json()).matterId;
 }
 
 // The smallest PNG whose IHDR declares a size — all the engine reads out of one.

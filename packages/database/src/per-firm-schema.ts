@@ -2463,6 +2463,45 @@ export const documentTemplateVersion = sqliteTable(
 // listed and deleted outright rather than archived. Deleting one changes nothing already registered —
 // a template version's bytes and manifest are immutable, and the mapping only ever affected the moment
 // of conversion.
+// Which registered template versions bind which merge keys — the index behind "where is this field
+// used", the picker's usage ordering, and the guard that refuses to destroy a firm's own field a
+// template names.
+//
+// The objection to a bindings table is that it is a second copy of a fact the manifest already states,
+// with its own way of going stale. That objection is answered by immutability rather than waved at: A
+// TEMPLATE VERSION NEVER CHANGES. These rows are derived from one and written in the same batch as it,
+// and neither side ever moves again — so there is no update path, no reconciliation, and no staleness
+// mode. What it buys is an index seek where the alternative is `instr()` over every stored manifest.
+export const documentTemplateFieldBinding = sqliteTable(
+  "document_template_field_binding",
+  {
+    templateVersionId: text("template_version_id")
+      .notNull()
+      .$type<DocumentTemplateVersionId>()
+      .references((): AnySQLiteColumn => documentTemplateVersion.id),
+    // The merge key the version's manifest names. Not a foreign key: the dictionary is code, not a
+    // table, and a binding onto a key a later dictionary deprecates is exactly what this index exists
+    // to report rather than a row the database should have refused.
+    mergeKey: text("merge_key").notNull(),
+  },
+  (table) => [
+    // One row per distinct key per version, and the pair is the whole identity — there is nothing else
+    // to record about a binding, and no surrogate key would be looked up by.
+    primaryKey({ columns: [table.templateVersionId, table.mergeKey] }),
+    // The other direction: every version that binds one key. The primary key serves "what does this
+    // version bind"; this serves "who binds this field", which is the question an administrator asks
+    // before deprecating one and the guard asks before destroying one.
+    index("document_template_field_binding_merge_key_index").on(
+      table.mergeKey,
+      table.templateVersionId,
+    ),
+    check(
+      "document_template_field_binding_merge_key_nonempty_check",
+      sql`length(${table.mergeKey}) > 0`,
+    ),
+  ],
+);
+
 export const documentTemplateFieldMapping = sqliteTable(
   "document_template_field_mapping",
   {

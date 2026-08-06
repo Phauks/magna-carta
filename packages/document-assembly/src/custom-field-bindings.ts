@@ -1,7 +1,9 @@
 import { effectiveNumberScale } from "@magna-carta/custom-fields/number-scale";
 import type { CustomFieldKind } from "@magna-carta/custom-fields/types";
 import { MONEY_SCALE } from "@magna-carta/money/money";
-import type { DictionaryEntry } from "./dictionary.ts";
+import type { DictionaryEntry } from "./catalog/entry.ts";
+import { exampleRenderingsFor } from "./catalog/examples.ts";
+import { mergeSubject } from "./catalog/subjects.ts";
 import type { AbsenceBehaviour, MergeValue, MergeValueType } from "./types.ts";
 
 // A firm's own fields, as merge fields.
@@ -58,21 +60,75 @@ export function isCustomMergeKey(key: string): boolean {
 // - A reference field is TEXT holding the REFERENCED RECORD'S LABEL, never the handle. A
 //   `directoryPerson_…` printed into a letter is not a fact anyone can read; the label is the fact the
 //   firm meant when it pointed one record at another.
+//
+// Each kind also carries an INVENTED sample value, rendered through the real format table to produce the
+// entry's example renderings. Never a firm's data: the catalogue is read before any matter is chosen.
 const KIND_BINDINGS: Readonly<
-  Record<CustomFieldKind, { readonly valueType: MergeValueType; readonly defaultFormat: string }>
+  Record<
+    CustomFieldKind,
+    {
+      readonly valueType: MergeValueType;
+      readonly defaultFormat: string;
+      readonly example: MergeValue;
+    }
+  >
 > = {
-  checkbox: { valueType: "boolean", defaultFormat: "yesNo" },
-  date: { valueType: "date", defaultFormat: "long" },
-  time: { valueType: "text", defaultFormat: "plain" },
-  number: { valueType: "number", defaultFormat: "plain" },
-  currency: { valueType: "money", defaultFormat: "currency" },
-  picklist: { valueType: "text", defaultFormat: "plain" },
-  "single-line": { valueType: "text", defaultFormat: "plain" },
-  "multi-line": { valueType: "text", defaultFormat: "plain" },
-  url: { valueType: "text", defaultFormat: "plain" },
-  email: { valueType: "text", defaultFormat: "plain" },
-  "matter-reference": { valueType: "text", defaultFormat: "plain" },
-  "contact-reference": { valueType: "text", defaultFormat: "plain" },
+  checkbox: {
+    valueType: "boolean",
+    defaultFormat: "yesNo",
+    example: { kind: "boolean", value: true },
+  },
+  date: {
+    valueType: "date",
+    defaultFormat: "long",
+    example: { kind: "date", isoDate: "2026-03-14" },
+  },
+  time: { valueType: "text", defaultFormat: "plain", example: { kind: "text", text: "09:30" } },
+  number: {
+    valueType: "number",
+    defaultFormat: "plain",
+    example: { kind: "number", value: 1200, scale: 0 },
+  },
+  currency: {
+    valueType: "money",
+    defaultFormat: "currency",
+    example: { kind: "money", amountMinor: 120000, currencyCode: "USD" },
+  },
+  picklist: {
+    valueType: "text",
+    defaultFormat: "plain",
+    example: { kind: "text", text: "Selected option" },
+  },
+  "single-line": {
+    valueType: "text",
+    defaultFormat: "plain",
+    example: { kind: "text", text: "Recorded text" },
+  },
+  "multi-line": {
+    valueType: "text",
+    defaultFormat: "plain",
+    example: { kind: "text", text: "Several lines of recorded text." },
+  },
+  url: {
+    valueType: "text",
+    defaultFormat: "plain",
+    example: { kind: "text", text: "https://example.test/record" },
+  },
+  email: {
+    valueType: "text",
+    defaultFormat: "plain",
+    example: { kind: "text", text: "someone@example.test" },
+  },
+  "matter-reference": {
+    valueType: "text",
+    defaultFormat: "plain",
+    example: { kind: "text", text: "Estate of Rowan Ashcroft" },
+  },
+  "contact-reference": {
+    valueType: "text",
+    defaultFormat: "plain",
+    example: { kind: "text", text: "Rowan Ashcroft" },
+  },
 };
 
 // Every firm-defined field is `placeholder`, without exception and without a per-field override.
@@ -84,6 +140,10 @@ const KIND_BINDINGS: Readonly<
 // A per-field absence policy is a real feature, but it belongs on the field's own definition surface
 // where an administrator can see what they are choosing, not inferred from a kind.
 const CUSTOM_FIELD_ABSENCE: AbsenceBehaviour = "placeholder";
+
+// The one subject a firm supplies the facets of. Read from the registry rather than restated, so the
+// group heading a firm's fields sit under is the registry's and cannot drift from it.
+const CUSTOM_SUBJECT = mergeSubject("custom");
 
 // One `custom_field` row, as the dictionary needs it. The projection is exactly the definition columns —
 // no value columns — because the catalogue is what a template is AUTHORED against and must be readable
@@ -125,6 +185,17 @@ export function customFieldDictionaryEntries(
       // The field's own label, which is what an author recognizes in the field list — the handle is what
       // the template stores, the name is what a human picks from.
       description: row.name,
+      label: row.name,
+      group: CUSTOM_SUBJECT?.group ?? "custom",
+      subject: "custom",
+      // A firm with thirty of its own fields must not bury the client's name, and a firm with three
+      // wants them in front of an author. Ordering is what decides that; nothing here is ever hidden.
+      prominence: "secondary",
+      // The field's own name is the search vocabulary a firm would type, and it is already matched
+      // through the label — so there is nothing to declare here that the platform could know.
+      synonyms: [],
+      exampleRenderings: exampleRenderingsFor(binding.valueType, binding.example),
+      status: "current",
     });
   }
   return entries;

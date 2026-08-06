@@ -177,7 +177,7 @@ describe("absence handling", () => {
     const result = assemble(bytes, contextOf({}));
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(visibleTextOf(partsOfResultBytes(result.bytes))).toBe("Office: [LOCATION NAME]");
+    expect(visibleTextOf(partsOfResultBytes(result.bytes))).toBe("Office: [OFFICE NAME]");
     expect(result.absences).toEqual([
       { key: "location.name", rendered: "placeholder", reason: null },
     ]);
@@ -218,7 +218,15 @@ describe("absence handling", () => {
     expect(readPartText(partsOfResultBytes(result.bytes), "word/document.xml")).not.toContain("{{");
   });
 
-  it("derives a readable marker from a dotted camel-case key", () => {
+  // The marker spells out the LABEL an author picked the field from, in the document they are
+  // proofreading — "[OPPOSING COUNSEL'S NAME]" rather than "[OPPOSING COUNSEL DISPLAY NAME]". The
+  // key-derived form stays the fallback for a key with no entry, which is a template registered against
+  // a catalogue that has since narrowed.
+  it("spells out the field's label, and falls back to the key when there is none", () => {
+    expect(absenceMarkerFor("client.displayName", "Client's name")).toBe("[CLIENT'S NAME]");
+    expect(absenceMarkerFor("opposingCounsel.displayName", "Opposing counsel's name")).toBe(
+      "[OPPOSING COUNSEL'S NAME]",
+    );
     expect(absenceMarkerFor("client.displayName")).toBe("[CLIENT DISPLAY NAME]");
     expect(absenceMarkerFor("matter.number")).toBe("[MATTER NUMBER]");
   });

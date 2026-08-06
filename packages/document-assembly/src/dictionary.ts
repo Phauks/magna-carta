@@ -1,244 +1,34 @@
-import type { AbsenceBehaviour, MergeSource, MergeValueType, Sensitivity } from "./types.ts";
-import { DIRECTORY_ROLE_DICTIONARY_ENTRIES } from "./directory-role-bindings.ts";
-import { PROTECTED_DICTIONARY_ENTRIES } from "./protected-bindings.ts";
+import type { MergeValueType } from "./types.ts";
+import { generateDictionary } from "./catalog/generate.ts";
 import { legalFormatsFor } from "./format.ts";
 import type { ExpressionType } from "./expression/catalog.ts";
 import type { ExpressionScope, NameBinding } from "./expression/check.ts";
 
 // The merge-field data dictionary: a declarative catalogue, one entry per key, rather than a resolver
-// per field. A growing list of similar things is a declaration — adding a merge field is a row here plus
-// a line in the source's batched read, never a new code path on the assembly hot path.
+// per field. Adding a merge field is a declaration plus a line in the source's batched read, never a new
+// code path on the assembly hot path.
+//
+// The catalogue is GENERATED — the cross product of a subject registry and a facet registry, plus the
+// written-out facts of the one-of-a-kind subjects. See `src/catalog/`. Everything below consumes
+// `readonly DictionaryEntry[]` and is indifferent to how the array was built.
 //
 // The dictionary is also what makes batched resolution possible: because normalization already recorded
 // which keys a template version uses, looking each up here plans every read before any XML is touched.
 
-export interface DictionaryEntry {
-  // The stable, user-visible token a paralegal types between braces.
-  readonly key: string;
-  // Which batched read supplies it. One read per source per assembly, regardless of field count.
-  readonly source: MergeSource;
-  readonly valueType: MergeValueType;
-  // The rendering applied when the placeholder names no format of its own.
-  readonly defaultFormat: string;
-  // A `protected` entry resolves through the protected-field read path and nothing else, so the acting
-  // member's decrypt permission is checked and an audit row is written. A member who does not hold that
-  // permission gets a declared absence naming the field and the permission — never the value, never a
-  // silent blank, and never a failed assembly. See protected-bindings.ts.
-  readonly sensitivity: Sensitivity;
-  readonly absence: AbsenceBehaviour;
-  // What the field inspector shows an author. Consumer-facing text: it names the fact, not the schema.
-  readonly description: string;
-  // Present only on a `list` entry: the fields ONE ITEM of the collection carries, which is what a
-  // repeating block pushes into scope as `<collectionKey>.<field>`. A collection is read once, as a
-  // whole; the item fields cost no read of their own.
-  readonly itemFields?: readonly DictionaryItemField[];
-}
+export type {
+  DictionaryEntry,
+  DictionaryItemField,
+  EntryStatus,
+  MergeFieldAvailability,
+} from "./catalog/entry.ts";
+export { availabilityFor, availabilityNoteFor } from "./catalog/entry.ts";
 
-export interface DictionaryItemField {
-  readonly name: string;
-  readonly valueType: MergeValueType;
-  readonly description: string;
-}
+import type { DictionaryEntry } from "./catalog/entry.ts";
 
-// The platform's shipped entries: matter, the matter's home location, the firm, the matter's client
-// party, the Directory role sources the matter's party links supply, and system values. A firm's own
-// fields widen this list per firm at read time (custom-field-bindings.ts); nothing else does.
-//
-// `location.*` resolves from THE MATTER'S home location, never the acting member's, so a document
-// assembled by a member of one office on a matter belonging to another carries the correct office
-// identity. That is the whole reason the Locations model carries letterhead columns.
-export const DICTIONARY: readonly DictionaryEntry[] = [
-  {
-    key: "matter.number",
-    source: "matter",
-    valueType: "text",
-    defaultFormat: "plain",
-    sensitivity: "ordinary",
-    // A pleading caption without a matter number is not a filing. An absence here stops the assembly
-    // rather than producing a document that looks finished.
-    absence: "fail",
-    description: "The matter's file number.",
-  },
-  {
-    key: "matter.title",
-    source: "matter",
-    valueType: "text",
-    defaultFormat: "plain",
-    sensitivity: "ordinary",
-    absence: "fail",
-    description: "The matter's title.",
-  },
-  {
-    key: "matter.description",
-    source: "matter",
-    valueType: "text",
-    defaultFormat: "plain",
-    sensitivity: "ordinary",
-    absence: "blank",
-    description: "The matter's description, if one was recorded.",
-  },
-  {
-    key: "matter.status",
-    source: "matter",
-    valueType: "text",
-    defaultFormat: "plain",
-    sensitivity: "ordinary",
-    absence: "placeholder",
-    description: "Whether the matter is prospective, open, or closed.",
-  },
-  {
-    key: "matter.openedOn",
-    source: "matter",
-    valueType: "date",
-    defaultFormat: "long",
-    sensitivity: "ordinary",
-    absence: "placeholder",
-    description: "The date the matter was opened, in the matter's office's time zone.",
-  },
-  {
-    key: "matter.eBilling",
-    source: "matter",
-    valueType: "boolean",
-    defaultFormat: "yesNo",
-    sensitivity: "ordinary",
-    // A boolean the matter always carries: it is on or it is off, never missing. Declared `fail` so a
-    // matter row that somehow supplied nothing is a loud defect rather than a silently absent clause.
-    absence: "fail",
-    description: "Whether the matter bills through an electronic billing channel.",
-  },
-  {
-    key: "matter.parties",
-    source: "party",
-    valueType: "list",
-    // A list is never rendered — a repeating block walks it — so its default format is the empty
-    // rendering the format table declares for the type.
-    defaultFormat: "",
-    sensitivity: "ordinary",
-    // A matter with no linked parties is an empty list, not an absence: a repeating block over it
-    // simply produces nothing, which is the correct document.
-    absence: "blank",
-    description: "Everyone linked to the matter, for a repeating block to walk.",
-    itemFields: [
-      {
-        name: "displayName",
-        valueType: "text",
-        description: "The party's name as it should appear in a document.",
-      },
-      { name: "role", valueType: "text", description: "The role the party plays on the matter." },
-      {
-        name: "kind",
-        valueType: "text",
-        description: "Whether the party is a person or an organisation.",
-      },
-    ],
-  },
-  {
-    key: "client.displayName",
-    source: "party",
-    valueType: "text",
-    defaultFormat: "plain",
-    sensitivity: "ordinary",
-    absence: "fail",
-    description: "The client's name as it should appear in a document.",
-  },
-  {
-    key: "client.code",
-    source: "party",
-    valueType: "text",
-    defaultFormat: "plain",
-    sensitivity: "ordinary",
-    absence: "blank",
-    description: "The firm's own client code for this client, if one was recorded.",
-  },
-  {
-    key: "location.name",
-    source: "location",
-    valueType: "text",
-    defaultFormat: "plain",
-    sensitivity: "ordinary",
-    absence: "placeholder",
-    description: "The name of the office the matter belongs to.",
-  },
-  {
-    key: "location.addressBlock",
-    source: "location",
-    valueType: "text",
-    defaultFormat: "plain",
-    sensitivity: "ordinary",
-    absence: "placeholder",
-    description: "The office's address block, as it appears on letterhead.",
-  },
-  {
-    key: "location.footer",
-    source: "location",
-    valueType: "text",
-    defaultFormat: "plain",
-    sensitivity: "ordinary",
-    absence: "blank",
-    description: "The office's letterhead footer text.",
-  },
-  {
-    key: "location.remitTo",
-    source: "location",
-    valueType: "text",
-    defaultFormat: "plain",
-    sensitivity: "ordinary",
-    absence: "placeholder",
-    description: "Where the office asks payment to be sent.",
-  },
-  {
-    key: "location.jurisdiction",
-    source: "location",
-    valueType: "text",
-    defaultFormat: "plain",
-    sensitivity: "ordinary",
-    absence: "placeholder",
-    description: "The jurisdiction the office practises in.",
-  },
-  {
-    key: "location.letterheadLogo",
-    source: "location",
-    valueType: "image",
-    // An image has no rendering to name. The empty default is what makes every `:format` suffix illegal
-    // by the same check every other entry passes through.
-    defaultFormat: "",
-    sensitivity: "ordinary",
-    // An office that has uploaded no logo yet is a firm mid-setup, not a document that must not be
-    // filed — and a marker where the logo goes is exactly the reminder that produces the upload.
-    absence: "placeholder",
-    description: "The office's letterhead logo, drawn at the size the office set for it.",
-  },
-  {
-    key: "firm.name",
-    source: "firm",
-    valueType: "text",
-    defaultFormat: "plain",
-    sensitivity: "ordinary",
-    absence: "fail",
-    description: "The firm's name.",
-  },
-  {
-    key: "system.today",
-    source: "system",
-    valueType: "date",
-    defaultFormat: "long",
-    sensitivity: "ordinary",
-    // A system value can always be produced, so an absence here would be a defect rather than missing
-    // firm data — failing loud is the honest treatment.
-    absence: "fail",
-    description: "The date the document was assembled, in the matter's office's time zone.",
-  },
-  // The matter's other parties, one group of entries per role the platform ships a source for. Generated
-  // rather than written out because the three keys a role contributes are the same three every time, and
-  // a hand-written copy per role is four chances to give one of them a different absence behaviour than
-  // its siblings. They resolve from the SAME party read `matter.parties` uses — see
-  // directory-role-bindings.ts.
-  ...DIRECTORY_ROLE_DICTIONARY_ENTRIES,
-  // The client's sealed identifiers. Every one is `sensitivity: protected`, which is not a label on the
-  // row but the routing decision: resolution reaches these through the protected-field chokepoint's
-  // permission-gated, audited decrypt and through nothing else — see protected-bindings.ts.
-  ...PROTECTED_DICTIONARY_ENTRIES,
-];
+// The platform's shipped entries: the matter, the matter's home office, the firm, the matter's party
+// subjects and their facets, the client's sealed identifiers, and the document's own values. A firm's
+// own fields widen this list per firm at read time (custom-field-bindings.ts); nothing else does.
+export const DICTIONARY: readonly DictionaryEntry[] = generateDictionary();
 
 // One index per entry list, built once and remembered against the list itself. A firm's catalogue is
 // assembled per registration and per assembly and then looked up once per placeholder, so rebuilding the
@@ -303,6 +93,9 @@ export function dictionaryForFirm(
 // before the evaluator ever sees it — so time-of-day arithmetic is not expressible, which is correct.
 // Legal deadlines are date arithmetic, and an expression that could subtract hours would silently make
 // a filing date depend on the hour a job happened to run.
+// A NAME IS TEXT IN THE LANGUAGE, at its default rendering. A document prints text, and a computation
+// over a name part is not something this language does — `upper(client.displayName)` is the composition
+// an author writes, visibly, and it operates on the rendered name exactly as it operates on any string.
 // Returns undefined for a value type the language has NO type for, which today is exactly one: an image.
 // There is nothing an expression could do with a picture — it cannot be compared, concatenated, tested,
 // or computed with — so rather than invent a type whose every operation is an error, the key is simply
@@ -325,6 +118,7 @@ export function expressionTypeOf(valueType: MergeValueType): ExpressionType | un
     case "list":
       return "list";
     case "reference":
+    case "name":
     case "text":
       return "text";
   }

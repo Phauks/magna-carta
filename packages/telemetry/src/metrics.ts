@@ -149,6 +149,15 @@ export const documentTemplateExpressionCheck = defineMetric("documentTemplate.ex
   "outcome",
   "failureKind",
 ] as const);
+// Whether a registration's binding-index write landed. The index is what answers "which templates
+// break if this key goes away", so a registration whose bindings did not commit is a template that has
+// become invisible to deprecation reporting and to the guard on destroying a firm's own field.
+// NO MERGE-FIELD KEY IS EVER A DIMENSION — the existing rule, restated here because a generated
+// catalogue makes keys plentiful and the temptation to count them by name grows with it. A key names a
+// firm's own custom field as often as it names a platform one, and both are high-cardinality.
+export const documentTemplateFieldBinding = defineMetric("documentTemplate.fieldBinding", [
+  "outcome",
+] as const);
 // How each expression site came out at assembly. A rising `unresolved` on conditions is the
 // template-and-data drift signal, one layer up from `documentAssembly.absentField`: it says a firm's
 // templates are asking questions its data can no longer answer.

@@ -147,6 +147,65 @@ describe("resolution issues one read per source, never one per field", () => {
     expect(large.reads).toHaveLength(3);
   });
 
+  // THE READ BUDGET, stated against the catalogue rather than against a number somebody typed. Cost
+  // tracks the number of SOURCES a manifest touches, so a catalogue that doubles its keys without
+  // adding a source costs exactly what it cost before — and a source added without a batched read shows
+  // up here rather than in a code review.
+  it("costs the whole catalogue exactly the reads its distinct sources issue", async () => {
+    const { database, reads } = recordingDatabase();
+    const result = await resolveMergeContext(database, {
+      ...input,
+      manifest: manifestOfSize(DICTIONARY.length),
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    // The sources the catalogue declares, minus the three that issue no statement of their own: the
+    // firm's name arrives as a caller input, the document's own date is produced rather than read, and a
+    // sealed identifier is decrypted one at a time through the chokepoint reader rather than batched.
+    const ISSUES_NO_STATEMENT = new Set(["firm", "system", "protectedIdentifier"]);
+    const readingSources = new Set(
+      DICTIONARY.map((entry) => entry.source).filter((source) => !ISSUES_NO_STATEMENT.has(source)),
+    );
+    expect(reads).toHaveLength(readingSources.size);
+  });
+
+  // A SUBJECT COSTS NO READ. Every party subject is answered by a pass over rows the one party read
+  // already returned, so naming all of them costs what naming one costs — the property that lets the
+  // subject registry grow without the read count following it.
+  it("costs the same reads for every party subject as for one", async () => {
+    const partyKeys = DICTIONARY.filter((entry) => entry.source === "party").map(
+      (entry) => entry.key,
+    );
+    const many = recordingDatabase();
+    await resolveMergeContext(many.database, {
+      ...input,
+      manifest: manifestOf(
+        partyKeys.map((key) => ({
+          key,
+          format: null,
+          occurrences: 1,
+          parts: [],
+          forms: ["brace" as const],
+        })),
+      ),
+    });
+    const one = recordingDatabase();
+    await resolveMergeContext(one.database, {
+      ...input,
+      manifest: manifestOf([
+        {
+          key: "opposingParty.displayName",
+          format: null,
+          occurrences: 1,
+          parts: [],
+          forms: ["brace"],
+        },
+      ]),
+    });
+    expect(many.reads.map((read) => read.sql)).toEqual(one.reads.map((read) => read.sql));
+    expect(many.reads).toHaveLength(2);
+  });
+
   it("reads nothing at all for a manifest that names only firm and system fields", async () => {
     const { database, reads } = recordingDatabase();
     const result = await resolveMergeContext(database, {
@@ -192,9 +251,12 @@ describe("resolution issues one read per source, never one per field", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(reads).toHaveLength(1);
+    // The matter's own row records the client's name as a STRING, so the value carries only its
+    // display part — which is exactly what the default rendering prints, and exactly why a rendering
+    // that needs a separated part is a declared absence rather than a guess made from the string.
     expect(result.context.values.get("client.displayName")).toEqual({
-      kind: "text",
-      text: "Acme Holdings LLC",
+      kind: "name",
+      display: "Acme Holdings LLC",
     });
   });
 });
