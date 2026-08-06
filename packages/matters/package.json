@@ -11,6 +11,7 @@
     "./numbering/scheme-statements": "./src/numbering/scheme-statements.ts",
     "./numbering/scheme-service": "./src/numbering/scheme-service.ts",
     "./matter-statements": "./src/matter-statements.ts",
+    "./matter-party": "./src/matter-party.ts",
     "./matter-service": "./src/matter-service.ts",
     "./matter-type-statements": "./src/matter-type-statements.ts",
     "./system-matter-statements": "./src/system-matter-statements.ts",

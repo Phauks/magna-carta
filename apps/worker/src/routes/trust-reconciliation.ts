@@ -11,6 +11,7 @@ import type {
   TrustReconciliationMatchId,
   UserId,
 } from "@magna-carta/identifiers/types";
+import { isValidCalendarDate, LedgerValidationError } from "@magna-carta/ledger/validate";
 import { currencyFromCode, money } from "@magna-carta/money/money";
 import {
   composeTrustBankStatement,
@@ -47,6 +48,7 @@ import { idempotencyKeyHeader, identifierField, identifierPathParam } from "../c
 import { Problem, problemJson, type ProblemResponse } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-problems.ts";
+import { problemResponseForLedgerRefusal } from "../ledger-refusal-problems.ts";
 
 // The three-way reconciliation surface: recording what the bank said, tying its lines to what the
 // firm recorded, and freezing the proof.
@@ -65,7 +67,13 @@ import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-p
 const READ = "trust:read" as const;
 const MANAGE = "trust:manage" as const;
 
-const civilDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+// A real calendar date, not a shape. A bare regex accepts 2026-02-31, which is stored (the period
+// bounds are compared lexically), then parses to NaN in the match scorer, is offered no candidate,
+// and sits unmatched forever with nothing saying why.
+const civilDate = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/)
+  .refine(isValidCalendarDate, { message: "not a calendar date" });
 const LineDirection = z.enum(["deposit", "withdrawal"]);
 
 const StatementLine = z
@@ -141,9 +149,16 @@ const StatementAck = z
 
 const DateFormat = z.enum(["iso", "month-day-year", "day-month-year"]);
 
+// A statement file records at most MAX_TRUST_BANK_STATEMENT_LINES rows, and a statement that size
+// is well under a megabyte of CSV. The cap is on the REQUEST rather than only on the row count
+// because the parser reads the whole body character by character before any row ceiling can apply:
+// without it a 40 MB file is fully parsed and mapped on the request path and only then refused for
+// having too many rows, which costs as much as accepting it would have.
+const MAX_STATEMENT_FILE_CHARACTERS = 2_000_000;
+
 const ImportPreviewRequest = z
   .object({
-    fileText: z.string().min(1),
+    fileText: z.string().min(1).max(MAX_STATEMENT_FILE_CHARACTERS),
     // Stated, never detected: 03/04/2026 is two different days on two sides of an ocean, and a
     // reconciliation built on the wrong one is wrong in a way nobody notices.
     dateFormat: DateFormat.optional(),
@@ -192,7 +207,7 @@ const ImportRequest = z
     currency: z.literal("USD"),
     statementReference: z.string().min(1).nullable().optional(),
     supersedesStatementId: identifierField("trustBankStatement").nullable().optional(),
-    fileText: z.string().min(1),
+    fileText: z.string().min(1).max(MAX_STATEMENT_FILE_CHARACTERS),
     dateFormat: DateFormat.optional(),
     confirmedFingerprint: z.string().min(1),
   })
@@ -860,6 +875,11 @@ export function registerTrustReconciliationRoutes(
       });
     } catch (caught) {
       if (caught instanceof TrustValidationError) return reconciliationErrorResponse(c, caught);
+      // The ledger refuses on its own terms too, and its refusals are ordinary bad input here — a
+      // date that is not a date, an entry that does not balance. A different error class from the
+      // trust package's, so without this arm they reach the app error boundary as a 500.
+      if (caught instanceof LedgerValidationError)
+        return problemResponseForLedgerRefusal(c, caught);
       throw caught;
     }
     if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch") {
@@ -1149,11 +1169,19 @@ export function registerTrustReconciliationRoutes(
     { ...withdrawMatchRoute, middleware: chokepointMiddleware(chokepoint, withdrawMatchRoute) },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
-      const { matchId } = c.req.valid("param");
+      // BOTH segments are used. The match row knows its own reconciliation, so the path's first
+      // segment is not how the period is resolved — but a URL that asserts a containment the handler
+      // never checks will answer 201 for a withdrawal in a period the caller never named, which is
+      // how a client-side mix-up becomes a match withdrawn from the wrong period.
+      const { reconciliationId, matchId } = c.req.valid("param");
       return commitWrite<z.infer<typeof MatchAck>>(c, async (withdrawnBy) => {
         const composed = await composeTrustReconciliationUnmatch(
           firm.firmDatabase,
-          { matchId: matchId as TrustReconciliationMatchId, withdrawnBy },
+          {
+            matchId: matchId as TrustReconciliationMatchId,
+            reconciliationId: reconciliationId as TrustReconciliationId,
+            withdrawnBy,
+          },
           trustOptions(),
         );
         return {

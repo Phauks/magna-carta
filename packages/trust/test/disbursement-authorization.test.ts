@@ -38,13 +38,12 @@ const fixtureWithJurisdiction = () => trustFixture({ jurisdiction: "US-NV" });
 
 async function fundedFixture(amountMinor: number) {
   const fixture = await fixtureWithJurisdiction();
-  const matterId = await seedMatter(fixture, "Webb");
+  const matterId = await seedMatter(fixture, "Webb", "entity_webb");
   const deposit = await composeTrustDeposit(
     fixture.database,
     {
       trustAccountId: fixture.trustAccountId,
       to: {
-        clientEntityId: "entity_webb",
         matterId,
         clientNodeName: "Trust — Webb",
         matterLeafName: `Trust — Webb — ${matterId}`,

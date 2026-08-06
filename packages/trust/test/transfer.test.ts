@@ -1,4 +1,4 @@
-import { money, USD } from "@magna-carta/money/money";
+import { EUR, money, USD } from "@magna-carta/money/money";
 import { describe, expect, it } from "vitest";
 import { composeTrustEntry } from "../src/composition-guard.ts";
 import { assertTrustFitness } from "../src/fitness.ts";
@@ -125,6 +125,24 @@ describe("trust-to-operating transfer", () => {
     );
     await commit(fixture.database, permitted.effect);
     await assertTrustFitness(fixture.database);
+  });
+
+  // The guard every sibling composer runs and this one did not. Without it the availability
+  // comparison below reads a balance denominated in the ACCOUNT's currency and compares it to this
+  // amount's minor units — two different things that happen to typecheck — and the mismatch surfaces
+  // only later, from the ledger, naming a line instead of the movement.
+  it("refuses an amount in a currency the trust account does not hold", async () => {
+    const { fixture, leaf } = await fundedLeaf(500000);
+    await expect(
+      composeTrustToOperatingTransfer(
+        fixture.database,
+        {
+          ...transferInput(fixture, leaf, 100000),
+          amount: money(100000, EUR),
+        },
+        { ...options, earnedFeePrecondition: permitting },
+      ),
+    ).rejects.toMatchObject({ code: "movement-currency-mismatch" });
   });
 
   it("refuses a trust account standing in as the operating side", async () => {

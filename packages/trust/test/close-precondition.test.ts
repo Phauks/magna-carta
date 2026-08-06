@@ -24,8 +24,8 @@ const CLOSE_PRECONDITIONS = [matterTrustClosePrecondition];
 
 const fixtureWithJurisdiction = () => trustFixture({ jurisdiction: "US-NV" });
 
-const leafReference = (clientEntityId: string, matterId: string, label: string) => ({
-  clientEntityId,
+// The destination names only the matter — the client is derived from that matter's own client party.
+const leafReference = (matterId: string, label: string) => ({
   matterId: matterId as never,
   clientNodeName: `Trust — ${label}`,
   matterLeafName: `Trust — ${label} — ${matterId}`,
@@ -45,7 +45,7 @@ async function depositTo(
     fixture.database,
     {
       trustAccountId: fixture.trustAccountId,
-      to: leafReference(`entity_${label.toLowerCase()}`, matterId, label),
+      to: leafReference(matterId, label),
       amount: usd(amountMinor),
       effectiveDate: "2026-08-05",
       description: "Retainer received",
@@ -102,7 +102,7 @@ function depositBeforeFirstCommit(
 describe("the matter-close trust precondition", () => {
   it("closes a matter that holds no trust ledger at all", async () => {
     const fixture = await fixtureWithJurisdiction();
-    const matterId = await seedMatter(fixture, "Nguyen");
+    const matterId = await seedMatter(fixture, "Nguyen", "entity_nguyen");
 
     expect(await readMatterTrustPositions(fixture.database, matterId)).toEqual([]);
     await closeMatter(fixture.database, matterId, closeOptions(fixture.memberUserId as UserId));
@@ -132,7 +132,7 @@ describe("the matter-close trust precondition", () => {
 
   it("refuses a matter that still holds client money, naming the balance and the ways out", async () => {
     const fixture = await fixtureWithJurisdiction();
-    const matterId = await seedMatter(fixture, "Webb");
+    const matterId = await seedMatter(fixture, "Webb", "entity_webb");
     await depositTo(fixture, matterId, "Webb", 125_000);
 
     const caught = await closeMatter(
@@ -156,7 +156,7 @@ describe("the matter-close trust precondition", () => {
 
   it("names the held portion when part of the balance is under a disputed-funds hold", async () => {
     const fixture = await fixtureWithJurisdiction();
-    const matterId = await seedMatter(fixture, "Webb");
+    const matterId = await seedMatter(fixture, "Webb", "entity_webb");
     await depositTo(fixture, matterId, "Webb", 125_000);
     const node = await loadMatterTrustLeaf(fixture.database, fixture.trustAccountId, matterId);
     const hold = await placeTrustHold(
@@ -205,7 +205,7 @@ describe("the matter-close trust precondition", () => {
 
   it("aborts the close batch when a deposit lands between the check and the commit", async () => {
     const fixture = await fixtureWithJurisdiction();
-    const matterId = await seedMatter(fixture, "Delacroix");
+    const matterId = await seedMatter(fixture, "Delacroix", "entity_delacroix");
     // The check reads an empty ledger; the deposit commits before the close batch does.
     const racing = depositBeforeFirstCommit(fixture.database, () =>
       depositTo(fixture, matterId, "Delacroix", 90_000),
@@ -228,7 +228,7 @@ describe("the matter-close trust precondition", () => {
 
   it("closes once the balance is disbursed back to zero", async () => {
     const fixture = await fixtureWithJurisdiction();
-    const matterId = await seedMatter(fixture, "Solberg");
+    const matterId = await seedMatter(fixture, "Solberg", "entity_solberg");
     await depositTo(fixture, matterId, "Solberg", 60_000);
     const node = await loadMatterTrustLeaf(fixture.database, fixture.trustAccountId, matterId);
     const disbursement = await composeTrustDisbursement(

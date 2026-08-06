@@ -24,6 +24,7 @@
     "@magna-carta/data-access": "workspace:*",
     "@magna-carta/identifiers": "workspace:*",
     "@magna-carta/ledger": "workspace:*",
+    "@magna-carta/matters": "workspace:*",
     "@magna-carta/money": "workspace:*",
     "@magna-carta/sequence-numbering": "workspace:*",
     "zod": "catalog:"

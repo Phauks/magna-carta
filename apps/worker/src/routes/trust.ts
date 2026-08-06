@@ -4,6 +4,8 @@ import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import type { MatterId, TrustAccountId, UserId } from "@magna-carta/identifiers/types";
+import { isValidCalendarDate, LedgerValidationError } from "@magna-carta/ledger/validate";
+import { readMatterClientEntityId } from "@magna-carta/matters/matter-party";
 import { currencyFromCode, money } from "@magna-carta/money/money";
 import { loadMatterTrustLeaf } from "@magna-carta/trust/account-tree";
 import {
@@ -37,6 +39,7 @@ import { idempotencyKeyHeader, identifierField, identifierPathParam } from "../c
 import { Problem, problemJson, type ProblemResponse } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-problems.ts";
+import { problemResponseForLedgerRefusal } from "../ledger-refusal-problems.ts";
 
 // Trust movements: client money into a matter's trust ledger, out of it, and reallocated between two
 // matters of one client. Every one of them is idempotency-REQUIRED, because a retried request that
@@ -63,16 +66,24 @@ const MANAGE = "trust:manage" as const;
 // gets that far.
 const BankMovementMethod = z.enum(["check", "cash", "wire", "electronic_transfer", "card"]);
 
-const civilDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+// A real calendar date, not a shape. The bare regex accepts 2026-02-30 and next week alike, and both
+// reach the ledger's own check as an error class this module does not map — so the member gets a 500
+// for a typo. Refusing at the schema means the common cases never travel that far, and the ones that
+// do (a backdated entry that is still in the future in UTC) surface as the 422 the contract declares.
+const civilDate = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/)
+  .refine(isValidCalendarDate, { message: "not a calendar date" });
 
 const DepositRequest = z
   .object({
     trustAccountId: identifierField("trustAccount"),
+    // The matter, and nothing about the client. Whose money this is follows from the matter's own
+    // client party — the link billing already resolves an invoice's client through — and is derived
+    // server-side. A caller-supplied client handle was the answer to the question the sub-ledger
+    // tree exists to ask, so naming another client's handle beside this matter was enough to file
+    // this receipt on that client's ledger.
     matterId: identifierField("matter"),
-    // The Directory handle for the client whose money this is. Required rather than derived: a
-    // matter's Directory client link does not exist yet, and a trust ledger attributed to the wrong
-    // client is the error the whole sub-ledger tree exists to prevent.
-    clientEntityId: z.string().min(1),
     amountMinor: z.number().int().positive(),
     currency: z.literal("USD"),
     effectiveDate: civilDate,
@@ -115,11 +126,11 @@ const MatterTransferRequest = z
   .object({
     trustAccountId: identifierField("trustAccount"),
     fromMatterId: identifierField("matter"),
+    // The destination matter, and nothing about its client. Each end's client is resolved from its
+    // own matter, so a destination belonging to another client is refused by the one-client rule
+    // against that matter's REAL client — rather than against a handle the caller chose to make the
+    // two ends agree, which is how $5,000 of one client's money reached another client's matter.
     toMatterId: identifierField("matter"),
-    // Carried explicitly rather than copied from the source ledger: a destination matter that
-    // belongs to another client must be REFUSED, and inheriting the source's client would instead
-    // re-attribute that matter's ledger to this one.
-    toClientEntityId: z.string().min(1),
     amountMinor: z.number().int().positive(),
     currency: z.literal("USD"),
     effectiveDate: civilDate,
@@ -552,7 +563,9 @@ function trustErrorResponse(
   }
   // Everything else the trust rules refuse on their own terms: a commingled entry, a second client
   // on one entry, a posting aimed at a roll-up, a closed account, a currency the account does not
-  // hold, a transfer to the matter it came from, a forbidden payment method.
+  // hold, a transfer to the matter it came from, a forbidden payment method, a matter with no client
+  // party to attribute the money to, or an existing client ledger filed under a different client
+  // than the matter's own.
   return problemJson(c, {
     type: "trust-movement-refused",
     title: "The trust rules refuse this movement",
@@ -576,7 +589,6 @@ interface MatterNamingRow {
 async function resolveLeafNames(
   database: SqlDatabase,
   matterId: MatterId,
-  clientEntityId: string,
 ): Promise<{ clientNodeName: string; matterLeafName: string }> {
   // `.all()` + `results[0]`, never `.first()` — the node-sqlite adapter the fixtures run on has no
   // `.first()`, so the whole platform reads this way.
@@ -591,8 +603,14 @@ async function resolveLeafNames(
     // Without it the movement would fail later on the node's foreign key, as an opaque batch abort.
     throw new TrustValidationError("unknown-trust-node", `no such matter: ${matterId}`);
   }
+  // The display name is what a person reads on a report. When the matter carries none, the account
+  // falls back to the client's Directory handle — resolved from the matter's client party, the same
+  // link the ledger's attribution comes from, so the name on the account and the client the account
+  // belongs to can never name two different entities.
+  const clientNodeLabel =
+    row.client_display_name ?? (await readMatterClientEntityId(database, matterId)) ?? matterId;
   return {
-    clientNodeName: `Trust — ${row.client_display_name ?? clientEntityId}`,
+    clientNodeName: `Trust — ${clientNodeLabel}`,
     matterLeafName: `Trust — ${row.matter_number ?? matterId} — ${row.title}`,
   };
 }
@@ -689,6 +707,12 @@ export function registerTrustRoutes(app: TrustApp, chokepoint: Chokepoint): void
       });
     } catch (caught) {
       if (caught instanceof TrustValidationError) return trustErrorResponse(c, caught);
+      // The ledger refuses on its own terms too, and its refusals are ordinary bad input on these
+      // routes — a future effective date, a date that is not a date. They are a different error
+      // class from the trust package's, so without this arm they reach the app's error boundary and
+      // a member gets a 500 with an Error ID for a typo.
+      if (caught instanceof LedgerValidationError)
+        return problemResponseForLedgerRefusal(c, caught);
       throw caught;
     }
     if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch")
@@ -721,17 +745,12 @@ export function registerTrustRoutes(app: TrustApp, chokepoint: Chokepoint): void
       const firm = requireChokepointFirmContext(c);
       const request = c.req.valid("json");
       return commitMovement(c, async (recordedBy) => {
-        const names = await resolveLeafNames(
-          firm.firmDatabase,
-          request.matterId,
-          request.clientEntityId,
-        );
+        const names = await resolveLeafNames(firm.firmDatabase, request.matterId);
         return composeTrustDeposit(
           firm.firmDatabase,
           {
             trustAccountId: request.trustAccountId,
             to: {
-              clientEntityId: request.clientEntityId,
               matterId: request.matterId,
               ...names,
             },
@@ -901,17 +920,12 @@ export function registerTrustRoutes(app: TrustApp, chokepoint: Chokepoint): void
           request.trustAccountId,
           request.fromMatterId,
         );
-        const names = await resolveLeafNames(
-          firm.firmDatabase,
-          request.toMatterId,
-          request.toClientEntityId,
-        );
+        const names = await resolveLeafNames(firm.firmDatabase, request.toMatterId);
         return composeMatterToMatterTransfer(
           firm.firmDatabase,
           {
             fromNodeId: from.id,
             to: {
-              clientEntityId: request.toClientEntityId,
               matterId: request.toMatterId,
               ...names,
             },

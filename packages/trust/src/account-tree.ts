@@ -12,6 +12,7 @@ import type {
 import { createAccount } from "@magna-carta/ledger/create-account";
 import { setAccountBoundsStatement } from "@magna-carta/ledger/statements";
 import type { ClockPort } from "@magna-carta/ledger/types";
+import { readMatterClientEntityId } from "@magna-carta/matters/matter-party";
 import {
   insertTrustAccountStatement,
   insertTrustLedgerNodeStatement,
@@ -190,7 +191,6 @@ export async function openTrustAccount(
 
 export interface EnsureMatterLeafInput {
   readonly trustAccountId: TrustAccountId;
-  readonly clientEntityId: string;
   readonly matterId: MatterId;
   readonly clientNodeName: string;
   readonly matterLeafName: string;
@@ -200,8 +200,35 @@ export interface EnsuredMatterLeaf {
   readonly nodeId: TrustLedgerNodeId;
   readonly ledgerAccountId: TrustLedgerNodeSnapshot["ledgerAccountId"];
   readonly clientNodeId: TrustLedgerNodeId;
+  // The client this ledger belongs to, DERIVED from the matter's own client party — never something
+  // a caller told us. Returned so the caller declares the same value to the composition guard that
+  // was written to the node row.
+  readonly clientEntityId: string;
   readonly created: boolean;
   readonly effect: EffectWrite;
+}
+
+// WHOSE MONEY THIS IS, RESOLVED RATHER THAN ACCEPTED. A trust ledger's client attribution is the one
+// fact the whole sub-ledger tree exists to get right: it decides which client node the leaf hangs
+// under, which client the composition guard sees on the entry, whose ledger the money is readable
+// and disbursable from, and whose matter it blocks from closing. A caller-asserted attribution is
+// therefore not an input — it is the answer to the question being asked, and a caller that names
+// another client's handle beside this matter would be re-attributing the matter's ledger by saying
+// so. It comes from `matter_party`, the same link billing resolves an invoice's client through
+// (`packages/matters/src/matter-party.ts`), so the platform has exactly one answer to "whose matter
+// is this" rather than one per subsystem.
+//
+// A matter with no client party REFUSES. There is nobody to attribute the money to, and inventing an
+// attribution is precisely the failure this replaces.
+async function resolveMatterClient(database: SqlDatabase, matterId: MatterId): Promise<string> {
+  const clientEntityId = await readMatterClientEntityId(database, matterId);
+  if (clientEntityId === null) {
+    throw new TrustValidationError(
+      "matter-has-no-client",
+      `matter ${matterId} has no client party, so there is nobody to attribute this client ledger to: record the client on the matter first`,
+    );
+  }
+  return clientEntityId;
 }
 
 // Lazy creation: a matter's trust leaf is built at its first trust receipt, not at matter open, so
@@ -217,6 +244,7 @@ export async function ensureMatterTrustLeaf(
 ): Promise<EnsuredMatterLeaf> {
   const account = await loadTrustAccount(database, input.trustAccountId);
   assertTrustAccountOpen(account);
+  const clientEntityId = await resolveMatterClient(database, input.matterId);
 
   const existingLeaf = await selectTrustMatterNodeStatement(
     database,
@@ -226,10 +254,22 @@ export async function ensureMatterTrustLeaf(
   const leafRow = existingLeaf.results[0];
   if (leafRow) {
     const snapshot = toNodeSnapshot(leafRow);
+    // The stored attribution is checked against the derived one on every use, not only at creation.
+    // A leaf written before the attribution was derived — or one whose matter has since been
+    // re-attributed to a different client — is a ledger whose money is filed under the wrong client,
+    // and posting further movements onto it would deepen the error rather than surface it. The
+    // fitness suite finds these over stored rows; this refuses to add to one.
+    if (snapshot.clientEntityId !== clientEntityId) {
+      throw new TrustValidationError(
+        "trust-leaf-client-mismatch",
+        `trust ledger ${snapshot.id} is attributed to client ${snapshot.clientEntityId}, but matter ${input.matterId} belongs to client ${clientEntityId}: a client ledger filed under the wrong client has to be corrected before it takes further movements`,
+      );
+    }
     return {
       nodeId: snapshot.id,
       ledgerAccountId: snapshot.ledgerAccountId,
       clientNodeId: snapshot.parentNodeId as TrustLedgerNodeId,
+      clientEntityId,
       created: false,
       effect: { statements: [], outboxMessages: [] },
     };
@@ -242,7 +282,7 @@ export async function ensureMatterTrustLeaf(
   const existingClient = await selectTrustClientNodeStatement(
     database,
     input.trustAccountId,
-    input.clientEntityId,
+    clientEntityId,
   ).all<TrustNodeRow>();
   const clientRow = existingClient.results[0];
   let clientNodeId: TrustLedgerNodeId;
@@ -283,7 +323,7 @@ export async function ensureMatterTrustLeaf(
         trustAccountId: input.trustAccountId,
         ledgerAccountId: clientAccount.accountId,
         kind: "client",
-        clientEntityId: input.clientEntityId,
+        clientEntityId,
         matterId: null,
         parentNodeId: null,
         createdAt,
@@ -321,7 +361,7 @@ export async function ensureMatterTrustLeaf(
       trustAccountId: input.trustAccountId,
       ledgerAccountId: leafAccount.accountId,
       kind: "matter",
-      clientEntityId: input.clientEntityId,
+      clientEntityId,
       matterId: input.matterId,
       parentNodeId: clientNodeId,
       createdAt,
@@ -333,6 +373,7 @@ export async function ensureMatterTrustLeaf(
     nodeId,
     ledgerAccountId: leafAccount.accountId,
     clientNodeId,
+    clientEntityId,
     created: true,
     effect: { statements, outboxMessages },
   };

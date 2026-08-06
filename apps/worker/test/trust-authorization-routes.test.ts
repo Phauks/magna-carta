@@ -73,19 +73,28 @@ function get(path: string, cookie: string): Promise<Response> {
   });
 }
 
-async function openMatter(title: string): Promise<string> {
+// The matter's client party, recorded straight into the firm database because there is no HTTP
+// surface for it yet. A trust ledger's client attribution is derived from this link, so a matter
+// without one holds no client money at all.
+async function openMatter(title: string, clientEntityId: string): Promise<string> {
   const created = await post(
     "/api/v1/matters",
     { title, status: "open", responsibleMemberId: submitterUserId },
     submitterCookie,
   );
-  return (await created.json()).matterId;
+  const matterId = (await created.json()).matterId as string;
+  await firmDatabase
+    .prepare(
+      "INSERT INTO matter_party (id, matter_id, entity_id, role, created_at, updated_at) VALUES (?1, ?2, ?3, 'client', ?4, ?4)",
+    )
+    .bind(newIdentifier("matterParty"), matterId, clientEntityId, clock.now())
+    .run();
+  return matterId;
 }
 
-const depositBody = (matterId: string, amountMinor: number, clientEntityId: string) => ({
+const depositBody = (matterId: string, amountMinor: number) => ({
   trustAccountId,
   matterId,
-  clientEntityId,
   amountMinor,
   currency: "USD" as const,
   effectiveDate: todayInUtc(),
@@ -115,10 +124,10 @@ async function pendingRequest(
   fundedMinor: number,
   requestedMinor: number,
 ): Promise<{ matterId: string; requestId: string }> {
-  const matterId = await openMatter(label);
+  const matterId = await openMatter(label, `entity_${label.replace(/\W/g, "_").toLowerCase()}`);
   const deposited = await post(
     "/api/v1/trust/deposits",
-    depositBody(matterId, fundedMinor, `entity_${label.replace(/\W/g, "_").toLowerCase()}`),
+    depositBody(matterId, fundedMinor),
     submitterCookie,
   );
   expect(deposited.status).toBe(201);
@@ -317,15 +326,9 @@ describe("two-person disbursement authorization", () => {
   });
 
   it("replays a repeated Idempotency-Key on the submission rather than queuing a second request", async () => {
-    const matterId = await openMatter("Replayed Submission Matter");
+    const matterId = await openMatter("Replayed Submission Matter", "entity_replay_submission");
     expect(
-      (
-        await post(
-          "/api/v1/trust/deposits",
-          depositBody(matterId, 500000, "entity_replay_submission"),
-          submitterCookie,
-        )
-      ).status,
+      (await post("/api/v1/trust/deposits", depositBody(matterId, 500000), submitterCookie)).status,
     ).toBe(201);
 
     const key = crypto.randomUUID();

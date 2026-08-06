@@ -11017,10 +11017,6 @@
             "type": "string",
             "pattern": "^matter_[A-Za-z0-9_-]{21}$"
           },
-          "clientEntityId": {
-            "type": "string",
-            "minLength": 1
-          },
           "amountMinor": {
             "type": "integer",
             "exclusiveMinimum": 0
@@ -11068,7 +11064,6 @@
         "required": [
           "trustAccountId",
           "matterId",
-          "clientEntityId",
           "amountMinor",
           "currency",
           "effectiveDate",
@@ -11331,10 +11326,6 @@
             "type": "string",
             "pattern": "^matter_[A-Za-z0-9_-]{21}$"
           },
-          "toClientEntityId": {
-            "type": "string",
-            "minLength": 1
-          },
           "amountMinor": {
             "type": "integer",
             "exclusiveMinimum": 0
@@ -11362,7 +11353,6 @@
           "trustAccountId",
           "fromMatterId",
           "toMatterId",
-          "toClientEntityId",
           "amountMinor",
           "currency",
           "effectiveDate",
@@ -11893,7 +11883,8 @@
         "properties": {
           "fileText": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "maxLength": 2000000
           },
           "dateFormat": {
             "type": "string",
@@ -11985,7 +11976,8 @@
           },
           "fileText": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "maxLength": 2000000
           },
           "dateFormat": {
             "type": "string",
@@ -12708,7 +12700,11 @@
             "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
           },
           "numberScopeKey": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1
+          },
+          "createNumberScope": {
+            "type": "boolean"
           },
           "locationId": {
             "type": [

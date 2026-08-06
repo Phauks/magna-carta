@@ -1,6 +1,7 @@
-import type { InvoiceId } from "@magna-carta/identifiers/types";
+import type { InvoiceId, InvoiceLineId } from "@magna-carta/identifiers/types";
 import { describe, expect, it } from "vitest";
-import { addClaimsToDraft, createInvoiceDraft } from "../src/draft.ts";
+import { BillingValidationError } from "../src/billing-validation.ts";
+import { addClaimsToDraft, createInvoiceDraft, updateDraftLine } from "../src/draft.ts";
 import { finalizeInvoice } from "../src/finalize.ts";
 import { readInvoiceMatterBalances } from "../src/statements.ts";
 import { readUnbilledWorkInProgress } from "../src/queries.ts";
@@ -215,6 +216,167 @@ describe("finalization — the one batch", () => {
     ).rejects.toMatchObject({ code: "account-role-unmapped" });
   });
 
+  // A negative invoice line is a first-class shape on a draft: the column carries no positivity
+  // CHECK, `updateDraftLine` accepts any integer, `roundInvoiceLine` is half-away-from-zero
+  // SPECIFICALLY so a negative line rounds symmetrically, and `postingRoleForLine` has explicit arms
+  // for discounts and adjustments. Finalize used to bucket by role and emit every bucket as a
+  // CREDIT of the signed total — so a courtesy credit written into bill review became
+  // `money(-3000)`, which the ledger refuses outright as `non-positive-amount`. A ledger line is a
+  // positive amount plus a direction; the sign belongs in the direction.
+  it("posts a negative role subtotal as a DEBIT of its magnitude, not a credit of a negative", async () => {
+    const fixture = await billingFixture();
+    await mapAccountRoles(fixture, [
+      "accounts_receivable",
+      "fee_income",
+      "client_costs_advanced",
+      "cost_recovery_income",
+    ]);
+    const matterId = await seedMatter(fixture, ACME, "Acme");
+    const timeEntryId = await seedTimeEntry(fixture, matterId, {
+      durationMinutes: 60,
+      rateE4: 1_000_000,
+    });
+    const costEntryId = await seedCostEntry(fixture, matterId, {
+      amountMinor: 3_000,
+      disbursementClass: "soft",
+    });
+    const draft = createInvoiceDraft(
+      fixture.database,
+      { clientEntityId: ACME, currency: "USD", createdBy: fixture.memberUserId },
+      options,
+    );
+    await commit(fixture.database, draft.effect);
+    const claimed = await addClaimsToDraft(
+      fixture.database,
+      draft.invoiceId,
+      [
+        { sourceKind: "time_entry", sourceId: timeEntryId },
+        { sourceKind: "cost_entry", sourceId: costEntryId },
+      ],
+      options,
+    );
+    await commit(fixture.database, claimed.effect);
+
+    // Bill review writes the cost line down to a courtesy credit for a disbursement that should
+    // never have been billed. The invoice still nets positive: $100 of fees less $30.
+    const costLineId = claimed.lineIds[1] as InvoiceLineId;
+    await commit(
+      fixture.database,
+      await updateDraftLine(fixture.database, costLineId, { amountMinor: -3_000 }),
+    );
+
+    const finalized = await finalizeInvoice(
+      fixture.database,
+      { invoiceId: draft.invoiceId, ...FINALIZE_DATES, finalizedBy: fixture.memberUserId },
+      options,
+    );
+    await commit(fixture.database, finalized.effect);
+    expect(finalized.totalMinor).toBe(7_000);
+
+    // The receivable is debited for the net, fee income is credited in full, and the cost-recovery
+    // role carries a DEBIT of 3,000 — the credit being reversed. The entry balances either way, but
+    // only one of the two is expressible.
+    const lines = await fixture.database
+      .prepare("SELECT account_id, direction, amount_minor FROM ledger_line WHERE entry_id = ?1")
+      .bind(finalized.ledgerEntryId)
+      .all<{ account_id: string; direction: string; amount_minor: number }>();
+    const byAccount = new Map(
+      lines.results.map((row) => [
+        row.account_id,
+        { direction: row.direction, minor: row.amount_minor },
+      ]),
+    );
+    expect(byAccount.get(fixture.accountsReceivableAccountId)).toEqual({
+      direction: "debit",
+      minor: 7_000,
+    });
+    expect(byAccount.get(fixture.feeIncomeAccountId)).toEqual({
+      direction: "credit",
+      minor: 10_000,
+    });
+    expect(byAccount.get(fixture.costRecoveryIncomeAccountId)).toEqual({
+      direction: "debit",
+      minor: 3_000,
+    });
+  });
+
+  // The second manifestation of the same shape. `invoice_matter_balance` carries
+  // `applied_minor >= 0 AND applied_minor <= total_minor`, so a negative per-matter subtotal is a
+  // balance nothing could ever be applied against — and the CHECK aborts the whole finalize batch as
+  // a raw constraint error naming a column instead of the matter.
+  it("refuses a matter whose subtotal is negative, by name, before the balance CHECK aborts", async () => {
+    const fixture = await billingFixture();
+    await mapAccountRoles(fixture, ["accounts_receivable", "fee_income", "cost_recovery_income"]);
+    const positiveMatterId = await seedMatter(fixture, ACME, "Acme");
+    const negativeMatterId = await seedMatter(fixture, ACME, "Acme appeal");
+    const feeEntryId = await seedTimeEntry(fixture, positiveMatterId, {
+      durationMinutes: 60,
+      rateE4: 1_000_000,
+    });
+    const costEntryId = await seedCostEntry(fixture, negativeMatterId, {
+      amountMinor: 3_000,
+      disbursementClass: "soft",
+    });
+    const draft = createInvoiceDraft(
+      fixture.database,
+      { clientEntityId: ACME, currency: "USD", createdBy: fixture.memberUserId },
+      options,
+    );
+    await commit(fixture.database, draft.effect);
+    const claimed = await addClaimsToDraft(
+      fixture.database,
+      draft.invoiceId,
+      [
+        { sourceKind: "time_entry", sourceId: feeEntryId },
+        { sourceKind: "cost_entry", sourceId: costEntryId },
+      ],
+      options,
+    );
+    await commit(fixture.database, claimed.effect);
+    await commit(
+      fixture.database,
+      await updateDraftLine(fixture.database, claimed.lineIds[1] as InvoiceLineId, {
+        amountMinor: -3_000,
+      }),
+    );
+
+    const refusal = await finalizeInvoice(
+      fixture.database,
+      { invoiceId: draft.invoiceId, ...FINALIZE_DATES, finalizedBy: fixture.memberUserId },
+      options,
+    ).catch((error: unknown) => error);
+    expect(refusal).toMatchObject({ code: "invoice-matter-total-negative" });
+    expect(String(refusal)).toContain(negativeMatterId);
+  });
+
+  // The shared freeze contract's own error class belongs to no HTTP boundary — every consumer
+  // catches it and rethrows its own. Billing did not, so a firm running with the review gate ON got
+  // a 500 the first time it billed unapproved work. Claiming a `draft` entry onto a bill is legal
+  // and deliberate (bill review happens before approval), so the refusal belongs at finalize.
+  it("refuses unapproved work by name when the firm's review gate is on", async () => {
+    const fixture = await billingFixture();
+    await mapAccountRoles(fixture, ["accounts_receivable", "fee_income", "client_costs_advanced"]);
+    const { invoiceId } = await draftWithWork(fixture, ACME);
+
+    const refusal = await finalizeInvoice(
+      fixture.database,
+      { invoiceId, ...FINALIZE_DATES, finalizedBy: fixture.memberUserId },
+      { ...options, approvalRequired: true },
+    ).catch((error: unknown) => error);
+    expect(refusal).toBeInstanceOf(BillingValidationError);
+    expect(refusal).toMatchObject({ code: "work-in-progress-not-billable" });
+    expect(String(refusal)).toContain("draft");
+
+    // With the gate off, the same draft bills.
+    const finalized = await finalizeInvoice(
+      fixture.database,
+      { invoiceId, ...FINALIZE_DATES, finalizedBy: fixture.memberUserId },
+      options,
+    );
+    await commit(fixture.database, finalized.effect);
+    expect(finalized.invoiceNumber).toBe("00001");
+  });
+
   it("refuses an invoice with no lines", async () => {
     const fixture = await billingFixture();
     await mapAccountRoles(fixture, ["accounts_receivable", "fee_income"]);
@@ -317,6 +479,7 @@ describe("finalization — the one batch", () => {
         ...FINALIZE_DATES,
         finalizedBy: fixture.memberUserId,
         numberScopeKey: "RENO",
+        createNumberScope: true,
       },
       options,
     );
@@ -329,6 +492,7 @@ describe("finalization — the one batch", () => {
         ...FINALIZE_DATES,
         finalizedBy: fixture.memberUserId,
         numberScopeKey: "VEGAS",
+        createNumberScope: true,
       },
       options,
     );
@@ -336,6 +500,74 @@ describe("finalization — the one batch", () => {
 
     expect(firstFinal.invoiceNumber).toBe("RENO-00001");
     expect(secondFinal.invoiceNumber).toBe("VEGAS-00001");
+  });
+
+  // The scope key selects which counter the number is drawn from and is otherwise unchecked free
+  // text, so a near-miss silently starts a second sequence: `nyc` where the firm has always sent
+  // `NYC` produces `nyc-00001` while `NYC-00042` was the real next number, the unique index is
+  // satisfied because the rendered strings differ, and the gap-detection query reports the new scope
+  // as a perfectly gapless sequence of one. Gaplessness is what an auditor asks about.
+  it("refuses a numbering scope the firm has never used unless the caller opens it deliberately", async () => {
+    const fixture = await billingFixture();
+    await mapAccountRoles(fixture, ["accounts_receivable", "fee_income", "client_costs_advanced"]);
+
+    const first = await draftWithWork(fixture, ACME);
+    await expect(
+      finalizeInvoice(
+        fixture.database,
+        {
+          invoiceId: first.invoiceId,
+          ...FINALIZE_DATES,
+          finalizedBy: fixture.memberUserId,
+          numberScopeKey: "RENO",
+        },
+        options,
+      ),
+    ).rejects.toMatchObject({ code: "unknown-number-scope" });
+
+    // Opened deliberately, it works and keeps working without the flag from then on.
+    const opened = await finalizeInvoice(
+      fixture.database,
+      {
+        invoiceId: first.invoiceId,
+        ...FINALIZE_DATES,
+        finalizedBy: fixture.memberUserId,
+        numberScopeKey: "RENO",
+        createNumberScope: true,
+      },
+      options,
+    );
+    await commit(fixture.database, opened.effect);
+    expect(opened.invoiceNumber).toBe("RENO-00001");
+
+    const second = await draftWithWork(fixture, ACME);
+    const continued = await finalizeInvoice(
+      fixture.database,
+      {
+        invoiceId: second.invoiceId,
+        ...FINALIZE_DATES,
+        finalizedBy: fixture.memberUserId,
+        numberScopeKey: "RENO",
+      },
+      options,
+    );
+    await commit(fixture.database, continued.effect);
+    expect(continued.invoiceNumber).toBe("RENO-00002");
+
+    // And the typo is still refused after the real scope exists — which is the whole point.
+    const third = await draftWithWork(fixture, ACME);
+    await expect(
+      finalizeInvoice(
+        fixture.database,
+        {
+          invoiceId: third.invoiceId,
+          ...FINALIZE_DATES,
+          finalizedBy: fixture.memberUserId,
+          numberScopeKey: "reno",
+        },
+        options,
+      ),
+    ).rejects.toMatchObject({ code: "unknown-number-scope" });
   });
 
   it("a losing concurrent draw aborts its whole batch on the allocation key", async () => {

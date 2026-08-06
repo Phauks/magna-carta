@@ -2497,7 +2497,6 @@ export type TrustMovementAck = {
 export type TrustDepositRequest = {
     trustAccountId: string;
     matterId: string;
-    clientEntityId: string;
     amountMinor: number;
     currency: 'USD';
     effectiveDate: string;
@@ -2570,7 +2569,6 @@ export type TrustMatterTransferRequest = {
     trustAccountId: string;
     fromMatterId: string;
     toMatterId: string;
-    toClientEntityId: string;
     amountMinor: number;
     currency: 'USD';
     effectiveDate: string;
@@ -2893,6 +2891,7 @@ export type BillingFinalizeRequest = {
     issueDate: string;
     dueDate: string;
     numberScopeKey?: string;
+    createNumberScope?: boolean;
     locationId?: string | null;
     letterheadAddressBlock?: string | null;
     letterheadFooter?: string | null;

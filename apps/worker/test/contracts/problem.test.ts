@@ -70,6 +70,7 @@ describe("problem-type URI registry", () => {
         "websocket-upgrade-required",
         "trust-insufficient-available",
         "trust-movement-refused",
+        "ledger-entry-refused",
         "trust-jurisdiction-unavailable",
         "trust-disbursement-not-pending",
         "trust-disbursement-authorization-refused",

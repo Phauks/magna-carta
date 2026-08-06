@@ -1,4 +1,5 @@
 import { commitEffectBatch, type BatchDatabase } from "@magna-carta/data-access/effect-batch";
+import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type {
   LedgerAccountId,
   LedgerEntryId,
@@ -166,13 +167,22 @@ export async function generateTrustVolume(
       min: volume.depositMinor.min,
       max: volume.depositMinor.max,
     });
+    // The matter's client party, recorded before its trust ledger exists — because that link is
+    // what the ledger's client attribution is DERIVED from, so a matter without one holds no trust
+    // money at all. The practice generator does not draw the link, so this volume records it the
+    // way a firm would: one client party per matter it puts money on.
     const clientEntityId = `entity_${matterId}`;
+    await database
+      .prepare(
+        "INSERT INTO matter_party (id, matter_id, entity_id, role, created_at, updated_at) VALUES (?1, ?2, ?3, 'client', ?4, ?4)",
+      )
+      .bind(newIdentifier("matterParty", randomSource), matterId, clientEntityId, clock.now())
+      .run();
     const deposit = await composeTrustDeposit(
       database,
       {
         trustAccountId: opened.trustAccountId,
         to: {
-          clientEntityId,
           matterId,
           clientNodeName: `Trust — ${faker.person.lastName()}`,
           matterLeafName: `Trust — ${matterId}`,

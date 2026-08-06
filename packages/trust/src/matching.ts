@@ -314,6 +314,12 @@ export async function composeTrustReconciliationMatch(
 
 export interface WithdrawTrustMatchInput {
   readonly matchId: TrustReconciliationMatchId;
+  // The reconciliation the caller believes this match belongs to. The match row already knows its
+  // own reconciliation, so this is not how the period is resolved — it is a statement of intent that
+  // is checked against the row. A caller that names the wrong period is asking to withdraw a match
+  // it has not looked at, and a client-side mix-up would otherwise return 201 for a withdrawal in
+  // some other period.
+  readonly reconciliationId: TrustReconciliationId;
   readonly withdrawnBy: UserId;
 }
 
@@ -327,6 +333,12 @@ export async function composeTrustReconciliationUnmatch(
   options: TrustServiceOptions,
 ): Promise<ComposedTrustMatch> {
   const match = await readTrustReconciliationMatch(database, input.matchId);
+  if (match.reconciliationId !== input.reconciliationId) {
+    throw new TrustValidationError(
+      "match-belongs-to-another-reconciliation",
+      `match ${input.matchId} belongs to reconciliation ${match.reconciliationId}, not ${input.reconciliationId}`,
+    );
+  }
   if (match.unmatchesMatchId !== null) {
     throw new TrustValidationError(
       "match-is-a-withdrawal",

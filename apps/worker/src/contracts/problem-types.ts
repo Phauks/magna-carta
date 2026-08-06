@@ -218,6 +218,14 @@ export const PROBLEM_TYPES = {
   // jurisdiction forbids. DISTINCT from `validation` (request-shape) — the request is well-formed;
   // the trust rules refuse what it asks for.
   "trust-movement-refused": "trust-movement-refused",
+  // Something the LEDGER itself refuses about the entry a money route composed (HTTP 422): an
+  // effective date that is not a calendar date or is in the future, a line amount that is not
+  // positive, a currency that is not the account's, or an entry that does not balance. Shared by
+  // every money route because the ledger's rules are the same underneath all of them, and DISTINCT
+  // from the domain refusals beside it (`trust-movement-refused`, `billing-refused`): those are a
+  // subsystem's own rules about what the movement means, this is the double-entry record refusing
+  // to hold the entry at all.
+  "ledger-entry-refused": "ledger-entry-refused",
   // A trust account whose office recorded no jurisdiction, or whose jurisdiction has no reviewed
   // rules encoded (HTTP 422). Deliberately one problem type carrying two distinct details, because
   // they are fixed differently: the first by recording the office's state, the second by researching
