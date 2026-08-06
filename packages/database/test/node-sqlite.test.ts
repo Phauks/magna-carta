@@ -113,6 +113,12 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "files:upload",
         "firm:reportIncident",
         "firm:scanFile",
+        // Logging what an estate owns is the paralegal's job, so this role carries both asset keys.
+        // Unlike custody:read and calendar:read, neither reaches Billing or Read-only by seed: the
+        // register concentrates a matter's financially sensitive facts in one surface, so a firm
+        // that wants its bookkeeper on it grants that deliberately.
+        "matterAssets:manage",
+        "matterAssets:read",
         "matters:create",
         "support:request",
         "tools:aiTextDetection",

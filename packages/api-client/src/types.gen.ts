@@ -1971,6 +1971,240 @@ export type CustodyWillCapability = {
     verifiedOn: string;
 };
 
+export type MatterAssetPage = {
+    data: Array<MatterAssetSummary>;
+    nextCursor: string | null;
+};
+
+export type MatterAssetSummary = {
+    id: string;
+    matterId: string;
+    assetClass: 'realProperty' | 'financialAccount' | 'vehicle' | 'firearm' | 'businessInterest' | 'insurancePolicy' | 'receivable' | 'digitalAsset' | 'personalProperty' | 'other';
+    assetTypeId: string | null;
+    description: string;
+    acquiredOn: string | null;
+    estateTreatment: 'probateEstate' | 'nonProbateTransfer' | 'undetermined';
+    disposition: 'retained' | 'sold' | 'transferred' | 'distributed' | 'abandoned' | 'lost';
+    dispositionOn: string | null;
+    custodyItemId: string | null;
+    notes: string | null;
+    createdAt: string;
+};
+
+export type MatterAssetDetail = {
+    asset: MatterAssetSummary;
+    realProperty: MatterAssetRealPropertyDetail;
+    financialAccount: MatterAssetFinancialAccountDetail;
+    interests: Array<MatterAssetInterestDetail>;
+    documents: Array<MatterAssetDocumentLinkDetail>;
+    identifiers: Array<MatterAssetIdentifierSummary>;
+    valueAsOf: MatterAssetResolvedValue;
+    classHandlingNote: string | null;
+};
+
+export type MatterAssetRealPropertyDetail = {
+    street?: string | null;
+    city?: string | null;
+    region?: string | null;
+    postal?: string | null;
+    county?: string | null;
+    parcelNumber?: string | null;
+    legalDescription?: string | null;
+    recordingReference?: string | null;
+} | null;
+
+export type MatterAssetFinancialAccountDetail = {
+    institutionName?: string | null;
+    institutionOrganizationId?: string | null;
+} | null;
+
+export type MatterAssetInterestDetail = {
+    id: string;
+    entityId: string;
+    interestRole: string | null;
+    shareNumerator: number | null;
+    shareDenominator: number | null;
+    effectiveFrom: string;
+    effectiveTo: string | null;
+};
+
+export type MatterAssetDocumentLinkDetail = {
+    id: string;
+    fileId: string;
+    kind: 'deed' | 'title' | 'statement' | 'appraisal' | 'policy' | 'registration' | 'billOfSale' | 'photograph' | 'correspondence' | 'other';
+    note: string | null;
+    linkedAt: string;
+    linkedBy: string | null;
+};
+
+export type MatterAssetIdentifierSummary = {
+    id: string;
+    kind: string;
+    displaySuffix: string | null;
+    createdAt: string;
+};
+
+export type MatterAssetResolvedValue = {
+    valuationId: string;
+    asOfDate: string;
+    amountMinor: number | null;
+    currency: string | null;
+    basis: 'appraisal' | 'statement' | 'taxAssessment' | 'marketQuote' | 'guideBook' | 'broker' | 'sale' | 'purchasePrice' | 'courtDetermined' | 'clientEstimate' | 'automatedEstimate';
+    sourceNote: string | null;
+    supportingFileId: string | null;
+    recordedAt: string;
+} | null;
+
+export type MatterAssetValuationList = {
+    data: Array<MatterAssetValuationDetail>;
+};
+
+export type MatterAssetValuationDetail = {
+    id: string;
+    assetId: string;
+    asOfDate: string;
+    amountMinor: number | null;
+    currency: string | null;
+    basis: 'appraisal' | 'statement' | 'taxAssessment' | 'marketQuote' | 'guideBook' | 'broker' | 'sale' | 'purchasePrice' | 'courtDetermined' | 'clientEstimate' | 'automatedEstimate';
+    sourceNote: string | null;
+    supportingFileId: string | null;
+    correctsValuationId: string | null;
+    recordedBy: string | null;
+    recordedAt: string;
+};
+
+export type MatterAssetTypeList = {
+    data: Array<MatterAssetTypeDetail>;
+};
+
+export type MatterAssetTypeDetail = {
+    id: string;
+    name: string;
+    assetClass: 'realProperty' | 'financialAccount' | 'vehicle' | 'firearm' | 'businessInterest' | 'insurancePolicy' | 'receivable' | 'digitalAsset' | 'personalProperty' | 'other';
+    code: string | null;
+    active: boolean;
+    position: number;
+};
+
+export type MatterAssetClassList = {
+    data: Array<MatterAssetClassDetail>;
+};
+
+export type MatterAssetClassDetail = {
+    key: 'realProperty' | 'financialAccount' | 'vehicle' | 'firearm' | 'businessInterest' | 'insurancePolicy' | 'receivable' | 'digitalAsset' | 'personalProperty' | 'other';
+    label: string;
+    handlingNote: string | null;
+    available: boolean;
+};
+
+export type MatterAssetIdentifierValueResponse = {
+    value: string | null;
+};
+
+export type MatterAssetCreatedResponse = {
+    id: string;
+};
+
+export type CreateMatterAssetRequest = {
+    assetClass: 'realProperty' | 'financialAccount' | 'vehicle' | 'firearm' | 'businessInterest' | 'insurancePolicy' | 'receivable' | 'digitalAsset' | 'personalProperty' | 'other';
+    description: string;
+    assetTypeId?: string | null;
+    acquiredOn?: string | null;
+    estateTreatment?: 'probateEstate' | 'nonProbateTransfer' | 'undetermined';
+    disposition?: 'retained' | 'sold' | 'transferred' | 'distributed' | 'abandoned' | 'lost';
+    dispositionOn?: string | null;
+    notes?: string | null;
+    realProperty?: MatterAssetRealPropertyAttributes;
+    financialAccount?: MatterAssetFinancialAccountAttributes;
+    valuation?: MatterAssetInlineValuation;
+};
+
+export type MatterAssetRealPropertyAttributes = {
+    street?: string | null;
+    city?: string | null;
+    region?: string | null;
+    postal?: string | null;
+    county?: string | null;
+    parcelNumber?: string | null;
+    legalDescription?: string | null;
+    recordingReference?: string | null;
+};
+
+export type MatterAssetFinancialAccountAttributes = {
+    institutionName?: string | null;
+    institutionOrganizationId?: string | null;
+};
+
+export type MatterAssetInlineValuation = {
+    asOfDate: string;
+    amountMinor?: number | null;
+    currency?: string | null;
+    basis: 'appraisal' | 'statement' | 'taxAssessment' | 'marketQuote' | 'guideBook' | 'broker' | 'sale' | 'purchasePrice' | 'courtDetermined' | 'clientEstimate' | 'automatedEstimate';
+    sourceNote?: string | null;
+};
+
+export type MatterAssetBatchCreatedResponse = {
+    ids: Array<string>;
+};
+
+export type CreateMatterAssetBatchRequest = {
+    assets: Array<CreateMatterAssetRequest>;
+};
+
+export type MatterAssetAckResponse = {
+    ok: true;
+};
+
+export type UpdateMatterAssetRequest = {
+    assetClass?: 'realProperty' | 'financialAccount' | 'vehicle' | 'firearm' | 'businessInterest' | 'insurancePolicy' | 'receivable' | 'digitalAsset' | 'personalProperty' | 'other';
+    description?: string;
+    assetTypeId?: string | null;
+    acquiredOn?: string | null;
+    estateTreatment?: 'probateEstate' | 'nonProbateTransfer' | 'undetermined';
+    disposition?: 'retained' | 'sold' | 'transferred' | 'distributed' | 'abandoned' | 'lost';
+    dispositionOn?: string | null;
+    notes?: string | null;
+    realProperty?: MatterAssetRealPropertyAttributes;
+    financialAccount?: MatterAssetFinancialAccountAttributes;
+    custodyItemId?: string | null;
+};
+
+export type AppendMatterAssetValuationRequest = MatterAssetInlineValuation & {
+    supportingFileId?: string | null;
+    correctsValuationId?: string | null;
+};
+
+export type AddMatterAssetInterestRequest = {
+    entityId: string;
+    interestRole?: string | null;
+    shareNumerator?: number | null;
+    shareDenominator?: number | null;
+    effectiveFrom: string;
+};
+
+export type EndMatterAssetInterestRequest = {
+    effectiveTo: string;
+};
+
+export type LinkMatterAssetDocumentRequest = {
+    fileId: string;
+    kind: 'deed' | 'title' | 'statement' | 'appraisal' | 'policy' | 'registration' | 'billOfSale' | 'photograph' | 'correspondence' | 'other';
+    note?: string | null;
+};
+
+export type RecordMatterAssetIdentifierRequest = {
+    kind: string;
+    value?: string | null;
+    displaySuffix?: string | null;
+};
+
+export type CreateMatterAssetTypeRequest = {
+    name: string;
+    assetClass: 'realProperty' | 'financialAccount' | 'vehicle' | 'firearm' | 'businessInterest' | 'insurancePolicy' | 'receivable' | 'digitalAsset' | 'personalProperty' | 'other';
+    code?: string | null;
+    position?: number;
+};
+
 export type CustomFieldAck = {
     id: string;
 };
@@ -11643,6 +11877,851 @@ export type CustodyWillDepositDutiesResponses = {
 };
 
 export type CustodyWillDepositDutiesResponse = CustodyWillDepositDutiesResponses[keyof CustodyWillDepositDutiesResponses];
+
+export type MatterAssetsListAssetsData = {
+    body?: never;
+    path: {
+        matterId: string;
+    };
+    query?: {
+        cursor?: string;
+        assetClass?: 'realProperty' | 'financialAccount' | 'vehicle' | 'firearm' | 'businessInterest' | 'insurancePolicy' | 'receivable' | 'digitalAsset' | 'personalProperty' | 'other';
+        assetTypeId?: string;
+        disposition?: 'retained' | 'sold' | 'transferred' | 'distributed' | 'abandoned' | 'lost';
+        estateTreatment?: 'probateEstate' | 'nonProbateTransfer' | 'undetermined';
+        valued?: 'true' | 'false';
+    };
+    url: '/api/v1/matters/{matterId}/assets';
+};
+
+export type MatterAssetsListAssetsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MatterAssetsListAssetsError = MatterAssetsListAssetsErrors[keyof MatterAssetsListAssetsErrors];
+
+export type MatterAssetsListAssetsResponses = {
+    /**
+     * One page of the register
+     */
+    200: MatterAssetPage;
+};
+
+export type MatterAssetsListAssetsResponse = MatterAssetsListAssetsResponses[keyof MatterAssetsListAssetsResponses];
+
+export type MatterAssetsCreateAssetData = {
+    body: CreateMatterAssetRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        matterId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/assets';
+};
+
+export type MatterAssetsCreateAssetErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is settled
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MatterAssetsCreateAssetError = MatterAssetsCreateAssetErrors[keyof MatterAssetsCreateAssetErrors];
+
+export type MatterAssetsCreateAssetResponses = {
+    /**
+     * The recorded asset
+     */
+    201: MatterAssetCreatedResponse;
+};
+
+export type MatterAssetsCreateAssetResponse = MatterAssetsCreateAssetResponses[keyof MatterAssetsCreateAssetResponses];
+
+export type MatterAssetsDeleteAssetData = {
+    body?: never;
+    headers?: {
+        'idempotency-key'?: string;
+    };
+    path: {
+        assetId: string;
+    };
+    query?: never;
+    url: '/api/v1/matter-assets/{assetId}';
+};
+
+export type MatterAssetsDeleteAssetErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is settled
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MatterAssetsDeleteAssetError = MatterAssetsDeleteAssetErrors[keyof MatterAssetsDeleteAssetErrors];
+
+export type MatterAssetsDeleteAssetResponses = {
+    /**
+     * The asset was removed from the register
+     */
+    200: MatterAssetAckResponse;
+};
+
+export type MatterAssetsDeleteAssetResponse = MatterAssetsDeleteAssetResponses[keyof MatterAssetsDeleteAssetResponses];
+
+export type MatterAssetsGetAssetData = {
+    body?: never;
+    path: {
+        assetId: string;
+    };
+    query?: {
+        asOf?: string;
+    };
+    url: '/api/v1/matter-assets/{assetId}';
+};
+
+export type MatterAssetsGetAssetErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MatterAssetsGetAssetError = MatterAssetsGetAssetErrors[keyof MatterAssetsGetAssetErrors];
+
+export type MatterAssetsGetAssetResponses = {
+    /**
+     * The asset and its relations
+     */
+    200: MatterAssetDetail;
+};
+
+export type MatterAssetsGetAssetResponse = MatterAssetsGetAssetResponses[keyof MatterAssetsGetAssetResponses];
+
+export type MatterAssetsUpdateAssetData = {
+    body: UpdateMatterAssetRequest;
+    headers?: {
+        'idempotency-key'?: string;
+    };
+    path: {
+        assetId: string;
+    };
+    query?: never;
+    url: '/api/v1/matter-assets/{assetId}';
+};
+
+export type MatterAssetsUpdateAssetErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is settled
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MatterAssetsUpdateAssetError = MatterAssetsUpdateAssetErrors[keyof MatterAssetsUpdateAssetErrors];
+
+export type MatterAssetsUpdateAssetResponses = {
+    /**
+     * The asset was updated
+     */
+    200: MatterAssetAckResponse;
+};
+
+export type MatterAssetsUpdateAssetResponse = MatterAssetsUpdateAssetResponses[keyof MatterAssetsUpdateAssetResponses];
+
+export type MatterAssetsListValuationsData = {
+    body?: never;
+    path: {
+        assetId: string;
+    };
+    query?: never;
+    url: '/api/v1/matter-assets/{assetId}/valuations';
+};
+
+export type MatterAssetsListValuationsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MatterAssetsListValuationsError = MatterAssetsListValuationsErrors[keyof MatterAssetsListValuationsErrors];
+
+export type MatterAssetsListValuationsResponses = {
+    /**
+     * The value history
+     */
+    200: MatterAssetValuationList;
+};
+
+export type MatterAssetsListValuationsResponse = MatterAssetsListValuationsResponses[keyof MatterAssetsListValuationsResponses];
+
+export type MatterAssetsAppendValuationData = {
+    body: AppendMatterAssetValuationRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        assetId: string;
+    };
+    query?: never;
+    url: '/api/v1/matter-assets/{assetId}/valuations';
+};
+
+export type MatterAssetsAppendValuationErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is settled
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MatterAssetsAppendValuationError = MatterAssetsAppendValuationErrors[keyof MatterAssetsAppendValuationErrors];
+
+export type MatterAssetsAppendValuationResponses = {
+    /**
+     * The recorded value
+     */
+    201: MatterAssetCreatedResponse;
+};
+
+export type MatterAssetsAppendValuationResponse = MatterAssetsAppendValuationResponses[keyof MatterAssetsAppendValuationResponses];
+
+export type MatterAssetsListAssetTypesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        assetClass?: 'realProperty' | 'financialAccount' | 'vehicle' | 'firearm' | 'businessInterest' | 'insurancePolicy' | 'receivable' | 'digitalAsset' | 'personalProperty' | 'other';
+        includeInactive?: 'true' | 'false';
+    };
+    url: '/api/v1/matter-asset-types';
+};
+
+export type MatterAssetsListAssetTypesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MatterAssetsListAssetTypesError = MatterAssetsListAssetTypesErrors[keyof MatterAssetsListAssetTypesErrors];
+
+export type MatterAssetsListAssetTypesResponses = {
+    /**
+     * The catalog
+     */
+    200: MatterAssetTypeList;
+};
+
+export type MatterAssetsListAssetTypesResponse = MatterAssetsListAssetTypesResponses[keyof MatterAssetsListAssetTypesResponses];
+
+export type MatterAssetsCreateAssetTypeData = {
+    body: CreateMatterAssetTypeRequest;
+    headers?: {
+        'idempotency-key'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/matter-asset-types';
+};
+
+export type MatterAssetsCreateAssetTypeErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is settled
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MatterAssetsCreateAssetTypeError = MatterAssetsCreateAssetTypeErrors[keyof MatterAssetsCreateAssetTypeErrors];
+
+export type MatterAssetsCreateAssetTypeResponses = {
+    /**
+     * The catalog entry
+     */
+    201: MatterAssetCreatedResponse;
+};
+
+export type MatterAssetsCreateAssetTypeResponse = MatterAssetsCreateAssetTypeResponses[keyof MatterAssetsCreateAssetTypeResponses];
+
+export type MatterAssetsListAssetClassesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/matter-asset-classes';
+};
+
+export type MatterAssetsListAssetClassesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MatterAssetsListAssetClassesError = MatterAssetsListAssetClassesErrors[keyof MatterAssetsListAssetClassesErrors];
+
+export type MatterAssetsListAssetClassesResponses = {
+    /**
+     * The class registry
+     */
+    200: MatterAssetClassList;
+};
+
+export type MatterAssetsListAssetClassesResponse = MatterAssetsListAssetClassesResponses[keyof MatterAssetsListAssetClassesResponses];
+
+export type MatterAssetsReadIdentifierValueData = {
+    body?: never;
+    path: {
+        assetId: string;
+        identifierId: string;
+    };
+    query?: never;
+    url: '/api/v1/matter-assets/{assetId}/identifiers/{identifierId}/value';
+};
+
+export type MatterAssetsReadIdentifierValueErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MatterAssetsReadIdentifierValueError = MatterAssetsReadIdentifierValueErrors[keyof MatterAssetsReadIdentifierValueErrors];
+
+export type MatterAssetsReadIdentifierValueResponses = {
+    /**
+     * The full value, or null where only a suffix was recorded
+     */
+    200: MatterAssetIdentifierValueResponse;
+};
+
+export type MatterAssetsReadIdentifierValueResponse = MatterAssetsReadIdentifierValueResponses[keyof MatterAssetsReadIdentifierValueResponses];
+
+export type MatterAssetsCreateAssetBatchData = {
+    body: CreateMatterAssetBatchRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        matterId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/assets/batch';
+};
+
+export type MatterAssetsCreateAssetBatchErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is settled
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MatterAssetsCreateAssetBatchError = MatterAssetsCreateAssetBatchErrors[keyof MatterAssetsCreateAssetBatchErrors];
+
+export type MatterAssetsCreateAssetBatchResponses = {
+    /**
+     * The recorded assets
+     */
+    201: MatterAssetBatchCreatedResponse;
+};
+
+export type MatterAssetsCreateAssetBatchResponse = MatterAssetsCreateAssetBatchResponses[keyof MatterAssetsCreateAssetBatchResponses];
+
+export type MatterAssetsAddInterestData = {
+    body: AddMatterAssetInterestRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        assetId: string;
+    };
+    query?: never;
+    url: '/api/v1/matter-assets/{assetId}/interests';
+};
+
+export type MatterAssetsAddInterestErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is settled
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MatterAssetsAddInterestError = MatterAssetsAddInterestErrors[keyof MatterAssetsAddInterestErrors];
+
+export type MatterAssetsAddInterestResponses = {
+    /**
+     * The recorded interest
+     */
+    201: MatterAssetCreatedResponse;
+};
+
+export type MatterAssetsAddInterestResponse = MatterAssetsAddInterestResponses[keyof MatterAssetsAddInterestResponses];
+
+export type MatterAssetsEndInterestData = {
+    body: EndMatterAssetInterestRequest;
+    headers?: {
+        'idempotency-key'?: string;
+    };
+    path: {
+        assetId: string;
+        interestId: string;
+    };
+    query?: never;
+    url: '/api/v1/matter-assets/{assetId}/interests/{interestId}/end';
+};
+
+export type MatterAssetsEndInterestErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is settled
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MatterAssetsEndInterestError = MatterAssetsEndInterestErrors[keyof MatterAssetsEndInterestErrors];
+
+export type MatterAssetsEndInterestResponses = {
+    /**
+     * The interest was ended
+     */
+    200: MatterAssetAckResponse;
+};
+
+export type MatterAssetsEndInterestResponse = MatterAssetsEndInterestResponses[keyof MatterAssetsEndInterestResponses];
+
+export type MatterAssetsLinkDocumentData = {
+    body: LinkMatterAssetDocumentRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        assetId: string;
+    };
+    query?: never;
+    url: '/api/v1/matter-assets/{assetId}/documents';
+};
+
+export type MatterAssetsLinkDocumentErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is settled
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MatterAssetsLinkDocumentError = MatterAssetsLinkDocumentErrors[keyof MatterAssetsLinkDocumentErrors];
+
+export type MatterAssetsLinkDocumentResponses = {
+    /**
+     * The document link
+     */
+    201: MatterAssetCreatedResponse;
+};
+
+export type MatterAssetsLinkDocumentResponse = MatterAssetsLinkDocumentResponses[keyof MatterAssetsLinkDocumentResponses];
+
+export type MatterAssetsUnlinkDocumentData = {
+    body?: never;
+    headers?: {
+        'idempotency-key'?: string;
+    };
+    path: {
+        assetId: string;
+        documentLinkId: string;
+    };
+    query?: never;
+    url: '/api/v1/matter-assets/{assetId}/documents/{documentLinkId}';
+};
+
+export type MatterAssetsUnlinkDocumentErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is settled
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MatterAssetsUnlinkDocumentError = MatterAssetsUnlinkDocumentErrors[keyof MatterAssetsUnlinkDocumentErrors];
+
+export type MatterAssetsUnlinkDocumentResponses = {
+    /**
+     * The document was detached
+     */
+    200: MatterAssetAckResponse;
+};
+
+export type MatterAssetsUnlinkDocumentResponse = MatterAssetsUnlinkDocumentResponses[keyof MatterAssetsUnlinkDocumentResponses];
+
+export type MatterAssetsRecordIdentifierData = {
+    body: RecordMatterAssetIdentifierRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        assetId: string;
+    };
+    query?: never;
+    url: '/api/v1/matter-assets/{assetId}/identifiers';
+};
+
+export type MatterAssetsRecordIdentifierErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is settled
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MatterAssetsRecordIdentifierError = MatterAssetsRecordIdentifierErrors[keyof MatterAssetsRecordIdentifierErrors];
+
+export type MatterAssetsRecordIdentifierResponses = {
+    /**
+     * The recorded identifier
+     */
+    201: MatterAssetCreatedResponse;
+};
+
+export type MatterAssetsRecordIdentifierResponse = MatterAssetsRecordIdentifierResponses[keyof MatterAssetsRecordIdentifierResponses];
 
 export type CustomFieldsDefineFieldData = {
     body: DefineCustomFieldRequest;
