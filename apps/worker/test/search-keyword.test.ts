@@ -2,6 +2,7 @@ import { env } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import type { FileId, FirmId, IndexSplitId, MatterId } from "@magna-carta/identifiers/types";
 import { insertIndexSplitStatement } from "@magna-carta/data-access/index-split-statements";
+import { corpusOfMatter } from "@magna-carta/search/corpus";
 import { found, type SearchIndexPort } from "@magna-carta/search/port";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { seedFirm } from "./support/test-auth.ts";
@@ -9,6 +10,7 @@ import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import { runKeywordSearch } from "../src/search/keyword-search.ts";
 
 const MATTER = "matter_test0000000000000000001" as MatterId;
+const CORPUS = corpusOfMatter(MATTER);
 
 let firmId: FirmId;
 
@@ -19,7 +21,7 @@ beforeAll(async () => {
 });
 
 describe("runKeywordSearch", () => {
-  it("resolves the matter's live split keys from the catalog and hands them to the engine", async () => {
+  it("resolves the corpus's live split keys from the catalog and hands them to the engine", async () => {
     const database = firmDatabaseFor(env.FIRM_DATABASE, firmId);
     await database.batch([
       insertIndexSplitStatement(database, {
@@ -62,11 +64,11 @@ describe("runKeywordSearch", () => {
 
     const result = await runKeywordSearch(
       env,
-      { firmId, matterId: MATTER, text: "indemnify", limit: 10 },
+      { firmId, corpus: CORPUS, text: "indemnify", limit: 10 },
       fakePort,
     );
 
-    // The engine received exactly the matter's live split object keys — the catalog is what scopes the
+    // The engine received exactly the corpus's live split object keys — the catalog is what scopes the
     // query, and the engine range-reads only those.
     expect([...capturedSplitKeys].sort()).toEqual([
       "search/matter/splits/a.split",
@@ -81,7 +83,7 @@ describe("runKeywordSearch", () => {
     // catalog still resolves, then the query reports the engine is not yet reachable rather than crashing.
     const result = await runKeywordSearch(env, {
       firmId,
-      matterId: MATTER,
+      corpus: CORPUS,
       text: "anything",
       limit: 10,
     });

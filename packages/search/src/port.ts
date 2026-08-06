@@ -1,9 +1,10 @@
-import type { FileId, FirmId, MatterId } from "@magna-carta/identifiers/types";
+import type { FileId, FirmId } from "@magna-carta/identifiers/types";
+import type { CorpusScope } from "./corpus.ts";
 
 // SearchIndexPort is the single chokepoint every discovery-search feature reaches the index through,
 // named in our domain vocabulary — never a vendor's, never the engine's. It has three operations:
 // feed a document's passages into the index (`index`), remove a document (`remove`), and query a
-// matter (`query`). Every operation returns a typed outcome, never a thrown error (the same discipline
+// corpus (`query`). Every operation returns a typed outcome, never a thrown error (the same discipline
 // as ConversionPort and the integrations Dispatch): an engine or transport failure becomes a
 // first-class result, so a caller pattern-matches rather than catches.
 //
@@ -23,7 +24,10 @@ export interface Passage {
 
 export interface IndexDocumentInput {
   readonly firmId: FirmId;
-  readonly matterId: MatterId;
+  // Which corpus this document is being indexed into — the index's partition key, and the input the
+  // split's R2 key is derived from (corpus.ts, split.ts). The same document can belong to more than one
+  // corpus, and is then indexed once per corpus into its own split.
+  readonly corpus: CorpusScope;
   // A "document" here is the File Manager file the corpus is made of (packages/file-manager); its
   // committed versions are what actually get indexed, one split each.
   readonly documentId: FileId;
@@ -40,7 +44,9 @@ export interface IndexDocumentInput {
 
 export interface RemoveDocumentInput {
   readonly firmId: FirmId;
-  readonly matterId: MatterId;
+  // Removal is per corpus, never global: a document that belongs to two corpora leaves one of them
+  // without leaving the other.
+  readonly corpus: CorpusScope;
   readonly documentId: FileId;
 }
 
@@ -50,11 +56,13 @@ export type SearchMode = "keyword" | "semantic" | "hybrid";
 
 export interface SearchQueryInput {
   readonly firmId: FirmId;
-  readonly matterId: MatterId;
+  // The corpus the query runs over. A query never spans corpora — that is the isolation the scope key
+  // exists for, so material held in one corpus cannot surface in a search of another.
+  readonly corpus: CorpusScope;
   readonly text: string;
   readonly mode: SearchMode;
   readonly limit: number;
-  // The R2 object keys of the matter's live splits, resolved by the caller from the per-firm catalog.
+  // The R2 object keys of the corpus's live splits, resolved by the caller from the per-firm catalog.
   // The keyword engine range-reads exactly these; the caller owns catalog enumeration and firm scoping,
   // so the engine never needs to reach the per-firm database. Empty for a `semantic`-only query.
   readonly splitKeys: readonly string[];

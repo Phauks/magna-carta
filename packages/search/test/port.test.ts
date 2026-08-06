@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { FileId, FirmId, MatterId } from "@magna-carta/identifiers/types";
+import { corpusOfMatter } from "../src/corpus.ts";
 import {
   found,
   indexed,
@@ -15,6 +16,7 @@ import {
 const FIRM = "firm_test0000000000000000000001" as FirmId;
 const MATTER = "matter_test0000000000000000001" as MatterId;
 const DOCUMENT = "file_test00000000000000000001" as FileId;
+const CORPUS = corpusOfMatter(MATTER);
 
 // A trivial in-memory implementation, proving the interface is implementable and documenting the shape
 // a real adapter fills. It ignores splitKeys and just matches on substring — enough to exercise the port.
@@ -63,7 +65,7 @@ describe("SearchIndexPort", () => {
     const port = new InMemorySearchIndex();
     const indexResult = await port.index({
       firmId: FIRM,
-      matterId: MATTER,
+      corpus: CORPUS,
       documentId: DOCUMENT,
       version: 1,
       objectKey: `search/${MATTER}/splits/indexSplit_test0000000000000000001.split`,
@@ -77,7 +79,7 @@ describe("SearchIndexPort", () => {
 
     const query = await port.query({
       firmId: FIRM,
-      matterId: MATTER,
+      corpus: CORPUS,
       text: "indemnify",
       mode: "keyword",
       limit: 10,
@@ -89,10 +91,10 @@ describe("SearchIndexPort", () => {
       expect(query.hits[0]?.chunkId).toBe(`${DOCUMENT}:p1`);
     }
 
-    await port.remove({ firmId: FIRM, matterId: MATTER, documentId: DOCUMENT });
+    await port.remove({ firmId: FIRM, corpus: CORPUS, documentId: DOCUMENT });
     const afterRemove = await port.query({
       firmId: FIRM,
-      matterId: MATTER,
+      corpus: CORPUS,
       text: "indemnify",
       mode: "keyword",
       limit: 10,

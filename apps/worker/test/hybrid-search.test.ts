@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { FileId, FirmId, MatterId } from "@magna-carta/identifiers/types";
+import { corpusOfMatter } from "@magna-carta/search/corpus";
 import { found, searchEngineNotImplemented, type SearchHit } from "@magna-carta/search/port";
 import type { Bindings } from "../src/app.ts";
 import type { KeywordSearchInput } from "../src/search/keyword-search.ts";
@@ -7,7 +8,7 @@ import { runHybridSearch, type SearchHalf } from "../src/search/hybrid-search.ts
 
 const INPUT: KeywordSearchInput = {
   firmId: "firm_test0000000000000000000001" as FirmId,
-  matterId: "matter_test0000000000000000001" as MatterId,
+  corpus: corpusOfMatter("matter_test0000000000000000001" as MatterId),
   text: "indemnify",
   limit: 10,
 };
