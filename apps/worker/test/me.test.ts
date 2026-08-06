@@ -129,6 +129,13 @@ describe("GET /api/v1/me", () => {
         "firm:scanFile",
         "incidents:viewDescription",
         "locations:manage",
+        // Both asset keys reach Owner/Admin, Attorney, and Paralegal and neither reaches Billing or
+        // Read-only — narrower than custody:read and calendar:read, because the register
+        // concentrates what an estate owns and what it is worth in one surface
+        // (20260806T020000_matter-assets). Opening a FULL account number needs
+        // directory:viewSensitiveIdentifiers on top, which is above.
+        "matterAssets:manage",
+        "matterAssets:read",
         "matters:close",
         "matters:create",
         "matters:edit",

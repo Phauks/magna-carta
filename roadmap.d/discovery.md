@@ -13,10 +13,28 @@
 - id: discovery.pipeline
   name: Extraction pipeline
   scope: Ingest to R2, queue-driven extraction/OCR in Containers, then index.
+  status: partial
+  slices: 5-1-discovery-ingest-and-processing
+  spec: docs/specs/2026-08-05-discovery-5-1-design.md
+  evidence: The engine half is built — crates/discovery-core (identification, native extraction, normalization, chunking, five-algorithm digests, near-duplicate fingerprint, guarded archive expansion) hosted by containers/discovery + apps/discovery-worker. The queue lane, the review-set model, and the wiring into the shipped index pipeline are not built.
+  notes: The engine is dual-target (native + wasm32) with committed cross-target vectors, so desktop-local processing and the server produce byte-identical passages.
+
+- id: discovery.pipeline.engine
+  name: Discovery engine core
+  scope: Pure-Rust, I/O-free engine — identify from bytes, native text extraction, the determinism boundary, passage chunking, five-algorithm digests, the near-duplicate fingerprint, guarded archive expansion.
+  status: shipped
+  slices: 5-1-discovery-ingest-and-processing
+  spec: docs/specs/2026-08-05-discovery-5-1-design.md
+  evidence: crates/discovery-core (dual-target, no C-backed feature on any path, asserted by a manifest test) behind containers/discovery + apps/discovery-worker; the passage chunker moved out of packages/search/src/extraction.ts with its corpus.
+  notes: Backend only, no user surface. The composite extraction port that routes to it — and closes the born-digital-PDF gap platform-wide — is a later sub-slice.
+
+- id: discovery.pipeline.review-set
+  name: Review-set model
+  scope: The corpus object — review sets, loads, review documents as pointers, record custodians, occurrences, exceptions, and the load manifest.
   status: designed
-  spec: docs/specs/2026-07-17-discovery-search-index-stateful-service-design.md
-  evidence: The extract→index write path is designed (§8 of the search-index spec); no pipeline code yet. The generic untrusted-upload ingest pipeline (status.d/2-1) is a substrate, not discovery.
-  notes: Upload/scan/R2 storage exists via the file pipeline; nothing feeds an index yet. The pipeline is idempotent on documentId+version and off the hot path (queue + per-job coordination).
+  spec: docs/specs/2026-08-05-discovery-5-1-design.md
+  evidence: Designed and planned (docs/specs/2026-08-05-discovery-5-1-implementation-plan.md); no schema, service, or route exists yet.
+  notes: The custodian-vocabulary gate that binds it ships early (tooling/lint-custodian-vocabulary.mjs), scoped to the discovery trees until the permission keys move.
 
 - id: discovery.ocr
   name: OCR engine
@@ -38,8 +56,11 @@
 - id: discovery.archive-handling.contents-indexing
   name: Archive contents in review
   scope: Indexing, reviewing, and producing archive contents via client/desktop-side extraction and re-upload.
-  status: deferred
-  evidence: White paper marks it deferred but not designed-out; a zip stays an opaque attachment for now.
+  status: partial
+  slices: 5-1-discovery-ingest-and-processing
+  spec: docs/specs/2026-08-05-discovery-5-1-design.md
+  evidence: The engine can enumerate and expand an archive under five guards (crates/discovery-core/src/archive.rs) — the narrow exception to the opaque-archive rule, scoped to the discovery load path. Nothing calls it yet; File Manager archives stay opaque.
+  notes: A received production arrives as a zip, so a discovery subsystem that cannot open one cannot ingest an external production at all.
 
 - id: discovery.search
   name: Search

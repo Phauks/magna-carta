@@ -509,9 +509,9 @@ jobs:
         run: >-
           pnpm exec vp test run --project='!storybook' --shard=${{ matrix.shard }}/${{ env.SHARD_TOTAL }}
           "$PWD/packages" "$PWD/tooling" "$PWD/apps/web" "$PWD/apps/bundle-worker"
-          "$PWD/apps/convert-worker" "$PWD/apps/email-worker" "$PWD/apps/file-repair-worker"
-          "$PWD/apps/magna-carta-edit" "$PWD/apps/ocr-worker" "$PWD/apps/recovery-worker"
-          "$PWD/apps/scan-worker" "$PWD/apps/sign-worker"
+          "$PWD/apps/convert-worker" "$PWD/apps/discovery-worker" "$PWD/apps/email-worker"
+          "$PWD/apps/file-repair-worker" "$PWD/apps/magna-carta-edit" "$PWD/apps/ocr-worker"
+          "$PWD/apps/recovery-worker" "$PWD/apps/scan-worker" "$PWD/apps/sign-worker"
 
   # The Miniflare worker suites (@cloudflare/vitest-pool-workers) — the heaviest substrate, since each file
   # stands up its own Workers runtime with the wrangler bindings. Its own sharded job; no browser.
@@ -726,9 +726,10 @@ jobs:
           echo "osv-scanner: HIGH/CRITICAL advisories remain after ignores — failing the gate:" >&2
           printf '%s' "$offenders" | jq -r '.[] | "  [\(.ecosystem)] \(.package): \(.ids | join(", ")) (max_severity=\(.max_severity), \(.classified_by))"' >&2
           exit 1
-      - name: Governance (process-refs + licenses + status fragments + decision files + test registration + lint scope)
+      - name: Governance (process-refs + custodian vocabulary + licenses + status fragments + decision files + test registration + lint scope)
         run: |
           pnpm run lint:process-refs
+          pnpm run lint:custodian-vocabulary
           pnpm run lint:licenses
           pnpm run lint:status
           pnpm run lint:decisions

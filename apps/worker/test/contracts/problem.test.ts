@@ -86,6 +86,13 @@ describe("problem-type URI registry", () => {
         "calendar-deadline-catalog-unavailable",
         "calendar-deadline-settled",
         "calendar-platform-type-immutable",
+        "matter-asset-type-class-mismatch",
+        "matter-asset-class-frozen",
+        "matter-asset-valuation-append-only",
+        "matter-asset-currency-mismatch",
+        "matter-asset-credential-storage-refused",
+        "matter-asset-batch-too-large",
+        "matter-asset-document-matter-mismatch",
       ].sort(),
     );
   });

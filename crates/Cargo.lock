@@ -592,6 +592,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "chardetng"
+version = "0.1.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "14b8f0b65b7b08ae3c8187e8d77174de20cb6777864c6b832d8ad365999cf1ea"
+dependencies = [
+ "cfg-if",
+ "encoding_rs",
+ "memchr",
+]
+
+[[package]]
 name = "chrono"
 version = "0.4.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1083,6 +1094,29 @@ dependencies = [
  "block-buffer 0.12.1",
  "const-oid",
  "crypto-common 0.2.2",
+]
+
+[[package]]
+name = "discovery-core"
+version = "0.0.0"
+dependencies = [
+ "cfb 0.14.0",
+ "chardetng",
+ "email-core",
+ "encoding_rs",
+ "flate2",
+ "js-sys",
+ "lopdf",
+ "magna-carta-engine-host",
+ "md-5 0.10.6",
+ "pdf-core",
+ "quick-xml",
+ "sha1",
+ "sha2 0.10.9",
+ "unicode-normalization",
+ "wasm-bindgen",
+ "wasm-bindgen-test",
+ "zip 8.6.0",
 ]
 
 [[package]]
@@ -3375,6 +3409,15 @@ name = "quick-error"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a993555f31e5a609f617c12db6250dedcac1b0a85076912c436e6fc9b2c8e6a3"
+
+[[package]]
+name = "quick-xml"
+version = "0.38.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b66c2058c55a409d601666cffe35f04333cf1013010882cec174a7467cd4e21c"
+dependencies = [
+ "memchr",
+]
 
 [[package]]
 name = "quinn"

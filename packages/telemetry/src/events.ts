@@ -128,6 +128,17 @@ export const custodyMovementRecorded = defineEvent("custody.movementRecorded", [
   "hasShipment",
 ] as const);
 
+// matterAssets.assetRecorded — one per asset added to a matter's register. The redaction is
+// structural, exactly as the custody ledger's is and for the same reason: this register concentrates
+// what a family owns and what it is worth, so there is NO slot for a description, an address, a
+// parcel number, an entity name, an account suffix, or an amount. What remains is the shape of the
+// activity: which class of thing, and whether it arrived one at a time or in a bulk entry (which is
+// how "is quick entry actually being used" gets answered without reading a single row).
+export const matterAssetRecorded = defineEvent("matterAssets.assetRecorded", [
+  "class",
+  "entryMode",
+] as const);
+
 // The catalog's event names — derived from the builders themselves (each carries its `eventName`),
 // so this registry cannot drift from the real builders and the uniqueness fitness test checks the
 // actual catalog, not a hand-copied parallel list. Adding a builder above adds it here.
@@ -145,4 +156,5 @@ export const EVENT_NAMES = [
   usageFeature,
   documentAssembled,
   custodyMovementRecorded,
+  matterAssetRecorded,
 ].map((builder) => builder.eventName);

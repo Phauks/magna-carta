@@ -129,6 +129,40 @@ export const PROBLEM_TYPES = {
   // type's name IS the shared vocabulary — a firm that wants different words adds its own type and
   // deactivates the shipped one, which changes nothing for anybody else.
   "calendar-platform-type-immutable": "calendar-platform-type-immutable",
+  // An asset given a type declared under a different class (HTTP 422). A firm filing a retirement
+  // account under `vehicle` has made a data-entry error, not expressed a preference — the class
+  // decides which structured columns exist, so the pairing has to hold. Also raised when a class's
+  // attributes are supplied on an asset of another class, which is the same mistake from the other
+  // end and is refused rather than silently dropped: attributes quietly discarded are facts a person
+  // believes they recorded.
+  "matter-asset-type-class-mismatch": "matter-asset-type-class-mismatch",
+  // An attempt to change an asset's class after it was recorded (HTTP 409). A class change orphans
+  // the attribute row and moves the asset to a different merge subject, so it is a delete-and-record
+  // -again wearing an update. DISTINCT from `validation`: the request is well-formed and the class is
+  // real; the change is one the register does not make.
+  "matter-asset-class-frozen": "matter-asset-class-frozen",
+  // Any attempt to edit or remove a recorded value (HTTP 409). No route offers one and the database
+  // refuses it, so this exists so that a path written later fails by name rather than as an
+  // unexplained abort. A wrong figure is fixed by recording a correction that names it.
+  "matter-asset-valuation-append-only": "matter-asset-valuation-append-only",
+  // An amount with no currency, a currency with no amount, or a correction restating a figure in a
+  // different currency (HTTP 422). Money is minor units plus a currency and never a float, and no
+  // total is computed across two currencies.
+  "matter-asset-currency-mismatch": "matter-asset-currency-mismatch",
+  // A request asking the register to hold a password, passphrase, seed or recovery phrase, private
+  // key, personal identification number, or safe combination (HTTP 422). Its OWN type rather than
+  // `validation` because the refusal is explainable and the explanation is the point: an encrypted
+  // column is readable by anyone holding the decrypt permission, and for a self-custodied asset the
+  // phrase IS the asset. The correct home is a sealed envelope in the safekeeping register.
+  "matter-asset-credential-storage-refused": "matter-asset-credential-storage-refused",
+  // A bulk entry carrying more rows than one commit takes (HTTP 422). A REFUSAL and never a
+  // truncation: a caller that sent sixty rows and silently had fifty written cannot tell that from
+  // fifty rows it never sent.
+  "matter-asset-batch-too-large": "matter-asset-batch-too-large",
+  // A document link naming a file filed under a different matter, or a document kind the register
+  // does not carry (HTTP 422). A cross-matter link would put a deed in a case nobody could find it
+  // from, and would show one matter's file in another matter's asset detail.
+  "matter-asset-document-matter-mismatch": "matter-asset-document-matter-mismatch",
   // An unexpected, unhandled server error (HTTP 500). The telemetry middleware's final catch maps
   // any escaped exception to this — the one error type the client cannot have caused, carrying only
   // the Error ID to quote.
