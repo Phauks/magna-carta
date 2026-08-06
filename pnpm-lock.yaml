@@ -854,6 +854,9 @@ importers:
       '@magna-carta/sequence-numbering':
         specifier: workspace:*
         version: link:../sequence-numbering
+      '@magna-carta/trust':
+        specifier: workspace:*
+        version: link:../trust
       zod:
         specifier: 'catalog:'
         version: 4.4.3

@@ -82,6 +82,8 @@ describe("problem-type URI registry", () => {
         "billing-work-already-claimed",
         "billing-account-role-unmapped",
         "billing-refused",
+        "billing-earned-fee-refused",
+        "billing-exceeds-unpaid-balance",
         "matter-close-refused",
         "calendar-window-too-wide",
         "calendar-deadline-catalog-unavailable",

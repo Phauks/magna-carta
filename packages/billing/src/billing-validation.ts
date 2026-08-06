@@ -17,7 +17,21 @@ export type BillingValidationCode =
   | "invoice-total-not-positive"
   | "invoice-matter-total-negative"
   | "invoice-line-currency-mismatch"
-  | "unknown-number-scope";
+  | "unknown-number-scope"
+  // The one application door, and the five conditions that let money leave a client's trust ledger
+  // for the firm. Each names exactly which of them failed, because "the transfer was refused" is not
+  // something a member can act on and "this invoice is still a draft" is.
+  | "application-kind-not-built"
+  | "application-amount-not-positive"
+  | "application-currency-mismatch"
+  | "earned-fee-invoice-not-final"
+  | "earned-fee-invoice-client-mismatch"
+  | "earned-fee-invoice-does-not-bill-matter"
+  | "earned-fee-exceeds-unpaid-balance"
+  | "earned-fee-amount-mismatch"
+  | "earned-fee-node-mismatch"
+  | "earned-fee-no-applications"
+  | "earned-fee-too-many-invoices";
 
 export class BillingValidationError extends Error {
   constructor(

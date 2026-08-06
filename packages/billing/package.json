@@ -13,6 +13,9 @@
     "./line-amounts": "./src/line-amounts.ts",
     "./draft": "./src/draft.ts",
     "./finalize": "./src/finalize.ts",
+    "./application": "./src/application.ts",
+    "./earned-fee": "./src/earned-fee.ts",
+    "./apply-trust-funds": "./src/apply-trust-funds.ts",
     "./queries": "./src/queries.ts",
     "./fitness": "./src/fitness.ts"
   },
@@ -27,6 +30,7 @@
     "@magna-carta/matters": "workspace:*",
     "@magna-carta/money": "workspace:*",
     "@magna-carta/sequence-numbering": "workspace:*",
+    "@magna-carta/trust": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {

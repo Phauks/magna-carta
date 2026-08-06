@@ -64,6 +64,7 @@ import type {
   IncidentId,
   IndexSplitId,
   IntegrationConnectionId,
+  InvoiceApplicationId,
   InvoiceId,
   InvoiceLineId,
   InvoiceWipClaimId,
@@ -4266,6 +4267,72 @@ export const firmAccountRole = sqliteTable(
     check(
       "firm_account_role_role_check",
       sql`${table.role} IN ('accounts_receivable', 'fee_income', 'client_costs_advanced', 'cost_recovery_income', 'tax_payable', 'fee_adjustments', 'fee_write_off', 'operating_bank', 'client_credit_liability')`,
+    ),
+  ],
+);
+
+// Every unit of value that reaches an invoice, and the ONLY way any does. A finalized invoice is
+// frozen by trigger, so value arriving at it is never an edit: it is a row here plus a delta on
+// invoice_matter_balance.applied_minor, and the bounds CHECK on that balance — riding the same batch
+// — is what makes over-application structurally impossible rather than hopefully pre-checked.
+//
+// THE TRUST KIND IS THE ONE THAT COMPOSES NO LEDGER ENTRY. Trust's transfer out of a client ledger
+// already posts Dr Operating Bank / Cr Accounts Receivable on its operating leg, so a second credit
+// composed here would leave the invoice subledger and the receivable control account disagreeing by
+// the total of every trust-funded fee, silently and forever. Every other kind brings its own posting.
+//
+// Amounts are positive and direction is the row's KIND, never a sign — the ledger's own rule applied
+// to the subledger. A reversal carries a positive amount and subtracts because it is a reversal, and
+// its UNIQUE link makes a double reversal structurally impossible (the reverses_entry_id precedent).
+export const invoiceApplication = sqliteTable(
+  "invoice_application",
+  {
+    id: text("id").primaryKey().$type<InvoiceApplicationId>(), // invoiceApplication_ handle
+    invoiceId: text("invoice_id")
+      .notNull()
+      .$type<InvoiceId>()
+      .references(() => invoice.id),
+    // Which matter's share of the invoice this pays down. A trust transfer draws on exactly one
+    // matter leaf, so the ceiling it must respect is that matter's balance row, not the invoice's
+    // total.
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    kind: text("kind", {
+      enum: ["trust_transfer", "payment", "credit_note", "client_credit", "write_off", "reversal"],
+    }).notNull(),
+    amountMinor: integer("amount_minor").notNull(),
+    currency: text("currency").notNull(),
+    trustTransferId: text("trust_transfer_id")
+      .$type<TrustTransferId>()
+      .references(() => trustTransfer.id),
+    reversesApplicationId: text("reverses_application_id").$type<InvoiceApplicationId>(),
+    effectiveDate: text("effective_date").notNull(), // civil date
+    appliedBy: text("applied_by").$type<UserId>(),
+    appliedAt: text("applied_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("invoice_application_reverses_unique_index").on(table.reversesApplicationId),
+    index("invoice_application_invoice_matter_index").on(table.invoiceId, table.matterId),
+    index("invoice_application_matter_index").on(table.matterId),
+    index("invoice_application_trust_transfer_index").on(table.trustTransferId),
+    // The whole closed set, including the four kinds no code writes yet: SQLite cannot widen a CHECK
+    // without a destructive table rebuild, so narrowing it to what ships today would mean the
+    // credit-note and payment paths could never be added additively.
+    check(
+      "invoice_application_kind_check",
+      sql`${table.kind} IN ('trust_transfer', 'payment', 'credit_note', 'client_credit', 'write_off', 'reversal')`,
+    ),
+    check("invoice_application_amount_positive_check", sql`${table.amountMinor} > 0`),
+    check("invoice_application_currency_check", sql`length(${table.currency}) = 3`),
+    check(
+      "invoice_application_trust_transfer_paired_check",
+      sql`(${table.kind} = 'trust_transfer') = (${table.trustTransferId} IS NOT NULL)`,
+    ),
+    check(
+      "invoice_application_reversal_paired_check",
+      sql`(${table.kind} = 'reversal') = (${table.reversesApplicationId} IS NOT NULL)`,
     ),
   ],
 );

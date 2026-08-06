@@ -40,6 +40,7 @@ import { Problem, problemJson, type ProblemResponse } from "../contracts/problem
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-problems.ts";
 import { problemResponseForLedgerRefusal } from "../ledger-refusal-problems.ts";
+import { problemResponseForTrustRefusal } from "../trust-refusal-problems.ts";
 
 // Trust movements: client money into a matter's trust ledger, out of it, and reallocated between two
 // matters of one client. Every one of them is idempotency-REQUIRED, because a retried request that
@@ -506,73 +507,11 @@ const clientLedgerRoute = defineOpenAPIRoute(
   },
 );
 
-// A refusal's HTTP status is a property of what the refusal MEANS, so the mapping lives in one
-// place rather than at three call sites that would drift.
-function trustErrorResponse(
-  c: Context,
-  error: TrustValidationError,
-): ProblemResponse<404> | ProblemResponse<409> | ProblemResponse<422> {
-  if (
-    error.code === "unknown-trust-account" ||
-    error.code === "unknown-trust-node" ||
-    error.code === "unknown-trust-disbursement-request"
-  ) {
-    return problemJson(c, {
-      type: "not-found",
-      title: "Not found",
-      status: 404,
-      detail: error.message,
-    });
-  }
-  if (error.code === "movement-exceeds-available") {
-    return problemJson(c, {
-      type: "trust-insufficient-available",
-      title: "The client ledger does not have that much available",
-      status: 409,
-      detail: error.message,
-    });
-  }
-  if (error.code === "trust-disbursement-request-already-decided") {
-    return problemJson(c, {
-      type: "trust-disbursement-not-pending",
-      title: "This disbursement request has already been decided",
-      status: 409,
-      detail: error.message,
-    });
-  }
-  // Not a permission failure: the member holds the trust capability, and the two-person rule is the
-  // whole point of the control — they are the wrong PERSON for this particular decision.
-  if (
-    error.code === "trust-disbursement-decider-is-requester" ||
-    error.code === "trust-disbursement-withdrawal-not-by-requester"
-  ) {
-    return problemJson(c, {
-      type: "trust-disbursement-authorization-refused",
-      title: "Another member has to make this decision",
-      status: 422,
-      detail: error.message,
-    });
-  }
-  if (error.code === "jurisdiction-not-recorded" || error.code === "jurisdiction-not-encoded") {
-    return problemJson(c, {
-      type: "trust-jurisdiction-unavailable",
-      title: "The trust account's jurisdiction cannot be resolved",
-      status: 422,
-      detail: error.message,
-    });
-  }
-  // Everything else the trust rules refuse on their own terms: a commingled entry, a second client
-  // on one entry, a posting aimed at a roll-up, a closed account, a currency the account does not
-  // hold, a transfer to the matter it came from, a forbidden payment method, a matter with no client
-  // party to attribute the money to, or an existing client ledger filed under a different client
-  // than the matter's own.
-  return problemJson(c, {
-    type: "trust-movement-refused",
-    title: "The trust rules refuse this movement",
-    status: 422,
-    detail: error.message,
-  });
-}
+// A refusal's HTTP status is a property of what the refusal MEANS, so the mapping lives in ONE
+// place — src/trust-refusal-problems.ts — rather than at the call sites that would drift. Billing's
+// apply-funds route composes trust's transfer through trust's own composer and inherits every one of
+// these refusals, so the mapping is shared with it rather than copied.
+const trustErrorResponse = problemResponseForTrustRefusal;
 
 type TrustApp = OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>;
 

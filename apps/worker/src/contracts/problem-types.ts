@@ -297,6 +297,22 @@ export const PROBLEM_TYPES = {
   // time, an empty invoice, or more claimed work than one finalize batch can carry. DISTINCT from
   // `validation` — the request is well-formed; what it asks for is not a bill the rules permit.
   "billing-refused": "billing-refused",
+  // A transfer of earned fees out of a client's trust ledger that the invoice evidence does not
+  // permit (HTTP 422): the bill named is still a draft, it bills a different client than the one
+  // whose money this is, it does not bill the matter the money sits against, or the amounts named do
+  // not add up to the transfer. Money leaves trust for the firm only against a finalized bill, with
+  // no override path — this is the operation where real-world trust violations happen and the
+  // friction is the point. DISTINCT from `trust-movement-refused`, which is trust's own rules about
+  // the movement (commingling, one client per entry, a forbidden method); this is the billing side
+  // saying the fee has not been shown to be earned.
+  "billing-earned-fee-refused": "billing-earned-fee-refused",
+  // A transfer or payment larger than what that matter still owes on that bill (HTTP 409). The
+  // per-(invoice, matter) balance is the ceiling, not the invoice total and not the money available
+  // in trust: the ceiling a client ledger's funds must respect is that matter's own share. The
+  // mirror of `trust-insufficient-available` on the other side of the same operation — there the
+  // money is not there, here the debt is not — and it is a 409 for the same reason: a credit note or
+  // another payment may have consumed the balance since the caller last looked.
+  "billing-exceeds-unpaid-balance": "billing-exceeds-unpaid-balance",
   // A required downstream service is absent or unreachable (HTTP 503): the worker cannot fulfil
   // the request because a backing worker service binding is not configured. Callers should retry
   // after a short delay; the condition resolves when the binding is activated at deploy time.

@@ -1,14 +1,18 @@
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type {
+  InvoiceApplicationId,
   InvoiceId,
   InvoiceLineId,
   InvoiceWipClaimId,
   LocationId,
   MatterId,
+  TrustTransferId,
   UserId,
 } from "@magna-carta/identifiers/types";
 import { MAX_BOUND_PARAMETERS } from "@magna-carta/ledger/statements";
 import type {
+  InvoiceApplicationKind,
+  InvoiceApplicationSnapshot,
   InvoiceClaimSnapshot,
   InvoiceLineKind,
   InvoiceLineSnapshot,
@@ -397,6 +401,114 @@ export function insertInvoiceMatterBalanceStatement(
        VALUES (?1, ?2, ?3, 0, ?4, ?5, ?5)`,
     )
     .bind(invoiceId, matterId, totalMinor, currency, now);
+}
+
+export interface InsertInvoiceApplicationInput {
+  readonly id: InvoiceApplicationId;
+  readonly invoiceId: InvoiceId;
+  readonly matterId: MatterId;
+  readonly kind: InvoiceApplicationKind;
+  readonly amountMinor: number;
+  readonly currency: string;
+  readonly trustTransferId: TrustTransferId | null;
+  readonly reversesApplicationId: InvoiceApplicationId | null;
+  readonly effectiveDate: string;
+  readonly appliedBy: UserId | null;
+  readonly now: string;
+}
+
+// One unit of value reaching an invoice. Append-only by trigger: an application that could be edited
+// would let money that reached a bill be quietly un-reached, because the balance delta it rode with
+// has already moved and an edit here would desynchronize the subledger from the control account with
+// no record of having done so. A mistaken application is corrected by a reversal row.
+export function insertInvoiceApplicationStatement(
+  database: SqlDatabase,
+  input: InsertInvoiceApplicationInput,
+): SqlStatement {
+  return database
+    .prepare(
+      `INSERT INTO invoice_application (id, invoice_id, matter_id, kind, amount_minor, currency, trust_transfer_id, reverses_application_id, effective_date, applied_by, applied_at)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)`,
+    )
+    .bind(
+      input.id,
+      input.invoiceId,
+      input.matterId,
+      input.kind,
+      input.amountMinor,
+      input.currency,
+      input.trustTransferId,
+      input.reversesApplicationId,
+      input.effectiveDate,
+      input.appliedBy,
+      input.now,
+    );
+}
+
+// THE GUARANTEE, and the reason the balance table exists at all.
+//
+// This is an unguarded delta on purpose. D1 has no interactive transactions, so a bounds CHECK is the
+// only mechanism that can abort a whole batch on a business condition — and
+// `applied_minor >= 0 AND applied_minor <= total_minor` is that CHECK. A concurrent transfer,
+// payment, or credit note that consumed the balance between the pre-check's read and this commit
+// pushes the sum past `total_minor` and aborts the ENTIRE batch: the trust entries, the transfer
+// link, this application, and the idempotency record together.
+//
+// Writing it as `... WHERE total_minor - applied_minor >= ?` instead would look safer and be
+// strictly worse: a zero-row UPDATE is not an error in SQLite, so the losing batch would commit
+// happily having moved no balance while its trust entries — real money out of a client's ledger —
+// committed beside it. Same arrangement, for the same reason, as the trust leaf's account_balance
+// floor: a domain pre-check that names a refusal a person can act on, standing in front of a
+// database constraint that is the actual guarantee.
+export function applyToInvoiceMatterBalanceStatement(
+  database: SqlDatabase,
+  invoiceId: InvoiceId,
+  matterId: MatterId,
+  deltaMinor: number,
+  now: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE invoice_matter_balance SET applied_minor = applied_minor + ?3, updated_at = ?4
+        WHERE invoice_id = ?1 AND matter_id = ?2`,
+    )
+    .bind(invoiceId, matterId, deltaMinor, now);
+}
+
+interface InvoiceApplicationRow {
+  id: string;
+  invoice_id: string;
+  matter_id: string;
+  kind: InvoiceApplicationKind;
+  amount_minor: number;
+  currency: string;
+  trust_transfer_id: string | null;
+  reverses_application_id: string | null;
+  effective_date: string;
+}
+
+export async function readInvoiceApplications(
+  database: SqlDatabase,
+  invoiceId: InvoiceId,
+): Promise<InvoiceApplicationSnapshot[]> {
+  const { results } = await database
+    .prepare(
+      `SELECT id, invoice_id, matter_id, kind, amount_minor, currency, trust_transfer_id, reverses_application_id, effective_date
+         FROM invoice_application WHERE invoice_id = ?1 ORDER BY applied_at, id`,
+    )
+    .bind(invoiceId)
+    .all<InvoiceApplicationRow>();
+  return results.map((row) => ({
+    id: row.id,
+    invoiceId: row.invoice_id,
+    matterId: row.matter_id,
+    kind: row.kind,
+    amountMinor: row.amount_minor,
+    currency: row.currency,
+    trustTransferId: row.trust_transfer_id,
+    reversesApplicationId: row.reverses_application_id,
+    effectiveDate: row.effective_date,
+  }));
 }
 
 interface InvoiceRow {

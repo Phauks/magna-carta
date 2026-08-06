@@ -12,6 +12,8 @@ import {
   updateDraftLine,
   voidDraft,
 } from "@magna-carta/billing/draft";
+import { applyTrustFundsToInvoices } from "@magna-carta/billing/apply-trust-funds";
+import { MAXIMUM_INVOICES_PER_TRUST_APPLICATION } from "@magna-carta/billing/earned-fee";
 import { finalizeInvoice } from "@magna-carta/billing/finalize";
 import {
   listInvoices,
@@ -31,6 +33,7 @@ import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-eff
 import { readFirmSetting } from "@magna-carta/data-access/setting-statements";
 import { isNumberAllocationConflict } from "@magna-carta/sequence-numbering/counter-statements";
 import { INVOICE_NUMBERING_TABLES } from "@magna-carta/billing/numbering";
+import { TrustValidationError } from "@magna-carta/trust/trust-validation";
 import type { Context } from "hono";
 import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
@@ -46,6 +49,7 @@ import { Problem, problemJson, type ProblemResponse } from "../contracts/problem
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-problems.ts";
 import { problemResponseForLedgerRefusal } from "../ledger-refusal-problems.ts";
+import { problemResponseForTrustRefusal } from "../trust-refusal-problems.ts";
 
 // Billing: the firm's own bill. A DRAFT is a working document and everything on these routes is
 // editable; FINALIZATION is the transition to evidence, and after it the invoice, its lines, and its
@@ -63,6 +67,11 @@ import { problemResponseForLedgerRefusal } from "../ledger-refusal-problems.ts";
 const READ = "billing:read" as const;
 const DRAFT = "billing:draft" as const;
 const FINALIZE = "billing:finalize" as const;
+// Moving client money to a bill. Deliberately not the same key as finalizing: finalizing turns a
+// draft into evidence, applying takes somebody else's money against that evidence, and the migration
+// that seeded these put `billing:apply` on the same roles `trust:manage` reaches for exactly that
+// reason.
+const APPLY = "billing:apply" as const;
 const CONFIGURE = "billing:configure" as const;
 
 // A real calendar date, not a shape. The bare regex accepts 2026-02-30 and next week alike; both
@@ -133,6 +142,48 @@ const FinalizeRequest = z
     clientBillingName: z.string().nullable().optional(),
   })
   .openapi("BillingFinalizeRequest");
+
+const TrustApplicationTarget = z
+  .object({
+    invoiceId: identifierField("invoice"),
+    // What to put against this bill. Partial is the normal case, not an edge case: a retainer
+    // replenishment applies what it covers and leaves the rest owing.
+    amountMinor: z.number().int().positive(),
+  })
+  .openapi("BillingTrustApplicationTarget");
+
+const ApplyTrustFundsRequest = z
+  .object({
+    trustAccountId: identifierField("trustAccount"),
+    // The matter whose client ledger the money leaves. Whose money it is follows from the matter's
+    // own client party and is derived server-side — a caller-supplied client handle would be the
+    // caller answering the question the check exists to ask.
+    matterId: identifierField("matter"),
+    currency: z.literal("USD"),
+    effectiveDate: civilDate,
+    // Bounded at the contract as well as in the domain: a transfer draws on ONE matter's leaf, so
+    // the invoices it can settle are that matter's own, and the whole thing has to commit as one
+    // batch. The domain refuses the same ceiling by name for any caller that does not come through
+    // here.
+    applications: z
+      .array(TrustApplicationTarget)
+      .min(1)
+      .max(MAXIMUM_INVOICES_PER_TRUST_APPLICATION),
+    trustDescription: z.string().min(1),
+    operatingDescription: z.string().min(1),
+  })
+  .openapi("BillingApplyTrustFundsRequest");
+
+const ApplyTrustFundsAck = z
+  .object({
+    transferId: z.string(),
+    trustEntryId: z.string(),
+    operatingEntryId: z.string(),
+    applicationIds: z.array(z.string()),
+    totalMinor: z.number().int(),
+    currency: z.string(),
+  })
+  .openapi("BillingApplyTrustFundsAck");
 
 const AccountRoleAssignment = z
   .object({
@@ -303,7 +354,12 @@ const mutationResponses = {
   429: errorResponses[429],
 } as const;
 
-type BillingPermission = typeof READ | typeof DRAFT | typeof FINALIZE | typeof CONFIGURE;
+type BillingPermission =
+  | typeof READ
+  | typeof DRAFT
+  | typeof FINALIZE
+  | typeof APPLY
+  | typeof CONFIGURE;
 
 function writeMeta(operationId: string, permission: BillingPermission): RouteMeta {
   return {
@@ -480,6 +536,30 @@ const finalizeRoute = defineOpenAPIRoute(writeMeta("billing.finalizeInvoice", FI
   },
 });
 
+const applyTrustFundsRoute = defineOpenAPIRoute(writeMeta("billing.applyTrustFunds", APPLY), {
+  method: "post",
+  path: "/api/v1/billing/trust-applications",
+  description:
+    "Takes earned fees out of a client's trust ledger and puts them against that client's finalized bills, in ONE atomic write: the money leaves the client ledger, arrives in the firm's operating account as two linked entries, and each bill's balance moves by exactly what was applied. A bill that is still a draft, a bill for a different client, a bill that does not charge this matter, or an amount above what this matter still owes on it are each refused by name — money leaves trust for the firm only against a bill that has become an evidentiary record, and there is no override. Applying part of what is owed is ordinary: the rest stays owing and can be applied later. If any part of this fails, no money moves at all.",
+  request: {
+    headers: idempotencyKeyHeader,
+    body: { content: { "application/json": { schema: ApplyTrustFundsRequest } }, required: true },
+  },
+  responses: {
+    201: {
+      description: "The funds were transferred and applied",
+      content: { "application/json": { schema: ApplyTrustFundsAck } },
+    },
+    400: errorResponses[400],
+    401: errorResponses[401],
+    403: errorResponses[403],
+    404: errorResponses[404],
+    409: errorResponses[409],
+    422: errorResponses[422],
+    429: errorResponses[429],
+  },
+});
+
 const setAccountRolesRoute = defineOpenAPIRoute(writeMeta("billing.setAccountRoles", CONFIGURE), {
   method: "put",
   path: "/api/v1/billing/account-roles",
@@ -635,6 +715,39 @@ function billingErrorResponse(
       detail: error.message,
     });
   }
+  // What that matter still owes on that bill is the ceiling, and it can move between the moment a
+  // member looked and the moment they acted — a credit note or another payment consumes it. Retrying
+  // against the balance as it now stands is the remedy, which is what makes this a 409 rather than a
+  // 422, and the mirror of trust's own "the money is not there" on the other side of one operation.
+  if (error.code === "earned-fee-exceeds-unpaid-balance") {
+    return problemJson(c, {
+      type: "billing-exceeds-unpaid-balance",
+      title: "That is more than this matter still owes on that bill",
+      status: 409,
+      detail: error.message,
+    });
+  }
+  // The invoice evidence does not permit money to leave trust. Not a permission failure: the member
+  // holds the capability, and the bill is what is wrong.
+  if (
+    error.code === "earned-fee-invoice-not-final" ||
+    error.code === "earned-fee-invoice-client-mismatch" ||
+    error.code === "earned-fee-invoice-does-not-bill-matter" ||
+    error.code === "earned-fee-amount-mismatch" ||
+    error.code === "earned-fee-node-mismatch" ||
+    error.code === "earned-fee-no-applications" ||
+    error.code === "earned-fee-too-many-invoices" ||
+    error.code === "application-kind-not-built" ||
+    error.code === "application-amount-not-positive" ||
+    error.code === "application-currency-mismatch"
+  ) {
+    return problemJson(c, {
+      type: "billing-earned-fee-refused",
+      title: "This transfer is not backed by a bill that permits it",
+      status: 422,
+      detail: error.message,
+    });
+  }
   // Not a permission failure and not a bad request: the firm has not told the platform where this
   // posting belongs, and inventing an account would put real money in the wrong place.
   if (error.code === "account-role-unmapped") {
@@ -715,6 +828,13 @@ export function registerBillingRoutes(app: BillingApp, chokepoint: Chokepoint): 
       // arm it reaches the app error boundary and a member gets a 500 for a typo.
       if (caught instanceof LedgerValidationError) {
         return { kind: "refused", response: problemResponseForLedgerRefusal(c, caught) };
+      }
+      // The apply-funds path composes trust's transfer through trust's own composer, so the trust
+      // rules refuse on their own terms here — money under a disputed-funds hold, a closed account,
+      // an office with no jurisdiction recorded, a matter that holds no client ledger. Billing does
+      // not restate any of them, and the mapping is the one trust's own routes use.
+      if (caught instanceof TrustValidationError) {
+        return { kind: "refused", response: problemResponseForTrustRefusal(c, caught) };
       }
       throw caught;
     }
@@ -904,6 +1024,49 @@ export function registerBillingRoutes(app: BillingApp, chokepoint: Chokepoint): 
       throw new Error(
         `invoice number allocation did not converge after ${MAXIMUM_FINALIZE_ATTEMPTS} attempts: ${String(lastError)}`,
       );
+    },
+  );
+
+  // POST /api/v1/billing/trust-applications — the one surface where a member takes client money
+  app.openapi(
+    { ...applyTrustFundsRoute, middleware: chokepointMiddleware(chokepoint, applyTrustFundsRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const request = c.req.valid("json");
+      const outcome = await runBillingEffect<z.infer<typeof ApplyTrustFundsAck>>(
+        c,
+        201,
+        async (appliedBy) => {
+          const applied = await applyTrustFundsToInvoices(
+            firm.firmDatabase,
+            {
+              trustAccountId: request.trustAccountId,
+              matterId: request.matterId,
+              applications: request.applications,
+              currency: request.currency,
+              effectiveDate: request.effectiveDate,
+              trustDescription: request.trustDescription,
+              operatingDescription: request.operatingDescription,
+              // The member on the session, recorded on the transfer as the one who let the money go.
+              appliedBy,
+            },
+            clockOptions(),
+          );
+          return {
+            write: applied.effect,
+            body: {
+              transferId: applied.transferId,
+              trustEntryId: applied.trustEntryId,
+              operatingEntryId: applied.operatingEntryId,
+              applicationIds: [...applied.applicationIds],
+              totalMinor: applied.totalMinor,
+              currency: request.currency,
+            },
+          };
+        },
+      );
+      if (outcome.kind === "refused") return outcome.response;
+      return c.json(outcome.body, 201);
     },
   );
 
