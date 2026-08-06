@@ -33,14 +33,18 @@ verifier and auto-file rules, composite text extraction, and their worker adapte
 ## Overlap to watch
 
 - `packages/search/` moved in the discovery-core merge; this branch is based on that tree.
-- No migration of its own. `origin/main` is merged in and carries the per-firm journal to idx 41
-  (Magnus slice 1 at 40, billing trust-application at 41); this branch adds nothing to it. The
-  re-attempt bound lives in Durable Object storage and the DKIM body-coverage fact rides the in-memory
-  verification result, so neither needs a column.
-- **Contract unmoved by this branch.** `origin/main` moved it three times (Magnus slice 1's ten
-  routes, the R1 financial fixes, and billing trust-application); all are merged in, and re-emitting
-  the snapshot here produces no diff, so there is nothing for this branch to regenerate.
+- No migration of its own, and no schema file touched at all. `origin/main` is merged in and carries
+  the per-firm journal to idx 42 (Magnus slice 1 at 40, billing trust-application at 41, matter asset
+  classes and encumbrances at 42); this branch adds nothing to it. The re-attempt bound lives in
+  Durable Object storage and the DKIM body-coverage fact rides the in-memory verification result, so
+  neither needs a column.
+- **Contract unmoved by this branch.** `origin/main` moved it four times (Magnus slice 1's ten routes,
+  the R1 financial fixes, billing trust-application, and the three matter-asset operations); all are
+  merged in, and re-emitting the snapshot here produces no diff, so there is nothing for this branch
+  to regenerate.
 - Disjoint from the merged work: R1 touched trust/billing/matters, R2 the operational area, Magnus
-  added its own package and routes, and 3·4·2 is billing plus trust. None touches the expression
-  language, the DKIM verifier, the extraction pipeline, or the search sweep. Both merges were clean
-  with no conflicts.
+  added its own package and routes, 3·4·2 is billing plus trust, and assets 4·3·2/3 added its own
+  tables plus a new document-assembly binding source. None touches the expression language, the DKIM
+  verifier, the extraction pipeline, or the search sweep. All three merges were clean with no
+  conflicts, so no keep-both interleaving was possible — `per-firm-schema.ts` is byte-identical to
+  main here.
