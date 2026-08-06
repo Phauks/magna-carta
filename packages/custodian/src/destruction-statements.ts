@@ -14,6 +14,7 @@ import type {
   CustodyPacketId,
   UserId,
 } from "@magna-carta/identifiers/types";
+import { CUSTODY_MOVEMENT_TABLE } from "./movement-statements.ts";
 import type { CustodyDestructionOutcome } from "./types.ts";
 
 // Table name tracked against @magna-carta/database's per-firm schema by the schema-name-sync
@@ -151,9 +152,19 @@ export async function readCustodyDestructionRequest(
 // The pending queue and the history, in one read shaped by whether an outcome is asked for.
 // `pending` is a null outcome — the requests waiting for a second person, which is the list somebody
 // actually opens the screen to see.
+//
+// `interrupted` is the third question this list has to be able to answer. Execution commits the
+// ledger row BEFORE the request's completion, deliberately: a destruction with no ledger entry is a
+// destruction nobody can prove. The cost of that ordering is that a failure between the two commits
+// leaves a proven destruction beside a request still reading `approved` — and `outcome = 'approved'`
+// alone cannot tell that request from one genuinely waiting to be carried out, because the only fact
+// that distinguishes them lives in a table the filter never joined. So it joins it: `interrupted`
+// pairs each approved request against a `destroyed` movement on the same packet at or after the
+// approval, which turns "visible and correctable" from a claim in a comment into a list somebody can
+// open.
 export interface ListCustodyDestructionRequestsFilters {
   readonly packetId?: CustodyPacketId;
-  readonly outcome?: CustodyDestructionOutcome | "pending";
+  readonly outcome?: CustodyDestructionOutcome | "pending" | "interrupted";
 }
 
 export function listCustodyDestructionRequestsStatement(
@@ -170,6 +181,17 @@ export function listCustodyDestructionRequestsStatement(
   }
   if (filter.outcome === "pending") {
     conditions.push("outcome IS NULL");
+  } else if (filter.outcome === "interrupted") {
+    conditions.push("outcome = 'approved'");
+    // Item-scoped and packet-scoped destructions both land a `destroyed` movement naming the packet,
+    // so the packet is the join key either way; `occurred_at` is back-datable, which is why the
+    // correlation is on `recorded_at` — when the row was actually appended.
+    conditions.push(
+      `EXISTS (SELECT 1 FROM ${CUSTODY_MOVEMENT_TABLE} AS movement
+                WHERE movement.packet_id = ${CUSTODY_DESTRUCTION_REQUEST_TABLE}.packet_id
+                  AND movement.kind = 'destroyed'
+                  AND movement.recorded_at >= ${CUSTODY_DESTRUCTION_REQUEST_TABLE}.approved_at)`,
+    );
   } else if (filter.outcome !== undefined) {
     conditions.push("outcome = ?");
     bindings.push(filter.outcome);

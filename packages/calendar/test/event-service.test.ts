@@ -2,7 +2,15 @@ import { describe, expect, it } from "vitest";
 import { cancelMatterEvent, createMatterEvent, updateMatterEvent } from "../src/event-service.ts";
 import { readMatterEvent, readMatterEventParticipants } from "../src/event-statements.ts";
 import { CalendarValidationError } from "../src/validation.ts";
-import { ACTOR, MATTER, commit, migratedDatabase, options, seedMatters } from "./support.ts";
+import {
+  ACTOR,
+  MATTER,
+  commit,
+  migratedDatabase,
+  options,
+  seedMatters,
+  visibility,
+} from "./support.ts";
 
 const HEARING = {
   matterId: MATTER,
@@ -31,7 +39,7 @@ describe("recording an event", () => {
     );
     await commit(database, effect);
 
-    const stored = await readMatterEvent(database, eventId);
+    const stored = await readMatterEvent(database, eventId, visibility);
     expect(stored?.starts_on).toBe("2026-09-14");
     expect(stored?.starts_at_time).toBe("09:00");
     expect(stored?.time_zone).toBe("America/Los_Angeles");
@@ -106,7 +114,7 @@ describe("a continued hearing is the same hearing, edited in place", () => {
     );
     await commit(database, updateEffect);
 
-    const stored = await readMatterEvent(database, eventId);
+    const stored = await readMatterEvent(database, eventId, visibility);
     expect(stored?.starts_on).toBe("2026-10-05");
     // One row, not two: a second row would put two hearings on the calendar and make every consumer
     // responsible for hiding one.
@@ -133,7 +141,7 @@ describe("a continued hearing is the same hearing, edited in place", () => {
     await commit(database, effect);
     const { effect: cancelEffect } = await cancelMatterEvent(database, eventId, options);
     await commit(database, cancelEffect);
-    const stored = await readMatterEvent(database, eventId);
+    const stored = await readMatterEvent(database, eventId, visibility);
     expect(stored?.status).toBe("cancelled");
   });
 });

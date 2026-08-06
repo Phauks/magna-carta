@@ -228,19 +228,32 @@ export function insertCustodyStocktakeSightingStatement(
     );
 }
 
+// Which end of the walk a bounded read keeps.
+//
+// The order is a TOTAL one either way, and that is load-bearing: the reconciliation takes the LAST
+// observation of each packet, so a tie decided at random would decide which of two contradictory
+// sightings the report believes. `recorded_at` breaks a tie on the physical instant — two people
+// counting the same shelf at "nine o'clock" are separated by when they actually typed it in — and the
+// id breaks the remaining tie stably.
+//
+// Which end matters as soon as the LIMIT bites. `oldest-first` truncates away the newest rows, and
+// the newest row is precisely the correction somebody recorded to supersede an earlier sighting — so
+// the reconciliation reads `newest-first` and keeps the FIRST observation it sees of each packet,
+// which makes the last-observation rule survive the cap instead of being defeated by it. The
+// sighting list route reads `oldest-first`, because a person reading a count's log reads it forwards.
+export type CustodyStocktakeSightingOrder = "oldest-first" | "newest-first";
+
 export function selectCustodyStocktakeSightingsStatement(
   database: SqlDatabase,
   stocktakeId: CustodyStocktakeId,
   limit: number,
+  order: CustodyStocktakeSightingOrder = "oldest-first",
 ): SqlStatement {
+  const direction = order === "newest-first" ? "DESC" : "ASC";
   return database
     .prepare(
-      // Oldest first, and the reconciliation depends on that being a TOTAL order: it takes the last
-      // observation of each packet, so a tie decided at random would decide which of two
-      // contradictory sightings the report believes. recorded_at breaks a tie on the physical
-      // instant — two people counting the same shelf at "nine o'clock" are separated by when they
-      // actually typed it in — and the id breaks the remaining tie stably.
-      `SELECT ${SIGHTING_COLUMNS} FROM ${CUSTODY_STOCKTAKE_SIGHTING_TABLE} WHERE stocktake_id = ?1 ORDER BY observed_at ASC, recorded_at ASC, id ASC LIMIT ?2`,
+      `SELECT ${SIGHTING_COLUMNS} FROM ${CUSTODY_STOCKTAKE_SIGHTING_TABLE} WHERE stocktake_id = ?1 ` +
+        `ORDER BY observed_at ${direction}, recorded_at ${direction}, id ${direction} LIMIT ?2`,
     )
     .bind(stocktakeId, limit);
 }
@@ -249,11 +262,13 @@ export async function readCustodyStocktakeSightings(
   database: SqlDatabase,
   stocktakeId: CustodyStocktakeId,
   limit: number,
+  order: CustodyStocktakeSightingOrder = "oldest-first",
 ): Promise<CustodyStocktakeSightingRow[]> {
   const { results } = await selectCustodyStocktakeSightingsStatement(
     database,
     stocktakeId,
     limit,
+    order,
   ).all<CustodyStocktakeSightingRow>();
   return results;
 }

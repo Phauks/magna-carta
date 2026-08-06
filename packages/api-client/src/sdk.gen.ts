@@ -1543,7 +1543,7 @@ export const custodyRecordSightings = <ThrowOnError extends boolean = false>(opt
 export const custodyStocktakeReconciliation = <ThrowOnError extends boolean = false>(options: Options<CustodyStocktakeReconciliationData, ThrowOnError>): RequestResult<CustodyStocktakeReconciliationResponses, CustodyStocktakeReconciliationErrors, ThrowOnError> => (options.client ?? client).get<CustodyStocktakeReconciliationResponses, CustodyStocktakeReconciliationErrors, ThrowOnError>({ url: '/api/v1/custody/stocktakes/{stocktakeId}/reconciliation', ...options });
 
 /**
- * Closes a count and freezes what it found. It writes the stocktake row and nothing else: no movement is recorded, no packet is moved, and no status anywhere in the register changes because a count finished. A count that was never finished closes as abandoned instead, freezing no findings.
+ * Closes a count and freezes what it found. It writes the stocktake row and nothing else: no movement is recorded, no packet is moved, and no status anywhere in the register changes because a count finished. A count that was never finished closes as abandoned instead, freezing no findings. A count whose reconciliation is truncated is REFUSED rather than frozen: a partial answer under-reports missing originals, so narrow the count's scope or abandon it.
  */
 export const custodyCloseStocktake = <ThrowOnError extends boolean = false>(options: Options<CustodyCloseStocktakeData, ThrowOnError>): RequestResult<CustodyCloseStocktakeResponses, CustodyCloseStocktakeErrors, ThrowOnError> => (options.client ?? client).post<CustodyCloseStocktakeResponses, CustodyCloseStocktakeErrors, ThrowOnError>({
     url: '/api/v1/custody/stocktakes/{stocktakeId}/close',
@@ -1560,7 +1560,7 @@ export const custodyCloseStocktake = <ThrowOnError extends boolean = false>(opti
 export const custodyRenderLabels = <ThrowOnError extends boolean = false>(options?: Options<CustodyRenderLabelsData, ThrowOnError>): RequestResult<CustodyRenderLabelsResponses, CustodyRenderLabelsErrors, ThrowOnError> => (options?.client ?? client).get<CustodyRenderLabelsResponses, CustodyRenderLabelsErrors, ThrowOnError>({ url: '/api/v1/custody/labels', ...options });
 
 /**
- * Lists destruction requests, newest first, optionally narrowed to one packet or to a single state. `outcome=pending` is the queue of requests waiting for a second person to approve or refuse them. Cursor-paginated.
+ * Lists destruction requests, newest first, optionally narrowed to one packet or to a single state. `outcome=pending` is the queue of requests waiting for a second person to approve or refuse them. `outcome=interrupted` is the reconciliation list: approved requests for which a destruction was already recorded in the ledger but whose own row never reached `executed`, which is what a failure between the two commits leaves behind. The ledger commits first on purpose — a destruction with no ledger entry is one nobody can prove — so this list is how the cost of that ordering gets found and put right. Cursor-paginated.
  */
 export const custodyListDestructionRequests = <ThrowOnError extends boolean = false>(options?: Options<CustodyListDestructionRequestsData, ThrowOnError>): RequestResult<CustodyListDestructionRequestsResponses, CustodyListDestructionRequestsErrors, ThrowOnError> => (options?.client ?? client).get<CustodyListDestructionRequestsResponses, CustodyListDestructionRequestsErrors, ThrowOnError>({ url: '/api/v1/custody/destruction-requests', ...options });
 

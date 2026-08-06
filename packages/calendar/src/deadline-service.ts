@@ -9,6 +9,7 @@ import type {
   UserId,
 } from "@magna-carta/identifiers/types";
 import {
+  assertMatterDeadlineOpenStatement,
   closeMatterDeadlineStatement,
   insertMatterDeadlineStatement,
   readMatterDeadline,
@@ -16,6 +17,7 @@ import {
   updateMatterDeadlineStatement,
 } from "./deadline-statements.ts";
 import { readMatterEvent } from "./event-statements.ts";
+import type { VisibleMatterPredicate } from "./visibility.ts";
 import type { CalendarServiceOptions } from "./event-service.ts";
 import type { MatterDeadlineSource } from "./types.ts";
 import {
@@ -40,9 +42,10 @@ async function assertEventOnMatter(
   eventId: MatterEventId | null | undefined,
   matterId: MatterId,
   role: string,
+  visibility: VisibleMatterPredicate,
 ): Promise<void> {
   if (eventId === null || eventId === undefined) return;
-  const event = await readMatterEvent(database, eventId);
+  const event = await readMatterEvent(database, eventId, visibility);
   if (event === undefined) {
     throw new CalendarValidationError(
       "calendar-unknown-event",
@@ -89,7 +92,13 @@ export async function createMatterDeadline(
       "no verified deadline catalog is encoded for any jurisdiction, so a deadline cannot be sourced from one; record the date and the authority the firm relies on",
     );
   }
-  await assertEventOnMatter(database, input.triggerEventId, input.matterId, "trigger");
+  await assertEventOnMatter(
+    database,
+    input.triggerEventId,
+    input.matterId,
+    "trigger",
+    options.visibility,
+  );
   const now = options.clock.now();
   const deadlineId = newIdentifier("matterDeadline", options.randomSource);
   return {
@@ -143,7 +152,7 @@ export async function updateMatterDeadline(
   patch: UpdateMatterDeadlineInput,
   options: CalendarServiceOptions,
 ): Promise<{ effect: EffectWrite }> {
-  const existing = await readMatterDeadline(database, deadlineId);
+  const existing = await readMatterDeadline(database, deadlineId, options.visibility);
   if (existing === undefined) {
     throw new CalendarValidationError("calendar-unknown-deadline", "no such deadline in this firm");
   }
@@ -168,10 +177,20 @@ export async function updateMatterDeadline(
   assertCivilDate(merged.dueOn, "dueOn");
   assertWallClockTime(merged.dueAtTime, "dueAtTime");
   assertTimeZone(merged.timeZone);
-  await assertEventOnMatter(database, merged.triggerEventId, existing.matter_id, "trigger");
+  await assertEventOnMatter(
+    database,
+    merged.triggerEventId,
+    existing.matter_id,
+    "trigger",
+    options.visibility,
+  );
   return {
     effect: {
       statements: [
+        // First: the state the read observed, re-asserted against the row as the batch sees it. An
+        // attorney satisfying this deadline in the few hundred milliseconds between the read above
+        // and this write aborts the edit rather than letting it rewrite a discharged deadline.
+        assertMatterDeadlineOpenStatement(database, deadlineId),
         updateMatterDeadlineStatement(database, deadlineId, merged, options.clock.now()),
         domainAuditStatement(database, {
           event: "calendar.deadline.updated",
@@ -205,7 +224,7 @@ export async function satisfyMatterDeadline(
   input: SatisfyMatterDeadlineInput,
   options: CalendarServiceOptions,
 ): Promise<{ effect: EffectWrite }> {
-  const existing = await readMatterDeadline(database, deadlineId);
+  const existing = await readMatterDeadline(database, deadlineId, options.visibility);
   if (existing === undefined) {
     throw new CalendarValidationError("calendar-unknown-deadline", "no such deadline in this firm");
   }
@@ -215,7 +234,13 @@ export async function satisfyMatterDeadline(
       `this deadline is already ${existing.state}`,
     );
   }
-  await assertEventOnMatter(database, input.satisfyingEventId, existing.matter_id, "satisfying");
+  await assertEventOnMatter(
+    database,
+    input.satisfyingEventId,
+    existing.matter_id,
+    "satisfying",
+    options.visibility,
+  );
   const now = options.clock.now();
   return {
     effect: {
@@ -260,7 +285,7 @@ export async function closeMatterDeadline(
   input: CloseMatterDeadlineInput,
   options: CalendarServiceOptions,
 ): Promise<{ effect: EffectWrite }> {
-  const existing = await readMatterDeadline(database, deadlineId);
+  const existing = await readMatterDeadline(database, deadlineId, options.visibility);
   if (existing === undefined) {
     throw new CalendarValidationError("calendar-unknown-deadline", "no such deadline in this firm");
   }

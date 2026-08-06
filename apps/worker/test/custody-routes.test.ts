@@ -161,6 +161,9 @@ async function createLocation(
 
 // A release that satisfies the gate. Every test whose subject is something else — a hold, a chokepoint
 // contract — posts this, so the gate is never accidentally the thing being asserted.
+//
+// The member who checked identity is NOT in the body: it is the authenticated caller, which is the
+// whole of the binding that stops a two-signatory release from being composed by one person.
 function authorizedRelease() {
   return {
     kind: "released",
@@ -168,7 +171,6 @@ function authorizedRelease() {
     releaseAuthorization: {
       authorityBasis: "owner collecting their own original in person",
       identityEvidence: "photographic identification checked against the Directory record",
-      identityVerifiedByUserId: ownerUserId,
     },
   };
 }
@@ -741,6 +743,8 @@ describe("stocktake — counting the shelves without changing the register", () 
       unexpected: Array<{ packetId: string; proposedMovementKind: string }>;
       unregistered: Array<{ description: string }>;
       frozenCounts: unknown;
+      truncated: boolean;
+      rowLimit: number;
     };
     expect(report.matchedCount).toBe(1);
     expect(report.missing.map((line) => line.packetId)).toEqual([scaffold.missing]);
@@ -759,12 +763,17 @@ describe("stocktake — counting the shelves without changing the register", () 
     expect(report.unregistered[0]?.description).toBe("Sealed envelope, no label");
     // Nothing is frozen while the count is still running.
     expect(report.frozenCounts).toBeNull();
+    // And the report says out loud that it read the whole register rather than a prefix of it. A
+    // partial answer that looked complete would under-report missing originals.
+    expect(report.truncated).toBe(false);
+    expect(report.rowLimit).toBeGreaterThan(0);
 
     const closed = await stocktakePost(`/api/v1/custody/stocktakes/${stocktakeId}/close`, {});
     expect(closed.status).toBe(200);
     expect(await closed.json()).toMatchObject({
       status: "closed",
       counts: { matched: 1, missing: 1, misplaced: 1, unexpected: 1, unregistered: 1 },
+      truncated: false,
     });
 
     // THE BOUNDARY. The count found four disagreements and corrected none of them: the misplaced

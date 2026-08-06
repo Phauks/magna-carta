@@ -16,13 +16,16 @@ guarantee, against the migration that creates it. Where a design decision looked
 out to be deliberate and correct, it is recorded in _What was checked and holds_ rather than
 dropped — a review that reports only failures makes the next reviewer re-derive the same ground.
 
-**Counts.** 1 high · 6 medium · 7 low.
+**Counts.** 1 high · 6 medium · 7 low. **All fourteen are fixed** — each finding carries its
+status below, and the fix table is in PR-PLACEHOLDER. Nothing here was disputed.
 
 ---
 
 ## High
 
 ### H1 — A two-signatory release is composable into one person
+
+**Status: Fixed in PR-PLACEHOLDER.** The verifying member is now the authenticated actor and is gone from the wire; the witness must be a different, ACTIVE member of the firm, checked against the roster at the write path and re-asserted by `custody_movement_release_verifier_is_recorder` and `custody_movement_release_witness_is_active_member` in `20260806T040000_operational-fixes.sql`. BEFORE INSERT, so the binding is future-only — rows already on the ledger predate it and stay exactly as they were recorded.
 
 **Where.** [`packages/custodian/src/release-gate.ts:53-118`](../../packages/custodian/src/release-gate.ts) ·
 [`packages/custodian/src/movement-service.ts:135-142`](../../packages/custodian/src/movement-service.ts) ·
@@ -70,6 +73,8 @@ session and not a second text box.
 
 ### M1 — Editing a deadline has no state guard riding the write
 
+**Status: Fixed in PR-PLACEHOLDER.** `updateMatterDeadlineStatement` ends `WHERE id = ?1 AND state = 'open'`, and `assertMatterDeadlineOpenStatement` rides first in the batch so a losing concurrent edit aborts the whole batch rather than matching zero rows and reporting success.
+
 **Where.** [`packages/calendar/src/deadline-statements.ts:94-124`](../../packages/calendar/src/deadline-statements.ts)
 (compare `:129-153` and `:158-174`) · service check at
 [`packages/calendar/src/deadline-service.ts:150-155`](../../packages/calendar/src/deadline-service.ts)
@@ -97,6 +102,8 @@ same reasoning argues for a `BEFORE UPDATE` trigger freezing a settled row's `du
 every custody freeze in this codebase is backed at the database rather than by discipline.
 
 ### M2 — Three custody-derived timeline sources drop status predicates the register's own reads carry
+
+**Status: Fixed in PR-PLACEHOLDER.** All three statements carry the missing predicates, including the latest-check-out correlation, and `test/source-fitness.test.ts` now pairs each custody-derived source with the custodian read it mirrors — scanning that read's source text, since the calendar depends on no other domain package.
 
 **Where.** [`packages/calendar/src/sources/all.ts:500-594`](../../packages/calendar/src/sources/all.ts)
 (`custodyReviewDueSource`, `custodyDueBackSource`) · compare
@@ -136,6 +143,8 @@ this is a divergence that will recur every time either side gains a status.
 
 ### M3 — The stocktake reconciliation truncates silently, and the close freezes the truncated numbers
 
+**Status: Fixed in PR-PLACEHOLDER.** Both reads request `limit + 1`; `CustodyReconciliation` carries `truncated` and `rowLimit` and the reconciliation route returns them; the sighting read runs newest-first with a first-wins reduction, so the cap drops the oldest observations rather than the corrections; and a non-abandoned close of a truncated reconciliation is refused (`custody-stocktake-truncated`) rather than freezing a partial answer. An abandoned close records the truncation on its audit row.
+
 **Where.** [`packages/custodian/src/stocktake-reconciliation.ts:44`](../../packages/custodian/src/stocktake-reconciliation.ts)
 and `:126-129` · [`packages/custodian/src/stocktake-service.ts:304`](../../packages/custodian/src/stocktake-service.ts) ·
 [`packages/custodian/src/stocktake-statements.ts:243`](../../packages/custodian/src/stocktake-statements.ts) and `:276-308`
@@ -170,6 +179,8 @@ robust to any cap.
 
 ### M4 — A closed stocktake is frozen only by the absence of a re-open statement
 
+**Status: Fixed in PR-PLACEHOLDER.** `custody_stocktake_frozen_once_closed` (BEFORE UPDATE on a non-open row) and `custody_stocktake_no_replace` land in `20260806T040000_operational-fixes.sql`; both are additive and rebuild nothing.
+
 **Where.** [`packages/database/drizzle/per-firm/20260805T150000_custodian-stocktake.sql:17-41`](../../packages/database/drizzle/per-firm/20260805T150000_custodian-stocktake.sql)
 (compare the four triggers at `:77-99`) ·
 [`packages/custodian/src/stocktake-statements.ts:88-121`](../../packages/custodian/src/stocktake-statements.ts)
@@ -199,6 +210,8 @@ existence guard closing the REPLACE path. Both are additive and need no table re
 
 ### M5 — `overdue=true` on the deadlines list is a UTC-date approximation with no post-filter
 
+**Status: Fixed in PR-PLACEHOLDER**, by the second half of the fix shape rather than the first: the narrowing is composed PER ZONE and is exact, so no post-filtering is introduced and the no-post-filter rule the package states elsewhere still holds. `overdueCutoffFor` inverts the comparison for one zone (binary search, because the wall clock is not monotonic across a transition while the instant is non-decreasing in the wall clock), the route reads the distinct zones of the coarse candidate set, and `selectMatterDeadlinesStatement` composes one clause per zone. `test/dst-and-overdue-bound.test.ts` asserts the bound against `isOverdue` itself across both DST boundaries rather than against restated expectations.
+
 **Where.** [`apps/worker/src/routes/calendar.ts:1150-1180`](../../apps/worker/src/routes/calendar.ts) ·
 [`packages/calendar/src/overdue.ts:34-39`](../../packages/calendar/src/overdue.ts)
 
@@ -224,6 +237,8 @@ per-row filter is unacceptable on the hot path, the honest alternative is to ret
 `overdue` flag per row and stop advertising `overdue=true` as a filter.
 
 ### M6 — Two event reads bypass the visible-matter seam entirely
+
+**Status: Fixed in PR-PLACEHOLDER**, and widened past the two reads named. The predicate is now a REQUIRED argument on every statement builder that selects from `matter_event` or `matter_deadline`, and `CalendarServiceOptions` carries it, so the id-addressed write paths inherit it too. `test/visibility-fitness.test.ts` enumerates every such read, asserts the marker, and scans the two statement files so a read added later fails the count until it is listed.
 
 **Where.** [`apps/worker/src/routes/calendar.ts:1011-1031`](../../apps/worker/src/routes/calendar.ts)
 (`readEventsPage`) and `:1079-1110` (`GET /api/v1/events/{eventId}`) ·
@@ -262,6 +277,8 @@ every statement in the package touching `matter_event` or `matter_deadline` carr
 
 ### L1 — The will-deadline calculator conflates "no computable deadline" with "bad trigger date"
 
+**Status: Fixed in PR-PLACEHOLDER.** `custody-invalid-trigger-date` is a new, distinct refusal; only a bare `YYYY-MM-DD` is accepted, round-tripped through `Date.UTC` so an impossible date refuses rather than rolling over; `null` now means only "this duty has no computable interval".
+
 [`packages/custodian/src/will-deposit-catalog.ts:340-351`](../../packages/custodian/src/will-deposit-catalog.ts).
 `custodyWillDeliveryDueDate` returns `null` for three different things: a duty whose basis is
 `setByCourtOrder`, a duty whose basis is `concurrentWithFiling`, and a `triggerDate` the regex could
@@ -279,6 +296,8 @@ only a bare `YYYY-MM-DD`, and reserve `null` for "this duty has no computable in
 
 ### L2 — The verified negative rides a boolean rather than the prose
 
+**Status: Fixed in PR-PLACEHOLDER.** `summary` is replaced by `question` + `answer`; the Nevada entry's answer reads "No. Nevada provides no procedure for depositing a will with a court for safekeeping during the testator's lifetime."
+
 [`packages/custodian/src/will-deposit-catalog.ts:175-187`](../../packages/custodian/src/will-deposit-catalog.ts) ·
 schema at [`apps/worker/src/routes/custody.ts:1045-1053`](../../apps/worker/src/routes/custody.ts).
 The lifetime-deposit capability is encoded with `available: false` and a genuinely excellent `basis`
@@ -294,6 +313,8 @@ back exactly the error it was written to prevent.
 or split the field into `question` and `answer` so no rendering can show one without the other.
 
 ### L3 — A wall-clock time in a spring-forward gap resolves an hour early, contrary to its own comment
+
+**Status: Fixed in PR-PLACEHOLDER**, and the finding understated it: `Math.min` also resolved every unambiguous wall clock in the hour AFTER a fall-back an hour early (02:14 PST became 01:14 PST), which is a whole hour every autumn rather than an edge case. Resolution is now candidates plus a round trip — a repeated hour takes its first occurrence, a time after a transition takes itself, a skipped time moves forward — and `endOfCivilDayInstant` is correct in the midnight-transition zones. Both DST cases have their own named tests.
 
 [`packages/calendar/src/time-zone.ts:69-93`](../../packages/calendar/src/time-zone.ts).
 `instantForCivilDateTime` documents that a non-existent wall-clock time "resolves to the instant the
@@ -313,6 +334,8 @@ comment reads as though they have them.
 
 ### L4 — The keyset cursor's wire contract is hand-rolled in two route sites
 
+**Status: Fixed in PR-PLACEHOLDER.** Both sites call `encodeCursor`.
+
 [`apps/worker/src/routes/calendar.ts:1028`](../../apps/worker/src/routes/calendar.ts) and `:1171`
 write `btoa(JSON.stringify({ c: …, i: … }))` directly. That is byte-identical to `encodeCursor`
 today ([`packages/data-access/src/cursor-pagination.ts:20-22`](../../packages/data-access/src/cursor-pagination.ts)),
@@ -322,6 +345,8 @@ by one deploy still decodes on the next". Two hand-rolled copies are two sites t
 when the encoding does. **Fix:** import `encodeCursor`.
 
 ### L5 — Jurisdiction lookup is exact-match with a refusal that reads like a verdict
+
+**Status: Fixed in PR-PLACEHOLDER.** The key is uppercased, trimmed, and underscore-normalized before lookup, and the ancestor probe walks every hyphen segment upward until an encoded ancestor is found.
 
 [`packages/custodian/src/will-deposit-catalog.ts:294-305`](../../packages/custodian/src/will-deposit-catalog.ts).
 `BY_KEY.get(key)` is case-sensitive and shape-sensitive, so `us-nv` and `US_NV` produce
@@ -336,6 +361,8 @@ an encoded ancestor is found or none is.
 
 ### L6 — `readCustodyHoldingsByOwner` does unbounded work behind a bounded result
 
+**Status: Fixed in PR-PLACEHOLDER.** The correlated subquery is replaced by pre-aggregated per-packet item and hold counts joined against DISTINCT (entity, packet) owner pairs, so the plan is one pass and the grain cannot inflate a count.
+
 [`packages/custodian/src/reports.ts:42-72`](../../packages/custodian/src/reports.ts).
 `items_described` is a correlated subquery evaluated per group, and the `LIMIT ?1` applies after
 `GROUP BY` and `ORDER BY` — so the subquery (itself an `IN (SELECT …)` over `custody_owner`) runs
@@ -346,6 +373,8 @@ with the register. **Fix:** replace the correlated subquery with a joined aggreg
 plan is one pass.
 
 ### L7 — An interrupted destruction leaves an "approved" request no read can distinguish from a pending one
+
+**Status: Fixed in PR-PLACEHOLDER.** `outcome=interrupted` on the destruction-request list pairs each `approved` request against a `destroyed` movement on the same packet recorded at or after the approval.
 
 [`packages/custodian/src/destruction-service.ts:319-397`](../../packages/custodian/src/destruction-service.ts).
 The two-commit ordering is right and the reasoning for it is right: the ledger row commits first, so

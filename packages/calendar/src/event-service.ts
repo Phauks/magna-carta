@@ -19,6 +19,7 @@ import {
   type MatterEventRow,
 } from "./event-statements.ts";
 import type { MatterEventParticipantKind, MatterEventStatus } from "./types.ts";
+import type { VisibleMatterPredicate } from "./visibility.ts";
 import {
   CalendarValidationError,
   assertCivilDate,
@@ -36,6 +37,11 @@ export interface CalendarServiceOptions {
   readonly clock: { now(): string };
   readonly actorUserId: UserId | null;
   readonly randomSource?: RandomSource;
+  // The visible-matter predicate, on the same required footing every timeline source puts it. A
+  // service that reads a row by its own identifier is reaching past the matter that owns it, so it
+  // composes the predicate too: an id-addressed read that skipped it would be the hole an
+  // information-barrier overlay is built and believed to have closed.
+  readonly visibility: VisibleMatterPredicate;
 }
 
 export interface MatterEventParticipantInput {
@@ -213,7 +219,7 @@ export async function updateMatterEvent(
   patch: UpdateMatterEventInput,
   options: CalendarServiceOptions,
 ): Promise<{ effect: EffectWrite }> {
-  const existing = await readMatterEvent(database, eventId);
+  const existing = await readMatterEvent(database, eventId, options.visibility);
   if (existing === undefined) {
     throw new CalendarValidationError("calendar-unknown-event", "no such event in this firm");
   }
@@ -262,7 +268,7 @@ export async function cancelMatterEvent(
   eventId: MatterEventId,
   options: CalendarServiceOptions,
 ): Promise<{ effect: EffectWrite }> {
-  const existing = await readMatterEvent(database, eventId);
+  const existing = await readMatterEvent(database, eventId, options.visibility);
   if (existing === undefined) {
     throw new CalendarValidationError("calendar-unknown-event", "no such event in this firm");
   }

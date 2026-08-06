@@ -51,6 +51,7 @@ describe("problem-type URI registry", () => {
         "custody-owner-required",
         "custody-release-not-authorized",
         "custody-stocktake-closed",
+        "custody-stocktake-truncated",
         "email-in-use",
         "upload-not-allowed",
         "malware-flagged",

@@ -45,25 +45,35 @@ export function selectCustodyHoldingsByOwnerStatement(
 ): SqlStatement {
   return database
     .prepare(
-      // Every packet count is COUNT(DISTINCT packet.id), not SUM(...): the hold join below is
-      // one-to-many, so a packet under two holds appears twice and a plain SUM would report a firm
-      // holding twice as much for that person as it does.
+      // ONE PASS, and the grain is what makes it one. The owner links are reduced to DISTINCT
+      // (entity, packet) pairs first, and items and holds are each pre-aggregated per packet, so
+      // every join below is one-to-one against that grain and no count can be inflated by a fan-out.
+      //
+      // The item count used to be a CORRELATED subquery over the owner links, which read correctly
+      // and scaled wrongly: `LIMIT` applies after `GROUP BY`, so the subquery ran once for every
+      // owner entity in the firm rather than once for the fifty rows returned, and a fixed-shape
+      // report grew with the whole register while satisfying this file's one-query rule only
+      // textually. Pre-aggregated and joined, the answer is identical and the plan does not.
       `SELECT owner.entity_id AS entity_id,
-              COUNT(DISTINCT CASE WHEN packet.status = 'held' THEN packet.id END) AS packets_held,
-              COUNT(DISTINCT CASE WHEN packet.status = 'out' THEN packet.id END) AS packets_out,
-              (SELECT COUNT(*) FROM ${CUSTODY_ITEM_TABLE} AS item
-                WHERE item.packet_id IN (
-                        SELECT inner_owner.packet_id FROM ${CUSTODY_OWNER_TABLE} AS inner_owner
-                         WHERE inner_owner.entity_id = owner.entity_id
-                           AND inner_owner.effective_to IS NULL)
-                  AND item.status IN ('held', 'out')) AS items_described,
-              COUNT(DISTINCT CASE WHEN hold.id IS NOT NULL THEN packet.id END) AS packets_under_hold
-         FROM ${CUSTODY_OWNER_TABLE} AS owner
+              COUNT(CASE WHEN packet.status = 'held' THEN 1 END) AS packets_held,
+              COUNT(CASE WHEN packet.status = 'out' THEN 1 END) AS packets_out,
+              COALESCE(SUM(packet_items.item_count), 0) AS items_described,
+              COUNT(packet_holds.packet_id) AS packets_under_hold
+         FROM (SELECT DISTINCT link.entity_id AS entity_id, link.packet_id AS packet_id
+                 FROM ${CUSTODY_OWNER_TABLE} AS link
+                WHERE link.effective_to IS NULL) AS owner
          JOIN ${CUSTODY_PACKET_TABLE} AS packet ON packet.id = owner.packet_id
-         LEFT JOIN ${CUSTODY_HOLD_TABLE} AS hold
-                ON hold.packet_id = packet.id AND hold.released_at IS NULL
-        WHERE owner.effective_to IS NULL
-          AND packet.status IN ('held', 'out')
+         LEFT JOIN (SELECT item.packet_id AS packet_id, COUNT(*) AS item_count
+                      FROM ${CUSTODY_ITEM_TABLE} AS item
+                     WHERE item.status IN ('held', 'out')
+                     GROUP BY item.packet_id) AS packet_items
+                ON packet_items.packet_id = packet.id
+         LEFT JOIN (SELECT hold.packet_id AS packet_id
+                      FROM ${CUSTODY_HOLD_TABLE} AS hold
+                     WHERE hold.released_at IS NULL
+                     GROUP BY hold.packet_id) AS packet_holds
+                ON packet_holds.packet_id = packet.id
+        WHERE packet.status IN ('held', 'out')
         GROUP BY owner.entity_id
         ORDER BY packets_held DESC, packets_out DESC, owner.entity_id ASC
         LIMIT ?1`,

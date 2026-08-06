@@ -110,7 +110,10 @@ So recording a release asks for three things, and refuses without them:
   probate dated 3 March 2026, original sighted." The register does not have a list of acceptable
   answers and never will: what authority suffices varies by jurisdiction, and a list we invented would
   be wrong somewhere. What it does is make sure you wrote something, and then keep it.
-- **How you checked they are who they say they are**, and which member of your firm did the checking.
+- **How you checked they are who they say they are.** The member who did the checking is _you_ — the
+  register records whoever is signed in and recording the release, and there is no field for naming
+  somebody else. An identity check is something you did with your own eyes, so it is not a claim you
+  can enter on a colleague's behalf.
 
 **Record the check, not the document.** "Photographic identification checked against the directory
 record" is the right thing to write. A passport number is not: this goes onto the packet's permanent
@@ -119,8 +122,9 @@ history, which cannot be edited or deleted by anyone, ever, and nothing about th
 **Two signatories, if your firm wants them.** Your firm can require a second person to sign an
 original out of the safe. It is off unless you turn it on, because a small office where one person is
 the only person in the building cannot work under a rule imposed on it from outside — and the two
-signatories have to be two different people, which is the whole point. Everything above applies
-whether or not you turn it on.
+signatories have to be two different people, which is the whole point. The witness has to be somebody
+your firm actually employs and who is still active: a colleague who has left, or an identifier
+belonging to nobody, is refused. Everything above applies whether or not you turn it on.
 
 None of this applies to a check-out. Lending a deed to a partner for a completion meeting is
 reversible, and it stays a single step.
@@ -209,7 +213,10 @@ what the statute requires, not as a timer running against a date the platform as
 
 **Anywhere else, you are told so.** Ask about a jurisdiction that has not been researched and verified
 and the register says exactly that, rather than showing you a plausible-looking answer. There is no
-default and no fallback. A sentence you can check is worth more than a confident one you cannot.
+default and no fallback. A sentence you can check is worth more than a confident one you cannot. A
+mistyped jurisdiction is treated as a typo rather than as an answer: case and separators do not
+matter, and asking about a county below a state that _has_ been researched tells you which wider
+jurisdiction does have a verified answer.
 
 ## Scans
 
@@ -303,6 +310,13 @@ because you fixed them in April.
 
 **A count you never finished is abandoned, not closed.** Abandoning records no findings. A half-done
 walk would otherwise read as a safe full of missing originals, which would be alarming and wrong.
+
+**A count too large to read in one pass says so, and will not be closed with numbers on it.** A
+reconciliation reads up to ten thousand rows at a time. Past that it tells you it is a partial answer,
+and the counts on it are a floor rather than a finding — property beyond the cut was never looked for,
+so it was never reported missing either. Narrow the count to one safe or one cabinet and run it again,
+or abandon it; what you must not be able to do is file a number that quietly understates what is
+missing.
 
 You can also run more than one count at a time — two offices counting two safes on the same Saturday
 is ordinary, and each count reports only on what its own counters saw.
