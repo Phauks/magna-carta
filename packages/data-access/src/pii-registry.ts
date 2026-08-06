@@ -572,6 +572,12 @@ export const NO_PII_TABLES: readonly string[] = [
   // A derived balance: an invoice, a matter, and two integers. It is the line account_balance sits
   // on, and whose money it concerns resolves through the invoice.
   "invoice_matter_balance",
+  // One unit of value reaching an invoice: two handles, a kind, an amount, the trust transfer or the
+  // earlier application it came from, an effective date, and firm-member provenance (applied_by).
+  // The member who applied client money to a bill is administrative provenance on a money record —
+  // the line trust_transfer.authorized_by sits on — and whose money it was resolves through the
+  // invoice and the trust transfer, never through a column here.
+  "invoice_application",
   // The numbering pair is a sequence: a scope key, a counter, and which invoice consumed which
   // value. Nothing about any person.
   "invoice_number_counter",

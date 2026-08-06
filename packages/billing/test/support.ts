@@ -8,10 +8,15 @@ import type {
   LocationId,
   MatterId,
   TimeEntryId,
+  TrustAccountId,
+  TrustLedgerNodeId,
   UserId,
 } from "@magna-carta/identifiers/types";
 import { createAccount } from "@magna-carta/ledger/create-account";
 import type { ClockPort } from "@magna-carta/ledger/types";
+import { currencyFromCode, money } from "@magna-carta/money/money";
+import { openTrustAccount } from "@magna-carta/trust/account-tree";
+import { composeTrustDeposit } from "@magna-carta/trust/movements";
 import { composeAccountRoleConfiguration } from "../src/account-roles.ts";
 import type { AccountRole } from "../src/types.ts";
 
@@ -44,6 +49,7 @@ export interface BillingFixture {
   readonly feeIncomeAccountId: LedgerAccountId;
   readonly clientCostsAdvancedAccountId: LedgerAccountId;
   readonly costRecoveryIncomeAccountId: LedgerAccountId;
+  readonly operatingBankAccountId: LedgerAccountId;
 }
 
 // A firm with an office, a member, and a chart of accounts — but deliberately NO account-role map:
@@ -86,6 +92,13 @@ export async function billingFixture(): Promise<BillingFixture> {
     { name: "Cost Recovery Income", type: "income", currency: "USD" },
     options,
   );
+  // The firm's own bank — the operating side of a transfer out of trust. An ordinary account outside
+  // every trust account, which is exactly what the trust composer checks it is.
+  const operatingBank = await createAccount(
+    database,
+    { name: "Operating Bank Account", type: "asset", currency: "USD" },
+    options,
+  );
   await commit(
     database,
     mergeEffects(
@@ -93,6 +106,7 @@ export async function billingFixture(): Promise<BillingFixture> {
       feeIncome.effect,
       clientCostsAdvanced.effect,
       costRecoveryIncome.effect,
+      operatingBank.effect,
     ),
   );
 
@@ -104,6 +118,7 @@ export async function billingFixture(): Promise<BillingFixture> {
     feeIncomeAccountId: feeIncome.accountId,
     clientCostsAdvancedAccountId: clientCostsAdvanced.accountId,
     costRecoveryIncomeAccountId: costRecoveryIncome.accountId,
+    operatingBankAccountId: operatingBank.accountId,
   };
 }
 
@@ -117,6 +132,7 @@ export async function mapAccountRoles(
     fee_income: fixture.feeIncomeAccountId,
     client_costs_advanced: fixture.clientCostsAdvancedAccountId,
     cost_recovery_income: fixture.costRecoveryIncomeAccountId,
+    operating_bank: fixture.operatingBankAccountId,
   };
   await commit(
     fixture.database,
@@ -222,6 +238,57 @@ export async function seedCostEntry(
     )
     .run();
   return id;
+}
+
+// A trust account for the firm's office, and one matter leaf funded with client money. Composed
+// through the trust package's own composers rather than by inserting rows: the point of these suites
+// is that billing merges what trust returns, so a fixture that hand-built a trust entry would be
+// proving something other than what ships.
+export async function seedTrustAccount(fixture: BillingFixture): Promise<TrustAccountId> {
+  const opened = await openTrustAccount(
+    fixture.database,
+    {
+      name: "IOLTA — Reno",
+      locationId: fixture.locationId,
+      // A movement refuses outright on an account whose office recorded no jurisdiction, so these
+      // suites record one. That refusal has its own home in the trust suite.
+      jurisdiction: "NV",
+      currency: "USD",
+      openedOn: "2026-08-01",
+    },
+    options,
+  );
+  await commit(fixture.database, opened.effect);
+  return opened.trustAccountId;
+}
+
+// The deposit composer ensures the matter's leaf itself, and returns its effect carrying the leaf,
+// the leaf's zero floor, and the posting in ONE batch — the arrangement that makes a leaf without its
+// floor a state that never exists. Nothing here builds a trust row by hand.
+export async function depositToMatterTrustLeaf(
+  fixture: BillingFixture,
+  trustAccountId: TrustAccountId,
+  matterId: MatterId,
+  amountMinor: number,
+): Promise<TrustLedgerNodeId> {
+  const deposit = await composeTrustDeposit(
+    fixture.database,
+    {
+      trustAccountId,
+      to: { matterId, clientNodeName: "Client ledger", matterLeafName: "Matter ledger" },
+      amount: money(amountMinor, currencyFromCode("USD")),
+      effectiveDate: "2026-08-02",
+      description: "Retainer received",
+      method: "check",
+      reference: "1042",
+      source: "The client",
+      purpose: "Advance against fees",
+      recordedBy: fixture.memberUserId,
+    },
+    options,
+  );
+  await commit(fixture.database, deposit.effect);
+  return deposit.nodeId;
 }
 
 export async function readOneRow<Row>(

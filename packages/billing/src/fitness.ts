@@ -110,6 +110,67 @@ export function invoiceNumberSequenceGapsStatement(database: SqlDatabase): SqlSt
     .bind();
 }
 
+// A TRUST APPLICATION IS ACCOMPANIED BY EXACTLY ONE ACCOUNTS-RECEIVABLE CREDIT, AND IT IS TRUST'S.
+//
+// This is the query behind the slice's most dangerous detail. A transfer out of a client's trust
+// ledger is two linked entries composed by @magna-carta/trust, and the operating leg already credits
+// accounts receivable. Billing therefore composes NO ledger entry for a trust application — and if a
+// future caller ever adds one, the ledger still balances, every entry is still valid, nothing fails,
+// and the receivable control account simply drifts below the invoice subledger by the total of every
+// trust-funded fee the firm has ever taken.
+//
+// So it is re-proved over stored rows rather than trusted: for each trust application, count the
+// ledger lines crediting the receivable account on the transfer's own operating entry, and report any
+// application whose transfer does not carry exactly one. Zero means the credit went missing; more
+// than one means somebody composed a second.
+export function trustApplicationsWithoutExactlyOneReceivableCreditStatement(
+  database: SqlDatabase,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT a.id AS application_id,
+              a.invoice_id AS invoice_id,
+              a.trust_transfer_id AS trust_transfer_id,
+              (SELECT COUNT(*)
+                 FROM ledger_line l
+                 JOIN firm_account_role r ON r.role = 'accounts_receivable'
+                WHERE l.entry_id = t.operating_entry_id
+                  AND l.account_id = r.ledger_account_id
+                  AND l.direction = 'credit') AS receivable_credit_count
+         FROM invoice_application a
+         JOIN trust_transfer t ON t.id = a.trust_transfer_id
+        WHERE a.kind = 'trust_transfer'
+          AND (SELECT COUNT(*)
+                 FROM ledger_line l
+                 JOIN firm_account_role r ON r.role = 'accounts_receivable'
+                WHERE l.entry_id = t.operating_entry_id
+                  AND l.account_id = r.ledger_account_id
+                  AND l.direction = 'credit') <> 1`,
+    )
+    .bind();
+}
+
+// A BALANCE'S applied_minor IS THE SUM OF THE APPLICATIONS THAT PRODUCED IT. The two are written in
+// one batch by the one application door, so a row here means value reached invoice_matter_balance
+// without going through that door — the same class of finding as trust's book-to-client
+// disagreement, and the reason `composeInvoiceApplication` composes both statements or neither.
+export function invoiceMatterBalancesDisagreeingWithApplicationsStatement(
+  database: SqlDatabase,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT b.invoice_id AS invoice_id,
+              b.matter_id AS matter_id,
+              b.applied_minor AS applied_minor,
+              COALESCE(SUM(CASE WHEN a.kind = 'reversal' THEN -a.amount_minor ELSE a.amount_minor END), 0) AS application_sum_minor
+         FROM invoice_matter_balance b
+         LEFT JOIN invoice_application a ON a.invoice_id = b.invoice_id AND a.matter_id = b.matter_id
+        GROUP BY b.invoice_id, b.matter_id, b.applied_minor
+       HAVING b.applied_minor <> COALESCE(SUM(CASE WHEN a.kind = 'reversal' THEN -a.amount_minor ELSE a.amount_minor END), 0)`,
+    )
+    .bind();
+}
+
 // EVERY FINALIZED INVOICE HAS ITS BALANCE ROWS. The bounds CHECK is the mechanism that makes
 // over-application structurally impossible, and an invoice with no balance row has no such ceiling —
 // value could reach it with nothing to abort the batch.

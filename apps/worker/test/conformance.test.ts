@@ -702,6 +702,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "assemblies.submit",
       "billing.accountRoles",
       "billing.addClaims",
+      "billing.applyTrustFunds",
       "billing.createInvoice",
       "billing.finalizeInvoice",
       "billing.invoiceDetail",

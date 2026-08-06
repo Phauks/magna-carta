@@ -17,6 +17,13 @@ ADR-0072, ADR-0079.) **Invariants:**
 - `src/draft.ts` — `createInvoiceDraft` / `addClaimsToDraft` / `removeClaim` / `updateDraftLine` /
   `voidDraft`, and `MAXIMUM_CLAIMS_PER_INVOICE` (the measured batch ceiling)
 - `src/finalize.ts` — `finalizeInvoice`: **the** batch, and the whole point of the subsystem
+- `src/application.ts` — `composeInvoiceApplication`: **the** door any value reaches an invoice
+  through, and the one place the no-ledger-entry-for-a-trust-application rule lives
+- `src/earned-fee.ts` — `resolveEarnedFeeApplications` + `invoiceBackedEarnedFeePrecondition`: the
+  satisfier for the port at `packages/trust/src/transfer.ts` that refuses every transfer by default,
+  and `MAXIMUM_INVOICES_PER_TRUST_APPLICATION` (the per-transfer bound)
+- `src/apply-trust-funds.ts` — `applyTrustFundsToInvoices`: trust's transfer and the applications
+  merged into ONE batch
 - `src/account-roles.ts` — the `firm_account_role` map, its configuration composer, and the resolver
   that refuses by name when a role is unmapped
 - `src/numbering.ts` — the invoice sequence's tables, start value, scope convention, and renderer
@@ -51,7 +58,28 @@ ADR-0072, ADR-0079.) **Invariants:**
 - **The bounds CHECK is the guarantee, not a pre-check.** The `applied_minor` bounds on
   `invoice_matter_balance` are the only mechanism that can abort a whole D1 batch on a business
   condition, which is what makes "this invoice has enough unpaid balance" structural rather than
-  hopeful. Same arrangement as `account_balance`, for the same reason.
+  hopeful. Same arrangement as `account_balance`, for the same reason. The delta statement is
+  deliberately UNGUARDED: `... WHERE total_minor - applied_minor >= ?` would look safer and be
+  strictly worse, because a zero-row UPDATE aborts nothing and the losing batch would commit with its
+  trust entries — real client money — beside a balance that never moved.
+- **BILLING COMPOSES NO LEDGER ENTRY FOR A TRUST APPLICATION.** Trust's transfer is two linked
+  entries and its operating leg has already posted `Dr Operating Bank / Cr Accounts Receivable`. A
+  second credit composed here leaves the ledger balanced, every entry valid, and nothing failing —
+  while the receivable control account drifts below the invoice subledger by the total of every
+  trust-funded fee the firm has ever taken. It is the single most likely bug in the subsystem, so it
+  is structural (the one arm in `composeInvoiceApplication`), has its own test asserting the
+  subledger still equals the control account, and is re-proved over stored rows by
+  `trustApplicationsWithoutExactlyOneReceivableCreditStatement`.
+- **The earned-fee precondition is billing's, the transfer is trust's.** Billing implements the port;
+  `@magna-carta/trust` never learns what an invoice is, and no trust file changed to close this. The
+  port's context (node, matter, amount, currency) is enough precisely because the precondition is
+  constructed per request from applications billing already resolved — it is a re-check that trust is
+  composing what billing authorized, not a fresh lookup. Never widen the port with an invoice
+  reference.
+- **Every application is append-only and its direction is its KIND.** Amounts are positive; a
+  reversal subtracts because it is a reversal. A mistaken application is corrected by a new linked row
+  (UNIQUE `reverses_application_id`), never an edit — an edit would move a balance whose money has
+  already moved, with no record of having done so.
 - **The number is drawn at finalize, inside the batch.** A number drawn at draft is burned by every
   abandoned draft, and gaps are the first thing an auditor asks about. The mechanism is
   `@magna-carta/sequence-numbering`; the allocation's composite primary key is the load-bearing
@@ -101,9 +129,11 @@ ADR-0072, ADR-0079.) **Invariants:**
 - **`billing-core`'s `IllegalTransitionError` never reaches an HTTP boundary from here.** The
   finalize claim loop catches it and rethrows `BillingValidationError("work-in-progress-not-billable")`
   naming the entry and the state it is in — the same contract timekeeping and costs hold.
-- **It does NOT depend on `@magna-carta/trust`, and must not compose a trust statement.** When the
-  application path lands, trust entries are composed only by `composeTrustToOperatingTransfer` and
-  billing merges the returned statements into its own batch. Billing never reimplements a trust rule.
+- **It depends on `@magna-carta/trust` for the transfer composer and its types, and must not compose
+  a trust statement itself.** Trust entries come only from `composeTrustToOperatingTransfer`; billing
+  merges the returned statements into its own batch and reimplements no trust rule — not the
+  composition guard, not the available-not-balance ceiling, not one-client-per-entry, not the
+  jurisdiction refusals. A source scan asserts that no file here composes a `trust_*` statement.
 - Pure and synchronous: returns `EffectWrite` for the caller to commit.
 
 ## Gotchas
