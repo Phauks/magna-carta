@@ -1661,11 +1661,7 @@ export type CustodyReleaseAuthorization = {
      */
     identityEvidence: string;
     /**
-     * The firm member who made that check.
-     */
-    identityVerifiedByUserId: string;
-    /**
-     * The second signatory, when the firm requires two. Must be a different person from the member who checked identity.
+     * The second signatory, when the firm requires two. Must be an ACTIVE member of this firm other than the caller — the caller is recorded as the member who checked identity, so a release cannot be signed twice by one person.
      */
     witnessedByUserId?: string;
 };
@@ -1861,6 +1857,14 @@ export type CustodyReconciliation = {
     unexpected: Array<CustodyReconciliationLine>;
     unregistered: Array<CustodyReconciliationLine>;
     frozenCounts: CustodyStocktakeCounts;
+    /**
+     * TRUE when this register is larger than the reconciliation reads in one pass. A truncated report is a PARTIAL answer: packets past the cut were never expected, so they were never reported missing, and every count here is a floor rather than a finding. A count in this state cannot be closed with its numbers frozen; narrow its scope or abandon it.
+     */
+    truncated: boolean;
+    /**
+     * The per-read cap that produced `truncated`.
+     */
+    rowLimit: number;
 };
 
 export type CustodyReconciliationLine = {
@@ -1882,6 +1886,10 @@ export type ClosedCustodyStocktakeResponse = {
     id: string;
     status: 'closed' | 'abandoned';
     counts: CustodyStocktakeCounts;
+    /**
+     * TRUE when the walk was larger than the reconciliation reads in one pass. Only ever true on an abandoned close: a close that freezes counts refuses a truncated reconciliation rather than freezing a partial answer.
+     */
+    truncated: boolean;
 };
 
 export type CloseCustodyStocktakeRequest = {
@@ -1965,7 +1973,14 @@ export type CustodyWillDuty = {
 
 export type CustodyWillCapability = {
     key: string;
-    summary: string;
+    /**
+     * What was asked, phrased as a question.
+     */
+    question: string;
+    /**
+     * The verified answer, phrased to stand alone with no other field beside it.
+     */
+    answer: string;
     available: boolean;
     basis: string;
     verifiedOn: string;
@@ -11586,7 +11601,7 @@ export type CustodyListDestructionRequestsData = {
     query?: {
         cursor?: string;
         packetId?: string;
-        outcome?: 'pending' | 'approved' | 'refused' | 'executed' | 'withdrawn';
+        outcome?: 'pending' | 'interrupted' | 'approved' | 'refused' | 'executed' | 'withdrawn';
     };
     url: '/api/v1/custody/destruction-requests';
 };

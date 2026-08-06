@@ -10,6 +10,7 @@ import {
   updateMatterDeadline,
 } from "@magna-carta/calendar/deadline-service";
 import {
+  readOpenDeadlineTimeZones,
   selectMatterDeadlinesStatement,
   type MatterDeadlineRow,
 } from "@magna-carta/calendar/deadline-statements";
@@ -30,8 +31,9 @@ import {
   updateMatterEventType,
 } from "@magna-carta/calendar/event-type-service";
 import { readMatterEventTypes } from "@magna-carta/calendar/event-type-statements";
+import { encodeCursor } from "@magna-carta/data-access/cursor-pagination";
 import { decodeTimelineCursor } from "@magna-carta/calendar/merge";
-import { isOverdue } from "@magna-carta/calendar/overdue";
+import { isOverdue, overdueCutoffFor, type OverdueCutoff } from "@magna-carta/calendar/overdue";
 import { timelineSourceRegistry } from "@magna-carta/calendar/sources/all";
 import { readTimelinePage } from "@magna-carta/calendar/timeline";
 import {
@@ -294,9 +296,10 @@ const deadlineQuery = cursorQuery.extend({
   state: z.enum(MATTER_DEADLINE_STATES).optional(),
   from: z.string().regex(CIVIL_DATE).optional(),
   through: z.string().regex(CIVIL_DATE).optional(),
-  // Narrows to open deadlines due today or earlier — composed into the SQL before the LIMIT, like
-  // every other filter here. The exact per-row answer, which depends on each deadline's own zone,
-  // rides on the row as `overdue`.
+  // Narrows to the deadlines that are genuinely overdue IN THEIR OWN ZONES — the same comparison the
+  // per-row `overdue` flag reports, composed into the SQL before the LIMIT rather than applied to the
+  // rows afterwards. Implies `state=open`; `through` is ignored alongside it, since the narrowing
+  // carries its own upper bound.
   overdue: z.enum(["true", "false"]).optional(),
 });
 
@@ -886,6 +889,9 @@ function serviceOptions(userId: string) {
     clock: { now: () => new Date().toISOString() },
     actorUserId: userId as never,
     randomSource: cryptoRandomSource,
+    // The same predicate the timeline federates under. Every service read of an event or a deadline
+    // composes it, so an id-addressed write path cannot reach a row a matter-scoped read could not.
+    visibility: visibleMatterPredicate(),
   };
 }
 
@@ -1008,6 +1014,41 @@ async function commitCalendarEffect(
 
 const DEFAULT_PAGE = 50;
 
+// How many distinct zones the overdue narrowing will compose a clause for. A firm keeps deadlines in
+// the zones of the courts it appears in — a handful — and this bound exists so a corrupt or
+// adversarially-varied zone column cannot turn one page read into a thousand-clause query. Reached,
+// it under-reports rather than over-reports, which is the safe direction for a list that says a firm
+// has missed something.
+const MAX_OVERDUE_ZONES = 64;
+
+// The per-zone cutoffs the overdue narrowing composes: read the zones the page could contain, then
+// invert the overdue comparison once per zone. Two statements rather than one, because the inversion
+// needs a zone database and SQLite has none.
+async function readOverdueCutoffs(
+  database: SqlDatabase,
+  now: string,
+  visibility: { visibilityFragment: string; visibilityBindings: readonly unknown[] },
+): Promise<OverdueCutoff[]> {
+  // One day past the UTC civil date: the furthest-ahead zone runs about fourteen hours ahead of UTC,
+  // so a deadline dated tomorrow in UTC terms can already have fallen due there. Anything later
+  // cannot be overdue in any zone, which makes this an index-friendly coarse bound the per-zone
+  // clauses then narrow exactly.
+  const throughDate = new Date(Date.parse(now) + 86_400_000).toISOString().slice(0, 10);
+  const timeZones = await readOpenDeadlineTimeZones(database, {
+    throughDate,
+    limit: MAX_OVERDUE_ZONES,
+    ...visibility,
+  });
+  const cutoffs: OverdueCutoff[] = [];
+  for (const timeZone of timeZones) {
+    const cutoff = overdueCutoffFor(timeZone, now);
+    // A zone the runtime cannot resolve yields no cutoff, and is left out of the narrowing rather
+    // than put on an overdue list under a date the platform cannot read.
+    if (cutoff !== undefined) cutoffs.push(cutoff);
+  }
+  return cutoffs;
+}
+
 async function readEventsPage(
   database: SqlDatabase,
   matterId: MatterId,
@@ -1017,16 +1058,16 @@ async function readEventsPage(
   const { results } = await selectMatterEventsStatement(database, matterId, {
     cursor: decoded === undefined ? undefined : { sortKey: decoded.sortKey, id: decoded.id },
     limit: DEFAULT_PAGE + 1,
+    visibility: visibleMatterPredicate(),
   }).all<MatterEventRow>();
   const hasMore = results.length > DEFAULT_PAGE;
   const rows = hasMore ? results.slice(0, DEFAULT_PAGE) : results;
   const last = rows.at(-1);
   return {
     data: rows.map(eventDetail),
-    nextCursor:
-      hasMore && last !== undefined
-        ? btoa(JSON.stringify({ c: last.starts_on, i: last.id }))
-        : null,
+    // The platform's cursor encoding, imported rather than re-spelled: the calendar mints no wire
+    // contract of its own, and a hand-rolled copy is a site that will not move when the encoding does.
+    nextCursor: hasMore && last !== undefined ? encodeCursor(last.starts_on, last.id) : null,
   };
 }
 
@@ -1082,7 +1123,14 @@ export function registerCalendarRoutes(app: CalendarApp, chokepoint: Chokepoint)
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const { eventId } = c.req.valid("param");
-      const event = await readMatterEvent(firm.firmDatabase, eventId as MatterEventId);
+      // Through the visible-matter predicate, like every other read of this table: an event on an
+      // invisible matter is a 404 here and not a title, a description, a court reference, and a
+      // participant list.
+      const event = await readMatterEvent(
+        firm.firmDatabase,
+        eventId as MatterEventId,
+        visibleMatterPredicate(),
+      );
       if (event === undefined) {
         return problemJson(c, {
           type: "not-found",
@@ -1151,25 +1199,39 @@ export function registerCalendarRoutes(app: CalendarApp, chokepoint: Chokepoint)
       const firm = requireChokepointFirmContext(c);
       const query = c.req.valid("query");
       const now = new Date().toISOString();
-      const today = now.slice(0, 10);
       try {
         if (query.from !== undefined && query.through !== undefined) {
           assertDeadlineHorizon(query.from, query.through);
         }
         const visibility = visibleMatterPredicate();
+        const visibilityFragment = visibility.fragmentFor("matter_deadline.matter_id");
         const decoded = decodeTimelineCursor(query.cursor);
         const overdueOnly = query.overdue === "true";
+        // The overdue narrowing is composed PER ZONE and is exact — the same predicate `isOverdue`
+        // applies row by row, not the `due_on <= <UTC today>` approximation, which reports a Nevada
+        // firm's live same-day deadlines as already missed for most of the working day. SQLite
+        // carries no zone database, so the cutoffs are computed here, one per zone the page could
+        // contain, and every one of them goes into the WHERE clause. Nothing is filtered after the
+        // rows come back: a post-filter under-fills the page, makes the next cursor mean something
+        // different from page to page, and turns the page size into an existence oracle.
+        //
+        // The zone read is bounded by the widest date any zone could still be inside — one day past
+        // the UTC date, since no zone runs more than a day ahead of it.
+        const overdueCutoffs = overdueOnly
+          ? await readOverdueCutoffs(firm.firmDatabase, now, {
+              visibilityFragment,
+              visibilityBindings: visibility.bindings,
+            })
+          : undefined;
         const { results } = await selectMatterDeadlinesStatement(firm.firmDatabase, {
           matterId: query.matterId,
-          // The overdue narrowing composes both halves into SQL: only an OPEN deadline can be
-          // overdue, and only one due today or earlier can be. The exact answer for a given row
-          // depends on its own zone and rides on the row.
-          state: overdueOnly ? "open" : query.state,
+          state: query.state,
+          overdueCutoffs,
           fromDate: query.from,
-          throughDate: overdueOnly ? today : query.through,
+          throughDate: overdueOnly ? undefined : query.through,
           cursor: decoded === undefined ? undefined : { sortKey: decoded.sortKey, id: decoded.id },
           limit: DEFAULT_PAGE + 1,
-          visibilityFragment: visibility.fragmentFor("matter_deadline.matter_id"),
+          visibilityFragment,
           visibilityBindings: visibility.bindings,
         }).all<MatterDeadlineRow>();
         const hasMore = results.length > DEFAULT_PAGE;
@@ -1178,10 +1240,7 @@ export function registerCalendarRoutes(app: CalendarApp, chokepoint: Chokepoint)
         return c.json(
           {
             data: rows.map((row) => deadlineDetail(row, now)),
-            nextCursor:
-              hasMore && last !== undefined
-                ? btoa(JSON.stringify({ c: last.due_on, i: last.id }))
-                : null,
+            nextCursor: hasMore && last !== undefined ? encodeCursor(last.due_on, last.id) : null,
           },
           200,
         );

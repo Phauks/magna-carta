@@ -65,9 +65,19 @@ export interface CustodyWillDuty {
 // A capability the jurisdiction either provides or does not. A verified negative is a fact worth
 // encoding: without it, "no entry" and "no such procedure" look identical, and uniform-act language
 // that a state never enacted circulates widely enough that a firm can easily believe the wrong one.
+//
+// THE QUESTION AND THE ANSWER ARE TWO FIELDS, and the answer is a sentence rather than a boolean
+// beside a description. A single `summary` describing the procedure ("depositing a will with a court
+// during the testator's lifetime") reads as an offer wherever a surface renders a list of these, with
+// the negation living only in a sibling flag nobody rendered — which is exactly how the never-enacted
+// uniform-act language this entry exists to refute gets believed. Split, there is no rendering that
+// shows the procedure without showing whether it exists.
 export interface CustodyWillCapability {
   readonly key: string;
-  readonly summary: string;
+  // What was asked, phrased as a question.
+  readonly question: string;
+  // The verified answer, phrased to stand alone with no other field beside it.
+  readonly answer: string;
   readonly available: boolean;
   readonly basis: string;
   readonly verifiedOn: string;
@@ -175,7 +185,10 @@ const NEVADA: CustodyWillJurisdictionEntry = {
   capabilities: [
     {
       key: "lifetime-deposit-with-a-court",
-      summary: "Depositing a will with a court for safekeeping during the testator's lifetime.",
+      question:
+        "Can a will be deposited with a court for safekeeping during the testator's lifetime?",
+      answer:
+        "No. Nevada provides no procedure for depositing a will with a court for safekeeping during the testator's lifetime.",
       available: false,
       // Stated affirmatively, because the honest basis for a negative is the exhaustiveness of the
       // search rather than a citation. Encoded at all because uniform-act deposit language that
@@ -265,6 +278,12 @@ export const ENCODED_CUSTODY_WILL_JURISDICTION_KEYS: readonly string[] = CATALOG
 
 // A jurisdiction nobody recorded is a different problem from a jurisdiction nobody researched, and
 // the two are surfaced as different refusals so a firm knows which of the two it has.
+//
+// The key is NORMALIZED before it is looked up — trimmed, uppercased, and with underscores read as
+// the hyphens they were meant to be. `us-nv` and `US_NV` are the same jurisdiction as `US-NV`, and
+// answering a typo with "no verified duties are encoded for us-nv" tells a firm that nobody has
+// researched Nevada, which is false and is precisely the confusion this catalog's two distinct
+// refusals exist to prevent. Case and separator are shape, not identity.
 export function requireCustodyJurisdiction(jurisdictionKey: string | null | undefined): string {
   if (jurisdictionKey === null || jurisdictionKey === undefined || jurisdictionKey.trim() === "") {
     throw new CustodyValidationError(
@@ -272,7 +291,11 @@ export function requireCustodyJurisdiction(jurisdictionKey: string | null | unde
       "no jurisdiction was recorded, so there is nothing to look the will-deposit duties up against",
     );
   }
-  return jurisdictionKey.trim();
+  return normalizeCustodyJurisdictionKey(jurisdictionKey);
+}
+
+export function normalizeCustodyJurisdictionKey(jurisdictionKey: string): string {
+  return jurisdictionKey.trim().toUpperCase().replaceAll("_", "-");
 }
 
 export interface ResolvedCustodyWillDuties {
@@ -288,18 +311,33 @@ export interface ResolvedCustodyWillDuties {
   readonly compiledThrough: string;
 }
 
+// The nearest encoded jurisdiction ABOVE a key, or null when no ancestor is encoded either. Naming
+// one is never a fallback — the refusal stands whatever this returns — it only tells the caller which
+// question does have a verified answer.
+function nearestEncodedAncestorOf(key: string): string | null {
+  let candidate = key;
+  while (candidate.includes("-")) {
+    candidate = candidate.slice(0, candidate.lastIndexOf("-"));
+    if (BY_KEY.has(candidate)) return candidate;
+  }
+  return null;
+}
+
 export function resolveCustodyWillDuties(
   jurisdictionKey: string | null | undefined,
 ): ResolvedCustodyWillDuties {
   const key = requireCustodyJurisdiction(jurisdictionKey);
   const entry = BY_KEY.get(key);
   if (entry === undefined) {
-    const parentKey = key.includes("-") ? key.slice(0, key.lastIndexOf("-")) : null;
-    const parentEncoded = parentKey !== null && BY_KEY.has(parentKey);
+    // The ancestor probe walks the hyphen segments ALL the way up rather than trying the immediate
+    // parent alone: `US-NV-08-CLARK` sits two levels below the encoded state, and stopping at one
+    // level would drop the "the wider jurisdiction IS encoded" half of the refusal — which is the
+    // half that tells a firm the answer exists at a level it can ask about.
+    const encodedAncestorKey = nearestEncodedAncestorOf(key);
     throw new CustodyValidationError(
       "custody-jurisdiction-not-encoded",
-      parentEncoded
-        ? `no verified will-deposit duties are encoded for ${key}. ${parentKey} is encoded, but a duty at ${key} would be local to it and none has been verified — resolving ${parentKey} instead answers only what the wider jurisdiction requires`
+      encodedAncestorKey !== null
+        ? `no verified will-deposit duties are encoded for ${key}. ${encodedAncestorKey} is encoded, but a duty at ${key} would be local to it and none has been verified — resolving ${encodedAncestorKey} instead answers only what the wider jurisdiction requires`
         : `no verified will-deposit duties are encoded for ${key}: they are researched and verified against the primary text one jurisdiction at a time, and there is no baseline to fall back to`,
     );
   }
@@ -327,9 +365,20 @@ export function resolveCustodyWillDuties(
   };
 }
 
-// The due date a duty produces from a date a PERSON recorded. Returns null for every basis that has
-// no fixed interval, because a court-set or filing-concurrent date is not derivable from anything
-// this function is given.
+// The due date a duty produces from a date a PERSON recorded.
+//
+// NULL MEANS ONE THING HERE: this duty has no computable interval. A court-set date and a date due
+// concurrently with a filing are not derivable from anything this function is given, so they are
+// null; a trigger date the function cannot read is a REFUSAL, not a null. Those two are fixed
+// differently — one by asking the court, one by correcting the date somebody typed — and this module
+// is the one that says out loud that two refusals fixed differently must never be conflated. Reading
+// "no deadline applies" out of a typo, in a function whose output is a statutory deadline, is the
+// worst version of that mistake.
+//
+// The trigger date must be a bare civil date and must be a date that exists. `Date.UTC` rolls over
+// silently, so 2026-02-31 would otherwise yield a due date computed from the 2nd of March; and a
+// longer string like `2026-08-05T23:00:00-07:00` names the 5th only in UTC, so accepting its leading
+// date would answer about a different day from the one the caller meant.
 //
 // The register records no date of death and no date on which the firm learned of one, so nothing
 // calls this with stored data yet: the duty is surfaced, the arithmetic is here, and the date it
@@ -342,10 +391,34 @@ export function custodyWillDeliveryDueDate(
   triggerDate: string,
 ): string | null {
   if (duty.deadlineBasis !== "daysAfterTrigger" || duty.deadlineDays === null) return null;
-  const parsed = /^(\d{4})-(\d{2})-(\d{2})/.exec(triggerDate);
-  if (parsed === null) return null;
-  const [, year, month, day] = parsed;
-  const start = Date.UTC(Number(year), Number(month) - 1, Number(day));
+  const start = civilDateAsUtcOrRefuse(triggerDate);
   const due = new Date(start + duty.deadlineDays * 86_400_000);
   return due.toISOString().slice(0, 10);
+}
+
+const BARE_CIVIL_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+function civilDateAsUtcOrRefuse(triggerDate: string): number {
+  const parsed = BARE_CIVIL_DATE.exec(triggerDate);
+  if (parsed === null) {
+    throw new CustodyValidationError(
+      "custody-invalid-trigger-date",
+      `a will-duty trigger date is a civil date of the form YYYY-MM-DD, and this is not one: ${triggerDate}`,
+    );
+  }
+  const [, year, month, day] = parsed as unknown as [string, string, string, string];
+  const asUtc = Date.UTC(Number(year), Number(month) - 1, Number(day));
+  const roundTrip = new Date(asUtc);
+  // The pattern alone accepts 2026-02-31; a round trip through the calendar catches the rollover.
+  if (
+    roundTrip.getUTCFullYear() !== Number(year) ||
+    roundTrip.getUTCMonth() !== Number(month) - 1 ||
+    roundTrip.getUTCDate() !== Number(day)
+  ) {
+    throw new CustodyValidationError(
+      "custody-invalid-trigger-date",
+      `a will-duty trigger date must be a date on the calendar, and this is not one: ${triggerDate}`,
+    );
+  }
+  return asUtc;
 }

@@ -3373,7 +3373,7 @@ export const custodyStocktakeReconciliationOptions = (options: Options<CustodySt
 });
 
 /**
- * Closes a count and freezes what it found. It writes the stocktake row and nothing else: no movement is recorded, no packet is moved, and no status anywhere in the register changes because a count finished. A count that was never finished closes as abandoned instead, freezing no findings.
+ * Closes a count and freezes what it found. It writes the stocktake row and nothing else: no movement is recorded, no packet is moved, and no status anywhere in the register changes because a count finished. A count that was never finished closes as abandoned instead, freezing no findings. A count whose reconciliation is truncated is REFUSED rather than frozen: a partial answer under-reports missing originals, so narrow the count's scope or abandon it.
  */
 export const custodyCloseStocktakeMutation = (options?: Partial<Options<CustodyCloseStocktakeData>>): MutationOptions<CustodyCloseStocktakeResponse, CustodyCloseStocktakeError, Options<CustodyCloseStocktakeData>> => {
     const mutationOptions: MutationOptions<CustodyCloseStocktakeResponse, CustodyCloseStocktakeError, Options<CustodyCloseStocktakeData>> = {
@@ -3410,7 +3410,7 @@ export const custodyRenderLabelsOptions = (options?: Options<CustodyRenderLabels
 export const custodyListDestructionRequestsQueryKey = (options?: Options<CustodyListDestructionRequestsData>) => createQueryKey('custodyListDestructionRequests', options);
 
 /**
- * Lists destruction requests, newest first, optionally narrowed to one packet or to a single state. `outcome=pending` is the queue of requests waiting for a second person to approve or refuse them. Cursor-paginated.
+ * Lists destruction requests, newest first, optionally narrowed to one packet or to a single state. `outcome=pending` is the queue of requests waiting for a second person to approve or refuse them. `outcome=interrupted` is the reconciliation list: approved requests for which a destruction was already recorded in the ledger but whose own row never reached `executed`, which is what a failure between the two commits leaves behind. The ledger commits first on purpose — a destruction with no ledger entry is one nobody can prove — so this list is how the cost of that ordering gets found and put right. Cursor-paginated.
  */
 export const custodyListDestructionRequestsOptions = (options?: Options<CustodyListDestructionRequestsData>) => queryOptions<CustodyListDestructionRequestsResponse, CustodyListDestructionRequestsError, CustodyListDestructionRequestsResponse, ReturnType<typeof custodyListDestructionRequestsQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -3428,7 +3428,7 @@ export const custodyListDestructionRequestsOptions = (options?: Options<CustodyL
 export const custodyListDestructionRequestsInfiniteQueryKey = (options?: Options<CustodyListDestructionRequestsData>): QueryKey<Options<CustodyListDestructionRequestsData>> => createQueryKey('custodyListDestructionRequests', options, true);
 
 /**
- * Lists destruction requests, newest first, optionally narrowed to one packet or to a single state. `outcome=pending` is the queue of requests waiting for a second person to approve or refuse them. Cursor-paginated.
+ * Lists destruction requests, newest first, optionally narrowed to one packet or to a single state. `outcome=pending` is the queue of requests waiting for a second person to approve or refuse them. `outcome=interrupted` is the reconciliation list: approved requests for which a destruction was already recorded in the ledger but whose own row never reached `executed`, which is what a failure between the two commits leaves behind. The ledger commits first on purpose — a destruction with no ledger entry is one nobody can prove — so this list is how the cost of that ordering gets found and put right. Cursor-paginated.
  */
 export const custodyListDestructionRequestsInfiniteOptions = (options?: Options<CustodyListDestructionRequestsData>) => infiniteQueryOptions<CustodyListDestructionRequestsResponse, CustodyListDestructionRequestsError, InfiniteData<CustodyListDestructionRequestsResponse>, QueryKey<Options<CustodyListDestructionRequestsData>>, string | Pick<QueryKey<Options<CustodyListDestructionRequestsData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
 // @ts-ignore

@@ -7186,21 +7186,15 @@
             "maxLength": 1000,
             "description": "How the person collecting was identified. Record the check that was made, not the document's numbers — this lands on a ledger row that can never be edited or deleted."
           },
-          "identityVerifiedByUserId": {
-            "type": "string",
-            "pattern": "^user_[A-Za-z0-9_-]{21}$",
-            "description": "The firm member who made that check."
-          },
           "witnessedByUserId": {
             "type": "string",
             "pattern": "^user_[A-Za-z0-9_-]{21}$",
-            "description": "The second signatory, when the firm requires two. Must be a different person from the member who checked identity."
+            "description": "The second signatory, when the firm requires two. Must be an ACTIVE member of this firm other than the caller — the caller is recorded as the member who checked identity, so a release cannot be signed twice by one person."
           }
         },
         "required": [
           "authorityBasis",
-          "identityEvidence",
-          "identityVerifiedByUserId"
+          "identityEvidence"
         ]
       },
       "CustodyMovementPage": {
@@ -8094,6 +8088,14 @@
           },
           "frozenCounts": {
             "$ref": "#/components/schemas/CustodyStocktakeCounts"
+          },
+          "truncated": {
+            "type": "boolean",
+            "description": "TRUE when this register is larger than the reconciliation reads in one pass. A truncated report is a PARTIAL answer: packets past the cut were never expected, so they were never reported missing, and every count here is a floor rather than a finding. A count in this state cannot be closed with its numbers frozen; narrow its scope or abandon it."
+          },
+          "rowLimit": {
+            "type": "integer",
+            "description": "The per-read cap that produced `truncated`."
           }
         },
         "required": [
@@ -8108,7 +8110,9 @@
           "misplaced",
           "unexpected",
           "unregistered",
-          "frozenCounts"
+          "frozenCounts",
+          "truncated",
+          "rowLimit"
         ]
       },
       "CustodyReconciliationLine": {
@@ -8247,12 +8251,17 @@
           },
           "counts": {
             "$ref": "#/components/schemas/CustodyStocktakeCounts"
+          },
+          "truncated": {
+            "type": "boolean",
+            "description": "TRUE when the walk was larger than the reconciliation reads in one pass. Only ever true on an abandoned close: a close that freezes counts refuses a truncated reconciliation rather than freezing a partial answer."
           }
         },
         "required": [
           "id",
           "status",
-          "counts"
+          "counts",
+          "truncated"
         ]
       },
       "CloseCustodyStocktakeRequest": {
@@ -8602,8 +8611,13 @@
           "key": {
             "type": "string"
           },
-          "summary": {
-            "type": "string"
+          "question": {
+            "type": "string",
+            "description": "What was asked, phrased as a question."
+          },
+          "answer": {
+            "type": "string",
+            "description": "The verified answer, phrased to stand alone with no other field beside it."
           },
           "available": {
             "type": "boolean"
@@ -8617,7 +8631,8 @@
         },
         "required": [
           "key",
-          "summary",
+          "question",
+          "answer",
           "available",
           "basis",
           "verifiedOn"
@@ -34081,7 +34096,7 @@
     },
     "/api/v1/custody/stocktakes/{stocktakeId}/close": {
       "post": {
-        "description": "Closes a count and freezes what it found. It writes the stocktake row and nothing else: no movement is recorded, no packet is moved, and no status anywhere in the register changes because a count finished. A count that was never finished closes as abandoned instead, freezing no findings.",
+        "description": "Closes a count and freezes what it found. It writes the stocktake row and nothing else: no movement is recorded, no packet is moved, and no status anywhere in the register changes because a count finished. A count that was never finished closes as abandoned instead, freezing no findings. A count whose reconciliation is truncated is REFUSED rather than frozen: a partial answer under-reports missing originals, so narrow the count's scope or abandon it.",
         "operationId": "custody.closeStocktake",
         "tags": [
           "custody"
@@ -34330,7 +34345,7 @@
     },
     "/api/v1/custody/destruction-requests": {
       "get": {
-        "description": "Lists destruction requests, newest first, optionally narrowed to one packet or to a single state. `outcome=pending` is the queue of requests waiting for a second person to approve or refuse them. Cursor-paginated.",
+        "description": "Lists destruction requests, newest first, optionally narrowed to one packet or to a single state. `outcome=pending` is the queue of requests waiting for a second person to approve or refuse them. `outcome=interrupted` is the reconciliation list: approved requests for which a destruction was already recorded in the ledger but whose own row never reached `executed`, which is what a failure between the two commits leaves behind. The ledger commits first on purpose — a destruction with no ledger entry is one nobody can prove — so this list is how the cost of that ordering gets found and put right. Cursor-paginated.",
         "operationId": "custody.listDestructionRequests",
         "tags": [
           "custody"
@@ -34370,6 +34385,7 @@
               "type": "string",
               "enum": [
                 "pending",
+                "interrupted",
                 "approved",
                 "refused",
                 "executed",

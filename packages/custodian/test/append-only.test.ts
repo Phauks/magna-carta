@@ -13,10 +13,25 @@ function migratedDatabase() {
 const MOVEMENT_COLUMNS =
   "id, packet_id, item_id, kind, occurred_at, recorded_at, recorded_by_user_id, from_location_id, to_location_id, borrower_kind, borrower_user_id, borrower_entity_id, borrower_name, due_back_on, reason, corrects_movement_id, shipment_id, note";
 
+// The people a release names. The signatory triggers read the firm's own member roster, so the
+// roster is part of the fixture: an active member who records releases, an active colleague who
+// witnesses one, and a member who has left — whose handle is well formed and whose witness signature
+// is refused precisely because it names somebody who could not have stood at the safe.
+const RECORDER = "user_verifier00000000000000";
+const WITNESS = "user_witness000000000000000";
+const DEPARTED = "user_departed00000000000000";
+const STRANGER = "user_notAMember00000000000";
+
 // A packet the movement can hang off. Inserted with raw SQL so this file depends on the schema and
 // the triggers alone, never on the services.
 function seedPacket(raw: ReturnType<typeof migratedDatabase>["raw"]): void {
   raw.exec(`
+    INSERT INTO member (user_id, display_name, status, created_at)
+      VALUES ('${RECORDER}', 'R. Ecorder', 'active', '2026-08-01T00:00:00.000Z');
+    INSERT INTO member (user_id, display_name, status, created_at)
+      VALUES ('${WITNESS}', 'W. Itness', 'active', '2026-08-01T00:00:00.000Z');
+    INSERT INTO member (user_id, display_name, status, created_at)
+      VALUES ('${DEPARTED}', 'D. Eparted', 'deactivated', '2026-08-01T00:00:00.000Z');
     INSERT INTO custody_location (id, name, kind, status, created_at, updated_at)
       VALUES ('custodyLocation_seed000000000000000', 'Reno safe', 'safe', 'active', '2026-08-04T00:00:00.000Z', '2026-08-04T00:00:00.000Z');
     INSERT INTO custody_packet (id, custody_number, number_source, name, current_location_id, status, created_at, updated_at)
@@ -109,7 +124,7 @@ describe("custody_movement is append-only at the database", () => {
 // the database with raw SQL for the same reason the append-only guarantee is.
 describe("a release cannot be appended without its authority and identity capture", () => {
   const RELEASE_COLUMNS = `${MOVEMENT_COLUMNS}, release_authority_basis, release_identity_evidence, release_identity_verified_by_user_id, release_witnessed_by_user_id`;
-  const RELEASE_PREFIX = `'custodyPacket_seed0000000000000000', NULL, 'released', '2026-08-05T00:00:00.000Z', '2026-08-05T00:00:00.000Z', NULL, 'custodyLocation_seed000000000000000', NULL, 'external', NULL, NULL, 'A. Collector', NULL, NULL, NULL, NULL, NULL`;
+  const RELEASE_PREFIX = `'custodyPacket_seed0000000000000000', NULL, 'released', '2026-08-05T00:00:00.000Z', '2026-08-05T00:00:00.000Z', '${RECORDER}', 'custodyLocation_seed000000000000000', NULL, 'external', NULL, NULL, 'A. Collector', NULL, NULL, NULL, NULL, NULL`;
 
   function insertRelease(
     raw: ReturnType<typeof migratedDatabase>["raw"],
@@ -136,7 +151,7 @@ describe("a release cannot be appended without its authority and identity captur
       insertRelease(
         raw,
         "custodyMovement_blank000000000000",
-        "'   ', 'passport checked', 'user_verifier00000000000000', NULL",
+        `'   ', 'passport checked', '${RECORDER}', NULL`,
       ),
     ).toThrow(/records the authority relied on and the identity check/);
   });
@@ -160,7 +175,7 @@ describe("a release cannot be appended without its authority and identity captur
       insertRelease(
         raw,
         "custodyMovement_sameSigner0000000",
-        "'grant of probate', 'passport checked', 'user_verifier00000000000000', 'user_verifier00000000000000'",
+        `'grant of probate', 'passport checked', '${RECORDER}', '${RECORDER}'`,
       ),
     ).toThrow(/two different people/);
   });
@@ -171,7 +186,7 @@ describe("a release cannot be appended without its authority and identity captur
     expect(() =>
       raw.exec(
         `INSERT INTO custody_movement (${RELEASE_COLUMNS})
-           VALUES ('custodyMovement_wrongKind0000000', 'custodyPacket_seed0000000000000000', NULL, 'moved', '2026-08-05T00:00:00.000Z', '2026-08-05T00:00:00.000Z', NULL, NULL, 'custodyLocation_seed000000000000000', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'grant of probate', 'passport checked', 'user_verifier00000000000000', NULL)`,
+           VALUES ('custodyMovement_wrongKind0000000', 'custodyPacket_seed0000000000000000', NULL, 'moved', '2026-08-05T00:00:00.000Z', '2026-08-05T00:00:00.000Z', NULL, NULL, 'custodyLocation_seed000000000000000', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'grant of probate', 'passport checked', '${RECORDER}', NULL)`,
       ),
     ).toThrow(/belongs only to a released movement/);
   });
@@ -182,7 +197,7 @@ describe("a release cannot be appended without its authority and identity captur
     insertRelease(
       raw,
       "custodyMovement_authorized0000000",
-      "'grant of probate dated 3 March', 'passport checked against the Directory record', 'user_verifier00000000000000', 'user_witness000000000000000'",
+      `'grant of probate dated 3 March', 'passport checked against the Directory record', '${RECORDER}', '${WITNESS}'`,
     );
     const rows = raw
       .prepare(
@@ -190,6 +205,48 @@ describe("a release cannot be appended without its authority and identity captur
       )
       .all() as { release_authority_basis: string }[];
     expect(rows[0]?.release_authority_basis).toBe("grant of probate dated 3 March");
+  });
+
+  // The identity check is an assertion about something the RECORDING member did. A row naming
+  // somebody else as the verifier is that claim made on their behalf, which is the composition a
+  // two-signatory release has to be impossible to build out of.
+  it("refuses a release whose verifier is not the member recording it", () => {
+    const { raw } = migratedDatabase();
+    seedPacket(raw);
+    expect(() =>
+      insertRelease(
+        raw,
+        "custodyMovement_notTheRecorder000",
+        `'grant of probate', 'passport checked', '${WITNESS}', NULL`,
+      ),
+    ).toThrow(/cannot be named on their behalf/);
+  });
+
+  // A witness the firm does not employ is not a second person; it is a well-formed string. This is
+  // the exact composition the gate existed to prevent and did not: one member typing any `user_…`
+  // handle into the witness column and the ledger permanently asserting two signatures.
+  it("refuses a witness who is not a member of this firm", () => {
+    const { raw } = migratedDatabase();
+    seedPacket(raw);
+    expect(() =>
+      insertRelease(
+        raw,
+        "custodyMovement_strangerWitness00",
+        `'grant of probate', 'passport checked', '${RECORDER}', '${STRANGER}'`,
+      ),
+    ).toThrow(/must be an active member of this firm/);
+  });
+
+  it("refuses a witness who has left the firm", () => {
+    const { raw } = migratedDatabase();
+    seedPacket(raw);
+    expect(() =>
+      insertRelease(
+        raw,
+        "custodyMovement_departedWitness00",
+        `'grant of probate', 'passport checked', '${RECORDER}', '${DEPARTED}'`,
+      ),
+    ).toThrow(/must be an active member of this firm/);
   });
 
   // The gate binds what is appended from now on and says nothing about what came before, which is the
@@ -315,6 +372,67 @@ describe("custody_stocktake_sighting is append-only at the database", () => {
            VALUES ('custodyStocktake_bothWays000000', 'March count', 'open', '2026-08-05T00:00:00.000Z', '2026-08-05T12:00:00.000Z', '2026-08-05T00:00:00.000Z', '2026-08-05T00:00:00.000Z')`,
       ),
     ).toThrow(/custody_stocktake_closure_check/);
+  });
+});
+
+// The sighting guards above all key off the PARENT row's `open` status. That made the parent the one
+// piece of the design held up by nothing but the fact that one guarded UPDATE was the only UPDATE
+// anybody had written — so a re-open, a second close, or a REPLACE would have quietly reactivated a
+// count a firm had already reconciled and reported.
+describe("a closed custody stocktake is frozen at the database", () => {
+  function seedClosedStocktake(raw: ReturnType<typeof migratedDatabase>["raw"]): void {
+    raw.exec(`
+      INSERT INTO custody_stocktake (id, name, status, opened_at, closed_at, matched_count, missing_count, created_at, updated_at)
+        VALUES ('custodyStocktake_closed000000000', 'March count', 'closed', '2026-08-05T00:00:00.000Z', '2026-08-05T12:00:00.000Z', 41, 1, '2026-08-05T00:00:00.000Z', '2026-08-05T12:00:00.000Z');
+    `);
+  }
+
+  it("refuses re-opening a closed count", () => {
+    const { raw } = migratedDatabase();
+    seedClosedStocktake(raw);
+    expect(() =>
+      raw.exec(
+        `UPDATE custody_stocktake SET status = 'open', closed_at = NULL WHERE id = 'custodyStocktake_closed000000000'`,
+      ),
+    ).toThrow(/frozen/);
+  });
+
+  it("refuses rewriting a closed count's frozen findings", () => {
+    const { raw } = migratedDatabase();
+    seedClosedStocktake(raw);
+    expect(() =>
+      raw.exec(
+        `UPDATE custody_stocktake SET missing_count = 0 WHERE id = 'custodyStocktake_closed000000000'`,
+      ),
+    ).toThrow(/frozen/);
+  });
+
+  it("refuses an INSERT OR REPLACE onto an existing count", () => {
+    const { raw } = migratedDatabase();
+    seedClosedStocktake(raw);
+    expect(() =>
+      raw.exec(
+        `INSERT OR REPLACE INTO custody_stocktake (id, name, status, opened_at, created_at, updated_at)
+           VALUES ('custodyStocktake_closed000000000', 'March count', 'open', '2026-08-05T00:00:00.000Z', '2026-08-05T00:00:00.000Z', '2026-08-05T00:00:00.000Z')`,
+      ),
+    ).toThrow(/replaced by no write path/);
+  });
+
+  it("still accepts the ordinary close of an open count", () => {
+    const { raw } = migratedDatabase();
+    raw.exec(
+      `INSERT INTO custody_stocktake (id, name, status, opened_at, created_at, updated_at)
+         VALUES ('custodyStocktake_open00000000000', 'April count', 'open', '2026-08-06T00:00:00.000Z', '2026-08-06T00:00:00.000Z', '2026-08-06T00:00:00.000Z')`,
+    );
+    raw.exec(
+      `UPDATE custody_stocktake SET status = 'closed', closed_at = '2026-08-06T12:00:00.000Z', matched_count = 3 WHERE id = 'custodyStocktake_open00000000000' AND status = 'open'`,
+    );
+    const rows = raw
+      .prepare(
+        `SELECT status, matched_count FROM custody_stocktake WHERE id = 'custodyStocktake_open00000000000'`,
+      )
+      .all() as { status: string; matched_count: number }[];
+    expect(rows[0]).toEqual({ status: "closed", matched_count: 3 });
   });
 });
 
